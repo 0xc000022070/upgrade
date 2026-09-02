@@ -372,3 +372,9 @@ Rulings that make it buildable:
 - Form: a `[ PARENT ]` field under status, a §16c.3 picker with `NONE` first and every active project except the project itself and its descendants, rows carrying the parent path as subtitle. Changing the parent is the move; children keep their `parent_id`, so the subtree follows without a write.
 - Archive: a project is hidden when it or any ancestor is archived. Descendants keep their own status column, so unarchiving the parent restores them as they were. The `ARCHIVED` panel lists only projects whose own status is archived and whose parent is not hidden; opening one shows its children dim, and their `UNARCHIVE` is absent while an ancestor is archived. Tasks under a hidden project leave Home like an archived project's tasks do now.
 - Delete cascades to the subtree in one transaction; the confirm modal reads `DELETE PROJECT AND N BELOW?` when N > 0.
+
+### 39.19 Capture inside a project (user, 2026-09-02: "poder tener el component para crear drops dentro de ya un mismo proyecto")
+- A project's detail carries the §39.6 capture bar pinned at its bottom, the same component and the same extras (link, image, more) as Home, with the target fixed to that project: submit files a project drop (`projectId` = the project, `goalId` null) and the row appears at the top of that project's DROPS panel. Text, links and images follow §39.6 and §39.10 unchanged.
+- No target chip and no `target` extra: the project is the target and cannot be changed from here; filing under a goal stays a MOVE from the row. The bar clears and closes on submit per §39.12.
+- The capture landing fires on the project's DROPS panel header glyph (§16b), since there is no nav bar under a pushed route.
+- Hidden while the project is archived. On the unfolded display it obeys the §39.17 column.
