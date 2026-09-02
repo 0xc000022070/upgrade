@@ -3,8 +3,10 @@ default = "pixel_7-api36"
 [build.android]
 app = "dev.luisnquin.hotline"
 stale = "find lib assets android/app/src pubspec.lock -type f | sort | xargs cksum | cksum"
+# Single-quoted so HOTLINE_BUILD is expanded inside the dev shell, where the
+# flake has just computed it (SPEC.md §39.16), and not out here where it is unset.
 run = """
-nix develop -c flutter build apk --debug --target-platform android-arm64
+nix develop -c bash -c 'flutter build apk --debug --target-platform android-arm64 --dart-define=HOTLINE_BUILD=$HOTLINE_BUILD'
 phone app install -t "$PHONE_DEVICE" build/app/outputs/flutter-apk/app-debug.apk
 """
 

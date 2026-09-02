@@ -35,12 +35,27 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "model" -> result.success(Build.MODEL)
+                    // SPEC 39.16's build line. PackageManager already knows the
+                    // version name and code the apk was signed with, so no
+                    // package carries them into Dart.
+                    "build" -> result.success(buildInfo())
                     else -> result.notImplemented()
                 }
             }
 
         EventChannel(messenger, "dev.luisnquin.hotline/device/throttle")
             .setStreamHandler(ThrottleStreamHandler(this, power))
+    }
+
+    private fun buildInfo(): Map<String, Any> {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
+        return mapOf("version" to (info.versionName ?: ""), "code" to code)
     }
 }
 

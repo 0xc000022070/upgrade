@@ -122,3 +122,15 @@ class ActivityEvents extends Table {
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
+
+/// SPEC.md §39.16. A key-value table rather than a one-row table of columns:
+/// a preference is added by writing a key, which is a migration nobody has to
+/// write. Values are text because that is the only encoding every preference
+/// shares; a bool is `'1'` or `'0'` and the repository owns the reading of it.
+class Settings extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {key};
+}

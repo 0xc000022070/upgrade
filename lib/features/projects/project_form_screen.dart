@@ -8,10 +8,10 @@ import '../../design/components/field_panel.dart';
 import '../../design/components/inline_confirm.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/solid_action_bar.dart';
-import '../../design/components/static_background.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../screen_scaffold.dart';
+import '../../app/static_surface.dart';
 
 /// SPEC.md §39.2: creating and editing a project use the same full-screen
 /// pushed route. [project] null is the create case; the only differences are
@@ -111,7 +111,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      body: StaticBackgroundDriver(
+      body: StaticSurface(
         child: ScreenScaffold(
           title: _isEdit ? 'EDIT PROJECT' : 'NEW PROJECT',
           breadcrumb: '/ PERSONAL CONTROL PLANE / PROJECTS',

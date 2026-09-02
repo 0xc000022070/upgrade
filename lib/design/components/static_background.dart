@@ -139,9 +139,20 @@ class _GrainPainter extends CustomPainter {
 /// would read as smooth drift rather than static — so the frames the app costs
 /// should be the ten a second that change something, and no others.
 class StaticBackgroundDriver extends StatefulWidget {
-  const StaticBackgroundDriver({super.key, required this.child});
+  const StaticBackgroundDriver({
+    super.key,
+    required this.child,
+    this.enabled = true,
+  });
 
   final Widget child;
+
+  /// SPEC.md §39.16's `[ STATIC ] OFF`. False takes the same path a thermal
+  /// throttle does: the timer stops and the tile stays where it last landed, so
+  /// the grain is still painted and only its motion is gone. The preference
+  /// arrives from the database, which this layer must not know about, so it
+  /// comes in as a flag and the app layer reads it.
+  final bool enabled;
 
   @override
   State<StaticBackgroundDriver> createState() => _StaticBackgroundDriverState();
@@ -193,8 +204,19 @@ class _StaticBackgroundDriverState extends State<StaticBackgroundDriver>
     _sync();
   }
 
+  @override
+  void didUpdateWidget(StaticBackgroundDriver oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.enabled != oldWidget.enabled) _sync();
+  }
+
   void _sync() {
-    final run = _foreground && _visible && !_reduceMotion && !_throttled;
+    final run =
+        widget.enabled &&
+        _foreground &&
+        _visible &&
+        !_reduceMotion &&
+        !_throttled;
     if (run == (_timer != null)) return;
     if (!run) {
       _timer?.cancel();

@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/data/enums.dart';
+import 'package:hotline/data/repositories/settings_repository.dart';
 
 /// The v2 schema exactly as it shipped, written out by hand: the point of the
 /// test is that the v3 migration meets a database it did not create, so the
@@ -177,7 +178,7 @@ void main() {
     await executor.close();
   }
 
-  test('a v2 database upgrades to v4 with every row still there', () async {
+  test('a v2 database upgrades to v5 with every row still there', () async {
     await writeV2Fixture();
 
     final db = AppDatabase(NativeDatabase(file));
@@ -191,7 +192,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      4,
+      5,
     );
 
     final projects = await db.select(db.projects).get();
@@ -222,9 +223,10 @@ void main() {
       ActivityAction.completed,
     );
 
-    // The v3 and v4 tables exist and are empty rather than absent.
+    // The v3, v4 and v5 tables exist and are empty rather than absent.
     expect(await db.select(db.goals).get(), isEmpty);
     expect(await db.select(db.attachments).get(), isEmpty);
+    expect(await db.select(db.settings).get(), isEmpty);
   });
 
   test('a v3 database folds its links into attachments', () async {
@@ -265,7 +267,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      4,
+      5,
     );
     expect(attachments.map((a) => a.id), ['l1', 'l2']);
     expect(attachments.every((a) => a.itemId == 't1'), isTrue);
@@ -280,6 +282,38 @@ void main() {
     // where it left them.
     expect(await db.select(db.links).get(), hasLength(2));
   });
+
+  test(
+    '§39.16 settings survive the jump the installed build will make',
+    () async {
+      // faraday runs a v2 build, so the v2 -> v5 jump is the one that matters:
+      // the added table has to appear on a database full of rows, and a
+      // preference written into it has to read back.
+      await writeV2Fixture();
+
+      final db = AppDatabase(NativeDatabase(file));
+      addTearDown(db.close);
+      final settings = SettingsRepository(db);
+
+      expect(
+        await settings.flag(SettingsRepository.staticEnabled, orElse: true),
+        isTrue,
+        reason: 'a preference nobody has written is the default, not an error',
+      );
+
+      await settings.setFlag(SettingsRepository.staticEnabled, false);
+      expect(
+        await settings.flag(SettingsRepository.staticEnabled, orElse: true),
+        isFalse,
+      );
+      // Upsert, not insert: setting the same key twice must not fail.
+      await settings.setFlag(SettingsRepository.staticEnabled, true);
+      expect((await db.select(db.settings).get()), hasLength(1));
+
+      // The rows the migration carried are still there under the new table.
+      expect(await db.select(db.tasks).get(), hasLength(4));
+    },
+  );
 
   test('the upgraded database accepts writes to the new columns', () async {
     await writeV2Fixture();
@@ -310,19 +344,20 @@ void main() {
   });
 
   test(
-    'a fresh install creates v4 directly, without the upgrade path',
+    'a fresh install creates v5 directly, without the upgrade path',
     () async {
       final db = AppDatabase(NativeDatabase(file));
       addTearDown(db.close);
 
       expect(await db.select(db.goals).get(), isEmpty);
       expect(await db.select(db.attachments).get(), isEmpty);
+      expect(await db.select(db.settings).get(), isEmpty);
       expect(
         await db
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        4,
+        5,
       );
     },
   );

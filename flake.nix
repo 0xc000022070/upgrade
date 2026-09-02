@@ -117,6 +117,13 @@
             JAVA_HOME = "${jdk}";
 
             shellHook = ''
+              # SPEC.md §39.16's build line. Computed on every `nix develop`,
+              # including the `nix develop -c` that phone.toml builds through, so
+              # the sha a binary is stamped with is the sha it was built from.
+              # `dev` outside a checkout, which is what an unstamped build should
+              # admit to being.
+              export HOTLINE_BUILD="$(${pkgs.git}/bin/git rev-parse --short HEAD 2>/dev/null || echo dev)"
+
               # The SDK stays off PATH on purpose: the host adb owns the server,
               # flutter and gradle reach the SDK through ANDROID_HOME instead.
               # Store paths change with the flake lock, so this file is rewritten
