@@ -1,9 +1,10 @@
 import 'package:flutter/services.dart';
 
-/// Two facts Flutter does not expose and that are not worth a package each: the
-/// OS throttle signal (SPEC.md §16b.1 pauses the static under it) and the
-/// device model, which the §16c.1 boot log prints. Both fail soft — on desktop
-/// and in tests the channels are simply absent.
+/// Facts Flutter does not expose and that are not worth a package each: the OS
+/// throttle signal (SPEC.md §16b.1 pauses the static under it), the device
+/// model, which the §16c.1 boot log prints, and the installed version, which
+/// §39.16's build line prints. All fail soft — on desktop and in tests the
+/// channels are simply absent.
 abstract final class Device {
   static const _channel = MethodChannel('dev.luisnquin.hotline/device');
   static const _throttleEvents = EventChannel(
@@ -31,4 +32,40 @@ abstract final class Device {
       return null;
     }
   }
+
+  /// §39.16's version and version code, read from the package manager rather
+  /// than from a generated constant: what the line has to say is what is
+  /// installed, and only the installer knows that.
+  static Future<BuildInfo?> build() async {
+    try {
+      final info = await _channel.invokeMapMethod<String, Object?>('build');
+      if (info == null) return null;
+      return BuildInfo(
+        version: info['version'] as String? ?? '',
+        code: (info['code'] as num?)?.toInt() ?? 0,
+      );
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+}
+
+/// SPEC.md §39.16's `v<version> (<code>) <sha>`.
+class BuildInfo {
+  const BuildInfo({required this.version, required this.code});
+
+  final String version;
+  final int code;
+
+  /// Injected by phone.toml and the flake with `git rev-parse --short HEAD`.
+  /// `dev` when absent, which is every `flutter run` started by hand — and
+  /// saying so is more honest than printing a sha that describes nothing.
+  static const revision = String.fromEnvironment(
+    'HOTLINE_BUILD',
+    defaultValue: 'dev',
+  );
+
+  String get stamp => 'v$version ($code) $revision';
 }

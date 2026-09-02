@@ -145,6 +145,17 @@ abstract final class HotlineText {
     color: HotlineColors.textPrimary,
   );
 
+  /// §39.16's build line: one step above [value] because it is meant to be read
+  /// off a screen and typed into a bug report, and dim because it is a stamp
+  /// and not a fact anyone acts on.
+  static const buildStamp = TextStyle(
+    fontFamily: FontFamilies.mono,
+    fontSize: 11,
+    height: 1.3,
+    fontWeight: FontWeight.w400,
+    color: HotlineColors.textMuted,
+  );
+
   /// §38.9: the capture field's placeholder, one step above a row title so the
   /// bar reads as an input rather than another list line.
   static const capture = TextStyle(

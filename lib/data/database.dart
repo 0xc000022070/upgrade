@@ -10,14 +10,23 @@ import 'views.dart';
 part 'database.g.dart';
 
 @DriftDatabase(
-  tables: [Projects, Goals, Tasks, Links, Attachments, Notes, ActivityEvents],
+  tables: [
+    Projects,
+    Goals,
+    Tasks,
+    Links,
+    Attachments,
+    Notes,
+    ActivityEvents,
+    Settings,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
     : super(executor ?? driftDatabase(name: 'hotline'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   /// SPEC.md §39.7: from v2 on there is real data on the user's handset, so the
   /// upgrade is additive — two new tables and two nullable columns, nothing
@@ -49,6 +58,12 @@ class AppDatabase extends _$AppDatabase {
 INSERT INTO attachments (id, item_id, kind, value, created_at)
 SELECT id, task_id, 'url', url, created_at FROM links
 ''');
+      }
+      if (from < 5) {
+        // §39.16 adds one table and touches nothing else. A preference that
+        // has never been written has no row, so the defaults live in
+        // [SettingsRepository] and this migration has no backfill to do.
+        await m.createTable(settings);
       }
     },
   );

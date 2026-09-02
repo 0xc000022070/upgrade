@@ -1,0 +1,84 @@
+import 'package:flutter/material.dart';
+
+import '../colors.dart';
+import '../spacing.dart';
+import '../typography.dart';
+import 'list_row.dart';
+
+/// One row of a SPEC.md §16c.3 picker: the current value is the solid accent
+/// block, everything else is a plain row. Used by §39.5's move and pair
+/// pickers and by §39.16's settings, which is why it sits in the design layer
+/// and not next to either of them.
+class PickerRow extends StatelessWidget {
+  const PickerRow({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.value,
+    this.indent = false,
+    this.selected = false,
+  });
+
+  final String label;
+  final String? value;
+  final bool indent;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final row = selected
+        ? _SelectedRow(label: label, onTap: onTap)
+        : ListRow(title: label, value: value, onTap: onTap);
+    if (!indent) return row;
+    return Padding(
+      padding: const EdgeInsets.only(left: Spacing.xl),
+      child: row,
+    );
+  }
+}
+
+class _SelectedRow extends StatelessWidget {
+  const _SelectedRow({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
+        margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+        alignment: Alignment.centerLeft,
+        decoration: BoxDecoration(
+          color: HotlineColors.accent,
+          borderRadius: BorderRadius.circular(Radii.sharp),
+        ),
+        child: Row(
+          children: [
+            Text(
+              '// ',
+              style: HotlineText.valueStrong.copyWith(
+                color: HotlineColors.backgroundPrimary,
+              ),
+            ),
+            Expanded(
+              child: Text(
+                label,
+                style: HotlineText.rowTitle.copyWith(
+                  color: HotlineColors.backgroundPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
