@@ -17,6 +17,7 @@ class ScreenScaffold extends StatelessWidget {
     required this.title,
     required this.children,
     this.breadcrumb = '/ PERSONAL CONTROL PLANE',
+    this.breadcrumbSegments,
     this.breadcrumbTrailing,
     this.titleTrailing,
     this.onBack,
@@ -31,6 +32,11 @@ class ScreenScaffold extends StatelessWidget {
 
   final String title;
   final String breadcrumb;
+
+  /// SPEC.md §39.18: a path whose segments are individually tappable, each
+  /// popping the stack back to what it names. When set it replaces
+  /// [breadcrumb]; screens with a fixed path keep passing the string.
+  final List<CrumbSegment>? breadcrumbSegments;
 
   /// §39.2: the detail screen's `EDIT` sits here. The breadcrumb line is the
   /// only row above the title, and a screen-level verb belongs beside the path
@@ -70,25 +76,31 @@ class ScreenScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget crumb = Text(
-      crumbFor(breadcrumb, hasTrailing: breadcrumbTrailing != null),
-      style: HotlineText.breadcrumb,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    );
-    if (onBack != null) {
-      crumb = GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onBack,
-        child: Padding(
-          // The back tap needs height of its own, except in a row that already
-          // gives the whole line a tap target's worth.
-          padding: EdgeInsets.only(
-            bottom: breadcrumbTrailing == null ? Spacing.md : 0,
-          ),
-          child: crumb,
+    final segments = breadcrumbSegments;
+    Widget crumb = segments == null
+        ? Text(
+            crumbFor(breadcrumb, hasTrailing: breadcrumbTrailing != null),
+            style: HotlineText.breadcrumb,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          )
+        : _SegmentedCrumb(segments: segments);
+    if (onBack != null || segments != null) {
+      crumb = Padding(
+        // The back tap needs height of its own, except in a row that already
+        // gives the whole line a tap target's worth.
+        padding: EdgeInsets.only(
+          bottom: breadcrumbTrailing == null ? Spacing.md : 0,
         ),
+        child: crumb,
       );
+      if (segments == null) {
+        crumb = GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onBack,
+          child: crumb,
+        );
+      }
     }
 
     return SafeArea(
@@ -116,11 +128,16 @@ class ScreenScaffold extends StatelessWidget {
                 height: TapTargets.minHeight,
                 child: Row(
                   children: [
-                    // The path takes the room it needs and the verb keeps its
-                    // own: an Expanded crumb would ellipsize a long path before
-                    // the trailing control had any reason to move.
-                    Flexible(child: crumb),
-                    const Spacer(),
+                    // Expanded and not Flexible-plus-Spacer: §39.18's collapse
+                    // rule is about the width left beside the verbs, and two
+                    // flex children would have split that width in half before
+                    // the path was ever measured against it.
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: crumb,
+                      ),
+                    ),
                     breadcrumbTrailing!,
                   ],
                 ),
@@ -162,6 +179,127 @@ class ScreenScaffold extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// One hop of a [ScreenScaffold.breadcrumbSegments] path.
+class CrumbSegment {
+  const CrumbSegment(this.label, {this.onTap});
+
+  final String label;
+  final VoidCallback? onTap;
+}
+
+/// SPEC.md §39.18: the path never wraps, so when it does not fit beside the
+/// trailing verbs the leading segments collapse to a single `…` and the
+/// immediate parent always stays.
+///
+/// The number of segments to drop is measured rather than guessed: laid out as
+/// a plain [Row] the overflow would be silent in release and a yellow bar in
+/// debug, and ellipsizing the row's last child would eat the one segment the
+/// rule says to keep.
+class _SegmentedCrumb extends StatelessWidget {
+  const _SegmentedCrumb({required this.segments});
+
+  final List<CrumbSegment> segments;
+
+  static const _style = HotlineText.breadcrumb;
+  static const _separator = ' / ';
+  static const _elision = '…';
+
+  @override
+  Widget build(BuildContext context) {
+    if (segments.isEmpty) return const SizedBox.shrink();
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+
+    double widthOf(String text) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: _style),
+        textDirection: direction,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      final width = painter.width;
+      painter.dispose();
+      return width;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        var dropped = 0;
+        // Never past the immediate parent: `/ … / HOMELAB` is the floor, and a
+        // name too long even for that ellipsizes on its own below.
+        while (dropped < segments.length - 1 &&
+            widthOf(_textFor(dropped)) > constraints.maxWidth) {
+          dropped++;
+        }
+        // Below the floor even `/ … / PARENT` does not fit, and the row's
+        // fixed `/ ` and `… / ` would overflow rather than clip. One
+        // ellipsizing line cannot: it gives up the per-segment taps at a width
+        // where there is no segment left to hit anyway.
+        if (widthOf(_textFor(dropped)) > constraints.maxWidth) {
+          return Text(
+            _textFor(dropped),
+            style: _style,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          );
+        }
+        final kept = segments.sublist(dropped);
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('/ ', style: _style),
+            if (dropped > 0) Text('$_elision$_separator', style: _style),
+            for (var i = 0; i < kept.length; i++) ...[
+              if (i > 0) const Text(_separator, style: _style),
+              // Only the last segment flexes. A Flexible child is capped at its
+              // equal share of the free space, so making every segment one gave
+              // `INFRA PERSONAL` a third of a row it fitted in whole and
+              // ellipsized it with slack still to its right. One flex child
+              // takes the whole remainder, and it is the immediate parent that
+              // absorbs a measurement that came up a pixel short.
+              if (i == kept.length - 1)
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: _Segment(segment: kept[i]),
+                )
+              else
+                _Segment(segment: kept[i]),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  String _textFor(int dropped) {
+    final kept = segments.sublist(dropped).map((s) => s.label);
+    final prefix = dropped > 0 ? '$_elision$_separator' : '';
+    return '/ $prefix${kept.join(_separator)}';
+  }
+}
+
+class _Segment extends StatelessWidget {
+  const _Segment({required this.segment});
+
+  final CrumbSegment segment;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(
+      segment.label,
+      style: _SegmentedCrumb._style,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+    if (segment.onTap == null) return text;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: segment.onTap,
+      child: text,
     );
   }
 }

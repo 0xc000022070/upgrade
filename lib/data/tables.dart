@@ -7,6 +7,12 @@ import 'enums.dart';
 /// UTC (see AppDatabase.options).
 class Projects extends Table {
   TextColumn get id => text()();
+
+  /// SPEC.md §39.18: a project can belong to another project, to arbitrary
+  /// depth. There is no subproject entity — a subproject is a project with a
+  /// parent — so every screen that treats a project as a scope treats its
+  /// subtree as one column later. Null is a root.
+  TextColumn get parentId => text().nullable().references(Projects, #id)();
   TextColumn get name => text()();
   TextColumn get description => text()();
 

@@ -12,6 +12,7 @@ import '../../design/components/section.dart';
 import '../../design/icons/hotline_icon.dart';
 import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
+import '../../design/typography.dart';
 import '../projects/project_detail_screen.dart';
 import '../projects/project_form_screen.dart';
 import '../projects/project_row.dart';
@@ -25,6 +26,10 @@ import 'capture_bar.dart';
 /// flagged, what is moving, what has not been filed yet. BLOCKED and RECENT are
 /// gone — a blocked item still says so on its own row wherever it lives, and
 /// the activity stream is still written, just not displayed.
+///
+/// SPEC.md §39.18: the PROJECTS panel lists roots. A child is somewhere inside
+/// one of these three rows, and its work is already counted in that row's
+/// number, so putting it on Home too would say the same thing twice.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -102,6 +107,14 @@ class HomeScreen extends ConsumerWidget {
                               onTap: () =>
                                   openProjectDetail(context, project.projectId),
                             ),
+                          // §39.18: the cap says how much it is hiding. The
+                          // strip's count says how many there are; this says
+                          // that the list on screen is not all of them.
+                          if (items.length > _projectCap)
+                            _MoreRow(
+                              count: items.length - _projectCap,
+                              onTap: openProjects,
+                            ),
                         ],
                       ),
                     ),
@@ -117,6 +130,27 @@ class HomeScreen extends ConsumerWidget {
         // of the screen has no second answer to what a tap means.
         IgnorePointer(ignoring: selecting, child: const CaptureBar()),
       ],
+    );
+  }
+}
+
+/// §39.18's `+n more`, the last row of a capped panel.
+class _MoreRow extends StatelessWidget {
+  const _MoreRow({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: TapTargets.minHeight,
+        alignment: Alignment.centerLeft,
+        child: Text('+$count MORE', style: HotlineText.label),
+      ),
     );
   }
 }

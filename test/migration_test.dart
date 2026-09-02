@@ -86,6 +86,29 @@ CREATE TABLE links (
   'ALTER TABLE tasks ADD COLUMN bundle_id TEXT',
 ];
 
+/// The v5 schema exactly as it shipped, for the §39.18 upgrade. This is the
+/// version every device that has taken every migration is on, so it is the
+/// jump the next release actually performs on a phone; the v2 fixture below
+/// only covers the one device that skipped everything.
+const _v5Schema = [
+  ..._v3Schema,
+  '''
+CREATE TABLE attachments (
+  id TEXT NOT NULL,
+  item_id TEXT NOT NULL REFERENCES tasks (id),
+  kind TEXT NOT NULL,
+  value TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (id)
+)''',
+  '''
+CREATE TABLE settings (
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  PRIMARY KEY (key)
+)''',
+];
+
 /// Drives [QueryExecutor.ensureOpen] to stamp `user_version = 2` and lay down
 /// the old schema, which is what makes the file drift later opens a real v2
 /// database rather than a v3 one with rows in it.
@@ -178,7 +201,7 @@ void main() {
     await executor.close();
   }
 
-  test('a v2 database upgrades to v5 with every row still there', () async {
+  test('a v2 database upgrades to v6 with every row still there', () async {
     await writeV2Fixture();
 
     final db = AppDatabase(NativeDatabase(file));
@@ -192,7 +215,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      5,
+      6,
     );
 
     final projects = await db.select(db.projects).get();
@@ -213,6 +236,9 @@ void main() {
     // The added columns exist and read as null on rows written before them.
     expect(tasks.every((t) => t.goalId == null), isTrue);
     expect(tasks.every((t) => t.bundleId == null), isTrue);
+    // §39.18: a null parent is a root, so the flat list the user had is the
+    // tree the migration produces. Nothing is orphaned and nothing moves.
+    expect(projects.every((p) => p.parentId == null), isTrue);
 
     expect(
       (await db.select(db.notes).get()).single.content,
@@ -267,7 +293,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      5,
+      6,
     );
     expect(attachments.map((a) => a.id), ['l1', 'l2']);
     expect(attachments.every((a) => a.itemId == 't1'), isTrue);
@@ -286,7 +312,7 @@ void main() {
   test(
     '§39.16 settings survive the jump the installed build will make',
     () async {
-      // faraday runs a v2 build, so the v2 -> v5 jump is the one that matters:
+      // faraday runs a v2 build, so the v2 -> v6 jump is the one that matters:
       // the added table has to appear on a database full of rows, and a
       // preference written into it has to read back.
       await writeV2Fixture();
@@ -312,6 +338,73 @@ void main() {
 
       // The rows the migration carried are still there under the new table.
       expect(await db.select(db.tasks).get(), hasLength(4));
+    },
+  );
+
+  test(
+    'a v5 database gains parent_id with every project still a root',
+    () async {
+      // The jump a device that has taken every migration actually makes.
+      final executor = NativeDatabase(file);
+      await executor.ensureOpen(_V2Database(5, _v5Schema));
+      for (final row in [
+        ['p1', 'Infra', 'high'],
+        ['p2', 'Homelab', 'normal'],
+      ]) {
+        await executor.runInsert(
+          'INSERT INTO projects (id, name, description, objective, status, '
+          'priority, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [row[0], row[1], '', '', 'active', row[2], stamp(20), stamp(20)],
+        );
+      }
+      await executor.runInsert(
+        'INSERT INTO tasks (id, project_id, title, done, blocked_reason, '
+        'is_next, effort, created_at, updated_at) '
+        'VALUES (?, ?, ?, ?, NULL, 0, NULL, ?, ?)',
+        ['t1', 'p2', 'rack the switch', 1, stamp(21), stamp(21)],
+      );
+      await executor.runInsert(
+        'INSERT INTO settings (key, value) VALUES (?, ?)',
+        [SettingsRepository.staticEnabled, 'false'],
+      );
+      await executor.close();
+
+      final db = AppDatabase(NativeDatabase(file));
+      addTearDown(db.close);
+
+      final projects = await db.select(db.projects).get();
+      expect(
+        await db
+            .customSelect('PRAGMA user_version')
+            .getSingle()
+            .then((row) => row.read<int>('user_version')),
+        6,
+      );
+      expect(projects.map((p) => p.id), ['p1', 'p2']);
+      expect(projects.every((p) => p.parentId == null), isTrue);
+      // Both are roots, so both are on the list the tab reads, and neither has
+      // borrowed the other's task.
+      expect((await db.watchRootSummaries().first).map((p) => p.projectId), [
+        'p1',
+        'p2',
+      ]);
+      expect(
+        await SettingsRepository(db)
+            .flag(SettingsRepository.staticEnabled, orElse: true),
+        isFalse,
+        reason: 'a preference written before the upgrade survives it',
+      );
+
+      // The column is writable on a row the migration carried, and the subtree
+      // progress follows immediately: p1 owns no task of its own.
+      await (db.update(db.projects)..where((p) => p.id.equals('p2'))).write(
+        const ProjectsCompanion(parentId: Value('p1')),
+      );
+      final roots = await db.watchRootSummaries().first;
+      expect(roots.map((p) => p.projectId), ['p1']);
+      expect(roots.single.totalCount, 1);
+      expect(roots.single.doneCount, 1);
+      expect((await db.watchChildSummaries('p1').first).single.projectId, 'p2');
     },
   );
 
@@ -344,7 +437,7 @@ void main() {
   });
 
   test(
-    'a fresh install creates v5 directly, without the upgrade path',
+    'a fresh install creates v6 directly, without the upgrade path',
     () async {
       final db = AppDatabase(NativeDatabase(file));
       addTearDown(db.close);
@@ -357,7 +450,7 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        5,
+        6,
       );
     },
   );

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/project_tree.dart';
 import '../../application/providers.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
+import '../../design/colors.dart';
 import '../../design/components/field_panel.dart';
 import '../../design/components/inline_confirm.dart';
 import '../../design/components/panel.dart';
+import '../../design/components/panel_sheet.dart';
+import '../../design/components/picker_row.dart';
 import '../../design/components/solid_action_bar.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
@@ -16,18 +20,28 @@ import '../../app/static_surface.dart';
 /// SPEC.md §39.2: creating and editing a project use the same full-screen
 /// pushed route. [project] null is the create case; the only differences are
 /// the title, the commit label and the delete block at the bottom.
-void openProjectForm(BuildContext context, {Project? project}) {
+///
+/// SPEC.md §39.18: [parentId] presets the `[ PARENT ]` field, which is how
+/// `NEW +` on a project's own `PROJECTS` panel creates a child there.
+void openProjectForm(
+  BuildContext context, {
+  Project? project,
+  String? parentId,
+}) {
   Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute<void>(
-      builder: (_) => ProjectFormScreen(project: project),
+      builder: (_) => ProjectFormScreen(project: project, parentId: parentId),
     ),
   );
 }
 
 class ProjectFormScreen extends ConsumerStatefulWidget {
-  const ProjectFormScreen({super.key, this.project});
+  const ProjectFormScreen({super.key, this.project, this.parentId});
 
   final Project? project;
+
+  /// Only read in the create case; an edit takes its parent from the row.
+  final String? parentId;
 
   @override
   ConsumerState<ProjectFormScreen> createState() => _ProjectFormScreenState();
@@ -39,6 +53,14 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
   late final TextEditingController _objective;
   late ProjectStatus _status;
   late Priority _priority;
+
+  /// §39.18: null is a root. The field is always shown and always written, so
+  /// this is the parent, not a pending change to it.
+  String? _parent;
+
+  /// §39.18: how many projects the delete would take with it. Read once — the
+  /// form cannot add a child to the project it is editing.
+  int _below = 0;
 
   /// The route pops on commit, and a second tap while the pop is in flight
   /// would run the write twice.
@@ -55,6 +77,13 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
     _objective = TextEditingController(text: project?.objective ?? '');
     _status = project?.status ?? ProjectStatus.active;
     _priority = project?.priority ?? Priority.normal;
+    _parent = project?.parentId ?? widget.parentId;
+    if (project != null) _countBelow(project.id);
+  }
+
+  Future<void> _countBelow(String id) async {
+    final below = await ref.read(projectRepositoryProvider).descendantCount(id);
+    if (mounted) setState(() => _below = below);
   }
 
   @override
@@ -78,6 +107,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
         objective: _objective.text.trim(),
         status: _status,
         priority: _priority,
+        parentId: _parent,
       );
     } else {
       await repository.edit(
@@ -87,9 +117,27 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
         objective: _objective.text.trim(),
         status: _status,
         priority: _priority,
+        // §39.18: this is the move. The children keep their own parent_id, so
+        // the subtree comes along without a write of its own.
+        parentId: _parent,
       );
     }
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// §39.18: a cascade is asked about in a modal rather than in the §39.2
+  /// block, because the projects it destroys are the ones not on this screen —
+  /// the count is the whole content of the question.
+  Future<void> _confirmCascade() async {
+    final project = widget.project;
+    if (project == null) return;
+    final confirmed = await confirmSheet(
+      context,
+      title: 'DELETE PROJECT AND $_below BELOW?',
+      confirmLabel: 'DELETE',
+    );
+    if (!confirmed) return;
+    await _delete();
   }
 
   Future<void> _delete() async {
@@ -150,6 +198,11 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                   labelOf: (status) => status.name,
                   onChanged: (status) => setState(() => _status = status),
                 ),
+                _ParentPanel(
+                  projectId: widget.project?.id,
+                  value: _parent,
+                  onChanged: (parent) => setState(() => _parent = parent),
+                ),
                 ChoicePanel<Priority>(
                   label: 'PRIORITY',
                   options: Priority.values,
@@ -173,19 +226,92 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
             ),
             if (_isEdit) ...[
               const SizedBox(height: Spacing.md),
-              InlineConfirmBlock(
-                label: 'DELETE PROJECT',
-                confirmLabel: 'CONFIRM DELETE',
-                onConfirmed: _delete,
-              ),
+              // Same block either way until it is tapped: §39.2's in-place
+              // confirm for a leaf, §39.18's modal once there is a subtree
+              // under it, since a count is the only thing that can tell the
+              // user what the second case actually destroys.
+              if (_below == 0)
+                InlineConfirmBlock(
+                  label: 'DELETE PROJECT',
+                  confirmLabel: 'CONFIRM DELETE',
+                  onConfirmed: _delete,
+                )
+              else
+                SolidActionBar(
+                  label: 'DELETE PROJECT',
+                  tone: HotlineColors.warning,
+                  onTap: _confirmCascade,
+                ),
               const SizedBox(height: Spacing.md),
-              const Text(
-                'ITEMS IN THIS PROJECT BECOME DROPS. NOTHING IS DELETED WITH IT.',
+              Text(
+                _below == 0
+                    ? 'ITEMS IN THIS PROJECT BECOME DROPS. '
+                          'NOTHING IS DELETED WITH IT.'
+                    : 'THE $_below PROJECTS BELOW GO WITH IT. '
+                          'THEIR ITEMS BECOME DROPS.',
                 style: HotlineText.label,
               ),
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// SPEC.md §39.18's `[ PARENT ]`: a §16c.3 picker with `NONE` first and every
+/// project the row could legally hang under — itself and its descendants are
+/// absent, which is the cycle guard stated as an absence rather than as an
+/// error the user has to read.
+class _ParentPanel extends ConsumerWidget {
+  const _ParentPanel({
+    required this.projectId,
+    required this.value,
+    required this.onChanged,
+  });
+
+  /// Null while creating: nothing exists yet to exclude.
+  final String? projectId;
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final projects =
+        ref.watch(projectsProvider).valueOrNull ?? const <Project>[];
+    final excluded = projectId == null
+        ? const <String>{}
+        : subtreeOf(projectId!, projects);
+    final paths = parentPaths(projects);
+    final candidates = projects
+        .where((project) => !excluded.contains(project.id))
+        .toList();
+
+    return Panel(
+      title: '[ PARENT ]',
+      bodyPadding: panelRowsPadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PickerRow(
+            label: 'NONE',
+            selected: value == null,
+            onTap: () => onChanged(null),
+          ),
+          for (final project in candidates)
+            PickerRow(
+              label: project.name.toUpperCase(),
+              subtitle: (paths[project.id] ?? '').isEmpty
+                  ? null
+                  : paths[project.id],
+              // The §39.5 picker marks a paused target the same way: still a
+              // legal answer, and cheaper to say so than to have the user
+              // wonder where the project went.
+              value: project.status == ProjectStatus.paused ? 'PAUSED' : null,
+              selected: value == project.id,
+              onTap: () => onChanged(project.id),
+            ),
+        ],
       ),
     );
   }

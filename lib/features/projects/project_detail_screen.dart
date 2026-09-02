@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/formatting.dart';
+import '../../application/navigation.dart';
 import '../../application/providers.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
@@ -17,19 +18,28 @@ import '../../design/icons/hotline_icon.dart';
 import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
+import '../home/capture_bar.dart';
 import '../screen_scaffold.dart';
 import '../tasks/drops_panel.dart';
 import '../tasks/task_row.dart';
 import 'project_form_screen.dart';
+import 'project_row.dart';
 import '../../app/static_surface.dart';
 
 void openProjectDetail(BuildContext context, String projectId) {
   Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute<void>(
+      // §39.18: a child opens on top of its parent, and a breadcrumb segment
+      // pops back to the ancestor it names. The name is how the stack is
+      // searched for that route — the alternative is counting pops, which is
+      // wrong the moment anything else is pushed in between.
+      settings: RouteSettings(name: projectRouteName(projectId)),
       builder: (_) => ProjectDetailScreen(projectId: projectId),
     ),
   );
 }
+
+String projectRouteName(String projectId) => 'project/$projectId';
 
 /// SPEC.md §39.1, §39.2 and §39.14 for the content, §38.6 for the shape: a hero
 /// card carrying the project's one number, the objective when there is one,
@@ -58,10 +68,16 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   bool _entered = false;
   Animation<double>? _push;
 
+  /// §39.19: the capture bar pinned here has no nav icon to land on, so the
+  /// DROPS panel the row lands in takes the event. Owned by the screen because
+  /// the bar that fires it and the panel that plays it are siblings.
+  final _landing = GlitchController();
+
   @override
   void dispose() {
     _push?.removeStatusListener(_onPush);
     _entry.dispose();
+    _landing.dispose();
     super.dispose();
   }
 
@@ -92,6 +108,33 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     _push?.removeStatusListener(_onPush);
     _push = null;
     if (mounted) _entry.fire();
+  }
+
+  /// §39.18: `PROJECTS` pops out of the whole project stack and lands on the
+  /// tab. `popUntil(isFirst)` is the shell route the tabs live in.
+  void _popToProjectsTab() {
+    Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);
+    ref.read(navIndexProvider.notifier).state = 1;
+  }
+
+  /// §39.18: an ancestor segment pops back to that ancestor's own screen. The
+  /// route is found by name rather than by counting pops, and `isFirst` is the
+  /// floor — a stack that somehow does not hold the ancestor unwinds to the
+  /// shell instead of unwinding forever.
+  void _popTo(String projectId) {
+    final name = projectRouteName(projectId);
+    // The ancestor is not always on the stack: move a project under a parent
+    // the user never walked into and its crumb names a screen that was never
+    // pushed. Unwinding to `isFirst` then dropped them on HOME, which is
+    // neither the ancestor nor the tab §39.18 allows. The predicate records
+    // whether the name was ever on top, so the miss can land on the tab that
+    // does hold the ancestor.
+    var found = false;
+    Navigator.of(context, rootNavigator: true).popUntil((route) {
+      found = found || route.settings.name == name;
+      return found || route.isFirst;
+    });
+    if (!found) ref.read(navIndexProvider.notifier).state = 1;
   }
 
   Future<void> _archive(Project project) async {
@@ -161,25 +204,60 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   Widget build(BuildContext context) {
     final project = ref.watch(projectProvider(widget.projectId)).valueOrNull;
     if (project != null) _fireOnEntry();
-    final tasks = ref.watch(projectTasksProvider(widget.projectId));
     final goals = ref.watch(projectGoalsProvider(widget.projectId));
     final drops = ref.watch(projectDropsProvider(widget.projectId));
     final notes = ref.watch(projectNotesProvider(widget.projectId));
+    final children = ref.watch(projectChildrenProvider(widget.projectId));
+    final summary = ref.watch(projectSummaryProvider(widget.projectId));
+    final ancestors =
+        ref.watch(projectAncestorsProvider(widget.projectId)).valueOrNull ??
+        const <ProjectCrumb>[];
 
-    // §39.11 (ruling reversed 2026-09-02): every task of the project counts,
-    // goal or not — the DROPS panel here holds tasks, not drops.
-    final all = tasks.valueOrNull ?? const <Task>[];
-    final done = all.where((task) => task.done).length;
     final rows = goals.valueOrNull ?? const <GoalSummary>[];
+    final kids = children.valueOrNull ?? const <ProjectSummary>[];
     final archived = project?.status == ProjectStatus.archived;
+    // §39.18: a project is hidden when it or any ancestor is archived. Under a
+    // hidden ancestor the project keeps its own status — that is what makes
+    // unarchiving the parent restore the subtree as it was — so it is dim and
+    // its own UNARCHIVE is absent rather than offered and inert.
+    final ancestorArchived = ancestors.any(
+      (crumb) => crumb.status == ProjectStatus.archived,
+    );
+    final hidden = archived || ancestorArchived;
     final hasObjective = (project?.objective ?? '').trim().isNotEmpty;
 
     return Scaffold(
+      bottomNavigationBar: project == null || hidden
+          ? null
+          // A Scaffold insets its body for the keyboard and leaves the bottom
+          // slot where it is, so on device the field and the CAPTURE block went
+          // under the IME and the project was captured into blind — Home mounts
+          // the bar inside its own body and never had this. The inset is added
+          // here rather than by moving the mount, so the bar keeps its slot and
+          // the panels keep scrolling under it.
+          : Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: CaptureBar(
+                fixedTarget: ItemTarget.project(widget.projectId),
+                landing: _landing,
+              ),
+            ),
       body: StaticSurface(
         child: ScreenScaffold(
           title: project?.name.toUpperCase() ?? 'PROJECT',
-          breadcrumb: '/ PERSONAL CONTROL PLANE / PROJECTS',
-          onBack: () => Navigator.of(context).pop(),
+          // §39.18: the path down to this project, self excluded — the name is
+          // already the title. Every segment pops the stack back to what it
+          // names, and `PROJECTS` pops all the way out to the tab.
+          breadcrumbSegments: [
+            CrumbSegment('PROJECTS', onTap: () => _popToProjectsTab()),
+            for (final crumb in ancestors)
+              CrumbSegment(
+                crumb.name.toUpperCase(),
+                onTap: () => _popTo(crumb.id),
+              ),
+          ],
           // §39.2 and §39.14: EDIT and ARCHIVE ride the breadcrumb row, not the
           // title row — the title is the project's name and the widest line on
           // the screen.
@@ -193,12 +271,16 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       icon: HotlineIcons.edit,
                       onTap: () => openProjectForm(context, project: project),
                     ),
-                    const SizedBox(width: Spacing.lg),
-                    PanelAffordance(
-                      archived ? 'UNARCHIVE' : 'ARCHIVE',
-                      showIcon: false,
-                      onTap: () => _archive(project),
-                    ),
+                    // §39.18: nothing to offer while an ancestor is archived —
+                    // unarchiving here would not bring the project back.
+                    if (!ancestorArchived) ...[
+                      const SizedBox(width: Spacing.lg),
+                      PanelAffordance(
+                        archived ? 'UNARCHIVE' : 'ARCHIVE',
+                        showIcon: false,
+                        onTap: () => _archive(project),
+                      ),
+                    ],
                   ],
                 ),
           header: project == null
@@ -207,10 +289,14 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   padding: const EdgeInsets.only(bottom: Spacing.panelGap),
                   child: GlitchPanel(
                     controller: _entry,
+                    // §39.18: the number under the title counts the subtree.
+                    // A parent whose work is all in its children reads 0 OF 0
+                    // otherwise, which is the one thing the aggregate exists to
+                    // stop it saying.
                     child: _HeroCard(
                       project: project,
-                      doneCount: done,
-                      totalCount: all.length,
+                      doneCount: summary.valueOrNull?.doneCount ?? 0,
+                      totalCount: summary.valueOrNull?.totalCount ?? 0,
                     ),
                   ),
                 ),
@@ -240,6 +326,48 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                         project.objective,
                         style: HotlineText.rowTitle,
                         maxLines: 3,
+                      ),
+                    ),
+                  // §39.18: the immediate children, after the objective and
+                  // before the goals. Absent on a childless root — there is no
+                  // hierarchy there to be discoverable — and present but empty
+                  // on a childless child, where the depth is the point.
+                  if (kids.isNotEmpty || project.parentId != null)
+                    Panel(
+                      title: 'PROJECTS',
+                      affordance: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PanelAffordance('${kids.length}', showIcon: false),
+                          if (!hidden) ...[
+                            const SizedBox(width: Spacing.lg),
+                            PanelAffordance(
+                              'NEW',
+                              icon: HotlineIcons.add,
+                              onTap: () => openProjectForm(
+                                context,
+                                parentId: widget.projectId,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      bodyPadding: panelRowsPadding,
+                      child: AsyncSection(
+                        value: children,
+                        empty: 'nothing under this project',
+                        builder: (items) => ListRowGroup(
+                          children: [
+                            for (final child in items)
+                              ProjectRow(
+                                key: ValueKey(child.projectId),
+                                project: child,
+                                dim: hidden,
+                                onTap: () =>
+                                    openProjectDetail(context, child.projectId),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                 ],
@@ -303,6 +431,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   drops: drops,
                   empty: 'nothing unfiled here',
                   stateful: true,
+                  landing: _landing,
                 ),
                 Panel(
                   title: 'NOTES',

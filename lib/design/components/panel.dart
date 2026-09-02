@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../colors.dart';
+import '../effects/glitch.dart';
 import '../icons/hotline_icon.dart';
 import '../icons/hotline_icons.dart';
 import '../spacing.dart';
@@ -26,6 +27,7 @@ class Panel extends StatelessWidget {
     this.bodyPadding = const EdgeInsets.all(Spacing.panelPadding),
     this.bodyFlexible = false,
     this.border = HotlineColors.borderNormal,
+    this.headerGlitch,
   });
 
   /// A panel with no body is its own row — the STATUS line, a folded DONE.
@@ -62,8 +64,15 @@ class Panel extends StatelessWidget {
 
   final Color border;
 
+  /// SPEC.md §39.19: a capture filed from a pushed route has no nav icon to
+  /// land on, so the panel it lands in says so itself. A header strip carries
+  /// no glyph — its title is the only mark on it — so the §16b.2 tear takes
+  /// the strip, which is the smallest thing here that can stand for the panel.
+  final GlitchController? headerGlitch;
+
   @override
   Widget build(BuildContext context) {
+    final glitch = headerGlitch;
     return Container(
       decoration: BoxDecoration(
         color: HotlineColors.surfacePrimary,
@@ -76,14 +85,27 @@ class Panel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (title != null)
-            _HeaderStrip(
-              title: title!,
-              leading: leading,
-              affordance: affordance,
-              onTap: onHeaderTap,
-              onLongPress: onHeaderLongPress,
-              ruled: child != null,
-            ),
+            if (glitch == null)
+              _HeaderStrip(
+                title: title!,
+                leading: leading,
+                affordance: affordance,
+                onTap: onHeaderTap,
+                onLongPress: onHeaderLongPress,
+                ruled: child != null,
+              )
+            else
+              GlitchPanel(
+                controller: glitch,
+                child: _HeaderStrip(
+                  title: title!,
+                  leading: leading,
+                  affordance: affordance,
+                  onTap: onHeaderTap,
+                  onLongPress: onHeaderLongPress,
+                  ruled: child != null,
+                ),
+              ),
           if (child != null)
             if (bodyFlexible)
               Flexible(

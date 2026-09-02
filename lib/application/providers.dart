@@ -90,6 +90,23 @@ final projectProvider = StreamProvider.family<Project?, String>(
   (ref, id) => ref.watch(projectRepositoryProvider).watchById(id),
 );
 
+/// SPEC.md §39.18. Three families, because a project detail asks three
+/// hierarchy questions: what is under me, what is my number over the subtree,
+/// and what is the path down to me.
+final projectChildrenProvider =
+    StreamProvider.family<List<ProjectSummary>, String>(
+      (ref, id) => ref.watch(projectRepositoryProvider).watchChildren(id),
+    );
+
+final projectSummaryProvider = StreamProvider.family<ProjectSummary?, String>(
+  (ref, id) => ref.watch(projectRepositoryProvider).watchSummary(id),
+);
+
+final projectAncestorsProvider =
+    StreamProvider.family<List<ProjectCrumb>, String>(
+      (ref, id) => ref.watch(projectRepositoryProvider).watchAncestors(id),
+    );
+
 final projectTasksProvider = StreamProvider.family<List<Task>, String>(
   (ref, id) => ref.watch(taskRepositoryProvider).watchByProject(id),
 );

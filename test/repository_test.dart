@@ -39,7 +39,7 @@ void main() {
     test('a project with no tasks is 0%, not undefined', () async {
       await projects.create(name: 'Infra personal');
 
-      final summary = (await db.watchProjectSummaries().first).single;
+      final summary = (await db.watchRootSummaries().first).single;
 
       expect(summary.totalCount, 0);
       expect(summary.ratio, 0);
@@ -69,7 +69,7 @@ void main() {
       await tasks.setDone(loose, true);
       await tasks.block(ids[2], 'Esperando proveedor S3');
 
-      final summary = (await db.watchProjectSummaries().first).firstWhere(
+      final summary = (await db.watchRootSummaries().first).firstWhere(
         (row) => row.projectId == project,
       );
 
@@ -260,7 +260,7 @@ void main() {
       await tasks.block(task, 'Esperando la cuota');
       expect((await db.watchBlockedTasks().first).single.taskId, task);
 
-      final summary = (await db.watchProjectSummaries().first).single;
+      final summary = (await db.watchRootSummaries().first).single;
       expect(summary.totalCount, 1);
       expect(
         await tasks.watchProjectDrops(project).first,
@@ -278,7 +278,7 @@ void main() {
       await tasks.setNext(task);
 
       expect((await db.watchNextAction().first)!.taskId, task);
-      final summary = (await db.watchProjectSummaries().first).single;
+      final summary = (await db.watchRootSummaries().first).single;
       expect(summary.totalCount, 1);
       expect(await tasks.watchProjectDrops(project).first, isEmpty);
     });
