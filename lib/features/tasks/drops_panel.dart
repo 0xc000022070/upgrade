@@ -27,6 +27,9 @@ import 'task_row.dart';
 /// [scope] is what tells one DROPS panel from another. Only the panel that owns
 /// the mode draws checkboxes, so entering it on HOME leaves a project's panel
 /// exactly as it was.
+///
+/// §39.15 adds `SELECT` to the strip: the same mode, entered with nothing
+/// checked, for the user who does not know the panel answers a long press.
 class DropsPanel extends ConsumerStatefulWidget {
   const DropsPanel({
     super.key,
@@ -112,7 +115,24 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
                 ),
               ],
             )
-          : PanelAffordance('${rows.length}', showIcon: false),
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PanelAffordance('${rows.length}', showIcon: false),
+                // §39.15: the way into the mode without holding a row, next to
+                // the count and tracked like `NEW +`. Hidden on an empty panel
+                // — there is nothing to select — and hidden while the mode is
+                // on, where the strip is already the action bar.
+                if (rows.isNotEmpty) ...[
+                  const SizedBox(width: Spacing.lg),
+                  PanelAffordance(
+                    'SELECT',
+                    showIcon: false,
+                    onTap: () => notifier.beginEmpty(widget.scope),
+                  ),
+                ],
+              ],
+            ),
       bodyPadding: panelRowsPadding,
       child: AsyncSection(
         value: widget.drops,

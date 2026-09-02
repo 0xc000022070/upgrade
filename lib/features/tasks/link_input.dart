@@ -28,20 +28,42 @@ Future<String?> urlFromClipboard() async {
   return normalizeUrl(data?.text ?? '');
 }
 
+/// A recognised link and where its token sits in the text it was found in.
+/// §39.15 paints the token, so the offsets are as much of the answer as the URL.
+class UrlToken {
+  const UrlToken(this.start, this.end, this.url);
+
+  final int start;
+  final int end;
+
+  /// The normalized form [normalizeUrl] returns, which is what gets attached.
+  final String url;
+}
+
 /// §39.6: URLs typed into the capture field are pulled out on submit. The whole
 /// words are tested rather than a URL pattern, so `pgbouncer.` at the end of a
 /// sentence stays in the title.
-List<String> extractUrls(String text) {
-  final found = <String>[];
-  for (final word in text.split(RegExp(r'\s+'))) {
-    if (!word.contains('://') && !word.contains('.')) continue;
-    final url = normalizeUrl(word);
+///
+/// §39.15 paints the same tokens in the field before submit, so this keeps the
+/// offsets and [extractUrls] is a projection of it: one definition of what
+/// counts as a link, or the highlight would promise something submit does not
+/// deliver.
+List<UrlToken> urlTokens(String text) {
+  final found = <UrlToken>[];
+  for (final word in RegExp(r'\S+').allMatches(text)) {
+    final value = word[0]!;
     // Only an explicit scheme is taken from prose: every second word has a dot
     // in it, and `etc.` is not a link.
-    if (url != null && word.contains('://')) found.add(url);
+    if (!value.contains('://')) continue;
+    final url = normalizeUrl(value);
+    if (url != null) found.add(UrlToken(word.start, word.end, url));
   }
   return found;
 }
+
+List<String> extractUrls(String text) => [
+  for (final token in urlTokens(text)) token.url,
+];
 
 /// What is left of a title once its URLs are gone. §39.6 strips them only when
 /// the title would otherwise be empty, so this is the caller's fallback rather

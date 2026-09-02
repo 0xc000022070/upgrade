@@ -35,6 +35,11 @@ class DropSelectionNotifier extends Notifier<DropSelection> {
 
   void begin(String scope, String id) => state = DropSelection(scope, {id});
 
+  /// §39.15: `SELECT` on the header strip enters the same mode with nothing
+  /// checked. It is a separate entry point rather than [begin] with a null id
+  /// because the long press is a gesture *on a row* and always has one.
+  void beginEmpty(String scope) => state = DropSelection(scope, const {});
+
   /// Emptying the set does not leave the mode: un-checking the last row leaves
   /// the panel selectable with the two verbs disabled. Leaving is the `x` on
   /// the strip, the back gesture, or finishing an action.
