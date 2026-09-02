@@ -1,12 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/formatting.dart';
+import '../../application/drop_selection.dart';
 import '../../application/navigation.dart';
 import '../../application/providers.dart';
 import '../../data/views.dart';
 import '../../design/colors.dart';
-import '../../design/components/activity_row.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
@@ -14,13 +13,17 @@ import '../../design/icons/hotline_icon.dart';
 import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../projects/project_detail_screen.dart';
+import '../projects/project_form_screen.dart';
 import '../projects/project_row.dart';
 import '../screen_scaffold.dart';
-import '../tasks/task_actions.dart';
+import '../tasks/drops_panel.dart';
+import '../tasks/item_sheet.dart';
 import 'capture_bar.dart';
 
-/// SPEC.md §37 for the content, §38 for the skin: what is next, what is moving,
-/// what is stuck, what is loose, what changed — each one a bordered panel.
+/// SPEC.md §39.3 for the content, §38 for the skin. Three panels: what is
+/// flagged, what is moving, what has not been filed yet. BLOCKED and RECENT are
+/// gone — a blocked item still says so on its own row wherever it lives, and
+/// the activity stream is still written, just not displayed.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -30,12 +33,14 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final nextAction = ref.watch(nextActionProvider);
     final projects = ref.watch(projectSummariesProvider);
-    final blocked = ref.watch(blockedTasksProvider);
-    final loose = ref.watch(looseTasksProvider);
-    final recent = ref.watch(recentActivityProvider);
+    final drops = ref.watch(dropsProvider);
+
+    final selecting = ref
+        .watch(dropSelectionProvider)
+        .ownedBy(DropSelection.homeScope);
 
     final projectCount = projects.valueOrNull?.length ?? 0;
-    final blockedCount = blocked.valueOrNull?.length ?? 0;
+    final next = nextAction.valueOrNull;
 
     void openProjects() => ref.read(navIndexProvider.notifier).state = 1;
 
@@ -47,23 +52,33 @@ class HomeScreen extends ConsumerWidget {
             children: [
               PanelStack(
                 children: [
-                  Panel(
-                    title: 'NEXT ACTION',
-                    affordance: PanelAffordance(
-                      nextAction.valueOrNull == null ? '0' : '1',
-                      showIcon: false,
+                  // §39.3: no suggestion fallback, so with nothing flagged
+                  // there is no panel. An empty NEXT ACTION frame would be the
+                  // screen asking a question it cannot answer.
+                  if (next != null)
+                    Panel(
+                      title: 'NEXT ACTION',
+                      affordance: const PanelAffordance('1', showIcon: false),
+                      bodyPadding: panelRowsPadding,
+                      child: _NextActionRow(task: next),
                     ),
-                    bodyPadding: panelRowsPadding,
-                    child: AsyncSection<NextAction?>(
-                      value: nextAction,
-                      empty: 'nothing queued',
-                      isEmpty: (value) => value == null,
-                      builder: (task) => _NextActionRow(task: task!),
-                    ),
-                  ),
+                  // §39.2: the create affordance sits on the header strip of
+                  // the panel it creates into. It keeps its own tap target next
+                  // to the count, so the strip's own tap still means VIEW ALL.
                   Panel(
                     title: 'PROJECTS',
-                    affordance: PanelAffordance('$projectCount  VIEW ALL'),
+                    affordance: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        PanelAffordance('$projectCount  VIEW ALL'),
+                        const SizedBox(width: Spacing.lg),
+                        PanelAffordance(
+                          'NEW',
+                          icon: HotlineIcons.add,
+                          onTap: () => openProjectForm(context),
+                        ),
+                      ],
+                    ),
                     onHeaderTap: openProjects,
                     bodyPadding: panelRowsPadding,
                     child: AsyncSection(
@@ -82,85 +97,16 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  Panel(
-                    title: 'BLOCKED',
-                    affordance: PanelAffordance(
-                      '$blockedCount',
-                      showIcon: false,
-                      color: blockedCount == 0 ? null : HotlineColors.warning,
-                    ),
-                    bodyPadding: panelRowsPadding,
-                    child: AsyncSection(
-                      value: blocked,
-                      empty: 'nothing blocked',
-                      builder: (items) => ListRowGroup(
-                        children: [
-                          for (final task in items)
-                            ListRow(
-                              leading: const HotlineIcon(
-                                HotlineIcons.blocked,
-                                size: IconSizes.glyph,
-                                color: HotlineColors.warning,
-                              ),
-                              title: task.title,
-                              subtitle: task.reason,
-                              subtitleColor: HotlineColors.warning,
-                              caption: task.projectName,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Panel(
-                    title: 'LOOSE',
-                    affordance: PanelAffordance(
-                      '${loose.valueOrNull?.length ?? 0}',
-                      showIcon: false,
-                    ),
-                    bodyPadding: panelRowsPadding,
-                    child: AsyncSection(
-                      value: loose,
-                      empty: 'nothing loose',
-                      builder: (items) => ListRowGroup(
-                        children: [
-                          for (final task in items)
-                            ListRow(
-                              title: task.title,
-                              value: relativeAge(task.createdAt),
-                              onLongPress: () =>
-                                  showTaskActions(context, ref, task),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Panel(
-                    title: 'RECENT',
-                    affordance: PanelAffordance(
-                      '${recent.valueOrNull?.length ?? 0}',
-                      showIcon: false,
-                    ),
-                    child: AsyncSection(
-                      value: recent,
-                      empty: 'no activity yet',
-                      builder: (items) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (final entry in items)
-                            ActivityRow(
-                              entry: entry,
-                              timeLabel: relativeAge(entry.createdAt),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  DropsPanel(scope: DropSelection.homeScope, drops: drops),
                 ],
               ),
             ],
           ),
         ),
-        const CaptureBar(),
+        // §39.13: the capture bar stays where it is while the mode is on and
+        // does nothing. The verbs are on the panel's own strip, so the bottom
+        // of the screen has no second answer to what a tap means.
+        IgnorePointer(ignoring: selecting, child: const CaptureBar()),
       ],
     );
   }
@@ -175,14 +121,6 @@ class _NextActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // §37: a row the screen picked is labelled as a suggestion, so it is never
-    // mistaken for a decision the user already made.
-    final subtitle = task.suggested
-        ? [
-            if (task.projectName != null) task.projectName!,
-            'suggested',
-          ].join('  ·  ')
-        : task.projectName;
     return ListRow(
       leading: const HotlineIcon(
         HotlineIcons.forward,
@@ -190,9 +128,13 @@ class _NextActionRow extends StatelessWidget {
         color: HotlineColors.accent,
       ),
       title: task.title,
-      subtitle: subtitle,
+      subtitle: task.projectName,
       lead: true,
       decode: true,
+      // §39.4: every row opens the quick view, and this one most of all — a
+      // flagged item nothing responds to is the mock the user complained about.
+      onTap: () => openItemSheet(context, task.taskId),
+      onLongPress: () => openItemSheet(context, task.taskId),
     );
   }
 }

@@ -21,3 +21,14 @@ void stubDeviceChannels() {
     (message) async => codec.encodeSuccessEnvelope(null),
   );
 }
+
+/// §39.9's link icon reads the clipboard before it does anything else, so every
+/// test of it has to say what is on the clipboard — including "nothing", which
+/// is the branch that flips the field into URL mode.
+void stubClipboard(String? text) {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method != 'Clipboard.getData') return null;
+        return text == null ? null : <String, dynamic>{'text': text};
+      });
+}

@@ -4,8 +4,14 @@ enum ProjectStatus { active, paused, archived }
 
 enum Priority { low, normal, high }
 
+/// SPEC.md §39.10. An item's attachments are one list with two shapes: a URL
+/// that opens outside the app and an image copied into app support. One table
+/// rather than two keeps the order they were attached in.
+enum AttachmentKind { url, image }
+
 enum EntityType {
   project('project'),
+  goal('goal'),
   task('task'),
   note('note');
 
@@ -25,7 +31,9 @@ enum ActivityAction {
   blocked('blocked'),
   unblocked('unblocked'),
   flaggedNext('flagged_next'),
-  captured('captured');
+  captured('captured'),
+  moved('moved'),
+  deleted('deleted');
 
   const ActivityAction(this.wire);
 

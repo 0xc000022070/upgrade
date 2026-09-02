@@ -42,5 +42,15 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- SPEC.md 39.4: a link row opens in the browser through url_launcher.
+             Without this, canLaunchUrl finds nothing on API 30+. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="http"/>
+        </intent>
     </queries>
 </manifest>

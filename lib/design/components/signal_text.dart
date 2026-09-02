@@ -30,8 +30,8 @@ class SignalText extends StatefulWidget {
   /// right. Screen titles, section headers and the NEXT ACTION title only.
   final bool decodeOnEntry;
 
-  /// §16c.4: one to two frames of slice displacement before the decode. Screen
-  /// titles on tab change only.
+  /// §16c.4: one to two frames of block displacement (§16b.2) before the
+  /// decode. Screen titles on tab change only.
   final bool smearOnEntry;
 
   final int? maxLines;
@@ -110,9 +110,14 @@ class _SignalTextState extends State<SignalText> {
       textAlign: widget.textAlign,
     );
     if (!running || _step >= _smearSteps) return text;
-    return GlitchSlices(
+    // §16b.2 makes the smear the same block language as the icon glitch. It
+    // drops the fragments: a line of text has no empty ground of its own, so a
+    // detached crumb would land on the next word and read as noise instead of
+    // as a piece of this title coming loose.
+    return GlitchBlocks(
       seed: widget.data.hashCode + _step,
-      bands: 2,
+      blocks: 3,
+      fragments: 0,
       child: text,
     );
   }
