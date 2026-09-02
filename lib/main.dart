@@ -14,6 +14,7 @@ import 'data/repositories/task_repository.dart';
 import 'data/seed.dart';
 import 'design/icons/hotline_icon.dart';
 import 'design/typography.dart';
+import 'features/tasks/image_input.dart';
 import 'platform/device.dart';
 
 Future<void> main() async {
@@ -45,6 +46,12 @@ Future<void> main() async {
     BootStep('count projects/tasks', '${projects.length}/${tasks.length}'),
   );
   boot.add(const BootStep('load fonts', '${FontFamilies.count}'));
+
+  // §39.10 image attachments are files under app support, and the rows that
+  // point at them are read inside builds; the directory is resolved here so
+  // that read stays synchronous.
+  await ImageAttachments.init();
+  boot.add(const BootStep('mount attachments', 'ok'));
 
   final model = await Device.model();
   boot.add(BootStep('mounted device ${model ?? 'unknown'}', 'ok'));

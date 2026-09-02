@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,19 +5,23 @@ import '../../application/formatting.dart';
 import '../../application/providers.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
+import '../../data/views.dart';
 import '../../design/colors.dart';
+import '../../design/components/action_block.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
+import '../../design/components/panel_sheet.dart';
 import '../../design/components/section.dart';
 import '../../design/components/static_background.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/hotline_icon.dart';
 import '../../design/icons/hotline_icons.dart';
-import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../screen_scaffold.dart';
-import '../tasks/task_actions.dart';
+import '../tasks/drops_panel.dart';
+import '../tasks/task_row.dart';
+import 'project_form_screen.dart';
 
 void openProjectDetail(BuildContext context, String projectId) {
   Navigator.of(context, rootNavigator: true).push(
@@ -29,9 +31,9 @@ void openProjectDetail(BuildContext context, String projectId) {
   );
 }
 
-/// SPEC.md §37 for the content, §38.6 and the mocks for the shape: the project
-/// names the screen, a hero card identifies it, a STATUS line and an OBJECTIVE
-/// panel carry the one big number, then tasks and notes as panels.
+/// SPEC.md §39.1, §39.2 and §39.14 for the content, §38.6 for the shape: a hero
+/// card carrying the project's one number, the objective when there is one,
+/// a panel per goal, the project's own DROPS, then notes.
 class ProjectDetailScreen extends ConsumerStatefulWidget {
   const ProjectDetailScreen({super.key, required this.projectId});
 
@@ -43,48 +45,134 @@ class ProjectDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
-  bool _showDone = false;
+  /// §39.2: the new-goal editor is a panel of its own at the top of the goal
+  /// list; renaming turns the goal's own panel into the same editor. Only one
+  /// of the two is ever open, so they share the field.
+  bool _creating = false;
+  String? _renaming;
 
-  /// A toggled task leaves its group the moment the write lands, which takes
-  /// the §16b glitch with it: the icon that exists to show the change is
-  /// unmounted a frame after it starts. Rows named here keep the `done` value
-  /// they had when the glitch fired, so the sequence plays where the user tapped
-  /// and the row moves once it has settled. Only the placement waits; the write
-  /// goes out immediately.
-  final _settling = <String, bool>{};
-  final _settleTimers = <String, Timer>{};
-
-  void _holdForGlitch(String taskId, bool wasDone) {
-    _settleTimers.remove(taskId)?.cancel();
-    setState(() => _settling[taskId] = wasDone);
-    _settleTimers[taskId] = Timer(Effects.glitchDuration, () {
-      if (!mounted) return;
-      setState(() {
-        _settling.remove(taskId);
-        _settleTimers.remove(taskId);
-      });
-    });
-  }
+  /// §16b.2: project detail entry is one of the two screen-level events. It is
+  /// bound to the hero rather than to the whole screen — the spec says panel
+  /// scale, and a whole route tearing on arrival would read as a transition.
+  final _entry = GlitchController();
+  bool _entered = false;
+  Animation<double>? _push;
 
   @override
   void dispose() {
-    for (final timer in _settleTimers.values) {
-      timer.cancel();
-    }
+    _push?.removeStatusListener(_onPush);
+    _entry.dispose();
     super.dispose();
+  }
+
+  /// The route pushes before the project stream has anything, so the hero is
+  /// absent for the first frames. Firing on initState would spend the event on
+  /// an empty header; this waits for the frame the hero actually appears, and
+  /// then for the push to be over.
+  void _fireOnEntry() {
+    if (_entered || MediaQuery.disableAnimationsOf(context)) return;
+    _entered = true;
+    final push = ModalRoute.of(context)?.animation;
+    // §16b.2's event has to land on the arrived screen. Fired mid-push it
+    // paints over a cross-fade of two routes, and a displaced block there
+    // reads as the transition tearing rather than as this header coming
+    // apart: on device the first three of the four torn frames were unusable
+    // for that reason.
+    if (push != null && push.status != AnimationStatus.completed) {
+      _push = push..addStatusListener(_onPush);
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _entry.fire();
+    });
+  }
+
+  void _onPush(AnimationStatus status) {
+    if (status != AnimationStatus.completed) return;
+    _push?.removeStatusListener(_onPush);
+    _push = null;
+    if (mounted) _entry.fire();
+  }
+
+  Future<void> _archive(Project project) async {
+    // §39.14: archiving asks once; unarchiving is the undo and asks nothing.
+    if (project.status == ProjectStatus.archived) {
+      await ref.read(projectRepositoryProvider).unarchive(project.id);
+      return;
+    }
+    final confirmed = await confirmSheet(
+      context,
+      title: 'ARCHIVE PROJECT?',
+      confirmLabel: 'ARCHIVE',
+    );
+    if (!confirmed) return;
+    await ref.read(projectRepositoryProvider).archive(project.id);
+  }
+
+  Future<void> _goalActions(GoalSummary goal) async {
+    final action = await showPanelSheet<_GoalAction>(
+      context,
+      title: goal.title.toUpperCase(),
+      builder: (context) => PanelSheetBody(
+        title: goal.title.toUpperCase(),
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: ActionBlock(
+                  label: 'RENAME',
+                  onTap: () => Navigator.of(context).pop(_GoalAction.rename),
+                ),
+              ),
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: ActionBlock(
+                  label: 'DELETE',
+                  tone: HotlineColors.warning,
+                  onTap: () => Navigator.of(context).pop(_GoalAction.delete),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case _GoalAction.rename:
+        setState(() {
+          _creating = false;
+          _renaming = goal.goalId;
+        });
+      case _GoalAction.delete:
+        // §39.2: the goal goes, its items fall back to the project's DROPS —
+        // so this destroys a heading, never work.
+        final confirmed = await confirmSheet(
+          context,
+          title: 'DELETE GOAL?',
+          confirmLabel: 'DELETE',
+        );
+        if (!confirmed) return;
+        await ref.read(goalRepositoryProvider).delete(goal.goalId);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final project = ref.watch(projectProvider(widget.projectId)).valueOrNull;
+    if (project != null) _fireOnEntry();
     final tasks = ref.watch(projectTasksProvider(widget.projectId));
+    final goals = ref.watch(projectGoalsProvider(widget.projectId));
+    final drops = ref.watch(projectDropsProvider(widget.projectId));
     final notes = ref.watch(projectNotesProvider(widget.projectId));
 
-    bool isDone(Task task) => _settling[task.id] ?? task.done;
-
+    // §39.11 (ruling reversed 2026-09-02): every task of the project counts,
+    // goal or not — the DROPS panel here holds tasks, not drops.
     final all = tasks.valueOrNull ?? const <Task>[];
-    final done = all.where(isDone).toList();
-    final open = all.where((task) => !isDone(task)).toList();
+    final done = all.where((task) => task.done).length;
+    final rows = goals.valueOrNull ?? const <GoalSummary>[];
+    final archived = project?.status == ProjectStatus.archived;
+    final hasObjective = (project?.objective ?? '').trim().isNotEmpty;
 
     return Scaffold(
       body: StaticBackgroundDriver(
@@ -92,11 +180,39 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           title: project?.name.toUpperCase() ?? 'PROJECT',
           breadcrumb: '/ PERSONAL CONTROL PLANE / PROJECTS',
           onBack: () => Navigator.of(context).pop(),
+          // §39.2 and §39.14: EDIT and ARCHIVE ride the breadcrumb row, not the
+          // title row — the title is the project's name and the widest line on
+          // the screen.
+          breadcrumbTrailing: project == null
+              ? null
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PanelAffordance(
+                      'EDIT',
+                      icon: HotlineIcons.edit,
+                      onTap: () => openProjectForm(context, project: project),
+                    ),
+                    const SizedBox(width: Spacing.lg),
+                    PanelAffordance(
+                      archived ? 'UNARCHIVE' : 'ARCHIVE',
+                      showIcon: false,
+                      onTap: () => _archive(project),
+                    ),
+                  ],
+                ),
           header: project == null
               ? null
               : Padding(
                   padding: const EdgeInsets.only(bottom: Spacing.panelGap),
-                  child: _HeroCard(project: project),
+                  child: GlitchPanel(
+                    controller: _entry,
+                    child: _HeroCard(
+                      project: project,
+                      doneCount: done,
+                      totalCount: all.length,
+                    ),
+                  ),
                 ),
           children: [
             PanelStack(
@@ -108,73 +224,86 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   if (project.status != ProjectStatus.active)
                     Panel(
                       title: 'STATUS',
-                      // §38.5: no chevron — nothing on this screen changes a
-                      // project's status yet, and a `>` that opens nothing is
-                      // the chrome the concept was rejected for.
                       affordance: PanelAffordance(
                         project.status.name.toUpperCase(),
                         showIcon: false,
                         color: HotlineColors.warning,
                       ),
                     ),
-                  Panel(
-                    title: 'OBJECTIVE',
-                    child: _Objective(
-                      objective: project.objective,
-                      doneCount: done.length,
-                      totalCount: all.length,
+                  // §39.14: an objective is optional, and an OBJECTIVE panel
+                  // with nothing in it is a header explaining that there is no
+                  // header.
+                  if (hasObjective)
+                    Panel(
+                      title: 'OBJECTIVE',
+                      child: Text(
+                        project.objective,
+                        style: HotlineText.rowTitle,
+                        maxLines: 3,
+                      ),
                     ),
-                  ),
                 ],
+                // §39.2: `NEW +` lives on the GOALS strip; the goals themselves
+                // are panels under it, each its own list.
                 Panel(
-                  title: 'OPEN',
-                  affordance: PanelAffordance(
-                    '${open.length}',
-                    showIcon: false,
-                  ),
-                  bodyPadding: panelRowsPadding,
-                  child: AsyncSection(
-                    value: tasks,
-                    empty: 'nothing open',
-                    isEmpty: (_) => open.isEmpty,
-                    builder: (_) => ListRowGroup(
-                      children: [
-                        for (final task in open)
-                          TaskRow(
-                            key: ValueKey(task.id),
-                            task: task,
-                            onToggle: _holdForGlitch,
-                          ),
-                      ],
-                    ),
+                  title: 'GOALS',
+                  affordance: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PanelAffordance('${rows.length}', showIcon: false),
+                      const SizedBox(width: Spacing.lg),
+                      PanelAffordance(
+                        'NEW',
+                        icon: HotlineIcons.add,
+                        onTap: () => setState(() {
+                          _renaming = null;
+                          _creating = true;
+                        }),
+                      ),
+                    ],
                   ),
                 ),
-                // §37: done work is kept but folded away — it is a record, not
-                // a list the screen is asking anything of.
-                if (done.isNotEmpty)
-                  Panel(
-                    title: 'DONE',
-                    affordance: PanelAffordance(
-                      '${done.length}',
-                      icon: _showDone
-                          ? HotlineIcons.collapse
-                          : HotlineIcons.expand,
-                    ),
-                    onHeaderTap: () => setState(() => _showDone = !_showDone),
-                    bodyPadding: panelRowsPadding,
-                    child: !_showDone
-                        ? null
-                        : ListRowGroup(
-                            children: [
-                              for (final task in done)
-                                TaskRow(
-                                  key: ValueKey(task.id),
-                                  task: task,
-                                  onToggle: _holdForGlitch,
-                                ),
-                            ],
-                          ),
+                if (_creating)
+                  _GoalEditor(
+                    key: const ValueKey('new-goal'),
+                    hint: 'what it is for',
+                    onCancel: () => setState(() => _creating = false),
+                    onSubmit: (title) async {
+                      setState(() => _creating = false);
+                      await ref
+                          .read(goalRepositoryProvider)
+                          .create(projectId: widget.projectId, title: title);
+                    },
                   ),
+                for (final goal in rows)
+                  if (_renaming == goal.goalId)
+                    _GoalEditor(
+                      key: ValueKey('rename-${goal.goalId}'),
+                      initial: goal.title,
+                      onCancel: () => setState(() => _renaming = null),
+                      onSubmit: (title) async {
+                        setState(() => _renaming = null);
+                        await ref
+                            .read(goalRepositoryProvider)
+                            .rename(goal.goalId, title);
+                      },
+                    )
+                  else
+                    _GoalPanel(
+                      key: ValueKey(goal.goalId),
+                      goal: goal,
+                      onHeaderLongPress: () => _goalActions(goal),
+                    ),
+                // §39.1: filed to the project, under no goal. Same panel HOME
+                // uses, so the multi-select of §39.13 comes with it — but the
+                // rows are tasks (§39.11, reversed 2026-09-02), so they carry
+                // their state.
+                DropsPanel(
+                  scope: widget.projectId,
+                  drops: drops,
+                  empty: 'nothing unfiled here',
+                  stateful: true,
+                ),
                 Panel(
                   title: 'NOTES',
                   affordance: PanelAffordance(
@@ -201,16 +330,138 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   }
 }
 
-/// §38.6: the card that opens the screen — the project's own mark at hero size
-/// and what it is. The name is the screen title, so repeating it here would
-/// spend the widest line in the app on a string already read two lines above.
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.project});
+enum _GoalAction { rename, delete }
 
-  final Project project;
+/// §39.1: one panel per goal, its progress on the strip, its items inside. A
+/// done item stays where it is and goes dim — under a goal there is nowhere
+/// else for it to be, so nothing has to hold it in place while a glitch plays.
+class _GoalPanel extends ConsumerWidget {
+  const _GoalPanel({
+    super.key,
+    required this.goal,
+    required this.onHeaderLongPress,
+  });
+
+  final GoalSummary goal;
+  final VoidCallback onHeaderLongPress;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tasks = ref.watch(goalTasksProvider(goal.goalId));
+    return Panel(
+      title: goal.title.toUpperCase(),
+      affordance: PanelAffordance(
+        '${goal.doneCount}/${goal.totalCount}',
+        showIcon: false,
+      ),
+      // §39.2: rename and delete hang off the goal's own strip; nothing else on
+      // the screen would carry them without inventing a menu.
+      onHeaderLongPress: onHeaderLongPress,
+      bodyPadding: panelRowsPadding,
+      child: AsyncSection(
+        value: tasks,
+        empty: 'nothing under this goal',
+        builder: (items) => ListRowGroup(
+          children: [
+            for (final task in items)
+              TaskRow(key: ValueKey(task.id), task: task),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// §39.2: the single-line editor a goal is created and renamed in. Submit is
+/// enter; the strip's `x` is the way out, and an empty submit is one too.
+class _GoalEditor extends StatefulWidget {
+  const _GoalEditor({
+    super.key,
+    required this.onSubmit,
+    required this.onCancel,
+    this.initial,
+    this.hint,
+  });
+
+  final ValueChanged<String> onSubmit;
+  final VoidCallback onCancel;
+  final String? initial;
+  final String? hint;
+
+  @override
+  State<_GoalEditor> createState() => _GoalEditorState();
+}
+
+class _GoalEditorState extends State<_GoalEditor> {
+  late final _field = TextEditingController(text: widget.initial ?? '');
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final title = _field.text.trim();
+    if (title.isEmpty) {
+      widget.onCancel();
+      return;
+    }
+    widget.onSubmit(title);
+  }
 
   @override
   Widget build(BuildContext context) {
+    return Panel(
+      title: widget.initial == null ? 'NEW GOAL' : 'RENAME GOAL',
+      affordance: PanelAffordance(
+        'CANCEL',
+        showIcon: false,
+        onTap: widget.onCancel,
+      ),
+      child: TextField(
+        controller: _field,
+        autofocus: true,
+        style: HotlineText.rowTitleLead,
+        maxLines: 1,
+        cursorColor: HotlineColors.accent,
+        cursorWidth: 2,
+        cursorRadius: Radius.zero,
+        textCapitalization: TextCapitalization.none,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _submit(),
+        decoration: InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+          hintText: widget.hint,
+          hintStyle: HotlineText.rowSubtitle,
+        ),
+      ),
+    );
+  }
+}
+
+/// §38.6: the card that opens the screen — the project's own mark at hero size
+/// and what it is. The name is the screen title, so repeating it here would
+/// spend the widest line in the app on a string already read two lines above.
+///
+/// §39.14 moves progress here: the OBJECTIVE panel used to carry the number and
+/// it is gone whenever the objective is, but the number is not optional.
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({
+    required this.project,
+    required this.doneCount,
+    required this.totalCount,
+  });
+
+  final Project project;
+  final int doneCount;
+  final int totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = totalCount == 0 ? 0.0 : doneCount / totalCount;
     return Panel(
       bodyPadding: const EdgeInsets.all(Spacing.lg),
       child: Row(
@@ -222,55 +473,33 @@ class _HeroCard extends StatelessWidget {
           ),
           const SizedBox(width: Spacing.lg),
           Expanded(
-            child: Text(
-              project.description,
-              // With the name gone the description is the whole card, so it
-              // takes the lead row size rather than the subtitle's.
-              style: HotlineText.rowTitleLead.copyWith(
-                color: HotlineColors.textSecondary,
-              ),
-              maxLines: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (project.description.trim().isNotEmpty) ...[
+                  Text(
+                    project.description,
+                    // With the name gone the description is the whole card, so
+                    // it takes the lead row size rather than the subtitle's.
+                    style: HotlineText.rowTitleLead.copyWith(
+                      color: HotlineColors.textSecondary,
+                    ),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: RowMetrics.lineGap),
+                ],
+                Text(
+                  '$doneCount OF $totalCount TASKS',
+                  style: HotlineText.label,
+                ),
+              ],
             ),
           ),
+          const SizedBox(width: Spacing.lg),
+          Text('${(ratio * 100).round()}%', style: HotlineText.heroPercent),
         ],
       ),
-    );
-  }
-}
-
-/// §38.6: the objective sentence, then the only display-size number on the
-/// screen with its `n OF m TASKS` readout under it. No bar — §38.4 keeps
-/// progress bars short and inline, and this panel is the number's own place.
-class _Objective extends StatelessWidget {
-  const _Objective({
-    required this.objective,
-    required this.doneCount,
-    required this.totalCount,
-  });
-
-  final String objective;
-  final int doneCount;
-  final int totalCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final ratio = totalCount == 0 ? 0.0 : doneCount / totalCount;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(objective, style: HotlineText.rowTitle, maxLines: 2),
-              const SizedBox(height: RowMetrics.lineGap),
-              Text('$doneCount OF $totalCount TASKS', style: HotlineText.label),
-            ],
-          ),
-        ),
-        const SizedBox(width: Spacing.lg),
-        Text('${(ratio * 100).round()}%', style: HotlineText.heroPercent),
-      ],
     );
   }
 }
@@ -301,76 +530,6 @@ class _NoteRow extends StatelessWidget {
           Text(relativeAge(note.createdAt), style: HotlineText.label),
         ],
       ),
-    );
-  }
-}
-
-/// SPEC.md §37: the row's tap is the toggle, so the sheet moves to a long press
-/// — §38 gives the right column back to data. The glitch is fired from the same
-/// handler: §16b wants the effect bound to the state change, not to the tap.
-class TaskRow extends ConsumerStatefulWidget {
-  const TaskRow({super.key, required this.task, this.onToggle});
-
-  final Task task;
-
-  /// Called with the task's id and its `done` value before the write, so the
-  /// list that owns this row can keep it in place while the glitch plays.
-  final void Function(String taskId, bool wasDone)? onToggle;
-
-  @override
-  ConsumerState<TaskRow> createState() => _TaskRowState();
-}
-
-class _TaskRowState extends ConsumerState<TaskRow> {
-  final _glitch = GlitchController();
-
-  @override
-  void dispose() {
-    _glitch.dispose();
-    super.dispose();
-  }
-
-  Future<void> _toggle() async {
-    // Reduce-motion drops the glitch in [HotlineIcon], so there is nothing to
-    // hold the row in place for and it moves on the write like any other.
-    if (!MediaQuery.disableAnimationsOf(context)) {
-      _glitch.fire(seed: widget.task.id.hashCode);
-      widget.onToggle?.call(widget.task.id, widget.task.done);
-    }
-    await ref
-        .read(taskRepositoryProvider)
-        .setDone(widget.task.id, !widget.task.done);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final task = widget.task;
-    return ListRow(
-      leading: HotlineIcon(
-        task.done ? HotlineIcons.checkboxChecked : HotlineIcons.checkboxEmpty,
-        size: IconSizes.check,
-        color: task.done ? HotlineColors.textDisabled : HotlineColors.accent,
-        glitch: _glitch,
-      ),
-      title: task.title,
-      titleColor: task.done ? HotlineColors.textMuted : null,
-      // §37: the blocked reason is the row's second line, in warning, so a held
-      // task is legible without opening it.
-      subtitle: task.blockedReason == null
-          ? null
-          : '[ BLOCKED BY ] ${task.blockedReason}',
-      subtitleColor: HotlineColors.warning,
-      // The accent forward arrow is the only mark on the flagged row, and it is
-      // the same glyph HOME's NEXT ACTION carries.
-      trailing: task.isNext
-          ? const HotlineIcon(
-              HotlineIcons.forward,
-              size: IconSizes.glyph,
-              color: HotlineColors.accent,
-            )
-          : null,
-      onTap: _toggle,
-      onLongPress: () => showTaskActions(context, ref, task),
     );
   }
 }

@@ -53,6 +53,12 @@ abstract final class IconSizes {
   static const affordance = 11.0;
 
   static const sm = 16.0;
+
+  /// §39.10 sizes the keyboard toolbar's Material glyphs itself, at 22px —
+  /// between [sm] and [lg], and the one place in the app that is not on the
+  /// 4px step, because the spec names the number.
+  static const toolbar = 22.0;
+
   static const md = 20.0;
   static const lg = 24.0;
 
@@ -63,6 +69,9 @@ abstract final class IconSizes {
 /// Density comes from padding, never from shrinking what a finger has to hit.
 abstract final class TapTargets {
   static const minHeight = 44.0;
+
+  /// §39.4: the done checkbox is a 14px glyph with a 40px target around it.
+  static const checkbox = 40.0;
 }
 
 /// §38.4: the inline bar next to a percent. Never full width, never under the

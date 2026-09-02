@@ -19,9 +19,12 @@ class Panel extends StatelessWidget {
     super.key,
     this.child,
     this.title,
+    this.leading,
     this.affordance,
     this.onHeaderTap,
+    this.onHeaderLongPress,
     this.bodyPadding = const EdgeInsets.all(Spacing.panelPadding),
+    this.bodyFlexible = false,
     this.border = HotlineColors.borderNormal,
   });
 
@@ -31,6 +34,10 @@ class Panel extends StatelessWidget {
   /// Omitted only by panels that are their own header — the detail hero card.
   final String? title;
 
+  /// §39.13 puts `x` at the left of the header strip when a panel is in
+  /// selection mode. Nothing else uses it: a strip's left is its title.
+  final Widget? leading;
+
   /// §38.1: the right-hand slot on the header strip — a count, `VIEW ALL >`,
   /// `ALL +`. Same type as the title, so it reads as part of the strip.
   final Widget? affordance;
@@ -39,9 +46,19 @@ class Panel extends StatelessWidget {
   /// only 27px tall, so widening the text itself would never reach 44.
   final VoidCallback? onHeaderTap;
 
+  /// §39.11 hangs the drop quick view's delete off the breadcrumb strip, the
+  /// only chrome a drop's sheet has left once its state blocks are gone.
+  final VoidCallback? onHeaderLongPress;
+
   /// A body of rows passes zero vertical padding: the rows carry their own, and
   /// doubling it would break the rule spacing between them.
   final EdgeInsets bodyPadding;
+
+  /// A scrolling body has to be allowed to shrink: a [SingleChildScrollView]
+  /// laid out by a [Column] is given unbounded height, sizes to its content
+  /// and overflows the panel instead of scrolling inside it. Only the §39.4
+  /// sheet needs this — every panel on a screen is as tall as its rows.
+  final bool bodyFlexible;
 
   final Color border;
 
@@ -61,11 +78,19 @@ class Panel extends StatelessWidget {
           if (title != null)
             _HeaderStrip(
               title: title!,
+              leading: leading,
               affordance: affordance,
               onTap: onHeaderTap,
+              onLongPress: onHeaderLongPress,
               ruled: child != null,
             ),
-          if (child != null) Padding(padding: bodyPadding, child: child!),
+          if (child != null)
+            if (bodyFlexible)
+              Flexible(
+                child: Padding(padding: bodyPadding, child: child!),
+              )
+            else
+              Padding(padding: bodyPadding, child: child!),
         ],
       ),
     );
@@ -76,13 +101,17 @@ class _HeaderStrip extends StatelessWidget {
   const _HeaderStrip({
     required this.title,
     required this.ruled,
+    this.leading,
     this.affordance,
     this.onTap,
+    this.onLongPress,
   });
 
   final String title;
+  final Widget? leading;
   final Widget? affordance;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   /// A header with nothing under it takes the body's padding back so the panel
   /// still reads as a row rather than as a clipped strip.
@@ -100,6 +129,7 @@ class _HeaderStrip extends StatelessWidget {
       ),
       child: Row(
         children: [
+          if (leading != null) ...[leading!, const SizedBox(width: Spacing.md)],
           Expanded(
             child: SignalText(
               title.toUpperCase(),
@@ -120,12 +150,13 @@ class _HeaderStrip extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (onTap == null)
+          if (onTap == null && onLongPress == null)
             strip
           else
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: onTap,
+              onLongPress: onLongPress,
               child: strip,
             ),
           // The rule runs the fill's full width: an inset rule under an edge to

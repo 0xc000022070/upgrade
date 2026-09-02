@@ -8,19 +8,13 @@ class NextAction {
     required this.taskId,
     required this.title,
     required this.projectName,
-    required this.suggested,
   });
 
   final String taskId;
   final String title;
 
-  /// Null when the task is loose.
+  /// Null when the item is a drop.
   final String? projectName;
-
-  /// True when nothing was flagged and the screen picked the row itself, which
-  /// SPEC.md §37 asks be labelled rather than presented as a decision already
-  /// taken.
-  final bool suggested;
 }
 
 class BlockedTask {
@@ -96,4 +90,72 @@ class ProjectSummary {
   bool get isBlocked => blockedTitle != null;
 
   String? get lead => blockedTitle ?? nextActionTitle;
+}
+
+/// One GOALS panel header (SPEC.md §39.1, §39.5). Progress is counted from the
+/// items under the goal, so an empty goal is 0/0 rather than undefined.
+class GoalSummary {
+  const GoalSummary({
+    required this.goalId,
+    required this.projectId,
+    required this.title,
+    required this.doneCount,
+    required this.totalCount,
+  });
+
+  final String goalId;
+  final String projectId;
+  final String title;
+  final int doneCount;
+  final int totalCount;
+
+  double get ratio => totalCount == 0 ? 0 : doneCount / totalCount;
+
+  int get percent => (ratio * 100).round();
+}
+
+/// The quick view breadcrumb (SPEC.md §39.4): `DROPS`,
+/// `INFRA PERSONAL / DROPS`, `INFRA PERSONAL / REDUCE SAAS`.
+class ItemLocation {
+  const ItemLocation(this.projectName, this.goalTitle);
+
+  final String? projectName;
+  final String? goalTitle;
+
+  List<String> get crumbs => [
+    ?projectName?.toUpperCase(),
+    goalTitle?.toUpperCase() ?? 'DROPS',
+  ];
+
+  String get label => crumbs.join(' / ');
+}
+
+/// Where an item can be filed (SPEC.md §39.5). Not an enum: the goal case needs
+/// its project too, since filing under a goal implies the goal's project.
+class ItemTarget {
+  const ItemTarget.drops() : projectId = null, goalId = null;
+  const ItemTarget.project(String this.projectId) : goalId = null;
+  const ItemTarget.goal(String this.projectId, String this.goalId);
+
+  /// Where an item already sits, so §39.5's pickers can draw it as the current
+  /// value without every caller repeating the two null checks.
+  factory ItemTarget.of(String? projectId, String? goalId) {
+    if (projectId == null) return const ItemTarget.drops();
+    if (goalId == null) return ItemTarget.project(projectId);
+    return ItemTarget.goal(projectId, goalId);
+  }
+
+  final String? projectId;
+  final String? goalId;
+
+  bool get isDrops => projectId == null;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ItemTarget &&
+      other.projectId == projectId &&
+      other.goalId == goalId;
+
+  @override
+  int get hashCode => Object.hash(projectId, goalId);
 }

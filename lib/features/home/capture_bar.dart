@@ -3,19 +3,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/navigation.dart';
 import '../../application/providers.dart';
+import '../../data/database.dart';
+import '../../data/enums.dart';
+import '../../data/repositories/attachment_repository.dart';
+import '../../data/views.dart';
 import '../../design/colors.dart';
+import '../../design/components/keyboard_toolbar.dart';
 import '../../design/components/panel.dart';
+import '../../design/components/panel_sheet.dart';
 import '../../design/components/solid_action_bar.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/hotline_icon.dart';
 import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
+import '../tasks/image_input.dart';
+import '../tasks/item_pickers.dart';
+import '../tasks/link_input.dart';
 
 /// SPEC.md §37 pins capture to the bottom of HOME; §38.9 makes it a panel like
 /// everything else — header strip, one field line, the accent target glyph on
 /// the right. It is not focused on entry: raising the IME on launch would bury
 /// the panels HOME exists to show.
+///
+/// §39.9 withdrew §39.6's toolbar row from inside the panel: the icons live on
+/// the strip above the keyboard, and the `→ DROPS` block is now the target
+/// icon with its answer showing as the first chip. §39.10 cuts that strip to
+/// `link`, `image`, `+`, and §39.11 leaves `target` as the only thing behind
+/// the `+`: next and blocked are states, and a capture has none.
 class CaptureBar extends ConsumerStatefulWidget {
   const CaptureBar({super.key});
 
@@ -33,6 +48,17 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   /// glitch and the nav one keeps playing for captures sent without a keyboard.
   final _glitch = GlitchController();
 
+  ItemTarget _target = const ItemTarget.drops();
+
+  /// Attached before the item exists, so they are held here and written with it
+  /// in §39.6's single transaction.
+  final _pending = <NewAttachment>[];
+
+  bool _urlMode = false;
+
+  /// The title, parked while the one field is holding a URL.
+  String _stashed = '';
+
   @override
   void dispose() {
     _controller.dispose();
@@ -44,25 +70,133 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   /// Whitespace is not a capture: the guard is here rather than on the button
   /// so the IME action cannot get past it either.
   Future<void> _submit() async {
-    final content = _controller.text.trim();
-    if (content.isEmpty) return;
+    if (_urlMode) return _commitUrl();
+    final raw = _controller.text.trim();
+    if (raw.isEmpty) return;
+    // §39.6: the line is kept as typed. A URL only leaves the title when it was
+    // the whole line, and then the link itself is what names the item.
+    final found = extractUrls(raw);
+    final stripped = titleWithoutUrls(raw, found);
+    final content = stripped.isEmpty ? (found.firstOrNull ?? raw) : raw;
+    final attachments = [..._pending, ...found.map(NewAttachment.url)];
+    final target = _target;
     _controller.clear();
-    // Focus is re-requested rather than kept: submitting through the IME
-    // unfocuses the field, and the keyboard must not drop between captures.
-    _focus.requestFocus();
-    _glitch.fire(seed: content.hashCode);
+    // §39.12: submitting closes the form. The focus goes, and with it the
+    // keyboard, the scrim and the strip; the row lands at the top of DROPS with
+    // nothing over it. Rapid entry is the user tapping the field again, which
+    // they asked for over a form that never lets go.
+    _focus.unfocus();
+    setState(() {
+      _pending.clear();
+      // The target is the state of one capture, not a mode the bar stays in:
+      // the next thing typed is a drop again unless it is aimed again.
+      _target = const ItemTarget.drops();
+    });
+    _glitch.fire(seed: raw.hashCode);
     ref.read(navGlitchProvider).fire(0);
-    await ref.read(taskRepositoryProvider).capture(content);
+    await ref
+        .read(taskRepositoryProvider)
+        .capture(content, target: target, attachments: attachments);
+  }
+
+  void _commitUrl() {
+    final url = normalizeUrl(_controller.text);
+    setState(() {
+      if (url != null) _pending.add(NewAttachment.url(url));
+      _urlMode = false;
+      _controller.text = _stashed;
+      _controller.selection = TextSelection.collapsed(
+        offset: _controller.text.length,
+      );
+    });
+    _focus.requestFocus();
+  }
+
+  /// §39.9: the clipboard is the common case and needs no prompt; the field
+  /// itself is the fallback, and never a second field.
+  Future<void> _link() async {
+    if (_urlMode) return _commitUrl();
+    final url = await urlFromClipboard();
+    if (!mounted) return;
+    setState(() {
+      if (url != null) {
+        _pending.add(NewAttachment.url(url));
+      } else {
+        _stashed = _controller.text;
+        _urlMode = true;
+        _controller.clear();
+      }
+    });
+  }
+
+  /// §39.10: the gallery, and nothing between it and the chip.
+  Future<void> _image() async {
+    final path = await ImageAttachments.pick();
+    if (!mounted || path == null) return;
+    setState(() => _pending.add(NewAttachment.image(path)));
+    // The picker was another activity; the keyboard and the strip have to come
+    // back or the chip lands on a field nobody is in.
+    _focus.requestFocus();
+  }
+
+  Future<void> _pickTarget() async {
+    final picked = await showPanelSheet<ItemTarget>(
+      context,
+      title: 'CAPTURE INTO',
+      builder: (context) => PanelSheetBody(
+        title: 'CAPTURE INTO',
+        children: [
+          TargetPickerBody(
+            current: _target,
+            onPicked: (target) => Navigator.of(context).pop(target),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (picked != null) setState(() => _target = picked);
+    // The picker took the focus with it; the strip and the keyboard come back
+    // so the aimed capture can be typed straight away.
+    _focus.requestFocus();
+  }
+
+  /// Resolved from the live rows rather than stored with the target, so a
+  /// project renamed while the chip is up renames the chip. Only called with a
+  /// target set: §39.12 leaves the default without a chip to label.
+  String _targetLabel() {
+    if (_target.projectId == null) return 'DROPS';
+    final projects =
+        ref.watch(projectsProvider).valueOrNull ?? const <Project>[];
+    final project = projects
+        .where((p) => p.id == _target.projectId)
+        .firstOrNull;
+    final projectName = (project?.name ?? 'PROJECT').toUpperCase();
+    if (_target.goalId == null) return projectName;
+    final goals =
+        ref.watch(projectGoalsProvider(_target.projectId!)).valueOrNull ??
+        const <GoalSummary>[];
+    final goal = goals.where((g) => g.goalId == _target.goalId).firstOrNull;
+    // §39.12 spells the aimed chip `ROMMY / SHIP MVP`: a goal name on its own
+    // does not say which project it belongs to, and goals repeat across them.
+    if (goal == null) return projectName;
+    return '$projectName / ${goal.title.toUpperCase()}';
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        Spacing.screenEdge,
-        Spacing.panelGap,
-        Spacing.screenEdge,
-        Spacing.md,
+    return ValueListenableBuilder<double>(
+      // The strip is an overlay pinned to the top of the IME, and the scaffold
+      // resizes the bar to sit exactly there: without this the accessory would
+      // cover the field it belongs to.
+      valueListenable: KeyboardAccessory.reservedHeight,
+      builder: (context, accessory, child) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          Spacing.screenEdge,
+          Spacing.panelGap,
+          Spacing.screenEdge,
+          Spacing.md + accessory,
+        ),
+        child: child,
       ),
       child: Panel(
         title: 'CAPTURE / QUICK ADD',
@@ -70,70 +204,127 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
           valueListenable: _controller,
           builder: (context, value, _) {
             final pending = value.text.trim().isNotEmpty;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  height: RowMetrics.minHeight,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          focusNode: _focus,
-                          style: HotlineText.capture.copyWith(
-                            color: HotlineColors.textPrimary,
-                          ),
-                          cursorColor: HotlineColors.accent,
-                          cursorWidth: 2,
-                          cursorRadius: Radius.zero,
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: (_) => _submit(),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.zero,
-                            hintText: 'Capture',
-                            hintStyle: HotlineText.capture,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: Spacing.md),
-                      // §38.9 puts the target glyph on the field line, and it stays
-                      // there with text or without: it is the icon §16b glitches on
-                      // a landed capture, and an icon that only exists while the
-                      // field is full would be unmounted mid-sequence. It drops to
-                      // secondary while the block below it is up, so the two are
-                      // read as one action with a primary, not as two buttons.
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _submit,
-                        child: SizedBox(
-                          width: TapTargets.minHeight,
-                          height: double.infinity,
-                          child: Center(
-                            child: HotlineIcon(
-                              HotlineIcons.submit,
-                              size: IconSizes.md,
-                              color: pending
-                                  ? HotlineColors.textSecondary
-                                  : HotlineColors.accent,
-                              glitch: _glitch,
+            return KeyboardAccessory(
+              focus: _focus,
+              chips: [
+                // §39.12 withdraws §39.9's standing target chip: DROPS is the
+                // default and a chip that only ever says so is a readout of
+                // nothing. Aiming the capture is what puts one up, and its `x`
+                // is the way back to DROPS.
+                if (_target.projectId != null)
+                  ToolbarChip(
+                    label: _targetLabel(),
+                    tone: HotlineColors.accent,
+                    onRemove: () =>
+                        setState(() => _target = const ItemTarget.drops()),
+                  ),
+                for (final attachment in _pending)
+                  if (attachment.kind == AttachmentKind.image)
+                    ToolbarChip.image(
+                      imagePath:
+                          ImageAttachments.absolute(attachment.value) ??
+                          attachment.value,
+                      onRemove: () =>
+                          setState(() => _pending.remove(attachment)),
+                    )
+                  else
+                    ToolbarChip(
+                      label: chipLabelFor(attachment.value),
+                      onRemove: () =>
+                          setState(() => _pending.remove(attachment)),
+                    ),
+              ],
+              // §39.10: text and links, plus images. Nothing else on the
+              // default row, ever.
+              actions: [
+                ToolbarAction(
+                  glyph: ToolbarGlyph.link,
+                  lit: _urlMode,
+                  onTap: _link,
+                ),
+                ToolbarAction(glyph: ToolbarGlyph.image, onTap: _image),
+              ],
+              // §39.11: capture aims, and that is all it does.
+              extras: [
+                ToolbarAction(
+                  glyph: ToolbarGlyph.target,
+                  lit: _target.projectId != null,
+                  onTap: _pickTarget,
+                ),
+              ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    height: RowMetrics.minHeight,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            focusNode: _focus,
+                            style: HotlineText.capture.copyWith(
+                              color: HotlineColors.textPrimary,
+                            ),
+                            cursorColor: HotlineColors.accent,
+                            cursorWidth: 2,
+                            cursorRadius: Radius.zero,
+                            keyboardType: _urlMode
+                                ? TextInputType.url
+                                : TextInputType.text,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _submit(),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
+                              hintText: _urlMode ? 'https://' : 'Capture',
+                              hintStyle: HotlineText.capture,
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: Spacing.md),
+                        // §38.9 puts the target glyph on the field line, and it
+                        // stays there with text or without: it is the icon §16b
+                        // glitches on a landed capture, and an icon that only
+                        // exists while the field is full would be unmounted
+                        // mid-sequence. It drops to secondary while the block
+                        // below it is up, so the two are read as one action
+                        // with a primary, not as two buttons.
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _submit,
+                          child: SizedBox(
+                            width: TapTargets.minHeight,
+                            height: double.infinity,
+                            child: Center(
+                              child: HotlineIcon(
+                                HotlineIcons.submit,
+                                size: IconSizes.md,
+                                color: pending
+                                    ? HotlineColors.textSecondary
+                                    : HotlineColors.accent,
+                                glitch: _glitch,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                // §16c.2: the solid block is the primary CTA and appears only
-                // when there is something to commit, so an idle HOME never
-                // spends a full-width accent bar — or the height it costs — on
-                // nothing.
-                if (pending) const SizedBox(height: Spacing.md),
-                if (pending) SolidActionBar(label: 'Capture', onTap: _submit),
-              ],
+                  // §16c.2: the solid block is the primary CTA and appears only
+                  // when there is something to commit, so an idle HOME never
+                  // spends a full-width accent bar — or the height it costs —
+                  // on nothing.
+                  if (pending) const SizedBox(height: Spacing.md),
+                  if (pending)
+                    SolidActionBar(
+                      label: _urlMode ? 'Attach' : 'Capture',
+                      onTap: _submit,
+                    ),
+                ],
+              ),
             );
           },
         ),

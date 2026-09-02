@@ -23,6 +23,7 @@ class ListRow extends StatelessWidget {
     this.subtitle,
     this.caption,
     this.leading,
+    this.leadingWidth = IconSizes.glyph,
     this.value,
     this.valueColor,
     this.valueStrong = false,
@@ -31,6 +32,7 @@ class ListRow extends StatelessWidget {
     this.trailing,
     this.onTap,
     this.onLongPress,
+    this.onLeadingTap,
     this.lead = false,
     this.titleColor,
     this.subtitleColor,
@@ -52,6 +54,11 @@ class ListRow extends StatelessWidget {
   /// starts at the panel's padding.
   final Widget? leading;
 
+  /// §39.13's selection checkbox is a mono `[ ]`, which needs 24 rather than
+  /// the 14 a glyph takes. The slot widens; the gutter after it does not, so
+  /// every other row on the screen keeps its left edge.
+  final double leadingWidth;
+
   /// §38.4: percent, duration, time or count. One column, right-aligned.
   final String? value;
   final Color? valueColor;
@@ -70,7 +77,19 @@ class ListRow extends StatelessWidget {
 
   /// §38 drops the trailing `...`: the sheet is a long press, so a row keeps
   /// its right column for data.
+  ///
+  /// §39.13 makes it the way into selection mode on a drop row. It carries no
+  /// argument: the mode is the panel's, and the row only says which one was
+  /// held.
   final VoidCallback? onLongPress;
+
+  /// §39.4: the checkbox glyph toggles done without opening the quick view,
+  /// with a 40px target. It is an overlay rather than a wrapper around
+  /// [leading], because a hit outside the 14px glyph slot never reaches a
+  /// child of it. 40 is wider than the 26px gutter, so the target does take
+  /// the first two characters of the title with it — the alternative is a
+  /// 14px target, which the spec rules out.
+  final VoidCallback? onLeadingTap;
 
   /// The one row a screen is built around gets a 13px title instead of 12.
   final bool lead;
@@ -89,7 +108,7 @@ class ListRow extends StatelessWidget {
     // The glyph sits on the title's line, not on the row's centre: a three
     // line row would otherwise park it next to the reason. Every other line
     // indents past the slot so the whole stack keeps one left edge.
-    final indent = leading == null ? 0.0 : IconSizes.glyph + Spacing.lg;
+    final indent = leading == null ? 0.0 : leadingWidth + Spacing.lg;
 
     Widget indented(Widget child) => Padding(
       padding: EdgeInsets.only(left: indent),
@@ -111,7 +130,7 @@ class ListRow extends StatelessWidget {
         children: [
           if (leading != null) ...[
             SizedBox(
-              width: IconSizes.glyph,
+              width: leadingWidth,
               height: titleStyle.fontSize! * titleStyle.height!,
               child: Center(child: leading),
             ),
@@ -202,12 +221,33 @@ class ListRow extends StatelessWidget {
       ),
     );
 
-    if (onTap == null && onLongPress == null) return content;
+    Widget body = content;
+    if (onLeadingTap != null) {
+      body = Stack(
+        children: [
+          content,
+          // Last child, so it is hit-tested first and its recognizer enters
+          // the arena before the row's — the inner tap wins.
+          Positioned(
+            left: 0,
+            top: 0,
+            width: TapTargets.checkbox,
+            height: TapTargets.checkbox,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onLeadingTap,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (onTap == null && onLongPress == null) return body;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       onLongPress: onLongPress,
-      child: content,
+      child: body,
     );
   }
 }

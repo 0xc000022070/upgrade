@@ -16,6 +16,7 @@ class ScreenScaffold extends StatelessWidget {
     required this.title,
     required this.children,
     this.breadcrumb = '/ PERSONAL CONTROL PLANE',
+    this.breadcrumbTrailing,
     this.titleTrailing,
     this.onBack,
     this.header,
@@ -29,6 +30,12 @@ class ScreenScaffold extends StatelessWidget {
 
   final String title;
   final String breadcrumb;
+
+  /// §39.2: the detail screen's `EDIT` sits here. The breadcrumb line is the
+  /// only row above the title, and a screen-level verb belongs beside the path
+  /// it acts on rather than beside the name it would compete with.
+  final Widget? breadcrumbTrailing;
+
   final List<Widget> children;
 
   /// §38.5: a small mono control on the title's right, only when it does
@@ -43,27 +50,71 @@ class ScreenScaffold extends StatelessWidget {
 
   final EdgeInsets padding;
 
+  /// The crumb never wraps (orchestrator ruling, 2026-09-02), so on a line that
+  /// also carries a verb the path has to give up width rather than take a
+  /// second line. It gives up the root segment: `/ PERSONAL CONTROL PLANE /
+  /// PROJECTS` becomes `/ PROJECTS`, which is the half that says where you are.
+  /// A screen with nothing trailing keeps the full path.
+  static String crumbFor(String breadcrumb, {required bool hasTrailing}) {
+    final segments = breadcrumb
+        .split('/')
+        .map((segment) => segment.trim())
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+    if (segments.isEmpty) return breadcrumb;
+    // Never down to nothing: a one-segment path is already as short as it goes.
+    if (hasTrailing && segments.length > 1) segments.removeAt(0);
+    return '/ ${segments.join(' / ')}';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final crumb = Text(breadcrumb, style: HotlineText.breadcrumb);
+    Widget crumb = Text(
+      crumbFor(breadcrumb, hasTrailing: breadcrumbTrailing != null),
+      style: HotlineText.breadcrumb,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+    if (onBack != null) {
+      crumb = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onBack,
+        child: Padding(
+          // The back tap needs height of its own, except in a row that already
+          // gives the whole line a tap target's worth.
+          padding: EdgeInsets.only(
+            bottom: breadcrumbTrailing == null ? Spacing.md : 0,
+          ),
+          child: crumb,
+        ),
+      );
+    }
 
     return SafeArea(
       bottom: false,
       child: ListView(
         padding: padding,
         children: [
-          if (onBack == null)
-            crumb
-          else
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onBack,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: Spacing.md),
-                child: crumb,
+          if (breadcrumbTrailing == null) ...[
+            crumb,
+            const SizedBox(height: Spacing.sm),
+          ] else
+            // The row takes a full tap target's height so the trailing verb is
+            // hittable (§35) without a 13px control floating in the margin; the
+            // gap under it is given back, so the header keeps its rhythm.
+            SizedBox(
+              height: TapTargets.minHeight,
+              child: Row(
+                children: [
+                  // The path takes the room it needs and the verb keeps its
+                  // own: an Expanded crumb would ellipsize a long path before
+                  // the trailing control had any reason to move.
+                  Flexible(child: crumb),
+                  const Spacer(),
+                  breadcrumbTrailing!,
+                ],
               ),
             ),
-          const SizedBox(height: Spacing.sm),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

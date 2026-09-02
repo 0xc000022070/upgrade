@@ -1,0 +1,618 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+
+import '../colors.dart';
+import '../motion.dart';
+import '../spacing.dart';
+import '../typography.dart';
+
+/// SPEC.md §39.10 names the toolbar's glyphs one by one, one glyph per verb and
+/// none reused. Naming them as an enum rather than passing [IconData] around is
+/// what makes that rule checkable: a second `link` cannot appear under another
+/// name, and a test can find a verb without knowing which Material glyph it
+/// currently draws.
+enum ToolbarGlyph {
+  link(Icons.link, 'LINK'),
+  image(Icons.image_outlined, 'IMAGE'),
+  more(Icons.add, 'MORE'),
+  back(Icons.arrow_back, 'BACK'),
+  target(Icons.folder_open, 'TARGET'),
+  next(Icons.bolt, 'NEXT'),
+  block(Icons.block, 'BLOCK'),
+  pair(Icons.call_merge, 'PAIR'),
+  move(Icons.drive_file_move_outlined, 'MOVE'),
+  done(Icons.check, 'DONE');
+
+  const ToolbarGlyph(this.icon, this.word);
+
+  final IconData icon;
+
+  /// The long-press tooltip. One word: the strip is icons only, and a sentence
+  /// under a 22px glyph is a caption the user did not ask for.
+  final String word;
+}
+
+/// SPEC.md §39.10. One icon on the strip. A label would make it a button bar,
+/// which is the form the user rejected.
+class ToolbarAction {
+  const ToolbarAction({
+    required this.glyph,
+    required this.onTap,
+    this.lit = false,
+  });
+
+  final ToolbarGlyph glyph;
+  final VoidCallback onTap;
+
+  /// The mode the strip is currently in — URL mode lights the link glyph, the
+  /// open extras row lights `+` — so the field's state is legible without a
+  /// placeholder to read.
+  final bool lit;
+}
+
+/// §39.10: `[ host ] x` for a URL, a 28px thumbnail with the same `x` for an
+/// image. Either way these are the field's attachments and not the body's.
+class ToolbarChip {
+  const ToolbarChip({
+    required this.label,
+    this.onRemove,
+    this.tone = HotlineColors.textSecondary,
+  }) : imagePath = null;
+
+  const ToolbarChip.image({required String this.imagePath, this.onRemove})
+    : label = '',
+      tone = HotlineColors.textSecondary;
+
+  final String label;
+
+  /// An absolute path on disk. Null for a URL chip, which has nothing to show
+  /// but its host.
+  final String? imagePath;
+
+  /// Null for a chip that is a mode rather than an attachment — the capture
+  /// target, which is always set and only ever changes.
+  final VoidCallback? onRemove;
+  final Color tone;
+}
+
+/// The accessory strip of §39.9, in the two-row shape of §39.10, pinned above
+/// the IME for as long as [focus] holds it.
+///
+/// It lives in the root overlay rather than in the widget that owns the field:
+/// the quick view is a dialog route padded away from the screen edges, and a
+/// strip built inside it could be neither full width nor flush with the
+/// keyboard. The overlay is also what lets the capture bar and the quick view
+/// share one strip without sharing a parent — and what puts the §39.10 scrim
+/// over the page while leaving [child] lit.
+class KeyboardAccessory extends StatefulWidget {
+  const KeyboardAccessory({
+    super.key,
+    required this.focus,
+    required this.actions,
+    required this.child,
+    this.extras = const [],
+    this.chips = const [],
+  });
+
+  final FocusNode focus;
+
+  /// The default row of §39.10: `link`, `image`. The `+` that opens [extras] is
+  /// appended here rather than passed in, because the swap is the accessory's
+  /// behaviour and not the host's.
+  final List<ToolbarAction> actions;
+
+  /// What `+` swaps the row to. Empty means no `+` at all — a drop's title has
+  /// one extra verb, and a surface with none should not grow the glyph that
+  /// promises them.
+  final List<ToolbarAction> extras;
+
+  final List<ToolbarChip> chips;
+  final Widget child;
+
+  /// How much room the mounted strip is taking above the IME, or zero when
+  /// there is none. There is one keyboard and therefore one accessory, so a
+  /// single value is the whole state: the strip is an overlay, and without
+  /// this the surfaces that sit against the keyboard — the sheet frame, the
+  /// capture bar — would be the ones it covers.
+  static final ValueNotifier<double> reservedHeight = ValueNotifier<double>(0);
+
+  @override
+  State<KeyboardAccessory> createState() => _KeyboardAccessoryState();
+}
+
+class _KeyboardAccessoryState extends State<KeyboardAccessory>
+    with TickerProviderStateMixin {
+  OverlayEntry? _entry;
+  OverlayEntry? _scrim;
+
+  /// The strip's contents live in a notifier rather than being read off
+  /// `widget` by the entry's builder: the entry is not a descendant of this
+  /// state, so marking it dirty from a rebuild of the host is a build outside
+  /// the current build scope. A notifier written after the frame is the one
+  /// legal way to push a change across that gap.
+  final _strip = ValueNotifier<_Strip?>(null);
+
+  /// §39.10: the extras row is open. It is state of the strip and not of the
+  /// host, and it closes with the keyboard.
+  bool _open = false;
+
+  /// The rectangle the scrim leaves clear — [child]'s, in global coordinates.
+  final _hole = ValueNotifier<Rect?>(null);
+
+  /// Read every frame while the strip is up, because the thing being measured
+  /// moves for reasons no rebuild of this widget reports: the IME animating in,
+  /// the sheet lifting off the keyboard, a chip row appearing.
+  late final Ticker _tracker;
+  final _holeKey = GlobalKey();
+
+  late final AnimationController _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    // Both are built here rather than lazily: [_remove] runs from [dispose] and
+    // touches them, and a ticker created while the state is being disposed is
+    // an error rather than a no-op.
+    _tracker = createTicker((_) => _measure());
+    _fade = AnimationController(vsync: this, duration: Motion.accessory);
+    widget.focus.addListener(_onFocus);
+  }
+
+  @override
+  void didUpdateWidget(KeyboardAccessory old) {
+    super.didUpdateWidget(old);
+    if (old.focus != widget.focus) {
+      old.focus.removeListener(_onFocus);
+      widget.focus.addListener(_onFocus);
+    }
+    _sync();
+  }
+
+  @override
+  void dispose() {
+    widget.focus.removeListener(_onFocus);
+    _remove();
+    _tracker.dispose();
+    _fade.dispose();
+    _strip.dispose();
+    _hole.dispose();
+    super.dispose();
+  }
+
+  void _onFocus() {
+    if (widget.focus.hasFocus) {
+      _insert();
+    } else {
+      _remove();
+    }
+  }
+
+  void _insert() {
+    if (_entry != null) return;
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay == null) return;
+    _open = false;
+    _strip.value = _resolve();
+    _measure();
+    // Order matters: the scrim goes in first so the strip draws over it. They
+    // are two entries rather than one because only the strip moves with the
+    // keyboard.
+    _scrim = OverlayEntry(builder: _buildScrim);
+    _entry = OverlayEntry(builder: _buildStrip);
+    overlay.insertAll([_scrim!, _entry!]);
+    _fade.forward(from: 0);
+    if (!_tracker.isActive) _tracker.start();
+    _reserve();
+  }
+
+  void _remove() {
+    final entry = _entry;
+    final scrim = _scrim;
+    _entry = null;
+    _scrim = null;
+    _open = false;
+    _strip.value = null;
+    if (_tracker.isActive) _tracker.stop();
+    if (entry == null) return;
+    entry.remove();
+    entry.dispose();
+    scrim?.remove();
+    scrim?.dispose();
+    _reserve();
+  }
+
+  /// Deferred a frame: this runs from [didUpdateWidget], inside a build, and
+  /// both the overlay entry and the hosts listening to [reservedHeight] are
+  /// outside it.
+  void _sync() {
+    if (_entry == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _entry == null) return;
+      _strip.value = _resolve();
+      _reserve();
+    });
+  }
+
+  /// §39.10: `+` swaps the row in place and `←` swaps it back. The host never
+  /// sees either glyph; it only says which verbs are extras.
+  _Strip _resolve() {
+    final row = <ToolbarAction>[];
+    if (_open) {
+      row.add(
+        ToolbarAction(glyph: ToolbarGlyph.back, onTap: () => _swap(false)),
+      );
+      row.addAll(widget.extras);
+    } else {
+      row.addAll(widget.actions);
+      if (widget.extras.isNotEmpty) {
+        row.add(
+          ToolbarAction(glyph: ToolbarGlyph.more, onTap: () => _swap(true)),
+        );
+      }
+    }
+    return _Strip(row, widget.chips, _open);
+  }
+
+  void _swap(bool open) {
+    _open = open;
+    _strip.value = _resolve();
+  }
+
+  void _measure() {
+    final box = _holeKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize || !box.attached) return;
+    // Inflated by the panel's own padding: the hole is the form, and a scrim
+    // drawn flush to the text would read as a cut rather than as focus.
+    final rect = (box.localToGlobal(Offset.zero) & box.size).inflate(
+      Spacing.md,
+    );
+    if (_hole.value != rect) _hole.value = rect;
+  }
+
+  void _reserve() {
+    final value = _entry == null
+        ? 0.0
+        : KeyboardToolbar.heightFor(widget.chips.isNotEmpty);
+    if (KeyboardAccessory.reservedHeight.value == value) return;
+    // Never during a build either: [_remove] can be reached from a dispose.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => KeyboardAccessory.reservedHeight.value = value,
+    );
+  }
+
+  Widget _buildStrip(BuildContext context) {
+    return Positioned(
+      left: 0,
+      right: 0,
+      // Flush with the top of the keyboard, and with the bottom of the screen
+      // in the frame between focus and the IME arriving.
+      bottom: MediaQuery.of(context).viewInsets.bottom,
+      child: ValueListenableBuilder<_Strip?>(
+        valueListenable: _strip,
+        builder: (context, strip, _) => strip == null
+            ? const SizedBox.shrink()
+            : KeyboardToolbar(
+                actions: strip.actions,
+                chips: strip.chips,
+                extrasOpen: strip.open,
+              ),
+      ),
+    );
+  }
+
+  /// §39.10's scrim: `#000` at 60% over everything but the form, its chips, the
+  /// strip and the keyboard. It is four rectangles around the hole rather than
+  /// one sheet with a hole punched in it, so the form underneath keeps taking
+  /// taps — a scrim that swallowed the caret would be worse than no scrim.
+  Widget _buildScrim(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return ValueListenableBuilder<Rect?>(
+      valueListenable: _hole,
+      builder: (context, hole, _) {
+        final rect =
+            hole ?? Rect.fromLTWH(0, media.size.height, media.size.width, 0);
+        final bottom = media.viewInsets.bottom;
+        return FadeTransition(
+          opacity: _fade,
+          child: Stack(
+            children: [
+              _ScrimPane(top: 0, height: rect.top, onTap: _dismiss),
+              _ScrimPane(
+                top: rect.bottom,
+                height: (media.size.height - bottom - rect.bottom).clamp(
+                  0.0,
+                  double.infinity,
+                ),
+                onTap: _dismiss,
+              ),
+              _ScrimPane(
+                top: rect.top,
+                height: rect.height,
+                left: 0,
+                width: rect.left,
+                onTap: _dismiss,
+              ),
+              _ScrimPane(
+                top: rect.top,
+                height: rect.height,
+                left: rect.right,
+                width: (media.size.width - rect.right).clamp(
+                  0.0,
+                  double.infinity,
+                ),
+                onTap: _dismiss,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _dismiss() => widget.focus.unfocus();
+
+  @override
+  Widget build(BuildContext context) =>
+      KeyedSubtree(key: _holeKey, child: widget.child);
+}
+
+class _ScrimPane extends StatelessWidget {
+  const _ScrimPane({
+    required this.top,
+    required this.height,
+    required this.onTap,
+    this.left = 0,
+    this.width,
+  });
+
+  static const color = Color(0x99000000);
+
+  final double top;
+  final double height;
+  final double left;
+  final double? width;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (height <= 0 || width == 0) return const SizedBox.shrink();
+    return Positioned(
+      top: top,
+      left: left,
+      width: width,
+      right: width == null ? 0 : null,
+      height: height,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: const ColoredBox(color: color),
+      ),
+    );
+  }
+}
+
+/// What the strip is showing right now. A plain holder, so the notifier fires
+/// on every host rebuild instead of comparing lists of closures.
+class _Strip {
+  const _Strip(this.actions, this.chips, this.open);
+
+  final List<ToolbarAction> actions;
+  final List<ToolbarChip> chips;
+  final bool open;
+}
+
+/// The strip itself, separated from the overlay plumbing so a test can mount it
+/// on its own.
+class KeyboardToolbar extends StatelessWidget {
+  const KeyboardToolbar({
+    super.key,
+    required this.actions,
+    this.chips = const [],
+    this.extrasOpen = false,
+  });
+
+  static const height = 44.0;
+  static const chipHeight = 28.0;
+
+  static double heightFor(bool hasChips) =>
+      hasChips ? height + chipHeight + Spacing.md : height;
+
+  final List<ToolbarAction> actions;
+  final List<ToolbarChip> chips;
+
+  /// Only the switcher's key: which row is up is decided upstream, and the
+  /// strip's height is the same either way (§39.10: no growth).
+  final bool extrasOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (chips.isNotEmpty)
+          Container(
+            height: chipHeight + Spacing.md,
+            color: HotlineColors.surfacePrimary,
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+            alignment: Alignment.centerLeft,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: chips.length,
+              separatorBuilder: (_, _) => const SizedBox(width: Spacing.md),
+              itemBuilder: (_, index) => _Chip(chip: chips[index]),
+            ),
+          ),
+        Container(
+          height: height,
+          decoration: const BoxDecoration(
+            color: HotlineColors.surfaceSecondary,
+            border: Border(
+              top: BorderSide(
+                color: HotlineColors.borderNormal,
+                width: Borders.hairline,
+              ),
+            ),
+          ),
+          child: AnimatedSwitcher(
+            duration: Motion.accessory,
+            // Cross-fade in place: the default of stacking the outgoing child
+            // under the incoming one is exactly what §39.10 asks for, but the
+            // sized box keeps the row from laying out at the union of the two
+            // widths mid-swap.
+            layoutBuilder: (current, previous) => Stack(
+              alignment: Alignment.centerLeft,
+              children: [...previous, ?current],
+            ),
+            child: Row(
+              key: ValueKey(extrasOpen),
+              children: [
+                for (final action in actions) _ToolbarButton(action: action),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ToolbarButton extends StatefulWidget {
+  const _ToolbarButton({required this.action});
+
+  final ToolbarAction action;
+
+  @override
+  State<_ToolbarButton> createState() => _ToolbarButtonState();
+}
+
+class _ToolbarButtonState extends State<_ToolbarButton> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final lit = widget.action.lit || _down;
+    return Tooltip(
+      message: widget.action.glyph.word,
+      triggerMode: TooltipTriggerMode.longPress,
+      preferBelow: false,
+      textStyle: HotlineText.label.copyWith(color: HotlineColors.textPrimary),
+      decoration: const BoxDecoration(color: HotlineColors.surfacePrimary),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _down = true),
+        onTapCancel: () => setState(() => _down = false),
+        onTapUp: (_) => setState(() => _down = false),
+        onTap: widget.action.onTap,
+        child: SizedBox(
+          width: TapTargets.minHeight,
+          height: KeyboardToolbar.height,
+          child: Center(
+            child: Icon(
+              widget.action.glyph.icon,
+              size: IconSizes.toolbar,
+              color: lit ? HotlineColors.accent : HotlineColors.textMuted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.chip});
+
+  final ToolbarChip chip;
+
+  @override
+  Widget build(BuildContext context) {
+    final path = chip.imagePath;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: chip.onRemove,
+      child: path != null
+          ? _ImageChip(path: path, removable: chip.onRemove != null)
+          : Container(
+              height: KeyboardToolbar.chipHeight,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+              decoration: BoxDecoration(
+                border: Border.all(color: chip.tone, width: Borders.hairline),
+                borderRadius: BorderRadius.circular(Radii.sharp),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '[ ${chip.label} ]',
+                    style: HotlineText.value.copyWith(color: chip.tone),
+                  ),
+                  if (chip.onRemove != null) ...[
+                    const SizedBox(width: Spacing.md),
+                    Icon(
+                      Icons.close,
+                      size: IconSizes.affordance,
+                      color: chip.tone,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+/// §39.10: a 28px square of the picked image with an `x`. The `x` is drawn over
+/// the corner rather than beside it, because a thumbnail with a label-width
+/// affordance next to it stops reading as a square.
+class _ImageChip extends StatelessWidget {
+  const _ImageChip({required this.path, required this.removable});
+
+  final String path;
+  final bool removable;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: KeyboardToolbar.chipHeight,
+      height: KeyboardToolbar.chipHeight,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: HotlineColors.borderNormal,
+                width: Borders.hairline,
+              ),
+            ),
+            child: Image.file(
+              File(path),
+              fit: BoxFit.cover,
+              // A picked file can be gone by the time the chip draws — the
+              // gallery item was deleted, the copy failed. The frame is still
+              // an attachment the user can remove.
+              errorBuilder: (_, _, _) =>
+                  const ColoredBox(color: HotlineColors.surfaceSecondary),
+            ),
+          ),
+          if (removable)
+            const Align(
+              alignment: Alignment.topRight,
+              child: ColoredBox(
+                color: HotlineColors.backgroundPrimary,
+                child: Icon(
+                  Icons.close,
+                  size: IconSizes.affordance,
+                  color: HotlineColors.textSecondary,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

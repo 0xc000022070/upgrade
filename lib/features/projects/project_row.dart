@@ -8,12 +8,16 @@ import '../../design/components/list_row.dart';
 /// SPEC.md §19 and the §38 mocks: the project's name is the kicker, its
 /// objective is the row's title, and progress lives entirely in the right
 /// column — a 56x2 bar next to `done/total  percent`.
+///
+/// §39.14: the objective is optional. Without one the name moves down to the
+/// title line and the kicker goes — a row must not spend a line on nothing.
 class ProjectRow extends StatelessWidget {
   const ProjectRow({
     super.key,
     required this.project,
     required this.onTap,
     this.showLead = false,
+    this.dim = false,
   });
 
   final ProjectSummary project;
@@ -23,21 +27,31 @@ class ProjectRow extends StatelessWidget {
   /// that moves or holds each project.
   final bool showLead;
 
+  /// §39.14: the `ARCHIVED N` panel's rows. Archived work is a record, so it
+  /// reads at the same weight a done item does.
+  final bool dim;
+
   @override
   Widget build(BuildContext context) {
     final blocked = showLead && project.isBlocked && project.lead != null;
+    // The status rides the name so a held project reads as one in a list of
+    // running ones. Inside the §39.14 `ARCHIVED` panel the header already said
+    // it, so the suffix would only repeat the panel.
+    final named = project.status == ProjectStatus.active || dim
+        ? project.name
+        : '${project.name}  ·  ${project.status.name}';
+    final hasObjective = project.objective.trim().isNotEmpty;
     return ListRow(
-      kicker: project.status == ProjectStatus.active
-          ? project.name
-          : '${project.name}  ·  ${project.status.name}',
-      title: project.objective,
+      kicker: hasObjective ? named : null,
+      title: hasObjective ? project.objective : named,
+      titleColor: dim ? HotlineColors.textMuted : null,
       subtitle: blocked ? '[ BLOCKED BY ] ${project.lead}' : null,
       subtitleColor: HotlineColors.warning,
       caption: !blocked && showLead ? project.lead : null,
       progress: project.ratio,
       value: '${project.doneCount}/${project.totalCount}  ${project.percent}%',
       valueStrong: true,
-      valueColor: HotlineColors.accent,
+      valueColor: dim ? HotlineColors.textMuted : HotlineColors.accent,
       onTap: onTap,
     );
   }

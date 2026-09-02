@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../application/drop_selection.dart';
 import '../application/navigation.dart';
 import '../design/colors.dart';
 import '../design/components/static_background.dart';
@@ -58,6 +59,10 @@ class _ShellState extends ConsumerState<_Shell> {
   void _onIndexChanged(int index) {
     setState(() => _entries[index]++);
     ref.read(navGlitchProvider).fire(index);
+    // §39.13: a selection never survives a navigation away from its panel, and
+    // the tabs keep every screen mounted — the panel is never disposed, so the
+    // shell is the only place that sees the user leave it.
+    ref.read(dropSelectionProvider.notifier).clear();
   }
 
   @override
