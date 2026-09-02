@@ -22,7 +22,9 @@ class HotlineIcon extends StatelessWidget {
   final double size;
   final Color color;
 
-  /// Renders the nodes-only variant (SPEC.md §16b glitch frame 2).
+  /// Renders the nodes-only variant. §16b.2 took this out of the glitch
+  /// sequence — see [GlitchedIcon] — so it is now only a way to ask for the
+  /// variant outright.
   final bool signal;
 
   /// When attached, a [GlitchController.fire] plays the §16b frame sequence on
@@ -45,7 +47,13 @@ class HotlineIcon extends StatelessWidget {
     if (controller == null || MediaQuery.disableAnimationsOf(context)) {
       return rest;
     }
-    return GlitchedIcon(controller: controller, rest: rest, frame: _svg);
+    // The glitch recolours the icon it was given; it never swaps the icon out
+    // for a different one, so the variant is fixed here and not per frame.
+    return GlitchedIcon(
+      controller: controller,
+      rest: rest,
+      frame: ({required Color paint}) => _svg(asSignal: signal, paint: paint),
+    );
   }
 }
 
@@ -60,8 +68,8 @@ const glitchIcons = [
   HotlineIcons.submit,
 ];
 
-/// A glitch frame swaps both the asset and the colour, and flutter_svg keys its
-/// cache on the pair — so the first play of a sequence decodes entries it has
+/// A glitch frame swaps the colour, and flutter_svg keys its cache on the
+/// asset/colour pair — so the first play of a sequence decodes entries it has
 /// never seen and renders nothing until each one lands, which on device shows
 /// up as the icon blinking out for a frame. Warming the pairs is what makes the
 /// first flipbook run as clean as the tenth.
@@ -73,11 +81,10 @@ Future<void> warmGlitchIcons() {
   return Future.wait([
     for (final icon in glitchIcons)
       for (final paint in paints)
-        for (final asset in [icon.asset, icon.signalAsset])
-          SvgAssetLoader(
-            asset,
-            theme: SvgTheme(currentColor: paint),
-          ).loadBytes(null),
+        SvgAssetLoader(
+          icon.asset,
+          theme: SvgTheme(currentColor: paint),
+        ).loadBytes(null),
   ]);
 }
 
@@ -95,28 +102,54 @@ class GlitchedIcon extends StatelessWidget {
 
   /// What the icon looks like when nothing is happening, which is almost always.
   final Widget rest;
-  final Widget Function({required bool asSignal, required Color paint}) frame;
+  final Widget Function({required Color paint}) frame;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, child) {
-        // Frames, in order: displaced slices, signal variant, accent, settle.
-        // Only the accent frame changes colour, so the sequence reads as the
-        // icon breaking up rather than as a colour animation.
+        // Frames, in order: a light tear, a heavier one, the accent, the
+        // heaviest, then the clean glyph. The block set grows across the
+        // sequence rather than decaying — the shape of the artist's study in
+        // design/explorations/motion — so the icon comes apart and is then
+        // simply there again.
+        //
+        // §16b's nodes-only frame is gone. On a glyph like the checkbox the
+        // signal variant is a single 5x5 diamond, so that frame left 0% of the
+        // shape on screen and read as the icon blinking out, which is the one
+        // thing §16b.2's "at least 70% intact" rules out.
         return switch (controller.frame) {
-          0 => GlitchSlices(
+          0 => GlitchBlocks(
             seed: controller.seed,
-            child: frame(asSignal: false, paint: HotlineColors.textPrimary),
+            blocks: 2,
+            fragments: 0,
+            child: frame(paint: HotlineColors.textPrimary),
           ),
-          1 => frame(asSignal: true, paint: HotlineColors.textPrimary),
-          2 => frame(asSignal: false, paint: HotlineColors.accent),
-          3 => GlitchSlices(
+          1 => GlitchBlocks(
             seed: controller.seed + 1,
-            magnitude: 1,
-            child: frame(asSignal: false, paint: HotlineColors.textPrimary),
+            blocks: 3,
+            fragments: 2,
+            child: frame(paint: HotlineColors.textPrimary),
           ),
+          // §16b.2 keeps this one as the single colour event, so its blocks
+          // take no luminance step and drop no fragments: the frame is one
+          // flat accent shape, torn.
+          2 => GlitchBlocks(
+            seed: controller.seed + 2,
+            blocks: 3,
+            fragments: 0,
+            tone: false,
+            child: frame(paint: HotlineColors.accent),
+          ),
+          3 => GlitchBlocks(
+            seed: controller.seed + 3,
+            blocks: 5,
+            fragments: 3,
+            child: frame(paint: HotlineColors.textPrimary),
+          ),
+          // Frame 4 is the clean glyph held for one step, not the return to
+          // rest: §16b.2 asks the flipbook itself to end on the shape.
           _ => child!,
         };
       },

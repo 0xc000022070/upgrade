@@ -56,65 +56,269 @@ class GlitchController extends ChangeNotifier {
   }
 }
 
-/// Horizontal slice displacement: the one primitive shared by the icon glitch
-/// (§16b) and the title smear (§16c.4). The child is painted [bands] times, each
-/// copy clipped to its band and shifted, so nothing is redrawn at a new size and
-/// no shader is involved.
-class GlitchSlices extends StatelessWidget {
-  const GlitchSlices({
+/// One displaced rectangle of the SPEC.md §16b.2 language. Both fields are
+/// fractions of the box rather than pixels, so a single plan reads the same on a
+/// 20px glyph and on a panel, and the block ranges the spec states as fractions
+/// of the glyph need no conversion.
+@immutable
+class GlitchBlock {
+  const GlitchBlock({
+    required this.dest,
+    required this.shift,
+    required this.tone,
+  });
+
+  /// Where the block lands, in fractions of the box on both axes.
+  final Rect dest;
+
+  /// How far its pixels travelled to get here: what shows inside [dest] is what
+  /// sat at `dest` moved back by [shift].
+  final Offset shift;
+
+  /// Luminance multiplier, 1 for an untouched block.
+  final double tone;
+
+  /// §16b.2 MOSH: the block reached into another band, so what lands here is a
+  /// piece of the shape from somewhere it does not belong rather than the
+  /// pixels immediately beside it.
+  bool get isMosh => shift.dy != 0;
+
+  double get area => dest.width * dest.height;
+}
+
+/// §16b.2's ruling — "the un-glitched shape stays at least 70% intact" — as an
+/// area budget the planner spends, rather than a property the block ranges are
+/// merely expected to have. Overlapping blocks are charged twice, so the real
+/// corruption is at most this.
+const glitchCoverage = 0.3;
+
+/// The §6 text ramp steps by roughly this ratio between neighbouring levels
+/// (E8 -> 9A -> 6F), which is what §16b.2 means by shifting luminance one step.
+const glitchToneDown = 0.69;
+const glitchToneUp = 1.45;
+
+/// The §16b.2 block set for one frame. Pure and seeded: the same event always
+/// tears the same way, and a test can assert the ruling on the plan itself
+/// without rasterising anything.
+List<GlitchBlock> planGlitchBlocks(
+  int seed, {
+  int blocks = 4,
+  int fragments = 3,
+  bool tone = true,
+}) {
+  final random = Random(seed);
+  final planned = <GlitchBlock>[];
+  var budget = glitchCoverage;
+
+  double between(double low, double high) =>
+      low + random.nextDouble() * (high - low);
+  double sign() => random.nextBool() ? 1.0 : -1.0;
+  double toneOf() => tone
+      ? (random.nextBool() ? glitchToneUp : glitchToneDown)
+      : 1.0;
+
+  // §16b.2: one or two of the displaced blocks are moshes.
+  final moshes = 1 + random.nextInt(2);
+
+  for (var i = 0; i < blocks; i++) {
+    // Height 1/64 to 1/4 of the glyph, width 1/8 to 1/2 of it.
+    final height = between(1 / 64, 1 / 4);
+    final width = between(1 / 8, 1 / 2);
+    if (width * height > budget) break;
+    budget -= width * height;
+    final left = between(0, 1 - width);
+    final top = between(0, 1 - height);
+    // Sideways by 1/32 to 1/6 of the glyph width. Nothing keeps that shift
+    // inside the box: a block at the edge sampling past it tears off, which is
+    // the same thing the cover does at its own frame edges.
+    final dx = between(1 / 32, 1 / 6) * sign();
+    // A mosh, on the other hand, is only a mosh if it lands on ink — a vertical
+    // reach past the box would sample nothing and read as a hole.
+    final dy = i < moshes
+        ? _reachable(top, height, between(1 / 8, 1 / 2) * sign())
+        : 0.0;
+    planned.add(
+      GlitchBlock(
+        dest: Rect.fromLTWH(left, top, width, height),
+        shift: Offset(dx, dy),
+        tone: toneOf(),
+      ),
+    );
+  }
+
+  // §16b.2 FRAGMENTS: two or three small blocks detach fully and sit in empty
+  // space. They stay inside the box — a glyph is mostly empty ground, so there
+  // is room, and a crumb thrown past the edge would land on whatever shares the
+  // row with the icon instead of on the icon's own emptiness.
+  final crumbs = fragments == 0 ? 0 : fragments - random.nextInt(2);
+  for (var i = 0; i < crumbs; i++) {
+    final height = between(1 / 32, 1 / 10);
+    final width = between(1 / 16, 1 / 6);
+    if (width * height > budget) break;
+    budget -= width * height;
+    // Sampled from the middle, where a centred glyph keeps its ink, then thrown
+    // far enough to clear the region it came from.
+    final sourceLeft = between(0.2, 0.8 - width);
+    final sourceTop = between(0.2, 0.8 - height);
+    final left = _thrown(sourceLeft, width, between(1 / 4, 1 / 2));
+    final top = _thrown(sourceTop, height, between(1 / 8, 1 / 3));
+    planned.add(
+      GlitchBlock(
+        dest: Rect.fromLTWH(left, top, width, height),
+        shift: Offset(left - sourceLeft, top - sourceTop),
+        tone: toneOf(),
+      ),
+    );
+  }
+
+  return planned;
+}
+
+/// Clamps a mosh's vertical reach so its source stays on the glyph.
+double _reachable(double top, double height, double dy) {
+  final low = top - (1 - height);
+  if (dy >= low && dy <= top) return dy;
+  if (-dy >= low && -dy <= top) return -dy;
+  return dy.clamp(low, top);
+}
+
+/// Moves a fragment by [delta] toward whichever side has room for it.
+double _thrown(double source, double size, double delta) {
+  if (source + delta <= 1 - size) return source + delta;
+  return max(0.0, source - delta);
+}
+
+/// The §16b.2 block language: the child is painted once intact, then a small set
+/// of displaced rectangles is painted over it. The blocks are overlays and never
+/// holes — cutting a hole would need a ground colour to fill it with, and a flat
+/// patch of ground is exactly what the §16b.1 grain behind everything is not.
+class GlitchBlocks extends StatelessWidget {
+  const GlitchBlocks({
     super.key,
     required this.child,
     required this.seed,
-    this.bands = 3,
-    this.magnitude = 3,
+    this.blocks = 4,
+    this.fragments = 3,
+    this.tone = true,
   });
 
   final Widget child;
   final int seed;
-  final int bands;
 
-  /// Maximum shift in logical pixels; each band draws 1..magnitude.
-  final int magnitude;
+  /// How many displaced blocks to attempt; [glitchCoverage] may cut the set
+  /// short, so this is a ceiling rather than a count.
+  final int blocks;
+
+  /// Ceiling on the detached crumbs; 0 turns them off for a surface with no
+  /// empty space of its own to drop them into.
+  final int fragments;
+
+  /// §16b.2 keeps the accent frame as the app's single colour event, so that
+  /// frame asks for no per-block luminance step.
+  final bool tone;
 
   @override
   Widget build(BuildContext context) {
-    final random = Random(seed);
-    final offsets = [
-      for (var i = 0; i < bands; i++)
-        (random.nextInt(magnitude) + 1) * (random.nextBool() ? 1.0 : -1.0),
-    ];
+    final plan = planGlitchBlocks(
+      seed,
+      blocks: blocks,
+      fragments: fragments,
+      tone: tone,
+    );
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // The unshifted copy establishes the layout size; the bands are overlays
-        // on top of it, so a displaced band never changes the widget's extent.
-        Opacity(opacity: 0, child: child),
-        for (var i = 0; i < bands; i++)
+        // The intact copy is two things at once: the layout size, so a displaced
+        // block never changes the widget's extent, and the 70% of §16b.2 that
+        // has to survive underneath the corruption.
+        child,
+        for (final block in plan)
           Positioned.fill(
             child: ClipRect(
-              clipper: _Band(i / bands, (i + 1) / bands),
-              child: Transform.translate(
-                offset: Offset(offsets[i], 0),
-                child: child,
+              clipper: _BlockClip(block.dest),
+              child: FractionalTranslation(
+                translation: block.shift,
+                child: _toned(block.tone, child),
               ),
             ),
           ),
       ],
     );
   }
+
+  static Widget _toned(double tone, Widget child) {
+    if (tone == 1) return child;
+    // RGB scaled uniformly with alpha untouched: a tone step is a luminance
+    // move, so a block is never a second colour on screen.
+    return ColorFiltered(
+      colorFilter: ColorFilter.matrix([
+        tone, 0, 0, 0, 0, //
+        0, tone, 0, 0, 0, //
+        0, 0, tone, 0, 0, //
+        0, 0, 0, 1, 0, //
+      ]),
+      child: child,
+    );
+  }
 }
 
-class _Band extends CustomClipper<Rect> {
-  const _Band(this.top, this.bottom);
+class _BlockClip extends CustomClipper<Rect> {
+  const _BlockClip(this.dest);
 
-  final double top;
-  final double bottom;
-
-  @override
-  Rect getClip(Size size) =>
-      Rect.fromLTRB(0, size.height * top, size.width, size.height * bottom);
+  final Rect dest;
 
   @override
-  bool shouldReclip(_Band oldClipper) =>
-      oldClipper.top != top || oldClipper.bottom != bottom;
+  Rect getClip(Size size) {
+    final rect = Rect.fromLTWH(
+      dest.left * size.width,
+      dest.top * size.height,
+      dest.width * size.width,
+      dest.height * size.height,
+    );
+    // §16b.2 states heights down to 1/64 of the glyph, which on a 20px icon
+    // rounds to nothing. A block thinner than a pixel is not a subtle block, it
+    // is an absent one.
+    return rect.height >= 1
+        ? rect
+        : Rect.fromLTWH(rect.left, rect.top, rect.width, 1);
+  }
+
+  @override
+  bool shouldReclip(_BlockClip oldClipper) => oldClipper.dest != dest;
+}
+
+/// §16b.2: screen-level events (boot, project detail entry) use the same
+/// language at panel scale. A panel has no signal variant and no accent copy to
+/// swap to the way an icon does, so its sequence is block sets alone — and like
+/// the icon it ends on the clean shape rather than on a torn one.
+class GlitchPanel extends StatelessWidget {
+  const GlitchPanel({
+    super.key,
+    required this.controller,
+    required this.child,
+  });
+
+  final GlitchController controller;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        if (controller.idle || controller.frame >= Effects.glitchFrames - 1) {
+          return child!;
+        }
+        return GlitchBlocks(
+          seed: controller.seed + controller.frame,
+          // A panel is wide enough that a glyph's block count reads as three
+          // stray lines across it; the area budget still caps the set.
+          blocks: 6,
+          child: child!,
+        );
+      },
+      child: child,
+    );
+  }
 }

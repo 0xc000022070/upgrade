@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
 import '../design/components/dither_field.dart';
+import '../design/effects/glitch.dart';
 import '../design/motion.dart';
 import '../design/spacing.dart';
 import '../design/typography.dart';
@@ -38,6 +39,9 @@ class _BootGateState extends State<BootGate> {
   bool _done = false;
   bool _started = false;
   TimingsCallback? _present;
+
+  /// §16b.2: a screen-level event at panel scale, fired by [_settle].
+  final _entry = GlitchController();
 
   @override
   void didChangeDependencies() {
@@ -92,15 +96,26 @@ class _BootGateState extends State<BootGate> {
   void _tick() {
     _timer = Timer(Effects.bootLineStep, () {
       if (!mounted) return;
-      setState(() {
-        _shown++;
-        if (_shown > widget.steps.length) _done = true;
-      });
-      if (_done) {
-        _stop();
+      setState(() => _shown++);
+      if (_shown > widget.steps.length) {
+        _settle();
       } else {
         _tick();
       }
+    });
+  }
+
+  /// §16b.2's screen-level event. Fired on the log's arrival instead, the tear
+  /// owns every frame the log has — the roll is six 40ms lines and the glitch
+  /// is 225ms — so the eye never sees the clean log the corruption is supposed
+  /// to be of. Here it tears a finished log and then puts it back, and the
+  /// sequence still lands inside [Effects.bootCap], which [_cut] enforces.
+  void _settle() {
+    _entry.fire();
+    _timer = Timer(Effects.glitchDuration, () {
+      if (!mounted) return;
+      setState(() => _done = true);
+      _stop();
     });
   }
 
@@ -118,20 +133,25 @@ class _BootGateState extends State<BootGate> {
   @override
   void dispose() {
     _stop();
+    _entry.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (_done) return widget.child;
-    return _BootScreen(steps: widget.steps.take(_shown).toList());
+    return _BootScreen(
+      steps: widget.steps.take(_shown).toList(),
+      entry: _entry,
+    );
   }
 }
 
 class _BootScreen extends StatelessWidget {
-  const _BootScreen({required this.steps});
+  const _BootScreen({required this.steps, required this.entry});
 
   final List<BootStep> steps;
+  final GlitchController entry;
 
   @override
   Widget build(BuildContext context) {
@@ -141,34 +161,54 @@ class _BootScreen extends StatelessWidget {
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(Spacing.xl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                for (final step in steps)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: Spacing.xs),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            step.label,
-                            style: HotlineText.value,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+            // The gate is [MaterialApp.home], so it has no Material above it
+            // and inherits WidgetsApp's error text style: every log line came
+            // out with a yellow double underline that no one had noticed
+            // against the accent column. The lines carry their own style and
+            // only ever inherited that decoration.
+            child: DefaultTextStyle(
+              style: HotlineText.value,
+              // Bottom-aligned by [Align] rather than by the column, so the
+              // column is only as tall as the log. §16b.2's blocks are
+              // fractions of the box they are given: over a full-height column
+              // most of a set lands in the empty two thirds above the log and
+              // tears nothing, which on device left one visible torn frame out
+              // of four.
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: GlitchPanel(
+                  controller: entry,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final step in steps)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: Spacing.xs),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  step.label,
+                                  style: HotlineText.value,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: Spacing.md),
+                              Text(
+                                step.status,
+                                style: HotlineText.value.copyWith(
+                                  color: HotlineColors.accent,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: Spacing.md),
-                        Text(
-                          step.status,
-                          style: HotlineText.value.copyWith(
-                            color: HotlineColors.accent,
-                          ),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
-              ],
+                ),
+              ),
             ),
           ),
         ),

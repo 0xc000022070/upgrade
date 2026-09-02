@@ -5,13 +5,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/application/providers.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/data/repositories/activity_repository.dart';
+import 'package:hotline/data/repositories/goal_repository.dart';
 import 'package:hotline/data/repositories/project_repository.dart';
 import 'package:hotline/data/repositories/task_repository.dart';
+import 'package:hotline/design/components/list_row.dart';
 import 'package:hotline/design/components/panel.dart';
 import 'package:hotline/design/effects/glitch.dart';
-import 'package:hotline/design/icons/hotline_icon.dart';
 import 'package:hotline/design/motion.dart';
 import 'package:hotline/features/projects/project_detail_screen.dart';
+import 'package:hotline/features/tasks/item_sheet.dart';
 
 import 'support/platform_channels.dart';
 
@@ -46,17 +48,24 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     final activity = ActivityRepository(db);
     final projects = ProjectRepository(db, activity);
+    final goals = GoalRepository(db, activity);
     final tasks = TaskRepository(db, activity);
     projectId = await projects.create(name: 'Infra personal');
+    // §39.1: the checkbox lives on a task filed under a goal. A drop has no
+    // glyph at all, so the toggle tests need a goal to hang the row on.
+    final goalId = await goals.create(projectId: projectId, title: 'Storage');
     openTaskId = await tasks.create(
       title: 'Object storage',
       projectId: projectId,
+      goalId: goalId,
     );
     final settled = await tasks.create(
       title: 'Redis propio',
       projectId: projectId,
+      goalId: goalId,
     );
     await tasks.setDone(settled, true);
+    await tasks.create(title: 'Sin archivar', projectId: projectId);
   });
 
   tearDown(() => db.close());
@@ -69,8 +78,8 @@ void main() {
     ),
   );
 
-  Finder inOpen(String title) => find.descendant(
-    of: find.ancestor(of: find.text('OPEN'), matching: find.byType(Panel)),
+  Finder inGoal(String title) => find.descendant(
+    of: find.ancestor(of: find.text('STORAGE'), matching: find.byType(Panel)),
     matching: find.text(title),
   );
 
@@ -81,6 +90,18 @@ void main() {
     return rows!.firstWhere((task) => task.id == openTaskId).done;
   }
 
+  /// §39.4 moved the toggle off the row and onto the 40px target around the
+  /// checkbox glyph; the row itself now opens the quick view. Tapping the
+  /// title would therefore open a sheet, so the toggle tests aim at the
+  /// row's top-left corner instead.
+  Future<void> tapCheckbox(WidgetTester tester, String title) {
+    final row = find.ancestor(
+      of: find.text(title),
+      matching: find.byType(ListRow),
+    );
+    return tester.tapAt(tester.getTopLeft(row) + const Offset(12, 12));
+  }
+
   /// Riverpod tears its stream subscriptions down through zero-length timers,
   /// which the binding counts as pending unless the tree is unmounted first.
   Future<void> unmount(WidgetTester tester) async {
@@ -88,42 +109,58 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  testWidgets('the toggled row holds its group until the glitch settles', (
-    tester,
-  ) async {
+  testWidgets('the toggled row keeps its place under the goal', (tester) async {
     await tester.pumpWidget(host());
     await _ready(tester);
-    expect(inOpen('Object storage'), findsOneWidget);
+    expect(inGoal('Object storage'), findsOneWidget);
 
-    await tester.tap(find.text('Object storage'));
+    await tapCheckbox(tester, 'Object storage');
     await _drain(tester);
 
-    // The write has landed: without the hold the row would already have left
-    // OPEN, and the icon the glitch is playing on would have gone with it.
+    // §39.1 replaced OPEN/DONE with one panel per goal, so a done item has
+    // nowhere else to be: the write lands, the glitch plays on the glyph the
+    // finger is still on, and the row does not move.
     expect(await isDoneInDb(tester), isTrue);
-    expect(inOpen('Object storage'), findsOneWidget);
-    expect(find.byType(GlitchedIcon), findsWidgets);
-    expect(find.byType(GlitchSlices), findsOneWidget);
+    expect(inGoal('Object storage'), findsOneWidget);
+    expect(find.byType(GlitchBlocks), findsOneWidget);
 
     await tester.pump(Effects.glitchDuration);
     await _drain(tester);
-    expect(find.text('Object storage'), findsNothing);
-    expect(find.byType(GlitchSlices), findsNothing);
+    expect(inGoal('Object storage'), findsOneWidget);
+    expect(find.byType(GlitchBlocks), findsNothing);
 
     await unmount(tester);
   });
 
-  testWidgets('reduce-motion drops the hold with the effect', (tester) async {
+  testWidgets('reduce-motion toggles with no effect at all', (tester) async {
     await tester.pumpWidget(host(reduceMotion: true));
     await _ready(tester);
-    expect(inOpen('Object storage'), findsOneWidget);
+    expect(inGoal('Object storage'), findsOneWidget);
 
-    await tester.tap(find.text('Object storage'));
+    await tapCheckbox(tester, 'Object storage');
     await _drain(tester);
 
     expect(await isDoneInDb(tester), isTrue);
-    expect(find.byType(GlitchedIcon), findsNothing);
-    expect(find.text('Object storage'), findsNothing);
+    expect(find.byType(GlitchBlocks), findsNothing);
+    expect(inGoal('Object storage'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('tapping the row opens the quick view and toggles nothing', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    await tester.tap(find.text('Object storage'));
+    await _ready(tester);
+
+    expect(find.byType(ItemSheet), findsOneWidget);
+    expect(await isDoneInDb(tester), isFalse);
+    // The sheet carries the item's location, which is what tells it apart
+    // from the row it grew out of.
+    expect(find.text('INFRA PERSONAL / STORAGE'), findsOneWidget);
 
     await unmount(tester);
   });
