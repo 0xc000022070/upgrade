@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/drop_selection.dart';
 import '../application/navigation.dart';
 import '../design/colors.dart';
-import '../design/components/static_background.dart';
 import '../design/effects/screen_entry.dart';
 import '../design/theme.dart';
 import '../features/home/home_screen.dart';
@@ -13,6 +12,7 @@ import '../features/projects/projects_screen.dart';
 import 'autonomous_ticks.dart';
 import 'boot.dart';
 import 'nav_shell.dart';
+import 'static_surface.dart';
 
 /// The system bars carry the app background rather than a scrim: on Android 15+
 /// the window is edge-to-edge, so the scaffold behind them is what the user
@@ -82,7 +82,7 @@ class _ShellState extends ConsumerState<_Shell> {
         child: Scaffold(
           backgroundColor: HotlineColors.backgroundPrimary,
           resizeToAvoidBottomInset: true,
-          body: StaticBackgroundDriver(
+          body: StaticSurface(
             child: IndexedStack(
               index: index,
               children: [

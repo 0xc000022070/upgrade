@@ -16,6 +16,7 @@ import '../projects/project_detail_screen.dart';
 import '../projects/project_form_screen.dart';
 import '../projects/project_row.dart';
 import '../screen_scaffold.dart';
+import '../settings/settings_screen.dart';
 import '../tasks/drops_panel.dart';
 import '../tasks/item_sheet.dart';
 import 'capture_bar.dart';
@@ -49,6 +50,14 @@ class HomeScreen extends ConsumerWidget {
         Expanded(
           child: ScreenScaffold(
             title: 'TODAY',
+            // §39.16's door. Text only, in the slot a project's EDIT uses: a
+            // glyph for it would be a new icon, and icons are not this side's
+            // to invent.
+            breadcrumbTrailing: PanelAffordance(
+              'SYS',
+              showIcon: false,
+              onTap: () => openSettings(context),
+            ),
             children: [
               PanelStack(
                 children: [

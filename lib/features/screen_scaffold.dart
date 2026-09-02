@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
 import '../design/components/signal_text.dart';
+import '../design/layout.dart';
 import '../design/spacing.dart';
 import '../design/typography.dart';
 
@@ -92,64 +93,74 @@ class ScreenScaffold extends StatelessWidget {
 
     return SafeArea(
       bottom: false,
-      child: ListView(
-        padding: padding,
-        children: [
-          if (breadcrumbTrailing == null) ...[
-            crumb,
-            const SizedBox(height: Spacing.sm),
-          ] else
-            // The row takes a full tap target's height so the trailing verb is
-            // hittable (§35) without a 13px control floating in the margin; the
-            // gap under it is given back, so the header keeps its rhythm.
-            SizedBox(
-              height: TapTargets.minHeight,
-              child: Row(
-                children: [
-                  // The path takes the room it needs and the verb keeps its
-                  // own: an Expanded crumb would ellipsize a long path before
-                  // the trailing control had any reason to move.
-                  Flexible(child: crumb),
-                  const Spacer(),
-                  breadcrumbTrailing!,
-                ],
+      child: LayoutBuilder(
+        builder: (context, constraints) => ListView(
+          // §39.17: the column is centred by widening the scroll view's
+          // padding, not by narrowing the scroll view. A capped ListView would
+          // leave the margins dead to a drag, and on a near-square display the
+          // margins are a third of the screen.
+          padding:
+              padding +
+              EdgeInsets.symmetric(
+                horizontal: Layout.gutterFor(constraints.maxWidth),
               ),
-            ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // The cursor rides with the title inside its own Row: a Spacer
-              // as a direct sibling would claim half the width and ellipsize
-              // a project's name long before it had to.
-              Expanded(
+          children: [
+            if (breadcrumbTrailing == null) ...[
+              crumb,
+              const SizedBox(height: Spacing.sm),
+            ] else
+              // The row takes a full tap target's height so the trailing verb is
+              // hittable (§35) without a 13px control floating in the margin; the
+              // gap under it is given back, so the header keeps its rhythm.
+              SizedBox(
+                height: TapTargets.minHeight,
                 child: Row(
                   children: [
-                    Flexible(
-                      child: SignalText(
-                        title,
-                        style: HotlineText.screenTitle,
-                        decodeOnEntry: true,
-                        smearOnEntry: true,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const Text('_', style: HotlineText.screenTitle),
+                    // The path takes the room it needs and the verb keeps its
+                    // own: an Expanded crumb would ellipsize a long path before
+                    // the trailing control had any reason to move.
+                    Flexible(child: crumb),
+                    const Spacer(),
+                    breadcrumbTrailing!,
                   ],
                 ),
               ),
-              ?titleTrailing,
-            ],
-          ),
-          const SizedBox(height: Spacing.md),
-          Container(
-            height: Borders.hairline,
-            color: HotlineColors.borderNormal,
-          ),
-          const SizedBox(height: Spacing.lg),
-          ?header,
-          ...children,
-        ],
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // The cursor rides with the title inside its own Row: a Spacer
+                // as a direct sibling would claim half the width and ellipsize
+                // a project's name long before it had to.
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: SignalText(
+                          title,
+                          style: HotlineText.screenTitle,
+                          decodeOnEntry: true,
+                          smearOnEntry: true,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const Text('_', style: HotlineText.screenTitle),
+                    ],
+                  ),
+                ),
+                ?titleTrailing,
+              ],
+            ),
+            const SizedBox(height: Spacing.md),
+            Container(
+              height: Borders.hairline,
+              color: HotlineColors.borderNormal,
+            ),
+            const SizedBox(height: Spacing.lg),
+            ?header,
+            ...children,
+          ],
+        ),
       ),
     );
   }

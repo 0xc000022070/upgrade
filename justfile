@@ -27,16 +27,36 @@ fmt:
     dart format lib test
 
 # Debug APK (arm64 only); the same artifact runs on the emulator and on faraday.
+# HOTLINE_BUILD comes from the flake's shellHook and stamps §39.16's build line.
 apk:
-    flutter build apk --debug --target-platform android-arm64
+    flutter build apk --debug --target-platform android-arm64 --dart-define=HOTLINE_BUILD=${HOTLINE_BUILD:-dev}
+
+# Release APK, the artifact faraday is upgraded with. arm64 only: the emulator
+# on rose and faraday are both arm64, and the other two ABIs were 40 of the
+# 60 MB and two thirds of the AOT time. The build number is the one in pubspec;
+# pass it explicitly because a bare release build has reported versionCode 1
+# regardless of it.
+apk-release version="1.0.0" code="1":
+    flutter build apk --release --target-platform android-arm64 --build-name={{version}} --build-number={{code}} --dart-define=HOTLINE_BUILD=${HOTLINE_BUILD:-dev}
 
 # Emulator on rose: the only device this repo drives interactively.
 dev:
     phone up --profile dev
+
+# Hot reload against the emulator on rose, over a forwarded adb server socket.
+# The inner loop: run once, then `kill -USR1 $(cat build/run.pid)` to reload and
+# -USR2 to restart, instead of paying for an apk on every change.
+run:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -fN -o ExitOnForwardFailure=yes -L 5038:127.0.0.1:5037 rose || true
+    ADB_SERVER_SOCKET=tcp:127.0.0.1:5038 flutter run -d emulator-5554 \
+        --pid-file build/run.pid \
+        --dart-define=HOTLINE_BUILD=${HOTLINE_BUILD:-dev}
 
 # faraday: install and launch only, for the user to review by hand.
 review:
     phone up --profile review
 
 desktop:
-    flutter run -d linux
+    flutter run -d linux --dart-define=HOTLINE_BUILD=${HOTLINE_BUILD:-dev}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../colors.dart';
+import '../layout.dart';
 import '../motion.dart';
 import '../spacing.dart';
 import 'action_block.dart';
@@ -113,6 +114,10 @@ class _SheetFrame extends StatelessWidget {
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
+              // §39.17. The [Align] above is already bottom-centred, so the cap
+              // is all the sheet needs to stay a sheet on a wide display
+              // instead of a band across it.
+              maxWidth: Layout.columnMax,
               maxHeight: media.size.height * maxHeightFraction,
             ),
             child: Material(color: const Color(0x00000000), child: child),

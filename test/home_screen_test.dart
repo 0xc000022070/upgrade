@@ -12,7 +12,14 @@ import 'package:hotline/features/tasks/item_pickers.dart';
 import 'package:hotline/features/home/home_screen.dart';
 import 'package:hotline/features/projects/project_form_screen.dart';
 
+import 'package:hotline/design/colors.dart';
+
 import 'support/platform_channels.dart';
+
+/// §39.13's verbs are private, so the ink is the only readable statement of
+/// whether they are enabled.
+Color? _verbColor(WidgetTester tester, IconData icon) =>
+    tester.widget<Icon>(find.byIcon(icon)).color;
 
 /// SPEC.md §39.3. The panels HOME does *not* show are as much of the change as
 /// the ones it does, so this asserts both directions.
@@ -191,6 +198,69 @@ void main() {
     expect(find.text('[ ]'), findsOneWidget);
     // §39.13: the capture bar stays where it is and does nothing.
     expect(find.byType(CaptureBar), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('SELECT enters the mode with nothing checked, verbs disabled', (
+    tester,
+  ) async {
+    await tasks.capture('primero');
+    await tasks.capture('segundo');
+
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    await tester.tap(find.text('SELECT'));
+    await _ready(tester);
+
+    // §39.15: the mode is on, the bar says nothing is checked, and every row
+    // carries an empty box.
+    expect(find.text('0 SELECTED'), findsOneWidget);
+    expect(find.text('[ ]'), findsNWidgets(2));
+    expect(find.text('[x]'), findsNothing);
+    expect(find.text('SELECT'), findsNothing, reason: 'hidden in the mode');
+    expect(_verbColor(tester, Icons.arrow_forward), HotlineColors.textDisabled);
+    expect(
+      _verbColor(tester, Icons.delete_outline),
+      HotlineColors.textDisabled,
+    );
+
+    // The first check is what lights them.
+    await tester.tap(find.text('primero'));
+    await _ready(tester);
+    expect(find.text('1 SELECTED'), findsOneWidget);
+    expect(
+      _verbColor(tester, Icons.arrow_forward),
+      HotlineColors.textSecondary,
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('SELECT is not offered on an empty DROPS panel', (tester) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    expect(find.text('DROPS'), findsOneWidget);
+    expect(find.text('SELECT'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the long press still works with SELECT on the strip', (
+    tester,
+  ) async {
+    await tasks.capture('sigue siendo un hold');
+
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    await tester.longPress(find.text('sigue siendo un hold'));
+    await _ready(tester);
+
+    // §39.15 adds a door; it does not close the old one.
+    expect(find.text('1 SELECTED'), findsOneWidget);
+    expect(find.text('[x]'), findsOneWidget);
 
     await unmount(tester);
   });

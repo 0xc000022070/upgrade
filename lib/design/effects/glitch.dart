@@ -113,9 +113,8 @@ List<GlitchBlock> planGlitchBlocks(
   double between(double low, double high) =>
       low + random.nextDouble() * (high - low);
   double sign() => random.nextBool() ? 1.0 : -1.0;
-  double toneOf() => tone
-      ? (random.nextBool() ? glitchToneUp : glitchToneDown)
-      : 1.0;
+  double toneOf() =>
+      tone ? (random.nextBool() ? glitchToneUp : glitchToneDown) : 1.0;
 
   // §16b.2: one or two of the displaced blocks are moshes.
   final moshes = 1 + random.nextInt(2);
@@ -292,11 +291,7 @@ class _BlockClip extends CustomClipper<Rect> {
 /// swap to the way an icon does, so its sequence is block sets alone — and like
 /// the icon it ends on the clean shape rather than on a torn one.
 class GlitchPanel extends StatelessWidget {
-  const GlitchPanel({
-    super.key,
-    required this.controller,
-    required this.child,
-  });
+  const GlitchPanel({super.key, required this.controller, required this.child});
 
   final GlitchController controller;
   final Widget child;

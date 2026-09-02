@@ -4,6 +4,7 @@ import '../design/colors.dart';
 import '../design/effects/glitch.dart';
 import '../design/icons/hotline_icon.dart';
 import '../design/icons/hotline_icons.dart';
+import '../design/layout.dart';
 import '../design/spacing.dart';
 import '../design/typography.dart';
 
@@ -51,20 +52,25 @@ class NavBar extends StatelessWidget {
           ),
         ),
       ),
+      // §39.17: the bar's ground and its top rule run the full width — a nav
+      // that stops at the column would leave the corners of a near-square
+      // display bare — and only the tabs inside it take the cap.
       child: SafeArea(
         top: false,
-        child: Row(
-          children: [
-            for (var i = 0; i < navDestinations.length; i++)
-              Expanded(
-                child: _NavItem(
-                  destination: navDestinations[i],
-                  active: i == currentIndex,
-                  onTap: () => onSelected(i),
-                  glitch: glitch[i],
+        child: ContentColumn(
+          child: Row(
+            children: [
+              for (var i = 0; i < navDestinations.length; i++)
+                Expanded(
+                  child: _NavItem(
+                    destination: navDestinations[i],
+                    active: i == currentIndex,
+                    onTap: () => onSelected(i),
+                    glitch: glitch[i],
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
