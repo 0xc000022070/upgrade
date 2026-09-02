@@ -1,0 +1,224 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hotline/app/nav_shell.dart';
+import 'package:hotline/application/providers.dart';
+import 'package:hotline/data/database.dart';
+import 'package:hotline/design/components/panel.dart';
+import 'package:hotline/design/components/panel_sheet.dart';
+import 'package:hotline/design/effects/glitch.dart';
+import 'package:hotline/design/layout.dart';
+import 'package:hotline/features/home/capture_bar.dart';
+import 'package:hotline/features/home/home_screen.dart';
+import 'package:hotline/features/screen_scaffold.dart';
+
+import 'support/platform_channels.dart';
+
+/// SPEC.md §39.17. faraday folds mid-session, and the two halves of the
+/// requirement pull in opposite directions: the layout has to change with the
+/// width, and nothing the user was holding may change with it.
+Future<void> _drain(
+  WidgetTester tester, {
+  Duration step = Duration.zero,
+}) async {
+  for (var i = 0; i < 6; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump(step);
+  }
+}
+
+Future<void> _ready(WidgetTester tester) =>
+    _drain(tester, step: const Duration(milliseconds: 100));
+
+void main() {
+  late AppDatabase db;
+
+  setUp(() async {
+    stubDeviceChannels();
+    stubClipboard(null);
+    db = AppDatabase(NativeDatabase.memory());
+  });
+
+  tearDown(() => db.close());
+
+  /// Logical pixels: the tests are written in dp, which is what the spec is
+  /// written in.
+  void resize(WidgetTester tester, double width, [double height = 800]) {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = ui.Size(width, height);
+    addTearDown(tester.view.reset);
+  }
+
+  Widget host(Widget child) => ProviderScope(
+    overrides: [databaseProvider.overrideWithValue(db)],
+    child: MaterialApp(home: child),
+  );
+
+  Future<void> unmount(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  }
+
+  testWidgets('below the cap the column is still the whole screen', (
+    tester,
+  ) async {
+    resize(tester, 360);
+    await tester.pumpWidget(
+      host(
+        const Scaffold(
+          body: ScreenScaffold(
+            title: 'TODAY',
+            children: [Panel(title: 'NEXT ACTION', child: Text('x'))],
+          ),
+        ),
+      ),
+    );
+    await _ready(tester);
+
+    final panel = tester.getRect(find.byType(Panel));
+    expect(panel.left, 16);
+    expect(panel.right, 344);
+  });
+
+  testWidgets('§39.17 above the cap the column stops at 600 and centres', (
+    tester,
+  ) async {
+    resize(tester, 900);
+    await tester.pumpWidget(
+      host(
+        const Scaffold(
+          body: ScreenScaffold(
+            title: 'TODAY',
+            children: [Panel(title: 'NEXT ACTION', child: Text('x'))],
+          ),
+        ),
+      ),
+    );
+    await _ready(tester);
+
+    final panel = tester.getRect(find.byType(Panel));
+    // The 600 is the column including its screen edge, which is how the same
+    // measurement reads on a 360 phone: 328 of panel inside 360 of column.
+    expect(panel.width, Layout.columnMax - 2 * 16);
+    expect(panel.center.dx, 450, reason: 'centred, not left-aligned');
+
+    // The scroll view keeps the full width: the margins the cap creates are
+    // most of a near-square display, and a drag started in them has to scroll.
+    expect(tester.getRect(find.byType(Scrollable)).width, 900);
+    await unmount(tester);
+  });
+
+  testWidgets('§39.17 the nav spans the width, its tabs take the cap', (
+    tester,
+  ) async {
+    resize(tester, 900);
+    final glitch = [GlitchController(), GlitchController()];
+    addTearDown(() {
+      for (final controller in glitch) {
+        controller.dispose();
+      }
+    });
+
+    await tester.pumpWidget(
+      host(
+        Scaffold(
+          bottomNavigationBar: NavBar(
+            currentIndex: 0,
+            onSelected: (_) {},
+            glitch: glitch,
+          ),
+        ),
+      ),
+    );
+    await _ready(tester);
+
+    final bar = tester.getRect(find.byType(NavBar));
+    expect(bar.width, 900);
+    // The cap is horizontal only. Measured on device: an [Align] that also
+    // fills vertically makes the bar as tall as the screen and leaves the body
+    // nothing, and the screen comes up empty but for two tabs.
+    expect(bar.height, lessThan(120));
+    expect(bar.bottom, 800);
+    final tabs = tester.getRect(find.text('PROJECTS'));
+    expect(tabs.center.dx, greaterThan(450));
+    expect(tabs.right, lessThanOrEqualTo(750));
+    await unmount(tester);
+  });
+
+  testWidgets('§39.17 a sheet takes the cap and survives the resize', (
+    tester,
+  ) async {
+    resize(tester, 900);
+    await tester.pumpWidget(host(const Scaffold(body: SizedBox.shrink())));
+    await _ready(tester);
+
+    final context = tester.element(find.byType(SizedBox).first);
+    unawaited(
+      showPanelSheet<void>(
+        context,
+        title: 'ITEM',
+        // A field rather than the real sheet: the resize question is whether
+        // the route's [State] is carried through one, and a controller holding
+        // text is the smallest thing that can answer it.
+        builder: (_) =>
+            const PanelSheetBody(title: 'ITEM', children: [TextField()]),
+      ),
+    );
+    await _ready(tester);
+
+    await tester.enterText(find.byType(TextField), 'abierto al plegar');
+    await _ready(tester);
+
+    final wide = tester.getRect(find.byType(PanelSheetBody));
+    expect(wide.width, lessThanOrEqualTo(Layout.columnMax));
+    expect(wide.center.dx, 450, reason: 'a sheet, not a band across the top');
+
+    resize(tester, 360);
+    await tester.pump();
+    await _ready(tester);
+
+    expect(find.text('abierto al plegar'), findsOneWidget);
+    expect(tester.getRect(find.byType(PanelSheetBody)).width, 360 - 32);
+    await unmount(tester);
+  });
+
+  testWidgets('§39.17 an unfold keeps what the user was holding', (
+    tester,
+  ) async {
+    resize(tester, 360);
+    await tester.pumpWidget(host(const Scaffold(body: HomeScreen())));
+    await _ready(tester);
+
+    await tester.enterText(find.byType(TextField), 'media escrita al plegar');
+    await _ready(tester);
+    final narrow = tester.getRect(find.byType(CaptureBar));
+    expect(narrow.width, 360);
+    expect(narrow.height, lessThan(200), reason: 'the bar is a bar');
+
+    resize(tester, 900);
+    await tester.pump();
+    await _ready(tester);
+
+    // The field is the same [State], not a rebuilt one: §39.17's requirement
+    // is met by the cap being a constraint rather than a branch, so there is
+    // no widget for the resize to insert or remove.
+    expect(find.text('media escrita al plegar'), findsOneWidget);
+    expect(
+      tester.getRect(find.byType(Panel).last).width,
+      Layout.columnMax - 32,
+    );
+
+    resize(tester, 360);
+    await tester.pump();
+    await _ready(tester);
+
+    expect(find.text('media escrita al plegar'), findsOneWidget);
+    await unmount(tester);
+  });
+}

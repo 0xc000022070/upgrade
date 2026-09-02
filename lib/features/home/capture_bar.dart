@@ -15,11 +15,13 @@ import '../../design/components/solid_action_bar.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/hotline_icon.dart';
 import '../../design/icons/hotline_icons.dart';
+import '../../design/layout.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../tasks/image_input.dart';
 import '../tasks/item_pickers.dart';
 import '../tasks/link_input.dart';
+import '../tasks/url_highlight_controller.dart';
 
 /// SPEC.md §37 pins capture to the bottom of HOME; §38.9 makes it a panel like
 /// everything else — header strip, one field line, the accent target glyph on
@@ -31,6 +33,10 @@ import '../tasks/link_input.dart';
 /// icon with its answer showing as the first chip. §39.10 cuts that strip to
 /// `link`, `image`, `+`, and §39.11 leaves `target` as the only thing behind
 /// the `+`: next and blocked are states, and a capture has none.
+///
+/// §39.15 paints the URLs in the field as they are typed, through
+/// [UrlHighlightController]. It is a readout of what `_submit` will do and
+/// changes nothing about it.
 class CaptureBar extends ConsumerStatefulWidget {
   const CaptureBar({super.key});
 
@@ -39,7 +45,7 @@ class CaptureBar extends ConsumerStatefulWidget {
 }
 
 class _CaptureBarState extends ConsumerState<CaptureBar> {
-  final _controller = TextEditingController();
+  final _controller = UrlHighlightController();
   final _focus = FocusNode();
 
   /// §16b fires the capture on HOME's nav icon, which the IME covers whole —
@@ -189,14 +195,16 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
       // resizes the bar to sit exactly there: without this the accessory would
       // cover the field it belongs to.
       valueListenable: KeyboardAccessory.reservedHeight,
-      builder: (context, accessory, child) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          Spacing.screenEdge,
-          Spacing.panelGap,
-          Spacing.screenEdge,
-          Spacing.md + accessory,
+      builder: (context, accessory, child) => ContentColumn(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            Spacing.screenEdge,
+            Spacing.panelGap,
+            Spacing.screenEdge,
+            Spacing.md + accessory,
+          ),
+          child: child,
         ),
-        child: child,
       ),
       child: Panel(
         title: 'CAPTURE / QUICK ADD',

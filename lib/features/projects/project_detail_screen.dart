@@ -12,7 +12,6 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/section.dart';
-import '../../design/components/static_background.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/hotline_icon.dart';
 import '../../design/icons/hotline_icons.dart';
@@ -22,6 +21,7 @@ import '../screen_scaffold.dart';
 import '../tasks/drops_panel.dart';
 import '../tasks/task_row.dart';
 import 'project_form_screen.dart';
+import '../../app/static_surface.dart';
 
 void openProjectDetail(BuildContext context, String projectId) {
   Navigator.of(context, rootNavigator: true).push(
@@ -175,7 +175,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     final hasObjective = (project?.objective ?? '').trim().isNotEmpty;
 
     return Scaffold(
-      body: StaticBackgroundDriver(
+      body: StaticSurface(
         child: ScreenScaffold(
           title: project?.name.toUpperCase() ?? 'PROJECT',
           breadcrumb: '/ PERSONAL CONTROL PLANE / PROJECTS',

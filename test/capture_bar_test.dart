@@ -364,4 +364,79 @@ void main() {
 
     await unmount(tester);
   });
+
+  testWidgets('the field paints the URL it is going to file, and only it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    await tester.tap(find.byType(TextField));
+    await _ready(tester);
+
+    await tester.enterText(
+      find.byType(TextField),
+      'mirar https://min.io/docs manana',
+    );
+    await _ready(tester);
+
+    // §39.15: the assertion is on what the field actually renders, so it
+    // covers the wiring the controller alone cannot — a bar that forgot to use
+    // it would still pass the controller's own tests.
+    final painted = _spans(tester);
+    expect(painted.where((span) => span.$2).map((span) => span.$1), [
+      'https://min.io/docs',
+    ]);
+    expect(
+      painted.map((span) => span.$1).join(),
+      'mirar https://min.io/docs manana',
+    );
+
+    // §39.15 changes nothing about submit.
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _ready(tester);
+    final rows = await tester.runAsync(() => db.select(db.attachments).get());
+    expect(rows!.single.value, 'https://min.io/docs');
+    final items = await tester.runAsync(() => db.select(db.tasks).get());
+    expect(items!.single.title, 'mirar https://min.io/docs manana');
+
+    await unmount(tester);
+  });
+
+  testWidgets('a field with no URL in it is painted flat', (tester) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    await tester.tap(find.byType(TextField));
+    await _ready(tester);
+
+    await tester.enterText(find.byType(TextField), 'revisar pgbouncer.conf');
+    await _ready(tester);
+
+    expect(_spans(tester).any((span) => span.$2), isFalse);
+
+    await unmount(tester);
+  });
+}
+
+/// The rendered runs of the capture field as (text, highlighted) pairs. The
+/// editable's span is the only place §39.15's mark exists — it is a style on a
+/// range, not a widget anyone can find.
+List<(String, bool)> _spans(WidgetTester tester) {
+  final span = tester
+      .widget<EditableText>(find.byType(EditableText))
+      .controller
+      .buildTextSpan(
+        context: tester.element(find.byType(EditableText)),
+        style: const TextStyle(),
+        withComposing: false,
+      );
+  final out = <(String, bool)>[];
+  span.visitChildren((child) {
+    final piece = child as TextSpan;
+    if (piece.text != null) {
+      out.add((piece.text!, piece.style?.backgroundColor != null));
+    }
+    return true;
+  });
+  if (out.isEmpty && span.text != null) out.add((span.text!, false));
+  return out;
 }

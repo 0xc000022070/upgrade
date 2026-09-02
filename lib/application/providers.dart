@@ -6,6 +6,7 @@ import '../data/repositories/goal_repository.dart';
 import '../data/repositories/attachment_repository.dart';
 import '../data/repositories/note_repository.dart';
 import '../data/repositories/project_repository.dart';
+import '../data/repositories/settings_repository.dart';
 import '../data/repositories/task_repository.dart';
 import '../data/views.dart';
 
@@ -42,6 +43,10 @@ final taskRepositoryProvider = Provider(
     ref.watch(databaseProvider),
     ref.watch(activityRepositoryProvider),
   ),
+);
+
+final settingsRepositoryProvider = Provider(
+  (ref) => SettingsRepository(ref.watch(databaseProvider)),
 );
 
 final noteRepositoryProvider = Provider(
@@ -123,4 +128,13 @@ final pairCandidatesProvider = StreamProvider.family<List<Task>, String>(
 
 final itemLocationProvider = StreamProvider.family<ItemLocation, String>(
   (ref, id) => ref.watch(databaseProvider).watchItemLocation(id),
+);
+
+/// SPEC.md §39.16's `[ STATIC ]`. A stream and not a one-shot read: the setting
+/// is changed on one screen and obeyed on every other, and the driver behind
+/// the settings route has to stop the moment the row is written.
+final staticEnabledProvider = StreamProvider<bool>(
+  (ref) => ref
+      .watch(settingsRepositoryProvider)
+      .watchFlag(SettingsRepository.staticEnabled, orElse: true),
 );

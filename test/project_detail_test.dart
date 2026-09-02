@@ -251,4 +251,41 @@ void main() {
 
     await unmount(tester);
   });
+
+  testWidgets('SELECT on a project DROPS strip opens the mode empty', (
+    tester,
+  ) async {
+    final id = await projects.create(name: 'Infra personal');
+    await tasks.create(title: 'Rotar llaves ssh', projectId: id);
+
+    await tester.pumpWidget(host(ProjectDetailScreen(projectId: id)));
+    await _ready(tester);
+
+    // §39.15: the strip carries it inside a project exactly as on Home.
+    await tapText(tester, 'SELECT');
+    await _ready(tester);
+
+    expect(find.text('0 SELECTED'), findsOneWidget);
+    expect(find.text('[ ]'), findsOneWidget);
+    // §39.13: in the mode the row is a box, not the §39.11 task checkbox.
+    expect(find.text('SELECT'), findsNothing);
+
+    await tester.tap(find.text('Rotar llaves ssh'));
+    await _ready(tester);
+    expect(find.text('1 SELECTED'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('an empty project DROPS panel offers no SELECT', (tester) async {
+    final id = await projects.create(name: 'Infra personal');
+
+    await tester.pumpWidget(host(ProjectDetailScreen(projectId: id)));
+    await _ready(tester);
+
+    expect(find.text('DROPS'), findsOneWidget);
+    expect(find.text('SELECT'), findsNothing);
+
+    await unmount(tester);
+  });
 }

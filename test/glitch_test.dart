@@ -129,7 +129,11 @@ void main() {
       for (var seed = 0; seed < 500; seed++) {
         final plan = planGlitchBlocks(seed, blocks: 8, fragments: 3);
         final covered = plan.fold<double>(0, (sum, b) => sum + b.area);
-        expect(covered, lessThanOrEqualTo(glitchCoverage), reason: 'seed $seed');
+        expect(
+          covered,
+          lessThanOrEqualTo(glitchCoverage),
+          reason: 'seed $seed',
+        );
       }
     });
 
