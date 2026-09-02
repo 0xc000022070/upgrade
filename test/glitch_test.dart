@@ -30,7 +30,7 @@ void main() {
       }
 
       // Frames 0..n-1 in order, then the idle sentinel. SPEC.md §16b caps the
-      // sequence at 5 frames and 260ms; this is 4 at 220ms.
+      // sequence at 5 frames and 260ms; this is 5 at 225ms.
       expect(frames, [for (var i = 0; i < Effects.glitchFrames; i++) i, -1]);
       expect(
         Effects.glitchStep * Effects.glitchFrames,
@@ -57,22 +57,50 @@ void main() {
       expect(controller.idle, isTrue);
     });
 
-    testWidgets('displaces slices on the first frame', (tester) async {
+    testWidgets('tears the glyph into blocks on the first frame', (
+      tester,
+    ) async {
       final controller = GlitchController();
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(_host(controller, reduceMotion: false));
       expect(find.byType(GlitchedIcon), findsOneWidget);
-      expect(find.byType(GlitchSlices), findsNothing);
+      expect(find.byType(GlitchBlocks), findsNothing);
 
       controller.fire(seed: 3);
       await tester.pump();
-      expect(find.byType(GlitchSlices), findsOneWidget);
+      expect(find.byType(GlitchBlocks), findsOneWidget);
+
+      // §16b.2: the last frame is the clean glyph, so the tear is gone one
+      // step before the controller goes idle rather than with it.
+      for (var i = 0; i < Effects.glitchFrames - 1; i++) {
+        await tester.pump(Effects.glitchStep);
+      }
+      expect(controller.frame, Effects.glitchFrames - 1);
+      expect(find.byType(GlitchBlocks), findsNothing);
+
+      await tester.pump(Effects.glitchStep);
+      expect(find.byType(GlitchBlocks), findsNothing);
+    });
+
+    testWidgets('the accent frame stays the one colour event', (tester) async {
+      final controller = GlitchController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(_host(controller, reduceMotion: false));
+      controller.fire(seed: 11);
+      await tester.pump();
+      // Frame 2 is the accent one. Its blocks take no luminance step, so the
+      // frame is a single flat colour however it is torn.
+      await tester.pump(Effects.glitchStep);
+      await tester.pump(Effects.glitchStep);
+      final accent = tester.widget<GlitchBlocks>(find.byType(GlitchBlocks));
+      expect(accent.tone, isFalse);
+      expect(accent.fragments, 0);
 
       for (var i = 0; i <= Effects.glitchFrames; i++) {
         await tester.pump(Effects.glitchStep);
       }
-      expect(find.byType(GlitchSlices), findsNothing);
     });
 
     testWidgets('reduce-motion removes the effect entirely', (tester) async {
@@ -84,12 +112,88 @@ void main() {
       await tester.pump();
 
       expect(find.byType(GlitchedIcon), findsNothing);
-      expect(find.byType(GlitchSlices), findsNothing);
+      expect(find.byType(GlitchBlocks), findsNothing);
 
       for (var i = 0; i <= Effects.glitchFrames; i++) {
         await tester.pump(Effects.glitchStep);
       }
-      expect(find.byType(GlitchSlices), findsNothing);
+      expect(find.byType(GlitchBlocks), findsNothing);
+    });
+  });
+
+  group('block plan (SPEC.md §16b.2)', () {
+    /// The ruling is a number, so it is checked as one: no seed may spend more
+    /// than the budget, and overlapping blocks are charged twice here, which
+    /// makes the assertion stricter than the pixels on screen.
+    test('never corrupts more than 30% of the shape', () {
+      for (var seed = 0; seed < 500; seed++) {
+        final plan = planGlitchBlocks(seed, blocks: 8, fragments: 3);
+        final covered = plan.fold<double>(0, (sum, b) => sum + b.area);
+        expect(covered, lessThanOrEqualTo(glitchCoverage), reason: 'seed $seed');
+      }
+    });
+
+    test('blocks keep the sizes and the sideways reach of the spec', () {
+      for (var seed = 0; seed < 200; seed++) {
+        // Fragments have ranges of their own, so this asks for displacement
+        // blocks alone.
+        for (final block in planGlitchBlocks(seed, blocks: 4, fragments: 0)) {
+          expect(block.dest.height, inInclusiveRange(1 / 64, 1 / 4));
+          expect(block.dest.width, inInclusiveRange(1 / 8, 1 / 2));
+          expect(block.shift.dx.abs(), inInclusiveRange(1 / 32, 1 / 6));
+          expect(block.dest.left, inInclusiveRange(0, 1));
+          expect(block.dest.right, lessThanOrEqualTo(1));
+          expect(block.dest.bottom, lessThanOrEqualTo(1));
+        }
+      }
+    });
+
+    test('one or two blocks mosh, and they sample the glyph', () {
+      for (var seed = 0; seed < 200; seed++) {
+        final plan = planGlitchBlocks(seed, blocks: 4, fragments: 0);
+        final moshed = plan.where((block) => block.isMosh).toList();
+        expect(moshed, hasLength(inInclusiveRange(1, 2)), reason: 'seed $seed');
+        for (final block in moshed) {
+          // A mosh that reached past the box would sample nothing and read as
+          // a hole punched in the glyph rather than as misplaced ink.
+          final source = block.dest.top - block.shift.dy;
+          expect(source, inInclusiveRange(0, 1 - block.dest.height));
+        }
+      }
+    });
+
+    test('fragments detach further than their own width', () {
+      for (var seed = 0; seed < 200; seed++) {
+        final plan = planGlitchBlocks(seed, blocks: 0, fragments: 3);
+        expect(plan, hasLength(inInclusiveRange(2, 3)), reason: 'seed $seed');
+        for (final block in plan) {
+          // "Detach fully": the crumb clears the region it came from, so it
+          // reads as a piece sitting in empty space and not as a thicker edge.
+          expect(block.shift.dx.abs(), greaterThan(block.dest.width));
+          expect(block.dest.left, greaterThanOrEqualTo(0));
+          expect(block.dest.right, lessThanOrEqualTo(1));
+        }
+      }
+    });
+
+    test('every block takes exactly one luminance step, or none', () {
+      for (var seed = 0; seed < 200; seed++) {
+        for (final block in planGlitchBlocks(seed)) {
+          expect(block.tone, anyOf(glitchToneUp, glitchToneDown));
+        }
+        for (final block in planGlitchBlocks(seed, tone: false)) {
+          expect(block.tone, 1.0);
+        }
+      }
+    });
+
+    test('the boot tear still lands inside the SPEC.md 16c.1 cap', () {
+      // The event moved to the end of the roll, so the boot screen now holds
+      // for the whole glitch after its last line instead of tearing a log the
+      // eye has not read yet. main() records six steps and the roll spends one
+      // [Effects.bootLineStep] per step, counting the tick that ends it.
+      final roll = Effects.bootLineStep * 6;
+      expect(roll + Effects.glitchDuration, lessThanOrEqualTo(Effects.bootCap));
     });
   });
 }
