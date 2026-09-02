@@ -1,0 +1,243 @@
+import 'package:flutter/widgets.dart';
+
+import '../colors.dart';
+import '../icons/hotline_icon.dart';
+import '../icons/hotline_icons.dart';
+import '../spacing.dart';
+import '../typography.dart';
+import 'progress_bar.dart';
+import 'signal_text.dart';
+
+/// SPEC.md §38.4. Three columns and nothing else: a 14px glyph on the left when
+/// the row is actionable, a mono line stack in the middle, and one right-hand
+/// column carrying a short inline bar and a value.
+///
+/// The height is the content's, not a fixed step: the mocks land a one-line row
+/// near 40, a two-line row near 57 and a three-line row near 70, which is what
+/// a constant 12px of vertical padding and a 4px line gap produce.
+class ListRow extends StatelessWidget {
+  const ListRow({
+    super.key,
+    required this.title,
+    this.kicker,
+    this.subtitle,
+    this.caption,
+    this.leading,
+    this.value,
+    this.valueColor,
+    this.valueStrong = false,
+    this.progress,
+    this.node = false,
+    this.trailing,
+    this.onTap,
+    this.onLongPress,
+    this.lead = false,
+    this.titleColor,
+    this.subtitleColor,
+    this.decode = false,
+  });
+
+  /// The uppercase line above the title — the project a row belongs to.
+  final String? kicker;
+
+  final String title;
+
+  /// Second line. On a blocked row this is the reason, in warning.
+  final String? subtitle;
+
+  /// Third line, always muted: the context a row came from.
+  final String? caption;
+
+  /// The 14px glyph slot. A row with no action leaves it empty and the text
+  /// starts at the panel's padding.
+  final Widget? leading;
+
+  /// §38.4: percent, duration, time or count. One column, right-aligned.
+  final String? value;
+  final Color? valueColor;
+  final bool valueStrong;
+
+  /// 0..1. Draws the 56x2 inline bar immediately left of [value].
+  final double? progress;
+
+  /// §38.4: the diamond that marks a row as opening something.
+  final bool node;
+
+  /// Escape hatch for a row whose right edge is a control rather than a value.
+  final Widget? trailing;
+
+  final VoidCallback? onTap;
+
+  /// §38 drops the trailing `...`: the sheet is a long press, so a row keeps
+  /// its right column for data.
+  final VoidCallback? onLongPress;
+
+  /// The one row a screen is built around gets a 13px title instead of 12.
+  final bool lead;
+
+  final Color? titleColor;
+  final Color? subtitleColor;
+  final bool decode;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = lead ? HotlineText.rowTitleLead : HotlineText.rowTitle;
+    final titleStyle = titleColor == null
+        ? base
+        : base.copyWith(color: titleColor);
+
+    // The glyph sits on the title's line, not on the row's centre: a three
+    // line row would otherwise park it next to the reason. Every other line
+    // indents past the slot so the whole stack keeps one left edge.
+    final indent = leading == null ? 0.0 : IconSizes.glyph + Spacing.lg;
+
+    Widget indented(Widget child) => Padding(
+      padding: EdgeInsets.only(left: indent),
+      child: child,
+    );
+
+    final lines = <Widget>[
+      if (kicker != null)
+        indented(
+          Text(
+            kicker!.toUpperCase(),
+            style: HotlineText.rowKicker,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (leading != null) ...[
+            SizedBox(
+              width: IconSizes.glyph,
+              height: titleStyle.fontSize! * titleStyle.height!,
+              child: Center(child: leading),
+            ),
+            const SizedBox(width: Spacing.lg),
+          ],
+          Expanded(
+            child: SignalText(
+              title,
+              style: titleStyle,
+              decodeOnEntry: decode,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+      if (subtitle != null)
+        indented(
+          Text(
+            subtitle!,
+            style: subtitleColor == null
+                ? HotlineText.rowSubtitle
+                : HotlineText.rowSubtitle.copyWith(color: subtitleColor),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      if (caption != null)
+        indented(
+          Text(
+            caption!,
+            style: HotlineText.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+    ];
+
+    final content = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: RowMetrics.minHeight),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: RowMetrics.padding),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < lines.length; i++) ...[
+                    if (i > 0) const SizedBox(height: RowMetrics.lineGap),
+                    lines[i],
+                  ],
+                ],
+              ),
+            ),
+            if (progress != null) ...[
+              const SizedBox(width: Spacing.lg),
+              SizedBox(
+                width: BarSizes.inlineWidth,
+                child: ProgressBar(value: progress!),
+              ),
+            ],
+            if (value != null) ...[
+              const SizedBox(width: Spacing.lg),
+              Text(
+                value!,
+                textAlign: TextAlign.right,
+                style:
+                    (valueStrong ? HotlineText.valueStrong : HotlineText.value)
+                        .copyWith(color: valueColor),
+              ),
+            ],
+            if (node) ...[
+              const SizedBox(width: Spacing.md),
+              const HotlineIcon(
+                HotlineIcons.progressMarker,
+                size: IconSizes.glyph,
+                color: HotlineColors.textDisabled,
+              ),
+            ],
+            if (trailing != null) ...[
+              const SizedBox(width: Spacing.sm),
+              trailing!,
+            ],
+          ],
+        ),
+      ),
+    );
+
+    if (onTap == null && onLongPress == null) return content;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: content,
+    );
+  }
+}
+
+/// §38.1: rows inside a panel are separated by a 1px rule that runs the full
+/// inner width, the way a table rules its lines.
+class ListRowGroup extends StatelessWidget {
+  const ListRowGroup({super.key, required this.children, this.ruled = true});
+
+  final List<Widget> children;
+
+  /// HOME's PROJECTS panel stacks its rows unruled: each row is already three
+  /// lines tall, and a rule between them turns the panel into a grid.
+  final bool ruled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0 && ruled)
+            Container(
+              height: Borders.hairline,
+              color: HotlineColors.borderSubtle,
+            ),
+          children[i],
+        ],
+      ],
+    );
+  }
+}
