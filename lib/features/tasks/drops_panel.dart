@@ -8,6 +8,7 @@ import '../../design/colors.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
+import '../../design/effects/glitch.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import 'drop_actions.dart';
@@ -38,6 +39,7 @@ class DropsPanel extends ConsumerStatefulWidget {
     this.title = 'DROPS',
     this.empty = 'nothing unfiled',
     this.stateful = false,
+    this.landing,
   });
 
   final String scope;
@@ -47,6 +49,10 @@ class DropsPanel extends ConsumerStatefulWidget {
 
   /// Rows are tasks, not drops: they carry their state and open the full sheet.
   final bool stateful;
+
+  /// SPEC.md §39.19: fired by the capture bar of a pushed route, where the nav
+  /// icon that normally takes the landing is not on screen.
+  final GlitchController? landing;
 
   @override
   ConsumerState<DropsPanel> createState() => _DropsPanelState();
@@ -134,6 +140,7 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
               ],
             ),
       bodyPadding: panelRowsPadding,
+      headerGlitch: widget.landing,
       child: AsyncSection(
         value: widget.drops,
         empty: widget.empty,

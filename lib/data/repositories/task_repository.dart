@@ -35,10 +35,16 @@ class TaskRepository {
 
   /// SPEC.md §39.1: the project's own DROPS panel — filed to the project but
   /// under no goal.
+  ///
+  /// Newest first, like Home's DROPS. §39.19 puts the capture bar at the bottom
+  /// of the project and says the captured row appears at the top of this panel;
+  /// oldest first sent it under every task already there, which on a project
+  /// with a real list is off screen. Goal panels and [watchByProject] keep
+  /// creation order: those are worked through, this one is added to.
   Stream<List<Task>> watchProjectDrops(String projectId) {
     return (_db.select(_db.tasks)
           ..where((t) => t.projectId.equals(projectId) & t.goalId.isNull())
-          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
         .watch()
         .map(withBundlesAdjacent);
   }

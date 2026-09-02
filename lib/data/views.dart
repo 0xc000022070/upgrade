@@ -92,6 +92,21 @@ class ProjectSummary {
   String? get lead => blockedTitle ?? nextActionTitle;
 }
 
+/// One segment of SPEC.md §39.18's breadcrumb: an ancestor of the project on
+/// screen. [status] is carried because the detail screen has to know whether an
+/// ancestor is archived — that is what removes its own `UNARCHIVE`.
+class ProjectCrumb {
+  const ProjectCrumb({
+    required this.id,
+    required this.name,
+    required this.status,
+  });
+
+  final String id;
+  final String name;
+  final ProjectStatus status;
+}
+
 /// One GOALS panel header (SPEC.md §39.1, §39.5). Progress is counted from the
 /// items under the goal, so an empty goal is 0/0 rather than undefined.
 class GoalSummary {

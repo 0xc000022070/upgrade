@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/project_tree.dart';
 import '../../application/providers.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
@@ -18,6 +19,10 @@ import '../../design/typography.dart';
 /// DROPS first, then every active project as a header row followed by its goals
 /// indented one level, then paused projects. Archived are absent — filing into
 /// something that is finished is not a move anyone means.
+///
+/// SPEC.md §39.18 keeps this list flat: the tree is for navigation, and a
+/// picker that made the user walk it would be the explorer the spec refuses.
+/// A child says where it sits on its own row instead, as its parent path.
 class TargetPickerBody extends ConsumerWidget {
   const TargetPickerBody({
     super.key,
@@ -39,6 +44,7 @@ class TargetPickerBody extends ConsumerWidget {
     // among its peers instead of being sorted twice.
     final active = projects.where((p) => p.status == ProjectStatus.active);
     final paused = projects.where((p) => p.status == ProjectStatus.paused);
+    final paths = parentPaths(projects);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -52,6 +58,7 @@ class TargetPickerBody extends ConsumerWidget {
         for (final project in [...active, ...paused])
           _ProjectTarget(
             project: project,
+            path: paths[project.id] ?? '',
             current: current,
             onPicked: onPicked,
           ),
@@ -63,11 +70,15 @@ class TargetPickerBody extends ConsumerWidget {
 class _ProjectTarget extends ConsumerWidget {
   const _ProjectTarget({
     required this.project,
+    required this.path,
     required this.current,
     required this.onPicked,
   });
 
   final Project project;
+
+  /// SPEC.md §39.18's `INFRA / HOMELAB`. Empty for a root.
+  final String path;
   final ItemTarget? current;
   final ValueChanged<ItemTarget> onPicked;
 
@@ -82,6 +93,7 @@ class _ProjectTarget extends ConsumerWidget {
       children: [
         PickerRow(
           label: project.name.toUpperCase(),
+          subtitle: path.isEmpty ? null : path,
           // A paused project is still a legal target; saying so on the row is
           // cheaper than a user filing into it and wondering where it went.
           value: project.status == ProjectStatus.paused ? 'PAUSED' : null,

@@ -185,7 +185,7 @@ void main() {
     await tapText(tester, 'NEW');
     expect(find.text('NEW GOAL'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), 'Object storage');
+    await tester.enterText(find.byType(TextField).first, 'Object storage');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 
@@ -212,7 +212,7 @@ void main() {
     expect(find.text('RENAME GOAL'), findsOneWidget);
     expect(find.text('Storage'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), 'Almacenamiento');
+    await tester.enterText(find.byType(TextField).first, 'Almacenamiento');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 

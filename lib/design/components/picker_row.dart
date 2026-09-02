@@ -15,11 +15,17 @@ class PickerRow extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.value,
+    this.subtitle,
     this.indent = false,
     this.selected = false,
   });
 
   final String label;
+
+  /// SPEC.md §39.18: a child project's row carries its parent path here,
+  /// `INFRA / HOMELAB`, so a flat picker still says where a row sits.
+  final String? subtitle;
+
   final String? value;
   final bool indent;
   final bool selected;
@@ -29,7 +35,7 @@ class PickerRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final row = selected
         ? _SelectedRow(label: label, onTap: onTap)
-        : ListRow(title: label, value: value, onTap: onTap);
+        : ListRow(title: label, subtitle: subtitle, value: value, onTap: onTap);
     if (!indent) return row;
     return Padding(
       padding: const EdgeInsets.only(left: Spacing.xl),

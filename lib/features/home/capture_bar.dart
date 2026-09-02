@@ -38,7 +38,15 @@ import '../tasks/url_highlight_controller.dart';
 /// [UrlHighlightController]. It is a readout of what `_submit` will do and
 /// changes nothing about it.
 class CaptureBar extends ConsumerStatefulWidget {
-  const CaptureBar({super.key});
+  const CaptureBar({super.key, this.fixedTarget, this.landing});
+
+  final ItemTarget? fixedTarget;
+
+  /// SPEC.md §39.19: where the landing goes when the bar is pinned under a
+  /// pushed route. HOME's landing is the nav icon, which is not on screen
+  /// there, so the screen that pins the bar hands over the panel the row lands
+  /// in instead.
+  final GlitchController? landing;
 
   @override
   ConsumerState<CaptureBar> createState() => _CaptureBarState();
@@ -85,7 +93,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
     final stripped = titleWithoutUrls(raw, found);
     final content = stripped.isEmpty ? (found.firstOrNull ?? raw) : raw;
     final attachments = [..._pending, ...found.map(NewAttachment.url)];
-    final target = _target;
+    final target = widget.fixedTarget ?? _target;
     _controller.clear();
     // §39.12: submitting closes the form. The focus goes, and with it the
     // keyboard, the scrim and the strip; the row lands at the top of DROPS with
@@ -99,7 +107,11 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
       _target = const ItemTarget.drops();
     });
     _glitch.fire(seed: raw.hashCode);
-    ref.read(navGlitchProvider).fire(0);
+    if (widget.fixedTarget == null) {
+      ref.read(navGlitchProvider).fire(0);
+    } else {
+      widget.landing?.fire(seed: raw.hashCode);
+    }
     await ref
         .read(taskRepositoryProvider)
         .capture(content, target: target, attachments: attachments);
@@ -219,7 +231,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                 // default and a chip that only ever says so is a readout of
                 // nothing. Aiming the capture is what puts one up, and its `x`
                 // is the way back to DROPS.
-                if (_target.projectId != null)
+                if (widget.fixedTarget == null && _target.projectId != null)
                   ToolbarChip(
                     label: _targetLabel(),
                     tone: HotlineColors.accent,
@@ -253,13 +265,15 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                 ToolbarAction(glyph: ToolbarGlyph.image, onTap: _image),
               ],
               // §39.11: capture aims, and that is all it does.
-              extras: [
-                ToolbarAction(
-                  glyph: ToolbarGlyph.target,
-                  lit: _target.projectId != null,
-                  onTap: _pickTarget,
-                ),
-              ],
+              extras: widget.fixedTarget != null
+                  ? const []
+                  : [
+                      ToolbarAction(
+                        glyph: ToolbarGlyph.target,
+                        lit: _target.projectId != null,
+                        onTap: _pickTarget,
+                      ),
+                    ],
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,

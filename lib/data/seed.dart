@@ -10,6 +10,10 @@ import 'repositories/task_repository.dart';
 /// same repository calls the UI does, which means the activity stream it
 /// produces is genuine — the `completed` and `blocked` events below are emitted
 /// by the transitions, not hand-written.
+///
+/// SPEC.md §39.18: `Infra personal > Homelab > Networking` is the two-deep tree
+/// the hierarchy is exercised on. Every level carries tasks of its own, so a
+/// parent's number is visibly not its own tasks' number.
 Future<void> seedDevData(
   AppDatabase db, {
   required ProjectRepository projects,
@@ -49,6 +53,21 @@ Future<void> seedDevData(
     objective: 'Keep envs reproducible',
     priority: Priority.low,
     at: ago(const Duration(days: 10, hours: -3)),
+  );
+  final homelab = await projects.create(
+    name: 'Homelab',
+    description: 'El armario bajo las escaleras.',
+    objective: 'One rack, everything on it',
+    parentId: infra,
+    at: ago(const Duration(days: 10, hours: -4)),
+  );
+  final networking = await projects.create(
+    name: 'Networking',
+    description: 'VLANs, DNS y el router.',
+    objective: 'Segment the house',
+    parentId: homelab,
+    priority: Priority.low,
+    at: ago(const Duration(days: 10, hours: -5)),
   );
 
   /// Creates a project's tasks, then closes the first [done] of them so the
@@ -123,6 +142,27 @@ Future<void> seedDevData(
     rommyTasks[2],
     'Decidir el formato del store antes de escribirlo',
     at: ago(const Duration(days: 2, hours: 4)),
+  );
+
+  await tasksFor(
+    homelab,
+    titles: const [
+      'Montar el rack',
+      'Switch gestionable',
+      'UPS para el armario',
+      'Etiquetar el cableado',
+    ],
+    done: 3,
+    createdAgo: const Duration(days: 6),
+    transitionsAgo: const Duration(days: 5),
+  );
+
+  await tasksFor(
+    networking,
+    titles: const ['VLAN para IoT', 'DNS interno', 'Reglas de salida'],
+    done: 0,
+    createdAgo: const Duration(days: 4),
+    transitionsAgo: const Duration(days: 4),
   );
 
   final infraTasks = await tasksFor(
