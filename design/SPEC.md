@@ -245,3 +245,38 @@ The reference is `design/references/concept/hotline-concept-v0.png`, frames 1 an
 Everything in §16b, §16b.1, §16c (motion, static, WD2) still applies on top of this skin.
 
 Rulings 2026-09-01 (re-skin review): no diamond node on project rows; RECENT and STATUS carry no `>` (nothing to open); the next-task arrow sits in the trailing column; row overflow actions are long-press only; no Sans outside the action sheet; project detail is a pushed route without the nav bar.
+
+## 39. Faraday review round 1 (2026-09-02, user feedback). OVERRIDES §37 and §38 where they conflict.
+
+User verdict: "good as far as it goes". Data now exists on faraday. Findings: nothing can be created or edited, LOOSE reads twice on Home, NEXT ACTION reads as a mock, BLOCKED reads as read-only decoration, captured text cannot be re-read, filed or given links, and the launcher icon reads as a badge.
+
+### 39.1 Entities (additive; §37 entities stay, columns are only added)
+- **Goal** (returns, lightweight): id, `projectId`, title, `createdAt`, `order`. Progress = done items / all items under it. A project has zero or more goals. Project `objective` stays as the one-line statement; it is not a goal.
+- **Task** (the single item type, UI word depends on where it sits): + `goalId` NULLABLE (references Goal), + `bundleId` NULLABLE text. Location is derived: `projectId == null` = a **drop** on Home; `projectId != null && goalId == null` = a **drop** inside the project; `goalId != null` = an **idea** under that goal. `done`, `isNext`, `blockedReason`, `effort` unchanged.
+- **Link** (new table): id, `taskId`, `url`, `label` nullable, `createdAt`. An item has zero or more links.
+- **Bundle**: items sharing a non-null `bundleId` always travel together: moving one moves all, they render adjacent in every list, and the quick view lists the mates under `[ WITH ]`. Pairing is symmetric; unpairing clears the id on the item only. No bundle entity, no name.
+- Vocabulary: "LOOSE" is gone. Headers say DROPS (Home: unfiled; project: goal-less), GOALS (per-goal panels). No "idea" or "task" appears in headers; rows are rows.
+
+### 39.2 CRUD (everything the user can see can be created, edited and deleted)
+- **Project**: `NEW +` affordance in the PROJECTS panel header (Home and Projects tab) opens a full-screen form (pushed route, no nav): name, description, objective, status, priority. Detail screen header carries `EDIT` in the breadcrumb row; the same form prefilled. Delete lives at the bottom of the edit form as a solid warning block with an inline confirm (`DELETE PROJECT` becomes `CONFIRM DELETE` for 3s). Deleting a project un-files its items (they become Home drops), it never deletes them.
+- **Goal**: `NEW +` in the GOALS area of project detail; inline single-line editor at the top of a new panel, submit on enter. Long-press the goal header strip: Rename / Delete (items fall back to the project's DROPS).
+- **Item**: editable in the quick view (§39.4). Delete with inline confirm in the same place.
+
+### 39.3 Home (replaces §37 Home)
+Sections in order: NEXT ACTION (only when an `isNext` item exists; no suggestion fallback, the panel is absent otherwise), PROJECTS (as before, header carries `NEW +`), DROPS (unfiled items, newest first, bundles adjacent). BLOCKED panel and RECENT panel removed from Home. Activity events keep being written; nothing displays them for now. Blocking stays reachable from the item quick view and the reason still renders in warning color on the row; it is no longer a Home section.
+
+### 39.4 Item quick view (replaces "row tap toggles done")
+Row tap opens the item quick view: a bottom sheet in Panel style, header strip = location breadcrumb (`DROPS`, `INFRA PERSONAL / DROPS`, `INFRA PERSONAL / REDUCE SAAS`). Body: full title, mono 13, unclipped, editable in place (tap the text to edit, blur or submit saves); `[ LINKS ]` list, each row = label or host, mono 11, tap opens the browser via url_launcher, trailing `x` removes, `+ LINK` row at the end (pastes clipboard if it holds a URL, otherwise opens a one-line URL field); `[ WITH ]` bundle mates when any; `[ BLOCKED BY ]` reason when blocked; `[ EFFORT ]` when set. Footer: one row of solid action blocks per §16c (`DONE`/`UNDO`, `NEXT`/`UNSET`, `MOVE`, `PAIR`, `BLOCK`/`UNBLOCK`, `DELETE` with inline confirm). Long-press on a row opens the same sheet (no separate action sheet any more). Done can also be toggled without opening the sheet by tapping the left checkbox glyph (hit area 40px); the §16b glitch and row hold still apply. The sheet is the one modal in the app; nothing else may be modal.
+
+### 39.5 Move and pair
+- **MOVE** opens a target picker sheet: `DROPS` (unfiled) first, then every active project as a header row followed by its goals indented one level. Paused projects follow, archived are absent. Picking a project files the item as a project drop; picking a goal files it under the goal. A bundle moves whole.
+- **PAIR** opens a picker of items (drops and ideas, open first, newest first, excluding the item and its current mates), search field on top. Picking joins bundles (union). `UNPAIR` replaces `PAIR` when the item is in a bundle.
+
+### 39.6 Capture bar (extends §38.9)
+When the field gains focus a toolbar row appears between the header strip and the field line: `+ LINK` block (same clipboard rule as §39.4) and a `→ DROPS` target block that cycles to any project or goal through the same picker as MOVE; the target resets to DROPS after each submit. Attached links show as small chips over the field. URLs typed inline are extracted on submit into Link rows and stripped from the title only when the title would otherwise be empty; else the title keeps the text as typed. Submit creates the item at the chosen target with its links in one transaction and fires the landing glitch as before.
+
+### 39.7 Migration (replaces §37 Migration; faraday holds real data)
+Schema version 3. Drift `onUpgrade` from 2 adds `goals`, `links`, `tasks.goal_id`, `tasks.bundle_id`. Nothing is dropped or recreated. Proof before any install on faraday: the emulator runs the current v2 build, gets seeded through the UI, then receives the v3 build as an upgrade install; every pre-existing row must still be there. Faraday only ever receives upgrade installs with the same signing key; `adb uninstall` and `pm clear` on faraday are forbidden.
+
+### 39.8 Launcher icon (replaces §36b)
+The raven+AKM shield is rejected: it reads as a badge. Direction: a minimalist emblem in the register of the Diamond Dogs mark (`design/references/branding/diamond-dogs-emblem-ref.png`, language only per §3): one animal head in hard-edged flat line art, single color on a flat dark ground, geometric frame, nothing photographic, no grain, no gradients, no weapon, no text. Subject stays the raven. Frame must not be a diamond or a shield. Deliver an exploration sheet of 4 variants first; production layers after the pick, with the 66dp safe-zone inset baked into the foreground, a monochrome PNG with real alpha, and no wrapper SVGs.
