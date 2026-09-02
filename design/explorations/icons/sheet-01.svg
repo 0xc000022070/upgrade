@@ -1,0 +1,266 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1664" height="832" viewBox="0 0 1664 832">
+  <title>Hotline icon grammar exploration sheet 01</title>
+  <desc>Twenty-seven original monochrome glyph experiments across routed stroke, signal node, and open frame grammars.</desc>
+  <style>
+    .sheet-title { fill: #E8E8E3; font: 600 22px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 2px; }
+    .sheet-meta { fill: #6F767F; font: 11px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1px; }
+    .grammar-title { fill: #9A9FA6; font: 600 12px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1.5px; }
+    .cell { fill: #08090B; stroke: #252A31; stroke-width: 1; }
+    .label { fill: #9A9FA6; font: 11px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: .7px; }
+    .code { fill: #50555C; }
+    .a, .b, .c { fill: none; stroke: #E8E8E3; stroke-linecap: butt; stroke-linejoin: miter; }
+    .a { stroke-width: 1.75; }
+    .b { stroke-width: 1.5; }
+    .c { stroke-width: 1.75; }
+    .node { fill: #E8E8E3; stroke: none; }
+  </style>
+
+  <rect width="1664" height="832" fill="#08090B"/>
+  <path d="M32 72H1632" stroke="#252A31"/>
+  <text class="sheet-title" x="32" y="40">HOTLINE / ICON EXPLORATION 01</text>
+  <text class="sheet-meta" x="1632" y="40" text-anchor="end">27 GLYPHS · 24×24 BASE · MONOCHROME</text>
+
+  <text class="grammar-title" x="32" y="102">A / ROUTED STROKE</text>
+
+  <g transform="translate(32 118)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Home experiment A01">
+      <path class="a" d="M4 9V4H9M15 4H20V9M4 15V20H9M15 20H20V15M8 12L12 8L16 12L12 16Z"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">A01</tspan><tspan x="16" dy="15">HOME / ORIGIN</tspan></text>
+  </g>
+
+  <g transform="translate(212 118)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Inbox experiment A02">
+      <path class="a" d="M5 4V20H19V4M5 15H9L12 18L15 15H19M8 10H16M12 5V13M9 10L12 13L15 10"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">A02</tspan><tspan x="16" dy="15">INBOX / RECEIVE</tspan></text>
+  </g>
+
+  <g transform="translate(392 118)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Activity experiment A03">
+      <path class="a" d="M3 12H7L9 6L12 18L15 8L17 12H21M4 5H8M16 19H20"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">A03</tspan><tspan x="16" dy="15">ACTIVITY / TRACE</tspan></text>
+  </g>
+
+  <g transform="translate(572 118)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Search experiment A04">
+      <path class="a" d="M9 4H4V9M15 4H20V9M4 15V20H9M15 20H20V15M8 12H16M12 8V16"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">A04</tspan><tspan x="16" dy="15">SEARCH / SCAN</tspan></text>
+  </g>
+
+  <g transform="translate(752 118)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Project experiment A05">
+      <path class="a" d="M4 5H10L12 7H20V18H14M10 18H4V5M8 10H16V14H12V20M8 10V18H10"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">A05</tspan><tspan x="16" dy="15">PROJECT / STACK</tspan></text>
+  </g>
+
+  <g transform="translate(932 118)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Goal experiment A06">
+      <path class="a" d="M4 6H9L12 9L15 6H20M4 18H9L12 15L15 18H20M12 9V15M8 12H16"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">A06</tspan><tspan x="16" dy="15">GOAL / CONVERGE</tspan></text>
+  </g>
+
+  <g transform="translate(1112 118)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Task experiment A07">
+      <path class="a" d="M4 5H8V9H4ZM11 7H20M4 13H8V17H4ZM11 15H17L20 12M17 15L20 18"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">A07</tspan><tspan x="16" dy="15">TASK / ACTION</tspan></text>
+  </g>
+
+  <g transform="translate(1292 118)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Note experiment A08">
+      <path class="a" d="M5 4H16L20 8V20H5V4M16 4V8H20M8 11H17M8 15H17M8 19H13"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">A08</tspan><tspan x="16" dy="15">NOTE / RECORD</tspan></text>
+  </g>
+
+  <g transform="translate(1472 118)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Done experiment A09">
+      <path class="a" d="M12 3L20 11V17L16 21H8L4 17V11L12 3M7 12L11 16L18 8"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">A09</tspan><tspan x="16" dy="15">DONE / CLOSED</tspan></text>
+  </g>
+
+  <text class="grammar-title" x="32" y="334">B / SIGNAL NODES</text>
+
+  <g transform="translate(32 350)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Blocked experiment B01">
+      <path class="b" d="M3 12H9L12 9M12 15L15 12H21M10 8L16 16M16 8L10 16"/>
+      <rect class="node" x="2" y="10.75" width="2.5" height="2.5"/>
+      <rect class="node" x="19.5" y="10.75" width="2.5" height="2.5"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">B01</tspan><tspan x="16" dy="15">BLOCKED / BREAK</tspan></text>
+  </g>
+
+  <g transform="translate(212 350)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Warning experiment B02">
+      <path class="b" d="M12 3L21 20H3L12 3M12 8V14"/>
+      <rect class="node" x="10.75" y="16.25" width="2.5" height="2.5" transform="rotate(45 12 17.5)"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">B02</tspan><tspan x="16" dy="15">WARNING / MARK</tspan></text>
+  </g>
+
+  <g transform="translate(392 350)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Message experiment B03">
+      <path class="b" d="M4 6H17L20 9V15L17 18H10L6 21V18H4V6M8 10H16M8 14H13"/>
+      <rect class="node" x="2.75" y="4.75" width="2.5" height="2.5"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">B03</tspan><tspan x="16" dy="15">MESSAGE / PACKET</tspan></text>
+  </g>
+
+  <g transform="translate(572 350)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Encrypted experiment B04">
+      <path class="b" d="M12 3L18 9L12 15L6 9L12 3M6 9V17L12 21L18 17V9M9 12L15 18M15 12L9 18"/>
+      <rect class="node" x="10.75" y="7.75" width="2.5" height="2.5" transform="rotate(45 12 9)"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">B04</tspan><tspan x="16" dy="15">ENCRYPTED / SEAL</tspan></text>
+  </g>
+
+  <g transform="translate(752 350)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Acknowledged experiment B05">
+      <path class="b" d="M3 12H7M7 8L11 12L7 16M12 12H15L17 14L21 9M15 5H21V11"/>
+      <rect class="node" x="1.75" y="10.75" width="2.5" height="2.5"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">B05</tspan><tspan x="16" dy="15">ACK / CONFIRM</tspan></text>
+  </g>
+
+  <g transform="translate(932 350)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Relay experiment B06">
+      <path class="b" d="M4 6H10L14 10H20M4 18H10L14 14H20M10 6V18M14 10V14"/>
+      <rect class="node" x="2.75" y="4.75" width="2.5" height="2.5"/>
+      <rect class="node" x="18.75" y="8.75" width="2.5" height="2.5"/>
+      <rect class="node" x="18.75" y="12.75" width="2.5" height="2.5"/>
+      <rect class="node" x="2.75" y="16.75" width="2.5" height="2.5"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">B06</tspan><tspan x="16" dy="15">RELAY / ROUTE</tspan></text>
+  </g>
+
+  <g transform="translate(1112 350)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Connection experiment B07">
+      <path class="b" d="M4 12H8L11 9H13L16 12H20M8 12L11 15H13L16 12"/>
+      <rect class="node" x="2.5" y="10.5" width="3" height="3" transform="rotate(45 4 12)"/>
+      <rect class="node" x="18.5" y="10.5" width="3" height="3" transform="rotate(45 20 12)"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">B07</tspan><tspan x="16" dy="15">CONNECTION / LINK</tspan></text>
+  </g>
+
+  <g transform="translate(1292 350)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Search experiment B08">
+      <path class="b" d="M5 8V5H8M16 5H19V8M5 16V19H8M16 19H19V16M8 12H16M12 8V16M16 16L21 21"/>
+      <rect class="node" x="10.5" y="10.5" width="3" height="3" transform="rotate(45 12 12)"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">B08</tspan><tspan x="16" dy="15">SEARCH / PROBE</tspan></text>
+  </g>
+
+  <g transform="translate(1472 350)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Project experiment B09">
+      <path class="b" d="M12 5V9M6 12H18M6 12V18M12 9V18M18 12V18"/>
+      <rect class="node" x="10.5" y="3.5" width="3" height="3" transform="rotate(45 12 5)"/>
+      <rect class="node" x="4.5" y="16.5" width="3" height="3"/>
+      <rect class="node" x="10.5" y="16.5" width="3" height="3"/>
+      <rect class="node" x="16.5" y="16.5" width="3" height="3"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">B09</tspan><tspan x="16" dy="15">PROJECT / SYSTEM</tspan></text>
+  </g>
+
+  <text class="grammar-title" x="32" y="566">C / OPEN FRAMES</text>
+
+  <g transform="translate(32 582)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Home experiment C01">
+      <path class="c" d="M4 10V4H10M14 4H20V10M4 14V20H10M14 20H20V14M12 7L17 12L12 17L7 12Z"/>
+      <path class="c" d="M9 20V17M15 20V17"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">C01</tspan><tspan x="16" dy="15">HOME / LOCAL</tspan></text>
+  </g>
+
+  <g transform="translate(212 582)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Inbox experiment C02">
+      <path class="c" d="M4 8V4H9M15 4H20V8M4 12V20H20V12M8 13H10L12 16L14 13H16M12 5V11M9 8L12 11L15 8"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">C02</tspan><tspan x="16" dy="15">INBOX / DROP</tspan></text>
+  </g>
+
+  <g transform="translate(392 582)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Activity experiment C03">
+      <path class="c" d="M4 9V4H9M15 4H20V9M4 15V20H9M15 20H20V15M5 12H9L11 8L14 16L16 12H20"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">C03</tspan><tspan x="16" dy="15">ACTIVITY / PULSE</tspan></text>
+  </g>
+
+  <g transform="translate(572 582)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Goal experiment C04">
+      <path class="c" d="M4 9V4H9M15 4H20V9M4 15V20H9M15 20H20V15M6 12H10L12 8L14 12H18M14 12L12 16L10 12"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">C04</tspan><tspan x="16" dy="15">GOAL / TARGET</tspan></text>
+  </g>
+
+  <g transform="translate(752 582)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Task experiment C05">
+      <path class="c" d="M4 9V4H9M15 4H20V9M4 15V20H9M15 20H20V15M7 8H11V12H7ZM13 10H18M7 16H12L15 13M12 16L15 19"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">C05</tspan><tspan x="16" dy="15">TASK / UNIT</tspan></text>
+  </g>
+
+  <g transform="translate(932 582)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Done experiment C06">
+      <path class="c" d="M4 9V4H9M15 4H20V9M4 15V20H9M15 20H20V15M6 12L10 16L18 7"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">C06</tspan><tspan x="16" dy="15">DONE / VERIFIED</tspan></text>
+  </g>
+
+  <g transform="translate(1112 582)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Blocked experiment C07">
+      <path class="c" d="M4 9V4H9M15 4H20V9M4 15V20H9M15 20H20V15M5 12H9M15 12H19M9 8L15 16M15 8L9 16"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">C07</tspan><tspan x="16" dy="15">BLOCKED / HALT</tspan></text>
+  </g>
+
+  <g transform="translate(1292 582)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Encrypted experiment C08">
+      <path class="c" d="M4 9V4H9M15 4H20V9M4 15V20H9M15 20H20V15M12 6L18 12L12 18L6 12ZM8 8L16 16M16 8L8 16"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">C08</tspan><tspan x="16" dy="15">ENCRYPTED / LOCK</tspan></text>
+  </g>
+
+  <g transform="translate(1472 582)">
+    <rect class="cell" width="160" height="180"/>
+    <svg x="32" y="22" width="96" height="96" viewBox="0 0 24 24" aria-label="Connection experiment C09">
+      <path class="c" d="M4 8V5H9M4 16V19H9M20 8V5H15M20 16V19H15M4 12H9L12 9L15 12H20M9 12L12 15L15 12"/>
+    </svg>
+    <text class="label" x="16" y="153"><tspan class="code">C09</tspan><tspan x="16" dy="15">CONNECTION / PORT</tspan></text>
+  </g>
+
+  <path d="M32 794H1632" stroke="#252A31"/>
+  <text class="sheet-meta" x="32" y="816">EXPLORATION ONLY · LABELS NAME INTENT, NOT FINAL ASSETS</text>
+  <text class="sheet-meta" x="1632" y="816" text-anchor="end">BG #08090B · GLYPH #E8E8E3</text>
+</svg>

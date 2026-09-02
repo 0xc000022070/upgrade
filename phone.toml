@@ -1,0 +1,31 @@
+default = "pixel_7-api36"
+
+[build.android]
+app = "dev.luisnquin.hotline"
+stale = "find lib assets android/app/src pubspec.lock -type f | sort | xargs cksum | cksum"
+run = """
+nix develop -c flutter build apk --debug --target-platform android-arm64
+phone app install -t "$PHONE_DEVICE" build/app/outputs/flutter-apk/app-debug.apk
+"""
+
+[devices.pixel_7-api36]
+state = "prepared"
+
+# Emulators ship with the animation scales at 0, which Flutter reports as
+# MediaQuery.disableAnimations and which switches the whole §16 motion layer
+# off. Review has to see what a handset sees.
+[devices.pixel_7-api36.settings.global]
+window_animation_scale = "1"
+transition_animation_scale = "1"
+animator_duration_scale = "1"
+
+[devices.faraday]
+state = "prepared"
+
+# `dev` is the only device this agent drives; `review` is the user's handset and
+# gets installs only. A bare `phone up` converges both from the same APK.
+[profiles.dev]
+devices = ["pixel_7-api36"]
+
+[profiles.review]
+devices = ["faraday"]

@@ -1,0 +1,240 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="890" viewBox="0 0 2000 890">
+  <defs>
+    <style>
+      .label { fill: #EDEDED; font-family: "IBM Plex Mono", "JetBrains Mono", monospace; }
+      .muted { fill: #85878C; font-family: "IBM Plex Mono", "JetBrains Mono", monospace; }
+      .hairline { fill: none; stroke: #34363A; stroke-width: 1; }
+      .safe-circle { fill: none; stroke: #85878C; stroke-width: 1; stroke-dasharray: 3 3; }
+      .safe-squircle { fill: none; stroke: #B7FF2A; stroke-width: 1; stroke-dasharray: 2 4; opacity: 0.7; }
+    </style>
+
+    <g id="bird-dive-108"><g transform="translate(28 30.055595) scale(0.050979387)"><g transform="translate(-144.455519,1196.299548) scale(1.000000,-1.000000)"
+fill="currentColor" stroke="none">
+<path d="M286 1192 c-15 -13 -33 -39 -40 -59 -19 -51 -10 -106 25 -157 4 -6 7
+-11 7 -11 -1 0 -21 24 -28 34 -21 28 -40 61 -52 92 -7 18 -9 19 -13 6 -8 -24
+-10 -53 -5 -73 8 -39 29 -75 62 -108 6 -6 11 -12 11 -12 0 0 -23 18 -33 26
+-16 13 -32 28 -47 43 -9 8 -16 15 -16 15 -4 0 -4 -22 2 -42 9 -36 35 -68 79
+-96 6 -5 11 -8 10 -8 -8 3 -55 26 -80 39 -19 10 -21 11 -22 9 -2 -2 -2 -3 5
+-17 19 -40 49 -69 93 -92 7 -4 12 -7 12 -7 -1 0 -53 11 -66 13 -18 4 -17 -1 6
+-23 24 -23 42 -35 85 -55 2 -1 1 -1 -6 0 -12 0 -29 2 -36 3 -4 0 -5 0 -6 -1
+-3 -3 -1 -6 8 -14 23 -20 48 -35 78 -45 17 -6 18 -6 12 -6 -3 0 -13 -1 -22 -2
+-23 -2 -24 -3 -11 -12 17 -11 41 -20 63 -24 6 -1 12 -2 12 -2 1 0 -6 -3 -14
+-6 -22 -7 -23 -8 -8 -16 22 -12 51 -18 67 -15 3 1 5 1 6 1 0 -1 -6 -3 -14 -6
+-14 -6 -18 -8 -16 -11 2 -3 31 -18 40 -20 6 -2 28 -1 31 1 1 1 -2 -3 -7 -8 -9
+-10 -10 -11 -8 -13 2 -2 18 -1 27 2 4 2 8 3 8 3 0 0 -5 -7 -12 -15 -6 -7 -17
+-21 -24 -31 l-13 -17 -13 -6 c-23 -11 -41 -18 -93 -33 -58 -17 -82 -24 -82
+-27 -1 -1 1 -4 4 -4 19 -6 40 -9 53 -7 5 0 9 1 9 0 0 0 -5 -2 -11 -6 -26 -13
+-83 -51 -84 -56 -1 -2 2 -4 11 -5 24 -2 50 3 73 13 7 4 7 4 4 1 -9 -7 -49 -44
+-50 -47 -3 -4 9 -5 28 -2 20 3 40 10 58 22 4 3 7 5 8 5 0 0 -3 -3 -6 -7 -3 -4
+-7 -11 -10 -16 -13 -21 -13 -22 3 -19 22 5 45 16 59 30 5 4 5 4 0 -7 -4 -8 -8
+-21 -8 -24 0 -3 3 -4 10 -2 19 4 37 14 51 27 l5 5 0 -8 c0 -7 0 -9 2 -10 2 -2
+1 -3 8 1 13 6 29 19 38 31 l4 6 2 -6 c3 -9 4 -10 13 -4 17 11 29 30 35 55 2 7
+4 14 4 16 1 2 2 5 4 7 l3 4 -1 -9 c-1 -14 1 -16 10 -11 3 2 6 3 7 3 0 -1 -1
+-4 -2 -9 -4 -14 -1 -17 7 -9 8 8 9 8 9 3 0 -5 2 -9 4 -8 1 1 5 2 9 4 l8 4 9
+-4 c6 -1 16 -5 22 -8 12 -5 13 -6 13 -9 0 -2 0 -3 -4 -5 -3 -1 -6 -4 -6 -5 -2
+-3 -5 -13 -5 -16 0 -3 4 -12 6 -12 1 -1 4 2 3 4 0 0 0 3 0 5 1 4 1 5 4 6 3 0
+4 1 5 4 1 4 2 5 6 5 4 1 4 1 7 -5 2 -3 5 -6 6 -7 3 -1 3 -2 2 -6 0 -5 1 -9 4
+-10 2 -1 2 -2 2 -8 0 -4 -1 -7 -1 -8 -1 -1 0 -2 1 -3 6 -6 15 17 11 29 -1 2
+-2 5 -1 7 0 2 -1 4 -5 9 -5 6 -6 8 -1 4 1 -1 4 -4 7 -5 4 -3 5 -4 5 -8 1 -6 4
+-9 8 -9 2 1 5 -5 5 -10 0 -3 2 -6 4 -5 4 1 6 12 4 19 -1 3 -2 7 -2 8 -1 2 -2
+4 -3 6 -2 1 -3 3 -3 4 0 4 -5 8 -11 10 -3 0 -7 2 -9 4 -3 1 -7 4 -10 5 -3 2
+-7 4 -8 5 -2 2 -5 3 -8 4 -7 3 -31 14 -37 18 l-5 3 0 9 c1 5 2 13 3 17 1 7 2
+7 4 5 1 -1 3 -1 6 -1 6 1 7 0 5 -4 -2 -4 -1 -7 4 -7 3 0 27 -3 29 -4 1 0 0 -1
+-1 -4 -2 -7 0 -9 9 -6 3 0 7 1 8 2 6 1 47 -18 52 -24 3 -4 2 -7 -2 -8 -2 -1
+-4 -2 -5 -3 -2 -3 -5 -17 -5 -20 3 -11 8 -12 8 -2 1 6 2 8 5 8 2 1 3 2 4 4 1
+2 5 5 8 5 1 0 3 -6 3 -10 0 -5 0 -11 0 -16 0 -3 0 -5 -2 -7 -2 -3 -2 -5 1 -6
+2 -1 8 5 12 11 3 6 3 7 3 13 -1 4 -1 8 -2 10 l0 2 1 -2 c2 -6 3 -12 2 -17 -1
+-5 -1 -5 1 -8 2 -3 3 -9 1 -15 -2 -6 -1 -9 3 -7 3 1 8 10 10 15 1 7 1 17 -2
+21 -1 1 -2 4 -3 6 l-2 3 5 -3 c5 -4 6 -5 6 -8 0 -3 3 -6 6 -6 3 0 4 -2 6 -10
+1 -6 5 -8 7 -2 1 3 1 14 -1 19 0 2 -1 4 -1 5 0 3 -5 8 -9 9 -7 2 -23 16 -31
+25 -4 6 -7 7 -13 8 -8 2 -45 20 -52 26 l-4 4 1 8 c1 9 4 17 8 29 3 8 3 8 9 11
+15 7 33 13 51 16 13 1 43 1 48 -1 5 -2 25 -15 45 -30 22 -17 21 -16 23 -15 2
+2 2 2 0 6 -4 11 -14 26 -26 41 l-3 5 4 -4 c9 -7 26 -24 29 -29 5 -8 8 -17 10
+-26 1 -10 4 -11 9 -4 12 21 9 43 -9 74 l-9 14 0 8 c0 9 -2 18 -7 29 -6 12 -21
+32 -23 31 0 -1 -2 1 -4 2 -1 2 -4 5 -6 7 l-5 2 6 8 c3 5 6 8 6 8 0 1 -3 2 -5
+4 l-5 4 8 5 c19 11 30 15 54 17 21 3 45 8 46 10 2 4 -3 6 -18 9 l-6 2 8 1 c34
+8 63 16 81 25 16 7 15 9 -10 12 -15 2 -17 3 -14 3 30 8 67 24 86 37 8 5 9 6 6
+9 -1 1 -4 1 -25 1 l-24 -1 10 5 c27 13 56 33 72 49 6 7 7 9 4 10 -2 1 -39 -7
+-65 -15 -3 -1 -3 0 10 8 18 12 44 32 66 52 14 12 18 16 17 18 -1 3 -2 3 -13 0
+-23 -5 -40 -10 -62 -21 -8 -4 -14 -7 -14 -7 -1 1 45 44 64 62 10 9 18 17 18
+18 1 1 -1 4 -2 4 -4 0 -31 -11 -45 -18 -20 -10 -67 -41 -87 -57 -9 -7 -9 -7
+-6 -2 1 2 4 5 5 8 4 5 14 23 16 27 2 3 2 3 0 4 -1 2 -2 2 -8 -2 -23 -12 -46
+-30 -73 -58 l-17 -16 3 7 c6 15 7 19 3 20 -1 1 -9 -7 -29 -26 -15 -16 -28 -28
+-28 -28 -1 0 1 3 3 6 5 10 6 13 4 14 -2 2 -1 3 -21 -11 -18 -12 -32 -20 -72
+-44 -44 -26 -54 -33 -73 -50 l-10 -9 -8 3 -7 3 -1 -2 c-2 -6 -5 -12 -6 -12 0
+0 -1 0 -2 1 -1 1 -2 1 -3 -1 -2 -1 -1 -4 6 -14 l4 -6 -8 3 c-18 6 -23 9 -35
+14 -39 20 -60 44 -81 93 -12 26 -21 38 -46 59 -45 38 -79 71 -104 100 -40 46
+-57 88 -62 147 -1 16 -2 19 -6 17 -4 -2 -14 -30 -16 -44 -1 -5 -1 -9 -2 -9 0
+1 -2 15 -3 27 -2 22 1 53 8 81 2 9 2 10 -1 11 -3 2 -20 -19 -28 -36 -12 -22
+-16 -47 -12 -74 0 -2 -2 2 -4 9 -17 51 -20 101 -9 146 3 12 1 14 -8 7z"/>
+</g></g></g>
+    <g id="bird-perched-108"><g transform="translate(23 25.578924) scale(0.065860475)"><g transform="translate(-148.577244,1072.594056) scale(1.000000,-1.000000)"
+fill="currentColor" stroke="none">
+<path d="M809 1072 c-13 -1 -28 -5 -40 -10 -12 -5 -28 -13 -28 -15 -1 -3 2 -5
+5 -4 3 0 3 0 -6 -6 -9 -6 -20 -14 -21 -17 -2 -3 1 -5 6 -4 1 1 3 2 3 2 0 0 -5
+-5 -11 -12 -10 -10 -20 -22 -20 -24 0 0 1 -2 2 -2 1 -2 1 -2 5 0 5 2 5 2 1 -3
+-4 -5 -17 -25 -22 -33 -3 -5 -3 -6 -1 -7 1 -2 2 -2 6 1 2 1 4 2 4 1 -1 -1 -5
+-7 -11 -15 -5 -7 -9 -14 -8 -14 0 -3 3 -3 6 -1 5 2 4 1 -4 -8 -7 -7 -8 -8 -22
+-14 -34 -14 -66 -35 -96 -62 -20 -17 -45 -44 -43 -47 1 -3 4 -3 7 -1 6 3 4 0
+-9 -11 -15 -12 -40 -37 -42 -42 -3 -4 0 -6 4 -5 2 1 2 1 -1 -2 -3 -2 -11 -9
+-19 -16 -37 -30 -80 -72 -121 -117 -29 -33 -28 -37 2 -22 4 1 7 3 7 3 0 -1 -8
+-7 -17 -15 -18 -16 -54 -52 -57 -57 -2 -3 -2 -3 0 -4 0 -1 2 -2 2 -2 1 1 4 1
+7 2 6 2 25 9 38 14 6 3 10 5 11 5 0 0 -15 -13 -33 -27 -60 -48 -95 -79 -93
+-83 1 -4 9 -2 40 12 9 4 16 6 15 6 -1 -1 -10 -9 -20 -18 -49 -40 -88 -78 -86
+-84 1 -2 4 -2 13 2 10 4 38 18 54 27 5 3 10 6 11 6 0 0 -10 -11 -23 -24 -23
+-23 -38 -40 -47 -51 -5 -7 -5 -7 -2 -9 1 -2 2 -2 6 0 10 3 31 13 49 23 l4 2
+-3 -3 c-1 -1 -5 -6 -9 -9 -9 -9 -22 -25 -25 -30 -8 -11 4 -10 28 3 6 3 11 5
+12 5 0 -1 -1 -3 -3 -5 -3 -7 -1 -10 6 -8 6 3 22 11 34 18 5 4 10 7 10 7 0 -1
+-2 -4 -3 -8 -4 -8 -5 -9 -2 -11 4 -5 41 15 72 38 9 7 10 7 8 4 -2 -4 -5 -13
+-4 -15 1 -4 5 -3 17 6 17 12 48 44 88 86 30 34 39 44 40 44 0 -1 -2 -5 -5 -11
+-5 -11 -5 -13 -2 -14 2 -1 17 8 33 20 4 3 8 6 8 6 0 -1 -1 -3 -2 -5 -4 -9 0
+-11 8 -6 7 4 24 16 32 23 2 2 5 4 5 4 0 0 0 -5 -1 -11 -3 -17 -4 -31 -2 -33 2
+-2 4 -2 8 2 1 1 2 2 2 2 1 0 1 -4 1 -9 2 -16 4 -21 10 -16 3 4 3 4 4 -1 1 -5
+4 -13 5 -14 2 -1 3 -1 5 1 1 1 3 2 3 1 0 0 2 -3 5 -6 13 -18 33 -57 33 -65 0
+-2 0 -5 1 -6 1 -2 1 -3 -1 -5 -3 -2 -4 -2 -11 -2 -5 0 -8 0 -8 1 -2 3 -8 6
+-12 6 -2 0 -5 0 -8 2 -13 6 -29 -3 -32 -19 -2 -6 3 -8 6 -2 2 4 9 8 13 8 7 0
+8 -1 7 -7 -1 -13 9 -21 21 -15 5 2 7 2 13 1 5 -2 11 -2 18 0 7 1 11 1 12 0 1
+-3 12 -11 16 -12 2 0 4 -1 5 -2 4 -5 11 -7 23 -4 2 0 3 0 7 -4 3 -2 5 -5 6 -7
+1 -2 2 -3 3 -3 1 -1 4 1 4 3 0 3 -3 14 -5 16 l-1 2 4 0 c2 -1 5 -2 6 -3 2 0 5
+-1 7 -1 3 0 5 0 6 -1 0 -1 2 -2 4 -3 9 -5 15 -1 15 8 l0 6 4 0 c5 0 12 -5 15
+-11 3 -6 4 -7 7 -4 1 1 1 2 0 4 -3 16 -13 27 -25 27 -4 1 -5 1 -6 3 -3 3 -7 4
+-13 4 -20 -3 -38 0 -46 6 -2 2 -5 4 -7 5 -2 1 -4 3 -4 5 -1 2 -4 5 -6 7 -7 6
+-19 25 -30 46 -11 22 -12 25 -11 33 0 4 1 7 2 7 0 0 1 0 2 0 2 0 5 7 9 23 3
+12 4 14 6 15 3 2 18 15 27 23 4 4 7 7 7 7 1 0 0 -2 -1 -5 -2 -6 -2 -9 0 -10 3
+-1 25 12 34 20 5 4 5 4 2 -2 -2 -6 -1 -9 3 -7 2 0 2 0 0 -5 -1 -3 -4 -9 -6
+-14 -5 -8 -5 -9 -3 -10 2 -2 1 -2 6 0 l4 2 -2 -7 c-3 -11 -3 -11 -2 -12 2 -2
+2 -2 7 1 3 1 5 2 5 2 1 0 1 -3 1 -6 0 -8 2 -12 6 -10 1 1 2 2 2 2 0 3 2 1 2
+-3 2 -8 4 -10 8 -7 2 1 3 2 3 2 1 0 15 -17 21 -25 12 -16 26 -40 26 -43 0 -2
+1 -4 1 -6 1 -2 1 -2 -1 -5 -3 -2 -4 -2 -10 -2 -4 1 -8 1 -9 2 -3 3 -8 5 -11 4
+-2 0 -5 1 -7 2 -11 5 -24 0 -31 -12 -4 -9 0 -12 6 -6 6 6 11 8 17 6 3 -2 3 -2
+3 -7 0 -7 3 -12 8 -14 5 -2 6 -2 12 1 5 2 6 2 10 1 8 -2 15 -2 23 0 9 2 8 3
+15 -3 7 -4 15 -6 20 -5 3 0 6 0 9 -2 3 -1 6 -2 9 -3 3 0 5 -1 7 -4 8 -8 18 -5
+18 5 0 6 15 0 20 -8 2 -5 3 -5 5 -3 2 1 2 2 0 7 -1 7 -1 7 0 7 4 -1 7 3 6 10
+-1 4 -1 4 2 4 4 0 10 -3 14 -7 6 -6 9 -3 6 4 -4 9 -15 17 -24 17 -3 0 -5 1 -7
+2 -3 4 -8 5 -14 2 -4 -1 -12 -2 -29 -2 -6 0 -8 0 -16 4 -5 3 -9 5 -10 7 0 2
+-4 6 -8 10 -10 9 -32 39 -43 60 -4 7 -5 9 -5 14 0 5 0 6 2 6 3 1 5 9 7 30 1
+11 2 14 3 14 3 -1 2 -1 12 24 9 23 16 37 21 43 5 6 11 15 21 28 3 5 7 10 9 11
+8 5 32 34 44 54 11 15 23 39 30 55 2 4 2 4 2 1 0 -3 2 -6 4 -5 4 1 15 34 20
+57 l2 15 2 -7 c1 -10 5 -10 7 -2 5 14 6 28 6 49 0 19 0 21 2 18 1 -5 3 -6 6
+-3 1 1 1 3 1 12 -1 17 -5 32 -12 51 0 1 1 0 2 -1 2 -2 2 -2 4 0 4 3 -6 25 -22
+49 -12 17 -13 20 -16 29 -3 10 -3 12 0 9 4 -5 8 -2 6 4 -3 12 -2 20 3 21 27 6
+75 12 113 15 l12 0 7 -6 c7 -8 6 -7 8 -5 2 2 2 9 0 16 -7 29 -38 51 -84 60 -9
+2 -34 6 -38 6 0 0 1 1 1 2 5 4 -1 6 -18 7 l-14 0 -5 4 c-24 20 -83 35 -121 31z"/>
+</g></g></g>
+    <g id="bird-head-108"><g transform="translate(22 23.440449) scale(0.061247925)"><g transform="translate(-107.000000,1121.538449) scale(1.000000,-1.000000)"
+fill="currentColor" stroke="none">
+<path d="M503 1121 c-10 -1 -9 -4 5 -13 6 -4 11 -7 11 -8 0 0 -6 0 -13 1 -32
+1 -66 -5 -93 -17 -13 -7 -12 -9 5 -10 6 -1 14 -1 17 -2 l5 -1 -16 -8 c-56 -28
+-106 -72 -141 -125 -11 -16 -10 -18 8 -9 7 3 15 7 19 8 l7 3 -11 -12 c-23 -27
+-44 -56 -66 -97 -4 -6 -4 -7 -2 -8 2 -2 0 -3 18 6 9 4 16 8 16 7 0 0 -17 -27
+-26 -41 -14 -22 -32 -45 -43 -58 -5 -8 -6 -10 -5 -11 2 -1 3 -2 6 -1 4 1 22 7
+28 10 3 1 5 2 6 2 1 -1 -55 -78 -77 -105 -10 -13 -10 -15 3 -13 5 1 25 7 31 9
+0 0 -3 -6 -9 -13 -20 -28 -70 -100 -74 -106 -1 -3 0 -6 4 -6 8 0 38 8 53 15
+11 5 11 5 -3 -10 -20 -20 -59 -66 -59 -68 0 -4 3 -5 15 -6 23 -1 47 2 71 8 6
+2 12 3 12 3 1 0 -8 -9 -18 -19 -11 -11 -20 -20 -20 -21 0 0 1 -2 1 -2 4 -4 39
+-4 65 0 8 1 15 2 15 2 0 -1 -2 -2 -4 -4 -6 -3 -25 -22 -27 -25 -2 -4 1 -6 6
+-6 37 6 75 2 105 -10 15 -6 15 -6 8 -10 -7 -5 -12 -10 -11 -12 0 -1 1 -1 18
+-3 43 -5 83 -24 125 -60 10 -9 12 -10 13 -6 2 3 -7 31 -14 43 -2 3 -3 5 -2 5
+1 0 13 -10 24 -20 6 -5 26 -25 44 -42 33 -34 34 -35 36 -29 0 2 -1 17 -3 27 0
+3 1 3 13 -10 35 -34 72 -58 125 -82 16 -7 19 -8 20 -4 1 1 -11 26 -19 39 -4 6
+-7 10 -7 11 1 0 27 -18 39 -27 14 -11 36 -33 45 -45 10 -15 10 -14 15 -3 9 19
+16 46 17 70 0 7 1 12 1 11 2 -2 11 -21 13 -28 4 -12 6 -12 11 0 11 24 17 56
+17 87 0 9 0 16 0 15 2 0 13 -17 16 -22 5 -9 8 -7 10 6 3 31 -2 72 -13 103 -1
+4 -2 6 -2 7 1 0 17 -13 25 -21 10 -11 13 -11 11 1 -6 46 -24 86 -60 132 -9 11
+-11 14 -9 13 2 -2 19 -4 21 -4 4 2 3 4 -8 16 -29 30 -46 58 -50 81 l0 4 7 -6
+c9 -9 14 -12 16 -10 2 2 2 3 -1 8 -12 27 -10 61 4 84 l3 5 1 -4 c1 -3 4 -5 6
+-4 0 0 2 4 4 8 13 24 34 36 65 38 12 0 26 -1 52 -5 52 -7 77 -9 122 -10 36 0
+39 0 39 3 1 1 1 3 2 6 l2 4 5 -5 c6 -8 13 -18 17 -26 5 -13 8 -11 10 4 7 58
+-27 122 -89 166 -31 22 -66 39 -123 59 -21 7 -31 11 -41 18 -5 3 -5 3 -5 9 -2
+12 -10 33 -13 34 -2 1 -5 -1 -6 -5 -1 -4 -1 -4 -5 5 -4 7 -13 20 -18 25 -3 3
+-6 3 -7 0 0 -2 -2 -1 -9 7 -52 53 -149 93 -254 106 -28 3 -69 6 -78 4z"/>
+</g></g></g>
+
+    <g id="candidate-dive">
+      <use href="#bird-dive-108" color="#EDEDED"/>
+      <path d="M65 62L68 65L65 68L62 65Z" fill="#B7FF2A"/>
+    </g>
+    <g id="candidate-perched">
+      <use href="#bird-perched-108" color="#EDEDED"/>
+      <path d="M71 28L74 31L71 34L68 31Z" fill="#B7FF2A"/>
+    </g>
+    <g id="candidate-head">
+      <use href="#bird-head-108" color="#EDEDED"/>
+      <path d="M60 34L63 37L60 40L57 37Z" fill="#B7FF2A"/>
+    </g>
+
+    <symbol id="mono-dive" viewBox="0 0 108 108"><rect width="108" height="108" fill="#0A0A0A"/><use href="#bird-dive-108" color="#EDEDED"/></symbol>
+    <symbol id="mono-perched" viewBox="0 0 108 108"><rect width="108" height="108" fill="#0A0A0A"/><use href="#bird-perched-108" color="#EDEDED"/></symbol>
+    <symbol id="mono-head" viewBox="0 0 108 108"><rect width="108" height="108" fill="#0A0A0A"/><use href="#bird-head-108" color="#EDEDED"/></symbol>
+
+    <symbol id="guide" viewBox="0 0 108 108">
+      <rect x="0.5" y="0.5" width="107" height="107" fill="#0A0A0A" stroke="#34363A"/>
+      <circle cx="54" cy="54" r="33" class="safe-circle"/>
+      <path d="M54 21C75.5 21 87 32.5 87 54C87 75.5 75.5 87 54 87C32.5 87 21 75.5 21 54C21 32.5 32.5 21 54 21Z" class="safe-squircle"/>
+    </symbol>
+    <symbol id="preview-bg" viewBox="0 0 108 108"><rect width="108" height="108" fill="#15171B"/></symbol>
+
+    <symbol id="dive-circle" viewBox="0 0 108 108"><circle cx="54" cy="54" r="52" fill="#0A0A0A"/><use href="#candidate-dive"/></symbol>
+    <symbol id="dive-squircle" viewBox="0 0 108 108"><path d="M54 2C88 2 106 20 106 54C106 88 88 106 54 106C20 106 2 88 2 54C2 20 20 2 54 2Z" fill="#0A0A0A"/><use href="#candidate-dive"/></symbol>
+    <symbol id="dive-rounded" viewBox="0 0 108 108"><rect x="2" y="2" width="104" height="104" rx="22" fill="#0A0A0A"/><use href="#candidate-dive"/></symbol>
+    <symbol id="perched-circle" viewBox="0 0 108 108"><circle cx="54" cy="54" r="52" fill="#0A0A0A"/><use href="#candidate-perched"/></symbol>
+    <symbol id="perched-squircle" viewBox="0 0 108 108"><path d="M54 2C88 2 106 20 106 54C106 88 88 106 54 106C20 106 2 88 2 54C2 20 20 2 54 2Z" fill="#0A0A0A"/><use href="#candidate-perched"/></symbol>
+    <symbol id="perched-rounded" viewBox="0 0 108 108"><rect x="2" y="2" width="104" height="104" rx="22" fill="#0A0A0A"/><use href="#candidate-perched"/></symbol>
+    <symbol id="head-circle" viewBox="0 0 108 108"><circle cx="54" cy="54" r="52" fill="#0A0A0A"/><use href="#candidate-head"/></symbol>
+    <symbol id="head-squircle" viewBox="0 0 108 108"><path d="M54 2C88 2 106 20 106 54C106 88 88 106 54 106C20 106 2 88 2 54C2 20 20 2 54 2Z" fill="#0A0A0A"/><use href="#candidate-head"/></symbol>
+    <symbol id="head-rounded" viewBox="0 0 108 108"><rect x="2" y="2" width="104" height="104" rx="22" fill="#0A0A0A"/><use href="#candidate-head"/></symbol>
+  </defs>
+
+  <rect width="2000" height="890" fill="#0A0A0A"/>
+  <text x="40" y="52" class="label" font-size="24" font-weight="700" letter-spacing="1">HOTLINE / RAVEN APP ICON EXPLORATION 04</text>
+  <text x="40" y="82" class="muted" font-size="12">IMAGEGEN SOURCE → BINARY SILHOUETTE → POTRACE → HAND CLEAN · 66DP SAFE ZONE · DIAMOND EYE ONLY</text>
+  <line x1="40" y1="108" x2="1960" y2="108" class="hairline"/>
+  <text x="40" y="137" class="muted" font-size="11">CANDIDATE</text>
+  <text x="250" y="137" class="muted" font-size="11">108DP CONSTRUCTION</text>
+  <text x="470" y="137" class="muted" font-size="11">CIRCLE · 108 / 48 / 24</text>
+  <text x="810" y="137" class="muted" font-size="11">SQUIRCLE · 108 / 48 / 24</text>
+  <text x="1150" y="137" class="muted" font-size="11">ROUNDED SQUARE · 108 / 48 / 24</text>
+  <text x="1460" y="137" class="muted" font-size="11">ANDROID HOME STRIP · 48DP / 1:1</text>
+  <text x="1815" y="137" class="muted" font-size="11">MONO · 24DP</text>
+
+  <g id="row-dive">
+    <line x1="40" y1="158" x2="1960" y2="158" class="hairline"/>
+    <text x="40" y="205" class="label" font-size="18" font-weight="700">R1 / DIVE ATTACK</text>
+    <text x="40" y="230" class="muted" font-size="11">SPREAD WINGS · TALONS FORWARD</text>
+    <text x="40" y="251" class="muted" font-size="11">AGGRESSIVE THREE-QUARTER PROFILE</text>
+    <svg x="250" y="176" width="150" height="150" viewBox="0 0 108 108"><use href="#guide"/><use href="#candidate-dive"/></svg>
+    <use href="#preview-bg" x="470" y="176" width="108" height="108"/><use href="#dive-circle" x="470" y="176" width="108" height="108"/><use href="#preview-bg" x="600" y="206" width="48" height="48"/><use href="#dive-circle" x="600" y="206" width="48" height="48"/><use href="#preview-bg" x="670" y="218" width="24" height="24"/><use href="#dive-circle" x="670" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="810" y="176" width="108" height="108"/><use href="#dive-squircle" x="810" y="176" width="108" height="108"/><use href="#preview-bg" x="940" y="206" width="48" height="48"/><use href="#dive-squircle" x="940" y="206" width="48" height="48"/><use href="#preview-bg" x="1010" y="218" width="24" height="24"/><use href="#dive-squircle" x="1010" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="1150" y="176" width="108" height="108"/><use href="#dive-rounded" x="1150" y="176" width="108" height="108"/><use href="#preview-bg" x="1280" y="206" width="48" height="48"/><use href="#dive-rounded" x="1280" y="206" width="48" height="48"/><use href="#preview-bg" x="1350" y="218" width="24" height="24"/><use href="#dive-rounded" x="1350" y="218" width="24" height="24"/>
+    <rect x="1460" y="184" width="280" height="92" fill="#171A20" stroke="#2A2E35"/><use href="#dive-squircle" x="1476" y="202" width="48" height="48"/><rect x="1540" y="202" width="48" height="48" rx="12" fill="#353A42"/><rect x="1604" y="202" width="48" height="48" rx="12" fill="#424750"/><rect x="1668" y="202" width="48" height="48" rx="12" fill="#30353D"/><path d="M1484 259H1516M1548 259H1580M1612 259H1644M1676 259H1708" stroke="#777C85" stroke-width="3" opacity="0.4"/>
+    <rect x="1815" y="198" width="96" height="64" fill="#15171B" stroke="#2A2E35"/><use href="#mono-dive" x="1851" y="218" width="24" height="24"/>
+  </g>
+
+  <g id="row-perched" transform="translate(0 230)">
+    <line x1="40" y1="158" x2="1960" y2="158" class="hairline"/>
+    <text x="40" y="205" class="label" font-size="18" font-weight="700">R2 / PERCHED</text>
+    <text x="40" y="230" class="muted" font-size="11">FOLDED WING · HEAD TURNED</text>
+    <text x="40" y="251" class="muted" font-size="11">WEDGE TAIL · VISIBLE TALONS</text>
+    <svg x="250" y="176" width="150" height="150" viewBox="0 0 108 108"><use href="#guide"/><use href="#candidate-perched"/></svg>
+    <use href="#preview-bg" x="470" y="176" width="108" height="108"/><use href="#perched-circle" x="470" y="176" width="108" height="108"/><use href="#preview-bg" x="600" y="206" width="48" height="48"/><use href="#perched-circle" x="600" y="206" width="48" height="48"/><use href="#preview-bg" x="670" y="218" width="24" height="24"/><use href="#perched-circle" x="670" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="810" y="176" width="108" height="108"/><use href="#perched-squircle" x="810" y="176" width="108" height="108"/><use href="#preview-bg" x="940" y="206" width="48" height="48"/><use href="#perched-squircle" x="940" y="206" width="48" height="48"/><use href="#preview-bg" x="1010" y="218" width="24" height="24"/><use href="#perched-squircle" x="1010" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="1150" y="176" width="108" height="108"/><use href="#perched-rounded" x="1150" y="176" width="108" height="108"/><use href="#preview-bg" x="1280" y="206" width="48" height="48"/><use href="#perched-rounded" x="1280" y="206" width="48" height="48"/><use href="#preview-bg" x="1350" y="218" width="24" height="24"/><use href="#perched-rounded" x="1350" y="218" width="24" height="24"/>
+    <rect x="1460" y="184" width="280" height="92" fill="#171A20" stroke="#2A2E35"/><use href="#perched-squircle" x="1476" y="202" width="48" height="48"/><rect x="1540" y="202" width="48" height="48" rx="12" fill="#353A42"/><rect x="1604" y="202" width="48" height="48" rx="12" fill="#424750"/><rect x="1668" y="202" width="48" height="48" rx="12" fill="#30353D"/><path d="M1484 259H1516M1548 259H1580M1612 259H1644M1676 259H1708" stroke="#777C85" stroke-width="3" opacity="0.4"/>
+    <rect x="1815" y="198" width="96" height="64" fill="#15171B" stroke="#2A2E35"/><use href="#mono-perched" x="1851" y="218" width="24" height="24"/>
+  </g>
+
+  <g id="row-head" transform="translate(0 460)">
+    <line x1="40" y1="158" x2="1960" y2="158" class="hairline"/>
+    <text x="40" y="205" class="label" font-size="18" font-weight="700">R3 / HEAD BUST</text>
+    <text x="40" y="230" class="muted" font-size="11">HEAVY HOOKED BEAK · EYE SOCKET</text>
+    <text x="40" y="251" class="muted" font-size="11">COARSE NECK FEATHER CONTOUR</text>
+    <svg x="250" y="176" width="150" height="150" viewBox="0 0 108 108"><use href="#guide"/><use href="#candidate-head"/></svg>
+    <use href="#preview-bg" x="470" y="176" width="108" height="108"/><use href="#head-circle" x="470" y="176" width="108" height="108"/><use href="#preview-bg" x="600" y="206" width="48" height="48"/><use href="#head-circle" x="600" y="206" width="48" height="48"/><use href="#preview-bg" x="670" y="218" width="24" height="24"/><use href="#head-circle" x="670" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="810" y="176" width="108" height="108"/><use href="#head-squircle" x="810" y="176" width="108" height="108"/><use href="#preview-bg" x="940" y="206" width="48" height="48"/><use href="#head-squircle" x="940" y="206" width="48" height="48"/><use href="#preview-bg" x="1010" y="218" width="24" height="24"/><use href="#head-squircle" x="1010" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="1150" y="176" width="108" height="108"/><use href="#head-rounded" x="1150" y="176" width="108" height="108"/><use href="#preview-bg" x="1280" y="206" width="48" height="48"/><use href="#head-rounded" x="1280" y="206" width="48" height="48"/><use href="#preview-bg" x="1350" y="218" width="24" height="24"/><use href="#head-rounded" x="1350" y="218" width="24" height="24"/>
+    <rect x="1460" y="184" width="280" height="92" fill="#171A20" stroke="#2A2E35"/><use href="#head-squircle" x="1476" y="202" width="48" height="48"/><rect x="1540" y="202" width="48" height="48" rx="12" fill="#353A42"/><rect x="1604" y="202" width="48" height="48" rx="12" fill="#424750"/><rect x="1668" y="202" width="48" height="48" rx="12" fill="#30353D"/><path d="M1484 259H1516M1548 259H1580M1612 259H1644M1676 259H1708" stroke="#777C85" stroke-width="3" opacity="0.4"/>
+    <rect x="1815" y="198" width="96" height="64" fill="#15171B" stroke="#2A2E35"/><use href="#mono-head" x="1851" y="218" width="24" height="24"/>
+  </g>
+
+  <line x1="40" y1="878" x2="1960" y2="878" class="hairline"/>
+</svg>

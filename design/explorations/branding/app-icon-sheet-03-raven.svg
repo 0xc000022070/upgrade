@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1120" viewBox="0 0 2000 1120">
+  <defs>
+    <style>
+      .label { fill: #EDEDED; font-family: "IBM Plex Mono", "JetBrains Mono", monospace; }
+      .muted { fill: #85878C; font-family: "IBM Plex Mono", "JetBrains Mono", monospace; }
+      .hairline { fill: none; stroke: #34363A; stroke-width: 1; }
+      .safe-circle { fill: none; stroke: #85878C; stroke-width: 1; stroke-dasharray: 3 3; }
+      .safe-squircle { fill: none; stroke: #B7FF2A; stroke-width: 1; stroke-dasharray: 2 4; opacity: 0.7; }
+    </style>
+
+    <clipPath id="clip-circle" clipPathUnits="userSpaceOnUse"><circle cx="54" cy="54" r="52"/></clipPath>
+    <clipPath id="clip-squircle" clipPathUnits="userSpaceOnUse"><path d="M54 2C88 2 106 20 106 54C106 88 88 106 54 106C20 106 2 88 2 54C2 20 20 2 54 2Z"/></clipPath>
+    <clipPath id="clip-rounded" clipPathUnits="userSpaceOnUse"><rect x="2" y="2" width="104" height="104" rx="22"/></clipPath>
+
+    <symbol id="bird-r1" viewBox="0 0 108 108">
+      <path d="M37 30H54L62 38H68L86 56H68V64L60 72V80L52 72L46 78V68L38 60H30L36 54H29L35 48H30L36 42H31L37 36Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="bird-r2" viewBox="0 0 108 108">
+      <path d="M48 32H60L66 38H72L84 50H70L64 56L70 62V64L64 70H54L48 64H40L34 70H26L32 64H24L32 56H38L44 50H40L48 42Z" fill="currentColor"/>
+      <rect x="48" y="64" width="6" height="14" fill="currentColor"/>
+      <rect x="61" y="68" width="6" height="10" fill="currentColor"/>
+      <rect x="36" y="75" width="36" height="6" fill="currentColor"/>
+    </symbol>
+    <symbol id="bird-r3" viewBox="0 0 108 108">
+      <path d="M52 58L36 42H24L31 49H27L42 64H52ZM56 58L68 46H80L74 52H82L66 68H58Z" fill="currentColor"/>
+      <path d="M40 54H56L64 62H70L80 72H68L62 78H50L44 72H36L42 66H32L40 58Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="bird-r4" viewBox="0 0 108 108">
+      <path d="M36 30H54L62 38H68L84 54H72L84 66H68L60 74V78L54 84L48 78L42 84V74L34 66H28L34 60H29L35 54H30L36 48H31L37 42H32L38 36V30Z" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="candidate-r1" viewBox="0 0 108 108"><g color="#EDEDED"><use href="#bird-r1"/></g><path d="M61 43L65 47L61 51L57 47Z" fill="#B7FF2A"/></symbol>
+    <symbol id="candidate-r2" viewBox="0 0 108 108"><g color="#EDEDED"><use href="#bird-r2"/></g><path d="M67 42L71 46L67 50L63 46Z" fill="#B7FF2A"/></symbol>
+    <symbol id="candidate-r3" viewBox="0 0 108 108"><g color="#EDEDED"><use href="#bird-r3"/></g><path d="M67 63L70 66L67 69L64 66Z" fill="#B7FF2A"/></symbol>
+    <symbol id="candidate-r4" viewBox="0 0 108 108"><g color="#EDEDED"><use href="#bird-r4"/></g><path d="M62 43L66 47L62 51L58 47Z" fill="#B7FF2A"/></symbol>
+
+    <symbol id="guide" viewBox="0 0 108 108">
+      <rect x="0.5" y="0.5" width="107" height="107" fill="#0A0A0A" stroke="#34363A"/>
+      <circle cx="54" cy="54" r="33" class="safe-circle"/>
+      <path d="M54 21C75.5 21 87 32.5 87 54C87 75.5 75.5 87 54 87C32.5 87 21 75.5 21 54C21 32.5 32.5 21 54 21Z" class="safe-squircle"/>
+    </symbol>
+    <symbol id="preview-bg" viewBox="0 0 108 108"><rect width="108" height="108" fill="#15171B"/></symbol>
+
+    <symbol id="r1-circle" viewBox="0 0 108 108"><g clip-path="url(#clip-circle)"><circle cx="54" cy="54" r="52" fill="#0A0A0A"/><use href="#candidate-r1"/></g></symbol>
+    <symbol id="r1-squircle" viewBox="0 0 108 108"><g clip-path="url(#clip-squircle)"><path d="M54 2C88 2 106 20 106 54C106 88 88 106 54 106C20 106 2 88 2 54C2 20 20 2 54 2Z" fill="#0A0A0A"/><use href="#candidate-r1"/></g></symbol>
+    <symbol id="r1-rounded" viewBox="0 0 108 108"><g clip-path="url(#clip-rounded)"><rect x="2" y="2" width="104" height="104" rx="22" fill="#0A0A0A"/><use href="#candidate-r1"/></g></symbol>
+    <symbol id="r2-circle" viewBox="0 0 108 108"><g clip-path="url(#clip-circle)"><circle cx="54" cy="54" r="52" fill="#0A0A0A"/><use href="#candidate-r2"/></g></symbol>
+    <symbol id="r2-squircle" viewBox="0 0 108 108"><g clip-path="url(#clip-squircle)"><path d="M54 2C88 2 106 20 106 54C106 88 88 106 54 106C20 106 2 88 2 54C2 20 20 2 54 2Z" fill="#0A0A0A"/><use href="#candidate-r2"/></g></symbol>
+    <symbol id="r2-rounded" viewBox="0 0 108 108"><g clip-path="url(#clip-rounded)"><rect x="2" y="2" width="104" height="104" rx="22" fill="#0A0A0A"/><use href="#candidate-r2"/></g></symbol>
+    <symbol id="r3-circle" viewBox="0 0 108 108"><g clip-path="url(#clip-circle)"><circle cx="54" cy="54" r="52" fill="#0A0A0A"/><use href="#candidate-r3"/></g></symbol>
+    <symbol id="r3-squircle" viewBox="0 0 108 108"><g clip-path="url(#clip-squircle)"><path d="M54 2C88 2 106 20 106 54C106 88 88 106 54 106C20 106 2 88 2 54C2 20 20 2 54 2Z" fill="#0A0A0A"/><use href="#candidate-r3"/></g></symbol>
+    <symbol id="r3-rounded" viewBox="0 0 108 108"><g clip-path="url(#clip-rounded)"><rect x="2" y="2" width="104" height="104" rx="22" fill="#0A0A0A"/><use href="#candidate-r3"/></g></symbol>
+    <symbol id="r4-circle" viewBox="0 0 108 108"><g clip-path="url(#clip-circle)"><circle cx="54" cy="54" r="52" fill="#0A0A0A"/><use href="#candidate-r4"/></g></symbol>
+    <symbol id="r4-squircle" viewBox="0 0 108 108"><g clip-path="url(#clip-squircle)"><path d="M54 2C88 2 106 20 106 54C106 88 88 106 54 106C20 106 2 88 2 54C2 20 20 2 54 2Z" fill="#0A0A0A"/><use href="#candidate-r4"/></g></symbol>
+    <symbol id="r4-rounded" viewBox="0 0 108 108"><g clip-path="url(#clip-rounded)"><rect x="2" y="2" width="104" height="104" rx="22" fill="#0A0A0A"/><use href="#candidate-r4"/></g></symbol>
+  </defs>
+
+  <rect width="2000" height="1120" fill="#0A0A0A"/>
+  <text x="40" y="52" class="label" font-size="24" font-weight="700" letter-spacing="1">HOTLINE / RAVEN APP ICON EXPLORATION 03</text>
+  <text x="40" y="82" class="muted" font-size="12">FLAT FILLS · 45/90° CUTS · 66DP SAFE ZONE · DIAMOND EYE ONLY · MONO PROOF REMOVES THE EYE</text>
+  <line x1="40" y1="108" x2="1960" y2="108" class="hairline"/>
+
+  <text x="40" y="137" class="muted" font-size="11">CANDIDATE</text>
+  <text x="250" y="137" class="muted" font-size="11">108DP CONSTRUCTION</text>
+  <text x="470" y="137" class="muted" font-size="11">CIRCLE · 108 / 48 / 24</text>
+  <text x="810" y="137" class="muted" font-size="11">SQUIRCLE · 108 / 48 / 24</text>
+  <text x="1150" y="137" class="muted" font-size="11">ROUNDED SQUARE · 108 / 48 / 24</text>
+  <text x="1460" y="137" class="muted" font-size="11">ANDROID HOME STRIP · 48DP / 1:1</text>
+  <text x="1815" y="137" class="muted" font-size="11">MONO · 24DP</text>
+
+  <g id="row-r1">
+    <line x1="40" y1="158" x2="1960" y2="158" class="hairline"/>
+    <text x="40" y="205" class="label" font-size="18" font-weight="700">R1 / HEAD PROFILE</text>
+    <text x="40" y="230" class="muted" font-size="11">CLOSED BEAK · RIGHT FACING</text>
+    <text x="40" y="251" class="muted" font-size="11">DIAMOND EYE · CUT THROAT</text>
+    <svg x="250" y="176" width="150" height="150" viewBox="0 0 108 108"><use href="#guide"/><use href="#candidate-r1"/></svg>
+    <use href="#preview-bg" x="470" y="176" width="108" height="108"/><use href="#r1-circle" x="470" y="176" width="108" height="108"/><use href="#preview-bg" x="600" y="206" width="48" height="48"/><use href="#r1-circle" x="600" y="206" width="48" height="48"/><use href="#preview-bg" x="670" y="218" width="24" height="24"/><use href="#r1-circle" x="670" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="810" y="176" width="108" height="108"/><use href="#r1-squircle" x="810" y="176" width="108" height="108"/><use href="#preview-bg" x="940" y="206" width="48" height="48"/><use href="#r1-squircle" x="940" y="206" width="48" height="48"/><use href="#preview-bg" x="1010" y="218" width="24" height="24"/><use href="#r1-squircle" x="1010" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="1150" y="176" width="108" height="108"/><use href="#r1-rounded" x="1150" y="176" width="108" height="108"/><use href="#preview-bg" x="1280" y="206" width="48" height="48"/><use href="#r1-rounded" x="1280" y="206" width="48" height="48"/><use href="#preview-bg" x="1350" y="218" width="24" height="24"/><use href="#r1-rounded" x="1350" y="218" width="24" height="24"/>
+    <rect x="1460" y="184" width="280" height="92" fill="#171A20" stroke="#2A2E35"/><use href="#r1-squircle" x="1476" y="202" width="48" height="48"/><rect x="1540" y="202" width="48" height="48" rx="12" fill="#353A42"/><rect x="1604" y="202" width="48" height="48" rx="12" fill="#424750"/><rect x="1668" y="202" width="48" height="48" rx="12" fill="#30353D"/><path d="M1484 259H1516M1548 259H1580M1612 259H1644M1676 259H1708" stroke="#777C85" stroke-width="3" opacity="0.4"/>
+    <rect x="1815" y="198" width="96" height="64" fill="#15171B" stroke="#2A2E35"/><g color="#EDEDED"><use href="#bird-r1" x="1851" y="218" width="24" height="24"/></g>
+  </g>
+
+  <g id="row-r2" transform="translate(0 230)">
+    <line x1="40" y1="158" x2="1960" y2="158" class="hairline"/>
+    <text x="40" y="205" class="label" font-size="18" font-weight="700">R2 / PERCHED</text>
+    <text x="40" y="230" class="muted" font-size="11">FOLDED BODY · SIDE VIEW</text>
+    <text x="40" y="251" class="muted" font-size="11">SAW EDGE · HOME BASELINE</text>
+    <svg x="250" y="176" width="150" height="150" viewBox="0 0 108 108"><use href="#guide"/><use href="#candidate-r2"/></svg>
+    <use href="#preview-bg" x="470" y="176" width="108" height="108"/><use href="#r2-circle" x="470" y="176" width="108" height="108"/><use href="#preview-bg" x="600" y="206" width="48" height="48"/><use href="#r2-circle" x="600" y="206" width="48" height="48"/><use href="#preview-bg" x="670" y="218" width="24" height="24"/><use href="#r2-circle" x="670" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="810" y="176" width="108" height="108"/><use href="#r2-squircle" x="810" y="176" width="108" height="108"/><use href="#preview-bg" x="940" y="206" width="48" height="48"/><use href="#r2-squircle" x="940" y="206" width="48" height="48"/><use href="#preview-bg" x="1010" y="218" width="24" height="24"/><use href="#r2-squircle" x="1010" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="1150" y="176" width="108" height="108"/><use href="#r2-rounded" x="1150" y="176" width="108" height="108"/><use href="#preview-bg" x="1280" y="206" width="48" height="48"/><use href="#r2-rounded" x="1280" y="206" width="48" height="48"/><use href="#preview-bg" x="1350" y="218" width="24" height="24"/><use href="#r2-rounded" x="1350" y="218" width="24" height="24"/>
+    <rect x="1460" y="184" width="280" height="92" fill="#171A20" stroke="#2A2E35"/><use href="#r2-squircle" x="1476" y="202" width="48" height="48"/><rect x="1540" y="202" width="48" height="48" rx="12" fill="#353A42"/><rect x="1604" y="202" width="48" height="48" rx="12" fill="#424750"/><rect x="1668" y="202" width="48" height="48" rx="12" fill="#30353D"/><path d="M1484 259H1516M1548 259H1580M1612 259H1644M1676 259H1708" stroke="#777C85" stroke-width="3" opacity="0.4"/>
+    <rect x="1815" y="198" width="96" height="64" fill="#15171B" stroke="#2A2E35"/><g color="#EDEDED"><use href="#bird-r2" x="1851" y="218" width="24" height="24"/></g>
+  </g>
+
+  <g id="row-r3" transform="translate(0 460)">
+    <line x1="40" y1="158" x2="1960" y2="158" class="hairline"/>
+    <text x="40" y="205" class="label" font-size="18" font-weight="700">R3 / DIVE</text>
+    <text x="40" y="230" class="muted" font-size="11">SPREAD WINGS · DOWN-RIGHT</text>
+    <text x="40" y="251" class="muted" font-size="11">EIGHT COARSE WING CUTS</text>
+    <svg x="250" y="176" width="150" height="150" viewBox="0 0 108 108"><use href="#guide"/><use href="#candidate-r3"/></svg>
+    <use href="#preview-bg" x="470" y="176" width="108" height="108"/><use href="#r3-circle" x="470" y="176" width="108" height="108"/><use href="#preview-bg" x="600" y="206" width="48" height="48"/><use href="#r3-circle" x="600" y="206" width="48" height="48"/><use href="#preview-bg" x="670" y="218" width="24" height="24"/><use href="#r3-circle" x="670" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="810" y="176" width="108" height="108"/><use href="#r3-squircle" x="810" y="176" width="108" height="108"/><use href="#preview-bg" x="940" y="206" width="48" height="48"/><use href="#r3-squircle" x="940" y="206" width="48" height="48"/><use href="#preview-bg" x="1010" y="218" width="24" height="24"/><use href="#r3-squircle" x="1010" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="1150" y="176" width="108" height="108"/><use href="#r3-rounded" x="1150" y="176" width="108" height="108"/><use href="#preview-bg" x="1280" y="206" width="48" height="48"/><use href="#r3-rounded" x="1280" y="206" width="48" height="48"/><use href="#preview-bg" x="1350" y="218" width="24" height="24"/><use href="#r3-rounded" x="1350" y="218" width="24" height="24"/>
+    <rect x="1460" y="184" width="280" height="92" fill="#171A20" stroke="#2A2E35"/><use href="#r3-squircle" x="1476" y="202" width="48" height="48"/><rect x="1540" y="202" width="48" height="48" rx="12" fill="#353A42"/><rect x="1604" y="202" width="48" height="48" rx="12" fill="#424750"/><rect x="1668" y="202" width="48" height="48" rx="12" fill="#30353D"/><path d="M1484 259H1516M1548 259H1580M1612 259H1644M1676 259H1708" stroke="#777C85" stroke-width="3" opacity="0.4"/>
+    <rect x="1815" y="198" width="96" height="64" fill="#15171B" stroke="#2A2E35"/><g color="#EDEDED"><use href="#bird-r3" x="1851" y="218" width="24" height="24"/></g>
+  </g>
+
+  <g id="row-r4" transform="translate(0 690)">
+    <line x1="40" y1="158" x2="1960" y2="158" class="hairline"/>
+    <text x="40" y="205" class="label" font-size="18" font-weight="700">R4 / CALLING HEAD</text>
+    <text x="40" y="230" class="muted" font-size="11">ARTIST PICK · OPEN BEAK</text>
+    <text x="40" y="251" class="muted" font-size="11">HOTLINE CALL · CUT THROAT</text>
+    <svg x="250" y="176" width="150" height="150" viewBox="0 0 108 108"><use href="#guide"/><use href="#candidate-r4"/></svg>
+    <use href="#preview-bg" x="470" y="176" width="108" height="108"/><use href="#r4-circle" x="470" y="176" width="108" height="108"/><use href="#preview-bg" x="600" y="206" width="48" height="48"/><use href="#r4-circle" x="600" y="206" width="48" height="48"/><use href="#preview-bg" x="670" y="218" width="24" height="24"/><use href="#r4-circle" x="670" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="810" y="176" width="108" height="108"/><use href="#r4-squircle" x="810" y="176" width="108" height="108"/><use href="#preview-bg" x="940" y="206" width="48" height="48"/><use href="#r4-squircle" x="940" y="206" width="48" height="48"/><use href="#preview-bg" x="1010" y="218" width="24" height="24"/><use href="#r4-squircle" x="1010" y="218" width="24" height="24"/>
+    <use href="#preview-bg" x="1150" y="176" width="108" height="108"/><use href="#r4-rounded" x="1150" y="176" width="108" height="108"/><use href="#preview-bg" x="1280" y="206" width="48" height="48"/><use href="#r4-rounded" x="1280" y="206" width="48" height="48"/><use href="#preview-bg" x="1350" y="218" width="24" height="24"/><use href="#r4-rounded" x="1350" y="218" width="24" height="24"/>
+    <rect x="1460" y="184" width="280" height="92" fill="#171A20" stroke="#2A2E35"/><use href="#r4-squircle" x="1476" y="202" width="48" height="48"/><rect x="1540" y="202" width="48" height="48" rx="12" fill="#353A42"/><rect x="1604" y="202" width="48" height="48" rx="12" fill="#424750"/><rect x="1668" y="202" width="48" height="48" rx="12" fill="#30353D"/><path d="M1484 259H1516M1548 259H1580M1612 259H1644M1676 259H1708" stroke="#777C85" stroke-width="3" opacity="0.4"/>
+    <rect x="1815" y="198" width="96" height="64" fill="#15171B" stroke="#2A2E35"/><g color="#EDEDED"><use href="#bird-r4" x="1851" y="218" width="24" height="24"/></g>
+  </g>
+
+  <line x1="40" y1="1108" x2="1960" y2="1108" class="hairline"/>
+</svg>

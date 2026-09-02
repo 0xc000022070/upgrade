@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="650" viewBox="0 0 1080 650">
+  <title>Hotline texture readability preview</title>
+  <desc>Fine noise, eight pixel grid, and three pixel scanline textures behind real UI text.</desc>
+  <style>
+    .title { fill: #E8E8E3; font: 600 20px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1.6px; }
+    .meta { fill: #6F767F; font: 10px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: .7px; }
+    .panel-title { fill: #9A9FA6; font: 600 11px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1px; }
+    .screen-title { fill: #E8E8E3; font: 600 26px "DejaVu Sans", sans-serif; letter-spacing: .6px; }
+    .section { fill: #9A9FA6; font: 600 11px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1px; }
+    .body { fill: #E8E8E3; font: 14px "DejaVu Sans", sans-serif; }
+    .secondary { fill: #9A9FA6; font: 11px "IBM Plex Mono", "DejaVu Sans Mono", monospace; }
+    .rule { stroke: #252A31; stroke-width: 1; }
+  </style>
+  <defs>
+    <pattern id="noise" width="512" height="512" patternUnits="userSpaceOnUse">
+      <image href="noise-fine.png" width="512" height="512"/>
+    </pattern>
+    <pattern id="grid" width="8" height="8" patternUnits="userSpaceOnUse">
+      <path d="M0.5 0V8M0 0.5H8" stroke="#FFFFFF" stroke-width="1" shape-rendering="crispEdges"/>
+    </pattern>
+    <pattern id="scanline" width="8" height="3" patternUnits="userSpaceOnUse">
+      <image href="scanline-3.png" width="8" height="3"/>
+    </pattern>
+    <symbol id="ui" viewBox="0 0 304 446">
+      <text class="screen-title" x="0" y="30">Today</text>
+      <text class="section" x="0" y="72">NEXT ACTION</text>
+      <path class="rule" d="M0 84H304"/>
+      <text class="body" x="0" y="110">Configure backup externo</text>
+      <text class="secondary" x="0" y="130">INFRA PERSONAL · 15 MIN</text>
+      <text class="section" x="0" y="176">ACTIVE GOAL</text>
+      <path class="rule" d="M0 188H304"/>
+      <text class="body" x="0" y="214">Reduce SaaS dependency</text>
+      <text class="secondary" x="0" y="234">4 OF 10 TASKS · 40%</text>
+      <path d="M0 252H304" stroke="#2E343C" stroke-width="3"/>
+      <path d="M0 252H122" stroke="#E8E8E3" stroke-width="3"/>
+      <text class="section" x="0" y="296">BLOCKED</text>
+      <path class="rule" d="M0 308H304"/>
+      <text class="body" x="0" y="334">Object storage</text>
+      <text class="secondary" x="0" y="354">WAITING FOR S3-COMPATIBLE PROVIDER</text>
+      <text class="section" x="0" y="400">RECENT</text>
+      <path class="rule" d="M0 412H304"/>
+      <text class="body" x="0" y="440">Migré DNS a Cloudflare</text>
+    </symbol>
+  </defs>
+
+  <rect width="1080" height="650" fill="#08090B"/>
+  <text class="title" x="24" y="36">HOTLINE / TEXTURE READABILITY</text>
+  <text class="meta" x="1056" y="36" text-anchor="end">BODY TEXT = 14 PX</text>
+  <path class="rule" d="M24 62H1056"/>
+
+  <text class="panel-title" x="24" y="88">NOISE FINE / 4%</text>
+  <text class="panel-title" x="372" y="88">GRID 8 / 2%</text>
+  <text class="panel-title" x="720" y="88">SCANLINE 3 / 0.8%</text>
+
+  <rect x="24" y="104" width="324" height="494" fill="#08090B" stroke="#252A31"/>
+  <rect x="24" y="104" width="324" height="494" fill="url(#noise)" opacity=".04"/>
+  <use href="#ui" x="34" y="124" width="304" height="446"/>
+
+  <rect x="372" y="104" width="324" height="494" fill="#08090B" stroke="#252A31"/>
+  <rect x="372" y="104" width="324" height="494" fill="url(#grid)" opacity=".02"/>
+  <use href="#ui" x="382" y="124" width="304" height="446"/>
+
+  <rect x="720" y="104" width="336" height="494" fill="#08090B" stroke="#252A31"/>
+  <rect x="720" y="104" width="336" height="494" fill="url(#scanline)" opacity=".008"/>
+  <use href="#ui" x="736" y="124" width="304" height="446"/>
+
+  <text class="meta" x="24" y="630">TEXTURES SIT BELOW CONTENT · NORMAL BLEND · #08090B BASE</text>
+</svg>

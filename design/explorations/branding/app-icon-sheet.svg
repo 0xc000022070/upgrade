@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1450" height="1050" viewBox="0 0 1450 1050">
+  <defs>
+    <style>
+      .label { fill: #E8E8E3; font-family: "IBM Plex Mono", "JetBrains Mono", monospace; }
+      .muted { fill: #85878C; font-family: "IBM Plex Mono", "JetBrains Mono", monospace; }
+      .hairline { fill: none; stroke: #34363A; stroke-width: 1; }
+      .safe-circle { fill: none; stroke: #85878C; stroke-width: 1; stroke-dasharray: 3 3; }
+      .safe-squircle { fill: none; stroke: #B7FF2A; stroke-width: 1; stroke-dasharray: 2 4; opacity: 0.7; }
+    </style>
+
+    <clipPath id="clip-circle" clipPathUnits="userSpaceOnUse">
+      <circle cx="54" cy="54" r="52"/>
+    </clipPath>
+    <clipPath id="clip-squircle" clipPathUnits="userSpaceOnUse">
+      <path d="M54 2C88 2 106 20 106 54C106 88 88 106 54 106C20 106 2 88 2 54C2 20 20 2 54 2Z"/>
+    </clipPath>
+    <clipPath id="clip-rounded" clipPathUnits="userSpaceOnUse">
+      <rect x="2" y="2" width="104" height="104" rx="22"/>
+    </clipPath>
+
+    <symbol id="candidate-a" viewBox="0 0 108 108">
+      <path d="M54 24V46.75M54 69.25V76M33 76H75" fill="none" stroke="#E8E8E3" stroke-width="7.875" stroke-linecap="butt" stroke-linejoin="miter"/>
+      <path d="M54 46.75L65.25 58L54 69.25L42.75 58Z" fill="#B7FF2A"/>
+    </symbol>
+    <symbol id="candidate-b" viewBox="0 0 108 108">
+      <path d="M21 54H42M66 54H87" fill="none" stroke="#E8E8E3" stroke-width="7.875" stroke-linecap="butt" stroke-linejoin="miter"/>
+      <path d="M42 54L48 48H60L66 54" fill="none" stroke="#B7FF2A" stroke-width="7.875" stroke-linecap="butt" stroke-linejoin="miter"/>
+    </symbol>
+    <symbol id="candidate-c" viewBox="0 0 108 108">
+      <path d="M7 31H25L43 49M65 59L83 77H101" fill="none" stroke="#E8E8E3" stroke-width="7.875" stroke-linecap="butt" stroke-linejoin="miter"/>
+      <path d="M54 42.75L65.25 54L54 65.25L42.75 54Z" fill="#B7FF2A"/>
+    </symbol>
+    <symbol id="candidate-d" viewBox="0 0 108 108">
+      <path d="M30 32H38L48 42M78 32H70L60 42M54 44V51.75M54 74.25V86" fill="none" stroke="#E8E8E3" stroke-width="7.875" stroke-linecap="butt" stroke-linejoin="miter"/>
+      <path d="M54 51.75L65.25 63L54 74.25L42.75 63Z" fill="#B7FF2A"/>
+    </symbol>
+
+    <symbol id="a-circle" viewBox="0 0 108 108"><rect width="108" height="108" fill="#111317"/><g clip-path="url(#clip-circle)"><circle cx="54" cy="54" r="52" fill="#08090B" stroke="#34363A"/><use href="#candidate-a"/></g></symbol>
+    <symbol id="a-squircle" viewBox="0 0 108 108"><rect width="108" height="108" fill="#111317"/><g clip-path="url(#clip-squircle)"><path d="M54 2C88 2 106 20 106 54C106 88 88 106 54 106C20 106 2 88 2 54C2 20 20 2 54 2Z" fill="#08090B" stroke="#34363A"/><use href="#candidate-a"/></g></symbol>
+    <symbol id="a-rounded" viewBox="0 0 108 108"><rect width="108" height="108" fill="#111317"/><g clip-path="url(#clip-rounded)"><rect x="2" y="2" width="104" height="104" rx="22" fill="#08090B" stroke="#34363A"/><use href="#candidate-a"/></g></symbol>
+    <symbol id="b-circle" viewBox="0 0 108 108"><rect width="108" height="108" fill="#111317"/><g clip-path="url(#clip-circle)"><circle cx="54" cy="54" r="52" fill="#08090B" stroke="#34363A"/><use href="#candidate-b"/></g></symbol>
+    <symbol id="b-squircle" viewBox="0 0 108 108"><rect width="108" height="108" fill="#111317"/><g clip-path="url(#clip-squircle)"><path d="M54 2C88 2 106 20 106 54C106 88 88 106 54 106C20 106 2 88 2 54C2 20 20 2 54 2Z" fill="#08090B" stroke="#34363A"/><use href="#candidate-b"/></g></symbol>
+    <symbol id="b-rounded" viewBox="0 0 108 108"><rect width="108" height="108" fill="#111317"/><g clip-path="url(#clip-rounded)"><rect x="2" y="2" width="104" height="104" rx="22" fill="#08090B" stroke="#34363A"/><use href="#candidate-b"/></g></symbol>
+    <symbol id="c-circle" viewBox="0 0 108 108"><rect width="108" height="108" fill="#111317"/><g clip-path="url(#clip-circle)"><circle cx="54" cy="54" r="52" fill="#08090B" stroke="#34363A"/><use href="#candidate-c"/></g></symbol>
+    <symbol id="c-squircle" viewBox="0 0 108 108"><rect width="108" height="108" fill="#111317"/><g clip-path="url(#clip-squircle)"><path d="M54 2C88 2 106 20 106 54C106 88 88 106 54 106C20 106 2 88 2 54C2 20 20 2 54 2Z" fill="#08090B" stroke="#34363A"/><use href="#candidate-c"/></g></symbol>
+    <symbol id="c-rounded" viewBox="0 0 108 108"><rect width="108" height="108" fill="#111317"/><g clip-path="url(#clip-rounded)"><rect x="2" y="2" width="104" height="104" rx="22" fill="#08090B" stroke="#34363A"/><use href="#candidate-c"/></g></symbol>
+    <symbol id="d-circle" viewBox="0 0 108 108"><rect width="108" height="108" fill="#111317"/><g clip-path="url(#clip-circle)"><circle cx="54" cy="54" r="52" fill="#08090B" stroke="#34363A"/><use href="#candidate-d"/></g></symbol>
+    <symbol id="d-squircle" viewBox="0 0 108 108"><rect width="108" height="108" fill="#111317"/><g clip-path="url(#clip-squircle)"><path d="M54 2C88 2 106 20 106 54C106 88 88 106 54 106C20 106 2 88 2 54C2 20 20 2 54 2Z" fill="#08090B" stroke="#34363A"/><use href="#candidate-d"/></g></symbol>
+    <symbol id="d-rounded" viewBox="0 0 108 108"><rect width="108" height="108" fill="#111317"/><g clip-path="url(#clip-rounded)"><rect x="2" y="2" width="104" height="104" rx="22" fill="#08090B" stroke="#34363A"/><use href="#candidate-d"/></g></symbol>
+
+    <symbol id="guide" viewBox="0 0 108 108">
+      <rect x="0.5" y="0.5" width="107" height="107" fill="#08090B" stroke="#34363A"/>
+      <circle cx="54" cy="54" r="33" class="safe-circle"/>
+      <path d="M54 21C75.5 21 87 32.5 87 54C87 75.5 75.5 87 54 87C32.5 87 21 75.5 21 54C21 32.5 32.5 21 54 21Z" class="safe-squircle"/>
+    </symbol>
+  </defs>
+
+  <rect width="1450" height="1050" fill="#08090B"/>
+  <text x="40" y="52" class="label" font-size="24" font-weight="700" letter-spacing="1">HOTLINE / APP ICON EXPLORATION 01</text>
+  <text x="40" y="82" class="muted" font-size="12">108dp adaptive canvas · 66dp safe circle + squircle · text.primary #E8E8E3 · accent #B7FF2A</text>
+  <line x1="40" y1="108" x2="1410" y2="108" class="hairline"/>
+
+  <text x="40" y="137" class="muted" font-size="11">CANDIDATE</text>
+  <text x="250" y="137" class="muted" font-size="11">108DP CONSTRUCTION</text>
+  <text x="450" y="137" class="muted" font-size="11">CIRCLE · 108 / 48 / 24</text>
+  <text x="790" y="137" class="muted" font-size="11">SQUIRCLE · 108 / 48 / 24</text>
+  <text x="1130" y="137" class="muted" font-size="11">ROUNDED SQUARE · 108 / 48 / 24</text>
+
+  <g id="row-a">
+    <line x1="40" y1="158" x2="1410" y2="158" class="hairline"/>
+    <text x="40" y="205" class="label" font-size="18" font-weight="700">A / HOME ENDPOINT</text>
+    <text x="40" y="230" class="muted" font-size="11">DROP · DIAMOND · LOCAL BASE</text>
+    <text x="40" y="251" class="muted" font-size="11">ONE ACCENT ENDPOINT</text>
+    <svg x="250" y="176" width="150" height="150" viewBox="0 0 108 108">
+      <use href="#guide"/>
+      <use href="#candidate-a"/>
+    </svg>
+    <use href="#a-circle" x="450" y="176" width="108" height="108"/><use href="#a-circle" x="580" y="206" width="48" height="48"/><use href="#a-circle" x="650" y="218" width="24" height="24"/>
+    <use href="#a-squircle" x="790" y="176" width="108" height="108"/><use href="#a-squircle" x="920" y="206" width="48" height="48"/><use href="#a-squircle" x="990" y="218" width="24" height="24"/>
+    <use href="#a-rounded" x="1130" y="176" width="108" height="108"/><use href="#a-rounded" x="1260" y="206" width="48" height="48"/><use href="#a-rounded" x="1330" y="218" width="24" height="24"/>
+  </g>
+
+  <g id="row-b" transform="translate(0 220)">
+    <line x1="40" y1="158" x2="1410" y2="158" class="hairline"/>
+    <text x="40" y="205" class="label" font-size="18" font-weight="700">B / RECONNECT</text>
+    <text x="40" y="230" class="muted" font-size="11">DIRECT ROUTE · CONTROLLED GAP</text>
+    <text x="40" y="251" class="muted" font-size="11">ONE ACCENT BRIDGE</text>
+    <svg x="250" y="176" width="150" height="150" viewBox="0 0 108 108"><use href="#guide"/><use href="#candidate-b"/></svg>
+    <use href="#b-circle" x="450" y="176" width="108" height="108"/><use href="#b-circle" x="580" y="206" width="48" height="48"/><use href="#b-circle" x="650" y="218" width="24" height="24"/>
+    <use href="#b-squircle" x="790" y="176" width="108" height="108"/><use href="#b-squircle" x="920" y="206" width="48" height="48"/><use href="#b-squircle" x="990" y="218" width="24" height="24"/>
+    <use href="#b-rounded" x="1130" y="176" width="108" height="108"/><use href="#b-rounded" x="1260" y="206" width="48" height="48"/><use href="#b-rounded" x="1330" y="218" width="24" height="24"/>
+  </g>
+
+  <g id="row-c" transform="translate(0 440)">
+    <line x1="40" y1="158" x2="1410" y2="158" class="hairline"/>
+    <text x="40" y="205" class="label" font-size="18" font-weight="700">C / OPEN ROUTES</text>
+    <text x="40" y="230" class="muted" font-size="11">DIAMOND · TWO OUTBOUND ROUTES</text>
+    <text x="40" y="251" class="muted" font-size="11">INTENTIONAL SAFE-ZONE BLEED</text>
+    <svg x="250" y="176" width="150" height="150" viewBox="0 0 108 108"><use href="#guide"/><use href="#candidate-c"/></svg>
+    <use href="#c-circle" x="450" y="176" width="108" height="108"/><use href="#c-circle" x="580" y="206" width="48" height="48"/><use href="#c-circle" x="650" y="218" width="24" height="24"/>
+    <use href="#c-squircle" x="790" y="176" width="108" height="108"/><use href="#c-squircle" x="920" y="206" width="48" height="48"/><use href="#c-squircle" x="990" y="218" width="24" height="24"/>
+    <use href="#c-rounded" x="1130" y="176" width="108" height="108"/><use href="#c-rounded" x="1260" y="206" width="48" height="48"/><use href="#c-rounded" x="1330" y="218" width="24" height="24"/>
+  </g>
+
+  <g id="row-d" transform="translate(0 660)">
+    <line x1="40" y1="158" x2="1410" y2="158" class="hairline"/>
+    <text x="40" y="205" class="label" font-size="18" font-weight="700">D / GOAL CONVERGE</text>
+    <text x="40" y="230" class="muted" font-size="11">TWO ROUTES · ONE TARGET</text>
+    <text x="40" y="251" class="muted" font-size="11">ONE ACCENT ENDPOINT</text>
+    <svg x="250" y="176" width="150" height="150" viewBox="0 0 108 108"><use href="#guide"/><use href="#candidate-d"/></svg>
+    <use href="#d-circle" x="450" y="176" width="108" height="108"/><use href="#d-circle" x="580" y="206" width="48" height="48"/><use href="#d-circle" x="650" y="218" width="24" height="24"/>
+    <use href="#d-squircle" x="790" y="176" width="108" height="108"/><use href="#d-squircle" x="920" y="206" width="48" height="48"/><use href="#d-squircle" x="990" y="218" width="24" height="24"/>
+    <use href="#d-rounded" x="1130" y="176" width="108" height="108"/><use href="#d-rounded" x="1260" y="206" width="48" height="48"/><use href="#d-rounded" x="1330" y="218" width="24" height="24"/>
+  </g>
+
+  <line x1="40" y1="1038" x2="1410" y2="1038" class="hairline"/>
+</svg>

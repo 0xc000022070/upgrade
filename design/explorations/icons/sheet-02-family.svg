@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="1118" viewBox="0 0 1536 1118">
+  <title>Hotline approved base grammar family sheet</title>
+  <desc>Forty-three monochrome icons using the Signal nodes grammar.</desc>
+  <style>
+    .sheet-title { fill: #E8E8E3; font: 600 22px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 2px; }
+    .meta { fill: #6F767F; font: 11px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1px; }
+    .section { fill: #9A9FA6; font: 600 12px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1.5px; }
+    .cell { fill: #08090B; stroke: #252A31; stroke-width: 1; }
+    .label { fill: #9A9FA6; font: 10px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: .6px; }
+    .code { fill: #50555C; }
+    .r { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: butt; stroke-linejoin: miter; }
+    .n { fill: currentColor; }
+    .glyph { color: #E8E8E3; }
+  </style>
+  <defs>
+    <symbol id="hl-home" viewBox="0 0 24 24"><path class="r" d="M12 4V11.5M12 16.5V19M6 19H18"/><path class="n" d="M12 11.5L14.5 14L12 16.5L9.5 14Z"/></symbol>
+    <symbol id="hl-projects" viewBox="0 0 24 24"><path class="r" d="M12 6.5V12M6 12H18M6 12V17M18 12V17"/><path class="n" d="M10.5 3.5H13.5V6.5H10.5ZM4.5 17H7.5V20H4.5ZM16.5 17H19.5V20H16.5Z"/></symbol>
+    <symbol id="hl-inbox" viewBox="0 0 24 24"><path class="r" d="M5 5V9L10.5 14.5M19 5V9L13.5 14.5M12 16.5V19M5 19H19"/><path class="n" d="M10.5 13.5H13.5V16.5H10.5Z"/></symbol>
+    <symbol id="hl-activity" viewBox="0 0 24 24"><path class="r" d="M6 12H7L9 6L12 18L15 8L17 12H21"/><path class="n" d="M4 10L6 12L4 14L2 12Z"/></symbol>
+    <symbol id="hl-search" viewBox="0 0 24 24"><path class="r" d="M9 4H4V9M15 20H20V15"/><path class="n" d="M12 9.5L14.5 12L12 14.5L9.5 12Z"/></symbol>
+    <symbol id="hl-project" viewBox="0 0 24 24"><path class="r" d="M12 6.5V12M6 12H18M6 12V17M18 12V17"/><path class="n" d="M10.5 3.5H13.5V6.5H10.5ZM4.5 17H7.5V20H4.5ZM16.5 17H19.5V20H16.5Z"/></symbol>
+    <symbol id="hl-goal" viewBox="0 0 24 24"><path class="r" d="M4 6H9L12 9L15 6H20M4 18H9L12 15L15 18H20M12 9V15M8 12H16"/><path class="n" d="M12 9.5L14.5 12L12 14.5L9.5 12Z"/></symbol>
+    <symbol id="hl-task" viewBox="0 0 24 24"><path class="r" d="M6 12H19M15 8L19 12L15 16"/><path class="n" d="M4 10L6 12L4 14L2 12Z"/></symbol>
+    <symbol id="hl-note" viewBox="0 0 24 24"><path class="r" d="M7 7H20M5 12H16M5 17H20"/><path class="n" d="M5 5L7 7L5 9L3 7Z"/></symbol>
+    <symbol id="hl-event" viewBox="0 0 24 24"><path class="r" d="M7 12H10V7H20M10 12H17M10 12V17H20"/><path class="n" d="M5 10L7 12L5 14L3 12Z"/></symbol>
+    <symbol id="hl-attachment" viewBox="0 0 24 24"><path class="r" d="M7 8H10V16H17M7 16H14V8H17"/><path class="n" d="M5 6L7 8L5 10L3 8ZM19 14L21 16L19 18L17 16Z"/></symbol>
+    <symbol id="hl-done" viewBox="0 0 24 24"><path class="r" d="M4 12L9 17L18 8"/><path class="n" d="M18 4L20 6L18 8L16 6Z"/></symbol>
+    <symbol id="hl-pending" viewBox="0 0 24 24"><path class="r" d="M4 8H11L15 12L11 16H4M17 8L21 12L17 16"/></symbol>
+    <symbol id="hl-active" viewBox="0 0 24 24"><path class="r" d="M4 12H9.5M14.5 12H20"/><path class="n" d="M12 9.5L14.5 12L12 14.5L9.5 12Z"/></symbol>
+    <symbol id="hl-blocked" viewBox="0 0 24 24"><path class="r" d="M6 12H9M15 12H18M9 8L15 16M15 8L9 16"/><path class="n" d="M4 10L6 12L4 14L2 12ZM20 10L22 12L20 14L18 12Z"/></symbol>
+    <symbol id="hl-warning" viewBox="0 0 24 24"><path class="r" d="M12 3L21 20H3L12 3ZM12 8V11L11 14"/><path class="n" d="M10.75 16.25H13.25V18.75H10.75Z"/></symbol>
+    <symbol id="hl-failed" viewBox="0 0 24 24"><path class="r" d="M6 12H13M15 8L21 16M21 8L15 16"/><path class="n" d="M4 10L6 12L4 14L2 12Z"/></symbol>
+    <symbol id="hl-message" viewBox="0 0 24 24"><path class="r" d="M3 16H7V12H10.5M13.5 12H18L21 9M18 12L21 15"/><path class="n" d="M10.5 10.5H13.5V13.5H10.5Z"/></symbol>
+    <symbol id="hl-channel" viewBox="0 0 24 24"><path class="r" d="M5.5 8H10V16H18.5M5.5 16H14V8H18.5"/><path class="n" d="M2.5 6.5H5.5V9.5H2.5ZM2.5 14.5H5.5V17.5H2.5ZM18.5 6.5H21.5V9.5H18.5ZM18.5 14.5H21.5V17.5H18.5Z"/></symbol>
+    <symbol id="hl-priority" viewBox="0 0 24 24"><path class="r" d="M3 17H9V13H15V9H18M13 6L16 9L13 12"/><path class="n" d="M20 7L22 9L20 11L18 9Z"/></symbol>
+    <symbol id="hl-critical" viewBox="0 0 24 24"><path class="r" d="M12 3L21 20H3L12 3ZM9 8V13M15 8V13"/><path class="n" d="M7.75 15.75H10.25V18.25H7.75ZM13.75 15.75H16.25V18.25H13.75Z"/></symbol>
+    <symbol id="hl-acknowledged" viewBox="0 0 24 24"><path class="r" d="M3 12H9.5M14.5 12L17 14.5L21 9"/><path class="n" d="M12 9.5L14.5 12L12 14.5L9.5 12Z"/></symbol>
+    <symbol id="hl-encrypted" viewBox="0 0 24 24"><path class="r" d="M12 3L18 8V17L12 21L6 17V8L12 3Z"/><path class="n" d="M12 9.5L14.5 12L12 14.5L9.5 12Z"/></symbol>
+    <symbol id="hl-verified" viewBox="0 0 24 24"><path class="r" d="M12 3L18 8V17L12 21L6 17V8L12 3ZM8.5 12L11 14.5L15.5 9.5"/></symbol>
+    <symbol id="hl-device" viewBox="0 0 24 24"><path class="r" d="M4 10H9M4 14H9M15 10H20M15 14H20M10 4V9M14 4V9M10 15V20M14 15V20"/><path class="n" d="M9 9H15V15H9Z"/></symbol>
+    <symbol id="hl-sync" viewBox="0 0 24 24"><path class="r" d="M6 8H10L14 16H18M6 16H10L14 8H18"/><path class="n" d="M4 6L6 8L4 10L2 8ZM4 14L6 16L4 18L2 16ZM20 6L22 8L20 10L18 8ZM20 14L22 16L20 18L18 16Z"/></symbol>
+    <symbol id="hl-relay" viewBox="0 0 24 24"><path class="r" d="M6 12H8.5M11.5 12H14V7H18M14 12V17H18"/><path class="n" d="M4 10L6 12L4 14L2 12ZM20 5L22 7L20 9L18 7ZM20 15L22 17L20 19L18 17ZM8.5 10.5H11.5V13.5H8.5Z"/></symbol>
+    <symbol id="hl-vault" viewBox="0 0 24 24"><path class="r" d="M4 7H8L10.5 10.5M20 7H16L13.5 10.5M4 17H8L10.5 13.5M20 17H16L13.5 13.5"/><path class="n" d="M10.5 10.5H13.5V13.5H10.5Z"/></symbol>
+    <symbol id="hl-connection" viewBox="0 0 24 24"><path class="r" d="M6 12H8L11 9H13L16 12H18M8 12L11 15H13L16 12"/><path class="n" d="M4 10L6 12L4 14L2 12ZM20 10L22 12L20 14L18 12Z"/></symbol>
+    <symbol id="hl-add" viewBox="0 0 24 24"><path class="r" d="M12 4V20M4 12H20"/></symbol>
+    <symbol id="hl-close" viewBox="0 0 24 24"><path class="r" d="M5 5L19 19M19 5L5 19"/></symbol>
+    <symbol id="hl-back" viewBox="0 0 24 24"><path class="r" d="M15 5L8 12L15 19"/></symbol>
+    <symbol id="hl-forward" viewBox="0 0 24 24"><path class="r" d="M9 5L16 12L9 19"/></symbol>
+    <symbol id="hl-more" viewBox="0 0 24 24"><path class="n" d="M3.5 10.5H6.5V13.5H3.5ZM10.5 10.5H13.5V13.5H10.5ZM17.5 10.5H20.5V13.5H17.5Z"/></symbol>
+    <symbol id="hl-edit" viewBox="0 0 24 24"><path class="r" d="M19 5L8.5 15.5M7 18.5V20M4 20H12"/><path class="n" d="M5.5 15.5H8.5V18.5H5.5Z"/></symbol>
+    <symbol id="hl-filter" viewBox="0 0 24 24"><path class="r" d="M3 6H17.5M6 12H14.5M9 18H11.5"/><path class="n" d="M17.5 4.5H20.5V7.5H17.5ZM14.5 10.5H17.5V13.5H14.5ZM11.5 16.5H14.5V19.5H11.5Z"/></symbol>
+    <symbol id="hl-pin" viewBox="0 0 24 24"><path class="r" d="M12 9.5V16M8 16H16M12 16V21"/><path class="n" d="M12 4.5L14.5 7L12 9.5L9.5 7Z"/></symbol>
+    <symbol id="hl-submit" viewBox="0 0 24 24"><path class="r" d="M3 12H16.5M12 8L16 12L12 16"/><path class="n" d="M19 9.5L21.5 12L19 14.5L16.5 12Z"/></symbol>
+    <symbol id="hl-expand" viewBox="0 0 24 24"><path class="r" d="M11 11L5 5M5 5H10M5 5V10M13 13L19 19M19 19H14M19 19V14"/></symbol>
+    <symbol id="hl-collapse" viewBox="0 0 24 24"><path class="r" d="M5 5L11 11M11 11H6M11 11V6M19 19L13 13M13 13H18M13 13V18"/></symbol>
+    <symbol id="hl-checkbox-empty" viewBox="0 0 24 24"><path class="r" d="M5 5H19V19H5V5Z"/></symbol>
+    <symbol id="hl-checkbox-checked" viewBox="0 0 24 24"><path class="r" d="M5 5H19V19H5V5ZM7.5 12L10.5 15L17 8"/></symbol>
+    <symbol id="hl-progress-marker" viewBox="0 0 24 24"><path class="n" d="M12 9.5L14.5 12L12 14.5L9.5 12Z"/></symbol>
+  </defs>
+
+  <rect width="1536" height="1118" fill="#08090B"/>
+  <path d="M32 72H1504" stroke="#252A31"/>
+  <text class="sheet-title" x="32" y="40">HOTLINE / SIGNAL NODES FAMILY</text>
+  <text class="meta" x="1504" y="40" text-anchor="end">43 GLYPHS · 24×24 · STROKE 1.75</text>
+  <text class="section" x="32" y="102">APPROVED BASE GRAMMAR / PHASE 3 FAMILY</text>
+
+  <g>
+    <g transform="translate(32 118)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-home" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">N01</tspan> HOME</text></g>
+    <g transform="translate(216 118)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-projects" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">N02</tspan> PROJECTS</text></g>
+    <g transform="translate(400 118)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-inbox" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">N03</tspan> INBOX</text></g>
+    <g transform="translate(584 118)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-activity" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">N04</tspan> ACTIVITY</text></g>
+    <g transform="translate(768 118)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-search" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">N05</tspan> SEARCH</text></g>
+    <g transform="translate(952 118)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-project" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">E01</tspan> PROJECT</text></g>
+    <g transform="translate(1136 118)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-goal" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">E02</tspan> GOAL</text></g>
+    <g transform="translate(1320 118)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-task" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">E03</tspan> TASK</text></g>
+
+    <g transform="translate(32 278)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-note" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">E04</tspan> NOTE</text></g>
+    <g transform="translate(216 278)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-event" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">E05</tspan> EVENT</text></g>
+    <g transform="translate(400 278)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-attachment" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">E06</tspan> ATTACHMENT</text></g>
+    <g transform="translate(584 278)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-done" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">S01</tspan> DONE</text></g>
+    <g transform="translate(768 278)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-pending" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">S02</tspan> PENDING</text></g>
+    <g transform="translate(952 278)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-active" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">S03</tspan> ACTIVE</text></g>
+    <g transform="translate(1136 278)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-blocked" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">S04</tspan> BLOCKED</text></g>
+    <g transform="translate(1320 278)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-warning" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">S05</tspan> WARNING</text></g>
+
+    <g transform="translate(32 438)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-failed" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">S06</tspan> FAILED</text></g>
+    <g transform="translate(216 438)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-message" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">F01</tspan> MESSAGE</text></g>
+    <g transform="translate(400 438)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-channel" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">F02</tspan> CHANNEL</text></g>
+    <g transform="translate(584 438)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-priority" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">F03</tspan> PRIORITY</text></g>
+    <g transform="translate(768 438)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-critical" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">F04</tspan> CRITICAL</text></g>
+    <g transform="translate(952 438)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-acknowledged" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">F05</tspan> ACKNOWLEDGED</text></g>
+    <g transform="translate(1136 438)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-encrypted" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">F06</tspan> ENCRYPTED</text></g>
+    <g transform="translate(1320 438)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-verified" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">F07</tspan> VERIFIED</text></g>
+
+    <g transform="translate(32 598)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-device" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">F08</tspan> DEVICE</text></g>
+    <g transform="translate(216 598)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-sync" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">F09</tspan> SYNC</text></g>
+    <g transform="translate(400 598)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-relay" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">F10</tspan> RELAY</text></g>
+    <g transform="translate(584 598)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-vault" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">F11</tspan> VAULT</text></g>
+    <g transform="translate(768 598)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-connection" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">F12</tspan> CONNECTION</text></g>
+
+    <g transform="translate(32 758)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-add" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A01</tspan> ADD</text></g>
+    <g transform="translate(216 758)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-close" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A02</tspan> CLOSE</text></g>
+    <g transform="translate(400 758)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-back" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A03</tspan> BACK</text></g>
+    <g transform="translate(584 758)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-forward" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A04</tspan> FORWARD</text></g>
+    <g transform="translate(768 758)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-more" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A05</tspan> MORE</text></g>
+    <g transform="translate(952 758)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-edit" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A06</tspan> EDIT</text></g>
+    <g transform="translate(1136 758)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-filter" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A07</tspan> FILTER</text></g>
+    <g transform="translate(1320 758)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-pin" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A08</tspan> PIN</text></g>
+
+    <g transform="translate(32 918)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-submit" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A09</tspan> SUBMIT</text></g>
+    <g transform="translate(216 918)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-expand" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A10</tspan> EXPAND</text></g>
+    <g transform="translate(400 918)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-collapse" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A11</tspan> COLLAPSE</text></g>
+    <g transform="translate(584 918)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-checkbox-empty" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A12</tspan> CHECKBOX EMPTY</text></g>
+    <g transform="translate(768 918)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-checkbox-checked" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A13</tspan> CHECKBOX CHECKED</text></g>
+    <g transform="translate(952 918)"><rect class="cell" width="168" height="144"/><use class="glyph" href="#hl-progress-marker" x="36" y="10" width="96" height="96"/><text class="label" x="14" y="128"><tspan class="code">A14</tspan> PROGRESS MARKER</text></g>
+  </g>
+
+  <path d="M32 1082H1504" stroke="#252A31"/>
+  <text class="meta" x="32" y="1106">DIAMOND = ENDPOINT / ENTITY / TARGET · SQUARE = SYSTEM / CONTAINER / DEVICE</text>
+  <text class="meta" x="1504" y="1106" text-anchor="end">SEARCH OWNS BRACKETS · ADD OWNS +</text>
+</svg>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="260" viewBox="0 0 360 260">
+  <title>Hotline approved home icon</title>
+  <desc>Approved bracket-free drop plus baseline home glyph at large, 16 pixel, and 20 pixel sizes.</desc>
+  <style>
+    .title { fill: #E8E8E3; font: 600 15px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1.2px; }
+    .meta { fill: #6F767F; font: 8px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: .7px; }
+    .label { fill: #9A9FA6; font: 10px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: .6px; }
+    .cell { fill: #08090B; stroke: #252A31; stroke-width: 1; }
+    .route { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: butt; stroke-linejoin: miter; }
+    .node { fill: currentColor; }
+    .glyph { color: #E8E8E3; }
+  </style>
+  <defs>
+    <symbol id="home" viewBox="0 0 24 24"><path class="route" d="M12 4V11.5M12 16.5V19M6 19H18"/><path class="node" d="M12 11.5L14.5 14L12 16.5L9.5 14Z"/></symbol>
+  </defs>
+  <rect width="360" height="260" fill="#08090B"/>
+  <text class="title" x="24" y="31">HOTLINE / HOME FINAL</text>
+  <text class="meta" x="336" y="31" text-anchor="end">A / APPROVED</text>
+  <path d="M24 54H336" stroke="#252A31"/>
+  <rect class="cell" x="24" y="72" width="312" height="142"/>
+  <use class="glyph" href="#home" x="42" y="84" width="96" height="96"/>
+  <use class="glyph" href="#home" x="187" y="109" width="16" height="16"/>
+  <use class="glyph" href="#home" x="224" y="107" width="20" height="20"/>
+  <use class="glyph" href="#home" x="264" y="105" width="24" height="24"/>
+  <text class="label" x="164" y="161">DROP + BASE</text>
+  <text class="meta" x="164" y="181">16 / 20 / 24 PX</text>
+  <text class="meta" x="24" y="239">DIAMOND = LOCAL ENDPOINT · NO BRACKETS</text>
+</svg>

@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="788" viewBox="0 0 360 788">
+  <title>Hotline icon size strip</title>
+  <desc>Navigation, state, and action icons at 16, 20, and 24 pixels using a 1.75 pixel family stroke.</desc>
+  <style>
+    .title { fill: #E8E8E3; font: 600 10px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1px; }
+    .section { fill: #9A9FA6; font: 600 7px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: .8px; }
+    .meta { fill: #6F767F; font: 6px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: .45px; }
+    .row { fill: #9A9FA6; font: 6px "IBM Plex Mono", "DejaVu Sans Mono", monospace; }
+    .rule { stroke: #252A31; stroke-width: .5; }
+    .r { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: butt; stroke-linejoin: miter; }
+    .n { fill: currentColor; }
+    .glyph { color: #E8E8E3; }
+  </style>
+  <defs>
+    <symbol id="home" viewBox="0 0 24 24"><path class="r" d="M12 4V11.5M12 16.5V19M6 19H18"/><path class="n" d="M12 11.5L14.5 14L12 16.5L9.5 14Z"/></symbol>
+    <symbol id="projects" viewBox="0 0 24 24"><path class="r" d="M12 6.5V12M6 12H18M6 12V17M18 12V17"/><path class="n" d="M10.5 3.5H13.5V6.5H10.5ZM4.5 17H7.5V20H4.5ZM16.5 17H19.5V20H16.5Z"/></symbol>
+    <symbol id="inbox" viewBox="0 0 24 24"><path class="r" d="M5 5V9L10.5 14.5M19 5V9L13.5 14.5M12 16.5V19M5 19H19"/><path class="n" d="M10.5 13.5H13.5V16.5H10.5Z"/></symbol>
+    <symbol id="activity" viewBox="0 0 24 24"><path class="r" d="M6 12H7L9 6L12 18L15 8L17 12H21"/><path class="n" d="M4 10L6 12L4 14L2 12Z"/></symbol>
+    <symbol id="search" viewBox="0 0 24 24"><path class="r" d="M9 4H4V9M15 20H20V15"/><path class="n" d="M12 9.5L14.5 12L12 14.5L9.5 12Z"/></symbol>
+    <symbol id="done" viewBox="0 0 24 24"><path class="r" d="M4 12L9 17L18 8"/><path class="n" d="M18 4L20 6L18 8L16 6Z"/></symbol>
+    <symbol id="pending" viewBox="0 0 24 24"><path class="r" d="M4 8H11L15 12L11 16H4M17 8L21 12L17 16"/></symbol>
+    <symbol id="active" viewBox="0 0 24 24"><path class="r" d="M4 12H9.5M14.5 12H20"/><path class="n" d="M12 9.5L14.5 12L12 14.5L9.5 12Z"/></symbol>
+    <symbol id="blocked" viewBox="0 0 24 24"><path class="r" d="M6 12H9M15 12H18M9 8L15 16M15 8L9 16"/><path class="n" d="M4 10L6 12L4 14L2 12ZM20 10L22 12L20 14L18 12Z"/></symbol>
+    <symbol id="warning" viewBox="0 0 24 24"><path class="r" d="M12 3L21 20H3L12 3ZM12 8V11L11 14"/><path class="n" d="M10.75 16.25H13.25V18.75H10.75Z"/></symbol>
+    <symbol id="failed" viewBox="0 0 24 24"><path class="r" d="M6 12H13M15 8L21 16M21 8L15 16"/><path class="n" d="M4 10L6 12L4 14L2 12Z"/></symbol>
+    <symbol id="critical" viewBox="0 0 24 24"><path class="r" d="M12 3L21 20H3L12 3ZM9 8V13M15 8V13"/><path class="n" d="M7.75 15.75H10.25V18.25H7.75ZM13.75 15.75H16.25V18.25H13.75Z"/></symbol>
+    <symbol id="verified" viewBox="0 0 24 24"><path class="r" d="M12 3L18 8V17L12 21L6 17V8L12 3ZM8.5 12L11 14.5L15.5 9.5"/></symbol>
+    <symbol id="add" viewBox="0 0 24 24"><path class="r" d="M12 4V20M4 12H20"/></symbol>
+    <symbol id="close" viewBox="0 0 24 24"><path class="r" d="M5 5L19 19M19 5L5 19"/></symbol>
+    <symbol id="back" viewBox="0 0 24 24"><path class="r" d="M15 5L8 12L15 19"/></symbol>
+    <symbol id="forward" viewBox="0 0 24 24"><path class="r" d="M9 5L16 12L9 19"/></symbol>
+    <symbol id="more" viewBox="0 0 24 24"><path class="n" d="M3.5 10.5H6.5V13.5H3.5ZM10.5 10.5H13.5V13.5H10.5ZM17.5 10.5H20.5V13.5H17.5Z"/></symbol>
+    <symbol id="edit" viewBox="0 0 24 24"><path class="r" d="M19 5L8.5 15.5M7 18.5V20M4 20H12"/><path class="n" d="M5.5 15.5H8.5V18.5H5.5Z"/></symbol>
+    <symbol id="filter" viewBox="0 0 24 24"><path class="r" d="M3 6H17.5M6 12H14.5M9 18H11.5"/><path class="n" d="M17.5 4.5H20.5V7.5H17.5ZM14.5 10.5H17.5V13.5H14.5ZM11.5 16.5H14.5V19.5H11.5Z"/></symbol>
+    <symbol id="pin" viewBox="0 0 24 24"><path class="r" d="M12 9.5V16M8 16H16M12 16V21"/><path class="n" d="M12 4.5L14.5 7L12 9.5L9.5 7Z"/></symbol>
+    <symbol id="submit" viewBox="0 0 24 24"><path class="r" d="M3 12H16.5M12 8L16 12L12 16"/><path class="n" d="M19 9.5L21.5 12L19 14.5L16.5 12Z"/></symbol>
+    <symbol id="expand" viewBox="0 0 24 24"><path class="r" d="M11 11L5 5M5 5H10M5 5V10M13 13L19 19M19 19H14M19 19V14"/></symbol>
+    <symbol id="collapse" viewBox="0 0 24 24"><path class="r" d="M5 5L11 11M11 11H6M11 11V6M19 19L13 13M13 13H18M13 13V18"/></symbol>
+    <symbol id="checkbox-empty" viewBox="0 0 24 24"><path class="r" d="M5 5H19V19H5V5Z"/></symbol>
+    <symbol id="checkbox-checked" viewBox="0 0 24 24"><path class="r" d="M5 5H19V19H5V5ZM7.5 12L10.5 15L17 8"/></symbol>
+    <symbol id="progress-marker" viewBox="0 0 24 24"><path class="n" d="M12 9.5L14.5 12L12 14.5L9.5 12Z"/></symbol>
+  </defs>
+
+  <rect width="360" height="788" fill="#08090B"/>
+  <text class="title" x="16" y="25">HOTLINE / ICON SIZE STRIP</text>
+  <text class="meta" x="344" y="25" text-anchor="end">STROKE 1.75 / PNG 3×</text>
+  <path class="rule" d="M16 46H344"/>
+
+  <text class="section" x="16" y="72">16 PX</text>
+  <text class="row" x="16" y="101">NAV</text>
+  <use class="glyph" href="#home" x="80" y="88" width="16" height="16"/><use class="glyph" href="#projects" x="134" y="88" width="16" height="16"/><use class="glyph" href="#inbox" x="188" y="88" width="16" height="16"/><use class="glyph" href="#activity" x="242" y="88" width="16" height="16"/><use class="glyph" href="#search" x="296" y="88" width="16" height="16"/>
+  <text class="row" x="16" y="134">STATE</text>
+  <use class="glyph" href="#done" x="46" y="121" width="16" height="16"/><use class="glyph" href="#verified" x="86" y="121" width="16" height="16"/><use class="glyph" href="#pending" x="126" y="121" width="16" height="16"/><use class="glyph" href="#active" x="166" y="121" width="16" height="16"/><use class="glyph" href="#blocked" x="206" y="121" width="16" height="16"/><use class="glyph" href="#warning" x="246" y="121" width="16" height="16"/><use class="glyph" href="#critical" x="286" y="121" width="16" height="16"/><use class="glyph" href="#failed" x="326" y="121" width="16" height="16"/>
+  <text class="row" x="16" y="167">ACT 1</text>
+  <use class="glyph" href="#add" x="46" y="154" width="16" height="16"/><use class="glyph" href="#close" x="90" y="154" width="16" height="16"/><use class="glyph" href="#back" x="134" y="154" width="16" height="16"/><use class="glyph" href="#forward" x="178" y="154" width="16" height="16"/><use class="glyph" href="#more" x="222" y="154" width="16" height="16"/><use class="glyph" href="#edit" x="266" y="154" width="16" height="16"/><use class="glyph" href="#filter" x="310" y="154" width="16" height="16"/>
+  <text class="row" x="16" y="200">ACT 2</text>
+  <use class="glyph" href="#pin" x="46" y="187" width="16" height="16"/><use class="glyph" href="#submit" x="90" y="187" width="16" height="16"/><use class="glyph" href="#expand" x="134" y="187" width="16" height="16"/><use class="glyph" href="#collapse" x="178" y="187" width="16" height="16"/><use class="glyph" href="#checkbox-empty" x="222" y="187" width="16" height="16"/><use class="glyph" href="#checkbox-checked" x="266" y="187" width="16" height="16"/><use class="glyph" href="#progress-marker" x="310" y="187" width="16" height="16"/>
+  <path class="rule" d="M16 220H344"/>
+
+  <text class="section" x="16" y="246">20 PX</text>
+  <text class="row" x="16" y="275">NAV</text>
+  <use class="glyph" href="#home" x="78" y="260" width="20" height="20"/><use class="glyph" href="#projects" x="132" y="260" width="20" height="20"/><use class="glyph" href="#inbox" x="186" y="260" width="20" height="20"/><use class="glyph" href="#activity" x="240" y="260" width="20" height="20"/><use class="glyph" href="#search" x="294" y="260" width="20" height="20"/>
+  <text class="row" x="16" y="310">STATE</text>
+  <use class="glyph" href="#done" x="44" y="295" width="20" height="20"/><use class="glyph" href="#verified" x="84" y="295" width="20" height="20"/><use class="glyph" href="#pending" x="124" y="295" width="20" height="20"/><use class="glyph" href="#active" x="164" y="295" width="20" height="20"/><use class="glyph" href="#blocked" x="204" y="295" width="20" height="20"/><use class="glyph" href="#warning" x="244" y="295" width="20" height="20"/><use class="glyph" href="#critical" x="284" y="295" width="20" height="20"/><use class="glyph" href="#failed" x="324" y="295" width="20" height="20"/>
+  <text class="row" x="16" y="345">ACT 1</text>
+  <use class="glyph" href="#add" x="44" y="330" width="20" height="20"/><use class="glyph" href="#close" x="88" y="330" width="20" height="20"/><use class="glyph" href="#back" x="132" y="330" width="20" height="20"/><use class="glyph" href="#forward" x="176" y="330" width="20" height="20"/><use class="glyph" href="#more" x="220" y="330" width="20" height="20"/><use class="glyph" href="#edit" x="264" y="330" width="20" height="20"/><use class="glyph" href="#filter" x="308" y="330" width="20" height="20"/>
+  <text class="row" x="16" y="380">ACT 2</text>
+  <use class="glyph" href="#pin" x="44" y="365" width="20" height="20"/><use class="glyph" href="#submit" x="88" y="365" width="20" height="20"/><use class="glyph" href="#expand" x="132" y="365" width="20" height="20"/><use class="glyph" href="#collapse" x="176" y="365" width="20" height="20"/><use class="glyph" href="#checkbox-empty" x="220" y="365" width="20" height="20"/><use class="glyph" href="#checkbox-checked" x="264" y="365" width="20" height="20"/><use class="glyph" href="#progress-marker" x="308" y="365" width="20" height="20"/>
+  <path class="rule" d="M16 402H344"/>
+
+  <text class="section" x="16" y="428">24 PX</text>
+  <text class="row" x="16" y="457">NAV</text>
+  <use class="glyph" href="#home" x="76" y="440" width="24" height="24"/><use class="glyph" href="#projects" x="130" y="440" width="24" height="24"/><use class="glyph" href="#inbox" x="184" y="440" width="24" height="24"/><use class="glyph" href="#activity" x="238" y="440" width="24" height="24"/><use class="glyph" href="#search" x="292" y="440" width="24" height="24"/>
+  <text class="row" x="16" y="496">STATE</text>
+  <use class="glyph" href="#done" x="42" y="479" width="24" height="24"/><use class="glyph" href="#verified" x="82" y="479" width="24" height="24"/><use class="glyph" href="#pending" x="122" y="479" width="24" height="24"/><use class="glyph" href="#active" x="162" y="479" width="24" height="24"/><use class="glyph" href="#blocked" x="202" y="479" width="24" height="24"/><use class="glyph" href="#warning" x="242" y="479" width="24" height="24"/><use class="glyph" href="#critical" x="282" y="479" width="24" height="24"/><use class="glyph" href="#failed" x="322" y="479" width="24" height="24"/>
+  <text class="row" x="16" y="535">ACT 1</text>
+  <use class="glyph" href="#add" x="42" y="518" width="24" height="24"/><use class="glyph" href="#close" x="86" y="518" width="24" height="24"/><use class="glyph" href="#back" x="130" y="518" width="24" height="24"/><use class="glyph" href="#forward" x="174" y="518" width="24" height="24"/><use class="glyph" href="#more" x="218" y="518" width="24" height="24"/><use class="glyph" href="#edit" x="262" y="518" width="24" height="24"/><use class="glyph" href="#filter" x="306" y="518" width="24" height="24"/>
+  <text class="row" x="16" y="574">ACT 2</text>
+  <use class="glyph" href="#pin" x="42" y="557" width="24" height="24"/><use class="glyph" href="#submit" x="86" y="557" width="24" height="24"/><use class="glyph" href="#expand" x="130" y="557" width="24" height="24"/><use class="glyph" href="#collapse" x="174" y="557" width="24" height="24"/><use class="glyph" href="#checkbox-empty" x="218" y="557" width="24" height="24"/><use class="glyph" href="#checkbox-checked" x="262" y="557" width="24" height="24"/><use class="glyph" href="#progress-marker" x="306" y="557" width="24" height="24"/>
+
+  <path class="rule" d="M16 610H344"/>
+  <text class="section" x="16" y="640">ORDER</text>
+  <text class="meta" x="16" y="665">NAV / HOME PROJECTS INBOX ACTIVITY SEARCH</text>
+  <text class="meta" x="16" y="684">STATE / DONE VERIFIED PENDING ACTIVE BLOCKED WARNING CRITICAL FAILED</text>
+  <text class="meta" x="16" y="703">ACT 1 / ADD CLOSE BACK FORWARD MORE EDIT FILTER</text>
+  <text class="meta" x="16" y="722">ACT 2 / PIN SUBMIT EXPAND COLLAPSE EMPTY CHECKED PROGRESS</text>
+  <text class="meta" x="16" y="754">TARGET RASTER / PIXEL 10 PRO FOLD OUTER PANEL</text>
+  <text class="meta" x="344" y="754" text-anchor="end">1080×2364</text>
+  <path class="rule" d="M16 770H344"/>
+</svg>

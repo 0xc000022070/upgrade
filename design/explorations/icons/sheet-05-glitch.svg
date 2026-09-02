@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="430" viewBox="0 0 1180 430">
+  <title>Hotline icon glitch and text decode storyboard</title>
+  <desc>Five deterministic frames over 230 milliseconds using the done icon and Today screen title.</desc>
+  <style>
+    .title { fill: #E8E8E3; font: 600 19px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1.5px; }
+    .meta { fill: #6F767F; font: 9px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: .7px; }
+    .frame-label { fill: #9A9FA6; font: 600 10px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: .8px; }
+    .screen-title { fill: #E8E8E3; font: 600 28px "DejaVu Sans", sans-serif; letter-spacing: .5px; }
+    .caption { fill: #6F767F; font: 9px "IBM Plex Mono", "DejaVu Sans Mono", monospace; }
+    .panel { fill: #08090B; stroke: #252A31; stroke-width: 1; }
+    .route { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: butt; stroke-linejoin: miter; }
+    .node { fill: currentColor; }
+  </style>
+  <defs>
+    <symbol id="done" viewBox="0 0 24 24">
+      <path class="route" d="M4 12L9 17L18 8"/>
+      <path class="node" d="M18 4L20 6L18 8L16 6Z"/>
+    </symbol>
+    <symbol id="done-signal" viewBox="0 0 24 24">
+      <path class="node" d="M18 4L20 6L18 8L16 6Z"/>
+    </symbol>
+    <clipPath id="slice-top" clipPathUnits="userSpaceOnUse"><rect x="0" y="0" width="24" height="8"/></clipPath>
+    <clipPath id="slice-mid" clipPathUnits="userSpaceOnUse"><rect x="0" y="8" width="24" height="7"/></clipPath>
+    <clipPath id="slice-low" clipPathUnits="userSpaceOnUse"><rect x="0" y="15" width="24" height="9"/></clipPath>
+  </defs>
+
+  <rect width="1180" height="430" fill="#08090B"/>
+  <text class="title" x="24" y="34">HOTLINE / GLITCH EVENT STORYBOARD</text>
+  <text class="meta" x="1156" y="34" text-anchor="end">SEE SPEC 16B · 230 MS · SEEDED</text>
+  <path d="M24 62H1156" stroke="#252A31"/>
+  <path d="M130 82H1050" stroke="#2E343C"/>
+  <path d="M130 82H820" stroke="#B7FF2A" stroke-width="1"/>
+  <path d="M130 78L134 82L130 86L126 82ZM360 78L364 82L360 86L356 82ZM590 78L594 82L590 86L586 82ZM820 78L824 82L820 86L816 82ZM1050 78L1054 82L1050 86L1046 82Z" fill="#E8E8E3"/>
+
+  <g transform="translate(24 102)">
+    <rect class="panel" width="212" height="278"/>
+    <text class="frame-label" x="14" y="24">F01 / 000 MS</text>
+    <svg x="70" y="46" width="72" height="72" viewBox="0 0 24 24" style="color:#9A9FA6"><use href="#done"/></svg>
+    <text class="screen-title" x="106" y="166" text-anchor="middle"><tspan fill="#B7FF2A">/\|_</tspan><tspan fill="#6F767F">◆</tspan></text>
+    <path d="M14 188H198" stroke="#252A31"/>
+    <text class="caption" x="14" y="212">DECODE START</text>
+    <text class="caption" x="14" y="232">4 GLYPHS CYCLING</text>
+    <text class="caption" x="14" y="252">ICON PRESENT / MUTED</text>
+  </g>
+
+  <g transform="translate(254 102)">
+    <rect class="panel" width="212" height="278"/>
+    <text class="frame-label" x="14" y="24">F02 / 055 MS</text>
+    <svg x="70" y="46" width="72" height="72" viewBox="0 0 24 24" style="color:#E8E8E3">
+      <g clip-path="url(#slice-top)" transform="translate(2 0)"><use href="#done"/></g>
+      <g clip-path="url(#slice-mid)" transform="translate(-1.5 0)"><use href="#done"/></g>
+      <g clip-path="url(#slice-low)" transform="translate(1 0)"><use href="#done"/></g>
+    </svg>
+    <text class="screen-title" x="106" y="166" text-anchor="middle"><tspan>TO</tspan><tspan fill="#B7FF2A">|_◆</tspan></text>
+    <path d="M14 188H198" stroke="#252A31"/>
+    <text class="caption" x="14" y="212">3 HORIZONTAL SLICES</text>
+    <text class="caption" x="14" y="232">OFFSETS +2 / -1.5 / +1</text>
+    <text class="caption" x="14" y="252">LEFT CHARACTERS LOCK</text>
+  </g>
+
+  <g transform="translate(484 102)">
+    <rect class="panel" width="212" height="278"/>
+    <text class="frame-label" x="14" y="24">F03 / 110 MS</text>
+    <svg x="70" y="46" width="72" height="72" viewBox="0 0 24 24" style="color:#B7FF2A"><use href="#done-signal"/></svg>
+    <text class="screen-title" x="106" y="166" text-anchor="middle"><tspan>TOD</tspan><tspan fill="#B7FF2A">_◆</tspan></text>
+    <path d="M14 188H198" stroke="#252A31"/>
+    <text class="caption" x="14" y="212">SIGNAL VARIANT</text>
+    <text class="caption" x="14" y="232">ROUTES HIDDEN</text>
+    <text class="caption" x="14" y="252">NODE FLASHES ACCENT</text>
+  </g>
+
+  <g transform="translate(714 102)">
+    <rect class="panel" width="212" height="278"/>
+    <text class="frame-label" x="14" y="24">F04 / 165 MS</text>
+    <svg x="70" y="46" width="72" height="72" viewBox="0 0 24 24" style="color:#B7FF2A"><use href="#done"/></svg>
+    <text class="screen-title" x="106" y="166" text-anchor="middle">TODAY</text>
+    <path d="M14 188H198" stroke="#252A31"/>
+    <text class="caption" x="14" y="212">FULL ICON / ACCENT</text>
+    <text class="caption" x="14" y="232">TITLE LOCKED</text>
+    <text class="caption" x="14" y="252">NO DISPLACEMENT</text>
+  </g>
+
+  <g transform="translate(944 102)">
+    <rect class="panel" width="212" height="278"/>
+    <text class="frame-label" x="14" y="24">F05 / 230 MS</text>
+    <svg x="70" y="46" width="72" height="72" viewBox="0 0 24 24" style="color:#E8E8E3"><use href="#done"/></svg>
+    <text class="screen-title" x="106" y="166" text-anchor="middle">TODAY</text>
+    <path d="M14 188H198" stroke="#252A31"/>
+    <text class="caption" x="14" y="212">SETTLED</text>
+    <text class="caption" x="14" y="232">TEXT PRIMARY</text>
+    <text class="caption" x="14" y="252">EVENT ENDS</text>
+  </g>
+
+  <text class="meta" x="24" y="410">ONE EVENT · NO RGB SPLIT · NO IDLE JITTER · REDUCE MOTION = OPACITY FADE ONLY</text>
+</svg>
