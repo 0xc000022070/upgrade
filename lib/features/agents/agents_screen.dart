@@ -10,6 +10,7 @@ import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/typography.dart';
 import '../../platform/herdr_client.dart';
+import '../home/agent_mark.dart';
 import '../screen_scaffold.dart';
 
 void openAgents(BuildContext context) {
@@ -105,7 +106,11 @@ class _Feed extends StatelessWidget {
             children: [
               for (final agent in groups[workspace]!)
                 ListRow(
-                  title: agent.agent.toUpperCase(),
+                  // §39.30: the same box the Home row draws, in the 14px glyph
+                  // slot widened to the 24 the box needs.
+                  leading: AgentMark(agent.agent),
+                  leadingWidth: 24,
+                  title: agentMarkName(agent.agent),
                   subtitle: '${agent.paneId} · ${path.basename(agent.cwd)}',
                   value: agent.agentStatus.toUpperCase(),
                   valueColor: switch (agent.agentStatus) {

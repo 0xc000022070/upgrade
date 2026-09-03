@@ -1,12 +1,14 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/application/agents.dart';
 import 'package:hotline/application/providers.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/data/repositories/host_repository.dart';
 import 'package:hotline/features/agents/agents_screen.dart';
+import 'package:hotline/features/home/agent_mark.dart';
 import 'package:hotline/platform/herdr_client.dart';
 
 import 'support/platform_channels.dart';
@@ -167,4 +169,73 @@ void main() {
     expect(find.text('key rejected'), findsOneWidget);
     await unmount(tester);
   });
+
+  testWidgets('§39.30 the route rows carry the same marks as the panel', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        AgentPanelState([
+          HostOutcome(
+            host: nyx,
+            kind: AgentOutcomeKind.snapshot,
+            agents: [
+              agent('claude', workspace: 'wQ'),
+              agent('codex', workspace: 'wQ'),
+              agent('gizmo', workspace: 'wQ'),
+            ],
+          ),
+        ]),
+      ),
+    );
+    await ready(tester);
+
+    expect(markAssets(tester), [
+      'assets/icons/agent-claude.svg',
+      'assets/icons/agent-codex.svg',
+    ]);
+    // The unknown kind is the third row's box, and the only `?` on screen.
+    expect(find.text('?'), findsOneWidget);
+    expect(find.text('C'), findsNothing);
+    expect(find.text('X'), findsNothing);
+    expect(find.text('GIZMO'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('§39.30 an empty kind is ? in the box and ? as the name', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        AgentPanelState([
+          HostOutcome(
+            host: nyx,
+            kind: AgentOutcomeKind.snapshot,
+            agents: [agent('', workspace: 'wQ')],
+          ),
+        ]),
+      ),
+    );
+    await ready(tester);
+
+    expect(find.text('?'), findsNWidgets(2));
+    expect(
+      find.descendant(of: find.byType(AgentMark), matching: find.text('?')),
+      findsOneWidget,
+    );
+    await unmount(tester);
+  });
 }
+
+/// The assets behind the marks on screen, in row order. Read off the loaders
+/// rather than the raster: the point is which file each row asked for.
+List<String> markAssets(WidgetTester tester) => [
+  for (final picture in tester.widgetList<SvgPicture>(
+    find.descendant(
+      of: find.byType(AgentMark),
+      matching: find.byType(SvgPicture),
+    ),
+  ))
+    if (picture.bytesLoader case final SvgAssetLoader loader) loader.assetName,
+];
+
