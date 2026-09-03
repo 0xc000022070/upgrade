@@ -9,6 +9,7 @@ import '../../design/components/picker_row.dart';
 import '../../design/typography.dart';
 import '../../platform/device.dart';
 import '../screen_scaffold.dart';
+import 'alerts_block.dart';
 import 'hosts_block.dart';
 import 'keys_block.dart';
 
@@ -76,6 +77,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 // machine, and the integration is a switch on its form.
                 const KeysSettingsBlock(),
                 const HostsSettingsBlock(),
+                // §39.31: under [ HOSTS ], because what it watches is the
+                // hosts above it.
+                const AlertsSettingsBlock(),
                 Panel(
                   title: '[ BUILD ]',
                   child: FutureBuilder<BuildInfo?>(

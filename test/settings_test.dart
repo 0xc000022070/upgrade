@@ -7,6 +7,7 @@ import 'package:hotline/application/providers.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/data/repositories/settings_repository.dart';
 import 'package:hotline/design/colors.dart';
+import 'package:hotline/design/components/panel.dart';
 import 'package:hotline/design/components/static_background.dart';
 import 'package:hotline/design/motion.dart';
 import 'package:hotline/features/home/home_screen.dart';
@@ -35,9 +36,16 @@ Offset _offsetOf(WidgetTester tester) =>
 /// The fill behind a §16c.3 row is the whole statement of which value is
 /// current: the selected row is the accent block, everything else is a plain
 /// row with no decoration of its own.
+/// §39.31 put a second row reading OFF on this screen, so §39.16's picker is
+/// addressed inside its own panel rather than by the word alone.
+Finder _inStatic(String label) => find.descendant(
+  of: find.ancestor(of: find.text('[ STATIC ]'), matching: find.byType(Panel)),
+  matching: find.text(label),
+);
+
 bool _isBlock(WidgetTester tester, String label) {
   final container = tester.widgetList<Container>(
-    find.ancestor(of: find.text(label), matching: find.byType(Container)),
+    find.ancestor(of: _inStatic(label), matching: find.byType(Container)),
   );
   return container.any(
     (box) => (box.decoration as BoxDecoration?)?.color == HotlineColors.accent,
@@ -103,7 +111,7 @@ void main() {
     // a row, not a row holding the default.
     expect(await db.select(db.settings).get(), isEmpty);
 
-    await tester.tap(find.text('OFF'));
+    await tester.tap(_inStatic('OFF'));
     await _ready(tester);
 
     expect(_isBlock(tester, 'OFF'), isTrue);
@@ -113,7 +121,7 @@ void main() {
       isFalse,
     );
 
-    await tester.tap(find.text('ON'));
+    await tester.tap(_inStatic('ON'));
     await _ready(tester);
 
     expect(_isBlock(tester, 'ON'), isTrue);

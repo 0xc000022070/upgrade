@@ -18,6 +18,7 @@ class PickerRow extends StatelessWidget {
     this.subtitle,
     this.indent = false,
     this.selected = false,
+    this.dim = false,
   });
 
   final String label;
@@ -29,13 +30,26 @@ class PickerRow extends StatelessWidget {
   final String? value;
   final bool indent;
   final bool selected;
+
+  /// SPEC.md §39.31: a row whose condition is not met is drawn dim and does
+  /// nothing. §39.18's own dim rows use [HotlineColors.textMuted], so this is
+  /// the same reading and not a second one.
+  final bool dim;
+
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final row = selected
         ? _SelectedRow(label: label, onTap: onTap)
-        : ListRow(title: label, subtitle: subtitle, value: value, onTap: onTap);
+        : ListRow(
+            title: label,
+            subtitle: subtitle,
+            value: value,
+            titleColor: dim ? HotlineColors.textMuted : null,
+            valueColor: dim ? HotlineColors.textMuted : null,
+            onTap: onTap,
+          );
     if (!indent) return row;
     return Padding(
       padding: const EdgeInsets.only(left: Spacing.xl),

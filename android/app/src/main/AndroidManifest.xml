@@ -1,8 +1,16 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- The flutter template grants this in the debug and profile manifests only,
          so a release build reaches nothing: SPEC.md §39.20 polls herdr over ssh
          and every host came back unreachable until this was declared here. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- SPEC.md §39.31. The watcher is a foreground service: API 34+ makes the
+         type a manifest declaration and specialUse the only one that fits an
+         app holding ssh connections open for its own user. POST_NOTIFICATIONS
+         is what the [ ALERTS ] toggle asks for on API 33+. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="Hotline"
         android:name="${applicationName}"
@@ -30,6 +38,25 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- §39.31: the plugin declares the service without a type, which an
+             API 34+ device refuses to start. The override names the type and
+             the subtype string Google requires alongside it. -->
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false"
+            android:exported="false"
+            tools:replace="android:foregroundServiceType,android:stopWithTask">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps one ssh connection per configured host open so a blocked agent can raise a status-bar alert while the app is not in front."/>
+        </service>
+        <!-- §39.31's YES and NO. flutter_local_notifications routes every action
+             tap through this receiver and declares it nowhere itself, so without
+             the line the buttons are drawn, ripple, and answer nothing. -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
+            android:exported="false"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
