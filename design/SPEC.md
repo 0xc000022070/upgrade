@@ -416,3 +416,11 @@ Amends §39.13's "No text blocks, no bottom bar; the capture bar stays where it 
 - The panel header strip returns to its normal state in the mode: title and count, `SELECT` hidden. It no longer carries the verbs or the count of checked rows; the bar does.
 - Home DROPS and a project's DROPS panel both get this: the bar takes the slot of whichever capture bar that screen pins.
 - Everything else in §39.13 stands: checkboxes, tap toggles, the move picker, the delete confirmation, `×`/back/finishing leaves the mode, no selection survives a navigation.
+
+### 39.25 Fresh drops (user, 2026-09-02: "cuando acabo de escribir un drop estos pueden estar en un 'state' temporal de 'fresh', o sea que las que acabo de escribir sin abandonar la pantalla deberían de tener un resaltado mínimo que me permita que cuando mantengo presionado sobre uno de esos todos ellos [queden] automáticamente seleccionados, si lo hago sobre otro que no pertenezca entonces el special state se va, o se va también cuando abandone la pantalla así sin más")
+- A drop captured from a screen's capture bar is *fresh* on that screen until the user leaves it. Fresh is UI state, not a column: it lives in memory per scope (Home, a project), never in the database, never survives a restart.
+- Highlight, minimal: the row's age value (`now`, `1m`) is painted accent instead of `--fg-dim`. Nothing else on the row changes: no glyph, no background, no border.
+- Long-press on a fresh row enters §39.13 selection mode with every fresh row of that panel checked, in one gesture. Long-press on a row that is not fresh clears the fresh set and enters the mode with only that row, as today.
+- The fresh set clears when the user leaves the screen: a pushed route (project, quick view, settings, projects list), the back gesture, or the app leaving the foreground. It also clears when a batch removes every fresh row (move, delete). Cancelling the mode with `×` does not clear it: nothing happened.
+- `SELECT` (§39.15) ignores freshness: it enters with nothing checked. A tap on a fresh row outside the mode opens the quick view as always.
+- Home DROPS and a project's DROPS both get this; the capture bar of each screen feeds its own set.
