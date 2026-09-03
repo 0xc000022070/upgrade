@@ -4,6 +4,7 @@
 
 - `design/SPEC.md`, §39.x, one subsection per feature, written by you from the user's words, quoting them with the date.
 - A user ruling amends the spec first, then the briefs. Commit spec edits alone: `docs(spec): §39.N <what changed>`.
+- Code carries no spec section references. No `§39.x` / `SPEC.md §…` in comments, doc comments, test names, strings or READMEs: a comment that only points at the spec is deleted, one that carries a rule keeps the rule in plain words. Every brief opens with this; the gate runs `grep -rn '§' lib test` and rejects on any hit. Briefs may still cite sections as reading pointers.
 - Record struck ideas in place with the date and why, so they do not come back.
 
 ## Briefs
