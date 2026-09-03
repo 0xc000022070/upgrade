@@ -55,17 +55,66 @@ void main() {
       expect(again.entered.map((agent) => agent.paneId), ['wQ:p1']);
     });
 
-    test('counts every blocked pane as new on the first snapshot', () {
+    test('counts every blocked pane as new on the service\'s first snapshot', () {
+      // §39.31, amended: the "new" moment is the service starting, and a fresh
+      // service is a fresh [BlockedEdges] on its handler. Nothing to difference
+      // against, so every pane already showing blocked is an edge.
+      final edges = BlockedEdges();
+      final first = edges.apply('h1', [snapshot(), snapshot(pane: 'wQ:p2')]);
+      expect(first.entered, hasLength(2));
+      expect(first.left, isEmpty);
+    });
+
+    test('a reconnect keeps the set, so nothing still blocked re-enters', () {
+      // The A6 review flag, and the reason §39.31 was amended. The loop used to
+      // call `edges.reset` on every connect; a pane the user had already
+      // answered came back out of `apply` as an edge, which reposted the alert
+      // with YES/NO restored and threw away its `SENT · YES` line.
+      final edges = BlockedEdges();
+      expect(edges.apply('h1', [snapshot()]).entered, hasLength(1));
+
+      // The link drops and comes back inside one service life. `_HostLoop`
+      // reconnects and the next snapshot lands on the same set.
+      final rejoined = edges.apply('h1', [snapshot()]);
+      expect(rejoined.entered, isEmpty, reason: 'no re-alert, no sound');
+      expect(rejoined.left, isEmpty);
+      expect(edges.blockedOn('h1'), {'wQ:p1'});
+    });
+
+    test('what changed while the link was down still reads as an edge', () {
       final edges = BlockedEdges();
       edges.apply('h1', [snapshot(), snapshot(pane: 'wQ:p2')]);
 
-      // What a reconnect does: the difference is taken against nothing.
-      edges.reset('h1');
+      // Down and back: p1 unblocked meanwhile, p2 is still blocked, and p3
+      // blocked while nobody was watching.
       final rejoined = edges.apply('h1', [
-        snapshot(),
         snapshot(pane: 'wQ:p2'),
+        snapshot(pane: 'wQ:p3'),
       ]);
-      expect(rejoined.entered, hasLength(2));
+      expect(rejoined.left, ['wQ:p1'], reason: 'its notification is cancelled');
+      expect(rejoined.entered.map((agent) => agent.paneId), ['wQ:p3']);
+
+      // And once only: the next snapshot after that is quiet again.
+      expect(
+        edges.apply('h1', [
+          snapshot(pane: 'wQ:p2'),
+          snapshot(pane: 'wQ:p3'),
+        ]).isEmpty,
+        isTrue,
+      );
+    });
+
+    test('reset is what a host going away does, and it alone makes panes new', () {
+      // `_HostLoop.stop()` — the host was removed or its address, port, user or
+      // key changed, so the next loop is watching a different machine. Nothing
+      // else calls it any more.
+      final edges = BlockedEdges();
+      edges.apply('h1', [snapshot()]);
+      expect(edges.apply('h1', [snapshot()]).entered, isEmpty);
+
+      edges.reset('h1');
+      expect(edges.blockedOn('h1'), isEmpty);
+      expect(edges.apply('h1', [snapshot()]).entered, hasLength(1));
     });
 
     test('a pane that disappears leaves blocked', () {
