@@ -112,13 +112,13 @@ class _AgentsBody extends StatelessWidget {
     );
   }
 
-  /// §39.20 words the unreachable line with its host and the other two without.
-  /// With one failing host that reads fine; with two, `key rejected` twice does
+  /// §39.20 words the unreachable line with its host and the other two
+  /// without, and §39.29 words its unresolved line the same way. With one
+  /// failing host the bare ones read fine; with two, `key rejected` twice does
   /// not say which machine, so the host is put back in front.
   String _failureLine(HostOutcome outcome, bool disambiguate) {
-    if (!disambiguate || outcome.kind == AgentOutcomeKind.unreachable) {
-      return outcome.reason;
-    }
+    const named = {AgentOutcomeKind.unreachable, AgentOutcomeKind.unresolved};
+    if (!disambiguate || named.contains(outcome.kind)) return outcome.reason;
     return '${outcome.host.name.toLowerCase()} · ${outcome.reason}';
   }
 }

@@ -18,6 +18,7 @@ class FieldPanel extends StatelessWidget {
     this.autofocus = false,
     this.textInputAction = TextInputAction.next,
     this.onSubmitted,
+    this.keyboardType,
   });
 
   final String label;
@@ -27,6 +28,11 @@ class FieldPanel extends StatelessWidget {
   final bool autofocus;
   final TextInputAction textInputAction;
   final ValueChanged<String>? onSubmitted;
+
+  /// Overrides the type a single-line field would otherwise get. A multi-line
+  /// field stays [TextInputType.multiline] whatever this says: the newline key
+  /// is what makes it multi-line at all.
+  final TextInputType? keyboardType;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +57,7 @@ class FieldPanel extends StatelessWidget {
             ? textInputAction
             : TextInputAction.newline,
         keyboardType: maxLines == 1
-            ? TextInputType.text
+            ? (keyboardType ?? TextInputType.text)
             : TextInputType.multiline,
         onSubmitted: onSubmitted,
         decoration: InputDecoration(

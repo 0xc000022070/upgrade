@@ -119,6 +119,38 @@ const _v6Schema = [
   'ALTER TABLE projects ADD COLUMN parent_id TEXT REFERENCES projects (id)',
 ];
 
+/// The v7 schema exactly as it shipped, for the §39.29 upgrade. `hosts` has no
+/// `port` here, which is the whole point: v7 is what every device that has
+/// taken §39.21 is on, and the column has to arrive on a table this file wrote
+/// rather than on one the current definitions created with it already there.
+const _v7Schema = [
+  ..._v6Schema,
+  '''
+CREATE TABLE keys (
+  id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  public_key TEXT NOT NULL,
+  fingerprint TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (id)
+)''',
+  '''
+CREATE TABLE hosts (
+  id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  address TEXT NOT NULL,
+  user TEXT NOT NULL,
+  key_id TEXT NOT NULL REFERENCES keys (id),
+  PRIMARY KEY (id)
+)''',
+  '''
+CREATE TABLE host_integrations (
+  host_id TEXT NOT NULL REFERENCES hosts (id),
+  kind TEXT NOT NULL,
+  PRIMARY KEY (host_id, kind)
+)''',
+];
+
 /// Drives [QueryExecutor.ensureOpen] to stamp `user_version = 2` and lay down
 /// the old schema, which is what makes the file drift later opens a real v2
 /// database rather than a v3 one with rows in it.
@@ -211,7 +243,7 @@ void main() {
     await executor.close();
   }
 
-  test('a v2 database upgrades to v7 with every row still there', () async {
+  test('a v2 database upgrades to v8 with every row still there', () async {
     await writeV2Fixture();
 
     final db = AppDatabase(NativeDatabase(file));
@@ -225,7 +257,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      7,
+      8,
     );
 
     final projects = await db.select(db.projects).get();
@@ -307,7 +339,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      7,
+      8,
     );
     expect(attachments.map((a) => a.id), ['l1', 'l2']);
     expect(attachments.every((a) => a.itemId == 't1'), isTrue);
@@ -392,7 +424,7 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        7,
+        8,
       );
       expect(projects.map((p) => p.id), ['p1', 'p2']);
       expect(projects.every((p) => p.parentId == null), isTrue);
@@ -463,7 +495,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      7,
+      8,
     );
     // §39.18's tree survives §39.21 untouched: the upgrade adds tables, it does
     // not rewrite a row.
@@ -504,6 +536,7 @@ void main() {
         id: 'h1',
         name: 'nyx',
         address: '100.118.60.77',
+        port: 22,
         user: 'luisnquin',
         keyId: 'k1',
       ),
@@ -546,7 +579,7 @@ void main() {
   });
 
   test(
-    'a fresh install creates v7 directly, without the upgrade path',
+    'a fresh install creates v8 directly, without the upgrade path',
     () async {
       final db = AppDatabase(NativeDatabase(file));
       addTearDown(db.close);
@@ -561,8 +594,64 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        7,
+        8,
       );
     },
   );
+
+  test('SPEC.md §39.29: a v7 host row upgrades to v8 on port 22', () async {
+    final executor = NativeDatabase(file);
+    await executor.ensureOpen(_V2Database(7, _v7Schema));
+    await executor.runInsert(
+      'INSERT INTO keys (id, name, public_key, fingerprint, created_at) '
+      'VALUES (?, ?, ?, ?, ?)',
+      ['k1', 'nyx', 'ssh-ed25519 AAAA nyx', 'SHA256:k1', stamp(20)],
+    );
+    await executor.runInsert(
+      'INSERT INTO hosts (id, name, address, user, key_id) '
+      'VALUES (?, ?, ?, ?, ?)',
+      ['h1', 'nyx', '100.118.60.77', 'luisnquin', 'k1'],
+    );
+    await executor.runInsert(
+      'INSERT INTO host_integrations (host_id, kind) VALUES (?, ?)',
+      ['h1', 'herdr'],
+    );
+    await executor.close();
+
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+
+    expect(
+      await db
+          .customSelect('PRAGMA user_version')
+          .getSingle()
+          .then((row) => row.read<int>('user_version')),
+      8,
+    );
+    // The row the user already had keeps working, on the port the transport
+    // was in fact dialling it on before the column existed.
+    final host = (await DriftHostRepository(db).all()).single;
+    expect(host.id, 'h1');
+    expect(host.address, '100.118.60.77');
+    expect(host.port, 22);
+    expect(
+      (await DriftHostRepository(
+        db,
+      ).watchWithIntegration(IntegrationKind.herdr).first).single.id,
+      'h1',
+    );
+
+    // And the upgraded table takes a port that is not the default.
+    await DriftHostRepository(db).save(
+      Host(
+        id: 'h1',
+        name: host.name,
+        address: host.address,
+        port: 357,
+        user: host.user,
+        keyId: host.keyId,
+      ),
+    );
+    expect((await DriftHostRepository(db).all()).single.port, 357);
+  });
 }

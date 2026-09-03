@@ -43,31 +43,54 @@ class AgentSnapshot {
 }
 
 sealed class HerdrFailure implements Exception {
-  const HerdrFailure();
+  const HerdrFailure([this.detail]);
+
+  /// SPEC.md §39.29: what the transport actually said. Carried out of here
+  /// rather than logged here, because the debug line the spec asks for names
+  /// the host — and the host's name is a thing this layer deliberately does not
+  /// know. The caller has both halves.
+  final String? detail;
 }
 
 final class HerdrUnreachable extends HerdrFailure {
-  const HerdrUnreachable();
+  const HerdrUnreachable([super.detail]);
+}
+
+/// SPEC.md §39.29. The name never resolved, so no socket was ever opened.
+/// Separate from [HerdrUnreachable] because the two send the user to different
+/// places: a typo in the address, against a port, a firewall or a dead machine.
+final class HerdrUnresolved extends HerdrFailure {
+  const HerdrUnresolved([super.detail]);
 }
 
 final class HerdrKeyRejected extends HerdrFailure {
-  const HerdrKeyRejected();
+  const HerdrKeyRejected([super.detail]);
 }
 
 final class HerdrProtocolMismatch extends HerdrFailure {
-  const HerdrProtocolMismatch([this.protocol]);
+  const HerdrProtocolMismatch([this.protocol, super.detail]);
 
   final int? protocol;
 }
 
 class HerdrClient {
-  const HerdrClient({
-    this.port = 22,
-    this.timeout = const Duration(seconds: 10),
-  });
+  const HerdrClient({this.timeout = const Duration(seconds: 10)});
 
-  final int port;
   final Duration timeout;
+
+  /// SPEC.md §39.29. Dart words a name that did not resolve in the exception's
+  /// own message; the errno underneath is from the EAI_* namespace, which
+  /// cannot be told apart from a connect errno by number alone. Matched on the
+  /// message for that reason, over both halves because which one carries the
+  /// words depends on the platform.
+  static bool isLookupFailure(SocketException error) {
+    final said = '${error.message} ${error.osError?.message ?? ''}'
+        .toLowerCase();
+    return said.contains('failed host lookup') ||
+        said.contains('name or service not known') ||
+        said.contains('nodename nor servname') ||
+        said.contains('no address associated with hostname');
+  }
 
   static List<AgentSnapshot> parseAgentList(String source) {
     Object? decoded;
@@ -107,6 +130,7 @@ class HerdrClient {
 
   Future<List<AgentSnapshot>> fetch({
     required String address,
+    required int port,
     required String user,
     required String privateKey,
   }) async {
@@ -123,24 +147,30 @@ class HerdrClient {
       );
       await client.authenticated;
       final result = await client.runWithResult('herdr agent list');
-      if (result.exitCode != 0) throw const HerdrProtocolMismatch();
+      if (result.exitCode != 0) {
+        // §39.29: what the remote said, both streams, is the debug line.
+        throw HerdrProtocolMismatch(null, utf8.decode(result.output).trim());
+      }
       return parseAgentList(utf8.decode(result.stdout));
-    } on SSHAuthFailError {
-      throw const HerdrKeyRejected();
+    } on SSHAuthFailError catch (error) {
+      throw HerdrKeyRejected('$error');
     } on HerdrFailure {
       rethrow;
-    } on SocketException {
-      throw const HerdrUnreachable();
-    } on TimeoutException {
-      throw const HerdrUnreachable();
-    } on SSHAuthAbortError {
-      throw const HerdrUnreachable();
-    } on SSHHandshakeError {
-      throw const HerdrUnreachable();
-    } on SSHKeyDecodeError {
-      throw const HerdrKeyRejected();
-    } on SSHError {
-      throw const HerdrUnreachable();
+    } on SocketException catch (error) {
+      // §39.29: the only failure that happens before an address exists.
+      throw isLookupFailure(error)
+          ? HerdrUnresolved('$error')
+          : HerdrUnreachable('$error');
+    } on TimeoutException catch (error) {
+      throw HerdrUnreachable('$error');
+    } on SSHAuthAbortError catch (error) {
+      throw HerdrUnreachable('$error');
+    } on SSHHandshakeError catch (error) {
+      throw HerdrUnreachable('$error');
+    } on SSHKeyDecodeError catch (error) {
+      throw HerdrKeyRejected('$error');
+    } on SSHError catch (error) {
+      throw HerdrUnreachable('$error');
     } finally {
       client?.close();
       socket?.close();

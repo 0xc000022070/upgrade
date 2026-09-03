@@ -14,6 +14,7 @@ class Host {
     required this.id,
     required this.name,
     required this.address,
+    required this.port,
     required this.user,
     required this.keyId,
   });
@@ -21,6 +22,11 @@ class Host {
   final String id;
   final String name;
   final String address;
+
+  /// SPEC.md §39.29. Required rather than defaulted to 22: the column carries
+  /// the default, and a second one here would let a mapping that forgot the
+  /// field compile and quietly dial 22 — which is the defect this section is.
+  final int port;
   final String user;
   final String keyId;
 }
@@ -169,6 +175,7 @@ class DriftHostRepository implements HostRepository {
             id: host.id,
             name: host.name,
             address: host.address,
+            port: Value(host.port),
             user: host.user,
             keyId: host.keyId,
           ),
@@ -210,6 +217,7 @@ class DriftHostRepository implements HostRepository {
     id: row.id,
     name: row.name,
     address: row.address,
+    port: row.port,
     user: row.user,
     keyId: row.keyId,
   );

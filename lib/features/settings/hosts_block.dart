@@ -34,7 +34,11 @@ class HostsSettingsBlock extends ConsumerWidget {
             for (final host in items)
               ListRow(
                 title: host.name,
-                subtitle: '${host.user}@${host.address}',
+                // §39.29: the port is shown only when it is not the one every
+                // reader already assumes after an `@`.
+                subtitle: host.port == 22
+                    ? '${host.user}@${host.address}'
+                    : '${host.user}@${host.address}:${host.port}',
                 node: true,
                 onTap: () {
                   final callback = onOpen;

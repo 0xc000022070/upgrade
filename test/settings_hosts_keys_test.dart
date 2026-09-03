@@ -90,6 +90,7 @@ void main() {
         id: 'host-1',
         name: 'nyx',
         address: '100.64.0.1',
+        port: 22,
         user: 'luis',
         keyId: 'key-1',
       ),
@@ -107,12 +108,20 @@ void main() {
   });
 
   testWidgets('host save requires selecting a key', (tester) async {
+    // §39.29's `[ PORT ]` pushed the action bar past the bottom of the default
+    // 800x600 surface, and a [ListView] never builds what it does not show. The
+    // form is opened on a phone-shaped view tall enough to hold all of it, the
+    // same way test/host_form_test.dart does.
+    tester.view.physicalSize = const Size(400, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(host(const HostFormScreen()));
     await _ready(tester);
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), 'nyx');
     await tester.enterText(fields.at(1), '100.64.0.1');
-    await tester.enterText(fields.at(2), 'luis');
+    // Field 2 is §39.29's port, prefilled with 22; the user is field 3.
+    await tester.enterText(fields.at(3), 'luis');
     await tester.pump();
 
     expect(find.text('CREATE HOST'), findsNothing);

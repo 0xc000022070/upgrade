@@ -182,6 +182,11 @@ class Hosts extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   TextColumn get address => text()();
+
+  /// SPEC.md §39.29. The default is the column's, not the form's: every row
+  /// written before schema 8 predates the field, and 22 is the port those rows
+  /// were in fact dialled on.
+  IntColumn get port => integer().withDefault(const Constant(22))();
   TextColumn get user => text()();
   TextColumn get keyId => text().references(Keys, #id)();
 
