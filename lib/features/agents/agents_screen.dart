@@ -8,6 +8,8 @@ import '../../design/colors.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
+import '../../design/spacing.dart';
+import '../../design/sprite.dart';
 import '../../design/typography.dart';
 import '../../platform/herdr_client.dart';
 import '../home/agent_mark.dart';
@@ -50,22 +52,40 @@ class AgentsScreen extends ConsumerWidget {
 }
 
 /// VIEW ALL is the panel at full height, so it mirrors the panel's states
-/// exactly: §39.20's blocked line, one line per failing host, workspaces for
+/// exactly: the blocked line, one line per failing host, workspaces for
 /// the hosts that answered.
 class _Feed extends StatelessWidget {
   const _Feed(this.feed);
 
   final AgentPanelState feed;
 
+  /// Nothing to read on this route: no host set, or every host answered and
+  /// none of them is running an agent. A host that failed is not empty — its
+  /// line is the only place that failure is said — so those keep the stack.
+  bool get _empty =>
+      feed.noHost ||
+      feed.outcomes.every((outcome) => outcome.ok && outcome.agents.isEmpty);
+
   @override
   Widget build(BuildContext context) {
-    if (feed.noHost) {
-      return const Panel(
-        title: 'AGENTS',
-        child: Text(AgentPanelState.blockedLine, style: HotlineText.value),
+    if (_empty) {
+      return Column(
+        children: [
+          const _MascotEmpty(),
+          const SizedBox(height: Spacing.xl),
+          Panel(
+            title: 'AGENTS',
+            child: feed.noHost
+                ? const Text(
+                    AgentPanelState.blockedLine,
+                    style: HotlineText.value,
+                  )
+                : const EmptyState('no agents'),
+          ),
+        ],
       );
     }
-    // §39.20.6: group by host then workspace, and collapse the host level when
+    // Group by host then workspace, and collapse the host level when
     // there is only one — naming the single host on every panel is noise, and
     // it is the shape every install has until a second machine is registered.
     final single = feed.outcomes.length == 1;
@@ -106,7 +126,7 @@ class _Feed extends StatelessWidget {
             children: [
               for (final agent in groups[workspace]!)
                 ListRow(
-                  // §39.30: the same box the Home row draws, in the 14px glyph
+                  // The same box the Home row draws, in the 14px glyph
                   // slot widened to the 24 the box needs.
                   leading: AgentMark(agent.agent),
                   leadingWidth: 24,
@@ -123,6 +143,27 @@ class _Feed extends StatelessWidget {
           ),
         ),
     ];
+  }
+}
+
+/// The mascot on an empty AGENTS route. The idle sheet runs here rather than
+/// holding a frame the way the project detail's does: an empty route has
+/// nothing else for the eye, which is where a loop belongs.
+class _MascotEmpty extends StatelessWidget {
+  const _MascotEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: Spacing.xl),
+      child: Column(
+        children: [
+          Sprite(state: 'idle', scale: 4),
+          SizedBox(height: Spacing.lg),
+          Text('HOTLINE_', style: HotlineText.screenTitle),
+        ],
+      ),
+    );
   }
 }
 

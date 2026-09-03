@@ -12,13 +12,22 @@ import '../platform/agent_watcher.dart';
 import '../platform/alert_actions.dart';
 import '../platform/alert_notifications.dart';
 
-/// SPEC.md §39.31's wiring: what `main()` has to do before the first frame, and
-/// the override that hands Home the watcher's snapshots instead of its own
-/// poll.
+/// The alert wiring: what `main()` has to do before the first frame, and the
+/// override that hands Home the watcher's snapshots instead of its own poll.
 
 /// Set when the process was started by an `OPEN` tap on an alert, so a cold
 /// launch lands on the `AGENTS` route once there is a navigator to push it on.
 bool _pendingOpen = false;
+
+/// Parks an `OPEN` that arrived before [AlertsHost] existed.
+///
+/// The splash owns the screen for the first ~1.8s of a cold start and
+/// [AlertsHost] is inside the route it pushes, so the tap that launched the app
+/// lands in that window with no handler installed — `handleAlertAction` would
+/// drop it and the launch would end on Home. The splash installs this instead,
+/// which is the same flag a launch through `getNotificationAppLaunchDetails`
+/// sets, and [AlertsHost] drains it on its first frame either way.
+void deferAlertOpen() => _pendingOpen = true;
 
 Future<void> initAlerts() async {
   await AgentWatcher.init();
@@ -45,8 +54,8 @@ List<Override> alertOverrides() => [
   ),
 ];
 
-/// Keeps the foreground service in step with §39.31's two conditions and turns
-/// an `OPEN` tap into a route.
+/// Keeps the foreground service in step with the two conditions that ask for
+/// it and turns an `OPEN` tap into a route.
 ///
 /// A widget rather than a provider listener: the route needs a [BuildContext],
 /// and the service has to stop when the app is disposed with `ALERTS` off.

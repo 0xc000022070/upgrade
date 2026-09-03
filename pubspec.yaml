@@ -42,7 +42,7 @@ dependencies:
   flutter_secure_storage: 10.3.1
   flutter_svg: ^2.3.0
   flutter_riverpod: ^2.6.1
-  # SPEC.md §39.10: gallery only, no camera.
+  # Gallery only, no camera.
   image_picker: ^1.1.2
   path: ^1.9.0
   path_provider: ^2.1.4
@@ -71,13 +71,14 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-  # §39.10 names the toolbar glyphs as Material Icons; the font ships with the
+  # The toolbar glyphs are Material Icons; the font ships with the
   # framework and is tree-shaken to the ten that are used.
   uses-material-design: true
 
   assets:
     - assets/icons/
     - assets/icons/signal/
+    - assets/sprites/
     - assets/textures/
 
   fonts:
