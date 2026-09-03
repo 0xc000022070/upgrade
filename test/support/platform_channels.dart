@@ -22,7 +22,7 @@ void stubDeviceChannels() {
   );
 }
 
-/// §39.9's link icon reads the clipboard before it does anything else, so every
+/// The link icon reads the clipboard before it does anything else, so every
 /// test of it has to say what is on the clipboard — including "nothing", which
 /// is the branch that flips the field into URL mode.
 void stubClipboard(String? text) {
@@ -31,4 +31,19 @@ void stubClipboard(String? text) {
         if (call.method != 'Clipboard.getData') return null;
         return text == null ? null : <String, dynamic>{'text': text};
       });
+}
+
+/// `AlertsHost` reconciles the foreground service the moment it
+/// mounts, so any test that mounts it answers the plugin's channel. `false` is
+/// "no service running", which makes both `start` and `stop` no-ops in a test
+/// process that has no Android to start one on.
+void stubForegroundTask() {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+        const MethodChannel('flutter_foreground_task/methods'),
+        (call) async => switch (call.method) {
+          'isRunningService' => false,
+          _ => null,
+        },
+      );
 }
