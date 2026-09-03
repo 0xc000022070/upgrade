@@ -287,8 +287,9 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                       children: [
                         // §16c.3: the active value is the solid block, so an
                         // integration that is on is the accent row and one that
-                        // is off is a plain row reading OFF. HERDR is the only
-                        // kind today; the loop is the point of the table.
+                        // is off is a plain row reading OFF. §39.32's VNC came
+                        // in as an enum value and nothing here moved, which is
+                        // the point of the loop.
                         for (final kind in IntegrationKind.values)
                           PickerRow(
                             label: kind.label,

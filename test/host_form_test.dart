@@ -9,6 +9,7 @@ import 'package:hotline/data/enums.dart';
 import 'package:hotline/data/repositories/host_repository.dart';
 import 'package:hotline/data/repositories/key_repository.dart';
 import 'package:hotline/design/colors.dart';
+import 'package:hotline/design/components/picker_row.dart';
 import 'package:hotline/design/components/solid_action_bar.dart';
 import 'package:hotline/features/settings/host_form_screen.dart';
 import 'package:hotline/features/settings/hosts_block.dart';
@@ -189,6 +190,50 @@ void main() {
     // Popped back to Settings, and the row is on it.
     expect(find.text('SETTINGS'), findsWidgets);
     expect(find.text('nyx'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('§39.32 the VNC integration round-trips through the form', (
+    tester,
+  ) async {
+    await keys.save(_key('key-1', 'faraday'));
+    await open(tester, const SettingsScreen());
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(HostsSettingsBlock),
+        matching: find.text('NEW'),
+      ),
+    );
+    await _ready(tester);
+    await fillFields(tester);
+    // Both kinds on one host: §39.21 stores a row per integration, so turning
+    // the screen on must not be a thing that turns the poller off.
+    await tester.tap(find.text('HERDR'));
+    await tester.tap(find.text('VNC'));
+    await tester.pump();
+
+    await tester.tap(find.text('CREATE HOST'));
+    await _ready(tester);
+
+    final saved = await hosts.all();
+    expect(saved, hasLength(1));
+    expect(await hosts.watchIntegrations(saved.single.id).first, {
+      IntegrationKind.herdr,
+      IntegrationKind.vnc,
+    });
+
+    // Reopened, the form reads back what was stored rather than defaulting,
+    // which is the half a write-only test would miss.
+    await tester.tap(find.text('nyx'));
+    await _ready(tester);
+    expect(
+      tester
+          .widgetList<PickerRow>(find.byType(PickerRow))
+          .where((row) => row.label == 'VNC' && row.selected),
+      hasLength(1),
+    );
 
     await unmount(tester);
   });

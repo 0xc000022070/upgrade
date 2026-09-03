@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/agents.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
+import '../../design/components/action_sheet.dart';
 import '../../design/components/panel.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
@@ -16,8 +17,35 @@ import 'screen_controller.dart';
 /// SPEC.md §39.32's way in. Kept here rather than at the call site so the
 /// AGENTS panel's `SCREEN >` and the host picker push the same route.
 void openHostScreen(BuildContext context, Host host) {
-  Navigator.of(context, rootNavigator: true).push(
-    MaterialPageRoute<void>(builder: (_) => HostScreenRoute(host: host)),
+  Navigator.of(
+    context,
+    rootNavigator: true,
+  ).push(MaterialPageRoute<void>(builder: (_) => HostScreenRoute(host: host)));
+}
+
+/// SPEC.md §39.32: `SCREEN >` on one host is the screen, and on several it is
+/// the question of which. A picker in front of a single host would be a tap
+/// that only ever has one answer.
+Future<void> openScreenFor(BuildContext context, List<Host> hosts) async {
+  if (hosts.isEmpty) return;
+  if (hosts.length == 1) {
+    openHostScreen(context, hosts.single);
+    return;
+  }
+  await showActionSheet(
+    context,
+    title: 'SCREEN',
+    // Nothing here is the recommended one: they are the user's machines, in
+    // the order the repository sorts them, and the sheet must not imply a
+    // default the app does not have.
+    recommendFirst: false,
+    actions: [
+      for (final host in hosts)
+        SheetAction(
+          host.name.toUpperCase(),
+          () => openHostScreen(context, host),
+        ),
+    ],
   );
 }
 
@@ -59,12 +87,12 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
 
   @override
   void dispose() {
-    // Portrait again for everything else. §39.17's fit rule covers the rest of
-    // the app, and none of it is laid out for a landscape window.
-    SystemChrome.setPreferredOrientations(const [
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]);
+    // Exactly what `main` sets before the first frame, so leaving this route
+    // puts the app back where it was rather than somewhere near it. §39.17's
+    // fit rule covers the rest of the app and none of it is laid out for a
+    // landscape window; portraitDown is not in the set either, because a phone
+    // held upside down is not a thing the rest of the app ever does.
+    SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     _controller.dispose();
     super.dispose();
   }
@@ -189,11 +217,7 @@ class _State extends StatelessWidget {
             const SizedBox(width: Spacing.lg),
             // §39.32: a reason line comes with `RETRY`, and there is no
             // reconnect loop behind it.
-            PanelAffordance(
-              'RETRY',
-              showIcon: false,
-              onTap: controller.retry,
-            ),
+            PanelAffordance('RETRY', showIcon: false, onTap: controller.retry),
           ],
         );
     }
@@ -209,13 +233,10 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     if (controller.image == null) {
       return ScreenGround(
-        child: Text(
-          switch (controller.phase) {
-            ScreenPhase.failed => controller.reason ?? '',
-            _ => 'CONNECTING',
-          },
-          style: HotlineText.panelHeader,
-        ),
+        child: Text(switch (controller.phase) {
+          ScreenPhase.failed => controller.reason ?? '',
+          _ => 'CONNECTING',
+        }, style: HotlineText.panelHeader),
       );
     }
     return FramebufferView(

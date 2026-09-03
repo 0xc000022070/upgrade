@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/agents.dart';
+import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/dot_spinner.dart';
 import '../../design/components/panel.dart';
@@ -9,13 +10,24 @@ import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/herdr_client.dart';
 import '../agents/agents_screen.dart';
+import '../screen/host_screen.dart';
 import 'agent_mark.dart';
 
 class AgentsPanel extends ConsumerWidget {
-  const AgentsPanel({super.key, this.state, this.onViewAll, this.now});
+  const AgentsPanel({
+    super.key,
+    this.state,
+    this.onViewAll,
+    this.onScreen,
+    this.now,
+  });
 
   final AgentPanelState? state;
   final VoidCallback? onViewAll;
+
+  /// §39.32's `SCREEN >`, overridable for the same reason [onViewAll] is: a
+  /// test asserts the header without a navigator behind it.
+  final VoidCallback? onScreen;
   final DateTime? now;
 
   @override
@@ -25,22 +37,36 @@ class AgentsPanel extends ConsumerWidget {
         ? ref.watch(agentsFeedProvider)
         : AsyncValue<AgentPanelState>.data(supplied);
     final current = value.valueOrNull;
+    // §39.32's `SCREEN >` answers to the `vnc` integration alone, so a host
+    // kept only for its screen still offers one while the panel below is
+    // saying it has no agents to poll.
+    final screens = ref.watch(vncHostsProvider).valueOrNull ?? const <Host>[];
+    final agents = !(current?.noHost ?? false);
+    final header = <Widget>[
+      if (agents)
+        PanelAffordance('${current?.agents.length ?? 0}', showIcon: false),
+      if (screens.isNotEmpty)
+        PanelAffordance(
+          'SCREEN',
+          onTap: onScreen ?? () => openScreenFor(context, screens),
+        ),
+      if (agents)
+        PanelAffordance(
+          'VIEW ALL',
+          onTap: onViewAll ?? () => openAgents(context),
+        ),
+    ];
     return Panel(
       title: 'AGENTS',
-      affordance: (current?.noHost ?? false)
+      affordance: header.isEmpty
           ? null
           : Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                PanelAffordance(
-                  '${current?.agents.length ?? 0}',
-                  showIcon: false,
-                ),
-                const SizedBox(width: Spacing.lg),
-                PanelAffordance(
-                  'VIEW ALL',
-                  onTap: onViewAll ?? () => openAgents(context),
-                ),
+                for (var i = 0; i < header.length; i++) ...[
+                  if (i > 0) const SizedBox(width: Spacing.lg),
+                  header[i],
+                ],
               ],
             ),
       bodyPadding: const EdgeInsets.symmetric(

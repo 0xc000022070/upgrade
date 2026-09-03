@@ -66,6 +66,38 @@ Widget host(AgentPanelState state, {DateTime? now}) => ProviderScope(
   ),
 );
 
+
+const vncNyx = Host(
+  id: 'v1',
+  name: 'nyx',
+  address: '100.118.60.77',
+  port: 357,
+  user: 'luisnquin',
+  keyId: 'key-a',
+);
+const vncRose = Host(
+  id: 'v2',
+  name: 'rose',
+  address: '100.118.60.78',
+  port: 22,
+  user: 'luisnquin',
+  keyId: 'key-a',
+);
+
+/// The panel with a real host repository behind it, which is what §39.32's
+/// `SCREEN >` is read from. [host] cannot serve: its bare scope resolves the
+/// integration query against an empty in-memory repository every time.
+Widget hostWithRepository(
+  AgentPanelState state,
+  HostRepository hosts, {
+  DateTime? now,
+}) => ProviderScope(
+  overrides: [hostRepositoryProvider.overrideWithValue(hosts)],
+  child: MaterialApp(
+    home: Scaffold(body: AgentsPanel(state: state, now: now)),
+  ),
+);
+
 void main() {
   test('no host keeps the polling provider idle', () async {
     var fetches = 0;
@@ -531,6 +563,92 @@ void main() {
       find.descendant(of: find.byType(AgentMark), matching: find.text('?')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('§39.32 no host with VNC on leaves the header without SCREEN', (
+    tester,
+  ) async {
+    final hosts = InMemoryHostRepository();
+    await hosts.save(vncNyx);
+    // Registered and polled, but the screen integration is off — which is the
+    // ordinary case and the reason the affordance is conditional at all.
+    await hosts.setIntegration(vncNyx.id, IntegrationKind.herdr, true);
+
+    await tester.pumpWidget(
+      hostWithRepository(
+        snapshotOf(const [], receivedAt: DateTime(2026)),
+        hosts,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('SCREEN'), findsNothing);
+    expect(find.text('VIEW ALL'), findsOneWidget);
+  });
+
+  testWidgets('§39.32 one host with VNC on puts SCREEN beside VIEW ALL', (
+    tester,
+  ) async {
+    final hosts = InMemoryHostRepository();
+    await hosts.save(vncNyx);
+    await hosts.setIntegration(vncNyx.id, IntegrationKind.vnc, true);
+
+    await tester.pumpWidget(
+      hostWithRepository(
+        snapshotOf(const [], receivedAt: DateTime(2026)),
+        hosts,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('SCREEN'), findsOneWidget);
+    expect(find.text('VIEW ALL'), findsOneWidget);
+  });
+
+  testWidgets('§39.32 SCREEN survives a panel with no herdr host at all', (
+    tester,
+  ) async {
+    final hosts = InMemoryHostRepository();
+    await hosts.save(vncNyx);
+    await hosts.setIntegration(vncNyx.id, IntegrationKind.vnc, true);
+
+    // §39.20 blocks the body — no rows, no count, no VIEW ALL — and §39.32's
+    // affordance is answerable anyway: a host kept only for its screen is
+    // still a host with a screen.
+    await tester.pumpWidget(
+      hostWithRepository(const AgentPanelState.noHost(), hosts),
+    );
+    await tester.pump();
+
+    expect(find.text('SCREEN'), findsOneWidget);
+    expect(find.text('VIEW ALL'), findsNothing);
+    expect(find.text(AgentPanelState.blockedLine), findsOneWidget);
+  });
+
+  testWidgets('§39.32 two hosts with VNC on open the picker, named', (
+    tester,
+  ) async {
+    final hosts = InMemoryHostRepository();
+    await hosts.save(vncNyx);
+    await hosts.save(vncRose);
+    await hosts.setIntegration(vncNyx.id, IntegrationKind.vnc, true);
+    await hosts.setIntegration(vncRose.id, IntegrationKind.vnc, true);
+
+    await tester.pumpWidget(
+      hostWithRepository(
+        snapshotOf(const [], receivedAt: DateTime(2026)),
+        hosts,
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('SCREEN'));
+    await tester.pumpAndSettle();
+
+    // Both machines, by name, and neither promoted to a block: the sheet asks
+    // which one and does not answer for the user.
+    expect(find.text('NYX'), findsOneWidget);
+    expect(find.text('ROSE'), findsOneWidget);
   });
 }
 
