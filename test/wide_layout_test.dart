@@ -199,7 +199,9 @@ void main() {
     await _ready(tester);
     final narrow = tester.getRect(find.byType(CaptureBar));
     expect(narrow.width, 360);
-    expect(narrow.height, lessThan(200), reason: 'the bar is a bar');
+    // §39.23 made every panel strip a row tall, and the capture bar is a
+    // panel: the bar is 9px taller than it was and still a bar, not a band.
+    expect(narrow.height, lessThan(220), reason: 'the bar is a bar');
 
     resize(tester, 900);
     await tester.pump();

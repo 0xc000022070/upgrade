@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../colors.dart';
@@ -44,8 +47,9 @@ class Panel extends StatelessWidget {
   /// `ALL +`. Same type as the title, so it reads as part of the strip.
   final Widget? affordance;
 
-  /// Makes the whole header strip the affordance's tap target. The strip is
-  /// only 27px tall, so widening the text itself would never reach 44.
+  /// Makes the whole header strip the affordance's tap target. §39.23 grew the
+  /// strip to a row's height, but a strip carries at most one of these and the
+  /// affordance beside it keeps its own.
   final VoidCallback? onHeaderTap;
 
   /// §39.11 hangs the drop quick view's delete off the breadcrumb strip, the
@@ -141,27 +145,34 @@ class _HeaderStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vertical = ruled ? Spacing.md : Spacing.lg;
-    final strip = Padding(
-      padding: EdgeInsets.fromLTRB(
-        Spacing.panelPadding,
-        vertical,
-        Spacing.panelPadding,
-        ruled ? Spacing.sm + 2 : vertical,
-      ),
+    // §39.23: the strip is a row's height, 27px before, so a text action on it
+    // has 36 to be hit with. Two consequences for the layout below. The
+    // vertical padding rides on the title instead of the whole strip, or the
+    // Row would be 28 tall inside a 36 strip and an affordance could never
+    // fill it; the horizontal padding is a pair of siblings for the same
+    // reason, since a Padding around the Row puts the panel's own margin out
+    // of the last action's reach. Nothing moves: the numbers are the same.
+    final vertical = ruled ? Spacing.sm : Spacing.lg;
+    final strip = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: RowMetrics.minHeight),
       child: Row(
         children: [
+          const SizedBox(width: Spacing.panelPadding),
           if (leading != null) ...[leading!, const SizedBox(width: Spacing.md)],
           Expanded(
-            child: SignalText(
-              title.toUpperCase(),
-              style: HotlineText.panelHeader,
-              decodeOnEntry: true,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: vertical),
+              child: SignalText(
+                title.toUpperCase(),
+                style: HotlineText.panelHeader,
+                decodeOnEntry: true,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
           ?affordance,
+          const SizedBox(width: Spacing.panelPadding),
         ],
       ),
     );
@@ -196,7 +207,12 @@ class _HeaderStrip extends StatelessWidget {
 
 /// The `VIEW ALL >` / `4  VIEW ALL >` / `2  v` form from the mocks: a mono
 /// count, an optional word, an optional glyph, always at the strip's right.
-class PanelAffordance extends StatelessWidget {
+///
+/// §39.23: with an [onTap] it is a button, and the hit box is the row's full
+/// height by at least [TapTargets.minHeight] wide — see [TapExpansion] for
+/// why that box is not laid out. Without one it is a readout: no press, no
+/// expansion, nothing to miss.
+class PanelAffordance extends StatefulWidget {
   const PanelAffordance(
     this.label, {
     super.key,
@@ -213,23 +229,105 @@ class PanelAffordance extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
+  State<PanelAffordance> createState() => _PanelAffordanceState();
+}
+
+class _PanelAffordanceState extends State<PanelAffordance> {
+  bool _down = false;
+
+  @override
   Widget build(BuildContext context) {
-    final tint = color ?? HotlineColors.textMuted;
+    final onTap = widget.onTap;
+    // §39.23 takes the press from the §39.13 verbs: accent for as long as the
+    // finger is down, and the resting ink back the moment it lifts.
+    final tint = _down
+        ? HotlineColors.accent
+        : widget.color ?? HotlineColors.textMuted;
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: HotlineText.panelHeader.copyWith(color: tint)),
-        if (showIcon) ...[
+        Text(
+          widget.label,
+          style: HotlineText.panelHeader.copyWith(color: tint),
+        ),
+        if (widget.showIcon) ...[
           const SizedBox(width: Spacing.sm),
-          HotlineIcon(icon, size: IconSizes.affordance, color: tint),
+          HotlineIcon(widget.icon, size: IconSizes.affordance, color: tint),
         ],
       ],
     );
     if (onTap == null) return content;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: content,
+    return TapExpansion(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _down = true),
+        onTapCancel: () => setState(() => _down = false),
+        onTapUp: (_) => setState(() => _down = false),
+        onTap: onTap,
+        child: content,
+      ),
+    );
+  }
+}
+
+/// §39.23's hit box, for a label that must not move: the box lays out at its
+/// child's size and only the hit test grows — the row's full height by the
+/// label plus [Spacing.md] each side, never under [TapTargets.minHeight] wide.
+///
+/// "The label does not move, the padding eats into the gap between
+/// neighbouring actions". A [Padding] cannot do that — it takes its space out
+/// of the row and pushes the label off the panel's right margin — and the
+/// callers' `SizedBox(width: Spacing.lg)` between two actions is not this
+/// side's to remove. So the box lays out at the label's size, and only the hit
+/// test grows: a tap inside the expanded rect is forwarded to the child's
+/// centre, the way Material's own `_InputPadding` forwards one.
+///
+/// Where two expanded actions share a `Spacing.lg` gap their rects overlap by
+/// 2px each side of the midpoint. A [Row] hit-tests its children back to
+/// front, so the right-hand action owns the overlap; both are hit everywhere
+/// their own label is.
+///
+/// What this cannot give is a wider semantics node: the node is the tappable
+/// child's, and the child is the size of its label. A finger gets the box, a
+/// screen reader is still offered the words. Growing that too means growing
+/// the layout, which is the thing §39.23 forbids.
+class TapExpansion extends SingleChildRenderObjectWidget {
+  const TapExpansion({super.key, required super.child});
+
+  @override
+  RenderProxyBox createRenderObject(BuildContext context) =>
+      _RenderTapExpansion();
+}
+
+class _RenderTapExpansion extends RenderProxyBox {
+  Rect get _hitRect {
+    // The row's real height when a parent bounds it — the breadcrumb line is a
+    // fixed 44 — and the row token when it does not: a header strip's Row
+    // hands its children an unbounded cross axis, and 36 is what it measures.
+    // Clamped to a row either way: a bounded parent can be the height of the
+    // whole screen (a panel inside an [Expanded]), and a tap target that tall
+    // is a bug waiting on nothing but a shallower ancestor to expose it.
+    final rowHeight = constraints.maxHeight.isFinite
+        ? constraints.maxHeight.clamp(
+            RowMetrics.minHeight,
+            TapTargets.minHeight,
+          )
+        : RowMetrics.minHeight;
+    final dx = math.max(Spacing.md, (TapTargets.minHeight - size.width) / 2);
+    final dy = math.max(0.0, (rowHeight - size.height) / 2);
+    return Rect.fromLTRB(-dx, -dy, size.width + dx, size.height + dy);
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (super.hitTest(result, position: position)) return true;
+    final target = child;
+    if (target == null || !_hitRect.contains(position)) return false;
+    final centre = size.center(Offset.zero);
+    return result.addWithRawTransform(
+      transform: MatrixUtils.forceToPoint(centre),
+      position: centre,
+      hitTest: (result, position) => target.hitTest(result, position: centre),
     );
   }
 }
