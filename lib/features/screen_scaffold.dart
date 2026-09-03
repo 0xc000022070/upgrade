@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
+import '../design/components/panel.dart';
 import '../design/components/signal_text.dart';
 import '../design/layout.dart';
 import '../design/spacing.dart';
@@ -80,30 +81,32 @@ class ScreenScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final segments = breadcrumbSegments;
+    final trailing = breadcrumbTrailing;
     Widget crumb = segments == null
         ? Text(
-            crumbFor(breadcrumb, hasTrailing: breadcrumbTrailing != null),
+            crumbFor(breadcrumb, hasTrailing: trailing != null),
             style: HotlineText.breadcrumb,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           )
         : _SegmentedCrumb(segments: segments);
-    if (onBack != null || segments != null) {
-      crumb = Padding(
-        // The back tap needs height of its own, except in a row that already
-        // gives the whole line a tap target's worth.
-        padding: EdgeInsets.only(
-          bottom: breadcrumbTrailing == null ? Spacing.md : 0,
-        ),
-        child: crumb,
+    // §39.23: a crumb line that carries a tap target is at least a row tall,
+    // and the back tap takes that whole height rather than the 13px the path
+    // paints. A line with nothing to hit on it keeps the compact spacing —
+    // there is nothing on it to miss.
+    final interactive = onBack != null || segments != null || trailing != null;
+    final crumbHeight = trailing == null
+        ? RowMetrics.minHeight
+        : TapTargets.minHeight;
+    // Tight from the [Expanded] down through the [Align], so the back tap is
+    // the whole cell rather than the width and height of the path's glyphs.
+    Widget crumbCell = Align(alignment: Alignment.centerLeft, child: crumb);
+    if (segments == null && onBack != null) {
+      crumbCell = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onBack,
+        child: crumbCell,
       );
-      if (segments == null) {
-        crumb = GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onBack,
-          child: crumb,
-        );
-      }
     }
 
     return SafeArea(
@@ -120,28 +123,23 @@ class ScreenScaffold extends StatelessWidget {
                 horizontal: Layout.gutterFor(constraints.maxWidth),
               ),
           children: [
-            if (breadcrumbTrailing == null) ...[
+            if (!interactive) ...[
               crumb,
               const SizedBox(height: Spacing.sm),
             ] else
-              // The row takes a full tap target's height so the trailing verb is
+              // The row takes a tap target's height so the trailing verb is
               // hittable (§35) without a 13px control floating in the margin; the
               // gap under it is given back, so the header keeps its rhythm.
               SizedBox(
-                height: TapTargets.minHeight,
+                height: crumbHeight,
                 child: Row(
                   children: [
                     // Expanded and not Flexible-plus-Spacer: §39.18's collapse
                     // rule is about the width left beside the verbs, and two
                     // flex children would have split that width in half before
                     // the path was ever measured against it.
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: crumb,
-                      ),
-                    ),
-                    breadcrumbTrailing!,
+                    Expanded(child: crumbCell),
+                    ?trailing,
                   ],
                 ),
               ),
@@ -252,28 +250,50 @@ class _SegmentedCrumb extends StatelessWidget {
           );
         }
         final kept = segments.sublist(dropped);
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('/ ', style: _style),
-            if (dropped > 0) Text('$_elision$_separator', style: _style),
-            for (var i = 0; i < kept.length; i++) ...[
-              if (i > 0) const Text(_separator, style: _style),
-              // Only the last segment flexes. A Flexible child is capped at its
-              // equal share of the free space, so making every segment one gave
-              // `INFRA PERSONAL` a third of a row it fitted in whole and
-              // ellipsized it with slack still to its right. One flex child
-              // takes the whole remainder, and it is the immediate parent that
-              // absorbs a measurement that came up a pixel short.
-              if (i == kept.length - 1)
-                Flexible(
-                  fit: FlexFit.loose,
-                  child: _Segment(segment: kept[i]),
-                )
-              else
-                _Segment(segment: kept[i]),
+        // §39.23: a tappable segment is a text-only action like any other, so
+        // it takes the crumb row's whole height. The Row is the ceiling — a
+        // child never takes a hit its parent has already rejected — so it is
+        // given the line's height rather than the 13px the path paints. The
+        // labels stay where they were: the [Align] centred them in this height
+        // before, and the Row's own centre does it now.
+        final line = constraints.maxHeight.isFinite
+            ? constraints.maxHeight.clamp(
+                RowMetrics.minHeight,
+                TapTargets.minHeight,
+              )
+            : null;
+        return SizedBox(
+          height: line,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // §39.23: the punctuation is decoration and a [Text] answers a
+              // hit, so a separator left pointing would swallow the tap a
+              // segment's box reaches into it for.
+              const IgnorePointer(child: Text('/ ', style: _style)),
+              if (dropped > 0)
+                const IgnorePointer(
+                  child: Text('$_elision$_separator', style: _style),
+                ),
+              for (var i = 0; i < kept.length; i++) ...[
+                if (i > 0)
+                  const IgnorePointer(child: Text(_separator, style: _style)),
+                // Only the last segment flexes. A Flexible child is capped at its
+                // equal share of the free space, so making every segment one gave
+                // `INFRA PERSONAL` a third of a row it fitted in whole and
+                // ellipsized it with slack still to its right. One flex child
+                // takes the whole remainder, and it is the immediate parent that
+                // absorbs a measurement that came up a pixel short.
+                if (i == kept.length - 1)
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: _Segment(segment: kept[i]),
+                  )
+                else
+                  _Segment(segment: kept[i]),
+              ],
             ],
-          ],
+          ),
         );
       },
     );
@@ -286,24 +306,43 @@ class _SegmentedCrumb extends StatelessWidget {
   }
 }
 
-class _Segment extends StatelessWidget {
+class _Segment extends StatefulWidget {
   const _Segment({required this.segment});
 
   final CrumbSegment segment;
 
   @override
+  State<_Segment> createState() => _SegmentState();
+}
+
+class _SegmentState extends State<_Segment> {
+  bool _down = false;
+
+  @override
   Widget build(BuildContext context) {
+    final onTap = widget.segment.onTap;
+    // §39.23's press, the same one the verbs and the affordances paint. The
+    // last segment is the screen the user is on and has no [onTap]: it is the
+    // end of a path, not a control, and it is not painted as one.
+    final style = _down
+        ? _SegmentedCrumb._style.copyWith(color: HotlineColors.accent)
+        : _SegmentedCrumb._style;
     final text = Text(
-      segment.label,
-      style: _SegmentedCrumb._style,
+      widget.segment.label,
+      style: style,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
-    if (segment.onTap == null) return text;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: segment.onTap,
-      child: text,
+    if (onTap == null) return text;
+    return TapExpansion(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _down = true),
+        onTapCancel: () => setState(() => _down = false),
+        onTapUp: (_) => setState(() => _down = false),
+        onTap: onTap,
+        child: text,
+      ),
     );
   }
 }
