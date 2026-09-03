@@ -15,11 +15,13 @@ class NavDestination {
   final HotlineIcons icon;
 }
 
-/// SPEC.md §37: two tabs. Capture is a bar on HOME and the activity stream is
-/// HOME's RECENT section, so neither needs a destination of its own.
+/// Capture is a bar on HOME and the activity stream is HOME's RECENT section,
+/// so neither needs a destination of its own. ACCESS is the third: the
+/// registered machines and the keys that get into them.
 const navDestinations = [
   NavDestination('HOME', HotlineIcons.home),
   NavDestination('PROJECTS', HotlineIcons.projects),
+  NavDestination('ACCESS', HotlineIcons.hosts),
 ];
 
 /// Built from tokens rather than BottomNavigationBar: Material's version brings
@@ -36,8 +38,8 @@ class NavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onSelected;
 
-  /// One controller per destination (SPEC.md §16b): a tab becoming active, and
-  /// the autonomous tick, glitch the icon that stands for that screen.
+  /// One controller per destination: a tab becoming active, and the
+  /// autonomous tick, glitch the icon that stands for that screen.
   final List<GlitchController> glitch;
 
   @override
@@ -52,7 +54,7 @@ class NavBar extends StatelessWidget {
           ),
         ),
       ),
-      // §39.17: the bar's ground and its top rule run the full width — a nav
+      // The bar's ground and its top rule run the full width — a nav
       // that stops at the column would leave the corners of a near-square
       // display bare — and only the tabs inside it take the cap.
       child: SafeArea(
@@ -100,7 +102,7 @@ class _NavItem extends StatelessWidget {
         height: 52,
         child: Column(
           children: [
-            // SPEC.md §38.8: a rule segment over the active tab. The mocks run
+            // A rule segment over the active tab. The mocks run
             // it the full width of the tab, sitting on the nav's own top rule,
             // so activating a tab moves the segment rather than resizing it.
             Container(

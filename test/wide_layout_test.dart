@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/app/nav_shell.dart';
+import 'package:hotline/application/navigation.dart';
 import 'package:hotline/application/providers.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/design/components/panel.dart';
@@ -20,9 +21,9 @@ import 'package:hotline/features/screen_scaffold.dart';
 
 import 'support/platform_channels.dart';
 
-/// SPEC.md §39.17. faraday folds mid-session, and the two halves of the
-/// requirement pull in opposite directions: the layout has to change with the
-/// width, and nothing the user was holding may change with it.
+/// faraday folds mid-session, and the two halves of the requirement pull in
+/// opposite directions: the layout has to change with the width, and nothing
+/// the user was holding may change with it.
 Future<void> _drain(
   WidgetTester tester, {
   Duration step = Duration.zero,
@@ -88,7 +89,7 @@ void main() {
     expect(panel.right, 344);
   });
 
-  testWidgets('§39.17 above the cap the column stops at 600 and centres', (
+  testWidgets('above the cap the column stops at 600 and centres', (
     tester,
   ) async {
     resize(tester, 900);
@@ -116,11 +117,12 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.17 the nav spans the width, its tabs take the cap', (
-    tester,
-  ) async {
+  testWidgets('the nav spans the width, its tabs take the cap', (tester) async {
     resize(tester, 900);
-    final glitch = [GlitchController(), GlitchController()];
+    final glitch = List.generate(
+      navDestinationCount,
+      (_) => GlitchController(),
+    );
     addTearDown(() {
       for (final controller in glitch) {
         controller.dispose();
@@ -147,13 +149,18 @@ void main() {
     // nothing, and the screen comes up empty but for two tabs.
     expect(bar.height, lessThan(120));
     expect(bar.bottom, 800);
-    final tabs = tester.getRect(find.text('PROJECTS'));
-    expect(tabs.center.dx, greaterThan(450));
-    expect(tabs.right, lessThanOrEqualTo(750));
+    // The tabs distribute inside the cap rather than across the 900: the
+    // first opens no further left than 150, the last closes no further right
+    // than 750, and the row they make is still centred on the screen.
+    final first = tester.getRect(find.text('HOME'));
+    final last = tester.getRect(find.text('ACCESS'));
+    expect(first.left, greaterThanOrEqualTo(150));
+    expect(last.right, lessThanOrEqualTo(750));
+    expect((first.center.dx + last.center.dx) / 2, closeTo(450, 1));
     await unmount(tester);
   });
 
-  testWidgets('§39.24 the selection bar takes the cap the capture bar takes', (
+  testWidgets('the selection bar takes the cap the capture bar takes', (
     tester,
   ) async {
     resize(tester, 900);
@@ -171,9 +178,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.17 a sheet takes the cap and survives the resize', (
-    tester,
-  ) async {
+  testWidgets('a sheet takes the cap and survives the resize', (tester) async {
     resize(tester, 900);
     await tester.pumpWidget(host(const Scaffold(body: SizedBox.shrink())));
     await _ready(tester);
@@ -208,9 +213,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.17 an unfold keeps what the user was holding', (
-    tester,
-  ) async {
+  testWidgets('an unfold keeps what the user was holding', (tester) async {
     resize(tester, 360);
     await tester.pumpWidget(host(const Scaffold(body: HomeScreen())));
     await _ready(tester);
@@ -219,17 +222,17 @@ void main() {
     await _ready(tester);
     final narrow = tester.getRect(find.byType(CaptureBar));
     expect(narrow.width, 360);
-    // §39.23 made every panel strip a row tall, and the capture bar is a
-    // panel: the bar is 9px taller than it was and still a bar, not a band.
+    // Every panel strip is a row tall now, and the capture bar is a panel:
+    // the bar is 9px taller than it was and still a bar, not a band.
     expect(narrow.height, lessThan(220), reason: 'the bar is a bar');
 
     resize(tester, 900);
     await tester.pump();
     await _ready(tester);
 
-    // The field is the same [State], not a rebuilt one: §39.17's requirement
-    // is met by the cap being a constraint rather than a branch, so there is
-    // no widget for the resize to insert or remove.
+    // The field is the same [State], not a rebuilt one: the cap is a
+    // constraint rather than a branch, so there is no widget for the resize to
+    // insert or remove.
     expect(find.text('media escrita al plegar'), findsOneWidget);
     expect(
       tester.getRect(find.byType(Panel).last).width,

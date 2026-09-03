@@ -12,20 +12,18 @@ import 'package:hotline/design/colors.dart';
 import 'package:hotline/design/components/picker_row.dart';
 import 'package:hotline/design/components/solid_action_bar.dart';
 import 'package:hotline/features/settings/host_form_screen.dart';
-import 'package:hotline/features/settings/hosts_block.dart';
-import 'package:hotline/features/settings/settings_screen.dart';
+import 'package:hotline/features/access/access_screen.dart';
 import 'package:hotline/platform/keys.dart';
 
 import 'support/platform_channels.dart';
 
-/// SPEC.md §39.28: the host form never hides its way out. Every test here is
-/// one of the section's regressions — a bar that is always drawn and says what
-/// it is waiting for, a single key that is preselected, and a back that asks
-/// before it drops a draft.
+/// The host form never hides its way out: a bar that is always drawn and says
+/// what it is waiting for, a single key that is preselected, and a back that
+/// asks before it drops a draft.
 ///
-/// SPEC.md §39.29 adds `[ PORT ]` between `[ ADDRESS ]` and `[ USER ]`, which
-/// is why the fields are reached through [_Fields] rather than by index: the
-/// section moved every field after the second one along by one.
+/// `[ PORT ]` sits between `[ ADDRESS ]` and `[ USER ]`, which is why the
+/// fields are reached through [_Fields] rather than by index: adding it moved
+/// every field after the second one along by one.
 enum _Fields { name, address, port, user }
 
 ManagedKey _key(String id, String name) => ManagedKey(
@@ -63,9 +61,9 @@ void main() {
   );
 
   /// The default 800x600 test surface puts the action bar under the fold, and
-  /// a [ListView] never builds what it does not show — the bar this section is
+  /// a [ListView] never builds what it does not show — the bar these tests are
   /// about would be missing from the tree for reasons that have nothing to do
-  /// with §39.28. Every test opens on a phone-shaped surface tall enough to
+  /// with the bar. Every test opens on a phone-shaped surface tall enough to
   /// hold the whole form.
   Future<void> open(WidgetTester tester, Widget home) async {
     tester.view.physicalSize = const Size(400, 1800);
@@ -75,8 +73,8 @@ void main() {
     await _ready(tester);
   }
 
-  /// §16b.1's grain runs off a ticker that never settles, so [pumpAndSettle] is
-  /// out and a test that ends mounted leaves a pending timer behind.
+  /// The grain runs off a ticker that never settles, so [pumpAndSettle] is out
+  /// and a test that ends mounted leaves a pending timer behind.
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
@@ -102,8 +100,8 @@ void main() {
   String textIn(WidgetTester tester, _Fields which) =>
       tester.widget<TextField>(field(which)).controller?.text ?? '';
 
-  /// The three fields §39.28 knew about. §39.29's port is left on the 22 the
-  /// form prefills, which is what a host on the default port needs anyway.
+  /// The three text fields. The port is left on the 22 the form prefills,
+  /// which is what a host on the default port needs anyway.
   Future<void> fillFields(WidgetTester tester) async {
     await tester.enterText(field(_Fields.name), 'nyx');
     await tester.enterText(field(_Fields.address), '100.64.0.1');
@@ -146,7 +144,7 @@ void main() {
 
     await tester.enterText(field(_Fields.address), '100.64.0.1');
     await tester.pump();
-    // §39.29: the port is already 22, so the walk skips straight past it.
+    // The port is already 22, so the walk skips straight past it.
     expect(label(tester), 'USER MISSING');
 
     await tester.enterText(field(_Fields.user), 'luis');
@@ -157,21 +155,11 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the created host lands on Settings with HERDR on', (
-    tester,
-  ) async {
+  testWidgets('the created host lands on ACCESS with HERDR on', (tester) async {
     await keys.save(_key('key-1', 'faraday'));
-    await open(tester, const SettingsScreen());
+    await open(tester, const AccessScreen());
 
-    await tester.tap(
-      // By block, not by header text: a panel header is a [SignalText] that
-      // decodes into its label over several frames, so `[ HOSTS ]` is not on
-      // screen as a string yet when this runs.
-      find.descendant(
-        of: find.byType(HostsSettingsBlock),
-        matching: find.text('NEW'),
-      ),
-    );
+    await tester.tap(find.text('ADD HOST'));
     await _ready(tester);
     await fillFields(tester);
     await tester.tap(find.text('HERDR'));
@@ -187,29 +175,26 @@ void main() {
     expect(await hosts.watchIntegrations(saved.single.id).first, {
       IntegrationKind.herdr,
     });
-    // Popped back to Settings, and the row is on it.
-    expect(find.text('SETTINGS'), findsWidgets);
-    expect(find.text('nyx'), findsOneWidget);
+    // Popped back to ACCESS, and the host's panel is on it. The name is a
+    // panel header, which decodes into place over a few frames.
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(AccessScreen), findsOneWidget);
+    expect(find.text('NYX'), findsOneWidget);
 
     await unmount(tester);
   });
 
-  testWidgets('§39.32 the VNC integration round-trips through the form', (
+  testWidgets('the VNC integration round-trips through the form', (
     tester,
   ) async {
     await keys.save(_key('key-1', 'faraday'));
-    await open(tester, const SettingsScreen());
+    await open(tester, const AccessScreen());
 
-    await tester.tap(
-      find.descendant(
-        of: find.byType(HostsSettingsBlock),
-        matching: find.text('NEW'),
-      ),
-    );
+    await tester.tap(find.text('ADD HOST'));
     await _ready(tester);
     await fillFields(tester);
-    // Both kinds on one host: §39.21 stores a row per integration, so turning
-    // the screen on must not be a thing that turns the poller off.
+    // Both kinds on one host: a row is stored per integration, so turning the
+    // screen on must not be a thing that turns the poller off.
     await tester.tap(find.text('HERDR'));
     await tester.tap(find.text('VNC'));
     await tester.pump();
@@ -225,8 +210,10 @@ void main() {
     });
 
     // Reopened, the form reads back what was stored rather than defaulting,
-    // which is the half a write-only test would miss.
-    await tester.tap(find.text('nyx'));
+    // which is the half a write-only test would miss. The host's own panel
+    // carries the only editor door.
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('EDIT'));
     await _ready(tester);
     expect(
       tester
@@ -322,9 +309,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.29 the port is prefilled 22 on a numeric keyboard', (
-    tester,
-  ) async {
+  testWidgets('the port is prefilled 22 on a numeric keyboard', (tester) async {
     await keys.save(_key('key-1', 'faraday'));
     await open(tester, const HostFormScreen());
 
@@ -337,9 +322,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.29 a port that is not a port reads PORT MISSING', (
-    tester,
-  ) async {
+  testWidgets('a port that is not a port reads PORT MISSING', (tester) async {
     await keys.save(_key('key-1', 'faraday'));
     await open(tester, const HostFormScreen());
     await fillFields(tester);
@@ -367,7 +350,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.29 the typed port is the one that is saved', (tester) async {
+  testWidgets('the typed port is the one that is saved', (tester) async {
     await keys.save(_key('key-1', 'faraday'));
     await open(tester, const HostFormScreen());
     await fillFields(tester);
@@ -377,16 +360,14 @@ void main() {
     await tester.tap(find.text('CREATE HOST'));
     await _ready(tester);
 
-    // nyx's sshd is on 357 and its 22 is a tarpit; this is the defect §39.29
-    // was written for.
+    // nyx's sshd is on 357 and its 22 is a tarpit; this is the defect the port
+    // field was added for.
     expect((await hosts.all()).single.port, 357);
 
     await unmount(tester);
   });
 
-  testWidgets('§39.29 the HOSTS row shows a port only when it is not 22', (
-    tester,
-  ) async {
+  testWidgets('the address row carries the port on every host', (tester) async {
     await keys.save(_key('key-1', 'faraday'));
     await hosts.save(
       const Host(
@@ -408,23 +389,23 @@ void main() {
         keyId: 'key-1',
       ),
     );
-    await open(tester, const SettingsScreen());
+    await open(tester, const AccessScreen());
 
-    expect(find.text('luis@100.64.0.1'), findsOneWidget);
-    expect(find.text('luis@100.64.0.2:357'), findsOneWidget);
+    expect(find.text('100.64.0.1:22'), findsOneWidget);
+    expect(find.text('100.64.0.2:357'), findsOneWidget);
 
     await unmount(tester);
   });
 
-  testWidgets('§39.29 a changed port alone is a dirty form', (tester) async {
+  testWidgets('a changed port alone is a dirty form', (tester) async {
     await keys.save(_key('key-1', 'faraday'));
     await open(tester, const _Launcher());
     await tester.tap(find.text('OPEN'));
     await _ready(tester);
 
-    // §39.28 measures dirtiness against what the form opened with, and §39.29
-    // says the port counts like any field — against the 22 the form filled in,
-    // so touching only this one still has something to lose.
+    // Dirtiness is measured against what the form opened with, and the port
+    // counts like any field — against the 22 the form filled in, so touching
+    // only this one still has something to lose.
     await tester.enterText(field(_Fields.port), '357');
     await tester.pump();
 
@@ -464,8 +445,8 @@ Future<void> _ready(WidgetTester tester) async {
   }
 }
 
-/// The confirm sheet and the route under it both animate, and §16b.1's grain
-/// keeps [WidgetTester.pumpAndSettle] from ever returning.
+/// The confirm sheet and the route under it both animate, and the grain keeps
+/// [WidgetTester.pumpAndSettle] from ever returning.
 Future<void> _sheet(WidgetTester tester) async {
   await _ready(tester);
   for (var i = 0; i < 6; i++) {
