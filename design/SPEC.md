@@ -432,3 +432,8 @@ Amends §39.13's "No text blocks, no bottom bar; the capture bar stays where it 
 - The PROJECTS tab is the §39.18 list with the §39.14 `ARCHIVED N` panel under it, as before §39.22: no breadcrumb back arrow, no pushed route. Project detail's "go to the projects tab" moves (after delete, after the archive of an ancestor) are tab switches again.
 - A tab switch is leaving the screen: it clears the §39.24 selection and the §39.25 fresh state of the tab left, the same as a route push. Coming back to the tab starts clean.
 - Version bumps to 1.0.0+18.
+
+### 39.27 Fresh drops are pruned by removal, never by absence (user, 2026-09-03: "la parte de los 'fresh' es inestable, no todos los que creé en una secuencia de golpe han sido resaltados")
+- Defect in v17: the capture bar adds the id to the fresh set when the write returns, the panel rebuilds on that change before the drops stream has delivered the row, reads the id as "not in the list" and prunes it a frame later. Whether the stream wins that race decides whether the row lights up, so a fast sequence lights some rows and not others.
+- Rule: a fresh id leaves the set only when the panel has shown it and the list then stops containing it. An id the list has not shown yet is never pruned; the panel keeps the set of ids it has rendered and prunes the fresh set (and the selection, the same way) against the ids that were rendered and are now gone.
+- Regression test: add an id to the fresh set before the drops stream emits the row, pump a frame, the id is still fresh; the row then arrives and is drawn fresh; a batch that removes it clears it.
