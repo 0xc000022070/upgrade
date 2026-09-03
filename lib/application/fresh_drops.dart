@@ -64,11 +64,18 @@ class FreshDropsNotifier extends Notifier<FreshDrops> {
   }
 
   /// §39.25: the set clears when a batch takes the last fresh row out of the
-  /// panel. Dropping what is gone and letting an empty scope fall away is one
-  /// rule for a move, a delete, and a row the quick view filed elsewhere.
-  void prune(String scope, Set<String> present) {
+  /// panel. Dropping what went and letting an empty scope fall away is one rule
+  /// for a move, a delete, and a row the quick view filed elsewhere.
+  ///
+  /// §39.27: [removed] is what the panel showed and stopped showing, not what
+  /// it is missing. The bar marks a row fresh the moment the write returns,
+  /// which is a frame or more before the stream delivers it; pruning against
+  /// absence took that row's highlight away before it was ever drawn, and
+  /// whether the stream won the race decided which rows in a fast sequence lit
+  /// up.
+  void forget(String scope, Set<String> removed) {
     if (!state.ownedBy(scope)) return;
-    final kept = state.ids.where(present.contains).toSet();
+    final kept = state.ids.where((id) => !removed.contains(id)).toSet();
     if (kept.length == state.ids.length) return;
     state = kept.isEmpty ? const FreshDrops.none() : FreshDrops(scope, kept);
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/fresh_drops.dart';
+import '../../application/navigation.dart';
 import '../../application/providers.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
@@ -53,8 +54,8 @@ class CaptureBar extends ConsumerStatefulWidget {
   final ItemTarget? fixedTarget;
 
   /// SPEC.md §39.19: the panel the captured row lands in, which is what tears
-  /// when it arrives. §39.22 took HOME's nav icon away, so Home hands over its
-  /// own DROPS panel here exactly as a project's screen already did.
+  /// when it arrives. Home hands over its own DROPS panel here exactly as a
+  /// project's screen does.
   final GlitchController? landing;
 
   @override
@@ -117,6 +118,12 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
     });
     _glitch.fire(seed: raw.hashCode);
     widget.landing?.fire(seed: raw.hashCode);
+    // §39.26 gives the nav icon back its §16b arrival. It fires alongside the
+    // strip rather than instead of it: the IME covers HOME's DROPS strip at
+    // the moment the row lands, and the nav icon is the half still on screen.
+    // A project's capture lands on a route pushed over the bar, so it has no
+    // icon of its own to tear.
+    if (widget.fixedTarget == null) ref.read(navGlitchProvider).fire(0);
     final id = await ref
         .read(taskRepositoryProvider)
         .capture(content, target: target, attachments: attachments);

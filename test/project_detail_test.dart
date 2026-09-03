@@ -11,6 +11,7 @@ import 'package:hotline/data/repositories/project_repository.dart';
 import 'package:hotline/data/repositories/task_repository.dart';
 import 'package:hotline/design/components/panel.dart';
 import 'package:hotline/features/projects/project_detail_screen.dart';
+import 'package:hotline/features/projects/project_form_screen.dart';
 import 'package:hotline/features/projects/projects_screen.dart';
 
 import 'support/platform_channels.dart';
@@ -171,6 +172,26 @@ void main() {
 
     await tapText(tester, 'ARCHIVED');
     expect(find.text('Viejo'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('NEW + on the ALL PROJECTS strip opens the create form', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(const ProjectsScreen()));
+    await _ready(tester);
+
+    // §39.26 left the tab holding the only create affordance for a project:
+    // HOME no longer has a PROJECTS strip that could carry a second.
+    expect(find.text('NEW'), findsOneWidget);
+
+    await tapText(tester, 'NEW');
+
+    expect(find.byType(ProjectFormScreen), findsOneWidget);
+    expect(find.text('NEW PROJECT'), findsWidgets);
+    // §39.2: create has no delete block.
+    expect(find.text('DELETE PROJECT'), findsNothing);
 
     await unmount(tester);
   });

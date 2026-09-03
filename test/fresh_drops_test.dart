@@ -2,6 +2,9 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hotline/app/hotline_app.dart';
+import 'package:hotline/app/nav_shell.dart';
+import 'package:hotline/application/drop_selection.dart';
 import 'package:hotline/application/fresh_drops.dart';
 import 'package:hotline/application/providers.dart';
 import 'package:hotline/data/database.dart';
@@ -11,13 +14,16 @@ import 'package:hotline/data/repositories/task_repository.dart';
 import 'package:hotline/design/colors.dart';
 import 'package:hotline/features/home/home_screen.dart';
 import 'package:hotline/features/projects/projects_screen.dart';
+import 'package:hotline/features/settings/settings_screen.dart';
+import 'package:hotline/features/tasks/drops_panel.dart';
 import 'package:hotline/features/tasks/selection_bar.dart';
 
 import 'support/platform_channels.dart';
 
 /// SPEC.md §39.25: a drop typed on this screen stays marked until the user
-/// leaves. The §16b.1 ticker never settles, so nothing here may use
-/// `pumpAndSettle`.
+/// leaves. §39.27 pins down when a mark is dropped: the panel forgets what it
+/// stopped drawing, never what it has not drawn yet. The §16b.1 ticker never
+/// settles, so nothing here may use `pumpAndSettle`.
 Future<void> _drain(
   WidgetTester tester, {
   Duration step = Duration.zero,
@@ -41,9 +47,12 @@ int _accentAges(WidgetTester tester) => tester
     .where((text) => text.style?.color == HotlineColors.accent)
     .length;
 
-FreshDrops _fresh(WidgetTester tester) => ProviderScope.containerOf(
+FreshDrops _fresh(WidgetTester tester) =>
+    _container(tester).read(freshDropsProvider);
+
+ProviderContainer _container(WidgetTester tester) => ProviderScope.containerOf(
   tester.element(find.byType(HomeScreen, skipOffstage: false)),
-).read(freshDropsProvider);
+);
 
 void main() {
   late AppDatabase db;
@@ -63,6 +72,13 @@ void main() {
   Widget host() => ProviderScope(
     overrides: [databaseProvider.overrideWithValue(db)],
     child: const MaterialApp(home: Scaffold(body: HomeScreen())),
+  );
+
+  /// The tab shell, for the door §39.26 added: leaving HOME without leaving
+  /// the route it lives on.
+  Widget shell() => ProviderScope(
+    overrides: [databaseProvider.overrideWithValue(db)],
+    child: const MaterialApp(home: HotlineShell()),
   );
 
   Future<void> unmount(WidgetTester tester) async {
@@ -146,18 +162,44 @@ void main() {
   testWidgets('§39.25 a push out of HOME leaves the fresh set behind', (
     tester,
   ) async {
-    await projects.create(name: 'Infra personal');
-
     await tester.pumpWidget(host());
     await _ready(tester);
     await capture(tester, 'recien escrito');
     expect(_fresh(tester).idsIn('home'), hasLength(1));
 
-    await tester.tap(find.text('1  VIEW ALL'));
+    await tester.tap(find.text('SYS'));
     await _ready(tester);
 
+    expect(find.byType(SettingsScreen), findsOneWidget);
+    expect(_fresh(tester).idsIn('home'), isEmpty);
+
+    await unmount(tester);
+  });
+
+  testWidgets('§39.26 a tab switch leaves the fresh set behind', (
+    tester,
+  ) async {
+    await projects.create(name: 'Infra personal');
+
+    await tester.pumpWidget(shell());
+    await _ready(tester);
+    await capture(tester, 'recien escrito');
+    expect(_fresh(tester).idsIn('home'), hasLength(1));
+
+    // The tabs keep HOME mounted, so nothing is disposed on the way out: the
+    // shell is what has to put the set down.
+    await tester.tap(
+      find.descendant(of: find.byType(NavBar), matching: find.text('PROJECTS')),
+    );
+    await _ready(tester);
     expect(find.byType(ProjectsScreen), findsOneWidget);
     expect(_fresh(tester).idsIn('home'), isEmpty);
+
+    await tester.tap(
+      find.descendant(of: find.byType(NavBar), matching: find.text('HOME')),
+    );
+    await _ready(tester);
+    expect(_accentAges(tester), 0);
 
     await unmount(tester);
   });
@@ -188,5 +230,99 @@ void main() {
     expect(_accentAges(tester), 2);
 
     await unmount(tester);
+  });
+
+  group('§39.27 the panel forgets what it stopped drawing', () {
+    /// The panel takes its rows as a parameter, so the stream can be replaced
+    /// by something the test steps by hand: that is the whole race — the bar
+    /// marks a row fresh when the write returns, and the list catches up later.
+    late ValueNotifier<AsyncValue<List<Task>>> feed;
+
+    Widget panelHost() => ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: MaterialApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<AsyncValue<List<Task>>>(
+            valueListenable: feed,
+            builder: (_, drops, _) =>
+                DropsPanel(scope: DropSelection.homeScope, drops: drops),
+          ),
+        ),
+      ),
+    );
+
+    FreshDropsNotifier notifier(WidgetTester tester) =>
+        ProviderScope.containerOf(tester.element(find.byType(DropsPanel)))
+            .read(freshDropsProvider.notifier);
+
+    FreshDrops read(WidgetTester tester) =>
+        ProviderScope.containerOf(tester.element(find.byType(DropsPanel)))
+            .read(freshDropsProvider);
+
+    setUp(() => feed = ValueNotifier(const AsyncValue.data(<Task>[])));
+    tearDown(() => feed.dispose());
+
+    Future<Task> row(String title) async {
+      final id = await tasks.capture(title);
+      final rows = await (db.select(
+        db.tasks,
+      )..where((task) => task.id.equals(id))).get();
+      return rows.single;
+    }
+
+    testWidgets('an id marked before the row arrives is still fresh', (
+      tester,
+    ) async {
+      await tester.pumpWidget(panelHost());
+      await _ready(tester);
+
+      final task = await row('recien escrito');
+      notifier(tester).add(DropSelection.homeScope, task.id);
+      // Two frames with the list still empty: one for the build that reads the
+      // set, one for the post-frame prune that used to eat it.
+      await tester.pump();
+      await tester.pump();
+
+      expect(read(tester).idsIn(DropSelection.homeScope), {task.id});
+    });
+
+    testWidgets('the row arrives and is drawn fresh', (tester) async {
+      await tester.pumpWidget(panelHost());
+      await _ready(tester);
+
+      final task = await row('recien escrito');
+      notifier(tester).add(DropSelection.homeScope, task.id);
+      await tester.pump();
+
+      feed.value = AsyncValue.data([task]);
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('recien escrito'), findsOneWidget);
+      expect(_accentAges(tester), 1);
+      expect(read(tester).idsIn(DropSelection.homeScope), {task.id});
+    });
+
+    testWidgets('a batch that takes the row out clears the set', (
+      tester,
+    ) async {
+      await tester.pumpWidget(panelHost());
+      await _ready(tester);
+
+      final task = await row('recien escrito');
+      notifier(tester).add(DropSelection.homeScope, task.id);
+      feed.value = AsyncValue.data([task]);
+      await tester.pump();
+      await tester.pump();
+      expect(read(tester).idsIn(DropSelection.homeScope), hasLength(1));
+
+      // Drawn, then gone: this is removal, and removal is what empties the set.
+      feed.value = const AsyncValue.data(<Task>[]);
+      await tester.pump();
+      await tester.pump();
+
+      expect(read(tester).idsIn(DropSelection.homeScope), isEmpty);
+      expect(read(tester).scope, isNull);
+    });
   });
 }
