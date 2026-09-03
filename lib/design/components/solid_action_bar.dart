@@ -13,6 +13,7 @@ class SolidActionBar extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.tone = HotlineColors.accent,
+    this.enabled = true,
   });
 
   final String label;
@@ -21,16 +22,22 @@ class SolidActionBar extends StatelessWidget {
   /// Destructive confirms swap the fill for a state colour (§16c.2).
   final Color tone;
 
+  /// SPEC.md §39.28: a form whose last requirement is a tap on a picker row
+  /// cannot hide the bar until that requirement is met, because hiding the bar
+  /// hides the requirement with it. A disabled bar holds its place in the dim
+  /// foreground, carries the reason as its label, and swallows the tap.
+  final bool enabled;
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       child: Container(
         height: TapTargets.minHeight,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: tone,
+          color: enabled ? tone : HotlineColors.textDisabled,
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
         child: Text(
