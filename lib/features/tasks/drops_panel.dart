@@ -70,6 +70,12 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
   DropSelectionNotifier? _selection;
   FreshDropsNotifier? _fresh;
 
+  /// §39.27: the ids this panel has actually drawn. A set is pruned against
+  /// what left this, never against what is missing from the list — the capture
+  /// bar marks a row fresh when the write returns, and the stream delivers it
+  /// a frame or more later.
+  final _rendered = <String>{};
+
   @override
   void dispose() {
     // §39.13: a selection never survives a navigation away from its panel. A
@@ -114,19 +120,24 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
     final fresh = ref.watch(freshDropsProvider).idsIn(widget.scope);
 
     // Rows that left the panel while the mode was on — moved from a sheet,
-    // deleted elsewhere — must not stay in a set the batch will act on.
-    // §39.25 prunes the fresh set against the same rows, which is what empties
-    // it when a batch takes the last fresh row out.
+    // deleted elsewhere — must not stay in a set the batch will act on. §39.25
+    // asks the same of the fresh set, which is what empties it when a batch
+    // takes the last fresh row out.
+    //
+    // §39.27: the ids that left are the ones this panel drew and no longer
+    // draws. An id it has never drawn is not gone, it has not arrived, and both
+    // sets are written by something that runs ahead of the stream.
     if (widget.drops.hasValue) {
       final present = {for (final task in rows) task.id};
-      final stale =
-          (selecting && !selection.ids.every(present.contains)) ||
-          !fresh.every(present.contains);
-      if (stale) {
+      final removed = _rendered.difference(present);
+      _rendered
+        ..clear()
+        ..addAll(present);
+      if (removed.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          notifier.prune(widget.scope, present);
-          freshNotifier.prune(widget.scope, present);
+          notifier.forget(widget.scope, removed);
+          freshNotifier.forget(widget.scope, removed);
         });
       }
     }

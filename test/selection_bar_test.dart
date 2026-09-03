@@ -2,6 +2,9 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hotline/app/hotline_app.dart';
+import 'package:hotline/app/nav_shell.dart';
+import 'package:hotline/application/drop_selection.dart';
 import 'package:hotline/application/providers.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/data/repositories/activity_repository.dart';
@@ -10,12 +13,15 @@ import 'package:hotline/data/repositories/task_repository.dart';
 import 'package:hotline/features/home/capture_bar.dart';
 import 'package:hotline/features/home/home_screen.dart';
 import 'package:hotline/features/projects/projects_screen.dart';
+import 'package:hotline/features/settings/settings_screen.dart';
 import 'package:hotline/features/tasks/selection_bar.dart';
 
 import 'support/platform_channels.dart';
 
-/// SPEC.md §39.22 and §39.24: the nav bar is gone and the selection verbs left
-/// the panel's header strip for the slot the capture bar was holding.
+/// SPEC.md §39.24: the selection verbs left the panel's header strip for the
+/// slot the capture bar was holding. §39.26 puts the two tabs back and takes
+/// HOME's PROJECTS panel away, so the doors out of the mode are the nav bar and
+/// a pushed route, never a strip on HOME.
 Future<void> _drain(
   WidgetTester tester, {
   Duration step = Duration.zero,
@@ -31,12 +37,16 @@ Future<void> _drain(
 Future<void> _ready(WidgetTester tester) =>
     _drain(tester, step: const Duration(milliseconds: 100));
 
-/// The app has no AppBar, so `pageBack` has no chevron to find: §38.5 puts the
-/// back on the breadcrumb line and that is the affordance under test.
-Future<void> _back(WidgetTester tester) async {
-  await tester.tap(find.text('/ PERSONAL CONTROL PLANE / PROJECTS'));
-  await _ready(tester);
-}
+/// The nav label, not the screen title: at index 1 both read `PROJECTS` and
+/// only one of them is the tab.
+Finder _tab(String label) =>
+    find.descendant(of: find.byType(NavBar), matching: find.text(label));
+
+/// The mode is state, not chrome: a route over HOME hides the bar whether or
+/// not the set went with it, so the claim is read off the provider.
+DropSelection _selection(WidgetTester tester) => ProviderScope.containerOf(
+  tester.element(find.byType(HomeScreen, skipOffstage: false)),
+).read(dropSelectionProvider);
 
 void main() {
   late AppDatabase db;
@@ -58,49 +68,57 @@ void main() {
     child: const MaterialApp(home: Scaffold(body: HomeScreen())),
   );
 
+  /// The tab shell itself, for the claims that are about leaving one tab for
+  /// the other. `BootGate` is the app's, not the shell's, so it is not here.
+  Widget shell() => ProviderScope(
+    overrides: [databaseProvider.overrideWithValue(db)],
+    child: const MaterialApp(home: HotlineShell()),
+  );
+
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  testWidgets('§39.22 HOME carries no nav bar and no PROJECTS destination', (
-    tester,
-  ) async {
+  testWidgets('§39.26 HOME carries no PROJECTS panel', (tester) async {
     await projects.create(name: 'Infra personal');
 
     await tester.pumpWidget(host());
     await _ready(tester);
 
-    expect(find.byType(BottomNavigationBar), findsNothing);
-    expect(find.byType(NavigationBar), findsNothing);
-    // The word survives on HOME's own panel strip; what is gone is a second
-    // place on the screen that also says it.
-    expect(find.text('PROJECTS'), findsOneWidget);
+    // The panel was the tab's list a tap away, saying the same thing twice.
+    // Nothing on HOME names a project or opens one.
+    expect(find.text('PROJECTS'), findsNothing);
+    expect(find.textContaining('VIEW ALL'), findsNothing);
+    expect(find.text('INFRA PERSONAL'), findsNothing);
     expect(find.byType(ProjectsScreen), findsNothing);
-    // The capture bar is the only thing pinned under the panels now.
+    // The capture bar is still the only thing pinned under the panels.
     expect(find.byType(CaptureBar), findsOneWidget);
 
     await unmount(tester);
   });
 
-  testWidgets('§39.22 VIEW ALL pushes the projects list over HOME', (
+  testWidgets('§39.26 PROJECTS is a tab again, and HOME stays mounted', (
     tester,
   ) async {
     await projects.create(name: 'Infra personal');
 
-    await tester.pumpWidget(host());
+    await tester.pumpWidget(shell());
     await _ready(tester);
+    expect(find.byType(HomeScreen), findsOneWidget);
 
-    await tester.tap(find.text('1  VIEW ALL'));
+    await tester.tap(_tab('PROJECTS'));
     await _ready(tester);
 
     expect(find.byType(ProjectsScreen), findsOneWidget);
     expect(find.text('ALL PROJECTS'), findsOneWidget);
-    // Pushed, not swapped: HOME is still under it — offstage, not disposed,
-    // which is what keeps §39.20's poller running under the route.
+    // Swapped in an IndexedStack, not pushed: HOME is offstage rather than
+    // disposed, which is what §39.20's poller reads to stop itself.
+    expect(find.byType(HomeScreen), findsNothing);
     expect(find.byType(HomeScreen, skipOffstage: false), findsOneWidget);
 
-    await _back(tester);
+    await tester.tap(_tab('HOME'));
+    await _ready(tester);
     expect(find.byType(ProjectsScreen), findsNothing);
     expect(find.byType(HomeScreen), findsOneWidget);
 
@@ -258,7 +276,6 @@ void main() {
   testWidgets('§39.13 a push out of HOME leaves the mode behind', (
     tester,
   ) async {
-    await projects.create(name: 'Infra personal');
     await tasks.capture('sigue aqui');
 
     await tester.pumpWidget(host());
@@ -267,12 +284,40 @@ void main() {
     await _ready(tester);
     expect(find.byType(SelectionBar), findsOneWidget);
 
-    // HOME is the root route and is never disposed, so nothing else would have
-    // put the mode down on the way out.
-    await tester.tap(find.text('1  VIEW ALL'));
+    // HOME is never disposed under a pushed route, so nothing else would have
+    // put the mode down on the way out: the door itself has to.
+    await tester.tap(find.text('SYS'));
     await _ready(tester);
-    await _back(tester);
+    expect(find.byType(SettingsScreen), findsOneWidget);
+    expect(_selection(tester).ids, isEmpty);
 
+    await tester.tap(find.text('/ HOTLINE / SYS'));
+    await _ready(tester);
+
+    expect(find.byType(SelectionBar), findsNothing);
+    expect(find.byType(CaptureBar), findsOneWidget);
+    expect(find.text('1 SELECTED'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('§39.26 a tab switch leaves the mode behind', (tester) async {
+    await tasks.capture('sigue aqui');
+
+    await tester.pumpWidget(shell());
+    await _ready(tester);
+    await tester.longPress(find.text('sigue aqui'));
+    await _ready(tester);
+    expect(find.text('1 SELECTED'), findsOneWidget);
+
+    // The tabs keep HOME mounted, so the shell is the only thing that sees the
+    // user leave the panel the mode belongs to.
+    await tester.tap(_tab('PROJECTS'));
+    await _ready(tester);
+    expect(_selection(tester).ids, isEmpty);
+
+    await tester.tap(_tab('HOME'));
+    await _ready(tester);
     expect(find.byType(SelectionBar), findsNothing);
     expect(find.byType(CaptureBar), findsOneWidget);
     expect(find.text('1 SELECTED'), findsNothing);

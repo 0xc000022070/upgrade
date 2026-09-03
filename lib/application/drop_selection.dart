@@ -36,8 +36,9 @@ class DropSelectionNotifier extends Notifier<DropSelection> {
   void begin(String scope, String id) => state = DropSelection(scope, {id});
 
   /// §39.25: holding a fresh row checks every fresh row of that panel in the
-  /// one gesture. The ids are the panel's own, already pruned to what it shows,
-  /// so the batch can never act on a row that left it.
+  /// one gesture. The ids are the panel's own — captured into this scope and
+  /// not yet forgotten — so a batch can only ever act on rows that belong to
+  /// it.
   void beginMany(String scope, Set<String> ids) =>
       state = DropSelection(scope, {...ids});
 
@@ -75,12 +76,16 @@ class DropSelectionNotifier extends Notifier<DropSelection> {
     });
   }
 
-  /// The rows a panel is showing are the only ones that can stay selected: an
-  /// item deleted or moved from somewhere else must not be acted on by a batch
-  /// that can no longer see it.
-  void prune(String scope, Set<String> present) {
+  /// An item deleted or moved from somewhere else must not be acted on by a
+  /// batch that can no longer see it.
+  ///
+  /// §39.27: what leaves the set is what the panel *stopped* showing, never
+  /// what it has not shown yet. Absence is not removal — a row can be in a set
+  /// before the stream that feeds the panel has delivered it — so the caller
+  /// names the ids that went, and the panel is the only thing that knows.
+  void forget(String scope, Set<String> removed) {
     if (!state.ownedBy(scope)) return;
-    final kept = state.ids.where(present.contains).toSet();
+    final kept = state.ids.where((id) => !removed.contains(id)).toSet();
     if (kept.length != state.ids.length) {
       state = DropSelection(state.scope, kept);
     }

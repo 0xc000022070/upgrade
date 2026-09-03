@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hotline/application/navigation.dart';
 import 'package:hotline/application/providers.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/data/enums.dart';
@@ -154,6 +155,9 @@ void main() {
     await tester.pumpWidget(host(projectId));
     await _ready(tester);
 
+    final nav = ProviderScope.containerOf(
+      tester.element(find.byType(ProjectDetailScreen)),
+    ).read(navGlitchProvider);
     // The controller is read off the tree once and then held: the §39.6 scrim
     // takes the panels off screen while the field has focus, so a finder that
     // works before the capture finds nothing on the frame it lands.
@@ -170,9 +174,11 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
 
-    // §39.19: the row lands in this panel, so the panel is what tears. §39.22
-    // left no nav icon anywhere for it to fire behind the route instead.
+    // §39.19: the row lands in this panel, so the panel is what tears. The nav
+    // icon HOME would have used is not on screen under a pushed route, and it
+    // is not fired behind it either.
     expect(landing.idle, isFalse);
+    expect(nav.controllers.every((controller) => controller.idle), isTrue);
 
     await _ready(tester);
     await unmount(tester);

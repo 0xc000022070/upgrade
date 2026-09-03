@@ -2,14 +2,16 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hotline/application/navigation.dart';
 import 'package:hotline/application/providers.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/data/repositories/activity_repository.dart';
 import 'package:hotline/data/repositories/project_repository.dart';
 import 'package:hotline/data/repositories/task_repository.dart';
-import 'package:hotline/features/home/home_screen.dart';
 import 'package:hotline/features/projects/project_detail_screen.dart';
 import 'package:hotline/features/projects/project_form_screen.dart';
+import 'package:hotline/features/projects/project_row.dart';
+import 'package:hotline/features/projects/projects_screen.dart';
 
 import 'support/platform_channels.dart';
 
@@ -161,13 +163,13 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('HOME shows the root row with the subtree number', (
+    testWidgets('the PROJECTS tab shows the root row with the subtree number', (
       tester,
     ) async {
       final ids = await tree();
       await tasks.create(projectId: ids[2], title: 'VLANs');
 
-      await tester.pumpWidget(host(const Scaffold(body: HomeScreen())));
+      await tester.pumpWidget(host(const ProjectsScreen()));
       await _ready(tester);
 
       expect(find.text('INFRA'), findsOneWidget);
@@ -177,8 +179,8 @@ void main() {
     });
   });
 
-  group('HOME caps the roots', () {
-    testWidgets('a fourth root becomes +1 MORE, and children never count', (
+  group('the PROJECTS tab lists every root', () {
+    testWidgets('a fourth root is a fourth row, and children never count', (
       tester,
     ) async {
       await tree();
@@ -186,12 +188,14 @@ void main() {
         await projects.create(name: name, objective: 'x');
       }
 
-      await tester.pumpWidget(host(const Scaffold(body: HomeScreen())));
+      await tester.pumpWidget(host(const ProjectsScreen()));
       await _ready(tester);
 
-      // Four roots, three rows: the two descendants are not on this list at
-      // all, so the overflow counts roots and nothing else.
-      expect(find.text('+1 MORE'), findsOneWidget);
+      // §39.26 took HOME's capped panel away, and the tab it left behind never
+      // truncated: four roots, four rows, no overflow row to count them into.
+      expect(find.text('+1 MORE'), findsNothing);
+      expect(find.byType(ProjectRow), findsNWidgets(4));
+      // The two descendants are not on this list at all.
       expect(find.text('HOMELAB'), findsNothing);
       await unmount(tester);
     });
@@ -270,7 +274,7 @@ void main() {
       tester,
     ) async {
       final ids = await tree();
-      await walk(tester, [ids[0], ids[1]]);
+      final container = await walk(tester, [ids[0], ids[1]]);
 
       await tester.tap(find.text('INFRA'));
       await _ready(tester);
@@ -281,6 +285,8 @@ void main() {
             .projectId,
         ids[0],
       );
+      // The tab is left alone: the stack answered the tap.
+      expect(container.read(navIndexProvider), 0);
       await unmount(tester);
     });
 
@@ -289,14 +295,15 @@ void main() {
       final ids = await tree();
       // Opened straight at the grandchild, which is what a move leaves behind:
       // the crumb names a parent this session never walked into.
-      await walk(tester, [ids[2]]);
+      final container = await walk(tester, [ids[2]]);
 
       await tester.tap(find.text('HOMELAB'));
       await _ready(tester);
 
-      // §39.22: there is no tab left to land on, so the miss unwinds out of the
-      // project stack entirely.
+      // §39.18 allows the ancestor or the tab. Unwinding to `isFirst` alone
+      // dropped the user on HOME, which is neither.
       expect(find.byType(ProjectDetailScreen), findsNothing);
+      expect(container.read(navIndexProvider), 1);
       await unmount(tester);
     });
   });

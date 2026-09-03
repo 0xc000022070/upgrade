@@ -11,7 +11,6 @@ import 'package:hotline/features/home/capture_bar.dart';
 import 'package:hotline/features/tasks/item_pickers.dart';
 import 'package:hotline/features/tasks/selection_bar.dart';
 import 'package:hotline/features/home/home_screen.dart';
-import 'package:hotline/features/projects/project_form_screen.dart';
 
 import 'package:hotline/design/colors.dart';
 
@@ -76,8 +75,13 @@ void main() {
     await _ready(tester);
 
     expect(find.text('NEXT ACTION'), findsNothing);
-    expect(find.text('PROJECTS'), findsOneWidget);
+    // §39.26: HOME is AGENTS and DROPS with nothing between them. The projects
+    // list is the tab next door, not a second copy of it here.
+    expect(find.text('AGENTS'), findsOneWidget);
     expect(find.text('DROPS'), findsOneWidget);
+    expect(find.text('PROJECTS'), findsNothing);
+    expect(find.textContaining('VIEW ALL'), findsNothing);
+    expect(find.text('NEW'), findsNothing);
 
     await unmount(tester);
   });
@@ -145,25 +149,6 @@ void main() {
     expect(find.text('revisar pgbouncer'), findsOneWidget);
     // A blocked item is not on HOME at all now: it lives in its project.
     expect(find.text('Object storage'), findsNothing);
-
-    await unmount(tester);
-  });
-
-  testWidgets('NEW + on the PROJECTS strip opens the create form', (
-    tester,
-  ) async {
-    await tester.pumpWidget(host());
-    await _ready(tester);
-
-    expect(find.text('NEW'), findsOneWidget);
-
-    await tester.tap(find.text('NEW'));
-    await _drain(tester, step: const Duration(milliseconds: 100));
-
-    expect(find.byType(ProjectFormScreen), findsOneWidget);
-    expect(find.text('NEW PROJECT'), findsWidgets);
-    // §39.2: create has no delete block.
-    expect(find.text('DELETE PROJECT'), findsNothing);
 
     await unmount(tester);
   });
