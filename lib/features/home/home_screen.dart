@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/agents.dart';
 import '../../application/drop_selection.dart';
 import '../../application/navigation.dart';
 import '../../application/providers.dart';
@@ -20,6 +21,7 @@ import '../screen_scaffold.dart';
 import '../settings/settings_screen.dart';
 import '../tasks/drops_panel.dart';
 import '../tasks/item_sheet.dart';
+import 'agents_panel.dart';
 import 'capture_bar.dart';
 
 /// SPEC.md §39.3 for the content, §38 for the skin. Three panels: what is
@@ -30,13 +32,48 @@ import 'capture_bar.dart';
 /// SPEC.md §39.18: the PROJECTS panel lists roots. A child is somewhere inside
 /// one of these three rows, and its work is already counted in that row's
 /// number, so putting it on Home too would say the same thing twice.
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
-  static const _projectCap = 3;
+  /// The tab this screen is, which is what decides whether it is on screen.
+  static const navIndex = 0;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  static const _projectCap = 3;
+
+  /// Captured while the element is alive. `ref` throws once dispose runs, and
+  /// the flag has to be put down on the way out or a Home that is gone leaves
+  /// the poller running.
+  late final _visible = ref.read(homeAgentsVisibleProvider.notifier);
+
+  @override
+  void initState() {
+    super.initState();
+    // §39.20: the panel polls only while Home is in front. Mounting is not the
+    // signal — the shell keeps every tab mounted in an IndexedStack — so the
+    // selected index is, and the first sync waits for the frame that is
+    // building right now to finish.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncVisible());
+  }
+
+  @override
+  void dispose() {
+    _visible.state = false;
+    super.dispose();
+  }
+
+  void _syncVisible() {
+    if (!mounted) return;
+    _visible.state = ref.read(navIndexProvider) == HomeScreen.navIndex;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<int>(navIndexProvider, (_, _) => _syncVisible());
     final nextAction = ref.watch(nextActionProvider);
     final projects = ref.watch(projectSummariesProvider);
     final drops = ref.watch(dropsProvider);
@@ -54,7 +91,8 @@ class HomeScreen extends ConsumerWidget {
       children: [
         Expanded(
           child: ScreenScaffold(
-            title: 'TODAY',
+            // §39.20: `TODAY_` is gone. The breadcrumb and its SYS door stay.
+
             // §39.16's door. Text only, in the slot a project's EDIT uses: a
             // glyph for it would be a new icon, and icons are not this side's
             // to invent.
@@ -66,6 +104,9 @@ class HomeScreen extends ConsumerWidget {
             children: [
               PanelStack(
                 children: [
+                  // §39.20's order: AGENTS first, then NEXT ACTION, PROJECTS
+                  // and DROPS. BLOCKED and RECENT are still §39.3's — gone.
+                  const AgentsPanel(),
                   // §39.3: no suggestion fallback, so with nothing flagged
                   // there is no panel. An empty NEXT ACTION frame would be the
                   // screen asking a question it cannot answer.

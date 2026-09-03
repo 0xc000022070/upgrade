@@ -64,3 +64,35 @@ class ActivityActionConverter extends TypeConverter<ActivityAction, String> {
   @override
   String toSql(ActivityAction value) => value.wire;
 }
+
+/// SPEC.md §39.21: what a host can be used for. A host is a machine; an
+/// integration is a thing the app does with it, and `herdr` is the only one
+/// today.
+///
+/// Deliberately not named after a transport. Today `herdr` runs `herdr agent
+/// list` over ssh, and the spec says a later backend that proxies herdr swaps
+/// the transport and leaves the host and this row alone — so nothing here, and
+/// nothing in the tables, may say `ssh`.
+enum IntegrationKind {
+  herdr('herdr', 'HERDR');
+
+  const IntegrationKind(this.wire, this.label);
+
+  final String wire;
+
+  /// §16c.3's ON/OFF row title on the host form.
+  final String label;
+
+  static IntegrationKind fromWire(String value) =>
+      values.firstWhere((kind) => kind.wire == value);
+}
+
+class IntegrationKindConverter extends TypeConverter<IntegrationKind, String> {
+  const IntegrationKindConverter();
+
+  @override
+  IntegrationKind fromSql(String fromDb) => IntegrationKind.fromWire(fromDb);
+
+  @override
+  String toSql(IntegrationKind value) => value.wire;
+}

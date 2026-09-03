@@ -241,7 +241,10 @@ void main() {
     /// walked. A wide view keeps every segment on the row, so the tap lands on
     /// the ancestor and not on the ellipsis that replaces it when it does not
     /// fit.
-    Future<ProviderContainer> walk(WidgetTester tester, List<String> ids) async {
+    Future<ProviderContainer> walk(
+      WidgetTester tester,
+      List<String> ids,
+    ) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(1400, 900);
       addTearDown(tester.view.reset);

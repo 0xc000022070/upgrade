@@ -3,18 +3,47 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../data/repositories/activity_repository.dart';
 import '../data/repositories/goal_repository.dart';
+import '../data/repositories/host_repository.dart';
+import '../data/repositories/key_repository.dart';
 import '../data/repositories/attachment_repository.dart';
 import '../data/repositories/note_repository.dart';
 import '../data/repositories/project_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../data/repositories/task_repository.dart';
 import '../data/views.dart';
+import '../platform/keys.dart';
+import 'agents.dart';
 
 /// Overridden in main() with the opened (and, in debug, seeded) database, so
 /// no screen ever has to wait on an async database handle.
 final databaseProvider = Provider<AppDatabase>(
   (ref) => throw UnimplementedError('databaseProvider must be overridden'),
 );
+
+/// SPEC.md §39.21. Everything that has to be swapped to run the app against a
+/// real database, in one list, because they are swapped together or not at all.
+///
+/// The key and host providers are declared in `agents.dart` over in-memory
+/// implementations so the AGENTS and Settings screens can be built and tested
+/// without a database. That default is the wrong one for the app, and nothing
+/// about reading it says so — the app comes up looking like it works and forgets
+/// every key on restart. Overriding here means the swap is a compile-time fact
+/// of `main()` rather than a thing to remember.
+///
+/// [privateKeyStoreProvider] already defaults to the keystore-backed store, so
+/// its override changes nothing today. It is listed anyway: the three belong to
+/// one decision, and a future change to that default should not silently become
+/// a change to what the app stores private keys in.
+List<Override> databaseOverrides(AppDatabase db) => [
+  databaseProvider.overrideWithValue(db),
+  keyRepositoryProvider.overrideWith(
+    (ref) => DriftKeyRepository(ref.watch(databaseProvider)),
+  ),
+  hostRepositoryProvider.overrideWith(
+    (ref) => DriftHostRepository(ref.watch(databaseProvider)),
+  ),
+  privateKeyStoreProvider.overrideWith((ref) => const SecurePrivateKeyStore()),
+];
 
 final activityRepositoryProvider = Provider(
   (ref) => ActivityRepository(ref.watch(databaseProvider)),
