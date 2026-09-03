@@ -199,7 +199,29 @@ class _CachedSnapshot {
 
 final _agentSnapshotCacheProvider = Provider((ref) => _AgentSnapshotCache());
 
+/// SPEC.md §39.31. The watcher's own view of the hosts, or null while no
+/// foreground service is running.
+///
+/// Declared here and overridden in `main()` the way [databaseProvider] is: the
+/// implementation reaches the notification plugin and the foreground service,
+/// which no widget test can start.
+///
+/// The default is a stream that says nothing rather than one that emits `null`:
+/// a first value would move [agentsFeedProvider] off its own first build, and
+/// the rebuild would dial every host a second time before the panel had drawn
+/// once. A process with no service never leaves this state, and its reader
+/// treats it exactly as it treats `null`.
+final watcherFeedProvider = StreamProvider<AgentPanelState?>(
+  (ref) => const Stream.empty(),
+);
+
 final agentsFeedProvider = StreamProvider<AgentPanelState>((ref) {
+  // §39.31: "While the watcher runs, Home reads its snapshots and §39.20's own
+  // 10 s poll pauses, so the host sees one connection per phone." Read before
+  // the visibility gate, because the watcher's state is what Home shows even
+  // while §39.20's poll would not be running at all.
+  final watched = ref.watch(watcherFeedProvider).valueOrNull;
+  if (watched != null) return Stream.value(watched);
   final visible = ref.watch(homeAgentsVisibleProvider);
   final foreground = ref.watch(appForegroundProvider);
   // §39.20: never in the background, and never while Home is off screen. The
@@ -207,10 +229,17 @@ final agentsFeedProvider = StreamProvider<AgentPanelState>((ref) {
   // connection open at all.
   if (!visible || !foreground) return const Stream.empty();
   final hosts = ref.watch(herdrHostsProvider);
+  // The three collaborators are read here rather than inside the generator:
+  // the generator's body does not run until something listens, and §39.31's
+  // watcherFeedProvider emits its first value in between, which leaves the ref
+  // outdated and makes any read from it an assertion.
+  final fetch = ref.read(herdrFetchProvider);
+  final keys = ref.read(ed25519KeysProvider);
+  final cache = ref.read(_agentSnapshotCacheProvider);
   return hosts.when(
     data: (list) => list.isEmpty
         ? Stream.value(const AgentPanelState.noHost())
-        : _pollHosts(ref, list),
+        : _pollHosts(fetch, keys, cache, list),
     loading: () => const Stream.empty(),
     error: (_, _) => const Stream.empty(),
   );
@@ -219,10 +248,12 @@ final agentsFeedProvider = StreamProvider<AgentPanelState>((ref) {
 /// One tick polls every host at once and emits a single state. Sequential polls
 /// would make the panel's refresh interval the sum of the hosts' timeouts — two
 /// unreachable hosts alone would push it past §39.20's 10s cadence.
-Stream<AgentPanelState> _pollHosts(Ref ref, List<Host> hosts) async* {
-  final fetch = ref.read(herdrFetchProvider);
-  final keys = ref.read(ed25519KeysProvider);
-  final cache = ref.read(_agentSnapshotCacheProvider);
+Stream<AgentPanelState> _pollHosts(
+  HerdrFetch fetch,
+  Ed25519Keys keys,
+  _AgentSnapshotCache cache,
+  List<Host> hosts,
+) async* {
   while (true) {
     yield AgentPanelState(
       await Future.wait([

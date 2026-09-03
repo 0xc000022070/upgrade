@@ -16,6 +16,11 @@ class SettingsRepository {
   /// skin, not the app deciding for them.
   static const staticEnabled = 'static_enabled';
 
+  /// SPEC.md §39.31's `[ ALERTS ]` row. Default off: with it on the app holds an
+  /// ssh connection open in the background, which is not a thing to start doing
+  /// on an install that never asked.
+  static const alertsBlockedAgents = 'alerts_blocked_agents';
+
   Stream<bool> watchFlag(String key, {required bool orElse}) {
     return (_db.select(_db.settings)..where((s) => s.key.equals(key)))
         .watchSingleOrNull()

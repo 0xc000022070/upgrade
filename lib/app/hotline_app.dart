@@ -10,6 +10,7 @@ import '../design/effects/screen_entry.dart';
 import '../design/theme.dart';
 import '../features/home/home_screen.dart';
 import '../features/projects/projects_screen.dart';
+import 'alerts_boot.dart';
 import 'autonomous_ticks.dart';
 import 'boot.dart';
 import 'nav_shell.dart';
@@ -40,7 +41,9 @@ class HotlineApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: HotlineTheme.build(),
       scrollBehavior: const HotlineScrollBehavior(),
-      home: BootGate(steps: boot, child: const HotlineShell()),
+      home: AlertsHost(
+        child: BootGate(steps: boot, child: const HotlineShell()),
+      ),
     );
   }
 }

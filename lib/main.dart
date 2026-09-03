@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'app/alerts_boot.dart';
 import 'app/boot.dart';
 import 'app/hotline_app.dart';
 import 'application/providers.dart';
@@ -56,11 +57,17 @@ Future<void> main() async {
   final model = await Device.model();
   boot.add(BootStep('mounted device ${model ?? 'unknown'}', 'ok'));
 
+  // §39.31: the notification channel and the foreground service's own channel
+  // are created before the first frame, so a settings toggle has something to
+  // ask permission for and an action tap has somewhere to land.
+  await initAlerts();
+  boot.add(const BootStep('arm alerts', 'ok'));
+
   unawaited(warmGlitchIcons());
 
   runApp(
     ProviderScope(
-      overrides: databaseOverrides(db),
+      overrides: [...databaseOverrides(db), ...alertOverrides()],
       child: HotlineApp(boot: boot),
     ),
   );
