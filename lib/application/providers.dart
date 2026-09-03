@@ -6,7 +6,9 @@ import '../data/repositories/goal_repository.dart';
 import '../data/repositories/host_repository.dart';
 import '../data/repositories/key_repository.dart';
 import '../data/repositories/attachment_repository.dart';
+import '../data/repositories/dispatch_repository.dart';
 import '../data/repositories/note_repository.dart';
+import '../data/repositories/path_repository.dart';
 import '../data/repositories/project_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../data/repositories/task_repository.dart';
@@ -20,7 +22,7 @@ final databaseProvider = Provider<AppDatabase>(
   (ref) => throw UnimplementedError('databaseProvider must be overridden'),
 );
 
-/// SPEC.md §39.21. Everything that has to be swapped to run the app against a
+/// Everything that has to be swapped to run the app against a
 /// real database, in one list, because they are swapped together or not at all.
 ///
 /// The key and host providers are declared in `agents.dart` over in-memory
@@ -78,6 +80,23 @@ final settingsRepositoryProvider = Provider(
   (ref) => SettingsRepository(ref.watch(databaseProvider)),
 );
 
+/// Concrete and not swappable the way the host and key repositories are: paths
+/// only ever exist under a host that has been saved, so there is no screen that
+/// can be built without a database to hold them.
+final pathRepositoryProvider = Provider<PathRepository>(
+  (ref) => DriftPathRepository(ref.watch(databaseProvider)),
+);
+
+/// Every send that happened. Split from [pathRepositoryProvider] because the
+/// two are read from different places: the picker wants targets, the sheet and
+/// the rows want history.
+final dispatchRepositoryProvider = Provider<DispatchRepository>(
+  (ref) => DriftDispatchRepository(
+    ref.watch(databaseProvider),
+    ref.watch(activityRepositoryProvider),
+  ),
+);
+
 final noteRepositoryProvider = Provider(
   (ref) => NoteRepository(
     ref.watch(databaseProvider),
@@ -97,6 +116,22 @@ final blockedTasksProvider = StreamProvider<List<BlockedTask>>(
 
 final dropsProvider = StreamProvider<List<Task>>(
   (ref) => ref.watch(taskRepositoryProvider).watchDrops(),
+);
+
+/// The send picker's rows. Empty is the answer that hides SEND altogether, so
+/// this is watched by the quick view and not only by the picker.
+final pathTargetsProvider = StreamProvider<List<PathTarget>>(
+  (ref) => ref.watch(pathRepositoryProvider).watchTargets(),
+);
+
+/// One stream for every row that might carry the tag, rather than a query per
+/// drop: Home draws the whole list at once.
+final sentItemsProvider = StreamProvider<Set<String>>(
+  (ref) => ref.watch(dispatchRepositoryProvider).watchSentItems(),
+);
+
+final itemDispatchesProvider = StreamProvider.family<List<Dispatch>, String>(
+  (ref, itemId) => ref.watch(dispatchRepositoryProvider).watchForItem(itemId),
 );
 
 final recentActivityProvider = StreamProvider<List<ActivityEntry>>(
@@ -119,7 +154,7 @@ final projectProvider = StreamProvider.family<Project?, String>(
   (ref, id) => ref.watch(projectRepositoryProvider).watchById(id),
 );
 
-/// SPEC.md §39.18. Three families, because a project detail asks three
+/// Three families, because a project detail asks three
 /// hierarchy questions: what is under me, what is my number over the subtree,
 /// and what is the path down to me.
 final projectChildrenProvider =
@@ -176,7 +211,7 @@ final itemLocationProvider = StreamProvider.family<ItemLocation, String>(
   (ref, id) => ref.watch(databaseProvider).watchItemLocation(id),
 );
 
-/// SPEC.md §39.16's `[ STATIC ]`. A stream and not a one-shot read: the setting
+/// The `[ STATIC ]` setting. A stream and not a one-shot read: the value
 /// is changed on one screen and obeyed on every other, and the driver behind
 /// the settings route has to stop the moment the row is written.
 final staticEnabledProvider = StreamProvider<bool>(

@@ -22,6 +22,8 @@ part 'database.g.dart';
     Keys,
     Hosts,
     HostIntegrations,
+    Paths,
+    Dispatches,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -29,9 +31,9 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'hotline'));
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
-  /// SPEC.md §39.7: from v2 on there is real data on the user's handset, so the
+  /// From v2 on there is real data on the user's handset, so the
   /// upgrade is additive — two new tables and two nullable columns, nothing
   /// dropped and nothing recreated. Only the pre-v2 path, which never left the
   /// debug fixture, still recreates.
@@ -52,7 +54,7 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(tasks, tasks.bundleId);
       }
       if (from < 4) {
-        // §39.10 folds links into attachments. The old table is left in place
+        // Links fold into attachments. The old table is left in place
         // rather than dropped: the copy is the only destructive step this
         // migration could take, and not taking it is what makes a rollback to
         // v3 still find its rows.
@@ -63,20 +65,20 @@ SELECT id, task_id, 'url', url, created_at FROM links
 ''');
       }
       if (from < 5) {
-        // §39.16 adds one table and touches nothing else. A preference that
+        // Adds one table and touches nothing else. A preference that
         // has never been written has no row, so the defaults live in
         // [SettingsRepository] and this migration has no backfill to do.
         await m.createTable(settings);
       }
       if (from < 6) {
-        // §39.18 adds one nullable column. Every existing project reads back
+        // Adds one nullable column. Every existing project reads back
         // with a null parent, which is exactly what a root is, so the tree the
         // migration produces is the flat list the user already had.
         await m.addColumn(projects, projects.parentId);
       }
       if (from < 7) {
-        // §39.21 adds three empty tables and nothing else. There is no default
-        // host to backfill — §39.20's ruling is that the app never assumes one
+        // Three empty tables and nothing else. There is no default host to
+        // backfill — the app never assumes one
         // — so an install that upgrades into v7 comes up with no key, no host
         // and no integration switched on, which is the same state a fresh
         // install has and the one the AGENTS panel renders as blocked.
@@ -84,7 +86,7 @@ SELECT id, task_id, 'url', url, created_at FROM links
         await m.createTable(hosts);
         await m.createTable(hostIntegrations);
       }
-      // §39.29 adds one column with a default, so SQLite backfills every
+      // Adds one column with a default, so SQLite backfills every
       // existing row as it rewrites the table header and no UPDATE is needed.
       // 22 is not a guess for those rows: it is the port the transport dialled
       // unconditionally in every build that wrote them.
@@ -95,6 +97,14 @@ SELECT id, task_id, 'url', url, created_at FROM links
       if (from == 7) {
         await m.addColumn(hosts, hosts.port);
       }
+      // Two empty tables. Nothing to backfill: a path is something the user
+      // registers by hand, and a dispatch is written only by a send that has
+      // already happened, so an upgraded install starts with neither and the
+      // host form draws its paths block empty.
+      if (from < 9) {
+        await m.createTable(paths);
+        await m.createTable(dispatches);
+      }
     },
   );
 
@@ -104,17 +114,14 @@ SELECT id, task_id, 'url', url, created_at FROM links
   DriftDatabaseOptions get options =>
       const DriftDatabaseOptions(storeDateTimeAsText: true);
 
-  /// SPEC.md §37: the flagged task, or — labelled as a suggestion — the first
-  /// open task of the highest-priority active project. A loose task can be
-  /// flagged but is never suggested: it has no project to rank it by.
-  /// SPEC.md §39.3 drops the suggestion fallback: the panel now answers "what
-  /// did I flag", so with nothing flagged there is no row and Home omits the
-  /// panel entirely. A screen that picks the row itself was answering a
-  /// question nobody asked.
-  /// SPEC.md §39.11 (ruling reversed 2026-09-02, same day): a drop is an item
-  /// with no project. A goal is optional grouping, so a project task without
-  /// one is still a task and can still be the flagged row.
-  /// SPEC.md §39.18: hidden, not archived. A task under a live project whose
+  /// The flagged task, and only that: there is no suggestion fallback, so with
+  /// nothing flagged there is no row and Home omits the panel entirely. A
+  /// screen that picks the row itself was answering a question nobody asked.
+  ///
+  /// A drop is an item with no project, and a goal is optional grouping, so a
+  /// project task without one is still a task and can still be the flagged row.
+  ///
+  /// Hidden, not archived. A task under a live project whose
   /// grandparent is archived has left the user's field of view just as
   /// completely as one under an archived project, so it leaves Home with it.
   Stream<NextAction?> watchNextAction() {
@@ -173,7 +180,7 @@ ORDER BY t.updated_at DESC
         .map((rows) => rows.map(activityEntryOf).toList());
   }
 
-  /// The recursive walks every hierarchy question (SPEC.md §39.18) is asked
+  /// The recursive walks every hierarchy question is asked
   /// through, spliced into the queries below rather than declared as SQL views:
   /// drift keys stream invalidation off the [readsFrom] table set, and a view
   /// would hide `projects` from it.
@@ -218,16 +225,16 @@ ORDER BY t.updated_at DESC
   static String _visible(String column) =>
       'COALESCE((SELECT v.hidden FROM visibility v WHERE v.id = $column), 1) = 0';
 
-  /// SPEC.md §19. The ordering is a projection concern, not a column sort:
+  /// The ordering is a projection concern, not a column sort:
   /// status and priority are stored as their names, so `ORDER BY` on either
   /// column would be alphabetical. Priority ranks first among active projects
   /// because HOME shows only the top three rows of this same list.
-  /// SPEC.md §39.14: the same projection answers both lists. Archived projects
+  /// The same projection answers both lists. Archived projects
   /// are absent from every screen that asks what to do next, and present in the
   /// one panel that exists to hold them.
-  /// SPEC.md §39.18: progress counts the subtree, while the lead line stays the
-  /// project's own — the spec aggregates the number and nothing else, and §37
-  /// keeps ranking a task by the project it is actually filed in.
+  /// Progress counts the subtree, while the lead line stays the project's own:
+  /// only the number aggregates, and a task is still ranked by the project it
+  /// is actually filed in.
   Stream<List<ProjectSummary>> _summaries(
     String where, {
     List<Variable<Object>> variables = const [],
@@ -277,12 +284,12 @@ ORDER BY CASE p.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
     );
   }
 
-  /// §39.18: Home and the Projects tab list roots only. A child is reached
+  /// Home and the Projects tab list roots only. A child is reached
   /// through its parent's detail, never from a flat list.
   Stream<List<ProjectSummary>> watchRootSummaries() =>
       _summaries("p.parent_id IS NULL AND p.status <> 'archived'");
 
-  /// §39.18: the `ARCHIVED` panel lists projects whose own status is archived
+  /// The `ARCHIVED` panel lists projects whose own status is archived
   /// and whose parent is not itself hidden — an archived branch appears once,
   /// at the point where it was archived, not once per project under it.
   Stream<List<ProjectSummary>> watchArchivedSummaries() => _summaries(
@@ -290,22 +297,22 @@ ORDER BY CASE p.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
     'AND (p.parent_id IS NULL OR ${_visible('p.parent_id')})',
   );
 
-  /// §39.18: the immediate children of one project, as the `PROJECTS N` panel
+  /// The immediate children of one project, as the `PROJECTS N` panel
   /// on its detail. Archived children are not here — they are in the Projects
-  /// tab's `ARCHIVED` panel, the one place §39.14 puts an archived project.
+  /// tab's `ARCHIVED` panel, the one place an archived project is listed.
   Stream<List<ProjectSummary>> watchChildSummaries(String parentId) =>
       _summaries(
         "p.parent_id = ?1 AND p.status <> 'archived'",
         variables: [Variable<String>(parentId)],
       );
 
-  /// §39.18: one project's own row, for the subtree number under its title.
+  /// One project's own row, for the subtree number under its title.
   Stream<ProjectSummary?> watchProjectSummary(String id) => _summaries(
     'p.id = ?1',
     variables: [Variable<String>(id)],
   ).map((rows) => rows.isEmpty ? null : rows.first);
 
-  /// §39.18's breadcrumb: the ancestors of [id], root first, self excluded. A
+  /// The breadcrumb: the ancestors of [id], root first, self excluded. A
   /// stream and not a read, so renaming or archiving a project two levels up
   /// repaints the crumb of the screen the user is standing on.
   Stream<List<ProjectCrumb>> watchAncestors(String id) {
@@ -337,8 +344,8 @@ SELECT id, name, status FROM chain WHERE depth > 0 ORDER BY depth DESC
     );
   }
 
-  /// §39.18: every project the user can still reach — hidden ones are dropped,
-  /// so the §39.5 MOVE picker and the `[ PARENT ]` picker cannot file work into
+  /// Every project the user can still reach — hidden ones are dropped, so the
+  /// MOVE picker and the `[ PARENT ]` picker cannot file work into
   /// a branch that is archived out of sight.
   Stream<List<Project>> watchVisibleProjects() {
     return customSelect(
@@ -353,7 +360,7 @@ ORDER BY p.created_at ASC
     ).watch().map((rows) => rows.map((row) => projects.map(row.data)).toList());
   }
 
-  /// §39.18: [id] and every project under it, shallowest first. The cycle guard
+  /// [id] and every project under it, shallowest first. The cycle guard
   /// on write and the cascade on delete are the same walk.
   Future<List<String>> subtreeIds(String id) async {
     final rows = await customSelect(
@@ -374,7 +381,7 @@ SELECT id, depth FROM sub ORDER BY depth ASC
     return rows.map((row) => row.read<String>('id')).toList();
   }
 
-  /// SPEC.md §39.1: a goal's progress is counted from the items pointing at it,
+  /// A goal's progress is counted from the items pointing at it,
   /// never stored. One projection keeps the GOALS panel headers off an N+1.
   Stream<List<GoalSummary>> watchGoalSummaries(String projectId) {
     return customSelect(
@@ -405,7 +412,7 @@ ORDER BY g.sort_order ASC, g.created_at ASC
     );
   }
 
-  /// The quick view's header strip (SPEC.md §39.4). Resolved in one read so the
+  /// The quick view's header strip. Resolved in one read so the
   /// sheet opens with its breadcrumb already known.
   Stream<ItemLocation> watchItemLocation(String taskId) {
     return customSelect(
