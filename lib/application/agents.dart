@@ -134,6 +134,14 @@ final herdrHostsProvider = StreamProvider<List<Host>>(
       .watchWithIntegration(IntegrationKind.herdr),
 );
 
+/// SPEC.md §39.32: the hosts that offer a screen. Empty is the common case and
+/// the reason the AGENTS header has no `SCREEN >` on it.
+final vncHostsProvider = StreamProvider<List<Host>>(
+  (ref) => ref
+      .watch(hostRepositoryProvider)
+      .watchWithIntegration(IntegrationKind.vnc),
+);
+
 /// What the host form renders its §16c.3 switches from.
 final hostIntegrationsProvider =
     StreamProvider.family<Set<IntegrationKind>, String>(

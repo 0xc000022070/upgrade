@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/alerts_boot.dart';
@@ -20,6 +21,14 @@ import 'platform/device.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // SPEC.md §39.32: the app is portrait, and the screen route is the single
+  // exception — it widens the set on the way in and puts it back on the way
+  // out. Set here rather than in the manifest so both halves of that sentence
+  // are in Dart and the route's dispose has something exact to restore.
+  await SystemChrome.setPreferredOrientations(const [
+    DeviceOrientation.portraitUp,
+  ]);
 
   // The database is opened and seeded before the first frame so every screen
   // can read a synchronous handle instead of an AsyncValue of one. Each step is

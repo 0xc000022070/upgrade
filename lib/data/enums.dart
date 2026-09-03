@@ -66,15 +66,23 @@ class ActivityActionConverter extends TypeConverter<ActivityAction, String> {
 }
 
 /// SPEC.md §39.21: what a host can be used for. A host is a machine; an
-/// integration is a thing the app does with it, and `herdr` is the only one
-/// today.
+/// integration is a thing the app does with it.
 ///
 /// Deliberately not named after a transport. Today `herdr` runs `herdr agent
-/// list` over ssh, and the spec says a later backend that proxies herdr swaps
-/// the transport and leaves the host and this row alone — so nothing here, and
-/// nothing in the tables, may say `ssh`.
+/// list` over ssh and §39.32's `vnc` carries RFB over an ssh channel, and the
+/// spec says a later backend that proxies herdr swaps the transport and leaves
+/// the host and this row alone — so nothing here, and nothing in the tables,
+/// may say `ssh`.
+///
+/// Adding a kind is this line and nothing else: the integrations table is keyed
+/// by host and kind, the host form renders a row per value, and the repository
+/// queries by kind — none of which knows what the kinds are.
 enum IntegrationKind {
-  herdr('herdr', 'HERDR');
+  herdr('herdr', 'HERDR'),
+
+  /// SPEC.md §39.32. On means the host offers its screen: the app opens a
+  /// `direct-tcpip` channel to the wayvnc already listening on its loopback.
+  vnc('vnc', 'VNC');
 
   const IntegrationKind(this.wire, this.label);
 
