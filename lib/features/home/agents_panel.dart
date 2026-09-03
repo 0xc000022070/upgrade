@@ -9,6 +9,7 @@ import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/herdr_client.dart';
 import '../agents/agents_screen.dart';
+import 'agent_mark.dart';
 
 class AgentsPanel extends ConsumerWidget {
   const AgentsPanel({super.key, this.state, this.onViewAll, this.now});
@@ -156,24 +157,11 @@ class _AgentRow extends StatelessWidget {
             flex: 4,
             child: Row(
               children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: HotlineColors.borderNormal),
-                    borderRadius: BorderRadius.circular(Radii.sharp),
-                  ),
-                  child: Text(switch (agent.agent) {
-                    'claude' => 'C',
-                    'codex' => 'X',
-                    _ => '?',
-                  }, style: HotlineText.valueStrong),
-                ),
+                AgentMark(agent.agent),
                 const SizedBox(width: Spacing.md),
                 Expanded(
                   child: Text(
-                    agent.agent.toUpperCase(),
+                    agentMarkName(agent.agent),
                     style: HotlineText.rowTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io';
+
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/application/agents.dart';
 import 'package:hotline/data/enums.dart';
 import 'package:hotline/data/repositories/host_repository.dart';
+import 'package:hotline/features/home/agent_mark.dart';
 import 'package:hotline/features/home/agents_panel.dart';
 import 'package:hotline/platform/herdr_client.dart';
 import 'package:hotline/platform/keys.dart';
@@ -414,6 +418,120 @@ void main() {
     expect(find.text('0'), findsNothing);
     expect(find.text('VIEW ALL'), findsNothing);
   });
+
+  test('§39.30 every listed kind has its mark file', () {
+    // The manifest in [agentMarkKinds] is what the row trusts, so a kind
+    // listed without its file is an empty box rather than the `?` it would
+    // have fallen back to. Nothing at runtime can catch that; this does.
+    for (final kind in agentMarkKinds) {
+      expect(
+        File(agentMarkAsset(kind)!).existsSync(),
+        isTrue,
+        reason: 'agentMarkKinds lists $kind but assets/icons has no file',
+      );
+    }
+    // §39.30 names these two as required; the rest land as the artist traces
+    // them.
+    expect(agentMarkKinds, containsAll(<String>['claude', 'codex']));
+  });
+
+  testWidgets('§39.30 a claude row renders the claude mark and no C', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        snapshotOf([
+          agent(
+            pane: 'wQ:p1',
+            name: 'claude',
+            status: 'working',
+            work: 'wire agents panel',
+            sequence: 10,
+          ),
+        ], receivedAt: DateTime(2026)),
+      ),
+    );
+
+    expect(markAsset(tester), 'assets/icons/agent-claude.svg');
+    // The letter box is gone, not merely covered: `C` was the whole glyph.
+    expect(find.text('C'), findsNothing);
+    expect(find.text('?'), findsNothing);
+    expect(find.text('CLAUDE'), findsOneWidget);
+  });
+
+  testWidgets('§39.30 a codex row renders the codex mark and no X', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        snapshotOf([
+          agent(
+            pane: 'wQ:p2',
+            name: 'codex',
+            status: 'blocked',
+            work: 'wire alerts',
+            sequence: 10,
+          ),
+        ], receivedAt: DateTime(2026)),
+      ),
+    );
+
+    expect(markAsset(tester), 'assets/icons/agent-codex.svg');
+    expect(find.text('X'), findsNothing);
+    expect(find.text('CODEX'), findsOneWidget);
+  });
+
+  testWidgets('§39.30 a kind with no mark file keeps the ? box', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        snapshotOf([
+          agent(
+            pane: 'wQ:p3',
+            name: 'gizmo',
+            status: 'working',
+            work: 'something',
+            sequence: 10,
+          ),
+        ], receivedAt: DateTime(2026)),
+      ),
+    );
+
+    expect(find.descendant(
+      of: find.byType(AgentMark),
+      matching: find.byType(SvgPicture),
+    ), findsNothing);
+    expect(find.text('?'), findsOneWidget);
+    // The fallback is the box only. The name is still what herdr reported.
+    expect(find.text('GIZMO'), findsOneWidget);
+  });
+
+  testWidgets('§39.30 an empty kind is ? in the box and ? as the name', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        snapshotOf([
+          agent(
+            pane: 'wQ:p4',
+            name: '',
+            status: 'working',
+            work: 'something',
+            sequence: 10,
+          ),
+        ], receivedAt: DateTime(2026)),
+      ),
+    );
+
+    // Two: the box and the name. An empty name would otherwise render as an
+    // empty cell that reads as a layout bug rather than as missing data.
+    expect(find.text('?'), findsNWidgets(2));
+    expect(
+      find.descendant(of: find.byType(AgentMark), matching: find.text('?')),
+      findsOneWidget,
+    );
+  });
 }
 
 Future<void> _waitFor(bool Function() condition) async {
@@ -421,4 +539,17 @@ Future<void> _waitFor(bool Function() condition) async {
     await Future<void>.delayed(const Duration(milliseconds: 5));
   }
   expect(condition(), isTrue);
+}
+
+/// The asset behind the one [AgentMark] on screen, or null when it fell back
+/// to `?`. Read off the loader rather than the raster: the point is which file
+/// the row asked for.
+String? markAsset(WidgetTester tester) {
+  final marks = find.descendant(
+    of: find.byType(AgentMark),
+    matching: find.byType(SvgPicture),
+  );
+  if (marks.evaluate().isEmpty) return null;
+  final loader = tester.widget<SvgPicture>(marks).bytesLoader;
+  return loader is SvgAssetLoader ? loader.assetName : null;
 }
