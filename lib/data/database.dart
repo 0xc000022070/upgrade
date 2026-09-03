@@ -29,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'hotline'));
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   /// SPEC.md §39.7: from v2 on there is real data on the user's handset, so the
   /// upgrade is additive — two new tables and two nullable columns, nothing
@@ -83,6 +83,17 @@ SELECT id, task_id, 'url', url, created_at FROM links
         await m.createTable(keys);
         await m.createTable(hosts);
         await m.createTable(hostIntegrations);
+      }
+      // §39.29 adds one column with a default, so SQLite backfills every
+      // existing row as it rewrites the table header and no UPDATE is needed.
+      // 22 is not a guess for those rows: it is the port the transport dialled
+      // unconditionally in every build that wrote them.
+      //
+      // Only from 7. [Migrator.createTable] above builds `hosts` from the
+      // current definition, which already carries the column, so a database
+      // coming from below 7 gets it there and adding it again is an error.
+      if (from == 7) {
+        await m.addColumn(hosts, hosts.port);
       }
     },
   );

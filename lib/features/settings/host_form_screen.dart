@@ -36,9 +36,14 @@ class HostFormScreen extends ConsumerStatefulWidget {
   ConsumerState<HostFormScreen> createState() => _HostFormScreenState();
 }
 
+/// SPEC.md §39.29. What a new host is dialled on until the user says otherwise,
+/// and the value the port field is measured against for §39.28's dirtiness.
+const _defaultPort = 22;
+
 class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   late final TextEditingController _name;
   late final TextEditingController _address;
+  late final TextEditingController _port;
   late final TextEditingController _user;
   String? _keyId;
   bool _submitting = false;
@@ -65,6 +70,9 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     final host = widget.host;
     _name = TextEditingController(text: host?.name ?? '');
     _address = TextEditingController(text: host?.address ?? '');
+    // §39.29: 22 is prefilled rather than left empty and defaulted on save, so
+    // the field says which port the host will be dialled on before it is.
+    _port = TextEditingController(text: '${host?.port ?? _defaultPort}');
     _user = TextEditingController(text: host?.user ?? '');
     _keyId = host?.keyId;
     _baseKeyId = _keyId;
@@ -106,6 +114,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   void dispose() {
     _name.dispose();
     _address.dispose();
+    _port.dispose();
     _user.dispose();
     super.dispose();
   }
@@ -115,9 +124,19 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   String? get _missing {
     if (_name.text.trim().isEmpty) return 'NAME MISSING';
     if (_address.text.trim().isEmpty) return 'ADDRESS MISSING';
+    if (_parsedPort == null) return 'PORT MISSING';
     if (_user.text.trim().isEmpty) return 'USER MISSING';
     if (_keyId == null) return 'KEY MISSING';
     return null;
+  }
+
+  /// §39.29: empty, not a number, or outside the range a TCP port has. All
+  /// three read as the same missing part, because the field is asking for one
+  /// thing and none of the three is it.
+  int? get _parsedPort {
+    final port = int.tryParse(_port.text.trim());
+    if (port == null || port < 1 || port > 65535) return null;
+    return port;
   }
 
   bool get _valid => _missing == null;
@@ -129,6 +148,9 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     final host = widget.host;
     if (_name.text.trim() != (host?.name ?? '')) return true;
     if (_address.text.trim() != (host?.address ?? '')) return true;
+    // §39.29: the port counts like any field, against the 22 the form filled in
+    // rather than against an empty box, so an untouched new form is still clean.
+    if (_port.text.trim() != '${host?.port ?? _defaultPort}') return true;
     if (_user.text.trim() != (host?.user ?? '')) return true;
     if (_keyId != _baseKeyId) return true;
     final base = _baseIntegrations;
@@ -165,6 +187,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       id: widget.host?.id ?? const Uuid().v4(),
       name: _name.text.trim(),
       address: _address.text.trim(),
+      port: _parsedPort!,
       user: _user.text.trim(),
       keyId: _keyId!,
     );
@@ -227,6 +250,11 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                 children: [
                   FieldPanel(label: '[ NAME ]', controller: _name),
                   FieldPanel(label: '[ ADDRESS ]', controller: _address),
+                  FieldPanel(
+                    label: '[ PORT ]',
+                    controller: _port,
+                    keyboardType: TextInputType.number,
+                  ),
                   FieldPanel(label: '[ USER ]', controller: _user),
                   Panel(
                     title: '[ KEY ]',
@@ -281,7 +309,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
               ),
               const SizedBox(height: Spacing.xl),
               ListenableBuilder(
-                listenable: Listenable.merge([_name, _address, _user]),
+                listenable: Listenable.merge([_name, _address, _port, _user]),
                 builder: (context, _) {
                   // §39.28: the bar is always drawn. Invalid, it names the part
                   // that is missing and does nothing when tapped.

@@ -21,6 +21,12 @@ import 'support/platform_channels.dart';
 /// one of the section's regressions — a bar that is always drawn and says what
 /// it is waiting for, a single key that is preselected, and a back that asks
 /// before it drops a draft.
+///
+/// SPEC.md §39.29 adds `[ PORT ]` between `[ ADDRESS ]` and `[ USER ]`, which
+/// is why the fields are reached through [_Fields] rather than by index: the
+/// section moved every field after the second one along by one.
+enum _Fields { name, address, port, user }
+
 ManagedKey _key(String id, String name) => ManagedKey(
   id: id,
   name: name,
@@ -90,11 +96,17 @@ void main() {
     return (box.decoration! as BoxDecoration).color;
   }
 
+  Finder field(_Fields which) => find.byType(TextField).at(which.index);
+
+  String textIn(WidgetTester tester, _Fields which) =>
+      tester.widget<TextField>(field(which)).controller?.text ?? '';
+
+  /// The three fields §39.28 knew about. §39.29's port is left on the 22 the
+  /// form prefills, which is what a host on the default port needs anyway.
   Future<void> fillFields(WidgetTester tester) async {
-    final fields = find.byType(TextField);
-    await tester.enterText(fields.at(0), 'nyx');
-    await tester.enterText(fields.at(1), '100.64.0.1');
-    await tester.enterText(fields.at(2), 'luis');
+    await tester.enterText(field(_Fields.name), 'nyx');
+    await tester.enterText(field(_Fields.address), '100.64.0.1');
+    await tester.enterText(field(_Fields.user), 'luis');
     await tester.pump();
   }
 
@@ -127,16 +139,16 @@ void main() {
     await keys.save(_key('key-1', 'faraday'));
     await open(tester, const HostFormScreen());
 
-    final fields = find.byType(TextField);
-    await tester.enterText(fields.at(0), 'nyx');
+    await tester.enterText(field(_Fields.name), 'nyx');
     await tester.pump();
     expect(label(tester), 'ADDRESS MISSING');
 
-    await tester.enterText(fields.at(1), '100.64.0.1');
+    await tester.enterText(field(_Fields.address), '100.64.0.1');
     await tester.pump();
+    // §39.29: the port is already 22, so the walk skips straight past it.
     expect(label(tester), 'USER MISSING');
 
-    await tester.enterText(fields.at(2), 'luis');
+    await tester.enterText(field(_Fields.user), 'luis');
     await tester.pump();
     expect(label(tester), 'CREATE HOST');
     expect(fill(tester), HotlineColors.accent);
@@ -222,8 +234,7 @@ void main() {
     await tester.tap(find.text('OPEN'));
     await _ready(tester);
 
-    final fields = find.byType(TextField);
-    await tester.enterText(fields.at(0), 'nyx');
+    await tester.enterText(field(_Fields.name), 'nyx');
     await tester.pump();
 
     // The back arrow is the crumb line, and it asks.
@@ -234,7 +245,7 @@ void main() {
     await tester.tap(find.text('CANCEL'));
     await _sheet(tester);
     expect(find.text('NEW HOST'), findsWidgets);
-    expect(tester.widget<TextField>(fields.at(0)).controller?.text, 'nyx');
+    expect(textIn(tester, _Fields.name), 'nyx');
 
     // The system gesture is the same door.
     await tester.binding.handlePopRoute();
@@ -262,6 +273,124 @@ void main() {
     await _sheet(tester);
     expect(find.text('DISCARD HOST?'), findsNothing);
     expect(find.text('OPEN'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('§39.29 the port is prefilled 22 on a numeric keyboard', (
+    tester,
+  ) async {
+    await keys.save(_key('key-1', 'faraday'));
+    await open(tester, const HostFormScreen());
+
+    expect(textIn(tester, _Fields.port), '22');
+    expect(
+      tester.widget<TextField>(field(_Fields.port)).keyboardType,
+      TextInputType.number,
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('§39.29 a port that is not a port reads PORT MISSING', (
+    tester,
+  ) async {
+    await keys.save(_key('key-1', 'faraday'));
+    await open(tester, const HostFormScreen());
+    await fillFields(tester);
+    expect(label(tester), 'CREATE HOST');
+
+    // Empty, not a number, and outside the range are one answer: the field is
+    // asking for a port and none of the three is one.
+    for (final typed in ['', 'abc', '70000', '0', '-1']) {
+      await tester.enterText(field(_Fields.port), typed);
+      await tester.pump();
+      expect(label(tester), 'PORT MISSING', reason: 'port `$typed`');
+      expect(fill(tester), HotlineColors.textDisabled);
+    }
+
+    // And the bar stays inert while it says so.
+    await tester.tap(find.byType(SolidActionBar).first);
+    await _ready(tester);
+    expect(await hosts.all(), isEmpty);
+
+    await tester.enterText(field(_Fields.port), '357');
+    await tester.pump();
+    expect(label(tester), 'CREATE HOST');
+    expect(fill(tester), HotlineColors.accent);
+
+    await unmount(tester);
+  });
+
+  testWidgets('§39.29 the typed port is the one that is saved', (tester) async {
+    await keys.save(_key('key-1', 'faraday'));
+    await open(tester, const HostFormScreen());
+    await fillFields(tester);
+    await tester.enterText(field(_Fields.port), '357');
+    await tester.pump();
+
+    await tester.tap(find.text('CREATE HOST'));
+    await _ready(tester);
+
+    // nyx's sshd is on 357 and its 22 is a tarpit; this is the defect §39.29
+    // was written for.
+    expect((await hosts.all()).single.port, 357);
+
+    await unmount(tester);
+  });
+
+  testWidgets('§39.29 the HOSTS row shows a port only when it is not 22', (
+    tester,
+  ) async {
+    await keys.save(_key('key-1', 'faraday'));
+    await hosts.save(
+      const Host(
+        id: 'h1',
+        name: 'rose',
+        address: '100.64.0.1',
+        port: 22,
+        user: 'luis',
+        keyId: 'key-1',
+      ),
+    );
+    await hosts.save(
+      const Host(
+        id: 'h2',
+        name: 'nyx',
+        address: '100.64.0.2',
+        port: 357,
+        user: 'luis',
+        keyId: 'key-1',
+      ),
+    );
+    await open(tester, const SettingsScreen());
+
+    expect(find.text('luis@100.64.0.1'), findsOneWidget);
+    expect(find.text('luis@100.64.0.2:357'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('§39.29 a changed port alone is a dirty form', (tester) async {
+    await keys.save(_key('key-1', 'faraday'));
+    await open(tester, const _Launcher());
+    await tester.tap(find.text('OPEN'));
+    await _ready(tester);
+
+    // §39.28 measures dirtiness against what the form opened with, and §39.29
+    // says the port counts like any field — against the 22 the form filled in,
+    // so touching only this one still has something to lose.
+    await tester.enterText(field(_Fields.port), '357');
+    await tester.pump();
+
+    await tester.binding.handlePopRoute();
+    await _sheet(tester);
+    expect(find.text('DISCARD HOST?'), findsOneWidget);
+
+    await tester.tap(find.text('DISCARD'));
+    await _sheet(tester);
+    expect(find.text('OPEN'), findsOneWidget);
+    expect(await hosts.all(), isEmpty);
 
     await unmount(tester);
   });

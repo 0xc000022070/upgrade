@@ -36,12 +36,18 @@ void main() {
     );
   }
 
-  Future<void> host(String id, {String name = 'nyx', String keyId = 'k1'}) {
+  Future<void> host(
+    String id, {
+    String name = 'nyx',
+    String keyId = 'k1',
+    int port = 22,
+  }) {
     return hosts.save(
       Host(
         id: id,
         name: name,
         address: '100.118.60.77',
+        port: port,
         user: 'luisnquin',
         keyId: keyId,
       ),
@@ -137,8 +143,17 @@ void main() {
       expect(stored.id, 'h1');
       expect(stored.name, 'nyx');
       expect(stored.address, '100.118.60.77');
+      expect(stored.port, 22);
       expect(stored.user, 'luisnquin');
       expect(stored.keyId, 'k1');
+    });
+
+    test('SPEC.md §39.29: a port that is not 22 round-trips', () async {
+      await key('k1');
+      await host('h1', port: 357);
+
+      expect((await hosts.all()).single.port, 357);
+      expect((await hosts.watchAll().first).single.port, 357);
     });
 
     test('save is an upsert on the id', () async {

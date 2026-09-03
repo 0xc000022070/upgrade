@@ -15,6 +15,7 @@ const nyx = Host(
   id: 'nyx',
   name: 'Nyx',
   address: '100.118.60.77',
+  port: 22,
   user: 'luisnquin',
   keyId: 'k1',
 );
@@ -22,6 +23,7 @@ const rose = Host(
   id: 'rose',
   name: 'Rose',
   address: '100.1.1.2',
+  port: 22,
   user: 'luisnquin',
   keyId: 'k1',
 );

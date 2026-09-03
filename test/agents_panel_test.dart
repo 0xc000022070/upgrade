@@ -12,6 +12,7 @@ const hostA = Host(
   id: 'a',
   name: 'A',
   address: '100.1.1.1',
+  port: 22,
   user: 'ops',
   keyId: 'key-a',
 );
@@ -19,6 +20,7 @@ const hostB = Host(
   id: 'b',
   name: 'B',
   address: '100.1.1.2',
+  port: 357,
   user: 'ops',
   keyId: 'key-b',
 );
@@ -68,6 +70,7 @@ void main() {
         homeAgentsVisibleProvider.overrideWith((ref) => true),
         herdrFetchProvider.overrideWithValue(({
           required String address,
+          required int port,
           required String user,
           required String privateKey,
         }) async {
@@ -95,7 +98,10 @@ void main() {
     final privateKeys = MemoryPrivateKeyStore();
     await privateKeys.write('key-a', 'private-a');
     await privateKeys.write('key-b', 'private-b');
+    // §39.29: what the transport was actually asked to dial, address and port
+    // together, so a build that hardcodes 22 fails here rather than on a phone.
     final addresses = <String>[];
+    String dialled(Host host) => '${host.address}:${host.port}';
     final states = <AgentPanelState>[];
     final container = ProviderContainer(
       overrides: [
@@ -104,10 +110,11 @@ void main() {
         homeAgentsVisibleProvider.overrideWith((ref) => true),
         herdrFetchProvider.overrideWithValue(({
           required String address,
+          required int port,
           required String user,
           required String privateKey,
         }) async {
-          addresses.add(address);
+          addresses.add('$address:$port');
           if (address == hostB.address) throw const HerdrUnreachable();
           return [
             agent(
@@ -130,11 +137,13 @@ void main() {
     );
     addTearDown(subscription.close);
 
-    await _waitFor(() => addresses.contains(hostA.address));
-    expect(addresses, isNot(contains(hostB.address)));
+    await _waitFor(() => addresses.contains(dialled(hostA)));
+    expect(addresses, isNot(contains(dialled(hostB))));
 
     await hosts.setIntegration(hostB.id, IntegrationKind.herdr, true);
-    await _waitFor(() => addresses.contains(hostB.address));
+    // B's sshd is on 357, which is the whole of §39.29: the host carries the
+    // port and the poll uses it.
+    await _waitFor(() => addresses.contains(dialled(hostB)));
     // One state carries both: B's failure does not take A's rows down with it.
     await _waitFor(
       () => states.any(
@@ -152,9 +161,89 @@ void main() {
     final fetches = addresses.length;
     await Future<void>.delayed(const Duration(milliseconds: 30));
 
-    expect(addresses, containsAllInOrder([hostA.address, hostB.address]));
+    expect(addresses, containsAllInOrder([dialled(hostA), dialled(hostB)]));
     // Blocked means blocked: nothing is polled once the set empties.
     expect(addresses, hasLength(fetches));
+  });
+
+  test('§39.29 a name that never resolved is its own outcome', () async {
+    final hosts = InMemoryHostRepository();
+    await hosts.save(hostA);
+    await hosts.setIntegration(hostA.id, IntegrationKind.herdr, true);
+    final privateKeys = MemoryPrivateKeyStore();
+    await privateKeys.write('key-a', 'private-a');
+    final states = <AgentPanelState>[];
+    final container = ProviderContainer(
+      overrides: [
+        hostRepositoryProvider.overrideWithValue(hosts),
+        privateKeyStoreProvider.overrideWithValue(privateKeys),
+        homeAgentsVisibleProvider.overrideWith((ref) => true),
+        herdrFetchProvider.overrideWithValue(({
+          required String address,
+          required int port,
+          required String user,
+          required String privateKey,
+        }) async {
+          throw const HerdrUnresolved("Failed host lookup: 'nope.invalid'");
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(herdrHostsProvider.future);
+    final subscription = container.listen(
+      agentsFeedProvider,
+      (_, next) => next.whenData(states.add),
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+
+    // Not folded into unreachable: the two send the user to different places,
+    // a typo in the address against a port, a firewall or a dead machine.
+    await _waitFor(
+      () => states.any(
+        (state) =>
+            state.failures.length == 1 &&
+            state.failures.single.kind == AgentOutcomeKind.unresolved,
+      ),
+    );
+  });
+
+  testWidgets('§39.29 an unresolved host says so by name', (tester) async {
+    final now = DateTime(2026, 9, 3, 12);
+    final state = AgentPanelState([
+      HostOutcome(
+        host: const Host(
+          id: 'nyx',
+          name: 'Nyx',
+          address: 'nope.invalid',
+          port: 357,
+          user: 'luisnquin',
+          keyId: 'k1',
+        ),
+        kind: AgentOutcomeKind.unresolved,
+        lastGoodAt: now.subtract(const Duration(seconds: 12)),
+      ),
+    ]);
+    await tester.pumpWidget(host(state, now: now));
+
+    expect(find.text('nyx unresolved'), findsOneWidget);
+    expect(find.text('nyx unreachable'), findsNothing);
+    expect(find.text('12s ago'), findsOneWidget);
+  });
+
+  testWidgets('§39.29 two failing hosts do not say the unresolved host twice', (
+    tester,
+  ) async {
+    const state = AgentPanelState([
+      HostOutcome(host: hostA, kind: AgentOutcomeKind.unresolved),
+      HostOutcome(host: hostB, kind: AgentOutcomeKind.keyRejected),
+    ]);
+    await tester.pumpWidget(host(state));
+
+    // The unresolved line already carries its host, like the unreachable
+    // one; only the lines that do not get the prefix.
+    expect(find.text('a unresolved'), findsOneWidget);
+    expect(find.text('b · key rejected'), findsOneWidget);
   });
 
   testWidgets('shows working and blocked rows ordered by latest change', (
@@ -252,6 +341,7 @@ void main() {
           id: 'nyx',
           name: 'Nyx',
           address: '100.118.60.77',
+          port: 22,
           user: 'luisnquin',
           keyId: 'k1',
         ),

@@ -13,7 +13,13 @@ import '../platform/keys.dart';
 /// `HERDR` on is polled, so a failure is a property of a host and not of the
 /// panel — one bad host contributes its own dim line while the others still
 /// render rows.
-enum AgentOutcomeKind { snapshot, unreachable, keyRejected, protocolMismatch }
+enum AgentOutcomeKind {
+  snapshot,
+  unreachable,
+  unresolved,
+  keyRejected,
+  protocolMismatch,
+}
 
 class HostOutcome {
   const HostOutcome({
@@ -35,13 +41,15 @@ class HostOutcome {
 
   bool get ok => kind == AgentOutcomeKind.snapshot;
 
-  /// §39.20's words, exactly: `nyx unreachable`, `key rejected`, `protocol N`.
-  /// Only the unreachable line names its host, because that is how the spec
-  /// writes it; [AgentsPanel] prefixes the others when more than one host is
-  /// failing and the line would otherwise not say which.
+  /// §39.20's words, exactly: `nyx unreachable`, `key rejected`, `protocol N`,
+  /// and §39.29's `nyx unresolved`. The two host-shaped lines name their host
+  /// because that is how the spec writes them; [AgentsPanel] prefixes the
+  /// others when more than one host is failing and the line would otherwise not
+  /// say which.
   String get reason => switch (kind) {
     AgentOutcomeKind.snapshot => '',
     AgentOutcomeKind.unreachable => '${host.name.toLowerCase()} unreachable',
+    AgentOutcomeKind.unresolved => '${host.name.toLowerCase()} unresolved',
     AgentOutcomeKind.keyRejected => 'key rejected',
     AgentOutcomeKind.protocolMismatch => 'protocol ${protocol ?? '?'}',
   };
@@ -167,6 +175,7 @@ final appForegroundProvider =
 /// integration row or provider above changes.
 typedef HerdrFetch = Future<List<AgentSnapshot>> Function({
   required String address,
+  required int port,
   required String user,
   required String privateKey,
 });
@@ -239,14 +248,24 @@ Future<HostOutcome> _poll(
     protocol: protocol,
   );
 
+  // §39.29: every failure leaves a line in the debug log naming the host and
+  // what the transport said, so a report from a handset can be read without
+  // guessing which of the four the dim line came from. debugPrint rather than
+  // dart:developer: only the former reaches logcat on a handset.
+  void log(Object error) => debugPrint('hotline.herdr ${host.name}: $error');
+
   final privateKey = await keys.privateKey(host.keyId);
   // The key row survives but its secret does not: the host names a key the
   // keystore no longer has. That is a rejected key from the panel's side, and
   // saying so beats a blank line.
-  if (privateKey == null) return failure(AgentOutcomeKind.keyRejected);
+  if (privateKey == null) {
+    log('no private key stored for ${host.keyId}');
+    return failure(AgentOutcomeKind.keyRejected);
+  }
   try {
     final agents = await fetch(
       address: host.address,
+      port: host.port,
       user: host.user,
       privateKey: privateKey,
     );
@@ -259,11 +278,16 @@ Future<HostOutcome> _poll(
       agents: agents,
       lastGoodAt: cache.receivedAt,
     );
-  } on HerdrKeyRejected {
-    return failure(AgentOutcomeKind.keyRejected);
-  } on HerdrProtocolMismatch catch (error) {
-    return failure(AgentOutcomeKind.protocolMismatch, protocol: error.protocol);
-  } on HerdrUnreachable {
-    return failure(AgentOutcomeKind.unreachable);
+  } on HerdrFailure catch (error) {
+    log(error.detail ?? error);
+    return switch (error) {
+      HerdrKeyRejected() => failure(AgentOutcomeKind.keyRejected),
+      HerdrProtocolMismatch() => failure(
+        AgentOutcomeKind.protocolMismatch,
+        protocol: error.protocol,
+      ),
+      HerdrUnresolved() => failure(AgentOutcomeKind.unresolved),
+      HerdrUnreachable() => failure(AgentOutcomeKind.unreachable),
+    };
   }
 }
