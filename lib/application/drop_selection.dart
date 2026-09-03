@@ -35,6 +35,12 @@ class DropSelectionNotifier extends Notifier<DropSelection> {
 
   void begin(String scope, String id) => state = DropSelection(scope, {id});
 
+  /// §39.25: holding a fresh row checks every fresh row of that panel in the
+  /// one gesture. The ids are the panel's own, already pruned to what it shows,
+  /// so the batch can never act on a row that left it.
+  void beginMany(String scope, Set<String> ids) =>
+      state = DropSelection(scope, {...ids});
+
   /// §39.15: `SELECT` on the header strip enters the same mode with nothing
   /// checked. It is a separate entry point rather than [begin] with a null id
   /// because the long press is a gesture *on a row* and always has one.

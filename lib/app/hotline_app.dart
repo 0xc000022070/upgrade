@@ -1,17 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../application/drop_selection.dart';
-import '../application/navigation.dart';
 import '../design/colors.dart';
-import '../design/effects/screen_entry.dart';
 import '../design/theme.dart';
 import '../features/home/home_screen.dart';
-import '../features/projects/projects_screen.dart';
-import 'autonomous_ticks.dart';
 import 'boot.dart';
-import 'nav_shell.dart';
 import 'static_surface.dart';
 
 /// The system bars carry the app background rather than a scrim: on Android 15+
@@ -44,60 +37,23 @@ class HotlineApp extends StatelessWidget {
   }
 }
 
-class _Shell extends ConsumerStatefulWidget {
+/// SPEC.md §39.22: PROJECTS was the second of two destinations and a bar with
+/// one destination answers nothing, so the bar, the tab index and the
+/// [IndexedStack] behind it are all gone. Home is the root route and everything
+/// else — the projects list, a project, SYS — is pushed over it, which is also
+/// why nothing here bumps a `ScreenEntry`: a screen that is built once gets its
+/// entry effect from being built.
+class _Shell extends StatelessWidget {
   const _Shell();
 
   @override
-  ConsumerState<_Shell> createState() => _ShellState();
-}
-
-class _ShellState extends ConsumerState<_Shell> {
-  /// Bumped per tab when it is brought forward, which is what [ScreenEntry]
-  /// turns into "this screen entered" for the decode and smear effects.
-  final _entries = List.filled(navDestinations.length, 0);
-
-  void _onIndexChanged(int index) {
-    setState(() => _entries[index]++);
-    ref.read(navGlitchProvider).fire(index);
-    // §39.13: a selection never survives a navigation away from its panel, and
-    // the tabs keep every screen mounted — the panel is never disposed, so the
-    // shell is the only place that sees the user leave it.
-    ref.read(dropSelectionProvider.notifier).clear();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    ref.listen<int>(navIndexProvider, (_, next) => _onIndexChanged(next));
-    final index = ref.watch(navIndexProvider);
-    final glitch = ref.watch(navGlitchProvider);
-
-    const screens = <Widget>[HomeScreen(), ProjectsScreen()];
-
-    return AnnotatedRegion<SystemUiOverlayStyle>(
+    return const AnnotatedRegion<SystemUiOverlayStyle>(
       value: _systemBars,
-      child: AutonomousTicks(
-        // One event at a time (§16b): the tick always lands on the icon of the
-        // screen in front of the user, never on a background tab.
-        onTick: () => glitch.fire(ref.read(navIndexProvider)),
-        child: Scaffold(
-          backgroundColor: HotlineColors.backgroundPrimary,
-          resizeToAvoidBottomInset: true,
-          body: StaticSurface(
-            child: IndexedStack(
-              index: index,
-              children: [
-                for (var i = 0; i < screens.length; i++)
-                  ScreenEntry(tick: _entries[i], child: screens[i]),
-              ],
-            ),
-          ),
-          bottomNavigationBar: NavBar(
-            currentIndex: index,
-            onSelected: (next) =>
-                ref.read(navIndexProvider.notifier).state = next,
-            glitch: glitch.controllers,
-          ),
-        ),
+      child: Scaffold(
+        backgroundColor: HotlineColors.backgroundPrimary,
+        resizeToAvoidBottomInset: true,
+        body: StaticSurface(child: HomeScreen()),
       ),
     );
   }

@@ -2,7 +2,6 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/navigation.dart';
 import 'package:hotline/application/providers.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/data/repositories/activity_repository.dart';
@@ -271,7 +270,7 @@ void main() {
       tester,
     ) async {
       final ids = await tree();
-      final container = await walk(tester, [ids[0], ids[1]]);
+      await walk(tester, [ids[0], ids[1]]);
 
       await tester.tap(find.text('INFRA'));
       await _ready(tester);
@@ -282,8 +281,6 @@ void main() {
             .projectId,
         ids[0],
       );
-      // The tab is left alone: the stack answered the tap.
-      expect(container.read(navIndexProvider), 0);
       await unmount(tester);
     });
 
@@ -292,15 +289,14 @@ void main() {
       final ids = await tree();
       // Opened straight at the grandchild, which is what a move leaves behind:
       // the crumb names a parent this session never walked into.
-      final container = await walk(tester, [ids[2]]);
+      await walk(tester, [ids[2]]);
 
       await tester.tap(find.text('HOMELAB'));
       await _ready(tester);
 
-      // §39.18 allows the ancestor or the tab. Unwinding to `isFirst` alone
-      // dropped the user on HOME, which is neither.
+      // §39.22: there is no tab left to land on, so the miss unwinds out of the
+      // project stack entirely.
       expect(find.byType(ProjectDetailScreen), findsNothing);
-      expect(container.read(navIndexProvider), 1);
       await unmount(tester);
     });
   });

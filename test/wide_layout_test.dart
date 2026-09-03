@@ -5,14 +5,14 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/app/nav_shell.dart';
 import 'package:hotline/application/providers.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/design/components/panel.dart';
 import 'package:hotline/design/components/panel_sheet.dart';
-import 'package:hotline/design/effects/glitch.dart';
 import 'package:hotline/design/layout.dart';
+import 'package:hotline/application/drop_selection.dart';
 import 'package:hotline/features/home/capture_bar.dart';
+import 'package:hotline/features/tasks/selection_bar.dart';
 import 'package:hotline/features/home/home_screen.dart';
 import 'package:hotline/features/screen_scaffold.dart';
 
@@ -114,40 +114,22 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.17 the nav spans the width, its tabs take the cap', (
+  testWidgets('§39.24 the selection bar takes the cap the capture bar takes', (
     tester,
   ) async {
     resize(tester, 900);
-    final glitch = [GlitchController(), GlitchController()];
-    addTearDown(() {
-      for (final controller in glitch) {
-        controller.dispose();
-      }
-    });
-
     await tester.pumpWidget(
-      host(
-        Scaffold(
-          bottomNavigationBar: NavBar(
-            currentIndex: 0,
-            onSelected: (_) {},
-            glitch: glitch,
-          ),
-        ),
-      ),
+      host(const Scaffold(body: SelectionBar(scope: DropSelection.homeScope))),
     );
     await _ready(tester);
 
-    final bar = tester.getRect(find.byType(NavBar));
-    expect(bar.width, 900);
-    // The cap is horizontal only. Measured on device: an [Align] that also
-    // fills vertically makes the bar as tall as the screen and leaves the body
-    // nothing, and the screen comes up empty but for two tabs.
-    expect(bar.height, lessThan(120));
-    expect(bar.bottom, 800);
-    final tabs = tester.getRect(find.text('PROJECTS'));
-    expect(tabs.center.dx, greaterThan(450));
-    expect(tabs.right, lessThanOrEqualTo(750));
+    // §39.22 took the nav bar out of this file: it was the one chrome that ran
+    // the full width. What is left at the bottom of a screen is the capture
+    // bar's slot, and §39.24's bar has to take the same cap the capture bar
+    // does or the mode would widen the screen it is a mode of.
+    final bar = tester.getRect(find.byType(Panel).first);
+    expect(bar.width, Layout.columnMax - 2 * 16);
+    expect(bar.center.dx, 450);
     await unmount(tester);
   });
 
