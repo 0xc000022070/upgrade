@@ -11,13 +11,14 @@ import '../../design/icons/hotline_icon.dart';
 import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import 'item_sheet.dart';
+import 'sent_tag.dart';
 
-/// SPEC.md §39.4: the row opens the quick view, the left glyph is the toggle.
-/// §16b binds the glitch to the state change rather than to the tap.
+/// The row opens the quick view, the left glyph is the toggle, and the glitch
+/// is bound to the state change rather than to the tap.
 ///
-/// §39.11 (ruling reversed 2026-09-02): this is the row of every task of a
-/// project, under a goal or in the project's own DROPS panel. Only an unfiled
-/// item — no project at all — is a drop, and a drop uses [ListRow] directly.
+/// This is the row of every task of a project, under a goal or in the project's
+/// own DROPS panel. Only an unfiled item — no project at all — is a drop, and a
+/// drop uses [ListRow] directly.
 class TaskRow extends ConsumerStatefulWidget {
   const TaskRow({
     super.key,
@@ -28,12 +29,12 @@ class TaskRow extends ConsumerStatefulWidget {
 
   final Task task;
 
-  /// SPEC.md §39.25: captured on this screen and not left behind yet. A filed
+  /// Captured on this screen and not left behind yet. A filed
   /// row carries no age column at all, so the age *is* the highlight here — it
   /// arrives in accent with the freshness and leaves with it.
   final bool fresh;
 
-  /// §39.13: the project's DROPS panel keeps its multi-select, so holding a row
+  /// The project's DROPS panel keeps its multi-select, so holding a row
   /// there begins the selection instead of opening the sheet.
   final VoidCallback? onLongPress;
 
@@ -75,7 +76,7 @@ class _TaskRowState extends ConsumerState<TaskRow> {
       titleColor: task.done ? HotlineColors.textMuted : null,
       value: widget.fresh ? relativeAge(task.createdAt) : null,
       valueColor: widget.fresh ? HotlineColors.accent : null,
-      // §37: the blocked reason is the row's second line, in warning, so a held
+      // The blocked reason is the row's second line, in warning, so a held
       // task is legible without opening it.
       subtitle: task.blockedReason == null
           ? null
@@ -83,12 +84,18 @@ class _TaskRowState extends ConsumerState<TaskRow> {
       subtitleColor: HotlineColors.warning,
       // The accent forward arrow is the only mark on the flagged row, and it is
       // the same glyph HOME's NEXT ACTION carries.
+      // A row that was sent and then filed keeps the tag, in the same slot.
+      // The arrow wins when both are true: one flagged row per screen is the
+      // mark the eye is looking for, and the tag is history.
       trailing: task.isNext
           ? const HotlineIcon(
               HotlineIcons.forward,
               size: IconSizes.glyph,
               color: HotlineColors.accent,
             )
+          : (ref.watch(sentItemsProvider).valueOrNull ?? const <String>{})
+                .contains(task.id)
+          ? const SentTag()
           : null,
       // A filed task's verbs are the quick view's footer: more than two icons
       // can carry, so holding it opens the sheet unless the panel says

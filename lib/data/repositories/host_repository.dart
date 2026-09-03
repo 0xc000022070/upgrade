@@ -2,8 +2,9 @@ import 'package:drift/drift.dart';
 
 import '../database.dart';
 import '../enums.dart';
+import 'path_repository.dart';
 
-/// SPEC.md §39.21. A machine the user has registered.
+/// A machine the user has registered.
 ///
 /// Renamed from `HerdrHost` (user ruling, 2026-09-02): a host is a machine, not
 /// a herdr endpoint. What the app does with it is [IntegrationKind], carried
@@ -23,9 +24,9 @@ class Host {
   final String name;
   final String address;
 
-  /// SPEC.md §39.29. Required rather than defaulted to 22: the column carries
-  /// the default, and a second one here would let a mapping that forgot the
-  /// field compile and quietly dial 22 — which is the defect this section is.
+  /// Required rather than defaulted to 22: the column carries the default, and
+  /// a second one here would let a mapping that forgot the field compile and
+  /// quietly dial 22.
   final int port;
   final String user;
   final String keyId;
@@ -34,8 +35,8 @@ class Host {
 abstract interface class HostRepository {
   Stream<List<Host>> watchAll();
 
-  /// Every host with [kind] switched on. §39.20 polls all of them, so this is a
-  /// list and never a single row: there is no "selected" host any more.
+  /// Every host with [kind] switched on. The agents feed polls all of them, so
+  /// this is a list and never a single row: there is no "selected" host.
   Stream<List<Host>> watchWithIntegration(IntegrationKind kind);
 
   /// The kinds [hostId] has on. The host form has to render a switch per known
@@ -120,7 +121,7 @@ class InMemoryHostRepository implements HostRepository {
   }
 }
 
-/// SPEC.md §39.21. The registered machines and the integrations they have on.
+/// The registered machines and the integrations they have on.
 class DriftHostRepository implements HostRepository {
   DriftHostRepository(this._db);
 
@@ -130,12 +131,12 @@ class DriftHostRepository implements HostRepository {
   Stream<List<Host>> watchAll() {
     return (_db.select(_db.hosts)..orderBy([(h) => OrderingTerm.asc(h.name)]))
         .watch()
-        .map((rows) => rows.map(_host).toList());
+        .map((rows) => rows.map(hostFromRow).toList());
   }
 
   /// One joined stream, so switching the integration on and renaming the host
   /// both repaint the panel. Two streams — the hosts, then their integrations —
-  /// would let §39.20 poll a host whose row has already changed under it.
+  /// would let the feed poll a host whose row has already changed under it.
   @override
   Stream<List<Host>> watchWithIntegration(IntegrationKind kind) {
     final query = _db.select(_db.hosts).join([
@@ -146,7 +147,8 @@ class DriftHostRepository implements HostRepository {
       ),
     ])..orderBy([OrderingTerm.asc(_db.hosts.name)]);
     return query.watch().map(
-      (rows) => rows.map((row) => _host(row.readTable(_db.hosts))).toList(),
+      (rows) =>
+          rows.map((row) => hostFromRow(row.readTable(_db.hosts))).toList(),
     );
   }
 
@@ -163,7 +165,7 @@ class DriftHostRepository implements HostRepository {
     final rows = await (_db.select(
       _db.hosts,
     )..orderBy([(h) => OrderingTerm.asc(h.name)])).get();
-    return rows.map(_host).toList();
+    return rows.map(hostFromRow).toList();
   }
 
   @override
@@ -182,16 +184,28 @@ class DriftHostRepository implements HostRepository {
         );
   }
 
-  /// The integration rows go with the host, in Dart and in the same
-  /// transaction. The declared reference does not enforce anything — this
+  /// Everything hanging off the host goes with it, in Dart and in the same
+  /// transaction. The declared references do not enforce anything — this
   /// database never enables `PRAGMA foreign_keys` — so left alone they would
-  /// outlive the host and switch a future host with the same id on by itself.
+  /// outlive the host: the integration rows would switch a future host with the
+  /// same id on by itself, and the paths would keep offering directories on a
+  /// machine the app can no longer reach.
+  ///
+  /// The dispatch rows go too, through the paths. The drops they name do not:
+  /// unregistering a machine loses the record of where work was sent, never the
+  /// work.
   @override
   Future<void> delete(String id) {
     return _db.transaction(() async {
       await (_db.delete(
         _db.hostIntegrations,
       )..where((i) => i.hostId.equals(id))).go();
+      final paths = await (_db.select(
+        _db.paths,
+      )..where((p) => p.hostId.equals(id))).get();
+      for (final path in paths) {
+        await deletePathRows(_db, path.id);
+      }
       await (_db.delete(_db.hosts)..where((h) => h.id.equals(id))).go();
     });
   }
@@ -212,13 +226,16 @@ class DriftHostRepository implements HostRepository {
           HostIntegrationsCompanion.insert(hostId: hostId, kind: kind),
         );
   }
-
-  Host _host(HostRow row) => Host(
-    id: row.id,
-    name: row.name,
-    address: row.address,
-    port: row.port,
-    user: row.user,
-    keyId: row.keyId,
-  );
 }
+
+/// The row as the domain type. Top-level rather than private to the repository
+/// because the send picker joins paths to hosts and has to build the same
+/// [Host] from the same columns.
+Host hostFromRow(HostRow row) => Host(
+  id: row.id,
+  name: row.name,
+  address: row.address,
+  port: row.port,
+  user: row.user,
+  keyId: row.keyId,
+);

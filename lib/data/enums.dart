@@ -4,7 +4,7 @@ enum ProjectStatus { active, paused, archived }
 
 enum Priority { low, normal, high }
 
-/// SPEC.md §39.10. An item's attachments are one list with two shapes: a URL
+/// An item's attachments are one list with two shapes: a URL
 /// that opens outside the app and an image copied into app support. One table
 /// rather than two keeps the order they were attached in.
 enum AttachmentKind { url, image }
@@ -33,6 +33,7 @@ enum ActivityAction {
   flaggedNext('flagged_next'),
   captured('captured'),
   moved('moved'),
+  sent('sent'),
   deleted('deleted');
 
   const ActivityAction(this.wire);
@@ -65,14 +66,13 @@ class ActivityActionConverter extends TypeConverter<ActivityAction, String> {
   String toSql(ActivityAction value) => value.wire;
 }
 
-/// SPEC.md §39.21: what a host can be used for. A host is a machine; an
-/// integration is a thing the app does with it.
+/// What a host can be used for. A host is a machine; an integration is a thing
+/// the app does with it.
 ///
 /// Deliberately not named after a transport. Today `herdr` runs `herdr agent
-/// list` over ssh and §39.32's `vnc` carries RFB over an ssh channel, and the
-/// spec says a later backend that proxies herdr swaps the transport and leaves
-/// the host and this row alone — so nothing here, and nothing in the tables,
-/// may say `ssh`.
+/// list` over ssh and `vnc` carries RFB over an ssh channel; a later backend
+/// that proxies herdr swaps the transport and leaves the host and this row
+/// alone — so nothing here, and nothing in the tables, may say `ssh`.
 ///
 /// Adding a kind is this line and nothing else: the integrations table is keyed
 /// by host and kind, the host form renders a row per value, and the repository
@@ -80,7 +80,7 @@ class ActivityActionConverter extends TypeConverter<ActivityAction, String> {
 enum IntegrationKind {
   herdr('herdr', 'HERDR'),
 
-  /// SPEC.md §39.32. On means the host offers its screen: the app opens a
+  /// On means the host offers its screen: the app opens a
   /// `direct-tcpip` channel to the wayvnc already listening on its loopback.
   vnc('vnc', 'VNC');
 
@@ -88,7 +88,7 @@ enum IntegrationKind {
 
   final String wire;
 
-  /// §16c.3's ON/OFF row title on the host form.
+  /// The ON/OFF row title on the host form.
   final String label;
 
   static IntegrationKind fromWire(String value) =>

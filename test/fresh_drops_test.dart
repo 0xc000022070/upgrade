@@ -20,10 +20,9 @@ import 'package:hotline/features/tasks/selection_bar.dart';
 
 import 'support/platform_channels.dart';
 
-/// SPEC.md §39.25: a drop typed on this screen stays marked until the user
-/// leaves. §39.27 pins down when a mark is dropped: the panel forgets what it
-/// stopped drawing, never what it has not drawn yet. The §16b.1 ticker never
-/// settles, so nothing here may use `pumpAndSettle`.
+/// A drop typed on this screen stays marked until the user leaves, and the
+/// panel forgets what it stopped drawing, never what it has not drawn yet. The
+/// header ticker never settles, so nothing here may use `pumpAndSettle`.
 Future<void> _drain(
   WidgetTester tester, {
   Duration step = Duration.zero,
@@ -74,8 +73,8 @@ void main() {
     child: const MaterialApp(home: Scaffold(body: HomeScreen())),
   );
 
-  /// The tab shell, for the door §39.26 added: leaving HOME without leaving
-  /// the route it lives on.
+  /// The tab shell, for the door a tab switch opens: leaving HOME without
+  /// leaving the route it lives on.
   Widget shell() => ProviderScope(
     overrides: [databaseProvider.overrideWithValue(db)],
     child: const MaterialApp(home: HotlineShell()),
@@ -94,7 +93,7 @@ void main() {
     await _ready(tester);
   }
 
-  testWidgets('§39.25 what the bar captures is fresh, what was there is not', (
+  testWidgets('what the bar captures is fresh, what was there is not', (
     tester,
   ) async {
     await tasks.capture('drop de antes');
@@ -115,9 +114,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.25 holding a fresh row checks every fresh row', (
-    tester,
-  ) async {
+  testWidgets('holding a fresh row checks every fresh row', (tester) async {
     await tasks.capture('drop de antes');
 
     await tester.pumpWidget(host());
@@ -136,9 +133,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.25 holding a row that is not fresh ends the set', (
-    tester,
-  ) async {
+  testWidgets('holding a row that is not fresh ends the set', (tester) async {
     await tasks.capture('drop de antes');
 
     await tester.pumpWidget(host());
@@ -159,9 +154,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.25 a push out of HOME leaves the fresh set behind', (
-    tester,
-  ) async {
+  testWidgets('a push out of HOME leaves the fresh set behind', (tester) async {
     await tester.pumpWidget(host());
     await _ready(tester);
     await capture(tester, 'recien escrito');
@@ -176,9 +169,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.26 a tab switch leaves the fresh set behind', (
-    tester,
-  ) async {
+  testWidgets('a tab switch leaves the fresh set behind', (tester) async {
     await projects.create(name: 'Infra personal');
 
     await tester.pumpWidget(shell());
@@ -204,9 +195,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.25 cancelling the mode with x keeps the set', (
-    tester,
-  ) async {
+  testWidgets('cancelling the mode with x keeps the set', (tester) async {
     await tester.pumpWidget(host());
     await _ready(tester);
     await capture(tester, 'recien escrito');
@@ -232,7 +221,7 @@ void main() {
     await unmount(tester);
   });
 
-  group('§39.27 the panel forgets what it stopped drawing', () {
+  group('the panel forgets what it stopped drawing', () {
     /// The panel takes its rows as a parameter, so the stream can be replaced
     /// by something the test steps by hand: that is the whole race — the bar
     /// marks a row fresh when the write returns, and the list catches up later.
@@ -284,6 +273,8 @@ void main() {
       await tester.pump();
 
       expect(read(tester).idsIn(DropSelection.homeScope), {task.id});
+
+      await unmount(tester);
     });
 
     testWidgets('the row arrives and is drawn fresh', (tester) async {
@@ -301,6 +292,8 @@ void main() {
       expect(find.text('recien escrito'), findsOneWidget);
       expect(_accentAges(tester), 1);
       expect(read(tester).idsIn(DropSelection.homeScope), {task.id});
+
+      await unmount(tester);
     });
 
     testWidgets('a batch that takes the row out clears the set', (
@@ -323,6 +316,8 @@ void main() {
 
       expect(read(tester).idsIn(DropSelection.homeScope), isEmpty);
       expect(read(tester).scope, isNull);
+
+      await unmount(tester);
     });
   });
 }

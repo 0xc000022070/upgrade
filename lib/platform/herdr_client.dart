@@ -23,8 +23,8 @@ class AgentSnapshot {
   final String cwd;
   final int stateChangeSeq;
 
-  /// SPEC.md §39.31's blocked edge is a question about this one field, asked
-  /// often enough to be worth a name.
+  /// The blocked edge is a question about this one field, asked often enough
+  /// to be worth a name.
   bool get blocked => agentStatus == 'blocked';
 
   /// The same seven fields the gate's `agent watch` projection carries, so a
@@ -59,12 +59,12 @@ class AgentSnapshot {
   }
 }
 
-/// SPEC.md §39.31: the four strings the `hotline-gate` forced command accepts,
-/// in one place. The gate denies anything else, so a command built anywhere but
-/// here is a bug that only shows up against a real host.
+/// Every string the `hotline-gate` forced command accepts, in one place. The
+/// gate denies anything else, so a command built anywhere but here is a bug
+/// that only shows up against a real host.
 class HerdrCommands {
-  /// §39.31 switches the app to the short form. The gate still accepts
-  /// §39.20's `herdr agent list`, which is what keeps a v20 build working.
+  /// The short form. The gate still accepts the older `herdr agent list`,
+  /// which is what keeps an earlier build working.
   static const list = 'agent list';
   static const watch = 'agent watch';
 
@@ -72,15 +72,45 @@ class HerdrCommands {
 
   static String keys(String pane, List<String> keys) =>
       'agent keys $pane ${keys.join(' ')}';
+
+  /// The send verb. The directory goes through unquoted and unexpanded: the
+  /// gate splits on whitespace and expands `~` itself, so a shell quote here
+  /// would reach it as part of the path.
+  static String spawn(String kind, String directory) =>
+      'agent spawn $kind $directory';
+}
+
+/// What the gate answered a spawn. A refusal is data rather than an exception:
+/// the connection did its job, and the four lines below are the gate's verdict
+/// on the command, not a failure of the transport.
+enum SpawnRefusal { noDirectory, gateRefused, spawnFailed, timedOut }
+
+sealed class SpawnResult {
+  const SpawnResult();
+}
+
+final class SpawnSent extends SpawnResult {
+  const SpawnSent(this.paneId);
+
+  final String paneId;
+}
+
+final class SpawnRefused extends SpawnResult {
+  const SpawnRefused(this.refusal, [this.detail]);
+
+  final SpawnRefusal refusal;
+
+  /// Both of the gate's streams, for the debug line. Never shown to the user:
+  /// the four reasons are what the sheet says.
+  final String? detail;
 }
 
 sealed class HerdrFailure implements Exception {
   const HerdrFailure([this.detail]);
 
-  /// SPEC.md §39.29: what the transport actually said. Carried out of here
-  /// rather than logged here, because the debug line the spec asks for names
-  /// the host — and the host's name is a thing this layer deliberately does not
-  /// know. The caller has both halves.
+  /// What the transport actually said. Carried out of here rather than logged
+  /// here, because the debug line names the host — and the host's name is a
+  /// thing this layer deliberately does not know. The caller has both halves.
   final String? detail;
 
   @override
@@ -91,9 +121,9 @@ final class HerdrUnreachable extends HerdrFailure {
   const HerdrUnreachable([super.detail]);
 }
 
-/// SPEC.md §39.29. The name never resolved, so no socket was ever opened.
-/// Separate from [HerdrUnreachable] because the two send the user to different
-/// places: a typo in the address, against a port, a firewall or a dead machine.
+/// The name never resolved, so no socket was ever opened. Separate from
+/// [HerdrUnreachable] because the two send the user to different places: a typo
+/// in the address, against a port, a firewall or a dead machine.
 final class HerdrUnresolved extends HerdrFailure {
   const HerdrUnresolved([super.detail]);
 }
@@ -110,18 +140,18 @@ final class HerdrProtocolMismatch extends HerdrFailure {
 
 /// One authenticated connection to a host, held open.
 ///
-/// SPEC.md §39.31 runs `agent watch` for as long as the watcher lives and reads
-/// a blocked pane's tail "on the same connection", so the session is the unit
-/// rather than the command: a second connect per notification would be a second
-/// ssh handshake per blocked agent, and the spec's own reason for the watcher is
-/// that the host sees one connection per phone.
+/// The watcher runs `agent watch` for as long as it lives and reads a blocked
+/// pane's tail on the same connection, so the session is the unit rather than
+/// the command: a second connect per notification would be a second ssh
+/// handshake per blocked agent, and the whole point of the watcher is that the
+/// host sees one connection per phone.
 class HerdrSession {
   HerdrSession._(this._socket, this._client);
 
   final SSHSocket _socket;
   final SSHClient _client;
 
-  /// §39.31's watch stream: one `herdr agent list` JSON document per line, the
+  /// The watch stream: one `herdr agent list` JSON document per line, the
   /// first at once and one more each time the host's projection changes. The
   /// gate never exits on its own, so this stream ends only on a dropped
   /// connection — which is the watcher's signal to back off and reconnect.
@@ -134,7 +164,7 @@ class HerdrSession {
     }
   }
 
-  /// §39.31's expanded notification body. Null rather than throwing: a tail the
+  /// The expanded notification body. Null rather than throwing: a tail the
   /// gate would not give up is a notification without its extra lines, never a
   /// notification that does not arrive.
   Future<String?> read(String pane) async {
@@ -150,8 +180,8 @@ class HerdrSession {
     }
   }
 
-  /// §39.31's `YES` / `NO`. Throws so the notification can say `FAILED · …`
-  /// with what the gate answered.
+  /// The notification's `YES` / `NO`. Throws so it can say `FAILED · …` with
+  /// what the gate answered.
   Future<void> sendKeys(String pane, List<String> keys) async {
     final result = await _guard(
       () => _client.runWithResult(HerdrCommands.keys(pane, keys)),
@@ -161,12 +191,56 @@ class HerdrSession {
     }
   }
 
+  /// The send. The prompt goes to the channel's stdin and the stream is closed,
+  /// because the gate reads to EOF before it starts anything — a session left
+  /// open would hold it at the read forever and burn the caller's deadline.
+  ///
+  /// [deadline] covers the whole verb, which on the host is a workspace, an
+  /// agent start with its own readiness timeout, and a prompt. Nothing is
+  /// retried here: a spawn that half happened is a workspace the gate closes
+  /// itself, and a second attempt from this side would make two.
+  Future<SpawnResult> spawn({
+    required String kind,
+    required String directory,
+    required String prompt,
+    Duration deadline = spawnDeadline,
+  }) async {
+    final session = await _guard(
+      () => _client.execute(HerdrCommands.spawn(kind, directory)),
+    );
+    final out = StringBuffer();
+    final err = StringBuffer();
+    final drained = Future.wait([
+      session.stdout
+          .cast<List<int>>()
+          .transform(utf8.decoder)
+          .forEach(out.write),
+      session.stderr
+          .cast<List<int>>()
+          .transform(utf8.decoder)
+          .forEach(err.write),
+    ]);
+    session.stdin.add(utf8.encode(prompt));
+    await session.stdin.close();
+    try {
+      await Future.wait([session.done, drained]).timeout(deadline);
+    } on TimeoutException {
+      session.close();
+      return const SpawnRefused(SpawnRefusal.timedOut);
+    }
+    return HerdrClient.readSpawn(
+      exitCode: session.exitCode,
+      stdout: out.toString(),
+      stderr: err.toString(),
+    );
+  }
+
   Future<List<AgentSnapshot>> list() async {
     final result = await _guard(
       () => _client.runWithResult(HerdrCommands.list),
     );
     if (result.exitCode != 0) {
-      // §39.29: what the remote said, both streams, is the debug line.
+      // What the remote said, both streams, is the debug line.
       throw HerdrProtocolMismatch(null, utf8.decode(result.output).trim());
     }
     return HerdrClient.parseAgentList(utf8.decode(result.stdout));
@@ -178,6 +252,11 @@ class HerdrSession {
   }
 }
 
+/// How long a send waits on the gate. The host's own agent start gives itself
+/// 30 s to see the agent come up, and the workspace and the prompt around it
+/// are what the rest covers.
+const spawnDeadline = Duration(seconds: 45);
+
 class HerdrClient {
   const HerdrClient({
     this.timeout = const Duration(seconds: 10),
@@ -186,11 +265,11 @@ class HerdrClient {
 
   final Duration timeout;
 
-  /// SPEC.md §39.31: "keepalive every 15 s". dartssh2 defaults to 10; the
-  /// number is the spec's, so it is declared rather than inherited.
+  /// Keepalive every 15 s. dartssh2 defaults to 10; the number is a decision,
+  /// so it is declared rather than inherited.
   final Duration keepAlive;
 
-  /// SPEC.md §39.29. Dart words a name that did not resolve in the exception's
+  /// Dart words a name that did not resolve in the exception's
   /// own message; the errno underneath is from the EAI_* namespace, which
   /// cannot be told apart from a connect errno by number alone. Matched on the
   /// message for that reason, over both halves because which one carries the
@@ -204,7 +283,7 @@ class HerdrClient {
         said.contains('no address associated with hostname');
   }
 
-  /// §39.31's watch stream, decoded: one `herdr agent list` document per line.
+  /// The watch stream, decoded: one `herdr agent list` document per line.
   ///
   /// Separate from [HerdrSession.watch] so the shape the gate emits can be run
   /// through the real code without an ssh connection to emit it.
@@ -220,6 +299,34 @@ class HerdrClient {
         .handleError((Object error) => throw asHerdrFailure(error) ?? error)
         .where((line) => line.trim().isNotEmpty)
         .map(parseAgentList);
+  }
+
+  /// The gate's answer, read the way the app has to read it.
+  ///
+  /// Separate from [HerdrSession.spawn] so every branch can be exercised
+  /// without a host: exit 0 with a pane line is the only send that happened,
+  /// and the three refusals are told apart by what the gate said, not by the
+  /// exit code alone.
+  static SpawnResult readSpawn({
+    required int? exitCode,
+    required String stdout,
+    required String stderr,
+  }) {
+    final said = '$stdout$stderr';
+    final pane = stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .lastOrNull;
+    if (exitCode == 0 && pane != null) return SpawnSent(pane);
+    final detail = said.trim().isEmpty ? null : said.trim();
+    if (said.contains('denied: dir')) {
+      return SpawnRefused(SpawnRefusal.noDirectory, detail);
+    }
+    if (said.contains('denied')) {
+      return SpawnRefused(SpawnRefusal.gateRefused, detail);
+    }
+    return SpawnRefused(SpawnRefusal.spawnFailed, detail);
   }
 
   static List<AgentSnapshot> parseAgentList(String source) {
@@ -280,7 +387,7 @@ class HerdrClient {
       return HerdrSession._(socket, client);
     } on HerdrFailure {
       // A half-open connection is worse than none: the host would count it
-      // against §39.31's one connection per phone until its own timeout.
+      // against the one connection per phone until its own timeout.
       client.close();
       socket.close();
       rethrow;
@@ -305,21 +412,46 @@ class HerdrClient {
       session.close();
     }
   }
+
+  Future<SpawnResult> send({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    required String kind,
+    required String directory,
+    required String prompt,
+  }) async {
+    final session = await connect(
+      address: address,
+      port: port,
+      user: user,
+      privateKey: privateKey,
+    );
+    try {
+      return await session.spawn(
+        kind: kind,
+        directory: directory,
+        prompt: prompt,
+      );
+    } finally {
+      session.close();
+    }
+  }
 }
 
-/// Every ssh error this app can meet, mapped onto §39.20's four reason lines.
+/// Every ssh error this app can meet, mapped onto the four reason lines.
 ///
 /// Shared by the one-shot fetch and by every command on a held session: a
 /// session that drops mid-`watch` fails with the same [SSHError] shapes as one
-/// that never connected, and §39.31 asks the watcher to say why in §39.29's
-/// words.
+/// that never connected, and the watcher says why in those same words.
 /// Null for anything this app did not expect from ssh: a bug in the layer above
 /// reads better as itself than as `nyx unreachable`.
 HerdrFailure? asHerdrFailure(Object error) => switch (error) {
   HerdrFailure() => error,
   SSHAuthFailError() => HerdrKeyRejected('$error'),
   SSHKeyDecodeError() => HerdrKeyRejected('$error'),
-  // §39.29: the only failure that happens before an address exists.
+  // The only failure that happens before an address exists.
   SocketException() when HerdrClient.isLookupFailure(error) => HerdrUnresolved(
     '$error',
   ),

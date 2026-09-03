@@ -4,10 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../application/formatting.dart';
 import '../../application/providers.dart';
+import '../../application/send.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
 import '../../data/repositories/attachment_repository.dart';
+import '../../data/repositories/dispatch_repository.dart';
+import '../../data/repositories/path_repository.dart';
 import '../../data/views.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
@@ -20,13 +24,14 @@ import '../../design/components/panel_sheet.dart';
 import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
+import '../home/agent_mark.dart';
 import 'image_input.dart';
 import 'image_viewer.dart';
 import 'item_pickers.dart';
 import 'link_input.dart';
 
-/// SPEC.md §39.4, corrected by §39.9, §39.10 and §39.11. Row tap and long press
-/// both land here; there is no separate action sheet any more.
+/// The quick view. Row tap and long press both land here; there is no separate
+/// action sheet any more.
 Future<void> openItemSheet(BuildContext context, String taskId) {
   return showPanelSheet<void>(
     context,
@@ -35,12 +40,16 @@ Future<void> openItemSheet(BuildContext context, String taskId) {
   );
 }
 
-/// The MOVE and PAIR pickers of §39.5 replace this sheet's body instead of
-/// opening over it: §39.4 allows the app exactly one modal surface, and a sheet
-/// stacked on a sheet is the chrome §38 exists to remove.
-enum _Mode { item, move, pair }
+/// The pickers replace this sheet's body instead of opening over it: the app
+/// gets exactly one modal surface, and a sheet stacked on a sheet is the chrome
+/// the design exists to remove.
+///
+/// [send] is the picker and the state of the send that follows it, in one mode:
+/// the target it picked is what a retry needs, and going back means the same
+/// thing from either.
+enum _Mode { item, move, pair, send }
 
-/// §39.9: one field, three things it can be holding. A second field, a prompt
+/// One field, three things it can be holding. A second field, a prompt
 /// or a dialog for a URL is the shape the user rejected.
 enum _FieldMode { title, url, reason }
 
@@ -59,8 +68,17 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   bool _editing = false;
   _FieldMode _fieldMode = _FieldMode.title;
 
-  /// §39.11: a drop's DELETE is off the footer until the breadcrumb is held.
+  /// A drop's DELETE is off the footer until the breadcrumb is held.
   bool _deleteRevealed = false;
+
+  /// The picked target, kept past the send: a failed send retries to the same
+  /// place, and the state lines name it.
+  PathTarget? _target;
+
+  /// Null while the picker is up. The send belongs to the open sheet and to
+  /// nothing else — closing it forgets an answer the `[ SENT ]` panel already
+  /// holds.
+  SendState? _sendState;
 
   final _field = TextEditingController();
   final _focus = FocusNode();
@@ -147,7 +165,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     }
   }
 
-  /// §39.9 link icon: the clipboard is the common case and needs no prompt;
+  /// The link icon: the clipboard is the common case and needs no prompt;
   /// the field itself is the fallback.
   Future<void> _link() async {
     final url = await urlFromClipboard();
@@ -163,7 +181,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     });
   }
 
-  /// §39.10: the gallery, and nothing between it and the chip.
+  /// The gallery, and nothing between it and the chip.
   Future<void> _image() async {
     final path = await ImageAttachments.pick();
     if (!mounted || path == null) return;
@@ -192,6 +210,41 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   Future<void> _pair(String otherId) async {
     setState(() => _mode = _Mode.item);
     await ref.read(taskRepositoryProvider).pair(widget.taskId, otherId);
+  }
+
+  void _toSend() {
+    _focus.unfocus();
+    setState(() {
+      _mode = _Mode.send;
+      _sendState = null;
+      _target = null;
+    });
+  }
+
+  Future<void> _dispatch(PathTarget target) async {
+    final task = ref.read(taskProvider(widget.taskId)).valueOrNull;
+    if (task == null) return;
+    // The title as it was typed and the links as they are attached, read once
+    // here: a send is one message, and re-reading it inside the transport would
+    // let an edit land halfway through.
+    final attachments =
+        ref.read(itemAttachmentsProvider(widget.taskId)).valueOrNull ??
+        const <Attachment>[];
+    setState(() {
+      _target = target;
+      _sendState = const SendSending();
+    });
+    final state = await ref.read(senderProvider)(
+      target: target,
+      itemId: widget.taskId,
+      title: task.title,
+      links: [
+        for (final attachment in attachments)
+          if (attachment.kind == AttachmentKind.url) attachment.value,
+      ],
+    );
+    if (!mounted) return;
+    setState(() => _sendState = state);
   }
 
   Future<void> _delete() async {
@@ -242,11 +295,24 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ),
           children: [PairPickerBody(taskId: widget.taskId, onPicked: _pair)],
         );
+      case _Mode.send:
+        return PanelSheetBody(
+          title: 'SEND TO',
+          affordance: PanelAffordance(
+            'BACK',
+            icon: HotlineIcons.back,
+            onTap: () => setState(() {
+              _mode = _Mode.item;
+              _sendState = null;
+            }),
+          ),
+          children: [_sendBody()],
+        );
       case _Mode.item:
         return PanelSheetBody(
           title: location?.label ?? 'DROPS',
-          // §39.11: a drop's footer is MOVE alone, so its delete hangs off the
-          // breadcrumb. The block still confirms in place once revealed.
+          // A drop's footer carries no state verbs, so its delete hangs off
+          // the breadcrumb. The block still confirms in place once revealed.
           onTitleLongPress: _isDrop(task)
               ? () => setState(() => _deleteRevealed = true)
               : null,
@@ -255,7 +321,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     }
   }
 
-  /// §39.11 (ruling reversed 2026-09-02, same day): a drop is text plus
+  /// A drop is text plus
   /// attachments and it is the *project* that makes it a task. A goal is
   /// optional grouping: a project task without one keeps every state block, so
   /// the pre-goal rows already on the user's device stay tasks. The state
@@ -274,6 +340,11 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     final images = attachments
         .where((a) => a.kind == AttachmentKind.image)
         .toList();
+    // Newest first, and kept past a move: an item that was sent and then filed
+    // still went somewhere, and the panel is the only place that says where.
+    final dispatches =
+        ref.watch(itemDispatchesProvider(widget.taskId)).valueOrNull ??
+        const <Dispatch>[];
     final mates = drop
         ? const <Task>[]
         : ref.watch(taskMatesProvider(widget.taskId)).valueOrNull ??
@@ -321,7 +392,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         const SheetRule(),
         _Field(
           label: 'IMAGES',
-          // §39.10: a row of squares, not a list of file names. Tap opens the
+          // A row of squares, not a list of file names. Tap opens the
           // viewer, long press removes — the same two gestures as a link row.
           child: SizedBox(
             height: _imageSquare,
@@ -338,11 +409,35 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ),
         ),
       ],
+      if (dispatches.isNotEmpty) ...[
+        const SheetRule(),
+        _Field(
+          label: 'SENT',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final dispatch in dispatches)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Spacing.sm),
+                  child: Text(
+                    '${dispatch.hostName.toUpperCase()} / '
+                    '${dispatch.label.toUpperCase()} · '
+                    '${agentMarkName(dispatch.agent)} · '
+                    '${dispatch.paneId} · '
+                    '${timeOfDay(dispatch.sentAt)}',
+                    style: HotlineText.value,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
       if (links.isNotEmpty) ...[
         const SheetRule(),
         _Field(
           label: 'LINKS',
-          // §39.9: rows, and only rows. Tap opens, long press removes — the
+          // Rows, and only rows. Tap opens, long press removes — the
           // trailing `x` was one more control in a body that is a readout.
           child: ListRowGroup(
             children: [
@@ -361,6 +456,75 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     ];
   }
 
+  /// The picker, and then the one thing the send is doing. Both live in this
+  /// body: a send has no screen of its own, and a spinner over the picker would
+  /// leave the rows tappable while one of them is already running.
+  Widget _sendBody() {
+    final state = _sendState;
+    if (state == null) {
+      final targets =
+          ref.watch(pathTargetsProvider).valueOrNull ?? const <PathTarget>[];
+      return ListRowGroup(
+        children: [
+          for (final target in targets)
+            ListRow(
+              // The same box the agents feed draws, so a row says which agent
+              // will pick the work up before it is tapped.
+              leading: AgentMark(target.path.agent),
+              leadingWidth: AgentMark.markBox,
+              title: target.title,
+              onTap: () => _dispatch(target),
+            ),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _Field(
+          label: 'TO',
+          child: Text(_target?.title ?? '', style: HotlineText.value),
+        ),
+        const SizedBox(height: Spacing.lg),
+        Text(
+          switch (state) {
+            SendSending() => 'SENDING',
+            SendSent(:final paneId) => 'SENT · $paneId',
+            SendFailed(:final reason) => reason,
+          },
+          style: HotlineText.rowTitle.copyWith(
+            color: switch (state) {
+              SendSending() => HotlineColors.textMuted,
+              SendSent() => HotlineColors.accent,
+              SendFailed() => HotlineColors.warning,
+            },
+          ),
+        ),
+        if (state is! SendSending) ...[
+          const SizedBox(height: Spacing.lg),
+          Wrap(
+            children: [
+              if (state is SendSent)
+                ActionBlock(
+                  label: 'CLOSE',
+                  onTap: () => Navigator.of(context).pop(),
+                )
+              else
+                ActionBlock(
+                  label: 'RETRY',
+                  onTap: () {
+                    final target = _target;
+                    if (target != null) _dispatch(target);
+                  },
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
   static const _imageSquare = 56.0;
 
   Widget _title(Task task) {
@@ -372,7 +536,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: Spacing.md),
           child: Text(
-            // §39.4: full title, unclipped. This is the one place in the app
+            // Full title, unclipped. This is the one place in the app
             // where an item's text is not cut to one line.
             task.title,
             style: HotlineText.rowTitleLead.copyWith(
@@ -403,7 +567,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
               onRemove: () => setState(() => _pending.remove(attachment)),
             ),
       ],
-      // §39.10: text and links, plus images. Everything else is behind `+`.
+      // Text and links, plus images. Everything else is behind `+`.
       actions: [
         ToolbarAction(
           glyph: ToolbarGlyph.link,
@@ -412,7 +576,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         ),
         ToolbarAction(glyph: ToolbarGlyph.image, onTap: _image),
       ],
-      // §39.11: a drop has one extra verb, the one that stops it being a drop.
+      // A drop has one extra verb, the one that stops it being a drop.
       extras: _isDrop(task)
           ? [
               ToolbarAction(
@@ -485,14 +649,14 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     });
   }
 
-  /// §39.4: one row of solid action blocks, for the moment the keyboard is
+  /// One row of solid action blocks, for the moment the keyboard is
   /// down. It wraps rather than scrolls — six verbs do not fit across a phone,
   /// and a horizontally scrolling row hides the half of them a user is looking
   /// for.
   ///
-  /// §39.11 cuts that row down to one for a drop: MOVE, which is what turns it
-  /// into a task. DELETE is not a state, but it is not on the row either — a
-  /// long press on the breadcrumb reveals it.
+  /// A drop cuts that row down: MOVE, which is what turns it into a task, and
+  /// SEND once there is a path to send it to. DELETE is not a state, but it is
+  /// not on the row either — a long press on the breadcrumb reveals it.
   Widget _footer(Task task) {
     final tasks = ref.read(taskRepositoryProvider);
     return Wrap(
@@ -503,7 +667,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ActionBlock(
             label: task.done ? 'UNDO' : 'DONE',
             tone: HotlineColors.accent,
-            // The one commit in the row takes the one accent surface (§16c.2).
+            // The one commit in the row takes the one accent surface.
             filled: !task.done,
             onTap: () => tasks.setDone(task.id, !task.done),
           ),
@@ -517,6 +681,11 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ),
         ],
         ActionBlock(label: 'MOVE', onTap: () => _toPicker(_Mode.move)),
+        // Drops only, and only once a host has a path: a verb with nowhere to
+        // go is a block that answers with an empty list.
+        if (_isDrop(task) &&
+            (ref.watch(pathTargetsProvider).valueOrNull ?? const []).isNotEmpty)
+          ActionBlock(label: 'SEND', onTap: _toSend),
         if (!_isDrop(task)) ...[
           ActionBlock(
             label: task.bundleId == null ? 'PAIR' : 'UNPAIR',
@@ -547,7 +716,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   }
 }
 
-/// §39.10: a 56px square in the readout.
+/// A 56px square in the readout.
 class _Square extends StatelessWidget {
   const _Square({
     required this.attachment,
@@ -587,8 +756,8 @@ class _Square extends StatelessWidget {
   }
 }
 
-/// §16c.7: every fact in the sheet is a `[ LABEL ]` over its value, so the
-/// body reads as a readout and not as a form.
+/// Every fact in the sheet is a `[ LABEL ]` over its value, so the body reads
+/// as a readout and not as a form.
 class _Field extends StatelessWidget {
   const _Field({required this.label, required this.child});
 

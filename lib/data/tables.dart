@@ -2,13 +2,13 @@ import 'package:drift/drift.dart';
 
 import 'enums.dart';
 
-/// Entities per SPEC.md §37. Ids are UUIDv7 text, so they sort by creation
+/// Ids are UUIDv7 text, so they sort by creation
 /// time without a separate ordering column. Timestamps are stored as ISO-8601
 /// UTC (see AppDatabase.options).
 class Projects extends Table {
   TextColumn get id => text()();
 
-  /// SPEC.md §39.18: a project can belong to another project, to arbitrary
+  /// A project can belong to another project, to arbitrary
   /// depth. There is no subproject entity — a subproject is a project with a
   /// parent — so every screen that treats a project as a scope treats its
   /// subtree as one column later. Null is a root.
@@ -27,7 +27,7 @@ class Projects extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-/// SPEC.md §39.1. A goal groups items inside one project and carries no state
+/// A goal groups items inside one project and carries no state
 /// of its own: its progress is counted from the items that point at it.
 class Goals extends Table {
   TextColumn get id => text()();
@@ -43,13 +43,13 @@ class Goals extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-/// A task with no project is a drop: SPEC.md §37 replaced the inbox with a
-/// nullable foreign key rather than a second entity, and §39.1 kept it.
+/// A task with no project is a drop: the inbox is a nullable foreign key
+/// rather than a second entity.
 class Tasks extends Table {
   TextColumn get id => text()();
   TextColumn get projectId => text().nullable().references(Projects, #id)();
 
-  /// SPEC.md §39.1: location is derived from these two columns rather than
+  /// Location is derived from these two columns rather than
   /// stored as a kind. Null project = a drop on Home; project without goal = a
   /// drop inside the project; goal set = an idea under that goal.
   TextColumn get goalId => text().nullable().references(Goals, #id)();
@@ -75,7 +75,7 @@ class Tasks extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-/// SPEC.md §39.1. Links hang off an item so a capture can be re-read later
+/// Links hang off an item so a capture can be re-read later
 /// with the thing it was about, which is what the quick view opens.
 class Links extends Table {
   TextColumn get id => text()();
@@ -88,7 +88,7 @@ class Links extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-/// SPEC.md §39.10, superseding [Links]. `value` is the URL for `kind = url`
+/// Supersedes [Links]. `value` is the URL for `kind = url`
 /// and a path relative to the app support directory for `kind = image`, so the
 /// row survives the sandbox path changing between installs.
 class Attachments extends Table {
@@ -114,7 +114,7 @@ class Notes extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-/// Append-only audit stream (SPEC.md §22). The payload carries the subject's
+/// Append-only audit stream. The payload carries the subject's
 /// title and context at write time so the stream stays readable even after the
 /// entity it describes has moved on or been deleted.
 class ActivityEvents extends Table {
@@ -129,7 +129,7 @@ class ActivityEvents extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-/// SPEC.md §39.16. A key-value table rather than a one-row table of columns:
+/// A key-value table rather than a one-row table of columns:
 /// a preference is added by writing a key, which is a migration nobody has to
 /// write. Values are text because that is the only encoding every preference
 /// shares; a bool is `'1'` or `'0'` and the repository owns the reading of it.
@@ -141,7 +141,7 @@ class Settings extends Table {
   Set<Column<Object>> get primaryKey => {key};
 }
 
-/// SPEC.md §39.21. An ssh key the app generated. Only the public half is here:
+/// An ssh key the app generated. Only the public half is here:
 /// the private key never touches sqlite, it goes to the platform keystore
 /// through [PrivateKeyStore], so a database file lifted off the device carries
 /// nothing that can log into anything.
@@ -164,7 +164,7 @@ class Keys extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-/// SPEC.md §39.21. A machine the user has registered. A machine, not a herdr
+/// A machine the user has registered. A machine, not a herdr
 /// endpoint: what the app does with it lives in [HostIntegrations], so a host
 /// the user keeps for one integration is not deleted by turning another off.
 ///
@@ -174,7 +174,7 @@ class Keys extends Table {
 ///
 /// The reference to [Keys] documents the relation but does not enforce it: this
 /// database never turns on `PRAGMA foreign_keys`, so sqlite would let a
-/// referenced key be deleted out from under a host. The refusal §39.21 asks for
+/// referenced key be deleted out from under a host. The refusal the design asks for
 /// is enforced in [DriftKeyRepository.delete] instead, which is the only place
 /// that can also say why.
 @DataClassName('HostRow')
@@ -183,7 +183,7 @@ class Hosts extends Table {
   TextColumn get name => text()();
   TextColumn get address => text()();
 
-  /// SPEC.md §39.29. The default is the column's, not the form's: every row
+  /// The default is the column's, not the form's: every row
   /// written before schema 8 predates the field, and 22 is the port those rows
   /// were in fact dialled on.
   IntColumn get port => integer().withDefault(const Constant(22))();
@@ -194,13 +194,13 @@ class Hosts extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-/// SPEC.md §39.21. Which integrations a host has switched on. One row per
+/// Which integrations a host has switched on. One row per
 /// enabled integration, keyed by both columns, so "off" is the absence of a row
 /// and there is no third state to render.
 ///
 /// A table rather than a column of flags on `hosts`: the set of integrations the
 /// app knows grows, and a column per kind makes each new one a migration on a
-/// table that holds the user's machines. §39.20 reads this by kind — every host
+/// table that holds the user's machines. The agents poll reads this by kind — every host
 /// with `herdr` on is polled — which is a query here and a full scan there.
 ///
 /// Rows are removed with their host in [DriftHostRepository.delete], in Dart:
@@ -211,4 +211,56 @@ class HostIntegrations extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {hostId, kind};
+}
+
+/// One registered working directory on a host: where a drop can be sent, and
+/// which agent picks it up there.
+///
+/// The row class is [PathRow] because `Path` is `dart:ui`'s, and every screen
+/// that would hold one of these imports Flutter.
+///
+/// [label] is never null: the editor falls back to the directory's last
+/// segment when the user types none, so the picker and the sent lines have one
+/// word to show and no branch to take.
+///
+/// The reference to [Hosts] documents the relation and does not enforce it —
+/// this database never enables `PRAGMA foreign_keys` — so a host's paths are
+/// removed with it in [DriftHostRepository.delete].
+@DataClassName('PathRow')
+class Paths extends Table {
+  TextColumn get id => text()();
+  TextColumn get hostId => text().references(Hosts, #id)();
+
+  /// Absolute, or `~`-relative: the expansion is the host's, not the app's,
+  /// because the home directory that matters is the one on the other machine.
+  TextColumn get directory => text()();
+
+  /// `claude` or `codex`, the kinds the gate accepts. Text and not an enum:
+  /// the agent mark already keys off the same strings herdr reports, and an
+  /// enum here would need a converter on both sides of that.
+  TextColumn get agent => text()();
+  TextColumn get label => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// One successful send: the drop, the path it went to, and the pane it landed
+/// in. Written only when the gate answered with a pane id, so a row here is
+/// evidence that something is running and not that something was attempted.
+///
+/// Rows go with their path, and with the host through it: the sent line reads
+/// `<HOST> / <LABEL>` off the join, so a dispatch whose path is gone has
+/// nothing left to say.
+@DataClassName('DispatchRow')
+class Dispatches extends Table {
+  TextColumn get id => text()();
+  TextColumn get itemId => text().references(Tasks, #id)();
+  TextColumn get pathId => text().references(Paths, #id)();
+  TextColumn get paneId => text()();
+  DateTimeColumn get sentAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
 }
