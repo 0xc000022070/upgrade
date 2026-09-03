@@ -54,6 +54,61 @@ run:
         --pid-file build/run.pid \
         --dart-define=HOTLINE_BUILD=${HOTLINE_BUILD:-dev}
 
+# The certificate faraday's installed copy carries. Release signs with the debug
+# keystore (android/app/build.gradle.kts), so this is ~/.android/debug.keystore
+# on this machine; an apk from any other key can only land by uninstalling, and
+# faraday holds real data.
+faraday_cert := "d6b7cdfb8d0a5c0017e317b7db27f3fb3ce0b3f650f28ca6b989c4582f5d7e5e"
+
+# Upgrade faraday to a release build of the current tree. Version and build
+# number are read from pubspec.yaml, the one place they are declared, so the two
+# apk-release arguments cannot drift from it. Installs in place and never
+# launches: the user opens the app themselves.
+faraday:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    stamp=$(sed -n 's/^version:[[:space:]]*\([^+[:space:]]\{1,\}\)+\([0-9]\{1,\}\)[[:space:]]*$/\1 \2/p' pubspec.yaml)
+    [[ -n $stamp ]] || { echo "faraday: pubspec.yaml has no 'version: <name>+<code>' line" >&2; exit 1; }
+    read -r version code <<<"$stamp"
+
+    tools=${ANDROID_HOME:?run inside the nix dev shell}/build-tools/37.0.0
+
+    # Reachability first: a dead transport should not cost an AOT build.
+    attached() { phone device list | grep -qE '^android[[:space:]]+faraday[[:space:]].*attached'; }
+    attached || phone device connect faraday
+    attached || { echo "faraday: no transport after connect" >&2; exit 1; }
+    serial=$(phone device list | grep -E '^android[[:space:]]+faraday[[:space:]]' | grep -oE '[^[:space:]]+:[0-9]+' | head -1)
+
+    export HOTLINE_BUILD="${HOTLINE_BUILD:-$(git rev-parse --short HEAD)}"
+    git diff --quiet HEAD || echo "faraday: tree is dirty, the build line still stamps $HOTLINE_BUILD" >&2
+
+    # Removed first so a failed build cannot leave a previous apk to verify.
+    apk=build/app/outputs/flutter-apk/app-release.apk
+    rm -f "$apk"
+    just apk-release "$version" "$code"
+
+    badged=$("$tools/aapt2" dump badging "$apk" | sed -n "1s/.*versionCode='\([0-9]*\)'.*/\1/p")
+    [[ $badged == "$code" ]] || { echo "faraday: apk reports versionCode $badged, pubspec says $code" >&2; exit 1; }
+    cert=$("$tools/apksigner" verify --print-certs "$apk" | awk '/certificate SHA-256 digest:/ {print $NF; exit}')
+    [[ $cert == "{{faraday_cert}}" ]] || { echo "faraday: apk signed by $cert, not the key faraday trusts" >&2; exit 1; }
+
+    # dumpsys is the one confirmation `phone` has no verb for. The timestamp is
+    # read first because a rebuild at an unchanged build number proves nothing
+    # by versionCode alone.
+    dumpsys() { adb -s "$serial" shell dumpsys package dev.luisnquin.hotline; }
+    was=$(dumpsys | sed -n 's/.*lastUpdateTime=//p' | head -1)
+
+    phone app install -t faraday "$apk"
+
+    pkg=$(dumpsys)
+    installed=$(sed -n 's/.*versionCode=\([0-9]*\).*/\1/p' <<<"$pkg" | head -1)
+    [[ $installed == "$code" ]] || { echo "faraday: still on versionCode $installed after install" >&2; exit 1; }
+    now=$(sed -n 's/.*lastUpdateTime=//p' <<<"$pkg" | head -1)
+    [[ -z $was || $now != "$was" ]] || { echo "faraday: lastUpdateTime still $was, nothing was replaced" >&2; exit 1; }
+    grep -E 'firstInstallTime|lastUpdateTime' <<<"$pkg"
+    echo "faraday: $version+$code ($HOTLINE_BUILD) installed on $serial"
+
 # faraday: install and launch only, for the user to review by hand.
 review:
     phone up --profile review
