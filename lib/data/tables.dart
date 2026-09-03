@@ -140,3 +140,70 @@ class Settings extends Table {
   @override
   Set<Column<Object>> get primaryKey => {key};
 }
+
+/// SPEC.md §39.21. An ssh key the app generated. Only the public half is here:
+/// the private key never touches sqlite, it goes to the platform keystore
+/// through [PrivateKeyStore], so a database file lifted off the device carries
+/// nothing that can log into anything.
+///
+/// The row class is [KeyRow], not `Key`: a `Key` in a file that also imports
+/// Flutter is the widget key, and every screen imports Flutter.
+///
+/// [fingerprint] is stored rather than derived on read. It is computed from the
+/// public blob at generation time and shown wherever the key is identified; a
+/// column means the list does not run SHA-256 once per row per rebuild.
+@DataClassName('KeyRow')
+class Keys extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get publicKey => text()();
+  TextColumn get fingerprint => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// SPEC.md §39.21. A machine the user has registered. A machine, not a herdr
+/// endpoint: what the app does with it lives in [HostIntegrations], so a host
+/// the user keeps for one integration is not deleted by turning another off.
+///
+/// The row class is [HostRow] because [Host] is the domain type the repository
+/// hands to the screens; the two would otherwise collide in every file that
+/// needs both.
+///
+/// The reference to [Keys] documents the relation but does not enforce it: this
+/// database never turns on `PRAGMA foreign_keys`, so sqlite would let a
+/// referenced key be deleted out from under a host. The refusal §39.21 asks for
+/// is enforced in [DriftKeyRepository.delete] instead, which is the only place
+/// that can also say why.
+@DataClassName('HostRow')
+class Hosts extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get address => text()();
+  TextColumn get user => text()();
+  TextColumn get keyId => text().references(Keys, #id)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// SPEC.md §39.21. Which integrations a host has switched on. One row per
+/// enabled integration, keyed by both columns, so "off" is the absence of a row
+/// and there is no third state to render.
+///
+/// A table rather than a column of flags on `hosts`: the set of integrations the
+/// app knows grows, and a column per kind makes each new one a migration on a
+/// table that holds the user's machines. §39.20 reads this by kind — every host
+/// with `herdr` on is polled — which is a query here and a full scan there.
+///
+/// Rows are removed with their host in [DriftHostRepository.delete], in Dart:
+/// the declared reference is not enforced, so nothing else would remove them.
+class HostIntegrations extends Table {
+  TextColumn get hostId => text().references(Hosts, #id)();
+  TextColumn get kind => text().map(const IntegrationKindConverter())();
+
+  @override
+  Set<Column<Object>> get primaryKey => {hostId, kind};
+}

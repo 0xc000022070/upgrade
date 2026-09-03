@@ -19,6 +19,9 @@ part 'database.g.dart';
     Notes,
     ActivityEvents,
     Settings,
+    Keys,
+    Hosts,
+    HostIntegrations,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -26,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'hotline'));
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   /// SPEC.md §39.7: from v2 on there is real data on the user's handset, so the
   /// upgrade is additive — two new tables and two nullable columns, nothing
@@ -70,6 +73,16 @@ SELECT id, task_id, 'url', url, created_at FROM links
         // with a null parent, which is exactly what a root is, so the tree the
         // migration produces is the flat list the user already had.
         await m.addColumn(projects, projects.parentId);
+      }
+      if (from < 7) {
+        // §39.21 adds three empty tables and nothing else. There is no default
+        // host to backfill — §39.20's ruling is that the app never assumes one
+        // — so an install that upgrades into v7 comes up with no key, no host
+        // and no integration switched on, which is the same state a fresh
+        // install has and the one the AGENTS panel renders as blocked.
+        await m.createTable(keys);
+        await m.createTable(hosts);
+        await m.createTable(hostIntegrations);
       }
     },
   );

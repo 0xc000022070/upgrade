@@ -14,7 +14,7 @@ import '../design/typography.dart';
 class ScreenScaffold extends StatelessWidget {
   const ScreenScaffold({
     super.key,
-    required this.title,
+    this.title,
     required this.children,
     this.breadcrumb = '/ PERSONAL CONTROL PLANE',
     this.breadcrumbSegments,
@@ -30,7 +30,10 @@ class ScreenScaffold extends StatelessWidget {
     ),
   });
 
-  final String title;
+  /// SPEC.md §39.20 drops Home's `TODAY_`: the AGENTS panel is the first thing
+  /// on the screen and a title over it would only name the day. Every other
+  /// screen keeps one, so this is null on exactly one screen.
+  final String? title;
   final String breadcrumb;
 
   /// SPEC.md §39.18: a path whose segments are individually tappable, each
@@ -142,32 +145,33 @@ class ScreenScaffold extends StatelessWidget {
                   ],
                 ),
               ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // The cursor rides with the title inside its own Row: a Spacer
-                // as a direct sibling would claim half the width and ellipsize
-                // a project's name long before it had to.
-                Expanded(
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: SignalText(
-                          title,
-                          style: HotlineText.screenTitle,
-                          decodeOnEntry: true,
-                          smearOnEntry: true,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+            if (title != null)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // The cursor rides with the title inside its own Row: a
+                  // Spacer as a direct sibling would claim half the width and
+                  // ellipsize a project's name long before it had to.
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: SignalText(
+                            title!,
+                            style: HotlineText.screenTitle,
+                            decodeOnEntry: true,
+                            smearOnEntry: true,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                      const Text('_', style: HotlineText.screenTitle),
-                    ],
+                        const Text('_', style: HotlineText.screenTitle),
+                      ],
+                    ),
                   ),
-                ),
-                ?titleTrailing,
-              ],
-            ),
+                  ?titleTrailing,
+                ],
+              ),
             const SizedBox(height: Spacing.md),
             Container(
               height: Borders.hairline,

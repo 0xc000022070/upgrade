@@ -60,7 +60,7 @@ Future<void> main() async {
 
   runApp(
     ProviderScope(
-      overrides: [databaseProvider.overrideWithValue(db)],
+      overrides: databaseOverrides(db),
       child: HotlineApp(boot: boot),
     ),
   );

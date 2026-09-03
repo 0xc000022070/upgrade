@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The flutter template grants this in the debug and profile manifests only,
+         so a release build reaches nothing: SPEC.md §39.20 polls herdr over ssh
+         and every host came back unreachable until this was declared here. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="Hotline"
         android:name="${applicationName}"

@@ -9,6 +9,8 @@ import '../../design/components/picker_row.dart';
 import '../../design/typography.dart';
 import '../../platform/device.dart';
 import '../screen_scaffold.dart';
+import 'hosts_block.dart';
+import 'keys_block.dart';
 
 /// SPEC.md §39.16: no third tab. Settings is a route pushed from HOME's `SYS`
 /// crumb action, on the root navigator so the nav bar is not part of it.
@@ -69,6 +71,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                 ),
+                // §39.21: keys before hosts, because a host cannot be saved
+                // without one. There is no [ HERDR ] block — a host is a
+                // machine, and the integration is a switch on its form.
+                const KeysSettingsBlock(),
+                const HostsSettingsBlock(),
                 Panel(
                   title: '[ BUILD ]',
                   child: FutureBuilder<BuildInfo?>(

@@ -5,6 +5,8 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/data/enums.dart';
+import 'package:hotline/data/repositories/host_repository.dart';
+import 'package:hotline/data/repositories/key_repository.dart';
 import 'package:hotline/data/repositories/settings_repository.dart';
 
 /// The v2 schema exactly as it shipped, written out by hand: the point of the
@@ -109,6 +111,14 @@ CREATE TABLE settings (
 )''',
 ];
 
+/// The v6 schema exactly as it shipped, for the §39.21 upgrade. v6 is what
+/// phase 8 put on the emulator, so this is the jump a device that took the last
+/// release actually performs.
+const _v6Schema = [
+  ..._v5Schema,
+  'ALTER TABLE projects ADD COLUMN parent_id TEXT REFERENCES projects (id)',
+];
+
 /// Drives [QueryExecutor.ensureOpen] to stamp `user_version = 2` and lay down
 /// the old schema, which is what makes the file drift later opens a real v2
 /// database rather than a v3 one with rows in it.
@@ -201,7 +211,7 @@ void main() {
     await executor.close();
   }
 
-  test('a v2 database upgrades to v6 with every row still there', () async {
+  test('a v2 database upgrades to v7 with every row still there', () async {
     await writeV2Fixture();
 
     final db = AppDatabase(NativeDatabase(file));
@@ -215,7 +225,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      6,
+      7,
     );
 
     final projects = await db.select(db.projects).get();
@@ -249,10 +259,14 @@ void main() {
       ActivityAction.completed,
     );
 
-    // The v3, v4 and v5 tables exist and are empty rather than absent.
+    // The v3, v4, v5 and v7 tables exist and are empty rather than absent.
     expect(await db.select(db.goals).get(), isEmpty);
     expect(await db.select(db.attachments).get(), isEmpty);
     expect(await db.select(db.settings).get(), isEmpty);
+    // §39.20's ruling: no host is assumed, so the upgrade lands on the same
+    // empty tables a fresh install has and the AGENTS panel comes up blocked.
+    expect(await db.select(db.keys).get(), isEmpty);
+    expect(await db.select(db.hosts).get(), isEmpty);
   });
 
   test('a v3 database folds its links into attachments', () async {
@@ -293,7 +307,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      6,
+      7,
     );
     expect(attachments.map((a) => a.id), ['l1', 'l2']);
     expect(attachments.every((a) => a.itemId == 't1'), isTrue);
@@ -312,7 +326,7 @@ void main() {
   test(
     '§39.16 settings survive the jump the installed build will make',
     () async {
-      // faraday runs a v2 build, so the v2 -> v6 jump is the one that matters:
+      // faraday runs a v2 build, so the v2 -> v7 jump is the one that matters:
       // the added table has to appear on a database full of rows, and a
       // preference written into it has to read back.
       await writeV2Fixture();
@@ -378,7 +392,7 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        6,
+        7,
       );
       expect(projects.map((p) => p.id), ['p1', 'p2']);
       expect(projects.every((p) => p.parentId == null), isTrue);
@@ -407,6 +421,101 @@ void main() {
       expect((await db.watchChildSummaries('p1').first).single.projectId, 'p2');
     },
   );
+
+  test('a v6 database gains keys and hosts, both empty', () async {
+    // The jump the installed v14 build makes. Two tables appear on a database
+    // full of rows and nothing else moves.
+    final executor = NativeDatabase(file);
+    await executor.ensureOpen(_V2Database(6, _v6Schema));
+    for (final row in [
+      ['p1', 'Infra', null],
+      ['p2', 'Homelab', 'p1'],
+    ]) {
+      await executor.runInsert(
+        'INSERT INTO projects (id, name, description, objective, status, '
+        'priority, created_at, updated_at, parent_id) '
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          row[0],
+          row[1],
+          '',
+          '',
+          'active',
+          'high',
+          stamp(20),
+          stamp(20),
+          row[2],
+        ],
+      );
+    }
+    await executor.runInsert(
+      'INSERT INTO settings (key, value) VALUES (?, ?)',
+      [SettingsRepository.staticEnabled, '0'],
+    );
+    await executor.close();
+
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+
+    final projects = await db.select(db.projects).get();
+    expect(
+      await db
+          .customSelect('PRAGMA user_version')
+          .getSingle()
+          .then((row) => row.read<int>('user_version')),
+      7,
+    );
+    // §39.18's tree survives §39.21 untouched: the upgrade adds tables, it does
+    // not rewrite a row.
+    expect(projects.map((p) => p.id), ['p1', 'p2']);
+    expect(projects.firstWhere((p) => p.id == 'p2').parentId, 'p1');
+    expect(
+      await SettingsRepository(db)
+          .flag(SettingsRepository.staticEnabled, orElse: true),
+      isFalse,
+    );
+
+    // §39.20: nothing is assumed. No key, no host, and no integration switched
+    // on, which is the state the AGENTS panel renders as NO HOST · SET IN SYS.
+    expect(await db.select(db.keys).get(), isEmpty);
+    expect(await db.select(db.hosts).get(), isEmpty);
+    expect(await db.select(db.hostIntegrations).get(), isEmpty);
+    expect(
+      await DriftHostRepository(db)
+          .watchWithIntegration(IntegrationKind.herdr)
+          .first,
+      isEmpty,
+    );
+
+    // And the new tables take writes on a database the migration upgraded.
+    final keys = DriftKeyRepository(db);
+    await keys.save(
+      ManagedKey(
+        id: 'k1',
+        name: 'hotline',
+        publicKey: 'ssh-ed25519 AAAA hotline',
+        fingerprint: 'SHA256:abc',
+        createdAt: DateTime.parse(stamp(22)),
+      ),
+    );
+    final hosts = DriftHostRepository(db);
+    await hosts.save(
+      const Host(
+        id: 'h1',
+        name: 'nyx',
+        address: '100.118.60.77',
+        user: 'luisnquin',
+        keyId: 'k1',
+      ),
+    );
+    await hosts.setIntegration('h1', IntegrationKind.herdr, true);
+    expect((await keys.all()).single.fingerprint, 'SHA256:abc');
+    expect((await db.select(db.hosts).get()).single.address, '100.118.60.77');
+    expect(
+      (await hosts.watchWithIntegration(IntegrationKind.herdr).first).single.id,
+      'h1',
+    );
+  });
 
   test('the upgraded database accepts writes to the new columns', () async {
     await writeV2Fixture();
@@ -437,7 +546,7 @@ void main() {
   });
 
   test(
-    'a fresh install creates v6 directly, without the upgrade path',
+    'a fresh install creates v7 directly, without the upgrade path',
     () async {
       final db = AppDatabase(NativeDatabase(file));
       addTearDown(db.close);
@@ -445,12 +554,14 @@ void main() {
       expect(await db.select(db.goals).get(), isEmpty);
       expect(await db.select(db.attachments).get(), isEmpty);
       expect(await db.select(db.settings).get(), isEmpty);
+      expect(await db.select(db.keys).get(), isEmpty);
+      expect(await db.select(db.hosts).get(), isEmpty);
       expect(
         await db
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        6,
+        7,
       );
     },
   );
