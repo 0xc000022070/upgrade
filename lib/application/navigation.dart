@@ -2,16 +2,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/effects/glitch.dart';
 
-/// HOME and PROJECTS (SPEC.md §37). Declared here rather than read from the nav
-/// bar so the glitch controllers do not depend on the widget that draws them.
-const navDestinationCount = 2;
+/// HOME, PROJECTS and ACCESS. Declared here rather than read from the nav bar
+/// so the glitch controllers do not depend on the widget that draws them.
+const navDestinationCount = 3;
 
 /// The selected tab lives outside the shell so a screen can move the user
 /// without owning the shell's state — HOME's "+N more" jumps to PROJECTS.
 final navIndexProvider = StateProvider<int>((ref) => 0);
 
-/// SPEC.md §16b fires a glitch on the icon of the entity that changed, and the
-/// nav icons stand for whole screens. A capture lands on HOME from HOME's own
+/// A glitch fires on the icon of the entity that changed, and the nav icons
+/// stand for whole screens. A capture lands on HOME from HOME's own
 /// pinned bar, so the trigger has to reach an icon the screen does not build.
 class NavGlitch {
   NavGlitch(int count)

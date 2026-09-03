@@ -8,6 +8,7 @@ import '../application/navigation.dart';
 import '../design/colors.dart';
 import '../design/effects/screen_entry.dart';
 import '../design/theme.dart';
+import '../features/access/access_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/projects/projects_screen.dart';
 import 'alerts_boot.dart';
@@ -57,7 +58,7 @@ class HotlineApp extends StatelessWidget {
   }
 }
 
-/// HOME and PROJECTS are the two tabs, both kept mounted in an
+/// HOME, PROJECTS and ACCESS are the tabs, all kept mounted in an
 /// [IndexedStack], so a tab is never rebuilt from nothing and the screen the
 /// user comes back to is the screen they left.
 class HotlineShell extends ConsumerStatefulWidget {
@@ -89,7 +90,7 @@ class _HotlineShellState extends ConsumerState<HotlineShell> {
     final index = ref.watch(navIndexProvider);
     final glitch = ref.watch(navGlitchProvider);
 
-    const screens = <Widget>[HomeScreen(), ProjectsScreen()];
+    const screens = <Widget>[HomeScreen(), ProjectsScreen(), AccessScreen()];
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _systemBars,
