@@ -9,13 +9,13 @@ abstract final class Spacing {
   static const xl = 16.0;
   static const xxl = 24.0;
 
-  /// §38.1: panels stack with this gap and nothing else between them.
+  /// Panels stack with this gap and nothing else between them.
   static const panelGap = 8.0;
 
-  /// §38.1: inner padding of every panel.
+  /// Inner padding of every panel.
   static const panelPadding = 8.0;
 
-  /// §38.3, corrected by the mocks: the panels are 320 wide on a 360 screen.
+  /// From the mocks: the panels are 320 wide on a 360 screen.
   static const screenEdge = 16.0;
 }
 
@@ -43,7 +43,7 @@ abstract final class Borders {
 }
 
 abstract final class IconSizes {
-  /// §38.4: the left slot on a row.
+  /// The left slot on a row.
   static const glyph = 14.0;
 
   /// The task checkbox, which the mocks draw smaller than a status glyph.
@@ -54,15 +54,15 @@ abstract final class IconSizes {
 
   static const sm = 16.0;
 
-  /// §39.10 sizes the keyboard toolbar's Material glyphs itself, at 22px —
-  /// between [sm] and [lg], and the one place in the app that is not on the
-  /// 4px step, because the spec names the number.
+  /// The keyboard toolbar's Material glyphs, at 22px — between [sm] and [lg],
+  /// and the one place in the app that is not on the 4px step. The key strip's
+  /// glyph keys are the same 22, so the two share the token.
   static const toolbar = 22.0;
 
   static const md = 20.0;
   static const lg = 24.0;
 
-  /// §38.6: the project glyph in the hero card.
+  /// The project glyph in the hero card.
   static const hero = 32.0;
 }
 
@@ -70,12 +70,12 @@ abstract final class IconSizes {
 abstract final class TapTargets {
   static const minHeight = 44.0;
 
-  /// §39.4: the done checkbox is a 14px glyph with a 40px target around it.
+  /// The done checkbox is a 14px glyph with a 40px target around it.
   static const checkbox = 40.0;
 }
 
-/// §38.4: the inline bar next to a percent. Never full width, never under the
-/// row — the concept keeps progress inside the value column.
+/// The inline bar next to a percent. Never full width, never under the row —
+/// the concept keeps progress inside the value column.
 abstract final class BarSizes {
   static const inlineWidth = 56.0;
   static const inlineThickness = 2.0;

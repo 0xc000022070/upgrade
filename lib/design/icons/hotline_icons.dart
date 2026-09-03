@@ -6,6 +6,10 @@ enum HotlineIcons {
   active('active'),
   activity('activity'),
   add('add'),
+  arrowDown('arrow-down'),
+  arrowLeft('arrow-left'),
+  arrowRight('arrow-right'),
+  arrowUp('arrow-up'),
   attachment('attachment'),
   back('back'),
   blocked('blocked'),
@@ -27,7 +31,10 @@ enum HotlineIcons {
   forward('forward'),
   goal('goal'),
   home('home'),
+  hosts('hosts'),
   inbox('inbox'),
+  keyboard('keyboard'),
+  keys('keys'),
   message('message'),
   more('more'),
   note('note'),
@@ -40,6 +47,7 @@ enum HotlineIcons {
   relay('relay'),
   search('search'),
   submit('submit'),
+  superKey('super'),
   sync('sync'),
   task('task'),
   vault('vault'),
@@ -52,7 +60,10 @@ enum HotlineIcons {
 
   String get asset => 'assets/icons/hl-$slug.svg';
 
-  /// SPEC.md §16b: one glitch frame swaps the icon for its nodes-only "signal"
-  /// variant. Every icon in the family ships one, so this needs no fallback.
+  /// One glitch frame swaps the icon for its nodes-only "signal" variant. Only
+  /// the icons a [GlitchController] is ever attached to are read this way — see
+  /// `glitchIcons` — and the key strip's eight marks ship none, because none of
+  /// them is ever glitched: the strip and the rail have no glitch event, and
+  /// the nav bar's frames recolour the plain glyph rather than swapping it.
   String get signalAsset => 'assets/icons/signal/hl-$slug-signal.svg';
 }
