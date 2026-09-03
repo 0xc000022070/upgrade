@@ -13,9 +13,10 @@ import '../../platform/vnc/vnc_tunnel.dart';
 import 'framebuffer_view.dart';
 import 'keys_strip.dart';
 import 'screen_controller.dart';
+import 'screen_rail.dart';
 
-/// SPEC.md §39.32's way in. Kept here rather than at the call site so the
-/// AGENTS panel's `SCREEN >` and the host picker push the same route.
+/// The way in. Kept here rather than at the call site so the AGENTS panel's
+/// `SCREEN >` and the host picker push the same route.
 void openHostScreen(BuildContext context, Host host) {
   Navigator.of(
     context,
@@ -23,8 +24,8 @@ void openHostScreen(BuildContext context, Host host) {
   ).push(MaterialPageRoute<void>(builder: (_) => HostScreenRoute(host: host)));
 }
 
-/// SPEC.md §39.32: `SCREEN >` on one host is the screen, and on several it is
-/// the question of which. A picker in front of a single host would be a tap
+/// `SCREEN >` on one host is the screen, and on several it is the question of
+/// which. A picker in front of a single host would be a tap
 /// that only ever has one answer.
 Future<void> openScreenFor(BuildContext context, List<Host> hosts) async {
   if (hosts.isEmpty) return;
@@ -49,18 +50,17 @@ Future<void> openScreenFor(BuildContext context, List<Host> hosts) async {
   );
 }
 
-/// SPEC.md §39.32: `/ <HOST> SCREEN`, the state on its right, and the host's
-/// desktop under it.
+/// `/ <HOST> SCREEN`, the state on its right, and the host's desktop under it.
 ///
-/// No nav bar and no capture bar, per the section; and the only route in the
-/// app that allows landscape, which is set here and given back on the way out.
+/// No nav bar and no capture bar; and the only route in the app that allows
+/// landscape, which is set here and given back on the way out.
 class HostScreenRoute extends ConsumerStatefulWidget {
   const HostScreenRoute({super.key, required this.host, this.open});
 
   final Host host;
 
-  /// The transport, injectable only so §39.32's "disposing the route closes
-  /// channel and client" can be asserted without a host answering. Null
+  /// The transport, injectable only so "disposing the route closes channel and
+  /// client" can be asserted without a host answering. Null
   /// everywhere but a test, which is where [VncTunnel.open] is used.
   final VncOpener? open;
 
@@ -70,7 +70,16 @@ class HostScreenRoute extends ConsumerStatefulWidget {
 
 class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   late final HostScreenController _controller;
-  bool _keysOpen = false;
+
+  /// Two switches, not one mode. Either can be up without the other,
+  /// which is why the rail holds two booleans and the layer below takes both.
+  bool _stripOpen = false;
+  bool _keyboardOpen = false;
+
+  /// The rail is on every entry to this route and stays where the user left it
+  /// only for as long as they are on it. Nothing about one host's screen is
+  /// worth carrying to the next one.
+  bool _railHidden = false;
 
   @override
   void initState() {
@@ -80,7 +89,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
       readPrivateKey: ref.read(ed25519KeysProvider).privateKey,
       open: widget.open,
     );
-    // §39.32: the only route that allows landscape.
+    // The only route that allows landscape.
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     _controller.connect();
   }
@@ -88,18 +97,19 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   @override
   void dispose() {
     // Exactly what `main` sets before the first frame, so leaving this route
-    // puts the app back where it was rather than somewhere near it. §39.17's
-    // fit rule covers the rest of the app and none of it is laid out for a
-    // landscape window; portraitDown is not in the set either, because a phone
+    // puts the app back where it was rather than somewhere near it. None of
+    // the rest of the app is laid out for a landscape window, and portraitDown
+    // is not in the set either, because a phone
     // held upside down is not a thing the rest of the app ever does.
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     _controller.dispose();
     super.dispose();
   }
 
-  void _closeKeys() {
-    setState(() => _keysOpen = false);
-    FocusManager.instance.primaryFocus?.unfocus();
+  /// The IME went down on its own — the system back gesture, or its own hide
+  /// key. The strip stays exactly where it was.
+  void _onKeyboardClosed() {
+    if (_keyboardOpen) setState(() => _keyboardOpen = false);
   }
 
   @override
@@ -116,19 +126,46 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
               _Crumb(
                 host: widget.host,
                 controller: _controller,
-                keysOpen: _keysOpen,
-                onKeys: () => setState(() => _keysOpen = true),
                 onBack: () => Navigator.of(context).pop(),
               ),
-              Expanded(child: _Body(controller: _controller)),
-              if (_keysOpen)
-                KeysStrip(
-                  onCharacter: (character, sticky) =>
-                      _controller.typeCharacter(character, sticky: sticky),
-                  onKeysym: (keysym, sticky) =>
-                      _controller.sendKeysym(keysym, sticky: sticky),
-                  onClose: _closeKeys,
+              Expanded(
+                child: Stack(
+                  children: [
+                    Positioned.fill(child: _Body(controller: _controller)),
+                    // Over the picture, and only where the rail itself is: the
+                    // [Align] hit-tests nothing of its own, so every tap that
+                    // misses a toggle still reaches the framebuffer under it.
+                    if (_controller.phase == ScreenPhase.live)
+                      Positioned.fill(
+                        child: ScreenRail(
+                          keyboardOpen: _keyboardOpen,
+                          stripOpen: _stripOpen,
+                          hidden: _railHidden,
+                          onKeyboard: () =>
+                              setState(() => _keyboardOpen = !_keyboardOpen),
+                          onStrip: () =>
+                              setState(() => _stripOpen = !_stripOpen),
+                          // Sliding the rail away is about the rail. What it
+                          // opened stays open behind it.
+                          onHide: () => setState(() => _railHidden = true),
+                          onShow: () => setState(() => _railHidden = false),
+                        ),
+                      ),
+                  ],
                 ),
+              ),
+              // Mounted for the whole route: it carries the hidden field the
+              // IME writes into, and unmounting it with the strip would take
+              // the keyboard down with the strip.
+              KeysLayer(
+                stripVisible: _stripOpen,
+                keyboardOpen: _keyboardOpen,
+                onCharacter: (character, sticky) =>
+                    _controller.typeCharacter(character, sticky: sticky),
+                onKeysym: (keysym, sticky) =>
+                    _controller.sendKeysym(keysym, sticky: sticky),
+                onKeyboardClosed: _onKeyboardClosed,
+              ),
             ],
           ),
         ),
@@ -141,15 +178,11 @@ class _Crumb extends StatelessWidget {
   const _Crumb({
     required this.host,
     required this.controller,
-    required this.keysOpen,
-    required this.onKeys,
     required this.onBack,
   });
 
   final Host host;
   final HostScreenController controller;
-  final bool keysOpen;
-  final VoidCallback onKeys;
   final VoidCallback onBack;
 
   @override
@@ -173,20 +206,20 @@ class _Crumb extends StatelessWidget {
               ),
             ),
           ),
-          _State(controller: controller),
-          const SizedBox(width: Spacing.lg),
-          // §39.32: `KEYS` in the breadcrumb opens the soft keyboard. It is not
-          // offered before there is a screen to type at.
-          if (!keysOpen && controller.phase == ScreenPhase.live)
-            PanelAffordance('KEYS', showIcon: false, onTap: onKeys),
+          // While live the breadcrumb stands alone — `LIVE` said nothing the
+          // picture was not already saying, and `KEYS` is the rail's job now.
+          if (controller.phase != ScreenPhase.live) ...[
+            const SizedBox(width: Spacing.lg),
+            _State(controller: controller),
+          ],
         ],
       ),
     );
   }
 }
 
-/// §39.32's right-hand side: `CONNECTING`, `LIVE`, or a reason line with
-/// `RETRY` beside it.
+/// The breadcrumb's right-hand side, less the `LIVE` that came off it:
+/// `CONNECTING`, or a reason line with `RETRY` beside it.
 class _State extends StatelessWidget {
   const _State({required this.controller});
 
@@ -198,12 +231,8 @@ class _State extends StatelessWidget {
       case ScreenPhase.connecting:
         return const Text('CONNECTING', style: HotlineText.panelHeader);
       case ScreenPhase.live:
-        return Text(
-          'LIVE',
-          style: HotlineText.panelHeader.copyWith(
-            color: HotlineColors.accentMuted,
-          ),
-        );
+        // Unreachable from [_Crumb], which does not build this while live.
+        return const SizedBox.shrink();
       case ScreenPhase.failed:
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -215,7 +244,7 @@ class _State extends StatelessWidget {
               ),
             ),
             const SizedBox(width: Spacing.lg),
-            // §39.32: a reason line comes with `RETRY`, and there is no
+            // A reason line comes with `RETRY`, and there is no
             // reconnect loop behind it.
             PanelAffordance('RETRY', showIcon: false, onTap: controller.retry),
           ],

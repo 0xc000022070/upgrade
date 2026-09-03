@@ -1,4 +1,4 @@
-/// SPEC.md §39.32's key mapping: X keysyms, as RFB carries them.
+/// The key mapping: X keysyms, as RFB carries them.
 abstract final class Keysyms {
   static const backSpace = 0xFF08;
   static const tab = 0xFF09;
@@ -8,15 +8,19 @@ abstract final class Keysyms {
   static const up = 0xFF52;
   static const right = 0xFF53;
   static const down = 0xFF54;
+
+  /// `END` sits on the strip in place of `ENTER`, which the keyboard's own
+  /// return key now sends.
+  static const end = 0xFF57;
   static const shift = 0xFFE1;
   static const control = 0xFFE3;
   static const alt = 0xFFE9;
 
   /// `Super_L`. The host runs a Wayland compositor, where this is the key that
-  /// opens everything, so it earns a place on §39.32's strip.
+  /// opens everything, so it earns a place on the strip.
   static const superKey = 0xFFEB;
 
-  /// §39.32: "Latin-1 codepoints direct, others `0x01000000 + codepoint`".
+  /// Latin-1 codepoints direct, others `0x01000000 + codepoint`.
   ///
   /// The two rules are the whole of the X keysym convention for text: the low
   /// range was defined to be Latin-1, and Unicode was bolted on above it later.
@@ -30,15 +34,18 @@ abstract final class Keysyms {
   }
 }
 
-/// One of §39.32's sticky modifiers.
+/// One of the sticky modifiers, in strip order.
 ///
 /// Sticky "for one following key": the strip's `CTRL` is pressed, held down
 /// while the next key goes through, and released after it. That is what makes
 /// `CTRL` then `C` reach the host as a chord from a soft keyboard, which cannot
-/// hold two keys at once.
+/// hold two keys at once. `SHIFT` gets the same treatment: the soft
+/// keyboard's own shift only changes which character the IME sends, and a
+/// `SHIFT` the host sees is the only way to reach a chord like `CTRL SHIFT T`.
 enum StickyModifier {
   ctrl('CTRL', Keysyms.control),
   alt('ALT', Keysyms.alt),
+  shift('SHIFT', Keysyms.shift),
   superKey('SUPER', Keysyms.superKey);
 
   const StickyModifier(this.label, this.keysym);
