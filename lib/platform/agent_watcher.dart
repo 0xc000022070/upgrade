@@ -467,9 +467,15 @@ class _HostLoop {
       privateKey: privateKey,
     );
     _session = session;
-    // §39.31: "the first snapshot after a connect counts every blocked pane as
-    // new", which is what a fresh difference set means.
-    edges.reset(host.id);
+    // No reset here. §39.31 counts every blocked pane as new on the first
+    // snapshot after the *service* starts, and [BlockedEdges] lives on the
+    // handler, so a fresh service already begins with nothing to difference
+    // against — that one moment needs no help. A reconnect inside one service
+    // life keeps the set, because the panes did not change while the link was
+    // down: resetting here re-entered every pane still blocked, which reposted
+    // the alert with its actions back and overwrote a `SENT · YES` the user had
+    // already answered. The set the difference is taken against is dropped only
+    // when the host itself goes ([stop]).
     await for (final agents in session.watch()) {
       if (_stopped) return;
       await _onSnapshot(agents, session);
@@ -521,7 +527,6 @@ class _HostLoop {
   );
 
   Future<void> _watchFake() async {
-    edges.reset(host.id);
     const blocked = AgentSnapshot(
       paneId: 'wF:p1',
       agent: 'claude',
