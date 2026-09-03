@@ -382,13 +382,19 @@ class BottomBarFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // On a screen with no nav bar under it the bar is the last thing above the
+    // system gesture area, and its 8px was all that stood between the field and
+    // the pill. Read rather than passed: a Scaffold spends the bottom padding on
+    // whatever sits lowest, so HOME — where the nav bar is below the bar — reads
+    // 0 here and does not move, and the IME zeroes it while the keyboard is up.
+    final systemBottom = MediaQuery.paddingOf(context).bottom;
     return ContentColumn(
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           Spacing.screenEdge,
           Spacing.panelGap,
           Spacing.screenEdge,
-          Spacing.md + accessory,
+          Spacing.md + accessory + systemBottom,
         ),
         child: Panel(title: title, child: child),
       ),

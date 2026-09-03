@@ -109,6 +109,12 @@ class ScreenScaffold extends StatelessWidget {
       );
     }
 
+    // The stack scrolls under the system gesture area on any screen that pins
+    // nothing over it — the form screens end on a commit block, and that block
+    // was landing on the pill. Zero wherever a bar below already spent the
+    // inset, so no screen that had it right gains a gap.
+    final systemBottom = MediaQuery.paddingOf(context).bottom;
+
     return SafeArea(
       bottom: false,
       child: LayoutBuilder(
@@ -119,6 +125,7 @@ class ScreenScaffold extends StatelessWidget {
           // margins are a third of the screen.
           padding:
               padding +
+              EdgeInsets.only(bottom: systemBottom) +
               EdgeInsets.symmetric(
                 horizontal: Layout.gutterFor(constraints.maxWidth),
               ),
