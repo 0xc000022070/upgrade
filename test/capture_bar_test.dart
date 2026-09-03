@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hotline/application/drop_selection.dart';
 import 'package:hotline/application/providers.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/data/repositories/activity_repository.dart';
@@ -52,7 +53,9 @@ void main() {
 
   Widget host() => ProviderScope(
     overrides: [databaseProvider.overrideWithValue(db)],
-    child: const MaterialApp(home: Scaffold(body: CaptureBar())),
+    child: const MaterialApp(
+      home: Scaffold(body: CaptureBar(scope: DropSelection.homeScope)),
+    ),
   );
 
   Future<void> unmount(WidgetTester tester) async {

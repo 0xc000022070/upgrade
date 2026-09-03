@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/drop_selection.dart';
 import '../../application/formatting.dart';
+import '../../application/fresh_drops.dart';
 import '../../data/database.dart';
 import '../../design/colors.dart';
 import '../../design/components/list_row.dart';
@@ -11,7 +12,6 @@ import '../../design/components/section.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
-import 'drop_actions.dart';
 import 'item_sheet.dart';
 import 'task_row.dart';
 
@@ -31,6 +31,14 @@ import 'task_row.dart';
 ///
 /// §39.15 adds `SELECT` to the strip: the same mode, entered with nothing
 /// checked, for the user who does not know the panel answers a long press.
+///
+/// §39.25 gives a row captured on this screen an accent age until the user
+/// leaves, and makes a long press on one of them check the whole fresh set.
+///
+/// §39.24 takes the verbs back off the strip. A header scrolls away with its
+/// panel, so the mode's chrome moved to the bar in the capture bar's slot and
+/// the strip says what it says outside the mode — title and count, with
+/// `SELECT` hidden because the mode it opens is already on.
 class DropsPanel extends ConsumerStatefulWidget {
   const DropsPanel({
     super.key,
@@ -60,15 +68,38 @@ class DropsPanel extends ConsumerStatefulWidget {
 
 class _DropsPanelState extends ConsumerState<DropsPanel> {
   DropSelectionNotifier? _selection;
+  FreshDropsNotifier? _fresh;
 
   @override
   void dispose() {
     // §39.13: a selection never survives a navigation away from its panel. A
     // pushed route disposes the panel under it; the tab shell clears the mode
     // itself for the case where the panel stays mounted in an [IndexedStack].
-    // `ref` is unusable here, so the notifier read during build is what does it.
+    // `ref` is unusable here, so the notifier read during build does it.
     _selection?.clearScopeLater(widget.scope);
+    // §39.25 asks the same of the fresh set, and the back gesture out of a
+    // project is exactly this path.
+    _fresh?.clearScopeLater(widget.scope);
     super.dispose();
+  }
+
+  /// §39.25: holding a fresh row is a gesture on the set, not on the row —
+  /// every fresh row of this panel goes in. Holding anything else says the set
+  /// is over, and the mode opens on that one row the way §39.13 wrote it.
+  void _hold(String id, Set<String> fresh) {
+    final selection = ref.read(dropSelectionProvider.notifier);
+    if (fresh.contains(id)) {
+      selection.beginMany(widget.scope, fresh);
+      return;
+    }
+    ref.read(freshDropsProvider.notifier).clear();
+    selection.begin(widget.scope, id);
+  }
+
+  /// The quick view is a pushed route, which §39.25 counts as leaving.
+  void _open(String id) {
+    ref.read(freshDropsProvider.notifier).clear();
+    openItemSheet(context, id);
   }
 
   @override
@@ -78,67 +109,48 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
     final rows = widget.drops.valueOrNull ?? const <Task>[];
     final notifier = ref.read(dropSelectionProvider.notifier);
     _selection = notifier;
+    final freshNotifier = ref.read(freshDropsProvider.notifier);
+    _fresh = freshNotifier;
+    final fresh = ref.watch(freshDropsProvider).idsIn(widget.scope);
 
     // Rows that left the panel while the mode was on — moved from a sheet,
     // deleted elsewhere — must not stay in a set the batch will act on.
-    if (selecting) {
+    // §39.25 prunes the fresh set against the same rows, which is what empties
+    // it when a batch takes the last fresh row out.
+    if (widget.drops.hasValue) {
       final present = {for (final task in rows) task.id};
-      if (!selection.ids.every(present.contains)) {
+      final stale =
+          (selecting && !selection.ids.every(present.contains)) ||
+          !fresh.every(present.contains);
+      if (stale) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) notifier.prune(widget.scope, present);
+          if (!mounted) return;
+          notifier.prune(widget.scope, present);
+          freshNotifier.prune(widget.scope, present);
         });
       }
     }
 
     final panel = Panel(
-      // §39.13: in the mode the strip is the action bar, so it says what is
-      // checked rather than how many rows there are.
-      title: selecting ? '${selection.count} SELECTED' : widget.title,
-      leading: !selecting
-          ? null
-          : _HeaderAction(
-              icon: Icons.close,
-              tooltip: 'CANCEL',
-              onTap: notifier.clear,
+      title: widget.title,
+      affordance: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PanelAffordance('${rows.length}', showIcon: false),
+          // §39.15: the way into the mode without holding a row, next to the
+          // count and tracked like `NEW +`. Hidden on an empty panel — there is
+          // nothing to select — and hidden while the mode is on, where the bar
+          // at the bottom of the screen is what the panel is doing.
+          if (rows.isNotEmpty && !selecting) ...[
+            const SizedBox(width: Spacing.lg),
+            PanelAffordance(
+              'SELECT',
+              showIcon: false,
+              onTap: () => notifier.beginEmpty(widget.scope),
             ),
-      affordance: selecting
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _HeaderAction(
-                  icon: Icons.arrow_forward,
-                  tooltip: 'MOVE',
-                  onTap: selection.count == 0
-                      ? null
-                      : () => moveDrops(context, ref, selection.ids),
-                ),
-                _HeaderAction(
-                  icon: Icons.delete_outline,
-                  tooltip: 'DELETE',
-                  onTap: selection.count == 0
-                      ? null
-                      : () => deleteDrops(context, ref, selection.ids),
-                ),
-              ],
-            )
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PanelAffordance('${rows.length}', showIcon: false),
-                // §39.15: the way into the mode without holding a row, next to
-                // the count and tracked like `NEW +`. Hidden on an empty panel
-                // — there is nothing to select — and hidden while the mode is
-                // on, where the strip is already the action bar.
-                if (rows.isNotEmpty) ...[
-                  const SizedBox(width: Spacing.lg),
-                  PanelAffordance(
-                    'SELECT',
-                    showIcon: false,
-                    onTap: () => notifier.beginEmpty(widget.scope),
-                  ),
-                ],
-              ],
-            ),
+          ],
+        ],
+      ),
       bodyPadding: panelRowsPadding,
       headerGlitch: widget.landing,
       child: AsyncSection(
@@ -154,12 +166,18 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
                 TaskRow(
                   key: ValueKey(task.id),
                   task: task,
-                  onLongPress: () => notifier.begin(widget.scope, task.id),
+                  fresh: fresh.contains(task.id),
+                  onLongPress: () => _hold(task.id, fresh),
                 )
               else
                 ListRow(
                   title: task.title,
                   value: relativeAge(task.createdAt),
+                  // §39.25's whole highlight: the age in accent instead of the
+                  // dim it has by default. Nothing else on the row moves.
+                  valueColor: fresh.contains(task.id)
+                      ? HotlineColors.accent
+                      : null,
                   // §39.11: no glyph and no dim outside the mode — a drop has
                   // no state to show, and filing it is what gives it one.
                   leading: !selecting
@@ -169,12 +187,10 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
                   // §39.13: in the mode a tap is the toggle and nothing opens.
                   onTap: selecting
                       ? () => notifier.toggle(task.id)
-                      : () => openItemSheet(context, task.id),
+                      : () => _open(task.id),
                   // Long-press is the way in and nothing else: once the mode is
                   // on, holding a row is not a second gesture to learn.
-                  onLongPress: selecting
-                      ? null
-                      : () => notifier.begin(widget.scope, task.id),
+                  onLongPress: selecting ? null : () => _hold(task.id, fresh),
                 ),
           ],
         ),
@@ -190,60 +206,6 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
         if (!didPop) notifier.clear();
       },
       child: panel,
-    );
-  }
-}
-
-/// §39.13: the contextual bar's verbs are icons on the header strip, 22px in a
-/// 44px hit, dim until they are pressed. A header strip is 27px tall, so the
-/// hit is what makes the strip taller while the mode is on — which is also how
-/// the mode announces itself.
-class _HeaderAction extends StatefulWidget {
-  const _HeaderAction({
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-  });
-
-  final IconData icon;
-
-  /// Not a Material tooltip: it is the semantics label, so the strip's verbs
-  /// are reachable by name to a screen reader and to `phone tap`.
-  final String tooltip;
-  final VoidCallback? onTap;
-
-  @override
-  State<_HeaderAction> createState() => _HeaderActionState();
-}
-
-class _HeaderActionState extends State<_HeaderAction> {
-  bool _down = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = widget.onTap != null;
-    final color = !enabled
-        ? HotlineColors.textDisabled
-        : _down
-        ? HotlineColors.accent
-        : HotlineColors.textSecondary;
-    return Semantics(
-      button: true,
-      label: widget.tooltip,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: !enabled ? null : (_) => setState(() => _down = true),
-        onTapCancel: !enabled ? null : () => setState(() => _down = false),
-        onTapUp: !enabled ? null : (_) => setState(() => _down = false),
-        onTap: widget.onTap,
-        child: SizedBox(
-          width: TapTargets.minHeight,
-          height: TapTargets.minHeight,
-          child: Center(
-            child: Icon(widget.icon, size: IconSizes.toolbar, color: color),
-          ),
-        ),
-      ),
     );
   }
 }

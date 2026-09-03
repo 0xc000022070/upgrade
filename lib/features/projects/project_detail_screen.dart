@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/drop_selection.dart';
 import '../../application/formatting.dart';
-import '../../application/navigation.dart';
 import '../../application/providers.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
@@ -21,8 +21,10 @@ import '../../design/typography.dart';
 import '../home/capture_bar.dart';
 import '../screen_scaffold.dart';
 import '../tasks/drops_panel.dart';
+import '../tasks/selection_bar.dart';
 import '../tasks/task_row.dart';
 import 'project_form_screen.dart';
+import 'projects_screen.dart';
 import 'project_row.dart';
 import '../../app/static_surface.dart';
 
@@ -110,11 +112,14 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     if (mounted) _entry.fire();
   }
 
-  /// §39.18: `PROJECTS` pops out of the whole project stack and lands on the
-  /// tab. `popUntil(isFirst)` is the shell route the tabs live in.
-  void _popToProjectsTab() {
-    Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);
-    ref.read(navIndexProvider.notifier).state = 1;
+  /// §39.18: `PROJECTS` pops out of the whole project stack. §39.22 leaves it
+  /// no tab to land on, so it lands on the route underneath: the projects list
+  /// when the user walked in through it, HOME when they came off HOME's own
+  /// panel and the list was never pushed.
+  void _popToProjects() {
+    Navigator.of(context, rootNavigator: true).popUntil(
+      (route) => route.settings.name == projectsRouteName || route.isFirst,
+    );
   }
 
   /// §39.18: an ancestor segment pops back to that ancestor's own screen. The
@@ -125,16 +130,14 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     final name = projectRouteName(projectId);
     // The ancestor is not always on the stack: move a project under a parent
     // the user never walked into and its crumb names a screen that was never
-    // pushed. Unwinding to `isFirst` then dropped them on HOME, which is
-    // neither the ancestor nor the tab §39.18 allows. The predicate records
-    // whether the name was ever on top, so the miss can land on the tab that
-    // does hold the ancestor.
+    // pushed. The predicate records whether the name was ever on top, so a miss
+    // stops at the projects list — the screen that does hold the ancestor —
+    // rather than unwinding past it to HOME.
     var found = false;
     Navigator.of(context, rootNavigator: true).popUntil((route) {
       found = found || route.settings.name == name;
-      return found || route.isFirst;
+      return found || route.settings.name == projectsRouteName || route.isFirst;
     });
-    if (!found) ref.read(navIndexProvider.notifier).state = 1;
   }
 
   Future<void> _archive(Project project) async {
@@ -225,6 +228,9 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
     final hidden = archived || ancestorArchived;
     final hasObjective = (project?.objective ?? '').trim().isNotEmpty;
+    final selecting = ref
+        .watch(dropSelectionProvider)
+        .ownedBy(widget.projectId);
 
     return Scaffold(
       bottomNavigationBar: project == null || hidden
@@ -239,10 +245,16 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               padding: EdgeInsets.only(
                 bottom: MediaQuery.viewInsetsOf(context).bottom,
               ),
-              child: CaptureBar(
-                fixedTarget: ItemTarget.project(widget.projectId),
-                landing: _landing,
-              ),
+              // §39.24: the slot is the selection bar's while this project's
+              // DROPS panel owns the mode, and the capture bar's the rest of
+              // the time. Same frame either way, so the panels do not move.
+              child: selecting
+                  ? SelectionBar(scope: widget.projectId)
+                  : CaptureBar(
+                      scope: widget.projectId,
+                      fixedTarget: ItemTarget.project(widget.projectId),
+                      landing: _landing,
+                    ),
             ),
       body: StaticSurface(
         child: ScreenScaffold(
@@ -251,7 +263,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           // already the title. Every segment pops the stack back to what it
           // names, and `PROJECTS` pops all the way out to the tab.
           breadcrumbSegments: [
-            CrumbSegment('PROJECTS', onTap: () => _popToProjectsTab()),
+            CrumbSegment('PROJECTS', onTap: _popToProjects),
             for (final crumb in ancestors)
               CrumbSegment(
                 crumb.name.toUpperCase(),

@@ -9,6 +9,7 @@ import 'package:hotline/data/repositories/project_repository.dart';
 import 'package:hotline/data/repositories/task_repository.dart';
 import 'package:hotline/features/home/capture_bar.dart';
 import 'package:hotline/features/tasks/item_pickers.dart';
+import 'package:hotline/features/tasks/selection_bar.dart';
 import 'package:hotline/features/home/home_screen.dart';
 import 'package:hotline/features/projects/project_form_screen.dart';
 
@@ -188,16 +189,15 @@ void main() {
     await _ready(tester);
 
     expect(find.text('1 SELECTED'), findsOneWidget);
-    expect(
-      find.text('DROPS'),
-      findsNothing,
-      reason: 'the strip is the bar now',
-    );
+    // §39.24 gave the strip its title back: the mode's chrome is the bar in the
+    // capture bar's slot, and a header that scrolls away carries none of it.
+    expect(find.text('DROPS'), findsOneWidget);
     // Every row in the panel carries a box, and only the held one is checked.
     expect(find.text('[x]'), findsOneWidget);
     expect(find.text('[ ]'), findsOneWidget);
-    // §39.13: the capture bar stays where it is and does nothing.
-    expect(find.byType(CaptureBar), findsOneWidget);
+    // §39.24: the capture bar is not drawn while the mode is on.
+    expect(find.byType(CaptureBar), findsNothing);
+    expect(find.byType(SelectionBar), findsOneWidget);
 
     await unmount(tester);
   });

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/formatting.dart';
 import '../../application/providers.dart';
 import '../../data/database.dart';
 import '../../design/colors.dart';
@@ -18,9 +19,19 @@ import 'item_sheet.dart';
 /// project, under a goal or in the project's own DROPS panel. Only an unfiled
 /// item — no project at all — is a drop, and a drop uses [ListRow] directly.
 class TaskRow extends ConsumerStatefulWidget {
-  const TaskRow({super.key, required this.task, this.onLongPress});
+  const TaskRow({
+    super.key,
+    required this.task,
+    this.fresh = false,
+    this.onLongPress,
+  });
 
   final Task task;
+
+  /// SPEC.md §39.25: captured on this screen and not left behind yet. A filed
+  /// row carries no age column at all, so the age *is* the highlight here — it
+  /// arrives in accent with the freshness and leaves with it.
+  final bool fresh;
 
   /// §39.13: the project's DROPS panel keeps its multi-select, so holding a row
   /// there begins the selection instead of opening the sheet.
@@ -62,6 +73,8 @@ class _TaskRowState extends ConsumerState<TaskRow> {
       ),
       title: task.title,
       titleColor: task.done ? HotlineColors.textMuted : null,
+      value: widget.fresh ? relativeAge(task.createdAt) : null,
+      valueColor: widget.fresh ? HotlineColors.accent : null,
       // §37: the blocked reason is the row's second line, in warning, so a held
       // task is legible without opening it.
       subtitle: task.blockedReason == null
