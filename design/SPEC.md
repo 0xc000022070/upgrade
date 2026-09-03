@@ -424,3 +424,11 @@ Amends §39.13's "No text blocks, no bottom bar; the capture bar stays where it 
 - The fresh set clears when the user leaves the screen: a pushed route (project, quick view, settings, projects list), the back gesture, or the app leaving the foreground. It also clears when a batch removes every fresh row (move, delete). Cancelling the mode with `×` does not clear it: nothing happened.
 - `SELECT` (§39.15) ignores freshness: it enters with nothing checked. A tap on a fresh row outside the mode opens the quick view as always.
 - Home DROPS and a project's DROPS both get this; the capture bar of each screen feeds its own set.
+
+### 39.26 Correction to §39.22: the PROJECTS panel leaves Home, the tab stays (user, 2026-09-03: "por qué diablos la sección de projects no se ha quitado?")
+- §39.22 read the user's words backwards. The request was: remove the PROJECTS panel from Home, keep only the tab. §39.22 is void where it conflicts with this section; §39.23, §39.24 and §39.25 stand.
+- The bottom nav bar returns as §37 and §38.8 had it: HOME and PROJECTS, nav accent rule, the §16b nav-icon glitch on the autonomous tick and on a capture's arrival. §39.20's polling gate is again "while Home is in front and the app is foreground".
+- Home's panel order is AGENTS, NEXT ACTION, DROPS. No PROJECTS panel, no `VIEW ALL`, no `NEW +` on Home. A project is reached through the tab; a new project is created from the PROJECTS tab's `NEW +` as §39.18 already draws it.
+- The PROJECTS tab is the §39.18 list with the §39.14 `ARCHIVED N` panel under it, as before §39.22: no breadcrumb back arrow, no pushed route. Project detail's "go to the projects tab" moves (after delete, after the archive of an ancestor) are tab switches again.
+- A tab switch is leaving the screen: it clears the §39.24 selection and the §39.25 fresh state of the tab left, the same as a route push. Coming back to the tab starts clean.
+- Version bumps to 1.0.0+18.
