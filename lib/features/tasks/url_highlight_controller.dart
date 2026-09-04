@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../design/colors.dart';
 import 'link_input.dart';
 
-/// SPEC.md §39.15: the capture field paints every token [extractUrls] would
+/// The capture field paints every token [extractUrls] would
 /// take, so the user is told before submit that it will file as a link.
 ///
 /// A controller rather than a chip or an overlay: the token has to stay
@@ -14,7 +14,7 @@ import 'link_input.dart';
 class UrlHighlightController extends TextEditingController {
   UrlHighlightController({super.text});
 
-  /// §39.15 spells the treatment: `--fg-dim` ink on a `--panel-strip` ground,
+  /// The treatment: `--fg-dim` ink on a `--panel-strip` ground,
   /// mono, spanning exactly the token, and no underline — the field's own type
   /// is already mono, so the style only overrides colour.
   static const ink = HotlineColors.textMuted;
@@ -31,7 +31,7 @@ class UrlHighlightController extends TextEditingController {
     if (tokens.isEmpty) return TextSpan(text: text, style: style);
 
     // The composing underline the base implementation draws is dropped on
-    // purpose: §39.15 asks for no underline in this field, and a half-composed
+    // purpose: there is no underline in this field, and a half-composed
     // URL is exactly the moment the highlight has something to say.
     final base = style ?? const TextStyle();
     final marked = base.copyWith(

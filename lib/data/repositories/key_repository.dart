@@ -66,7 +66,7 @@ class InMemoryKeyRepository implements KeyRepository {
 
 /// Thrown by [DriftKeyRepository.delete] when a host still names the key.
 ///
-/// SPEC.md §39.21 refuses the delete rather than cascading it: a host whose key
+/// The delete is refused rather than cascaded: a host whose key
 /// vanished cannot connect and cannot say why, and the row that would explain it
 /// is the one that was just removed. [hostNames] is carried so the caller can
 /// name the hosts instead of only refusing.
@@ -79,7 +79,7 @@ class KeyInUseException implements Exception {
   String toString() => 'key is used by ${hostNames.join(', ')}';
 }
 
-/// SPEC.md §39.21. The public half of every generated key. The private half is
+/// The public half of every generated key. The private half is
 /// never written here — it lives in the platform keystore behind
 /// [PrivateKeyStore], and deleting a key from this table does not delete it
 /// there; [Ed25519Keys.delete] is the caller's second step.

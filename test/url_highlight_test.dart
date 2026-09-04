@@ -4,7 +4,7 @@ import 'package:hotline/design/colors.dart';
 import 'package:hotline/features/tasks/link_input.dart';
 import 'package:hotline/features/tasks/url_highlight_controller.dart';
 
-/// SPEC.md §39.15. The highlight is a promise about what `_submit` will do, so
+/// The highlight is a promise about what `_submit` will do, so
 /// the assertion that matters is that the painted ranges and [extractUrls]
 /// never disagree.
 void main() {
@@ -44,7 +44,7 @@ void main() {
   test(
     'the marked run is the whole whitespace token, trailing dot and all',
     () {
-      // §39.6 attaches the token as typed, so the highlight has to cover the
+      // The token is attached as typed, so the highlight has to cover the
       // trailing dot too: a mark that stopped at `.io` would promise a link the
       // submit does not attach.
       const text = 'trailing https://min.io.';
@@ -79,21 +79,18 @@ void main() {
     ]);
   });
 
-  test(
-    'the marked ink and ground are the §39.15 tokens, with no underline',
-    () {
-      final controller = UrlHighlightController(text: 'a https://min.io b');
-      final span = controller.buildTextSpan(
-        context: _FakeContext(),
-        style: const TextStyle(color: HotlineColors.textPrimary),
-        withComposing: false,
-      );
-      final marked = (span.children!.whereType<TextSpan>().toList())[1];
-      expect(marked.style!.color, HotlineColors.textMuted);
-      expect(marked.style!.backgroundColor, HotlineColors.surfaceSecondary);
-      expect(marked.style!.decoration, TextDecoration.none);
-    },
-  );
+  test('the marked ink and ground are the link tokens, with no underline', () {
+    final controller = UrlHighlightController(text: 'a https://min.io b');
+    final span = controller.buildTextSpan(
+      context: _FakeContext(),
+      style: const TextStyle(color: HotlineColors.textPrimary),
+      withComposing: false,
+    );
+    final marked = (span.children!.whereType<TextSpan>().toList())[1];
+    expect(marked.style!.color, HotlineColors.textMuted);
+    expect(marked.style!.backgroundColor, HotlineColors.surfaceSecondary);
+    expect(marked.style!.decoration, TextDecoration.none);
+  });
 
   test('what is painted is what extractUrls takes, token for token', () {
     const lines = [

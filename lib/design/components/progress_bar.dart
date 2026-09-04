@@ -17,13 +17,13 @@ class ProgressBar extends StatelessWidget {
   /// 0..1. A goal with no tasks is 0, never indeterminate.
   final double value;
 
-  /// SPEC.md §16b reserves a diamond marker at the fill edge; passing it in
+  /// A diamond marker is reserved for the fill edge; passing it in
   /// keeps the bar itself free of animation state.
   final Widget? head;
   final double headSize;
 
   /// Secondary goals draw a 1px rule so the main goal's 2px bar stays the one
-  /// the eye lands on (SPEC.md §20).
+  /// the eye lands on.
   final double thickness;
 
   @override

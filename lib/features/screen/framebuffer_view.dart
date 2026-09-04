@@ -5,7 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../design/colors.dart';
 import 'screen_transform.dart';
 
-/// SPEC.md §39.32's framebuffer and every gesture over it.
+/// The framebuffer and every gesture over it.
 ///
 /// The transform is state here rather than on the controller: it is about the
 /// view of the screen, not the connection to it, and a reconnect that keeps the
@@ -44,7 +44,7 @@ class _FramebufferViewState extends State<FramebufferView> {
   /// between frames while the gesture's own scale is measured from its start.
   double _lastScale = 1.0;
 
-  /// §39.32 gives a two-finger gesture two meanings and the fingers do not say
+  /// A two-finger gesture has two meanings and the fingers do not say
   /// which: a pinch changes the span between them, a drag moves both together.
   /// Decided over the whole gesture rather than frame by frame — the two
   /// pointers never move in the same event, so every frame of a two-finger
@@ -57,7 +57,7 @@ class _FramebufferViewState extends State<FramebufferView> {
   static const _dragDeadband = 20.0;
   double _panTravel = 0.0;
 
-  /// §39.32: "one button 4/5 press-release per 40 px".
+  /// "one button 4/5 press-release per 40 px".
   static const _wheelStep = 40.0;
   double _wheelTravel = 0.0;
   Offset _wheelAt = Offset.zero;
@@ -87,7 +87,7 @@ class _FramebufferViewState extends State<FramebufferView> {
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
     // One finger is a tap, a long press or a long-press drag — never a pan.
-    // §39.32 gives the single-finger gestures to the pointer.
+    // The single-finger gestures all go to the pointer.
     if (details.pointerCount < 2) return;
     // Accumulated before the gesture is decided, so the travel the deadband
     // spent is still counted once it is.
@@ -120,7 +120,7 @@ class _FramebufferViewState extends State<FramebufferView> {
       next = next.pannedBy(details.focalPointDelta);
       _wheelTravel = 0.0;
     } else {
-      // §39.32: at fit, where nothing pans, the drag is a wheel. Dragging the
+      // At fit, where nothing pans, the drag is a wheel. Dragging the
       // content down is scrolling up, which is button 4.
       _wheelAt = next.toFramebuffer(details.localFocalPoint);
       while (_wheelTravel.abs() >= _wheelStep) {
@@ -141,11 +141,12 @@ class _FramebufferViewState extends State<FramebufferView> {
         final transform = _transform;
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          // §39.32: tap moves the pointer there and left-clicks.
+          // Tap moves the pointer there and left-clicks.
           onTapUp: (details) =>
               widget.onClick(transform.toFramebuffer(details.localPosition)),
-          onLongPressStart: (details) =>
-              widget.onRightClick(transform.toFramebuffer(details.localPosition)),
+          onLongPressStart: (details) => widget.onRightClick(
+            transform.toFramebuffer(details.localPosition),
+          ),
           // "long press then drag holds button 1 while moving": the right-click
           // has already gone by then, and the drag opens with button 1 down at
           // the first move — which is how a drag out of a context menu behaves
@@ -161,7 +162,7 @@ class _FramebufferViewState extends State<FramebufferView> {
           onScaleStart: _onScaleStart,
           onScaleUpdate: _onScaleUpdate,
           child: ColoredBox(
-            // §39.32: black ground, not the app's near-black. The host's own
+            // Black ground, not the app's near-black. The host's own
             // desktop is the only thing lit on this route.
             color: const Color(0xFF000000),
             child: CustomPaint(
@@ -178,7 +179,7 @@ class _FramebufferViewState extends State<FramebufferView> {
   }
 }
 
-/// Which half of §39.32's two-finger sentence a gesture turned out to be.
+/// Which half of the two-finger sentence a gesture turned out to be.
 enum _TwoFinger { undecided, zooming, dragging }
 
 class _FramebufferPainter extends CustomPainter {
@@ -212,7 +213,7 @@ class _FramebufferPainter extends CustomPainter {
       old.image != image || old.transform != transform;
 }
 
-/// The ground behind the framebuffer before there is one: §39.32's `CONNECTING`
+/// The ground behind the framebuffer before there is one: `CONNECTING`
 /// has nothing to draw, and a black rectangle is what it draws instead.
 class ScreenGround extends StatelessWidget {
   const ScreenGround({super.key, this.child});

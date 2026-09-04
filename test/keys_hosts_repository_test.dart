@@ -5,7 +5,7 @@ import 'package:hotline/data/repositories/host_repository.dart';
 import 'package:hotline/data/repositories/key_repository.dart';
 import 'package:hotline/data/enums.dart';
 
-/// SPEC.md §39.21. The drift implementations behind the in-memory ones the
+/// The drift implementations behind the in-memory ones the
 /// screens are built against, so the two are held to the same behaviour and the
 /// rules that only exist in the drift half — the delete refusal and the
 /// integration rows — are held to anything at all.
@@ -148,7 +148,7 @@ void main() {
       expect(stored.keyId, 'k1');
     });
 
-    test('SPEC.md §39.29: a port that is not 22 round-trips', () async {
+    test('a port that is not 22 round-trips', () async {
       await key('k1');
       await host('h1', port: 357);
 
@@ -167,7 +167,7 @@ void main() {
 
   group('integrations', () {
     test('a host starts with none', () async {
-      // §39.20's ruling: the app never assumes a host is a herdr endpoint, so a
+      // The app never assumes a host is a herdr endpoint, so a
       // registered host is invisible to the poller until a kind is switched on.
       await key('k1');
       await host('h1');
@@ -236,7 +236,7 @@ void main() {
       await hosts.setIntegration('h1', IntegrationKind.herdr, true);
       await hosts.setIntegration('h3', IntegrationKind.herdr, true);
 
-      // §39.20.4 polls all of them concurrently, so the set is what decides how
+      // All of them are polled concurrently, so the set is what decides how
       // many hosts the panel merges rows from.
       expect(
         (await hosts.watchWithIntegration(IntegrationKind.herdr).first)

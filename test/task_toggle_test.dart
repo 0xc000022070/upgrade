@@ -17,9 +17,9 @@ import 'package:hotline/features/tasks/item_sheet.dart';
 
 import 'support/platform_channels.dart';
 
-/// The screen mounts a 10fps ticker for the §16b.1 static, so nothing here can
-/// use `pumpAndSettle`. Drift needs real time to run its query and fake time to
-/// deliver it, so each round buys a little of both.
+/// The screen mounts a 10fps ticker for the background static, so nothing here
+/// can use `pumpAndSettle`. Drift needs real time to run its query and fake
+/// time to deliver it, so each round buys a little of both.
 Future<void> _drain(
   WidgetTester tester, {
   Duration step = Duration.zero,
@@ -32,7 +32,7 @@ Future<void> _drain(
   }
 }
 
-/// Panel titles run the §16b decode on entry, so the headers the finders match
+/// Panel titles run the decode on entry, so the headers the finders match
 /// on are a glyph soup until it locks. Pre-tap waits therefore have to move the
 /// fake clock; post-tap ones must not, or they would run the glitch out.
 Future<void> _ready(WidgetTester tester) =>
@@ -51,7 +51,7 @@ void main() {
     final goals = GoalRepository(db, activity);
     final tasks = TaskRepository(db, activity);
     projectId = await projects.create(name: 'Infra personal');
-    // §39.1: the checkbox lives on a task filed under a goal. A drop has no
+    // The checkbox lives on a task filed under a goal. A drop has no
     // glyph at all, so the toggle tests need a goal to hang the row on.
     final goalId = await goals.create(projectId: projectId, title: 'Storage');
     openTaskId = await tasks.create(
@@ -90,7 +90,7 @@ void main() {
     return rows!.firstWhere((task) => task.id == openTaskId).done;
   }
 
-  /// §39.4 moved the toggle off the row and onto the 40px target around the
+  /// The toggle moved off the row and onto the 40px target around the
   /// checkbox glyph; the row itself now opens the quick view. Tapping the
   /// title would therefore open a sheet, so the toggle tests aim at the
   /// row's top-left corner instead.
@@ -117,7 +117,7 @@ void main() {
     await tapCheckbox(tester, 'Object storage');
     await _drain(tester);
 
-    // §39.1 replaced OPEN/DONE with one panel per goal, so a done item has
+    // One panel per goal replaced OPEN/DONE, so a done item has
     // nowhere else to be: the write lands, the glitch plays on the glyph the
     // finger is still on, and the row does not move.
     expect(await isDoneInDb(tester), isTrue);

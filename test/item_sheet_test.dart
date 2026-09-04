@@ -17,7 +17,7 @@ import 'package:hotline/features/tasks/link_input.dart';
 
 import 'support/platform_channels.dart';
 
-/// SPEC.md §39.4/§39.5. The sheet is mounted directly rather than opened from a
+/// The sheet is mounted directly rather than opened from a
 /// row: what is under test is its body and its footer, and a route on top of a
 /// screen only adds a second ticker to drain.
 Future<void> _drain(
@@ -35,8 +35,8 @@ Future<void> _drain(
 Future<void> _ready(WidgetTester tester) =>
     _drain(tester, step: const Duration(milliseconds: 100));
 
-/// The §39.9 strip is icons only, so its buttons have no text to find; §39.10
-/// names the glyph for every verb, which is what makes them findable.
+/// The strip is icons only, so its buttons have no text to find; every verb
+/// names its glyph, which is what makes them findable.
 Finder _glyph(ToolbarGlyph glyph) => find.byWidgetPredicate(
   (widget) => widget is Icon && widget.icon == glyph.icon,
 );
@@ -113,7 +113,7 @@ void main() {
     // The host, stripped of `www.`.
     expect(find.text('min.io'), findsOneWidget);
     expect(find.text('garagehq.deuxfleurs.fr'), findsOneWidget);
-    // §39.10: images are squares in their own field, not rows in LINKS.
+    // Images are squares in their own field, not rows in LINKS.
     expect(find.text('[ IMAGES ]'), findsOneWidget);
     expect(find.text('attachments/019-abc.jpg'), findsNothing);
     expect(find.text('[ WITH ]'), findsOneWidget);
@@ -155,7 +155,7 @@ void main() {
   testWidgets('a drop has no state, on the footer or on the strip', (
     tester,
   ) async {
-    // §39.11: the item is text plus attachments until it is filed.
+    // The item is text plus attachments until it is filed.
     final task = await tasks.capture('revisar pgbouncer');
 
     await tester.pumpWidget(host(task));
@@ -169,7 +169,7 @@ void main() {
       expect(find.text(verb), findsNothing, reason: '$verb is a state');
     }
 
-    // §39.11 leaves one block on the footer, so DELETE moves to the strip.
+    // One block is left on the footer, so DELETE moves to the strip.
     expect(find.text('DELETE'), findsNothing);
     await tester.longPress(find.text('DROPS'));
     await _ready(tester);
@@ -192,7 +192,7 @@ void main() {
   });
 
   testWidgets('a project row with no goal gets the full sheet', (tester) async {
-    // §39.11 (ruling reversed 2026-09-02): the project is what makes a task, so
+    // Ruling reversed 2026-09-02: the project is what makes a task, so
     // a row in a project's DROPS panel keeps every state block. This is the
     // shape of every row the user wrote before goals existed.
     final project = await projects.create(name: 'Infra personal');
@@ -232,7 +232,7 @@ void main() {
     await tester.tap(find.text('Postgres'));
     await _ready(tester);
 
-    // §39.10's default row, whatever the item is.
+    // The default row, whatever the item is.
     expect(_glyph(ToolbarGlyph.link), findsOneWidget);
     expect(_glyph(ToolbarGlyph.image), findsOneWidget);
     expect(_glyph(ToolbarGlyph.next), findsNothing);
@@ -325,7 +325,7 @@ void main() {
     await tester.pumpWidget(host(task));
     await _ready(tester);
 
-    // §39.9: the body is a readout until the title is tapped; the strip comes
+    // The body is a readout until the title is tapped; the strip comes
     // up with the keyboard, and it is the only place the link icon exists.
     await tester.tap(find.text('revisar pgbouncer'));
     await _ready(tester);

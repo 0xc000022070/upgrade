@@ -33,10 +33,10 @@ Future<void> _ready(WidgetTester tester) =>
 Offset _offsetOf(WidgetTester tester) =>
     tester.widget<StaticBackground>(find.byType(StaticBackground)).offset.value;
 
-/// The fill behind a §16c.3 row is the whole statement of which value is
+/// The fill behind a picker row is the whole statement of which value is
 /// current: the selected row is the accent block, everything else is a plain
 /// row with no decoration of its own.
-/// §39.31 put a second row reading OFF on this screen, so §39.16's picker is
+/// A second row reading OFF sits on this screen, so the static picker is
 /// addressed inside its own panel rather than by the word alone.
 Finder _inStatic(String label) => find.descendant(
   of: find.ancestor(of: find.text('[ STATIC ]'), matching: find.byType(Panel)),
@@ -66,7 +66,7 @@ void main() {
     await db.close();
   });
 
-  /// The §16b.1 timer outlives the test otherwise: the binding checks for
+  /// The background timer outlives the test otherwise: the binding checks for
   /// pending timers after the body, and the driver only cancels its own on
   /// dispose.
   Future<void> unmount(WidgetTester tester) async {
@@ -94,12 +94,12 @@ void main() {
     expect(find.text('/ HOTLINE / SYS'), findsOneWidget);
     expect(find.text('[ STATIC ]'), findsOneWidget);
     expect(find.text('[ BUILD ]'), findsOneWidget);
-    // The route has no nav bar of its own (§39.16 keeps §37's two tabs).
+    // The route has no nav bar of its own; the two tabs stay where they are.
     expect(find.text('PROJECTS'), findsNothing);
     await unmount(tester);
   });
 
-  testWidgets('§39.16 static defaults to ON and the picker writes the row', (
+  testWidgets('static defaults to ON and the picker writes the row', (
     tester,
   ) async {
     await tester.pumpWidget(host(const SettingsScreen()));

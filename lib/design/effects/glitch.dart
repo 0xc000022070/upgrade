@@ -5,7 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import '../motion.dart';
 
-/// SPEC.md §16b: "glitch is an event, never a state". The controller therefore
+/// "glitch is an event, never a state". The controller therefore
 /// has no idle animation to speak of — it walks a fixed number of frames after
 /// [fire] and returns to [idle], and the seed makes the frame offsets a pure
 /// function of the trigger so the same event always looks the same.
@@ -56,7 +56,7 @@ class GlitchController extends ChangeNotifier {
   }
 }
 
-/// One displaced rectangle of the SPEC.md §16b.2 language. Both fields are
+/// One displaced rectangle of the glitch language. Both fields are
 /// fractions of the box rather than pixels, so a single plan reads the same on a
 /// 20px glyph and on a panel, and the block ranges the spec states as fractions
 /// of the glyph need no conversion.
@@ -78,7 +78,7 @@ class GlitchBlock {
   /// Luminance multiplier, 1 for an untouched block.
   final double tone;
 
-  /// §16b.2 MOSH: the block reached into another band, so what lands here is a
+  /// MOSH: the block reached into another band, so what lands here is a
   /// piece of the shape from somewhere it does not belong rather than the
   /// pixels immediately beside it.
   bool get isMosh => shift.dy != 0;
@@ -86,18 +86,18 @@ class GlitchBlock {
   double get area => dest.width * dest.height;
 }
 
-/// §16b.2's ruling — "the un-glitched shape stays at least 70% intact" — as an
+/// The ruling — "the un-glitched shape stays at least 70% intact" — as an
 /// area budget the planner spends, rather than a property the block ranges are
 /// merely expected to have. Overlapping blocks are charged twice, so the real
 /// corruption is at most this.
 const glitchCoverage = 0.3;
 
-/// The §6 text ramp steps by roughly this ratio between neighbouring levels
-/// (E8 -> 9A -> 6F), which is what §16b.2 means by shifting luminance one step.
+/// The text ramp steps by roughly this ratio between neighbouring levels
+/// (E8 -> 9A -> 6F), which is what shifting the luminance one step means.
 const glitchToneDown = 0.69;
 const glitchToneUp = 1.45;
 
-/// The §16b.2 block set for one frame. Pure and seeded: the same event always
+/// The block set for one frame. Pure and seeded: the same event always
 /// tears the same way, and a test can assert the ruling on the plan itself
 /// without rasterising anything.
 List<GlitchBlock> planGlitchBlocks(
@@ -116,7 +116,7 @@ List<GlitchBlock> planGlitchBlocks(
   double toneOf() =>
       tone ? (random.nextBool() ? glitchToneUp : glitchToneDown) : 1.0;
 
-  // §16b.2: one or two of the displaced blocks are moshes.
+  // One or two of the displaced blocks are moshes.
   final moshes = 1 + random.nextInt(2);
 
   for (var i = 0; i < blocks; i++) {
@@ -145,7 +145,7 @@ List<GlitchBlock> planGlitchBlocks(
     );
   }
 
-  // §16b.2 FRAGMENTS: two or three small blocks detach fully and sit in empty
+  // FRAGMENTS: two or three small blocks detach fully and sit in empty
   // space. They stay inside the box — a glyph is mostly empty ground, so there
   // is room, and a crumb thrown past the edge would land on whatever shares the
   // row with the icon instead of on the icon's own emptiness.
@@ -187,10 +187,10 @@ double _thrown(double source, double size, double delta) {
   return max(0.0, source - delta);
 }
 
-/// The §16b.2 block language: the child is painted once intact, then a small set
+/// The block language: the child is painted once intact, then a small set
 /// of displaced rectangles is painted over it. The blocks are overlays and never
 /// holes — cutting a hole would need a ground colour to fill it with, and a flat
-/// patch of ground is exactly what the §16b.1 grain behind everything is not.
+/// patch of ground is exactly what the grain behind everything is not.
 class GlitchBlocks extends StatelessWidget {
   const GlitchBlocks({
     super.key,
@@ -212,7 +212,7 @@ class GlitchBlocks extends StatelessWidget {
   /// empty space of its own to drop them into.
   final int fragments;
 
-  /// §16b.2 keeps the accent frame as the app's single colour event, so that
+  /// The accent frame is the app's single colour event, so that
   /// frame asks for no per-block luminance step.
   final bool tone;
 
@@ -228,7 +228,7 @@ class GlitchBlocks extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         // The intact copy is two things at once: the layout size, so a displaced
-        // block never changes the widget's extent, and the 70% of §16b.2 that
+        // block never changes the widget's extent, and the 70% that
         // has to survive underneath the corruption.
         child,
         for (final block in plan)
@@ -274,7 +274,7 @@ class _BlockClip extends CustomClipper<Rect> {
       dest.width * size.width,
       dest.height * size.height,
     );
-    // §16b.2 states heights down to 1/64 of the glyph, which on a 20px icon
+    // Block heights go down to 1/64 of the glyph, which on a 20px icon
     // rounds to nothing. A block thinner than a pixel is not a subtle block, it
     // is an absent one.
     return rect.height >= 1
@@ -286,7 +286,7 @@ class _BlockClip extends CustomClipper<Rect> {
   bool shouldReclip(_BlockClip oldClipper) => oldClipper.dest != dest;
 }
 
-/// §16b.2: screen-level events (boot, project detail entry) use the same
+/// Screen-level events (boot, project detail entry) use the same
 /// language at panel scale. A panel has no signal variant and no accent copy to
 /// swap to the way an icon does, so its sequence is block sets alone — and like
 /// the icon it ends on the clean shape rather than on a torn one.

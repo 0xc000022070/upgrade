@@ -17,7 +17,7 @@ class TaskRepository {
   final ActivityRepository _activity;
 
   /// Owned rather than injected so a capture can write its item and its links
-  /// inside one transaction (SPEC.md §39.6) without the call site holding both.
+  /// inside one transaction without the call site holding both.
   final AttachmentRepository _attachments;
   static const _uuid = Uuid();
 
@@ -33,10 +33,10 @@ class TaskRepository {
         .map(withBundlesAdjacent);
   }
 
-  /// SPEC.md §39.1: the project's own DROPS panel — filed to the project but
+  /// The project's own DROPS panel — filed to the project but
   /// under no goal.
   ///
-  /// Newest first, like Home's DROPS. §39.19 puts the capture bar at the bottom
+  /// Newest first, like Home's DROPS. The capture bar sits at the bottom
   /// of the project and says the captured row appears at the top of this panel;
   /// oldest first sent it under every task already there, which on a project
   /// with a real list is off screen. Goal panels and [watchByProject] keep
@@ -57,9 +57,9 @@ class TaskRepository {
         .map(withBundlesAdjacent);
   }
 
-  /// SPEC.md §39.3 DROPS: unfiled items, newest first.
-  /// §39.11: a drop has no done, so the panel does not filter on it. A done
-  /// task that is later unfiled — by MOVE or by §39.2's project delete — keeps
+  /// DROPS: unfiled items, newest first.
+  /// A drop has no done, so the panel does not filter on it. A done
+  /// task that is later unfiled — by MOVE or by a project delete — keeps
   /// the column set, and filtering here would leave that row on no surface at
   /// all.
   Stream<List<Task>> watchDrops() {
@@ -74,7 +74,7 @@ class TaskRepository {
     _db.tasks,
   )..where((t) => t.id.equals(id))).watchSingleOrNull();
 
-  /// The `[ WITH ]` list of SPEC.md §39.4. An unbundled item has no mates, and
+  /// The `[ WITH ]` list. An unbundled item has no mates, and
   /// a bundle that lost its last partner reports none either.
   Stream<List<Task>> watchMates(String id) {
     return (_db.select(
@@ -89,7 +89,7 @@ class TaskRepository {
     });
   }
 
-  /// SPEC.md §39.5 PAIR picker: open drops and ideas, newest first, excluding
+  /// The PAIR picker: open drops and ideas, newest first, excluding
   /// the item itself and whatever it already travels with.
   Stream<List<Task>> watchPairCandidates(String id) {
     return (_db.select(
@@ -162,7 +162,7 @@ class TaskRepository {
     });
   }
 
-  /// The capture bar's one write (SPEC.md §39.6): the item, its links and the
+  /// The capture bar's one write: the item, its links and the
   /// event land in a single transaction, at whatever target the bar was
   /// pointing at. The distinct event is what makes a capture read as a dump
   /// rather than as planning.
@@ -243,7 +243,7 @@ class TaskRepository {
     });
   }
 
-  /// SPEC.md §37: at most one task in the database carries the flag. Clearing
+  /// At most one task in the database carries the flag. Clearing
   /// the others in the same transaction is what makes that an invariant rather
   /// than a convention every call site has to remember.
   Future<void> setNext(String id, {DateTime? at}) {
@@ -265,7 +265,7 @@ class TaskRepository {
     });
   }
 
-  /// SPEC.md §39.4 `UNSET`: the flag comes off without anything else taking
+  /// `UNSET`: the flag comes off without anything else taking
   /// it, so HOME's NEXT ACTION panel goes away rather than moving on.
   Future<void> unsetNext(String id, {DateTime? at}) {
     final now = at ?? DateTime.now().toUtc();
@@ -287,7 +287,7 @@ class TaskRepository {
     });
   }
 
-  /// SPEC.md §39.5: a bundle moves whole. The member lookup happens inside the
+  /// A bundle moves whole. The member lookup happens inside the
   /// transaction, so a concurrent pair cannot leave half a bundle behind.
   Future<void> moveToTarget(String id, ItemTarget target, {DateTime? at}) {
     final now = at ?? DateTime.now().toUtc();
@@ -316,7 +316,7 @@ class TaskRepository {
     });
   }
 
-  /// SPEC.md §39.5: pairing is a union. Whichever bundle already exists wins,
+  /// Pairing is a union. Whichever bundle already exists wins,
   /// so joining an item to a pair makes a trio rather than splitting it.
   Future<void> pair(String id, String otherId, {DateTime? at}) {
     final now = at ?? DateTime.now().toUtc();
@@ -343,7 +343,7 @@ class TaskRepository {
     });
   }
 
-  /// SPEC.md §39.5: unpairing clears the id on this item only; the rest of the
+  /// Unpairing clears the id on this item only; the rest of the
   /// bundle stays together.
   Future<void> unpair(String id, {DateTime? at}) {
     final now = at ?? DateTime.now().toUtc();
@@ -398,7 +398,7 @@ class TaskRepository {
       await (_db.delete(
         _db.attachments,
       )..where((a) => a.itemId.equals(id))).go();
-      // The pre-§39.10 rows migrated into `attachments` but were left behind in
+      // The older rows migrated into `attachments` but were left behind in
       // `links`; a deleted item takes both copies with it.
       await (_db.delete(_db.links)..where((l) => l.taskId.equals(id))).go();
       await (_db.delete(_db.notes)..where((n) => n.taskId.equals(id))).go();

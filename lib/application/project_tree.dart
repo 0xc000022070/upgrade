@@ -1,8 +1,8 @@
 import '../data/database.dart';
 
-/// SPEC.md §39.18: a child's row carries its parent path as the subtitle,
+/// A child's row carries its parent path as the subtitle,
 /// `INFRA / HOMELAB`. The path is the project's ancestors, root first, upper
-/// cased for §38's rows; a root has none, so its entry is empty.
+/// cased for the rows; a root has none, so its entry is empty.
 ///
 /// Computed over a list the caller already has rather than one query per row:
 /// both pickers that need it are rendering that same list.
@@ -29,7 +29,7 @@ Map<String, String> parentPaths(List<Project> projects) {
   return paths;
 }
 
-/// SPEC.md §39.18's cycle guard as the form sees it: [id] and everything under
+/// The cycle guard as the form sees it: [id] and everything under
 /// it, the rows the `[ PARENT ]` picker must not offer. Walking the list the
 /// picker is already drawn from keeps the exclusion in step with the stream
 /// rather than a query behind it.

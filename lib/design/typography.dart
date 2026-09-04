@@ -3,24 +3,24 @@ import 'package:flutter/painting.dart';
 import 'colors.dart';
 
 abstract final class FontFamilies {
-  /// Screen titles and the one display number (SPEC.md §38.2, §38.6).
+  /// Screen titles and the one display number.
   static const display = 'Barlow Condensed';
 
   /// Long-form prose. The mocks kept it to the action sheet's body copy.
   static const ui = 'IBM Plex Sans';
 
-  /// Everything structural. §38.2 makes mono the default, not the exception.
+  /// Everything structural. Mono is the default, not the exception.
   static const mono = 'IBM Plex Mono';
 
-  /// Reported by the §16c.1 boot log.
+  /// Reported by the boot log.
   static const count = 3;
 }
 
-/// SPEC.md §38.2, sized off the 360dp mocks in design/explorations/screens.
+/// Sized off the 360dp mocks in design/explorations/screens.
 /// The scale is mono-dominant and small: size carries almost no hierarchy, so
 /// colour, column position and the 9/10/12 step do the separating.
 abstract final class HotlineText {
-  /// §38.5: the screen title. The trailing `_` cursor is appended by the
+  /// The screen title. The trailing `_` cursor is appended by the
   /// scaffold, not baked in, so a title can still be decoded glyph by glyph.
   static const screenTitle = TextStyle(
     fontFamily: FontFamilies.display,
@@ -31,7 +31,7 @@ abstract final class HotlineText {
     color: HotlineColors.textPrimary,
   );
 
-  /// §38.5: `/ PERSONAL CONTROL PLANE` above every title.
+  /// `/ PERSONAL CONTROL PLANE` above every title.
   static const breadcrumb = TextStyle(
     fontFamily: FontFamilies.mono,
     fontSize: 10,
@@ -41,7 +41,7 @@ abstract final class HotlineText {
     color: HotlineColors.textMuted,
   );
 
-  /// §38.1: the header strip inside a panel, and its right affordance.
+  /// The header strip inside a panel, and its right affordance.
   static const panelHeader = TextStyle(
     fontFamily: FontFamilies.mono,
     fontSize: 10,
@@ -61,7 +61,7 @@ abstract final class HotlineText {
     color: HotlineColors.textSecondary,
   );
 
-  /// §38.4 row anatomy: title over subtitle over caption, all mono.
+  /// Row anatomy: title over subtitle over caption, all mono.
   static const rowTitle = TextStyle(
     fontFamily: FontFamilies.mono,
     fontSize: 12,
@@ -88,7 +88,7 @@ abstract final class HotlineText {
     color: HotlineColors.textMuted,
   );
 
-  /// §38.4: the single right-hand column — percent, duration, time, count.
+  /// The single right-hand column — percent, duration, time, count.
   static const value = TextStyle(
     fontFamily: FontFamilies.mono,
     fontSize: 10,
@@ -105,7 +105,7 @@ abstract final class HotlineText {
     color: HotlineColors.textPrimary,
   );
 
-  /// §38.2: the smallest tracked line. Tags, field names, `n OF m TASKS`.
+  /// The smallest tracked line. Tags, field names, `n OF m TASKS`.
   static const label = TextStyle(
     fontFamily: FontFamilies.mono,
     fontSize: 9,
@@ -115,7 +115,7 @@ abstract final class HotlineText {
     color: HotlineColors.textMuted,
   );
 
-  /// §38.6: the project name in the hero card.
+  /// The project name in the hero card.
   static const heroName = TextStyle(
     fontFamily: FontFamilies.display,
     fontSize: 20,
@@ -125,7 +125,7 @@ abstract final class HotlineText {
     color: HotlineColors.textPrimary,
   );
 
-  /// §38.6: the one big number on the screen.
+  /// The one big number on the screen.
   static const heroPercent = TextStyle(
     fontFamily: FontFamilies.display,
     fontSize: 28,
@@ -145,7 +145,8 @@ abstract final class HotlineText {
     color: HotlineColors.textPrimary,
   );
 
-  /// §39.16's build line: one step above [value] because it is meant to be read
+  /// The settings build line: one step above [value] because it is meant to be
+  /// read
   /// off a screen and typed into a bug report, and dim because it is a stamp
   /// and not a fact anyone acts on.
   static const buildStamp = TextStyle(
@@ -156,7 +157,7 @@ abstract final class HotlineText {
     color: HotlineColors.textMuted,
   );
 
-  /// §38.9: the capture field's placeholder, one step above a row title so the
+  /// The capture field's placeholder, one step above a row title so the
   /// bar reads as an input rather than another list line.
   static const capture = TextStyle(
     fontFamily: FontFamilies.mono,
@@ -175,7 +176,7 @@ abstract final class HotlineText {
     color: HotlineColors.textSecondary,
   );
 
-  /// §38.8: glyph over a tracked mono label.
+  /// Glyph over a tracked mono label.
   static const navLabel = TextStyle(
     fontFamily: FontFamilies.mono,
     fontSize: 10,

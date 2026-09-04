@@ -1,4 +1,4 @@
-/// SPEC.md §39.32's regression list: the handshake, the failure words, the
+/// The screen's regression list: the handshake, the failure words, the
 /// rect encodings and the input messages, all against scripted bytes.
 library;
 
@@ -16,7 +16,7 @@ import 'package:hotline/platform/vnc/vnc_failure.dart';
 
 import 'support/vnc_channel.dart';
 
-/// The bytes §39.32's client owes a 3.8 server before it asks for a frame:
+/// The bytes the client owes a 3.8 server before it asks for a frame:
 /// the version line back, `None`, a shared `ClientInit`, then the format and
 /// the encodings it wants.
 Uint8List expectedClientHandshake() {
@@ -90,32 +90,35 @@ void main() {
       expect((failure! as VncFailure).reason('nyx'), 'auth unsupported');
     });
 
-    test('an empty security list is auth unsupported, with the server reason', () async {
-      final channel = FakeVncChannel();
-      addTearDown(channel.dispose);
-      final client = RfbClient(
-        incoming: channel.stream,
-        outgoing: channel.sink,
-      );
-      addTearDown(client.close);
+    test(
+      'an empty security list is auth unsupported, with the server reason',
+      () async {
+        final channel = FakeVncChannel();
+        addTearDown(channel.dispose);
+        final client = RfbClient(
+          incoming: channel.stream,
+          outgoing: channel.sink,
+        );
+        addTearDown(client.close);
 
-      channel.feed([
-        ...'RFB 003.008\n'.codeUnits,
-        0,
-        ...u32(9),
-        ...'too many'.codeUnits,
-        // The reason string, one byte short of its length, then the byte that
-        // completes it: the reader must not stop at a chunk boundary.
-        '!'.codeUnitAt(0),
-      ]);
+        channel.feed([
+          ...'RFB 003.008\n'.codeUnits,
+          0,
+          ...u32(9),
+          ...'too many'.codeUnits,
+          // The reason string, one byte short of its length, then the byte that
+          // completes it: the reader must not stop at a chunk boundary.
+          '!'.codeUnitAt(0),
+        ]);
 
-      final failure = await client.handshake().then<Object?>(
-        (_) => null,
-        onError: (Object error) => error,
-      );
-      expect(failure, isA<VncAuthUnsupported>());
-      expect((failure! as VncFailure).detail, 'too many!');
-    });
+        final failure = await client.handshake().then<Object?>(
+          (_) => null,
+          onError: (Object error) => error,
+        );
+        expect(failure, isA<VncAuthUnsupported>());
+        expect((failure! as VncFailure).detail, 'too many!');
+      },
+    );
 
     test('a stream that ends mid-handshake is stream closed', () async {
       final channel = FakeVncChannel();
@@ -144,24 +147,25 @@ void main() {
       expect(failure!.reason('nyx'), 'tunnel refused');
     });
 
-    test('a rejected key, an unresolved name and a dead host keep §39.20 words', () {
-      expect(
-        asVncFailure(SSHAuthFailError('no more auth methods'))!.reason('nyx'),
-        'key rejected',
-      );
-      expect(
-        asVncFailure(
-          const SocketException('Failed host lookup: nyx'),
-        )!.reason('NYX'),
-        'nyx unresolved',
-      );
-      expect(
-        asVncFailure(
-          const SocketException('Connection refused'),
-        )!.reason('NYX'),
-        'nyx unreachable',
-      );
-    });
+    test(
+      'a rejected key, an unresolved name and a dead host keep their words',
+      () {
+        expect(
+          asVncFailure(SSHAuthFailError('no more auth methods'))!.reason('nyx'),
+          'key rejected',
+        );
+        expect(
+          asVncFailure(const SocketException('Failed host lookup: nyx'))!
+              .reason('NYX'),
+          'nyx unresolved',
+        );
+        expect(
+          asVncFailure(const SocketException('Connection refused'))!
+              .reason('NYX'),
+          'nyx unreachable',
+        );
+      },
+    );
 
     test('an error that is not the transport is left alone', () {
       expect(asVncFailure(StateError('mine')), isNull);
@@ -194,7 +198,13 @@ void main() {
       channel.feed([
         Rfb.serverFramebufferUpdate,
         ...updateHeader(1),
-        ...rectHeader(x: 1, y: 1, width: 2, height: 1, encoding: Rfb.encodingRaw),
+        ...rectHeader(
+          x: 1,
+          y: 1,
+          width: 2,
+          height: 1,
+          encoding: Rfb.encodingRaw,
+        ),
         // BGRX, and the X byte is deliberately zero: the framebuffer owes
         // Flutter an opaque alpha whatever the wire says.
         0x10, 0x20, 0x30, 0x00,
@@ -217,8 +227,17 @@ void main() {
       channel.feed([
         Rfb.serverFramebufferUpdate,
         ...updateHeader(1),
-        ...rectHeader(x: 0, y: 0, width: 1, height: 1, encoding: Rfb.encodingRaw),
-        0x11, 0x22, 0x33, 0xFF,
+        ...rectHeader(
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+          encoding: Rfb.encodingRaw,
+        ),
+        0x11,
+        0x22,
+        0x33,
+        0xFF,
         Rfb.serverFramebufferUpdate,
         ...updateHeader(1),
         ...rectHeader(
@@ -237,39 +256,42 @@ void main() {
       expect(pixelAt(buffer, 5, 2), [0x11, 0x22, 0x33, 0xFF]);
     });
 
-    test('a DesktopSize resizes and the next request stops being incremental', () async {
-      final (channel, client) = await live();
-      addTearDown(channel.dispose);
-      addTearDown(client.close);
+    test(
+      'a DesktopSize resizes and the next request stops being incremental',
+      () async {
+        final (channel, client) = await live();
+        addTearDown(channel.dispose);
+        addTearDown(client.close);
 
-      final frame = client.frames.first;
-      channel.feed([
-        Rfb.serverFramebufferUpdate,
-        ...updateHeader(1),
-        ...rectHeader(
-          x: 0,
-          y: 0,
-          width: 16,
-          height: 8,
-          encoding: Rfb.encodingDesktopSize,
-        ),
-      ]);
-      unawaitedRun(client);
+        final frame = client.frames.first;
+        channel.feed([
+          Rfb.serverFramebufferUpdate,
+          ...updateHeader(1),
+          ...rectHeader(
+            x: 0,
+            y: 0,
+            width: 16,
+            height: 8,
+            encoding: Rfb.encodingDesktopSize,
+          ),
+        ]);
+        unawaitedRun(client);
 
-      final buffer = await frame;
-      expect(buffer.width, 16);
-      expect(buffer.height, 8);
+        final buffer = await frame;
+        expect(buffer.width, 16);
+        expect(buffer.height, 8);
 
-      await Future<void>.delayed(Duration.zero);
-      final before = channel.sent.length;
-      await client.requestUpdate();
-      await Future<void>.delayed(Duration.zero);
-      final request = channel.sent.sublist(before);
-      expect(request[0], Rfb.messageFramebufferUpdateRequest);
-      expect(request[1], 0, reason: 'a resize invalidates every coordinate');
-      expect(ByteData.sublistView(request).getUint16(6), 16);
-      expect(ByteData.sublistView(request).getUint16(8), 8);
-    });
+        await Future<void>.delayed(Duration.zero);
+        final before = channel.sent.length;
+        await client.requestUpdate();
+        await Future<void>.delayed(Duration.zero);
+        final request = channel.sent.sublist(before);
+        expect(request[0], Rfb.messageFramebufferUpdateRequest);
+        expect(request[1], 0, reason: 'a resize invalidates every coordinate');
+        expect(ByteData.sublistView(request).getUint16(6), 16);
+        expect(ByteData.sublistView(request).getUint16(8), 8);
+      },
+    );
 
     test('a Bell and a ServerCutText do not derail the reader', () async {
       final (channel, client) = await live();
@@ -280,13 +302,24 @@ void main() {
       channel.feed([
         Rfb.serverBell,
         Rfb.serverCutText,
-        0, 0, 0,
+        0,
+        0,
+        0,
         ...u32(2),
         ...'hi'.codeUnits,
         Rfb.serverFramebufferUpdate,
         ...updateHeader(1),
-        ...rectHeader(x: 0, y: 0, width: 1, height: 1, encoding: Rfb.encodingRaw),
-        1, 2, 3, 0xFF,
+        ...rectHeader(
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+          encoding: Rfb.encodingRaw,
+        ),
+        1,
+        2,
+        3,
+        0xFF,
       ]);
       unawaitedRun(client);
 
@@ -322,30 +355,30 @@ void main() {
       return (channel, client);
     }
 
-    test('a letter, ENTER, ESC and a sticky CTRL each write one KeyEvent', () async {
-      final (channel, client) = await live();
-      addTearDown(channel.dispose);
-      addTearDown(client.close);
+    test(
+      'a letter, ENTER, ESC and a sticky CTRL each write one KeyEvent',
+      () async {
+        final (channel, client) = await live();
+        addTearDown(channel.dispose);
+        addTearDown(client.close);
 
-      final before = channel.sent.length;
-      // What the strip does for a CTRL-held letter: modifier down, key down,
-      // key up, modifier up.
-      client
-        ..sendKey(Keysyms.control, down: true)
-        ..sendKey(Keysyms.forCharacter('c'), down: true)
-        ..sendKey(Keysyms.forCharacter('c'), down: false)
-        ..sendKey(Keysyms.control, down: false)
-        ..sendKey(Keysyms.enter, down: true)
-        ..sendKey(Keysyms.enter, down: false)
-        ..sendKey(Keysyms.escape, down: true)
-        ..sendKey(Keysyms.escape, down: false);
-      await Future<void>.delayed(Duration.zero);
+        final before = channel.sent.length;
+        // What the strip does for a CTRL-held letter: modifier down, key down,
+        // key up, modifier up.
+        client
+          ..sendKey(Keysyms.control, down: true)
+          ..sendKey(Keysyms.forCharacter('c'), down: true)
+          ..sendKey(Keysyms.forCharacter('c'), down: false)
+          ..sendKey(Keysyms.control, down: false)
+          ..sendKey(Keysyms.enter, down: true)
+          ..sendKey(Keysyms.enter, down: false)
+          ..sendKey(Keysyms.escape, down: true)
+          ..sendKey(Keysyms.escape, down: false);
+        await Future<void>.delayed(Duration.zero);
 
-      final written = channel.sent.sublist(before);
-      expect(written.length, 8 * 8);
-      expect(
-        keyEvents(written),
-        [
+        final written = channel.sent.sublist(before);
+        expect(written.length, 8 * 8);
+        expect(keyEvents(written), [
           (Keysyms.control, true),
           (0x63, true),
           (0x63, false),
@@ -354,38 +387,48 @@ void main() {
           (Keysyms.enter, false),
           (Keysyms.escape, true),
           (Keysyms.escape, false),
-        ],
-      );
-    });
+        ]);
+      },
+    );
 
-    test('a character outside Latin-1 goes through the Unicode keysym range', () {
-      expect(Keysyms.forCharacter('a'), 0x61);
-      expect(Keysyms.forCharacter('ñ'), 0xF1);
-      expect(Keysyms.forCharacter('€'), 0x010020AC);
-    });
+    test(
+      'a character outside Latin-1 goes through the Unicode keysym range',
+      () {
+        expect(Keysyms.forCharacter('a'), 0x61);
+        expect(Keysyms.forCharacter('ñ'), 0xF1);
+        expect(Keysyms.forCharacter('€'), 0x010020AC);
+      },
+    );
 
-    test('a PointerEvent carries the button mask and clamps to the screen', () async {
-      final (channel, client) = await live();
-      addTearDown(channel.dispose);
-      addTearDown(client.close);
+    test(
+      'a PointerEvent carries the button mask and clamps to the screen',
+      () async {
+        final (channel, client) = await live();
+        addTearDown(channel.dispose);
+        addTearDown(client.close);
 
-      final before = channel.sent.length;
-      client
-        ..sendPointer(x: 3, y: 2, buttonMask: RfbButtons.left)
-        ..sendPointer(x: 900, y: 900, buttonMask: RfbButtons.none);
-      await Future<void>.delayed(Duration.zero);
+        final before = channel.sent.length;
+        client
+          ..sendPointer(x: 3, y: 2, buttonMask: RfbButtons.left)
+          ..sendPointer(x: 900, y: 900, buttonMask: RfbButtons.none);
+        await Future<void>.delayed(Duration.zero);
 
-      final written = channel.sent.sublist(before);
-      final first = ByteData.sublistView(written, 0, 6);
-      expect(first.getUint8(0), Rfb.messagePointerEvent);
-      expect(first.getUint8(1), RfbButtons.left);
-      expect(first.getUint16(2), 3);
-      expect(first.getUint16(4), 2);
+        final written = channel.sent.sublist(before);
+        final first = ByteData.sublistView(written, 0, 6);
+        expect(first.getUint8(0), Rfb.messagePointerEvent);
+        expect(first.getUint8(1), RfbButtons.left);
+        expect(first.getUint16(2), 3);
+        expect(first.getUint16(4), 2);
 
-      final second = ByteData.sublistView(written, 6, 12);
-      expect(second.getUint16(2), 7, reason: 'the last column of an 8px screen');
-      expect(second.getUint16(4), 3);
-    });
+        final second = ByteData.sublistView(written, 6, 12);
+        expect(
+          second.getUint16(2),
+          7,
+          reason: 'the last column of an 8px screen',
+        );
+        expect(second.getUint16(4), 3);
+      },
+    );
   });
 }
 

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-/// A stand-in for §39.32's `direct-tcpip` channel: bytes in one end, bytes out
+/// A stand-in for the `direct-tcpip` channel: bytes in one end, bytes out
 /// the other, both readable by a test.
 ///
 /// The client under test is the real one — only the ssh channel is scripted,
@@ -23,7 +23,7 @@ class FakeVncChannel {
 
   void feed(List<int> bytes) => _incoming.add(bytes);
 
-  /// The far end going away: §39.32's `stream closed`.
+  /// The far end going away: `stream closed`.
   Future<void> endStream() => _incoming.close();
 
   Future<void> dispose() async {
@@ -34,7 +34,7 @@ class FakeVncChannel {
 
 /// The bytes a 3.8 server sends before the first framebuffer update.
 ///
-/// [securityTypes] is what the server offers; §39.32 takes `None` (1) and
+/// [securityTypes] is what the server offers; the client takes `None` (1) and
 /// nothing else.
 List<int> serverHandshake({
   String version = 'RFB 003.008\n',

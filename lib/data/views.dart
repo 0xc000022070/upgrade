@@ -1,7 +1,7 @@
 import 'enums.dart';
 
 /// Read models for the screens. They are query results, not stored rows —
-/// progress in particular is computed (SPEC.md §33: one behavior, consistently),
+/// progress in particular is computed — one behaviour, consistently —
 /// never persisted.
 class NextAction {
   const NextAction({
@@ -50,12 +50,12 @@ class ActivityEntry {
   final String? context;
   final String? detail;
 
-  /// "TASK COMPLETED", "PROJECT UPDATED" — the §22 left column.
+  /// "TASK COMPLETED", "PROJECT UPDATED" — the activity stream's left column.
   String get label =>
       '${entityType.wire} ${action.wire}'.replaceAll('_', ' ').toUpperCase();
 }
 
-/// One row of the PROJECTS list (SPEC.md §19, §37). Everything the row shows is
+/// One row of the PROJECTS list. Everything the row shows is
 /// resolved in a single projection query so the list never fans out into N+1
 /// reads as it scrolls.
 class ProjectSummary {
@@ -92,7 +92,7 @@ class ProjectSummary {
   String? get lead => blockedTitle ?? nextActionTitle;
 }
 
-/// One segment of SPEC.md §39.18's breadcrumb: an ancestor of the project on
+/// One segment of the breadcrumb: an ancestor of the project on
 /// screen. [status] is carried because the detail screen has to know whether an
 /// ancestor is archived — that is what removes its own `UNARCHIVE`.
 class ProjectCrumb {
@@ -107,7 +107,7 @@ class ProjectCrumb {
   final ProjectStatus status;
 }
 
-/// One GOALS panel header (SPEC.md §39.1, §39.5). Progress is counted from the
+/// One GOALS panel header. Progress is counted from the
 /// items under the goal, so an empty goal is 0/0 rather than undefined.
 class GoalSummary {
   const GoalSummary({
@@ -129,7 +129,7 @@ class GoalSummary {
   int get percent => (ratio * 100).round();
 }
 
-/// The quick view breadcrumb (SPEC.md §39.4): `DROPS`,
+/// The quick view breadcrumb: `DROPS`,
 /// `INFRA PERSONAL / DROPS`, `INFRA PERSONAL / REDUCE SAAS`.
 class ItemLocation {
   const ItemLocation(this.projectName, this.goalTitle);
@@ -145,14 +145,14 @@ class ItemLocation {
   String get label => crumbs.join(' / ');
 }
 
-/// Where an item can be filed (SPEC.md §39.5). Not an enum: the goal case needs
+/// Where an item can be filed. Not an enum: the goal case needs
 /// its project too, since filing under a goal implies the goal's project.
 class ItemTarget {
   const ItemTarget.drops() : projectId = null, goalId = null;
   const ItemTarget.project(String this.projectId) : goalId = null;
   const ItemTarget.goal(String this.projectId, String this.goalId);
 
-  /// Where an item already sits, so §39.5's pickers can draw it as the current
+  /// Where an item already sits, so the pickers can draw it as the current
   /// value without every caller repeating the two null checks.
   factory ItemTarget.of(String? projectId, String? goalId) {
     if (projectId == null) return const ItemTarget.drops();

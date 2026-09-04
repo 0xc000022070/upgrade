@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'framebuffer.dart';
 import 'vnc_failure.dart';
 
-/// SPEC.md §39.32's ZRLE, RFC 6143 §7.7.6.
+/// ZRLE, RFC 6143 section 7.7.6.
 ///
 /// One zlib stream for the whole session, which is the part that cannot be got
 /// wrong: the server's deflate window spans every rect it has ever sent, so the
@@ -20,7 +20,7 @@ class ZrleDecoder {
 
   static const tileSize = 64;
 
-  /// §39.32: CPIXEL is 3 bytes for this pixel format — 32 bpp, depth 24, and
+  /// CPIXEL is 3 bytes for this pixel format — 32 bpp, depth 24, and
   /// all three colour maxima inside the low three bytes, so the fourth carries
   /// nothing and is left off the wire. Little-endian with red at shift 16 puts
   /// those three bytes in B, G, R order, which is the framebuffer's own.
@@ -77,7 +77,7 @@ class ZrleDecoder {
     final subencoding = cursor.u8();
     final writer = _TileWriter(target, x, y, width, height);
     // Bit 7 is the RLE flag and the low bits are the palette size, which is
-    // why the ranges below read the way RFC 6143 §7.7.6 tabulates them.
+    // why the ranges below read the way RFC 6143 tabulates them.
     if (subencoding == 0) {
       for (var i = 0; i < width * height; i++) {
         writer.run(1, cursor.cpixel());
@@ -221,9 +221,11 @@ class _Cursor {
     return ZrlePixel(blue, green, red);
   }
 
-  List<ZrlePixel> palette(int size) => [for (var i = 0; i < size; i++) cpixel()];
+  List<ZrlePixel> palette(int size) => [
+    for (var i = 0; i < size; i++) cpixel(),
+  ];
 
-  /// RFC 6143 §7.7.6: a length of one plus every 255 read, ended by the first
+  /// RFC 6143: a length of one plus every 255 read, ended by the first
   /// byte below 255.
   int runLength() {
     var length = 1;

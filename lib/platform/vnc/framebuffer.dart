@@ -2,9 +2,9 @@ import 'dart:typed_data';
 
 import 'rfb_messages.dart';
 
-/// SPEC.md §39.32's one framebuffer: "one `Uint8List` framebuffer sized by
-/// `ServerInit` or `DesktopSize`, rects blitted in, and one image per update,
-/// never one per rect".
+/// One framebuffer: a single `Uint8List` sized by `ServerInit` or
+/// `DesktopSize`, rects blitted in, and one image per update, never one per
+/// rect.
 ///
 /// The byte order is `bgra8888`, so the three colour bytes of a BGRX pixel land
 /// where they already are. Only the fourth is this app's business: the server
@@ -25,7 +25,7 @@ class Framebuffer {
 
   int offsetOf(int x, int y) => y * stride + x * Rfb.bytesPerPixel;
 
-  /// §39.32's `DesktopSize`. The old contents are dropped rather than scaled:
+  /// A `DesktopSize` resize. The old contents are dropped rather than scaled:
   /// the server follows a resize with a full update of the new geometry, and a
   /// stretched frame in between is a worse lie than one black frame.
   void resize(int newWidth, int newHeight) {

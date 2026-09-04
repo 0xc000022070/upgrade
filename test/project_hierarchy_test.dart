@@ -8,7 +8,7 @@ import 'package:hotline/data/repositories/note_repository.dart';
 import 'package:hotline/data/repositories/project_repository.dart';
 import 'package:hotline/data/repositories/task_repository.dart';
 
-/// SPEC.md §39.18. A subproject is a project with a parent, so nothing here
+/// A subproject is a project with a parent, so nothing here
 /// tests a new entity: it tests that the same rows read differently once one of
 /// them points at another.
 void main() {
@@ -103,7 +103,7 @@ void main() {
       expect(root.percent, 0);
     });
 
-    // §39.18 aggregates the progress number and nothing else: NEXT ACTION and
+    // Only the progress number aggregates: NEXT ACTION and
     // the lead line keep pointing at the task's own project.
     test('the lead task stays the project own, not a descendant one', () async {
       final ids = await tree();
@@ -195,7 +195,7 @@ void main() {
         rows.where((p) => p.status == ProjectStatus.archived).map((p) => p.id),
         [ids[0]],
       );
-      // §39.18: a hidden project's tasks leave Home the way an archived
+      // A hidden project's tasks leave Home the way an archived
       // project's tasks already do.
       expect(await db.watchNextAction().first, isNull);
       // The ARCHIVED panel lists the root only: the children's own status is
@@ -260,7 +260,7 @@ void main() {
         await projects.delete(ids[0]);
 
         expect(await db.select(db.projects).get(), isEmpty);
-        // §39.2's rule holds all the way down: items survive as drops.
+        // The rule holds all the way down: items survive as drops.
         final rows = await db.select(db.tasks).get();
         expect(rows.single.id, task);
         expect(rows.single.projectId, isNull);

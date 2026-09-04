@@ -12,15 +12,15 @@ import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 
-/// SPEC.md §39.5. Both pickers are bodies rather than routes: the quick view
+/// Both pickers are bodies rather than routes: the quick view
 /// swaps its own contents for one of them instead of opening a sheet over a
-/// sheet, and §39.6's capture toolbar mounts the target picker on its own.
+/// sheet, and the capture toolbar mounts the target picker on its own.
 
 /// DROPS first, then every active project as a header row followed by its goals
 /// indented one level, then paused projects. Archived are absent — filing into
 /// something that is finished is not a move anyone means.
 ///
-/// SPEC.md §39.18 keeps this list flat: the tree is for navigation, and a
+/// The list stays flat: the tree is for navigation, and a
 /// picker that made the user walk it would be the explorer the spec refuses.
 /// A child says where it sits on its own row instead, as its parent path.
 class TargetPickerBody extends ConsumerWidget {
@@ -30,7 +30,7 @@ class TargetPickerBody extends ConsumerWidget {
     required this.onPicked,
   });
 
-  /// Drawn as the §16c.3 block, so the picker answers "where is it now" before
+  /// Drawn as the solid block, so the picker answers "where is it now" before
   /// it offers anywhere else.
   final ItemTarget? current;
   final ValueChanged<ItemTarget> onPicked;
@@ -77,7 +77,7 @@ class _ProjectTarget extends ConsumerWidget {
 
   final Project project;
 
-  /// SPEC.md §39.18's `INFRA / HOMELAB`. Empty for a root.
+  /// The parent path, `INFRA / HOMELAB`. Empty for a root.
   final String path;
   final ItemTarget? current;
   final ValueChanged<ItemTarget> onPicked;

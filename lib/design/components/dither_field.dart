@@ -4,7 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../colors.dart';
 
-/// SPEC.md §16c.5: empty space is filled with an ordered-dither dot field, not
+/// Empty space is filled with an ordered-dither dot field, not
 /// left blank. Bayer thresholds give a fixed, non-random pattern, which is what
 /// separates this from noise — it never animates and never needs a seed.
 class DitherField extends StatelessWidget {

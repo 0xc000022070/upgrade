@@ -8,7 +8,7 @@ import '../typography.dart';
 import 'progress_bar.dart';
 import 'signal_text.dart';
 
-/// SPEC.md §38.4. Three columns and nothing else: a 14px glyph on the left when
+/// Three columns and nothing else: a 14px glyph on the left when
 /// the row is actionable, a mono line stack in the middle, and one right-hand
 /// column carrying a short inline bar and a value.
 ///
@@ -54,12 +54,12 @@ class ListRow extends StatelessWidget {
   /// starts at the panel's padding.
   final Widget? leading;
 
-  /// §39.13's selection checkbox is a mono `[ ]`, which needs 24 rather than
+  /// The selection checkbox is a mono `[ ]`, which needs 24 rather than
   /// the 14 a glyph takes. The slot widens; the gutter after it does not, so
   /// every other row on the screen keeps its left edge.
   final double leadingWidth;
 
-  /// §38.4: percent, duration, time or count. One column, right-aligned.
+  /// Percent, duration, time or count. One column, right-aligned.
   final String? value;
   final Color? valueColor;
   final bool valueStrong;
@@ -67,7 +67,7 @@ class ListRow extends StatelessWidget {
   /// 0..1. Draws the 56x2 inline bar immediately left of [value].
   final double? progress;
 
-  /// §38.4: the diamond that marks a row as opening something.
+  /// The diamond that marks a row as opening something.
   final bool node;
 
   /// Escape hatch for a row whose right edge is a control rather than a value.
@@ -75,15 +75,15 @@ class ListRow extends StatelessWidget {
 
   final VoidCallback? onTap;
 
-  /// §38 drops the trailing `...`: the sheet is a long press, so a row keeps
+  /// No trailing `...`: the sheet is a long press, so a row keeps
   /// its right column for data.
   ///
-  /// §39.13 makes it the way into selection mode on a drop row. It carries no
+  /// It is also the way into selection mode on a drop row. It carries no
   /// argument: the mode is the panel's, and the row only says which one was
   /// held.
   final VoidCallback? onLongPress;
 
-  /// §39.4: the checkbox glyph toggles done without opening the quick view,
+  /// The checkbox glyph toggles done without opening the quick view,
   /// with a 40px target. It is an overlay rather than a wrapper around
   /// [leading], because a hit outside the 14px glyph slot never reaches a
   /// child of it. 40 is wider than the 26px gutter, so the target does take
@@ -252,7 +252,7 @@ class ListRow extends StatelessWidget {
   }
 }
 
-/// §38.1: rows inside a panel are separated by a 1px rule that runs the full
+/// Rows inside a panel are separated by a 1px rule that runs the full
 /// inner width, the way a table rules its lines.
 class ListRowGroup extends StatelessWidget {
   const ListRowGroup({super.key, required this.children, this.ruled = true});

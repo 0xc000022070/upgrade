@@ -9,7 +9,7 @@ import 'package:flutter/widgets.dart';
 import '../../platform/device.dart';
 import '../motion.dart';
 
-/// SPEC.md §16b.1: the scaffold grain is one alpha-only tile, never regenerated
+/// The scaffold grain is one alpha-only tile, never regenerated
 /// and never a shader. Motion comes from jumping the tile's phase, so the only
 /// input is an offset; [StaticBackgroundDriver] decides when it moves.
 class StaticBackground extends StatefulWidget {
@@ -32,7 +32,7 @@ class StaticBackground extends StatefulWidget {
 
   static const _asset = 'assets/textures/noise-fine.png';
 
-  /// §16b.1 keeps the grain at the edge of visibility: it is texture, not a
+  /// The grain stays at the edge of visibility: it is texture, not a
   /// layer anyone should be able to point at.
   static const _opacity = 0.04;
 
@@ -132,12 +132,13 @@ class _GrainPainter extends CustomPainter {
       oldDelegate.tile != tile || oldDelegate.offset != offset;
 }
 
-/// The TV-static half of §16b.1. The offset is advanced on a timer, once every
-/// 100ms: a `Ticker` would land the jumps on real frames, but it also asks for
-/// a frame on every vsync for as long as it runs, so the pipeline never idles
-/// and the device never cools. The rate is the effect — driving this at 60fps
-/// would read as smooth drift rather than static — so the frames the app costs
-/// should be the ten a second that change something, and no others.
+/// The TV-static half of the background. The offset is advanced on a timer,
+/// once every 100ms: a `Ticker` would land the jumps on real frames, but it
+/// also asks for a frame on every vsync for as long as it runs, so the pipeline
+/// never idles and the device never cools. The rate is the effect — driving
+/// this at 60fps would read as smooth drift rather than static — so the frames
+/// the app costs should be the ten a second that change something, and no
+/// others.
 class StaticBackgroundDriver extends StatefulWidget {
   const StaticBackgroundDriver({
     super.key,
@@ -147,7 +148,7 @@ class StaticBackgroundDriver extends StatefulWidget {
 
   final Widget child;
 
-  /// SPEC.md §39.16's `[ STATIC ] OFF`. False takes the same path a thermal
+  /// The `[ STATIC ] OFF` setting. False takes the same path a thermal
   /// throttle does: the timer stops and the tile stays where it last landed, so
   /// the grain is still painted and only its motion is gone. The preference
   /// arrives from the database, which this layer must not know about, so it
@@ -160,7 +161,7 @@ class StaticBackgroundDriver extends StatefulWidget {
 
 class _StaticBackgroundDriverState extends State<StaticBackgroundDriver>
     with WidgetsBindingObserver {
-  // Fixed seed: SPEC.md §16 wants effects deterministic, so the static plays the
+  // Fixed seed: effects are deterministic, so the static plays the
   // same sequence every launch rather than being a source of real randomness.
   final _random = Random(0xB7FF2A);
   final _offset = ValueNotifier(Offset.zero);

@@ -17,11 +17,11 @@ import '../../design/typography.dart';
 import '../screen_scaffold.dart';
 import '../../app/static_surface.dart';
 
-/// SPEC.md §39.2: creating and editing a project use the same full-screen
+/// Creating and editing a project use the same full-screen
 /// pushed route. [project] null is the create case; the only differences are
 /// the title, the commit label and the delete block at the bottom.
 ///
-/// SPEC.md §39.18: [parentId] presets the `[ PARENT ]` field, which is how
+/// [parentId] presets the `[ PARENT ]` field, which is how
 /// `NEW +` on a project's own `PROJECTS` panel creates a child there.
 void openProjectForm(
   BuildContext context, {
@@ -54,11 +54,11 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
   late ProjectStatus _status;
   late Priority _priority;
 
-  /// §39.18: null is a root. The field is always shown and always written, so
+  /// Null is a root. The field is always shown and always written, so
   /// this is the parent, not a pending change to it.
   String? _parent;
 
-  /// §39.18: how many projects the delete would take with it. Read once — the
+  /// How many projects the delete would take with it. Read once — the
   /// form cannot add a child to the project it is editing.
   int _below = 0;
 
@@ -117,7 +117,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
         objective: _objective.text.trim(),
         status: _status,
         priority: _priority,
-        // §39.18: this is the move. The children keep their own parent_id, so
+        // This is the move. The children keep their own parent_id, so
         // the subtree comes along without a write of its own.
         parentId: _parent,
       );
@@ -125,7 +125,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  /// §39.18: a cascade is asked about in a modal rather than in the §39.2
+  /// A cascade is asked about in a modal rather than in the in-place
   /// block, because the projects it destroys are the ones not on this screen —
   /// the count is the whole content of the question.
   Future<void> _confirmCascade() async {
@@ -226,8 +226,8 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
             ),
             if (_isEdit) ...[
               const SizedBox(height: Spacing.md),
-              // Same block either way until it is tapped: §39.2's in-place
-              // confirm for a leaf, §39.18's modal once there is a subtree
+              // Same block either way until it is tapped: an in-place
+              // confirm for a leaf, a modal once there is a subtree
               // under it, since a count is the only thing that can tell the
               // user what the second case actually destroys.
               if (_below == 0)
@@ -259,7 +259,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
   }
 }
 
-/// SPEC.md §39.18's `[ PARENT ]`: a §16c.3 picker with `NONE` first and every
+/// `[ PARENT ]`: a picker with `NONE` first and every
 /// project the row could legally hang under — itself and its descendants are
 /// absent, which is the cycle guard stated as an absence rather than as an
 /// error the user has to read.
@@ -304,7 +304,7 @@ class _ParentPanel extends ConsumerWidget {
               subtitle: (paths[project.id] ?? '').isEmpty
                   ? null
                   : paths[project.id],
-              // The §39.5 picker marks a paused target the same way: still a
+              // The MOVE picker marks a paused target the same way: still a
               // legal answer, and cheaper to say so than to have the user
               // wonder where the project went.
               value: project.status == ProjectStatus.paused ? 'PAUSED' : null,

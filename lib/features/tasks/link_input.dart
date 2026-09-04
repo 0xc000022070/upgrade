@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 
-/// SPEC.md §39.4/§39.6/§39.9: what counts as a link. A bare host is accepted
+/// What counts as a link. A bare host is accepted
 /// and given https; anything with whitespace or without a dot is not a URL —
 /// the clipboard usually holds prose, and attaching that as a link is worse
 /// than doing nothing.
@@ -20,7 +20,7 @@ String? normalizeUrl(String raw) {
   return withScheme;
 }
 
-/// §39.9: the link icon attaches the clipboard without asking when the
+/// The link icon attaches the clipboard without asking when the
 /// clipboard holds a URL, and switches the field to URL mode when it does not.
 /// Null is the second branch.
 Future<String?> urlFromClipboard() async {
@@ -29,7 +29,7 @@ Future<String?> urlFromClipboard() async {
 }
 
 /// A recognised link and where its token sits in the text it was found in.
-/// §39.15 paints the token, so the offsets are as much of the answer as the URL.
+/// The token is painted, so the offsets are as much of the answer as the URL.
 class UrlToken {
   const UrlToken(this.start, this.end, this.url);
 
@@ -40,11 +40,11 @@ class UrlToken {
   final String url;
 }
 
-/// §39.6: URLs typed into the capture field are pulled out on submit. The whole
+/// URLs typed into the capture field are pulled out on submit. The whole
 /// words are tested rather than a URL pattern, so `pgbouncer.` at the end of a
 /// sentence stays in the title.
 ///
-/// §39.15 paints the same tokens in the field before submit, so this keeps the
+/// The same tokens are painted in the field before submit, so this keeps the
 /// offsets and [extractUrls] is a projection of it: one definition of what
 /// counts as a link, or the highlight would promise something submit does not
 /// deliver.
@@ -65,7 +65,7 @@ List<String> extractUrls(String text) => [
   for (final token in urlTokens(text)) token.url,
 ];
 
-/// What is left of a title once its URLs are gone. §39.6 strips them only when
+/// What is left of a title once its URLs are gone. They are stripped only when
 /// the title would otherwise be empty, so this is the caller's fallback rather
 /// than its first choice.
 String titleWithoutUrls(String text, List<String> urls) {

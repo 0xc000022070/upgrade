@@ -12,9 +12,9 @@ import 'project_detail_screen.dart';
 import 'project_form_screen.dart';
 import 'project_row.dart';
 
-/// SPEC.md §19, §38: one panel, the same row HOME uses, plus the lead line —
-/// the list is the same language, it just stops truncating. §39.14 adds the
-/// folded ARCHIVED panel under it.
+/// One panel, the same row HOME uses, plus the lead line —
+/// the list is the same language, it just stops truncating. Under it is the
+/// folded ARCHIVED panel.
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
 
@@ -38,8 +38,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
           children: [
             Panel(
               title: 'ALL PROJECTS',
-              // §39.2 puts the create affordance on the strip of the panel
-              // it creates into. §39.26 leaves this as the only one: HOME has
+              // The create affordance sits on the strip of the panel
+              // it creates into, and this is the only one left: HOME has
               // no PROJECTS strip to carry a second.
               affordance: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -73,8 +73,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 ),
               ),
             ),
-            // §39.14: archived work is kept and folded away, the way §37 folds
-            // DONE. With nothing archived the panel is not a line of chrome.
+            // Archived work is kept and folded away, the way DONE is
+            // folded. With nothing archived the panel is not a line of chrome.
             if (archived.isNotEmpty)
               Panel(
                 title: 'ARCHIVED',

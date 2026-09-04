@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
-/// SPEC.md §39.10: an image attachment is a copy, not a reference. The gallery
+/// An image attachment is a copy, not a reference. The gallery
 /// entry the user picked can be deleted, moved or re-encoded by the OS, and a
 /// content URI does not survive a reinstall; the app support directory does.
 ///
@@ -33,7 +33,7 @@ abstract final class ImageAttachments {
   static String? absolute(String relative) =>
       _root == null ? null : p.join(_root!, relative);
 
-  /// §39.10: gallery only, no camera. Returns the relative path of the copy, or
+  /// Gallery only, no camera. Returns the relative path of the copy, or
   /// null when the picker was dismissed.
   static Future<String?> pick() async {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery);

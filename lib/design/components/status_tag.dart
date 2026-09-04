@@ -6,7 +6,7 @@ import '../spacing.dart';
 import '../typography.dart';
 
 /// Bordered, never filled: status is information, not a coloured surface
-/// (SPEC.md §6, accent stays sparse).
+/// (accent stays sparse).
 class StatusTag extends StatelessWidget {
   const StatusTag(this.label, {super.key, required this.color});
 

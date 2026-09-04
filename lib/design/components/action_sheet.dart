@@ -18,7 +18,7 @@ class SheetAction {
   final VoidCallback onSelected;
   final bool danger;
 
-  /// §16c.3: a picker's current value is drawn as the block, so the sheet says
+  /// A picker's current value is drawn as the block, so the sheet says
   /// where the thing is now and not only where it could go. A selected row is
   /// still tappable and still closes the sheet; its callback is the no-op.
   final bool selected;
@@ -64,7 +64,7 @@ Future<void> showActionSheet(
   );
 }
 
-/// SPEC.md §16c.2: a destructive action is confirmed on its own surface with a
+/// A destructive action is confirmed on its own surface with a
 /// solid state-coloured bar, so the commit is a deliberate second tap and never
 /// the same gesture that opened the list.
 Future<bool> confirmAction(
@@ -113,7 +113,7 @@ Future<bool> confirmAction(
   return confirmed ?? false;
 }
 
-/// SPEC.md §37 asks for a reason whenever a task is blocked, so the reason is
+/// A blocked task always carries a reason, so the reason is
 /// collected on the same surface as the action rather than left to a later edit.
 /// Whitespace is refused here, which is why the caller never has to check.
 Future<String?> promptForText(
@@ -242,7 +242,7 @@ class _Sheet extends StatelessWidget {
                 final action = actions[i];
                 final block = actions[i].selected || (i == 0 && recommendFirst);
                 return Padding(
-                  // §16c.3: a block row needs air around it; the plain rows
+                  // A block row needs air around it; the plain rows
                   // keep their hairline rhythm.
                   padding: EdgeInsets.symmetric(
                     vertical: block ? Spacing.sm : 0,
@@ -319,7 +319,7 @@ class _Panel extends StatelessWidget {
   }
 }
 
-/// SPEC.md §16c.3: the recommended action in a sheet and the current value in a
+/// The recommended action in a sheet and the current value in a
 /// picker are both drawn as a solid accent block with inverted text and a mono
 /// `// ` prefix — the same visual weight as a primary CTA.
 class _BlockRow extends StatelessWidget {

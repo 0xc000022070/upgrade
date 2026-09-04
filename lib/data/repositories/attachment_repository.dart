@@ -6,8 +6,7 @@ import '../enums.dart';
 
 /// One attachment that does not exist yet: what the capture bar and the quick
 /// view collect while a field is open, and hand over when it commits. Keeping
-/// the two kinds in one list is what preserves the order they were attached in
-/// (SPEC.md §39.10).
+/// the two kinds in one list is what preserves the order they were attached in.
 class NewAttachment {
   const NewAttachment(this.kind, this.value);
 
@@ -20,7 +19,7 @@ class NewAttachment {
   final String value;
 }
 
-/// SPEC.md §39.10, replacing the link repository. Attachments carry no activity
+/// Replaces the link repository. Attachments carry no activity
 /// events: they hang off an item the stream already reports, and one capture
 /// can add several at once.
 ///
@@ -72,7 +71,7 @@ class AttachmentRepository {
       (_db.delete(_db.attachments)..where((a) => a.id.equals(id))).go();
 }
 
-/// What a URL attachment shows as a row or a chip (SPEC.md §39.4): the host,
+/// What a URL attachment shows as a row or a chip: the host,
 /// stripped of `www.`, falling back to the raw text when it will not parse — a
 /// malformed link is still worth showing.
 String attachmentLabel(Attachment attachment) {

@@ -7,7 +7,7 @@ import '../design/layout.dart';
 import '../design/spacing.dart';
 import '../design/typography.dart';
 
-/// SPEC.md §38.5, geometry from the mocks: a breadcrumb line, the title with
+/// Geometry from the mocks: a breadcrumb line, the title with
 /// its `_` cursor, a rule across the content width, then the panel stack.
 ///
 /// A detail screen has no chevron — the mocks drop it and the breadcrumb takes
@@ -31,25 +31,25 @@ class ScreenScaffold extends StatelessWidget {
     ),
   });
 
-  /// SPEC.md §39.20 drops Home's `TODAY_`: the AGENTS panel is the first thing
+  /// Home has no `TODAY_`: the AGENTS panel is the first thing
   /// on the screen and a title over it would only name the day. Every other
   /// screen keeps one, so this is null on exactly one screen.
   final String? title;
   final String breadcrumb;
 
-  /// SPEC.md §39.18: a path whose segments are individually tappable, each
+  /// A path whose segments are individually tappable, each
   /// popping the stack back to what it names. When set it replaces
   /// [breadcrumb]; screens with a fixed path keep passing the string.
   final List<CrumbSegment>? breadcrumbSegments;
 
-  /// §39.2: the detail screen's `EDIT` sits here. The breadcrumb line is the
+  /// The detail screen's `EDIT` sits here. The breadcrumb line is the
   /// only row above the title, and a screen-level verb belongs beside the path
   /// it acts on rather than beside the name it would compete with.
   final Widget? breadcrumbTrailing;
 
   final List<Widget> children;
 
-  /// §38.5: a small mono control on the title's right, only when it does
+  /// A small mono control on the title's right, only when it does
   /// something. Nothing renders here otherwise.
   final Widget? titleTrailing;
 
@@ -90,7 +90,7 @@ class ScreenScaffold extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           )
         : _SegmentedCrumb(segments: segments);
-    // §39.23: a crumb line that carries a tap target is at least a row tall,
+    // A crumb line that carries a tap target is at least a row tall,
     // and the back tap takes that whole height rather than the 13px the path
     // paints. A line with nothing to hit on it keeps the compact spacing —
     // there is nothing on it to miss.
@@ -119,7 +119,7 @@ class ScreenScaffold extends StatelessWidget {
       bottom: false,
       child: LayoutBuilder(
         builder: (context, constraints) => ListView(
-          // §39.17: the column is centred by widening the scroll view's
+          // The column is centred by widening the scroll view's
           // padding, not by narrowing the scroll view. A capped ListView would
           // leave the margins dead to a drag, and on a near-square display the
           // margins are a third of the screen.
@@ -135,13 +135,13 @@ class ScreenScaffold extends StatelessWidget {
               const SizedBox(height: Spacing.sm),
             ] else
               // The row takes a tap target's height so the trailing verb is
-              // hittable (§35) without a 13px control floating in the margin; the
+              // hittable without a 13px control floating in the margin; the
               // gap under it is given back, so the header keeps its rhythm.
               SizedBox(
                 height: crumbHeight,
                 child: Row(
                   children: [
-                    // Expanded and not Flexible-plus-Spacer: §39.18's collapse
+                    // Expanded and not Flexible-plus-Spacer: the collapse
                     // rule is about the width left beside the verbs, and two
                     // flex children would have split that width in half before
                     // the path was ever measured against it.
@@ -200,7 +200,7 @@ class CrumbSegment {
   final VoidCallback? onTap;
 }
 
-/// SPEC.md §39.18: the path never wraps, so when it does not fit beside the
+/// The path never wraps, so when it does not fit beside the
 /// trailing verbs the leading segments collapse to a single `…` and the
 /// immediate parent always stays.
 ///
@@ -257,7 +257,7 @@ class _SegmentedCrumb extends StatelessWidget {
           );
         }
         final kept = segments.sublist(dropped);
-        // §39.23: a tappable segment is a text-only action like any other, so
+        // A tappable segment is a text-only action like any other, so
         // it takes the crumb row's whole height. The Row is the ceiling — a
         // child never takes a hit its parent has already rejected — so it is
         // given the line's height rather than the 13px the path paints. The
@@ -274,7 +274,7 @@ class _SegmentedCrumb extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // §39.23: the punctuation is decoration and a [Text] answers a
+              // The punctuation is decoration and a [Text] answers a
               // hit, so a separator left pointing would swallow the tap a
               // segment's box reaches into it for.
               const IgnorePointer(child: Text('/ ', style: _style)),
@@ -328,7 +328,7 @@ class _SegmentState extends State<_Segment> {
   @override
   Widget build(BuildContext context) {
     final onTap = widget.segment.onTap;
-    // §39.23's press, the same one the verbs and the affordances paint. The
+    // The press, the same one the verbs and the affordances paint. The
     // last segment is the screen the user is on and has no [onTap]: it is the
     // end of a path, not a control, and it is not painted as one.
     final style = _down

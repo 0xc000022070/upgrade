@@ -1,9 +1,9 @@
 import 'package:flutter/services.dart';
 
 /// Facts Flutter does not expose and that are not worth a package each: the OS
-/// throttle signal (SPEC.md §16b.1 pauses the static under it), the device
-/// model, which the §16c.1 boot log prints, and the installed version, which
-/// §39.16's build line prints. All fail soft — on desktop and in tests the
+/// throttle signal (the static pauses under it), the device model, which the
+/// boot log prints, and the installed version, which the settings build line
+/// prints. All fail soft — on desktop and in tests the
 /// channels are simply absent.
 abstract final class Device {
   static const _channel = MethodChannel('dev.luisnquin.hotline/device');
@@ -13,7 +13,7 @@ abstract final class Device {
 
   /// True while the OS is asking the app to spend less: battery saver on, or a
   /// thermal status of moderate or worse. The two are merged on the platform
-  /// side because §16b.1 does the same thing for either — the static stops.
+  /// side because the app does the same thing for either — the static stops.
   ///
   /// Emits the current value immediately on subscribe, then again on every
   /// change: both signals can arrive with the app in front, and the static has
@@ -33,7 +33,7 @@ abstract final class Device {
     }
   }
 
-  /// §39.16's version and version code, read from the package manager rather
+  /// The version and version code, read from the package manager rather
   /// than from a generated constant: what the line has to say is what is
   /// installed, and only the installer knows that.
   static Future<BuildInfo?> build() async {
@@ -52,7 +52,7 @@ abstract final class Device {
   }
 }
 
-/// SPEC.md §39.16's `v<version> (<code>) <sha>`.
+/// The build line's `v<version> (<code>) <sha>`.
 class BuildInfo {
   const BuildInfo({required this.version, required this.code});
 

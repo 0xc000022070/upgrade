@@ -1,6 +1,6 @@
 import 'database.dart';
 
-/// SPEC.md §39.1: bundled items render adjacent in every list. Adjacency is a
+/// Bundled items render adjacent in every list. Adjacency is a
 /// projection concern, not an order column — the list keeps its own sort and
 /// each bundle is pulled together at the position of its first member, so a
 /// pair never changes where the pair sits.

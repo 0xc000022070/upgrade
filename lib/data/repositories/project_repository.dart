@@ -16,29 +16,29 @@ class ProjectRepository {
   /// The "leave it alone" value of [edit]'s three-valued `parentId`.
   static const _keepParent = Object();
 
-  /// The flat list the §39.5 MOVE picker and the §39.18 `[ PARENT ]` picker are
+  /// The flat list the MOVE picker and the `[ PARENT ]` picker are
   /// drawn from. Ordered by creation, not priority: priority is stored as its
   /// name, so a column sort would order it alphabetically, and ranking belongs
   /// in a projection query.
   Stream<List<Project>> watchAll() => _db.watchVisibleProjects();
 
-  /// SPEC.md §39.18: roots only. A child is reached through its parent.
+  /// Roots only. A child is reached through its parent.
   Stream<List<ProjectSummary>> watchSummaries() => _db.watchRootSummaries();
 
-  /// SPEC.md §39.14: the Projects tab's folded `ARCHIVED N` panel, and the only
+  /// The Projects tab's folded `ARCHIVED N` panel, and the only
   /// list in the app that shows an archived project.
   Stream<List<ProjectSummary>> watchArchivedSummaries() =>
       _db.watchArchivedSummaries();
 
-  /// SPEC.md §39.18: the `PROJECTS N` panel on a project's detail.
+  /// The `PROJECTS N` panel on a project's detail.
   Stream<List<ProjectSummary>> watchChildren(String parentId) =>
       _db.watchChildSummaries(parentId);
 
-  /// SPEC.md §39.18: one project's own row, carrying its subtree progress.
+  /// One project's own row, carrying its subtree progress.
   Stream<ProjectSummary?> watchSummary(String id) =>
       _db.watchProjectSummary(id);
 
-  /// SPEC.md §39.18: the ancestors of [id], root first, self excluded.
+  /// The ancestors of [id], root first, self excluded.
   Stream<List<ProjectCrumb>> watchAncestors(String id) =>
       _db.watchAncestors(id);
 
@@ -46,12 +46,12 @@ class ProjectRepository {
     _db.projects,
   )..where((p) => p.id.equals(id))).watchSingleOrNull();
 
-  /// SPEC.md §39.18: how many projects sit under [id]. The number the cascade
+  /// How many projects sit under [id]. The number the cascade
   /// delete asks about — `DELETE PROJECT AND N BELOW?`.
   Future<int> descendantCount(String id) async =>
       (await _db.subtreeIds(id)).length - 1;
 
-  /// SPEC.md §39.18's cycle guard, the backstop under the form's picker: a
+  /// The cycle guard, the backstop under the form's picker: a
   /// project can be neither its own parent nor a child of anything under it.
   /// The pickers never offer those rows, so reaching this is a bug or a
   /// hand-edited database, and either way the write must not land — a cycle has
@@ -102,7 +102,7 @@ class ProjectRepository {
 
   /// [parentId] is three-valued, which is why it is not a `String?`: absent
   /// leaves the parent alone, `null` makes the project a root, and an id moves
-  /// it. SPEC.md §39.18: changing the parent *is* the move — descendants keep
+  /// it. Changing the parent *is* the move — descendants keep
   /// their own `parent_id`, so the subtree follows without a write.
   Future<void> edit(
     String id, {
@@ -164,19 +164,19 @@ class ProjectRepository {
     });
   }
 
-  /// SPEC.md §39.14: archive and unarchive are one tap, not a trip through the
+  /// Archive and unarchive are one tap, not a trip through the
   /// status field, but they write the same column the form's STATUS block does.
   Future<void> archive(String id) => setStatus(id, ProjectStatus.archived);
 
   Future<void> unarchive(String id) => setStatus(id, ProjectStatus.active);
 
-  /// SPEC.md §39.2: deleting a project un-files its items — they become Home
+  /// Deleting a project un-files its items — they become Home
   /// drops — and never deletes them. Its goals go with it, since a goal only
   /// exists inside a project. Notes attached to a surviving item follow the
   /// item; a note that only ever belonged to the project has no screen left to
   /// appear on, so it goes.
   ///
-  /// SPEC.md §39.18: and the same happens to every project below it, in the one
+  /// And the same happens to every project below it, in the one
   /// transaction. Leaving the children behind would orphan them — a project
   /// whose parent is gone is reachable from no list, since every list is either
   /// roots-only or a parent's own panel.

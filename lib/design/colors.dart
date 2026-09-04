@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-/// Palette from SPEC.md §6. The accent is reserved for active / progress /
+/// The palette. The accent is reserved for active / progress /
 /// selection / important status; it never covers a large surface.
 abstract final class HotlineColors {
   static const backgroundPrimary = Color(0xFF08090B);

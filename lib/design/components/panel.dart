@@ -11,7 +11,7 @@ import '../spacing.dart';
 import '../typography.dart';
 import 'signal_text.dart';
 
-/// SPEC.md §38.1. Every section on every screen is one of these: 1px border,
+/// Every section on every screen is one of these: 1px border,
 /// 2px radius, a header strip *inside* the frame, and an 8px body. There is no
 /// bare section header left in the app — grouping is the border, not whitespace.
 ///
@@ -39,20 +39,20 @@ class Panel extends StatelessWidget {
   /// Omitted only by panels that are their own header — the detail hero card.
   final String? title;
 
-  /// §39.13 puts `x` at the left of the header strip when a panel is in
+  /// The `x` at the left of the header strip when a panel is in
   /// selection mode. Nothing else uses it: a strip's left is its title.
   final Widget? leading;
 
-  /// §38.1: the right-hand slot on the header strip — a count, `VIEW ALL >`,
+  /// The right-hand slot on the header strip — a count, `VIEW ALL >`,
   /// `ALL +`. Same type as the title, so it reads as part of the strip.
   final Widget? affordance;
 
-  /// Makes the whole header strip the affordance's tap target. §39.23 grew the
-  /// strip to a row's height, but a strip carries at most one of these and the
+  /// Makes the whole header strip the affordance's tap target. The strip grew
+  /// to a row's height, but a strip carries at most one of these and the
   /// affordance beside it keeps its own.
   final VoidCallback? onHeaderTap;
 
-  /// §39.11 hangs the drop quick view's delete off the breadcrumb strip, the
+  /// The drop quick view hangs its delete off the breadcrumb strip, the
   /// only chrome a drop's sheet has left once its state blocks are gone.
   final VoidCallback? onHeaderLongPress;
 
@@ -62,15 +62,15 @@ class Panel extends StatelessWidget {
 
   /// A scrolling body has to be allowed to shrink: a [SingleChildScrollView]
   /// laid out by a [Column] is given unbounded height, sizes to its content
-  /// and overflows the panel instead of scrolling inside it. Only the §39.4
+  /// and overflows the panel instead of scrolling inside it. Only a
   /// sheet needs this — every panel on a screen is as tall as its rows.
   final bool bodyFlexible;
 
   final Color border;
 
-  /// SPEC.md §39.19: a capture filed from a pushed route has no nav icon to
+  /// A capture filed from a pushed route has no nav icon to
   /// land on, so the panel it lands in says so itself. A header strip carries
-  /// no glyph — its title is the only mark on it — so the §16b.2 tear takes
+  /// no glyph — its title is the only mark on it — so the tear takes
   /// the strip, which is the smallest thing here that can stand for the panel.
   final GlitchController? headerGlitch;
 
@@ -145,7 +145,7 @@ class _HeaderStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // §39.23: the strip is a row's height, 27px before, so a text action on it
+    // The strip is a row's height, 27px before, so a text action on it
     // has 36 to be hit with. Two consequences for the layout below. The
     // vertical padding rides on the title instead of the whole strip, or the
     // Row would be 28 tall inside a 36 strip and an affordance could never
@@ -208,7 +208,7 @@ class _HeaderStrip extends StatelessWidget {
 /// The `VIEW ALL >` / `4  VIEW ALL >` / `2  v` form from the mocks: a mono
 /// count, an optional word, an optional glyph, always at the strip's right.
 ///
-/// §39.23: with an [onTap] it is a button, and the hit box is the row's full
+/// With an [onTap] it is a button, and the hit box is the row's full
 /// height by at least [TapTargets.minHeight] wide — see [TapExpansion] for
 /// why that box is not laid out. Without one it is a readout: no press, no
 /// expansion, nothing to miss.
@@ -238,7 +238,7 @@ class _PanelAffordanceState extends State<PanelAffordance> {
   @override
   Widget build(BuildContext context) {
     final onTap = widget.onTap;
-    // §39.23 takes the press from the §39.13 verbs: accent for as long as the
+    // The press is the one the verbs paint: accent for as long as the
     // finger is down, and the resting ink back the moment it lifts.
     final tint = _down
         ? HotlineColors.accent
@@ -270,7 +270,7 @@ class _PanelAffordanceState extends State<PanelAffordance> {
   }
 }
 
-/// §39.23's hit box, for a label that must not move: the box lays out at its
+/// A hit box for a label that must not move: the box lays out at its
 /// child's size and only the hit test grows — the row's full height by the
 /// label plus [Spacing.md] each side, never under [TapTargets.minHeight] wide.
 ///
@@ -290,7 +290,7 @@ class _PanelAffordanceState extends State<PanelAffordance> {
 /// What this cannot give is a wider semantics node: the node is the tappable
 /// child's, and the child is the size of its label. A finger gets the box, a
 /// screen reader is still offered the words. Growing that too means growing
-/// the layout, which is the thing §39.23 forbids.
+/// the layout, which is the thing this exists to avoid.
 class TapExpansion extends SingleChildRenderObjectWidget {
   const TapExpansion({super.key, required super.child});
 
@@ -332,7 +332,7 @@ class _RenderTapExpansion extends RenderProxyBox {
   }
 }
 
-/// §38.1: panels stack with an 8px gap and nothing else.
+/// Panels stack with an 8px gap and nothing else.
 class PanelStack extends StatelessWidget {
   const PanelStack({super.key, required this.children});
 

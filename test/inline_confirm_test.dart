@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/design/colors.dart';
 import 'package:hotline/design/components/inline_confirm.dart';
 
-/// SPEC.md §39.2: delete confirms in place. What matters is that a single tap
+/// Delete confirms in place. What matters is that a single tap
 /// never commits and that the armed window closes on its own — the block is the
 /// only guard between a stray tap and a deleted project.
 void main() {
@@ -46,7 +46,7 @@ void main() {
     expect(confirmed, 0);
     expect(find.text('CONFIRM DELETE'), findsOneWidget);
     expect(find.text('DELETE PROJECT'), findsNothing);
-    // §16c.2: the commit is the only thing that wears danger.
+    // The commit is the only thing that wears danger.
     expect(toneOf(tester), HotlineColors.danger);
   });
 

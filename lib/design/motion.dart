@@ -1,12 +1,13 @@
 import 'package:flutter/animation.dart';
 
-/// Motion from SPEC.md §16: quick, deterministic, sharp. 100-220ms, no springs,
+/// Motion is quick, deterministic and sharp: 100-220ms, no springs,
 /// no overshoot. Curves stay in the ease family for that reason.
 abstract final class Motion {
   static const instant = Duration(milliseconds: 100);
 
-  /// SPEC.md §39.10 names this one in milliseconds: the toolbar's row swap and
-  /// the focus scrim both cross-fade in 120ms, between [instant] and [fast].
+  /// The one duration the spec names in milliseconds: the toolbar's row swap
+  /// and the focus scrim both cross-fade in 120ms, between [instant] and
+  /// [fast].
   static const accessory = Duration(milliseconds: 120);
   static const fast = Duration(milliseconds: 140);
   static const normal = Duration(milliseconds: 180);
@@ -17,12 +18,12 @@ abstract final class Motion {
   static const transition = Curves.easeInOutCubic;
 }
 
-/// SPEC.md §16b/§16c effect timings. These are frame counts times a step, not
+/// Effect timings. These are frame counts times a step, not
 /// durations to interpolate over: every effect below is a discrete flipbook, so
 /// the step is the unit that matters and the total is what the spec caps.
 abstract final class Effects {
   /// Icon glitch: 5 frames x 45ms = 225ms, inside the 180-260ms window.
-  /// §16b.2 spends the fifth on the clean glyph — the sequence has to land on
+  /// The fifth frame is the clean glyph — the sequence has to land on
   /// the shape it corrupted, so the last frame is never a torn one.
   static const glitchFrames = 5;
   static const glitchStep = Duration(milliseconds: 45);
@@ -37,23 +38,23 @@ abstract final class Effects {
   static const decodeWindow = 3;
   static const decodeGlyphs = r'/\|-_';
 
-  /// §16c.4 title smear on tab change: 2 frames, well under the 120ms cap.
+  /// Title smear on tab change: 2 frames, well under the 120ms cap.
   static const smearFrames = 2;
 
-  /// §16b.1 static background: 8 fps, the bottom of the section's 8-12 range.
+  /// Static background: 8 fps, the bottom of the 8-12 range.
   /// The low rate is the effect, and on a phone every frame this costs is a
   /// frame an idle screen would not otherwise have asked for.
   static const staticStep = Duration(milliseconds: 125);
 
-  /// §16c.6: a wait shorter than this shows nothing rather than a spinner.
+  /// A wait shorter than this shows nothing rather than a spinner.
   static const spinnerThreshold = Duration(milliseconds: 200);
   static const spinnerStep = Duration(milliseconds: 80);
 
-  /// §16c.1 boot log.
+  /// Boot log.
   static const bootLineStep = Duration(milliseconds: 40);
   static const bootCap = Duration(milliseconds: 600);
 
-  /// §16b autonomous ticks: one event every 20-40s, never two at once.
+  /// Autonomous ticks: one event every 20-40s, never two at once.
   static const tickMin = Duration(seconds: 20);
   static const tickSpread = Duration(seconds: 20);
 }

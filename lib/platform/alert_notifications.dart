@@ -3,14 +3,14 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../application/alerts.dart';
 import 'herdr_client.dart';
 
-/// SPEC.md §39.31's status-bar alert.
+/// The status-bar alert.
 ///
 /// Every entry point here is static and takes what it needs as an argument: the
 /// three isolates that post, update and clear these notifications — the UI, the
 /// watcher service and the isolate that answers an action tap — share no object
 /// graph, only the plugin's own channel and the notification ids.
 class AlertNotifications {
-  /// §39.31: channel `Blocked agents` at high importance, with the channel's
+  /// Channel `Blocked agents` at high importance, with the channel's
   /// default sound and vibration. The id is the stable half; Android keeps the
   /// channel's settings from the first creation, and the user owns them after.
   static const channelId = 'blocked_agents';
@@ -62,17 +62,13 @@ class AlertNotifications {
         );
   }
 
-  /// §39.31's three actions. `OPEN` carries [showsUserInterface] so Android
+  /// The three actions. `OPEN` carries [showsUserInterface] so Android
   /// brings the activity up itself; `YES` and `NO` are answered in the
   /// background and must not take the notification with them, because the line
   /// they replace the actions with is drawn on the notification that is still
   /// there.
   static List<AndroidNotificationAction> get _actions => const [
-    AndroidNotificationAction(
-      alertActionYes,
-      'YES',
-      cancelNotification: false,
-    ),
+    AndroidNotificationAction(alertActionYes, 'YES', cancelNotification: false),
     AndroidNotificationAction(alertActionNo, 'NO', cancelNotification: false),
     AndroidNotificationAction(
       alertActionOpen,
@@ -96,24 +92,21 @@ class AlertNotifications {
       importance: Importance.high,
       priority: Priority.high,
       category: AndroidNotificationCategory.message,
-      // §39.31: the alert is the ask, so it stays until the pane leaves
+      // The alert is the ask, so it stays until the pane leaves
       // `blocked` — a swipe away is the user's own decision, not a tap.
       ongoing: false,
       autoCancel: false,
-      // §39.31: "the expanded form adds the `agent read` tail". Collapsed, a
+      // "the expanded form adds the `agent read` tail". Collapsed, a
       // BigText notification still shows only its first line, so the tail costs
       // the shade nothing until the user pulls it open.
       styleInformation: tail == null
           ? null
-          : BigTextStyleInformation(
-              '$body\n\n$tail',
-              contentTitle: title,
-            ),
+          : BigTextStyleInformation('$body\n\n$tail', contentTitle: title),
       actions: withActions ? _actions : const [],
     );
   }
 
-  /// The blocked edge. §39.31: title `<AGENT> BLOCKED`, text
+  /// The blocked edge: title `<AGENT> BLOCKED`, text
   /// `terminal_title_stripped`, expanded adds the pane's tail.
   static Future<void> alert({
     required AlertTarget target,
@@ -138,7 +131,7 @@ class AlertNotifications {
     );
   }
 
-  /// §39.31's `SENT · YES` and `FAILED · <reason>`: the same notification with
+  /// `SENT · YES` and `FAILED · <reason>`: the same notification with
   /// the state line under its text, actions gone or back.
   ///
   /// The title and text are passed in rather than re-read from the platform:

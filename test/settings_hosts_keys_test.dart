@@ -41,9 +41,9 @@ void main() {
 
   /// The key and host repositories stay in-memory — they are what these tests
   /// assert against — but the screens sit under [StaticSurface], which reads
-  /// §16b.1's grain out of the settings table. Without a database the scaffold
-  /// throws before any of these screens builds, which is what took all three
-  /// of these tests down at once.
+  /// the background grain out of the settings table. Without a database the
+  /// scaffold throws before any of these screens builds, which is what took all
+  /// three of these tests down at once.
   Widget host(Widget child) => ProviderScope(
     overrides: [
       databaseProvider.overrideWithValue(db),
@@ -54,8 +54,9 @@ void main() {
     child: MaterialApp(home: child),
   );
 
-  /// §16b.1's grain runs off a ticker that never settles, so a test that ends
-  /// with the tree still mounted leaves a pending timer and hangs the file.
+  /// The background grain runs off a ticker that never settles, so a test that
+  /// ends with the tree still mounted leaves a pending timer and hangs the
+  /// file.
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
@@ -108,7 +109,7 @@ void main() {
   });
 
   testWidgets('host save requires selecting a key', (tester) async {
-    // §39.29's `[ PORT ]` pushed the action bar past the bottom of the default
+    // The `[ PORT ]` field pushed the action bar past the bottom of the default
     // 800x600 surface, and a [ListView] never builds what it does not show. The
     // form is opened on a phone-shaped view tall enough to hold all of it, the
     // same way test/host_form_test.dart does.
@@ -120,7 +121,7 @@ void main() {
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), 'nyx');
     await tester.enterText(fields.at(1), '100.64.0.1');
-    // Field 2 is §39.29's port, prefilled with 22; the user is field 3.
+    // Field 2 is the port, prefilled with 22; the user is field 3.
     await tester.enterText(fields.at(3), 'luis');
     await tester.pump();
 

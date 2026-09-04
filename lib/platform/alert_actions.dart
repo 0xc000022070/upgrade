@@ -8,7 +8,7 @@ import 'alert_notifications.dart';
 import 'herdr_client.dart';
 import 'keys.dart';
 
-/// SPEC.md §39.31's `YES` and `NO`, answered wherever the tap lands.
+/// The alert's `YES` and `NO`, answered wherever the tap lands.
 ///
 /// Android delivers an action tap to this app's background isolate when the
 /// activity is gone and to the main isolate when it is not, so the same
@@ -53,15 +53,14 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
         withActions: withActions,
       );
 
-  // The state line goes up before the connection is dialled: §39.31 replaces
-  // the actions "after a tap", and an unreachable host takes ten seconds to
+  // The state line goes up before the connection is dialled: the actions are
+  // replaced "after a tap", and an unreachable host takes ten seconds to
   // say so.
   await redraw(line: alertSentLine(yes: yes), withActions: false);
 
   try {
-    final privateKey = await const Ed25519Keys(
-      SecurePrivateKeyStore(),
-    ).privateKey(target.keyId);
+    final privateKey = await const Ed25519Keys(SecurePrivateKeyStore())
+        .privateKey(target.keyId);
     if (privateKey == null) {
       throw HerdrKeyRejected('no private key stored for ${target.keyId}');
     }
@@ -73,21 +72,21 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
       privateKey: privateKey,
     );
     try {
-      await session.sendKeys(
-        target.paneId,
-        answerKeys(target.agent, yes: yes),
-      );
+      await session.sendKeys(target.paneId, answerKeys(target.agent, yes: yes));
     } finally {
       session.close();
     }
   } on HerdrFailure catch (error) {
-    // §39.29's line, from an isolate that has no host name to put in it.
+    // The debug line, from an isolate that has no host name to put in it.
     debugPrint('hotline.herdr ${target.address}: ${error.detail ?? error}');
-    await redraw(line: alertFailedLine(alertFailureReason(error)), withActions: true);
+    await redraw(
+      line: alertFailedLine(alertFailureReason(error)),
+      withActions: true,
+    );
     return;
   }
 
-  // §39.31: the actions come back if 10 s pass with no change. The watcher
+  // The actions come back if 10 s pass with no change. The watcher
   // clearing the notification first is the other ending, so a restore that
   // would resurrect a dismissed alert is dropped.
   await Future<void>.delayed(alertActionRestore);

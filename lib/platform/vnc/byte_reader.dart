@@ -61,7 +61,7 @@ class ByteReader {
 
   /// Blocks until [count] bytes have arrived, then returns them.
   ///
-  /// A stream that ends first is §39.32's `stream closed`: a handshake cut in
+  /// A stream that ends first is the `stream closed` reason: a handshake cut in
   /// half and a tunnel dropped mid-frame are the same event from here, and both
   /// are reported rather than left as a future that never completes.
   Future<Uint8List> read(int count) async {
@@ -127,8 +127,8 @@ class ByteReader {
     return ByteData.sublistView(bytes).getInt32(0);
   }
 
-  /// Reads and drops [count] bytes. §39.32 reads the colour-map and cut-text
-  /// messages to stay in frame and then throws them away.
+  /// Reads and drops [count] bytes. The colour-map and cut-text messages are
+  /// read to stay in frame and then thrown away.
   Future<void> skip(int count) => read(count);
 
   Future<void> close() async {
