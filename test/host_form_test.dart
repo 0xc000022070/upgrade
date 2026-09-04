@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +15,9 @@ import 'package:hotline/design/components/picker_row.dart';
 import 'package:hotline/design/components/solid_action_bar.dart';
 import 'package:hotline/features/settings/host_form_screen.dart';
 import 'package:hotline/features/access/access_screen.dart';
+import 'package:hotline/features/screen/screen_preview.dart';
 import 'package:hotline/platform/keys.dart';
+import 'package:hotline/platform/vnc/framebuffer.dart';
 
 import 'support/platform_channels.dart';
 
@@ -39,6 +43,8 @@ void main() {
   late InMemoryKeyRepository keys;
   late InMemoryHostRepository hosts;
   late MemoryPrivateKeyStore privateKeys;
+  late Directory root;
+  late ScreenPreviews previews;
 
   setUp(() {
     stubDeviceChannels();
@@ -46,9 +52,15 @@ void main() {
     keys = InMemoryKeyRepository();
     hosts = InMemoryHostRepository();
     privateKeys = MemoryPrivateKeyStore();
+    root = Directory.systemTemp.createTempSync('hotline-host-form');
+    previews = ScreenPreviews(Directory('${root.path}/screens'));
+    addTearDown(previews.dispose);
   });
 
-  tearDown(() => db.close());
+  tearDown(() {
+    root.deleteSync(recursive: true);
+    return db.close();
+  });
 
   Widget app(Widget home) => ProviderScope(
     overrides: [
@@ -56,6 +68,7 @@ void main() {
       keyRepositoryProvider.overrideWithValue(keys),
       hostRepositoryProvider.overrideWithValue(hosts),
       privateKeyStoreProvider.overrideWithValue(privateKeys),
+      screenPreviewsProvider.overrideWith((ref) async => previews),
     ],
     child: MaterialApp(home: home),
   );
@@ -270,7 +283,7 @@ void main() {
     await tester.pump();
 
     // The back arrow is the crumb line, and it asks.
-    await tester.tap(find.text('/ HOTLINE / SYS / HOSTS'));
+    await tester.tap(find.text('/ HOTLINE / ACCESS'));
     await _sheet(tester);
     expect(find.text('DISCARD HOST?'), findsOneWidget);
 
@@ -416,6 +429,67 @@ void main() {
     await tester.tap(find.text('DISCARD'));
     await _sheet(tester);
     expect(find.text('OPEN'), findsOneWidget);
+    expect(await hosts.all(), isEmpty);
+
+    await unmount(tester);
+  });
+
+  testWidgets('deleting a host takes its stored frame with it', (tester) async {
+    const nyx = Host(
+      id: 'h1',
+      name: 'nyx',
+      address: '100.64.0.2',
+      port: 357,
+      user: 'luis',
+      keyId: 'key-1',
+    );
+    await keys.save(_key('key-1', 'faraday'));
+    await hosts.save(nyx);
+    await tester.runAsync(() => previews.write(nyx.id, Framebuffer(640, 360)));
+    expect(previews.fileFor(nyx.id).existsSync(), isTrue);
+
+    // The tile watches this stream, so a delete that does not announce itself
+    // leaves a frame on screen for a host that is gone.
+    final announced = <String>[];
+    final changes = previews.changes.listen(announced.add);
+    addTearDown(changes.cancel);
+
+    await open(tester, const HostFormScreen(host: nyx));
+    await tester.tap(find.text('DELETE HOST'));
+    await _sheet(tester);
+    expect(find.text('DELETE HOST?'), findsOneWidget);
+
+    await tester.tap(find.text('DELETE'));
+    await _sheet(tester);
+
+    expect(await hosts.all(), isEmpty);
+    expect(previews.fileFor(nyx.id).existsSync(), isFalse);
+    expect(announced, <String>[nyx.id]);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a host that never showed a frame deletes just the same', (
+    tester,
+  ) async {
+    const rose = Host(
+      id: 'h2',
+      name: 'rose',
+      address: '100.64.0.1',
+      port: 22,
+      user: 'luis',
+      keyId: 'key-1',
+    );
+    await keys.save(_key('key-1', 'faraday'));
+    await hosts.save(rose);
+    expect(previews.fileFor(rose.id).existsSync(), isFalse);
+
+    await open(tester, const HostFormScreen(host: rose));
+    await tester.tap(find.text('DELETE HOST'));
+    await _sheet(tester);
+    await tester.tap(find.text('DELETE'));
+    await _sheet(tester);
+
     expect(await hosts.all(), isEmpty);
 
     await unmount(tester);

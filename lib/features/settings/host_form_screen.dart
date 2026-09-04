@@ -26,6 +26,7 @@ import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../home/agent_mark.dart';
+import '../screen/screen_preview.dart';
 import '../screen_scaffold.dart';
 
 void openHostForm(BuildContext context, {Host? host}) {
@@ -353,9 +354,24 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     );
     if (!confirmed || !mounted) return;
     await ref.read(hostRepositoryProvider).delete(host.id);
+    if (!mounted) return;
+    await _deletePreview(host.id);
     if (mounted) {
       _leaving = true;
       Navigator.of(context).pop();
+    }
+  }
+
+  /// The host's stored frame goes with the host, or the tile it belongs to
+  /// would outlive its host on the next screen that reads the directory. A
+  /// store that will not open costs a stray file and nothing else, which is not
+  /// a reason to leave the user on a form for a host that is already gone.
+  Future<void> _deletePreview(String hostId) async {
+    try {
+      final previews = await ref.read(screenPreviewsProvider.future);
+      await previews.delete(hostId);
+    } catch (error) {
+      debugPrint('hotline.vnc $hostId: preview not removed: $error');
     }
   }
 
@@ -378,7 +394,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         body: StaticSurface(
           child: ScreenScaffold(
             title: widget.host == null ? 'NEW HOST' : 'HOST',
-            breadcrumb: '/ HOTLINE / SYS / HOSTS',
+            breadcrumb: '/ HOTLINE / ACCESS',
             onBack: _handleBack,
             children: [
               PanelStack(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'dart:io';
 
 import 'package:flutter_svg/flutter_svg.dart';
@@ -66,38 +67,6 @@ Widget host(AgentPanelState state, {DateTime? now}) => ProviderScope(
   ),
 );
 
-
-const vncNyx = Host(
-  id: 'v1',
-  name: 'nyx',
-  address: '100.118.60.77',
-  port: 357,
-  user: 'luisnquin',
-  keyId: 'key-a',
-);
-const vncRose = Host(
-  id: 'v2',
-  name: 'rose',
-  address: '100.118.60.78',
-  port: 22,
-  user: 'luisnquin',
-  keyId: 'key-a',
-);
-
-/// The panel with a real host repository behind it, which is what §39.32's
-/// `SCREEN >` is read from. [host] cannot serve: its bare scope resolves the
-/// integration query against an empty in-memory repository every time.
-Widget hostWithRepository(
-  AgentPanelState state,
-  HostRepository hosts, {
-  DateTime? now,
-}) => ProviderScope(
-  overrides: [hostRepositoryProvider.overrideWithValue(hosts)],
-  child: MaterialApp(
-    home: Scaffold(body: AgentsPanel(state: state, now: now)),
-  ),
-);
-
 void main() {
   test('no host keeps the polling provider idle', () async {
     var fetches = 0;
@@ -128,13 +97,13 @@ void main() {
     final hosts = InMemoryHostRepository();
     await hosts.save(hostA);
     await hosts.save(hostB);
-    // §39.20's ruling: a registered host is not a herdr endpoint until the
-    // integration says so, so B is invisible to the poller at the start.
+    // A registered host is not a herdr endpoint until the integration says
+    // so, so B is invisible to the poller at the start.
     await hosts.setIntegration(hostA.id, IntegrationKind.herdr, true);
     final privateKeys = MemoryPrivateKeyStore();
     await privateKeys.write('key-a', 'private-a');
     await privateKeys.write('key-b', 'private-b');
-    // §39.29: what the transport was actually asked to dial, address and port
+    // What the transport was actually asked to dial, address and port
     // together, so a build that hardcodes 22 fails here rather than on a phone.
     final addresses = <String>[];
     String dialled(Host host) => '${host.address}:${host.port}';
@@ -177,8 +146,7 @@ void main() {
     expect(addresses, isNot(contains(dialled(hostB))));
 
     await hosts.setIntegration(hostB.id, IntegrationKind.herdr, true);
-    // B's sshd is on 357, which is the whole of §39.29: the host carries the
-    // port and the poll uses it.
+    // B's sshd is on 357: the host carries the port and the poll uses it.
     await _waitFor(() => addresses.contains(dialled(hostB)));
     // One state carries both: B's failure does not take A's rows down with it.
     await _waitFor(
@@ -202,7 +170,7 @@ void main() {
     expect(addresses, hasLength(fetches));
   });
 
-  test('§39.29 a name that never resolved is its own outcome', () async {
+  test('a name that never resolved is its own outcome', () async {
     final hosts = InMemoryHostRepository();
     await hosts.save(hostA);
     await hosts.setIntegration(hostA.id, IntegrationKind.herdr, true);
@@ -244,7 +212,7 @@ void main() {
     );
   });
 
-  testWidgets('§39.29 an unresolved host says so by name', (tester) async {
+  testWidgets('an unresolved host says so by name', (tester) async {
     final now = DateTime(2026, 9, 3, 12);
     final state = AgentPanelState([
       HostOutcome(
@@ -267,7 +235,7 @@ void main() {
     expect(find.text('12s ago'), findsOneWidget);
   });
 
-  testWidgets('§39.29 two failing hosts do not say the unresolved host twice', (
+  testWidgets('two failing hosts do not say the unresolved host twice', (
     tester,
   ) async {
     const state = AgentPanelState([
@@ -432,8 +400,8 @@ void main() {
     ]);
     await tester.pumpWidget(host(state));
 
-    // §39.20 words only the unreachable line with its host; with two failures
-    // the bare lines would not say which machine, so the name goes back.
+    // Only the unreachable line carries its host; with two failures the bare
+    // lines would not say which machine, so the name goes back.
     expect(find.text('a · key rejected'), findsOneWidget);
     expect(find.text('b · protocol 9'), findsOneWidget);
   });
@@ -451,7 +419,7 @@ void main() {
     expect(find.text('VIEW ALL'), findsNothing);
   });
 
-  test('§39.30 every listed kind has its mark file', () {
+  test('every listed kind has its mark file', () {
     // The manifest in [agentMarkKinds] is what the row trusts, so a kind
     // listed without its file is an empty box rather than the `?` it would
     // have fallen back to. Nothing at runtime can catch that; this does.
@@ -462,14 +430,11 @@ void main() {
         reason: 'agentMarkKinds lists $kind but assets/icons has no file',
       );
     }
-    // §39.30 names these two as required; the rest land as the artist traces
-    // them.
+    // These two are required; the rest land as the artist traces them.
     expect(agentMarkKinds, containsAll(<String>['claude', 'codex']));
   });
 
-  testWidgets('§39.30 a claude row renders the claude mark and no C', (
-    tester,
-  ) async {
+  testWidgets('a claude row renders the claude mark and no C', (tester) async {
     await tester.pumpWidget(
       host(
         snapshotOf([
@@ -491,9 +456,7 @@ void main() {
     expect(find.text('CLAUDE'), findsOneWidget);
   });
 
-  testWidgets('§39.30 a codex row renders the codex mark and no X', (
-    tester,
-  ) async {
+  testWidgets('a codex row renders the codex mark and no X', (tester) async {
     await tester.pumpWidget(
       host(
         snapshotOf([
@@ -513,9 +476,7 @@ void main() {
     expect(find.text('CODEX'), findsOneWidget);
   });
 
-  testWidgets('§39.30 a kind with no mark file keeps the ? box', (
-    tester,
-  ) async {
+  testWidgets('a kind with no mark file keeps the ? box', (tester) async {
     await tester.pumpWidget(
       host(
         snapshotOf([
@@ -530,16 +491,19 @@ void main() {
       ),
     );
 
-    expect(find.descendant(
-      of: find.byType(AgentMark),
-      matching: find.byType(SvgPicture),
-    ), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(AgentMark),
+        matching: find.byType(SvgPicture),
+      ),
+      findsNothing,
+    );
     expect(find.text('?'), findsOneWidget);
     // The fallback is the box only. The name is still what herdr reported.
     expect(find.text('GIZMO'), findsOneWidget);
   });
 
-  testWidgets('§39.30 an empty kind is ? in the box and ? as the name', (
+  testWidgets('an empty kind is ? in the box and ? as the name', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -563,92 +527,6 @@ void main() {
       find.descendant(of: find.byType(AgentMark), matching: find.text('?')),
       findsOneWidget,
     );
-  });
-
-  testWidgets('§39.32 no host with VNC on leaves the header without SCREEN', (
-    tester,
-  ) async {
-    final hosts = InMemoryHostRepository();
-    await hosts.save(vncNyx);
-    // Registered and polled, but the screen integration is off — which is the
-    // ordinary case and the reason the affordance is conditional at all.
-    await hosts.setIntegration(vncNyx.id, IntegrationKind.herdr, true);
-
-    await tester.pumpWidget(
-      hostWithRepository(
-        snapshotOf(const [], receivedAt: DateTime(2026)),
-        hosts,
-      ),
-    );
-    await tester.pump();
-
-    expect(find.text('SCREEN'), findsNothing);
-    expect(find.text('VIEW ALL'), findsOneWidget);
-  });
-
-  testWidgets('§39.32 one host with VNC on puts SCREEN beside VIEW ALL', (
-    tester,
-  ) async {
-    final hosts = InMemoryHostRepository();
-    await hosts.save(vncNyx);
-    await hosts.setIntegration(vncNyx.id, IntegrationKind.vnc, true);
-
-    await tester.pumpWidget(
-      hostWithRepository(
-        snapshotOf(const [], receivedAt: DateTime(2026)),
-        hosts,
-      ),
-    );
-    await tester.pump();
-
-    expect(find.text('SCREEN'), findsOneWidget);
-    expect(find.text('VIEW ALL'), findsOneWidget);
-  });
-
-  testWidgets('§39.32 SCREEN survives a panel with no herdr host at all', (
-    tester,
-  ) async {
-    final hosts = InMemoryHostRepository();
-    await hosts.save(vncNyx);
-    await hosts.setIntegration(vncNyx.id, IntegrationKind.vnc, true);
-
-    // §39.20 blocks the body — no rows, no count, no VIEW ALL — and §39.32's
-    // affordance is answerable anyway: a host kept only for its screen is
-    // still a host with a screen.
-    await tester.pumpWidget(
-      hostWithRepository(const AgentPanelState.noHost(), hosts),
-    );
-    await tester.pump();
-
-    expect(find.text('SCREEN'), findsOneWidget);
-    expect(find.text('VIEW ALL'), findsNothing);
-    expect(find.text(AgentPanelState.blockedLine), findsOneWidget);
-  });
-
-  testWidgets('§39.32 two hosts with VNC on open the picker, named', (
-    tester,
-  ) async {
-    final hosts = InMemoryHostRepository();
-    await hosts.save(vncNyx);
-    await hosts.save(vncRose);
-    await hosts.setIntegration(vncNyx.id, IntegrationKind.vnc, true);
-    await hosts.setIntegration(vncRose.id, IntegrationKind.vnc, true);
-
-    await tester.pumpWidget(
-      hostWithRepository(
-        snapshotOf(const [], receivedAt: DateTime(2026)),
-        hosts,
-      ),
-    );
-    await tester.pump();
-
-    await tester.tap(find.text('SCREEN'));
-    await tester.pumpAndSettle();
-
-    // Both machines, by name, and neither promoted to a block: the sheet asks
-    // which one and does not answer for the user.
-    expect(find.text('NYX'), findsOneWidget);
-    expect(find.text('ROSE'), findsOneWidget);
   });
 }
 

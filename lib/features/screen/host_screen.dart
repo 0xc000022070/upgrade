@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/agents.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
-import '../../design/components/action_sheet.dart';
 import '../../design/components/panel.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
@@ -13,41 +14,15 @@ import '../../platform/vnc/vnc_tunnel.dart';
 import 'framebuffer_view.dart';
 import 'keys_strip.dart';
 import 'screen_controller.dart';
+import 'screen_preview.dart';
 import 'screen_rail.dart';
 
-/// The way in. Kept here rather than at the call site so the AGENTS panel's
-/// `SCREEN >` and the host picker push the same route.
+/// The way in, and the only one: a host's tile on ACCESS pushes this.
 void openHostScreen(BuildContext context, Host host) {
   Navigator.of(
     context,
     rootNavigator: true,
   ).push(MaterialPageRoute<void>(builder: (_) => HostScreenRoute(host: host)));
-}
-
-/// `SCREEN >` on one host is the screen, and on several it is the question of
-/// which. A picker in front of a single host would be a tap
-/// that only ever has one answer.
-Future<void> openScreenFor(BuildContext context, List<Host> hosts) async {
-  if (hosts.isEmpty) return;
-  if (hosts.length == 1) {
-    openHostScreen(context, hosts.single);
-    return;
-  }
-  await showActionSheet(
-    context,
-    title: 'SCREEN',
-    // Nothing here is the recommended one: they are the user's machines, in
-    // the order the repository sorts them, and the sheet must not imply a
-    // default the app does not have.
-    recommendFirst: false,
-    actions: [
-      for (final host in hosts)
-        SheetAction(
-          host.name.toUpperCase(),
-          () => openHostScreen(context, host),
-        ),
-    ],
-  );
 }
 
 /// `/ <HOST> SCREEN`, the state on its right, and the host's desktop under it.
@@ -71,6 +46,11 @@ class HostScreenRoute extends ConsumerStatefulWidget {
 class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   late final HostScreenController _controller;
 
+  /// The store and the tick that keep this host's tile on ACCESS current. Both
+  /// are null until the store opens, which is a round trip to the platform.
+  ScreenPreviews? _previews;
+  Timer? _previewTimer;
+
   /// Two switches, not one mode. Either can be up without the other,
   /// which is why the rail holds two booleans and the layer below takes both.
   bool _stripOpen = false;
@@ -92,10 +72,38 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
     // The only route that allows landscape.
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     _controller.connect();
+    unawaited(_openPreviews());
+  }
+
+  /// A store that will not open costs the host its tile and nothing else — the
+  /// screen in front of the user is not a thing to take down over a file.
+  Future<void> _openPreviews() async {
+    try {
+      final previews = await ref.read(screenPreviewsProvider.future);
+      if (!mounted) return;
+      _previews = previews;
+      _previewTimer = Timer.periodic(previewInterval, (_) => _writePreview());
+    } catch (error) {
+      debugPrint('hotline.vnc ${widget.host.name}: no preview store: $error');
+    }
+  }
+
+  /// Nothing to write until a frame has arrived, which is the whole of the
+  /// first seconds of every visit.
+  Future<void> _writePreview() async {
+    final previews = _previews;
+    final framebuffer = _controller.lastFramebuffer;
+    if (previews == null || framebuffer == null) return;
+    await previews.write(widget.host.id, framebuffer);
   }
 
   @override
   void dispose() {
+    _previewTimer?.cancel();
+    // The last thing on the screen, taken before the controller lets go of it.
+    // The encode runs before the first await, so this reads the framebuffer
+    // rather than racing the dispose below for it.
+    unawaited(_writePreview());
     // Exactly what `main` sets before the first frame, so leaving this route
     // puts the app back where it was rather than somewhere near it. None of
     // the rest of the app is laid out for a landscape window, and portraitDown

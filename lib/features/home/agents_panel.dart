@@ -2,7 +2,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/agents.dart';
-import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/dot_spinner.dart';
 import '../../design/components/panel.dart';
@@ -10,24 +9,13 @@ import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/herdr_client.dart';
 import '../agents/agents_screen.dart';
-import '../screen/host_screen.dart';
 import 'agent_mark.dart';
 
 class AgentsPanel extends ConsumerWidget {
-  const AgentsPanel({
-    super.key,
-    this.state,
-    this.onViewAll,
-    this.onScreen,
-    this.now,
-  });
+  const AgentsPanel({super.key, this.state, this.onViewAll, this.now});
 
   final AgentPanelState? state;
   final VoidCallback? onViewAll;
-
-  /// §39.32's `SCREEN >`, overridable for the same reason [onViewAll] is: a
-  /// test asserts the header without a navigator behind it.
-  final VoidCallback? onScreen;
   final DateTime? now;
 
   @override
@@ -37,19 +25,10 @@ class AgentsPanel extends ConsumerWidget {
         ? ref.watch(agentsFeedProvider)
         : AsyncValue<AgentPanelState>.data(supplied);
     final current = value.valueOrNull;
-    // §39.32's `SCREEN >` answers to the `vnc` integration alone, so a host
-    // kept only for its screen still offers one while the panel below is
-    // saying it has no agents to poll.
-    final screens = ref.watch(vncHostsProvider).valueOrNull ?? const <Host>[];
     final agents = !(current?.noHost ?? false);
     final header = <Widget>[
       if (agents)
         PanelAffordance('${current?.agents.length ?? 0}', showIcon: false),
-      if (screens.isNotEmpty)
-        PanelAffordance(
-          'SCREEN',
-          onTap: onScreen ?? () => openScreenFor(context, screens),
-        ),
       if (agents)
         PanelAffordance(
           'VIEW ALL',
@@ -90,7 +69,7 @@ class _AgentsBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // §39.20: blocked is one dim line and nothing else — no rows, no footer.
+    // Blocked is one dim line and nothing else — no rows, no footer.
     if (data.noHost) return const _DimLine(AgentPanelState.blockedLine);
 
     final failures = data.failures;
@@ -139,10 +118,9 @@ class _AgentsBody extends StatelessWidget {
     );
   }
 
-  /// §39.20 words the unreachable line with its host and the other two
-  /// without, and §39.29 words its unresolved line the same way. With one
-  /// failing host the bare ones read fine; with two, `key rejected` twice does
-  /// not say which machine, so the host is put back in front.
+  /// The unreachable line carries its host and the other three do not. With
+  /// one failing host the bare ones read fine; with two, `key rejected` twice
+  /// does not say which machine, so the host is put back in front.
   String _failureLine(HostOutcome outcome, bool disambiguate) {
     const named = {AgentOutcomeKind.unreachable, AgentOutcomeKind.unresolved};
     if (!disambiguate || named.contains(outcome.kind)) return outcome.reason;

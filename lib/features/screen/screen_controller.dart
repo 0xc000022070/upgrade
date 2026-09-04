@@ -11,14 +11,14 @@ import '../../platform/vnc/rfb_messages.dart';
 import '../../platform/vnc/vnc_failure.dart';
 import '../../platform/vnc/vnc_tunnel.dart';
 
-/// SPEC.md §39.32's three states, which are the whole of what the breadcrumb's
-/// right-hand side can say.
+/// The three states, which are the whole of what the breadcrumb's right-hand
+/// side can say.
 enum ScreenPhase { connecting, live, failed }
 
 /// One update's worth of pixels as an image.
 ///
 /// `bgra8888` is the format the framebuffer is already in, so this is an upload
-/// and not a conversion — which is the whole reason §39.32 asks the server for
+/// and not a conversion — which is the whole reason the server is asked for
 /// that pixel format. Top level so the measurement in the evidence times the
 /// path the route runs and not a copy of it.
 Future<ui.Image> decodeFramebuffer(Framebuffer framebuffer) async {
@@ -41,9 +41,9 @@ Future<ui.Image> decodeFramebuffer(Framebuffer framebuffer) async {
 /// back.
 ///
 /// A [ChangeNotifier] rather than a Riverpod notifier because it is bound to a
-/// route's lifetime exactly — §39.32 closes the channel and the ssh connection
-/// when the route goes, and a provider that outlived the widget by a frame
-/// would hold both open.
+/// route's lifetime exactly — the channel and the ssh connection close when
+/// the route goes, and a provider that outlived the widget by a frame would
+/// hold both open.
 class HostScreenController extends ChangeNotifier {
   HostScreenController({
     required this.host,
@@ -61,6 +61,7 @@ class HostScreenController extends ChangeNotifier {
   ScreenPhase _phase = ScreenPhase.connecting;
   String? _reason;
   ui.Image? _image;
+  Framebuffer? _lastFramebuffer;
   Size _framebufferSize = Size.zero;
   Duration? _lastFrame;
   bool _disposed = false;
@@ -71,17 +72,22 @@ class HostScreenController extends ChangeNotifier {
 
   ScreenPhase get phase => _phase;
 
-  /// §39.32's reason line, already worded: `nyx unreachable`, `key rejected`,
+  /// The reason line, already worded: `nyx unreachable`, `key rejected`,
   /// `tunnel refused`, `auth unsupported`, `stream closed`.
   String? get reason => _reason;
 
   ui.Image? get image => _image;
   Size get framebufferSize => _framebufferSize;
 
-  /// How long the last update took to turn into an image. §39.32 asks the
-  /// builder to measure this on a 1080p update; it is kept on the controller so
-  /// the number in the evidence README comes off a running app rather than a
-  /// benchmark written beside it.
+  /// The last update that became an image, which is what the route stores as
+  /// this host's preview. The decoded one rather than the newest arrival: a
+  /// frame that failed to decode was never on screen, so it is not what the
+  /// tile should show.
+  Framebuffer? get lastFramebuffer => _lastFramebuffer;
+
+  /// How long the last update took to turn into an image. Measured on a 1080p
+  /// update and kept on the controller, so the number in the evidence comes off
+  /// a running app rather than a benchmark written beside it.
   Duration? get lastFrameTime => _lastFrame;
 
   Future<void> connect() async {
@@ -124,7 +130,7 @@ class HostScreenController extends ChangeNotifier {
       // The pump runs unawaited: it lives as long as the connection, and every
       // way it can end already reports itself through [frames].
       unawaited(connection.rfb.run());
-      // §39.32: one non-incremental request first.
+      // One non-incremental request first.
       await connection.rfb.requestUpdate(incremental: false);
     } catch (error) {
       if (_disposed || attempt != _attempt) return;
@@ -132,8 +138,8 @@ class HostScreenController extends ChangeNotifier {
     }
   }
 
-  /// §39.32: the reason line's `RETRY`. There is no reconnect loop; this is the
-  /// only way back.
+  /// The reason line's `RETRY`. There is no reconnect loop; this is the only
+  /// way back.
   Future<void> retry() async {
     await _teardown();
     if (_disposed) return;
@@ -155,16 +161,19 @@ class HostScreenController extends ChangeNotifier {
       // rather than when the next GC gets to it.
       _image?.dispose();
       _image = image;
+      _lastFramebuffer = framebuffer;
       _lastFrame = watch.elapsed;
       _framebufferSize = Size(
         framebuffer.width.toDouble(),
         framebuffer.height.toDouble(),
       );
       notifyListeners();
-      _log('${framebuffer.width}x${framebuffer.height} in '
-          '${watch.elapsedMicroseconds / 1000}ms');
+      _log(
+        '${framebuffer.width}x${framebuffer.height} in '
+        '${watch.elapsedMicroseconds / 1000}ms',
+      );
     }
-    // §39.32: the next request goes as soon as this update is painted, and the
+    // The next request goes as soon as this update is painted, and the
     // client's own 24 fps cap decides whether it waits first.
     await connection.rfb.requestUpdate();
   }
@@ -178,22 +187,21 @@ class HostScreenController extends ChangeNotifier {
     }
   }
 
-  /// §39.32: tap moves the pointer and left-clicks.
+  /// Tap moves the pointer and left-clicks.
   void click(Offset at, {int button = RfbButtons.left}) {
     _pointer(at, RfbButtons.none);
     _pointer(at, button);
     _pointer(at, RfbButtons.none);
   }
 
-  /// §39.32: long press right-clicks.
+  /// Long press right-clicks.
   void rightClick(Offset at) => click(at, button: RfbButtons.right);
 
   /// The long-press drag: button 1 stays down while the pointer moves.
   void drag(Offset at, {required bool down}) =>
       _pointer(at, down ? RfbButtons.left : RfbButtons.none);
 
-  /// §39.32: "one button 4/5 press-release per 40 px" at fit, where nothing
-  /// pans.
+  /// One button 4/5 press-release per 40 px at fit, where nothing pans.
   void wheel(Offset at, {required bool up}) {
     final button = up ? RfbButtons.wheelUp : RfbButtons.wheelDown;
     _pointer(at, button);
@@ -208,9 +216,12 @@ class HostScreenController extends ChangeNotifier {
     );
   }
 
-  /// §39.32's typing: a keysym press and release per character, under whatever
-  /// sticky modifiers the strip has armed.
-  void typeCharacter(String character, {Set<StickyModifier> sticky = const {}}) {
+  /// Typing: a keysym press and release per character, under whatever sticky
+  /// modifiers the strip has armed.
+  void typeCharacter(
+    String character, {
+    Set<StickyModifier> sticky = const {},
+  }) {
     sendKeysym(Keysyms.forCharacter(character), sticky: sticky);
   }
 
@@ -238,7 +249,7 @@ class HostScreenController extends ChangeNotifier {
     _reason =
         failure?.reason(host.name) ?? const VncStreamClosed().reason(host.name);
     notifyListeners();
-    // The connection is dropped, not kept for the retry: §39.32 opens a fresh
+    // The connection is dropped, not kept for the retry: a retry opens a fresh
     // one, and holding a dead client would keep its zlib stream alive with it.
     unawaited(_teardown());
   }
@@ -252,13 +263,13 @@ class HostScreenController extends ChangeNotifier {
     await connection?.close();
   }
 
-  /// §39.32, §39.29's rule: one debug line per host, named after this feature.
+  /// One debug line per host, named after this feature.
   void _log(Object message) => debugPrint('hotline.vnc ${host.name}: $message');
 
   @override
   void dispose() {
     _disposed = true;
-    // §39.32: leaving the route closes the channel and the ssh connection.
+    // Leaving the route closes the channel and the ssh connection.
     unawaited(_teardown());
     _image?.dispose();
     _image = null;
