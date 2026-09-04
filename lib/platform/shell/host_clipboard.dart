@@ -113,7 +113,19 @@ const _timedOut = '124';
 /// compositor's clipboard, not XWayland's.
 HostClipboard parseProbe(ExecResult result) {
   if (!result.ok) {
-    return const HostClipboard(ClipboardBackend.none, reason: 'probe failed');
+    // The script ends in `exit 0`, so a bad exit is the host refusing to run
+    // it at all: a key without exec, a gate on the login shell, a missing
+    // `sh`. The row carries what the host said so the refusal names itself.
+    final code = result.exitCode?.toString() ?? '?';
+    final said = (result.err.trim().isEmpty ? result.out : result.err)
+        .trim()
+        .split('\n')
+        .first
+        .trim();
+    return HostClipboard(
+      ClipboardBackend.none,
+      reason: said.isEmpty ? 'probe exit $code' : 'probe exit $code · $said',
+    );
   }
   final fields = <String, String>{};
   final has = <String>{};

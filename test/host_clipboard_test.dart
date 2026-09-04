@@ -92,10 +92,32 @@ void main() {
       expect(clipboard.line, 'NONE · no display server');
     });
 
-    test('a probe that did not run is NONE rather than a guess', () {
+    test('a probe the host refused says the exit and the first line', () {
       expect(
         parseProbe(printed('', exitCode: 127)).line,
-        'NONE · probe failed',
+        'NONE · probe exit 127',
+      );
+      expect(
+        parseProbe(
+          ExecResult(
+            exitCode: 1,
+            stdout: Uint8List(0),
+            stderr: Uint8List.fromList(
+              utf8.encode('key not approved yet\nsee the admin\n'),
+            ),
+          ),
+        ).line,
+        'NONE · probe exit 1 · key not approved yet',
+      );
+      expect(
+        parseProbe(
+          ExecResult(
+            exitCode: null,
+            stdout: Uint8List(0),
+            stderr: Uint8List(0),
+          ),
+        ).line,
+        'NONE · probe exit ?',
       );
     });
   });
