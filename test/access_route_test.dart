@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/application/agents.dart';
+import 'package:hotline/application/navigation.dart';
 import 'package:hotline/application/providers.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/data/enums.dart';
@@ -12,12 +13,17 @@ import 'package:hotline/data/repositories/host_repository.dart';
 import 'package:hotline/data/repositories/key_repository.dart';
 import 'package:hotline/design/colors.dart';
 import 'package:hotline/features/access/access_screen.dart';
+import 'package:hotline/features/access/link_probes.dart';
 import 'package:hotline/features/access/preview_tile.dart';
 import 'package:hotline/features/screen/screen_preview.dart';
 import 'package:hotline/features/shell/shell_sessions.dart';
 import 'package:hotline/features/settings/settings_screen.dart';
 import 'package:hotline/platform/keys.dart';
+import 'package:hotline/platform/host_keys.dart';
+import 'package:hotline/platform/link_probe.dart';
+import 'package:hotline/platform/shell/shell_connection.dart';
 import 'package:hotline/platform/vnc/framebuffer.dart';
+import 'package:xterm/xterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -57,6 +63,9 @@ void main() {
   late ScreenPreviews previews;
   late FakeShellTransport shells;
   late ShellSessions sessions;
+  late Map<String, LinkResult> answers;
+  late List<String> probed;
+  late LinkProbes probes;
 
   setUp(() {
     stubDeviceChannels();
@@ -68,6 +77,16 @@ void main() {
     previews = ScreenPreviews(Directory('${root.path}/screens'));
     shells = FakeShellTransport()..stall = true;
     sessions = fakeShellSessions(shells);
+    // No socket in a test. Without this the panel knocks on the addresses the
+    // fixtures name, which are somebody's machines.
+    answers = {};
+    probed = [];
+    probes = LinkProbes(
+      probe: (address, port) async {
+        probed.add('$address:$port');
+        return answers['$address:$port'] ?? const LinkResult.unknown();
+      },
+    );
     addTearDown(previews.dispose);
   });
 
@@ -76,14 +95,16 @@ void main() {
     return db.close();
   });
 
-  Widget app(Widget child) => ProviderScope(
+  Widget app(Widget child, {int index = 0}) => ProviderScope(
     overrides: [
+      navIndexProvider.overrideWith((ref) => index),
       databaseProvider.overrideWithValue(db),
       keyRepositoryProvider.overrideWithValue(keys),
       hostRepositoryProvider.overrideWithValue(hosts),
       privateKeyStoreProvider.overrideWithValue(privateKeys),
       screenPreviewsProvider.overrideWith((ref) async => previews),
       shellSessionsProvider.overrideWithValue(sessions),
+      linkProbesProvider.overrideWithValue(probes),
     ],
     child: MaterialApp(home: child),
   );
@@ -270,6 +291,98 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the link row says what answered, and what did not', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    // The hosts without their integrations: ACCESS in front starts the agents
+    // poll, and its ten-second tick would outlive the test.
+    await keys.save(_key('key-1', 'faraday'));
+    await hosts.save(_rose);
+    await hosts.save(_nyx);
+    answers['100.64.0.1:22'] = const LinkResult(
+      LinkStatus.up,
+      software: 'OpenSSH_9.9',
+      latency: Duration(milliseconds: 120),
+    );
+    answers['100.64.0.2:357'] = const LinkResult(LinkStatus.refused);
+
+    // The probes go out when ACCESS is the tab in front, not when the widget
+    // happens to be built, so the route has to be the one on screen.
+    await tester.pumpWidget(
+      app(const AccessScreen(), index: AccessScreen.navIndex),
+    );
+    await ready(tester);
+
+    // What the machine calls itself and how long it took to say so, which is
+    // the difference between a host that is up and a port that is open.
+    expect(find.text('OPENSSH_9.9 · 120 MS'), findsOneWidget);
+    expect(find.text('REFUSED'), findsOneWidget);
+    expect(probed, ['100.64.0.1:22', '100.64.0.2:357']);
+
+    // The whole row is the hit, and a tap asks again however fresh the answer.
+    final row = find.ancestor(
+      of: find.text('REFUSED'),
+      matching: find.byType(GestureDetector),
+    );
+    await tester.tapAt(tester.getCenter(row.first));
+    await ready(tester);
+
+    expect(probed, hasLength(3));
+    expect(probed.last, '100.64.0.2:357');
+
+    await unmount(tester);
+  });
+
+  testWidgets('VERIFY stands on the hosts with no key pinned to them', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+    await hosts.pinHostKey(
+      _rose.id,
+      PinnedHostKey(
+        type: 'ssh-ed25519',
+        fingerprint: 'SHA256:rose',
+        pinnedAt: DateTime(2026, 9, 3),
+      ),
+    );
+
+    await tester.pumpWidget(app(const AccessScreen()));
+    await ready(tester);
+
+    // One machine the app can recognise and one it cannot. The offer to look
+    // stands only on the second.
+    expect(find.text('VERIFY'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the shell row counts what is open on its own host', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+    sessions.open(_rose);
+    sessions.open(_rose);
+
+    await tester.pumpWidget(app(const AccessScreen()));
+    await ready(tester);
+
+    expect(find.text('SHELL · 2 OPEN'), findsOneWidget);
+    // The host with nothing open is not counted at zero: it reads as the way
+    // in, which is what it is.
+    expect(find.text('SHELL'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
   testWidgets('a host with no integration reads NONE', (tester) async {
     await keys.save(_key('key-1', 'faraday'));
     await hosts.save(_rose);
@@ -393,5 +506,27 @@ void main() {
     expect(find.text('[ BUILD ]'), findsOneWidget);
 
     await unmount(tester);
+  });
+
+  group('the dot on the shell row', () {
+    test('takes the worst state of the sessions under it', () {
+      final live = ShellSession(number: 1, terminal: Terminal(), host: _rose)
+        ..state = const ShellLive();
+      final connecting = ShellSession(
+        number: 2,
+        terminal: Terminal(),
+        host: _rose,
+      )..state = const ShellConnecting();
+      final failed = ShellSession(number: 3, terminal: Terminal(), host: _rose)
+        ..state = const ShellFailed(ShellFailureKind.streamClosed);
+
+      expect(worstShellState([]), isNull);
+      expect(worstShellState([connecting]), isA<ShellConnecting>());
+      // A shell that is up is worth saying so beside one still dialling, and
+      // one tab in trouble is what the panel has to say however many are fine
+      // next to it.
+      expect(worstShellState([connecting, live]), isA<ShellLive>());
+      expect(worstShellState([live, connecting, failed]), isA<ShellFailed>());
+    });
   });
 }

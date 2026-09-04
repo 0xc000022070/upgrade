@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../app/static_surface.dart';
 import '../../application/agents.dart';
+import '../../application/formatting.dart';
 import '../../application/providers.dart';
 import '../../data/enums.dart';
 import '../../data/repositories/host_repository.dart';
@@ -16,6 +17,7 @@ import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/field_panel.dart';
 import '../../design/components/list_row.dart';
+import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/picker_row.dart';
@@ -25,6 +27,7 @@ import '../../design/icons/hotline_icon.dart';
 import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
+import '../../platform/host_keys.dart';
 import '../home/agent_mark.dart';
 import '../screen/screen_preview.dart';
 import '../screen_scaffold.dart';
@@ -62,6 +65,12 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   String? _keyId;
   bool _submitting = false;
 
+  /// The pin as the form found it, dropped in place when `FORGET KEY` is
+  /// tapped. Not part of the draft the save writes: forgetting a key takes
+  /// effect at once, because the reason to reach for it is a connection that is
+  /// being refused right now.
+  PinnedHostKey? _hostKey;
+
   /// Null until the host's rows are read back; an existing host must not have
   /// its integrations rewritten from a set that has not loaded yet.
   Set<IntegrationKind>? _integrations;
@@ -95,6 +104,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   @override
   void initState() {
     super.initState();
+    _hostKey = widget.host?.hostKey;
     final host = widget.host;
     _name = TextEditingController(text: host?.name ?? '');
     _address = TextEditingController(text: host?.address ?? '');
@@ -457,6 +467,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                       ],
                     ),
                   ),
+                  if (_hostKey != null) _hostKeyPanel(_hostKey!),
                   if (integrations.contains(IntegrationKind.herdr))
                     _pathsPanel(),
                 ],
@@ -490,6 +501,51 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         ),
       ),
     );
+  }
+
+  /// What the app checks the machine against on every dial, and the one way
+  /// out of a refusal. Drawn only for a host that has pinned something: there
+  /// is nothing to say about a host that has never connected.
+  Widget _hostKeyPanel(PinnedHostKey key) {
+    return Panel(
+      title: '[ HOST KEY ]',
+      bodyPadding: panelRowsPadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _KeyMetaRow('TYPE', key.type.toUpperCase()),
+          _KeyMetaRow('FINGERPRINT', key.fingerprint, maxLines: 3),
+          _KeyMetaRow('PINNED', relativeAge(key.pinnedAt.toUtc())),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ActionBlock(
+                label: 'FORGET KEY',
+                tone: HotlineColors.warning,
+                onTap: _forgetHostKey,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Drops the pin and lets the next connection trust whatever answers. Asked
+  /// about because the answer to a changed key is either this or a machine in
+  /// the middle, and only the user knows which.
+  Future<void> _forgetHostKey() async {
+    final host = widget.host;
+    if (host == null) return;
+    final confirmed = await confirmSheet(
+      context,
+      title: 'FORGET HOST KEY?',
+      confirmLabel: 'FORGET',
+    );
+    if (!confirmed || !mounted) return;
+    await ref.read(hostRepositoryProvider).forgetHostKey(host.id);
+    if (mounted) setState(() => _hostKey = null);
   }
 
   /// Drawn only while HERDR is on: a path exists to be sent to, and the send is
@@ -692,6 +748,30 @@ class _AddAction extends StatelessWidget {
             Text('ADD PATH', style: HotlineText.panelHeader),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The host form's read-only line: a label and a mono value, the shape ACCESS
+/// draws a host's metadata in.
+class _KeyMetaRow extends StatelessWidget {
+  const _KeyMetaRow(this.label, this.value, {this.maxLines = 1});
+
+  final String label;
+  final String value;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 108, child: Text(label, style: HotlineText.label)),
+          Expanded(child: Meta(value, maxLines: maxLines)),
+        ],
       ),
     );
   }

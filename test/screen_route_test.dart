@@ -22,6 +22,7 @@ import 'package:hotline/platform/vnc/rfb_client.dart';
 import 'package:hotline/platform/vnc/rfb_messages.dart';
 import 'package:hotline/platform/vnc/vnc_failure.dart';
 import 'package:hotline/platform/vnc/vnc_tunnel.dart';
+import 'package:hotline/platform/host_keys.dart';
 
 import 'support/vnc_channel.dart';
 
@@ -143,6 +144,7 @@ void main() {
             required int port,
             required String user,
             required String privateKey,
+            HostKeyVerifier? verifier,
           }) async {
             await gate.future;
             connection = await FakeVncConnection.open();
@@ -188,6 +190,7 @@ void main() {
               required int port,
               required String user,
               required String privateKey,
+              HostKeyVerifier? verifier,
             }) async {
               attempts++;
               if (attempts == 1) {
@@ -226,6 +229,7 @@ void main() {
         required int port,
         required String user,
         required String privateKey,
+        HostKeyVerifier? verifier,
       }) async => throw StateError('never asked'),
     );
     await tester.pumpAndSettle();
@@ -623,6 +627,7 @@ void main() {
       required int port,
       required String user,
       required String privateKey,
+      HostKeyVerifier? verifier,
     }) async {
       connection = await FakeVncConnection.open();
       return connection;
@@ -675,6 +680,7 @@ VncOpener _liveOpen([void Function(FakeVncConnection)? keep]) =>
       required int port,
       required String user,
       required String privateKey,
+      HostKeyVerifier? verifier,
     }) async {
       final connection = await FakeVncConnection.open();
       keep?.call(connection);

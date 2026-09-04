@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/data/repositories/host_repository.dart';
 import 'package:hotline/data/repositories/key_repository.dart';
+import 'package:hotline/platform/host_keys.dart';
 import 'package:hotline/data/enums.dart';
 
 /// The drift implementations behind the in-memory ones the
@@ -162,6 +163,72 @@ void main() {
       await host('h1', name: 'nyx.tailnet');
 
       expect((await hosts.all()).single.name, 'nyx.tailnet');
+    });
+  });
+
+  group('host keys', () {
+    test('a pin reads back whole and a host starts without one', () async {
+      await key('k1');
+      await host('h1');
+      expect((await hosts.all()).single.hostKey, isNull);
+
+      await hosts.pinHostKey(
+        'h1',
+        PinnedHostKey(
+          type: 'ssh-ed25519',
+          fingerprint: 'SHA256:abc',
+          pinnedAt: at(2),
+        ),
+      );
+
+      final pinned = (await hosts.all()).single.hostKey!;
+      expect(pinned.type, 'ssh-ed25519');
+      expect(pinned.fingerprint, 'SHA256:abc');
+      expect(pinned.pinnedAt, at(2));
+    });
+
+    test('forgetting a key clears all three columns at once', () async {
+      await key('k1');
+      await host('h1');
+      await hosts.pinHostKey(
+        'h1',
+        PinnedHostKey(
+          type: 'ssh-ed25519',
+          fingerprint: 'SHA256:abc',
+          pinnedAt: at(2),
+        ),
+      );
+
+      await hosts.forgetHostKey('h1');
+
+      // Not two thirds of a pin: a fingerprint left behind with no type would
+      // be compared against the next key that answers.
+      expect((await hosts.all()).single.hostKey, isNull);
+      final row = await (db.select(db.hosts)).getSingle();
+      expect(row.hostKeyType, isNull);
+      expect(row.hostKeyFingerprint, isNull);
+      expect(row.hostKeyPinnedAt, isNull);
+    });
+
+    test('editing a host leaves the key pinned to it alone', () async {
+      await key('k1');
+      await host('h1', name: 'nyx');
+      await hosts.pinHostKey(
+        'h1',
+        PinnedHostKey(
+          type: 'ssh-ed25519',
+          fingerprint: 'SHA256:abc',
+          pinnedAt: at(2),
+        ),
+      );
+
+      // The form saves the whole host and knows nothing about keys. Renaming a
+      // machine is not a reason to trust whatever answers next.
+      await host('h1', name: 'nyx.tailnet');
+
+      final stored = (await hosts.all()).single;
+      expect(stored.name, 'nyx.tailnet');
+      expect(stored.hostKey?.fingerprint, 'SHA256:abc');
     });
   });
 

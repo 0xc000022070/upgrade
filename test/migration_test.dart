@@ -269,7 +269,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      9,
+      10,
     );
 
     final projects = await db.select(db.projects).get();
@@ -353,7 +353,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      9,
+      10,
     );
     expect(attachments.map((a) => a.id), ['l1', 'l2']);
     expect(attachments.every((a) => a.itemId == 't1'), isTrue);
@@ -435,7 +435,7 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        9,
+        10,
       );
       expect(projects.map((p) => p.id), ['p1', 'p2']);
       expect(projects.every((p) => p.parentId == null), isTrue);
@@ -506,7 +506,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      9,
+      10,
     );
     // The project tree survives untouched: the upgrade adds tables, it does not
     // rewrite a row.
@@ -608,7 +608,7 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        9,
+        10,
       );
     },
   );
@@ -640,7 +640,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      9,
+      10,
     );
     // The row the user already had keeps working, on the port the transport
     // was in fact dialling it on before the column existed.
@@ -692,7 +692,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      9,
+      10,
     );
     // The host the user registered is untouched, on the port it was saved on.
     expect((await DriftHostRepository(db).all()).single.port, 357);

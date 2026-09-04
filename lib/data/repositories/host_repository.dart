@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../platform/host_keys.dart';
 import '../database.dart';
 import '../enums.dart';
 import 'path_repository.dart';
@@ -18,6 +19,7 @@ class Host {
     required this.port,
     required this.user,
     required this.keyId,
+    this.hostKey,
   });
 
   final String id;
@@ -30,6 +32,11 @@ class Host {
   final int port;
   final String user;
   final String keyId;
+
+  /// The machine's own key, trusted the first time it was seen. Null for a host
+  /// that has never been connected to, which is the only state in which the app
+  /// will ask about one.
+  final PinnedHostKey? hostKey;
 }
 
 abstract interface class HostRepository {
@@ -47,6 +54,15 @@ abstract interface class HostRepository {
   Future<void> save(Host host);
   Future<void> delete(String id);
   Future<void> setIntegration(String hostId, IntegrationKind kind, bool on);
+
+  /// Trusts [key] for [hostId] from now on. Called by the verifier the moment
+  /// the user taps `TRUST`, not by the form: the fingerprint only exists inside
+  /// a handshake.
+  Future<void> pinHostKey(String hostId, PinnedHostKey key);
+
+  /// Drops the pin, which is the only way past a key that changed. The next
+  /// connection asks again.
+  Future<void> forgetHostKey(String hostId);
 }
 
 class InMemoryHostRepository implements HostRepository {
@@ -95,6 +111,31 @@ class InMemoryHostRepository implements HostRepository {
   ) async {
     final kinds = _integrations.putIfAbsent(hostId, () => <IntegrationKind>{});
     on ? kinds.add(kind) : kinds.remove(kind);
+    _emit();
+  }
+
+  @override
+  Future<void> pinHostKey(String hostId, PinnedHostKey key) async =>
+      _rewriteKey(hostId, key);
+
+  @override
+  Future<void> forgetHostKey(String hostId) async => _rewriteKey(hostId, null);
+
+  /// Rebuilt rather than copied: [Host] has no `copyWith`, and one written for
+  /// a single nullable field could not tell "leave it" from "clear it".
+  void _rewriteKey(String hostId, PinnedHostKey? key) {
+    final index = _hosts.indexWhere((host) => host.id == hostId);
+    if (index < 0) return;
+    final host = _hosts[index];
+    _hosts[index] = Host(
+      id: host.id,
+      name: host.name,
+      address: host.address,
+      port: host.port,
+      user: host.user,
+      keyId: host.keyId,
+      hostKey: key,
+    );
     _emit();
   }
 
@@ -226,6 +267,28 @@ class DriftHostRepository implements HostRepository {
           HostIntegrationsCompanion.insert(hostId: hostId, kind: kind),
         );
   }
+
+  @override
+  Future<void> pinHostKey(String hostId, PinnedHostKey key) {
+    return (_db.update(_db.hosts)..where((h) => h.id.equals(hostId))).write(
+      HostsCompanion(
+        hostKeyType: Value(key.type),
+        hostKeyFingerprint: Value(key.fingerprint),
+        hostKeyPinnedAt: Value(key.pinnedAt),
+      ),
+    );
+  }
+
+  @override
+  Future<void> forgetHostKey(String hostId) {
+    return (_db.update(_db.hosts)..where((h) => h.id.equals(hostId))).write(
+      const HostsCompanion(
+        hostKeyType: Value(null),
+        hostKeyFingerprint: Value(null),
+        hostKeyPinnedAt: Value(null),
+      ),
+    );
+  }
 }
 
 /// The row as the domain type. Top-level rather than private to the repository
@@ -238,4 +301,20 @@ Host hostFromRow(HostRow row) => Host(
   port: row.port,
   user: row.user,
   keyId: row.keyId,
+  hostKey: pinnedKeyFromRow(row),
 );
+
+/// The three columns as one value, or null unless all three are there. A row
+/// with a fingerprint and no type is not a pin the app would compare against,
+/// so it reads as no pin at all.
+PinnedHostKey? pinnedKeyFromRow(HostRow row) {
+  final type = row.hostKeyType;
+  final fingerprint = row.hostKeyFingerprint;
+  final pinnedAt = row.hostKeyPinnedAt;
+  if (type == null || fingerprint == null || pinnedAt == null) return null;
+  return PinnedHostKey(
+    type: type,
+    fingerprint: fingerprint,
+    pinnedAt: pinnedAt,
+  );
+}

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
 
 import '../herdr_client.dart';
+import '../host_keys.dart';
 
 /// The screen route's six reason lines, as types.
 ///
@@ -80,13 +81,40 @@ final class VncStreamClosed extends VncFailure {
   String reason(String host) => 'stream closed';
 }
 
+/// Nothing is pinned for this host and the screen route's own sheet was not
+/// offered, or was and the user said no.
+final class VncHostKeyUnverified extends VncFailure {
+  const VncHostKeyUnverified([super.detail]);
+
+  @override
+  String reason(String host) => hostKeyReason(HostKeyRefusal.unverified);
+}
+
+/// The machine presented a key that is not the one pinned for it.
+final class VncHostKeyChanged extends VncFailure {
+  const VncHostKeyChanged([super.detail]);
+
+  @override
+  String reason(String host) => hostKeyReason(HostKeyRefusal.changed);
+}
+
 /// Every error the ssh layer can raise, on those lines.
 ///
 /// Null for anything unexpected: the real error belongs in the debug log,
 /// and a bug in the layer above reads better as itself than as
 /// `nyx unreachable`.
-VncFailure? asVncFailure(Object error) => switch (error) {
+VncFailure? asVncFailure(
+  Object error, [
+  HostKeyRefusal? refusal,
+]) => switch (error) {
   VncFailure() => error,
+  // The verifier's answer is the reason, whatever error the closing handshake
+  // surfaced. Read before the error, as the shell's mapping does.
+  _ when refusal != null => switch (refusal) {
+    HostKeyRefusal.unverified => VncHostKeyUnverified('$error'),
+    HostKeyRefusal.changed => VncHostKeyChanged('$error'),
+  },
+  SSHHostkeyError() => VncHostKeyChanged('$error'),
   // dartssh2 raises this when the server answers the channel open with a
   // failure, which is what `restrict` and a missing `permitopen` both do.
   SSHChannelOpenError() => VncTunnelRefused('$error'),
@@ -104,10 +132,13 @@ VncFailure? asVncFailure(Object error) => switch (error) {
   _ => null,
 };
 
-Future<T> guardVnc<T>(Future<T> Function() body) async {
+Future<T> guardVnc<T>(
+  Future<T> Function() body, [
+  HostKeyVerifier? verifier,
+]) async {
   try {
     return await body();
   } catch (error) {
-    throw asVncFailure(error) ?? error;
+    throw asVncFailure(error, verifier?.refusal) ?? error;
   }
 }

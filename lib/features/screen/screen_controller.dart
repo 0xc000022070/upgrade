@@ -5,6 +5,7 @@ import 'dart:ui' show Offset, Size;
 import 'package:flutter/foundation.dart';
 
 import '../../data/repositories/host_repository.dart';
+import '../../platform/host_keys.dart';
 import '../../platform/vnc/framebuffer.dart';
 import '../../platform/vnc/keysyms.dart';
 import '../../platform/vnc/rfb_messages.dart';
@@ -48,12 +49,25 @@ class HostScreenController extends ChangeNotifier {
   HostScreenController({
     required this.host,
     required this._readPrivateKey,
+    this.pinHostKey,
+    this.prompt,
     VncOpener? open,
   }) : _open = open ?? const VncTunnel().open;
 
   final Host host;
   final Future<String?> Function(String keyId) _readPrivateKey;
+
+  /// Writes a key the user trusted, and asks them about one nobody has. Both
+  /// null in a test, and a null [prompt] is what makes an unattended dial
+  /// refuse an unpinned host rather than hang on a sheet nobody can see.
+  final Future<void> Function(String hostId, PinnedHostKey key)? pinHostKey;
+  final HostKeyPrompt? prompt;
+
   final VncOpener _open;
+
+  /// The key trusted during this visit. [host] was read before the sheet
+  /// answered, so without this a `RETRY` would ask about the same key again.
+  PinnedHostKey? _pinned;
 
   VncConnection? _connection;
   StreamSubscription<Framebuffer>? _frames;
@@ -111,6 +125,14 @@ class HostScreenController extends ChangeNotifier {
         port: host.port,
         user: host.user,
         privateKey: privateKey,
+        verifier: HostKeyVerifier(
+          pinned: _pinned ?? host.hostKey,
+          prompt: prompt,
+          pin: (key) async {
+            _pinned = key;
+            await pinHostKey?.call(host.id, key);
+          },
+        ),
       );
       if (_disposed || attempt != _attempt) {
         await connection.close();

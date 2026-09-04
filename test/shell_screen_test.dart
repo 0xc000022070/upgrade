@@ -80,8 +80,9 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('an exit becomes EXITED in the header, with the way back beside '
-      'it', (tester) async {
+  testWidgets('an exit becomes EXITED in the header and nothing else', (
+    tester,
+  ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
@@ -91,7 +92,12 @@ void main() {
     await ready(tester);
 
     expect(find.text('EXITED 130'), findsOneWidget);
-    expect(find.text('RETRY'), findsOneWidget);
+    // A shell the user walked out of is not a link that broke, so it is not
+    // dialled again and there is nothing to press: another shell is another
+    // tab.
+    expect(find.text('RETRY'), findsNothing);
+    expect(find.text('STOP'), findsNothing);
+    expect(transport.opened, hasLength(1));
     // A shell that ran and stopped is not a failure, so it costs the terminal
     // no row.
     expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
@@ -100,19 +106,12 @@ void main() {
       44,
     );
 
-    // And the way back is the same one a failure offers: a fresh connection in
-    // the tab that ended, not a new tab.
-    await tester.tap(find.text('RETRY'));
-    await ready(tester);
-
-    expect(find.text('EXITED 130'), findsNothing);
-    expect(sessions.forHost(_rose.id), hasLength(1));
-    expect(transport.opened, hasLength(2));
-
     await unmount(tester);
   });
 
-  testWidgets('a refused shell draws its reason line', (tester) async {
+  testWidgets('a refused shell draws its reason line and no way back', (
+    tester,
+  ) async {
     final transport = FakeShellTransport()
       ..refuse = const ShellFailure(ShellFailureKind.shellRefused);
     await tester.pumpWidget(app(fakeShellSessions(transport)));
@@ -120,18 +119,38 @@ void main() {
 
     expect(find.text('SHELL REFUSED'), findsOneWidget);
     expect(find.text('shell refused'), findsOneWidget);
-    expect(find.text('RETRY'), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
+    // The host answered and said no. Dialling again would get the same answer,
+    // so the row is a sentence and nothing more.
+    expect(find.text('RETRY'), findsNothing);
+    expect(transport.opened, isEmpty);
 
-    // And the way back opens a fresh connection in the same tab.
-    transport.refuse = null;
-    await tester.tap(find.text('RETRY'));
+    await unmount(tester);
+  });
+
+  testWidgets('a lost link reads RECONNECTING with STOP beside it', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    expect(find.text('shell refused'), findsNothing);
+    transport.opened.single.drop();
+    await ready(tester);
+
+    // The count, so a wait that is getting long says so, and the one control:
+    // the dialling is the app's, the giving up is the user's.
+    expect(find.text('RECONNECTING 1/6'), findsOneWidget);
+    expect(find.text('RETRY'), findsNothing);
     expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
-    expect(find.byKey(const ValueKey('shell-tab-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-tab-2')), findsNothing);
+
+    await tester.tap(find.text('STOP'));
+    await ready(tester);
+
+    expect(find.textContaining('RECONNECTING'), findsNothing);
+    expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
+    expect(transport.opened, hasLength(1));
 
     await unmount(tester);
   });

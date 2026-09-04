@@ -190,6 +190,21 @@ class Hosts extends Table {
   TextColumn get user => text()();
   TextColumn get keyId => text().references(Keys, #id)();
 
+  /// The machine's own key, trusted on first use and checked on every dial
+  /// after it. Three nullable columns and no backfill: a host registered
+  /// before schema 10 is unpinned and pins on its next connection.
+  ///
+  /// These say `host key` where the rest of this file says nothing about a
+  /// transport, and the exception is deliberate: this identifies the machine,
+  /// not what the app does with it, so it outlives any integration on the row.
+  TextColumn get hostKeyType => text().nullable()();
+
+  /// The OpenSSH form, `SHA256:<base64>`, which is what the transport hands
+  /// the verifier and what the sheet shows the user. The key itself is not
+  /// kept: a fingerprint is what a comparison needs.
+  TextColumn get hostKeyFingerprint => text().nullable()();
+  DateTimeColumn get hostKeyPinnedAt => dateTime().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

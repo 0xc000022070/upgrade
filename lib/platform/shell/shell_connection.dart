@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import '../host_keys.dart';
+
 /// One live shell on a host, whatever is carrying it.
 ///
 /// The seam between the transport (builder A, `shell_tunnel.dart`) and the
@@ -35,6 +37,7 @@ typedef ShellOpener = Future<ShellConnection> Function({
   required String privateKey,
   required int columns,
   required int rows,
+  HostKeyVerifier? verifier,
 });
 
 /// Why a shell did not open or did not stay open, one line's worth each.
@@ -54,6 +57,15 @@ enum ShellFailureKind {
 
   /// The connection went away without an exit code.
   streamClosed,
+
+  /// Nothing is pinned for this host and nobody could be asked, or the user
+  /// was asked and said no.
+  hostKeyUnverified,
+
+  /// The machine presented a key that is not the one pinned for it. Refused
+  /// with no way past it here; the pin is dropped on the host form or not at
+  /// all.
+  hostKeyChanged,
 }
 
 /// Thrown by the opener and by the transport while a session is up.
