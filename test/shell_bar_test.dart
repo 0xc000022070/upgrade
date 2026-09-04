@@ -232,11 +232,12 @@ void main() {
       expect(find.byKey(const ValueKey('bar-CTRL')), findsOneWidget);
     });
 
-    testWidgets('CLIPS is not on the bar until something is held', (
+    testWidgets('CLIPS is on the bar with nothing held, without a count', (
       tester,
     ) async {
       await pumpBar(tester);
-      expect(find.byKey(const ValueKey('bar-CLIPS')), findsNothing);
+      expect(find.text('CLIPS'), findsOneWidget);
+      expect(find.textContaining('CLIPS 0'), findsNothing);
     });
 
     testWidgets('CLIPS carries the count and opens the tray', (tester) async {

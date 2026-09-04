@@ -67,8 +67,9 @@ class ShellBar extends StatelessWidget {
   final bool keyboardOpen;
   final VoidCallback onKeyboard;
 
-  /// How many clips the tray holds. The cell is drawn only while there is one:
-  /// a `CLIPS 0` would be a promise about a feature most shells never use.
+  /// How many clips the tray holds. The cell is always on the bar, because
+  /// the tray is also where a photo comes in from the gallery, and that has
+  /// to be reachable before anything has been cropped.
   final int clipCount;
   final VoidCallback? onClips;
 
@@ -116,14 +117,13 @@ class ShellBar extends StatelessWidget {
                     padding: _cellPadding,
                     onTap: onPaste,
                   ),
-                  if (clipCount > 0)
-                    KeyCell(
-                      key: const ValueKey('bar-CLIPS'),
-                      label: 'CLIPS $clipCount',
-                      minWidth: _barHeight,
-                      padding: _cellPadding,
-                      onTap: () => onClips?.call(),
-                    ),
+                  KeyCell(
+                    key: const ValueKey('bar-CLIPS'),
+                    label: clipCount == 0 ? 'CLIPS' : 'CLIPS $clipCount',
+                    minWidth: _barHeight,
+                    padding: _cellPadding,
+                    onTap: () => onClips?.call(),
+                  ),
                 ],
               ),
             ),
