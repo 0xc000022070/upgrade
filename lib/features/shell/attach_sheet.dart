@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,37 +14,47 @@ import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import 'clip_paste.dart';
-import 'photo_clip.dart';
+import 'photo_attach.dart';
 import 'shell_sessions.dart';
 
-/// How long the sheet shows what the paste came to before it goes.
-const clipsSheetLinger = Duration(milliseconds: 700);
+/// How long the sheet shows what the attach came to before it goes.
+const attachSheetLinger = Duration(milliseconds: 700);
 
-/// The tray over a shell: every clip held, newest first, a tap on one pasting
-/// it into this session, and the way to add a photo to the tray.
-Future<void> showClipsSheet(
+/// The pause between two pictures going in. Each one is a clipboard write
+/// and a keystroke, and the agent reads the clipboard on the keystroke: the
+/// next write has to wait for that read.
+const attachGap = Duration(milliseconds: 300);
+
+/// What the gallery hands back, so a test can hand back something else.
+typedef PhotoPicker = Future<List<Uint8List>> Function();
+
+/// The sheet over a shell: photos from the gallery, as many as picked,
+/// attached straight away; and what is held in memory, one tap each.
+Future<void> showAttachSheet(
   BuildContext context, {
   required ShellSession session,
+  PhotoPicker pick = pickPhotos,
 }) => showPanelSheet<void>(
   context,
-  title: 'CLIPS',
-  builder: (_) => _ClipsSheet(session: session),
+  title: 'ATTACH',
+  builder: (_) => _AttachSheet(session: session, pick: pick),
 );
 
-class _ClipsSheet extends ConsumerStatefulWidget {
-  const _ClipsSheet({required this.session});
+class _AttachSheet extends ConsumerStatefulWidget {
+  const _AttachSheet({required this.session, required this.pick});
 
   final ShellSession session;
+  final PhotoPicker pick;
 
   @override
-  ConsumerState<_ClipsSheet> createState() => _ClipsSheetState();
+  ConsumerState<_AttachSheet> createState() => _AttachSheetState();
 }
 
-class _ClipsSheetState extends ConsumerState<_ClipsSheet> {
+class _AttachSheetState extends ConsumerState<_AttachSheet> {
   String? _status;
   bool _busy = false;
 
-  Future<void> _paste(Clip clip) async {
+  Future<void> _attachHeld(Clip clip) async {
     if (_busy) return;
     setState(() {
       _busy = true;
@@ -54,26 +65,58 @@ class _ClipsSheetState extends ConsumerState<_ClipsSheet> {
       session: widget.session,
       clip: clip,
     );
+    await _finish(result);
+  }
+
+  Future<void> _attachPhotos() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final List<Uint8List> photos;
+    try {
+      photos = await widget.pick();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _status = 'PHOTOS · $error';
+        });
+      }
+      return;
+    }
+    if (photos.isEmpty) {
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+    final store = ref.read(shellSessionsProvider);
+    PasteResult? last;
+    for (var i = 0; i < photos.length; i++) {
+      if (!mounted) return;
+      setState(() => _status = 'ATTACHING ${i + 1} OF ${photos.length}');
+      if (i > 0) await Future<void>.delayed(attachGap);
+      last = await pasteImage(
+        store: store,
+        session: widget.session,
+        fileName: freshPngName(),
+        bytes: photos[i],
+      );
+      if (last.outcome == PasteOutcome.failed) break;
+    }
+    await _finish(last!, count: photos.length);
+  }
+
+  /// The last result on the sheet, then the sheet goes — unless it failed,
+  /// which is left where the user can read it.
+  Future<void> _finish(PasteResult result, {int count = 1}) async {
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _status = result.line;
+      _status = count > 1 && result.outcome != PasteOutcome.failed
+          ? '${result.label} · $count'
+          : result.line;
     });
     if (result.outcome == PasteOutcome.failed) return;
-    await Future<void>.delayed(clipsSheetLinger);
+    await Future<void>.delayed(attachSheetLinger);
     if (mounted) Navigator.of(context).pop();
-  }
-
-  Future<void> _addPhoto() async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      await pickPhotoClip(ref.read(clipStoreProvider));
-    } catch (error) {
-      if (mounted) setState(() => _status = 'PHOTO · $error');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
   }
 
   @override
@@ -84,13 +127,21 @@ class _ClipsSheetState extends ConsumerState<_ClipsSheet> {
       builder: (context, _) {
         final held = clips.clips;
         return PanelSheetBody(
-          title: 'CLIPS',
+          title: 'ATTACH',
           affordance: PanelAffordance(
             'CANCEL',
             showIcon: false,
             onTap: () => Navigator.of(context).pop(),
           ),
           children: [
+            ActionBlock(
+              key: const ValueKey('attach-photos'),
+              label: 'PHOTOS',
+              onTap: _attachPhotos,
+            ),
+            const SheetRule(),
+            const Text('HELD', style: HotlineText.label),
+            const SizedBox(height: Spacing.sm),
             if (held.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: Spacing.md),
@@ -105,7 +156,7 @@ class _ClipsSheetState extends ConsumerState<_ClipsSheet> {
                     _ClipTile(
                       key: ValueKey('clip-${clip.id}'),
                       clip: clip,
-                      onTap: () => _paste(clip),
+                      onTap: () => _attachHeld(clip),
                       onRemove: () => clips.remove(clip),
                     ),
                 ],
@@ -114,16 +165,10 @@ class _ClipsSheetState extends ConsumerState<_ClipsSheet> {
               const SheetRule(),
               Text(
                 _status!,
-                key: const ValueKey('clips-status'),
+                key: const ValueKey('attach-status'),
                 style: HotlineText.label,
               ),
             ],
-            const SheetRule(),
-            ActionBlock(
-              key: const ValueKey('clips-add-photo'),
-              label: 'ADD PHOTO',
-              onTap: _addPhoto,
-            ),
           ],
         );
       },
@@ -131,9 +176,9 @@ class _ClipsSheetState extends ConsumerState<_ClipsSheet> {
   }
 }
 
-/// One clip: the picture at a fixed footprint, its size under it, `×` on it.
-/// The thumbnail is decoded at twice its drawn width and no more, so eight
-/// tiles cost the tray a fraction of one clip.
+/// One held clip: the picture at a fixed footprint, its size under it, `×`
+/// on it. The thumbnail is decoded at twice its drawn width and no more, so
+/// eight tiles cost the sheet a fraction of one clip.
 class _ClipTile extends StatelessWidget {
   const _ClipTile({
     super.key,

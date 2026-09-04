@@ -36,7 +36,7 @@ const _barModifiers = <StickyModifier>[StickyModifier.ctrl, StickyModifier.alt];
 /// the hit area, so a short cell is still not a small one.
 const _barHeight = RowMetrics.minHeight;
 
-/// A cell is its label plus this much either side, so `PASTE` is wide and `↑`
+/// A cell is its label plus this much either side, so `ATTACH` is wide and `↑`
 /// is not, and never narrower than the row is tall.
 const _cellPadding = RowMetrics.padding;
 
@@ -53,25 +53,23 @@ class ShellBar extends StatelessWidget {
     required this.sticky,
     required this.onSticky,
     required this.onBytes,
-    required this.onPaste,
     required this.keyboardOpen,
     required this.onKeyboard,
     this.clipCount = 0,
-    this.onClips,
+    this.onAttach,
   });
 
   final Set<StickyModifier> sticky;
   final void Function(Set<StickyModifier>) onSticky;
   final void Function(Uint8List bytes) onBytes;
-  final VoidCallback onPaste;
   final bool keyboardOpen;
   final VoidCallback onKeyboard;
 
-  /// How many clips the tray holds. The cell is always on the bar, because
-  /// the tray is also where a photo comes in from the gallery, and that has
-  /// to be reachable before anything has been cropped.
+  /// How many clips are held in memory. The cell is always on the bar, since
+  /// photos come in through it whether or not anything is held; the count
+  /// shows only as a mark that there is something.
   final int clipCount;
-  final VoidCallback? onClips;
+  final VoidCallback? onAttach;
 
   @override
   Widget build(BuildContext context) {
@@ -111,18 +109,11 @@ class ShellBar extends StatelessWidget {
                       onTap: () => _send(key.keysym),
                     ),
                   KeyCell(
-                    key: const ValueKey('bar-PASTE'),
-                    label: 'PASTE',
+                    key: const ValueKey('bar-ATTACH'),
+                    label: clipCount == 0 ? 'ATTACH' : 'ATTACH!',
                     minWidth: _barHeight,
                     padding: _cellPadding,
-                    onTap: onPaste,
-                  ),
-                  KeyCell(
-                    key: const ValueKey('bar-CLIPS'),
-                    label: clipCount == 0 ? 'CLIPS' : 'CLIPS $clipCount',
-                    minWidth: _barHeight,
-                    padding: _cellPadding,
-                    onTap: () => onClips?.call(),
+                    onTap: () => onAttach?.call(),
                   ),
                 ],
               ),

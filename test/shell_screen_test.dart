@@ -1,7 +1,12 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hotline/application/providers.dart';
+import 'package:hotline/application/shell_font.dart';
+import 'package:hotline/data/database.dart';
 import 'package:hotline/data/repositories/host_repository.dart';
+import 'package:hotline/data/repositories/settings_repository.dart';
 import 'package:hotline/features/shell/host_shell_screen.dart';
 import 'package:hotline/features/shell/shell_bar.dart';
 import 'package:hotline/features/shell/shell_sessions.dart';
@@ -23,10 +28,16 @@ const _rose = Host(
 void main() {
   setUp(stubDeviceChannels);
 
-  Widget app(ShellSessions sessions, {Widget? home}) => ProviderScope(
-    overrides: [shellSessionsProvider.overrideWithValue(sessions)],
-    child: MaterialApp(home: home ?? const HostShellRoute(host: _rose)),
-  );
+  /// Most of the route needs no database. The pinch does, since the size it
+  /// lands on is written to settings, so those tests hand one in.
+  Widget app(ShellSessions sessions, {Widget? home, AppDatabase? db}) =>
+      ProviderScope(
+        overrides: [
+          shellSessionsProvider.overrideWithValue(sessions),
+          if (db != null) databaseProvider.overrideWithValue(db),
+        ],
+        child: MaterialApp(home: home ?? const HostShellRoute(host: _rose)),
+      );
 
   /// The store dials off a microtask and the panels decode their headers over
   /// a few frames, so nothing is on screen after a single pump.
@@ -470,22 +481,6 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the paste cell puts what is on the clipboard on the wire', (
-    tester,
-  ) async {
-    final transport = FakeShellTransport();
-    await tester.pumpWidget(app(fakeShellSessions(transport)));
-    await ready(tester);
-
-    stubClipboard('uname -a');
-    await tester.tap(find.byKey(const ValueKey('bar-PASTE')));
-    await ready(tester);
-
-    expect(transport.opened.single.written, 'uname -a');
-
-    await unmount(tester);
-  });
-
   testWidgets('nothing on the route offers SUPER', (tester) async {
     final transport = FakeShellTransport();
     await tester.pumpWidget(app(fakeShellSessions(transport)));
@@ -496,6 +491,142 @@ void main() {
     expect(find.text('CTRL'), findsOneWidget);
 
     await unmount(tester);
+  });
+  double fontSize(WidgetTester tester) =>
+      tester.widget<TerminalView>(find.byType(TerminalView)).textStyle.fontSize;
+
+  /// Two fingers on the view, `from` apart, moved to `to` apart along the row
+  /// and lifted. Two steps: the first carries the span past the scale slop
+  /// while each finger is still inside the drag slop, so the pinch is the
+  /// gesture that wins and not a scroll.
+  Future<void> pinch(
+    WidgetTester tester, {
+    required double from,
+    required double to,
+  }) async {
+    final center = tester.getCenter(find.byType(TerminalView));
+    final left = await tester.startGesture(center - Offset(from / 2, 0));
+    final right = await tester.startGesture(center + Offset(from / 2, 0));
+    await tester.pump();
+    final perFinger = (to - from) / 2;
+    var moved = 0.0;
+    while ((perFinger - moved).abs() > 0.001) {
+      final chunk = (perFinger - moved).clamp(-12.0, 12.0);
+      await left.moveBy(Offset(-chunk, 0));
+      await right.moveBy(Offset(chunk, 0));
+      await tester.pump();
+      moved += chunk;
+    }
+    await left.up();
+    await right.up();
+    await tester.pump();
+  }
+
+  group('the terminal is pinched to size', () {
+    late AppDatabase db;
+
+    setUp(() => db = AppDatabase(NativeDatabase.memory()));
+    tearDown(() => db.close());
+
+    testWidgets('the view opens at the default with no settings behind it', (
+      tester,
+    ) async {
+      await tester.pumpWidget(app(fakeShellSessions(FakeShellTransport())));
+      await ready(tester);
+
+      expect(fontSize(tester), shellFontSizeDefault);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a spread grows the type and a close shrinks it', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        app(fakeShellSessions(FakeShellTransport()), db: db),
+      );
+      await ready(tester);
+      expect(fontSize(tester), 13);
+
+      // The recognizer measures its starting span once it has accepted, a
+      // slop past where the fingers landed, so the size is asserted by
+      // direction and not by the ratio the fingers drew.
+      await pinch(tester, from: 100, to: 160);
+      final grown = fontSize(tester);
+      expect(grown, greaterThan(13));
+
+      await pinch(tester, from: 160, to: 100);
+      expect(fontSize(tester), lessThan(grown));
+
+      await unmount(tester);
+    });
+
+    testWidgets('a pinch past either end lands on the end', (tester) async {
+      await tester.pumpWidget(
+        app(fakeShellSessions(FakeShellTransport()), db: db),
+      );
+      await ready(tester);
+
+      await pinch(tester, from: 100, to: 400);
+      expect(fontSize(tester), shellFontSizeMax);
+
+      await pinch(tester, from: 200, to: 40);
+      expect(fontSize(tester), shellFontSizeMin);
+
+      await unmount(tester);
+    });
+
+    testWidgets('the size is written on the lift and read on the next open', (
+      tester,
+    ) async {
+      final settings = SettingsRepository(db);
+      await tester.pumpWidget(
+        app(fakeShellSessions(FakeShellTransport()), db: db),
+      );
+      await ready(tester);
+
+      await pinch(tester, from: 100, to: 160);
+      await ready(tester);
+      final drawn = fontSize(tester);
+      expect(drawn, greaterThan(13));
+      // The row is read off the real event loop: a drift stream never emits
+      // inside the test's own.
+      final written = await tester.runAsync(
+        () => settings
+            .watchNumber(SettingsRepository.shellFontSize, orElse: 0)
+            .first,
+      );
+      expect(written, drawn);
+      await unmount(tester);
+
+      await tester.pumpWidget(
+        app(fakeShellSessions(FakeShellTransport()), db: db),
+      );
+      await ready(tester);
+      expect(fontSize(tester), drawn);
+
+      await unmount(tester);
+    });
+
+    testWidgets('one finger is a scroll, not a resize', (tester) async {
+      await tester.pumpWidget(
+        app(fakeShellSessions(FakeShellTransport()), db: db),
+      );
+      await ready(tester);
+
+      final center = tester.getCenter(find.byType(TerminalView));
+      final finger = await tester.startGesture(center);
+      await finger.moveBy(const Offset(0, 40));
+      await tester.pump();
+      await finger.moveBy(const Offset(0, 80));
+      await tester.pump();
+      await finger.up();
+      await ready(tester);
+
+      expect(fontSize(tester), 13);
+
+      await unmount(tester);
+    });
   });
 }
 

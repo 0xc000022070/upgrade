@@ -16,6 +16,7 @@ import '../data/repositories/task_repository.dart';
 import '../data/views.dart';
 import '../platform/keys.dart';
 import 'agents.dart';
+import 'shell_font.dart';
 
 /// Overridden in main() with the opened (and, in debug, seeded) database, so
 /// no screen ever has to wait on an async database handle.
@@ -223,4 +224,15 @@ final staticEnabledProvider = StreamProvider<bool>(
   (ref) => ref
       .watch(settingsRepositoryProvider)
       .watchFlag(SettingsRepository.staticEnabled, orElse: true),
+);
+
+/// The terminal's type size. A stream for the same reason: it is pinched on
+/// one shell tab and drawn on every other, and on the next open of the route.
+final shellFontSizeProvider = StreamProvider<double>(
+  (ref) => ref
+      .watch(settingsRepositoryProvider)
+      .watchNumber(
+        SettingsRepository.shellFontSize,
+        orElse: shellFontSizeDefault,
+      ),
 );

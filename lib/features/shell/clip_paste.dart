@@ -30,28 +30,43 @@ class PasteResult {
 /// because to a shell it is `lnext` and not a paste at all.
 final pasteKey = Uint8List.fromList(const [0x16]);
 
-/// Lands the clip's bytes on the host and pastes it into the session.
-///
-/// The bytes go every time rather than being remembered per host: `/tmp` is
-/// cleared by a reboot the app never hears about, and a path the agent is
-/// then told to read would be a lie. The clipboard route runs when the host
-/// has one; a host that does not, or one whose tool failed, gets the path
-/// typed where the cursor is.
+/// Lands a held clip on the host and pastes it into the session.
 Future<PasteResult> pasteClip({
   required ShellSessions store,
   required ShellSession session,
   required Clip clip,
+}) async => pasteImage(
+  store: store,
+  session: session,
+  fileName: clip.fileName,
+  bytes: await clip.file.readAsBytes(),
+);
+
+/// Lands one PNG on the host under [fileName] and pastes it into the session.
+///
+/// The probe goes first, because the route it settles is the route the
+/// upload takes. The bytes go every time rather than being remembered per
+/// host: `/tmp` is cleared by a reboot the app never hears about, and a path
+/// the agent is then told to read would be a lie. The clipboard command runs
+/// when the host has one; a host that does not, or one whose tool failed,
+/// gets the path typed where the cursor is.
+Future<PasteResult> pasteImage({
+  required ShellSessions store,
+  required ShellSession session,
+  required String fileName,
+  required Uint8List bytes,
 }) async {
   final connection = session.connection;
   if (connection == null || session.state is! ShellLive) {
     return const PasteResult(PasteOutcome.failed, detail: 'no shell');
   }
-  final remote = remotePathFor(clip.fileName);
+  final clipboard = await store.clipboardFor(session);
+  final remote = remotePathFor(fileName);
   final ExecResult landed;
   try {
     landed = await connection.exec(
-      uploadCommand(remote),
-      stdin: await clip.file.readAsBytes(),
+      uploadCommand(clipboard.route, fileName),
+      stdin: bytes,
     );
   } catch (error) {
     return PasteResult(PasteOutcome.failed, detail: '$error');
@@ -63,8 +78,7 @@ Future<PasteResult> pasteClip({
       detail: said.isEmpty ? 'upload exit ${landed.exitCode}' : said,
     );
   }
-  final clipboard = await store.clipboardFor(session);
-  final command = clipboardCommand(clipboard, remote);
+  final command = clipboardCommand(clipboard, fileName);
   String? reason = clipboard.reason;
   if (command != null) {
     try {

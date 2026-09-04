@@ -1,5 +1,6 @@
 /// Crop mode over the picture: one finger draws a box, nothing reaches the
-/// host, and CLIP hands the box back in framebuffer pixels.
+/// host, and SAVE or HOLD hands the box back in framebuffer pixels with
+/// which of the two it was.
 library;
 
 import 'package:flutter/widgets.dart';
@@ -13,7 +14,7 @@ const _top = (800 - 225) / 2;
 
 class Recorder {
   final clicks = <Offset>[];
-  final crops = <CropRect>[];
+  final crops = <(CropRect, CropTarget)>[];
 }
 
 Future<Recorder> pumpView(WidgetTester tester, {required bool cropping}) async {
@@ -33,7 +34,7 @@ Future<Recorder> pumpView(WidgetTester tester, {required bool cropping}) async {
             onDrag: (_, {required down}) {},
             onWheel: (_, {required up}) {},
             cropping: cropping,
-            onCrop: recorder.crops.add,
+            onCrop: (rect, target) => recorder.crops.add((rect, target)),
           ),
         ),
       ),
@@ -59,28 +60,50 @@ Future<void> _drawBox(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('a drag draws a box and CLIP hands it back in pixels', (
+  testWidgets('a drag draws a box and HOLD hands it back in pixels', (
     tester,
   ) async {
     final recorder = await pumpView(tester, cropping: true);
-    expect(find.byKey(const ValueKey('crop-clip')), findsNothing);
+    expect(find.byKey(const ValueKey('crop-hold')), findsNothing);
 
     await _drawBox(tester);
-    expect(find.byKey(const ValueKey('crop-clip')), findsOneWidget);
-    expect(find.byKey(const ValueKey('crop-cancel')), findsOneWidget);
+    expect(find.byKey(const ValueKey('crop-save')), findsOneWidget);
+    expect(find.byKey(const ValueKey('crop-hold')), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('crop-clip')));
+    await tester.tap(find.byKey(const ValueKey('crop-hold')));
     await tester.pump();
-    expect(recorder.crops, [(left: 240, top: 120, width: 240, height: 120)]);
-    expect(find.byKey(const ValueKey('crop-clip')), findsNothing);
+    expect(recorder.crops, [
+      ((left: 240, top: 120, width: 240, height: 120), CropTarget.hold),
+    ]);
+    expect(find.byKey(const ValueKey('crop-hold')), findsNothing);
   });
 
-  testWidgets('CANCEL drops the box and the mode stays', (tester) async {
+  testWidgets('SAVE hands the same box back marked for the gallery', (
+    tester,
+  ) async {
     final recorder = await pumpView(tester, cropping: true);
     await _drawBox(tester);
-    await tester.tap(find.byKey(const ValueKey('crop-cancel')));
+    await tester.tap(find.byKey(const ValueKey('crop-save')));
     await tester.pump();
-    expect(find.byKey(const ValueKey('crop-clip')), findsNothing);
+    expect(recorder.crops.single.$2, CropTarget.save);
+    expect(find.byKey(const ValueKey('crop-save')), findsNothing);
+  });
+
+  testWidgets('a fresh drag replaces the box and the mode stays', (
+    tester,
+  ) async {
+    final recorder = await pumpView(tester, cropping: true);
+    await _drawBox(tester);
+    final gesture = await tester.startGesture(
+      inView(const Offset(200, _top + 120)),
+    );
+    await tester.pump();
+    await gesture.moveTo(inView(const Offset(300, _top + 180)));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('crop-hold')), findsNothing);
+    await gesture.up();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('crop-hold')), findsOneWidget);
     expect(find.byKey(const ValueKey('crop-surface')), findsOneWidget);
     expect(recorder.crops, isEmpty);
   });
@@ -90,7 +113,7 @@ void main() {
     await tester.tapAt(inView(const Offset(100, _top + 50)));
     await tester.pump(const Duration(milliseconds: 400));
     expect(recorder.clicks, isEmpty);
-    expect(find.byKey(const ValueKey('crop-clip')), findsNothing);
+    expect(find.byKey(const ValueKey('crop-hold')), findsNothing);
   });
 
   testWidgets('with the mode off a tap is a click again', (tester) async {

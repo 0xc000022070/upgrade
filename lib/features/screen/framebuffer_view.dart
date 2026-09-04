@@ -7,6 +7,10 @@ import '../../design/components/panel.dart';
 import '../../design/spacing.dart';
 import 'screen_transform.dart';
 
+/// Where a crop goes once it is drawn: the phone's gallery, or the tray in
+/// memory that ATTACH on a shell reads from. Never both.
+enum CropTarget { save, hold }
+
 /// The framebuffer and every gesture over it.
 ///
 /// The transform is state here rather than on the controller: it is about the
@@ -32,8 +36,9 @@ class FramebufferView extends StatefulWidget {
   /// nothing over the picture reaches the host until it is unset.
   final bool cropping;
 
-  /// The box, in framebuffer pixels, once `CLIP` is tapped under it.
-  final void Function(CropRect rect)? onCrop;
+  /// The box, in framebuffer pixels, once `SAVE` or `HOLD` is tapped under
+  /// it, and which of the two.
+  final void Function(CropRect rect, CropTarget target)? onCrop;
 
   /// Framebuffer coordinates, every one of them.
   final void Function(Offset at) onClick;
@@ -115,13 +120,13 @@ class _FramebufferViewState extends State<FramebufferView> {
     });
   }
 
-  void _clip(ScreenTransform transform) {
+  void _take(ScreenTransform transform, CropTarget target) {
     final start = _cropStart;
     final end = _cropEnd;
     if (start == null || end == null) return;
     final rect = transform.cropBetween(start, end);
     setState(_clearCrop);
-    if (rect != null) widget.onCrop?.call(rect);
+    if (rect != null) widget.onCrop?.call(rect, target);
   }
 
   void _sync(Size viewport) {
@@ -240,8 +245,8 @@ class _FramebufferViewState extends State<FramebufferView> {
                   _CropVerbs(
                     box: box,
                     viewport: viewport,
-                    onClip: () => _clip(transform),
-                    onCancel: () => setState(_clearCrop),
+                    onSave: () => _take(transform, CropTarget.save),
+                    onHold: () => _take(transform, CropTarget.hold),
                   ),
               ],
             ),
@@ -307,20 +312,20 @@ class _CropPainter extends CustomPainter {
   bool shouldRepaint(_CropPainter old) => old.box != box;
 }
 
-/// `CLIP` and `CANCEL` under the box, or over it when the box runs to the
+/// `SAVE` and `HOLD` under the box, or over it when the box runs to the
 /// bottom edge, and never off the side.
 class _CropVerbs extends StatelessWidget {
   const _CropVerbs({
     required this.box,
     required this.viewport,
-    required this.onClip,
-    required this.onCancel,
+    required this.onSave,
+    required this.onHold,
   });
 
   final Rect box;
   final Size viewport;
-  final VoidCallback onClip;
-  final VoidCallback onCancel;
+  final VoidCallback onSave;
+  final VoidCallback onHold;
 
   static const _width = 160.0;
 
@@ -345,18 +350,19 @@ class _CropVerbs extends StatelessWidget {
       child: Row(
         children: [
           PanelAffordance(
-            'CLIP',
-            key: const ValueKey('crop-clip'),
+            'SAVE',
+            key: const ValueKey('crop-save'),
             showIcon: false,
             color: HotlineColors.accent,
-            onTap: onClip,
+            onTap: onSave,
           ),
           const SizedBox(width: Spacing.lg),
           PanelAffordance(
-            'CANCEL',
-            key: const ValueKey('crop-cancel'),
+            'HOLD',
+            key: const ValueKey('crop-hold'),
             showIcon: false,
-            onTap: onCancel,
+            color: HotlineColors.accent,
+            onTap: onHold,
           ),
         ],
       ),

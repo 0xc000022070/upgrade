@@ -13,9 +13,8 @@ import 'package:hotline/platform/vnc/keysyms.dart';
 class BarRecord {
   final sent = <List<int>>[];
   final armed = <Set<StickyModifier>>[];
-  int pastes = 0;
   int keyboards = 0;
-  int clips = 0;
+  int attaches = 0;
 }
 
 Future<BarRecord> pumpBar(
@@ -34,11 +33,10 @@ Future<BarRecord> pumpBar(
             sticky: sticky,
             onSticky: record.armed.add,
             onBytes: (Uint8List bytes) => record.sent.add(bytes),
-            onPaste: () => record.pastes++,
             keyboardOpen: keyboardOpen,
             onKeyboard: () => record.keyboards++,
             clipCount: clipCount,
-            onClips: () => record.clips++,
+            onAttach: () => record.attaches++,
           ),
         ),
       ),
@@ -160,7 +158,7 @@ void main() {
 
       expect(tester.getSize(find.byType(ShellBar)).height, 36);
       // Everything but the hairline that draws the bar's top edge.
-      for (final label in ['CTRL', 'ESC', 'UP', 'PASTE', 'keyboard']) {
+      for (final label in ['CTRL', 'ESC', 'UP', 'ATTACH', 'keyboard']) {
         expect(
           tester.getSize(find.byKey(ValueKey('bar-$label'))).height,
           35,
@@ -175,11 +173,11 @@ void main() {
       await pumpBar(tester);
 
       final esc = tester.getSize(find.byKey(const ValueKey('bar-ESC'))).width;
-      final paste = tester
-          .getSize(find.byKey(const ValueKey('bar-PASTE')))
+      final attach = tester
+          .getSize(find.byKey(const ValueKey('bar-ATTACH')))
           .width;
 
-      expect(paste, greaterThan(esc));
+      expect(attach, greaterThan(esc));
       for (final label in ['CTRL', 'ESC', 'UP', 'END', 'keyboard']) {
         expect(
           tester.getSize(find.byKey(ValueKey('bar-$label'))).width,
@@ -191,13 +189,11 @@ void main() {
   });
 
   group('the two cells that are not keys', () {
-    testWidgets('PASTE asks the route for the clipboard', (tester) async {
-      final record = await pumpBar(tester);
+    testWidgets('no PASTE: the phone clipboard is not a cell', (tester) async {
+      await pumpBar(tester);
 
-      await tapCell(tester, 'PASTE');
-
-      expect(record.pastes, 1);
-      expect(record.sent, isEmpty);
+      expect(find.byKey(const ValueKey('bar-PASTE')), findsNothing);
+      expect(find.text('PASTE'), findsNothing);
     });
 
     testWidgets('the keyboard cell toggles and reads accent while open', (
@@ -232,22 +228,23 @@ void main() {
       expect(find.byKey(const ValueKey('bar-CTRL')), findsOneWidget);
     });
 
-    testWidgets('CLIPS is on the bar with nothing held, without a count', (
+    testWidgets('ATTACH is on the bar with nothing held, unmarked', (
       tester,
     ) async {
       await pumpBar(tester);
-      expect(find.text('CLIPS'), findsOneWidget);
-      expect(find.textContaining('CLIPS 0'), findsNothing);
+      expect(find.text('ATTACH'), findsOneWidget);
+      expect(find.text('ATTACH!'), findsNothing);
     });
 
-    testWidgets('CLIPS carries the count and opens the tray', (tester) async {
+    testWidgets('ATTACH carries the mark and opens the sheet', (tester) async {
       final record = await pumpBar(tester, clipCount: 3);
 
-      expect(find.text('CLIPS 3'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('bar-CLIPS')));
+      expect(find.text('ATTACH!'), findsOneWidget);
+      expect(find.textContaining('3'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('bar-ATTACH')));
       await tester.pump();
 
-      expect(record.clips, 1);
+      expect(record.attaches, 1);
       expect(record.sent, isEmpty);
     });
   });
