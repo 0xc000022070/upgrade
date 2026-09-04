@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
 import '../../application/agents.dart';
+import '../../application/providers.dart';
 import '../../data/repositories/host_repository.dart';
+import '../../data/repositories/shell_tab_repository.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/shell/shell_connection.dart';
 import '../../platform/shell/shell_tunnel.dart';
@@ -72,6 +74,10 @@ const shellReconnectDelays = <Duration>[
 /// dead shell's output with no mark between them is a lie about what happened,
 /// and the dim SGR is what every other tool marks its own lines with.
 const shellReconnectMarker = '\r\n\x1b[2m-- reconnected --\x1b[0m\r\n';
+
+/// The one exit code that means the user is done: a tab that ends on it closes
+/// itself, and a tab that ends on anything else is put in front of the user.
+const shellCleanExit = 0;
 
 /// Whether losing the link this way is an accident worth reconnecting from. An
 /// exit code is the user's own `exit`; a rejected key, a refused shell and both
@@ -166,6 +172,7 @@ class ShellSessions extends ChangeNotifier {
   ShellSessions({
     required this.readPrivateKey,
     required this.pinHostKey,
+    this.tabs,
     ShellOpener? open,
   }) : _open = open ?? const ShellTunnel().open;
 
@@ -180,6 +187,11 @@ class ShellSessions extends ChangeNotifier {
   /// to answer it; null everywhere but a test, which is where [ShellTunnel] is
   /// used.
   final ShellOpener _open;
+
+  /// Where the open tabs are written down, so a process that is killed can be
+  /// dialled back into the shells it had. Null in a test that is not about
+  /// what survives a restart.
+  final ShellTabRepository? tabs;
 
   final _byHost = <String, List<ShellSession>>{};
 
@@ -196,6 +208,8 @@ class ShellSessions extends ChangeNotifier {
   /// without this the second tab on the same host would ask about the same key
   /// again while the hosts stream catches up.
   final _pinnedThisRun = <String, PinnedHostKey>{};
+
+  bool _restored = false;
 
   List<ShellSession> forHost(String hostId) =>
       List.unmodifiable(_byHost[hostId] ?? const <ShellSession>[]);
@@ -214,6 +228,7 @@ class ShellSessions extends ChangeNotifier {
   void activate(String hostId, ShellSession session) {
     _active[hostId] = session.number;
     notifyListeners();
+    unawaited(tabs?.activate(hostId, session.number));
   }
 
   bool canOpen(String hostId) =>
@@ -225,6 +240,15 @@ class ShellSessions extends ChangeNotifier {
     if (!canOpen(host.id)) return null;
     final number = _nextNumber[host.id] ?? 1;
     _nextNumber[host.id] = number + 1;
+    final session = _start(host, number, prompt: prompt);
+    unawaited(tabs?.open(host.id, number));
+    return session;
+  }
+
+  /// A tab on a number that has already been decided: by [open], which takes
+  /// the next one, or by [restore], which takes the one the tab had before the
+  /// process died.
+  ShellSession _start(Host host, int number, {HostKeyPrompt? prompt}) {
     final session = ShellSession(
       number: number,
       terminal: Terminal(maxLines: shellScrollback),
@@ -236,6 +260,46 @@ class ShellSessions extends ChangeNotifier {
     notifyListeners();
     unawaited(_connect(host, session, prompt: prompt));
     return session;
+  }
+
+  /// Reopens the tabs the last run left behind and dials each one.
+  ///
+  /// The shells themselves are gone — their channels died with the process that
+  /// held them — so what comes back is a fresh shell per tab, on the same host
+  /// and under the same number. Unattended, so a host whose key was never
+  /// pinned is refused here rather than asking a user who is still looking at
+  /// the boot log.
+  ///
+  /// Runs once, and answers with how many tabs it brought back. A second call
+  /// over live tabs would dial a second shell into every one of them.
+  Future<int> restore(Future<List<Host>> Function() readHosts) async {
+    final store = tabs;
+    if (store == null || _restored) return 0;
+    _restored = true;
+    final rows = await store.all();
+    if (rows.isEmpty) return 0;
+    final hosts = {for (final host in await readHosts()) host.id: host};
+    var restored = 0;
+    for (final row in rows) {
+      final host = hosts[row.hostId];
+      // The host was deleted while the app was down. There is no longer an
+      // address to dial, and the row would outlive every run.
+      if (host == null) {
+        unawaited(store.close(row.hostId, row.number));
+        continue;
+      }
+      final next = _nextNumber[host.id] ?? 1;
+      if (row.number >= next) _nextNumber[host.id] = row.number + 1;
+      _start(host, row.number);
+      restored++;
+    }
+    // [_start] leaves the last tab opened active, which is the right answer
+    // only for the host whose tab was on screen.
+    for (final row in rows.where((row) => row.active)) {
+      if (hosts.containsKey(row.hostId)) _active[row.hostId] = row.number;
+    }
+    notifyListeners();
+    return restored;
   }
 
   /// Closes the connection and drops the tab. The number goes with it and is
@@ -250,9 +314,13 @@ class ShellSessions extends ChangeNotifier {
     _byHost[hostId]?.remove(session);
     if (_active[hostId] == session.number) {
       final rest = _byHost[hostId];
-      if (rest != null && rest.isNotEmpty) _active[hostId] = rest.last.number;
+      if (rest != null && rest.isNotEmpty) {
+        _active[hostId] = rest.last.number;
+        unawaited(tabs?.activate(hostId, rest.last.number));
+      }
     }
     notifyListeners();
+    unawaited(tabs?.close(hostId, session.number));
     unawaited(session._output?.cancel());
     session._output = null;
     session._decoder = null;
@@ -386,6 +454,10 @@ class ShellSessions extends ChangeNotifier {
       if (attempt != session._attempt) return;
       session.state = ShellExited(code);
       notifyListeners();
+      // A shell the user typed `exit` into is finished, and its tab holds
+      // nothing they asked to keep. Every other code is the shell saying
+      // something went wrong, so that tab stays for its output to be read.
+      if (code == shellCleanExit) await close(session.host.id, session);
     } catch (error) {
       _fail(session, error, attempt);
     }
@@ -487,5 +559,6 @@ final shellSessionsProvider = Provider<ShellSessions>((ref) {
   return ShellSessions(
     readPrivateKey: ref.watch(ed25519KeysProvider).privateKey,
     pinHostKey: ref.watch(hostRepositoryProvider).pinHostKey,
+    tabs: ref.watch(shellTabRepositoryProvider),
   );
 });

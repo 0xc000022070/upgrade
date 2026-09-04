@@ -24,6 +24,7 @@ part 'database.g.dart';
     HostIntegrations,
     Paths,
     Dispatches,
+    ShellTabs,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -31,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'hotline'));
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   /// From v2 on there is real data on the user's handset, so the
   /// upgrade is additive — two new tables and two nullable columns, nothing
@@ -114,6 +115,12 @@ SELECT id, task_id, 'url', url, created_at FROM links
         await m.addColumn(hosts, hosts.hostKeyType);
         await m.addColumn(hosts, hosts.hostKeyFingerprint);
         await m.addColumn(hosts, hosts.hostKeyPinnedAt);
+      }
+      // One empty table. A tab is written when a shell opens, so an install
+      // that upgrades into v11 comes up with none, which is what every install
+      // before this one came up with.
+      if (from < 11) {
+        await m.createTable(shellTabs);
       }
     },
   );

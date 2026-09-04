@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/data/repositories/host_repository.dart';
+import 'package:hotline/data/repositories/shell_tab_repository.dart';
 import 'package:hotline/features/shell/host_shell_screen.dart';
 import 'package:hotline/features/shell/shell_sessions.dart';
 import 'package:hotline/platform/shell/shell_connection.dart';
@@ -16,6 +17,15 @@ const _rose = Host(
   name: 'rose',
   address: '100.64.0.1',
   port: 22,
+  user: 'luis',
+  keyId: 'key-1',
+);
+
+const _nyx = Host(
+  id: 'h2',
+  name: 'nyx',
+  address: '100.64.0.2',
+  port: 357,
   user: 'luis',
   keyId: 'key-1',
 );
@@ -450,5 +460,133 @@ void main() {
     await tester.pump(const Duration(minutes: 1));
 
     expect(transport.opened, hasLength(1));
+  });
+
+  group('tabs that outlive the process', () {
+    Future<List<Host>> hosts() async => [_rose, _nyx];
+
+    test('an open tab is written down and a closed one is taken out', () async {
+      final tabs = InMemoryShellTabRepository();
+      final sessions = fakeShellSessions(FakeShellTransport(), tabs: tabs);
+
+      sessions.open(_rose);
+      final second = sessions.open(_rose)!;
+      await _settle();
+      expect((await tabs.all()).map((tab) => tab.number), [1, 2]);
+
+      await sessions.close(_rose.id, second);
+      await _settle();
+      expect((await tabs.all()).map((tab) => tab.number), [1]);
+    });
+
+    test('the table follows the tab the user is looking at', () async {
+      final tabs = InMemoryShellTabRepository();
+      final sessions = fakeShellSessions(FakeShellTransport(), tabs: tabs);
+
+      final first = sessions.open(_rose)!;
+      final second = sessions.open(_rose)!;
+      await _settle();
+      expect((await tabs.all()).map((tab) => [tab.number, tab.active]), [
+        [1, false],
+        [2, true],
+      ]);
+
+      sessions.activate(_rose.id, first);
+      await _settle();
+      expect((await tabs.all()).map((tab) => [tab.number, tab.active]), [
+        [1, true],
+        [2, false],
+      ]);
+
+      // The tab the user was on closing moves the flag with the route.
+      await sessions.close(_rose.id, first);
+      await _settle();
+      expect((await tabs.all()).single.active, isTrue);
+      expect(second.number, 2);
+    });
+
+    test('a killed app comes back on the tabs it had', () async {
+      final tabs = InMemoryShellTabRepository();
+      final before = fakeShellSessions(FakeShellTransport(), tabs: tabs);
+      before.open(_rose);
+      before.open(_rose);
+      before.open(_nyx);
+      before.activate(_rose.id, before.forHost(_rose.id).first);
+      await _settle();
+
+      // A second store over the same table is what the next process is: the
+      // connections are gone, the rows are not.
+      final transport = FakeShellTransport();
+      final after = fakeShellSessions(transport, tabs: tabs);
+      expect(await after.restore(hosts), 3);
+
+      expect(after.forHost(_rose.id).map((session) => session.number), [1, 2]);
+      expect(after.forHost(_nyx.id).map((session) => session.number), [1]);
+      // Each restored tab is a fresh shell on the host it was on.
+      await _settle();
+      expect(transport.opened, hasLength(3));
+      // And the tab the user left in front is the one that comes back in front.
+      expect(after.activeFor(_rose.id)!.number, 1);
+    });
+
+    test('numbering carries on past the tabs that came back', () async {
+      final tabs = InMemoryShellTabRepository();
+      final before = fakeShellSessions(FakeShellTransport(), tabs: tabs);
+      before.open(_rose);
+      final second = before.open(_rose)!;
+      before.open(_rose);
+      await _settle();
+      await before.close(_rose.id, second);
+      await _settle();
+
+      final after = fakeShellSessions(FakeShellTransport(), tabs: tabs);
+      await after.restore(hosts);
+
+      expect(after.open(_rose)!.number, 4);
+      await _settle();
+    });
+
+    test('a tab on a host that was deleted is dropped, not dialled', () async {
+      final tabs = InMemoryShellTabRepository();
+      await tabs.open('gone', 1);
+      await tabs.open(_rose.id, 1);
+
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, tabs: tabs);
+      expect(await sessions.restore(hosts), 1);
+      await _settle();
+
+      expect(sessions.forHost('gone'), isEmpty);
+      expect(transport.opened, hasLength(1));
+      expect((await tabs.all()).map((tab) => tab.hostId), [_rose.id]);
+    });
+
+    test('restore runs once however often it is called', () async {
+      final tabs = InMemoryShellTabRepository();
+      await tabs.open(_rose.id, 1);
+
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, tabs: tabs);
+      expect(await sessions.restore(hosts), 1);
+      expect(await sessions.restore(hosts), 0);
+      await _settle();
+
+      expect(sessions.forHost(_rose.id), hasLength(1));
+      expect(transport.opened, hasLength(1));
+    });
+
+    test('a restored tab dials unattended', () async {
+      final tabs = InMemoryShellTabRepository();
+      await tabs.open(_rose.id, 1);
+
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, tabs: tabs);
+      await sessions.restore(hosts);
+      await _settle();
+
+      // No prompt, so a host whose key was never pinned is refused here rather
+      // than asking a user who is still on the boot log.
+      expect(transport.verifiers.single!.prompt, isNull);
+    });
   });
 }

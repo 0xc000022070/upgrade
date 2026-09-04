@@ -242,7 +242,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
     await ready(tester);
 
-    transport.opened.last.exit(0);
+    transport.opened.last.exit(1);
+    await ready(tester);
+    await tester.tap(find.text('KEEP'));
     await ready(tester);
 
     await tester.tap(find.byKey(const ValueKey('shell-tab-close')));
@@ -276,6 +278,130 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a shell that exits clean takes its tab with it', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+    await ready(tester);
+    expect(sessions.forHost(_rose.id), hasLength(2));
+
+    transport.opened.last.exit(0);
+    await ready(tester);
+
+    // Nothing to say and nothing to read: the tab is gone and the one left is
+    // the one still running.
+    expect(sessions.forHost(_rose.id), hasLength(1));
+    expect(sessions.forHost(_rose.id).single.number, 1);
+    expect(find.textContaining('EXITED'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the last shell exiting clean pops the route', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions, home: const _Launcher()));
+    await tester.pump();
+    await tester.tap(find.text('OPEN'));
+    await ready(tester);
+    expect(find.text('ROSE'), findsOneWidget);
+
+    transport.opened.single.exit(0);
+    await ready(tester);
+
+    expect(sessions.forHost(_rose.id), isEmpty);
+    expect(find.text('ROSE'), findsNothing);
+    expect(find.text('OPEN'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a shell that exits on anything else says so in a sheet', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+
+    transport.opened.single.exit(3);
+    await ready(tester);
+
+    expect(find.text('SHELL 1 EXITED 3'), findsOneWidget);
+    await tester.tap(find.text('KEEP'));
+    await ready(tester);
+
+    // The output is the only place the error is written down, so KEEP is the
+    // tab staying exactly as the shell left it.
+    expect(find.text('SHELL 1 EXITED 3'), findsNothing);
+    expect(sessions.forHost(_rose.id), hasLength(1));
+    expect(find.text('EXITED 3'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('CLOSE on the sheet drops the tab the shell died in', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+    await ready(tester);
+
+    transport.opened.last.exit(3);
+    await ready(tester);
+    await tester.tap(find.text('CLOSE'));
+    await ready(tester);
+
+    expect(sessions.forHost(_rose.id), hasLength(1));
+    expect(sessions.forHost(_rose.id).single.number, 1);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a shell that lost its connection has no code and says so', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+
+    await transport.opened.single.close();
+    await ready(tester);
+
+    expect(find.text('SHELL 1 EXITED —'), findsOneWidget);
+
+    await tester.tap(find.text('KEEP'));
+    await ready(tester);
+    expect(sessions.forHost(_rose.id), hasLength(1));
+
+    await unmount(tester);
+  });
+
+  testWidgets('a bad exit is put up once, not on every notify', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+
+    transport.opened.first.exit(3);
+    await ready(tester);
+    await tester.tap(find.text('KEEP'));
+    await ready(tester);
+
+    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+    await ready(tester);
+
+    expect(find.text('SHELL 1 EXITED 3'), findsNothing);
+
+    await unmount(tester);
+  });
+
   testWidgets('the header takes the title the shell sets, while it is live', (
     tester,
   ) async {
@@ -290,11 +416,11 @@ void main() {
 
     // Once the shell is gone its name for itself is stale, and the state is
     // what the row is for.
-    transport.opened.single.exit(0);
+    transport.opened.single.exit(1);
     await ready(tester);
 
     expect(find.text('luis@nyx: ~'), findsNothing);
-    expect(find.text('EXITED 0'), findsOneWidget);
+    expect(find.text('EXITED 1'), findsOneWidget);
 
     await unmount(tester);
   });

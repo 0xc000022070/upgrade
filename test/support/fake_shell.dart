@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:hotline/data/repositories/shell_tab_repository.dart';
 import 'package:hotline/features/shell/shell_sessions.dart';
 import 'package:hotline/platform/shell/shell_connection.dart';
 import 'package:hotline/platform/host_keys.dart';
@@ -89,8 +90,10 @@ ShellSessions fakeShellSessions(
   FakeShellTransport transport, {
   String? privateKey = 'PRIVATE KEY',
   Future<void> Function(String hostId, PinnedHostKey key)? pinHostKey,
+  ShellTabRepository? tabs,
 }) => ShellSessions(
   readPrivateKey: (_) async => privateKey,
   pinHostKey: pinHostKey ?? (_, _) async {},
+  tabs: tabs,
   open: transport.open,
 );

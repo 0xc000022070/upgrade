@@ -169,7 +169,7 @@ void main() {
 
     expect(dot(), HotlineColors.accent);
 
-    shells.opened.single.exit(0);
+    shells.opened.single.exit(1);
     await ready(tester);
     expect(dot(), HotlineColors.textMuted);
 

@@ -8,6 +8,7 @@ import 'package:hotline/data/enums.dart';
 import 'package:hotline/data/repositories/host_repository.dart';
 import 'package:hotline/data/repositories/key_repository.dart';
 import 'package:hotline/data/repositories/path_repository.dart';
+import 'package:hotline/data/repositories/shell_tab_repository.dart';
 import 'package:hotline/data/repositories/settings_repository.dart';
 
 /// The v2 schema exactly as it shipped, written out by hand: the point of the
@@ -269,7 +270,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      10,
+      11,
     );
 
     final projects = await db.select(db.projects).get();
@@ -353,7 +354,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      10,
+      11,
     );
     expect(attachments.map((a) => a.id), ['l1', 'l2']);
     expect(attachments.every((a) => a.itemId == 't1'), isTrue);
@@ -435,7 +436,7 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        10,
+        11,
       );
       expect(projects.map((p) => p.id), ['p1', 'p2']);
       expect(projects.every((p) => p.parentId == null), isTrue);
@@ -506,7 +507,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      10,
+      11,
     );
     // The project tree survives untouched: the upgrade adds tables, it does not
     // rewrite a row.
@@ -608,7 +609,7 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        10,
+        11,
       );
     },
   );
@@ -640,7 +641,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      10,
+      11,
     );
     // The row the user already had keeps working, on the port the transport
     // was in fact dialling it on before the column existed.
@@ -692,7 +693,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      10,
+      11,
     );
     // The host the user registered is untouched, on the port it was saved on.
     expect((await DriftHostRepository(db).all()).single.port, 357);
@@ -736,5 +737,36 @@ void main() {
         );
     expect((await paths.listForHost('h1')).single.label, 'hotline');
     expect((await db.select(db.dispatches).get()).single.paneId, 'wQ:pH');
+  });
+
+  test('an upgraded database gains shell tabs, empty and writable', () async {
+    final executor = NativeDatabase(file);
+    await executor.ensureOpen(_V2Database(8, _v8Schema));
+    await executor.runInsert(
+      'INSERT INTO keys (id, name, public_key, fingerprint, created_at) '
+      'VALUES (?, ?, ?, ?, ?)',
+      ['k1', 'nyx', 'ssh-ed25519 AAAA nyx', 'SHA256:k1', stamp(20)],
+    );
+    await executor.runInsert(
+      'INSERT INTO hosts (id, name, address, port, user, key_id) '
+      'VALUES (?, ?, ?, ?, ?, ?)',
+      ['h1', 'nyx', '100.118.60.77', 357, 'luisnquin', 'k1'],
+    );
+    await executor.close();
+
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+
+    // A tab is written when a shell opens, so an install that upgrades into
+    // the table comes up on no sessions, which is what it came up on before.
+    final tabs = DriftShellTabRepository(db);
+    expect(await tabs.all(), isEmpty);
+
+    await tabs.open('h1', 1);
+    await tabs.open('h1', 2);
+    expect((await tabs.all()).map((tab) => [tab.number, tab.active]), [
+      [1, false],
+      [2, true],
+    ]);
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:xterm/xterm.dart';
 
 import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
+import '../../design/components/action_block.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
@@ -98,9 +101,27 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   /// across one.
   final _focus = FocusNode(debugLabel: 'shell-terminal');
 
+  /// Tab numbers whose bad exit has already been put in front of the user. The
+  /// header goes on saying `EXITED <code>` afterwards; the sheet is said once.
+  final _announced = <int>{};
+
+  /// True while the sheet is up, so a second exit waits its turn rather than
+  /// landing on top of the first, and so the route is not popped out from
+  /// under a modal that is still open.
+  bool _announcing = false;
+
+  /// Whether this host has ever had a tab while the route was on screen. The
+  /// store is empty for the frame before the first shell opens, which is not
+  /// the same emptiness as the last tab going.
+  bool _opened = false;
+
   @override
   void initState() {
     super.initState();
+    // Held rather than read where it is used: `ref` is closed by the time
+    // dispose runs, and this is the store the listener has to come off.
+    _store = ref.read(shellSessionsProvider);
+    _store.addListener(_onSessions);
     // Landscape, as the screen route: a terminal is the other thing in the app
     // worth turning the phone for.
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
@@ -123,12 +144,92 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 
   @override
   void dispose() {
+    _store.removeListener(_onSessions);
     _focus.dispose();
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     super.dispose();
   }
 
-  ShellSessions get _store => ref.read(shellSessionsProvider);
+  late final ShellSessions _store;
+
+  void _onSessions() {
+    if (!mounted || _announcing) return;
+    unawaited(_drain());
+  }
+
+  /// The two things the route owes a session that ended: a sheet for every bad
+  /// exit, one at a time, and the pop once there are no tabs left — a shell
+  /// that exited clean closes itself, so the last one can go without anybody
+  /// touching the `×` cell.
+  Future<void> _drain() async {
+    _announcing = true;
+    try {
+      while (mounted) {
+        final sessions = _store.forHost(widget.host.id);
+        if (sessions.isNotEmpty) _opened = true;
+        final ended = _nextBadExit(sessions);
+        if (ended == null) break;
+        _announced.add(ended.number);
+        final state = ended.state as ShellExited;
+        final close = await _exitSheet(ended.number, state.code);
+        if (!mounted) return;
+        if (close) await _store.close(widget.host.id, ended);
+      }
+      if (!mounted) return;
+      if (_opened && _store.forHost(widget.host.id).isEmpty) {
+        Navigator.of(context).pop();
+      }
+    } finally {
+      _announcing = false;
+    }
+  }
+
+  ShellSession? _nextBadExit(List<ShellSession> sessions) {
+    for (final session in sessions) {
+      final state = session.state;
+      if (state is! ShellExited || state.code == shellCleanExit) continue;
+      if (_announced.contains(session.number)) continue;
+      return session;
+    }
+    return null;
+  }
+
+  /// What a shell that did not end on 0 gets: the code, which is otherwise a
+  /// word in a header the user may never be looking at, and the choice the
+  /// clean exit makes on its own. `KEEP` is the affirmative because the output
+  /// under the sheet is the only place the error is written down.
+  Future<bool> _exitSheet(int number, int? code) async {
+    final title = 'SHELL $number EXITED ${code ?? '—'}';
+    final answer = await showPanelSheet<bool>(
+      context,
+      title: title,
+      builder: (context) => PanelSheetBody(
+        title: title,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: ActionBlock(
+                  label: 'CLOSE',
+                  onTap: () => Navigator.of(context).pop(true),
+                ),
+              ),
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: ActionBlock(
+                  label: 'KEEP',
+                  tone: HotlineColors.accent,
+                  filled: true,
+                  onTap: () => Navigator.of(context).pop(false),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    return answer ?? false;
+  }
 
   /// Whether the IME is up: what the system says it is showing, not what the
   /// view has focus. The two part company when the system back button hides
@@ -200,10 +301,10 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       );
       if (!confirmed || !mounted) return;
     }
+    // The route is the tabs, and with none left there is nothing to be on —
+    // but the pop belongs to the store's listener, which is the one path every
+    // way of losing the last tab goes through.
     await _store.close(widget.host.id, session);
-    if (!mounted) return;
-    // The route is the tabs. With none left there is nothing to be on.
-    if (_store.forHost(widget.host.id).isEmpty) Navigator.of(context).pop();
   }
 
   @override
