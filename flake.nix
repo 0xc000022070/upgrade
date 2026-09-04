@@ -126,13 +126,21 @@
 
               # The SDK stays off PATH on purpose: the host adb owns the server,
               # flutter and gradle reach the SDK through ANDROID_HOME instead.
-              # Store paths change with the flake lock, so this file is rewritten
-              # per shell and never committed.
+              # Store paths change with the flake lock, so these two keys are
+              # rewritten per shell and never committed. Every other key is kept:
+              # `flutter build` writes flutter.versionCode into the same file for
+              # gradle to read back, and a shell opening mid-build used to
+              # truncate it, costing the apk its version.
               if [ -d android ]; then
-                cat > android/local.properties <<-PROPS
-					sdk.dir=${sdkRoot}
-					flutter.sdk=${pkgs.flutter}
-				PROPS
+                props=android/local.properties
+                {
+                  printf 'sdk.dir=%s\n' ${sdkRoot}
+                  printf 'flutter.sdk=%s\n' ${pkgs.flutter}
+                  if [ -e "$props" ]; then
+                    ${pkgs.gnugrep}/bin/grep -vE '^(sdk\.dir|flutter\.sdk)=' "$props" || true
+                  fi
+                } > "$props.tmp"
+                mv -f "$props.tmp" "$props"
               fi
             '';
           };
