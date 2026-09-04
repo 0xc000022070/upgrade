@@ -164,6 +164,44 @@ const _v8Schema = [
   'ALTER TABLE hosts ADD COLUMN port INTEGER NOT NULL DEFAULT 22',
 ];
 
+/// The v11 schema: everything v8 had plus the host key columns, the two paths
+/// tables and the shell tabs, with `agent` still on `paths`. The jump off it is
+/// the one that moves the kind onto the dispatch, so the column has to be here
+/// on a table this file wrote.
+const _v11Schema = [
+  ..._v8Schema,
+  'ALTER TABLE hosts ADD COLUMN host_key_type TEXT',
+  'ALTER TABLE hosts ADD COLUMN host_key_fingerprint TEXT',
+  'ALTER TABLE hosts ADD COLUMN host_key_pinned_at TEXT',
+  '''
+CREATE TABLE paths (
+  id TEXT NOT NULL,
+  host_id TEXT NOT NULL REFERENCES hosts (id),
+  directory TEXT NOT NULL,
+  label TEXT NOT NULL,
+  agent TEXT NOT NULL DEFAULT 'claude',
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (id)
+)''',
+  '''
+CREATE TABLE dispatches (
+  id TEXT NOT NULL,
+  item_id TEXT NOT NULL REFERENCES tasks (id),
+  path_id TEXT NOT NULL REFERENCES paths (id),
+  pane_id TEXT NOT NULL,
+  sent_at TEXT NOT NULL,
+  PRIMARY KEY (id)
+)''',
+  '''
+CREATE TABLE shell_tabs (
+  host_id TEXT NOT NULL REFERENCES hosts (id),
+  number INTEGER NOT NULL,
+  active INTEGER NOT NULL,
+  opened_at TEXT NOT NULL,
+  PRIMARY KEY (host_id, number)
+)''',
+];
+
 /// Drives [QueryExecutor.ensureOpen] to stamp `user_version = 2` and lay down
 /// the old schema, which is what makes the file drift later opens a real v2
 /// database rather than a v3 one with rows in it.
@@ -270,7 +308,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      11,
+      12,
     );
 
     final projects = await db.select(db.projects).get();
@@ -354,7 +392,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      11,
+      12,
     );
     expect(attachments.map((a) => a.id), ['l1', 'l2']);
     expect(attachments.every((a) => a.itemId == 't1'), isTrue);
@@ -436,7 +474,7 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        11,
+        12,
       );
       expect(projects.map((p) => p.id), ['p1', 'p2']);
       expect(projects.every((p) => p.parentId == null), isTrue);
@@ -507,7 +545,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      11,
+      12,
     );
     // The project tree survives untouched: the upgrade adds tables, it does not
     // rewrite a row.
@@ -609,7 +647,7 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        11,
+        12,
       );
     },
   );
@@ -641,7 +679,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      11,
+      12,
     );
     // The row the user already had keeps working, on the port the transport
     // was in fact dialling it on before the column existed.
@@ -693,7 +731,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      11,
+      12,
     );
     // The host the user registered is untouched, on the port it was saved on.
     expect((await DriftHostRepository(db).all()).single.port, 357);
@@ -709,7 +747,6 @@ void main() {
         id: 'path-1',
         hostId: 'h1',
         directory: '~/src/hotline',
-        agent: 'claude',
         label: 'hotline',
         createdAt: DateTime.parse(stamp(22)),
       ),
@@ -737,6 +774,57 @@ void main() {
         );
     expect((await paths.listForHost('h1')).single.label, 'hotline');
     expect((await db.select(db.dispatches).get()).single.paneId, 'wQ:pH');
+  });
+
+  test('a dispatch keeps the agent its path carried', () async {
+    final executor = NativeDatabase(file);
+    await executor.ensureOpen(_V2Database(11, _v11Schema));
+    await executor.runInsert(
+      'INSERT INTO keys (id, name, public_key, fingerprint, created_at) '
+      'VALUES (?, ?, ?, ?, ?)',
+      ['k1', 'nyx', 'ssh-ed25519 AAAA nyx', 'SHA256:k1', stamp(20)],
+    );
+    await executor.runInsert(
+      'INSERT INTO hosts (id, name, address, port, user, key_id) '
+      'VALUES (?, ?, ?, ?, ?, ?)',
+      ['h1', 'nyx', '100.118.60.77', 357, 'luisnquin', 'k1'],
+    );
+    await executor.runInsert(
+      'INSERT INTO paths (id, host_id, directory, label, agent, created_at) '
+      'VALUES (?, ?, ?, ?, ?, ?)',
+      ['p1', 'h1', '~/src/hotline', 'hotline', 'codex', stamp(20)],
+    );
+    await executor.runInsert(
+      'INSERT INTO tasks (id, title, done, created_at, updated_at) '
+      'VALUES (?, ?, ?, ?, ?)',
+      ['drop-1', 'send this', 0, stamp(20), stamp(20)],
+    );
+    await executor.runInsert(
+      'INSERT INTO dispatches (id, item_id, path_id, pane_id, sent_at) '
+      'VALUES (?, ?, ?, ?, ?)',
+      ['d1', 'drop-1', 'p1', 'wQ:pH', stamp(21)],
+    );
+    await executor.close();
+
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+
+    // The send that was made by codex still says codex, and says nothing about
+    // a model: the column arrives after the send, so there is none to claim.
+    final dispatch = (await db.select(db.dispatches).get()).single;
+    expect(dispatch.agent, 'codex');
+    expect(dispatch.model, isNull);
+
+    // And the path no longer answers for an agent at all.
+    final columns = await db
+        .customSelect('PRAGMA table_info(paths)')
+        .get()
+        .then((rows) => rows.map((row) => row.read<String>('name')).toList());
+    expect(columns, isNot(contains('agent')));
+    expect(
+      (await DriftPathRepository(db).listForHost('h1')).single.label,
+      'hotline',
+    );
   });
 
   test('an upgraded database gains shell tabs, empty and writable', () async {

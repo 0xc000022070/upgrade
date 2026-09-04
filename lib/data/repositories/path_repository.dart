@@ -1,10 +1,13 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import '../database.dart';
 import 'host_repository.dart';
 
-/// A registered working directory on a host, and the agent that picks work up
-/// there.
+/// A registered working directory on a host.
+///
+/// No agent on it: which one picks the work up is chosen per send and recorded
+/// on the dispatch.
 ///
 /// `AgentPath` and not `Path`: `dart:ui` already owns that name in every widget
 /// file this type reaches.
@@ -13,7 +16,6 @@ class AgentPath {
     required this.id,
     required this.hostId,
     required this.directory,
-    required this.agent,
     required this.label,
     required this.createdAt,
   });
@@ -24,16 +26,14 @@ class AgentPath {
   /// As typed, `~` and all: expanding it here would be this machine's home
   /// directory standing in for the one on the host.
   final String directory;
-  final String agent;
   final String label;
   final DateTime createdAt;
 
-  AgentPath copyWith({String? directory, String? agent, String? label}) {
+  AgentPath copyWith({String? directory, String? label}) {
     return AgentPath(
       id: id,
       hostId: hostId,
       directory: directory ?? this.directory,
-      agent: agent ?? this.agent,
       label: label ?? this.label,
       createdAt: createdAt,
     );
@@ -54,6 +54,17 @@ String defaultPathLabel(String directory) {
   if (end == 0) return trimmed;
   final cut = trimmed.lastIndexOf('/', end - 1);
   return trimmed.substring(cut + 1, end);
+}
+
+/// What a path row shows on one line: the last two segments, with a leading
+/// `…/` when anything was dropped. A phone is 40 columns wide and a checkout
+/// under `~/Projects/github.com/<owner>/<repo>` is twice that, so the head is
+/// what goes — the owner and the repository are what tell two checkouts apart.
+String shortPathLabel(String directory) {
+  final trimmed = directory.trim();
+  final segments = trimmed.split('/')..removeWhere((part) => part.isEmpty);
+  if (segments.length <= 2) return trimmed;
+  return '…/${segments[segments.length - 2]}/${segments.last}';
 }
 
 /// A path with its host resolved, which is everything a send needs: the words
@@ -87,10 +98,21 @@ abstract interface class PathRepository {
   /// editor did has touched the database, which is what makes discarding the
   /// form discard the paths too.
   Future<void> replaceForHost(String hostId, List<AgentPath> paths);
+
+  /// One path, written now. The form's draft is committed with the form; a path
+  /// registered from a drop has no form around it to be saved with, and the
+  /// send that follows needs the row to exist.
+  Future<AgentPath> add({
+    required String hostId,
+    required String directory,
+    String? label,
+  });
 }
 
 class DriftPathRepository implements PathRepository {
   DriftPathRepository(this._db);
+
+  static const _uuid = Uuid();
 
   final AppDatabase _db;
 
@@ -130,6 +152,35 @@ class DriftPathRepository implements PathRepository {
   }
 
   @override
+  Future<AgentPath> add({
+    required String hostId,
+    required String directory,
+    String? label,
+  }) async {
+    final path = AgentPath(
+      id: _uuid.v7(),
+      hostId: hostId,
+      directory: directory,
+      label: (label?.trim().isNotEmpty ?? false)
+          ? label!.trim()
+          : defaultPathLabel(directory),
+      createdAt: DateTime.now(),
+    );
+    await _db
+        .into(_db.paths)
+        .insert(
+          PathsCompanion.insert(
+            id: path.id,
+            hostId: path.hostId,
+            directory: path.directory,
+            label: path.label,
+            createdAt: path.createdAt,
+          ),
+        );
+    return path;
+  }
+
+  @override
   Future<void> replaceForHost(String hostId, List<AgentPath> paths) {
     return _db.transaction(() async {
       final keep = paths.map((path) => path.id).toList();
@@ -151,7 +202,6 @@ class DriftPathRepository implements PathRepository {
                 id: path.id,
                 hostId: hostId,
                 directory: path.directory,
-                agent: path.agent,
                 label: path.label,
                 createdAt: path.createdAt,
               ),
@@ -164,7 +214,6 @@ class DriftPathRepository implements PathRepository {
     id: row.id,
     hostId: row.hostId,
     directory: row.directory,
-    agent: row.agent,
     label: row.label,
     createdAt: row.createdAt,
   );

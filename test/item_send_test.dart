@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/application/agents.dart';
+import 'package:hotline/application/path_scan.dart';
 import 'package:hotline/application/providers.dart';
 import 'package:hotline/application/send.dart';
 import 'package:hotline/data/database.dart';
@@ -14,6 +15,7 @@ import 'package:hotline/data/repositories/attachment_repository.dart';
 import 'package:hotline/data/repositories/dispatch_repository.dart';
 import 'package:hotline/data/repositories/host_repository.dart';
 import 'package:hotline/data/repositories/path_repository.dart';
+import 'package:hotline/data/repositories/project_repository.dart';
 import 'package:hotline/data/repositories/task_repository.dart';
 import 'package:hotline/features/tasks/item_sheet.dart';
 import 'package:hotline/features/tasks/sent_tag.dart';
@@ -45,12 +47,11 @@ Host _host = const Host(
   keyId: 'key-1',
 );
 
-PathTarget _target({String agent = 'claude'}) => PathTarget(
+PathTarget _target() => PathTarget(
   path: AgentPath(
     id: 'path-1',
     hostId: _host.id,
     directory: '~/src/hotline',
-    agent: agent,
     label: 'hotline',
     createdAt: DateTime.utc(2026, 9, 3),
   ),
@@ -69,8 +70,8 @@ Future<void> _drain(WidgetTester tester) async {
 void main() {
   test('the verb is the gate command, unquoted', () {
     expect(
-      HerdrCommands.spawn('claude', '~/src/hotline'),
-      'agent spawn claude ~/src/hotline',
+      HerdrCommands.spawn('claude', null, '~/src/hotline'),
+      'agent spawn claude - ~/src/hotline',
     );
   });
 
@@ -231,7 +232,6 @@ void main() {
               id: 'path-1',
               hostId: _host.id,
               directory: '~/src/hotline',
-              agent: 'claude',
               label: 'hotline',
               createdAt: DateTime.utc(2026, 9, 3),
             ),
@@ -246,6 +246,7 @@ void main() {
             required kind,
             required directory,
             required prompt,
+            model,
             verifier,
           }) async {
             calls.add(_Call(kind, directory, prompt));
@@ -253,6 +254,7 @@ void main() {
             return const SpawnSent('wQ:p7');
           })(
             target: _target(),
+            kind: 'claude',
             itemId: itemId,
             title: 'read the gate log',
             links: const ['https://a.example'],
@@ -304,10 +306,12 @@ void main() {
                 required kind,
                 required directory,
                 required prompt,
+                model,
                 verifier,
               }) async => SpawnRefused(refusal),
             )(
               target: _target(),
+              kind: 'claude',
               itemId: itemId,
               title: 'read the gate log',
               links: const [],
@@ -334,10 +338,12 @@ void main() {
                 required kind,
                 required directory,
                 required prompt,
+                model,
                 verifier,
               }) async => throw failure,
             )(
               target: _target(),
+              kind: 'claude',
               itemId: itemId,
               title: 'read the gate log',
               links: const [],
@@ -365,12 +371,14 @@ void main() {
             required kind,
             required directory,
             required prompt,
+            model,
             verifier,
           }) async {
             dialled = true;
             return const SpawnSent('wQ:p7');
           })(
             target: _target(),
+            kind: 'claude',
             itemId: itemId,
             title: 'read the gate log',
             links: const [],
@@ -422,7 +430,6 @@ void main() {
             id: 'path-$label',
             hostId: _host.id,
             directory: '~/src/$label',
-            agent: 'claude',
             label: label,
             createdAt: DateTime.utc(2026, 9, 3),
           ),
@@ -433,6 +440,26 @@ void main() {
         databaseProvider.overrideWithValue(db),
         privateKeyStoreProvider.overrideWithValue(privateKeys),
         if (send != null) herdrSendProvider.overrideWithValue(send),
+        pathScannerProvider.overrideWithValue(
+          PathScanner(
+            fetch: ({
+              required address,
+              required port,
+              required user,
+              required privateKey,
+              verifier,
+            }) async => const ['~/src/hotline'],
+            fetchModels: ({
+              required address,
+              required port,
+              required user,
+              required privateKey,
+              required kind,
+              verifier,
+            }) async => const ['opus', 'sonnet'],
+            keys: Ed25519Keys(privateKeys),
+          ),
+        ),
       ],
       child: MaterialApp(
         home: Scaffold(body: ItemSheet(taskId: taskId)),
@@ -456,6 +483,32 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
     });
 
+    testWidgets('an item filed under a project can still be sent', (
+      tester,
+    ) async {
+      final activity = ActivityRepository(db);
+      final project = await ProjectRepository(
+        db,
+        activity,
+      ).create(name: 'hotline');
+      final id = await TaskRepository(
+        db,
+        activity,
+      ).create(title: 'ship the picker', projectId: project);
+      await addPath();
+
+      await tester.pumpWidget(app(id));
+      await _drain(tester);
+
+      // The project's own state verbs are there, and SEND with them: filing
+      // an item is not what decides whether an agent can pick it up.
+      expect(find.text('DONE'), findsOneWidget);
+      expect(find.text('SEND'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    });
+
     testWidgets('the picker offers host and label, and the send says where it '
         'landed', (tester) async {
       final activity = ActivityRepository(db);
@@ -469,6 +522,8 @@ void main() {
       await addPath();
 
       String? seen;
+      String? seenKind;
+      String? seenModel;
       await tester.pumpWidget(
         app(
           id,
@@ -481,9 +536,12 @@ void main() {
                 required kind,
                 required directory,
                 required prompt,
+                model,
                 verifier,
               }) async {
                 seen = prompt;
+                seenKind = kind;
+                seenModel = model;
                 return const SpawnSent('wQ:p7');
               },
         ),
@@ -495,9 +553,20 @@ void main() {
       expect(find.text('SEND TO'), findsOneWidget);
       expect(find.text('NYX / HOTLINE'), findsOneWidget);
 
+      // The target is chosen first, and the agent and the model after it: both
+      // belong to this send and neither is stored on the path.
       await tester.tap(find.text('NYX / HOTLINE'));
       await _drain(tester);
+      expect(find.text('AGENT'), findsOneWidget);
+      expect(find.text('MODEL'), findsOneWidget);
+      await tester.tap(find.text('SONNET'));
+      await _drain(tester);
 
+      await tester.tap(find.text('SEND'));
+      await _drain(tester);
+
+      expect(seenKind, 'claude');
+      expect(seenModel, 'sonnet');
       expect(seen, 'read the gate log\n\nhttps://a.example');
       expect(find.text('SENT · wQ:p7'), findsOneWidget);
       expect(find.text('CLOSE'), findsOneWidget);
@@ -524,6 +593,7 @@ void main() {
                 required kind,
                 required directory,
                 required prompt,
+                model,
                 verifier,
               }) async {
                 attempts++;
@@ -537,6 +607,8 @@ void main() {
       await tester.tap(find.text('SEND'));
       await _drain(tester);
       await tester.tap(find.text('NYX / HOTLINE'));
+      await _drain(tester);
+      await tester.tap(find.text('SEND'));
       await _drain(tester);
 
       expect(find.text('no such directory'), findsOneWidget);
@@ -562,6 +634,7 @@ void main() {
         pathId: 'path-hotline',
         paneId: 'wQ:p7',
         title: 'a drop',
+        agent: 'claude',
       );
 
       await tester.pumpWidget(app(id));

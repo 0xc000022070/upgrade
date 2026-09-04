@@ -4,17 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../application/agents.dart';
 import '../../application/formatting.dart';
+import '../../application/path_scan.dart';
 import '../../application/providers.dart';
 import '../../application/send.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/dispatch_repository.dart';
+import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/path_repository.dart';
 import '../../data/views.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
+import '../../design/components/dot_spinner.dart';
 import '../../design/components/inline_confirm.dart';
 import '../../design/components/keyboard_toolbar.dart';
 import '../../design/components/list_row.dart';
@@ -24,6 +28,7 @@ import '../../design/components/panel_sheet.dart';
 import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
+import '../hosts/path_picker_sheet.dart';
 import '../home/agent_mark.dart';
 import 'image_input.dart';
 import 'image_viewer.dart';
@@ -47,7 +52,7 @@ Future<void> openItemSheet(BuildContext context, String taskId) {
 /// [send] is the picker and the state of the send that follows it, in one mode:
 /// the target it picked is what a retry needs, and going back means the same
 /// thing from either.
-enum _Mode { item, move, pair, send }
+enum _Mode { item, move, pair, send, dispatch }
 
 /// One field, three things it can be holding. A second field, a prompt
 /// or a dialog for a URL is the shape the user rejected.
@@ -221,6 +226,70 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     });
   }
 
+  /// The chosen path, and how this send should be picked up. Both live on the
+  /// send and not on the path: the same directory is worked by claude one day
+  /// and codex the next, and the row should not have to be edited to say so.
+  String _kind = agentMarkKinds.first;
+  String? _model;
+  PathScan _models = const PathScanLoading();
+
+  void _toDispatch(PathTarget target) {
+    setState(() {
+      _mode = _Mode.dispatch;
+      _target = target;
+      _sendState = null;
+      _model = null;
+    });
+    _loadModels();
+  }
+
+  Future<void> _loadModels() async {
+    final target = _target;
+    if (target == null) return;
+    final kind = _kind;
+    setState(() => _models = const PathScanLoading());
+    final scan = await ref.read(pathScannerProvider).models(target.host, kind);
+    // A kind switched while the fetch was in flight owns the sheet now.
+    if (!mounted || _kind != kind) return;
+    setState(() => _models = scan);
+  }
+
+  /// Registers a path without leaving the drop. The host form is where paths
+  /// are curated; this is where one is needed, which is a different moment.
+  Future<void> _registerPath() async {
+    final hosts = ref.read(hostsProvider).valueOrNull ?? const <Host>[];
+    if (hosts.isEmpty) return;
+    final host = hosts.length == 1
+        ? hosts.first
+        : await showPanelSheet<Host>(
+            context,
+            title: 'ON WHICH HOST',
+            builder: (context) => PanelSheetBody(
+              title: 'ON WHICH HOST',
+              children: [
+                ListRowGroup(
+                  children: [
+                    for (final option in hosts)
+                      ListRow(
+                        title: option.name.toUpperCase(),
+                        subtitle: '${option.user}@${option.address}',
+                        onTap: () => Navigator.pop(context, option),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          );
+    if (host == null || !mounted) return;
+    final picked = await showPathPicker(context, host: host);
+    if (picked == null || picked.isEmpty || !mounted) return;
+    final path = await ref
+        .read(pathRepositoryProvider)
+        .add(hostId: host.id, directory: picked.first);
+    if (!mounted) return;
+    _toDispatch(PathTarget(path: path, host: host));
+  }
+
   Future<void> _dispatch(PathTarget target) async {
     final task = ref.read(taskProvider(widget.taskId)).valueOrNull;
     if (task == null) return;
@@ -236,6 +305,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     });
     final state = await ref.read(senderProvider)(
       target: target,
+      kind: _kind,
+      model: _model,
       itemId: widget.taskId,
       title: task.title,
       links: [
@@ -307,6 +378,19 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
             }),
           ),
           children: [_sendBody()],
+        );
+      case _Mode.dispatch:
+        return PanelSheetBody(
+          title: _target?.title ?? 'SEND',
+          affordance: PanelAffordance(
+            'BACK',
+            icon: HotlineIcons.back,
+            onTap: () => setState(() {
+              _mode = _sendState == null ? _Mode.send : _Mode.item;
+              _sendState = null;
+            }),
+          ),
+          children: _dispatchBody(),
         );
       case _Mode.item:
         return PanelSheetBody(
@@ -423,7 +507,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                   child: Text(
                     '${dispatch.hostName.toUpperCase()} / '
                     '${dispatch.label.toUpperCase()} · '
-                    '${agentMarkName(dispatch.agent)} · '
+                    '${agentMarkName(dispatch.agent)}'
+                    '${dispatch.model == null ? '' : ' ${dispatch.model}'} · '
                     '${dispatch.paneId} · '
                     '${timeOfDay(dispatch.sentAt)}',
                     style: HotlineText.value,
@@ -459,25 +544,118 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   /// The picker, and then the one thing the send is doing. Both live in this
   /// body: a send has no screen of its own, and a spinner over the picker would
   /// leave the rows tappable while one of them is already running.
-  Widget _sendBody() {
+  /// How this send goes out: which agent picks it up and on which model.
+  ///
+  /// Both are offered as blocks and never as a field. A slug typed by hand is
+  /// a slug that can be wrong, and the host is the only party that knows which
+  /// ones its CLIs accept.
+  List<Widget> _dispatchBody() {
     final state = _sendState;
-    if (state == null) {
-      final targets =
-          ref.watch(pathTargetsProvider).valueOrNull ?? const <PathTarget>[];
-      return ListRowGroup(
+    if (state != null) return [_sendStatus(state)];
+    return [
+      Text('AGENT', style: HotlineText.panelHeader),
+      const SizedBox(height: Spacing.sm),
+      Row(
         children: [
-          for (final target in targets)
-            ListRow(
-              // The same box the agents feed draws, so a row says which agent
-              // will pick the work up before it is tapped.
-              leading: AgentMark(target.path.agent),
-              leadingWidth: AgentMark.markBox,
-              title: target.title,
-              onTap: () => _dispatch(target),
+          for (final kind in agentMarkKinds) ...[
+            if (kind != agentMarkKinds.first) const SizedBox(width: Spacing.md),
+            Expanded(
+              child: ActionBlock(
+                label: agentMarkName(kind),
+                filled: kind == _kind,
+                tone: kind == _kind
+                    ? HotlineColors.accent
+                    : HotlineColors.textSecondary,
+                onTap: () {
+                  if (kind == _kind) return;
+                  setState(() {
+                    _kind = kind;
+                    _model = null;
+                  });
+                  _loadModels();
+                },
+              ),
             ),
+          ],
         ],
-      );
-    }
+      ),
+      const SheetRule(),
+      Text('MODEL', style: HotlineText.panelHeader),
+      const SizedBox(height: Spacing.sm),
+      _modelChoices(),
+      const SheetRule(),
+      Align(
+        alignment: Alignment.centerRight,
+        child: ActionBlock(
+          label: 'SEND',
+          filled: true,
+          tone: HotlineColors.accent,
+          onTap: () {
+            final target = _target;
+            if (target != null) _dispatch(target);
+          },
+        ),
+      ),
+    ];
+  }
+
+  /// DEFAULT is always first and always available: it sends no `--model` at
+  /// all, which is the one choice that cannot be refused by the agent.
+  Widget _modelChoices() {
+    final slugs = switch (_models) {
+      PathScanFound(:final directories) => directories,
+      _ => const <String>[],
+    };
+    return Wrap(
+      spacing: Spacing.md,
+      runSpacing: Spacing.md,
+      children: [
+        ActionBlock(
+          label: 'DEFAULT',
+          filled: _model == null,
+          tone: _model == null
+              ? HotlineColors.accent
+              : HotlineColors.textSecondary,
+          onTap: () => setState(() => _model = null),
+        ),
+        if (_models is PathScanLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: Spacing.md),
+            child: DotSpinner(),
+          ),
+        for (final slug in slugs)
+          ActionBlock(
+            label: slug.toUpperCase(),
+            filled: slug == _model,
+            tone: slug == _model
+                ? HotlineColors.accent
+                : HotlineColors.textSecondary,
+            onTap: () => setState(() => _model = slug),
+          ),
+      ],
+    );
+  }
+
+  Widget _sendBody() {
+    final targets =
+        ref.watch(pathTargetsProvider).valueOrNull ?? const <PathTarget>[];
+    return ListRowGroup(
+      children: [
+        for (final target in targets)
+          ListRow(title: target.title, onTap: () => _toDispatch(target)),
+        // The paths screen is in settings, two tabs away; a drop that needs a
+        // directory that is not registered yet gets to register it here.
+        ListRow(
+          title: 'REGISTER A PATH',
+          titleColor: HotlineColors.textSecondary,
+          onTap: _registerPath,
+        ),
+      ],
+    );
+  }
+
+  /// What the send is doing, in the sheet the send was started from.
+  Widget _sendStatus(SendState state) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -654,9 +832,10 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   /// and a horizontally scrolling row hides the half of them a user is looking
   /// for.
   ///
-  /// A drop cuts that row down: MOVE, which is what turns it into a task, and
-  /// SEND once there is a path to send it to. DELETE is not a state, but it is
-  /// not on the row either — a long press on the breadcrumb reveals it.
+  /// A drop cuts that row down: MOVE, which is what turns it into a task.
+  /// SEND is on both — filing an item under a project does not stop an agent
+  /// picking it up. DELETE is not a state, but it is not on the row either —
+  /// a long press on the breadcrumb reveals it.
   Widget _footer(Task task) {
     final tasks = ref.read(taskRepositoryProvider);
     return Wrap(
@@ -681,10 +860,10 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ),
         ],
         ActionBlock(label: 'MOVE', onTap: () => _toPicker(_Mode.move)),
-        // Drops only, and only once a host has a path: a verb with nowhere to
-        // go is a block that answers with an empty list.
-        if (_isDrop(task) &&
-            (ref.watch(pathTargetsProvider).valueOrNull ?? const []).isNotEmpty)
+        // Filed or not: what is sent is the text, and a project says nothing
+        // about whether an agent can pick it up. Only a host with no path at
+        // all takes the verb away — a block that answers with an empty list.
+        if ((ref.watch(pathTargetsProvider).valueOrNull ?? const []).isNotEmpty)
           ActionBlock(label: 'SEND', onTap: _toSend),
         if (!_isDrop(task)) ...[
           ActionBlock(

@@ -228,15 +228,17 @@ class HostIntegrations extends Table {
   Set<Column<Object>> get primaryKey => {hostId, kind};
 }
 
-/// One registered working directory on a host: where a drop can be sent, and
-/// which agent picks it up there.
+/// One registered working directory on a host: where a drop can be sent.
+///
+/// Which agent picks it up is not here. The same checkout is worked by claude
+/// one day and codex the next, so the kind belongs to the send that chose it —
+/// it is on [Dispatches], written when a send lands.
 ///
 /// The row class is [PathRow] because `Path` is `dart:ui`'s, and every screen
 /// that would hold one of these imports Flutter.
 ///
-/// [label] is never null: the editor falls back to the directory's last
-/// segment when the user types none, so the picker and the sent lines have one
-/// word to show and no branch to take.
+/// [label] is the directory's last segment, so the picker and the sent lines
+/// have one word to show and no branch to take.
 ///
 /// The reference to [Hosts] documents the relation and does not enforce it —
 /// this database never enables `PRAGMA foreign_keys` — so a host's paths are
@@ -249,11 +251,6 @@ class Paths extends Table {
   /// Absolute, or `~`-relative: the expansion is the host's, not the app's,
   /// because the home directory that matters is the one on the other machine.
   TextColumn get directory => text()();
-
-  /// `claude` or `codex`, the kinds the gate accepts. Text and not an enum:
-  /// the agent mark already keys off the same strings herdr reports, and an
-  /// enum here would need a converter on both sides of that.
-  TextColumn get agent => text()();
   TextColumn get label => text()();
   DateTimeColumn get createdAt => dateTime()();
 
@@ -273,6 +270,19 @@ class Dispatches extends Table {
   TextColumn get id => text()();
   TextColumn get itemId => text().references(Tasks, #id)();
   TextColumn get pathId => text().references(Paths, #id)();
+
+  /// `claude` or `codex`, the kinds the gate accepts, as this send chose them.
+  /// Text and not an enum: the agent mark already keys off the same strings
+  /// herdr reports, and an enum here would need a converter on both sides.
+  ///
+  /// The default is what the migration that moved this column off `paths`
+  /// leaves a row it cannot resolve, and what a row from before the column
+  /// existed reads as.
+  TextColumn get agent => text().withDefault(const Constant('claude'))();
+
+  /// The slug the send passed, or null for the agent's own default — which is
+  /// what `-` on the wire means and what most sends use.
+  TextColumn get model => text().nullable()();
   TextColumn get paneId => text()();
   DateTimeColumn get sentAt => dateTime()();
 

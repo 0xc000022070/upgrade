@@ -70,6 +70,15 @@ class HerdrCommands {
   static const list = 'agent list';
   static const watch = 'agent watch';
 
+  /// The git checkouts the host will accept a send into, so a path is picked
+  /// rather than typed. Read-only, and the gate decides which roots it walks.
+  static const paths = 'agent paths';
+
+  /// The slugs [kind] will accept on this host. Asked of the host because that
+  /// is where the CLIs are installed, and a list shipped in the app would be a
+  /// snapshot of someone else's release notes.
+  static String models(String kind) => 'agent models $kind';
+
   static String read(String pane) => 'agent read $pane';
 
   static String keys(String pane, List<String> keys) =>
@@ -78,8 +87,11 @@ class HerdrCommands {
   /// The send verb. The directory goes through unquoted and unexpanded: the
   /// gate splits on whitespace and expands `~` itself, so a shell quote here
   /// would reach it as part of the path.
-  static String spawn(String kind, String directory) =>
-      'agent spawn $kind $directory';
+  ///
+  /// [model] is a slug or `-`, which is the agent's own default. It sits before
+  /// the directory because the directory is the rest of the line.
+  static String spawn(String kind, String? model, String directory) =>
+      'agent spawn $kind ${model ?? '-'} $directory';
 }
 
 /// What the gate answered a spawn. A refusal is data rather than an exception:
@@ -216,10 +228,11 @@ class HerdrSession {
     required String kind,
     required String directory,
     required String prompt,
+    String? model,
     Duration deadline = spawnDeadline,
   }) async {
     final session = await _guard(
-      () => _client.execute(HerdrCommands.spawn(kind, directory)),
+      () => _client.execute(HerdrCommands.spawn(kind, model, directory)),
     );
     final out = StringBuffer();
     final err = StringBuffer();
@@ -246,6 +259,26 @@ class HerdrSession {
       stdout: out.toString(),
       stderr: err.toString(),
     );
+  }
+
+  /// The host's git checkouts. Empty rather than throwing on a gate that does
+  /// not know the verb: an older host still sends, it just cannot offer a list.
+  Future<List<String>> paths() async {
+    final result = await _guard(
+      () => _client.runWithResult(HerdrCommands.paths),
+    );
+    if (result.exitCode != 0) return const [];
+    return HerdrClient.parsePaths(utf8.decode(result.stdout));
+  }
+
+  /// Empty for a gate that does not know the verb, same as [paths]: the send
+  /// still works, it just goes out on the agent's own default model.
+  Future<List<String>> models(String kind) async {
+    final result = await _guard(
+      () => _client.runWithResult(HerdrCommands.models(kind)),
+    );
+    if (result.exitCode != 0) return const [];
+    return HerdrClient.parsePaths(utf8.decode(result.stdout));
   }
 
   Future<List<AgentSnapshot>> list() async {
@@ -342,6 +375,23 @@ class HerdrClient {
     return SpawnRefused(SpawnRefusal.spawnFailed, detail);
   }
 
+  /// The `agent paths` answer: a JSON array of directories, `~`-relative to
+  /// the host's home. Malformed output is no paths, not an exception — the
+  /// picker degrades to the field it already had.
+  static List<String> parsePaths(String source) {
+    Object? decoded;
+    try {
+      decoded = jsonDecode(source);
+    } on FormatException {
+      return const [];
+    }
+    if (decoded is! List<Object?>) return const [];
+    return [
+      for (final entry in decoded)
+        if (entry is String && entry.isNotEmpty) entry,
+    ];
+  }
+
   static List<AgentSnapshot> parseAgentList(String source) {
     Object? decoded;
     try {
@@ -431,6 +481,51 @@ class HerdrClient {
     }
   }
 
+  /// The host's git checkouts, on a connection of its own. One shot: the
+  /// picker asks once when it opens and the answer is cached by the caller.
+  Future<List<String>> fetchPaths({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    HostKeyVerifier? verifier,
+  }) async {
+    final session = await connect(
+      address: address,
+      port: port,
+      user: user,
+      privateKey: privateKey,
+      verifier: verifier,
+    );
+    try {
+      return await session.paths();
+    } finally {
+      session.close();
+    }
+  }
+
+  Future<List<String>> fetchModels({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    required String kind,
+    HostKeyVerifier? verifier,
+  }) async {
+    final session = await connect(
+      address: address,
+      port: port,
+      user: user,
+      privateKey: privateKey,
+      verifier: verifier,
+    );
+    try {
+      return await session.models(kind);
+    } finally {
+      session.close();
+    }
+  }
+
   Future<SpawnResult> send({
     required String address,
     required int port,
@@ -439,6 +534,7 @@ class HerdrClient {
     required String kind,
     required String directory,
     required String prompt,
+    String? model,
     HostKeyVerifier? verifier,
   }) async {
     final session = await connect(
@@ -453,6 +549,7 @@ class HerdrClient {
         kind: kind,
         directory: directory,
         prompt: prompt,
+        model: model,
       );
     } finally {
       session.close();
