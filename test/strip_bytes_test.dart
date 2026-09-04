@@ -53,6 +53,37 @@ void main() {
       expect(typedBytes('a', armed(StickyModifier.superKey)), [0x61]);
     });
 
+    test('ALT puts ESC in front of whatever the key is worth', () {
+      expect(stripBytes(Keysyms.escape, armed(StickyModifier.alt)), [
+        0x1b,
+        0x1b,
+      ]);
+      expect(stripBytes(Keysyms.tab, armed(StickyModifier.alt)), [0x1b, 0x09]);
+      expect(stripBytes(Keysyms.left, armed(StickyModifier.alt)), [
+        0x1b,
+        0x1b,
+        0x5b,
+        0x44,
+      ]);
+      expect(stripBytes(Keysyms.end, armed(StickyModifier.alt)), [
+        0x1b,
+        0x1b,
+        0x5b,
+        0x46,
+      ]);
+    });
+
+    test('ALT and SHIFT on an arrow prefix the modified form', () {
+      expect(
+        stripBytes(Keysyms.up, {StickyModifier.alt, StickyModifier.shift}),
+        [0x1b, 0x1b, 0x5b, 0x31, 0x3b, 0x32, 0x41],
+      );
+    });
+
+    test('ALT prefixes nothing when the key is worth nothing', () {
+      expect(stripBytes(Keysyms.superKey, armed(StickyModifier.alt)), isNull);
+    });
+
     test('a keysym with no byte form is null', () {
       expect(stripBytes(Keysyms.control, none()), isNull);
       expect(stripBytes(Keysyms.shift, none()), isNull);

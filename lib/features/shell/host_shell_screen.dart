@@ -9,18 +9,19 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
-import '../../platform/shell/strip_bytes.dart';
+import '../../platform/shell/shell_connection.dart';
 import '../../platform/vnc/keysyms.dart';
-import '../screen/keys_strip.dart';
-import '../screen/screen_rail.dart';
+import 'shell_bar.dart';
 import 'shell_sessions.dart';
 
-/// The way in: a host panel's `SHELL >` row on ACCESS.
-void openHostShell(BuildContext context, Host host) {
-  Navigator.of(
-    context,
-    rootNavigator: true,
-  ).push(MaterialPageRoute<void>(builder: (_) => HostShellRoute(host: host)));
+/// The way in: a host panel's `SHELL >` row on ACCESS, or one of the cards on
+/// the `SHELLS` panel, which names the session it wants on screen.
+void openHostShell(BuildContext context, Host host, {ShellSession? session}) {
+  Navigator.of(context, rootNavigator: true).push(
+    MaterialPageRoute<void>(
+      builder: (_) => HostShellRoute(host: host, session: session),
+    ),
+  );
 }
 
 /// The palette, from the tokens where the tokens have a word for the colour and
@@ -58,9 +59,18 @@ const _shellTextStyle = TerminalStyle(
   fontFamily: FontFamilies.mono,
 );
 
-/// The tab row's height, and the one place in the route that is a fixed size:
-/// the cells are hit targets before they are labels.
-const _tabRowHeight = TapTargets.minHeight;
+/// The one row above the terminal, and the one place in the route that is a
+/// fixed size: the tab cells in it are hit targets before they are labels.
+const _headerHeight = TapTargets.minHeight;
+
+/// The row under it, drawn only when there is a failure to explain. Shorter
+/// than the header because it carries no hit target but `RETRY`.
+const _reasonHeight = 32.0;
+
+/// How much of the header the tabs may take before they start to scroll inside
+/// it. Nine tabs are wider than a phone is, and the title is worth keeping a
+/// readable share of the row.
+const _tabsShare = 0.55;
 
 /// `/ <HOST> SHELL`: the host's own login shell, several at once as tabs.
 ///
@@ -68,20 +78,23 @@ const _tabRowHeight = TapTargets.minHeight;
 /// visit — leaving and coming back finds the tabs where they were, still
 /// running, so this route's dispose closes nothing but the orientation lock.
 class HostShellRoute extends ConsumerStatefulWidget {
-  const HostShellRoute({super.key, required this.host});
+  const HostShellRoute({super.key, required this.host, this.session});
 
   final Host host;
+
+  /// The tab to land on, when the way in named one. Null opens the host's last
+  /// active tab, or its first shell when there is none.
+  final ShellSession? session;
 
   @override
   ConsumerState<HostShellRoute> createState() => _HostShellRouteState();
 }
 
 class _HostShellRouteState extends ConsumerState<HostShellRoute> {
-  /// The same two independent switches the screen route has, and the same rail
-  /// state: about this visit, not about the host.
-  bool _stripOpen = false;
-  bool _keyboardOpen = false;
-  bool _railHidden = false;
+  /// The route's, not the view's: it survives a tab switch swapping one
+  /// [TerminalView] for another, which is what lets the keyboard stay up
+  /// across one.
+  final _focus = FocusNode(debugLabel: 'shell-terminal');
 
   @override
   void initState() {
@@ -89,37 +102,76 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     // Landscape, as the screen route: a terminal is the other thing in the app
     // worth turning the phone for.
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-    final sessions = ref.read(shellSessionsProvider);
-    // A first visit opens one shell; a return finds the ones already running
-    // and opens nothing.
-    if (sessions.forHost(widget.host.id).isEmpty) sessions.open(widget.host);
+    // Opening a session tells the store, and the screen the user came from is
+    // listening to it while it draws this route in. So the shell waits for the
+    // frame that pushed it to finish before it exists.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final sessions = ref.read(shellSessionsProvider);
+      final wanted = widget.session;
+      if (wanted != null) {
+        sessions.activate(widget.host.id, wanted);
+      } else if (sessions.forHost(widget.host.id).isEmpty) {
+        // A first visit opens one shell; a return finds the ones already
+        // running and opens nothing.
+        sessions.open(widget.host);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _focus.dispose();
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     super.dispose();
   }
 
-  void _onKeyboardClosed() {
-    if (_keyboardOpen) setState(() => _keyboardOpen = false);
-  }
-
   ShellSessions get _store => ref.read(shellSessionsProvider);
 
-  void _onKeysym(int keysym, Set<StickyModifier> sticky) {
-    final session = _store.activeFor(widget.host.id);
-    if (session == null) return;
-    final bytes = stripBytes(keysym, sticky);
-    // Null is a key with no byte form, `SUPER` above all. Nothing goes, and
-    // nothing is a bug.
-    if (bytes != null) _store.send(session, bytes);
+  /// Whether the IME is up: what the system says it is showing, not what the
+  /// view has focus. The two part company when the system back button hides
+  /// the keyboard, which leaves the focus where it was.
+  bool get _keyboardOpen => MediaQuery.viewInsetsOf(context).bottom > 0;
+
+  void _onKeyboard() {
+    if (_keyboardOpen) {
+      _focus.unfocus();
+    } else if (_focus.hasFocus) {
+      // Focus the view already has cannot be asked for again, so the keyboard
+      // the system took away is asked back directly.
+      SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+    } else {
+      _focus.requestFocus();
+    }
   }
 
-  void _onCharacter(String character, Set<StickyModifier> sticky) {
-    final session = _store.activeFor(widget.host.id);
-    if (session == null) return;
-    _store.send(session, typedBytes(character, sticky));
+  void _onSticky(ShellSession session, Set<StickyModifier> sticky) {
+    _store.arm(session, sticky);
+  }
+
+  void _onBytes(ShellSession session, Uint8List bytes) {
+    _store.send(session, bytes);
+  }
+
+  /// The terminal's own paste, not the wire: a remote that asked for bracketed
+  /// paste gets the markers around the text, and one that did not gets the text.
+  Future<void> _onPaste(ShellSession session) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text == null || text.isEmpty) return;
+    session.terminal.paste(text);
+  }
+
+  /// Switching tabs unmounts the view that had focus, which drops it. With the
+  /// keyboard up the user is mid-typing, so it is put back on the tab they
+  /// landed on rather than making them tap the toggle again.
+  void _onSelect(ShellSession session) {
+    final refocus = _focus.hasFocus;
+    _store.activate(widget.host.id, session);
+    if (!refocus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
   }
 
   void _onNew() {
@@ -149,7 +201,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     final store = ref.watch(shellSessionsProvider);
     return Scaffold(
       backgroundColor: const Color(0xFF000000),
-      // The strip rides up with the keyboard rather than being covered by it.
+      // The bar rides up with the keyboard rather than being covered by it.
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: AnimatedBuilder(
@@ -157,61 +209,43 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           builder: (context, _) {
             final sessions = store.forHost(widget.host.id);
             final active = store.activeFor(widget.host.id);
-            final live = active?.state is ShellLive;
+            final state = active?.state;
             return Column(
               children: [
-                _Crumb(
+                _Header(
                   host: widget.host,
-                  session: active,
-                  onBack: () => Navigator.of(context).pop(),
+                  sessions: sessions,
+                  active: active,
+                  canOpen: store.canOpen(widget.host.id),
+                  onSelect: _onSelect,
+                  onNew: _onNew,
+                  onClose: active == null ? null : () => _onClose(active),
                   onRetry: active == null
                       ? null
                       : () => store.retry(widget.host, active),
                 ),
-                _TabRow(
-                  sessions: sessions,
-                  active: active,
-                  canOpen: store.canOpen(widget.host.id),
-                  onSelect: (session) =>
-                      store.activate(widget.host.id, session),
-                  onNew: _onNew,
-                  onClose: active == null ? null : () => _onClose(active),
-                ),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      if (active != null)
-                        Positioned.fill(child: _Terminal(session: active)),
-                      // Over the terminal, and only where the rail is: every
-                      // tap that misses a toggle still reaches the view under
-                      // it.
-                      if (live)
-                        Positioned.fill(
-                          child: ScreenRail(
-                            keyboardOpen: _keyboardOpen,
-                            stripOpen: _stripOpen,
-                            hidden: _railHidden,
-                            onKeyboard: () =>
-                                setState(() => _keyboardOpen = !_keyboardOpen),
-                            onStrip: () =>
-                                setState(() => _stripOpen = !_stripOpen),
-                            onHide: () => setState(() => _railHidden = true),
-                            onShow: () => setState(() => _railHidden = false),
-                          ),
-                        ),
-                    ],
+                // The whole of what a failure costs the terminal: one short row,
+                // and only while there is a failure.
+                if (state is ShellFailed && active != null)
+                  _ReasonRow(
+                    host: widget.host,
+                    kind: state.kind,
+                    onRetry: () => store.retry(widget.host, active),
                   ),
+                Expanded(
+                  child: active == null
+                      ? const SizedBox.shrink()
+                      : _Terminal(session: active, focusNode: _focus),
                 ),
-                KeysLayer(
-                  stripVisible: _stripOpen,
-                  keyboardOpen: _keyboardOpen,
-                  // The shell is not the compositor on the other end, so the
-                  // key that talks to one is drawn and does nothing here.
-                  inertModifiers: const {StickyModifier.superKey},
-                  onCharacter: _onCharacter,
-                  onKeysym: _onKeysym,
-                  onKeyboardClosed: _onKeyboardClosed,
-                ),
+                if (active != null)
+                  ShellBar(
+                    sticky: active.sticky,
+                    onSticky: (sticky) => _onSticky(active, sticky),
+                    onBytes: (bytes) => _onBytes(active, bytes),
+                    onPaste: () => _onPaste(active),
+                    keyboardOpen: _keyboardOpen,
+                    onKeyboard: _onKeyboard,
+                  ),
               ],
             );
           },
@@ -224,185 +258,207 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 /// The view, keyed by session so switching tabs swaps the whole thing rather
 /// than repainting one terminal with another's buffer.
 ///
-/// The soft keyboard is the strip's, not the view's: [KeysLayer] holds the
-/// field the IME writes into for the whole route, and a second input
-/// connection under the terminal would fight it for focus.
+/// The IME is the terminal's own now: it takes text input, and what it produces
+/// runs through the store, which is where the armed modifiers are applied and
+/// spent.
 class _Terminal extends StatelessWidget {
-  const _Terminal({required this.session});
+  const _Terminal({required this.session, required this.focusNode});
 
   final ShellSession session;
+  final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context) {
     return TerminalView(
       session.terminal,
       key: ValueKey('shell-terminal-${session.number}'),
+      focusNode: focusNode,
       theme: _shellTheme,
       textStyle: _shellTextStyle,
       cursorType: TerminalCursorType.block,
-      hardwareKeyboardOnly: true,
+      // Plain text: the view turns autocorrect and suggestions off itself, and
+      // a keyboard picked for anything else puts the wrong keys under a shell.
+      keyboardType: TextInputType.text,
       padding: const EdgeInsets.all(Spacing.md),
     );
   }
 }
 
-/// `/ <HOST> SHELL` and, on its right, the active session's state.
-class _Crumb extends StatelessWidget {
-  const _Crumb({
+/// The route's whole chrome: the host, its tabs, what the shell calls itself,
+/// and the way to close the one on screen — one row, because everything else
+/// on this route is the terminal.
+class _Header extends StatelessWidget {
+  const _Header({
     required this.host,
-    required this.session,
-    required this.onBack,
-    required this.onRetry,
-  });
-
-  final Host host;
-  final ShellSession? session;
-  final VoidCallback onBack;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final state = session?.state;
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: Spacing.screenEdge,
-        vertical: Spacing.md,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onBack,
-              child: Text(
-                '/ ${host.name.toUpperCase()} SHELL',
-                style: HotlineText.breadcrumb,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-          // Live says nothing the prompt is not already saying.
-          if (state != null && state is! ShellLive) ...[
-            const SizedBox(width: Spacing.lg),
-            _State(host: host, state: state, onRetry: onRetry),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _State extends StatelessWidget {
-  const _State({
-    required this.host,
-    required this.state,
-    required this.onRetry,
-  });
-
-  final Host host;
-  final ShellState state;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    switch (state) {
-      case ShellConnecting():
-        return const Text('CONNECTING', style: HotlineText.panelHeader);
-      case ShellLive():
-        return const SizedBox.shrink();
-      case ShellExited(:final code):
-        // A shell that ended is not a failure — it is what `exit` does — so it
-        // is drawn in the resting ink and not the warning one.
-        return _WithRetry(
-          onRetry: onRetry,
-          child: Text('EXITED ${code ?? '—'}', style: HotlineText.panelHeader),
-        );
-      case ShellFailed(:final kind):
-        return _WithRetry(
-          onRetry: onRetry,
-          child: Text(
-            shellReason(kind, host.name),
-            style: HotlineText.panelHeader.copyWith(
-              color: HotlineColors.warning,
-            ),
-          ),
-        );
-    }
-  }
-}
-
-/// Both the ways a session can end come with the one way back. There is no
-/// reconnect loop behind it.
-class _WithRetry extends StatelessWidget {
-  const _WithRetry({required this.onRetry, required this.child});
-
-  final VoidCallback? onRetry;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        child,
-        const SizedBox(width: Spacing.lg),
-        PanelAffordance('RETRY', showIcon: false, onTap: onRetry),
-      ],
-    );
-  }
-}
-
-/// The tabs: one cell per session in the order opened, `+` while there is room
-/// for another, and `×` at the far end for the one on screen.
-class _TabRow extends StatelessWidget {
-  const _TabRow({
     required this.sessions,
     required this.active,
     required this.canOpen,
     required this.onSelect,
     required this.onNew,
     required this.onClose,
+    required this.onRetry,
   });
 
+  final Host host;
   final List<ShellSession> sessions;
   final ShellSession? active;
   final bool canOpen;
   final void Function(ShellSession session) onSelect;
   final VoidCallback onNew;
   final VoidCallback? onClose;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: _tabRowHeight,
+      key: const ValueKey('shell-header'),
+      height: _headerHeight,
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: HotlineColors.borderSubtle)),
       ),
+      child: LayoutBuilder(
+        builder: (context, box) => Row(
+          children: [
+            const SizedBox(width: Spacing.screenEdge),
+            Text(
+              host.name.toUpperCase(),
+              style: HotlineText.panelHeader.copyWith(
+                color: HotlineColors.textPrimary,
+              ),
+            ),
+            const SizedBox(width: Spacing.lg),
+            // The tabs take what they need and scroll for the rest, so a host
+            // with nine shells open still has a header and not an overflow.
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: box.maxWidth * _tabsShare),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final session in sessions)
+                      _TabCell(
+                        key: ValueKey('shell-tab-${session.number}'),
+                        label: '${session.number}',
+                        active: session == active,
+                        onTap: () => onSelect(session),
+                      ),
+                    if (canOpen)
+                      _TabCell(
+                        key: const ValueKey('shell-tab-new'),
+                        label: '+',
+                        onTap: onNew,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+                child: _Middle(session: active, onRetry: onRetry),
+              ),
+            ),
+            if (onClose != null)
+              _TabCell(
+                key: const ValueKey('shell-tab-close'),
+                label: '×',
+                onTap: onClose!,
+              ),
+            const SizedBox(width: Spacing.screenEdge),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// What the shell calls itself while it is live, and where the session is when
+/// it is not. Nothing at all for a live shell that never named itself: the
+/// prompt under it is already saying everything this line could.
+class _Middle extends StatelessWidget {
+  const _Middle({required this.session, required this.onRetry});
+
+  final ShellSession? session;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = session?.state;
+    final word = switch (state) {
+      null => null,
+      ShellLive() => session?.title,
+      ShellConnecting() => 'CONNECTING',
+      ShellExited(:final code) => 'EXITED ${code ?? '—'}',
+      ShellFailed(:final kind) => _kindWord(kind),
+    };
+    if (word == null) return const SizedBox.shrink();
+    final label = Text(
+      word,
+      style: HotlineText.panelHeader,
+      textAlign: TextAlign.right,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+    // A shell that ran and stopped costs the terminal no row, so the way back
+    // into it rides beside the word that says it ended.
+    if (state is! ShellExited || onRetry == null) return label;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Flexible(child: label),
+        const SizedBox(width: Spacing.lg),
+        PanelAffordance('RETRY', showIcon: false, onTap: onRetry!),
+      ],
+    );
+  }
+}
+
+/// The failure as one word for the header. The sentence with the host's name
+/// in it belongs to the row underneath, which is the one with the way back on
+/// it.
+String _kindWord(ShellFailureKind kind) => switch (kind) {
+  ShellFailureKind.unresolved => 'UNRESOLVED',
+  ShellFailureKind.unreachable => 'UNREACHABLE',
+  ShellFailureKind.keyRejected => 'KEY REJECTED',
+  ShellFailureKind.shellRefused => 'SHELL REFUSED',
+  ShellFailureKind.streamClosed => 'STREAM CLOSED',
+};
+
+/// Why the shell is not there, in a sentence with the host's name in it. No
+/// reconnect loop behind the way back: a host that is down stays down until
+/// the user says otherwise.
+class _ReasonRow extends StatelessWidget {
+  const _ReasonRow({
+    required this.host,
+    required this.kind,
+    required this.onRetry,
+  });
+
+  final Host host;
+  final ShellFailureKind kind;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('shell-reason'),
+      height: _reasonHeight,
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.screenEdge),
       child: Row(
         children: [
-          const SizedBox(width: Spacing.screenEdge),
-          for (final session in sessions)
-            _TabCell(
-              key: ValueKey('shell-tab-${session.number}'),
-              label: '${session.number}',
-              active: session == active,
-              onTap: () => onSelect(session),
+          Expanded(
+            child: Text(
+              shellReason(kind, host.name),
+              style: HotlineText.panelHeader.copyWith(
+                color: HotlineColors.warning,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-          if (canOpen)
-            _TabCell(
-              key: const ValueKey('shell-tab-new'),
-              label: '+',
-              onTap: onNew,
-            ),
-          const Spacer(),
-          if (onClose != null)
-            _TabCell(
-              key: const ValueKey('shell-tab-close'),
-              label: '×',
-              onTap: onClose!,
-            ),
-          const SizedBox(width: Spacing.screenEdge),
+          ),
+          const SizedBox(width: Spacing.lg),
+          PanelAffordance('RETRY', showIcon: false, onTap: onRetry),
         ],
       ),
     );
@@ -429,7 +485,10 @@ class _TabCell extends StatelessWidget {
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(minWidth: TapTargets.minHeight),
-        height: _tabRowHeight,
+        // The cell takes the row it is in rather than setting a height of its
+        // own, so its underline sits on the row's edge and the hairline under
+        // the header does not push it over.
+        height: double.infinity,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           // The underline is the whole of what marks the active tab beyond its

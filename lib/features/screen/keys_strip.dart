@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../design/colors.dart';
-import '../../design/icons/hotline_icon.dart';
+import '../../design/components/key_cell.dart';
 import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
@@ -266,7 +266,7 @@ class _KeysLayerState extends State<KeysLayer> {
     final modifier = cell.modifier;
     if (modifier != null) {
       if (widget.inertModifiers.contains(modifier)) {
-        return _StripButton(
+        return KeyCell(
           key: ValueKey('key-${modifier.label}'),
           label: modifier.label,
           icon: stickyIcon(modifier),
@@ -274,7 +274,7 @@ class _KeysLayerState extends State<KeysLayer> {
           onTap: () {},
         );
       }
-      return _StripButton(
+      return KeyCell(
         key: ValueKey('key-${modifier.label}'),
         label: modifier.label,
         icon: stickyIcon(modifier),
@@ -288,74 +288,11 @@ class _KeysLayerState extends State<KeysLayer> {
     }
     final key = cell.key;
     if (key == null) return const SizedBox(height: TapTargets.minHeight);
-    return _StripButton(
+    return KeyCell(
       key: ValueKey('key-${key.label}'),
       label: key.label,
       icon: key.icon,
       onTap: () => _send(() => widget.onKeysym(key.keysym, Set.of(_sticky))),
-    );
-  }
-}
-
-class _StripButton extends StatefulWidget {
-  const _StripButton({
-    super.key,
-    required this.label,
-    required this.onTap,
-    this.icon,
-    this.armed = false,
-    this.inert = false,
-  });
-
-  final String label;
-  final HotlineIcons? icon;
-  final VoidCallback onTap;
-  final bool armed;
-
-  /// Drawn as a key and worth nothing: no press tint, no arming. Dimmer than a
-  /// key at rest, which is the only thing that says so before it is pressed.
-  final bool inert;
-
-  @override
-  State<_StripButton> createState() => _StripButtonState();
-}
-
-class _StripButtonState extends State<_StripButton> {
-  bool _down = false;
-
-  @override
-  Widget build(BuildContext context) {
-    // The press tint, and the same accent for a modifier that is armed: both
-    // mean "this key is what the next thing you do goes through". An inert key
-    // has neither and is dimmer at rest than one that works.
-    final tint = widget.inert
-        ? HotlineColors.textMuted
-        : _down || widget.armed
-        ? HotlineColors.accent
-        : HotlineColors.textSecondary;
-    final icon = widget.icon;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: widget.inert ? null : (_) => setState(() => _down = true),
-      onTapCancel: widget.inert ? null : () => setState(() => _down = false),
-      onTapUp: widget.inert ? null : (_) => setState(() => _down = false),
-      onTap: widget.inert ? null : widget.onTap,
-      child: Container(
-        height: TapTargets.minHeight,
-        alignment: Alignment.center,
-        // The label is still the semantics: a glyph key reads as its name to a
-        // screen reader, which a bare picture would not.
-        child: Semantics(
-          label: widget.label,
-          child: icon == null
-              ? Text(
-                  widget.label,
-                  style: HotlineText.panelHeader.copyWith(color: tint),
-                )
-              // 22 px in the strip.
-              : HotlineIcon(icon, size: IconSizes.toolbar, color: tint),
-        ),
-      ),
     );
   }
 }

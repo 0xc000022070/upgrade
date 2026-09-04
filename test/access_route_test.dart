@@ -10,6 +10,7 @@ import 'package:hotline/data/database.dart';
 import 'package:hotline/data/enums.dart';
 import 'package:hotline/data/repositories/host_repository.dart';
 import 'package:hotline/data/repositories/key_repository.dart';
+import 'package:hotline/design/colors.dart';
 import 'package:hotline/features/access/access_screen.dart';
 import 'package:hotline/features/access/preview_tile.dart';
 import 'package:hotline/features/screen/screen_preview.dart';
@@ -55,6 +56,7 @@ void main() {
   late Directory root;
   late ScreenPreviews previews;
   late FakeShellTransport shells;
+  late ShellSessions sessions;
 
   setUp(() {
     stubDeviceChannels();
@@ -65,6 +67,7 @@ void main() {
     root = Directory.systemTemp.createTempSync('hotline-access');
     previews = ScreenPreviews(Directory('${root.path}/screens'));
     shells = FakeShellTransport()..stall = true;
+    sessions = fakeShellSessions(shells);
     addTearDown(previews.dispose);
   });
 
@@ -80,7 +83,7 @@ void main() {
       hostRepositoryProvider.overrideWithValue(hosts),
       privateKeyStoreProvider.overrideWithValue(privateKeys),
       screenPreviewsProvider.overrideWith((ref) async => previews),
-      shellSessionsProvider.overrideWithValue(fakeShellSessions(shells)),
+      shellSessionsProvider.overrideWithValue(sessions),
     ],
     child: MaterialApp(home: child),
   );
@@ -159,7 +162,110 @@ void main() {
     await tester.tapAt(tester.getCenter(row.first));
     await ready(tester);
 
-    expect(find.text('/ ROSE SHELL'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('shell-header')),
+        matching: find.text('ROSE'),
+      ),
+      findsOneWidget,
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('no shell means no panel for shells', (tester) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+    await tester.pumpWidget(app(const AccessScreen()));
+    await ready(tester);
+
+    expect(find.text('SHELLS'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('every open session is a card, in the order of the hosts', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+    shells.stall = false;
+    sessions.open(_rose);
+    sessions.open(_nyx);
+    sessions.open(_nyx);
+    await tester.pumpWidget(app(const AccessScreen()));
+    await ready(tester);
+
+    expect(find.text('SHELLS'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-card-h1-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-card-h2-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-card-h2-2')), findsOneWidget);
+    expect(find.text('ROSE 1'), findsOneWidget);
+    expect(find.text('NYX 2'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the card carries the state of the session under it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+    shells.stall = false;
+    sessions.open(_rose);
+    await tester.pumpWidget(app(const AccessScreen()));
+    await ready(tester);
+
+    Color dot() =>
+        (tester
+                    .widget<Container>(
+                      find.descendant(
+                        of: find.byKey(const ValueKey('shell-dot-h1-1')),
+                        matching: find.byType(Container),
+                      ),
+                    )
+                    .decoration
+                as BoxDecoration)
+            .color!;
+
+    expect(dot(), HotlineColors.accent);
+
+    shells.opened.single.exit(0);
+    await ready(tester);
+    expect(dot(), HotlineColors.textMuted);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a card opens its own host on its own tab', (tester) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+    shells.stall = false;
+    sessions.open(_nyx);
+    final second = sessions.open(_nyx)!;
+    sessions.activate(_nyx.id, sessions.forHost(_nyx.id).first);
+    await tester.pumpWidget(app(const AccessScreen()));
+    await ready(tester);
+
+    await tester.tap(find.byKey(const ValueKey('shell-card-h2-2')));
+    await ready(tester);
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('shell-header')),
+        matching: find.text('NYX'),
+      ),
+      findsOneWidget,
+    );
+    expect(sessions.activeFor(_nyx.id), same(second));
 
     await unmount(tester);
   });

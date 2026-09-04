@@ -23,46 +23,60 @@ const _arrowFinals = {
 /// the same keys to both; what changes here is that a terminal wants bytes
 /// where the framebuffer wanted key events.
 Uint8List? stripBytes(int keysym, Set<StickyModifier> sticky) {
-  final arrow = _arrowFinals[keysym];
-  if (arrow != null) {
-    // `SHIFT` with an arrow is the modified form, the one a terminal reads as
-    // a selection or a word jump depending on what is reading it.
-    return sticky.contains(StickyModifier.shift)
-        ? _bytes([..._csi, 0x31, 0x3b, 0x32, arrow])
-        : _bytes([..._csi, arrow]);
-  }
-  switch (keysym) {
-    case Keysyms.escape:
-      return _bytes([0x1b]);
-    case Keysyms.tab:
-      return _bytes([0x09]);
-    case Keysyms.enter:
-      // Carriage return, not a newline: a line the shell acts on ends the way
-      // a terminal ends one, and the pty turns it into whatever the remote's
-      // line discipline wants.
-      return _bytes([0x0d]);
-    case Keysyms.backSpace:
-      return _bytes([0x7f]);
-    case Keysyms.end:
-      return _bytes([..._csi, 0x46]);
-  }
-  // A keysym standing for a character is the same key it would be off the
-  // soft keyboard, modifiers included.
-  final character = _character(keysym);
-  return character == null ? null : typedBytes(character, sticky);
+  final body = _keyBody(keysym, sticky);
+  return body == null ? null : _meta(body, sticky);
 }
 
 /// What a typed character is worth, with whatever the strip has armed.
 ///
 /// `SHIFT` does nothing here: the soft keyboard has already decided which
 /// character it is sending, and there is no second shift to apply to it.
-Uint8List typedBytes(String text, Set<StickyModifier> sticky) {
-  final control = sticky.contains(StickyModifier.ctrl) ? _control(text) : null;
-  final body = control != null ? [control] : utf8.encode(text);
-  // `ALT` is `ESC` in front of the key, which is how a terminal has carried
-  // meta since there were terminals to carry it.
-  return _bytes(sticky.contains(StickyModifier.alt) ? [0x1b, ...body] : body);
+Uint8List typedBytes(String text, Set<StickyModifier> sticky) =>
+    _meta(_characterBody(text, sticky), sticky);
+
+/// The key without its meta prefix, so the `ALT` rule is written once and
+/// applies to every key rather than only to the ones that stand for a
+/// character.
+List<int>? _keyBody(int keysym, Set<StickyModifier> sticky) {
+  final arrow = _arrowFinals[keysym];
+  if (arrow != null) {
+    // `SHIFT` with an arrow is the modified form, the one a terminal reads as
+    // a selection or a word jump depending on what is reading it.
+    return sticky.contains(StickyModifier.shift)
+        ? [..._csi, 0x31, 0x3b, 0x32, arrow]
+        : [..._csi, arrow];
+  }
+  switch (keysym) {
+    case Keysyms.escape:
+      return [0x1b];
+    case Keysyms.tab:
+      return [0x09];
+    case Keysyms.enter:
+      // Carriage return, not a newline: a line the shell acts on ends the way
+      // a terminal ends one, and the pty turns it into whatever the remote's
+      // line discipline wants.
+      return [0x0d];
+    case Keysyms.backSpace:
+      return [0x7f];
+    case Keysyms.end:
+      return [..._csi, 0x46];
+  }
+  // A keysym standing for a character is the same key it would be off the
+  // soft keyboard, modifiers included.
+  final character = _character(keysym);
+  return character == null ? null : _characterBody(character, sticky);
 }
+
+List<int> _characterBody(String text, Set<StickyModifier> sticky) {
+  final control = sticky.contains(StickyModifier.ctrl) ? _control(text) : null;
+  return control != null ? [control] : utf8.encode(text);
+}
+
+/// `ALT` is `ESC` in front of the key, which is how a terminal has carried
+/// meta since there were terminals to carry it — in front of a control
+/// sequence just as much as in front of a letter.
+Uint8List _meta(List<int> body, Set<StickyModifier> sticky) =>
+    _bytes(sticky.contains(StickyModifier.alt) ? [0x1b, ...body] : body);
 
 /// The control byte for a character that has one: the letters, and the
 /// punctuation block above them that `ESC` through `US` were named after.
