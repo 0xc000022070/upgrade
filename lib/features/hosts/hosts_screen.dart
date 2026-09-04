@@ -27,7 +27,7 @@ import '../settings/key_detail_screen.dart';
 import '../settings/key_form_screen.dart';
 import '../shell/host_shell_screen.dart';
 import '../shell/shell_sessions.dart';
-import '../shell/shell_thumbnail.dart';
+import '../shell/shell_status.dart';
 import 'host_key_sheet.dart';
 import 'link_probes.dart';
 import 'preview_tile.dart';
@@ -35,17 +35,17 @@ import 'preview_tile.dart';
 /// The machines and what gets into them: every registered host with its
 /// metadata and its screen, then the ssh keys. Nothing edits in place — the
 /// forms are the only editors, and this is the only way to a host's screen.
-class AccessScreen extends ConsumerStatefulWidget {
-  const AccessScreen({super.key});
+class HostsScreen extends ConsumerStatefulWidget {
+  const HostsScreen({super.key});
 
   /// The tab this screen is, which is what decides whether it is on screen.
   static const navIndex = 2;
 
   @override
-  ConsumerState<AccessScreen> createState() => _AccessScreenState();
+  ConsumerState<HostsScreen> createState() => _HostsScreenState();
 }
 
-class _AccessScreenState extends ConsumerState<AccessScreen> {
+class _HostsScreenState extends ConsumerState<HostsScreen> {
   /// Resolved in [initState] and held: `ref` throws once dispose runs, and the
   /// flag has to be put down on the way out or a screen that is gone leaves the
   /// poller running.
@@ -72,10 +72,10 @@ class _AccessScreenState extends ConsumerState<AccessScreen> {
   /// matter which listener the shell happens to call first.
   void _syncVisible() {
     if (!mounted) return;
-    if (ref.read(navIndexProvider) != AccessScreen.navIndex) return;
+    if (ref.read(navIndexProvider) != HostsScreen.navIndex) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (ref.read(navIndexProvider) != AccessScreen.navIndex) return;
+      if (ref.read(navIndexProvider) != HostsScreen.navIndex) return;
       _visible.state = true;
       // The panel is worth nothing if it says what a host was doing when the
       // app was last opened, so the probes run on the way in rather than on a
@@ -102,9 +102,8 @@ class _AccessScreenState extends ConsumerState<AccessScreen> {
     final hostList = hosts.valueOrNull ?? const <Host>[];
 
     return ScreenScaffold(
-      title: 'ACCESS',
+      title: 'HOSTS',
       children: [
-        _ShellsPanel(hosts: hostList),
         // No empty state under the hosts: with none registered the screen is
         // `ADD HOST` alone, which says the same thing and does something.
         PanelStack(
@@ -228,7 +227,7 @@ class _ShellRowState extends ConsumerState<_ShellRow> {
             return Row(
               children: [
                 if (worst != null) ...[
-                  _StateDot(
+                  ShellStateDot(
                     key: ValueKey('shell-row-dot-${widget.host.id}'),
                     state: worst,
                   ),
@@ -250,19 +249,6 @@ class _ShellRowState extends ConsumerState<_ShellRow> {
       ),
     );
   }
-}
-
-/// The state the host's dot takes: a failure over anything, a live shell over
-/// the rest, and nothing at all when the host has no sessions.
-ShellState? worstShellState(List<ShellSession> sessions) {
-  if (sessions.isEmpty) return null;
-  for (final session in sessions) {
-    if (session.state is ShellFailed) return session.state;
-  }
-  for (final session in sessions) {
-    if (session.state is ShellLive) return session.state;
-  }
-  return sessions.first.state;
 }
 
 /// The same words the AGENTS panel puts under its rows, so a host says the same
@@ -518,167 +504,6 @@ class _TextAction extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Roughly the miniature's own proportions at the size the cards are read at:
-/// wide enough for a line of a shell's output to be recognisable, short enough
-/// that a row of them is a strip and not a wall.
-const _cardWidth = 160.0;
-const _cardHeight = 110.0;
-
-/// The state light, small enough to be a mark on the card rather than a
-/// component on it.
-const _dotSize = 6.0;
-
-/// `SHELLS`: every session the app is holding, across every host, as a row of
-/// live miniatures.
-///
-/// Drawn only while there is one. A panel that is only ever empty on a screen
-/// about hosts would be a permanent hole in it.
-class _ShellsPanel extends ConsumerWidget {
-  const _ShellsPanel({required this.hosts});
-
-  /// In ACCESS order, which is the order the cards run in: the panel below is
-  /// the index the user already has for their machines.
-  final List<Host> hosts;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final store = ref.watch(shellSessionsProvider);
-    // The store is a notifier, not a provider's value: it is the same object
-    // for the app's life and every change it has to report it reports here.
-    return AnimatedBuilder(
-      animation: store,
-      builder: (context, _) {
-        final cards = [
-          for (final host in hosts)
-            for (final session in store.forHost(host.id)) (host, session),
-        ];
-        if (cards.isEmpty) return const SizedBox.shrink();
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Panel(
-              title: 'SHELLS',
-              child: SizedBox(
-                height: _cardHeight + Spacing.md + _captionHeight,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.zero,
-                  itemCount: cards.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: Spacing.md),
-                  itemBuilder: (context, index) {
-                    final (host, session) = cards[index];
-                    return _ShellCard(host: host, session: session);
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: Spacing.panelGap),
-          ],
-        );
-      },
-    );
-  }
-}
-
-/// Two lines of caption, whether or not the shell named itself: a card that
-/// grows when its title arrives would move every card beside it.
-const _captionHeight = 28.0;
-
-/// One session: what it is showing, whose it is, and what it is called.
-class _ShellCard extends StatelessWidget {
-  const _ShellCard({required this.host, required this.session});
-
-  final Host host;
-  final ShellSession session;
-
-  @override
-  Widget build(BuildContext context) {
-    final title = session.title;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      // The card names the tab, so the route opens on it rather than on
-      // whichever one the host was last left on.
-      onTap: () => openHostShell(context, host, session: session),
-      child: SizedBox(
-        width: _cardWidth,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              key: ValueKey('shell-card-${host.id}-${session.number}'),
-              width: _cardWidth,
-              height: _cardHeight,
-              decoration: BoxDecoration(
-                color: const Color(0xFF000000),
-                border: Border.all(
-                  color: HotlineColors.borderSubtle,
-                  width: Borders.hairline,
-                ),
-              ),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: ShellThumbnail(terminal: session.terminal),
-                  ),
-                  Positioned(
-                    left: Spacing.sm,
-                    top: Spacing.sm,
-                    child: _StateDot(
-                      key: ValueKey('shell-dot-${host.id}-${session.number}'),
-                      state: session.state,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: Spacing.md),
-            Text(
-              '${host.name.toUpperCase()} ${session.number}',
-              style: HotlineText.panelHeader,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (title != null)
-              Text(
-                title,
-                style: HotlineText.rowKicker,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StateDot extends StatelessWidget {
-  const _StateDot({super.key, required this.state});
-
-  final ShellState state;
-
-  @override
-  Widget build(BuildContext context) {
-    // A session on its way up is not lit yet: the accent means there is a shell
-    // on the other end, and until it answers there is not.
-    final color = switch (state) {
-      ShellLive() => HotlineColors.accent,
-      ShellFailed() => HotlineColors.warning,
-      // A dropped session is neither: there is no shell on the other end and
-      // the store has not given up on getting one.
-      ShellConnecting() ||
-      ShellDropped() ||
-      ShellExited() => HotlineColors.textMuted,
-    };
-    return Container(
-      width: _dotSize,
-      height: _dotSize,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }

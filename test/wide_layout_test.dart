@@ -153,7 +153,7 @@ void main() {
     // first opens no further left than 150, the last closes no further right
     // than 750, and the row they make is still centred on the screen.
     final first = tester.getRect(find.text('HOME'));
-    final last = tester.getRect(find.text('ACCESS'));
+    final last = tester.getRect(find.text('SSH'));
     expect(first.left, greaterThanOrEqualTo(150));
     expect(last.right, lessThanOrEqualTo(750));
     expect((first.center.dx + last.center.dx) / 2, closeTo(450, 1));

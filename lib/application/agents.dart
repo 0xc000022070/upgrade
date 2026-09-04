@@ -23,7 +23,7 @@ enum AgentOutcomeKind {
   protocolMismatch,
 
   /// The host has no key pinned. The poll never asks — the question belongs on
-  /// a screen the user is looking at — so it refuses and says so, and ACCESS
+  /// a screen the user is looking at — so it refuses and says so, and HOSTS
   /// carries the `VERIFY` that answers it.
   hostKeyUnverified,
 
@@ -321,7 +321,7 @@ Future<HostOutcome> _poll(
       privateKey: privateKey,
       // The poll runs behind whatever screen is in front. It cannot put a
       // question on it, so an unpinned host is refused here and verified from
-      // its ACCESS panel instead.
+      // its HOSTS panel instead.
       verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
     );
     cache

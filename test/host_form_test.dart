@@ -14,7 +14,7 @@ import 'package:hotline/design/colors.dart';
 import 'package:hotline/design/components/picker_row.dart';
 import 'package:hotline/design/components/solid_action_bar.dart';
 import 'package:hotline/features/settings/host_form_screen.dart';
-import 'package:hotline/features/access/access_screen.dart';
+import 'package:hotline/features/hosts/hosts_screen.dart';
 import 'package:hotline/features/screen/screen_preview.dart';
 import 'package:hotline/platform/host_key_dial.dart';
 import 'package:hotline/platform/keys.dart';
@@ -180,9 +180,9 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the created host lands on ACCESS with HERDR on', (tester) async {
+  testWidgets('the created host lands on HOSTS with HERDR on', (tester) async {
     await keys.save(_key('key-1', 'faraday'));
-    await open(tester, const AccessScreen());
+    await open(tester, const HostsScreen());
 
     await tester.tap(find.text('ADD HOST'));
     await _ready(tester);
@@ -200,10 +200,10 @@ void main() {
     expect(await hosts.watchIntegrations(saved.single.id).first, {
       IntegrationKind.herdr,
     });
-    // Popped back to ACCESS, and the host's panel is on it. The name is a
+    // Popped back to HOSTS, and the host's panel is on it. The name is a
     // panel header, which decodes into place over a few frames.
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.byType(AccessScreen), findsOneWidget);
+    expect(find.byType(HostsScreen), findsOneWidget);
     expect(find.text('NYX'), findsOneWidget);
 
     await unmount(tester);
@@ -226,7 +226,7 @@ void main() {
           dialled++;
           await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:nyx');
         };
-    await open(tester, const AccessScreen());
+    await open(tester, const HostsScreen());
 
     await tester.tap(find.text('ADD HOST'));
     await _ready(tester);
@@ -248,7 +248,7 @@ void main() {
     // And the form is gone: the save it was waiting on is the one that
     // finished.
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.byType(AccessScreen), findsOneWidget);
+    expect(find.byType(HostsScreen), findsOneWidget);
     expect(find.text('VERIFY'), findsNothing);
 
     await unmount(tester);
@@ -258,7 +258,7 @@ void main() {
     tester,
   ) async {
     await keys.save(_key('key-1', 'faraday'));
-    await open(tester, const AccessScreen());
+    await open(tester, const HostsScreen());
 
     await tester.tap(find.text('ADD HOST'));
     await _ready(tester);
@@ -340,7 +340,7 @@ void main() {
     await tester.pump();
 
     // The back arrow is the crumb line, and it asks.
-    await tester.tap(find.text('/ HOTLINE / ACCESS'));
+    await tester.tap(find.text('/ HOTLINE / HOSTS'));
     await _sheet(tester);
     expect(find.text('DISCARD HOST?'), findsOneWidget);
 
@@ -459,7 +459,7 @@ void main() {
         keyId: 'key-1',
       ),
     );
-    await open(tester, const AccessScreen());
+    await open(tester, const HostsScreen());
 
     expect(find.text('100.64.0.1:22'), findsOneWidget);
     expect(find.text('100.64.0.2:357'), findsOneWidget);

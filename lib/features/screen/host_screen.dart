@@ -12,14 +12,14 @@ import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/vnc/vnc_tunnel.dart';
-import '../access/host_key_sheet.dart';
+import '../hosts/host_key_sheet.dart';
 import 'framebuffer_view.dart';
 import 'keys_strip.dart';
 import 'screen_controller.dart';
 import 'screen_preview.dart';
 import 'screen_rail.dart';
 
-/// The way in, and the only one: a host's tile on ACCESS pushes this.
+/// The way in, and the only one: a host's tile on HOSTS pushes this.
 void openHostScreen(BuildContext context, Host host) {
   Navigator.of(
     context,
@@ -48,7 +48,7 @@ class HostScreenRoute extends ConsumerStatefulWidget {
 class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   late final HostScreenController _controller;
 
-  /// The store and the tick that keep this host's tile on ACCESS current. Both
+  /// The store and the tick that keep this host's tile on HOSTS current. Both
   /// are null until the store opens, which is a round trip to the platform.
   ScreenPreviews? _previews;
   Timer? _previewTimer;

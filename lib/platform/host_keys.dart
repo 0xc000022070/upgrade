@@ -91,7 +91,7 @@ class HostKeyVerifier {
       verifyFingerprint(type, utf8.decode(fingerprint, allowMalformed: true));
 
   /// The same decision on an already-decoded fingerprint, which is what a test
-  /// and the ACCESS panel's own verify path both have.
+  /// and the HOSTS panel's own verify path both have.
   Future<bool> verifyFingerprint(String type, String fingerprint) async {
     final known = pinned;
     if (known != null) {
@@ -126,7 +126,7 @@ class HostKeyVerifier {
 }
 
 /// The two lines every transport words a host key failure as. One sentence per
-/// refusal, the same in the shell's header, on the AGENTS panel and on ACCESS,
+/// refusal, the same in the shell's header, on the AGENTS panel and on HOSTS,
 /// because it is the same fact wherever it is found.
 String hostKeyReason(HostKeyRefusal refusal) => switch (refusal) {
   HostKeyRefusal.unverified => 'host key unverified',
