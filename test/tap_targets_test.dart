@@ -7,7 +7,7 @@ import 'package:hotline/design/components/panel.dart';
 import 'package:hotline/design/spacing.dart';
 import 'package:hotline/features/screen_scaffold.dart';
 
-/// SPEC.md §39.23: a text-only action is small to read and big to hit. The
+/// A text-only action is small to read and big to hit. The
 /// header strip is a row tall, the label stays where it always was, and the
 /// box that answers a finger is the row's height by at least 44.
 Widget _host(Widget child) => Directionality(
@@ -36,7 +36,7 @@ double _padFor(Rect label) =>
     math.max(Spacing.md, (TapTargets.minHeight - label.width) / 2);
 
 void main() {
-  group('SPEC.md §39.23 panel strip', () {
+  group('panel strip', () {
     testWidgets('is a row tall and centres what it carries', (tester) async {
       await tester.pumpWidget(
         _host(
@@ -102,7 +102,7 @@ void main() {
     });
   });
 
-  group('SPEC.md §39.23 hit box', () {
+  group('hit box', () {
     testWidgets('reaches the gap, the strip height and 44 wide', (
       tester,
     ) async {
@@ -281,7 +281,7 @@ void main() {
     });
   });
 
-  group('SPEC.md §39.23 crumb row', () {
+  group('crumb row', () {
     testWidgets('a trailing verb takes the whole row', (tester) async {
       var taps = 0;
       await tester.pumpWidget(

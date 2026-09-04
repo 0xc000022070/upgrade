@@ -29,8 +29,8 @@ void main() {
         await tester.pump(Effects.glitchStep);
       }
 
-      // Frames 0..n-1 in order, then the idle sentinel. SPEC.md §16b caps the
-      // sequence at 5 frames and 260ms; this is 5 at 225ms.
+      // Frames 0..n-1 in order, then the idle sentinel. The sequence is capped
+      // at 5 frames and 260ms; this is 5 at 225ms.
       expect(frames, [for (var i = 0; i < Effects.glitchFrames; i++) i, -1]);
       expect(
         Effects.glitchStep * Effects.glitchFrames,
@@ -71,7 +71,7 @@ void main() {
       await tester.pump();
       expect(find.byType(GlitchBlocks), findsOneWidget);
 
-      // §16b.2: the last frame is the clean glyph, so the tear is gone one
+      // The last frame is the clean glyph, so the tear is gone one
       // step before the controller goes idle rather than with it.
       for (var i = 0; i < Effects.glitchFrames - 1; i++) {
         await tester.pump(Effects.glitchStep);
@@ -121,7 +121,7 @@ void main() {
     });
   });
 
-  group('block plan (SPEC.md §16b.2)', () {
+  group('block plan', () {
     /// The ruling is a number, so it is checked as one: no seed may spend more
     /// than the budget, and overlapping blocks are charged twice here, which
     /// makes the assertion stricter than the pixels on screen.
@@ -191,7 +191,7 @@ void main() {
       }
     });
 
-    test('the boot tear still lands inside the SPEC.md 16c.1 cap', () {
+    test('the boot tear still lands inside the boot cap', () {
       // The event moved to the end of the roll, so the boot screen now holds
       // for the whole glitch after its last line instead of tearing a log the
       // eye has not read yet. main() records six steps and the roll spends one

@@ -9,7 +9,7 @@ import '../data/repositories/key_repository.dart';
 import '../platform/herdr_client.dart';
 import '../platform/keys.dart';
 
-/// What one host answered on the last poll. SPEC.md §39.20: every host with
+/// What one host answered on the last poll. Every host with
 /// `HERDR` on is polled, so a failure is a property of a host and not of the
 /// panel — one bad host contributes its own dim line while the others still
 /// render rows.
@@ -41,8 +41,8 @@ class HostOutcome {
 
   bool get ok => kind == AgentOutcomeKind.snapshot;
 
-  /// §39.20's words, exactly: `nyx unreachable`, `key rejected`, `protocol N`,
-  /// and §39.29's `nyx unresolved`. The two host-shaped lines name their host
+  /// The words, exactly: `nyx unreachable`, `key rejected`, `protocol N`,
+  /// and `nyx unresolved`. The two host-shaped lines name their host
   /// because that is how the spec writes them; [AgentsPanel] prefixes the
   /// others when more than one host is failing and the line would otherwise not
   /// say which.
@@ -63,7 +63,7 @@ class HostOutcome {
 class AgentPanelState {
   const AgentPanelState(this.outcomes);
 
-  /// No host has `HERDR` on. §39.20: the panel is blocked, one dim line, no
+  /// No host has `HERDR` on. The panel is blocked, one dim line, no
   /// rows and no footer, and nothing opens a connection. The empty set *is* the
   /// blocked state — there is no separate flag to keep in step with it.
   const AgentPanelState.noHost() : outcomes = const [];
@@ -84,7 +84,7 @@ class AgentPanelState {
       outcomes.where((outcome) => !outcome.ok).toList();
 
   /// The most recent good snapshot across every host, which is the timestamp
-  /// §39.20 puts on the right of a failure line.
+  /// on the right of a failure line.
   DateTime? get lastGoodAt {
     DateTime? newest;
     for (final outcome in outcomes) {
@@ -126,7 +126,7 @@ final hostsProvider = StreamProvider<List<Host>>(
   (ref) => ref.watch(hostRepositoryProvider).watchAll(),
 );
 
-/// The hosts §39.20 polls. Replaces the selected-host provider: there is no
+/// The hosts the panel polls. Replaces the selected-host provider: there is no
 /// selection any more, only the set of machines with the integration on.
 final herdrHostsProvider = StreamProvider<List<Host>>(
   (ref) => ref
@@ -134,15 +134,7 @@ final herdrHostsProvider = StreamProvider<List<Host>>(
       .watchWithIntegration(IntegrationKind.herdr),
 );
 
-/// SPEC.md §39.32: the hosts that offer a screen. Empty is the common case and
-/// the reason the AGENTS header has no `SCREEN >` on it.
-final vncHostsProvider = StreamProvider<List<Host>>(
-  (ref) => ref
-      .watch(hostRepositoryProvider)
-      .watchWithIntegration(IntegrationKind.vnc),
-);
-
-/// What the host form renders its §16c.3 switches from.
+/// What the host form renders its switches from.
 final hostIntegrationsProvider =
     StreamProvider.family<Set<IntegrationKind>, String>(
       (ref, hostId) =>
@@ -178,7 +170,7 @@ final appForegroundProvider =
       (ref) => AppForegroundNotifier(),
     );
 
-/// §39.21: nothing outside this typedef's implementation names a transport.
+/// Nothing outside this typedef's implementation names a transport.
 /// Today it is ssh; a backend proxying herdr replaces [HerdrClient] and no host,
 /// integration row or provider above changes.
 typedef HerdrFetch = Future<List<AgentSnapshot>> Function({
@@ -207,7 +199,7 @@ class _CachedSnapshot {
 
 final _agentSnapshotCacheProvider = Provider((ref) => _AgentSnapshotCache());
 
-/// SPEC.md §39.31. The watcher's own view of the hosts, or null while no
+/// The watcher's own view of the hosts, or null while no
 /// foreground service is running.
 ///
 /// Declared here and overridden in `main()` the way [databaseProvider] is: the
@@ -224,21 +216,21 @@ final watcherFeedProvider = StreamProvider<AgentPanelState?>(
 );
 
 final agentsFeedProvider = StreamProvider<AgentPanelState>((ref) {
-  // §39.31: "While the watcher runs, Home reads its snapshots and §39.20's own
+  // "While the watcher runs, Home reads its snapshots and its own
   // 10 s poll pauses, so the host sees one connection per phone." Read before
   // the visibility gate, because the watcher's state is what Home shows even
-  // while §39.20's poll would not be running at all.
+  // while that poll would not be running at all.
   final watched = ref.watch(watcherFeedProvider).valueOrNull;
   if (watched != null) return Stream.value(watched);
   final visible = ref.watch(homeAgentsVisibleProvider);
   final foreground = ref.watch(appForegroundProvider);
-  // §39.20: never in the background, and never while Home is off screen. The
+  // Never in the background, and never while Home is off screen. The
   // guard is here rather than in the poll loop so a hidden panel holds no ssh
   // connection open at all.
   if (!visible || !foreground) return const Stream.empty();
   final hosts = ref.watch(herdrHostsProvider);
   // The three collaborators are read here rather than inside the generator:
-  // the generator's body does not run until something listens, and §39.31's
+  // the generator's body does not run until something listens, and the
   // watcherFeedProvider emits its first value in between, which leaves the ref
   // outdated and makes any read from it an assertion.
   final fetch = ref.read(herdrFetchProvider);
@@ -255,7 +247,7 @@ final agentsFeedProvider = StreamProvider<AgentPanelState>((ref) {
 
 /// One tick polls every host at once and emits a single state. Sequential polls
 /// would make the panel's refresh interval the sum of the hosts' timeouts — two
-/// unreachable hosts alone would push it past §39.20's 10s cadence.
+/// unreachable hosts alone would push it past the 10s cadence.
 Stream<AgentPanelState> _pollHosts(
   HerdrFetch fetch,
   Ed25519Keys keys,
@@ -287,7 +279,7 @@ Future<HostOutcome> _poll(
     protocol: protocol,
   );
 
-  // §39.29: every failure leaves a line in the debug log naming the host and
+  // Every failure leaves a line in the debug log naming the host and
   // what the transport said, so a report from a handset can be read without
   // guessing which of the four the dim line came from. debugPrint rather than
   // dart:developer: only the former reaches logcat on a handset.

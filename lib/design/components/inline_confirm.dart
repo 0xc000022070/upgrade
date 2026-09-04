@@ -6,13 +6,13 @@ import '../colors.dart';
 import 'action_block.dart';
 import 'solid_action_bar.dart';
 
-/// SPEC.md §39.2: a destructive action confirms in place. The block keeps its
+/// A destructive action confirms in place. The block keeps its
 /// position and swaps its own label and tone for [window]; a second tap inside
 /// that window commits, and letting it lapse is the cancel.
 ///
-/// This replaces the §16c.2 confirm sheet for deletes that already live on a
+/// This replaces the confirm sheet for deletes that already live on a
 /// surface of their own — a form, a quick view. Opening a second sheet over a
-/// sheet is the chrome §38 exists to remove.
+/// sheet is the chrome the skin exists to remove.
 class InlineConfirmBlock extends StatefulWidget {
   const InlineConfirmBlock({
     super.key,
@@ -29,13 +29,13 @@ class InlineConfirmBlock extends StatefulWidget {
   final String confirmLabel;
   final VoidCallback onConfirmed;
 
-  /// §39.2 asks for a solid warning block; §16c.2 keeps danger for the commit
+  /// A solid warning block, and danger is kept for the commit
   /// itself, so arming is a colour step and not only a word change.
   final Color tone;
   final Color armedTone;
   final Duration window;
 
-  /// The quick view's footer (§39.4) puts DELETE in a row of sized blocks, not
+  /// The quick view's footer puts DELETE in a row of sized blocks, not
   /// on a full-width bar. Only the shape changes: arming, the window and the
   /// colour step are the same.
   final bool compact;

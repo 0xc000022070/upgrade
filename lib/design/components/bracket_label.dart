@@ -4,7 +4,7 @@ import '../colors.dart';
 import '../spacing.dart';
 import 'meta.dart';
 
-/// SPEC.md §16c.7: a key fact takes the `[ LABEL ]` mono form, so the label
+/// A key fact takes the `[ LABEL ]` mono form, so the label
 /// reads as a field name in a readout rather than as a heading.
 class BracketLabel extends StatelessWidget {
   const BracketLabel(this.label, {super.key, required this.value, this.color});

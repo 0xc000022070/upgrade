@@ -4,11 +4,11 @@ import '../colors.dart';
 import '../spacing.dart';
 import '../typography.dart';
 
-/// SPEC.md §16c.2 at footer scale. [SolidActionBar] is the full-width commit;
+/// A confirm block at footer scale. [SolidActionBar] is the full-width commit;
 /// this is the same block sized to its label, so a row of them reads as a
 /// keypad of verbs rather than as a stack of buttons.
 ///
-/// [filled] is what §16c reserves for a state that is on or an action that
+/// [filled] is reserved for a state that is on or an action that
 /// commits; every other block is the same rectangle drawn as a hairline
 /// outline, which keeps one accent surface per row.
 class ActionBlock extends StatelessWidget {

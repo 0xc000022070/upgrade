@@ -8,9 +8,9 @@ import '../platform/herdr_client.dart';
 import 'agents.dart';
 import 'providers.dart';
 
-/// SPEC.md §39.31. Everything about a blocked-agent alert that is a decision
+/// Everything about a blocked-agent alert that is a decision
 /// rather than a platform call, kept away from the notification plugin and the
-/// foreground service so the section's regression list can be run on the vm.
+/// foreground service so the regression list can be run on the vm.
 
 /// The persistent watcher notification. Fixed, because there is one service.
 const watcherNotificationId = 1;
@@ -28,7 +28,7 @@ int alertNotificationId(String hostId, String paneId) {
   return 1000 + hash;
 }
 
-/// §39.31's key table as the spec writes it, not yet checked against a live
+/// The key table as the spec writes it, not yet checked against a live
 /// blocked pane: the emulator's key is not on nyx, so nothing here has answered
 /// a real prompt. A kind with no entry answers the way most TUIs do.
 const _answerKeys = <String, ({String yes, String no})>{
@@ -45,7 +45,7 @@ List<String> answerKeys(String agent, {required bool yes}) {
   return [yes ? table.yes : table.no];
 }
 
-/// §39.20 and §39.30 both read an empty `agent` as `?`; §39.31's title is the
+/// An empty `agent` reads as `?` everywhere; the title is the
 /// same name uppercased.
 String alertTitle(AgentSnapshot snapshot) => blockedTitle(snapshot.agent);
 
@@ -58,13 +58,13 @@ String blockedTitle(String agent) {
 
 String alertText(AgentSnapshot snapshot) => snapshot.terminalTitleStripped;
 
-/// §39.31's action states, after a tap and while the watcher has not yet seen
+/// The action states, after a tap and while the watcher has not yet seen
 /// the pane leave `blocked`.
 String alertSentLine({required bool yes}) => 'SENT · ${yes ? 'YES' : 'NO'}';
 
 String alertFailedLine(String reason) => 'FAILED · $reason';
 
-/// §39.20's failure vocabulary without the host name: an alert names one host
+/// The failure vocabulary without the host name: an alert names one host
 /// already, so repeating it in the line would only cost width.
 String alertFailureReason(HerdrFailure failure) => switch (failure) {
   HerdrKeyRejected() => 'KEY REJECTED',
@@ -73,10 +73,10 @@ String alertFailureReason(HerdrFailure failure) => switch (failure) {
   HerdrUnreachable() => 'UNREACHABLE',
 };
 
-/// §39.31: the actions come back if 10 s pass with no change.
+/// The actions come back if 10 s pass with no change.
 const alertActionRestore = Duration(seconds: 10);
 
-/// §39.31: keepalive every 15 s, reconnect after 5 s doubling to 60 s. Kept
+/// Keepalive every 15 s, reconnect after 5 s doubling to 60 s. Kept
 /// with the decisions rather than with the watcher: the schedule is one, and
 /// the keepalive is the number the isolate answering a tap has to dial with
 /// too.
@@ -84,7 +84,7 @@ const watcherKeepAlive = Duration(seconds: 15);
 const watcherMinBackoff = Duration(seconds: 5);
 const watcherMaxBackoff = Duration(seconds: 60);
 
-/// One host's reconnect delay. §39.31 doubles it per outage and not per
+/// One host's reconnect delay. It doubles per outage and not per
 /// lifetime, so [reset] runs whenever a connection carries a snapshot: a link
 /// that held for hours and then dropped retries after 5 s, not after the 60 s
 /// some earlier outage climbed to.
@@ -104,14 +104,14 @@ class WatcherBackoff {
 /// The blocked panes one host is currently showing, and the edges into and out
 /// of that set.
 ///
-/// §39.31 asks for one notification per blocked *episode*: a pane that is still
+/// One notification per blocked *episode*: a pane that is still
 /// blocked on the next snapshot is not a new alert, and a pane that unblocks and
 /// blocks again is. That is a set difference, kept per host because two hosts
 /// can hand out the same pane id.
 class BlockedEdges {
   final Map<String, Set<String>> _blocked = {};
 
-  /// §39.31: "the first snapshot after a connect counts every blocked pane as
+  /// "the first snapshot after a connect counts every blocked pane as
   /// new". Called on every connect, so the set the difference is taken against
   /// is empty and every blocked pane comes out of [apply] as an edge.
   void reset(String hostId) => _blocked.remove(hostId);
@@ -127,7 +127,7 @@ class BlockedEdges {
     }
     _blocked[hostId] = now;
     // A pane that disappeared from the list left `blocked` as far as this app
-    // can tell, and §39.31 clears the notification either way.
+    // can tell, and the notification is cleared either way.
     return BlockedDelta(
       entered: entered,
       left: [
@@ -151,7 +151,7 @@ class BlockedDelta {
 
 /// Everything an action tap needs, carried on the notification itself.
 ///
-/// §39.31: "Actions work with only the service alive, the activity gone." The
+/// "Actions work with only the service alive, the activity gone." The
 /// tap is answered in a background isolate that has no database and no
 /// providers, so the host it must dial travels with the notification rather
 /// than being looked up. The private key does not: it stays in the keystore and
@@ -177,7 +177,7 @@ class AlertTarget {
   final String agent;
 
   /// The notification's own text, carried so the isolate answering a tap can
-  /// redraw the notification with §39.31's state line under it. It cannot read
+  /// redraw the notification with the state line under it. It cannot read
   /// the line back off the posted notification: only the process that is still
   /// holding the snapshot knows it, and by then that process may be gone.
   final String text;
@@ -232,8 +232,8 @@ class AlertTarget {
 /// What one host's watcher connection is doing, as the service isolate reports
 /// it to the UI.
 ///
-/// §39.31 hands Home the watcher's snapshots instead of its own poll, and Home
-/// draws §39.20's reason lines, so the report carries the outcome and not just
+/// Home reads the watcher's snapshots instead of its own poll, and draws the
+/// same reason lines, so the report carries the outcome and not just
 /// the agents.
 class WatcherReport {
   const WatcherReport({
@@ -251,7 +251,7 @@ class WatcherReport {
   final DateTime? lastGoodAt;
   final int? protocol;
 
-  /// §39.31's persistent line, `nyx unreachable · retry 30s`: the backoff the
+  /// The persistent line, `nyx unreachable · retry 30s`: the backoff the
   /// watcher is currently sitting out.
   final Duration? retryIn;
 
@@ -298,10 +298,11 @@ class WatcherReport {
   );
 }
 
-/// §39.31's persistent notification body: `WATCHING N HOSTS` while every host
-/// answers, and the first failing host's §39.20 reason line with its backoff
+/// The persistent notification body: `WATCHING N HOSTS` while every host
+/// answers, and the first failing host's reason line with its backoff
 /// when one does not.
-String watcherNotificationText(List<HostOutcome> outcomes, {
+String watcherNotificationText(
+  List<HostOutcome> outcomes, {
   Map<String, Duration> retries = const {},
 }) {
   final down = outcomes.where((outcome) => !outcome.ok).toList();
@@ -315,7 +316,7 @@ String watcherNotificationText(List<HostOutcome> outcomes, {
   return retry == null ? line : '$line · RETRY ${retry.inSeconds}S';
 }
 
-/// SPEC.md §39.31's `[ ALERTS ]` row, as one value rather than three booleans
+/// The `[ ALERTS ]` row, as one value rather than three booleans
 /// the row would have to combine at paint time.
 enum AlertsRow {
   /// No host has `HERDR` on: dim, `NO HOST`, and the toggle does nothing.
@@ -335,7 +336,7 @@ enum AlertsRow {
   };
 }
 
-/// §39.31: "The setting persists across launches." The §39.16 settings table
+/// "The setting persists across launches." The settings table
 /// already stores flags, so this is a row and not a schema change.
 final alertsEnabledProvider = StreamProvider<bool>(
   (ref) => ref
@@ -357,7 +358,7 @@ final alertsRowProvider = Provider<AlertsRow>((ref) {
       : AlertsRow.off;
 });
 
-/// §39.31: the watcher runs when `ALERTS` is on **and** some host has `HERDR`
+/// The watcher runs when `ALERTS` is on **and** some host has `HERDR`
 /// on, and stops the moment either stops being true. One expression, so the two
 /// halves cannot drift.
 final watcherWantedProvider = Provider<bool>(

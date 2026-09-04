@@ -16,8 +16,8 @@ import 'package:hotline/features/projects/projects_screen.dart';
 
 import 'support/platform_channels.dart';
 
-/// SPEC.md §39.2 (goal CRUD) and §39.14 (optional objective, archive and
-/// unarchive). The §16b.1 ticker never settles, so nothing here may use
+/// Goal CRUD, the optional objective, archive and unarchive. The background
+/// ticker never settles, so nothing here may use
 /// `pumpAndSettle`; each round buys real time for drift and fake time for the
 /// widgets that consume it.
 Future<void> _drain(
@@ -71,7 +71,7 @@ void main() {
   /// [ActionBlock], whose label is upper-cased; the breadcrumb affordance is a
   /// plain upper-case string too, so both are reached by text.
   /// The tapped verb usually opens a panel, and a panel title is a glyph soup
-  /// until the §16b decode locks — so the wait after the tap has to move the
+  /// until the decode locks — so the wait after the tap has to move the
   /// fake clock, not just the event loop.
   Future<void> tapText(WidgetTester tester, String text) async {
     await tester.tap(find.text(text).last);
@@ -86,7 +86,7 @@ void main() {
     await _ready(tester);
 
     expect(find.text('OBJECTIVE'), findsNothing);
-    // §39.14: the hero keeps the number even with the panel gone.
+    // The hero keeps the number even with the panel gone.
     expect(find.text('0 OF 0 TASKS'), findsOneWidget);
     expect(find.text('0%'), findsOneWidget);
 
@@ -161,7 +161,7 @@ void main() {
     await tester.pumpWidget(host(const ProjectsScreen()));
     await _ready(tester);
 
-    // §39.14: the objective is the title line when there is one, the name is
+    // The objective is the title line when there is one, the name is
     // when there is not — and neither leaves an empty line behind.
     expect(find.text('Hierro propio'), findsOneWidget);
     expect(find.text('Drone FPV'), findsOneWidget);
@@ -182,7 +182,7 @@ void main() {
     await tester.pumpWidget(host(const ProjectsScreen()));
     await _ready(tester);
 
-    // §39.26 left the tab holding the only create affordance for a project:
+    // The tab holds the only create affordance for a project:
     // HOME no longer has a PROJECTS strip that could carry a second.
     expect(find.text('NEW'), findsOneWidget);
 
@@ -190,7 +190,7 @@ void main() {
 
     expect(find.byType(ProjectFormScreen), findsOneWidget);
     expect(find.text('NEW PROJECT'), findsWidgets);
-    // §39.2: create has no delete block.
+    // Create has no delete block.
     expect(find.text('DELETE PROJECT'), findsNothing);
 
     await unmount(tester);
@@ -229,7 +229,7 @@ void main() {
     await _ready(tester);
     await tapText(tester, 'RENAME');
 
-    // §39.2: rename is the same one-line editor, prefilled.
+    // Rename is the same one-line editor, prefilled.
     expect(find.text('RENAME GOAL'), findsOneWidget);
     expect(find.text('Storage'), findsOneWidget);
 
@@ -261,7 +261,7 @@ void main() {
     expect(find.text('DELETE GOAL?'), findsOneWidget);
     await tapText(tester, 'DELETE');
 
-    // §39.2: the heading goes, the work does not — it lands in the project's
+    // The heading goes, the work does not — it lands in the project's
     // own DROPS panel.
     expect(find.text('STORAGE'), findsNothing);
     final drops = find.descendant(
@@ -282,13 +282,13 @@ void main() {
     await tester.pumpWidget(host(ProjectDetailScreen(projectId: id)));
     await _ready(tester);
 
-    // §39.15: the strip carries it inside a project exactly as on Home.
+    // The strip carries it inside a project exactly as on Home.
     await tapText(tester, 'SELECT');
     await _ready(tester);
 
     expect(find.text('0 SELECTED'), findsOneWidget);
     expect(find.text('[ ]'), findsOneWidget);
-    // §39.13: in the mode the row is a box, not the §39.11 task checkbox.
+    // In the mode the row is a box, not the task checkbox.
     expect(find.text('SELECT'), findsNothing);
 
     await tester.tap(find.text('Rotar llaves ssh'));

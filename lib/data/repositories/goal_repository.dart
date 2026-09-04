@@ -6,7 +6,7 @@ import '../enums.dart';
 import '../views.dart';
 import 'activity_repository.dart';
 
-/// SPEC.md §39.1/§39.2. A goal is a grouping inside one project; it owns no
+/// A goal is a grouping inside one project; it owns no
 /// state, so every operation here is about where items sit, not about the goal.
 class GoalRepository {
   GoalRepository(this._db, this._activity);
@@ -78,7 +78,7 @@ class GoalRepository {
     });
   }
 
-  /// SPEC.md §39.2: the items under a deleted goal fall back to the project's
+  /// The items under a deleted goal fall back to the project's
   /// DROPS. Deleting a grouping never deletes what was grouped.
   Future<void> delete(String id, {DateTime? at}) {
     final now = at ?? DateTime.now().toUtc();

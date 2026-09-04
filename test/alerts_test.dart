@@ -9,7 +9,7 @@ import 'package:hotline/data/repositories/host_repository.dart';
 import 'package:hotline/platform/agent_watcher.dart';
 import 'package:hotline/platform/herdr_client.dart';
 
-/// SPEC.md §39.31's regression list.
+/// The alerts regression list.
 
 AgentSnapshot snapshot({
   String pane = 'wQ:p1',
@@ -56,7 +56,7 @@ void main() {
     });
 
     test('counts every blocked pane as new on the service\'s first snapshot', () {
-      // §39.31, amended: the "new" moment is the service starting, and a fresh
+      // Amended: the "new" moment is the service starting, and a fresh
       // service is a fresh [BlockedEdges] on its handler. Nothing to difference
       // against, so every pane already showing blocked is an edge.
       final edges = BlockedEdges();
@@ -66,8 +66,8 @@ void main() {
     });
 
     test('a reconnect keeps the set, so nothing still blocked re-enters', () {
-      // The A6 review flag, and the reason §39.31 was amended. The loop used to
-      // call `edges.reset` on every connect; a pane the user had already
+      // The A6 review flag, and the reason the rule was amended. The loop used
+      // to call `edges.reset` on every connect; a pane the user had already
       // answered came back out of `apply` as an edge, which reposted the alert
       // with YES/NO restored and threw away its `SENT · YES` line.
       final edges = BlockedEdges();
@@ -133,7 +133,10 @@ void main() {
 
   group('notification ids', () {
     test('are stable per host and pane, and never the watcher\'s', () {
-      expect(alertNotificationId('h1', 'wQ:p1'), alertNotificationId('h1', 'wQ:p1'));
+      expect(
+        alertNotificationId('h1', 'wQ:p1'),
+        alertNotificationId('h1', 'wQ:p1'),
+      );
       expect(
         alertNotificationId('h1', 'wQ:p1'),
         isNot(alertNotificationId('h2', 'wQ:p1')),
@@ -284,7 +287,7 @@ void main() {
       await pump();
       expect(seen.last?.outcomes.single.kind, AgentOutcomeKind.unreachable);
 
-      // §39.31: the toggle going off hands Home straight back to §39.20's poll.
+      // The toggle going off hands Home straight back to its own poll.
       // Holding the last report would freeze the panel on `nyx unreachable ·
       // retry 5s` for a host that is fine.
       running.add(false);
@@ -298,7 +301,7 @@ void main() {
   });
 
   group('the gate strings', () {
-    test('are the four §39.31 names them, list in its short form', () {
+    test('are the four names the spec gives them, list in its short form', () {
       expect(HerdrCommands.list, 'agent list');
       expect(HerdrCommands.watch, 'agent watch');
       expect(HerdrCommands.read('wQ:p1'), 'agent read wQ:p1');
@@ -358,14 +361,11 @@ void main() {
       expect(alertTitle(snapshot(agent: '  ')), '? BLOCKED');
     });
 
-    test('carries §39.31 action states', () {
+    test('carries the action states', () {
       expect(alertSentLine(yes: true), 'SENT · YES');
       expect(alertSentLine(yes: false), 'SENT · NO');
       expect(alertFailedLine('UNREACHABLE'), 'FAILED · UNREACHABLE');
-      expect(
-        alertFailureReason(const HerdrKeyRejected()),
-        'KEY REJECTED',
-      );
+      expect(alertFailureReason(const HerdrKeyRejected()), 'KEY REJECTED');
       expect(
         alertFailureReason(const HerdrProtocolMismatch(20)),
         'PROTOCOL 20',
@@ -373,29 +373,31 @@ void main() {
       expect(alertFailureReason(const HerdrUnreachable()), 'UNREACHABLE');
     });
 
-    test('the persistent line counts hosts, or names the first that is down',
-        () {
-      expect(
-        watcherNotificationText([
-          const HostOutcome(host: host, kind: AgentOutcomeKind.snapshot),
-        ]),
-        'WATCHING 1 HOST',
-      );
-      expect(
-        watcherNotificationText(const [
-          HostOutcome(host: host, kind: AgentOutcomeKind.snapshot),
-          HostOutcome(host: host, kind: AgentOutcomeKind.snapshot),
-        ]),
-        'WATCHING 2 HOSTS',
-      );
-      expect(
-        watcherNotificationText(
-          const [HostOutcome(host: host, kind: AgentOutcomeKind.unreachable)],
-          retries: const {'h1': Duration(seconds: 30)},
-        ),
-        'NYX UNREACHABLE · RETRY 30S',
-      );
-    });
+    test(
+      'the persistent line counts hosts, or names the first that is down',
+      () {
+        expect(
+          watcherNotificationText([
+            const HostOutcome(host: host, kind: AgentOutcomeKind.snapshot),
+          ]),
+          'WATCHING 1 HOST',
+        );
+        expect(
+          watcherNotificationText(const [
+            HostOutcome(host: host, kind: AgentOutcomeKind.snapshot),
+            HostOutcome(host: host, kind: AgentOutcomeKind.snapshot),
+          ]),
+          'WATCHING 2 HOSTS',
+        );
+        expect(
+          watcherNotificationText(
+            const [HostOutcome(host: host, kind: AgentOutcomeKind.unreachable)],
+            retries: const {'h1': Duration(seconds: 30)},
+          ),
+          'NYX UNREACHABLE · RETRY 30S',
+        );
+      },
+    );
   });
 
   test('an alert target survives the trip through a notification payload', () {

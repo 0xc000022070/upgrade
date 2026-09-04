@@ -24,18 +24,18 @@ import '../tasks/item_pickers.dart';
 import '../tasks/link_input.dart';
 import '../tasks/url_highlight_controller.dart';
 
-/// SPEC.md §37 pins capture to the bottom of HOME; §38.9 makes it a panel like
+/// Capture is pinned to the bottom of HOME and is a panel like
 /// everything else — header strip, one field line, the accent target glyph on
 /// the right. It is not focused on entry: raising the IME on launch would bury
 /// the panels HOME exists to show.
 ///
-/// §39.9 withdrew §39.6's toolbar row from inside the panel: the icons live on
+/// The toolbar row was withdrawn from inside the panel: the icons live on
 /// the strip above the keyboard, and the `→ DROPS` block is now the target
-/// icon with its answer showing as the first chip. §39.10 cuts that strip to
-/// `link`, `image`, `+`, and §39.11 leaves `target` as the only thing behind
+/// icon with its answer showing as the first chip. That strip is cut to
+/// `link`, `image`, `+`, with `target` the only thing behind
 /// the `+`: next and blocked are states, and a capture has none.
 ///
-/// §39.15 paints the URLs in the field as they are typed, through
+/// The URLs in the field are painted as they are typed, through
 /// [UrlHighlightController]. It is a readout of what `_submit` will do and
 /// changes nothing about it.
 class CaptureBar extends ConsumerStatefulWidget {
@@ -46,14 +46,14 @@ class CaptureBar extends ConsumerStatefulWidget {
     this.landing,
   });
 
-  /// SPEC.md §39.25: the panel a capture lands fresh in, named the way the
+  /// The panel a capture lands fresh in, named the way the
   /// selection names it — `home`, or a project's id. The bar of each screen
   /// feeds its own set.
   final String scope;
 
   final ItemTarget? fixedTarget;
 
-  /// SPEC.md §39.19: the panel the captured row lands in, which is what tears
+  /// The panel the captured row lands in, which is what tears
   /// when it arrives. Home hands over its own DROPS panel here exactly as a
   /// project's screen does.
   final GlitchController? landing;
@@ -66,7 +66,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   final _controller = UrlHighlightController();
   final _focus = FocusNode();
 
-  /// §16b fires the capture on HOME's nav icon, which the IME covers whole —
+  /// The capture glitch fires on HOME's nav icon, which the IME covers whole —
   /// the one moment the effect exists for is the one moment it cannot be seen.
   /// The target glyph is the icon still on screen, so it carries the same
   /// glitch and the nav one keeps playing for captures sent without a keyboard.
@@ -75,7 +75,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   ItemTarget _target = const ItemTarget.drops();
 
   /// Attached before the item exists, so they are held here and written with it
-  /// in §39.6's single transaction.
+  /// in a single transaction.
   final _pending = <NewAttachment>[];
 
   bool _urlMode = false;
@@ -97,7 +97,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
     if (_urlMode) return _commitUrl();
     final raw = _controller.text.trim();
     if (raw.isEmpty) return;
-    // §39.6: the line is kept as typed. A URL only leaves the title when it was
+    // The line is kept as typed. A URL only leaves the title when it was
     // the whole line, and then the link itself is what names the item.
     final found = extractUrls(raw);
     final stripped = titleWithoutUrls(raw, found);
@@ -105,7 +105,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
     final attachments = [..._pending, ...found.map(NewAttachment.url)];
     final target = widget.fixedTarget ?? _target;
     _controller.clear();
-    // §39.12: submitting closes the form. The focus goes, and with it the
+    // Submitting closes the form. The focus goes, and with it the
     // keyboard, the scrim and the strip; the row lands at the top of DROPS with
     // nothing over it. Rapid entry is the user tapping the field again, which
     // they asked for over a form that never lets go.
@@ -118,7 +118,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
     });
     _glitch.fire(seed: raw.hashCode);
     widget.landing?.fire(seed: raw.hashCode);
-    // §39.26 gives the nav icon back its §16b arrival. It fires alongside the
+    // The nav icon gets its arrival glitch back. It fires alongside the
     // strip rather than instead of it: the IME covers HOME's DROPS strip at
     // the moment the row lands, and the nav icon is the half still on screen.
     // A project's capture lands on a route pushed over the bar, so it has no
@@ -128,7 +128,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
         .read(taskRepositoryProvider)
         .capture(content, target: target, attachments: attachments);
     if (!mounted) return;
-    // §39.25: the row is fresh from the moment it exists. The write is what
+    // The row is fresh from the moment it exists. The write is what
     // hands over the id, so the set is filled here rather than by the panel,
     // which has no way to tell a new row from one the database already had.
     ref.read(freshDropsProvider.notifier).add(widget.scope, id);
@@ -147,7 +147,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
     _focus.requestFocus();
   }
 
-  /// §39.9: the clipboard is the common case and needs no prompt; the field
+  /// The clipboard is the common case and needs no prompt; the field
   /// itself is the fallback, and never a second field.
   Future<void> _link() async {
     if (_urlMode) return _commitUrl();
@@ -164,7 +164,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
     });
   }
 
-  /// §39.10: the gallery, and nothing between it and the chip.
+  /// The gallery, and nothing between it and the chip.
   Future<void> _image() async {
     final path = await ImageAttachments.pick();
     if (!mounted || path == null) return;
@@ -197,7 +197,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
 
   /// Resolved from the live rows rather than stored with the target, so a
   /// project renamed while the chip is up renames the chip. Only called with a
-  /// target set: §39.12 leaves the default without a chip to label.
+  /// target set: the default has no chip to label.
   String _targetLabel() {
     if (_target.projectId == null) return 'DROPS';
     final projects =
@@ -211,7 +211,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
         ref.watch(projectGoalsProvider(_target.projectId!)).valueOrNull ??
         const <GoalSummary>[];
     final goal = goals.where((g) => g.goalId == _target.goalId).firstOrNull;
-    // §39.12 spells the aimed chip `ROMMY / SHIP MVP`: a goal name on its own
+    // The aimed chip reads `ROMMY / SHIP MVP`: a goal name on its own
     // does not say which project it belongs to, and goals repeat across them.
     if (goal == null) return projectName;
     return '$projectName / ${goal.title.toUpperCase()}';
@@ -236,7 +236,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
           return KeyboardAccessory(
             focus: _focus,
             chips: [
-              // §39.12 withdraws §39.9's standing target chip: DROPS is the
+              // There is no standing target chip: DROPS is the
               // default and a chip that only ever says so is a readout of
               // nothing. Aiming the capture is what puts one up, and its `x`
               // is the way back to DROPS.
@@ -261,7 +261,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                     onRemove: () => setState(() => _pending.remove(attachment)),
                   ),
             ],
-            // §39.10: text and links, plus images. Nothing else on the
+            // Text and links, plus images. Nothing else on the
             // default row, ever.
             actions: [
               ToolbarAction(
@@ -271,7 +271,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
               ),
               ToolbarAction(glyph: ToolbarGlyph.image, onTap: _image),
             ],
-            // §39.11: capture aims, and that is all it does.
+            // Capture aims, and that is all it does.
             extras: widget.fixedTarget != null
                 ? const []
                 : [
@@ -314,8 +314,8 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                         ),
                       ),
                       const SizedBox(width: Spacing.md),
-                      // §38.9 puts the target glyph on the field line, and it
-                      // stays there with text or without: it is the icon §16b
+                      // The target glyph sits on the field line, and it
+                      // stays there with text or without: it is the icon that
                       // glitches on a landed capture, and an icon that only
                       // exists while the field is full would be unmounted
                       // mid-sequence. It drops to secondary while the block
@@ -342,7 +342,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                     ],
                   ),
                 ),
-                // §16c.2: the solid block is the primary CTA and appears only
+                // The solid block is the primary CTA and appears only
                 // when there is something to commit, so an idle HOME never
                 // spends a full-width accent bar — or the height it costs —
                 // on nothing.
@@ -361,7 +361,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   }
 }
 
-/// SPEC.md §39.24: the capture bar and the selection bar take the same slot at
+/// The capture bar and the selection bar take the same slot at
 /// the bottom of a screen, and swapping one for the other may not move the
 /// panels above. They are the same frame — the screen edge padding, one panel,
 /// a header strip over a single row of [RowMetrics.minHeight] — so the height

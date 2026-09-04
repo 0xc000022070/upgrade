@@ -10,7 +10,7 @@ import '../design/motion.dart';
 import '../design/spacing.dart';
 import '../design/typography.dart';
 
-/// One line of the SPEC.md §16c.1 log. The steps are recorded by `main()` as it
+/// One line of the boot log. The steps are recorded by `main()` as it
 /// actually performs them, so the log is a report and not a decoration: if a
 /// step is removed from startup its line disappears with it.
 class BootStep {
@@ -40,7 +40,7 @@ class _BootGateState extends State<BootGate> {
   bool _started = false;
   TimingsCallback? _present;
 
-  /// §16b.2: a screen-level event at panel scale, fired by [_settle].
+  /// A screen-level event at panel scale, fired by [_settle].
   final _entry = GlitchController();
 
   @override
@@ -75,7 +75,7 @@ class _BootGateState extends State<BootGate> {
 
   void _roll() {
     if (!mounted || _done) return;
-    // §16c.1's 40ms is a floor, not a budget to divide: a line the eye cannot
+    // The 40ms is a floor, not a budget to divide: a line the eye cannot
     // separate from the one above it is not a log. A long step list overruns
     // the cap rather than compressing, and [_cut] ends it there so startup is
     // never held for the log.
@@ -105,11 +105,11 @@ class _BootGateState extends State<BootGate> {
     });
   }
 
-  /// §16b.2's screen-level event. Fired on the log's arrival instead, the tear
-  /// owns every frame the log has — the roll is six 40ms lines and the glitch
-  /// is 225ms — so the eye never sees the clean log the corruption is supposed
-  /// to be of. Here it tears a finished log and then puts it back, and the
-  /// sequence still lands inside [Effects.bootCap], which [_cut] enforces.
+  /// The screen-level glitch event. Fired on the log's arrival instead, the
+  /// tear owns every frame the log has — the roll is six 40ms lines and the
+  /// glitch is 225ms — so the eye never sees the clean log the corruption is
+  /// supposed to be of. Here it tears a finished log and then puts it back, and
+  /// the sequence still lands inside [Effects.bootCap], which [_cut] enforces.
   void _settle() {
     _entry.fire();
     _timer = Timer(Effects.glitchDuration, () {
@@ -169,7 +169,7 @@ class _BootScreen extends StatelessWidget {
             child: DefaultTextStyle(
               style: HotlineText.value,
               // Bottom-aligned by [Align] rather than by the column, so the
-              // column is only as tall as the log. §16b.2's blocks are
+              // column is only as tall as the log. The glitch blocks are
               // fractions of the box they are given: over a full-height column
               // most of a set lands in the empty two thirds above the log and
               // tears nothing, which on device left one visible torn frame out

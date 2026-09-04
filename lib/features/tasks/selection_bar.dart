@@ -8,7 +8,7 @@ import '../../design/typography.dart';
 import '../home/capture_bar.dart';
 import 'drop_actions.dart';
 
-/// SPEC.md §39.24: while §39.13's selection mode is on, the capture bar's slot
+/// While selection mode is on, the capture bar's slot
 /// holds this instead. The verbs used to ride the panel's own header strip,
 /// which scrolls away with the panel — so on a long list the user was left in a
 /// mode whose only way out was above the fold.
@@ -27,7 +27,7 @@ class SelectionBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selection = ref.watch(dropSelectionProvider);
     final notifier = ref.read(dropSelectionProvider.notifier);
-    // §39.13: emptying the set does not leave the mode — it disables the verbs.
+    // Emptying the set does not leave the mode — it disables the verbs.
     final empty = selection.count == 0;
 
     return BottomBarFrame(
@@ -69,7 +69,7 @@ class SelectionBar extends ConsumerWidget {
   }
 }
 
-/// §39.13's verb, moved off the header strip by §39.24 with its glyph, its size
+/// A selection verb, moved off the header strip with its glyph, its size
 /// and its three inks unchanged. It takes the whole height of the bar's row the
 /// way the capture bar's submit glyph does, so the hit is the full slot rather
 /// than a 44px box floating in it.

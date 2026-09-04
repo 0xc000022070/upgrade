@@ -121,7 +121,7 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 
-    // §39.19: at the top of the panel, not under the tasks already filed. The
+    // At the top of the panel, not under the tasks already filed. The
     // capture bar is at the bottom of the screen and the panel is above it, so
     // a row appended to the end is the one place the eye does not go.
     expect(
@@ -158,7 +158,7 @@ void main() {
     final nav = ProviderScope.containerOf(
       tester.element(find.byType(ProjectDetailScreen)),
     ).read(navGlitchProvider);
-    // The controller is read off the tree once and then held: the §39.6 scrim
+    // The controller is read off the tree once and then held: the scrim
     // takes the panels off screen while the field has focus, so a finder that
     // works before the capture finds nothing on the frame it lands.
     final landing = tester.widget<DropsPanel>(find.byType(DropsPanel)).landing!;
@@ -174,7 +174,7 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
 
-    // §39.19: the row lands in this panel, so the panel is what tears. The nav
+    // The row lands in this panel, so the panel is what tears. The nav
     // icon HOME would have used is not on screen under a pushed route, and it
     // is not fired behind it either.
     expect(landing.idle, isFalse);

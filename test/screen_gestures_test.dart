@@ -1,4 +1,4 @@
-/// SPEC.md §39.32's gestures, over the view that maps them: tap left-clicks,
+/// The screen's gestures, over the view that maps them: tap left-clicks,
 /// long press right-clicks, long press then drag holds button 1, and a
 /// two-finger drag at fit is the wheel.
 library;
@@ -68,29 +68,30 @@ void main() {
     expect(recorder.rightClicks, isEmpty);
   });
 
-  testWidgets('a long press right-clicks, and dragging out of it holds button 1', (
-    tester,
-  ) async {
-    final recorder = await pumpView(tester);
+  testWidgets(
+    'a long press right-clicks, and dragging out of it holds button 1',
+    (tester) async {
+      final recorder = await pumpView(tester);
 
-    final gesture = await tester.startGesture(
-      inView(const Offset(100, _top + 50)),
-    );
-    await tester.pump(const Duration(milliseconds: 700));
-    expect(recorder.rightClicks, hasLength(1));
-    expect(recorder.rightClicks.single.dx, closeTo(480, 1));
+      final gesture = await tester.startGesture(
+        inView(const Offset(100, _top + 50)),
+      );
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(recorder.rightClicks, hasLength(1));
+      expect(recorder.rightClicks.single.dx, closeTo(480, 1));
 
-    await gesture.moveBy(const Offset(40, 0));
-    await tester.pump();
-    expect(recorder.drags, hasLength(1));
-    expect(recorder.drags.single.$2, isTrue);
-    expect(recorder.drags.single.$1.dx, closeTo(672, 2));
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+      expect(recorder.drags, hasLength(1));
+      expect(recorder.drags.single.$2, isTrue);
+      expect(recorder.drags.single.$1.dx, closeTo(672, 2));
 
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(recorder.drags.last.$2, isFalse, reason: 'button 1 goes back up');
-    expect(recorder.clicks, isEmpty, reason: 'a long press is not a tap');
-  });
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(recorder.drags.last.$2, isFalse, reason: 'button 1 goes back up');
+      expect(recorder.clicks, isEmpty, reason: 'a long press is not a tap');
+    },
+  );
 
   testWidgets('a two-finger drag at fit is one wheel event per 40 px', (
     tester,
@@ -128,36 +129,37 @@ void main() {
     expect(recorder.rightClicks, isEmpty);
   });
 
-  testWidgets('a pinch zooms and the same drag then pans instead of scrolling', (
-    tester,
-  ) async {
-    final recorder = await pumpView(tester);
+  testWidgets(
+    'a pinch zooms and the same drag then pans instead of scrolling',
+    (tester) async {
+      final recorder = await pumpView(tester);
 
-    final first = await tester.startGesture(
-      inView(const Offset(150, _top + 100)),
-    );
-    final second = await tester.startGesture(
-      inView(const Offset(250, _top + 100)),
-    );
-    await tester.pump();
-    // Fingers apart: 100 px between them becomes 300.
-    for (var step = 0; step < 4; step++) {
-      await first.moveBy(const Offset(-25, 0));
-      await second.moveBy(const Offset(25, 0));
+      final first = await tester.startGesture(
+        inView(const Offset(150, _top + 100)),
+      );
+      final second = await tester.startGesture(
+        inView(const Offset(250, _top + 100)),
+      );
       await tester.pump();
-    }
-    expect(recorder.wheels, isEmpty, reason: 'a pinch is not a scroll');
+      // Fingers apart: 100 px between them becomes 300.
+      for (var step = 0; step < 4; step++) {
+        await first.moveBy(const Offset(-25, 0));
+        await second.moveBy(const Offset(25, 0));
+        await tester.pump();
+      }
+      expect(recorder.wheels, isEmpty, reason: 'a pinch is not a scroll');
 
-    // Now the same downward drag, with the desktop overflowing the viewport.
-    for (var step = 0; step < 5; step++) {
-      await first.moveBy(const Offset(0, 25));
-      await second.moveBy(const Offset(0, 25));
-      await tester.pump();
-    }
-    await first.up();
-    await second.up();
-    await tester.pumpAndSettle();
+      // Now the same downward drag, with the desktop overflowing the viewport.
+      for (var step = 0; step < 5; step++) {
+        await first.moveBy(const Offset(0, 25));
+        await second.moveBy(const Offset(0, 25));
+        await tester.pump();
+      }
+      await first.up();
+      await second.up();
+      await tester.pumpAndSettle();
 
-    expect(recorder.wheels, isEmpty, reason: 'zoomed in, the drag pans');
-  });
+      expect(recorder.wheels, isEmpty, reason: 'zoomed in, the drag pans');
+    },
+  );
 }

@@ -13,7 +13,7 @@ import 'package:hotline/features/home/capture_bar.dart';
 
 import 'support/platform_channels.dart';
 
-/// SPEC.md §39.6 as corrected by §39.9 and §39.10: the bar has no toolbar row
+/// The bar has no toolbar row
 /// of its own any more, so everything under test here only exists while the
 /// field holds focus — and the default row is text, links and images, with the
 /// target behind `+`.
@@ -73,7 +73,7 @@ void main() {
     await _ready(tester);
 
     expect(find.byType(KeyboardToolbar), findsOneWidget);
-    // §39.10: link, image, `+`. Nothing else, ever.
+    // Link, image, `+`. Nothing else, ever.
     expect(_glyph(ToolbarGlyph.link), findsOneWidget);
     expect(_glyph(ToolbarGlyph.image), findsOneWidget);
     expect(_glyph(ToolbarGlyph.more), findsOneWidget);
@@ -94,7 +94,7 @@ void main() {
     await tester.tap(_glyph(ToolbarGlyph.more));
     await _ready(tester);
 
-    // §39.11: capture aims, and that is the whole extras row — next and block
+    // Capture aims, and that is the whole extras row — next and block
     // are states, and a capture has none.
     expect(_glyph(ToolbarGlyph.back), findsOneWidget);
     expect(_glyph(ToolbarGlyph.target), findsOneWidget);
@@ -122,7 +122,7 @@ void main() {
     await _ready(tester);
     expect(_glyph(ToolbarGlyph.target), findsOneWidget);
 
-    // §39.10's scrim covers everything above the form; the top-left corner of
+    // The scrim covers everything above the form; the top-left corner of
     // the screen is the part of it furthest from anything else.
     await tester.tapAt(const Offset(10, 10));
     await _ready(tester);
@@ -148,7 +148,7 @@ void main() {
     await tester.tap(find.byType(TextField));
     await _ready(tester);
 
-    // §39.12: the default target has no chip, so an unaimed capture has no
+    // The default target has no chip, so an unaimed capture has no
     // chip row at all and the toolbar sits on the field.
     expect(find.text('[ DROPS ]'), findsNothing);
     expect(
@@ -177,8 +177,8 @@ void main() {
     final rows = await tester.runAsync(() => db.select(db.tasks).get());
     expect(rows!.single.title, 'revisar pgbouncer');
     expect(rows.single.projectId, project);
-    // §39.6: the target is the state of one capture, not a mode the bar keeps.
-    // §39.12: back at the default, so back to no chip.
+    // The target is the state of one capture, not a mode the bar keeps.
+    // Back at the default, so back to no chip.
     expect(find.text('[ INFRA PERSONAL ]'), findsNothing);
     expect(find.text('[ DROPS ]'), findsNothing);
 
@@ -203,7 +203,7 @@ void main() {
     await tester.tap(find.text('[ INFRA PERSONAL ]'));
     await _ready(tester);
 
-    // §39.12: removing the chip is the way back to the default, and the
+    // Removing the chip is the way back to the default, and the
     // default is chipless rather than a chip that says DROPS.
     expect(find.text('[ INFRA PERSONAL ]'), findsNothing);
     expect(find.text('[ DROPS ]'), findsNothing);
@@ -231,7 +231,7 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 
-    // §39.12: the field clears, focus drops, and the strip goes with it — so
+    // The field clears, focus drops, and the strip goes with it — so
     // the scrim and the space it reserved go too.
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
@@ -261,7 +261,7 @@ void main() {
       final links = await tester.runAsync(
         () => db.select(db.attachments).get(),
       );
-      // §39.6: the title keeps the text as typed. Cutting the URL out of a line
+      // The title keeps the text as typed. Cutting the URL out of a line
       // the user wrote leaves them re-reading a sentence with a hole in it.
       expect(tasks!.single.title, 'revisar https://min.io');
       expect(links!.single.value, 'https://min.io');
@@ -278,7 +278,7 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 
-    // §39.6's one strip case: with the URL gone the title would be empty, so
+    // The one strip case: with the URL gone the title would be empty, so
     // the link is what names the row.
     final tasks = await tester.runAsync(() => db.select(db.tasks).get());
     final links = await tester.runAsync(() => db.select(db.attachments).get());
@@ -303,7 +303,7 @@ void main() {
     await tester.tap(find.text('Ship MVP'));
     await _ready(tester);
 
-    // §39.12: `[ ROMMY / SHIP MVP ]`. A goal title alone does not say which
+    // `[ ROMMY / SHIP MVP ]`. A goal title alone does not say which
     // project it sits under, and two projects can hold the same goal.
     expect(find.text('[ ROMMY / SHIP MVP ]'), findsOneWidget);
 
@@ -382,7 +382,7 @@ void main() {
     );
     await _ready(tester);
 
-    // §39.15: the assertion is on what the field actually renders, so it
+    // The assertion is on what the field actually renders, so it
     // covers the wiring the controller alone cannot — a bar that forgot to use
     // it would still pass the controller's own tests.
     final painted = _spans(tester);
@@ -394,7 +394,7 @@ void main() {
       'mirar https://min.io/docs manana',
     );
 
-    // §39.15 changes nothing about submit.
+    // The highlight changes nothing about submit.
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
     final rows = await tester.runAsync(() => db.select(db.attachments).get());
@@ -421,7 +421,7 @@ void main() {
 }
 
 /// The rendered runs of the capture field as (text, highlighted) pairs. The
-/// editable's span is the only place §39.15's mark exists — it is a style on a
+/// editable's span is the only place the mark exists — it is a style on a
 /// range, not a widget anyone can find.
 List<(String, bool)> _spans(WidgetTester tester) {
   final span = tester

@@ -5,9 +5,9 @@ import '../spacing.dart';
 import '../typography.dart';
 import 'list_row.dart';
 
-/// One row of a SPEC.md §16c.3 picker: the current value is the solid accent
-/// block, everything else is a plain row. Used by §39.5's move and pair
-/// pickers and by §39.16's settings, which is why it sits in the design layer
+/// One row of a picker: the current value is the solid accent
+/// block, everything else is a plain row. Used by the move and pair
+/// pickers and by the settings screen, which is why it sits in the design layer
 /// and not next to either of them.
 class PickerRow extends StatelessWidget {
   const PickerRow({
@@ -23,7 +23,7 @@ class PickerRow extends StatelessWidget {
 
   final String label;
 
-  /// SPEC.md §39.18: a child project's row carries its parent path here,
+  /// A child project's row carries its parent path here,
   /// `INFRA / HOMELAB`, so a flat picker still says where a row sits.
   final String? subtitle;
 
@@ -31,8 +31,8 @@ class PickerRow extends StatelessWidget {
   final bool indent;
   final bool selected;
 
-  /// SPEC.md §39.31: a row whose condition is not met is drawn dim and does
-  /// nothing. §39.18's own dim rows use [HotlineColors.textMuted], so this is
+  /// A row whose condition is not met is drawn dim and does
+  /// nothing. Dim rows elsewhere use [HotlineColors.textMuted], so this is
   /// the same reading and not a second one.
   final bool dim;
 

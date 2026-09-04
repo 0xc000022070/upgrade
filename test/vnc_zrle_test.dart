@@ -1,4 +1,4 @@
-/// SPEC.md §39.32's regression list: ZRLE vectors for every subencoding, and
+/// The ZRLE regression list: vectors for every subencoding, and
 /// the one zlib stream that outlives every rect in a session.
 library;
 
@@ -11,7 +11,7 @@ import 'package:hotline/platform/vnc/vnc_failure.dart';
 import 'package:hotline/platform/vnc/zrle.dart';
 
 /// A CPIXEL in this session's format: the three low bytes of BGRX, in wire
-/// order. RFC 6143 §7.7.6 drops the byte the pixel format never reads.
+/// order. RFC 6143 drops the byte the pixel format never reads.
 List<int> cpixel(int blue, int green, int red) => [blue, green, red];
 
 const _a = (0x11, 0x22, 0x33);
@@ -20,17 +20,11 @@ const _c = (0x77, 0x88, 0x99);
 const _d = (0xAA, 0xBB, 0xCC);
 const _e = (0xDD, 0xEE, 0xFF);
 
-List<int> wire((int, int, int) pixel) =>
-    cpixel(pixel.$1, pixel.$2, pixel.$3);
+List<int> wire((int, int, int) pixel) => cpixel(pixel.$1, pixel.$2, pixel.$3);
 
 /// What the framebuffer should hold for a pixel: BGR from the wire, alpha
 /// forced opaque.
-List<int> opaque((int, int, int) pixel) => [
-  pixel.$1,
-  pixel.$2,
-  pixel.$3,
-  0xFF,
-];
+List<int> opaque((int, int, int) pixel) => [pixel.$1, pixel.$2, pixel.$3, 0xFF];
 
 List<int> pixelAt(Framebuffer buffer, int x, int y) {
   final at = buffer.offsetOf(x, y);
@@ -84,8 +78,14 @@ void main() {
   test('subencoding 0: a raw tile writes its CPIXELs in row order', () {
     decodeTile([
       0,
-      ...wire(_a), ...wire(_b), ...wire(_c), ...wire(_d),
-      ...wire(_d), ...wire(_c), ...wire(_b), ...wire(_a),
+      ...wire(_a),
+      ...wire(_b),
+      ...wire(_c),
+      ...wire(_d),
+      ...wire(_d),
+      ...wire(_c),
+      ...wire(_b),
+      ...wire(_a),
     ]);
 
     expect(pixelAt(buffer, 4, 2), opaque(_a));
@@ -138,7 +138,11 @@ void main() {
     decodeTile(
       [
         5,
-        ...wire(_a), ...wire(_b), ...wire(_c), ...wire(_d), ...wire(_e),
+        ...wire(_a),
+        ...wire(_b),
+        ...wire(_c),
+        ...wire(_d),
+        ...wire(_e),
         0x43,
       ],
       width: 2,
@@ -267,7 +271,7 @@ void main() {
       server.rect([1, ...wire(_a)]);
       final second = server.rect([1, ...wire(_b)]);
 
-      // Which is the whole reason §39.32 forbids resetting the inflater: the
+      // Which is the whole reason the inflater is never reset: the
       // second rect is a continuation, not a stream.
       final fresh = ZrleDecoder();
       addTearDown(fresh.close);

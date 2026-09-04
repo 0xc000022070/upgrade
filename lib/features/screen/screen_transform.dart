@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-/// SPEC.md §39.32's view of the framebuffer: fit to the width, zoomable about
+/// The view of the framebuffer: fit to the width, zoomable about
 /// a pinch centre, pannable once it overflows.
 ///
 /// Immutable and widget-free so the mapping the spec asks for a test on — touch
@@ -19,7 +19,7 @@ class ScreenTransform {
   final Size framebuffer;
   final Size viewport;
 
-  /// 1.0 is §39.32's fit. Never below: the framebuffer is never drawn smaller
+  /// 1.0 is the fit. Never below: the framebuffer is never drawn smaller
   /// than the width it was fitted to, so there is no state with black bars on
   /// both sides and nothing to pan.
   final double zoom;
@@ -29,16 +29,14 @@ class ScreenTransform {
   /// not lose where it was.
   final Offset pan;
 
-  /// §39.32: "the framebuffer scaled to fit the width".
+  /// "the framebuffer scaled to fit the width".
   double get fitScale =>
       framebuffer.width == 0 ? 1.0 : viewport.width / framebuffer.width;
 
   double get scale => fitScale * zoom;
 
-  Size get scaledSize => Size(
-    framebuffer.width * scale,
-    framebuffer.height * scale,
-  );
+  Size get scaledSize =>
+      Size(framebuffer.width * scale, framebuffer.height * scale);
 
   /// Where the image actually lands: centred on any axis with room to spare,
   /// and clamped to the edges on any axis that overflows.
@@ -50,7 +48,7 @@ class ScreenTransform {
     );
   }
 
-  /// §39.32 hangs a behaviour off this: a two-finger drag pans when there is
+  /// A behaviour hangs off this: a two-finger drag pans when there is
   /// something to pan and sends wheel events when there is not.
   bool get canPan {
     final size = scaledSize;
@@ -69,7 +67,7 @@ class ScreenTransform {
     );
   }
 
-  /// §39.32: "pinch zooms about the pinch centre" — the framebuffer pixel under
+  /// "pinch zooms about the pinch centre" — the framebuffer pixel under
   /// the fingers stays under them.
   ScreenTransform zoomedAbout(Offset focus, double factor) {
     final next = (zoom * factor).clamp(1.0, maxZoom);

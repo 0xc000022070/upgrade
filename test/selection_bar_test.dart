@@ -18,9 +18,9 @@ import 'package:hotline/features/tasks/selection_bar.dart';
 
 import 'support/platform_channels.dart';
 
-/// SPEC.md §39.24: the selection verbs left the panel's header strip for the
-/// slot the capture bar was holding. §39.26 puts the two tabs back and takes
-/// HOME's PROJECTS panel away, so the doors out of the mode are the nav bar and
+/// The selection verbs left the panel's header strip for the
+/// slot the capture bar was holding. The two tabs are back and HOME's
+/// PROJECTS panel is gone, so the doors out of the mode are the nav bar and
 /// a pushed route, never a strip on HOME.
 Future<void> _drain(
   WidgetTester tester, {
@@ -80,7 +80,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  testWidgets('§39.26 HOME carries no PROJECTS panel', (tester) async {
+  testWidgets('HOME carries no PROJECTS panel', (tester) async {
     await projects.create(name: 'Infra personal');
 
     await tester.pumpWidget(host());
@@ -98,7 +98,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.26 PROJECTS is a tab again, and HOME stays mounted', (
+  testWidgets('PROJECTS is a tab again, and HOME stays mounted', (
     tester,
   ) async {
     await projects.create(name: 'Infra personal');
@@ -113,7 +113,7 @@ void main() {
     expect(find.byType(ProjectsScreen), findsOneWidget);
     expect(find.text('ALL PROJECTS'), findsOneWidget);
     // Swapped in an IndexedStack, not pushed: HOME is offstage rather than
-    // disposed, which is what §39.20's poller reads to stop itself.
+    // disposed, which is what the poller reads to stop itself.
     expect(find.byType(HomeScreen), findsNothing);
     expect(find.byType(HomeScreen, skipOffstage: false), findsOneWidget);
 
@@ -125,7 +125,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.24 the bar replaces the capture bar at the same height', (
+  testWidgets('the bar replaces the capture bar at the same height', (
     tester,
   ) async {
     await tasks.capture('revisar el backup');
@@ -146,7 +146,7 @@ void main() {
     expect(bar, capture);
     expect(find.text('1 SELECTED'), findsOneWidget);
 
-    // §39.24: the strip is a strip again — title, count, no verbs, no leading
+    // The strip is a strip again — title, count, no verbs, no leading
     // x, and SELECT hidden because the mode it opens is already on.
     final strip = find.ancestor(
       of: find.text('DROPS'),
@@ -185,9 +185,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.24 the bar stays put when the panel scrolls off', (
-    tester,
-  ) async {
+  testWidgets('the bar stays put when the panel scrolls off', (tester) async {
     for (var i = 0; i < 20; i++) {
       await tasks.capture('drop numero $i');
     }
@@ -225,9 +223,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.24 the bar verbs move and delete the checked set', (
-    tester,
-  ) async {
+  testWidgets('the bar verbs move and delete the checked set', (tester) async {
     final project = await projects.create(name: 'Infra personal');
     await tasks.capture('mover esto');
     await tasks.capture('borrar esto');
@@ -273,9 +269,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.13 a push out of HOME leaves the mode behind', (
-    tester,
-  ) async {
+  testWidgets('a push out of HOME leaves the mode behind', (tester) async {
     await tasks.capture('sigue aqui');
 
     await tester.pumpWidget(host());
@@ -301,7 +295,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.26 a tab switch leaves the mode behind', (tester) async {
+  testWidgets('a tab switch leaves the mode behind', (tester) async {
     await tasks.capture('sigue aqui');
 
     await tester.pumpWidget(shell());

@@ -8,7 +8,7 @@ import '../motion.dart';
 import '../spacing.dart';
 import '../typography.dart';
 
-/// SPEC.md §39.10 names the toolbar's glyphs one by one, one glyph per verb and
+/// The toolbar's glyphs are named one by one, one glyph per verb and
 /// none reused. Naming them as an enum rather than passing [IconData] around is
 /// what makes that rule checkable: a second `link` cannot appear under another
 /// name, and a test can find a verb without knowing which Material glyph it
@@ -34,7 +34,7 @@ enum ToolbarGlyph {
   final String word;
 }
 
-/// SPEC.md §39.10. One icon on the strip. A label would make it a button bar,
+/// One icon on the strip. A label would make it a button bar,
 /// which is the form the user rejected.
 class ToolbarAction {
   const ToolbarAction({
@@ -52,7 +52,7 @@ class ToolbarAction {
   final bool lit;
 }
 
-/// §39.10: `[ host ] x` for a URL, a 28px thumbnail with the same `x` for an
+/// `[ host ] x` for a URL, a 28px thumbnail with the same `x` for an
 /// image. Either way these are the field's attachments and not the body's.
 class ToolbarChip {
   const ToolbarChip({
@@ -77,14 +77,14 @@ class ToolbarChip {
   final Color tone;
 }
 
-/// The accessory strip of §39.9, in the two-row shape of §39.10, pinned above
+/// The accessory strip, in its two-row shape, pinned above
 /// the IME for as long as [focus] holds it.
 ///
 /// It lives in the root overlay rather than in the widget that owns the field:
 /// the quick view is a dialog route padded away from the screen edges, and a
 /// strip built inside it could be neither full width nor flush with the
 /// keyboard. The overlay is also what lets the capture bar and the quick view
-/// share one strip without sharing a parent — and what puts the §39.10 scrim
+/// share one strip without sharing a parent — and what puts the scrim
 /// over the page while leaving [child] lit.
 class KeyboardAccessory extends StatefulWidget {
   const KeyboardAccessory({
@@ -98,7 +98,7 @@ class KeyboardAccessory extends StatefulWidget {
 
   final FocusNode focus;
 
-  /// The default row of §39.10: `link`, `image`. The `+` that opens [extras] is
+  /// The default row: `link`, `image`. The `+` that opens [extras] is
   /// appended here rather than passed in, because the swap is the accessory's
   /// behaviour and not the host's.
   final List<ToolbarAction> actions;
@@ -134,7 +134,7 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
   /// legal way to push a change across that gap.
   final _strip = ValueNotifier<_Strip?>(null);
 
-  /// §39.10: the extras row is open. It is state of the strip and not of the
+  /// The extras row is open. It is state of the strip and not of the
   /// host, and it closes with the keyboard.
   bool _open = false;
 
@@ -235,7 +235,7 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     });
   }
 
-  /// §39.10: `+` swaps the row in place and `←` swaps it back. The host never
+  /// `+` swaps the row in place and `←` swaps it back. The host never
   /// sees either glyph; it only says which verbs are extras.
   _Strip _resolve() {
     final row = <ToolbarAction>[];
@@ -302,7 +302,7 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     );
   }
 
-  /// §39.10's scrim: `#000` at 60% over everything but the form, its chips, the
+  /// The scrim: `#000` at 60% over everything but the form, its chips, the
   /// strip and the keyboard. It is four rectangles around the hole rather than
   /// one sheet with a hole punched in it, so the form underneath keeps taking
   /// taps — a scrim that swallowed the caret would be worse than no scrim.
@@ -423,7 +423,7 @@ class KeyboardToolbar extends StatelessWidget {
   final List<ToolbarChip> chips;
 
   /// Only the switcher's key: which row is up is decided upstream, and the
-  /// strip's height is the same either way (§39.10: no growth).
+  /// strip's height is the same either way: no growth.
   final bool extrasOpen;
 
   @override
@@ -459,7 +459,7 @@ class KeyboardToolbar extends StatelessWidget {
           child: AnimatedSwitcher(
             duration: Motion.accessory,
             // Cross-fade in place: the default of stacking the outgoing child
-            // under the incoming one is exactly what §39.10 asks for, but the
+            // under the incoming one is exactly what is wanted, but the
             // sized box keeps the row from laying out at the union of the two
             // widths mid-swap.
             layoutBuilder: (current, previous) => Stack(
@@ -565,7 +565,7 @@ class _Chip extends StatelessWidget {
   }
 }
 
-/// §39.10: a 28px square of the picked image with an `x`. The `x` is drawn over
+/// A 28px square of the picked image with an `x`. The `x` is drawn over
 /// the corner rather than beside it, because a thumbnail with a label-width
 /// affordance next to it stops reading as a square.
 class _ImageChip extends StatelessWidget {

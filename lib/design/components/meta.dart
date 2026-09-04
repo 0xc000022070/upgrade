@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../typography.dart';
 import 'signal_text.dart';
 
-/// SPEC.md §38.4: the mono value column — counts, percentages, timestamps.
+/// The mono value column — counts, percentages, timestamps.
 class Meta extends StatelessWidget {
   const Meta(
     this.text, {

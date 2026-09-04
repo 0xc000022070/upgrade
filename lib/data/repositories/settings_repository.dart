@@ -1,10 +1,10 @@
 import '../database.dart';
 
-/// SPEC.md §39.16. The preferences table, read as a stream so a screen that
+/// The preferences table, read as a stream so a screen that
 /// changes a setting and a screen that obeys it never have to agree on when to
 /// rebuild.
 ///
-/// A missing row is the default rather than an error: §39.16's table is added
+/// A missing row is the default rather than an error: the table is added
 /// empty by the migration, so every install starts with nothing written and the
 /// defaults here are what the app has always done.
 class SettingsRepository {
@@ -12,11 +12,12 @@ class SettingsRepository {
 
   final AppDatabase _db;
 
-  /// §16b.1's grain. Default on — turning it off is the user opting out of the
+  /// The background grain. Default on — turning it off is the user opting out
+  /// of the
   /// skin, not the app deciding for them.
   static const staticEnabled = 'static_enabled';
 
-  /// SPEC.md §39.31's `[ ALERTS ]` row. Default off: with it on the app holds an
+  /// The `[ ALERTS ]` row. Default off: with it on the app holds an
   /// ssh connection open in the background, which is not a thing to start doing
   /// on an install that never asked.
   static const alertsBlockedAgents = 'alerts_blocked_agents';

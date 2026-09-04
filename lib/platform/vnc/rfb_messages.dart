@@ -1,17 +1,17 @@
 import 'dart:typed_data';
 
-/// SPEC.md §39.32's wire constants and the exact bytes this client sends.
+/// The wire constants and the exact bytes this client sends.
 ///
 /// Split out from the client so the regression tests can assert the bytes
-/// without a stream to send them down: §39.32 asks for "emits the exact client
-/// bytes", and that is a property of these functions alone.
+/// without a stream to send them down: emitting the exact client bytes is a
+/// property of these functions alone.
 abstract final class Rfb {
   static const encodingRaw = 0;
   static const encodingCopyRect = 1;
   static const encodingZrle = 16;
   static const encodingDesktopSize = -223;
 
-  /// §39.32's preference order, most wanted first.
+  /// The preference order, most wanted first.
   static const encodings = <int>[
     encodingZrle,
     encodingCopyRect,
@@ -35,7 +35,7 @@ abstract final class Rfb {
 
   static const bytesPerPixel = 4;
 
-  /// §39.32: 24 fps, wayvnc's cap on nyx. The client asks no faster because a
+  /// 24 fps, wayvnc's cap on nyx. The client asks no faster because a
   /// request it cannot be answered only costs a round trip.
   static const frameInterval = Duration(microseconds: 41667);
 }
@@ -56,7 +56,7 @@ class RfbPixelFormat {
     required this.blueShift,
   });
 
-  /// §39.32: 32 bpp, depth 24, little-endian, true colour, red 16 / green 8 /
+  /// 32 bpp, depth 24, little-endian, true colour, red 16 / green 8 /
   /// blue 0. In memory that is B, G, R, X per pixel, which is Flutter's
   /// `bgra8888` — so a rect lands in the framebuffer without a swizzle and the
   /// only byte this app writes itself is the alpha the server does not send.
@@ -135,7 +135,7 @@ class RfbServerInit {
 
 /// The protocol version the two ends settled on.
 ///
-/// §39.32 speaks 3.8 and accepts 3.3 and 3.7 "by their own rules", and the
+/// This client speaks 3.8 and accepts 3.3 and 3.7 by their own rules, and the
 /// rules that differ are two: how the security type is chosen, and whether a
 /// `SecurityResult` follows a `None` that was accepted.
 enum RfbVersion {
@@ -149,12 +149,11 @@ enum RfbVersion {
   final int minor;
 
   /// The 12-byte `RFB xxx.yyy\n` handshake line.
-  String get handshake =>
-      'RFB ${_pad(major)}.${_pad(minor)}\n';
+  String get handshake => 'RFB ${_pad(major)}.${_pad(minor)}\n';
 
   static String _pad(int value) => value.toString().padLeft(3, '0');
 
-  /// §39.32: the client answers with the highest version both ends know, which
+  /// The client answers with the highest version both ends know, which
   /// for a server past 3.8 is 3.8 and for one behind it is the server's own.
   /// Anything the server names that is not one of the three reads as 3.3, the
   /// floor every RFB server understands.
@@ -176,7 +175,7 @@ abstract final class RfbClientMessages {
 
   static Uint8List securityChoice(int type) => Uint8List.fromList([type]);
 
-  /// `ClientInit`, shared: §39.32 never takes the host's other viewers down.
+  /// `ClientInit`, shared: the host's other viewers are never taken down.
   static Uint8List clientInit({bool shared = true}) =>
       Uint8List.fromList([shared ? 1 : 0]);
 
@@ -244,7 +243,7 @@ abstract final class RfbClientMessages {
   }
 }
 
-/// RFB's `button-mask` bits. §39.32 uses four of the eight: the two clicks and
+/// RFB's `button-mask` bits. Four of the eight are used: the two clicks and
 /// the two wheel directions, which the protocol carries as buttons 4 and 5.
 abstract final class RfbButtons {
   static const none = 0;

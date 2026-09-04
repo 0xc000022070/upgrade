@@ -15,9 +15,9 @@ import 'package:hotline/features/projects/projects_screen.dart';
 
 import 'support/platform_channels.dart';
 
-/// SPEC.md §39.18 on screen: the `PROJECTS N` panel, the breadcrumb, the
+/// The hierarchy on screen: the `PROJECTS N` panel, the breadcrumb, the
 /// subtree number under the title and the `[ PARENT ]` picker's exclusions.
-/// The §16b.1 ticker never settles, so `pumpAndSettle` is out here too.
+/// The background ticker never settles, so `pumpAndSettle` is out here too.
 Future<void> _drain(
   WidgetTester tester, {
   Duration step = Duration.zero,
@@ -68,7 +68,7 @@ void main() {
 
   Future<List<String>> tree() async {
     // Every project carries an objective, so its name is the row's kicker and
-    // the row reads the way §38.4 draws it everywhere else.
+    // the row reads the way it is drawn everywhere else.
     final root = await projects.create(name: 'Infra', objective: 'Own it all');
     final child = await projects.create(
       name: 'Homelab',
@@ -191,7 +191,7 @@ void main() {
       await tester.pumpWidget(host(const ProjectsScreen()));
       await _ready(tester);
 
-      // §39.26 took HOME's capped panel away, and the tab it left behind never
+      // HOME's capped panel is gone, and the tab it left behind never
       // truncated: four roots, four rows, no overflow row to count them into.
       expect(find.text('+1 MORE'), findsNothing);
       expect(find.byType(ProjectRow), findsNWidgets(4));
@@ -232,7 +232,7 @@ void main() {
       );
       await _ready(tester);
 
-      // §39.18: `INFRA / HOMELAB` under NETWORKING, nothing under a root.
+      // `INFRA / HOMELAB` under NETWORKING, nothing under a root.
       expect(find.text('INFRA / HOMELAB'), findsOneWidget);
       expect(find.text('INFRA'), findsWidgets);
       await unmount(tester);
@@ -300,7 +300,7 @@ void main() {
       await tester.tap(find.text('HOMELAB'));
       await _ready(tester);
 
-      // §39.18 allows the ancestor or the tab. Unwinding to `isFirst` alone
+      // The ancestor or the tab is allowed. Unwinding to `isFirst` alone
       // dropped the user on HOME, which is neither.
       expect(find.byType(ProjectDetailScreen), findsNothing);
       expect(container.read(navIndexProvider), 1);
@@ -362,7 +362,7 @@ void main() {
         host(ProjectFormScreen(project: await _row(db, ids[2]))),
       );
       await _ready(tester);
-      // §39.2's inline confirm, unchanged where nothing else goes with it.
+      // The inline confirm, unchanged where nothing else goes with it.
       expect(
         find.text(
           'ITEMS IN THIS PROJECT BECOME DROPS. NOTHING IS DELETED '

@@ -7,8 +7,8 @@ import '../typography.dart';
 import 'dither_field.dart';
 import 'dot_spinner.dart';
 
-/// SPEC.md §16c.5: nothing is blank. An empty panel body is a short dithered
-/// band with the reason written over it, sized to the §38.3 single row so the
+/// Nothing is blank. An empty panel body is a short dithered
+/// band with the reason written over it, sized to a single row so the
 /// panel keeps its rhythm instead of collapsing.
 class EmptyState extends StatelessWidget {
   const EmptyState(this.label, {super.key});
@@ -30,7 +30,7 @@ class EmptyState extends StatelessWidget {
 }
 
 /// A local SQLite read resolves within a frame or two, so the spinner is held
-/// back behind the §16c.6 threshold rather than flashed and removed.
+/// back behind the threshold rather than flashed and removed.
 class AsyncSection<T> extends StatelessWidget {
   const AsyncSection({
     super.key,

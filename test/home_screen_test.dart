@@ -16,12 +16,12 @@ import 'package:hotline/design/colors.dart';
 
 import 'support/platform_channels.dart';
 
-/// §39.13's verbs are private, so the ink is the only readable statement of
-/// whether they are enabled.
+/// The selection verbs are private, so the ink is the only readable statement
+/// of whether they are enabled.
 Color? _verbColor(WidgetTester tester, IconData icon) =>
     tester.widget<Icon>(find.byIcon(icon)).color;
 
-/// SPEC.md §39.3. The panels HOME does *not* show are as much of the change as
+/// The panels HOME does *not* show are as much of the change as
 /// the ones it does, so this asserts both directions.
 Future<void> _drain(
   WidgetTester tester, {
@@ -68,14 +68,14 @@ void main() {
   ) async {
     final project = await projects.create(name: 'Infra personal');
     // A high-priority open task is exactly what the old fallback would have
-    // promoted; §39.3 says it stays where it is.
+    // promoted; it stays where it is.
     await tasks.create(projectId: project, title: 'Object storage');
 
     await tester.pumpWidget(host());
     await _ready(tester);
 
     expect(find.text('NEXT ACTION'), findsNothing);
-    // §39.26: HOME is AGENTS and DROPS with nothing between them. The projects
+    // HOME is AGENTS and DROPS with nothing between them. The projects
     // list is the tab next door, not a second copy of it here.
     expect(find.text('AGENTS'), findsOneWidget);
     expect(find.text('DROPS'), findsOneWidget);
@@ -118,8 +118,8 @@ void main() {
     await tester.pumpWidget(host());
     await _ready(tester);
 
-    // §39.4: the row is a row. A flagged item that answers no tap is the mock
-    // §39.3 was written to remove.
+    // The row is a row. A flagged item that answers no tap is the mock
+    // this screen was written to remove.
     await tester.tap(find.text('Object storage').first);
     await _ready(tester);
 
@@ -162,7 +162,7 @@ void main() {
     await tester.pumpWidget(host());
     await _ready(tester);
 
-    // §39.13: a plain tap is still the quick view, so the mode must not be what
+    // A plain tap is still the quick view, so the mode must not be what
     // a tap produces.
     await tester.tap(find.text('revisar el backup'));
     await _ready(tester);
@@ -174,13 +174,13 @@ void main() {
     await _ready(tester);
 
     expect(find.text('1 SELECTED'), findsOneWidget);
-    // §39.24 gave the strip its title back: the mode's chrome is the bar in the
+    // The strip keeps its title: the mode's chrome is the bar in the
     // capture bar's slot, and a header that scrolls away carries none of it.
     expect(find.text('DROPS'), findsOneWidget);
     // Every row in the panel carries a box, and only the held one is checked.
     expect(find.text('[x]'), findsOneWidget);
     expect(find.text('[ ]'), findsOneWidget);
-    // §39.24: the capture bar is not drawn while the mode is on.
+    // The capture bar is not drawn while the mode is on.
     expect(find.byType(CaptureBar), findsNothing);
     expect(find.byType(SelectionBar), findsOneWidget);
 
@@ -199,7 +199,7 @@ void main() {
     await tester.tap(find.text('SELECT'));
     await _ready(tester);
 
-    // §39.15: the mode is on, the bar says nothing is checked, and every row
+    // The mode is on, the bar says nothing is checked, and every row
     // carries an empty box.
     expect(find.text('0 SELECTED'), findsOneWidget);
     expect(find.text('[ ]'), findsNWidgets(2));
@@ -243,7 +243,7 @@ void main() {
     await tester.longPress(find.text('sigue siendo un hold'));
     await _ready(tester);
 
-    // §39.15 adds a door; it does not close the old one.
+    // The highlight adds a door; it does not close the old one.
     expect(find.text('1 SELECTED'), findsOneWidget);
     expect(find.text('[x]'), findsOneWidget);
 
@@ -313,7 +313,7 @@ void main() {
     await tester.tap(find.bySemanticsLabel('DELETE'));
     await _ready(tester);
 
-    // §39.13: the modal asks, and nothing is gone before its second block.
+    // The modal asks, and nothing is gone before its second block.
     expect(find.text('DELETE 2 DROPS?'), findsWidgets);
     var rows = await tester.runAsync(() => db.select(db.tasks).get());
     expect(rows, hasLength(2));

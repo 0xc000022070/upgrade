@@ -74,7 +74,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  group('SPEC.md §39.18 segmented crumb', () {
+  group('segmented crumb', () {
     /// Width in dp, so the collapse can be driven the way the phone drives it.
     Future<void> sized(WidgetTester tester, double width) async {
       tester.view.devicePixelRatio = 1;

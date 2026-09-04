@@ -5,7 +5,7 @@ import '../../design/colors.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 
-/// SPEC.md §39.30. The kinds that have a mark under `assets/icons/`.
+/// The kinds that have a mark under `assets/icons/`.
 ///
 /// A manifest rather than a lookup: the asset bundle can be enumerated at
 /// runtime only by parsing `AssetManifest`, which is a file read and a decode
@@ -19,20 +19,19 @@ const agentMarkKinds = {'claude', 'codex'};
 String? agentMarkAsset(String agent) =>
     agentMarkKinds.contains(agent) ? 'assets/icons/agent-$agent.svg' : null;
 
-/// §39.30: the name as herdr reports it, uppercased, `?` when it reports none.
-String agentMarkName(String agent) =>
-    agent.isEmpty ? '?' : agent.toUpperCase();
+/// The name as herdr reports it, uppercased, `?` when it reports none.
+String agentMarkName(String agent) => agent.isEmpty ? '?' : agent.toUpperCase();
 
-/// SPEC.md §39.30. The §39.20 glyph box, now carrying the agent's own mark
+/// The glyph box, now carrying the agent's own mark
 /// instead of a letter. Shared by the Home panel row and the `VIEW ALL` route
 /// row so the two cannot drift on which kinds have a file.
 ///
-/// §39.30 is a scoped exception to §3 and §10: a third-party mark is allowed
+/// A scoped exception to the icon rules: a third-party mark is allowed
 /// here and nowhere else, reduced to one colour, never in the vendor's own.
 class AgentMark extends StatelessWidget {
   const AgentMark(this.agent, {super.key});
 
-  /// §39.20's box, kept at 24 by §39.30.
+  /// The glyph box, kept at 24.
   static const markBox = 24.0;
 
   final String agent;
@@ -46,7 +45,7 @@ class AgentMark extends StatelessWidget {
       alignment: Alignment.center,
       // A foreground decoration rather than a background one: `decoration`
       // insets the child by the border, which would land the mark at 22/24 of
-      // the size §39.30 asks for. Painted over the child it costs nothing —
+      // the size the mark asks for. Painted over the child it costs nothing —
       // the mark never reaches the edge it is drawn on.
       foregroundDecoration: BoxDecoration(
         border: Border.all(color: HotlineColors.borderNormal),
@@ -56,7 +55,7 @@ class AgentMark extends StatelessWidget {
       // file is `currentColor` throughout and the colour is decided here.
       //
       // Drawn at the full 24 of the box, not at 16. The mark files carry
-      // §39.30's fit themselves — `translate(4 4) scale(.6666667)` on the
+      // their fit themselves — `translate(4 4) scale(.6666667)` on the
       // path, so the art occupies the central 16 units of a 24 grid — and
       // asking for 16 here would shrink that 16 again, to a little under 11.
       child: asset == null

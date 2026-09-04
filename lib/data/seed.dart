@@ -11,7 +11,7 @@ import 'repositories/task_repository.dart';
 /// produces is genuine — the `completed` and `blocked` events below are emitted
 /// by the transitions, not hand-written.
 ///
-/// SPEC.md §39.18: `Infra personal > Homelab > Networking` is the two-deep tree
+/// `Infra personal > Homelab > Networking` is the two-deep tree
 /// the hierarchy is exercised on. Every level carries tasks of its own, so a
 /// parent's number is visibly not its own tasks' number.
 Future<void> seedDevData(

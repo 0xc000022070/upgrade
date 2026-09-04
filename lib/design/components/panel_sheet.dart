@@ -8,7 +8,7 @@ import 'action_block.dart';
 import 'keyboard_toolbar.dart';
 import 'panel.dart';
 
-/// SPEC.md §39.4: the item quick view, the MOVE picker and the PAIR picker are
+/// The item quick view, the MOVE picker and the PAIR picker are
 /// the app's only modal surfaces, and all three are a [Panel] parked at the
 /// bottom of the screen. Material's sheet is not used: no drag handle, no
 /// rounded shoulders, no elevation, no scrim animation of its own.
@@ -47,9 +47,9 @@ Future<T?> showPanelSheet<T>(
   );
 }
 
-/// SPEC.md §39.13 and §39.14: the app's confirmation modal — a [Panel] with the
-/// question as its header and two blocks, the affirmative one filled accent per
-/// §16c. Everything that asks before acting asks in this shape.
+/// The app's confirmation modal — a [Panel] with the
+/// question as its header and two blocks, the affirmative one filled accent.
+/// Everything that asks before acting asks in this shape.
 Future<bool> confirmSheet(
   BuildContext context, {
   required String title,
@@ -102,7 +102,7 @@ class _SheetFrame extends StatelessWidget {
         child: Padding(
           // A dialog route does not resize for the IME the way a scaffold
           // does, so without this the sheet opens under the keyboard — and
-          // under the §39.9 strip, which is an overlay on top of both.
+          // under the accessory strip, which is an overlay on top of both.
           padding: EdgeInsets.only(
             left: Spacing.screenEdge,
             right: Spacing.screenEdge,
@@ -114,7 +114,7 @@ class _SheetFrame extends StatelessWidget {
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              // §39.17. The [Align] above is already bottom-centred, so the cap
+              // The [Align] above is already bottom-centred, so the cap
               // is all the sheet needs to stay a sheet on a wide display
               // instead of a band across it.
               maxWidth: Layout.columnMax,
@@ -164,7 +164,7 @@ class PanelSheetBody extends StatelessWidget {
   }
 }
 
-/// A hairline between the sections of a sheet: the §38.1 rule, inset to the
+/// A hairline between the sections of a sheet: the panel rule, inset to the
 /// panel body rather than run edge to edge, because inside a body it separates
 /// content and not rows of a table.
 class SheetRule extends StatelessWidget {

@@ -7,19 +7,17 @@ import 'rfb_messages.dart';
 import 'vnc_failure.dart';
 import 'zrle.dart';
 
-/// SPEC.md §39.32's RFB client, over any pair of byte streams.
+/// The RFB client, over any pair of byte streams.
 ///
 /// It owns no socket, which is the whole reason `dart_rfb` is not used here:
 /// the stream this reads is a `direct-tcpip` channel inside the host's ssh
 /// connection, and in the tests it is a scripted list of bytes.
 class RfbClient {
-  RfbClient({
-    required Stream<List<int>> incoming,
-    required this._outgoing,
-  }) : // Eagerly, in the constructor body's place: a server that sends its
-       // version line the instant the channel opens must not race a reader
-       // that has not subscribed yet.
-       _reader = ByteReader(incoming);
+  RfbClient({required Stream<List<int>> incoming, required this._outgoing})
+    : // Eagerly, in the constructor body's place: a server that sends its
+      // version line the instant the channel opens must not race a reader
+      // that has not subscribed yet.
+      _reader = ByteReader(incoming);
 
   final StreamSink<List<int>> _outgoing;
   final ByteReader _reader;
@@ -33,12 +31,12 @@ class RfbClient {
   bool _closed = false;
   Stopwatch? _sinceRequest;
 
-  /// §39.32: a `DesktopSize` invalidates every coordinate the server has sent,
+  /// A `DesktopSize` invalidates every coordinate the server has sent,
   /// so the next request after one asks for the whole screen again.
   bool _needsFullUpdate = false;
 
   /// One event per `FramebufferUpdate`, after every rect in it has landed.
-  /// §39.32's "one image per update, never one per rect" is this stream: the
+  /// "One image per update, never one per rect" is this stream: the
   /// listener turns the framebuffer into an image and asks for the next update.
   Stream<Framebuffer> get frames => _frames.stream;
 
@@ -84,7 +82,7 @@ class RfbClient {
       throw VncAuthUnsupported('server offers ${types.join(',')}');
     }
     _send(RfbClientMessages.securityChoice(Rfb.securityNone));
-    // §39.32: 3.7 goes straight on to ClientInit after a `None` it accepted;
+    // 3.7 goes straight on to ClientInit after a `None` it accepted;
     // only 3.8 answers with a SecurityResult.
     if (version != RfbVersion.v3_8) return;
     final result = await _reader.readU32();
@@ -118,7 +116,7 @@ class RfbClient {
   /// Reads server messages until the stream ends or [close] is called.
   ///
   /// Errors land on [frames] rather than being thrown here: the caller is a
-  /// widget's controller, and a reason line on the screen is what §39.32 asks
+  /// widget's controller, and a reason line on the screen is what is asked
   /// for in every one of these cases.
   Future<void> run() async {
     try {
@@ -138,7 +136,7 @@ class RfbClient {
       case Rfb.serverFramebufferUpdate:
         await _readFramebufferUpdate();
       case Rfb.serverSetColourMapEntries:
-        // §39.32 reads it and drops it: this client asked for true colour, so
+        // Read and dropped: this client asked for true colour, so
         // a colour map is only something to stay in frame over.
         await _reader.skip(1);
         await _reader.readU16();
@@ -205,7 +203,7 @@ class RfbClient {
     if (!_frames.isClosed) _frames.add(target);
   }
 
-  /// §39.32: one non-incremental request first, incremental after, and at most
+  /// One non-incremental request first, incremental after, and at most
   /// 24 a second. The caller sends the next one once it has painted the last
   /// update, so this is where the cap lives rather than in a timer.
   Future<void> requestUpdate({bool incremental = true}) async {
@@ -250,7 +248,7 @@ class RfbClient {
     _outgoing.add(bytes);
   }
 
-  /// §39.32: leaving the route closes the channel. Everything opened here is
+  /// Leaving the route closes the channel. Everything opened here is
   /// closed here, and the frame stream is shut before the channel so a rect
   /// half-read at teardown does not surface as a reason line.
   Future<void> close() async {

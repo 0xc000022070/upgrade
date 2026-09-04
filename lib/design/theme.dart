@@ -9,7 +9,7 @@ import 'typography.dart';
 /// Material is used as a substrate only. Everything that would leak a Material
 /// look — ripples, elevation tints, drop shadows, rounded defaults, overscroll
 /// glow, the zoom page transition — is neutralized here so components can be
-/// built from the Hotline tokens alone (SPEC.md §28-29).
+/// built from the Hotline tokens alone.
 abstract final class HotlineTheme {
   static ThemeData build() {
     const colorScheme = ColorScheme.dark(
@@ -110,7 +110,7 @@ final class HotlineScrollBehavior extends MaterialScrollBehavior {
   };
 }
 
-/// Short opacity plus a small directional shift (SPEC.md §16), replacing
+/// Short opacity plus a small directional shift, replacing
 /// Material's zoom transition.
 final class _SignalPageTransition extends PageTransitionsBuilder {
   const _SignalPageTransition();

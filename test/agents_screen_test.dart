@@ -50,7 +50,8 @@ void main() {
 
   tearDown(() => db.close());
 
-  /// §16b.1's grain is read out of the settings table by [StaticSurface], which
+  /// The background grain is read out of the settings table by [StaticSurface],
+  /// which
   /// every screen sits under, so the database is not optional even here.
   Widget host(AgentPanelState state) => ProviderScope(
     overrides: [
@@ -61,7 +62,7 @@ void main() {
   );
 
   /// Panel titles render through [SignalText], which holds a scrambled string
-  /// for §16b's decode: a single pump reads a title mid-flipbook.
+  /// for the decode: a single pump reads a title mid-flipbook.
   Future<void> ready(WidgetTester tester) async {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
@@ -113,7 +114,7 @@ void main() {
     );
     await ready(tester);
 
-    // §39.20.6: naming the single host on every panel is noise, and one host is
+    // Naming the single host on every panel is noise, and one host is
     // the shape every install has until a second machine is registered.
     expect(find.text('WQ'), findsOneWidget);
     expect(find.text('WR'), findsOneWidget);
@@ -170,7 +171,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.30 the route rows carry the same marks as the panel', (
+  testWidgets('the route rows carry the same marks as the panel', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -202,7 +203,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('§39.30 an empty kind is ? in the box and ? as the name', (
+  testWidgets('an empty kind is ? in the box and ? as the name', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -238,4 +239,3 @@ List<String> markAssets(WidgetTester tester) => [
   ))
     if (picture.bytesLoader case final SvgAssetLoader loader) loader.assetName,
 ];
-

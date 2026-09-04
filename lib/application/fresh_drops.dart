@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'agents.dart';
 
-/// SPEC.md §39.25: a drop captured from a screen's own capture bar is *fresh*
+/// A drop captured from a screen's own capture bar is *fresh*
 /// on that screen until the user leaves it. It is UI state and nothing else —
 /// no column, no row, nothing that survives a restart — so it lives here beside
 /// [DropSelection], which it feeds.
@@ -34,7 +34,7 @@ class FreshDropsNotifier extends Notifier<FreshDrops> {
   @override
   FreshDrops build() {
     ref.onDispose(() => _gone = true);
-    // §39.25: the app leaving the foreground is the user leaving the screen.
+    // The app leaving the foreground is the user leaving the screen.
     // The gate is read here rather than in the panel so backgrounding clears
     // the set once, whichever screen is up.
     ref.listen<bool>(appForegroundProvider, (_, foreground) {
@@ -63,11 +63,11 @@ class FreshDropsNotifier extends Notifier<FreshDrops> {
     });
   }
 
-  /// §39.25: the set clears when a batch takes the last fresh row out of the
+  /// The set clears when a batch takes the last fresh row out of the
   /// panel. Dropping what went and letting an empty scope fall away is one rule
   /// for a move, a delete, and a row the quick view filed elsewhere.
   ///
-  /// §39.27: [removed] is what the panel showed and stopped showing, not what
+  /// [removed] is what the panel showed and stopped showing, not what
   /// it is missing. The bar marks a row fresh the moment the write returns,
   /// which is a frame or more before the stream delivers it; pruning against
   /// absence took that row's highlight away before it was ever drawn, and

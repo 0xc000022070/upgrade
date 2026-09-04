@@ -19,7 +19,7 @@ void main() {
     expect(agents.first.stateChangeSeq, 248);
   });
 
-  test('SPEC.md §39.29: a lookup failure is not a refused connection', () {
+  test('a lookup failure is not a refused connection', () {
     // Dart words the DNS failure in the exception's own message; the errno
     // beneath is EAI_*, a namespace that cannot be told from a connect errno
     // by number, which is why this reads the words.

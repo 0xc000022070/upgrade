@@ -8,7 +8,7 @@ import '../effects/screen_entry.dart';
 import '../motion.dart';
 
 /// Every heading and title in the app renders through this one widget, so the
-/// SPEC.md §16b decode and the §16c.4 smear are wired in a single place. Both
+/// decode and the tab-change smear are wired in a single place. Both
 /// are flipbooks over the *same* string: the layout never changes, which is why
 /// a title can glitch without reflowing the row it sits in.
 class SignalText extends StatefulWidget {
@@ -26,11 +26,11 @@ class SignalText extends StatefulWidget {
   final String data;
   final TextStyle style;
 
-  /// §16b: 2-4 characters cycle through a mono glyph set and lock, left to
+  /// 2-4 characters cycle through a mono glyph set and lock, left to
   /// right. Screen titles, section headers and the NEXT ACTION title only.
   final bool decodeOnEntry;
 
-  /// §16c.4: one to two frames of block displacement (§16b.2) before the
+  /// One to two frames of block displacement before the
   /// decode. Screen titles on tab change only.
   final bool smearOnEntry;
 
@@ -110,7 +110,7 @@ class _SignalTextState extends State<SignalText> {
       textAlign: widget.textAlign,
     );
     if (!running || _step >= _smearSteps) return text;
-    // §16b.2 makes the smear the same block language as the icon glitch. It
+    // The smear is the same block language as the icon glitch. It
     // drops the fragments: a line of text has no empty ground of its own, so a
     // detached crumb would land on the next word and read as noise instead of
     // as a piece of this title coming loose.

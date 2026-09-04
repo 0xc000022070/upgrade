@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-/// SPEC.md §39.17. faraday's inner display is near square, and a line of mono
+/// faraday's inner display is near square, and a line of mono
 /// text run the full width of it stops being readable long before the layout
 /// breaks. Past [columnMax] the content stops widening and centres instead.
 ///
@@ -20,7 +20,8 @@ abstract final class Layout {
 /// Caps and centres [child] without ever changing the shape of the tree: the
 /// box is present at every width and only its constraint moves.
 ///
-/// This is the whole reason §39.17's state requirement is met. A wrapper that
+/// This is the whole reason a resize keeps what the user was holding. A
+/// wrapper that
 /// is inserted above 600dp and removed below it changes the element tree on the
 /// resize, and every [State] under it — the capture field's controller, an open
 /// sheet's mode — is discarded and rebuilt. An unconditional box cannot do

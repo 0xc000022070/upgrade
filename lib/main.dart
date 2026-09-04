@@ -22,7 +22,7 @@ import 'platform/device.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // SPEC.md §39.32: the app is portrait, and the screen route is the single
+  // The app is portrait, and the screen route is the single
   // exception — it widens the set on the way in and puts it back on the way
   // out. Set here rather than in the manifest so both halves of that sentence
   // are in Dart and the route's dispose has something exact to restore.
@@ -32,7 +32,7 @@ Future<void> main() async {
 
   // The database is opened and seeded before the first frame so every screen
   // can read a synchronous handle instead of an AsyncValue of one. Each step is
-  // also recorded, because the SPEC.md §16c.1 boot log reports real work.
+  // also recorded, because the boot log reports real work.
   final boot = <BootStep>[];
 
   final db = AppDatabase();
@@ -57,7 +57,7 @@ Future<void> main() async {
   );
   boot.add(const BootStep('load fonts', '${FontFamilies.count}'));
 
-  // §39.10 image attachments are files under app support, and the rows that
+  // Image attachments are files under app support, and the rows that
   // point at them are read inside builds; the directory is resolved here so
   // that read stays synchronous.
   await ImageAttachments.init();
@@ -66,7 +66,7 @@ Future<void> main() async {
   final model = await Device.model();
   boot.add(BootStep('mounted device ${model ?? 'unknown'}', 'ok'));
 
-  // §39.31: the notification channel and the foreground service's own channel
+  // The notification channel and the foreground service's own channel
   // are created before the first frame, so a settings toggle has something to
   // ask permission for and an action tap has somewhere to land.
   await initAlerts();

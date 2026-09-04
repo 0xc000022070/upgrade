@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'image_input.dart';
 
-/// SPEC.md §39.10: black, pinch to zoom, back to close. A route rather than a
+/// Black, pinch to zoom, back to close. A route rather than a
 /// dialog — this is the one surface in the app that wants the whole screen,
 /// and the system back gesture is the only affordance it needs.
 Future<void> openImageViewer(BuildContext context, String relative) {

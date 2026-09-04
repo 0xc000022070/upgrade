@@ -4,7 +4,7 @@ import '../../data/views.dart';
 import '../spacing.dart';
 import '../typography.dart';
 
-/// One line of the audit stream (SPEC.md §22). The mocks set RECENT tighter
+/// One line of the audit stream. The mocks set RECENT tighter
 /// than a list: no glyph, no rule, no tap — what changed on the left, where it
 /// happened and how long ago on the right.
 class ActivityRow extends StatelessWidget {

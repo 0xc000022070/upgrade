@@ -1,4 +1,4 @@
-/// SPEC.md §39.32's regression list: the pointer mapping from touch to
+/// The regression list: the pointer mapping from touch to
 /// framebuffer coordinates, under fit and under zoom.
 library;
 
@@ -42,7 +42,10 @@ void main() {
     });
 
     test('the corners of the image are the corners of the desktop', () {
-      expect(_fit.toFramebuffer(const Offset(0, _top)), closeToOffset(Offset.zero));
+      expect(
+        _fit.toFramebuffer(const Offset(0, _top)),
+        closeToOffset(Offset.zero),
+      );
       expect(
         _fit.toFramebuffer(const Offset(400, _top + 225)),
         closeToOffset(const Offset(1919, 1079)),
@@ -133,14 +136,17 @@ void main() {
       expect(landscape.fitScale, closeTo(800 / 1920, 1e-9));
     });
 
-    test('a DesktopSize drops the zoom, which framed a picture that is gone', () {
-      final zoomed = _fit.zoomedAbout(const Offset(200, _top + 112.5), 4);
-      final resized = zoomed.withFramebuffer(const Size(1280, 720));
+    test(
+      'a DesktopSize drops the zoom, which framed a picture that is gone',
+      () {
+        final zoomed = _fit.zoomedAbout(const Offset(200, _top + 112.5), 4);
+        final resized = zoomed.withFramebuffer(const Size(1280, 720));
 
-      expect(resized.zoom, 1.0);
-      expect(resized.framebuffer, const Size(1280, 720));
-      expect(resized.pan, Offset.zero);
-    });
+        expect(resized.zoom, 1.0);
+        expect(resized.framebuffer, const Size(1280, 720));
+        expect(resized.pan, Offset.zero);
+      },
+    );
 
     test('two transforms with the same numbers are the same value', () {
       expect(

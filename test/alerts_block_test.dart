@@ -13,7 +13,7 @@ import 'package:hotline/features/settings/alerts_block.dart';
 
 import 'support/platform_channels.dart';
 
-/// SPEC.md §39.31's `[ ALERTS ]` row.
+/// The `[ ALERTS ]` row.
 
 const nyx = Host(
   id: 'host-1',
@@ -47,14 +47,12 @@ void main() {
       hostRepositoryProvider.overrideWithValue(hosts),
     ],
     child: MaterialApp(
-      home: Material(
-        child: AlertsSettingsBlock(requestPermission: permission),
-      ),
+      home: Material(child: AlertsSettingsBlock(requestPermission: permission)),
     ),
   );
 
-  /// §16b.1's grain and the panel's own entry both run off tickers that never
-  /// settle, so `pumpAndSettle` here would spin until the test timed out.
+  /// The background grain and the panel's own entry both run off tickers that
+  /// never settle, so `pumpAndSettle` here would spin until the test timed out.
   Future<void> settle(WidgetTester tester) async {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 16));
@@ -66,10 +64,8 @@ void main() {
   }
 
   Future<bool> flag() =>
-      SettingsRepository(db).flag(
-        SettingsRepository.alertsBlockedAgents,
-        orElse: false,
-      );
+      SettingsRepository(db)
+          .flag(SettingsRepository.alertsBlockedAgents, orElse: false);
 
   testWidgets('with no HERDR host the row is dim and does nothing', (
     tester,
@@ -78,7 +74,7 @@ void main() {
     await settle(tester);
 
     expect(find.text('NO HOST'), findsOneWidget);
-    // §39.31: "the row is dim".
+    // "the row is dim".
     expect(
       tester.widget<Text>(find.text('BLOCKED AGENTS')).style?.color,
       HotlineColors.textMuted,
@@ -127,9 +123,8 @@ void main() {
     tester,
   ) async {
     await withHerdrHost();
-    await SettingsRepository(
-      db,
-    ).setFlag(SettingsRepository.alertsBlockedAgents, true);
+    await SettingsRepository(db)
+        .setFlag(SettingsRepository.alertsBlockedAgents, true);
     var asked = false;
     await tester.pumpWidget(
       shell(

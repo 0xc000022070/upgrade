@@ -5,7 +5,7 @@ import '../spacing.dart';
 import '../typography.dart';
 import 'panel.dart';
 
-/// SPEC.md §38.1: a form is not an exception to the skin. Every field is a
+/// A form is not an exception to the skin. Every field is a
 /// panel whose header strip is the field's name, so a form reads as the same
 /// stack of bordered sections as every list screen.
 class FieldPanel extends StatelessWidget {
@@ -72,9 +72,9 @@ class FieldPanel extends StatelessWidget {
   }
 }
 
-/// The enum equivalent: one panel, one row of bracket-labelled choices. §16c
-/// draws a selected value as the solid block, so the current choice carries the
-/// accent fill and the rest stay outlined.
+/// The enum equivalent: one panel, one row of bracket-labelled choices. A
+/// selected value is drawn as the solid block, so the current choice carries
+/// the accent fill and the rest stay outlined.
 class ChoicePanel<T> extends StatelessWidget {
   const ChoicePanel({
     super.key,

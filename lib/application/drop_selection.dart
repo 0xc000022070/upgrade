@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// SPEC.md §39.13: a long press on a drop puts its panel into selection mode.
+/// A long press on a drop puts its panel into selection mode.
 /// The state lives outside the panel because the bar that acts on it replaces
 /// the capture bar, which is the panel's sibling and not its child.
 ///
@@ -35,14 +35,14 @@ class DropSelectionNotifier extends Notifier<DropSelection> {
 
   void begin(String scope, String id) => state = DropSelection(scope, {id});
 
-  /// §39.25: holding a fresh row checks every fresh row of that panel in the
+  /// Holding a fresh row checks every fresh row of that panel in the
   /// one gesture. The ids are the panel's own — captured into this scope and
   /// not yet forgotten — so a batch can only ever act on rows that belong to
   /// it.
   void beginMany(String scope, Set<String> ids) =>
       state = DropSelection(scope, {...ids});
 
-  /// §39.15: `SELECT` on the header strip enters the same mode with nothing
+  /// `SELECT` on the header strip enters the same mode with nothing
   /// checked. It is a separate entry point rather than [begin] with a null id
   /// because the long press is a gesture *on a row* and always has one.
   void beginEmpty(String scope) => state = DropSelection(scope, const {});
@@ -79,7 +79,7 @@ class DropSelectionNotifier extends Notifier<DropSelection> {
   /// An item deleted or moved from somewhere else must not be acted on by a
   /// batch that can no longer see it.
   ///
-  /// §39.27: what leaves the set is what the panel *stopped* showing, never
+  /// What leaves the set is what the panel *stopped* showing, never
   /// what it has not shown yet. Absence is not removal — a row can be in a set
   /// before the stream that feeds the panel has delivered it — so the caller
   /// names the ids that went, and the panel is the only thing that knows.

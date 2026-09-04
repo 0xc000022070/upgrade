@@ -7,11 +7,11 @@ import '../../data/views.dart';
 import '../../design/components/panel_sheet.dart';
 import 'item_pickers.dart';
 
-/// SPEC.md §39.13: the two verbs of the contextual action bar, over a set.
-/// §39.12 gave them to one row through an anchored strip; the strip is gone and
+/// The two verbs of the contextual action bar, over a set.
+/// They used to act on one row through an anchored strip; the strip is gone and
 /// the verbs now take every checked id at once.
 
-/// The §39.5 picker, opened once for the whole set. The mode ends after the
+/// The MOVE picker, opened once for the whole set. The mode ends after the
 /// move whether or not a target was picked — the user left the panel to answer
 /// a question about it, and coming back to a live selection would be a second
 /// thing to dismiss.
@@ -44,8 +44,8 @@ Future<void> moveDrops(
   }
 }
 
-/// §39.13: a batch delete asks first, on a surface of its own. The in-place
-/// second tap of §39.12 was enough for one row; it is not enough for a set the
+/// A batch delete asks first, on a surface of its own. The in-place
+/// second tap was enough for one row; it is not enough for a set the
 /// user assembled and can no longer see the whole of.
 Future<void> deleteDrops(
   BuildContext context,

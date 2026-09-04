@@ -11,7 +11,7 @@ import 'alert_notifications.dart';
 import 'herdr_client.dart';
 import 'keys.dart';
 
-/// SPEC.md §39.31's watcher: the foreground service that holds one `agent
+/// The watcher: the foreground service that holds one `agent
 /// watch` connection per HERDR host for as long as `[ ALERTS ]` is on.
 ///
 /// The service runs its own isolate. Nothing in this file may reach for a
@@ -21,10 +21,10 @@ import 'keys.dart';
 
 /// How often the feed asks Android whether the service is still there. Only
 /// the ending nobody announces needs it — a service the system killed — so the
-/// period is §39.20's own cadence rather than anything tighter.
+/// period is the agent poll's own cadence rather than anything tighter.
 const watcherLivenessPeriod = Duration(seconds: 10);
 
-/// The service's own notification, not the alerts'. §39.31 wants it silent and
+/// The service's own notification, not the alerts'. It is silent and
 /// at the bottom of the shade.
 const watcherChannelId = 'watcher';
 const watcherChannelName = 'Agent watcher';
@@ -34,7 +34,7 @@ const _hostsKey = 'hotline.watcher.hosts';
 
 /// The evidence seam. With `--dart-define=HOTLINE_FAKE_WATCH=true` the watcher
 /// never dials: each host's stream is a canned pair of snapshots, which is what
-/// produces §39.31's alert on an emulator that has no key on the host.
+/// produces the alert on an emulator that has no key on the host.
 const _fakeWatch = bool.fromEnvironment('HOTLINE_FAKE_WATCH');
 
 String encodeWatcherHosts(List<Host> hosts) => jsonEncode([
@@ -79,14 +79,14 @@ class AgentWatcher {
     // The service isolate's [FlutterForegroundTask.sendDataToMain] posts to a
     // port this registers under a name. Without it every report is sent into
     // nothing: the callbacks [taskData] adds are held, and nobody ever calls
-    // them, so §39.31's "Home reads its snapshots" is a stream that stays empty
+    // them, so "Home reads its snapshots" is a stream that stays empty
     // for the life of the process.
     FlutterForegroundTask.initCommunicationPort();
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: watcherChannelId,
         channelName: watcherChannelName,
-        // §39.31: "a persistent notification at minimum importance, silent".
+        // "a persistent notification at minimum importance, silent".
         channelImportance: NotificationChannelImportance.MIN,
         priority: NotificationPriority.MIN,
         playSound: false,
@@ -99,7 +99,7 @@ class AgentWatcher {
         eventAction: ForegroundTaskEventAction.nothing(),
         allowWakeLock: true,
         allowWifiLock: true,
-        // §39.31: "It survives the activity being swiped away."
+        // "It survives the activity being swiped away."
         stopWithTask: false,
         allowAutoRestart: true,
       ),
@@ -108,7 +108,7 @@ class AgentWatcher {
 
   static Future<bool> get running => FlutterForegroundTask.isRunningService;
 
-  /// §39.31: the toggle asks for the notification permission when it is turned
+  /// The toggle asks for the notification permission when it is turned
   /// on, and goes back off when the OS refuses.
   static Future<bool> requestPermission() async {
     final current = await FlutterForegroundTask.checkNotificationPermission();
@@ -203,7 +203,7 @@ class AgentWatcher {
 
   /// The service's reports, folded into the panel state Home reads. Null until
   /// the first report and null again once the service is gone, which is what
-  /// hands Home back to §39.20's own poll at both ends.
+  /// hands Home back to its own poll at both ends.
   ///
   /// Both sources are arguments so the fold can be exercised without the
   /// plugin; both default to it.
@@ -378,7 +378,7 @@ class AgentWatcherHandler extends TaskHandler {
   }
 }
 
-/// One host's connection, with §39.31's reconnect schedule around it.
+/// One host's connection, with the reconnect schedule around it.
 class _HostLoop {
   _HostLoop({
     required this.host,
@@ -413,7 +413,7 @@ class _HostLoop {
     _stopped = true;
     _session?.close();
     await _running;
-    // §39.31: the alert is cleared when the app stops being able to say the
+    // The alert is cleared when the app stops being able to say the
     // pane is still blocked, and a watcher that is going away cannot.
     for (final pane in edges.blockedOn(host.id)) {
       await AlertNotifications.cancel(alertNotificationId(host.id, pane));
@@ -421,7 +421,7 @@ class _HostLoop {
     edges.reset(host.id);
   }
 
-  // §39.29: one line per failure, naming the host and what the transport said.
+  // One line per failure, naming the host and what the transport said.
   void _log(Object error) => debugPrint('hotline.herdr ${host.name}: $error');
 
   Future<void> _run() async {
@@ -467,7 +467,7 @@ class _HostLoop {
       privateKey: privateKey,
     );
     _session = session;
-    // No reset here. §39.31 counts every blocked pane as new on the first
+    // No reset here. Every blocked pane counts as new on the first
     // snapshot after the *service* starts, and [BlockedEdges] lives on the
     // handler, so a fresh service already begins with nothing to difference
     // against — that one moment needs no help. A reconnect inside one service
@@ -488,7 +488,7 @@ class _HostLoop {
   ) async {
     _lastAgents = agents;
     _lastGoodAt = DateTime.now();
-    // §39.31's backoff is per outage: a connection that carried a snapshot has
+    // The backoff is per outage: a connection that carried a snapshot has
     // earned the next one its full 5 s start.
     _backoff.reset();
     final delta = edges.apply(host.id, agents);
@@ -496,7 +496,7 @@ class _HostLoop {
       await AlertNotifications.cancel(alertNotificationId(host.id, pane));
     }
     for (final snapshot in delta.entered) {
-      // §39.31: the expanded form carries the pane's tail, read over the same
+      // The expanded form carries the pane's tail, read over the same
       // connection. A tail that fails to arrive is not worth losing the alert
       // over, so [HerdrSession.read] answers null and the alert goes out flat.
       final tail = session == null ? null : await session.read(snapshot.paneId);
@@ -517,8 +517,8 @@ class _HostLoop {
     WatcherReport(
       hostId: host.id,
       kind: kind,
-      // §39.20's rule, kept here too: a host that blinks does not empty the
-      // panel, so the last good agents ride along with the failure.
+      // The agent poll's rule, kept here too: a host that blinks does not empty
+      // the panel, so the last good agents ride along with the failure.
       agents: _lastAgents,
       lastGoodAt: _lastGoodAt,
       protocol: protocol,
