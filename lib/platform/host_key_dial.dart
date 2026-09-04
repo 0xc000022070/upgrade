@@ -15,7 +15,7 @@ class HostKeySilent implements Exception {
 
 /// Dials far enough to see the host key and no further.
 ///
-/// `VERIFY` on ACCESS has nothing to open — no shell, no screen, no agent — so
+/// `VERIFY` on HOSTS has nothing to open — no shell, no screen, no agent — so
 /// this is the smallest thing that makes a machine present its key: the
 /// handshake runs, the verifier answers, and the connection is dropped whether
 /// authentication would have succeeded or not.

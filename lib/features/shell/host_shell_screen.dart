@@ -12,12 +12,12 @@ import '../../design/typography.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/shell/shell_connection.dart';
 import '../../platform/vnc/keysyms.dart';
-import '../access/host_key_sheet.dart';
+import '../hosts/host_key_sheet.dart';
 import 'shell_bar.dart';
 import 'shell_sessions.dart';
 
-/// The way in: a host panel's `SHELL >` row on ACCESS, or one of the cards on
-/// the `SHELLS` panel, which names the session it wants on screen.
+/// The way in: a host panel's `SHELL >` row on HOSTS, a host row on SSH, or one
+/// of that tab's session cards, which names the session it wants on screen.
 void openHostShell(BuildContext context, Host host, {ShellSession? session}) {
   Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute<void>(

@@ -12,12 +12,12 @@ import 'package:hotline/data/database.dart';
 import 'package:hotline/data/enums.dart';
 import 'package:hotline/data/repositories/host_repository.dart';
 import 'package:hotline/data/repositories/key_repository.dart';
-import 'package:hotline/design/colors.dart';
-import 'package:hotline/features/access/access_screen.dart';
-import 'package:hotline/features/access/link_probes.dart';
-import 'package:hotline/features/access/preview_tile.dart';
+import 'package:hotline/features/hosts/hosts_screen.dart';
+import 'package:hotline/features/hosts/link_probes.dart';
+import 'package:hotline/features/hosts/preview_tile.dart';
 import 'package:hotline/features/screen/screen_preview.dart';
 import 'package:hotline/features/shell/shell_sessions.dart';
+import 'package:hotline/features/shell/shell_status.dart';
 import 'package:hotline/features/settings/settings_screen.dart';
 import 'package:hotline/platform/keys.dart';
 import 'package:hotline/platform/host_key_dial.dart';
@@ -159,7 +159,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await seed();
-    await tester.pumpWidget(app(const AccessScreen()));
+    await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
     expect(find.text('NYX'), findsOneWidget);
@@ -183,7 +183,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await seed();
-    await tester.pumpWidget(app(const AccessScreen()));
+    await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
     // Both hosts, not just the one with a screen: ssh is what a host already
@@ -209,99 +209,22 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('no shell means no panel for shells', (tester) async {
+  testWidgets('the sessions are not on this screen any more', (tester) async {
     tester.view.physicalSize = const Size(400, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await seed();
-    await tester.pumpWidget(app(const AccessScreen()));
+    shells.stall = false;
+    sessions.open(_rose);
+    await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
+    // The cards are the SSH tab's. What a host keeps here is the row that
+    // starts one, which still counts what is open on it.
     expect(find.text('SHELLS'), findsNothing);
-
-    await unmount(tester);
-  });
-
-  testWidgets('every open session is a card, in the order of the hosts', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(400, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await seed();
-    shells.stall = false;
-    sessions.open(_rose);
-    sessions.open(_nyx);
-    sessions.open(_nyx);
-    await tester.pumpWidget(app(const AccessScreen()));
-    await ready(tester);
-
-    expect(find.text('SHELLS'), findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-card-h1-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-card-h2-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-card-h2-2')), findsOneWidget);
-    expect(find.text('ROSE 1'), findsOneWidget);
-    expect(find.text('NYX 2'), findsOneWidget);
-
-    await unmount(tester);
-  });
-
-  testWidgets('the card carries the state of the session under it', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(400, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await seed();
-    shells.stall = false;
-    sessions.open(_rose);
-    await tester.pumpWidget(app(const AccessScreen()));
-    await ready(tester);
-
-    Color dot() =>
-        (tester
-                    .widget<Container>(
-                      find.descendant(
-                        of: find.byKey(const ValueKey('shell-dot-h1-1')),
-                        matching: find.byType(Container),
-                      ),
-                    )
-                    .decoration
-                as BoxDecoration)
-            .color!;
-
-    expect(dot(), HotlineColors.accent);
-
-    shells.opened.single.exit(0);
-    await ready(tester);
-    expect(dot(), HotlineColors.textMuted);
-
-    await unmount(tester);
-  });
-
-  testWidgets('a card opens its own host on its own tab', (tester) async {
-    tester.view.physicalSize = const Size(400, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await seed();
-    shells.stall = false;
-    sessions.open(_nyx);
-    final second = sessions.open(_nyx)!;
-    sessions.activate(_nyx.id, sessions.forHost(_nyx.id).first);
-    await tester.pumpWidget(app(const AccessScreen()));
-    await ready(tester);
-
-    await tester.tap(find.byKey(const ValueKey('shell-card-h2-2')));
-    await ready(tester);
-
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('shell-header')),
-        matching: find.text('NYX'),
-      ),
-      findsOneWidget,
-    );
-    expect(sessions.activeFor(_nyx.id), same(second));
+    expect(find.text('ACTIVE SESSIONS'), findsNothing);
+    expect(find.byKey(const ValueKey('shell-card-h1-1')), findsNothing);
+    expect(find.text('SHELL · 1 OPEN'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -312,7 +235,7 @@ void main() {
     tester.view.physicalSize = const Size(400, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    // The hosts without their integrations: ACCESS in front starts the agents
+    // The hosts without their integrations: HOSTS in front starts the agents
     // poll, and its ten-second tick would outlive the test.
     await keys.save(_key('key-1', 'faraday'));
     await hosts.save(_rose);
@@ -324,10 +247,10 @@ void main() {
     );
     answers['100.64.0.2:357'] = const LinkResult(LinkStatus.refused);
 
-    // The probes go out when ACCESS is the tab in front, not when the widget
+    // The probes go out when HOSTS is the tab in front, not when the widget
     // happens to be built, so the route has to be the one on screen.
     await tester.pumpWidget(
-      app(const AccessScreen(), index: AccessScreen.navIndex),
+      app(const HostsScreen(), index: HostsScreen.navIndex),
     );
     await ready(tester);
 
@@ -367,7 +290,7 @@ void main() {
       ),
     );
 
-    await tester.pumpWidget(app(const AccessScreen()));
+    await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
     // One machine the app can recognise and one it cannot. The offer to look
@@ -404,7 +327,7 @@ void main() {
       required verifier,
     }) => answered.future;
 
-    await tester.pumpWidget(app(const AccessScreen()));
+    await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
     await tester.tap(find.text('VERIFY'));
     await ready(tester);
@@ -472,7 +395,7 @@ void main() {
 
     await tester.pumpWidget(
       app(
-        const AccessScreen(),
+        const HostsScreen(),
         extra: [agentsFeedProvider.overrideWith((ref) => Stream.value(stale))],
       ),
     );
@@ -504,7 +427,7 @@ void main() {
     sessions.open(_rose);
     sessions.open(_rose);
 
-    await tester.pumpWidget(app(const AccessScreen()));
+    await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
     expect(find.text('SHELL · 2 OPEN'), findsOneWidget);
@@ -518,7 +441,7 @@ void main() {
   testWidgets('a host with no integration reads NONE', (tester) async {
     await keys.save(_key('key-1', 'faraday'));
     await hosts.save(_rose);
-    await tester.pumpWidget(app(const AccessScreen()));
+    await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
     expect(find.text('NONE'), findsOneWidget);
@@ -534,7 +457,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await seed();
-    await tester.pumpWidget(app(const AccessScreen()));
+    await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
     expect(find.byType(ScreenPreviewTile), findsOneWidget);
@@ -550,7 +473,7 @@ void main() {
     addTearDown(tester.view.reset);
     await seed();
     await tester.runAsync(() => previews.write(_nyx.id, Framebuffer(640, 360)));
-    await tester.pumpWidget(app(const AccessScreen()));
+    await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
     expect(find.byType(ScreenPreviewTile), findsOneWidget);
@@ -578,7 +501,7 @@ void main() {
         .aspectRatio;
 
     await seed();
-    await tester.pumpWidget(app(const AccessScreen()));
+    await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
     expect(find.text('NO FRAME YET'), findsOneWidget);
 
@@ -608,7 +531,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await seed();
-    await tester.pumpWidget(app(const AccessScreen()));
+    await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
     expect(find.text('KEYS'), findsOneWidget);

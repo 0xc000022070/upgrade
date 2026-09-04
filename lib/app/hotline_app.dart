@@ -8,9 +8,10 @@ import '../application/navigation.dart';
 import '../design/colors.dart';
 import '../design/effects/screen_entry.dart';
 import '../design/theme.dart';
-import '../features/access/access_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/hosts/hosts_screen.dart';
 import '../features/projects/projects_screen.dart';
+import '../features/ssh/ssh_screen.dart';
 import 'alerts_boot.dart';
 import 'autonomous_ticks.dart';
 import 'boot.dart';
@@ -58,7 +59,7 @@ class HotlineApp extends StatelessWidget {
   }
 }
 
-/// HOME, PROJECTS and ACCESS are the tabs, all kept mounted in an
+/// HOME, PROJECTS, HOSTS and SSH are the tabs, all kept mounted in an
 /// [IndexedStack], so a tab is never rebuilt from nothing and the screen the
 /// user comes back to is the screen they left.
 class HotlineShell extends ConsumerStatefulWidget {
@@ -90,7 +91,12 @@ class _HotlineShellState extends ConsumerState<HotlineShell> {
     final index = ref.watch(navIndexProvider);
     final glitch = ref.watch(navGlitchProvider);
 
-    const screens = <Widget>[HomeScreen(), ProjectsScreen(), AccessScreen()];
+    const screens = <Widget>[
+      HomeScreen(),
+      ProjectsScreen(),
+      HostsScreen(),
+      SshScreen(),
+    ];
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _systemBars,

@@ -70,7 +70,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                 ),
-                // Hosts and keys are the ACCESS tab now; what is left here is
+                // Hosts and keys are the HOSTS tab now; what is left here is
                 // the app's own settings. Alerts stay: what they watch is a
                 // preference, not a machine.
                 const AlertsSettingsBlock(),

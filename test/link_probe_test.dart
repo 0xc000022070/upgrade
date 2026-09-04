@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/features/access/link_probes.dart';
+import 'package:hotline/features/hosts/link_probes.dart';
 import 'package:hotline/platform/link_probe.dart';
 
 const _rose = Host(

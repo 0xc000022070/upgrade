@@ -10,7 +10,7 @@ import '../../platform/link_probe.dart';
 /// answering. The real one is [probeLink].
 typedef LinkProbe = Future<LinkResult> Function(String address, int port);
 
-/// How long a probe's answer stands. ACCESS coming to the front reprobes
+/// How long a probe's answer stands. HOSTS coming to the front reprobes
 /// anything older; a tap on the row reprobes whatever its age.
 const linkProbeMaxAge = Duration(seconds: 30);
 

@@ -28,7 +28,7 @@ import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/host_keys.dart';
-import '../access/host_key_sheet.dart';
+import '../hosts/host_key_sheet.dart';
 import '../home/agent_mark.dart';
 import '../screen/screen_preview.dart';
 import '../screen_scaffold.dart';
@@ -356,7 +356,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     }
     // A machine is registered in order to be connected to, and until its key
     // is pinned nothing in the app will connect to it. Asking here is the same
-    // question `VERIFY` asks on ACCESS, put where the machine is named.
+    // question `VERIFY` asks on HOSTS, put where the machine is named.
     if (_hostKey == null) await _verifyHostKey(host);
     if (mounted) {
       _leaving = true;
@@ -443,7 +443,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         body: StaticSurface(
           child: ScreenScaffold(
             title: widget.host == null ? 'NEW HOST' : 'HOST',
-            breadcrumb: '/ HOTLINE / ACCESS',
+            breadcrumb: '/ HOTLINE / HOSTS',
             onBack: _handleBack,
             children: [
               PanelStack(
@@ -793,7 +793,7 @@ class _AddAction extends StatelessWidget {
   }
 }
 
-/// The host form's read-only line: a label and a mono value, the shape ACCESS
+/// The host form's read-only line: a label and a mono value, the shape HOSTS
 /// draws a host's metadata in.
 class _KeyMetaRow extends StatelessWidget {
   const _KeyMetaRow(this.label, this.value, {this.maxLines = 1});

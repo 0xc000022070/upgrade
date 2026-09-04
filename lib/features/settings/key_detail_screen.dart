@@ -60,7 +60,7 @@ class KeyDetailScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'KEY',
-          breadcrumb: '/ HOTLINE / ACCESS',
+          breadcrumb: '/ HOTLINE / HOSTS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(

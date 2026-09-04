@@ -16,12 +16,13 @@ class NavDestination {
 }
 
 /// Capture is a bar on HOME and the activity stream is HOME's RECENT section,
-/// so neither needs a destination of its own. ACCESS is the third: the
-/// registered machines and the keys that get into them.
+/// so neither needs a destination of its own. HOSTS is the registered machines
+/// and the keys that get into them; SSH is what is running on them right now.
 const navDestinations = [
   NavDestination('HOME', HotlineIcons.home),
   NavDestination('PROJECTS', HotlineIcons.projects),
-  NavDestination('ACCESS', HotlineIcons.hosts),
+  NavDestination('HOSTS', HotlineIcons.hosts),
+  NavDestination('SSH', HotlineIcons.connection),
 ];
 
 /// Built from tokens rather than BottomNavigationBar: Material's version brings
