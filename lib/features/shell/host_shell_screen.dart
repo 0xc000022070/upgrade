@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
+import '../../application/clips.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
@@ -16,6 +17,7 @@ import '../../platform/host_keys.dart';
 import '../../platform/shell/shell_connection.dart';
 import '../../platform/vnc/keysyms.dart';
 import '../hosts/host_key_sheet.dart';
+import 'clips_sheet.dart';
 import 'shell_bar.dart';
 import 'shell_sessions.dart';
 
@@ -122,6 +124,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     // dispose runs, and this is the store the listener has to come off.
     _store = ref.read(shellSessionsProvider);
     _store.addListener(_onSessions);
+    _clips = ref.read(clipStoreProvider);
+    _clips.addListener(_onClips);
     // Landscape, as the screen route: a terminal is the other thing in the app
     // worth turning the phone for.
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
@@ -145,12 +149,21 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   @override
   void dispose() {
     _store.removeListener(_onSessions);
+    _clips.removeListener(_onClips);
     _focus.dispose();
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     super.dispose();
   }
 
   late final ShellSessions _store;
+
+  /// Read for one number, the count on the bar's cell. A crop on the screen
+  /// route while this one is under it is what changes it.
+  late final ClipStore _clips;
+
+  void _onClips() {
+    if (mounted) setState(() {});
+  }
 
   void _onSessions() {
     if (!mounted || _announcing) return;
@@ -352,6 +365,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                     onPaste: () => _onPaste(active),
                     keyboardOpen: _keyboardOpen,
                     onKeyboard: _onKeyboard,
+                    clipCount: _clips.count,
+                    onClips: () => showClipsSheet(context, session: active),
                   ),
               ],
             );

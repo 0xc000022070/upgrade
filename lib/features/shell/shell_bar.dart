@@ -56,6 +56,8 @@ class ShellBar extends StatelessWidget {
     required this.onPaste,
     required this.keyboardOpen,
     required this.onKeyboard,
+    this.clipCount = 0,
+    this.onClips,
   });
 
   final Set<StickyModifier> sticky;
@@ -64,6 +66,11 @@ class ShellBar extends StatelessWidget {
   final VoidCallback onPaste;
   final bool keyboardOpen;
   final VoidCallback onKeyboard;
+
+  /// How many clips the tray holds. The cell is drawn only while there is one:
+  /// a `CLIPS 0` would be a promise about a feature most shells never use.
+  final int clipCount;
+  final VoidCallback? onClips;
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +116,14 @@ class ShellBar extends StatelessWidget {
                     padding: _cellPadding,
                     onTap: onPaste,
                   ),
+                  if (clipCount > 0)
+                    KeyCell(
+                      key: const ValueKey('bar-CLIPS'),
+                      label: 'CLIPS $clipCount',
+                      minWidth: _barHeight,
+                      padding: _cellPadding,
+                      onTap: () => onClips?.call(),
+                    ),
                 ],
               ),
             ),

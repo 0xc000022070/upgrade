@@ -20,6 +20,7 @@ enum HotlineIcons {
   collapse('collapse'),
   connection('connection'),
   critical('critical'),
+  crop('crop'),
   device('device'),
   done('done'),
   edit('edit'),

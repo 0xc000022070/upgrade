@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/agents.dart';
+import '../../application/clips.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/panel.dart';
@@ -18,6 +19,7 @@ import 'keys_strip.dart';
 import 'screen_controller.dart';
 import 'screen_preview.dart';
 import 'screen_rail.dart';
+import 'screen_transform.dart';
 
 /// The way in, and the only one: a host's tile on HOSTS pushes this.
 void openHostScreen(BuildContext context, Host host) {
@@ -57,6 +59,10 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   /// which is why the rail holds two booleans and the layer below takes both.
   bool _stripOpen = false;
   bool _keyboardOpen = false;
+
+  /// The crop is a mode over both: while it is armed the picture takes a box
+  /// and nothing else, and the strip and the keyboard send nothing.
+  bool _cropArmed = false;
 
   /// The rail is on every entry to this route and stays where the user left it
   /// only for as long as they are on it. Nothing about one host's screen is
@@ -131,6 +137,19 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
     if (_keyboardOpen) setState(() => _keyboardOpen = false);
   }
 
+  /// The pixels under the box, as they are, into the tray. The encode runs
+  /// before the first await so it reads the frame the user drew on rather
+  /// than the next one.
+  Future<void> _onCrop(CropRect rect) async {
+    final framebuffer = _controller.lastFramebuffer;
+    setState(() => _cropArmed = false);
+    if (framebuffer == null) return;
+    final png = encodePng(cropFrame(framebuffer, rect));
+    await ref
+        .read(clipStoreProvider)
+        .add(png, source: ClipSource.screen, hostName: widget.host.name);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -150,7 +169,13 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
               Expanded(
                 child: Stack(
                   children: [
-                    Positioned.fill(child: _Body(controller: _controller)),
+                    Positioned.fill(
+                      child: _Body(
+                        controller: _controller,
+                        cropping: _cropArmed,
+                        onCrop: _onCrop,
+                      ),
+                    ),
                     // Over the picture, and only where the rail itself is: the
                     // [Align] hit-tests nothing of its own, so every tap that
                     // misses a toggle still reaches the framebuffer under it.
@@ -159,11 +184,18 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
                         child: ScreenRail(
                           keyboardOpen: _keyboardOpen,
                           stripOpen: _stripOpen,
+                          cropArmed: _cropArmed,
                           hidden: _railHidden,
-                          onKeyboard: () =>
-                              setState(() => _keyboardOpen = !_keyboardOpen),
-                          onStrip: () =>
-                              setState(() => _stripOpen = !_stripOpen),
+                          onKeyboard: () {
+                            if (_cropArmed) return;
+                            setState(() => _keyboardOpen = !_keyboardOpen);
+                          },
+                          onStrip: () {
+                            if (_cropArmed) return;
+                            setState(() => _stripOpen = !_stripOpen);
+                          },
+                          onCrop: () =>
+                              setState(() => _cropArmed = !_cropArmed),
                           // Sliding the rail away is about the rail. What it
                           // opened stays open behind it.
                           onHide: () => setState(() => _railHidden = true),
@@ -179,10 +211,14 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
               KeysLayer(
                 stripVisible: _stripOpen,
                 keyboardOpen: _keyboardOpen,
-                onCharacter: (character, sticky) =>
-                    _controller.typeCharacter(character, sticky: sticky),
-                onKeysym: (keysym, sticky) =>
-                    _controller.sendKeysym(keysym, sticky: sticky),
+                onCharacter: (character, sticky) {
+                  if (_cropArmed) return;
+                  _controller.typeCharacter(character, sticky: sticky);
+                },
+                onKeysym: (keysym, sticky) {
+                  if (_cropArmed) return;
+                  _controller.sendKeysym(keysym, sticky: sticky);
+                },
                 onKeyboardClosed: _onKeyboardClosed,
               ),
             ],
@@ -273,9 +309,15 @@ class _State extends StatelessWidget {
 }
 
 class _Body extends StatelessWidget {
-  const _Body({required this.controller});
+  const _Body({
+    required this.controller,
+    required this.cropping,
+    required this.onCrop,
+  });
 
   final HostScreenController controller;
+  final bool cropping;
+  final void Function(CropRect rect) onCrop;
 
   @override
   Widget build(BuildContext context) {
@@ -294,6 +336,8 @@ class _Body extends StatelessWidget {
       onRightClick: controller.rightClick,
       onDrag: controller.drag,
       onWheel: controller.wheel,
+      cropping: cropping,
+      onCrop: onCrop,
     );
   }
 }

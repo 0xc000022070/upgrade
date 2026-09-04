@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
 
 import '../../design/colors.dart';
+import '../../design/components/panel.dart';
+import '../../design/spacing.dart';
 import 'screen_transform.dart';
 
 /// The framebuffer and every gesture over it.
@@ -19,10 +21,19 @@ class FramebufferView extends StatefulWidget {
     required this.onRightClick,
     required this.onDrag,
     required this.onWheel,
+    this.cropping = false,
+    this.onCrop,
   });
 
   final ui.Image? image;
   final Size framebufferSize;
+
+  /// While set, one finger draws a box instead of driving the pointer, and
+  /// nothing over the picture reaches the host until it is unset.
+  final bool cropping;
+
+  /// The box, in framebuffer pixels, once `CLIP` is tapped under it.
+  final void Function(CropRect rect)? onCrop;
 
   /// Framebuffer coordinates, every one of them.
   final void Function(Offset at) onClick;
@@ -61,6 +72,57 @@ class _FramebufferViewState extends State<FramebufferView> {
   static const _wheelStep = 40.0;
   double _wheelTravel = 0.0;
   Offset _wheelAt = Offset.zero;
+
+  /// The box being drawn, in local coordinates, and whether the finger has
+  /// lifted off a box big enough to keep.
+  Offset? _cropStart;
+  Offset? _cropEnd;
+  bool _cropDrawn = false;
+
+  @override
+  void didUpdateWidget(FramebufferView old) {
+    super.didUpdateWidget(old);
+    if (old.cropping && !widget.cropping) _clearCrop();
+  }
+
+  void _clearCrop() {
+    _cropStart = null;
+    _cropEnd = null;
+    _cropDrawn = false;
+  }
+
+  Rect? get _cropBox {
+    final start = _cropStart;
+    final end = _cropEnd;
+    if (start == null || end == null) return null;
+    return Rect.fromPoints(start, end);
+  }
+
+  void _onCropEnd(ScreenTransform transform) {
+    final start = _cropStart;
+    final end = _cropEnd;
+    final rect = start == null || end == null
+        ? null
+        : transform.cropBetween(start, end);
+    // A finger that did not move is not a selection: the box goes, the mode
+    // stays, and the next drag is a fresh one.
+    setState(() {
+      if (rect == null) {
+        _clearCrop();
+      } else {
+        _cropDrawn = true;
+      }
+    });
+  }
+
+  void _clip(ScreenTransform transform) {
+    final start = _cropStart;
+    final end = _cropEnd;
+    if (start == null || end == null) return;
+    final rect = transform.cropBetween(start, end);
+    setState(_clearCrop);
+    if (rect != null) widget.onCrop?.call(rect);
+  }
 
   void _sync(Size viewport) {
     if (_transform.viewport != viewport ||
@@ -139,6 +201,52 @@ class _FramebufferViewState extends State<FramebufferView> {
         final viewport = Size(constraints.maxWidth, constraints.maxHeight);
         _sync(viewport);
         final transform = _transform;
+        final picture = ColoredBox(
+          // Black ground, not the app's near-black. The host's own
+          // desktop is the only thing lit on this route.
+          color: const Color(0xFF000000),
+          child: CustomPaint(
+            painter: _FramebufferPainter(
+              image: widget.image,
+              transform: transform,
+            ),
+            size: viewport,
+          ),
+        );
+        if (widget.cropping) {
+          final box = _cropBox;
+          return GestureDetector(
+            key: const ValueKey('crop-surface'),
+            // The pan is the only gesture here. A tap, a long press and a
+            // pinch all fall through to nothing, which is the point of a
+            // mode whose pointer must not reach the host.
+            behavior: HitTestBehavior.opaque,
+            onPanStart: (details) => setState(() {
+              _cropStart = details.localPosition;
+              _cropEnd = details.localPosition;
+              _cropDrawn = false;
+            }),
+            onPanUpdate: (details) =>
+                setState(() => _cropEnd = details.localPosition),
+            onPanEnd: (_) => _onCropEnd(transform),
+            child: Stack(
+              children: [
+                Positioned.fill(child: picture),
+                if (box != null)
+                  Positioned.fill(
+                    child: CustomPaint(painter: _CropPainter(box: box)),
+                  ),
+                if (box != null && _cropDrawn)
+                  _CropVerbs(
+                    box: box,
+                    viewport: viewport,
+                    onClip: () => _clip(transform),
+                    onCancel: () => setState(_clearCrop),
+                  ),
+              ],
+            ),
+          );
+        }
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           // Tap moves the pointer there and left-clicks.
@@ -161,18 +269,7 @@ class _FramebufferViewState extends State<FramebufferView> {
           ),
           onScaleStart: _onScaleStart,
           onScaleUpdate: _onScaleUpdate,
-          child: ColoredBox(
-            // Black ground, not the app's near-black. The host's own
-            // desktop is the only thing lit on this route.
-            color: const Color(0xFF000000),
-            child: CustomPaint(
-              painter: _FramebufferPainter(
-                image: widget.image,
-                transform: transform,
-              ),
-              size: viewport,
-            ),
-          ),
+          child: picture,
         );
       },
     );
@@ -181,6 +278,91 @@ class _FramebufferViewState extends State<FramebufferView> {
 
 /// Which half of the two-finger sentence a gesture turned out to be.
 enum _TwoFinger { undecided, zooming, dragging }
+
+/// The box over the picture: everything outside it dimmed, a hairline of the
+/// accent around it. The pixels inside are left exactly as they are, because
+/// they are what is about to be kept.
+class _CropPainter extends CustomPainter {
+  const _CropPainter({required this.box});
+
+  final Rect box;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final outside = Path()
+      ..addRect(Offset.zero & size)
+      ..addRect(box)
+      ..fillType = PathFillType.evenOdd;
+    canvas.drawPath(outside, Paint()..color = const Color(0x99000000));
+    canvas.drawRect(
+      box,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = Borders.hairline
+        ..color = HotlineColors.accent,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CropPainter old) => old.box != box;
+}
+
+/// `CLIP` and `CANCEL` under the box, or over it when the box runs to the
+/// bottom edge, and never off the side.
+class _CropVerbs extends StatelessWidget {
+  const _CropVerbs({
+    required this.box,
+    required this.viewport,
+    required this.onClip,
+    required this.onCancel,
+  });
+
+  final Rect box;
+  final Size viewport;
+  final VoidCallback onClip;
+  final VoidCallback onCancel;
+
+  static const _width = 160.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final below = box.bottom + Spacing.sm;
+    final top = below + TapTargets.minHeight <= viewport.height
+        ? below
+        : (box.top - Spacing.sm - TapTargets.minHeight).clamp(
+            0.0,
+            viewport.height - TapTargets.minHeight,
+          );
+    final left = box.left.clamp(
+      0.0,
+      (viewport.width - _width).clamp(0.0, double.infinity),
+    );
+    return Positioned(
+      left: left,
+      top: top,
+      width: _width,
+      height: TapTargets.minHeight,
+      child: Row(
+        children: [
+          PanelAffordance(
+            'CLIP',
+            key: const ValueKey('crop-clip'),
+            showIcon: false,
+            color: HotlineColors.accent,
+            onTap: onClip,
+          ),
+          const SizedBox(width: Spacing.lg),
+          PanelAffordance(
+            'CANCEL',
+            key: const ValueKey('crop-cancel'),
+            showIcon: false,
+            onTap: onCancel,
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _FramebufferPainter extends CustomPainter {
   const _FramebufferPainter({required this.image, required this.transform});

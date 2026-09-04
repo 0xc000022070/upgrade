@@ -8,6 +8,7 @@ import 'app/alerts_boot.dart';
 import 'app/boot.dart';
 import 'app/hotline_app.dart';
 import 'application/agents.dart';
+import 'application/clips.dart';
 import 'application/providers.dart';
 import 'data/database.dart';
 import 'data/repositories/activity_repository.dart';
@@ -65,6 +66,11 @@ Future<void> main() async {
   await ImageAttachments.init();
   boot.add(const BootStep('mount attachments', 'ok'));
 
+  // Clips are files under the cache directory and never outlive a run. The
+  // directory is emptied here, before anything could be read from it.
+  final clips = await ClipStore.open();
+  boot.add(const BootStep('clear clips', 'ok'));
+
   final model = await Device.model();
   boot.add(BootStep('mounted device ${model ?? 'unknown'}', 'ok'));
 
@@ -80,7 +86,11 @@ Future<void> main() async {
   // last run left are dialling while the boot log is still on top. The dials
   // themselves are not awaited; only the tab rows are.
   final container = ProviderContainer(
-    overrides: [...databaseOverrides(db), ...alertOverrides()],
+    overrides: [
+      ...databaseOverrides(db),
+      ...alertOverrides(),
+      clipStoreProvider.overrideWithValue(clips),
+    ],
   );
   final shells = await container
       .read(shellSessionsProvider)
