@@ -1,5 +1,6 @@
 import 'package:dartssh2/dartssh2.dart';
 
+import '../host_keys.dart';
 import 'rfb_client.dart';
 import 'rfb_messages.dart';
 import 'vnc_failure.dart';
@@ -38,9 +39,11 @@ class VncTunnel {
     required int port,
     required String user,
     required String privateKey,
+    HostKeyVerifier? verifier,
   }) async {
     final socket = await guardVnc(
       () => SSHSocket.connect(address, port, timeout: timeout),
+      verifier,
     );
     final client = SSHClient(
       socket,
@@ -49,17 +52,19 @@ class VncTunnel {
       handshakeTimeout: timeout,
       authTimeout: timeout,
       keepAliveInterval: keepAlive,
+      onVerifyHostKey: verifier?.verify,
     );
     SSHForwardChannel? channel;
     RfbClient? rfb;
     try {
-      await guardVnc(() => client.authenticated);
+      await guardVnc(() => client.authenticated, verifier);
       final opened = await guardVnc(
         () => client.forwardLocal(displayHost, displayPort),
+        verifier,
       );
       channel = opened;
       rfb = RfbClient(incoming: opened.stream, outgoing: opened.sink);
-      final init = await guardVnc(rfb.handshake);
+      final init = await guardVnc(rfb.handshake, verifier);
       return SshVncConnection._(socket, client, opened, rfb, init);
     } catch (_) {
       // Half-open is worse than none: an ssh connection left behind counts
@@ -123,4 +128,5 @@ typedef VncOpener = Future<VncConnection> Function({
   required int port,
   required String user,
   required String privateKey,
+  HostKeyVerifier? verifier,
 });

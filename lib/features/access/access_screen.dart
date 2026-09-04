@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,6 +17,8 @@ import '../../design/icons/hotline_icon.dart';
 import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
+import '../../platform/host_keys.dart';
+import '../../platform/link_probe.dart';
 import '../screen_scaffold.dart';
 import '../settings/host_form_screen.dart';
 import '../settings/key_detail_screen.dart';
@@ -22,6 +26,8 @@ import '../settings/key_form_screen.dart';
 import '../shell/host_shell_screen.dart';
 import '../shell/shell_sessions.dart';
 import '../shell/shell_thumbnail.dart';
+import 'host_key_sheet.dart';
+import 'link_probes.dart';
 import 'preview_tile.dart';
 
 /// The machines and what gets into them: every registered host with its
@@ -69,6 +75,14 @@ class _AccessScreenState extends ConsumerState<AccessScreen> {
       if (!mounted) return;
       if (ref.read(navIndexProvider) != AccessScreen.navIndex) return;
       _visible.state = true;
+      // The panel is worth nothing if it says what a host was doing when the
+      // app was last opened, so the probes run on the way in rather than on a
+      // schedule of their own.
+      unawaited(
+        ref
+            .read(linkProbesProvider)
+            .refresh(ref.read(hostsProvider).valueOrNull ?? const <Host>[]),
+      );
     });
   }
 
@@ -150,6 +164,7 @@ class _HostPanel extends ConsumerWidget {
           _MetaRow('ADDRESS', '${host.address}:${host.port}'),
           _MetaRow('USER', host.user),
           _MetaRow('KEY', keyName ?? '—'),
+          _LinkRow(host: host, outcome: outcome),
           _MetaRow(
             'INTEGRATIONS',
             on.isEmpty ? 'NONE' : on.join('  '),
@@ -180,20 +195,21 @@ class _HostPanel extends ConsumerWidget {
 ///
 /// The whole row is the hit rather than the words at the end of it — the panel
 /// is a list of rows and this one reads as another of them.
-class _ShellRow extends StatefulWidget {
+class _ShellRow extends ConsumerStatefulWidget {
   const _ShellRow({required this.host});
 
   final Host host;
 
   @override
-  State<_ShellRow> createState() => _ShellRowState();
+  ConsumerState<_ShellRow> createState() => _ShellRowState();
 }
 
-class _ShellRowState extends State<_ShellRow> {
+class _ShellRowState extends ConsumerState<_ShellRow> {
   bool _down = false;
 
   @override
   Widget build(BuildContext context) {
+    final store = ref.watch(shellSessionsProvider);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (_) => setState(() => _down = true),
@@ -202,18 +218,49 @@ class _ShellRowState extends State<_ShellRow> {
       onTap: () => openHostShell(context, widget.host),
       child: SizedBox(
         height: RowMetrics.minHeight,
-        child: Align(
-          alignment: Alignment.centerLeft,
-          // Drawn by the affordance and tapped by the row above it: passing an
-          // `onTap` here would put a second, smaller hit box inside this one.
-          child: PanelAffordance(
-            'SHELL',
-            color: _down ? HotlineColors.accent : null,
-          ),
+        child: AnimatedBuilder(
+          animation: store,
+          builder: (context, _) {
+            final sessions = store.forHost(widget.host.id);
+            final worst = worstShellState(sessions);
+            return Row(
+              children: [
+                if (worst != null) ...[
+                  _StateDot(
+                    key: ValueKey('shell-row-dot-${widget.host.id}'),
+                    state: worst,
+                  ),
+                  const SizedBox(width: Spacing.sm),
+                ],
+                // Drawn by the affordance and tapped by the row above it:
+                // passing an `onTap` here would put a second, smaller hit box
+                // inside this one.
+                PanelAffordance(
+                  sessions.isEmpty
+                      ? 'SHELL'
+                      : 'SHELL · ${sessions.length} OPEN',
+                  color: _down ? HotlineColors.accent : null,
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
+}
+
+/// The state the host's dot takes: a failure over anything, a live shell over
+/// the rest, and nothing at all when the host has no sessions.
+ShellState? worstShellState(List<ShellSession> sessions) {
+  if (sessions.isEmpty) return null;
+  for (final session in sessions) {
+    if (session.state is ShellFailed) return session.state;
+  }
+  for (final session in sessions) {
+    if (session.state is ShellLive) return session.state;
+  }
+  return sessions.first.state;
 }
 
 /// The same words the AGENTS panel puts under its rows, so a host says the same
@@ -226,12 +273,21 @@ String _stateLine(HostOutcome? outcome) {
 }
 
 class _MetaRow extends StatelessWidget {
-  const _MetaRow(this.label, this.value, {this.strong = false, this.color});
+  const _MetaRow(
+    this.label,
+    this.value, {
+    this.strong = false,
+    this.color,
+    this.trailing,
+  });
 
   final String label;
   final String value;
   final bool strong;
   final Color? color;
+
+  /// The one verb a metadata row may carry, at its right end.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -243,9 +299,84 @@ class _MetaRow extends StatelessWidget {
           Expanded(
             child: Meta(value, strong: strong, color: color),
           ),
+          if (trailing != null) ...[
+            const SizedBox(width: Spacing.md),
+            trailing!,
+          ],
         ],
       ),
     );
+  }
+}
+
+/// What answered, and the way to trust what did. The whole row is the hit: a
+/// tap probes this host again whatever the age of its last answer, which is
+/// what the user reaches for after plugging the machine back in.
+class _LinkRow extends ConsumerWidget {
+  const _LinkRow({required this.host, required this.outcome});
+
+  final Host host;
+  final HostOutcome? outcome;
+
+  /// Drawn while the app has nothing to check the machine against, or while
+  /// what it has does not match. Both are states a dial refuses in, and this
+  /// row is the only way out of the first.
+  bool get _unverified =>
+      host.hostKey == null ||
+      outcome?.kind == AgentOutcomeKind.hostKeyUnverified ||
+      outcome?.kind == AgentOutcomeKind.hostKeyChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final probes = ref.watch(linkProbesProvider);
+    return AnimatedBuilder(
+      animation: probes,
+      builder: (context, _) {
+        final result = probes.forHost(host.id);
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => unawaited(probes.probe(host, force: true)),
+          child: _MetaRow(
+            'LINK',
+            linkWord(result),
+            color: linkFailed(result) ? HotlineColors.warning : null,
+            trailing: _unverified
+                ? PanelAffordance(
+                    'VERIFY',
+                    showIcon: false,
+                    onTap: () => unawaited(_verify(context, ref)),
+                  )
+                : null,
+          ),
+        );
+      },
+    );
+  }
+
+  /// A dial that opens nothing and exists to put the key on screen. A refused
+  /// one leaves the reason where it already was — on the host's own state row
+  /// — rather than throwing a sheet at the user twice.
+  Future<void> _verify(BuildContext context, WidgetRef ref) async {
+    final privateKey = await ref
+        .read(ed25519KeysProvider)
+        .privateKey(host.keyId);
+    if (privateKey == null || !context.mounted) return;
+    final verifier = HostKeyVerifier(
+      pinned: host.hostKey,
+      prompt: (offer) => askHostKey(context, host: host, offer: offer),
+      pin: (key) => ref.read(hostRepositoryProvider).pinHostKey(host.id, key),
+    );
+    try {
+      await ref.read(hostKeyDialProvider)(
+        address: host.address,
+        port: host.port,
+        user: host.user,
+        privateKey: privateKey,
+        verifier: verifier,
+      );
+    } catch (error) {
+      debugPrint('hotline.verify ${host.name}: $error');
+    }
   }
 }
 
@@ -468,7 +599,11 @@ class _StateDot extends StatelessWidget {
     final color = switch (state) {
       ShellLive() => HotlineColors.accent,
       ShellFailed() => HotlineColors.warning,
-      ShellConnecting() || ShellExited() => HotlineColors.textMuted,
+      // A dropped session is neither: there is no shell on the other end and
+      // the store has not given up on getting one.
+      ShellConnecting() ||
+      ShellDropped() ||
+      ShellExited() => HotlineColors.textMuted,
     };
     return Container(
       width: _dotSize,

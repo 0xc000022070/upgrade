@@ -8,8 +8,29 @@ import 'package:hotline/application/alerts.dart';
 import 'package:hotline/data/repositories/host_repository.dart';
 import 'package:hotline/platform/agent_watcher.dart';
 import 'package:hotline/platform/herdr_client.dart';
+import 'package:hotline/platform/host_keys.dart';
+import 'package:hotline/platform/keys.dart';
 
 /// The alerts regression list.
+
+/// A client that never dials: it keeps what it was handed to check the host
+/// with, and reports the host as down so the loop backs off instead of
+/// looping on it.
+class RecordingHerdrClient extends HerdrClient {
+  final verifiers = <HostKeyVerifier?>[];
+
+  @override
+  Future<HerdrSession> connect({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    HostKeyVerifier? verifier,
+  }) async {
+    verifiers.add(verifier);
+    throw const HerdrUnreachable('no machine behind a test');
+  }
+}
 
 AgentSnapshot snapshot({
   String pane = 'wQ:p1',
@@ -436,4 +457,38 @@ void main() {
     expect(decoded.retryIn, const Duration(seconds: 20));
     expect(decoded.toOutcome(host).reason, 'nyx unreachable');
   });
+
+  test(
+    'the watcher dials with a verifier that refuses an unpinned host',
+    () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      final store = MemoryPrivateKeyStore();
+      await store.write('k1', 'PRIVATE KEY');
+      final client = RecordingHerdrClient();
+      final handler = AgentWatcherHandler(
+        keys: Ed25519Keys(store),
+        client: client,
+      );
+
+      // `host` has no key pinned to it, which is the state a host is in until
+      // someone stands in front of a fingerprint and says yes.
+      await handler.setHosts(const [host]);
+      final deadline = DateTime.now().add(const Duration(seconds: 5));
+      while (client.verifiers.isEmpty && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      await handler.onDestroy(DateTime.now(), false);
+
+      final verifier = client.verifiers.single!;
+      // A service in a notification tray has nobody to ask, so the host is not
+      // trusted for the first time here: it is left for a route the user is
+      // looking at.
+      expect(verifier.prompt, isNull);
+      expect(
+        await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:whatever'),
+        isFalse,
+      );
+      expect(verifier.refusal, HostKeyRefusal.unverified);
+    },
+  );
 }

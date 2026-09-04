@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/dispatch_repository.dart';
 import '../data/repositories/path_repository.dart';
 import '../platform/herdr_client.dart';
+import '../platform/host_keys.dart';
 import '../platform/keys.dart';
 import 'agents.dart';
 import 'providers.dart';
@@ -20,6 +21,7 @@ typedef HerdrSend = Future<SpawnResult> Function({
   required String kind,
   required String directory,
   required String prompt,
+  HostKeyVerifier? verifier,
 });
 
 /// The evidence seam, the one the watcher already uses. With
@@ -36,6 +38,7 @@ Future<SpawnResult> _fakeSend({
   required String kind,
   required String directory,
   required String prompt,
+  HostKeyVerifier? verifier,
 }) async {
   // Long enough that SENDING is a state the eye reads rather than a flicker.
   await Future<void>.delayed(const Duration(milliseconds: 900));
@@ -128,6 +131,7 @@ class Sender {
         kind: target.path.agent,
         directory: target.path.directory,
         prompt: sendPrompt(title: title, links: links),
+        verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
       );
     } on HerdrFailure catch (error) {
       log(error.detail ?? error);
@@ -136,6 +140,8 @@ class Sender {
         HerdrProtocolMismatch() => 'protocol ${error.protocol}',
         HerdrUnresolved() => '${host.name.toLowerCase()} unresolved',
         HerdrUnreachable() => '${host.name.toLowerCase()} unreachable',
+        HerdrHostKeyUnverified() => hostKeyReason(HostKeyRefusal.unverified),
+        HerdrHostKeyChanged() => hostKeyReason(HostKeyRefusal.changed),
       });
     }
     switch (result) {

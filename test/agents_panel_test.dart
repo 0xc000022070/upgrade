@@ -12,6 +12,7 @@ import 'package:hotline/features/home/agent_mark.dart';
 import 'package:hotline/features/home/agents_panel.dart';
 import 'package:hotline/platform/herdr_client.dart';
 import 'package:hotline/platform/keys.dart';
+import 'package:hotline/platform/host_keys.dart';
 
 const hostA = Host(
   id: 'a',
@@ -78,6 +79,7 @@ void main() {
           required int port,
           required String user,
           required String privateKey,
+          HostKeyVerifier? verifier,
         }) async {
           fetches++;
           return const [];
@@ -92,6 +94,52 @@ void main() {
     expect(state.noHost, isTrue);
     expect(fetches, 0);
   });
+
+  test(
+    'the poll dials with a verifier that refuses an unpinned host',
+    () async {
+      final hosts = InMemoryHostRepository();
+      await hosts.save(hostA);
+      await hosts.setIntegration(hostA.id, IntegrationKind.herdr, true);
+      final privateKeys = MemoryPrivateKeyStore();
+      await privateKeys.write('key-a', 'private-a');
+      final verifiers = <HostKeyVerifier?>[];
+      final container = ProviderContainer(
+        overrides: [
+          hostRepositoryProvider.overrideWithValue(hosts),
+          privateKeyStoreProvider.overrideWithValue(privateKeys),
+          homeAgentsVisibleProvider.overrideWith((ref) => true),
+          herdrFetchProvider.overrideWithValue(({
+            required String address,
+            required int port,
+            required String user,
+            required String privateKey,
+            HostKeyVerifier? verifier,
+          }) async {
+            verifiers.add(verifier);
+            return const <AgentSnapshot>[];
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(herdrHostsProvider.future);
+      final subscription = container.listen(agentsFeedProvider, (_, _) {});
+      addTearDown(subscription.close);
+
+      await _waitFor(() => verifiers.isNotEmpty);
+      final verifier = verifiers.first!;
+
+      // A poll happens with the phone in a pocket. There is nobody to put a
+      // fingerprint in front of, so the host is not trusted for the first time
+      // here — it is left for a route where the user can look at it.
+      expect(verifier.prompt, isNull);
+      expect(
+        await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:whatever'),
+        isFalse,
+      );
+      expect(verifier.refusal, HostKeyRefusal.unverified);
+    },
+  );
 
   test('the poll set is every host with HERDR on', () async {
     final hosts = InMemoryHostRepository();
@@ -118,6 +166,7 @@ void main() {
           required int port,
           required String user,
           required String privateKey,
+          HostKeyVerifier? verifier,
         }) async {
           addresses.add('$address:$port');
           if (address == hostB.address) throw const HerdrUnreachable();
@@ -187,6 +236,7 @@ void main() {
           required int port,
           required String user,
           required String privateKey,
+          HostKeyVerifier? verifier,
         }) async {
           throw const HerdrUnresolved("Failed host lookup: 'nope.invalid'");
         }),

@@ -10,7 +10,9 @@ import '../../design/colors.dart';
 import '../../design/components/panel.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
+import '../../platform/host_keys.dart';
 import '../../platform/vnc/vnc_tunnel.dart';
+import '../access/host_key_sheet.dart';
 import 'framebuffer_view.dart';
 import 'keys_strip.dart';
 import 'screen_controller.dart';
@@ -67,12 +69,21 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
     _controller = HostScreenController(
       host: widget.host,
       readPrivateKey: ref.read(ed25519KeysProvider).privateKey,
+      pinHostKey: ref.read(hostRepositoryProvider).pinHostKey,
+      prompt: _askHostKey,
       open: widget.open,
     );
     // The only route that allows landscape.
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     _controller.connect();
     unawaited(_openPreviews());
+  }
+
+  /// The screen is a route the user is looking at, so an unknown key is a
+  /// question rather than a refusal.
+  Future<bool> _askHostKey(HostKeyOffer offer) async {
+    if (!mounted) return false;
+    return askHostKey(context, host: widget.host, offer: offer);
   }
 
   /// A store that will not open costs the host its tile and nothing else — the

@@ -31,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'hotline'));
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   /// From v2 on there is real data on the user's handset, so the
   /// upgrade is additive — two new tables and two nullable columns, nothing
@@ -104,6 +104,16 @@ SELECT id, task_id, 'url', url, created_at FROM links
       if (from < 9) {
         await m.createTable(paths);
         await m.createTable(dispatches);
+      }
+      // The same shape as the port column above: a database from below 7 has
+      // its hosts table created from the current definition, which already
+      // carries these three, so only one that already had the table gets them
+      // added. Nullable and not backfilled — an unpinned host pins on its next
+      // connection, which is the one place the fingerprint can be learned.
+      if (from >= 7 && from < 10) {
+        await m.addColumn(hosts, hosts.hostKeyType);
+        await m.addColumn(hosts, hosts.hostKeyFingerprint);
+        await m.addColumn(hosts, hosts.hostKeyPinnedAt);
       }
     },
   );

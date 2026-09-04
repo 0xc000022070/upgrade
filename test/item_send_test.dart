@@ -19,6 +19,7 @@ import 'package:hotline/features/tasks/item_sheet.dart';
 import 'package:hotline/features/tasks/sent_tag.dart';
 import 'package:hotline/platform/herdr_client.dart';
 import 'package:hotline/platform/keys.dart';
+import 'package:hotline/platform/host_keys.dart';
 
 import 'support/platform_channels.dart';
 
@@ -221,6 +222,7 @@ void main() {
 
     test('a pane id is a row, and the row says where it went', () async {
       final calls = <_Call>[];
+      final verifiers = <HostKeyVerifier?>[];
       final itemId = await onlyTaskId();
       await db
           .into(db.paths)
@@ -244,8 +246,10 @@ void main() {
             required kind,
             required directory,
             required prompt,
+            verifier,
           }) async {
             calls.add(_Call(kind, directory, prompt));
+            verifiers.add(verifier);
             return const SpawnSent('wQ:p7');
           })(
             target: _target(),
@@ -259,6 +263,17 @@ void main() {
       expect(calls.single.kind, 'claude');
       expect(calls.single.directory, '~/src/hotline');
       expect(calls.single.prompt, 'read the gate log\n\nhttps://a.example');
+
+      // A send goes out from a list the user tapped, not from a route showing
+      // a fingerprint, so an unpinned host is refused here as it is on every
+      // other path nobody is watching.
+      final verifier = verifiers.single!;
+      expect(verifier.prompt, isNull);
+      expect(
+        await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:whatever'),
+        isFalse,
+      );
+      expect(verifier.refusal, HostKeyRefusal.unverified);
 
       final rows = await dispatches.watchForItem(itemId).first;
       expect(rows, hasLength(1));
@@ -289,6 +304,7 @@ void main() {
                 required kind,
                 required directory,
                 required prompt,
+                verifier,
               }) async => SpawnRefused(refusal),
             )(
               target: _target(),
@@ -318,6 +334,7 @@ void main() {
                 required kind,
                 required directory,
                 required prompt,
+                verifier,
               }) async => throw failure,
             )(
               target: _target(),
@@ -348,6 +365,7 @@ void main() {
             required kind,
             required directory,
             required prompt,
+            verifier,
           }) async {
             dialled = true;
             return const SpawnSent('wQ:p7');
@@ -463,6 +481,7 @@ void main() {
                 required kind,
                 required directory,
                 required prompt,
+                verifier,
               }) async {
                 seen = prompt;
                 return const SpawnSent('wQ:p7');
@@ -505,6 +524,7 @@ void main() {
                 required kind,
                 required directory,
                 required prompt,
+                verifier,
               }) async {
                 attempts++;
                 return attempts == 1

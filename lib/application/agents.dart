@@ -7,6 +7,8 @@ import '../data/enums.dart';
 import '../data/repositories/host_repository.dart';
 import '../data/repositories/key_repository.dart';
 import '../platform/herdr_client.dart';
+import '../platform/host_key_dial.dart';
+import '../platform/host_keys.dart';
 import '../platform/keys.dart';
 
 /// What one host answered on the last poll. Every host with
@@ -19,6 +21,14 @@ enum AgentOutcomeKind {
   unresolved,
   keyRejected,
   protocolMismatch,
+
+  /// The host has no key pinned. The poll never asks — the question belongs on
+  /// a screen the user is looking at — so it refuses and says so, and ACCESS
+  /// carries the `VERIFY` that answers it.
+  hostKeyUnverified,
+
+  /// The host answered with a key that is not the one pinned for it.
+  hostKeyChanged,
 }
 
 class HostOutcome {
@@ -52,6 +62,10 @@ class HostOutcome {
     AgentOutcomeKind.unresolved => '${host.name.toLowerCase()} unresolved',
     AgentOutcomeKind.keyRejected => 'key rejected',
     AgentOutcomeKind.protocolMismatch => 'protocol ${protocol ?? '?'}',
+    AgentOutcomeKind.hostKeyUnverified => hostKeyReason(
+      HostKeyRefusal.unverified,
+    ),
+    AgentOutcomeKind.hostKeyChanged => hostKeyReason(HostKeyRefusal.changed),
   };
 }
 
@@ -178,12 +192,18 @@ typedef HerdrFetch = Future<List<AgentSnapshot>> Function({
   required int port,
   required String user,
   required String privateKey,
+  HostKeyVerifier? verifier,
 });
 
 final herdrFetchProvider = Provider<HerdrFetch>((ref) {
   const client = HerdrClient();
   return client.fetch;
 });
+
+/// The dial `VERIFY` makes, which opens nothing: it exists to put the host's
+/// key in front of the user. Injectable for the same reason every other
+/// transport here is.
+final hostKeyDialProvider = Provider<HostKeyDial>((ref) => dialHostKey);
 
 class _AgentSnapshotCache {
   final Map<String, _CachedSnapshot> _hosts = {};
@@ -299,6 +319,10 @@ Future<HostOutcome> _poll(
       port: host.port,
       user: host.user,
       privateKey: privateKey,
+      // The poll runs behind whatever screen is in front. It cannot put a
+      // question on it, so an unpinned host is refused here and verified from
+      // its ACCESS panel instead.
+      verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
     );
     cache
       ..agents = agents
@@ -319,6 +343,8 @@ Future<HostOutcome> _poll(
       ),
       HerdrUnresolved() => failure(AgentOutcomeKind.unresolved),
       HerdrUnreachable() => failure(AgentOutcomeKind.unreachable),
+      HerdrHostKeyUnverified() => failure(AgentOutcomeKind.hostKeyUnverified),
+      HerdrHostKeyChanged() => failure(AgentOutcomeKind.hostKeyChanged),
     };
   }
 }

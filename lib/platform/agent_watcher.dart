@@ -9,6 +9,7 @@ import '../application/alerts.dart';
 import '../data/repositories/host_repository.dart';
 import 'alert_notifications.dart';
 import 'herdr_client.dart';
+import 'host_keys.dart';
 import 'keys.dart';
 
 /// The watcher: the foreground service that holds one `agent
@@ -325,10 +326,14 @@ class AgentWatcherHandler extends TaskHandler {
 
   Future<void> _reloadFromStore() async {
     final raw = await FlutterForegroundTask.getData<String>(key: _hostsKey);
-    await _setHosts(decodeWatcherHosts(raw));
+    await setHosts(decodeWatcherHosts(raw));
   }
 
-  Future<void> _setHosts(List<Host> hosts) async {
+  /// The hosts this service watches. Public only so a test can reach the loops
+  /// without the store the isolate reads them from, which is a plugin channel
+  /// no test binding answers.
+  @visibleForTesting
+  Future<void> setHosts(List<Host> hosts) async {
     _hosts = hosts;
     final wanted = {for (final host in hosts) host.id: host};
     for (final id in _loops.keys.toList()) {
@@ -465,6 +470,9 @@ class _HostLoop {
       port: host.port,
       user: host.user,
       privateKey: privateKey,
+      // A background service with nothing on screen: an unpinned host is
+      // refused rather than trusted on nobody's word.
+      verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
     );
     _session = session;
     // No reset here. Every blocked pane counts as new on the first
@@ -551,6 +559,8 @@ AgentOutcomeKind _kindOf(HerdrFailure error) => switch (error) {
   HerdrProtocolMismatch() => AgentOutcomeKind.protocolMismatch,
   HerdrUnresolved() => AgentOutcomeKind.unresolved,
   HerdrUnreachable() => AgentOutcomeKind.unreachable,
+  HerdrHostKeyUnverified() => AgentOutcomeKind.hostKeyUnverified,
+  HerdrHostKeyChanged() => AgentOutcomeKind.hostKeyChanged,
 };
 
 int? _protocolOf(HerdrFailure error) =>

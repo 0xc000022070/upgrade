@@ -71,6 +71,8 @@ String alertFailureReason(HerdrFailure failure) => switch (failure) {
   HerdrProtocolMismatch(:final protocol) => 'PROTOCOL ${protocol ?? '?'}',
   HerdrUnresolved() => 'UNRESOLVED',
   HerdrUnreachable() => 'UNREACHABLE',
+  HerdrHostKeyUnverified() => 'HOST KEY UNVERIFIED',
+  HerdrHostKeyChanged() => 'HOST KEY CHANGED',
 };
 
 /// The actions come back if 10 s pass with no change.

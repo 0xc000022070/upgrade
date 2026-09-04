@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:dartssh2/dartssh2.dart';
 
+import 'host_keys.dart';
+
 class AgentSnapshot {
   const AgentSnapshot({
     required this.paneId,
@@ -130,6 +132,17 @@ final class HerdrUnresolved extends HerdrFailure {
 
 final class HerdrKeyRejected extends HerdrFailure {
   const HerdrKeyRejected([super.detail]);
+}
+
+/// Nothing is pinned for this host, and nothing on this path may ask: the
+/// poll, the watcher and the send all run with nobody looking at them.
+final class HerdrHostKeyUnverified extends HerdrFailure {
+  const HerdrHostKeyUnverified([super.detail]);
+}
+
+/// The machine presented a key that is not the one pinned for it.
+final class HerdrHostKeyChanged extends HerdrFailure {
+  const HerdrHostKeyChanged([super.detail]);
 }
 
 final class HerdrProtocolMismatch extends HerdrFailure {
@@ -370,9 +383,11 @@ class HerdrClient {
     required int port,
     required String user,
     required String privateKey,
+    HostKeyVerifier? verifier,
   }) async {
     final socket = await _guard(
       () => SSHSocket.connect(address, port, timeout: timeout),
+      verifier,
     );
     final client = SSHClient(
       socket,
@@ -381,9 +396,10 @@ class HerdrClient {
       handshakeTimeout: timeout,
       authTimeout: timeout,
       keepAliveInterval: keepAlive,
+      onVerifyHostKey: verifier?.verify,
     );
     try {
-      await _guard(() => client.authenticated);
+      await _guard(() => client.authenticated, verifier);
       return HerdrSession._(socket, client);
     } on HerdrFailure {
       // A half-open connection is worse than none: the host would count it
@@ -399,12 +415,14 @@ class HerdrClient {
     required int port,
     required String user,
     required String privateKey,
+    HostKeyVerifier? verifier,
   }) async {
     final session = await connect(
       address: address,
       port: port,
       user: user,
       privateKey: privateKey,
+      verifier: verifier,
     );
     try {
       return await session.list();
@@ -421,12 +439,14 @@ class HerdrClient {
     required String kind,
     required String directory,
     required String prompt,
+    HostKeyVerifier? verifier,
   }) async {
     final session = await connect(
       address: address,
       port: port,
       user: user,
       privateKey: privateKey,
+      verifier: verifier,
     );
     try {
       return await session.spawn(
@@ -447,8 +467,18 @@ class HerdrClient {
 /// that never connected, and the watcher says why in those same words.
 /// Null for anything this app did not expect from ssh: a bug in the layer above
 /// reads better as itself than as `nyx unreachable`.
-HerdrFailure? asHerdrFailure(Object error) => switch (error) {
+HerdrFailure? asHerdrFailure(
+  Object error, [
+  HostKeyRefusal? refusal,
+]) => switch (error) {
   HerdrFailure() => error,
+  // The verifier's answer is the reason, whatever error the closing handshake
+  // surfaced.
+  _ when refusal != null => switch (refusal) {
+    HostKeyRefusal.unverified => HerdrHostKeyUnverified('$error'),
+    HostKeyRefusal.changed => HerdrHostKeyChanged('$error'),
+  },
+  SSHHostkeyError() => HerdrHostKeyChanged('$error'),
   SSHAuthFailError() => HerdrKeyRejected('$error'),
   SSHKeyDecodeError() => HerdrKeyRejected('$error'),
   // The only failure that happens before an address exists.
@@ -461,10 +491,13 @@ HerdrFailure? asHerdrFailure(Object error) => switch (error) {
   _ => null,
 };
 
-Future<T> _guard<T>(Future<T> Function() body) async {
+Future<T> _guard<T>(
+  Future<T> Function() body, [
+  HostKeyVerifier? verifier,
+]) async {
   try {
     return await body();
   } catch (error) {
-    throw asHerdrFailure(error) ?? error;
+    throw asHerdrFailure(error, verifier?.refusal) ?? error;
   }
 }

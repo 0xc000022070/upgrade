@@ -9,8 +9,10 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
+import '../../platform/host_keys.dart';
 import '../../platform/shell/shell_connection.dart';
 import '../../platform/vnc/keysyms.dart';
+import '../access/host_key_sheet.dart';
 import 'shell_bar.dart';
 import 'shell_sessions.dart';
 
@@ -64,7 +66,7 @@ const _shellTextStyle = TerminalStyle(
 const _headerHeight = TapTargets.minHeight;
 
 /// The row under it, drawn only when there is a failure to explain. Shorter
-/// than the header because it carries no hit target but `RETRY`.
+/// than the header because it carries no hit target at all.
 const _reasonHeight = 32.0;
 
 /// How much of the header the tabs may take before they start to scroll inside
@@ -114,7 +116,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       } else if (sessions.forHost(widget.host.id).isEmpty) {
         // A first visit opens one shell; a return finds the ones already
         // running and opens nothing.
-        sessions.open(widget.host);
+        sessions.open(widget.host, prompt: _askHostKey);
       }
     });
   }
@@ -175,7 +177,15 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   }
 
   void _onNew() {
-    _store.open(widget.host);
+    _store.open(widget.host, prompt: _askHostKey);
+  }
+
+  /// The route is in front of the user, so a machine that has never been
+  /// connected to is asked about rather than refused. The dial is waiting on
+  /// this future inside the handshake.
+  Future<bool> _askHostKey(HostKeyOffer offer) async {
+    if (!mounted) return false;
+    return askHostKey(context, host: widget.host, offer: offer);
   }
 
   Future<void> _onClose(ShellSession session) async {
@@ -220,18 +230,14 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                   onSelect: _onSelect,
                   onNew: _onNew,
                   onClose: active == null ? null : () => _onClose(active),
-                  onRetry: active == null
+                  onStop: active == null
                       ? null
-                      : () => store.retry(widget.host, active),
+                      : () => store.stopReconnect(active),
                 ),
                 // The whole of what a failure costs the terminal: one short row,
                 // and only while there is a failure.
-                if (state is ShellFailed && active != null)
-                  _ReasonRow(
-                    host: widget.host,
-                    kind: state.kind,
-                    onRetry: () => store.retry(widget.host, active),
-                  ),
+                if (state is ShellFailed)
+                  _ReasonRow(host: widget.host, kind: state.kind),
                 Expanded(
                   child: active == null
                       ? const SizedBox.shrink()
@@ -296,7 +302,7 @@ class _Header extends StatelessWidget {
     required this.onSelect,
     required this.onNew,
     required this.onClose,
-    required this.onRetry,
+    required this.onStop,
   });
 
   final Host host;
@@ -306,7 +312,7 @@ class _Header extends StatelessWidget {
   final void Function(ShellSession session) onSelect;
   final VoidCallback onNew;
   final VoidCallback? onClose;
-  final VoidCallback? onRetry;
+  final VoidCallback? onStop;
 
   @override
   Widget build(BuildContext context) {
@@ -356,7 +362,7 @@ class _Header extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-                child: _Middle(session: active, onRetry: onRetry),
+                child: _Middle(session: active, onStop: onStop),
               ),
             ),
             if (onClose != null)
@@ -377,10 +383,10 @@ class _Header extends StatelessWidget {
 /// it is not. Nothing at all for a live shell that never named itself: the
 /// prompt under it is already saying everything this line could.
 class _Middle extends StatelessWidget {
-  const _Middle({required this.session, required this.onRetry});
+  const _Middle({required this.session, required this.onStop});
 
   final ShellSession? session;
-  final VoidCallback? onRetry;
+  final VoidCallback? onStop;
 
   @override
   Widget build(BuildContext context) {
@@ -389,55 +395,58 @@ class _Middle extends StatelessWidget {
       null => null,
       ShellLive() => session?.title,
       ShellConnecting() => 'CONNECTING',
+      ShellDropped(:final attempt) =>
+        'RECONNECTING $attempt/${shellReconnectDelays.length}',
       ShellExited(:final code) => 'EXITED ${code ?? '—'}',
       ShellFailed(:final kind) => _kindWord(kind),
     };
     if (word == null) return const SizedBox.shrink();
     final label = Text(
       word,
-      style: HotlineText.panelHeader,
+      style: state is ShellDropped
+          ? HotlineText.panelHeader.copyWith(color: HotlineColors.textMuted)
+          : HotlineText.panelHeader,
       textAlign: TextAlign.right,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
-    // A shell that ran and stopped costs the terminal no row, so the way back
-    // into it rides beside the word that says it ended.
-    if (state is! ShellExited || onRetry == null) return label;
+    // The only hit target the row carries. Dialling again is the app's job, so
+    // there is nothing to press while it works — stopping it is the one part
+    // of a reconnect that is a decision, and only the user can make it.
+    if (state is! ShellDropped || onStop == null) return label;
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Flexible(child: label),
         const SizedBox(width: Spacing.lg),
-        PanelAffordance('RETRY', showIcon: false, onTap: onRetry!),
+        PanelAffordance('STOP', showIcon: false, onTap: onStop!),
       ],
     );
   }
 }
 
 /// The failure as one word for the header. The sentence with the host's name
-/// in it belongs to the row underneath, which is the one with the way back on
-/// it.
+/// in it belongs to the row underneath.
 String _kindWord(ShellFailureKind kind) => switch (kind) {
   ShellFailureKind.unresolved => 'UNRESOLVED',
   ShellFailureKind.unreachable => 'UNREACHABLE',
   ShellFailureKind.keyRejected => 'KEY REJECTED',
   ShellFailureKind.shellRefused => 'SHELL REFUSED',
   ShellFailureKind.streamClosed => 'STREAM CLOSED',
+  ShellFailureKind.hostKeyUnverified => 'HOST KEY UNVERIFIED',
+  ShellFailureKind.hostKeyChanged => 'HOST KEY CHANGED',
 };
 
-/// Why the shell is not there, in a sentence with the host's name in it. No
-/// reconnect loop behind the way back: a host that is down stays down until
-/// the user says otherwise.
+/// Why the shell is not there, in a sentence with the host's name in it.
+///
+/// Only the failures the schedule gave up on or never took reach this row: a
+/// key the host rejected and a key that changed are not waited out, they are
+/// read and acted on somewhere else.
 class _ReasonRow extends StatelessWidget {
-  const _ReasonRow({
-    required this.host,
-    required this.kind,
-    required this.onRetry,
-  });
+  const _ReasonRow({required this.host, required this.kind});
 
   final Host host;
   final ShellFailureKind kind;
-  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -457,8 +466,6 @@ class _ReasonRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: Spacing.lg),
-          PanelAffordance('RETRY', showIcon: false, onTap: onRetry),
         ],
       ),
     );

@@ -5,6 +5,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 
 import '../herdr_client.dart';
+import '../host_keys.dart';
 import 'shell_connection.dart';
 
 /// The slice of [SSHClient] this file uses, named so a test can stand in for
@@ -42,6 +43,7 @@ typedef ShellDialer = Future<ShellHost> Function({
   required String privateKey,
   required Duration timeout,
   required Duration keepAlive,
+  HostKeyVerifier? verifier,
 });
 
 /// The transport: the host's own ssh connection with the remote's login shell
@@ -79,6 +81,7 @@ class ShellTunnel {
     required String privateKey,
     required int columns,
     required int rows,
+    HostKeyVerifier? verifier,
   }) async {
     final host = await _guard(
       address,
@@ -89,15 +92,22 @@ class ShellTunnel {
         privateKey: privateKey,
         timeout: timeout,
         keepAlive: keepAlive,
+        verifier: verifier,
       ),
+      verifier,
     );
     try {
-      await _guard(address, () => host.authenticated);
+      // The host key is checked inside the handshake, which is what
+      // [ShellHost.authenticated] is waiting on: a refusal surfaces here as an
+      // ssh error, and the verifier is the only thing that knows which of the
+      // two refusals it was.
+      await _guard(address, () => host.authenticated, verifier);
       final pty = await _guard(
         address,
         () => host.shell(
           SSHPtyConfig(type: terminalType, width: columns, height: rows),
         ),
+        verifier,
       );
       _log(address, 'shell on $terminalType ${columns}x$rows');
       return SshShellConnection(host, pty);
@@ -110,11 +120,19 @@ class ShellTunnel {
     }
   }
 
-  Future<T> _guard<T>(String address, Future<T> Function() body) async {
+  Future<T> _guard<T>(
+    String address,
+    Future<T> Function() body, [
+    HostKeyVerifier? verifier,
+  ]) async {
     try {
       return await body();
     } catch (error) {
-      final failure = shellFailureFor(error);
+      // The refusal wins over whatever the transport threw. A rejected host
+      // key closes the connection, and which error that close surfaces as
+      // depends on how far the handshake had got; the verifier's answer does
+      // not.
+      final failure = shellFailureFor(error, verifier?.refusal);
       _log(address, '${failure ?? error}');
       throw failure ?? error;
     }
@@ -128,8 +146,25 @@ void _log(String address, Object message) =>
 ///
 /// Null for anything unexpected: the real error belongs in the debug log, and
 /// a bug in the layer above reads better as itself than as a reason line.
-ShellFailure? shellFailureFor(Object error) => switch (error) {
+ShellFailure? shellFailureFor(
+  Object error, [
+  HostKeyRefusal? refusal,
+]) => switch (error) {
   ShellFailure() => error,
+  // The verifier said no, and the connection went away carrying whichever
+  // error the handshake had reached. The refusal is the reason, whatever the
+  // error is, so it is read before the error is looked at.
+  _ when refusal != null => ShellFailure(switch (refusal) {
+    HostKeyRefusal.unverified => ShellFailureKind.hostKeyUnverified,
+    HostKeyRefusal.changed => ShellFailureKind.hostKeyChanged,
+  }, detail: '$error'),
+  // Nobody refused anything and the key still did not check out: the server's
+  // signature was wrong, or it swapped its key across a rekey. Either way the
+  // machine is not the one that was pinned.
+  SSHHostkeyError() => ShellFailure(
+    ShellFailureKind.hostKeyChanged,
+    detail: '$error',
+  ),
   // The channel open, or the pty or shell request on it. All three are the
   // same sentence to the user: sshd would not give them a shell.
   SSHChannelOpenError() => ShellFailure(
@@ -153,7 +188,7 @@ ShellFailure? shellFailureFor(Object error) => switch (error) {
   // under it, or nothing came back at all. What the socket said, if it said
   // anything, is the better line of the two.
   SSHAuthAbortError(:final reason?) =>
-    shellFailureFor(reason) ??
+    shellFailureFor(reason, refusal) ??
         ShellFailure(ShellFailureKind.streamClosed, detail: '$error'),
   SSHAuthAbortError() => ShellFailure(
     ShellFailureKind.streamClosed,
@@ -168,7 +203,7 @@ ShellFailure? shellFailureFor(Object error) => switch (error) {
   // The socket's own error, wrapped. Unwrapped here so a refused connection
   // under a handshake reads as the refusal it is.
   SSHSocketError() =>
-    shellFailureFor(error.error) ??
+    shellFailureFor(error.error, refusal) ??
         ShellFailure(ShellFailureKind.unreachable, detail: '$error'),
   // The only failure that happens before an address exists. The test is
   // [HerdrClient]'s, deliberately: which errno family a lookup failure lands
@@ -198,6 +233,7 @@ Future<ShellHost> dialSsh({
   required String privateKey,
   required Duration timeout,
   required Duration keepAlive,
+  HostKeyVerifier? verifier,
 }) async {
   final socket = await SSHSocket.connect(address, port, timeout: timeout);
   final client = SSHClient(
@@ -207,6 +243,7 @@ Future<ShellHost> dialSsh({
     handshakeTimeout: timeout,
     authTimeout: timeout,
     keepAliveInterval: keepAlive,
+    onVerifyHostKey: verifier?.verify,
   );
   return _SshHost(socket, client);
 }

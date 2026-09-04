@@ -7,6 +7,7 @@ import 'package:xterm/xterm.dart';
 
 import '../../application/agents.dart';
 import '../../data/repositories/host_repository.dart';
+import '../../platform/host_keys.dart';
 import '../../platform/shell/shell_connection.dart';
 import '../../platform/shell/shell_tunnel.dart';
 import '../../platform/shell/strip_bytes.dart';
@@ -40,11 +41,45 @@ final class ShellExited extends ShellState {
   final int? code;
 }
 
+/// The link went away under a live shell and the store is bringing it back.
+/// [attempt] counts from 1 and is what the header reads out.
+final class ShellDropped extends ShellState {
+  const ShellDropped(this.attempt);
+
+  final int attempt;
+}
+
 final class ShellFailed extends ShellState {
   const ShellFailed(this.kind);
 
   final ShellFailureKind kind;
 }
+
+/// How long the store waits before each reconnect, and so how many it makes.
+/// The first two cover a wifi handover; the rest cover a lift ride and a
+/// tunnel, after which a phone that still cannot see the host is somewhere the
+/// user knows about.
+const shellReconnectDelays = <Duration>[
+  Duration(seconds: 1),
+  Duration(seconds: 2),
+  Duration(seconds: 5),
+  Duration(seconds: 10),
+  Duration(seconds: 20),
+  Duration(seconds: 30),
+];
+
+/// Written into the terminal above each new shell. A prompt appearing under a
+/// dead shell's output with no mark between them is a lie about what happened,
+/// and the dim SGR is what every other tool marks its own lines with.
+const shellReconnectMarker = '\r\n\x1b[2m-- reconnected --\x1b[0m\r\n';
+
+/// Whether losing the link this way is an accident worth reconnecting from. An
+/// exit code is the user's own `exit`; a rejected key, a refused shell and both
+/// host key failures are answers, and dialling again would only get the same
+/// one.
+bool shellReconnects(ShellFailureKind kind) =>
+    kind == ShellFailureKind.streamClosed ||
+    kind == ShellFailureKind.unreachable;
 
 /// The reason line for a failure, worded the way the screen route words its
 /// own, so a host says the same thing about itself wherever it fails.
@@ -54,6 +89,10 @@ String shellReason(ShellFailureKind kind, String host) => switch (kind) {
   ShellFailureKind.keyRejected => 'key rejected',
   ShellFailureKind.shellRefused => 'shell refused',
   ShellFailureKind.streamClosed => 'stream closed',
+  ShellFailureKind.hostKeyUnverified => hostKeyReason(
+    HostKeyRefusal.unverified,
+  ),
+  ShellFailureKind.hostKeyChanged => hostKeyReason(HostKeyRefusal.changed),
 };
 
 /// One shell: its tab number, its terminal, and the connection under it.
@@ -62,7 +101,16 @@ String shellReason(ShellFailureKind kind, String host) => switch (kind) {
 /// exited keeps every byte it printed, which is the only place the error the
 /// remote shell died of can still be read.
 class ShellSession {
-  ShellSession({required this.number, required this.terminal});
+  ShellSession({
+    required this.number,
+    required this.terminal,
+    required this.host,
+  });
+
+  /// The machine this tab is on. Mutable because the store is handed a fresh
+  /// [Host] on every open and retry, and a reconnect fired by a timer has
+  /// nobody to hand it one.
+  Host host;
 
   /// Its place in the tab row, `1`..`9`, fixed for the session's life. Numbers
   /// are handed out in open order and never reused, so closing tab 2 leaves
@@ -102,6 +150,11 @@ class ShellSession {
   /// Guards a retry tapped while an attempt is still in flight, which would
   /// otherwise leave two connections open against one host in one tab.
   int _attempt = 0;
+
+  /// The wait before the next reconnect. Cancelled by `STOP`, by a retry and
+  /// by the tab closing, all three of which are the user deciding what happens
+  /// next instead of the schedule.
+  Timer? _reconnect;
 }
 
 /// Every host's shells, for as long as the app is running.
@@ -110,10 +163,18 @@ class ShellSession {
 /// point: leaving `/ NYX SHELL` and coming back finds the tabs where they
 /// were, still running. The route disposing closes nothing.
 class ShellSessions extends ChangeNotifier {
-  ShellSessions({required this.readPrivateKey, ShellOpener? open})
-    : _open = open ?? const ShellTunnel().open;
+  ShellSessions({
+    required this.readPrivateKey,
+    required this.pinHostKey,
+    ShellOpener? open,
+  }) : _open = open ?? const ShellTunnel().open;
 
   final Future<String?> Function(String keyId) readPrivateKey;
+
+  /// Writes a host key the user has just trusted. The store is what has the
+  /// answer when the sheet closes, and the repository is the only thing that
+  /// can keep it.
+  final Future<void> Function(String hostId, PinnedHostKey key) pinHostKey;
 
   /// The transport. Injectable only so the store can be driven without a host
   /// to answer it; null everywhere but a test, which is where [ShellTunnel] is
@@ -128,6 +189,13 @@ class ShellSessions extends ChangeNotifier {
   final _nextNumber = <String, int>{};
 
   final _active = <String, int>{};
+
+  /// Keys pinned during this run, by host id.
+  ///
+  /// The [Host] a route hands in was read before the sheet said `TRUST`, so
+  /// without this the second tab on the same host would ask about the same key
+  /// again while the hosts stream catches up.
+  final _pinnedThisRun = <String, PinnedHostKey>{};
 
   List<ShellSession> forHost(String hostId) =>
       List.unmodifiable(_byHost[hostId] ?? const <ShellSession>[]);
@@ -153,45 +221,21 @@ class ShellSessions extends ChangeNotifier {
 
   /// Opens a shell and makes it the active tab. The `+` cell is gone at nine,
   /// so the refusal here is a guard rather than a path the user can walk.
-  ShellSession? open(Host host) {
+  ShellSession? open(Host host, {HostKeyPrompt? prompt}) {
     if (!canOpen(host.id)) return null;
     final number = _nextNumber[host.id] ?? 1;
     _nextNumber[host.id] = number + 1;
     final session = ShellSession(
       number: number,
       terminal: Terminal(maxLines: shellScrollback),
+      host: host,
     );
     _byHost.putIfAbsent(host.id, () => []).add(session);
     _active[host.id] = number;
     _wireTerminal(session);
     notifyListeners();
-    unawaited(_connect(host, session));
+    unawaited(_connect(host, session, prompt: prompt));
     return session;
-  }
-
-  /// Reopens a session in the tab it already holds. Its terminal is kept: what
-  /// the last attempt printed before it died is what the user is looking at
-  /// when they reach for `RETRY`.
-  Future<void> retry(Host host, ShellSession session) async {
-    // Bumped before anything closes: closing the old connection completes its
-    // exit future, and an exit belonging to the attempt being replaced would
-    // otherwise paint `EXITED` over the reconnect already under way.
-    session._attempt++;
-    await session._output?.cancel();
-    session._output = null;
-    session._decoder = null;
-    final previous = session.connection;
-    session.connection = null;
-    session._columns = null;
-    session._rows = null;
-    // The title belonged to the shell that died. A new one that never names
-    // itself would otherwise be read under the old one's name.
-    session.title = null;
-    session.sticky.clear();
-    session.state = const ShellConnecting();
-    notifyListeners();
-    await previous?.close();
-    await _connect(host, session);
   }
 
   /// Closes the connection and drops the tab. The number goes with it and is
@@ -200,6 +244,8 @@ class ShellSessions extends ChangeNotifier {
     // Bumped so the exit and the output stream of the connection being closed
     // cannot write a state onto a session that is already gone.
     session._attempt++;
+    session._reconnect?.cancel();
+    session._reconnect = null;
     session.sticky.clear();
     _byHost[hostId]?.remove(session);
     if (_active[hostId] == session.number) {
@@ -207,7 +253,7 @@ class ShellSessions extends ChangeNotifier {
       if (rest != null && rest.isNotEmpty) _active[hostId] = rest.last.number;
     }
     notifyListeners();
-    await session._output?.cancel();
+    unawaited(session._output?.cancel());
     session._output = null;
     session._decoder = null;
     final connection = session.connection;
@@ -262,7 +308,12 @@ class ShellSessions extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _connect(Host host, ShellSession session) async {
+  Future<void> _connect(
+    Host host,
+    ShellSession session, {
+    HostKeyPrompt? prompt,
+    bool reconnected = false,
+  }) async {
     final attempt = ++session._attempt;
     final privateKey = await readPrivateKey(host.keyId);
     if (attempt != session._attempt) return;
@@ -288,6 +339,17 @@ class ShellSessions extends ChangeNotifier {
         privateKey: privateKey,
         columns: columns,
         rows: rows,
+        verifier: HostKeyVerifier(
+          pinned: _pinnedThisRun[host.id] ?? host.hostKey,
+          // Null on a reconnect and on anything else that arrives without a
+          // route in front of the user, which is what makes those refuse an
+          // unpinned host instead of asking nobody.
+          prompt: prompt,
+          pin: (key) async {
+            _pinnedThisRun[host.id] = key;
+            await pinHostKey(host.id, key);
+          },
+        ),
       );
       if (attempt != session._attempt) {
         await connection.close();
@@ -297,6 +359,9 @@ class ShellSessions extends ChangeNotifier {
       session._columns = columns;
       session._rows = rows;
       session.state = const ShellLive();
+      // Before the decoder is wired, so the marker is above the new shell's
+      // first byte however fast the remote prints its prompt.
+      if (reconnected) session.terminal.write(shellReconnectMarker);
       session._decoder = utf8.decoder.startChunkedConversion(
         _TerminalSink(session.terminal),
       );
@@ -330,10 +395,74 @@ class ShellSessions extends ChangeNotifier {
   /// connection going away without a word for it.
   void _fail(ShellSession session, Object error, int attempt) {
     if (attempt != session._attempt) return;
-    session.state = ShellFailed(
-      error is ShellFailure ? error.kind : ShellFailureKind.streamClosed,
-    );
+    final kind = error is ShellFailure
+        ? error.kind
+        : ShellFailureKind.streamClosed;
+    final was = session.state;
+    final dropped = was is ShellDropped ? was.attempt : 0;
+    // Every dial the link itself lost, the first one included: there is no
+    // button for the user to press, so a host that was not there a second ago
+    // is tried again rather than left on screen as a dead tab.
+    if (shellReconnects(kind) && dropped < shellReconnectDelays.length) {
+      _drop(session, dropped + 1);
+      return;
+    }
+    session.state = ShellFailed(kind);
     notifyListeners();
+  }
+
+  /// Parks the schedule where the user stopped it. The session reads as a
+  /// dropped link that gave up, which is what it is; the way back into a shell
+  /// on this host is a new tab.
+  void stopReconnect(ShellSession session) {
+    if (session.state is! ShellDropped) return;
+    session._attempt++;
+    session._reconnect?.cancel();
+    session._reconnect = null;
+    session.state = const ShellFailed(ShellFailureKind.streamClosed);
+    notifyListeners();
+  }
+
+  void _drop(ShellSession session, int attempt) {
+    session.state = ShellDropped(attempt);
+    notifyListeners();
+    session._reconnect = Timer(
+      shellReconnectDelays[attempt - 1],
+      () => unawaited(_redial(session)),
+    );
+  }
+
+  /// The dial at the end of a wait: a new shell in the tab that already has
+  /// one, keeping its terminal, so what the dead shell printed is what the new
+  /// one prints under. The state is left on [ShellDropped] across it, which is
+  /// what keeps the header reading `RECONNECTING`.
+  Future<void> _redial(ShellSession session) async {
+    session._reconnect = null;
+    if (session.state is! ShellDropped) return;
+    // Bumped before anything closes: closing the old connection completes its
+    // exit future, and an exit belonging to the attempt being replaced would
+    // otherwise paint `EXITED` over the dial already under way.
+    session._attempt++;
+    // Not awaited, here or in [close]: a cancel takes effect the moment it is
+    // called — nothing else arrives from that stream — and the future it hands
+    // back belongs to the stream's own zone, which is not always one the
+    // caller's is running.
+    unawaited(session._output?.cancel());
+    session._output = null;
+    session._decoder = null;
+    final previous = session.connection;
+    session.connection = null;
+    // The title belonged to the shell that died. A new one that never names
+    // itself would otherwise be read under the old one's name.
+    session.title = null;
+    session.sticky.clear();
+    notifyListeners();
+    await previous?.close();
+    // No prompt: nothing about a timer firing says the user is looking at the
+    // route, so an unpinned host is refused here as it is anywhere else
+    // unattended.
+    if (session.state is! ShellDropped) return;
+    await _connect(session.host, session, reconnected: true);
   }
 }
 
@@ -357,5 +486,6 @@ final shellSessionsProvider = Provider<ShellSessions>((ref) {
   ref.keepAlive();
   return ShellSessions(
     readPrivateKey: ref.watch(ed25519KeysProvider).privateKey,
+    pinHostKey: ref.watch(hostRepositoryProvider).pinHostKey,
   );
 });

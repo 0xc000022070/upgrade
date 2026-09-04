@@ -17,6 +17,7 @@ import 'package:hotline/platform/keys.dart';
 import 'package:hotline/platform/vnc/rfb_client.dart';
 import 'package:hotline/platform/vnc/rfb_messages.dart';
 import 'package:hotline/platform/vnc/vnc_tunnel.dart';
+import 'package:hotline/platform/host_keys.dart';
 
 import 'support/vnc_channel.dart';
 
@@ -74,6 +75,7 @@ VncOpener _opener(_FakeConnection connection) =>
       required int port,
       required String user,
       required String privateKey,
+      HostKeyVerifier? verifier,
     }) async => connection;
 
 /// Decoding is real async, which the fake clock a widget test runs on never
