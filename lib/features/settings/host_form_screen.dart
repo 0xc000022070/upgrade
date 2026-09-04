@@ -28,6 +28,7 @@ import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/host_keys.dart';
+import '../access/host_key_sheet.dart';
 import '../home/agent_mark.dart';
 import '../screen/screen_preview.dart';
 import '../screen_scaffold.dart';
@@ -64,6 +65,11 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   late final TextEditingController _user;
   String? _keyId;
   bool _submitting = false;
+
+  /// Raised while the save is waiting on the host key sheet, so the bar says
+  /// what the form is doing rather than sitting on `CREATE HOST` through a
+  /// handshake and a question.
+  bool _verifying = false;
 
   /// The pin as the form found it, dropped in place when `FORGET KEY` is
   /// tapped. Not part of the draft the save writes: forgetting a key takes
@@ -348,10 +354,43 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     if (paths != null) {
       await ref.read(pathRepositoryProvider).replaceForHost(host.id, paths);
     }
+    // A machine is registered in order to be connected to, and until its key
+    // is pinned nothing in the app will connect to it. Asking here is the same
+    // question `VERIFY` asks on ACCESS, put where the machine is named.
+    if (_hostKey == null) await _verifyHostKey(host);
     if (mounted) {
       _leaving = true;
       Navigator.of(context).pop();
     }
+  }
+
+  /// Dials far enough to see the key and asks about it. Every failure leaves
+  /// the host saved and unpinned: the panel keeps `VERIFY` for it, and a
+  /// machine that is not answering while the user fills a form in is not a
+  /// reason to hold them on it.
+  Future<void> _verifyHostKey(Host host) async {
+    final privateKey = await ref
+        .read(ed25519KeysProvider)
+        .privateKey(host.keyId);
+    if (privateKey == null || !mounted) return;
+    setState(() => _verifying = true);
+    try {
+      await ref.read(hostKeyDialProvider)(
+        address: host.address,
+        port: host.port,
+        user: host.user,
+        privateKey: privateKey,
+        verifier: HostKeyVerifier(
+          prompt: (offer) async =>
+              mounted && await askHostKey(context, host: host, offer: offer),
+          pin: (key) =>
+              ref.read(hostRepositoryProvider).pinHostKey(host.id, key),
+        ),
+      );
+    } catch (error) {
+      debugPrint('hotline.verify ${host.name}: $error');
+    }
+    if (mounted) setState(() => _verifying = false);
   }
 
   Future<void> _delete() async {
@@ -480,9 +519,10 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                   // that is missing and does nothing when tapped.
                   final missing = _missing;
                   return SolidActionBar(
-                    label:
-                        missing ??
-                        (widget.host == null ? 'CREATE HOST' : 'SAVE'),
+                    label: _verifying
+                        ? 'VERIFYING'
+                        : missing ??
+                              (widget.host == null ? 'CREATE HOST' : 'SAVE'),
                     enabled: missing == null,
                     onTap: _submit,
                   );

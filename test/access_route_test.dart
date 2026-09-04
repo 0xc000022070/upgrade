@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/native.dart';
@@ -19,6 +20,7 @@ import 'package:hotline/features/screen/screen_preview.dart';
 import 'package:hotline/features/shell/shell_sessions.dart';
 import 'package:hotline/features/settings/settings_screen.dart';
 import 'package:hotline/platform/keys.dart';
+import 'package:hotline/platform/host_key_dial.dart';
 import 'package:hotline/platform/host_keys.dart';
 import 'package:hotline/platform/link_probe.dart';
 import 'package:hotline/platform/shell/shell_connection.dart';
@@ -66,6 +68,7 @@ void main() {
   late Map<String, LinkResult> answers;
   late List<String> probed;
   late LinkProbes probes;
+  late HostKeyDial dial;
 
   setUp(() {
     stubDeviceChannels();
@@ -87,6 +90,15 @@ void main() {
         return answers['$address:$port'] ?? const LinkResult.unknown();
       },
     );
+    // Nothing here dials, so the default is a dial that opens nothing and
+    // comes back; the tests that care hand their own in.
+    dial = ({
+      required address,
+      required port,
+      required user,
+      required privateKey,
+      required verifier,
+    }) async {};
     addTearDown(previews.dispose);
   });
 
@@ -95,19 +107,22 @@ void main() {
     return db.close();
   });
 
-  Widget app(Widget child, {int index = 0}) => ProviderScope(
-    overrides: [
-      navIndexProvider.overrideWith((ref) => index),
-      databaseProvider.overrideWithValue(db),
-      keyRepositoryProvider.overrideWithValue(keys),
-      hostRepositoryProvider.overrideWithValue(hosts),
-      privateKeyStoreProvider.overrideWithValue(privateKeys),
-      screenPreviewsProvider.overrideWith((ref) async => previews),
-      shellSessionsProvider.overrideWithValue(sessions),
-      linkProbesProvider.overrideWithValue(probes),
-    ],
-    child: MaterialApp(home: child),
-  );
+  Widget app(Widget child, {int index = 0, List<Override> extra = const []}) =>
+      ProviderScope(
+        overrides: [
+          ...extra,
+          navIndexProvider.overrideWith((ref) => index),
+          databaseProvider.overrideWithValue(db),
+          keyRepositoryProvider.overrideWithValue(keys),
+          hostRepositoryProvider.overrideWithValue(hosts),
+          privateKeyStoreProvider.overrideWithValue(privateKeys),
+          screenPreviewsProvider.overrideWith((ref) async => previews),
+          shellSessionsProvider.overrideWithValue(sessions),
+          linkProbesProvider.overrideWithValue(probes),
+          hostKeyDialProvider.overrideWith((ref) => dial),
+        ],
+        child: MaterialApp(home: child),
+      );
 
   /// The background grain runs off a ticker that never settles, so a test that
   /// ends with the tree mounted leaves a pending timer and hangs the file.
@@ -357,6 +372,123 @@ void main() {
 
     // One machine the app can recognise and one it cannot. The offer to look
     // stands only on the second.
+    expect(find.text('VERIFY'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('VERIFY says it is dialling, and says what the dial hit', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+    await privateKeys.write('key-1', 'PEM');
+    await hosts.pinHostKey(
+      _rose.id,
+      PinnedHostKey(
+        type: 'ssh-ed25519',
+        fingerprint: 'SHA256:rose',
+        pinnedAt: DateTime(2026, 9, 3),
+      ),
+    );
+    // The dial is held open, which is what the machine on the other end does
+    // while a user reads a fingerprint.
+    final answered = Completer<void>();
+    dial = ({
+      required address,
+      required port,
+      required user,
+      required privateKey,
+      required verifier,
+    }) => answered.future;
+
+    await tester.pumpWidget(app(const AccessScreen()));
+    await ready(tester);
+    await tester.tap(find.text('VERIFY'));
+    await ready(tester);
+
+    // The row says the dial is out. Nothing else on the screen does, and a
+    // silent one is the failure the user reported.
+    expect(find.text('VERIFYING'), findsOneWidget);
+    expect(find.text('VERIFY'), findsNothing);
+
+    answered.completeError(const HostKeySilent());
+    await ready(tester);
+
+    // A machine that took the connection and never presented a key. The word
+    // stands until the next tap rather than being written to a log nobody on a
+    // handset can read.
+    expect(find.text('NO ANSWER'), findsOneWidget);
+    expect(find.text('VERIFYING'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('VERIFY on a host that is already trusted says so and stops', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+    await privateKeys.write('key-1', 'PEM');
+    final pin = PinnedHostKey(
+      type: 'ssh-ed25519',
+      fingerprint: 'SHA256:rose',
+      pinnedAt: DateTime(2026, 9, 3),
+    );
+    await hosts.pinHostKey(_rose.id, pin);
+    // The state the user reported from: the key is pinned and the last poll
+    // still says it is not. The affordance is drawn off that poll, so the row
+    // offers a dial whose answer it then has nowhere to put.
+    final stale = AgentPanelState([
+      HostOutcome(
+        host: Host(
+          id: _rose.id,
+          name: _rose.name,
+          address: _rose.address,
+          port: _rose.port,
+          user: _rose.user,
+          keyId: _rose.keyId,
+          hostKey: pin,
+        ),
+        kind: AgentOutcomeKind.hostKeyUnverified,
+      ),
+    ]);
+    var asked = 0;
+    dial =
+        ({
+          required address,
+          required port,
+          required user,
+          required privateKey,
+          required verifier,
+        }) async {
+          asked++;
+          await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:rose');
+        };
+
+    await tester.pumpWidget(
+      app(
+        const AccessScreen(),
+        extra: [agentsFeedProvider.overrideWith((ref) => Stream.value(stale))],
+      ),
+    );
+    await ready(tester);
+
+    // Both hosts offer it: rose off the stale poll, nyx because nothing is
+    // pinned to it at all. The tap is rose's.
+    expect(find.text('VERIFY'), findsNWidgets(2));
+    await tester.tap(find.text('VERIFY').first);
+    await ready(tester);
+
+    // The machine answered with the key the app already trusts. That is an
+    // answer, and the row stops asking for one rather than dropping back to
+    // `VERIFY` as though the tap had never happened.
+    expect(asked, 1);
+    expect(find.text('VERIFYING'), findsNothing);
     expect(find.text('VERIFY'), findsOneWidget);
 
     await unmount(tester);

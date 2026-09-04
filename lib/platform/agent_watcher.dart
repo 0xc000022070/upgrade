@@ -47,6 +47,16 @@ String encodeWatcherHosts(List<Host> hosts) => jsonEncode([
       'port': host.port,
       'user': host.user,
       'key_id': host.keyId,
+      // The pin travels with the host. The service dials unattended and has
+      // nobody to ask, so a host whose key it cannot see is one it refuses on
+      // every tick — and the refusal reads as `host key unverified` on a host
+      // the user pinned long ago.
+      if (host.hostKey case final key?)
+        'host_key': {
+          'type': key.type,
+          'fingerprint': key.fingerprint,
+          'pinned_at': key.pinnedAt.toIso8601String(),
+        },
     },
 ]);
 
@@ -65,11 +75,30 @@ List<Host> decodeWatcherHosts(String? raw) {
             port: row['port']! as int,
             user: row['user']! as String,
             keyId: row['key_id']! as String,
+            hostKey: _decodePinnedKey(row['host_key']),
           ),
     ];
   } catch (_) {
     return const [];
   }
+}
+
+PinnedHostKey? _decodePinnedKey(Object? raw) {
+  if (raw is! Map<String, Object?>) return null;
+  final at = raw['pinned_at'];
+  final type = raw['type'];
+  final fingerprint = raw['fingerprint'];
+  // Read rather than cast: a payload this cannot make sense of costs the pin,
+  // and a throw here would cost the whole host list the decode is building.
+  final pinnedAt = at is String ? DateTime.tryParse(at) : null;
+  if (pinnedAt == null || type is! String || fingerprint is! String) {
+    return null;
+  }
+  return PinnedHostKey(
+    type: type,
+    fingerprint: fingerprint,
+    pinnedAt: pinnedAt,
+  );
 }
 
 /// The main isolate's half: start, stop and re-feed the service.
@@ -410,7 +439,11 @@ class _HostLoop {
       other.address == host.address &&
       other.port == host.port &&
       other.user == host.user &&
-      other.keyId == host.keyId;
+      other.keyId == host.keyId &&
+      // A pin that appeared or changed is a different dial: the loop started
+      // under the old one goes on refusing the machine every tick.
+      other.hostKey?.type == host.hostKey?.type &&
+      other.hostKey?.fingerprint == host.hostKey?.fingerprint;
 
   void start() => _running = _run();
 
