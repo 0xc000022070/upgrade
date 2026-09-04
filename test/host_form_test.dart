@@ -16,6 +16,7 @@ import 'package:hotline/design/components/solid_action_bar.dart';
 import 'package:hotline/features/settings/host_form_screen.dart';
 import 'package:hotline/features/access/access_screen.dart';
 import 'package:hotline/features/screen/screen_preview.dart';
+import 'package:hotline/platform/host_key_dial.dart';
 import 'package:hotline/platform/keys.dart';
 import 'package:hotline/platform/vnc/framebuffer.dart';
 
@@ -45,6 +46,7 @@ void main() {
   late MemoryPrivateKeyStore privateKeys;
   late Directory root;
   late ScreenPreviews previews;
+  late HostKeyDial dial;
 
   setUp(() {
     stubDeviceChannels();
@@ -54,6 +56,15 @@ void main() {
     privateKeys = MemoryPrivateKeyStore();
     root = Directory.systemTemp.createTempSync('hotline-host-form');
     previews = ScreenPreviews(Directory('${root.path}/screens'));
+    // A save now dials the machine it just registered, and no test here has
+    // one to dial.
+    dial = ({
+      required address,
+      required port,
+      required user,
+      required privateKey,
+      required verifier,
+    }) async {};
     addTearDown(previews.dispose);
   });
 
@@ -69,6 +80,7 @@ void main() {
       hostRepositoryProvider.overrideWithValue(hosts),
       privateKeyStoreProvider.overrideWithValue(privateKeys),
       screenPreviewsProvider.overrideWith((ref) async => previews),
+      hostKeyDialProvider.overrideWith((ref) => dial),
     ],
     child: MaterialApp(home: home),
   );
@@ -193,6 +205,51 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(AccessScreen), findsOneWidget);
     expect(find.text('NYX'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a created host is asked about before the form is left', (
+    tester,
+  ) async {
+    await keys.save(_key('key-1', 'faraday'));
+    await privateKeys.write('key-1', 'PEM');
+    var dialled = 0;
+    dial =
+        ({
+          required address,
+          required port,
+          required user,
+          required privateKey,
+          required verifier,
+        }) async {
+          dialled++;
+          await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:nyx');
+        };
+    await open(tester, const AccessScreen());
+
+    await tester.tap(find.text('ADD HOST'));
+    await _ready(tester);
+    await fillFields(tester);
+    await tester.tap(find.text('CREATE HOST'));
+    await _sheet(tester);
+
+    // The question the panel would have had to ask later, asked where the
+    // machine was named. The form is still up behind it.
+    expect(dialled, 1);
+    expect(find.text('NEW HOST KEY'), findsOneWidget);
+    expect(find.text('SHA256:nyx'), findsOneWidget);
+
+    await tester.tap(find.text('TRUST'));
+    await _sheet(tester);
+
+    final saved = await hosts.all();
+    expect(saved.single.hostKey?.fingerprint, 'SHA256:nyx');
+    // And the form is gone: the save it was waiting on is the one that
+    // finished.
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(AccessScreen), findsOneWidget);
+    expect(find.text('VERIFY'), findsNothing);
 
     await unmount(tester);
   });

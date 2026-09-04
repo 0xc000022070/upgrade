@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +18,7 @@ import '../../design/icons/hotline_icon.dart';
 import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
+import '../../platform/host_key_dial.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/link_probe.dart';
 import '../screen_scaffold.dart';
@@ -312,73 +314,141 @@ class _MetaRow extends StatelessWidget {
 /// What answered, and the way to trust what did. The whole row is the hit: a
 /// tap probes this host again whatever the age of its last answer, which is
 /// what the user reaches for after plugging the machine back in.
-class _LinkRow extends ConsumerWidget {
+class _LinkRow extends ConsumerStatefulWidget {
   const _LinkRow({required this.host, required this.outcome});
 
   final Host host;
   final HostOutcome? outcome;
 
+  @override
+  ConsumerState<_LinkRow> createState() => _LinkRowState();
+}
+
+class _LinkRowState extends ConsumerState<_LinkRow> {
+  bool _verifying = false;
+
+  /// Set once a dial from this row has come back with the machine's key
+  /// accepted. The row's own answer outranks [_LinkRow.outcome], which is the
+  /// last word of a poll this tap does not re-run: without it a host that is
+  /// already pinned goes `VERIFYING` and straight back to `VERIFY`, having
+  /// checked the key and had nothing to say about it.
+  bool _verified = false;
+
+  /// What the last dial from this row came back with, in the affordance's own
+  /// vocabulary, or null when it has not been tapped or the user simply said
+  /// no. Cleared on the next tap.
+  String? _failure;
+
   /// Drawn while the app has nothing to check the machine against, or while
   /// what it has does not match. Both are states a dial refuses in, and this
   /// row is the only way out of the first.
   bool get _unverified =>
-      host.hostKey == null ||
-      outcome?.kind == AgentOutcomeKind.hostKeyUnverified ||
-      outcome?.kind == AgentOutcomeKind.hostKeyChanged;
+      widget.host.hostKey == null ||
+      widget.outcome?.kind == AgentOutcomeKind.hostKeyUnverified ||
+      widget.outcome?.kind == AgentOutcomeKind.hostKeyChanged;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final probes = ref.watch(linkProbesProvider);
     return AnimatedBuilder(
       animation: probes,
       builder: (context, _) {
-        final result = probes.forHost(host.id);
+        final result = probes.forHost(widget.host.id);
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => unawaited(probes.probe(host, force: true)),
+          onTap: () => unawaited(probes.probe(widget.host, force: true)),
           child: _MetaRow(
             'LINK',
             linkWord(result),
             color: linkFailed(result) ? HotlineColors.warning : null,
-            trailing: _unverified
-                ? PanelAffordance(
-                    'VERIFY',
-                    showIcon: false,
-                    onTap: () => unawaited(_verify(context, ref)),
-                  )
-                : null,
+            trailing: _trailing(),
           ),
         );
       },
     );
   }
 
+  /// One word at the row's right end, and it is the same word throughout: what
+  /// the dial is doing, or what it hit. A dial in flight is not tappable — the
+  /// sheet it is opening is the next thing to happen.
+  Widget? _trailing() {
+    if (_verifying) {
+      return const PanelAffordance('VERIFYING', showIcon: false);
+    }
+    if (_verified || !_unverified) return null;
+    final failure = _failure;
+    return PanelAffordance(
+      failure ?? 'VERIFY',
+      showIcon: false,
+      color: failure == null ? null : HotlineColors.warning,
+      onTap: () => unawaited(_verify()),
+    );
+  }
+
   /// A dial that opens nothing and exists to put the key on screen. A refused
   /// one leaves the reason where it already was — on the host's own state row
   /// — rather than throwing a sheet at the user twice.
-  Future<void> _verify(BuildContext context, WidgetRef ref) async {
-    final privateKey = await ref
-        .read(ed25519KeysProvider)
-        .privateKey(host.keyId);
-    if (privateKey == null || !context.mounted) return;
-    final verifier = HostKeyVerifier(
-      pinned: host.hostKey,
-      prompt: (offer) => askHostKey(context, host: host, offer: offer),
-      pin: (key) => ref.read(hostRepositoryProvider).pinHostKey(host.id, key),
-    );
+  Future<void> _verify() async {
+    if (_verifying) return;
+    setState(() {
+      _verifying = true;
+      _failure = null;
+      _verified = false;
+    });
+    final host = widget.host;
+    String? failure;
+    var verified = false;
     try {
-      await ref.read(hostKeyDialProvider)(
-        address: host.address,
-        port: host.port,
-        user: host.user,
-        privateKey: privateKey,
-        verifier: verifier,
-      );
+      final privateKey = await ref
+          .read(ed25519KeysProvider)
+          .privateKey(host.keyId);
+      if (privateKey == null) {
+        failure = 'NO KEY';
+      } else {
+        final verifier = HostKeyVerifier(
+          pinned: host.hostKey,
+          prompt: (offer) async =>
+              mounted && await askHostKey(context, host: host, offer: offer),
+          pin: (key) =>
+              ref.read(hostRepositoryProvider).pinHostKey(host.id, key),
+        );
+        await ref.read(hostKeyDialProvider)(
+          address: host.address,
+          port: host.port,
+          user: host.user,
+          privateKey: privateKey,
+          verifier: verifier,
+        );
+        // A user who said no said nothing went wrong; the row goes back to
+        // offering the dial. A key that does not match the pin is the one
+        // refusal that has to stay on screen.
+        if (verifier.refusal == HostKeyRefusal.changed) failure = 'KEY CHANGED';
+        // No refusal at all is the machine answering for itself: the key
+        // matched what is pinned, or the user has just pinned it.
+        verified = verifier.refusal == null;
+      }
     } catch (error) {
       debugPrint('hotline.verify ${host.name}: $error');
+      failure = _failureWord(error);
     }
+    if (!mounted) return;
+    setState(() {
+      _verifying = false;
+      _failure = failure;
+      _verified = verified;
+    });
   }
 }
+
+/// The words a failed dial leaves in the affordance. `NO ANSWER` is the one
+/// worth naming: a socket that opens and stays silent is a machine behind a
+/// tarpit, not a machine that is down, and the two look identical without it.
+String _failureWord(Object error) => switch (error) {
+  HostKeySilent() => 'NO ANSWER',
+  SocketException() => 'NO ROUTE',
+  TimeoutException() => 'NO ANSWER',
+  _ => 'FAILED',
+};
 
 class _KeysPanel extends StatelessWidget {
   const _KeysPanel({required this.keys});

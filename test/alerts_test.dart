@@ -491,4 +491,79 @@ void main() {
       expect(verifier.refusal, HostKeyRefusal.unverified);
     },
   );
+
+  test('a pinned host key survives the trip into the service', () {
+    final pinned = Host(
+      id: host.id,
+      name: host.name,
+      address: host.address,
+      port: host.port,
+      user: host.user,
+      keyId: host.keyId,
+      hostKey: PinnedHostKey(
+        type: 'ssh-ed25519',
+        fingerprint: 'SHA256:nyx',
+        pinnedAt: DateTime.fromMillisecondsSinceEpoch(1750000000000),
+      ),
+    );
+
+    final decoded = decodeWatcherHosts(encodeWatcherHosts([pinned])).single;
+
+    expect(decoded.hostKey?.type, 'ssh-ed25519');
+    expect(decoded.hostKey?.fingerprint, 'SHA256:nyx');
+    expect(decoded.hostKey?.pinnedAt, pinned.hostKey!.pinnedAt);
+    expect(
+      decodeWatcherHosts(encodeWatcherHosts([host])).single.hostKey,
+      isNull,
+    );
+  });
+
+  test('the watcher dials a pinned host with the pin it was given', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final store = MemoryPrivateKeyStore();
+    await store.write('k1', 'PRIVATE KEY');
+    final client = RecordingHerdrClient();
+    final handler = AgentWatcherHandler(
+      keys: Ed25519Keys(store),
+      client: client,
+    );
+
+    // The state the user is actually in: a key trusted from a route months
+    // ago. Without the pin the service refuses this host on every tick, and
+    // the row it draws says `host key unverified` about a host nobody can
+    // verify any harder.
+    final pinned = Host(
+      id: host.id,
+      name: host.name,
+      address: host.address,
+      port: host.port,
+      user: host.user,
+      keyId: host.keyId,
+      hostKey: PinnedHostKey(
+        type: 'ssh-ed25519',
+        fingerprint: 'SHA256:nyx',
+        pinnedAt: DateTime.fromMillisecondsSinceEpoch(1750000000000),
+      ),
+    );
+    await handler.setHosts([pinned]);
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (client.verifiers.isEmpty && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    await handler.onDestroy(DateTime.now(), false);
+
+    final verifier = client.verifiers.single!;
+    expect(
+      await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:nyx'),
+      isTrue,
+    );
+    expect(verifier.refusal, isNull);
+    // The machine answering with something else is still refused, and still
+    // without a prompt: the service has nobody to ask.
+    expect(
+      await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:someone-else'),
+      isFalse,
+    );
+    expect(verifier.refusal, HostKeyRefusal.changed);
+  });
 }
