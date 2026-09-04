@@ -279,3 +279,25 @@ class Dispatches extends Table {
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
+
+/// One shell tab that was open when the app last ran: which host, which
+/// number, and whether it was the one on screen.
+///
+/// An ssh connection is a socket in this process and dies with it, so nothing
+/// here is a session — it is the list the store dials back on the next start,
+/// which is as much of a session as a phone that gets killed can keep. Rows
+/// are written when a tab opens and removed when it closes or its shell ends,
+/// so a row always stands for a tab worth dialling again.
+@DataClassName('ShellTabRow')
+class ShellTabs extends Table {
+  TextColumn get hostId => text().references(Hosts, #id)();
+
+  /// Its place in the tab row, `1`..`9`, kept so a restored host comes back
+  /// with the numbers the user left it with.
+  IntColumn get number => integer()();
+  BoolColumn get active => boolean()();
+  DateTimeColumn get openedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {hostId, number};
+}

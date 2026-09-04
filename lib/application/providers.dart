@@ -11,6 +11,7 @@ import '../data/repositories/note_repository.dart';
 import '../data/repositories/path_repository.dart';
 import '../data/repositories/project_repository.dart';
 import '../data/repositories/settings_repository.dart';
+import '../data/repositories/shell_tab_repository.dart';
 import '../data/repositories/task_repository.dart';
 import '../data/views.dart';
 import '../platform/keys.dart';
@@ -78,6 +79,10 @@ final taskRepositoryProvider = Provider(
 
 final settingsRepositoryProvider = Provider(
   (ref) => SettingsRepository(ref.watch(databaseProvider)),
+);
+
+final shellTabRepositoryProvider = Provider<ShellTabRepository>(
+  (ref) => DriftShellTabRepository(ref.watch(databaseProvider)),
 );
 
 /// Concrete and not swappable the way the host and key repositories are: paths

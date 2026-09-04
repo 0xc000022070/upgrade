@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/alerts_boot.dart';
 import 'app/boot.dart';
 import 'app/hotline_app.dart';
+import 'application/agents.dart';
 import 'application/providers.dart';
 import 'data/database.dart';
 import 'data/repositories/activity_repository.dart';
@@ -16,6 +17,7 @@ import 'data/repositories/task_repository.dart';
 import 'data/seed.dart';
 import 'design/icons/hotline_icon.dart';
 import 'design/typography.dart';
+import 'features/shell/shell_sessions.dart';
 import 'features/tasks/image_input.dart';
 import 'platform/device.dart';
 
@@ -74,9 +76,20 @@ Future<void> main() async {
 
   unawaited(warmGlitchIcons());
 
+  // Read before the first frame rather than from a screen, so the shells the
+  // last run left are dialling while the boot log is still on top. The dials
+  // themselves are not awaited; only the tab rows are.
+  final container = ProviderContainer(
+    overrides: [...databaseOverrides(db), ...alertOverrides()],
+  );
+  final shells = await container
+      .read(shellSessionsProvider)
+      .restore(container.read(hostRepositoryProvider).all);
+  boot.add(BootStep('restore shells', '$shells'));
+
   runApp(
-    ProviderScope(
-      overrides: [...databaseOverrides(db), ...alertOverrides()],
+    UncontrolledProviderScope(
+      container: container,
       child: HotlineApp(boot: boot),
     ),
   );
