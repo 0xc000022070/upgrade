@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/design/colors.dart';
-import 'package:hotline/design/icons/hotline_icon.dart';
 import 'package:hotline/features/shell/host_shell_screen.dart';
+import 'package:hotline/features/shell/shell_bar.dart';
 import 'package:hotline/features/shell/shell_sessions.dart';
 import 'package:hotline/platform/shell/shell_connection.dart';
+import 'package:xterm/xterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -53,31 +53,38 @@ void main() {
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
-    expect(find.text('/ ROSE SHELL'), findsOneWidget);
+    expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('CONNECTING'), findsOneWidget);
-    // Nothing to go back to yet, so no way back is offered.
+    // Nothing has gone wrong yet, so nothing is taken from the terminal.
+    expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
     expect(find.text('RETRY'), findsNothing);
 
     await unmount(tester);
   });
 
-  testWidgets('a live session says nothing on the right', (tester) async {
+  testWidgets('a live session is one header row and no crumb', (tester) async {
     final transport = FakeShellTransport();
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
-    expect(find.text('/ ROSE SHELL'), findsOneWidget);
+    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.textContaining('/'), findsNothing);
     expect(find.text('CONNECTING'), findsNothing);
     expect(find.text('RETRY'), findsNothing);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('shell-header'))).height,
+      44,
+    );
+    expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
 
     await unmount(tester);
   });
 
-  testWidgets('an exit becomes EXITED with the way back beside it', (
-    tester,
-  ) async {
+  testWidgets('an exit becomes EXITED in the header, with the way back beside '
+      'it', (tester) async {
     final transport = FakeShellTransport();
-    await tester.pumpWidget(app(fakeShellSessions(transport)));
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
     await ready(tester);
 
     transport.opened.single.exit(130);
@@ -85,6 +92,22 @@ void main() {
 
     expect(find.text('EXITED 130'), findsOneWidget);
     expect(find.text('RETRY'), findsOneWidget);
+    // A shell that ran and stopped is not a failure, so it costs the terminal
+    // no row.
+    expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('shell-header'))).height,
+      44,
+    );
+
+    // And the way back is the same one a failure offers: a fresh connection in
+    // the tab that ended, not a new tab.
+    await tester.tap(find.text('RETRY'));
+    await ready(tester);
+
+    expect(find.text('EXITED 130'), findsNothing);
+    expect(sessions.forHost(_rose.id), hasLength(1));
+    expect(transport.opened, hasLength(2));
 
     await unmount(tester);
   });
@@ -95,8 +118,10 @@ void main() {
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
+    expect(find.text('SHELL REFUSED'), findsOneWidget);
     expect(find.text('shell refused'), findsOneWidget);
     expect(find.text('RETRY'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
 
     // And the way back opens a fresh connection in the same tab.
     transport.refuse = null;
@@ -104,6 +129,7 @@ void main() {
     await ready(tester);
 
     expect(find.text('shell refused'), findsNothing);
+    expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
     expect(find.byKey(const ValueKey('shell-tab-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-tab-2')), findsNothing);
 
@@ -136,6 +162,10 @@ void main() {
   });
 
   testWidgets('the plus is gone once nine tabs are open', (tester) async {
+    // A phone's width, where nine tabs are wider than the row they are in.
+    tester.view.physicalSize = const Size(411, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     for (var i = 0; i < 9; i++) {
@@ -146,6 +176,16 @@ void main() {
 
     expect(find.byKey(const ValueKey('shell-tab-9')), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-tab-new')), findsNothing);
+    // The tabs scroll inside the header rather than running off it.
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('shell-header'))).height,
+      44,
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('shell-tab-close'))).dx,
+      lessThan(411),
+    );
 
     await unmount(tester);
   });
@@ -203,7 +243,7 @@ void main() {
 
     await tester.tap(find.text('OPEN'));
     await ready(tester);
-    expect(find.text('/ ROSE SHELL'), findsOneWidget);
+    expect(find.text('ROSE'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('shell-tab-close')));
     await ready(tester);
@@ -211,36 +251,104 @@ void main() {
     await ready(tester);
 
     expect(sessions.forHost(_rose.id), isEmpty);
-    expect(find.text('/ ROSE SHELL'), findsNothing);
+    expect(find.text('ROSE'), findsNothing);
     expect(find.text('OPEN'), findsOneWidget);
 
     await unmount(tester);
   });
 
-  testWidgets('SUPER is drawn dim on the strip and does not arm', (
+  testWidgets('the header takes the title the shell sets, while it is live', (
     tester,
   ) async {
     final transport = FakeShellTransport();
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
-    await tester.tap(find.byKey(const ValueKey('rail-keys')));
+    transport.opened.single.emit('\x1b]0;luis@nyx: ~\x07');
     await ready(tester);
 
-    Color tintOf(String label) => tester
-        .widget<HotlineIcon>(
-          find.descendant(
-            of: find.byKey(ValueKey('key-$label')),
-            matching: find.byType(HotlineIcon),
-          ),
-        )
-        .color;
+    expect(find.text('luis@nyx: ~'), findsOneWidget);
 
-    expect(tintOf('SUPER'), HotlineColors.textMuted);
-    await tester.tap(find.byKey(const ValueKey('key-SUPER')));
+    // Once the shell is gone its name for itself is stale, and the state is
+    // what the row is for.
+    transport.opened.single.exit(0);
     await ready(tester);
-    // An armed modifier goes accent. This one has nothing to arm for.
-    expect(tintOf('SUPER'), HotlineColors.textMuted);
+
+    expect(find.text('luis@nyx: ~'), findsNothing);
+    expect(find.text('EXITED 0'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the keyboard cell follows the keyboard the system shows, not '
+      'the focus', (tester) async {
+    addTearDown(tester.view.reset);
+    final transport = FakeShellTransport();
+    await tester.pumpWidget(app(fakeShellSessions(transport)));
+    await ready(tester);
+
+    bool focused() => tester
+        .widget<TerminalView>(find.byType(TerminalView))
+        .focusNode!
+        .hasFocus;
+    bool armed() => tester.widget<ShellBar>(find.byType(ShellBar)).keyboardOpen;
+
+    expect(focused(), isFalse);
+    expect(armed(), isFalse);
+
+    await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
+    await ready(tester);
+    expect(focused(), isTrue);
+    // The focus is on the terminal but no keyboard has come up yet, and the
+    // cell says what is on screen.
+    expect(armed(), isFalse);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await ready(tester);
+    expect(armed(), isTrue);
+
+    // The system taking the keyboard away dims the cell even though the view
+    // keeps the focus, so the next tap asks for a keyboard rather than
+    // dismissing one that is not there.
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await ready(tester);
+    expect(focused(), isTrue);
+    expect(armed(), isFalse);
+
+    // And with the keyboard up the cell puts it away.
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await ready(tester);
+    await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
+    await ready(tester);
+    expect(focused(), isFalse);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the paste cell puts what is on the clipboard on the wire', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    await tester.pumpWidget(app(fakeShellSessions(transport)));
+    await ready(tester);
+
+    stubClipboard('uname -a');
+    await tester.tap(find.byKey(const ValueKey('bar-PASTE')));
+    await ready(tester);
+
+    expect(transport.opened.single.written, 'uname -a');
+
+    await unmount(tester);
+  });
+
+  testWidgets('nothing on the route offers SUPER', (tester) async {
+    final transport = FakeShellTransport();
+    await tester.pumpWidget(app(fakeShellSessions(transport)));
+    await ready(tester);
+
+    expect(find.text('SUPER'), findsNothing);
+    expect(find.byKey(const ValueKey('key-SUPER')), findsNothing);
+    expect(find.text('CTRL'), findsOneWidget);
 
     await unmount(tester);
   });

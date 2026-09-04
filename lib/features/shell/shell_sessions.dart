@@ -9,6 +9,8 @@ import '../../application/agents.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../platform/shell/shell_connection.dart';
 import '../../platform/shell/shell_tunnel.dart';
+import '../../platform/shell/strip_bytes.dart';
+import '../../platform/vnc/keysyms.dart';
 
 /// How much scrollback a session keeps. A build log on the remote is the case
 /// this is sized for.
@@ -71,6 +73,16 @@ class ShellSession {
 
   ShellConnection? connection;
   ShellState state = const ShellConnecting();
+
+  /// What the bar has armed, waiting for the next key or character. It lives
+  /// here rather than in the bar because the IME types straight into the
+  /// terminal, where the bar is not in the path, and because switching tabs
+  /// has to switch the armed set with the session.
+  final Set<StickyModifier> sticky = <StickyModifier>{};
+
+  /// What the shell called itself, through the escape sequence a shell uses to
+  /// name its window. Null until it says, which a bare `sh` never does.
+  String? title;
 
   /// Cancelled and dropped on every close and every retry: a stale listener
   /// would write a dead connection's bytes into a live terminal.
@@ -172,6 +184,10 @@ class ShellSessions extends ChangeNotifier {
     session.connection = null;
     session._columns = null;
     session._rows = null;
+    // The title belonged to the shell that died. A new one that never names
+    // itself would otherwise be read under the old one's name.
+    session.title = null;
+    session.sticky.clear();
     session.state = const ShellConnecting();
     notifyListeners();
     await previous?.close();
@@ -184,6 +200,7 @@ class ShellSessions extends ChangeNotifier {
     // Bumped so the exit and the output stream of the connection being closed
     // cannot write a state onto a session that is already gone.
     session._attempt++;
+    session.sticky.clear();
     _byHost[hostId]?.remove(session);
     if (_active[hostId] == session.number) {
       final rest = _byHost[hostId];
@@ -203,7 +220,18 @@ class ShellSessions extends ChangeNotifier {
   /// are not dropped between the tab appearing and the shell answering.
   void _wireTerminal(ShellSession session) {
     session.terminal.onOutput = (text) {
-      session.connection?.write(Uint8List.fromList(utf8.encode(text)));
+      // Everything the user puts in comes through here: the IME's characters,
+      // the terminal's own key handling, and a paste. Which is why the armed
+      // set is applied and spent here and not where the bar is.
+      //
+      // A newline goes out as a carriage return. The IME's return key inserts
+      // `\n` and a pasted line break is one too, but the byte a terminal sends
+      // for a line the shell should act on is `0d`.
+      send(session, typedBytes(text.replaceAll('\n', '\r'), session.sticky));
+    };
+    session.terminal.onTitleChange = (title) {
+      session.title = title;
+      notifyListeners();
     };
     session.terminal.onResize = (columns, rows, _, _) {
       if (columns == session._columns && rows == session._rows) return;
@@ -213,11 +241,25 @@ class ShellSessions extends ChangeNotifier {
     };
   }
 
-  /// The bytes the strip and the IME produce, which do not pass through the
-  /// terminal's own output at all.
+  /// The bar's bytes, and the terminal's own once they have been mapped.
+  ///
+  /// One use is all an armed modifier gets, wherever the key came from, so the
+  /// set is spent here at the single point every byte passes through.
   void send(ShellSession session, Uint8List bytes) {
-    if (bytes.isEmpty) return;
-    session.connection?.write(bytes);
+    if (bytes.isNotEmpty) session.connection?.write(bytes);
+    if (session.sticky.isEmpty) return;
+    session.sticky.clear();
+    notifyListeners();
+  }
+
+  /// Arms the bar's modifiers for the next key. Replaces the set rather than
+  /// merging: the bar draws the whole of what is armed and hands back the whole
+  /// of it.
+  void arm(ShellSession session, Set<StickyModifier> sticky) {
+    session.sticky
+      ..clear()
+      ..addAll(sticky);
+    notifyListeners();
   }
 
   Future<void> _connect(Host host, ShellSession session) async {

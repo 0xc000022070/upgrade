@@ -7,6 +7,7 @@ import 'package:hotline/data/repositories/host_repository.dart';
 import 'package:hotline/features/shell/host_shell_screen.dart';
 import 'package:hotline/features/shell/shell_sessions.dart';
 import 'package:hotline/platform/shell/shell_connection.dart';
+import 'package:hotline/platform/vnc/keysyms.dart';
 
 import 'support/fake_shell.dart';
 
@@ -128,6 +129,85 @@ void main() {
 
     expect(session.terminal.buffer.getText(), contains('ñ'));
   });
+
+  test('an armed modifier reaches what the keyboard types, once', () async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+
+    final session = sessions.open(_rose)!;
+    await _settle();
+    final connection = transport.opened.single;
+
+    sessions.arm(session, {StickyModifier.ctrl});
+    // What the soft keyboard puts in, which never passes through the bar.
+    session.terminal.textInput('c');
+
+    expect(connection.writes.single, [0x03]);
+    expect(session.sticky, isEmpty);
+
+    session.terminal.textInput('c');
+    expect(connection.writes.last, [0x63]);
+  });
+
+  test(
+    'the return the keyboard inserts goes out as a carriage return',
+    () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      session.terminal.textInput('ls\n');
+
+      expect(transport.opened.single.written, 'ls\r');
+    },
+  );
+
+  test('a paste goes out whole, with its line breaks as returns', () async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+
+    final session = sessions.open(_rose)!;
+    await _settle();
+
+    session.terminal.paste('uname -a\n');
+
+    expect(transport.opened.single.written, 'uname -a\r');
+  });
+
+  test('what the shell calls itself becomes the session title', () async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+
+    final session = sessions.open(_rose)!;
+    await _settle();
+    expect(session.title, isNull);
+
+    transport.opened.single.emit('\x1b]0;luis@nyx: ~\x07');
+    await _settle();
+
+    expect(session.title, 'luis@nyx: ~');
+  });
+
+  test(
+    'a retried session starts without the last one\'s title or keys',
+    () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+      transport.opened.single.emit('\x1b]0;luis@nyx: ~\x07');
+      await _settle();
+      sessions.arm(session, {StickyModifier.ctrl});
+
+      await sessions.retry(_rose, session);
+
+      expect(session.title, isNull);
+      expect(session.sticky, isEmpty);
+    },
+  );
 
   test('a resize is forwarded once per size', () async {
     final transport = FakeShellTransport();
