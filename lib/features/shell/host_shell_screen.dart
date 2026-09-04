@@ -6,7 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
 import '../../application/clips.dart';
+import '../../application/providers.dart';
+import '../../application/shell_font.dart';
 import '../../data/repositories/host_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/panel.dart';
@@ -17,7 +20,7 @@ import '../../platform/host_keys.dart';
 import '../../platform/shell/shell_connection.dart';
 import '../../platform/vnc/keysyms.dart';
 import '../hosts/host_key_sheet.dart';
-import 'clips_sheet.dart';
+import 'attach_sheet.dart';
 import 'shell_bar.dart';
 import 'shell_sessions.dart';
 
@@ -61,9 +64,14 @@ const _shellTheme = TerminalTheme(
   searchHitForeground: HotlineColors.backgroundPrimary,
 );
 
-const _shellTextStyle = TerminalStyle(
-  fontSize: 13,
-  fontFamily: FontFamilies.mono,
+/// One style per size, kept. The view compares styles by identity and lays
+/// the whole buffer out again on a new one, and the route rebuilds far more
+/// often than the size changes.
+final _shellTextStyles = <double, TerminalStyle>{};
+
+TerminalStyle _shellTextStyle(double fontSize) => _shellTextStyles.putIfAbsent(
+  fontSize,
+  () => TerminalStyle(fontSize: fontSize, fontFamily: FontFamilies.mono),
 );
 
 /// The one row above the terminal, and the one place in the route that is a
@@ -116,6 +124,16 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   /// store is empty for the frame before the first shell opens, which is not
   /// the same emptiness as the last tab going.
   bool _opened = false;
+
+  /// The size the fingers started from, for the length of one pinch: the
+  /// scale is against where they began, so it applies to this and not to the
+  /// last frame's result.
+  double? _pinchBase;
+
+  /// The size drawn from the first movement of a pinch until the settings
+  /// stream has caught up with the write. The write is a database round trip
+  /// behind the lift, and the view must not snap back in between.
+  double? _pinched;
 
   @override
   void initState() {
@@ -269,15 +287,6 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     _store.send(session, bytes);
   }
 
-  /// The terminal's own paste, not the wire: a remote that asked for bracketed
-  /// paste gets the markers around the text, and one that did not gets the text.
-  Future<void> _onPaste(ShellSession session) async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    final text = data?.text;
-    if (text == null || text.isEmpty) return;
-    session.terminal.paste(text);
-  }
-
   /// Switching tabs unmounts the view that had focus, which drops it. With the
   /// keyboard up the user is mid-typing, so it is put back on the tab they
   /// landed on rather than making them tap the toggle again.
@@ -292,6 +301,40 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 
   void _onNew() {
     _store.open(widget.host, prompt: _askHostKey);
+  }
+
+  double get _fontSize =>
+      _pinched ??
+      ref.read(shellFontSizeProvider).valueOrNull ??
+      shellFontSizeDefault;
+
+  void _onPinchStart(ScaleStartDetails _) {
+    _pinchBase = _fontSize;
+  }
+
+  /// Two fingers or nothing: the recognizer also reports a one-finger drag it
+  /// happened to win, and that is a scroll the terminal did not get, not a
+  /// resize.
+  void _onPinchUpdate(ScaleUpdateDetails details) {
+    final base = _pinchBase;
+    if (base == null || details.pointerCount < 2) return;
+    final next = pinchedFontSize(base, details.scale);
+    if (next == _pinched) return;
+    setState(() => _pinched = next);
+  }
+
+  /// The write happens on the lift, once, rather than on every frame of the
+  /// pinch: the row is one number, and the stream behind every other shell
+  /// tab does not need forty of them.
+  void _onPinchEnd(ScaleEndDetails _) {
+    _pinchBase = null;
+    final size = _pinched;
+    if (size == null) return;
+    unawaited(
+      ref
+          .read(settingsRepositoryProvider)
+          .setNumber(SettingsRepository.shellFontSize, size),
+    );
   }
 
   /// The route is in front of the user, so a machine that has never been
@@ -323,6 +366,16 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   @override
   Widget build(BuildContext context) {
     final store = ref.watch(shellSessionsProvider);
+    final persisted =
+        ref.watch(shellFontSizeProvider).valueOrNull ?? shellFontSizeDefault;
+    // The pinched size is let go the moment the row says the same thing, so
+    // a change written from another tab is drawn here too.
+    ref.listen(shellFontSizeProvider, (_, next) {
+      if (_pinched != null && next.valueOrNull == _pinched) {
+        setState(() => _pinched = null);
+      }
+    });
+    final fontSize = _pinched ?? persisted;
     return Scaffold(
       backgroundColor: const Color(0xFF000000),
       // The bar rides up with the keyboard rather than being covered by it.
@@ -355,18 +408,27 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                 Expanded(
                   child: active == null
                       ? const SizedBox.shrink()
-                      : _Terminal(session: active, focusNode: _focus),
+                      : GestureDetector(
+                          key: const ValueKey('shell-pinch'),
+                          onScaleStart: _onPinchStart,
+                          onScaleUpdate: _onPinchUpdate,
+                          onScaleEnd: _onPinchEnd,
+                          child: _Terminal(
+                            session: active,
+                            focusNode: _focus,
+                            fontSize: fontSize,
+                          ),
+                        ),
                 ),
                 if (active != null)
                   ShellBar(
                     sticky: active.sticky,
                     onSticky: (sticky) => _onSticky(active, sticky),
                     onBytes: (bytes) => _onBytes(active, bytes),
-                    onPaste: () => _onPaste(active),
                     keyboardOpen: _keyboardOpen,
                     onKeyboard: _onKeyboard,
                     clipCount: _clips.count,
-                    onClips: () => showClipsSheet(context, session: active),
+                    onAttach: () => showAttachSheet(context, session: active),
                   ),
               ],
             );
@@ -384,10 +446,15 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 /// runs through the store, which is where the armed modifiers are applied and
 /// spent.
 class _Terminal extends StatelessWidget {
-  const _Terminal({required this.session, required this.focusNode});
+  const _Terminal({
+    required this.session,
+    required this.focusNode,
+    required this.fontSize,
+  });
 
   final ShellSession session;
   final FocusNode focusNode;
+  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -396,7 +463,7 @@ class _Terminal extends StatelessWidget {
       key: ValueKey('shell-terminal-${session.number}'),
       focusNode: focusNode,
       theme: _shellTheme,
-      textStyle: _shellTextStyle,
+      textStyle: _shellTextStyle(fontSize),
       cursorType: TerminalCursorType.block,
       // Plain text: the view turns autocorrect and suggestions off itself, and
       // a keyboard picked for anything else puts the wrong keys under a shell.

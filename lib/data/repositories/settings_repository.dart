@@ -22,6 +22,11 @@ class SettingsRepository {
   /// on an install that never asked.
   static const alertsBlockedAgents = 'alerts_blocked_agents';
 
+  /// The terminal's type size in logical points. Default 13, the size every
+  /// shell drew before it could be pinched; one size for every host and tab,
+  /// since it is the user's reading distance and not a property of a shell.
+  static const shellFontSize = 'shell_font_size';
+
   Stream<bool> watchFlag(String key, {required bool orElse}) {
     return (_db.select(_db.settings)..where((s) => s.key.equals(key)))
         .watchSingleOrNull()
@@ -37,11 +42,25 @@ class SettingsRepository {
 
   /// Upsert on the key, so a preference is written the same way whether or not
   /// it has ever been set.
-  Future<void> setFlag(String key, bool value) {
+  Future<void> setFlag(String key, bool value) =>
+      _write(key, value ? '1' : '0');
+
+  /// A number is its decimal text. A row that does not parse reads as the
+  /// default rather than throwing: a preference is never worth a crash.
+  Stream<double> watchNumber(String key, {required double orElse}) {
+    return (_db.select(_db.settings)..where((s) => s.key.equals(key)))
+        .watchSingleOrNull()
+        .map((row) => double.tryParse(row?.value ?? '') ?? orElse);
+  }
+
+  Future<void> setNumber(String key, double value) =>
+      _write(key, value.toString());
+
+  Future<void> _write(String key, String value) {
     return _db
         .into(_db.settings)
         .insertOnConflictUpdate(
-          SettingsCompanion.insert(key: key, value: value ? '1' : '0'),
+          SettingsCompanion.insert(key: key, value: value),
         );
   }
 }

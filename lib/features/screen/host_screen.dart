@@ -11,9 +11,11 @@ import '../../design/colors.dart';
 import '../../design/components/panel.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
+import '../../platform/gallery.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/vnc/vnc_tunnel.dart';
 import '../hosts/host_key_sheet.dart';
+import 'crop_notice.dart';
 import 'framebuffer_view.dart';
 import 'keys_strip.dart';
 import 'screen_controller.dart';
@@ -34,9 +36,17 @@ void openHostScreen(BuildContext context, Host host) {
 /// No nav bar and no capture bar; and the only route in the app that allows
 /// landscape, which is set here and given back on the way out.
 class HostScreenRoute extends ConsumerStatefulWidget {
-  const HostScreenRoute({super.key, required this.host, this.open});
+  const HostScreenRoute({
+    super.key,
+    required this.host,
+    this.open,
+    this.save = saveToGallery,
+  });
 
   final Host host;
+
+  /// Where `SAVE` writes. The platform's gallery everywhere but a test.
+  final GallerySaver save;
 
   /// The transport, injectable only so "disposing the route closes channel and
   /// client" can be asserted without a host answering. Null
@@ -63,6 +73,10 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   /// The crop is a mode over both: while it is armed the picture takes a box
   /// and nothing else, and the strip and the keyboard send nothing.
   bool _cropArmed = false;
+
+  /// What became of the last crop, in the breadcrumb for a moment.
+  String? _notice;
+  Timer? _noticeTimer;
 
   /// The rail is on every entry to this route and stays where the user left it
   /// only for as long as they are on it. Nothing about one host's screen is
@@ -117,6 +131,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   @override
   void dispose() {
     _previewTimer?.cancel();
+    _noticeTimer?.cancel();
     // The last thing on the screen, taken before the controller lets go of it.
     // The encode runs before the first await, so this reads the framebuffer
     // rather than racing the dispose below for it.
@@ -137,17 +152,37 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
     if (_keyboardOpen) setState(() => _keyboardOpen = false);
   }
 
-  /// The pixels under the box, as they are, into the tray. The encode runs
-  /// before the first await so it reads the frame the user drew on rather
-  /// than the next one.
-  Future<void> _onCrop(CropRect rect) async {
+  /// The pixels under the box, as they are, into the gallery or the tray.
+  /// The encode runs before the first await so it reads the frame the user
+  /// drew on rather than the next one.
+  Future<void> _onCrop(CropRect rect, CropTarget target) async {
     final framebuffer = _controller.lastFramebuffer;
     setState(() => _cropArmed = false);
     if (framebuffer == null) return;
     final png = encodePng(cropFrame(framebuffer, rect));
-    await ref
-        .read(clipStoreProvider)
-        .add(png, source: ClipSource.screen, hostName: widget.host.name);
+    try {
+      switch (target) {
+        case CropTarget.hold:
+          final clip = await ref
+              .read(clipStoreProvider)
+              .add(png, source: ClipSource.screen, hostName: widget.host.name);
+          _say(heldNotice(clip));
+        case CropTarget.save:
+          await widget.save(png, 'hotline-${DateTime.now().toIso8601String()}');
+          _say(savedNotice(rect.width, rect.height));
+      }
+    } catch (error) {
+      _say(cropFailedNotice(target, error));
+    }
+  }
+
+  void _say(String notice) {
+    if (!mounted) return;
+    _noticeTimer?.cancel();
+    setState(() => _notice = notice);
+    _noticeTimer = Timer(cropNoticeLinger, () {
+      if (mounted) setState(() => _notice = null);
+    });
   }
 
   @override
@@ -164,6 +199,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
               _Crumb(
                 host: widget.host,
                 controller: _controller,
+                notice: _notice,
                 onBack: () => Navigator.of(context).pop(),
               ),
               Expanded(
@@ -233,11 +269,15 @@ class _Crumb extends StatelessWidget {
   const _Crumb({
     required this.host,
     required this.controller,
+    required this.notice,
     required this.onBack,
   });
 
   final Host host;
   final HostScreenController controller;
+
+  /// A crop's outcome, in the slot the state has while not live.
+  final String? notice;
   final VoidCallback onBack;
 
   @override
@@ -263,9 +303,17 @@ class _Crumb extends StatelessWidget {
           ),
           // While live the breadcrumb stands alone — `LIVE` said nothing the
           // picture was not already saying, and `KEYS` is the rail's job now.
+          // What a crop came to borrows the slot for a moment.
           if (controller.phase != ScreenPhase.live) ...[
             const SizedBox(width: Spacing.lg),
             _State(controller: controller),
+          ] else if (notice != null) ...[
+            const SizedBox(width: Spacing.lg),
+            Text(
+              notice!,
+              key: const ValueKey('crop-notice'),
+              style: HotlineText.panelHeader,
+            ),
           ],
         ],
       ),
@@ -317,7 +365,7 @@ class _Body extends StatelessWidget {
 
   final HostScreenController controller;
   final bool cropping;
-  final void Function(CropRect rect) onCrop;
+  final void Function(CropRect rect, CropTarget target) onCrop;
 
   @override
   Widget build(BuildContext context) {

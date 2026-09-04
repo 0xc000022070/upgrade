@@ -84,7 +84,7 @@ class ClipStore extends ChangeNotifier {
   }) async {
     if (!directory.existsSync()) await directory.create(recursive: true);
     final id = _uuid.v7();
-    final file = File(p.join(directory.path, '$id.png'));
+    final file = File(p.join(directory.path, pngNameFor(id)));
     await file.writeAsBytes(png, flush: true);
     final size = pngSize(png);
     final clip = Clip(
@@ -155,3 +155,9 @@ final clipStoreProvider = Provider<ClipStore>((ref) {
     Directory(p.join(Directory.systemTemp.path, 'hotline-clips')),
   );
 });
+
+/// The name a picture lands under, here and on a host: an id with no
+/// character a gate or a shell would read into.
+String pngNameFor(String id) => '$id.png';
+
+String freshPngName() => pngNameFor(const Uuid().v7());

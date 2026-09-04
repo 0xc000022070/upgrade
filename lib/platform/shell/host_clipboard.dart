@@ -5,13 +5,30 @@ import 'shell_connection.dart';
 /// What can put an image on a host's clipboard, found by asking the host.
 enum ClipboardBackend { wayland, x11, macos, none }
 
-/// The answer to the probe: which backend, why not when none, and the
-/// environment every command on that backend has to carry, because an exec
-/// channel starts with none of the desktop's.
+/// How a command reaches the host on the exec channel.
+///
+/// A key line with a forced command hands every exec to that command and
+/// runs none of the text itself, so on such a host the channel is a verb
+/// protocol: the gate's `clip probe`, `clip put <name>` and `clip copy <name>`
+/// do what the scripts below do, under the gate's own rules. A host with a
+/// plain key gets the scripts, under `sh`. The probe settles which, once per
+/// connection, and every command after it goes the same way.
+enum ClipRoute { gate, shell }
+
+/// The answer to the probe: which backend, why not when none, the route the
+/// answer came by, and the environment every command on that backend has to
+/// carry, because an exec channel starts with none of the desktop's.
 class HostClipboard {
-  const HostClipboard(this.backend, {this.reason, this.environment = const {}});
+  const HostClipboard(
+    this.backend, {
+    this.reason,
+    this.environment = const {},
+    this.route = ClipRoute.shell,
+  });
 
   final ClipboardBackend backend;
+
+  final ClipRoute route;
 
   /// Worded for the `CLIPBOARD` row: what is missing, in the words of the
   /// package that would fix it.
@@ -31,6 +48,7 @@ class HostClipboard {
       other is HostClipboard &&
       other.backend == backend &&
       other.reason == reason &&
+      other.route == route &&
       _sameEnvironment(other.environment);
 
   bool _sameEnvironment(Map<String, String> other) {
@@ -42,10 +60,10 @@ class HostClipboard {
   }
 
   @override
-  int get hashCode => Object.hash(backend, reason, environment.length);
+  int get hashCode => Object.hash(backend, reason, route, environment.length);
 
   @override
-  String toString() => 'HostClipboard($line $environment)';
+  String toString() => 'HostClipboard($line ${route.name} $environment)';
 }
 
 /// Where clips land on a host. World-writable and cleared by the host's own
@@ -55,11 +73,17 @@ const remoteClipDirectory = '/tmp/hotline';
 /// A value as one word to `sh`, whatever is in it.
 String shellQuote(String value) => "'${value.replaceAll("'", "'\\''")}'";
 
-/// Every remote command runs under `sh`. The exec channel hands the string to
+/// Every remote script runs under `sh`. The exec channel hands the string to
 /// the user's login shell with `-c`, and a login shell that is fish would read
 /// none of the syntax below; `sh` is on every host the other three backends
 /// can exist on.
 String underSh(String script) => 'sh -c ${shellQuote(script)}';
+
+/// The gate's verbs. What the gate does behind each is the script the shell
+/// route would run, and its probe prints in [probeScript]'s shape.
+const gateProbeCommand = 'clip probe';
+String gateUploadCommand(String fileName) => 'clip put $fileName';
+String gateCopyCommand(String fileName) => 'clip copy $fileName';
 
 /// What the host is asked, once per connection: the kernel, the wayland
 /// socket under the runtime directory when the environment does not name
@@ -111,7 +135,20 @@ const _timedOut = '124';
 /// The probe's answer as a backend. Wayland before X11: a wayland session
 /// sets `DISPLAY` too, for XWayland, and the agent's terminal is on the
 /// compositor's clipboard, not XWayland's.
-HostClipboard parseProbe(ExecResult result) {
+HostClipboard parseProbe(
+  ExecResult result, {
+  ClipRoute route = ClipRoute.shell,
+}) {
+  HostClipboard answer(
+    ClipboardBackend backend, {
+    String? reason,
+    Map<String, String> environment = const {},
+  }) => HostClipboard(
+    backend,
+    reason: reason,
+    environment: environment,
+    route: route,
+  );
   if (!result.ok) {
     // The script ends in `exit 0`, so a bad exit is the host refusing to run
     // it at all: a key without exec, a gate on the login shell, a missing
@@ -122,7 +159,7 @@ HostClipboard parseProbe(ExecResult result) {
         .split('\n')
         .first
         .trim();
-    return HostClipboard(
+    return answer(
       ClipboardBackend.none,
       reason: said.isEmpty ? 'probe exit $code' : 'probe exit $code · $said',
     );
@@ -148,19 +185,19 @@ HostClipboard parseProbe(ExecResult result) {
   }
   if (fields['os'] == 'Darwin') {
     return has.contains('osascript')
-        ? const HostClipboard(ClipboardBackend.macos)
-        : const HostClipboard(ClipboardBackend.none, reason: 'no osascript');
+        ? answer(ClipboardBackend.macos)
+        : answer(ClipboardBackend.none, reason: 'no osascript');
   }
   final wayland = fields['wayland'] ?? '';
   final display = fields['display'] ?? '';
   if (wayland.isNotEmpty) {
     if (!has.contains('wl-copy')) {
-      return const HostClipboard(ClipboardBackend.none, reason: 'no wl-copy');
+      return answer(ClipboardBackend.none, reason: 'no wl-copy');
     }
     final watch = fields['watch'];
     if (watch != null && watch != _timedOut) {
       final error = fields['watcherror'] ?? '';
-      return HostClipboard(
+      return answer(
         ClipboardBackend.none,
         reason: error.contains('data-control')
             ? 'compositor without data-control'
@@ -169,7 +206,7 @@ HostClipboard parseProbe(ExecResult result) {
             : error.split('\n').first.toLowerCase(),
       );
     }
-    return HostClipboard(
+    return answer(
       ClipboardBackend.wayland,
       environment: {
         'XDG_RUNTIME_DIR': fields['runtime'] ?? '',
@@ -179,10 +216,10 @@ HostClipboard parseProbe(ExecResult result) {
   }
   if (display.isNotEmpty) {
     if (!has.contains('xclip')) {
-      return const HostClipboard(ClipboardBackend.none, reason: 'no xclip');
+      return answer(ClipboardBackend.none, reason: 'no xclip');
     }
     final xauthority = fields['xauthority'] ?? '';
-    return HostClipboard(
+    return answer(
       ClipboardBackend.x11,
       environment: {
         'DISPLAY': display,
@@ -190,20 +227,20 @@ HostClipboard parseProbe(ExecResult result) {
       },
     );
   }
-  return const HostClipboard(
-    ClipboardBackend.none,
-    reason: 'no display server',
-  );
+  return answer(ClipboardBackend.none, reason: 'no display server');
 }
 
-/// The command that puts a PNG already on the host onto its clipboard, or
+/// The command that puts a clip already on the host onto its clipboard, or
 /// null when there is no clipboard to put it on.
 ///
 /// Every backend's tool forks to go on serving the selection after the
 /// command returns, so both of its outputs go to `/dev/null`: a child still
 /// holding the channel's pipes would keep the channel from closing, and the
-/// paste is waiting on that close.
-String? clipboardCommand(HostClipboard clipboard, String remotePath) {
+/// paste is waiting on that close. The gate does the same behind its verb.
+String? clipboardCommand(HostClipboard clipboard, String fileName) {
+  if (!clipboard.usable) return null;
+  if (clipboard.route == ClipRoute.gate) return gateCopyCommand(fileName);
+  final remotePath = remotePathFor(fileName);
   final path = shellQuote(remotePath);
   final environment = clipboard.environment.entries
       .map((entry) => '${entry.key}=${shellQuote(entry.value)}')
@@ -224,16 +261,28 @@ String? clipboardCommand(HostClipboard clipboard, String remotePath) {
 
 /// The command a clip's bytes are written into: the directory made if it is
 /// not, the file taken whole from stdin.
-String uploadCommand(String remotePath) => underSh(
-  'mkdir -p ${shellQuote(remoteClipDirectory)} && cat > ${shellQuote(remotePath)}',
-);
+String uploadCommand(ClipRoute route, String fileName) => switch (route) {
+  ClipRoute.gate => gateUploadCommand(fileName),
+  ClipRoute.shell => underSh(
+    'mkdir -p ${shellQuote(remoteClipDirectory)} && '
+    'cat > ${shellQuote(remotePathFor(fileName))}',
+  ),
+};
 
 String remotePathFor(String fileName) => '$remoteClipDirectory/$fileName';
 
-/// Runs the probe on a live connection. A channel that fails to open is the
-/// same answer as a probe that did: nothing here can set a clipboard.
+/// Runs the probe on a live connection: the gate's verb first, and the
+/// script under `sh` when what answered was not a gate — a login shell
+/// saying `not found`, or a gate too old to know the verb. The gate's answer
+/// is taken only in the probe's shape, so a stray `clip` on some host's path
+/// cannot pass for one. A channel that fails to open is the same answer as a
+/// probe that did: nothing here can set a clipboard.
 Future<HostClipboard> probeClipboard(ShellConnection connection) async {
   try {
+    final gate = await connection.exec(gateProbeCommand);
+    if (gate.ok && gate.out.startsWith('os=')) {
+      return parseProbe(gate, route: ClipRoute.gate);
+    }
     return parseProbe(await connection.exec(underSh(probeScript)));
   } catch (_) {
     return const HostClipboard(ClipboardBackend.none, reason: 'exec refused');
