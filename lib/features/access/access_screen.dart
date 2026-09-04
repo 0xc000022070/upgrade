@@ -19,6 +19,7 @@ import '../screen_scaffold.dart';
 import '../settings/host_form_screen.dart';
 import '../settings/key_detail_screen.dart';
 import '../settings/key_form_screen.dart';
+import '../shell/host_shell_screen.dart';
 import 'preview_tile.dart';
 
 /// The machines and what gets into them: every registered host with its
@@ -157,12 +158,54 @@ class _HostPanel extends ConsumerWidget {
                   ? HotlineColors.warning
                   : null,
             ),
+          _ShellRow(host: host),
           if (integrations.contains(IntegrationKind.vnc)) ...[
             const SizedBox(height: Spacing.sm),
             ScreenPreviewTile(host: host),
             const SizedBox(height: Spacing.panelPadding),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// `SHELL >`, on every host panel: ssh is what a host already is, so this is
+/// not behind an integration the way the screen is.
+///
+/// The whole row is the hit rather than the words at the end of it — the panel
+/// is a list of rows and this one reads as another of them.
+class _ShellRow extends StatefulWidget {
+  const _ShellRow({required this.host});
+
+  final Host host;
+
+  @override
+  State<_ShellRow> createState() => _ShellRowState();
+}
+
+class _ShellRowState extends State<_ShellRow> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) => setState(() => _down = false),
+      onTap: () => openHostShell(context, widget.host),
+      child: SizedBox(
+        height: RowMetrics.minHeight,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          // Drawn by the affordance and tapped by the row above it: passing an
+          // `onTap` here would put a second, smaller hit box inside this one.
+          child: PanelAffordance(
+            'SHELL',
+            color: _down ? HotlineColors.accent : null,
+          ),
+        ),
       ),
     );
   }
