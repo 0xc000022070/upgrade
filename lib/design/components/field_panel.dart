@@ -17,6 +17,7 @@ class FieldPanel extends StatelessWidget {
     this.maxLines = 1,
     this.autofocus = false,
     this.textInputAction = TextInputAction.next,
+    this.onChanged,
     this.onSubmitted,
     this.keyboardType,
   });
@@ -27,6 +28,10 @@ class FieldPanel extends StatelessWidget {
   final int maxLines;
   final bool autofocus;
   final TextInputAction textInputAction;
+
+  /// Every keystroke. A field that filters a list rather than composing a
+  /// value needs the list to follow the typing.
+  final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
   /// Overrides the type a single-line field would otherwise get. A multi-line
@@ -59,6 +64,7 @@ class FieldPanel extends StatelessWidget {
         keyboardType: maxLines == 1
             ? (keyboardType ?? TextInputType.text)
             : TextInputType.multiline,
+        onChanged: onChanged,
         onSubmitted: onSubmitted,
         decoration: InputDecoration(
           isDense: true,

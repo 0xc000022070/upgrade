@@ -21,6 +21,7 @@ typedef HerdrSend = Future<SpawnResult> Function({
   required String kind,
   required String directory,
   required String prompt,
+  String? model,
   HostKeyVerifier? verifier,
 });
 
@@ -38,6 +39,7 @@ Future<SpawnResult> _fakeSend({
   required String kind,
   required String directory,
   required String prompt,
+  String? model,
   HostKeyVerifier? verifier,
 }) async {
   // Long enough that SENDING is a state the eye reads rather than a flicker.
@@ -107,11 +109,16 @@ class Sender {
   final Ed25519Keys keys;
   final DispatchRepository dispatches;
 
+  /// [kind] and [model] are the send's, not the path's: where the work goes is
+  /// a property of the directory, what picks it up is a property of this send.
+  /// [model] null is the agent's own default, which is always accepted.
   Future<SendState> call({
     required PathTarget target,
     required String itemId,
     required String title,
     required List<String> links,
+    required String kind,
+    String? model,
   }) async {
     final host = target.host;
     void log(Object error) => debugPrint('hotline.spawn ${host.name}: $error');
@@ -128,7 +135,8 @@ class Sender {
         port: host.port,
         user: host.user,
         privateKey: privateKey,
-        kind: target.path.agent,
+        kind: kind,
+        model: model,
         directory: target.path.directory,
         prompt: sendPrompt(title: title, links: links),
         verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
@@ -154,6 +162,8 @@ class Sender {
           pathId: target.path.id,
           paneId: paneId,
           title: title,
+          agent: kind,
+          model: model,
         );
         return SendSent(paneId);
       case SpawnRefused(:final refusal, :final detail):

@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'hotline'));
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   /// From v2 on there is real data on the user's handset, so the
   /// upgrade is additive — two new tables and two nullable columns, nothing
@@ -121,6 +121,23 @@ SELECT id, task_id, 'url', url, created_at FROM links
       // before this one came up with.
       if (from < 11) {
         await m.createTable(shellTabs);
+      }
+      // The agent moves off the path and onto the send. Every dispatch already
+      // made inherits the kind its path carried, so the sent lines keep saying
+      // what picked the work up; only then is the column dropped, and a path
+      // that is gone leaves the dispatch on the column's own default.
+      //
+      // Only from 9: below it the two tables are created above from the current
+      // definitions, which carry these columns and no `paths.agent` already.
+      if (from >= 9 && from < 12) {
+        await m.addColumn(dispatches, dispatches.agent);
+        await m.addColumn(dispatches, dispatches.model);
+        await m.database.customStatement(
+          'UPDATE dispatches SET agent = coalesce('
+          '(SELECT agent FROM paths WHERE paths.id = dispatches.path_id), '
+          "'claude')",
+        );
+        await m.alterTable(TableMigration(paths));
       }
     },
   );

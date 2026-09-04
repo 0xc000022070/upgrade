@@ -28,8 +28,8 @@ import '../../design/icons/hotline_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/host_keys.dart';
+import '../hosts/path_picker_sheet.dart';
 import '../hosts/host_key_sheet.dart';
-import '../home/agent_mark.dart';
 import '../screen/screen_preview.dart';
 import '../screen_scaffold.dart';
 
@@ -56,7 +56,6 @@ const _defaultPort = 22;
 /// The kinds a path can name, in the order the editor's toggle draws them. The
 /// marks are the same set: an agent the app cannot draw is one the gate does
 /// not accept either.
-final _agents = agentMarkKinds.toList();
 
 class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   late final TextEditingController _name;
@@ -94,14 +93,6 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   List<AgentPath>? _paths;
   List<AgentPath>? _basePaths;
 
-  /// The inline editor. Open with [_editingId] null is a path being added; open
-  /// with an id is that row being edited in place.
-  bool _editing = false;
-  String? _editingId;
-  late final TextEditingController _directory;
-  late final TextEditingController _label;
-  String _agent = _agents.first;
-
   /// Set before a pop that has already committed, so the back handler does not
   /// offer to discard what it has just written.
   bool _leaving = false;
@@ -118,8 +109,6 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     // the field says which port the host will be dialled on before it is.
     _port = TextEditingController(text: '${host?.port ?? _defaultPort}');
     _user = TextEditingController(text: host?.user ?? '');
-    _directory = TextEditingController();
-    _label = TextEditingController();
     _keyId = host?.keyId;
     _baseKeyId = _keyId;
     if (host == null) {
@@ -174,8 +163,6 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     _address.dispose();
     _port.dispose();
     _user.dispose();
-    _directory.dispose();
-    _label.dispose();
     super.dispose();
   }
 
@@ -219,9 +206,6 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     // and nothing has been changed against a baseline that has not landed.
     if (base == null || current == null) return false;
     if (!setEquals(base, current)) return true;
-    // A directory typed into the editor and not yet added is unsaved work too:
-    // what the question asks is what leaving would lose.
-    if (_editing && _directory.text.trim().isNotEmpty) return true;
     final basePaths = _basePaths;
     final paths = _paths;
     if (basePaths == null || paths == null) return false;
@@ -236,7 +220,6 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     for (var i = 0; i < a.length; i++) {
       if (a[i].id != b[i].id ||
           a[i].directory != b[i].directory ||
-          a[i].agent != b[i].agent ||
           a[i].label != b[i].label) {
         return false;
       }
@@ -244,66 +227,74 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     return true;
   }
 
-  void _openEditor([AgentPath? path]) {
-    setState(() {
-      _editing = true;
-      _editingId = path?.id;
-      _directory.text = path?.directory ?? '';
-      _label.text = path?.label ?? '';
-      _agent = path?.agent ?? _agents.first;
-    });
-  }
-
-  void _closeEditor() {
-    setState(() {
-      _editing = false;
-      _editingId = null;
-      _directory.clear();
-      _label.clear();
-    });
-  }
-
-  void _commitEditor() {
-    final directory = _directory.text.trim();
+  /// Adds paths, or re-points one, from what the host itself reports.
+  ///
+  /// Adding is a multiple pick: a machine's checkouts are registered in one
+  /// pass rather than one sheet each. The draft is what changes — nothing here
+  /// reaches the database until the form is saved, the same as every other
+  /// field on this screen.
+  Future<void> _pickPath([AgentPath? path]) async {
+    final host = _scanTarget();
+    if (host == null) return;
     final paths = _paths;
-    if (directory.isEmpty || paths == null) return;
-    final typed = _label.text.trim();
-    // Never stored empty: an unnamed path takes the directory's last segment,
-    // so every row and every sent line has a word to show.
-    final label = typed.isEmpty ? defaultPathLabel(directory) : typed;
-    final id = _editingId;
+    if (paths == null) return;
+    final picked = await showPathPicker(
+      context,
+      host: host,
+      multiple: path == null,
+      taken: {for (final row in paths) row.directory},
+    );
+    if (picked == null || picked.isEmpty || !mounted) return;
     setState(() {
-      if (id == null) {
-        paths.add(
-          AgentPath(
-            id: const Uuid().v4(),
-            // Empty for a host that does not exist yet: the id arrives with the
-            // save, and the repository files every row under the host it is
-            // given rather than under the one the row remembers.
-            hostId: widget.host?.id ?? '',
-            directory: directory,
-            agent: _agent,
-            label: label,
-            createdAt: DateTime.now(),
-          ),
-        );
+      if (path == null) {
+        for (final directory in picked) {
+          paths.add(
+            AgentPath(
+              id: const Uuid().v4(),
+              // Empty for a host that does not exist yet: the id arrives with
+              // the save, and the repository files every row under the host it
+              // is given rather than under the one the row remembers.
+              hostId: widget.host?.id ?? '',
+              directory: directory,
+              label: defaultPathLabel(directory),
+              createdAt: DateTime.now(),
+            ),
+          );
+        }
       } else {
-        final at = paths.indexWhere((path) => path.id == id);
+        final at = paths.indexWhere((row) => row.id == path.id);
         if (at >= 0) {
           paths[at] = paths[at].copyWith(
-            directory: directory,
-            agent: _agent,
-            label: label,
+            directory: picked.first,
+            label: defaultPathLabel(picked.first),
           );
         }
       }
     });
-    _closeEditor();
+  }
+
+  /// The host the picker scans. An unsaved form is dialled on what is typed
+  /// into it, so a path can be picked before the host has ever been written —
+  /// and a form with no address or key yet has nothing to ask.
+  Host? _scanTarget() {
+    final host = widget.host;
+    if (host != null) return host;
+    final address = _address.text.trim();
+    final user = _user.text.trim();
+    final keyId = _keyId;
+    if (address.isEmpty || user.isEmpty || keyId == null) return null;
+    return Host(
+      id: '',
+      name: _name.text.trim(),
+      address: address,
+      port: int.tryParse(_port.text.trim()) ?? _defaultPort,
+      user: user,
+      keyId: keyId,
+    );
   }
 
   void _removePath(String id) {
     setState(() => _paths?.removeWhere((path) => path.id == id));
-    if (_editingId == id) _closeEditor();
   }
 
   /// The back arrow and the system gesture are one door. [PopScope]
@@ -592,9 +583,9 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   /// what the integration is. The rows survive the switch going off — they are
   /// hidden, not dropped.
   ///
-  /// The editor takes the last slot in the same group as the rows, so the rule
-  /// above it is the one that separates any two rows and the block reads as one
-  /// list that grows a form at the bottom.
+  /// The block is a list and nothing else. Registering a path is a sheet over
+  /// the screen rather than a form grown inside the panel: the form was four
+  /// fields tall and pushed everything under it off a phone.
   Widget _pathsPanel() {
     final paths = _paths ?? const <AgentPath>[];
     return Panel(
@@ -604,132 +595,15 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         children: [
           for (final path in paths)
             ListRow(
-              leading: AgentMark(path.agent),
-              leadingWidth: AgentMark.markBox,
-              title: path.label.toUpperCase(),
-              subtitle: path.directory,
+              // One line and no mark: the directory is the whole row, and
+              // which agent works it is chosen when a drop is sent, not here.
+              title: shortPathLabel(path.directory),
               trailing: _RemoveAction(onTap: () => _removePath(path.id)),
-              onTap: () => _openEditor(path),
+              onTap: () => _pickPath(path),
             ),
-          if (_editing) _editor() else _AddAction(onTap: _openEditor),
+          _AddAction(onTap: _pickPath),
         ],
       ),
-    );
-  }
-
-  Widget _editor() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-      child: ListenableBuilder(
-        // The label's hint is the directory's last segment, so it follows the
-        // field above it as it is typed, and the confirm block turns on the
-        // moment there is a directory to confirm.
-        listenable: _directory,
-        builder: (context, _) {
-          final directory = _directory.text.trim();
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _EditorField(
-                label: 'DIRECTORY',
-                controller: _directory,
-                hint: '~/src/project',
-                autofocus: true,
-              ),
-              const SizedBox(height: Spacing.lg),
-              const Text('AGENT', style: HotlineText.panelHeader),
-              const SizedBox(height: Spacing.sm),
-              Row(
-                children: [
-                  for (final kind in _agents) ...[
-                    if (kind != _agents.first)
-                      const SizedBox(width: Spacing.md),
-                    Expanded(
-                      child: ActionBlock(
-                        label: agentMarkName(kind),
-                        filled: kind == _agent,
-                        tone: kind == _agent
-                            ? HotlineColors.accent
-                            : HotlineColors.textSecondary,
-                        onTap: () => setState(() => _agent = kind),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: Spacing.lg),
-              _EditorField(
-                label: 'LABEL',
-                controller: _label,
-                hint: directory.isEmpty
-                    ? 'optional'
-                    : defaultPathLabel(directory),
-              ),
-              const SizedBox(height: Spacing.lg),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ActionBlock(label: 'CANCEL', onTap: _closeEditor),
-                  const SizedBox(width: Spacing.md),
-                  ActionBlock(
-                    label: _editingId == null ? 'ADD' : 'SAVE PATH',
-                    filled: directory.isNotEmpty,
-                    tone: directory.isEmpty
-                        ? HotlineColors.textDisabled
-                        : HotlineColors.accent,
-                    onTap: _commitEditor,
-                  ),
-                ],
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// One field of the inline editor: the same box [FieldPanel] draws, without the
-/// panel around it. A panel per field inside a panel would put a border inside
-/// a border, and the editor is one block of the paths list rather than three
-/// sections of the form.
-class _EditorField extends StatelessWidget {
-  const _EditorField({
-    required this.label,
-    required this.controller,
-    this.hint = '',
-    this.autofocus = false,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final String hint;
-  final bool autofocus;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(label, style: HotlineText.panelHeader),
-        TextField(
-          controller: controller,
-          autofocus: autofocus,
-          maxLines: 1,
-          style: HotlineText.rowTitle,
-          cursorColor: HotlineColors.accent,
-          cursorWidth: 2,
-          cursorRadius: Radius.zero,
-          textInputAction: TextInputAction.next,
-          decoration: InputDecoration(
-            isDense: true,
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
-            hintText: hint,
-            hintStyle: HotlineText.rowSubtitle,
-          ),
-        ),
-      ],
     );
   }
 }

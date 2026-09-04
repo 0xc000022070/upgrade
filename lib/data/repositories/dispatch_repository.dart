@@ -17,6 +17,7 @@ class Dispatch {
     required this.hostName,
     required this.label,
     required this.agent,
+    this.model,
     required this.paneId,
     required this.sentAt,
   });
@@ -26,6 +27,9 @@ class Dispatch {
   final String hostName;
   final String label;
   final String agent;
+
+  /// The slug this send asked for, or null when it took the agent's default.
+  final String? model;
   final String paneId;
   final DateTime sentAt;
 }
@@ -43,6 +47,8 @@ abstract interface class DispatchRepository {
     required String pathId,
     required String paneId,
     required String title,
+    required String agent,
+    String? model,
   });
 }
 
@@ -70,7 +76,8 @@ class DriftDispatchRepository implements DispatchRepository {
             itemId: row.readTable(_db.dispatches).itemId,
             hostName: row.readTable(_db.hosts).name,
             label: row.readTable(_db.paths).label,
-            agent: row.readTable(_db.paths).agent,
+            agent: row.readTable(_db.dispatches).agent,
+            model: row.readTable(_db.dispatches).model,
             paneId: row.readTable(_db.dispatches).paneId,
             sentAt: row.readTable(_db.dispatches).sentAt,
           ),
@@ -94,6 +101,8 @@ class DriftDispatchRepository implements DispatchRepository {
     required String pathId,
     required String paneId,
     required String title,
+    required String agent,
+    String? model,
   }) {
     return _db.transaction(() async {
       final path = await (_db.select(
@@ -111,6 +120,8 @@ class DriftDispatchRepository implements DispatchRepository {
               id: _uuid.v7(),
               itemId: itemId,
               pathId: pathId,
+              agent: Value(agent),
+              model: Value(model),
               paneId: paneId,
               sentAt: now,
             ),

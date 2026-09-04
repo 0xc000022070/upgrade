@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline/application/agents.dart';
+import 'package:hotline/application/path_scan.dart';
 import 'package:hotline/application/providers.dart';
 import 'package:hotline/data/database.dart';
 import 'package:hotline/data/enums.dart';
@@ -16,17 +17,20 @@ import 'package:hotline/platform/keys.dart';
 
 import 'support/platform_channels.dart';
 
-/// The directories a host has registered, and the editor that puts them there.
+/// The directories a host has registered, and the picker that puts them there.
 ///
 /// The block belongs to the host form, so everything here goes through the
 /// form: a path is a draft until the host is saved, and the tests that matter
 /// are the ones that cross that line.
 
-/// The form's fields, in the order the screen builds them. The editor's two are
-/// last because the paths block is the last panel of the stack. `port` is never
+/// The form's fields, in the order the screen builds them. `port` is never
 /// entered here and is listed so the ones after it keep their index.
 // ignore: unused_field
-enum _Fields { name, address, port, user, directory, label }
+enum _Fields { name, address, port, user }
+
+/// What the host answers `agent paths` with. The picker offers these; anything
+/// else in a test is typed through the escape hatch.
+const _scanned = ['~/src/hotline', '/srv/gate'];
 
 ManagedKey _key(String id, String name) => ManagedKey(
   id: id,
@@ -58,6 +62,38 @@ void main() {
       keyRepositoryProvider.overrideWithValue(keys),
       hostRepositoryProvider.overrideWithValue(hosts),
       privateKeyStoreProvider.overrideWithValue(privateKeys),
+      // The save pins the host key, and a key in the store is what tells it to
+      // dial. These tests hold one so the picker's scan gets that far, so the
+      // dial is answered here rather than left reaching for the network.
+      hostKeyDialProvider.overrideWithValue(
+        ({
+          required address,
+          required port,
+          required user,
+          required privateKey,
+          required verifier,
+        }) async {},
+      ),
+      pathScannerProvider.overrideWithValue(
+        PathScanner(
+          fetch: ({
+            required address,
+            required port,
+            required user,
+            required privateKey,
+            verifier,
+          }) async => _scanned,
+          fetchModels: ({
+            required address,
+            required port,
+            required user,
+            required privateKey,
+            required kind,
+            verifier,
+          }) async => const [],
+          keys: Ed25519Keys(privateKeys),
+        ),
+      ),
     ],
     child: MaterialApp(home: home),
   );
@@ -98,28 +134,44 @@ void main() {
     await _ready(tester);
   }
 
-  /// Opens the editor, types a path and confirms it.
-  Future<void> addPath(
-    WidgetTester tester, {
-    required String directory,
-    String? label,
-    String? agent,
+  /// Takes directories out of an open picker: off the host's list when they
+  /// are on it, through the escape hatch when they are not. A picker opened to
+  /// add takes as many as it is given and closes on `ADD n`; one opened on a
+  /// row re-points it and closes on the tap.
+  Future<void> pick(
+    WidgetTester tester,
+    List<String> directories, {
+    bool multiple = true,
   }) async {
-    await tester.tap(find.text('ADD PATH'));
-    await _ready(tester);
-    await tester.enterText(field(_Fields.directory), directory);
-    await tester.pump();
-    if (label != null) {
-      await tester.enterText(field(_Fields.label), label);
-      await tester.pump();
+    final scanned = directories.where(_scanned.contains).toList();
+    for (final directory in scanned) {
+      await tester.tap(find.text(shortPathLabel(directory)));
+      await _settle(tester);
     }
-    if (agent != null) {
-      await tester.tap(find.text(agent.toUpperCase()));
-      await tester.pump();
+    if (scanned.isNotEmpty && multiple) {
+      await tester.tap(find.text('ADD ${scanned.length}'));
+      await _settle(tester);
     }
-    await tester.tap(find.text('ADD'));
-    await _ready(tester);
+    for (final directory in directories.where(
+      (row) => !_scanned.contains(row),
+    )) {
+      await tester.tap(find.text('TYPE A PATH'));
+      await _settle(tester);
+      await tester.enterText(find.byType(TextField).last, directory);
+      await tester.pump();
+      await tester.tap(find.text('USE'));
+      await _settle(tester);
+    }
   }
+
+  Future<void> addPaths(WidgetTester tester, List<String> directories) async {
+    await tester.tap(find.text('ADD PATH'));
+    await _settle(tester);
+    await pick(tester, directories);
+  }
+
+  Future<void> addPath(WidgetTester tester, {required String directory}) =>
+      addPaths(tester, [directory]);
 
   Future<List<AgentPath>> savedPaths() async {
     final host = (await hosts.all()).single;
@@ -144,34 +196,27 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a path is added, edited and removed across one save', (
+  testWidgets('a path is added, re-pointed and saved across one save', (
     tester,
   ) async {
     await keys.save(_key('key-1', 'faraday'));
+    await privateKeys.write('key-1', 'PEM');
     await open(tester, const HostFormScreen());
     await fillFields(tester);
     await turnHerdrOn(tester);
 
-    await addPath(tester, directory: '~/src/hotline', label: 'app');
-    await addPath(tester, directory: '/srv/gate', agent: 'codex');
-    expect(find.text('APP'), findsOneWidget);
-    expect(find.text('~/src/hotline'), findsOneWidget);
-    // The second row took its label from the directory it was given.
-    expect(find.text('GATE'), findsOneWidget);
+    // Both directories out of one picker: the add takes them in bulk.
+    await addPaths(tester, const ['~/src/hotline', '/srv/gate']);
+    // A row is the directory, shortened, and nothing else.
+    expect(find.text('…/src/hotline'), findsOneWidget);
+    expect(find.text('/srv/gate'), findsOneWidget);
 
-    // A tap on the row opens it in place, with what it already says.
-    await tester.tap(find.text('APP'));
-    await _ready(tester);
-    expect(
-      tester.widget<TextField>(field(_Fields.label)).controller?.text,
-      'app',
-    );
-    await tester.enterText(field(_Fields.label), 'hotline');
-    await tester.pump();
-    await tester.tap(find.text('SAVE PATH'));
-    await _ready(tester);
-    expect(find.text('HOTLINE'), findsOneWidget);
-    expect(find.text('APP'), findsNothing);
+    // A tap on the row opens the picker again and re-points it.
+    await tester.tap(find.text('…/src/hotline'));
+    await _settle(tester);
+    await pick(tester, const ['~/src/monolith'], multiple: false);
+    expect(find.text('…/src/monolith'), findsOneWidget);
+    expect(find.text('…/src/hotline'), findsNothing);
 
     // Nothing so far has been written: the paths are the form's draft.
     expect(await hosts.all(), isEmpty);
@@ -180,26 +225,28 @@ void main() {
     await _ready(tester);
 
     final saved = await savedPaths();
-    expect(saved.map((path) => path.label), ['hotline', 'gate']);
-    expect(saved.map((path) => path.directory), ['~/src/hotline', '/srv/gate']);
-    expect(saved.map((path) => path.agent), ['claude', 'codex']);
+    expect(saved.map((path) => path.label), ['monolith', 'gate']);
+    expect(saved.map((path) => path.directory), [
+      '~/src/monolith',
+      '/srv/gate',
+    ]);
 
     await unmount(tester);
   });
 
   testWidgets('the × takes a path out of the draft', (tester) async {
     await keys.save(_key('key-1', 'faraday'));
+    await privateKeys.write('key-1', 'PEM');
     await open(tester, const HostFormScreen());
     await fillFields(tester);
     await turnHerdrOn(tester);
 
-    await addPath(tester, directory: '~/src/hotline');
-    await addPath(tester, directory: '/srv/gate');
+    await addPaths(tester, const ['~/src/hotline', '/srv/gate']);
     expect(find.text('×'), findsNWidgets(2));
 
     await tester.tap(find.text('×').first);
     await _ready(tester);
-    expect(find.text('~/src/hotline'), findsNothing);
+    expect(find.text('…/src/hotline'), findsNothing);
     expect(find.text('/srv/gate'), findsOneWidget);
 
     await tester.tap(find.text('CREATE HOST'));
@@ -210,14 +257,15 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a path with no label takes the last segment', (tester) async {
+  testWidgets('a path takes its label from the last segment', (tester) async {
     await keys.save(_key('key-1', 'faraday'));
+    await privateKeys.write('key-1', 'PEM');
     await open(tester, const HostFormScreen());
     await fillFields(tester);
     await turnHerdrOn(tester);
 
     await addPath(tester, directory: '~/src/hotline/');
-    expect(find.text('HOTLINE'), findsOneWidget);
+    expect(find.text('…/src/hotline'), findsOneWidget);
 
     await tester.tap(find.text('CREATE HOST'));
     await _ready(tester);
@@ -225,6 +273,15 @@ void main() {
     expect((await savedPaths()).single.label, 'hotline');
 
     await unmount(tester);
+  });
+
+  test('a row shows the last two segments of a long directory', () {
+    expect(
+      shortPathLabel('~/Projects/github.com/luisnquin/hotline'),
+      '…/luisnquin/hotline',
+    );
+    expect(shortPathLabel('/srv/gate'), '/srv/gate');
+    expect(shortPathLabel('hotline'), 'hotline');
   });
 
   test('the last segment is what an unnamed path is called', () {
@@ -266,7 +323,6 @@ void main() {
               id: 'path-1',
               hostId: 'host-1',
               directory: '~/src/hotline',
-              agent: 'claude',
               label: 'hotline',
               createdAt: DateTime(2026, 9, 3),
             ),
@@ -298,7 +354,6 @@ void main() {
         id: 'path-1',
         hostId: 'host-1',
         directory: '~/src/hotline',
-        agent: 'claude',
         label: 'hotline',
         createdAt: DateTime(2026, 9, 3),
       ),
@@ -342,5 +397,16 @@ Future<void> _ready(WidgetTester tester) async {
       () => Future<void>.delayed(const Duration(milliseconds: 5)),
     );
     await tester.pump();
+  }
+}
+
+/// The picker is a route, so a sheet that was just pushed or popped is on
+/// screen for as long as its transition runs. Only these frames carry time:
+/// the form's own save dials the host, and a clock that runs past it leaves
+/// the connect attempt pending after the tree is gone.
+Future<void> _settle(WidgetTester tester) async {
+  await _ready(tester);
+  for (var i = 0; i < 4; i++) {
+    await tester.pump(const Duration(milliseconds: 120));
   }
 }
