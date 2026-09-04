@@ -86,10 +86,17 @@ class KeysLayer extends StatefulWidget {
     required this.onCharacter,
     required this.onKeysym,
     required this.onKeyboardClosed,
+    this.inertModifiers = const {},
   });
 
   final bool stripVisible;
   final bool keyboardOpen;
+
+  /// Modifiers the caller has no use for: drawn dim and not armable, so the
+  /// strip keeps its shape wherever it is used rather than losing a cell and
+  /// sliding the arrows out from under the thumb. Empty by default, which is
+  /// every strip that wants all four.
+  final Set<StickyModifier> inertModifiers;
 
   final void Function(String character, Set<StickyModifier> sticky) onCharacter;
   final void Function(int keysym, Set<StickyModifier> sticky) onKeysym;
@@ -258,6 +265,15 @@ class _KeysLayerState extends State<KeysLayer> {
   Widget _cell(StripCell cell) {
     final modifier = cell.modifier;
     if (modifier != null) {
+      if (widget.inertModifiers.contains(modifier)) {
+        return _StripButton(
+          key: ValueKey('key-${modifier.label}'),
+          label: modifier.label,
+          icon: stickyIcon(modifier),
+          inert: true,
+          onTap: () {},
+        );
+      }
       return _StripButton(
         key: ValueKey('key-${modifier.label}'),
         label: modifier.label,
@@ -288,12 +304,17 @@ class _StripButton extends StatefulWidget {
     required this.onTap,
     this.icon,
     this.armed = false,
+    this.inert = false,
   });
 
   final String label;
   final HotlineIcons? icon;
   final VoidCallback onTap;
   final bool armed;
+
+  /// Drawn as a key and worth nothing: no press tint, no arming. Dimmer than a
+  /// key at rest, which is the only thing that says so before it is pressed.
+  final bool inert;
 
   @override
   State<_StripButton> createState() => _StripButtonState();
@@ -305,17 +326,20 @@ class _StripButtonState extends State<_StripButton> {
   @override
   Widget build(BuildContext context) {
     // The press tint, and the same accent for a modifier that is armed: both
-    // mean "this key is what the next thing you do goes through".
-    final tint = _down || widget.armed
+    // mean "this key is what the next thing you do goes through". An inert key
+    // has neither and is dimmer at rest than one that works.
+    final tint = widget.inert
+        ? HotlineColors.textMuted
+        : _down || widget.armed
         ? HotlineColors.accent
         : HotlineColors.textSecondary;
     final icon = widget.icon;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => setState(() => _down = true),
-      onTapCancel: () => setState(() => _down = false),
-      onTapUp: (_) => setState(() => _down = false),
-      onTap: widget.onTap,
+      onTapDown: widget.inert ? null : (_) => setState(() => _down = true),
+      onTapCancel: widget.inert ? null : () => setState(() => _down = false),
+      onTapUp: widget.inert ? null : (_) => setState(() => _down = false),
+      onTap: widget.inert ? null : widget.onTap,
       child: Container(
         height: TapTargets.minHeight,
         alignment: Alignment.center,

@@ -13,10 +13,12 @@ import 'package:hotline/data/repositories/key_repository.dart';
 import 'package:hotline/features/access/access_screen.dart';
 import 'package:hotline/features/access/preview_tile.dart';
 import 'package:hotline/features/screen/screen_preview.dart';
+import 'package:hotline/features/shell/shell_sessions.dart';
 import 'package:hotline/features/settings/settings_screen.dart';
 import 'package:hotline/platform/keys.dart';
 import 'package:hotline/platform/vnc/framebuffer.dart';
 
+import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
 
 const _rose = Host(
@@ -52,6 +54,7 @@ void main() {
   late MemoryPrivateKeyStore privateKeys;
   late Directory root;
   late ScreenPreviews previews;
+  late FakeShellTransport shells;
 
   setUp(() {
     stubDeviceChannels();
@@ -61,6 +64,7 @@ void main() {
     privateKeys = MemoryPrivateKeyStore();
     root = Directory.systemTemp.createTempSync('hotline-access');
     previews = ScreenPreviews(Directory('${root.path}/screens'));
+    shells = FakeShellTransport()..stall = true;
     addTearDown(previews.dispose);
   });
 
@@ -76,6 +80,7 @@ void main() {
       hostRepositoryProvider.overrideWithValue(hosts),
       privateKeyStoreProvider.overrideWithValue(privateKeys),
       screenPreviewsProvider.overrideWith((ref) async => previews),
+      shellSessionsProvider.overrideWithValue(fakeShellSessions(shells)),
     ],
     child: MaterialApp(home: child),
   );
@@ -128,6 +133,33 @@ void main() {
     expect(find.text('HERDR'), findsOneWidget);
     expect(find.text('HERDR  VNC'), findsOneWidget);
     expect(find.text('ADD HOST'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('every host panel offers a shell and the row is the hit', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+    await tester.pumpWidget(app(const AccessScreen()));
+    await ready(tester);
+
+    // Both hosts, not just the one with a screen: ssh is what a host already
+    // is, so it is not behind an integration.
+    expect(find.text('SHELL'), findsNWidgets(2));
+
+    // The whole row, which is wider than the words in it.
+    final row = find.ancestor(
+      of: find.text('SHELL').first,
+      matching: find.byType(GestureDetector),
+    );
+    await tester.tapAt(tester.getCenter(row.first));
+    await ready(tester);
+
+    expect(find.text('/ ROSE SHELL'), findsOneWidget);
 
     await unmount(tester);
   });
