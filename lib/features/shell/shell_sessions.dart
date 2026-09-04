@@ -10,6 +10,7 @@ import '../../application/providers.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/shell_tab_repository.dart';
 import '../../platform/host_keys.dart';
+import '../../platform/shell/host_clipboard.dart';
 import '../../platform/shell/shell_connection.dart';
 import '../../platform/shell/shell_tunnel.dart';
 import '../../platform/shell/strip_bytes.dart';
@@ -137,6 +138,12 @@ class ShellSession {
   /// What the shell called itself, through the escape sequence a shell uses to
   /// name its window. Null until it says, which a bare `sh` never does.
   String? title;
+
+  /// What the host answered about its clipboard on this connection. Null
+  /// until asked, and dropped with the connection: the answer is about the
+  /// desktop session the shell landed in, and a reconnect may land elsewhere.
+  HostClipboard? clipboard;
+  Future<HostClipboard>? _probing;
 
   /// Cancelled and dropped on every close and every retry: a stale listener
   /// would write a dead connection's bytes into a live terminal.
@@ -366,6 +373,34 @@ class ShellSessions extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The host's clipboard backend, asked once per connection and kept on it.
+  /// Every caller in the meantime shares the one probe in flight.
+  Future<HostClipboard> clipboardFor(ShellSession session) {
+    final known = session.clipboard;
+    if (known != null) return Future.value(known);
+    final connection = session.connection;
+    if (connection == null) {
+      return Future.value(
+        const HostClipboard(ClipboardBackend.none, reason: 'no shell'),
+      );
+    }
+    return session._probing ??= _probe(session, connection);
+  }
+
+  Future<HostClipboard> _probe(
+    ShellSession session,
+    ShellConnection connection,
+  ) async {
+    final answer = await probeClipboard(connection);
+    // An answer from a connection that has since gone belongs to nobody.
+    if (session.connection == connection) {
+      session.clipboard = answer;
+      session._probing = null;
+      notifyListeners();
+    }
+    return answer;
+  }
+
   /// Arms the bar's modifiers for the next key. Replaces the set rather than
   /// merging: the bar draws the whole of what is armed and hands back the whole
   /// of it.
@@ -424,6 +459,8 @@ class ShellSessions extends ChangeNotifier {
         return;
       }
       session.connection = connection;
+      session.clipboard = null;
+      session._probing = null;
       session._columns = columns;
       session._rows = rows;
       session.state = const ShellLive();

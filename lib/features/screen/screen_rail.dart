@@ -49,15 +49,21 @@ class ScreenRail extends StatefulWidget {
     super.key,
     required this.keyboardOpen,
     required this.stripOpen,
+    required this.cropArmed,
     required this.hidden,
     required this.onKeyboard,
     required this.onStrip,
+    required this.onCrop,
     required this.onHide,
     required this.onShow,
   });
 
   final bool keyboardOpen;
   final bool stripOpen;
+
+  /// The third toggle is a mode rather than a layer: while it is up the
+  /// pointer is the box being drawn and nothing reaches the host.
+  final bool cropArmed;
 
   /// Held by the route, not here: it is state about this visit to the host's
   /// screen, and it goes when the route goes rather than following the user to
@@ -66,6 +72,7 @@ class ScreenRail extends StatefulWidget {
 
   final VoidCallback onKeyboard;
   final VoidCallback onStrip;
+  final VoidCallback onCrop;
   final VoidCallback onHide;
   final VoidCallback onShow;
 
@@ -187,6 +194,13 @@ class _ScreenRailState extends State<ScreenRail> {
                   label: 'KEYS',
                   active: widget.stripOpen,
                   onTap: widget.onStrip,
+                ),
+                _RailToggle(
+                  key: const ValueKey('rail-crop'),
+                  icon: HotlineIcons.crop,
+                  label: 'CROP',
+                  active: widget.cropArmed,
+                  onTap: widget.onCrop,
                 ),
               ],
             ),

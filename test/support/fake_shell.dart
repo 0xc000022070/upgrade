@@ -17,6 +17,14 @@ class FakeShellConnection implements ShellConnection {
   final resizes = <List<int>>[];
   var closed = false;
 
+  /// Every command run on a second channel, with what was written into it.
+  final execs = <({String command, Uint8List? stdin})>[];
+
+  /// What those commands answer. The default is a host that runs anything
+  /// and says nothing, which is what an upload looks like from here.
+  ExecResult Function(String command, Uint8List? stdin) answer = (_, _) =>
+      ExecResult(exitCode: 0, stdout: Uint8List(0), stderr: Uint8List(0));
+
   @override
   Stream<Uint8List> get output => _output.stream;
 
@@ -33,6 +41,21 @@ class FakeShellConnection implements ShellConnection {
   Future<void> close() async {
     closed = true;
     if (!_exit.isCompleted) _exit.complete(null);
+  }
+
+  @override
+  Future<ExecResult> exec(String command, {Uint8List? stdin}) async {
+    execs.add((command: command, stdin: stdin));
+    return answer(command, stdin);
+  }
+
+  /// A host that prints [stdout] for the next commands, with this exit.
+  void answerWith(String stdout, {int exitCode = 0}) {
+    answer = (_, _) => ExecResult(
+      exitCode: exitCode,
+      stdout: Uint8List.fromList(utf8.encode(stdout)),
+      stderr: Uint8List(0),
+    );
   }
 
   void emit(String text) => emitBytes(utf8.encode(text));

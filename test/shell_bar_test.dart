@@ -15,12 +15,14 @@ class BarRecord {
   final armed = <Set<StickyModifier>>[];
   int pastes = 0;
   int keyboards = 0;
+  int clips = 0;
 }
 
 Future<BarRecord> pumpBar(
   WidgetTester tester, {
   Set<StickyModifier> sticky = const {},
   bool keyboardOpen = false,
+  int clipCount = 0,
 }) async {
   final record = BarRecord();
   await tester.pumpWidget(
@@ -35,6 +37,8 @@ Future<BarRecord> pumpBar(
             onPaste: () => record.pastes++,
             keyboardOpen: keyboardOpen,
             onKeyboard: () => record.keyboards++,
+            clipCount: clipCount,
+            onClips: () => record.clips++,
           ),
         ),
       ),
@@ -226,6 +230,24 @@ void main() {
         before,
       );
       expect(find.byKey(const ValueKey('bar-CTRL')), findsOneWidget);
+    });
+
+    testWidgets('CLIPS is not on the bar until something is held', (
+      tester,
+    ) async {
+      await pumpBar(tester);
+      expect(find.byKey(const ValueKey('bar-CLIPS')), findsNothing);
+    });
+
+    testWidgets('CLIPS carries the count and opens the tray', (tester) async {
+      final record = await pumpBar(tester, clipCount: 3);
+
+      expect(find.text('CLIPS 3'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('bar-CLIPS')));
+      await tester.pump();
+
+      expect(record.clips, 1);
+      expect(record.sent, isEmpty);
     });
   });
 }

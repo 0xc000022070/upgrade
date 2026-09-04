@@ -9,6 +9,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../platform/vnc/framebuffer.dart';
+import '../../platform/vnc/rfb_messages.dart';
+import 'screen_transform.dart';
 
 /// The width a host's last frame is stored at. Small enough that a blur of
 /// sigma 2 over it destroys the text and leaves the layout, and small enough
@@ -79,6 +81,32 @@ PreviewFrame downsampleFrame(
     }
   }
   return PreviewFrame(width: targetWidth, height: targetHeight, rgb: rgb);
+}
+
+/// The pixels under a crop, one for one. No scaling in either direction: what
+/// the user drew a box around is what the agent gets, and a terminal's text is
+/// the first thing resampling destroys.
+PreviewFrame cropFrame(Framebuffer framebuffer, CropRect rect) {
+  final left = rect.left.clamp(0, framebuffer.width);
+  final top = rect.top.clamp(0, framebuffer.height);
+  final width = math.min(rect.width, framebuffer.width - left);
+  final height = math.min(rect.height, framebuffer.height - top);
+  if (width <= 0 || height <= 0) {
+    return PreviewFrame(width: 0, height: 0, rgb: Uint8List(0));
+  }
+  final pixels = framebuffer.pixels;
+  final rgb = Uint8List(width * height * 3);
+  var at = 0;
+  for (var y = top; y < top + height; y++) {
+    var offset = framebuffer.offsetOf(left, y);
+    for (var x = 0; x < width; x++) {
+      rgb[at++] = pixels[offset + 2];
+      rgb[at++] = pixels[offset + 1];
+      rgb[at++] = pixels[offset];
+      offset += Rfb.bytesPerPixel;
+    }
+  }
+  return PreviewFrame(width: width, height: height, rgb: rgb);
 }
 
 /// Written by hand rather than through `dart:ui`, which can only encode an

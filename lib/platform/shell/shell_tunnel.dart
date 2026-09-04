@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
@@ -16,7 +17,21 @@ abstract interface class ShellHost {
   /// A session channel with a pty on it and nothing else on it.
   Future<ShellPty> shell(SSHPtyConfig pty);
 
+  /// A session channel running one command, without a pty.
+  Future<ShellExec> execute(String command);
+
   Future<void> close();
+}
+
+/// One channel carrying a command. The real one is an [SSHSession] too.
+abstract interface class ShellExec {
+  Stream<Uint8List> get stdout;
+  Stream<Uint8List> get stderr;
+  Future<void> get done;
+  int? get exitCode;
+
+  void write(Uint8List bytes);
+  Future<void> closeStdin();
 }
 
 /// One channel carrying a pty. The real one is an [SSHSession].
@@ -264,10 +279,38 @@ class _SshHost implements ShellHost {
       _SshPty(await _client.shell(pty: pty));
 
   @override
+  Future<ShellExec> execute(String command) async =>
+      _SshExec(await _client.execute(command));
+
+  @override
   Future<void> close() async {
     _client.close();
     _socket.close();
   }
+}
+
+class _SshExec implements ShellExec {
+  _SshExec(this._session);
+
+  final SSHSession _session;
+
+  @override
+  Stream<Uint8List> get stdout => _session.stdout;
+
+  @override
+  Stream<Uint8List> get stderr => _session.stderr;
+
+  @override
+  Future<void> get done => _session.done;
+
+  @override
+  int? get exitCode => _session.exitCode;
+
+  @override
+  void write(Uint8List bytes) => _session.stdin.add(bytes);
+
+  @override
+  Future<void> closeStdin() => _session.stdin.close();
 }
 
 class _SshPty implements ShellPty {
@@ -337,6 +380,28 @@ class SshShellConnection implements ShellConnection {
 
   @override
   void resize(int columns, int rows) => _pty.resizeTerminal(columns, rows);
+
+  @override
+  Future<ExecResult> exec(String command, {Uint8List? stdin}) async {
+    final channel = await _host.execute(command);
+    final out = BytesBuilder(copy: false);
+    final err = BytesBuilder(copy: false);
+    // Subscribed before stdin goes out: a command that answers at once would
+    // otherwise print into a stream nobody is reading yet.
+    final drained = Future.wait([
+      channel.stdout.forEach(out.add),
+      channel.stderr.forEach(err.add),
+    ]);
+    if (stdin != null) channel.write(stdin);
+    await channel.closeStdin();
+    await channel.done;
+    await drained;
+    return ExecResult(
+      exitCode: channel.exitCode,
+      stdout: out.takeBytes(),
+      stderr: err.takeBytes(),
+    );
+  }
 
   @override
   Future<void> close() async {

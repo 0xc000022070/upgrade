@@ -180,6 +180,7 @@ class _HostPanel extends ConsumerWidget {
                   : null,
             ),
           _ShellRow(host: host),
+          _ClipboardRow(host: host),
           if (integrations.contains(IntegrationKind.vnc)) ...[
             const SizedBox(height: Spacing.sm),
             ScreenPreviewTile(host: host),
@@ -247,6 +248,45 @@ class _ShellRowState extends ConsumerState<_ShellRow> {
           },
         ),
       ),
+    );
+  }
+}
+
+/// `CLIPBOARD`, only while a shell is open on the host: which of the
+/// backends the probe found on that connection, or why none, in the name of
+/// the package that would change the answer. The probe runs the first time
+/// the row is drawn and again on every reconnect.
+class _ClipboardRow extends ConsumerWidget {
+  const _ClipboardRow({required this.host});
+
+  final Host host;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final store = ref.watch(shellSessionsProvider);
+    return AnimatedBuilder(
+      animation: store,
+      builder: (context, _) {
+        final active = store.activeFor(host.id);
+        if (active == null || active.state is! ShellLive) {
+          return const SizedBox.shrink();
+        }
+        final clipboard = active.clipboard;
+        if (clipboard == null) {
+          // Kicked from here rather than from the store on connect: a shell
+          // that is never asked to paste never pays for the round trip.
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => unawaited(store.clipboardFor(active)),
+          );
+          return const _MetaRow('CLIPBOARD', 'PROBING');
+        }
+        return _MetaRow(
+          'CLIPBOARD',
+          clipboard.line,
+          strong: clipboard.usable,
+          color: clipboard.usable ? null : HotlineColors.textMuted,
+        );
+      },
     );
   }
 }

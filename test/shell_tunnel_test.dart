@@ -58,6 +58,30 @@ class FakePty implements ShellPty {
   }
 }
 
+class FakeExec implements ShellExec {
+  final _done = Completer<void>();
+
+  @override
+  Stream<Uint8List> get stdout => const Stream.empty();
+
+  @override
+  Stream<Uint8List> get stderr => const Stream.empty();
+
+  @override
+  Future<void> get done => _done.future;
+
+  @override
+  int? get exitCode => 0;
+
+  @override
+  void write(Uint8List bytes) {}
+
+  @override
+  Future<void> closeStdin() async {
+    if (!_done.isCompleted) _done.complete();
+  }
+}
+
 class FakeHost implements ShellHost {
   FakeHost({this.authError, this.shellError});
 
@@ -72,6 +96,12 @@ class FakeHost implements ShellHost {
   Future<void> get authenticated async {
     final error = authError;
     if (error != null) throw error;
+  }
+
+  @override
+  Future<ShellExec> execute(String command) async {
+    requests.add('exec $command');
+    return FakeExec();
   }
 
   @override

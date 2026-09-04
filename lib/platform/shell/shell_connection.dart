@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import '../host_keys.dart';
@@ -25,6 +26,31 @@ abstract interface class ShellConnection {
 
   /// Closes the channel and the connection under it.
   Future<void> close();
+
+  /// Runs one command on a second channel of the same connection, with
+  /// [stdin] written to it and closed, and answers once it has exited. The
+  /// shell on the pty never sees any of it: what lands a clip on the host and
+  /// what puts it on the host's clipboard both go this way, so nothing about
+  /// the user's own prompt is disturbed.
+  Future<ExecResult> exec(String command, {Uint8List? stdin});
+}
+
+/// What a command on an exec channel came back with.
+class ExecResult {
+  const ExecResult({
+    required this.exitCode,
+    required this.stdout,
+    required this.stderr,
+  });
+
+  final int? exitCode;
+  final Uint8List stdout;
+  final Uint8List stderr;
+
+  bool get ok => exitCode == 0;
+
+  String get out => utf8.decode(stdout, allowMalformed: true);
+  String get err => utf8.decode(stderr, allowMalformed: true);
 }
 
 /// What the store needs of the transport: open one shell at this size.

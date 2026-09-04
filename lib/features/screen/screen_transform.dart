@@ -1,4 +1,12 @@
+import 'dart:math' as math;
 import 'dart:ui';
+
+/// A rectangle of framebuffer pixels, the way a crop names one.
+typedef CropRect = ({int left, int top, int width, int height});
+
+/// The smallest crop worth keeping on either side. Anything under it is a
+/// finger that did not move, not a selection.
+const minimumCrop = 8;
 
 /// The view of the framebuffer: fit to the width, zoomable about
 /// a pinch centre, pannable once it overflows.
@@ -65,6 +73,40 @@ class ScreenTransform {
       at.dx.clamp(0.0, framebuffer.width - 1),
       at.dy.clamp(0.0, framebuffer.height - 1),
     );
+  }
+
+  /// The framebuffer pixels under a rectangle dragged between two touches, in
+  /// whatever order the corners came. Null when it is narrower or shorter than
+  /// [minimumCrop] once mapped, which a drag on a zoomed-out picture reaches
+  /// sooner than one at 1:1.
+  CropRect? cropBetween(Offset a, Offset b) {
+    if (scale == 0) return null;
+    final p = (a - origin) / scale;
+    final q = (b - origin) / scale;
+    final left = math
+        .min(p.dx, q.dx)
+        .floor()
+        .clamp(0, framebuffer.width)
+        .toInt();
+    final top = math
+        .min(p.dy, q.dy)
+        .floor()
+        .clamp(0, framebuffer.height)
+        .toInt();
+    final right = math
+        .max(p.dx, q.dx)
+        .ceil()
+        .clamp(0, framebuffer.width)
+        .toInt();
+    final bottom = math
+        .max(p.dy, q.dy)
+        .ceil()
+        .clamp(0, framebuffer.height)
+        .toInt();
+    final width = right - left;
+    final height = bottom - top;
+    if (width < minimumCrop || height < minimumCrop) return null;
+    return (left: left, top: top, width: width, height: height);
   }
 
   /// "pinch zooms about the pinch centre" — the framebuffer pixel under
