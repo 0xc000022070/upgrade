@@ -140,6 +140,10 @@ class ShellSession {
   /// over a keyboard that types into nothing.
   final FocusNode focusNode = FocusNode(debugLabel: 'shell-terminal');
 
+  /// Owns the view's scroll, so the copy affordance can follow a selection the
+  /// user scrolls away from and back to.
+  final ScrollController scrollController = ScrollController();
+
   ShellConnection? connection;
   ShellState state = const ShellConnecting();
 
