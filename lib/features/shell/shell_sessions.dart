@@ -227,6 +227,10 @@ class ShellSessions extends ChangeNotifier {
 
   final _active = <String, int>{};
 
+  /// The host the last opened or activated tab is on, which is the one a way
+  /// back off the tabs leads to.
+  String? _parkedHostId;
+
   /// Keys pinned during this run, by host id.
   ///
   /// The [Host] a route hands in was read before the sheet said `TRUST`, so
@@ -250,8 +254,26 @@ class ShellSessions extends ChangeNotifier {
     return sessions.last;
   }
 
+  /// The session a way back leads to: the tab last opened or brought forward,
+  /// on the host it was on. Null while no host has one.
+  ///
+  /// Not a history of its own. [activeFor] already says which tab a host is on
+  /// and this only remembers which host that was, so closing the tab it names
+  /// falls to whatever that host is on now, and closing the host's last tab
+  /// falls to another host that still has one.
+  ShellSession? get parked {
+    final named = activeFor(_parkedHostId ?? '');
+    if (named != null) return named;
+    for (final hostId in _byHost.keys.toList().reversed) {
+      final fallback = activeFor(hostId);
+      if (fallback != null) return fallback;
+    }
+    return null;
+  }
+
   void activate(String hostId, ShellSession session) {
     _active[hostId] = session.number;
+    _parkedHostId = hostId;
     notifyListeners();
     unawaited(tabs?.activate(hostId, session.number));
   }
@@ -281,6 +303,7 @@ class ShellSessions extends ChangeNotifier {
     );
     _byHost.putIfAbsent(host.id, () => []).add(session);
     _active[host.id] = number;
+    _parkedHostId = host.id;
     _wireTerminal(session);
     notifyListeners();
     unawaited(_connect(host, session, prompt: prompt));
@@ -321,7 +344,9 @@ class ShellSessions extends ChangeNotifier {
     // [_start] leaves the last tab opened active, which is the right answer
     // only for the host whose tab was on screen.
     for (final row in rows.where((row) => row.active)) {
-      if (hosts.containsKey(row.hostId)) _active[row.hostId] = row.number;
+      if (!hosts.containsKey(row.hostId)) continue;
+      _active[row.hostId] = row.number;
+      _parkedHostId = row.hostId;
     }
     notifyListeners();
     return restored;
