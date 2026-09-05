@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'byte_reader.dart';
 import 'framebuffer.dart';
 import 'rfb_messages.dart';
+import 'vnc_auth.dart';
 import 'vnc_failure.dart';
 import 'zrle.dart';
 
@@ -13,13 +14,20 @@ import 'zrle.dart';
 /// the stream this reads is a `direct-tcpip` channel inside the host's ssh
 /// connection, and in the tests it is a scripted list of bytes.
 class RfbClient {
-  RfbClient({required Stream<List<int>> incoming, required this._outgoing})
-    : // Eagerly, in the constructor body's place: a server that sends its
-      // version line the instant the channel opens must not race a reader
-      // that has not subscribed yet.
-      _reader = ByteReader(incoming);
+  RfbClient({
+    required Stream<List<int>> incoming,
+    required this._outgoing,
+    this._password,
+  }) : // Eagerly, in the constructor body's place: a server that sends its
+       // version line the instant the channel opens must not race a reader
+       // that has not subscribed yet.
+       _reader = ByteReader(incoming);
 
   final StreamSink<List<int>> _outgoing;
+
+  /// Offered only to a server with no `None` on its list. Null means the
+  /// host row has none, which makes such a server `password needed`.
+  final String? _password;
   final ByteReader _reader;
   final ZrleDecoder _zrle = ZrleDecoder();
   final StreamController<Framebuffer> _frames =
@@ -64,11 +72,12 @@ class RfbClient {
   Future<void> _security(RfbVersion version) async {
     if (version == RfbVersion.v3_3) {
       // 3.3 does not offer a list: the server names one type and that is the
-      // whole negotiation.
+      // whole negotiation. Type 0 is a refusal, with the reason after it.
       final type = await _reader.readU32();
-      if (type != Rfb.securityNone) {
-        throw VncAuthUnsupported('3.3 server offers security type $type');
+      if (type == Rfb.securityInvalid) {
+        throw VncAuthUnsupported(await _readReason());
       }
+      await _authenticate(version, _choose([type]));
       return;
     }
     final count = await _reader.readU8();
@@ -77,18 +86,40 @@ class RfbClient {
       // best thing this app can put in the debug log.
       throw VncAuthUnsupported(await _readReason());
     }
-    final types = await _reader.read(count);
-    if (!types.contains(Rfb.securityNone)) {
-      throw VncAuthUnsupported('server offers ${types.join(',')}');
+    final type = _choose(await _reader.read(count));
+    _send(RfbClientMessages.securityChoice(type));
+    await _authenticate(version, type);
+  }
+
+  /// `None` whenever it is offered, whatever password the row holds; the
+  /// password only where `None` is not. Neither on the list is the one case
+  /// that stays `auth unsupported`.
+  int _choose(List<int> types) {
+    if (types.contains(Rfb.securityNone)) return Rfb.securityNone;
+    final offered = 'server offers ${types.join(',')}';
+    if (types.contains(Rfb.securityVncAuth)) {
+      if (_password == null) throw VncPasswordNeeded(offered);
+      return Rfb.securityVncAuth;
     }
-    _send(RfbClientMessages.securityChoice(Rfb.securityNone));
-    // 3.7 goes straight on to ClientInit after a `None` it accepted;
-    // only 3.8 answers with a SecurityResult.
-    if (version != RfbVersion.v3_8) return;
+    throw VncAuthUnsupported(offered);
+  }
+
+  /// The exchange the chosen type asks for, then the `SecurityResult` where
+  /// one follows: after `None` only under 3.8, after a password under every
+  /// version. Only 3.8 puts a reason string behind a failure.
+  Future<void> _authenticate(RfbVersion version, int type) async {
+    if (type == Rfb.securityNone && version != RfbVersion.v3_8) return;
+    if (type == Rfb.securityVncAuth) {
+      final challenge = await _reader.read(16);
+      _send(vncAuthResponse(_password!, challenge));
+    }
     final result = await _reader.readU32();
-    if (result != 0) {
-      throw VncAuthUnsupported(await _readReason());
-    }
+    if (result == 0) return;
+    final reason = version == RfbVersion.v3_8
+        ? await _readReason()
+        : 'security result $result';
+    if (type == Rfb.securityVncAuth) throw VncAuthRejected(reason);
+    throw VncAuthUnsupported(reason);
   }
 
   Future<String> _readReason() async {

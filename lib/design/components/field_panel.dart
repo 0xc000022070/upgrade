@@ -20,6 +20,7 @@ class FieldPanel extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
     this.keyboardType,
+    this.obscureText = false,
   });
 
   final String label;
@@ -38,6 +39,10 @@ class FieldPanel extends StatelessWidget {
   /// field stays [TextInputType.multiline] whatever this says: the newline key
   /// is what makes it multi-line at all.
   final TextInputType? keyboardType;
+
+  /// A secret: dots for characters, and no suggestions or autocorrect, which
+  /// would put the word in the keyboard's own dictionary.
+  final bool obscureText;
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +71,9 @@ class FieldPanel extends StatelessWidget {
             : TextInputType.multiline,
         onChanged: onChanged,
         onSubmitted: onSubmitted,
+        obscureText: obscureText,
+        autocorrect: !obscureText,
+        enableSuggestions: !obscureText,
         decoration: InputDecoration(
           isDense: true,
           border: InputBorder.none,
@@ -142,7 +150,9 @@ class _Choice extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? SpectacleColors.accent : null,
           border: Border.all(
-            color: selected ? SpectacleColors.accent : SpectacleColors.borderNormal,
+            color: selected
+                ? SpectacleColors.accent
+                : SpectacleColors.borderNormal,
             width: Borders.hairline,
           ),
           borderRadius: BorderRadius.circular(Radii.sharp),

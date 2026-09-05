@@ -34,12 +34,17 @@ class FakeVncChannel {
 
 /// The bytes a 3.8 server sends before the first framebuffer update.
 ///
-/// [securityTypes] is what the server offers; the client takes `None` (1) and
-/// nothing else.
+/// [securityTypes] is what the server offers; the client takes `None` (1)
+/// where it can and VNC Authentication (2) with a password where it cannot.
+/// [challenge] is the 16 bytes a server expecting the password sends, after
+/// which every version answers with a `SecurityResult`; a 3.8 failure is
+/// followed by [reason].
 List<int> serverHandshake({
   String version = 'RFB 003.008\n',
   List<int> securityTypes = const [1],
+  List<int>? challenge,
   int? securityResult = 0,
+  String? reason,
   int width = 1920,
   int height = 1080,
   String name = 'nyx',
@@ -52,8 +57,15 @@ List<int> serverHandshake({
     out
       ..add(securityTypes.length)
       ..addAll(securityTypes);
-    if (version == 'RFB 003.008\n' && securityResult != null) {
-      out.addAll(_u32(securityResult));
+  }
+  if (challenge != null) out.addAll(challenge);
+  final answers = version == 'RFB 003.008\n' || challenge != null;
+  if (answers && securityResult != null) {
+    out.addAll(_u32(securityResult));
+    if (securityResult != 0 && reason != null) {
+      out
+        ..addAll(_u32(reason.length))
+        ..addAll(reason.codeUnits);
     }
   }
   out

@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'spectacle'));
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   /// From v2 on there is real data on the user's handset, so the
   /// upgrade is additive — two new tables and two nullable columns, nothing
@@ -138,6 +138,13 @@ SELECT id, task_id, 'url', url, created_at FROM links
           "'claude')",
         );
         await m.alterTable(TableMigration(paths));
+      }
+      // One nullable column, not backfilled: a host with no password is the
+      // host every build before this one had. Only from 7, as the host key
+      // columns above: below it the table is created from the current
+      // definition, which already carries it.
+      if (from >= 7 && from < 13) {
+        await m.addColumn(hosts, hosts.vncPassword);
       }
     },
   );

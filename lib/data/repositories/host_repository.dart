@@ -20,6 +20,7 @@ class Host {
     required this.user,
     required this.keyId,
     this.hostKey,
+    this.vncPassword,
   });
 
   final String id;
@@ -37,6 +38,11 @@ class Host {
   /// that has never been connected to, which is the only state in which the app
   /// will ask about one.
   final PinnedHostKey? hostKey;
+
+  /// The VNC Authentication password, offered only to a server whose list has
+  /// no `None`. Null for a host whose server needs none, which is every one
+  /// but a Mac's Screen Sharing.
+  final String? vncPassword;
 }
 
 abstract interface class HostRepository {
@@ -221,6 +227,7 @@ class DriftHostRepository implements HostRepository {
             port: Value(host.port),
             user: host.user,
             keyId: host.keyId,
+            vncPassword: Value(host.vncPassword),
           ),
         );
   }
@@ -302,6 +309,7 @@ Host hostFromRow(HostRow row) => Host(
   user: row.user,
   keyId: row.keyId,
   hostKey: pinnedKeyFromRow(row),
+  vncPassword: row.vncPassword,
 );
 
 /// The three columns as one value, or null unless all three are there. A row

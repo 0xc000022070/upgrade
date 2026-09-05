@@ -12,6 +12,7 @@ import 'package:spectacle/platform/vnc/framebuffer.dart';
 import 'package:spectacle/platform/vnc/keysyms.dart';
 import 'package:spectacle/platform/vnc/rfb_client.dart';
 import 'package:spectacle/platform/vnc/rfb_messages.dart';
+import 'package:spectacle/platform/vnc/vnc_auth.dart';
 import 'package:spectacle/platform/vnc/vnc_failure.dart';
 
 import 'support/vnc_channel.dart';
@@ -30,7 +31,173 @@ Uint8List expectedClientHandshake() {
   return Uint8List.fromList(out);
 }
 
+/// Sixteen bytes counting up, the challenge every vector below answers.
+final challenge = List<int>.generate(16, (i) => i);
+
+/// The client bytes a password handshake owes a 3.8 server: the version
+/// line, the choice of VNC Authentication, the DES response, then the rest.
+Uint8List expectedPasswordHandshake(String password) => Uint8List.fromList([
+  ...'RFB 003.008\n'.codeUnits,
+  Rfb.securityVncAuth,
+  ...vncAuthResponse(password, challenge),
+  1,
+  ...RfbClientMessages.setPixelFormat(),
+  ...RfbClientMessages.setEncodings(),
+]);
+
+Uint8List hex(String text) => Uint8List.fromList([
+  for (var i = 0; i < text.length; i += 2)
+    int.parse(text.substring(i, i + 2), radix: 16),
+]);
+
 void main() {
+  group('vnc authentication', () {
+    // Computed outside the app: openssl des-ede3-ecb, no padding, over the
+    // challenge, keyed with the mirrored password bytes three times over.
+    test('an 8-character password answers the challenge as DES does', () {
+      expect(
+        vncAuthResponse('password', challenge),
+        hex('b866924125c8eebb9debc1db61c538e2'),
+      );
+    });
+
+    test('a short password is zero-padded to the key', () {
+      expect(
+        vncAuthResponse('pw', challenge),
+        hex('858600d9af143c9e6541d3dd92a835d0'),
+      );
+    });
+
+    test(
+      'a list of VncAuth only, with a password, reaches ServerInit',
+      () async {
+        final channel = FakeVncChannel();
+        addTearDown(channel.dispose);
+        final client = RfbClient(
+          incoming: channel.stream,
+          outgoing: channel.sink,
+          password: 'password',
+        );
+        addTearDown(client.close);
+
+        channel.feed(
+          serverHandshake(
+            securityTypes: const [2],
+            challenge: challenge,
+            name: 'rose',
+          ),
+        );
+        final init = await client.handshake();
+
+        expect(init.name, 'rose');
+        await Future<void>.delayed(Duration.zero);
+        expect(channel.sent, expectedPasswordHandshake('password'));
+      },
+    );
+
+    test('None is taken over VncAuth whatever the row holds', () async {
+      final channel = FakeVncChannel();
+      addTearDown(channel.dispose);
+      final client = RfbClient(
+        incoming: channel.stream,
+        outgoing: channel.sink,
+        password: 'password',
+      );
+      addTearDown(client.close);
+
+      channel.feed(serverHandshake(securityTypes: const [2, 1]));
+      await client.handshake();
+
+      await Future<void>.delayed(Duration.zero);
+      expect(channel.sent, expectedClientHandshake());
+    });
+
+    test('VncAuth without a password on the row is password needed', () async {
+      final channel = FakeVncChannel();
+      addTearDown(channel.dispose);
+      final client = RfbClient(
+        incoming: channel.stream,
+        outgoing: channel.sink,
+      );
+      addTearDown(client.close);
+
+      channel.feed(serverHandshake(securityTypes: const [2]));
+      final failure = await client.handshake().then<Object?>(
+        (_) => null,
+        onError: (Object error) => error,
+      );
+
+      expect(failure, isA<VncPasswordNeeded>());
+      expect((failure! as VncFailure).reason('rose'), 'password needed');
+      expect((failure as VncFailure).detail, 'server offers 2');
+    });
+
+    test(
+      'a failed SecurityResult is password rejected, with the reason',
+      () async {
+        final channel = FakeVncChannel();
+        addTearDown(channel.dispose);
+        final client = RfbClient(
+          incoming: channel.stream,
+          outgoing: channel.sink,
+          password: 'wrong',
+        );
+        addTearDown(client.close);
+
+        channel.feed(
+          serverHandshake(
+            securityTypes: const [2],
+            challenge: challenge,
+            securityResult: 1,
+            reason: 'Authentication failed',
+          ),
+        );
+        final failure = await client.handshake().then<Object?>(
+          (_) => null,
+          onError: (Object error) => error,
+        );
+
+        expect(failure, isA<VncAuthRejected>());
+        expect((failure! as VncFailure).reason('rose'), 'password rejected');
+        expect((failure as VncFailure).detail, 'Authentication failed');
+      },
+    );
+
+    test('a 3.3 server naming VncAuth gets the same exchange', () async {
+      final channel = FakeVncChannel();
+      addTearDown(channel.dispose);
+      final client = RfbClient(
+        incoming: channel.stream,
+        outgoing: channel.sink,
+        password: 'pw',
+      );
+      addTearDown(client.close);
+
+      channel.feed(
+        serverHandshake(
+          version: 'RFB 003.003\n',
+          securityTypes: const [2],
+          challenge: challenge,
+        ),
+      );
+      await client.handshake();
+
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        channel.sent,
+        Uint8List.fromList([
+          ...'RFB 003.003\n'.codeUnits,
+          // 3.3 offers no choice, so none is sent back: the response follows
+          // the version line.
+          ...vncAuthResponse('pw', challenge),
+          1,
+          ...RfbClientMessages.setPixelFormat(),
+          ...RfbClientMessages.setEncodings(),
+        ]),
+      );
+    });
+  });
+
   group('handshake', () {
     test('reads width, height and name, and emits the exact client bytes', () async {
       final channel = FakeVncChannel();
@@ -79,8 +246,8 @@ void main() {
       );
       addTearDown(client.close);
 
-      // 2 is VncAuth: a password this app has no way to ask for.
-      channel.feed(serverHandshake(securityTypes: const [2]));
+      // 30 and 33 are Apple's own, which this app does not speak.
+      channel.feed(serverHandshake(securityTypes: const [30, 33]));
 
       final failure = await client.handshake().then<Object?>(
         (_) => null,

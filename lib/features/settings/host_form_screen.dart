@@ -62,6 +62,11 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   late final TextEditingController _address;
   late final TextEditingController _port;
   late final TextEditingController _user;
+
+  /// The VNC password, drawn only while the VNC row is on and saved whether
+  /// it is or not, the way the paths block keeps its rows: switching the
+  /// integration back on brings the same password back.
+  late final TextEditingController _password;
   String? _keyId;
   bool _submitting = false;
 
@@ -109,6 +114,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     // the field says which port the host will be dialled on before it is.
     _port = TextEditingController(text: '${host?.port ?? _defaultPort}');
     _user = TextEditingController(text: host?.user ?? '');
+    _password = TextEditingController(text: host?.vncPassword ?? '');
     _keyId = host?.keyId;
     _baseKeyId = _keyId;
     if (host == null) {
@@ -163,6 +169,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     _address.dispose();
     _port.dispose();
     _user.dispose();
+    _password.dispose();
     super.dispose();
   }
 
@@ -199,6 +206,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     // rather than against an empty box, so an untouched new form is still clean.
     if (_port.text.trim() != '${host?.port ?? _defaultPort}') return true;
     if (_user.text.trim() != (host?.user ?? '')) return true;
+    if (_password.text != (host?.vncPassword ?? '')) return true;
     if (_keyId != _baseKeyId) return true;
     final base = _baseIntegrations;
     final current = _integrations;
@@ -290,8 +298,13 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       port: int.tryParse(_port.text.trim()) ?? _defaultPort,
       user: user,
       keyId: keyId,
+      vncPassword: _vncPassword,
     );
   }
+
+  /// Blank is no password, not an empty one. Not trimmed: a space is a
+  /// character a server would count.
+  String? get _vncPassword => _password.text.isEmpty ? null : _password.text;
 
   void _removePath(String id) {
     setState(() => _paths?.removeWhere((path) => path.id == id));
@@ -326,6 +339,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       port: _parsedPort!,
       user: _user.text.trim(),
       keyId: _keyId!,
+      vncPassword: _vncPassword,
     );
     final hosts = ref.read(hostRepositoryProvider);
     await hosts.save(host);
@@ -497,6 +511,14 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                       ],
                     ),
                   ),
+                  if (integrations.contains(IntegrationKind.vnc))
+                    FieldPanel(
+                      label: '[ VNC PASSWORD ]',
+                      controller: _password,
+                      hint: 'blank when the server offers none',
+                      obscureText: true,
+                      keyboardType: TextInputType.visiblePassword,
+                    ),
                   if (_hostKey != null) _hostKeyPanel(_hostKey!),
                   if (integrations.contains(IntegrationKind.herdr))
                     _pathsPanel(),
@@ -504,7 +526,13 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
               ),
               const SizedBox(height: Spacing.xl),
               ListenableBuilder(
-                listenable: Listenable.merge([_name, _address, _port, _user]),
+                listenable: Listenable.merge([
+                  _name,
+                  _address,
+                  _port,
+                  _user,
+                  _password,
+                ]),
                 builder: (context, _) {
                   // The bar is always drawn. Invalid, it names the part
                   // that is missing and does nothing when tapped.

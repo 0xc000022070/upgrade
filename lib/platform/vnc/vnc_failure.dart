@@ -6,13 +6,13 @@ import 'package:dartssh2/dartssh2.dart';
 import '../herdr_client.dart';
 import '../host_keys.dart';
 
-/// The screen route's six reason lines, as types.
+/// The screen route's reason lines, as types.
 ///
 /// The three ssh-shaped ones are the same failures the agent poll already
 /// names, and
-/// [VncFailure.reason] words them the way [AgentOutcome.reason] does. The other
-/// three belong to the screen: the tunnel, the security handshake, and a
-/// stream that ended under a session that was still reading it.
+/// [VncFailure.reason] words them the way [AgentOutcome.reason] does. The rest
+/// belong to the screen: the tunnel, the security handshake in its three
+/// endings, and a stream that ended under a session that was still reading it.
 sealed class VncFailure implements Exception {
   const VncFailure([this.detail]);
 
@@ -60,13 +60,31 @@ final class VncTunnelRefused extends VncFailure {
   String reason(String host) => 'tunnel refused';
 }
 
-/// The server's security list has no `None` in it. This app has no
-/// password to offer and does not ask for one.
+/// The server's security list has neither `None` nor VNC Authentication
+/// on it, or refused the handshake outright. Apple's own types land here.
 final class VncAuthUnsupported extends VncFailure {
   const VncAuthUnsupported([super.detail]);
 
   @override
   String reason(String host) => 'auth unsupported';
+}
+
+/// The server offers VNC Authentication and nothing weaker, and the host row
+/// holds no password to answer it with.
+final class VncPasswordNeeded extends VncFailure {
+  const VncPasswordNeeded([super.detail]);
+
+  @override
+  String reason(String host) => 'password needed';
+}
+
+/// The server failed the password response. Worded beside `key rejected`,
+/// which is the same event one layer down.
+final class VncAuthRejected extends VncFailure {
+  const VncAuthRejected([super.detail]);
+
+  @override
+  String reason(String host) => 'password rejected';
 }
 
 /// The RFB stream ended. Covers the tunnel dropping mid-session and a

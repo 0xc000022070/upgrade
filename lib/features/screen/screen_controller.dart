@@ -87,7 +87,8 @@ class HostScreenController extends ChangeNotifier {
   ScreenPhase get phase => _phase;
 
   /// The reason line, already worded: `nyx unreachable`, `key rejected`,
-  /// `tunnel refused`, `auth unsupported`, `stream closed`.
+  /// `tunnel refused`, `auth unsupported`, `password needed`,
+  /// `password rejected`, `stream closed`.
   String? get reason => _reason;
 
   ui.Image? get image => _image;
@@ -125,6 +126,7 @@ class HostScreenController extends ChangeNotifier {
         port: host.port,
         user: host.user,
         privateKey: privateKey,
+        password: host.vncPassword,
         verifier: HostKeyVerifier(
           pinned: _pinned ?? host.hostKey,
           prompt: prompt,
