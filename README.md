@@ -58,7 +58,9 @@ if [ -z "${WAYLAND_DISPLAY:-}" ]; then
 fi
 ```
 
-SCREEN forwards SSH to `127.0.0.1:5900`. The VNC server must offer RFB security
-type `None`; authentication stays at SSH. `wayvnc` can use this arrangement.
-Apple Screen Sharing does not offer that security type, so the built-in macOS
-server is not supported yet. SSH and macOS clipboard attachments still work.
+SCREEN forwards SSH to `127.0.0.1:5900`. A VNC server that offers RFB security
+type `None`, such as `wayvnc`, needs nothing more; authentication stays at SSH.
+A server that offers only VNC Authentication takes the password from the host's
+`VNC PASSWORD` field. Apple Screen Sharing is one: turn on "VNC viewers may
+control screen with password" under Screen Sharing's settings and put that
+password in the field. Apple's own authentication types are not supported.

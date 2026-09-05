@@ -75,6 +75,7 @@ VncOpener _opener(_FakeConnection connection) =>
       required int port,
       required String user,
       required String privateKey,
+      String? password,
       HostKeyVerifier? verifier,
     }) async => connection;
 

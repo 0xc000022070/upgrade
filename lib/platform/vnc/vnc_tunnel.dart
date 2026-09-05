@@ -33,11 +33,15 @@ class VncTunnel {
   /// did not
   /// resolve, a machine that did not answer, a key the host would not take,
   /// and — this section's own — a channel the host refused.
+  ///
+  /// [password] is the host row's VNC password, offered only to a server
+  /// whose list has no `None`.
   Future<VncConnection> open({
     required String address,
     required int port,
     required String user,
     required String privateKey,
+    String? password,
     HostKeyVerifier? verifier,
   }) async {
     final socket = await guardVnc(
@@ -62,7 +66,11 @@ class VncTunnel {
         verifier,
       );
       channel = opened;
-      rfb = RfbClient(incoming: opened.stream, outgoing: opened.sink);
+      rfb = RfbClient(
+        incoming: opened.stream,
+        outgoing: opened.sink,
+        password: password,
+      );
       final init = await guardVnc(rfb.handshake, verifier);
       return SshVncConnection._(socket, client, opened, rfb, init);
     } catch (_) {
@@ -127,5 +135,6 @@ typedef VncOpener = Future<VncConnection> Function({
   required int port,
   required String user,
   required String privateKey,
+  String? password,
   HostKeyVerifier? verifier,
 });

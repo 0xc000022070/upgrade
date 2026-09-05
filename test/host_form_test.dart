@@ -437,6 +437,33 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the VNC password field comes with the VNC row and is saved', (
+    tester,
+  ) async {
+    await keys.save(_key('key-1', 'faraday'));
+    await open(tester, const HostFormScreen());
+    await fillFields(tester);
+    // The header strip decodes its title over a few frames, so the field is
+    // counted rather than read by its label.
+    expect(find.byType(TextField), findsNWidgets(_Fields.values.length));
+
+    await tester.tap(find.text('VNC'));
+    await tester.pump();
+    expect(find.byType(TextField), findsNWidgets(_Fields.values.length + 1));
+    // Drawn after the integrations block, so it is the field after USER.
+    final password = find.byType(TextField).at(_Fields.user.index + 1);
+    expect(tester.widget<TextField>(password).obscureText, isTrue);
+    await tester.enterText(password, 'secret');
+    await tester.pump();
+
+    await tester.tap(find.text('CREATE HOST'));
+    await _ready(tester);
+
+    expect((await hosts.all()).single.vncPassword, 'secret');
+
+    await unmount(tester);
+  });
+
   testWidgets('the address row carries the port on every host', (tester) async {
     await keys.save(_key('key-1', 'faraday'));
     await hosts.save(

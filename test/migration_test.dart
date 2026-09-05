@@ -308,7 +308,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      12,
+      13,
     );
 
     final projects = await db.select(db.projects).get();
@@ -392,7 +392,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      12,
+      13,
     );
     expect(attachments.map((a) => a.id), ['l1', 'l2']);
     expect(attachments.every((a) => a.itemId == 't1'), isTrue);
@@ -474,7 +474,7 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        12,
+        13,
       );
       expect(projects.map((p) => p.id), ['p1', 'p2']);
       expect(projects.every((p) => p.parentId == null), isTrue);
@@ -545,7 +545,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      12,
+      13,
     );
     // The project tree survives untouched: the upgrade adds tables, it does not
     // rewrite a row.
@@ -647,7 +647,7 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        12,
+        13,
       );
     },
   );
@@ -679,7 +679,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      12,
+      13,
     );
     // The row the user already had keeps working, on the port the transport
     // was in fact dialling it on before the column existed.
@@ -687,6 +687,7 @@ void main() {
     expect(host.id, 'h1');
     expect(host.address, '100.118.60.77');
     expect(host.port, 22);
+    expect(host.vncPassword, isNull);
     expect(
       (await DriftHostRepository(
         db,
@@ -694,7 +695,8 @@ void main() {
       'h1',
     );
 
-    // And the upgraded table takes a port that is not the default.
+    // And the upgraded table takes a port that is not the default, and the
+    // password the row never had.
     await DriftHostRepository(db).save(
       Host(
         id: 'h1',
@@ -703,9 +705,12 @@ void main() {
         port: 357,
         user: host.user,
         keyId: host.keyId,
+        vncPassword: 'secret',
       ),
     );
-    expect((await DriftHostRepository(db).all()).single.port, 357);
+    final saved = (await DriftHostRepository(db).all()).single;
+    expect(saved.port, 357);
+    expect(saved.vncPassword, 'secret');
   });
 
   test('a v8 database gains paths and dispatches, both empty', () async {
@@ -731,7 +736,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      12,
+      13,
     );
     // The host the user registered is untouched, on the port it was saved on.
     expect((await DriftHostRepository(db).all()).single.port, 357);

@@ -205,6 +205,12 @@ class Hosts extends Table {
   TextColumn get hostKeyFingerprint => text().nullable()();
   DateTimeColumn get hostKeyPinnedAt => dateTime().nullable()();
 
+  /// The password VNC Authentication wants, for a server that offers no
+  /// `None`. On the row and not in the keystore: the ssh key beside it already
+  /// grants the account the tunnel runs as, and this only opens a display on
+  /// that machine's own loopback.
+  TextColumn get vncPassword => text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

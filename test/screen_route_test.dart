@@ -144,6 +144,7 @@ void main() {
             required int port,
             required String user,
             required String privateKey,
+            String? password,
             HostKeyVerifier? verifier,
           }) async {
             await gate.future;
@@ -190,6 +191,7 @@ void main() {
               required int port,
               required String user,
               required String privateKey,
+              String? password,
               HostKeyVerifier? verifier,
             }) async {
               attempts++;
@@ -229,6 +231,7 @@ void main() {
         required int port,
         required String user,
         required String privateKey,
+        String? password,
         HostKeyVerifier? verifier,
       }) async => throw StateError('never asked'),
     );
@@ -627,6 +630,7 @@ void main() {
       required int port,
       required String user,
       required String privateKey,
+      String? password,
       HostKeyVerifier? verifier,
     }) async {
       connection = await FakeVncConnection.open();
@@ -680,6 +684,7 @@ VncOpener _liveOpen([void Function(FakeVncConnection)? keep]) =>
       required int port,
       required String user,
       required String privateKey,
+      String? password,
       HostKeyVerifier? verifier,
     }) async {
       final connection = await FakeVncConnection.open();
