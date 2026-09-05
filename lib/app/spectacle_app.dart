@@ -11,6 +11,7 @@ import '../design/theme.dart';
 import '../features/home/home_screen.dart';
 import '../features/hosts/hosts_screen.dart';
 import '../features/projects/projects_screen.dart';
+import '../features/shell/parked_shell_bar.dart';
 import '../features/ssh/ssh_screen.dart';
 import 'alerts_boot.dart';
 import 'autonomous_ticks.dart';
@@ -116,11 +117,20 @@ class _SpectacleShellState extends ConsumerState<SpectacleShell> {
               ],
             ),
           ),
-          bottomNavigationBar: NavBar(
-            currentIndex: index,
-            onSelected: (next) =>
-                ref.read(navIndexProvider.notifier).state = next,
-            glitch: glitch.controllers,
+          // The parked shell rides over the nav bar rather than in the body:
+          // it belongs to the app and not to a tab, and the shell sheet comes
+          // down onto it from any of the four.
+          bottomNavigationBar: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ParkedShellBar(),
+              NavBar(
+                currentIndex: index,
+                onSelected: (next) =>
+                    ref.read(navIndexProvider.notifier).state = next,
+                glitch: glitch.controllers,
+              ),
+            ],
           ),
         ),
       ),
