@@ -748,6 +748,128 @@ void main() {
       await unmount(tester);
     });
   });
+
+  group('the keyboard follows the tab', () {
+    /// Whether the IME is wired to anything. The view opens a text input
+    /// connection when its focus node takes focus and closes it when the view
+    /// goes; a focus node that is held with no connection under it is a
+    /// keyboard that types into nothing.
+    bool connected(WidgetTester tester) => tester.testTextInput.hasAnyClients;
+
+    Future<void> type(WidgetTester tester, String text) async {
+      tester.testTextInput.enterText(text);
+      await ready(tester);
+    }
+
+    testWidgets('a tab opened with the keyboard up keeps it, and typing lands '
+        'in the new shell', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+
+      await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
+      await ready(tester);
+      expect(connected(tester), isTrue);
+      await type(tester, 'a');
+      expect(transport.opened[0].written, 'a');
+
+      await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+      await ready(tester);
+      expect(sessions.activeFor(_rose.id)?.number, 2);
+      expect(connected(tester), isTrue);
+      await type(tester, 'b');
+      expect(transport.opened[1].written, 'b');
+      expect(transport.opened[0].written, 'a');
+
+      await tester.tap(find.byKey(const ValueKey('shell-tab-1')));
+      await ready(tester);
+      expect(connected(tester), isTrue);
+      await type(tester, 'c');
+      expect(transport.opened[0].written, 'ac');
+      expect(transport.opened[1].written, 'b');
+
+      await unmount(tester);
+    });
+
+    testWidgets('a tab opened with the keyboard down leaves it down', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      expect(connected(tester), isFalse);
+
+      await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+      await ready(tester);
+
+      expect(connected(tester), isFalse);
+      expect(
+        tester
+            .widget<TerminalView>(find.byType(TerminalView))
+            .focusNode!
+            .hasFocus,
+        isFalse,
+      );
+
+      await unmount(tester);
+    });
+
+    testWidgets('the keyboard cell reaches a shell after a tab closed under '
+        'it', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+      await ready(tester);
+      await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
+      await ready(tester);
+      expect(connected(tester), isTrue);
+
+      // The shell the keyboard was on exits clean and takes its tab, which
+      // puts the first tab back on screen.
+      transport.opened[1].exit(0);
+      await ready(tester);
+      expect(sessions.activeFor(_rose.id)?.number, 1);
+
+      // Whether the keyboard came along or went down, the cell's next tap
+      // has to end with a keyboard that types into the shell on screen.
+      if (!connected(tester)) {
+        await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
+        await ready(tester);
+      }
+      expect(connected(tester), isTrue);
+      await type(tester, 'x');
+      expect(transport.opened[0].written, 'x');
+
+      await unmount(tester);
+    });
+
+    testWidgets('every tab has its own focus node', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      final first = tester
+          .widget<TerminalView>(find.byType(TerminalView))
+          .focusNode;
+
+      await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+      await ready(tester);
+      final second = tester
+          .widget<TerminalView>(find.byType(TerminalView))
+          .focusNode;
+
+      // Two views sharing one node hand focus over without a change of focus,
+      // and a view that never sees the change never opens its input.
+      expect(first, isNotNull);
+      expect(second, isNot(same(first)));
+
+      await unmount(tester);
+    });
+  });
 }
 
 /// A page to pop back to, so the last tab closing has somewhere to land.

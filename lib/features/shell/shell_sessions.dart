@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
@@ -130,6 +131,14 @@ class ShellSession {
   /// The view makes its own controller when it is not handed one, and a
   /// selection made in that private controller is one nothing else can reach.
   final TerminalController controller = TerminalController();
+
+  /// Owns the focus the view's IME hangs off. One per session and not one for
+  /// the route: the view opens its text input when its node takes focus and
+  /// closes it when the view goes, and two views handed the same node pass
+  /// focus between them without a change of focus. The view that came in
+  /// never sees one, never opens its input, and the node reads as focused
+  /// over a keyboard that types into nothing.
+  final FocusNode focusNode = FocusNode(debugLabel: 'shell-terminal');
 
   ShellConnection? connection;
   ShellState state = const ShellConnecting();
