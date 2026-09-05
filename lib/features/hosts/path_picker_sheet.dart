@@ -16,11 +16,11 @@ import '../../design/typography.dart';
 
 /// Picks working directories on [host], from the host's own answer.
 ///
-/// The list is `agent paths`: every git checkout the gate is willing to be sent
-/// into. Typing a path from memory on a phone keyboard is the thing this
+/// The list is every git checkout found under the host's standard roots.
+/// Typing a path from memory on a phone keyboard is the thing this
 /// replaces, so the field at the top filters what came back rather than
 /// composing a new path — and the manual entry underneath it is the escape
-/// hatch for a checkout the gate's roots do not cover, not the main road.
+/// hatch for a checkout the standard roots do not cover, not the main road.
 ///
 /// [multiple] is the difference between registering and re-pointing: a host
 /// with thirty checkouts on it is registered in one pass, and a row that
@@ -131,8 +131,8 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
           ],
         ),
       ],
-      // An empty answer is a host whose gate predates the verb. Said in its own
-      // words: the path can still be typed, and nothing here is broken. A host
+      // An empty answer means no checkout was found. The path can still be
+      // typed, and nothing here is broken. A host
       // whose every checkout is already registered is not this case: that one
       // keeps the list so the filter and the escape hatch stay reachable.
       PathScanFound(:final directories) when directories.isEmpty => [

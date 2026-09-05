@@ -25,8 +25,8 @@ import 'package:hotline/platform/host_keys.dart';
 
 import 'support/platform_channels.dart';
 
-/// Handing a drop to an agent: the verb on the wire, the four answers the gate
-/// can give, and the row that is written for exactly one of them.
+/// Handing a drop to an agent: the remote transaction, its four failures, and
+/// the row that is written for exactly one successful send.
 
 /// What the transport was called with, so a test can assert the command's
 /// inputs and the prompt without a socket.
@@ -68,11 +68,15 @@ Future<void> _drain(WidgetTester tester) async {
 }
 
 void main() {
-  test('the verb is the gate command, unquoted', () {
-    expect(
-      HerdrCommands.spawn('claude', null, '~/src/hotline'),
-      'agent spawn claude - ~/src/hotline',
+  test('workspace creation expands home on the host and quotes the path', () {
+    final command = HerdrCommands.workspaceCreate(
+      "~/src/hotline with 'quote'",
+      label: 'hotline',
     );
+    expect(command, contains('hotline with'));
+    expect(command, contains('quote'));
+    expect(command, contains('workspace create'));
+    expect(command, contains('HERDR_SESSION='));
   });
 
   test('the prompt is the title, a blank line, then one link per line', () {
@@ -94,78 +98,17 @@ void main() {
     );
   });
 
-  group('what the gate answered', () {
-    test('exit 0 with a pane line is a send', () {
-      final result = HerdrClient.readSpawn(
-        exitCode: 0,
-        stdout: 'wQ:p7\n',
-        stderr: '',
-      );
-      expect(result, isA<SpawnSent>());
-      expect((result as SpawnSent).paneId, 'wQ:p7');
-    });
-
-    test('exit 0 with nothing said is not a send', () {
-      final result = HerdrClient.readSpawn(exitCode: 0, stdout: '', stderr: '');
-      expect(
-        result,
-        isA<SpawnRefused>().having(
-          (r) => r.refusal,
-          'refusal',
-          SpawnRefusal.spawnFailed,
-        ),
-      );
-    });
-
-    test('a refused directory is told apart from any other refusal', () {
-      expect(
-        HerdrClient.readSpawn(
-          exitCode: 1,
-          stdout: '',
-          stderr: 'denied: dir ~/src/hotline\n',
-        ),
-        isA<SpawnRefused>().having(
-          (r) => r.refusal,
-          'refusal',
-          SpawnRefusal.noDirectory,
-        ),
-      );
-      expect(
-        HerdrClient.readSpawn(
-          exitCode: 1,
-          stdout: '',
-          stderr: 'denied: kind gemini\n',
-        ),
-        isA<SpawnRefused>().having(
-          (r) => r.refusal,
-          'refusal',
-          SpawnRefusal.gateRefused,
-        ),
-      );
-    });
-
-    test('a non-zero exit the gate did not explain is a failed spawn', () {
-      expect(
-        HerdrClient.readSpawn(
-          exitCode: 127,
-          stdout: '',
-          stderr: 'agent: command not found\n',
-        ),
-        isA<SpawnRefused>().having(
-          (r) => r.refusal,
-          'refusal',
-          SpawnRefusal.spawnFailed,
-        ),
-      );
-    });
-
+  group('remote transaction failures', () {
     test('every refusal has one line, and they are four different lines', () {
       final lines = {
         for (final refusal in SpawnRefusal.values) spawnRefusalReason(refusal),
       };
       expect(lines, hasLength(SpawnRefusal.values.length));
       expect(spawnRefusalReason(SpawnRefusal.noDirectory), 'no such directory');
-      expect(spawnRefusalReason(SpawnRefusal.gateRefused), 'gate refused');
+      expect(
+        spawnRefusalReason(SpawnRefusal.startFailed),
+        'agent start failed',
+      );
       expect(spawnRefusalReason(SpawnRefusal.spawnFailed), 'spawn failed');
       expect(spawnRefusalReason(SpawnRefusal.timedOut), 'spawn timed out');
     });
@@ -293,7 +236,7 @@ void main() {
       expect(sent.detail, 'wQ:p7');
     });
 
-    test('nothing the gate refused leaves a row behind', () async {
+    test('no refused transaction leaves a row behind', () async {
       final itemId = await onlyTaskId();
       for (final refusal in SpawnRefusal.values) {
         final state =

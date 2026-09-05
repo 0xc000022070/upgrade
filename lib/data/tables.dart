@@ -259,7 +259,7 @@ class Paths extends Table {
 }
 
 /// One successful send: the drop, the path it went to, and the pane it landed
-/// in. Written only when the gate answered with a pane id, so a row here is
+/// in. Written only when the remote transaction returned a pane id, so a row here is
 /// evidence that something is running and not that something was attempted.
 ///
 /// Rows go with their path, and with the host through it: the sent line reads
@@ -271,7 +271,7 @@ class Dispatches extends Table {
   TextColumn get itemId => text().references(Tasks, #id)();
   TextColumn get pathId => text().references(Paths, #id)();
 
-  /// `claude` or `codex`, the kinds the gate accepts, as this send chose them.
+  /// `claude` or `codex`, as this send chose them.
   /// Text and not an enum: the agent mark already keys off the same strings
   /// herdr reports, and an enum here would need a converter on both sides.
   ///

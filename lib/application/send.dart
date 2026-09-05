@@ -88,7 +88,7 @@ final class SendFailed extends SendState {
 
 String spawnRefusalReason(SpawnRefusal refusal) => switch (refusal) {
   SpawnRefusal.noDirectory => 'no such directory',
-  SpawnRefusal.gateRefused => 'gate refused',
+  SpawnRefusal.startFailed => 'agent start failed',
   SpawnRefusal.spawnFailed => 'spawn failed',
   SpawnRefusal.timedOut => 'spawn timed out',
 };

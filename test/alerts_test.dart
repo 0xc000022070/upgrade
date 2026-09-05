@@ -321,14 +321,16 @@ void main() {
     });
   });
 
-  group('the gate strings', () {
-    test('are the four names the spec gives them, list in its short form', () {
-      expect(HerdrCommands.list, 'agent list');
-      expect(HerdrCommands.watch, 'agent watch');
-      expect(HerdrCommands.read('wQ:p1'), 'agent read wQ:p1');
+  group('the remote commands', () {
+    test('run Herdr in the configured session through sh', () {
+      expect(HerdrCommands.list(), contains('HERDR_SESSION='));
+      expect(HerdrCommands.list(), contains('hub'));
+      expect(HerdrCommands.list(), contains('herdr agent list'));
+      expect(HerdrCommands.watch(), contains('sleep 2'));
+      expect(HerdrCommands.read('wQ:p1'), contains('agent read'));
       expect(
         HerdrCommands.keys('wQ:p1', const ['enter']),
-        'agent keys wQ:p1 enter',
+        contains('agent send-keys'),
       );
     });
   });
@@ -355,7 +357,7 @@ void main() {
     final working = line('working', 1);
     final blocked = line('blocked', 2);
     final stream = '$working\n$blocked\n';
-    // The gate writes whole lines, but tcp is free to cut them anywhere, so the
+    // The remote loop writes whole lines, but tcp may cut them anywhere, so the
     // split has to be the line terminator's job and not the packet's.
     final cut = working.length + 12;
     final bytes = Stream<List<int>>.fromIterable([

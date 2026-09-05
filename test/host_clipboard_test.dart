@@ -161,7 +161,7 @@ void main() {
 
     test('the upload makes the directory and writes stdin under it', () {
       expect(
-        uploadCommand(ClipRoute.shell, 'a.png'),
+        uploadCommand('a.png'),
         "sh -c 'mkdir -p '\\''/tmp/hotline'\\'' && cat > "
         "'\\''/tmp/hotline/a.png'\\'''",
       );
@@ -169,42 +169,6 @@ void main() {
 
     test('a quote in a path survives the quoting', () {
       expect(shellQuote("it's"), "'it'\\''s'");
-    });
-  });
-
-  group('the gate', () {
-    test('a probe answered by the gate routes every command through it', () {
-      final clipboard = parseProbe(
-        printed('${_wayland}watch=124\nwatcherror='),
-        route: ClipRoute.gate,
-      );
-      expect(clipboard.route, ClipRoute.gate);
-      expect(clipboard.backend, ClipboardBackend.wayland);
-      expect(uploadCommand(ClipRoute.gate, 'a.png'), 'clip put a.png');
-      expect(clipboardCommand(clipboard, 'a.png'), 'clip copy a.png');
-      expect(gateProbeCommand, 'clip probe');
-    });
-
-    test('a headless host behind the gate still takes the upload', () {
-      final clipboard = parseProbe(
-        printed('os=Linux\nruntime=/run/user/1000\nwayland=\ndisplay=\n'),
-        route: ClipRoute.gate,
-      );
-      expect(clipboard.line, 'NONE · no display server');
-      expect(clipboardCommand(clipboard, 'a.png'), isNull);
-      expect(uploadCommand(clipboard.route, 'a.png'), 'clip put a.png');
-    });
-
-    test('the route is part of the answer', () {
-      expect(
-        parseProbe(printed('os=Darwin\nhas=osascript\n')),
-        isNot(
-          parseProbe(
-            printed('os=Darwin\nhas=osascript\n'),
-            route: ClipRoute.gate,
-          ),
-        ),
-      );
     });
   });
 }

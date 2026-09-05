@@ -51,10 +51,8 @@ final class VncKeyRejected extends VncFailure {
   String reason(String host) => 'key rejected';
 }
 
-/// The `direct-tcpip` channel open was denied. On a host whose key line
-/// still reads `restrict`, this is what every connection gets — sshd refuses
-/// the forward, not the login — which is why it is its own line and not
-/// `unreachable`.
+/// The `direct-tcpip` channel open was denied. SSH is live, so this is its own
+/// line rather than `unreachable`.
 final class VncTunnelRefused extends VncFailure {
   const VncTunnelRefused([super.detail]);
 
