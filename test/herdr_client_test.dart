@@ -80,6 +80,37 @@ void main() {
     );
   });
 
+  test('a shell at its prompt owns the foreground group alone', () {
+    String info(int group, List<int> pids) =>
+        '{"result":{"process_info":{"shell_pid":7,'
+        '"foreground_process_group_id":$group,"foreground_processes":['
+        '${pids.map((pid) => '{"pid":$pid,"name":"zsh"}').join(',')}]}}}';
+
+    expect(HerdrClient.parseShellAtPrompt(info(7, [7])), isTrue);
+    // starship or a direnv subshell holding the terminal during rc files
+    expect(HerdrClient.parseShellAtPrompt(info(9, [9])), isFalse);
+    // a forked child still inside the shell's own group
+    expect(HerdrClient.parseShellAtPrompt(info(7, [7, 8])), isFalse);
+    expect(HerdrClient.parseShellAtPrompt(info(7, [])), isFalse);
+    // a reply without a process group cannot be waited on
+    expect(
+      HerdrClient.parseShellAtPrompt(
+        '{"result":{"process_info":{"pane_id":"w1:p1"}}}',
+      ),
+      isTrue,
+    );
+    expect(HerdrClient.parseShellAtPrompt('{"result":{}}'), isTrue);
+    expect(HerdrClient.parseShellAtPrompt('not json'), isTrue);
+    expect(
+      HerdrClient.parseErrorCode(
+        '{"error":{"code":"agent_pane_busy","message":"busy"},"id":"x"}',
+      ),
+      'agent_pane_busy',
+    );
+    expect(HerdrClient.parseErrorCode('not json'), isNull);
+    expect(HerdrClient.parseErrorCode('{"result":{}}'), isNull);
+  });
+
   test('parses checkout lines and both model response shapes', () {
     expect(HerdrClient.parsePaths('~/src/a\n~/src/b\n'), [
       '~/src/a',
@@ -92,6 +123,17 @@ void main() {
         '{"models":[{"slug":"gpt-5.3-codex"},{"slug":"gpt-5.4"}]}',
       ),
       ['gpt-5.3-codex', 'gpt-5.4'],
+    );
+  });
+
+  test('process info targets the pane under the session', () {
+    final command = HerdrCommands.processInfo('w1:p2', 'hub');
+    expect(command, contains('pane process-info --pane'));
+    expect(command, contains('w1:p2'));
+    expect(command, contains('HERDR_SESSION='));
+    expect(
+      () => HerdrCommands.processInfo('w1:p2; reboot'),
+      throwsA(isA<HerdrProtocolMismatch>()),
     );
   });
 
