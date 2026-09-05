@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/alerts_boot.dart';
 import 'app/boot.dart';
-import 'app/hotline_app.dart';
+import 'app/spectacle_app.dart';
 import 'application/agents.dart';
 import 'application/clips.dart';
 import 'application/providers.dart';
@@ -16,7 +16,7 @@ import 'data/repositories/note_repository.dart';
 import 'data/repositories/project_repository.dart';
 import 'data/repositories/task_repository.dart';
 import 'data/seed.dart';
-import 'design/icons/hotline_icon.dart';
+import 'design/icons/spectacle_icon.dart';
 import 'design/typography.dart';
 import 'features/shell/shell_sessions.dart';
 import 'features/tasks/image_input.dart';
@@ -100,7 +100,7 @@ Future<void> main() async {
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: HotlineApp(boot: boot),
+      child: SpectacleApp(boot: boot),
     ),
   );
 }

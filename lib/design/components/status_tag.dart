@@ -18,9 +18,9 @@ class StatusTag extends StatelessWidget {
   final Color color;
 
   static const _projectColors = {
-    ProjectStatus.active: HotlineColors.accent,
-    ProjectStatus.paused: HotlineColors.textSecondary,
-    ProjectStatus.archived: HotlineColors.textDisabled,
+    ProjectStatus.active: SpectacleColors.accent,
+    ProjectStatus.paused: SpectacleColors.textSecondary,
+    ProjectStatus.archived: SpectacleColors.textDisabled,
   };
 
   @override
@@ -31,7 +31,7 @@ class StatusTag extends StatelessWidget {
         border: Border.all(color: color, width: Borders.hairline),
         borderRadius: BorderRadius.circular(Radii.sharp),
       ),
-      child: Text(label, style: HotlineText.label.copyWith(color: color)),
+      child: Text(label, style: SpectacleText.label.copyWith(color: color)),
     );
   }
 }

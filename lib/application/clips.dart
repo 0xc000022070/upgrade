@@ -152,7 +152,7 @@ class ClipStore extends ChangeNotifier {
 final clipStoreProvider = Provider<ClipStore>((ref) {
   ref.keepAlive();
   return ClipStore(
-    Directory(p.join(Directory.systemTemp.path, 'hotline-clips')),
+    Directory(p.join(Directory.systemTemp.path, 'spectacle-clips')),
   );
 });
 

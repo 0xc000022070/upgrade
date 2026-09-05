@@ -23,8 +23,8 @@ import '../../design/components/panel_sheet.dart';
 import '../../design/components/picker_row.dart';
 import '../../design/components/section.dart';
 import '../../design/components/solid_action_bar.dart';
-import '../../design/icons/hotline_icon.dart';
-import '../../design/icons/hotline_icons.dart';
+import '../../design/icons/spectacle_icon.dart';
+import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/host_keys.dart';
@@ -379,7 +379,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         ),
       );
     } catch (error) {
-      debugPrint('hotline.verify ${host.name}: $error');
+      debugPrint('spectacle.verify ${host.name}: $error');
     }
     if (mounted) setState(() => _verifying = false);
   }
@@ -411,7 +411,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       final previews = await ref.read(screenPreviewsProvider.future);
       await previews.delete(hostId);
     } catch (error) {
-      debugPrint('hotline.vnc $hostId: preview not removed: $error');
+      debugPrint('spectacle.vnc $hostId: preview not removed: $error');
     }
   }
 
@@ -434,7 +434,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         body: StaticSurface(
           child: ScreenScaffold(
             title: widget.host == null ? 'NEW HOST' : 'HOST',
-            breadcrumb: '/ HOTLINE / HOSTS',
+            breadcrumb: '/ SPECTACLE / HOSTS',
             onBack: _handleBack,
             children: [
               PanelStack(
@@ -523,7 +523,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                 const SizedBox(height: Spacing.md),
                 SolidActionBar(
                   label: 'DELETE HOST',
-                  tone: HotlineColors.warning,
+                  tone: SpectacleColors.warning,
                   onTap: _delete,
                 ),
               ],
@@ -553,7 +553,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
               alignment: Alignment.centerLeft,
               child: ActionBlock(
                 label: 'FORGET KEY',
-                tone: HotlineColors.warning,
+                tone: SpectacleColors.warning,
                 onTap: _forgetHostKey,
               ),
             ),
@@ -626,8 +626,8 @@ class _RemoveAction extends StatelessWidget {
         child: Center(
           child: Text(
             '×',
-            style: HotlineText.valueStrong.copyWith(
-              color: HotlineColors.textMuted,
+            style: SpectacleText.valueStrong.copyWith(
+              color: SpectacleColors.textMuted,
             ),
           ),
         ),
@@ -653,13 +653,13 @@ class _AddAction extends StatelessWidget {
         height: TapTargets.minHeight,
         child: Row(
           children: [
-            HotlineIcon(
-              HotlineIcons.add,
+            SpectacleIcon(
+              SpectacleIcons.add,
               size: IconSizes.affordance,
-              color: HotlineColors.textMuted,
+              color: SpectacleColors.textMuted,
             ),
             SizedBox(width: Spacing.sm),
-            Text('ADD PATH', style: HotlineText.panelHeader),
+            Text('ADD PATH', style: SpectacleText.panelHeader),
           ],
         ),
       ),
@@ -683,7 +683,7 @@ class _KeyMetaRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 108, child: Text(label, style: HotlineText.label)),
+          SizedBox(width: 108, child: Text(label, style: SpectacleText.label)),
           Expanded(child: Meta(value, maxLines: maxLines)),
         ],
       ),

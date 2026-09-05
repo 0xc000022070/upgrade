@@ -44,12 +44,12 @@ class ProgressBar extends StatelessWidget {
                 children: [
                   Container(
                     height: thickness,
-                    color: HotlineColors.borderNormal,
+                    color: SpectacleColors.borderNormal,
                   ),
                   Container(
                     height: thickness,
                     width: width,
-                    color: HotlineColors.accent,
+                    color: SpectacleColors.accent,
                   ),
                   if (head != null)
                     Positioned(

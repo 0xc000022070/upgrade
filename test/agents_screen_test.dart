@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/agents.dart';
-import 'package:hotline/application/providers.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/features/agents/agents_screen.dart';
-import 'package:hotline/features/home/agent_mark.dart';
-import 'package:hotline/platform/herdr_client.dart';
+import 'package:spectacle/application/agents.dart';
+import 'package:spectacle/application/providers.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/features/agents/agents_screen.dart';
+import 'package:spectacle/features/home/agent_mark.dart';
+import 'package:spectacle/platform/herdr_client.dart';
 
 import 'support/platform_channels.dart';
 
@@ -36,7 +36,7 @@ AgentSnapshot agent(String name, {required String workspace}) => AgentSnapshot(
   agentStatus: 'working',
   terminalTitleStripped: 'work',
   workspaceId: workspace,
-  cwd: '/workspace/hotline',
+  cwd: '/workspace/spectacle',
   stateChangeSeq: 1,
 );
 

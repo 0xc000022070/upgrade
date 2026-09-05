@@ -26,10 +26,10 @@ typedef HerdrSend = Future<SpawnResult> Function({
 });
 
 /// The evidence seam, the one the watcher already uses. With
-/// `--dart-define=HOTLINE_FAKE_SPAWN=true` the send never dials and answers
+/// `--dart-define=SPECTACLE_FAKE_SPAWN=true` the send never dials and answers
 /// with a pane id, which is what lets the sheet's three states be captured on
 /// an emulator while the verb is not deployed on the host yet.
-const _fakeSpawn = bool.fromEnvironment('HOTLINE_FAKE_SPAWN');
+const _fakeSpawn = bool.fromEnvironment('SPECTACLE_FAKE_SPAWN');
 
 Future<SpawnResult> _fakeSend({
   required String address,
@@ -121,7 +121,7 @@ class Sender {
     String? model,
   }) async {
     final host = target.host;
-    void log(Object error) => debugPrint('hotline.spawn ${host.name}: $error');
+    void log(Object error) => debugPrint('spectacle.spawn ${host.name}: $error');
 
     final privateKey = await keys.privateKey(host.keyId);
     if (privateKey == null) {

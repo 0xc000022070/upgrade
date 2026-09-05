@@ -2,16 +2,16 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/navigation.dart';
-import 'package:hotline/application/providers.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/repositories/activity_repository.dart';
-import 'package:hotline/data/repositories/project_repository.dart';
-import 'package:hotline/data/repositories/task_repository.dart';
-import 'package:hotline/features/projects/project_detail_screen.dart';
-import 'package:hotline/features/projects/project_form_screen.dart';
-import 'package:hotline/features/projects/project_row.dart';
-import 'package:hotline/features/projects/projects_screen.dart';
+import 'package:spectacle/application/navigation.dart';
+import 'package:spectacle/application/providers.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/repositories/activity_repository.dart';
+import 'package:spectacle/data/repositories/project_repository.dart';
+import 'package:spectacle/data/repositories/task_repository.dart';
+import 'package:spectacle/features/projects/project_detail_screen.dart';
+import 'package:spectacle/features/projects/project_form_screen.dart';
+import 'package:spectacle/features/projects/project_row.dart';
+import 'package:spectacle/features/projects/projects_screen.dart';
 
 import 'support/platform_channels.dart';
 

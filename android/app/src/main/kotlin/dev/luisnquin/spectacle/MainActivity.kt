@@ -1,4 +1,4 @@
-package dev.luisnquin.hotline
+package dev.luisnquin.spectacle
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -31,7 +31,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
 
-        MethodChannel(messenger, "dev.luisnquin.hotline/device")
+        MethodChannel(messenger, "dev.luisnquin.spectacle/device")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "model" -> result.success(Build.MODEL)
@@ -43,7 +43,7 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
-        EventChannel(messenger, "dev.luisnquin.hotline/device/throttle")
+        EventChannel(messenger, "dev.luisnquin.spectacle/device/throttle")
             .setStreamHandler(ThrottleStreamHandler(this, power))
     }
 

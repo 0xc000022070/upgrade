@@ -4,24 +4,24 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/agents.dart';
-import 'package:hotline/application/path_scan.dart';
-import 'package:hotline/application/providers.dart';
-import 'package:hotline/application/send.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/enums.dart';
-import 'package:hotline/data/repositories/activity_repository.dart';
-import 'package:hotline/data/repositories/attachment_repository.dart';
-import 'package:hotline/data/repositories/dispatch_repository.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/data/repositories/path_repository.dart';
-import 'package:hotline/data/repositories/project_repository.dart';
-import 'package:hotline/data/repositories/task_repository.dart';
-import 'package:hotline/features/tasks/item_sheet.dart';
-import 'package:hotline/features/tasks/sent_tag.dart';
-import 'package:hotline/platform/herdr_client.dart';
-import 'package:hotline/platform/keys.dart';
-import 'package:hotline/platform/host_keys.dart';
+import 'package:spectacle/application/agents.dart';
+import 'package:spectacle/application/path_scan.dart';
+import 'package:spectacle/application/providers.dart';
+import 'package:spectacle/application/send.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/enums.dart';
+import 'package:spectacle/data/repositories/activity_repository.dart';
+import 'package:spectacle/data/repositories/attachment_repository.dart';
+import 'package:spectacle/data/repositories/dispatch_repository.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/data/repositories/path_repository.dart';
+import 'package:spectacle/data/repositories/project_repository.dart';
+import 'package:spectacle/data/repositories/task_repository.dart';
+import 'package:spectacle/features/tasks/item_sheet.dart';
+import 'package:spectacle/features/tasks/sent_tag.dart';
+import 'package:spectacle/platform/herdr_client.dart';
+import 'package:spectacle/platform/keys.dart';
+import 'package:spectacle/platform/host_keys.dart';
 
 import 'support/platform_channels.dart';
 
@@ -51,8 +51,8 @@ PathTarget _target() => PathTarget(
   path: AgentPath(
     id: 'path-1',
     hostId: _host.id,
-    directory: '~/src/hotline',
-    label: 'hotline',
+    directory: '~/src/spectacle',
+    label: 'spectacle',
     createdAt: DateTime.utc(2026, 9, 3),
   ),
   host: _host,
@@ -70,10 +70,10 @@ Future<void> _drain(WidgetTester tester) async {
 void main() {
   test('workspace creation expands home on the host and quotes the path', () {
     final command = HerdrCommands.workspaceCreate(
-      "~/src/hotline with 'quote'",
-      label: 'hotline',
+      "~/src/spectacle with 'quote'",
+      label: 'spectacle',
     );
-    expect(command, contains('hotline with'));
+    expect(command, contains('spectacle with'));
     expect(command, contains('quote'));
     expect(command, contains('workspace create'));
     expect(command, contains('HERDR_SESSION='));
@@ -174,8 +174,8 @@ void main() {
             PathsCompanion.insert(
               id: 'path-1',
               hostId: _host.id,
-              directory: '~/src/hotline',
-              label: 'hotline',
+              directory: '~/src/spectacle',
+              label: 'spectacle',
               createdAt: DateTime.utc(2026, 9, 3),
             ),
           );
@@ -206,7 +206,7 @@ void main() {
       expect(state, isA<SendSent>());
       expect((state as SendSent).paneId, 'wQ:p7');
       expect(calls.single.kind, 'claude');
-      expect(calls.single.directory, '~/src/hotline');
+      expect(calls.single.directory, '~/src/spectacle');
       expect(calls.single.prompt, 'read the gate log\n\nhttps://a.example');
 
       // A send goes out from a list the user tapped, not from a route showing
@@ -223,7 +223,7 @@ void main() {
       final rows = await dispatches.watchForItem(itemId).first;
       expect(rows, hasLength(1));
       expect(rows.single.hostName, 'nyx');
-      expect(rows.single.label, 'hotline');
+      expect(rows.single.label, 'spectacle');
       expect(rows.single.agent, 'claude');
       expect(rows.single.paneId, 'wQ:p7');
 
@@ -232,7 +232,7 @@ void main() {
         (entry) => entry.action == ActivityAction.sent,
       );
       expect(sent.title, 'read the gate log');
-      expect(sent.context, 'nyx / hotline');
+      expect(sent.context, 'nyx / spectacle');
       expect(sent.detail, 'wQ:p7');
     });
 
@@ -366,7 +366,7 @@ void main() {
 
     tearDown(() => db.close());
 
-    Future<void> addPath({String label = 'hotline'}) => db
+    Future<void> addPath({String label = 'spectacle'}) => db
         .into(db.paths)
         .insert(
           PathsCompanion.insert(
@@ -391,7 +391,7 @@ void main() {
               required user,
               required privateKey,
               verifier,
-            }) async => const ['~/src/hotline'],
+            }) async => const ['~/src/spectacle'],
             fetchModels: ({
               required address,
               required port,
@@ -433,7 +433,7 @@ void main() {
       final project = await ProjectRepository(
         db,
         activity,
-      ).create(name: 'hotline');
+      ).create(name: 'spectacle');
       final id = await TaskRepository(
         db,
         activity,
@@ -494,11 +494,11 @@ void main() {
       await tester.tap(find.text('SEND'));
       await _drain(tester);
       expect(find.text('SEND TO'), findsOneWidget);
-      expect(find.text('NYX / HOTLINE'), findsOneWidget);
+      expect(find.text('NYX / SPECTACLE'), findsOneWidget);
 
       // The target is chosen first, and the agent and the model after it: both
       // belong to this send and neither is stored on the path.
-      await tester.tap(find.text('NYX / HOTLINE'));
+      await tester.tap(find.text('NYX / SPECTACLE'));
       await _drain(tester);
       expect(find.text('AGENT'), findsOneWidget);
       expect(find.text('MODEL'), findsOneWidget);
@@ -549,7 +549,7 @@ void main() {
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);
-      await tester.tap(find.text('NYX / HOTLINE'));
+      await tester.tap(find.text('NYX / SPECTACLE'));
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);
@@ -574,7 +574,7 @@ void main() {
       await addPath();
       await DriftDispatchRepository(db, activity).record(
         itemId: id,
-        pathId: 'path-hotline',
+        pathId: 'path-spectacle',
         paneId: 'wQ:p7',
         title: 'a drop',
         agent: 'claude',
@@ -585,7 +585,7 @@ void main() {
 
       expect(find.text('[ SENT ]'), findsOneWidget);
       expect(
-        find.textContaining('NYX / HOTLINE · CLAUDE · wQ:p7 · '),
+        find.textContaining('NYX / SPECTACLE · CLAUDE · wQ:p7 · '),
         findsOneWidget,
       );
 

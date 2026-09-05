@@ -3,17 +3,17 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/agents.dart';
-import 'package:hotline/application/path_scan.dart';
-import 'package:hotline/application/providers.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/enums.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/data/repositories/key_repository.dart';
-import 'package:hotline/data/repositories/path_repository.dart';
-import 'package:hotline/design/components/panel.dart';
-import 'package:hotline/features/settings/host_form_screen.dart';
-import 'package:hotline/platform/keys.dart';
+import 'package:spectacle/application/agents.dart';
+import 'package:spectacle/application/path_scan.dart';
+import 'package:spectacle/application/providers.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/enums.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/data/repositories/key_repository.dart';
+import 'package:spectacle/data/repositories/path_repository.dart';
+import 'package:spectacle/design/components/panel.dart';
+import 'package:spectacle/features/settings/host_form_screen.dart';
+import 'package:spectacle/platform/keys.dart';
 
 import 'support/platform_channels.dart';
 
@@ -30,7 +30,7 @@ enum _Fields { name, address, port, user }
 
 /// What the host answers `agent paths` with. The picker offers these; anything
 /// else in a test is typed through the escape hatch.
-const _scanned = ['~/src/hotline', '/srv/gate'];
+const _scanned = ['~/src/spectacle', '/srv/gate'];
 
 ManagedKey _key(String id, String name) => ManagedKey(
   id: id,
@@ -206,17 +206,17 @@ void main() {
     await turnHerdrOn(tester);
 
     // Both directories out of one picker: the add takes them in bulk.
-    await addPaths(tester, const ['~/src/hotline', '/srv/gate']);
+    await addPaths(tester, const ['~/src/spectacle', '/srv/gate']);
     // A row is the directory, shortened, and nothing else.
-    expect(find.text('…/src/hotline'), findsOneWidget);
+    expect(find.text('…/src/spectacle'), findsOneWidget);
     expect(find.text('/srv/gate'), findsOneWidget);
 
     // A tap on the row opens the picker again and re-points it.
-    await tester.tap(find.text('…/src/hotline'));
+    await tester.tap(find.text('…/src/spectacle'));
     await _settle(tester);
     await pick(tester, const ['~/src/monolith'], multiple: false);
     expect(find.text('…/src/monolith'), findsOneWidget);
-    expect(find.text('…/src/hotline'), findsNothing);
+    expect(find.text('…/src/spectacle'), findsNothing);
 
     // Nothing so far has been written: the paths are the form's draft.
     expect(await hosts.all(), isEmpty);
@@ -241,12 +241,12 @@ void main() {
     await fillFields(tester);
     await turnHerdrOn(tester);
 
-    await addPaths(tester, const ['~/src/hotline', '/srv/gate']);
+    await addPaths(tester, const ['~/src/spectacle', '/srv/gate']);
     expect(find.text('×'), findsNWidgets(2));
 
     await tester.tap(find.text('×').first);
     await _ready(tester);
-    expect(find.text('…/src/hotline'), findsNothing);
+    expect(find.text('…/src/spectacle'), findsNothing);
     expect(find.text('/srv/gate'), findsOneWidget);
 
     await tester.tap(find.text('CREATE HOST'));
@@ -264,30 +264,30 @@ void main() {
     await fillFields(tester);
     await turnHerdrOn(tester);
 
-    await addPath(tester, directory: '~/src/hotline/');
-    expect(find.text('…/src/hotline'), findsOneWidget);
+    await addPath(tester, directory: '~/src/spectacle/');
+    expect(find.text('…/src/spectacle'), findsOneWidget);
 
     await tester.tap(find.text('CREATE HOST'));
     await _ready(tester);
 
-    expect((await savedPaths()).single.label, 'hotline');
+    expect((await savedPaths()).single.label, 'spectacle');
 
     await unmount(tester);
   });
 
   test('a row shows the last two segments of a long directory', () {
     expect(
-      shortPathLabel('~/Projects/github.com/luisnquin/hotline'),
-      '…/luisnquin/hotline',
+      shortPathLabel('~/Projects/github.com/luisnquin/spectacle'),
+      '…/luisnquin/spectacle',
     );
     expect(shortPathLabel('/srv/gate'), '/srv/gate');
-    expect(shortPathLabel('hotline'), 'hotline');
+    expect(shortPathLabel('spectacle'), 'spectacle');
   });
 
   test('the last segment is what an unnamed path is called', () {
-    expect(defaultPathLabel('~/src/hotline'), 'hotline');
+    expect(defaultPathLabel('~/src/spectacle'), 'spectacle');
     expect(defaultPathLabel('/srv/herdr/'), 'herdr');
-    expect(defaultPathLabel('hotline'), 'hotline');
+    expect(defaultPathLabel('spectacle'), 'spectacle');
     expect(defaultPathLabel('~'), '~');
     expect(defaultPathLabel('/'), '/');
   });
@@ -322,8 +322,8 @@ void main() {
             PathsCompanion.insert(
               id: 'path-1',
               hostId: 'host-1',
-              directory: '~/src/hotline',
-              label: 'hotline',
+              directory: '~/src/spectacle',
+              label: 'spectacle',
               createdAt: DateTime(2026, 9, 3),
             ),
           );
@@ -353,8 +353,8 @@ void main() {
       AgentPath(
         id: 'path-1',
         hostId: 'host-1',
-        directory: '~/src/hotline',
-        label: 'hotline',
+        directory: '~/src/spectacle',
+        label: 'spectacle',
         createdAt: DateTime(2026, 9, 3),
       ),
     ]);

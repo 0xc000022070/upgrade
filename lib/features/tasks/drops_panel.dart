@@ -191,7 +191,7 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
                   // The whole highlight: the age in accent instead of the
                   // dim it has by default. Nothing else on the row moves.
                   valueColor: fresh.contains(task.id)
-                      ? HotlineColors.accent
+                      ? SpectacleColors.accent
                       : null,
                   // No glyph and no dim outside the mode — a drop has
                   // no state to show, and filing it is what gives it one.
@@ -247,8 +247,8 @@ class _SelectionBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       checked ? '[x]' : '[ ]',
-      style: HotlineText.rowTitle.copyWith(
-        color: checked ? HotlineColors.accent : HotlineColors.textDisabled,
+      style: SpectacleText.rowTitle.copyWith(
+        color: checked ? SpectacleColors.accent : SpectacleColors.textDisabled,
       ),
     );
   }

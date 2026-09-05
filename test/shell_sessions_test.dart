@@ -3,12 +3,12 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/data/repositories/shell_tab_repository.dart';
-import 'package:hotline/features/shell/host_shell_screen.dart';
-import 'package:hotline/features/shell/shell_sessions.dart';
-import 'package:hotline/platform/shell/shell_connection.dart';
-import 'package:hotline/platform/vnc/keysyms.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/data/repositories/shell_tab_repository.dart';
+import 'package:spectacle/features/shell/host_shell_screen.dart';
+import 'package:spectacle/features/shell/shell_sessions.dart';
+import 'package:spectacle/platform/shell/shell_connection.dart';
+import 'package:spectacle/platform/vnc/keysyms.dart';
 
 import 'support/fake_shell.dart';
 
@@ -124,9 +124,9 @@ void main() {
     await _settle();
     final connection = transport.opened.single;
 
-    connection.emit('hotline');
+    connection.emit('spectacle');
     await _settle();
-    expect(session.terminal.buffer.getText(), contains('hotline'));
+    expect(session.terminal.buffer.getText(), contains('spectacle'));
 
     sessions.send(session, Uint8List.fromList([0x03]));
     expect(connection.writes.single, [0x03]);

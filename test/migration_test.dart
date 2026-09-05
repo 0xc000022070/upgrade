@@ -3,13 +3,13 @@ import 'dart:io';
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/enums.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/data/repositories/key_repository.dart';
-import 'package:hotline/data/repositories/path_repository.dart';
-import 'package:hotline/data/repositories/shell_tab_repository.dart';
-import 'package:hotline/data/repositories/settings_repository.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/enums.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/data/repositories/key_repository.dart';
+import 'package:spectacle/data/repositories/path_repository.dart';
+import 'package:spectacle/data/repositories/shell_tab_repository.dart';
+import 'package:spectacle/data/repositories/settings_repository.dart';
 
 /// The v2 schema exactly as it shipped, written out by hand: the point of the
 /// test is that the v3 migration meets a database it did not create, so the
@@ -233,8 +233,8 @@ void main() {
   late File file;
 
   setUp(() async {
-    dir = await Directory.systemTemp.createTemp('hotline-migration');
-    file = File('${dir.path}/hotline.sqlite');
+    dir = await Directory.systemTemp.createTemp('spectacle-migration');
+    file = File('${dir.path}/spectacle.sqlite');
   });
 
   tearDown(() => dir.delete(recursive: true));
@@ -574,8 +574,8 @@ void main() {
     await keys.save(
       ManagedKey(
         id: 'k1',
-        name: 'hotline',
-        publicKey: 'ssh-ed25519 AAAA hotline',
+        name: 'spectacle',
+        publicKey: 'ssh-ed25519 AAAA spectacle',
         fingerprint: 'SHA256:abc',
         createdAt: DateTime.parse(stamp(22)),
       ),
@@ -746,8 +746,8 @@ void main() {
       AgentPath(
         id: 'path-1',
         hostId: 'h1',
-        directory: '~/src/hotline',
-        label: 'hotline',
+        directory: '~/src/spectacle',
+        label: 'spectacle',
         createdAt: DateTime.parse(stamp(22)),
       ),
     ]);
@@ -772,7 +772,7 @@ void main() {
             sentAt: DateTime.parse(stamp(22)),
           ),
         );
-    expect((await paths.listForHost('h1')).single.label, 'hotline');
+    expect((await paths.listForHost('h1')).single.label, 'spectacle');
     expect((await db.select(db.dispatches).get()).single.paneId, 'wQ:pH');
   });
 
@@ -792,7 +792,7 @@ void main() {
     await executor.runInsert(
       'INSERT INTO paths (id, host_id, directory, label, agent, created_at) '
       'VALUES (?, ?, ?, ?, ?, ?)',
-      ['p1', 'h1', '~/src/hotline', 'hotline', 'codex', stamp(20)],
+      ['p1', 'h1', '~/src/spectacle', 'spectacle', 'codex', stamp(20)],
     );
     await executor.runInsert(
       'INSERT INTO tasks (id, title, done, created_at, updated_at) '
@@ -823,7 +823,7 @@ void main() {
     expect(columns, isNot(contains('agent')));
     expect(
       (await DriftPathRepository(db).listForHost('h1')).single.label,
-      'hotline',
+      'spectacle',
     );
   });
 

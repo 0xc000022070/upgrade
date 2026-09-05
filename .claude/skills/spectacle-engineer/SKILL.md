@@ -1,9 +1,9 @@
 ---
-name: hotline-engineer
-description: Build, test, run and evidence a Hotline checkpoint as the builder or codex engineer under the orchestrator. Use when given a Hotline brief, when producing evidence for a spec section, or when writing a DONE report.
+name: spectacle-engineer
+description: Build, test, run and evidence a Spectacle checkpoint as the builder or codex engineer under the orchestrator. Use when given a Spectacle brief, when producing evidence for a spec section, or when writing a DONE report.
 ---
 
-# Hotline engineer
+# Spectacle engineer
 
 Flutter, Drift, Riverpod, dark monochrome, accent `#B7FF2A`, Barlow Condensed and IBM Plex Mono. The contract is `design/SPEC.md`; the brief names the section and your file scope.
 

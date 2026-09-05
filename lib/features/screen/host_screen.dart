@@ -115,7 +115,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
       _previews = previews;
       _previewTimer = Timer.periodic(previewInterval, (_) => _writePreview());
     } catch (error) {
-      debugPrint('hotline.vnc ${widget.host.name}: no preview store: $error');
+      debugPrint('spectacle.vnc ${widget.host.name}: no preview store: $error');
     }
   }
 
@@ -168,7 +168,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
               .add(png, source: ClipSource.screen, hostName: widget.host.name);
           _say(heldNotice(clip));
         case CropTarget.save:
-          await widget.save(png, 'hotline-${DateTime.now().toIso8601String()}');
+          await widget.save(png, 'spectacle-${DateTime.now().toIso8601String()}');
           _say(savedNotice(rect.width, rect.height));
       }
     } catch (error) {
@@ -295,7 +295,7 @@ class _Crumb extends StatelessWidget {
               onTap: onBack,
               child: Text(
                 '/ ${host.name.toUpperCase()} SCREEN',
-                style: HotlineText.breadcrumb,
+                style: SpectacleText.breadcrumb,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -312,7 +312,7 @@ class _Crumb extends StatelessWidget {
             Text(
               notice!,
               key: const ValueKey('crop-notice'),
-              style: HotlineText.panelHeader,
+              style: SpectacleText.panelHeader,
             ),
           ],
         ],
@@ -332,7 +332,7 @@ class _State extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (controller.phase) {
       case ScreenPhase.connecting:
-        return const Text('CONNECTING', style: HotlineText.panelHeader);
+        return const Text('CONNECTING', style: SpectacleText.panelHeader);
       case ScreenPhase.live:
         // Unreachable from [_Crumb], which does not build this while live.
         return const SizedBox.shrink();
@@ -342,8 +342,8 @@ class _State extends StatelessWidget {
           children: [
             Text(
               controller.reason ?? '',
-              style: HotlineText.panelHeader.copyWith(
-                color: HotlineColors.warning,
+              style: SpectacleText.panelHeader.copyWith(
+                color: SpectacleColors.warning,
               ),
             ),
             const SizedBox(width: Spacing.lg),
@@ -374,7 +374,7 @@ class _Body extends StatelessWidget {
         child: Text(switch (controller.phase) {
           ScreenPhase.failed => controller.reason ?? '',
           _ => 'CONNECTING',
-        }, style: HotlineText.panelHeader),
+        }, style: SpectacleText.panelHeader),
       );
     }
     return FramebufferView(

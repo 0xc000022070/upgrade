@@ -11,8 +11,8 @@ import '../../design/colors.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/effects/glitch.dart';
-import '../../design/icons/hotline_icon.dart';
-import '../../design/icons/hotline_icons.dart';
+import '../../design/icons/spectacle_icon.dart';
+import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import '../screen_scaffold.dart';
 import '../settings/settings_screen.dart';
@@ -165,10 +165,10 @@ class _NextActionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListRow(
-      leading: const HotlineIcon(
-        HotlineIcons.forward,
+      leading: const SpectacleIcon(
+        SpectacleIcons.forward,
         size: IconSizes.glyph,
-        color: HotlineColors.accent,
+        color: SpectacleColors.accent,
       ),
       title: task.title,
       subtitle: task.projectName,

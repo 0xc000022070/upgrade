@@ -1,14 +1,14 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/enums.dart';
-import 'package:hotline/data/repositories/activity_repository.dart';
-import 'package:hotline/data/repositories/goal_repository.dart';
-import 'package:hotline/data/repositories/attachment_repository.dart';
-import 'package:hotline/data/repositories/note_repository.dart';
-import 'package:hotline/data/repositories/project_repository.dart';
-import 'package:hotline/data/repositories/task_repository.dart';
-import 'package:hotline/data/views.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/enums.dart';
+import 'package:spectacle/data/repositories/activity_repository.dart';
+import 'package:spectacle/data/repositories/goal_repository.dart';
+import 'package:spectacle/data/repositories/attachment_repository.dart';
+import 'package:spectacle/data/repositories/note_repository.dart';
+import 'package:spectacle/data/repositories/project_repository.dart';
+import 'package:spectacle/data/repositories/task_repository.dart';
+import 'package:spectacle/data/views.dart';
 
 void main() {
   late AppDatabase db;

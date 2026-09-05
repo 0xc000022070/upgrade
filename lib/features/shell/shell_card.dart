@@ -51,7 +51,7 @@ class ShellCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF000000),
                 border: Border.all(
-                  color: HotlineColors.borderSubtle,
+                  color: SpectacleColors.borderSubtle,
                   width: Borders.hairline,
                 ),
               ),
@@ -74,14 +74,14 @@ class ShellCard extends StatelessWidget {
             const SizedBox(height: Spacing.md),
             Text(
               '${host.name.toUpperCase()} ${session.number}',
-              style: HotlineText.panelHeader,
+              style: SpectacleText.panelHeader,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             if (title != null)
               Text(
                 title,
-                style: HotlineText.rowKicker,
+                style: SpectacleText.rowKicker,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

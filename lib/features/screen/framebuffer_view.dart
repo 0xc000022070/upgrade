@@ -304,7 +304,7 @@ class _CropPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = Borders.hairline
-        ..color = HotlineColors.accent,
+        ..color = SpectacleColors.accent,
     );
   }
 
@@ -353,7 +353,7 @@ class _CropVerbs extends StatelessWidget {
             'SAVE',
             key: const ValueKey('crop-save'),
             showIcon: false,
-            color: HotlineColors.accent,
+            color: SpectacleColors.accent,
             onTap: onSave,
           ),
           const SizedBox(width: Spacing.lg),
@@ -361,7 +361,7 @@ class _CropVerbs extends StatelessWidget {
             'HOLD',
             key: const ValueKey('crop-hold'),
             showIcon: false,
-            color: HotlineColors.accent,
+            color: SpectacleColors.accent,
             onTap: onHold,
           ),
         ],
@@ -413,7 +413,7 @@ class ScreenGround extends StatelessWidget {
     color: const Color(0xFF000000),
     child: Center(
       child: DefaultTextStyle.merge(
-        style: const TextStyle(color: HotlineColors.textMuted),
+        style: const TextStyle(color: SpectacleColors.textMuted),
         child: child ?? const SizedBox.shrink(),
       ),
     ),

@@ -1,4 +1,4 @@
-# Hotline production texture reference
+# Spectacle production texture reference
 
 These assets add surface variation. They never carry status, hierarchy, or interaction by themselves. Apply opacity at the layer level. Keep text and controls above the texture layer.
 

@@ -6,7 +6,7 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/spacing.dart';
-import '../../design/icons/hotline_icons.dart';
+import '../../design/icons/spectacle_icons.dart';
 import '../screen_scaffold.dart';
 import 'project_detail_screen.dart';
 import 'project_form_screen.dart';
@@ -51,7 +51,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                   const SizedBox(width: Spacing.lg),
                   PanelAffordance(
                     'NEW',
-                    icon: HotlineIcons.add,
+                    icon: SpectacleIcons.add,
                     onTap: () => openProjectForm(context),
                   ),
                 ],
@@ -81,8 +81,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 affordance: PanelAffordance(
                   '${archived.length}',
                   icon: _showArchived
-                      ? HotlineIcons.collapse
-                      : HotlineIcons.expand,
+                      ? SpectacleIcons.collapse
+                      : SpectacleIcons.expand,
                 ),
                 onHeaderTap: () =>
                     setState(() => _showArchived = !_showArchived),

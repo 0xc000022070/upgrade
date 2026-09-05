@@ -8,12 +8,12 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/clips.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/features/screen/screen_preview.dart';
-import 'package:hotline/features/shell/clip_paste.dart';
-import 'package:hotline/platform/shell/host_clipboard.dart';
-import 'package:hotline/platform/shell/shell_connection.dart';
+import 'package:spectacle/application/clips.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/features/screen/screen_preview.dart';
+import 'package:spectacle/features/shell/clip_paste.dart';
+import 'package:spectacle/platform/shell/host_clipboard.dart';
+import 'package:spectacle/platform/shell/shell_connection.dart';
 
 import 'support/fake_shell.dart';
 
@@ -65,7 +65,7 @@ void main() {
   late Clip clip;
 
   setUp(() async {
-    directory = Directory.systemTemp.createTempSync('hotline-paste-test');
+    directory = Directory.systemTemp.createTempSync('spectacle-paste-test');
     clips = ClipStore(directory);
     clip = await clips.add(
       encodePng(PreviewFrame(width: 8, height: 8, rgb: Uint8List(8 * 8 * 3))),
@@ -117,7 +117,7 @@ void main() {
     expect(result.outcome, PasteOutcome.path);
     expect(result.line, 'PATH · no display server');
     expect(connection.execs, hasLength(2));
-    expect(connection.written, contains('/tmp/hotline/${clip.fileName}'));
+    expect(connection.written, contains('/tmp/spectacle/${clip.fileName}'));
     expect(connection.writes.any((bytes) => bytes.contains(0x16)), isFalse);
   });
 
@@ -174,7 +174,7 @@ void main() {
     final result = await pasteClip(store: store, session: session, clip: clip);
 
     expect(result.line, 'PATH · wayland exit 1');
-    expect(connection.written, contains('/tmp/hotline/'));
+    expect(connection.written, contains('/tmp/spectacle/'));
   });
 
   test('a photo goes as bytes under a fresh name, held nowhere', () async {

@@ -155,7 +155,7 @@ class ShellTunnel {
 }
 
 void _log(String address, Object message) =>
-    debugPrint('hotline.shell $address: $message');
+    debugPrint('spectacle.shell $address: $message');
 
 /// Every error the ssh layer can raise, on the seam's five lines.
 ///

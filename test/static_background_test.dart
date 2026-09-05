@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/design/components/static_background.dart';
-import 'package:hotline/design/motion.dart';
+import 'package:spectacle/design/components/static_background.dart';
+import 'package:spectacle/design/motion.dart';
 
 Offset _offsetOf(WidgetTester tester) =>
     tester.widget<StaticBackground>(find.byType(StaticBackground)).offset.value;

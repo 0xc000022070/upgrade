@@ -2,14 +2,14 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/drop_selection.dart';
-import 'package:hotline/application/providers.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/repositories/activity_repository.dart';
-import 'package:hotline/data/repositories/goal_repository.dart';
-import 'package:hotline/data/repositories/project_repository.dart';
-import 'package:hotline/design/components/keyboard_toolbar.dart';
-import 'package:hotline/features/home/capture_bar.dart';
+import 'package:spectacle/application/drop_selection.dart';
+import 'package:spectacle/application/providers.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/repositories/activity_repository.dart';
+import 'package:spectacle/data/repositories/goal_repository.dart';
+import 'package:spectacle/data/repositories/project_repository.dart';
+import 'package:spectacle/design/components/keyboard_toolbar.dart';
+import 'package:spectacle/features/home/capture_bar.dart';
 
 import 'support/platform_channels.dart';
 

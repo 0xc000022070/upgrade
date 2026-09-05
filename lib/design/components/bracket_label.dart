@@ -21,7 +21,7 @@ class BracketLabel extends StatelessWidget {
         Meta('[ ${label.toUpperCase()} ]', color: color),
         const SizedBox(width: Spacing.md),
         Expanded(
-          child: Meta(value, color: color ?? HotlineColors.textSecondary),
+          child: Meta(value, color: color ?? SpectacleColors.textSecondary),
         ),
       ],
     );

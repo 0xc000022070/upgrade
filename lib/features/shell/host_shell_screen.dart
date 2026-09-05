@@ -39,29 +39,29 @@ void openHostShell(BuildContext context, Host host, {ShellSession? session}) {
 /// ANSI colour the app already has an opinion about, and a shell that prints a
 /// prompt in green should print it in the app's green.
 const _shellTheme = TerminalTheme(
-  cursor: HotlineColors.accent,
-  selection: HotlineColors.borderNormal,
-  foreground: HotlineColors.textPrimary,
+  cursor: SpectacleColors.accent,
+  selection: SpectacleColors.borderNormal,
+  foreground: SpectacleColors.textPrimary,
   background: Color(0xFF000000),
-  black: HotlineColors.backgroundPrimary,
+  black: SpectacleColors.backgroundPrimary,
   red: Color(0xFFCD3131),
-  green: HotlineColors.accent,
+  green: SpectacleColors.accent,
   yellow: Color(0xFFE5E510),
   blue: Color(0xFF2472C8),
   magenta: Color(0xFFBC3FBC),
   cyan: Color(0xFF11A8CD),
-  white: HotlineColors.textPrimary,
-  brightBlack: HotlineColors.textDisabled,
+  white: SpectacleColors.textPrimary,
+  brightBlack: SpectacleColors.textDisabled,
   brightRed: Color(0xFFF14C4C),
-  brightGreen: HotlineColors.accentMuted,
+  brightGreen: SpectacleColors.accentMuted,
   brightYellow: Color(0xFFF5F543),
   brightBlue: Color(0xFF3B8EEA),
   brightMagenta: Color(0xFFD670D6),
   brightCyan: Color(0xFF29B8DB),
   brightWhite: Color(0xFFFFFFFF),
-  searchHitBackground: HotlineColors.accent,
-  searchHitBackgroundCurrent: HotlineColors.accentMuted,
-  searchHitForeground: HotlineColors.backgroundPrimary,
+  searchHitBackground: SpectacleColors.accent,
+  searchHitBackgroundCurrent: SpectacleColors.accentMuted,
+  searchHitForeground: SpectacleColors.backgroundPrimary,
 );
 
 /// One style per size, kept. The view compares styles by identity and lays
@@ -249,7 +249,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
               Expanded(
                 child: ActionBlock(
                   label: 'KEEP',
-                  tone: HotlineColors.accent,
+                  tone: SpectacleColors.accent,
                   filled: true,
                   onTap: () => Navigator.of(context).pop(false),
                 ),
@@ -503,7 +503,7 @@ class _Header extends StatelessWidget {
       key: const ValueKey('shell-header'),
       height: _headerHeight,
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: HotlineColors.borderSubtle)),
+        border: Border(bottom: BorderSide(color: SpectacleColors.borderSubtle)),
       ),
       child: LayoutBuilder(
         builder: (context, box) => Row(
@@ -511,8 +511,8 @@ class _Header extends StatelessWidget {
             const SizedBox(width: Spacing.screenEdge),
             Text(
               host.name.toUpperCase(),
-              style: HotlineText.panelHeader.copyWith(
-                color: HotlineColors.textPrimary,
+              style: SpectacleText.panelHeader.copyWith(
+                color: SpectacleColors.textPrimary,
               ),
             ),
             const SizedBox(width: Spacing.lg),
@@ -587,8 +587,8 @@ class _Middle extends StatelessWidget {
     final label = Text(
       word,
       style: state is ShellDropped
-          ? HotlineText.panelHeader.copyWith(color: HotlineColors.textMuted)
-          : HotlineText.panelHeader,
+          ? SpectacleText.panelHeader.copyWith(color: SpectacleColors.textMuted)
+          : SpectacleText.panelHeader,
       textAlign: TextAlign.right,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
@@ -642,8 +642,8 @@ class _ReasonRow extends StatelessWidget {
           Expanded(
             child: Text(
               shellReason(kind, host.name),
-              style: HotlineText.panelHeader.copyWith(
-                color: HotlineColors.warning,
+              style: SpectacleText.panelHeader.copyWith(
+                color: SpectacleColors.warning,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -669,7 +669,7 @@ class _TabCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tint = active ? HotlineColors.accent : HotlineColors.textMuted;
+    final tint = active ? SpectacleColors.accent : SpectacleColors.textMuted;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -685,14 +685,14 @@ class _TabCell extends StatelessWidget {
           // ink: a filled cell would read as a button, and these are tabs.
           border: Border(
             bottom: BorderSide(
-              color: active ? HotlineColors.accent : const Color(0x00000000),
+              color: active ? SpectacleColors.accent : const Color(0x00000000),
               width: Borders.hairline * 2,
             ),
           ),
         ),
         child: Text(
           label,
-          style: HotlineText.panelHeader.copyWith(color: tint),
+          style: SpectacleText.panelHeader.copyWith(color: tint),
         ),
       ),
     );

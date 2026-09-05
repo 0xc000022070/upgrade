@@ -97,7 +97,7 @@ class PathScanner {
     try {
       return PathScanFound(await run(privateKey));
     } on HerdrFailure catch (error) {
-      debugPrint('hotline.paths ${host.name}: ${error.detail ?? error}');
+      debugPrint('spectacle.paths ${host.name}: ${error.detail ?? error}');
       return PathScanFailed(switch (error) {
         HerdrKeyRejected() => 'key rejected',
         HerdrProtocolMismatch() => 'protocol ${error.protocol}',

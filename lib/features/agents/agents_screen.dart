@@ -32,7 +32,7 @@ class AgentsScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'AGENTS',
-          breadcrumb: '/ HOTLINE / AGENTS',
+          breadcrumb: '/ SPECTACLE / AGENTS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             state.when(
@@ -78,7 +78,7 @@ class _Feed extends StatelessWidget {
             child: feed.noHost
                 ? const Text(
                     AgentPanelState.blockedLine,
-                    style: HotlineText.value,
+                    style: SpectacleText.value,
                   )
                 : const EmptyState('no agents'),
           ),
@@ -134,9 +134,9 @@ class _Feed extends StatelessWidget {
                   subtitle: '${agent.paneId} · ${path.basename(agent.cwd)}',
                   value: agent.agentStatus.toUpperCase(),
                   valueColor: switch (agent.agentStatus) {
-                    'working' => HotlineColors.accent,
-                    'blocked' => HotlineColors.warning,
-                    _ => HotlineColors.textMuted,
+                    'working' => SpectacleColors.accent,
+                    'blocked' => SpectacleColors.warning,
+                    _ => SpectacleColors.textMuted,
                   },
                 ),
             ],
@@ -160,7 +160,7 @@ class _MascotEmpty extends StatelessWidget {
         children: [
           Sprite(state: 'idle', scale: 4),
           SizedBox(height: Spacing.lg),
-          Text('HOTLINE_', style: HotlineText.screenTitle),
+          Text('SPECTACLE_', style: SpectacleText.screenTitle),
         ],
       ),
     );
@@ -180,11 +180,11 @@ class _FailureLine extends StatelessWidget {
       title: named ? outcome.host.name.toUpperCase() : 'AGENTS',
       child: Row(
         children: [
-          Expanded(child: Text(outcome.reason, style: HotlineText.value)),
+          Expanded(child: Text(outcome.reason, style: SpectacleText.value)),
           if (timestamp != null)
             Text(
               agentSnapshotAge(DateTime.now(), timestamp),
-              style: HotlineText.value,
+              style: SpectacleText.value,
             ),
         ],
       ),

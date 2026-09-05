@@ -4,21 +4,21 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/agents.dart';
-import 'package:hotline/application/providers.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/enums.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/data/repositories/key_repository.dart';
-import 'package:hotline/design/colors.dart';
-import 'package:hotline/design/components/picker_row.dart';
-import 'package:hotline/design/components/solid_action_bar.dart';
-import 'package:hotline/features/settings/host_form_screen.dart';
-import 'package:hotline/features/hosts/hosts_screen.dart';
-import 'package:hotline/features/screen/screen_preview.dart';
-import 'package:hotline/platform/host_key_dial.dart';
-import 'package:hotline/platform/keys.dart';
-import 'package:hotline/platform/vnc/framebuffer.dart';
+import 'package:spectacle/application/agents.dart';
+import 'package:spectacle/application/providers.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/enums.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/data/repositories/key_repository.dart';
+import 'package:spectacle/design/colors.dart';
+import 'package:spectacle/design/components/picker_row.dart';
+import 'package:spectacle/design/components/solid_action_bar.dart';
+import 'package:spectacle/features/settings/host_form_screen.dart';
+import 'package:spectacle/features/hosts/hosts_screen.dart';
+import 'package:spectacle/features/screen/screen_preview.dart';
+import 'package:spectacle/platform/host_key_dial.dart';
+import 'package:spectacle/platform/keys.dart';
+import 'package:spectacle/platform/vnc/framebuffer.dart';
 
 import 'support/platform_channels.dart';
 
@@ -54,7 +54,7 @@ void main() {
     keys = InMemoryKeyRepository();
     hosts = InMemoryHostRepository();
     privateKeys = MemoryPrivateKeyStore();
-    root = Directory.systemTemp.createTempSync('hotline-host-form');
+    root = Directory.systemTemp.createTempSync('spectacle-host-form');
     previews = ScreenPreviews(Directory('${root.path}/screens'));
     // A save now dials the machine it just registered, and no test here has
     // one to dial.
@@ -144,10 +144,10 @@ void main() {
     // its label on the background colour, behind the `// ` marker.
     expect(find.text('// '), findsOneWidget);
     final row = tester.widget<Text>(find.text('FARADAY'));
-    expect(row.style?.color, HotlineColors.backgroundPrimary);
+    expect(row.style?.color, SpectacleColors.backgroundPrimary);
 
     expect(label(tester), 'NAME MISSING');
-    expect(fill(tester), HotlineColors.textDisabled);
+    expect(fill(tester), SpectacleColors.textDisabled);
 
     // The bar is there and a tap on it writes nothing.
     await tester.tap(find.byType(SolidActionBar));
@@ -175,7 +175,7 @@ void main() {
     await tester.enterText(field(_Fields.user), 'luis');
     await tester.pump();
     expect(label(tester), 'CREATE HOST');
-    expect(fill(tester), HotlineColors.accent);
+    expect(fill(tester), SpectacleColors.accent);
 
     await unmount(tester);
   });
@@ -340,7 +340,7 @@ void main() {
     await tester.pump();
 
     // The back arrow is the crumb line, and it asks.
-    await tester.tap(find.text('/ HOTLINE / HOSTS'));
+    await tester.tap(find.text('/ SPECTACLE / HOSTS'));
     await _sheet(tester);
     expect(find.text('DISCARD HOST?'), findsOneWidget);
 
@@ -404,7 +404,7 @@ void main() {
       await tester.enterText(field(_Fields.port), typed);
       await tester.pump();
       expect(label(tester), 'PORT MISSING', reason: 'port `$typed`');
-      expect(fill(tester), HotlineColors.textDisabled);
+      expect(fill(tester), SpectacleColors.textDisabled);
     }
 
     // And the bar stays inert while it says so.
@@ -415,7 +415,7 @@ void main() {
     await tester.enterText(field(_Fields.port), '357');
     await tester.pump();
     expect(label(tester), 'CREATE HOST');
-    expect(fill(tester), HotlineColors.accent);
+    expect(fill(tester), SpectacleColors.accent);
 
     await unmount(tester);
   });

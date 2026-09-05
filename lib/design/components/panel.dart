@@ -5,8 +5,8 @@ import 'package:flutter/widgets.dart';
 
 import '../colors.dart';
 import '../effects/glitch.dart';
-import '../icons/hotline_icon.dart';
-import '../icons/hotline_icons.dart';
+import '../icons/spectacle_icon.dart';
+import '../icons/spectacle_icons.dart';
 import '../spacing.dart';
 import '../typography.dart';
 import 'signal_text.dart';
@@ -29,7 +29,7 @@ class Panel extends StatelessWidget {
     this.onHeaderLongPress,
     this.bodyPadding = const EdgeInsets.all(Spacing.panelPadding),
     this.bodyFlexible = false,
-    this.border = HotlineColors.borderNormal,
+    this.border = SpectacleColors.borderNormal,
     this.headerGlitch,
   });
 
@@ -79,7 +79,7 @@ class Panel extends StatelessWidget {
     final glitch = headerGlitch;
     return Container(
       decoration: BoxDecoration(
-        color: HotlineColors.surfacePrimary,
+        color: SpectacleColors.surfacePrimary,
         border: Border.all(color: border, width: Borders.hairline),
         borderRadius: BorderRadius.circular(Radii.sharp),
       ),
@@ -164,7 +164,7 @@ class _HeaderStrip extends StatelessWidget {
               padding: EdgeInsets.symmetric(vertical: vertical),
               child: SignalText(
                 title.toUpperCase(),
-                style: HotlineText.panelHeader,
+                style: SpectacleText.panelHeader,
                 decodeOnEntry: true,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -178,7 +178,7 @@ class _HeaderStrip extends StatelessWidget {
     );
 
     return Container(
-      color: HotlineColors.surfaceSecondary,
+      color: SpectacleColors.surfaceSecondary,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -197,7 +197,7 @@ class _HeaderStrip extends StatelessWidget {
           if (ruled)
             Container(
               height: Borders.hairline,
-              color: HotlineColors.borderNormal,
+              color: SpectacleColors.borderNormal,
             ),
         ],
       ),
@@ -216,14 +216,14 @@ class PanelAffordance extends StatefulWidget {
   const PanelAffordance(
     this.label, {
     super.key,
-    this.icon = HotlineIcons.forward,
+    this.icon = SpectacleIcons.forward,
     this.showIcon = true,
     this.color,
     this.onTap,
   });
 
   final String label;
-  final HotlineIcons icon;
+  final SpectacleIcons icon;
   final bool showIcon;
   final Color? color;
   final VoidCallback? onTap;
@@ -241,18 +241,18 @@ class _PanelAffordanceState extends State<PanelAffordance> {
     // The press is the one the verbs paint: accent for as long as the
     // finger is down, and the resting ink back the moment it lifts.
     final tint = _down
-        ? HotlineColors.accent
-        : widget.color ?? HotlineColors.textMuted;
+        ? SpectacleColors.accent
+        : widget.color ?? SpectacleColors.textMuted;
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           widget.label,
-          style: HotlineText.panelHeader.copyWith(color: tint),
+          style: SpectacleText.panelHeader.copyWith(color: tint),
         ),
         if (widget.showIcon) ...[
           const SizedBox(width: Spacing.sm),
-          HotlineIcon(widget.icon, size: IconSizes.affordance, color: tint),
+          SpectacleIcon(widget.icon, size: IconSizes.affordance, color: tint),
         ],
       ],
     );

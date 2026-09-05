@@ -3,14 +3,11 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
-import '../design/motion.dart';
-import '../design/spacing.dart';
 import '../design/sprite.dart';
-import '../design/typography.dart';
 import '../platform/alert_actions.dart';
 import 'alerts_boot.dart';
 
-/// The splash: the mascot's seven frames once, then the word.
+/// The splash: the mascot's seven frames, once.
 ///
 /// Cold start only, and by construction rather than by a flag — the route is
 /// the navigator's first, it replaces itself with Home, and nothing pushes it
@@ -21,9 +18,10 @@ import 'alerts_boot.dart';
 /// where a splash *inside* the Home route would have taken the watcher's
 /// reconciliation and the `OPEN` handler down with it.
 
-/// How long the word is held before Home takes the screen. Long enough to read
-/// eight characters, short enough that the whole route — 1167ms of sprite,
-/// [Motion.deliberate] of fade, this — stays under the 2.5s budget.
+/// How long the finished pose is held before Home takes the screen. Long
+/// enough that the last frame is a beat rather than a flicker, short enough
+/// that the whole route — 1167ms of sprite, then this — stays well under the
+/// 2.5s budget.
 const splashHold = Duration(milliseconds: 420);
 
 class SplashRoute extends StatefulWidget {
@@ -38,7 +36,7 @@ class SplashRoute extends StatefulWidget {
 
 class _SplashRouteState extends State<SplashRoute> {
   Timer? _handover;
-  bool _word = false;
+  bool _handedOver = false;
 
   @override
   void initState() {
@@ -54,9 +52,9 @@ class _SplashRouteState extends State<SplashRoute> {
   /// once — but a rebuilt sheet would call it again, and the handover must not
   /// be scheduled twice.
   void _played() {
-    if (_word) return;
-    setState(() => _word = true);
-    _handover = Timer(Motion.deliberate + splashHold, _toHome);
+    if (_handedOver) return;
+    _handedOver = true;
+    _handover = Timer(splashHold, _toHome);
   }
 
   void _toHome() {
@@ -84,24 +82,9 @@ class _SplashRouteState extends State<SplashRoute> {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: HotlineColors.backgroundPrimary,
+      color: SpectacleColors.backgroundPrimary,
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Sprite(state: 'splash', scale: 4, onDone: _played),
-            const SizedBox(height: Spacing.lg),
-            // The word keeps its box from the first frame. Revealed by adding
-            // it to the column instead, the sprite would slide up by a line
-            // height on the one frame the eye is already on it.
-            AnimatedOpacity(
-              opacity: _word ? 1 : 0,
-              duration: Motion.deliberate,
-              curve: Motion.enter,
-              child: const Text('HOTLINE_', style: HotlineText.screenTitle),
-            ),
-          ],
-        ),
+        child: Sprite(state: 'splash', scale: 4, onDone: _played),
       ),
     );
   }

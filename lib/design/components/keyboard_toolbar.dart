@@ -58,12 +58,12 @@ class ToolbarChip {
   const ToolbarChip({
     required this.label,
     this.onRemove,
-    this.tone = HotlineColors.textSecondary,
+    this.tone = SpectacleColors.textSecondary,
   }) : imagePath = null;
 
   const ToolbarChip.image({required String this.imagePath, this.onRemove})
     : label = '',
-      tone = HotlineColors.textSecondary;
+      tone = SpectacleColors.textSecondary;
 
   final String label;
 
@@ -435,7 +435,7 @@ class KeyboardToolbar extends StatelessWidget {
         if (chips.isNotEmpty)
           Container(
             height: chipHeight + Spacing.md,
-            color: HotlineColors.surfacePrimary,
+            color: SpectacleColors.surfacePrimary,
             padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
             alignment: Alignment.centerLeft,
             child: ListView.separated(
@@ -448,10 +448,10 @@ class KeyboardToolbar extends StatelessWidget {
         Container(
           height: height,
           decoration: const BoxDecoration(
-            color: HotlineColors.surfaceSecondary,
+            color: SpectacleColors.surfaceSecondary,
             border: Border(
               top: BorderSide(
-                color: HotlineColors.borderNormal,
+                color: SpectacleColors.borderNormal,
                 width: Borders.hairline,
               ),
             ),
@@ -498,8 +498,8 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
       message: widget.action.glyph.word,
       triggerMode: TooltipTriggerMode.longPress,
       preferBelow: false,
-      textStyle: HotlineText.label.copyWith(color: HotlineColors.textPrimary),
-      decoration: const BoxDecoration(color: HotlineColors.surfacePrimary),
+      textStyle: SpectacleText.label.copyWith(color: SpectacleColors.textPrimary),
+      decoration: const BoxDecoration(color: SpectacleColors.surfacePrimary),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (_) => setState(() => _down = true),
@@ -513,7 +513,7 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
             child: Icon(
               widget.action.glyph.icon,
               size: IconSizes.toolbar,
-              color: lit ? HotlineColors.accent : HotlineColors.textMuted,
+              color: lit ? SpectacleColors.accent : SpectacleColors.textMuted,
             ),
           ),
         ),
@@ -548,7 +548,7 @@ class _Chip extends StatelessWidget {
                 children: [
                   Text(
                     '[ ${chip.label} ]',
-                    style: HotlineText.value.copyWith(color: chip.tone),
+                    style: SpectacleText.value.copyWith(color: chip.tone),
                   ),
                   if (chip.onRemove != null) ...[
                     const SizedBox(width: Spacing.md),
@@ -585,7 +585,7 @@ class _ImageChip extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               border: Border.all(
-                color: HotlineColors.borderNormal,
+                color: SpectacleColors.borderNormal,
                 width: Borders.hairline,
               ),
             ),
@@ -596,18 +596,18 @@ class _ImageChip extends StatelessWidget {
               // gallery item was deleted, the copy failed. The frame is still
               // an attachment the user can remove.
               errorBuilder: (_, _, _) =>
-                  const ColoredBox(color: HotlineColors.surfaceSecondary),
+                  const ColoredBox(color: SpectacleColors.surfaceSecondary),
             ),
           ),
           if (removable)
             const Align(
               alignment: Alignment.topRight,
               child: ColoredBox(
-                color: HotlineColors.backgroundPrimary,
+                color: SpectacleColors.backgroundPrimary,
                 child: Icon(
                   Icons.close,
                   size: IconSizes.affordance,
-                  color: HotlineColors.textSecondary,
+                  color: SpectacleColors.textSecondary,
                 ),
               ),
             ),

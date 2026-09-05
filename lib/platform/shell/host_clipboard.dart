@@ -53,7 +53,7 @@ class HostClipboard {
 
 /// Where clips land on a host. World-writable and cleared by the host's own
 /// reboot, which is the right lifetime for a file the app never comes back for.
-const remoteClipDirectory = '/tmp/hotline';
+const remoteClipDirectory = '/tmp/spectacle';
 
 /// What the host is asked, once per connection: the kernel, the wayland
 /// socket under the runtime directory when the environment does not name

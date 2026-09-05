@@ -2,7 +2,7 @@ import 'dart:ui';
 
 /// The palette. The accent is reserved for active / progress /
 /// selection / important status; it never covers a large surface.
-abstract final class HotlineColors {
+abstract final class SpectacleColors {
   static const backgroundPrimary = Color(0xFF08090B);
   static const backgroundSecondary = Color(0xFF0B0D10);
 

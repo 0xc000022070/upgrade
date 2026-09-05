@@ -51,7 +51,7 @@ class _DitherPainter extends CustomPainter {
       PointMode.points,
       points,
       Paint()
-        ..color = HotlineColors.textMuted.withValues(alpha: 0.25)
+        ..color = SpectacleColors.textMuted.withValues(alpha: 0.25)
         ..strokeWidth = _dot
         ..strokeCap = StrokeCap.square,
     );

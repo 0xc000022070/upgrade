@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../colors.dart';
-import '../icons/hotline_icon.dart';
-import '../icons/hotline_icons.dart';
+import '../icons/spectacle_icon.dart';
+import '../icons/spectacle_icons.dart';
 import '../spacing.dart';
 import '../typography.dart';
 
@@ -27,7 +27,7 @@ class KeyCell extends StatefulWidget {
   });
 
   final String label;
-  final HotlineIcons? icon;
+  final SpectacleIcons? icon;
   final VoidCallback onTap;
   final bool armed;
 
@@ -59,10 +59,10 @@ class _KeyCellState extends State<KeyCell> {
     // mean "this key is what the next thing you do goes through". An inert key
     // has neither and is dimmer at rest than one that works.
     final tint = widget.inert
-        ? HotlineColors.textMuted
+        ? SpectacleColors.textMuted
         : _down || widget.armed
-        ? HotlineColors.accent
-        : HotlineColors.textSecondary;
+        ? SpectacleColors.accent
+        : SpectacleColors.textSecondary;
     final icon = widget.icon;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -86,9 +86,9 @@ class _KeyCellState extends State<KeyCell> {
           child: icon == null
               ? Text(
                   widget.label,
-                  style: HotlineText.panelHeader.copyWith(color: tint),
+                  style: SpectacleText.panelHeader.copyWith(color: tint),
                 )
-              : HotlineIcon(icon, size: IconSizes.toolbar, color: tint),
+              : SpectacleIcon(icon, size: IconSizes.toolbar, color: tint),
         ),
       ),
     );

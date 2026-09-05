@@ -54,8 +54,8 @@ class FieldPanel extends StatelessWidget {
         autofocus: autofocus,
         maxLines: maxLines,
         minLines: 1,
-        style: HotlineText.rowTitle,
-        cursorColor: HotlineColors.accent,
+        style: SpectacleText.rowTitle,
+        cursorColor: SpectacleColors.accent,
         cursorWidth: 2,
         cursorRadius: Radius.zero,
         textInputAction: maxLines == 1
@@ -71,7 +71,7 @@ class FieldPanel extends StatelessWidget {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
           hintText: hint,
-          hintStyle: HotlineText.rowSubtitle,
+          hintStyle: SpectacleText.rowSubtitle,
         ),
       ),
     );
@@ -140,19 +140,19 @@ class _Choice extends StatelessWidget {
         height: TapTargets.minHeight - Spacing.md,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? HotlineColors.accent : null,
+          color: selected ? SpectacleColors.accent : null,
           border: Border.all(
-            color: selected ? HotlineColors.accent : HotlineColors.borderNormal,
+            color: selected ? SpectacleColors.accent : SpectacleColors.borderNormal,
             width: Borders.hairline,
           ),
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
         child: Text(
           label.toUpperCase(),
-          style: HotlineText.label.copyWith(
+          style: SpectacleText.label.copyWith(
             color: selected
-                ? HotlineColors.backgroundPrimary
-                : HotlineColors.textSecondary,
+                ? SpectacleColors.backgroundPrimary
+                : SpectacleColors.textSecondary,
           ),
         ),
       ),

@@ -6,21 +6,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/app/alerts_boot.dart';
-import 'package:hotline/app/splash_route.dart';
-import 'package:hotline/application/agents.dart';
-import 'package:hotline/application/alerts.dart';
-import 'package:hotline/application/providers.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/repositories/activity_repository.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/data/repositories/project_repository.dart';
-import 'package:hotline/design/motion.dart';
-import 'package:hotline/design/sprite.dart';
-import 'package:hotline/features/agents/agents_screen.dart';
-import 'package:hotline/features/projects/project_detail_screen.dart';
-import 'package:hotline/platform/alert_actions.dart';
-import 'package:hotline/platform/alert_notifications.dart';
+import 'package:spectacle/app/alerts_boot.dart';
+import 'package:spectacle/app/splash_route.dart';
+import 'package:spectacle/application/agents.dart';
+import 'package:spectacle/application/alerts.dart';
+import 'package:spectacle/application/providers.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/repositories/activity_repository.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/data/repositories/project_repository.dart';
+import 'package:spectacle/design/sprite.dart';
+import 'package:spectacle/features/agents/agents_screen.dart';
+import 'package:spectacle/features/projects/project_detail_screen.dart';
+import 'package:spectacle/platform/alert_actions.dart';
+import 'package:spectacle/platform/alert_notifications.dart';
 
 import 'support/platform_channels.dart';
 
@@ -167,15 +166,14 @@ void main() {
       await mount(tester);
 
       expect(find.byType(Sprite), findsOneWidget);
-      expect(find.text('HOTLINE_'), findsOneWidget);
       expect(find.byKey(const Key('home')), findsNothing);
 
       final at = await pumpUntilHome(tester);
 
       expect(at, isNotNull, reason: 'the splash never handed over');
       // Not before the sheet has played out: 7 frames at 6fps is 1167ms, and
-      // only then the word's fade and its hold. A handover hung on a timer
-      // alone, or on the last frame appearing, would land earlier than this.
+      // only then the hold on the last pose. A handover hung on a timer alone,
+      // or on the last frame appearing, would land earlier than this.
       expect(
         at!,
         greaterThanOrEqualTo(
@@ -185,13 +183,11 @@ void main() {
                 fps: 6,
                 loop: false,
               ).length +
-              Motion.deliberate +
               splashHold,
         ),
       );
       // Replaced, not stacked: the splash is unreachable from Home.
       expect(find.byType(Sprite), findsNothing);
-      expect(find.text('HOTLINE_'), findsNothing);
     });
 
     testWidgets('is done inside 2.5s', (tester) async {
@@ -358,7 +354,7 @@ void main() {
       expect(sprite.state, 'idle');
       expect(sprite.scale, 4);
       expect(sprite.frame, isNull);
-      expect(find.text('HOTLINE_'), findsOneWidget);
+      expect(find.text('SPECTACLE_'), findsOneWidget);
       // The blocked line is not replaced by the mascot, only joined by it.
       expect(find.text(AgentPanelState.blockedLine), findsOneWidget);
 

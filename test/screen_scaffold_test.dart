@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/design/typography.dart';
-import 'package:hotline/features/screen_scaffold.dart';
+import 'package:spectacle/design/typography.dart';
+import 'package:spectacle/features/screen_scaffold.dart';
 
 import 'support/platform_channels.dart';
 
@@ -57,7 +57,7 @@ void main() {
 
     final crumb = tester.widget<Text>(find.text('/ PROJECTS'));
     expect(crumb.maxLines, 1);
-    expect(crumb.style, HotlineText.breadcrumb);
+    expect(crumb.style, SpectacleText.breadcrumb);
     expect(find.text('/ PERSONAL CONTROL PLANE / PROJECTS'), findsNothing);
 
     await tester.pumpWidget(host());

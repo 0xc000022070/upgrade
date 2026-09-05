@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../design/colors.dart';
 import '../../design/components/key_cell.dart';
-import '../../design/icons/hotline_icons.dart';
+import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/vnc/keysyms.dart';
@@ -19,7 +19,7 @@ class StripKey {
   /// The four arrows carry `hl-arrow-*` and no word. The label stays
   /// even then — it is what the key is called in a test and to a screen reader,
   /// and a glyph is not either of those.
-  final HotlineIcons? icon;
+  final SpectacleIcons? icon;
 }
 
 /// One cell of the strip's grid: a key that sends a keysym, a sticky modifier,
@@ -46,17 +46,17 @@ const stripRows = <List<StripCell>>[
     StripCell.key(StripKey('TAB', Keysyms.tab)),
     StripCell.modifier(StickyModifier.shift),
     StripCell.gap(),
-    StripCell.key(StripKey('UP', Keysyms.up, icon: HotlineIcons.arrowUp)),
+    StripCell.key(StripKey('UP', Keysyms.up, icon: SpectacleIcons.arrowUp)),
     StripCell.key(StripKey('END', Keysyms.end)),
   ],
   [
     StripCell.modifier(StickyModifier.superKey),
     StripCell.modifier(StickyModifier.ctrl),
     StripCell.modifier(StickyModifier.alt),
-    StripCell.key(StripKey('LEFT', Keysyms.left, icon: HotlineIcons.arrowLeft)),
-    StripCell.key(StripKey('DOWN', Keysyms.down, icon: HotlineIcons.arrowDown)),
+    StripCell.key(StripKey('LEFT', Keysyms.left, icon: SpectacleIcons.arrowLeft)),
+    StripCell.key(StripKey('DOWN', Keysyms.down, icon: SpectacleIcons.arrowDown)),
     StripCell.key(
-      StripKey('RIGHT', Keysyms.right, icon: HotlineIcons.arrowRight),
+      StripKey('RIGHT', Keysyms.right, icon: SpectacleIcons.arrowRight),
     ),
   ],
 ];
@@ -64,8 +64,8 @@ const stripRows = <List<StripCell>>[
 /// `SUPER` draws the artist's ⌘-like mark and no word. The other three
 /// modifiers stay words, so this is a lookup rather than a field on the enum —
 /// [StickyModifier] is a transport concern and knows nothing about assets.
-HotlineIcons? stickyIcon(StickyModifier modifier) =>
-    modifier == StickyModifier.superKey ? HotlineIcons.superKey : null;
+SpectacleIcons? stickyIcon(StickyModifier modifier) =>
+    modifier == StickyModifier.superKey ? SpectacleIcons.superKey : null;
 
 /// The strip, the soft keyboard, and the text the IME produces.
 ///
@@ -202,9 +202,9 @@ class _KeysLayerState extends State<KeysLayer> {
     child: EditableText(
       controller: _text,
       focusNode: _focus,
-      style: HotlineText.label,
-      cursorColor: HotlineColors.accent,
-      backgroundCursorColor: HotlineColors.borderSubtle,
+      style: SpectacleText.label,
+      cursorColor: SpectacleColors.accent,
+      backgroundCursorColor: SpectacleColors.borderSubtle,
       onChanged: _onChanged,
       autocorrect: false,
       enableSuggestions: false,
@@ -242,8 +242,8 @@ class _KeysLayerState extends State<KeysLayer> {
   Widget _strip() {
     return Container(
       decoration: const BoxDecoration(
-        color: HotlineColors.surfacePrimary,
-        border: Border(top: BorderSide(color: HotlineColors.borderSubtle)),
+        color: SpectacleColors.surfacePrimary,
+        border: Border(top: BorderSide(color: SpectacleColors.borderSubtle)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

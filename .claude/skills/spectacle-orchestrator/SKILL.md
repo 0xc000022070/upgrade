@@ -1,9 +1,9 @@
 ---
-name: hotline-orchestrator
-description: Run the Hotline team as orchestrator, reviewer and taste gate over the builder and codex panes in Herdr. Use when resuming Hotline work as the coordinating session, when a child agent reports DONE, when a spec ruling from the user must land, or when a faraday push is due.
+name: spectacle-orchestrator
+description: Run the Spectacle team as orchestrator, reviewer and taste gate over the builder and codex panes in Herdr. Use when resuming Spectacle work as the coordinating session, when a child agent reports DONE, when a spec ruling from the user must land, or when a faraday push is due.
 ---
 
-# Hotline orchestrator
+# Spectacle orchestrator
 
 You coordinate. You do not build. Children build; you gate, commit, push.
 

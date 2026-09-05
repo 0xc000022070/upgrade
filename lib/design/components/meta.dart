@@ -22,7 +22,7 @@ class Meta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = strong ? HotlineText.valueStrong : HotlineText.value;
+    final base = strong ? SpectacleText.valueStrong : SpectacleText.value;
     return SignalText(
       text,
       style: color == null ? base : base.copyWith(color: color),

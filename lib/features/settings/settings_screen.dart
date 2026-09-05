@@ -46,7 +46,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'SETTINGS',
-          breadcrumb: '/ HOTLINE / SYS',
+          breadcrumb: '/ SPECTACLE / SYS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(
@@ -82,7 +82,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       // Nothing is invented while the answer is in flight: the
                       // revision is compiled in and is true on its own.
                       snapshot.data?.stamp ?? BuildInfo.revision,
-                      style: HotlineText.buildStamp,
+                      style: SpectacleText.buildStamp,
                     ),
                   ),
                 ),

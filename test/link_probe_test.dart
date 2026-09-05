@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/features/hosts/link_probes.dart';
-import 'package:hotline/platform/link_probe.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/features/hosts/link_probes.dart';
+import 'package:spectacle/platform/link_probe.dart';
 
 const _rose = Host(
   id: 'h1',
@@ -102,7 +102,7 @@ void main() {
   });
 
   test('a name that does not resolve says so', () async {
-    final result = await probeLink('nyx.hotline.invalid', 22, deadline: _short);
+    final result = await probeLink('nyx.spectacle.invalid', 22, deadline: _short);
 
     expect(result.status, LinkStatus.unresolved);
     expect(linkWord(result), 'UNRESOLVED');

@@ -1,7 +1,7 @@
 /// Hand-written mirror of assets/icons/hl-*.svg. Kept explicit rather than
 /// generated so a missing or renamed file is a compile error, not a runtime
 /// asset exception.
-enum HotlineIcons {
+enum SpectacleIcons {
   acknowledged('acknowledged'),
   active('active'),
   activity('activity'),
@@ -55,7 +55,7 @@ enum HotlineIcons {
   verified('verified'),
   warning('warning');
 
-  const HotlineIcons(this.slug);
+  const SpectacleIcons(this.slug);
 
   final String slug;
 

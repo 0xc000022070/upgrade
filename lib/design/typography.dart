@@ -19,7 +19,7 @@ abstract final class FontFamilies {
 /// Sized off the 360dp mocks in design/explorations/screens.
 /// The scale is mono-dominant and small: size carries almost no hierarchy, so
 /// colour, column position and the 9/10/12 step do the separating.
-abstract final class HotlineText {
+abstract final class SpectacleText {
   /// The screen title. The trailing `_` cursor is appended by the
   /// scaffold, not baked in, so a title can still be decoded glyph by glyph.
   static const screenTitle = TextStyle(
@@ -28,7 +28,7 @@ abstract final class HotlineText {
     height: 1.0,
     fontWeight: FontWeight.w700,
     letterSpacing: 1.0,
-    color: HotlineColors.textPrimary,
+    color: SpectacleColors.textPrimary,
   );
 
   /// `/ PERSONAL CONTROL PLANE` above every title.
@@ -38,7 +38,7 @@ abstract final class HotlineText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.5,
-    color: HotlineColors.textMuted,
+    color: SpectacleColors.textMuted,
   );
 
   /// The header strip inside a panel, and its right affordance.
@@ -48,7 +48,7 @@ abstract final class HotlineText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 1.5,
-    color: HotlineColors.textMuted,
+    color: SpectacleColors.textMuted,
   );
 
   /// The small uppercase line above a row title — the project a row belongs to.
@@ -58,7 +58,7 @@ abstract final class HotlineText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.8,
-    color: HotlineColors.textSecondary,
+    color: SpectacleColors.textSecondary,
   );
 
   /// Row anatomy: title over subtitle over caption, all mono.
@@ -67,7 +67,7 @@ abstract final class HotlineText {
     fontSize: 12,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: HotlineColors.textPrimary,
+    color: SpectacleColors.textPrimary,
   );
 
   /// The single row on a screen that is the screen's whole point — HOME's next
@@ -77,7 +77,7 @@ abstract final class HotlineText {
     fontSize: 13,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: HotlineColors.textPrimary,
+    color: SpectacleColors.textPrimary,
   );
 
   static const rowSubtitle = TextStyle(
@@ -85,7 +85,7 @@ abstract final class HotlineText {
     fontSize: 10,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: HotlineColors.textMuted,
+    color: SpectacleColors.textMuted,
   );
 
   /// The single right-hand column — percent, duration, time, count.
@@ -94,7 +94,7 @@ abstract final class HotlineText {
     fontSize: 10,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: HotlineColors.textMuted,
+    color: SpectacleColors.textMuted,
   );
 
   static const valueStrong = TextStyle(
@@ -102,7 +102,7 @@ abstract final class HotlineText {
     fontSize: 10,
     height: 1.3,
     fontWeight: FontWeight.w500,
-    color: HotlineColors.textPrimary,
+    color: SpectacleColors.textPrimary,
   );
 
   /// The smallest tracked line. Tags, field names, `n OF m TASKS`.
@@ -112,7 +112,7 @@ abstract final class HotlineText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.8,
-    color: HotlineColors.textMuted,
+    color: SpectacleColors.textMuted,
   );
 
   /// The project name in the hero card.
@@ -122,7 +122,7 @@ abstract final class HotlineText {
     height: 1.1,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.4,
-    color: HotlineColors.textPrimary,
+    color: SpectacleColors.textPrimary,
   );
 
   /// The one big number on the screen.
@@ -132,7 +132,7 @@ abstract final class HotlineText {
     height: 1.0,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.2,
-    color: HotlineColors.accent,
+    color: SpectacleColors.accent,
   );
 
   /// A note body is read, not scanned, so it keeps a taller line box than a row
@@ -142,7 +142,7 @@ abstract final class HotlineText {
     fontSize: 11,
     height: 1.45,
     fontWeight: FontWeight.w400,
-    color: HotlineColors.textPrimary,
+    color: SpectacleColors.textPrimary,
   );
 
   /// The settings build line: one step above [value] because it is meant to be
@@ -154,7 +154,7 @@ abstract final class HotlineText {
     fontSize: 11,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: HotlineColors.textMuted,
+    color: SpectacleColors.textMuted,
   );
 
   /// The capture field's placeholder, one step above a row title so the
@@ -164,7 +164,7 @@ abstract final class HotlineText {
     fontSize: 14,
     height: 1.2,
     fontWeight: FontWeight.w400,
-    color: HotlineColors.textMuted,
+    color: SpectacleColors.textMuted,
   );
 
   /// The remaining Sans: the action sheet's explanatory copy.
@@ -173,7 +173,7 @@ abstract final class HotlineText {
     fontSize: 12,
     height: 1.45,
     fontWeight: FontWeight.w400,
-    color: HotlineColors.textSecondary,
+    color: SpectacleColors.textSecondary,
   );
 
   /// Glyph over a tracked mono label.
@@ -183,6 +183,6 @@ abstract final class HotlineText {
     height: 1.2,
     fontWeight: FontWeight.w400,
     letterSpacing: 1.0,
-    color: HotlineColors.textMuted,
+    color: SpectacleColors.textMuted,
   );
 }

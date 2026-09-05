@@ -2,16 +2,16 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/app/static_surface.dart';
-import 'package:hotline/application/providers.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/repositories/settings_repository.dart';
-import 'package:hotline/design/colors.dart';
-import 'package:hotline/design/components/panel.dart';
-import 'package:hotline/design/components/static_background.dart';
-import 'package:hotline/design/motion.dart';
-import 'package:hotline/features/home/home_screen.dart';
-import 'package:hotline/features/settings/settings_screen.dart';
+import 'package:spectacle/app/static_surface.dart';
+import 'package:spectacle/application/providers.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/repositories/settings_repository.dart';
+import 'package:spectacle/design/colors.dart';
+import 'package:spectacle/design/components/panel.dart';
+import 'package:spectacle/design/components/static_background.dart';
+import 'package:spectacle/design/motion.dart';
+import 'package:spectacle/features/home/home_screen.dart';
+import 'package:spectacle/features/settings/settings_screen.dart';
 
 import 'support/platform_channels.dart';
 
@@ -48,7 +48,7 @@ bool _isBlock(WidgetTester tester, String label) {
     find.ancestor(of: _inStatic(label), matching: find.byType(Container)),
   );
   return container.any(
-    (box) => (box.decoration as BoxDecoration?)?.color == HotlineColors.accent,
+    (box) => (box.decoration as BoxDecoration?)?.color == SpectacleColors.accent,
   );
 }
 
@@ -91,7 +91,7 @@ void main() {
     await _ready(tester);
 
     expect(find.text('SETTINGS'), findsOneWidget);
-    expect(find.text('/ HOTLINE / SYS'), findsOneWidget);
+    expect(find.text('/ SPECTACLE / SYS'), findsOneWidget);
     expect(find.text('[ STATIC ]'), findsOneWidget);
     expect(find.text('[ BUILD ]'), findsOneWidget);
     // The route has no nav bar of its own; the two tabs stay where they are.

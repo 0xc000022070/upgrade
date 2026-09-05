@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/platform/herdr_client.dart';
+import 'package:spectacle/platform/herdr_client.dart';
 
 void main() {
   test('parses a local herdr agent list fixture', () {
@@ -109,7 +109,7 @@ void main() {
   test('agent startup carries the unattended flags and optional model', () {
     final claude = HerdrCommands.agentStart(
       pane: 'wH:p4',
-      name: 'hotline-wh',
+      name: 'spectacle-wh',
       kind: 'claude',
       model: 'sonnet',
     );
@@ -120,14 +120,14 @@ void main() {
 
     final codex = HerdrCommands.agentStart(
       pane: 'wH:p4',
-      name: 'hotline-wh',
+      name: 'spectacle-wh',
       kind: 'codex',
     );
     expect(codex, contains('--yolo'));
   });
 
   test('workspace command preserves quoted paths and session names', () async {
-    final temp = Directory.systemTemp.createTempSync('hotline-herdr-command');
+    final temp = Directory.systemTemp.createTempSync('spectacle-herdr-command');
     addTearDown(() => temp.deleteSync(recursive: true));
     final bin = Directory('${temp.path}/bin')..createSync();
     final herdr = File('${bin.path}/herdr')

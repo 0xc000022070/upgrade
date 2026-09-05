@@ -9,20 +9,20 @@ import 'typography.dart';
 /// Material is used as a substrate only. Everything that would leak a Material
 /// look — ripples, elevation tints, drop shadows, rounded defaults, overscroll
 /// glow, the zoom page transition — is neutralized here so components can be
-/// built from the Hotline tokens alone.
-abstract final class HotlineTheme {
+/// built from the Spectacle tokens alone.
+abstract final class SpectacleTheme {
   static ThemeData build() {
     const colorScheme = ColorScheme.dark(
-      primary: HotlineColors.accent,
-      onPrimary: HotlineColors.backgroundPrimary,
-      secondary: HotlineColors.accentMuted,
-      onSecondary: HotlineColors.backgroundPrimary,
-      surface: HotlineColors.surfacePrimary,
-      onSurface: HotlineColors.textPrimary,
-      error: HotlineColors.danger,
-      onError: HotlineColors.textPrimary,
-      outline: HotlineColors.borderNormal,
-      outlineVariant: HotlineColors.borderSubtle,
+      primary: SpectacleColors.accent,
+      onPrimary: SpectacleColors.backgroundPrimary,
+      secondary: SpectacleColors.accentMuted,
+      onSecondary: SpectacleColors.backgroundPrimary,
+      surface: SpectacleColors.surfacePrimary,
+      onSurface: SpectacleColors.textPrimary,
+      error: SpectacleColors.danger,
+      onError: SpectacleColors.textPrimary,
+      outline: SpectacleColors.borderNormal,
+      outlineVariant: SpectacleColors.borderSubtle,
       surfaceTint: Colors.transparent,
       shadow: Colors.transparent,
     );
@@ -31,8 +31,8 @@ abstract final class HotlineTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: HotlineColors.backgroundPrimary,
-      canvasColor: HotlineColors.backgroundPrimary,
+      scaffoldBackgroundColor: SpectacleColors.backgroundPrimary,
+      canvasColor: SpectacleColors.backgroundPrimary,
       shadowColor: Colors.transparent,
       visualDensity: VisualDensity.compact,
 
@@ -46,27 +46,27 @@ abstract final class HotlineTheme {
       fontFamily: FontFamilies.ui,
       textTheme: _textTheme,
       iconTheme: const IconThemeData(
-        color: HotlineColors.textSecondary,
+        color: SpectacleColors.textSecondary,
         size: IconSizes.lg,
       ),
       dividerTheme: const DividerThemeData(
-        color: HotlineColors.borderSubtle,
+        color: SpectacleColors.borderSubtle,
         thickness: Borders.hairline,
         space: Borders.hairline,
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: HotlineColors.backgroundPrimary,
+        backgroundColor: SpectacleColors.backgroundPrimary,
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: HotlineText.screenTitle,
+        titleTextStyle: SpectacleText.screenTitle,
       ),
       textSelectionTheme: const TextSelectionThemeData(
-        cursorColor: HotlineColors.accent,
+        cursorColor: SpectacleColors.accent,
         selectionColor: Color(0x33B7FF2A),
-        selectionHandleColor: HotlineColors.accent,
+        selectionHandleColor: SpectacleColors.accent,
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
@@ -78,21 +78,21 @@ abstract final class HotlineTheme {
   }
 
   static const _textTheme = TextTheme(
-    headlineLarge: HotlineText.screenTitle,
-    headlineMedium: HotlineText.heroName,
-    titleMedium: HotlineText.rowTitle,
-    titleSmall: HotlineText.panelHeader,
-    bodyMedium: HotlineText.prose,
-    bodySmall: HotlineText.rowSubtitle,
-    labelLarge: HotlineText.value,
-    labelMedium: HotlineText.navLabel,
-    labelSmall: HotlineText.label,
+    headlineLarge: SpectacleText.screenTitle,
+    headlineMedium: SpectacleText.heroName,
+    titleMedium: SpectacleText.rowTitle,
+    titleSmall: SpectacleText.panelHeader,
+    bodyMedium: SpectacleText.prose,
+    bodySmall: SpectacleText.rowSubtitle,
+    labelLarge: SpectacleText.value,
+    labelMedium: SpectacleText.navLabel,
+    labelSmall: SpectacleText.label,
   );
 }
 
 /// Overscroll glow is a Material tell; a hard stop reads as a real instrument.
-final class HotlineScrollBehavior extends MaterialScrollBehavior {
-  const HotlineScrollBehavior();
+final class SpectacleScrollBehavior extends MaterialScrollBehavior {
+  const SpectacleScrollBehavior();
 
   @override
   Widget buildOverscrollIndicator(
