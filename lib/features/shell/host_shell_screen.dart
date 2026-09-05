@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,7 @@ import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
+import '../../design/components/key_cell.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
@@ -408,15 +410,34 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                 Expanded(
                   child: active == null
                       ? const SizedBox.shrink()
-                      : GestureDetector(
+                      : RawGestureDetector(
                           key: const ValueKey('shell-pinch'),
-                          onScaleStart: _onPinchStart,
-                          onScaleUpdate: _onPinchUpdate,
-                          onScaleEnd: _onPinchEnd,
-                          child: _Terminal(
-                            session: active,
-                            focusNode: _focus,
-                            fontSize: fontSize,
+                          gestures: {
+                            _ResizeGestureRecognizer:
+                                GestureRecognizerFactoryWithHandlers<
+                                  _ResizeGestureRecognizer
+                                >(
+                                  _ResizeGestureRecognizer.new,
+                                  (recognizer) => recognizer
+                                    ..onStart = _onPinchStart
+                                    ..onUpdate = _onPinchUpdate
+                                    ..onEnd = _onPinchEnd,
+                                ),
+                          },
+                          child: Stack(
+                            // The terminal is the size of the whole area; the
+                            // affordance floats over it. Without this the stack
+                            // would take the size of the affordance, which is
+                            // nothing at all until there is a selection.
+                            fit: StackFit.expand,
+                            children: [
+                              _Terminal(
+                                session: active,
+                                focusNode: _focus,
+                                fontSize: fontSize,
+                              ),
+                              _SelectionActions(session: active),
+                            ],
                           ),
                         ),
                 ),
@@ -461,6 +482,7 @@ class _Terminal extends StatelessWidget {
     return TerminalView(
       session.terminal,
       key: ValueKey('shell-terminal-${session.number}'),
+      controller: session.controller,
       focusNode: focusNode,
       theme: _shellTheme,
       textStyle: _shellTextStyle(fontSize),
@@ -471,6 +493,132 @@ class _Terminal extends StatelessWidget {
       padding: const EdgeInsets.all(Spacing.md),
     );
   }
+}
+
+/// A pinch that gives the one-finger drag back to the terminal.
+///
+/// [ScaleGestureRecognizer] wins the arena the moment a single finger passes
+/// pan slop, which is a scroll the view under it never gets. Refusing to accept
+/// below two fingers leaves that drag to the terminal's own scroll and keeps
+/// the win for a real pinch, where the span between two fingers is what moves.
+class _ResizeGestureRecognizer extends ScaleGestureRecognizer {
+  @override
+  void resolve(GestureDisposition disposition) {
+    // A single finger past pan slop is a scroll, so hand it back rather than
+    // hold the arena: the terminal's own drag is waiting to take it. A real
+    // pinch has both fingers down before it moves, so it accepts as itself.
+    if (disposition == GestureDisposition.accepted && pointerCount < 2) {
+      super.resolve(GestureDisposition.rejected);
+      return;
+    }
+    super.resolve(disposition);
+  }
+}
+
+/// The copy path xterm does not draw for a touch: a floating cell over the
+/// terminal, shown only while a long-press has left a selection, that reads the
+/// selected text out of the buffer and onto the clipboard.
+///
+/// Stateful for the one listener it keeps on the session's controller, which is
+/// where the selection lives and the only thing that says a copy is possible.
+class _SelectionActions extends StatefulWidget {
+  const _SelectionActions({required this.session});
+
+  final ShellSession session;
+
+  @override
+  State<_SelectionActions> createState() => _SelectionActionsState();
+}
+
+class _SelectionActionsState extends State<_SelectionActions> {
+  @override
+  void initState() {
+    super.initState();
+    widget.session.controller.addListener(_onSelection);
+  }
+
+  @override
+  void didUpdateWidget(_SelectionActions old) {
+    super.didUpdateWidget(old);
+    if (old.session != widget.session) {
+      old.session.controller.removeListener(_onSelection);
+      widget.session.controller.addListener(_onSelection);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.session.controller.removeListener(_onSelection);
+    super.dispose();
+  }
+
+  void _onSelection() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _copy() async {
+    final controller = widget.session.controller;
+    final selection = controller.selection;
+    if (selection == null) return;
+    final text = widget.session.terminal.buffer.getText(selection);
+    await Clipboard.setData(ClipboardData(text: text));
+    controller.clearSelection();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.session.controller.selection == null) {
+      return const SizedBox.shrink();
+    }
+    // The bottom edge is the terminal's own, just over the key bar: it never
+    // meets the header, and it is where a thumb already is.
+    return Align(
+      alignment: Alignment.bottomRight,
+      child: Padding(
+        padding: const EdgeInsets.all(Spacing.md),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: SpectacleColors.surfacePrimary,
+            border: Border.all(color: SpectacleColors.borderSubtle),
+          ),
+          child: SizedBox(
+            height: RowMetrics.minHeight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                KeyCell(
+                  key: const ValueKey('shell-copy'),
+                  label: 'COPY',
+                  minWidth: RowMetrics.minHeight,
+                  padding: RowMetrics.padding,
+                  height: RowMetrics.minHeight,
+                  onTap: _copy,
+                ),
+                const _Divider(),
+                KeyCell(
+                  key: const ValueKey('shell-copy-clear'),
+                  label: 'CLEAR',
+                  minWidth: RowMetrics.minHeight,
+                  padding: RowMetrics.padding,
+                  height: RowMetrics.minHeight,
+                  onTap: widget.session.controller.clearSelection,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider();
+
+  @override
+  Widget build(BuildContext context) =>
+      Container(width: Borders.hairline, color: SpectacleColors.borderSubtle);
 }
 
 /// The route's whole chrome: the host, its tabs, what the shell calls itself,

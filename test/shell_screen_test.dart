@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectacle/application/providers.dart';
@@ -495,6 +496,30 @@ void main() {
   double fontSize(WidgetTester tester) =>
       tester.widget<TerminalView>(find.byType(TerminalView)).textStyle.fontSize;
 
+  /// Where the terminal's own scroll sits. The main buffer draws inside a
+  /// [Scrollable], so a drag that reaches the terminal moves this and a drag
+  /// the pinch ate does not.
+  double scrollOffset(WidgetTester tester) => tester
+      .state<ScrollableState>(
+        find.descendant(
+          of: find.byType(TerminalView),
+          matching: find.byType(Scrollable),
+        ),
+      )
+      .position
+      .pixels;
+
+  /// Fills the buffer past its viewport so there is a scrollback to move into,
+  /// and lets the store decode it off the real event loop.
+  Future<void> fill(WidgetTester tester, FakeShellTransport transport) async {
+    final buffer = StringBuffer();
+    for (var i = 0; i < 200; i++) {
+      buffer.write('line $i\r\n');
+    }
+    transport.opened.single.emit(buffer.toString());
+    await ready(tester);
+  }
+
   /// Two fingers on the view, `from` apart, moved to `to` apart along the row
   /// and lifted. Two steps: the first carries the span past the scale slop
   /// while each finger is still inside the drag slop, so the pinch is the
@@ -609,21 +634,116 @@ void main() {
     });
 
     testWidgets('one finger is a scroll, not a resize', (tester) async {
-      await tester.pumpWidget(
-        app(fakeShellSessions(FakeShellTransport()), db: db),
-      );
+      final transport = FakeShellTransport();
+      await tester.pumpWidget(app(fakeShellSessions(transport), db: db));
       await ready(tester);
+      await fill(tester, transport);
 
+      final before = scrollOffset(tester);
+      // Horizontal first, past the pan slop the scale recognizer wins on while
+      // the vertical drag is still inside its own: this is the diagonal swipe a
+      // thumb draws on glass, the one the old pinch handler ate.
       final center = tester.getCenter(find.byType(TerminalView));
       final finger = await tester.startGesture(center);
-      await finger.moveBy(const Offset(0, 40));
+      await finger.moveBy(const Offset(50, 8));
       await tester.pump();
-      await finger.moveBy(const Offset(0, 80));
+      await finger.moveBy(const Offset(0, 120));
       await tester.pump();
       await finger.up();
       await ready(tester);
 
+      // The type is untouched and the buffer has moved: the drag reached the
+      // terminal instead of the resize.
       expect(fontSize(tester), 13);
+      expect(scrollOffset(tester), isNot(before));
+
+      await unmount(tester);
+    });
+  });
+
+  group('the terminal copies a selection', () {
+    late AppDatabase db;
+
+    setUp(() => db = AppDatabase(NativeDatabase.memory()));
+    tearDown(() => db.close());
+
+    testWidgets('a selection raises COPY, which lifts the text and clears', (
+      tester,
+    ) async {
+      String? copied;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copied = (call.arguments as Map)['text'] as String;
+            }
+            return null;
+          });
+
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+
+      transport.opened.single.emit('copyme\r\n');
+      await ready(tester);
+
+      // Nothing selected, nothing to copy.
+      expect(find.byKey(const ValueKey('shell-copy')), findsNothing);
+
+      final session = sessions.activeFor(_rose.id)!;
+      final buffer = session.terminal.buffer;
+      session.controller.setSelection(
+        buffer.createAnchor(0, 0),
+        buffer.createAnchor(6, 0),
+      );
+      await tester.pump();
+      final selected = buffer.getText(session.controller.selection);
+      expect(selected, isNotEmpty);
+
+      expect(find.byKey(const ValueKey('shell-copy')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('shell-copy')));
+      await tester.pump();
+
+      expect(copied, selected);
+      // The copy takes the selection with it, so the cell goes too.
+      expect(session.controller.selection, isNull);
+      expect(find.byKey(const ValueKey('shell-copy')), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('CLEAR drops the selection without copying', (tester) async {
+      String? copied;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copied = (call.arguments as Map)['text'] as String;
+            }
+            return null;
+          });
+
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+
+      transport.opened.single.emit('copyme\r\n');
+      await ready(tester);
+
+      final session = sessions.activeFor(_rose.id)!;
+      final buffer = session.terminal.buffer;
+      session.controller.setSelection(
+        buffer.createAnchor(0, 0),
+        buffer.createAnchor(6, 0),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('shell-copy-clear')));
+      await tester.pump();
+
+      expect(copied, isNull);
+      expect(session.controller.selection, isNull);
+      expect(find.byKey(const ValueKey('shell-copy')), findsNothing);
 
       await unmount(tester);
     });

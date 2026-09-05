@@ -126,6 +126,11 @@ class ShellSession {
 
   final Terminal terminal;
 
+  /// Owns the selection the view draws, so the copy affordance can read it.
+  /// The view makes its own controller when it is not handed one, and a
+  /// selection made in that private controller is one nothing else can reach.
+  final TerminalController controller = TerminalController();
+
   ShellConnection? connection;
   ShellState state = const ShellConnecting();
 
