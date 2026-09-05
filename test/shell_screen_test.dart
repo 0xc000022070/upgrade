@@ -1,4 +1,5 @@
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -482,6 +483,50 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a tap on the terminal is a look, not a call for the keyboard', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+
+    bool focused() => tester
+        .widget<TerminalView>(find.byType(TerminalView))
+        .focusNode!
+        .hasFocus;
+
+    await tester.tap(find.byType(TerminalView));
+    await ready(tester);
+    expect(focused(), isFalse);
+    expect(tester.testTextInput.hasAnyClients, isFalse);
+
+    // The tap still does the one thing it is for: dropping a selection.
+    transport.opened.single.emit('selectme\r\n');
+    await ready(tester);
+    final session = sessions.activeFor(_rose.id)!;
+    final buffer = session.terminal.buffer;
+    session.controller.setSelection(
+      buffer.createAnchor(0, 0),
+      buffer.createAnchor(8, 0),
+    );
+    await tester.pump();
+    expect(session.controller.selection, isNotNull);
+
+    await tester.tap(find.byType(TerminalView));
+    await ready(tester);
+    expect(session.controller.selection, isNull);
+    expect(focused(), isFalse);
+
+    // The bar is still the way in.
+    await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
+    await ready(tester);
+    expect(focused(), isTrue);
+    expect(tester.testTextInput.hasAnyClients, isTrue);
+
+    await unmount(tester);
+  });
+
   testWidgets('nothing on the route offers SUPER', (tester) async {
     final transport = FakeShellTransport();
     await tester.pumpWidget(app(fakeShellSessions(transport)));
@@ -708,6 +753,103 @@ void main() {
       // The copy takes the selection with it, so the cell goes too.
       expect(session.controller.selection, isNull);
       expect(find.byKey(const ValueKey('shell-copy')), findsNothing);
+
+      await unmount(tester);
+    });
+
+    /// Where a cell sits on screen, through the render object that paints it.
+    Offset cellAt(WidgetTester tester, int x, int y) {
+      final render = tester
+          .state<TerminalViewState>(find.byType(TerminalView))
+          .renderTerminal;
+      final cell = render.getOffset(CellOffset(x, y));
+      final size = render.cellSize;
+      return render.localToGlobal(
+        cell + Offset(size.width / 2, size.height / 2),
+      );
+    }
+
+    /// A finger held past the long-press timeout, still down on return.
+    Future<TestGesture> hold(WidgetTester tester, Offset at) async {
+      final gesture = await tester.startGesture(at);
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      return gesture;
+    }
+
+    testWidgets('a press on a gap still takes, and the drag follows the finger '
+        'across the next one', (tester) async {
+      final haptics = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'HapticFeedback.vibrate') {
+              haptics.add(call.arguments as String);
+            }
+            return null;
+          });
+
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      transport.opened.single.emit('one   two three\r\n');
+      await ready(tester);
+      final session = sessions.activeFor(_rose.id)!;
+      String selected() =>
+          session.terminal.buffer.getText(session.controller.selection);
+
+      // Column 4 is the middle of the three spaces between one and two: a
+      // space with a word to one side counts as that word, so only this cell
+      // is a gap in the buffer's eyes.
+      final gesture = await hold(tester, cellAt(tester, 4, 0));
+      await tester.pump();
+      expect(selected(), ' ');
+      expect(haptics, ['HapticFeedbackType.selectionClick']);
+
+      // Across the next space: the range grows to it rather than waiting for
+      // the finger to land on a word.
+      await gesture.moveTo(cellAt(tester, 5, 0));
+      await tester.pump();
+      expect(selected(), '  ');
+
+      // On to a word, and the whole of it comes in.
+      await gesture.moveTo(cellAt(tester, 7, 0));
+      await tester.pump();
+      expect(selected(), '  two');
+
+      // Growing the selection is one press, one tick.
+      await gesture.up();
+      await tester.pump();
+      expect(haptics, hasLength(1));
+      expect(find.byKey(const ValueKey('shell-copy')), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a long press is not a click on the application under it', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      // The shell turns mouse reporting on, the way a TUI does.
+      transport.opened.single.emit('\x1b[?1000h\x1b[?1006hword\r\n');
+      await ready(tester);
+      final session = sessions.activeFor(_rose.id)!;
+
+      final gesture = await hold(tester, cellAt(tester, 1, 0));
+      await tester.pump();
+      await gesture.up();
+      await ready(tester);
+      expect(session.controller.selection, isNotNull);
+      expect(transport.opened.single.written, isEmpty);
+
+      // A tap is still a click, press and release together, and it drops the
+      // selection.
+      await tester.tapAt(cellAt(tester, 1, 0));
+      await ready(tester);
+      expect(session.controller.selection, isNull);
+      expect(transport.opened.single.written, '\x1b[<0;2;1M\x1b[<0;2;1m');
 
       await unmount(tester);
     });

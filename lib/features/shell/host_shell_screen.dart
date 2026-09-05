@@ -474,7 +474,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 ///
 /// The IME is the terminal's own now: it takes text input, and what it produces
 /// runs through the store, which is where the armed modifiers are applied and
-/// spent.
+/// spent. It comes up through the bar's KEYBOARD cell and nothing else: a tap on
+/// the view is a look at the screen, not a call for input.
 class _Terminal extends StatelessWidget {
   const _Terminal({required this.session, required this.fontSize});
 
@@ -494,6 +495,7 @@ class _Terminal extends StatelessWidget {
       // Plain text: the view turns autocorrect and suggestions off itself, and
       // a keyboard picked for anything else puts the wrong keys under a shell.
       keyboardType: TextInputType.text,
+      keyboardOnTap: false,
       padding: const EdgeInsets.all(Spacing.md),
     );
   }
@@ -556,8 +558,16 @@ class _SelectionActionsState extends State<_SelectionActions> {
     super.dispose();
   }
 
+  bool _selected = false;
+
+  /// The tick under the finger that says the press took: the highlight comes
+  /// a frame later and is easy to miss under a thumb.
   void _onSelection() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final selected = widget.session.controller.selection != null;
+    if (selected && !_selected) HapticFeedback.selectionClick();
+    _selected = selected;
+    setState(() {});
   }
 
   Future<void> _copy() async {

@@ -126,6 +126,11 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
   }
 
   void onTapDown(TapDownDetails details) {
+    // A touch is not a tap until it lifts: the recognizer reports the down at
+    // its deadline, while the arena is still open, so a press that goes on to
+    // be a long press or a scroll would click the application and drop the
+    // selection on its way. Its down waits for the up. Spectacle patch.
+    if (details.kind == PointerDeviceKind.touch) return;
     // onTapDown is special, as it will always call the supplied callback.
     // The TerminalView depends on it to bring the terminal into focus.
     _tapDown(
@@ -137,6 +142,18 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
   }
 
   void onSingleTapUp(TapUpDetails details) {
+    if (details.kind == PointerDeviceKind.touch) {
+      _tapDown(
+        widget.onTapDown,
+        TapDownDetails(
+          globalPosition: details.globalPosition,
+          localPosition: details.localPosition,
+          kind: details.kind,
+        ),
+        TerminalMouseButton.left,
+        forceCallback: true,
+      );
+    }
     _tapUp(widget.onSingleTapUp, details, TerminalMouseButton.left);
   }
 
