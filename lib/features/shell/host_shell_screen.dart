@@ -108,10 +108,9 @@ class HostShellRoute extends ConsumerStatefulWidget {
 }
 
 class _HostShellRouteState extends ConsumerState<HostShellRoute> {
-  /// The route's, not the view's: it survives a tab switch swapping one
-  /// [TerminalView] for another, which is what lets the keyboard stay up
-  /// across one.
-  final _focus = FocusNode(debugLabel: 'shell-terminal');
+  /// The session whose view was drawn last, so a build that swaps the view
+  /// for another tab's can be told from one that repaints the same tab.
+  ShellSession? _shown;
 
   /// Tab numbers whose bad exit has already been put in front of the user. The
   /// header goes on saying `EXITED <code>` afterwards; the sheet is said once.
@@ -170,7 +169,6 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   void dispose() {
     _store.removeListener(_onSessions);
     _clips.removeListener(_onClips);
-    _focus.dispose();
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     super.dispose();
   }
@@ -269,15 +267,16 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   /// the keyboard, which leaves the focus where it was.
   bool get _keyboardOpen => MediaQuery.viewInsetsOf(context).bottom > 0;
 
-  void _onKeyboard() {
+  void _onKeyboard(ShellSession session) {
+    final focus = session.focusNode;
     if (_keyboardOpen) {
-      _focus.unfocus();
-    } else if (_focus.hasFocus) {
+      focus.unfocus();
+    } else if (focus.hasFocus) {
       // Focus the view already has cannot be asked for again, so the keyboard
       // the system took away is asked back directly.
       SystemChannels.textInput.invokeMethod<void>('TextInput.show');
     } else {
-      _focus.requestFocus();
+      focus.requestFocus();
     }
   }
 
@@ -289,15 +288,28 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     _store.send(session, bytes);
   }
 
-  /// Switching tabs unmounts the view that had focus, which drops it. With the
-  /// keyboard up the user is mid-typing, so it is put back on the tab they
-  /// landed on rather than making them tap the toggle again.
   void _onSelect(ShellSession session) {
-    final refocus = _focus.hasFocus;
     _store.activate(widget.host.id, session);
-    if (!refocus) return;
+  }
+
+  /// Called from build with the tab about to be drawn. When it is not the one
+  /// drawn last, the view under the old tab is on its way out and its focus
+  /// node goes with it: a node detached while it holds focus gives it up,
+  /// which is what takes the keyboard down. With the keyboard up the user is
+  /// mid-typing, so it is put back on the tab they landed on — whichever way
+  /// they got there: the plus, a tab cell, or a shell exiting under them —
+  /// rather than making them tap the toggle again.
+  void _follow(ShellSession? active) {
+    final shown = _shown;
+    if (identical(shown, active)) return;
+    _shown = active;
+    if (active == null || shown == null || !shown.focusNode.hasFocus) return;
+    // After the frame: the new view has to be in the tree for its node to
+    // take focus, and the old one has to be out of it for its node to let go.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focus.requestFocus();
+      if (!mounted) return;
+      if (!identical(_store.activeFor(widget.host.id), active)) return;
+      active.focusNode.requestFocus();
     });
   }
 
@@ -388,6 +400,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           builder: (context, _) {
             final sessions = store.forHost(widget.host.id);
             final active = store.activeFor(widget.host.id);
+            _follow(active);
             final state = active?.state;
             return Column(
               children: [
@@ -431,11 +444,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                             // nothing at all until there is a selection.
                             fit: StackFit.expand,
                             children: [
-                              _Terminal(
-                                session: active,
-                                focusNode: _focus,
-                                fontSize: fontSize,
-                              ),
+                              _Terminal(session: active, fontSize: fontSize),
                               _SelectionActions(session: active),
                             ],
                           ),
@@ -447,7 +456,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                     onSticky: (sticky) => _onSticky(active, sticky),
                     onBytes: (bytes) => _onBytes(active, bytes),
                     keyboardOpen: _keyboardOpen,
-                    onKeyboard: _onKeyboard,
+                    onKeyboard: () => _onKeyboard(active),
                     clipCount: _clips.count,
                     onAttach: () => showAttachSheet(context, session: active),
                   ),
@@ -467,14 +476,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 /// runs through the store, which is where the armed modifiers are applied and
 /// spent.
 class _Terminal extends StatelessWidget {
-  const _Terminal({
-    required this.session,
-    required this.focusNode,
-    required this.fontSize,
-  });
+  const _Terminal({required this.session, required this.fontSize});
 
   final ShellSession session;
-  final FocusNode focusNode;
   final double fontSize;
 
   @override
@@ -483,7 +487,7 @@ class _Terminal extends StatelessWidget {
       session.terminal,
       key: ValueKey('shell-terminal-${session.number}'),
       controller: session.controller,
-      focusNode: focusNode,
+      focusNode: session.focusNode,
       theme: _shellTheme,
       textStyle: _shellTextStyle(fontSize),
       cursorType: TerminalCursorType.block,
