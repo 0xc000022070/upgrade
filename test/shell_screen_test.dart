@@ -9,6 +9,7 @@ import 'package:spectacle/application/shell_font.dart';
 import 'package:spectacle/data/database.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
 import 'package:spectacle/data/repositories/settings_repository.dart';
+import 'package:spectacle/design/colors.dart';
 import 'package:spectacle/features/shell/host_shell_screen.dart';
 import 'package:spectacle/features/shell/shell_bar.dart';
 import 'package:spectacle/features/shell/shell_sessions.dart';
@@ -850,6 +851,146 @@ void main() {
       await ready(tester);
       expect(session.controller.selection, isNull);
       expect(transport.opened.single.written, '\x1b[<0;2;1M\x1b[<0;2;1m');
+
+      await unmount(tester);
+    });
+
+    /// The COPY / CLEAR cell as one box, and the top edge of a cell on the
+    /// terminal, both on the screen.
+    Rect pill(WidgetTester tester) => tester.getRect(
+      find
+          .ancestor(
+            of: find.byKey(const ValueKey('shell-copy')),
+            matching: find.byType(DecoratedBox),
+          )
+          .first,
+    );
+    double cellTop(WidgetTester tester, int y) {
+      final render = tester
+          .state<TerminalViewState>(find.byType(TerminalView))
+          .renderTerminal;
+      return cellAt(tester, 0, y).dy - render.cellSize.height / 2;
+    }
+
+    testWidgets('COPY sits over the selected word, on it and not in a corner', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      transport.opened.single.emit('${'\r\n' * 8}${' ' * 10}copyme\r\n');
+      await ready(tester);
+
+      final gesture = await hold(tester, cellAt(tester, 12, 8));
+      await tester.pump();
+      await gesture.up();
+      await ready(tester);
+
+      final box = pill(tester);
+      final top = cellTop(tester, 8);
+      final render = tester
+          .state<TerminalViewState>(find.byType(TerminalView))
+          .renderTerminal;
+      // Just over the line, and centred on the word.
+      expect(box.bottom, lessThan(top));
+      expect(box.bottom, greaterThan(top - render.cellSize.height * 2));
+      final word = (cellAt(tester, 10, 8).dx + cellAt(tester, 15, 8).dx) / 2;
+      expect(box.center.dx, moreOrLessEquals(word, epsilon: 1));
+
+      await unmount(tester);
+    });
+
+    testWidgets('a word on the top line puts COPY under it', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      transport.opened.single.emit('copyme\r\n');
+      await ready(tester);
+
+      final gesture = await hold(tester, cellAt(tester, 2, 0));
+      await tester.pump();
+      await gesture.up();
+      await ready(tester);
+
+      final render = tester
+          .state<TerminalViewState>(find.byType(TerminalView))
+          .renderTerminal;
+      final bottom = cellTop(tester, 0) + render.cellSize.height;
+      expect(pill(tester).top, greaterThan(bottom));
+      expect(pill(tester).top, lessThan(bottom + render.cellSize.height * 2));
+
+      await unmount(tester);
+    });
+
+    testWidgets('a grip on either end of the selection drags that end', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      transport.opened.single.emit('one two three\r\n');
+      await ready(tester);
+      final session = sessions.activeFor(_rose.id)!;
+      String selected() =>
+          session.terminal.buffer.getText(session.controller.selection!);
+      final render = tester
+          .state<TerminalViewState>(find.byType(TerminalView))
+          .renderTerminal;
+      final cell = render.cellSize;
+
+      final gesture = await hold(tester, cellAt(tester, 5, 0));
+      await tester.pump();
+      await gesture.up();
+      await ready(tester);
+      expect(selected(), 'two');
+
+      // The grips stand on the word's edges, their bars down the line.
+      final begin = find.byKey(const ValueKey('shell-select-begin'));
+      final end = find.byKey(const ValueKey('shell-select-end'));
+      expect(
+        tester.getRect(begin).center.dx,
+        moreOrLessEquals(cellAt(tester, 4, 0).dx - cell.width / 2, epsilon: 1),
+      );
+      expect(
+        tester.getRect(end).center.dx,
+        moreOrLessEquals(cellAt(tester, 6, 0).dx + cell.width / 2, epsilon: 1),
+      );
+      expect(tester.getRect(begin).top, moreOrLessEquals(cellTop(tester, 0)));
+
+      // The end grip out to the last word, then the begin grip back to the
+      // first; the other end holds.
+      await tester.drag(end, Offset(cell.width * 5, 0));
+      await ready(tester);
+      expect(selected(), 'two three');
+      await tester.drag(begin, Offset(-cell.width * 4, 0));
+      await ready(tester);
+      expect(selected(), 'one two three');
+
+      // Past the other end: the range turns round rather than collapsing.
+      await tester.drag(begin, Offset(cell.width * 12, 0));
+      await ready(tester);
+      expect(selected(), 'e');
+
+      await unmount(tester);
+    });
+
+    testWidgets('the highlight is a wash the text shows through', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+
+      final theme = tester
+          .widget<TerminalView>(find.byType(TerminalView))
+          .theme;
+      // xterm paints the selection over the glyphs; a solid one hides them.
+      expect(theme.selection.a, lessThan(0.5));
+      expect(theme.selection.withValues(alpha: 1), SpectacleColors.accent);
 
       await unmount(tester);
     });
