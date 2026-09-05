@@ -168,6 +168,71 @@ void main() {
     expect(codex, contains('--yolo'));
   });
 
+  test('trust dialogs are recognised per agent and answered with keys', () {
+    const claude = '''
+ Quick safety check: Is this a project you created or one you trust?
+ ❯ No, exit
+   Yes, I trust this folder
+ Enter to confirm · Esc to cancel
+''';
+    const codex = '''
+  Do you trust the contents of this directory? Working with untrusted
+› 1. Yes, continue
+  2. No, quit
+''';
+    const idle = '❯\n  ⏵⏵ bypass permissions on (shift+tab to cycle)\n';
+    expect(HerdrClient.trustPromptKeys('claude', claude), ['down', 'enter']);
+    expect(HerdrClient.trustPromptKeys('codex', codex), ['enter']);
+    expect(HerdrClient.trustPromptKeys('claude', idle), isNull);
+    expect(HerdrClient.trustPromptKeys('claude', codex), isNull);
+    expect(HerdrClient.trustPromptKeys('codex', claude), isNull);
+  });
+
+  test('a prompt waits for the agent to take it and a stall is retryable', () {
+    final prompt = HerdrCommands.prompt('w1:p2');
+    expect(prompt, contains('agent prompt'));
+    expect(prompt, contains('--wait --until working --timeout 6000'));
+    expect(
+      HerdrClient.isPromptStalled(
+        '{"error":{"code":"agent_prompt_stalled","message":"x"}}',
+      ),
+      isTrue,
+    );
+    expect(
+      HerdrClient.isPromptStalled(
+        '{"error":{"code":"timeout","message":"timed out waiting"}}',
+      ),
+      isTrue,
+    );
+    expect(
+      HerdrClient.isPromptStalled(
+        '{"error":{"code":"agent_blocked","message":"x"}}',
+      ),
+      isFalse,
+    );
+    expect(HerdrClient.isPromptStalled(''), isFalse);
+  });
+
+  test('wait and read target the pane under the session', () {
+    final wait = HerdrCommands.wait(
+      'w1:p2',
+      timeout: const Duration(seconds: 15),
+      session: 'hub',
+    );
+    expect(wait, contains('agent wait'));
+    expect(wait, contains('w1:p2'));
+    expect(wait, contains('--until idle --timeout 15000'));
+    expect(wait, contains('HERDR_SESSION='));
+    expect(
+      HerdrCommands.read('w1:p2', lines: 40),
+      contains('--lines 40 --format text'),
+    );
+    expect(
+      () => HerdrCommands.wait('w1:p2; reboot', timeout: Duration.zero),
+      throwsA(isA<HerdrProtocolMismatch>()),
+    );
+  });
+
   test('workspace command preserves quoted paths and session names', () async {
     final temp = Directory.systemTemp.createTempSync('spectacle-herdr-command');
     addTearDown(() => temp.deleteSync(recursive: true));
