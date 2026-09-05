@@ -17,6 +17,7 @@ import '../../design/components/action_block.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
+import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/host_keys.dart';
@@ -29,12 +30,244 @@ import 'shell_sessions.dart';
 
 /// The way in: a host panel's `SHELL >` row on HOSTS, a host row on SSH, or one
 /// of that tab's session cards, which names the session it wants on screen.
+///
+/// The shell is a sheet over that screen, not a page in front of it: the
+/// screen stays drawn under the wash, and the header drags the sheet down.
 void openHostShell(BuildContext context, Host host, {ShellSession? session}) {
-  Navigator.of(context, rootNavigator: true).push(
-    MaterialPageRoute<void>(
-      builder: (_) => HostShellRoute(host: host, session: session),
-    ),
-  );
+  Navigator.of(
+    context,
+    rootNavigator: true,
+  ).push(ShellSheetRoute(host: host, session: session));
+}
+
+/// How much of the screen beneath shows above the sheet, under the status bar.
+/// It is the whole of what says the shell is over something: there is no
+/// handle and no rounded shoulder, as on the panel sheet.
+const _sheetBand = Spacing.xxl;
+
+/// A release faster than this, in px/s, decides on its own: downward leaves,
+/// upward stays. Slower, where the finger left the sheet decides.
+const _sheetFling = 700.0;
+
+/// A slow release past this share of the sheet's rise leaves; short of it,
+/// the sheet comes back.
+const _sheetLeaveShare = 1 / 3;
+
+/// The shell as a modal sheet: the route beneath stays under a wash, the
+/// sheet rises from the bottom, and a drag on its header takes it down again.
+///
+/// The wash is lighter than the panel sheet's: what shows through it is the
+/// tab the shell was opened from, and it should still read as that tab.
+class ShellSheetRoute extends PopupRoute<void> {
+  ShellSheetRoute({required this.host, this.session});
+
+  final Host host;
+  final ShellSession? session;
+
+  /// Held for the route's life rather than made per frame: a curved animation
+  /// listens to its parent, and one made in a build is one nobody disposes.
+  CurvedAnimation? _curved;
+
+  /// Up between a drag's start and its landing. A tap on the grip ends in the
+  /// recognizer's cancel with no start before it, and that is not a drag.
+  bool _dragging = false;
+
+  @override
+  Color get barrierColor => const Color(0x99000000);
+
+  @override
+  bool get barrierDismissible => true;
+
+  @override
+  String get barrierLabel => '${host.name} shell';
+
+  @override
+  Duration get transitionDuration => Motion.normal;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
+    return _SheetFrame(
+      child: HostShellRoute(host: host, session: session),
+    );
+  }
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    // Under the finger the sheet is where the finger is, one to one; on its
+    // own it eases. The gesture flag outlives the finger until the settle
+    // lands, so the curve does not swap under a sheet that is still moving.
+    final linear = navigator?.userGestureInProgress ?? false;
+    final position = linear
+        ? animation
+        : _curved ??= CurvedAnimation(
+            parent: animation,
+            curve: Motion.enter,
+            reverseCurve: Motion.exit,
+          );
+    return SlideTransition(
+      position: Tween(
+        begin: const Offset(0, 1),
+        end: Offset.zero,
+      ).animate(position),
+      child: child,
+    );
+  }
+
+  @override
+  void dispose() {
+    _curved?.dispose();
+    super.dispose();
+  }
+
+  /// The grip's drag, driven from the route so the controller stays where a
+  /// route keeps it. The navigator's gesture flag goes up here and comes down
+  /// only when the sheet has landed, whichever way it went.
+  void dragStart() {
+    _dragging = true;
+    navigator!.didStartUserGesture();
+  }
+
+  /// A finger's pixel is that share of the screen's height off the rise:
+  /// the slide is the screen's height, so the two move one to one.
+  void dragBy(double pixels, double height) {
+    final next = controller!.value - pixels / height;
+    controller!.value = next.clamp(0.0, 1.0);
+  }
+
+  /// A fast release decides by its direction, a slow one by where the sheet
+  /// is. Downward is positive, as the screen's y is.
+  void dragEnd(double velocity) {
+    if (!_dragging) return;
+    final leave = velocity.abs() > _sheetFling
+        ? velocity > 0
+        : controller!.value < 1 - _sheetLeaveShare;
+    _settle(leave: leave);
+  }
+
+  void dragCancel() {
+    if (_dragging) _settle(leave: false);
+  }
+
+  void _settle({required bool leave}) {
+    _dragging = false;
+    final nav = navigator!;
+    final ctl = controller!;
+    if (leave) {
+      // The pop reverses the controller from where it is, which is the rest
+      // of the slide and nothing more.
+      nav.pop();
+    } else {
+      ctl.animateTo(1, duration: Motion.fast, curve: Curves.linear);
+    }
+    if (!ctl.isAnimating) {
+      nav.didStopUserGesture();
+      return;
+    }
+    late final AnimationStatusListener landed;
+    landed = (_) {
+      ctl.removeStatusListener(landed);
+      nav.didStopUserGesture();
+    };
+    ctl.addStatusListener(landed);
+  }
+}
+
+/// The sheet's box: the screen's height less the status bar and the band,
+/// parked at the bottom, a hairline along its top edge.
+class _SheetFrame extends StatelessWidget {
+  const _SheetFrame({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: SizedBox(
+        key: const ValueKey('shell-sheet'),
+        height: media.size.height - media.padding.top - _sheetBand,
+        // The frame already stands clear of the status bar, so the safe area
+        // inside the route must not stand clear of it again.
+        child: MediaQuery.removePadding(
+          context: context,
+          removeTop: true,
+          child: DecoratedBox(
+            // In front of the child: the route paints its own ground over the
+            // whole box, and a rule behind it would be painted out.
+            position: DecorationPosition.foreground,
+            decoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: SpectacleColors.borderNormal),
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The header as the sheet's grip: a vertical drag on it moves the sheet with
+/// the finger, and the release decides whether the sheet leaves or comes
+/// back. Nothing at all when the route is a page, which is how a test pumps
+/// it.
+///
+/// The route's own controller is what the drag moves, the way the iOS back
+/// swipe moves a page's: the transition already knows how to draw the sheet
+/// at any point of its rise, and popping from a part-way value runs the rest
+/// of the slide from there.
+class _SheetGrip extends StatefulWidget {
+  const _SheetGrip({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_SheetGrip> createState() => _SheetGripState();
+}
+
+class _SheetGripState extends State<_SheetGrip> {
+  ShellSheetRoute? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    _route = route is ShellSheetRoute ? route : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final route = _route;
+    if (route == null) return widget.child;
+    return GestureDetector(
+      key: const ValueKey('shell-grip'),
+      behavior: HitTestBehavior.opaque,
+      // The finger's whole travel moves the sheet, the slop included: the
+      // sheet is under the finger from the first pixel, not from the
+      // nineteenth.
+      dragStartBehavior: DragStartBehavior.down,
+      onVerticalDragStart: (_) => route.dragStart(),
+      onVerticalDragUpdate: (details) => route.dragBy(
+        details.primaryDelta!,
+        MediaQuery.sizeOf(context).height,
+      ),
+      onVerticalDragEnd: (details) =>
+          route.dragEnd(details.primaryVelocity ?? 0),
+      onVerticalDragCancel: route.dragCancel,
+      child: widget.child,
+    );
+  }
 }
 
 /// The palette, from the tokens where the tokens have a word for the colour and
@@ -408,22 +641,32 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
             final state = active?.state;
             return Column(
               children: [
-                _Header(
-                  host: widget.host,
-                  sessions: sessions,
-                  active: active,
-                  canOpen: store.canOpen(widget.host.id),
-                  onSelect: _onSelect,
-                  onNew: _onNew,
-                  onClose: active == null ? null : () => _onClose(active),
-                  onStop: active == null
-                      ? null
-                      : () => store.stopReconnect(active),
+                // The rows above the terminal are the sheet's grip: the
+                // terminal's own drag is its scroll, and the bar's is its
+                // horizontal one.
+                _SheetGrip(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _Header(
+                        host: widget.host,
+                        sessions: sessions,
+                        active: active,
+                        canOpen: store.canOpen(widget.host.id),
+                        onSelect: _onSelect,
+                        onNew: _onNew,
+                        onClose: active == null ? null : () => _onClose(active),
+                        onStop: active == null
+                            ? null
+                            : () => store.stopReconnect(active),
+                      ),
+                      // The whole of what a failure costs the terminal: one
+                      // short row, and only while there is a failure.
+                      if (state is ShellFailed)
+                        _ReasonRow(host: widget.host, kind: state.kind),
+                    ],
+                  ),
                 ),
-                // The whole of what a failure costs the terminal: one short row,
-                // and only while there is a failure.
-                if (state is ShellFailed)
-                  _ReasonRow(host: widget.host, kind: state.kind),
                 Expanded(
                   child: active == null
                       ? const SizedBox.shrink()
