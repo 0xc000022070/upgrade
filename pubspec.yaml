@@ -55,6 +55,15 @@ dependencies:
   flutter_foreground_task: ^11.0.1
   gal: ^2.3.3
 
+# xterm 4.0.0 gets the alternate screen's touch scroll wrong twice: wheel
+# reports carry ids 68/69 (Shift+wheel) and a row computed from a global
+# offset. Claude Code runs on the alternate screen with mouse reporting on, so
+# its transcript never saw the scroll. packages/xterm is the release with both
+# lines fixed; see its pubspec.
+dependency_overrides:
+  xterm:
+    path: packages/xterm
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

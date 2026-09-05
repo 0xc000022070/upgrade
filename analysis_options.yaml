@@ -12,6 +12,8 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - build/**
+    # Vendored upstream code, linted by its own project.
+    - packages/**
     - android/**
     - ios/**
     - web/**
