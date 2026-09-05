@@ -40,10 +40,12 @@ void openHostShell(BuildContext context, Host host, {ShellSession? session}) {
   ).push(ShellSheetRoute(host: host, session: session));
 }
 
-/// How much of the screen beneath shows above the sheet, under the status bar.
-/// It is the whole of what says the shell is over something: there is no
-/// handle and no rounded shoulder, as on the panel sheet.
-const _sheetBand = Spacing.xxl;
+/// The rule on the sheet's top edge, which is the whole of what says the shell
+/// is a sheet. It is drawn over the header's ground rather than above it: the
+/// sheet stands flush under the status bar, and rows are what a terminal is.
+const _gripWidth = 36.0;
+const _gripHeight = 2.0;
+const _gripInset = 5.0;
 
 /// A release faster than this, in px/s, decides on its own: downward leaves,
 /// upward stays. Slower, where the finger left the sheet decides.
@@ -181,8 +183,8 @@ class ShellSheetRoute extends PopupRoute<void> {
   }
 }
 
-/// The sheet's box: the screen's height less the status bar and the band,
-/// parked at the bottom, a hairline along its top edge.
+/// The sheet's box: the screen's height less the status bar, parked at the
+/// bottom, a hairline and the grip's rule along its top edge.
 class _SheetFrame extends StatelessWidget {
   const _SheetFrame({required this.child});
 
@@ -195,23 +197,57 @@ class _SheetFrame extends StatelessWidget {
       alignment: Alignment.bottomCenter,
       child: SizedBox(
         key: const ValueKey('shell-sheet'),
-        height: media.size.height - media.padding.top - _sheetBand,
-        // The frame already stands clear of the status bar, so the safe area
-        // inside the route must not stand clear of it again.
-        child: MediaQuery.removePadding(
-          context: context,
-          removeTop: true,
-          child: DecoratedBox(
-            // In front of the child: the route paints its own ground over the
-            // whole box, and a rule behind it would be painted out.
-            position: DecorationPosition.foreground,
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: SpectacleColors.borderNormal),
+        height: media.size.height - media.padding.top,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // The frame already stands clear of the status bar, so the safe
+            // area inside the route must not stand clear of it again.
+            MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              child: DecoratedBox(
+                // In front of the child: the route paints its own ground over
+                // the whole box, and a rule behind it would be painted out.
+                position: DecorationPosition.foreground,
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: SpectacleColors.borderNormal),
+                  ),
+                ),
+                child: child,
               ),
             ),
-            child: child,
-          ),
+            // Over the header's first rows, and out of the way of its cells:
+            // the rule is a sign, and the header under it is the grip.
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(child: _SheetRule()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The short rule under the sheet's top edge.
+class _SheetRule extends StatelessWidget {
+  const _SheetRule();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      height: _gripInset + _gripHeight,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: SizedBox(
+          key: ValueKey('shell-grip-rule'),
+          width: _gripWidth,
+          height: _gripHeight,
+          child: ColoredBox(color: SpectacleColors.textDisabled),
         ),
       ),
     );

@@ -21,9 +21,9 @@ const _rose = Host(
 /// rise is measured against it.
 const _height = 600.0;
 
-/// The band of the launcher that shows above the sheet, under a status bar
-/// of no height on the test surface.
-const _band = 24.0;
+/// A status bar, so the sheet has something to stand under. The surface has
+/// none of its own.
+const _statusBar = 48.0;
 
 void main() {
   setUp(stubDeviceChannels);
@@ -48,6 +48,10 @@ void main() {
   }
 
   Future<ShellSessions> open(WidgetTester tester) async {
+    tester.view.padding = FakeViewPadding(
+      top: _statusBar * tester.view.devicePixelRatio,
+    );
+    addTearDown(tester.view.reset);
     final sessions = fakeShellSessions(FakeShellTransport());
     await tester.pumpWidget(app(sessions));
     await tester.tap(find.text('OPEN'));
@@ -57,8 +61,9 @@ void main() {
 
   final header = find.byKey(const ValueKey('shell-header'));
   final sheet = find.byKey(const ValueKey('shell-sheet'));
+  final rule = find.byKey(const ValueKey('shell-grip-rule'));
 
-  testWidgets('the shell opens as a sheet over the tab, a band clear', (
+  testWidgets('the shell opens as a sheet flush under the status bar', (
     tester,
   ) async {
     await open(tester);
@@ -70,8 +75,33 @@ void main() {
     final route = ModalRoute.of(tester.element(header));
     expect(route, isA<ShellSheetRoute>());
     expect(route!.opaque, isFalse);
-    expect(tester.getTopLeft(sheet).dy, _band);
+    // Foot to the screen's edge and head to the status bar: the sheet holds
+    // the rows a page held, and the band that stood here costs nothing now.
+    expect(tester.getTopLeft(sheet).dy, _statusBar);
     expect(tester.getBottomLeft(sheet).dy, _height);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a rule on the top edge says the shell is a sheet', (
+    tester,
+  ) async {
+    await open(tester);
+
+    expect(rule, findsOneWidget);
+    expect(tester.getSize(rule), const Size(36, 2));
+    // On the sheet's own edge, over the header's ground rather than above it:
+    // the header starts where the sheet does.
+    expect(tester.getTopLeft(rule).dy, _statusBar + 5);
+    expect(tester.getTopLeft(header).dy, _statusBar);
+    // A sign and not a target: a drag that starts on the rule is a drag on
+    // the header under it, and moves the sheet.
+    final gesture = await tester.startGesture(tester.getCenter(rule));
+    await gesture.moveBy(const Offset(0, 100));
+    await tester.pump();
+    expect(tester.getTopLeft(sheet).dy, moreOrLessEquals(_statusBar + 100));
+    await gesture.up();
+    await ready(tester);
 
     await unmount(tester);
   });
@@ -99,7 +129,7 @@ void main() {
     await ready(tester);
 
     expect(find.text('ROSE'), findsOneWidget);
-    expect(tester.getTopLeft(sheet).dy, _band);
+    expect(tester.getTopLeft(sheet).dy, _statusBar);
 
     await unmount(tester);
   });
@@ -111,11 +141,11 @@ void main() {
     await gesture.moveBy(const Offset(0, 100));
     await tester.pump();
 
-    expect(tester.getTopLeft(sheet).dy, moreOrLessEquals(_band + 100));
+    expect(tester.getTopLeft(sheet).dy, moreOrLessEquals(_statusBar + 100));
 
     await gesture.up();
     await ready(tester);
-    expect(tester.getTopLeft(sheet).dy, _band);
+    expect(tester.getTopLeft(sheet).dy, _statusBar);
 
     await unmount(tester);
   });
@@ -124,18 +154,6 @@ void main() {
     await open(tester);
 
     await tester.fling(header, const Offset(0, 80), 1500);
-    await ready(tester);
-
-    expect(find.text('ROSE'), findsNothing);
-    expect(find.text('OPEN'), findsOneWidget);
-
-    await unmount(tester);
-  });
-
-  testWidgets('a tap on the band above the sheet leaves', (tester) async {
-    await open(tester);
-
-    await tester.tapAt(const Offset(200, _band / 2));
     await ready(tester);
 
     expect(find.text('ROSE'), findsNothing);
