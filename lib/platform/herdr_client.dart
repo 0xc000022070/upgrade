@@ -99,11 +99,27 @@ done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
         _ => throw ArgumentError.value(kind, 'kind'),
       };
 
-  static String read(String pane, [String session = defaultSession]) {
+  static String read(
+    String pane, {
+    String session = defaultSession,
+    int lines = 8,
+  }) {
     _requirePane(pane);
     return underSh(
       'exec ${_herdr(session, 'agent read ${shellQuote(pane)} '
-      '--source visible --lines 8 --format text')}',
+      '--source visible --lines $lines --format text')}',
+    );
+  }
+
+  static String wait(
+    String pane, {
+    required Duration timeout,
+    String session = defaultSession,
+  }) {
+    _requirePane(pane);
+    return underSh(
+      'exec ${_herdr(session, 'agent wait ${shellQuote(pane)} '
+      '--until idle --timeout ${timeout.inMilliseconds}')}',
     );
   }
 
@@ -177,11 +193,15 @@ done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
     );
   }
 
+  /// `--wait --until working` makes the exit code say whether the agent took
+  /// the text: herdr answers `agent_prompt_stalled` when nothing changed
+  /// within its own five-second window.
   static String prompt(String pane, [String session = defaultSession]) {
     _requirePane(pane);
     return underSh(
       r'''text=$(cat); [ -n "$text" ] || exit 2; '''
-      'exec ${_herdr(session, 'agent prompt ${shellQuote(pane)} "\$text"')}',
+      'exec ${_herdr(session, 'agent prompt ${shellQuote(pane)} "\$text" '
+      '--wait --until working --timeout ${promptStall.inMilliseconds}')}',
     );
   }
 
@@ -298,7 +318,9 @@ class HerdrSession {
   Future<String?> read(String pane) async {
     try {
       final result = await _guard(
-        () => _client.runWithResult(HerdrCommands.read(pane, _sessionName)),
+        () => _client.runWithResult(
+          HerdrCommands.read(pane, session: _sessionName),
+        ),
       );
       if (result.exitCode != 0) return null;
       final tail = utf8.decode(result.stdout).trimRight();
@@ -358,12 +380,17 @@ class HerdrSession {
           await _closeWorkspace(workspace!);
           return const SpawnRefused(SpawnRefusal.timedOut);
         }
-        final started = await _startAtPrompt(
+        var started = await _startAtPrompt(
           pane: pane,
           name: _agentName(_directoryLabel(directory), workspace!),
           kind: kind,
           model: model,
         );
+        if (started.exitCode != 0 &&
+            HerdrClient.parseErrorCode(utf8.decode(started.stderr)) ==
+                'agent_not_ready') {
+          started = await _acceptTrust(pane, kind) ?? started;
+        }
         if (started.exitCode != 0) {
           await _closeWorkspace(workspace!);
           return SpawnRefused(
@@ -375,7 +402,17 @@ class HerdrSession {
           await _closeWorkspace(workspace!);
           return const SpawnRefused(SpawnRefusal.timedOut);
         }
-        final sent = await _runPrompt(pane, prompt);
+        // An agent that has just repainted after its trust dialog is idle to
+        // herdr a beat before it reads input, and text sent in that beat is
+        // gone without a trace. A stalled prompt is sent again.
+        var sent = await _runPrompt(pane, prompt);
+        for (var attempt = 1; attempt < promptAttempts && !expired; attempt++) {
+          if (sent.exitCode == 0 ||
+              !HerdrClient.isPromptStalled(utf8.decode(sent.stderr))) {
+            break;
+          }
+          sent = await _runPrompt(pane, prompt);
+        }
         if (sent.exitCode != 0) {
           await _closeWorkspace(workspace!);
           return SpawnRefused(
@@ -444,6 +481,32 @@ class HerdrSession {
       }
       await Future<void>.delayed(promptPoll);
     }
+  }
+
+  /// `agent_not_ready` is the agent up and waiting on something, and in a
+  /// directory it has never been opened in that something is its own trust
+  /// dialog. The user chose the directory and the run is already unattended,
+  /// so the dialog is answered for them and `agent wait` judges the start.
+  /// Null when the pane shows anything else: the start's own answer is then
+  /// the one to report.
+  Future<SSHRunResult?> _acceptTrust(String pane, String kind) async {
+    final screen = await _guard(
+      () => _client.runWithResult(
+        HerdrCommands.read(pane, session: _sessionName, lines: trustLines),
+      ),
+    );
+    if (screen.exitCode != 0) return null;
+    final keys = HerdrClient.trustPromptKeys(kind, utf8.decode(screen.stdout));
+    if (keys == null) return null;
+    final answered = await _guard(
+      () => _client.runWithResult(HerdrCommands.keys(pane, keys, _sessionName)),
+    );
+    if (answered.exitCode != 0) return answered;
+    return _guard(
+      () => _client.runWithResult(
+        HerdrCommands.wait(pane, timeout: trustSettle, session: _sessionName),
+      ),
+    );
   }
 
   Future<SSHRunResult> _runPrompt(String pane, String prompt) async {
@@ -527,6 +590,19 @@ const spawnDeadline = Duration(seconds: 45);
 const promptSettle = Duration(seconds: 10);
 
 const promptPoll = Duration(milliseconds: 100);
+
+/// How long an agent that has just been told to trust its directory may take
+/// to reach its prompt.
+const trustSettle = Duration(seconds: 15);
+
+/// Enough of the pane to hold either agent's trust dialog whole.
+const trustLines = 40;
+
+/// Longer than herdr's five-second stall window, so a prompt the agent never
+/// read comes back as `agent_prompt_stalled` and not as a bare timeout.
+const promptStall = Duration(seconds: 6);
+
+const promptAttempts = 3;
 
 String _directoryLabel(String directory) {
   final parts = directory.split('/').where((part) => part.isNotEmpty).toList();
@@ -633,6 +709,31 @@ class HerdrClient {
     final only = processes.single;
     return only is Map<String, Object?> && only['pid'] == shell;
   }
+
+  /// The keys that accept the agent's first-run trust dialog, or null when the
+  /// screen is not that dialog. Claude Code opens on `No, exit`; Codex opens
+  /// on `Yes, continue`. Matched on the dialog's own words, not its layout.
+  static List<String>? trustPromptKeys(String kind, String screen) {
+    final text = screen.toLowerCase();
+    return switch (kind) {
+      'claude' when text.contains('trust this folder') => const [
+        'down',
+        'enter',
+      ],
+      'codex' when text.contains('trust the contents of this directory') =>
+        const ['enter'],
+      _ => null,
+    };
+  }
+
+  /// Whether a failed `agent prompt --wait` means the text was never read:
+  /// herdr saw no state change inside its stall window, or the shorter
+  /// `--timeout` fired first. Anything else is the agent refusing the prompt.
+  static bool isPromptStalled(String stderr) =>
+      switch (parseErrorCode(stderr)) {
+        'agent_prompt_stalled' || 'timeout' => true,
+        _ => false,
+      };
 
   /// The `error.code` of a failed herdr response, or null for anything else.
   static String? parseErrorCode(String source) {
