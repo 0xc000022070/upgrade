@@ -170,6 +170,13 @@ done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
     return underSh('exec ${_herdr(session, arguments)}');
   }
 
+  static String processInfo(String pane, [String session = defaultSession]) {
+    _requirePane(pane);
+    return underSh(
+      'exec ${_herdr(session, 'pane process-info --pane ${shellQuote(pane)}')}',
+    );
+  }
+
   static String prompt(String pane, [String session = defaultSession]) {
     _requirePane(pane);
     return underSh(
@@ -351,16 +358,11 @@ class HerdrSession {
           await _closeWorkspace(workspace!);
           return const SpawnRefused(SpawnRefusal.timedOut);
         }
-        final started = await _guard(
-          () => _client.runWithResult(
-            HerdrCommands.agentStart(
-              pane: pane,
-              name: _agentName(_directoryLabel(directory), workspace!),
-              kind: kind,
-              model: model,
-              session: _sessionName,
-            ),
-          ),
+        final started = await _startAtPrompt(
+          pane: pane,
+          name: _agentName(_directoryLabel(directory), workspace!),
+          kind: kind,
+          model: model,
         );
         if (started.exitCode != 0) {
           await _closeWorkspace(workspace!);
@@ -388,6 +390,59 @@ class HerdrSession {
       final made = workspace;
       if (made != null) await _closeWorkspace(made);
       return const SpawnRefused(SpawnRefusal.timedOut);
+    }
+  }
+
+  /// `herdr agent start` wants the pane's shell alone at its prompt, and a
+  /// shell still sourcing its rc files hands the terminal to every command it
+  /// runs. herdr answers `agent_pane_busy` for that instant instead of
+  /// waiting, so the start is held until process-info shows the prompt, and a
+  /// busy answer inside the settle window is the shell not being there yet.
+  Future<SSHRunResult> _startAtPrompt({
+    required String pane,
+    required String name,
+    required String kind,
+    String? model,
+  }) async {
+    final settle = Stopwatch()..start();
+    while (true) {
+      await _awaitPrompt(pane, settle);
+      final started = await _guard(
+        () => _client.runWithResult(
+          HerdrCommands.agentStart(
+            pane: pane,
+            name: name,
+            kind: kind,
+            model: model,
+            session: _sessionName,
+          ),
+        ),
+      );
+      if (started.exitCode == 0 ||
+          settle.elapsed >= promptSettle ||
+          HerdrClient.parseErrorCode(utf8.decode(started.stderr)) !=
+              'agent_pane_busy') {
+        return started;
+      }
+      await Future<void>.delayed(promptPoll);
+    }
+  }
+
+  /// Returns once the shell holds the terminal, the settle window closes, or
+  /// the host cannot say. In the last two cases the start itself reports what
+  /// is actually wrong.
+  Future<void> _awaitPrompt(String pane, Stopwatch settle) async {
+    while (settle.elapsed < promptSettle) {
+      final info = await _guard(
+        () => _client.runWithResult(
+          HerdrCommands.processInfo(pane, _sessionName),
+        ),
+      );
+      if (info.exitCode != 0 ||
+          HerdrClient.parseShellAtPrompt(utf8.decode(info.stdout))) {
+        return;
+      }
+      await Future<void>.delayed(promptPoll);
     }
   }
 
@@ -465,6 +520,13 @@ class HerdrSession {
 
 /// How long a send waits for workspace creation, agent startup, and the prompt.
 const spawnDeadline = Duration(seconds: 45);
+
+/// How long a fresh pane's shell may take to reach its prompt. A login shell
+/// on this kind of host is there in well under a second; the window is for
+/// slow disks and rc files that call out to the network.
+const promptSettle = Duration(seconds: 10);
+
+const promptPoll = Duration(milliseconds: 100);
 
 String _directoryLabel(String directory) {
   final parts = directory.split('/').where((part) => part.isNotEmpty).toList();
@@ -545,6 +607,44 @@ class HerdrClient {
     if (pane is! String) throw const HerdrProtocolMismatch();
     HerdrCommands._requirePane(pane);
     return pane;
+  }
+
+  /// Whether the pane's shell holds the terminal alone: it owns the foreground
+  /// process group and is that group's only member. This is the state
+  /// `herdr agent start` requires. A reply that does not show a process group
+  /// cannot be waited on, so it counts as ready and the start speaks for
+  /// itself. Not a mismatch: throwing past spawn would leak the workspace.
+  static bool parseShellAtPrompt(String source) {
+    Object? decoded;
+    try {
+      decoded = jsonDecode(source);
+    } on FormatException {
+      return true;
+    }
+    final result = decoded is Map<String, Object?> ? decoded['result'] : null;
+    final info = result is Map<String, Object?> ? result['process_info'] : null;
+    if (info is! Map<String, Object?>) return true;
+    final shell = info['shell_pid'];
+    final group = info['foreground_process_group_id'];
+    if (shell is! int || group is! int) return true;
+    if (group != shell) return false;
+    final processes = info['foreground_processes'];
+    if (processes is! List<Object?> || processes.length != 1) return false;
+    final only = processes.single;
+    return only is Map<String, Object?> && only['pid'] == shell;
+  }
+
+  /// The `error.code` of a failed herdr response, or null for anything else.
+  static String? parseErrorCode(String source) {
+    Object? decoded;
+    try {
+      decoded = jsonDecode(source);
+    } on FormatException {
+      return null;
+    }
+    final error = decoded is Map<String, Object?> ? decoded['error'] : null;
+    final code = error is Map<String, Object?> ? error['code'] : null;
+    return code is String ? code : null;
   }
 
   /// Paths are newline-delimited now. JSON arrays remain accepted for hosts
