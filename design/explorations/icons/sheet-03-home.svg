@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="360" height="260" viewBox="0 0 360 260">
-  <title>Hotline approved home icon</title>
+  <title>Spectacle approved home icon</title>
   <desc>Approved bracket-free drop plus baseline home glyph at large, 16 pixel, and 20 pixel sizes.</desc>
   <style>
     .title { fill: #E8E8E3; font: 600 15px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1.2px; }
@@ -14,7 +14,7 @@
     <symbol id="home" viewBox="0 0 24 24"><path class="route" d="M12 4V11.5M12 16.5V19M6 19H18"/><path class="node" d="M12 11.5L14.5 14L12 16.5L9.5 14Z"/></symbol>
   </defs>
   <rect width="360" height="260" fill="#08090B"/>
-  <text class="title" x="24" y="31">HOTLINE / HOME FINAL</text>
+  <text class="title" x="24" y="31">SPECTACLE / HOME FINAL</text>
   <text class="meta" x="336" y="31" text-anchor="end">A / APPROVED</text>
   <path d="M24 54H336" stroke="#252A31"/>
   <rect class="cell" x="24" y="72" width="312" height="142"/>

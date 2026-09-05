@@ -3,13 +3,13 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/agents.dart';
-import 'package:hotline/application/alerts.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/platform/agent_watcher.dart';
-import 'package:hotline/platform/herdr_client.dart';
-import 'package:hotline/platform/host_keys.dart';
-import 'package:hotline/platform/keys.dart';
+import 'package:spectacle/application/agents.dart';
+import 'package:spectacle/application/alerts.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/platform/agent_watcher.dart';
+import 'package:spectacle/platform/herdr_client.dart';
+import 'package:spectacle/platform/host_keys.dart';
+import 'package:spectacle/platform/keys.dart';
 
 /// The alerts regression list.
 
@@ -347,7 +347,7 @@ void main() {
             'cwd': '/home/luisnquin/src',
             'pane_id': 'wQ:p1',
             'state_change_seq': seq,
-            'terminal_title_stripped': 'hotline',
+            'terminal_title_stripped': 'spectacle',
             'workspace_id': 'wQ',
           },
         ],

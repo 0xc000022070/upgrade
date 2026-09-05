@@ -25,7 +25,7 @@ import '../../design/components/list_row.dart';
 import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
-import '../../design/icons/hotline_icons.dart';
+import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../hosts/path_picker_sheet.dart';
@@ -346,7 +346,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           title: 'MOVE TO',
           affordance: PanelAffordance(
             'BACK',
-            icon: HotlineIcons.back,
+            icon: SpectacleIcons.back,
             onTap: () => setState(() => _mode = _Mode.item),
           ),
           children: [
@@ -361,7 +361,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           title: 'PAIR WITH',
           affordance: PanelAffordance(
             'BACK',
-            icon: HotlineIcons.back,
+            icon: SpectacleIcons.back,
             onTap: () => setState(() => _mode = _Mode.item),
           ),
           children: [PairPickerBody(taskId: widget.taskId, onPicked: _pair)],
@@ -371,7 +371,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           title: 'SEND TO',
           affordance: PanelAffordance(
             'BACK',
-            icon: HotlineIcons.back,
+            icon: SpectacleIcons.back,
             onTap: () => setState(() {
               _mode = _Mode.item;
               _sendState = null;
@@ -384,7 +384,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           title: _target?.title ?? 'SEND',
           affordance: PanelAffordance(
             'BACK',
-            icon: HotlineIcons.back,
+            icon: SpectacleIcons.back,
             onTap: () => setState(() {
               _mode = _sendState == null ? _Mode.send : _Mode.item;
               _sendState = null;
@@ -442,8 +442,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           label: 'BLOCKED BY',
           child: Text(
             task.blockedReason!,
-            style: HotlineText.rowSubtitle.copyWith(
-              color: HotlineColors.warning,
+            style: SpectacleText.rowSubtitle.copyWith(
+              color: SpectacleColors.warning,
             ),
           ),
         ),
@@ -452,7 +452,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         const SheetRule(),
         _Field(
           label: 'EFFORT',
-          child: Text('${task.effort}', style: HotlineText.value),
+          child: Text('${task.effort}', style: SpectacleText.value),
         ),
       ],
       if (mates.isNotEmpty) ...[
@@ -466,7 +466,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
               for (final mate in mates)
                 Padding(
                   padding: const EdgeInsets.only(bottom: Spacing.sm),
-                  child: Text(mate.title, style: HotlineText.rowSubtitle),
+                  child: Text(mate.title, style: SpectacleText.rowSubtitle),
                 ),
             ],
           ),
@@ -511,7 +511,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                     '${dispatch.model == null ? '' : ' ${dispatch.model}'} · '
                     '${dispatch.paneId} · '
                     '${timeOfDay(dispatch.sentAt)}',
-                    style: HotlineText.value,
+                    style: SpectacleText.value,
                   ),
                 ),
             ],
@@ -553,7 +553,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     final state = _sendState;
     if (state != null) return [_sendStatus(state)];
     return [
-      Text('AGENT', style: HotlineText.panelHeader),
+      Text('AGENT', style: SpectacleText.panelHeader),
       const SizedBox(height: Spacing.sm),
       Row(
         children: [
@@ -564,8 +564,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                 label: agentMarkName(kind),
                 filled: kind == _kind,
                 tone: kind == _kind
-                    ? HotlineColors.accent
-                    : HotlineColors.textSecondary,
+                    ? SpectacleColors.accent
+                    : SpectacleColors.textSecondary,
                 onTap: () {
                   if (kind == _kind) return;
                   setState(() {
@@ -580,7 +580,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         ],
       ),
       const SheetRule(),
-      Text('MODEL', style: HotlineText.panelHeader),
+      Text('MODEL', style: SpectacleText.panelHeader),
       const SizedBox(height: Spacing.sm),
       _modelChoices(),
       const SheetRule(),
@@ -589,7 +589,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         child: ActionBlock(
           label: 'SEND',
           filled: true,
-          tone: HotlineColors.accent,
+          tone: SpectacleColors.accent,
           onTap: () {
             final target = _target;
             if (target != null) _dispatch(target);
@@ -614,8 +614,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           label: 'DEFAULT',
           filled: _model == null,
           tone: _model == null
-              ? HotlineColors.accent
-              : HotlineColors.textSecondary,
+              ? SpectacleColors.accent
+              : SpectacleColors.textSecondary,
           onTap: () => setState(() => _model = null),
         ),
         if (_models is PathScanLoading)
@@ -628,8 +628,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
             label: slug.toUpperCase(),
             filled: slug == _model,
             tone: slug == _model
-                ? HotlineColors.accent
-                : HotlineColors.textSecondary,
+                ? SpectacleColors.accent
+                : SpectacleColors.textSecondary,
             onTap: () => setState(() => _model = slug),
           ),
       ],
@@ -647,7 +647,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         // directory that is not registered yet gets to register it here.
         ListRow(
           title: 'REGISTER A PATH',
-          titleColor: HotlineColors.textSecondary,
+          titleColor: SpectacleColors.textSecondary,
           onTap: _registerPath,
         ),
       ],
@@ -662,7 +662,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
       children: [
         _Field(
           label: 'TO',
-          child: Text(_target?.title ?? '', style: HotlineText.value),
+          child: Text(_target?.title ?? '', style: SpectacleText.value),
         ),
         const SizedBox(height: Spacing.lg),
         Text(
@@ -671,11 +671,11 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
             SendSent(:final paneId) => 'SENT · $paneId',
             SendFailed(:final reason) => reason,
           },
-          style: HotlineText.rowTitle.copyWith(
+          style: SpectacleText.rowTitle.copyWith(
             color: switch (state) {
-              SendSending() => HotlineColors.textMuted,
-              SendSent() => HotlineColors.accent,
-              SendFailed() => HotlineColors.warning,
+              SendSending() => SpectacleColors.textMuted,
+              SendSent() => SpectacleColors.accent,
+              SendFailed() => SpectacleColors.warning,
             },
           ),
         ),
@@ -717,10 +717,10 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
             // Full title, unclipped. This is the one place in the app
             // where an item's text is not cut to one line.
             task.title,
-            style: HotlineText.rowTitleLead.copyWith(
+            style: SpectacleText.rowTitleLead.copyWith(
               color: !_isDrop(task) && task.done
-                  ? HotlineColors.textMuted
-                  : HotlineColors.textPrimary,
+                  ? SpectacleColors.textMuted
+                  : SpectacleColors.textPrimary,
             ),
           ),
         ),
@@ -794,9 +794,9 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
       child: TextField(
         controller: _field,
         focusNode: _focus,
-        style: HotlineText.rowTitleLead,
+        style: SpectacleText.rowTitleLead,
         maxLines: _fieldMode == _FieldMode.title ? null : 1,
-        cursorColor: HotlineColors.accent,
+        cursorColor: SpectacleColors.accent,
         cursorWidth: 2,
         cursorRadius: Radius.zero,
         keyboardType: _fieldMode == _FieldMode.url
@@ -813,7 +813,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
             _FieldMode.url => 'https://',
             _FieldMode.reason => 'what is holding it',
           },
-          hintStyle: HotlineText.rowSubtitle,
+          hintStyle: SpectacleText.rowSubtitle,
         ),
       ),
     );
@@ -845,7 +845,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         if (!_isDrop(task)) ...[
           ActionBlock(
             label: task.done ? 'UNDO' : 'DONE',
-            tone: HotlineColors.accent,
+            tone: SpectacleColors.accent,
             // The one commit in the row takes the one accent surface.
             filled: !task.done,
             onTap: () => tasks.setDone(task.id, !task.done),
@@ -853,8 +853,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ActionBlock(
             label: task.isNext ? 'UNSET' : 'NEXT',
             tone: task.isNext
-                ? HotlineColors.accentMuted
-                : HotlineColors.textSecondary,
+                ? SpectacleColors.accentMuted
+                : SpectacleColors.textSecondary,
             onTap: () =>
                 task.isNext ? tasks.unsetNext(task.id) : tasks.setNext(task.id),
           ),
@@ -874,7 +874,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ),
           ActionBlock(
             label: task.blockedReason == null ? 'BLOCK' : 'UNBLOCK',
-            tone: HotlineColors.warning,
+            tone: SpectacleColors.warning,
             // With the keyboard down there is nowhere to type a reason, so
             // BLOCK raises the field in reason mode rather than opening an
             // editor of its own in the body.
@@ -918,17 +918,17 @@ class _Square extends StatelessWidget {
         height: _ItemSheetState._imageSquare,
         decoration: BoxDecoration(
           border: Border.all(
-            color: HotlineColors.borderNormal,
+            color: SpectacleColors.borderNormal,
             width: Borders.hairline,
           ),
         ),
         child: path == null
-            ? const ColoredBox(color: HotlineColors.surfaceSecondary)
+            ? const ColoredBox(color: SpectacleColors.surfaceSecondary)
             : Image.file(
                 File(path),
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) =>
-                    const ColoredBox(color: HotlineColors.surfaceSecondary),
+                    const ColoredBox(color: SpectacleColors.surfaceSecondary),
               ),
       ),
     );

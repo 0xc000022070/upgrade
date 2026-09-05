@@ -15,8 +15,8 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/section.dart';
 import '../../design/effects/glitch.dart';
-import '../../design/icons/hotline_icon.dart';
-import '../../design/icons/hotline_icons.dart';
+import '../../design/icons/spectacle_icon.dart';
+import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/sprite.dart';
 import '../../design/typography.dart';
@@ -173,7 +173,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               Expanded(
                 child: ActionBlock(
                   label: 'DELETE',
-                  tone: HotlineColors.warning,
+                  tone: SpectacleColors.warning,
                   onTap: () => Navigator.of(context).pop(_GoalAction.delete),
                 ),
               ),
@@ -279,7 +279,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   children: [
                     PanelAffordance(
                       'EDIT',
-                      icon: HotlineIcons.edit,
+                      icon: SpectacleIcons.edit,
                       onTap: () => openProjectForm(context, project: project),
                     ),
                     // Nothing to offer while an ancestor is archived —
@@ -324,7 +324,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       affordance: PanelAffordance(
                         project.status.name.toUpperCase(),
                         showIcon: false,
-                        color: HotlineColors.warning,
+                        color: SpectacleColors.warning,
                       ),
                     ),
                   // An objective is optional, and an OBJECTIVE panel
@@ -335,7 +335,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       title: 'OBJECTIVE',
                       child: Text(
                         project.objective,
-                        style: HotlineText.rowTitle,
+                        style: SpectacleText.rowTitle,
                         maxLines: 3,
                       ),
                     ),
@@ -354,7 +354,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                             const SizedBox(width: Spacing.lg),
                             PanelAffordance(
                               'NEW',
-                              icon: HotlineIcons.add,
+                              icon: SpectacleIcons.add,
                               onTap: () => openProjectForm(
                                 context,
                                 parentId: widget.projectId,
@@ -393,7 +393,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       const SizedBox(width: Spacing.lg),
                       PanelAffordance(
                         'NEW',
-                        icon: HotlineIcons.add,
+                        icon: SpectacleIcons.add,
                         onTap: () => setState(() {
                           _renaming = null;
                           _creating = true;
@@ -561,9 +561,9 @@ class _GoalEditorState extends State<_GoalEditor> {
       child: TextField(
         controller: _field,
         autofocus: true,
-        style: HotlineText.rowTitleLead,
+        style: SpectacleText.rowTitleLead,
         maxLines: 1,
-        cursorColor: HotlineColors.accent,
+        cursorColor: SpectacleColors.accent,
         cursorWidth: 2,
         cursorRadius: Radius.zero,
         textCapitalization: TextCapitalization.none,
@@ -574,7 +574,7 @@ class _GoalEditorState extends State<_GoalEditor> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: Spacing.sm),
           hintText: widget.hint,
-          hintStyle: HotlineText.rowSubtitle,
+          hintStyle: SpectacleText.rowSubtitle,
         ),
       ),
     );
@@ -621,8 +621,8 @@ class _HeroCard extends StatelessWidget {
                     project.description,
                     // With the name gone the description is the whole card, so
                     // it takes the lead row size rather than the subtitle's.
-                    style: HotlineText.rowTitleLead.copyWith(
-                      color: HotlineColors.textSecondary,
+                    style: SpectacleText.rowTitleLead.copyWith(
+                      color: SpectacleColors.textSecondary,
                     ),
                     maxLines: 3,
                   ),
@@ -630,13 +630,13 @@ class _HeroCard extends StatelessWidget {
                 ],
                 Text(
                   '$doneCount OF $totalCount TASKS',
-                  style: HotlineText.label,
+                  style: SpectacleText.label,
                 ),
               ],
             ),
           ),
           const SizedBox(width: Spacing.lg),
-          Text('${(ratio * 100).round()}%', style: HotlineText.heroPercent),
+          Text('${(ratio * 100).round()}%', style: SpectacleText.heroPercent),
         ],
       ),
     );
@@ -657,16 +657,16 @@ class _NoteRow extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.only(top: 2),
-            child: HotlineIcon(
-              HotlineIcons.note,
+            child: SpectacleIcon(
+              SpectacleIcons.note,
               size: IconSizes.glyph,
-              color: HotlineColors.textDisabled,
+              color: SpectacleColors.textDisabled,
             ),
           ),
           const SizedBox(width: Spacing.lg),
-          Expanded(child: Text(note.content, style: HotlineText.noteBody)),
+          Expanded(child: Text(note.content, style: SpectacleText.noteBody)),
           const SizedBox(width: Spacing.lg),
-          Text(relativeAge(note.createdAt), style: HotlineText.label),
+          Text(relativeAge(note.createdAt), style: SpectacleText.label),
         ],
       ),
     );

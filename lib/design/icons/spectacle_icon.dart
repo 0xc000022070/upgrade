@@ -4,21 +4,21 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../colors.dart';
 import '../effects/glitch.dart';
 import '../spacing.dart';
-import 'hotline_icons.dart';
+import 'spectacle_icons.dart';
 
 /// The only way icons reach the tree. Every asset is monochrome `currentColor`,
 /// so colouring is a theme decision here rather than a property of the file.
-class HotlineIcon extends StatelessWidget {
-  const HotlineIcon(
+class SpectacleIcon extends StatelessWidget {
+  const SpectacleIcon(
     this.icon, {
     super.key,
     this.size = IconSizes.lg,
-    this.color = HotlineColors.textSecondary,
+    this.color = SpectacleColors.textSecondary,
     this.signal = false,
     this.glitch,
   });
 
-  final HotlineIcons icon;
+  final SpectacleIcons icon;
   final double size;
   final Color color;
 
@@ -61,12 +61,12 @@ class HotlineIcon extends StatelessWidget {
 /// (tab change, autonomous tick, capture landing), the task checkbox and the
 /// capture target glyph.
 const glitchIcons = [
-  HotlineIcons.home,
-  HotlineIcons.projects,
-  HotlineIcons.hosts,
-  HotlineIcons.checkboxChecked,
-  HotlineIcons.checkboxEmpty,
-  HotlineIcons.submit,
+  SpectacleIcons.home,
+  SpectacleIcons.projects,
+  SpectacleIcons.hosts,
+  SpectacleIcons.checkboxChecked,
+  SpectacleIcons.checkboxEmpty,
+  SpectacleIcons.submit,
 ];
 
 /// A glitch frame swaps the colour, and flutter_svg keys its cache on the
@@ -78,7 +78,7 @@ const glitchIcons = [
 /// Deliberately not awaited by `main()`: it gates nothing, and no effect may
 /// delay input readiness. The boot log outlasts it either way.
 Future<void> warmGlitchIcons() {
-  const paints = [HotlineColors.textPrimary, HotlineColors.accent];
+  const paints = [SpectacleColors.textPrimary, SpectacleColors.accent];
   return Future.wait([
     for (final icon in glitchIcons)
       for (final paint in paints)
@@ -125,13 +125,13 @@ class GlitchedIcon extends StatelessWidget {
             seed: controller.seed,
             blocks: 2,
             fragments: 0,
-            child: frame(paint: HotlineColors.textPrimary),
+            child: frame(paint: SpectacleColors.textPrimary),
           ),
           1 => GlitchBlocks(
             seed: controller.seed + 1,
             blocks: 3,
             fragments: 2,
-            child: frame(paint: HotlineColors.textPrimary),
+            child: frame(paint: SpectacleColors.textPrimary),
           ),
           // The single colour event of the sequence, so its blocks take no
           // luminance step and drop no fragments: the frame is one flat accent
@@ -141,13 +141,13 @@ class GlitchedIcon extends StatelessWidget {
             blocks: 3,
             fragments: 0,
             tone: false,
-            child: frame(paint: HotlineColors.accent),
+            child: frame(paint: SpectacleColors.accent),
           ),
           3 => GlitchBlocks(
             seed: controller.seed + 3,
             blocks: 5,
             fragments: 3,
-            child: frame(paint: HotlineColors.textPrimary),
+            child: frame(paint: SpectacleColors.textPrimary),
           ),
           // Frame 4 is the clean glyph held for one step, not the return to
           // rest: the flipbook itself ends on the shape.

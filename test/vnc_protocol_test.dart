@@ -8,11 +8,11 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/platform/vnc/framebuffer.dart';
-import 'package:hotline/platform/vnc/keysyms.dart';
-import 'package:hotline/platform/vnc/rfb_client.dart';
-import 'package:hotline/platform/vnc/rfb_messages.dart';
-import 'package:hotline/platform/vnc/vnc_failure.dart';
+import 'package:spectacle/platform/vnc/framebuffer.dart';
+import 'package:spectacle/platform/vnc/keysyms.dart';
+import 'package:spectacle/platform/vnc/rfb_client.dart';
+import 'package:spectacle/platform/vnc/rfb_messages.dart';
+import 'package:spectacle/platform/vnc/vnc_failure.dart';
 
 import 'support/vnc_channel.dart';
 

@@ -48,10 +48,10 @@ class AgentMark extends StatelessWidget {
       // the size the mark asks for. Painted over the child it costs nothing —
       // the mark never reaches the edge it is drawn on.
       foregroundDecoration: BoxDecoration(
-        border: Border.all(color: HotlineColors.borderNormal),
+        border: Border.all(color: SpectacleColors.borderNormal),
         borderRadius: BorderRadius.circular(Radii.sharp),
       ),
-      // The same tint path the `hl-*` glyphs take through [HotlineIcon]: the
+      // The same tint path the `hl-*` glyphs take through [SpectacleIcon]: the
       // file is `currentColor` throughout and the colour is decided here.
       //
       // Drawn at the full 24 of the box, not at 16. The mark files carry
@@ -59,12 +59,12 @@ class AgentMark extends StatelessWidget {
       // path, so the art occupies the central 16 units of a 24 grid — and
       // asking for 16 here would shrink that 16 again, to a little under 11.
       child: asset == null
-          ? const Text('?', style: HotlineText.valueStrong)
+          ? const Text('?', style: SpectacleText.valueStrong)
           : SvgPicture.asset(
               asset,
               width: markBox,
               height: markBox,
-              theme: const SvgTheme(currentColor: HotlineColors.textPrimary),
+              theme: const SvgTheme(currentColor: SpectacleColors.textPrimary),
             ),
     );
   }

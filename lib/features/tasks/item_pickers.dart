@@ -159,8 +159,8 @@ class _PairPickerBodyState extends ConsumerState<PairPickerBody> {
         TextField(
           controller: _search,
           autofocus: true,
-          style: HotlineText.rowTitle,
-          cursorColor: HotlineColors.accent,
+          style: SpectacleText.rowTitle,
+          cursorColor: SpectacleColors.accent,
           cursorWidth: 2,
           cursorRadius: Radius.zero,
           textInputAction: TextInputAction.search,
@@ -170,7 +170,7 @@ class _PairPickerBodyState extends ConsumerState<PairPickerBody> {
             border: InputBorder.none,
             contentPadding: EdgeInsets.symmetric(vertical: Spacing.md),
             hintText: 'search',
-            hintStyle: HotlineText.rowSubtitle,
+            hintStyle: SpectacleText.rowSubtitle,
           ),
         ),
         const SheetRule(),
@@ -179,7 +179,7 @@ class _PairPickerBodyState extends ConsumerState<PairPickerBody> {
             padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
             child: Text(
               query.isEmpty ? 'nothing to pair with' : 'no match',
-              style: HotlineText.rowSubtitle,
+              style: SpectacleText.rowSubtitle,
             ),
           )
         else

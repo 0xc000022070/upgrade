@@ -7,7 +7,7 @@ import 'package:gal/gal.dart';
 /// Android up to 9 and nothing after, where the app's own media are its own.
 typedef GallerySaver = Future<void> Function(Uint8List png, String name);
 
-const galleryAlbum = 'Hotline';
+const galleryAlbum = 'Spectacle';
 
 Future<void> saveToGallery(Uint8List png, String name) async {
   if (!await Gal.hasAccess() && !await Gal.requestAccess()) {

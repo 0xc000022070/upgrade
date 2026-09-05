@@ -28,7 +28,7 @@ class ScreenPreviewTile extends ConsumerWidget {
       child: AspectRatio(
         aspectRatio: preview?.aspect ?? 16 / 9,
         child: ColoredBox(
-          color: HotlineColors.backgroundPrimary,
+          color: SpectacleColors.backgroundPrimary,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -52,7 +52,7 @@ class ScreenPreviewTile extends ConsumerWidget {
                 Center(
                   child: Text(
                     'NO FRAME YET',
-                    style: HotlineText.value.copyWith(fontSize: 11),
+                    style: SpectacleText.value.copyWith(fontSize: 11),
                   ),
                 ),
               Positioned(
@@ -61,7 +61,7 @@ class ScreenPreviewTile extends ConsumerWidget {
                 // On its own ground: the label sits over whatever the frame
                 // happens to be, and a light frame swallows muted ink.
                 child: ColoredBox(
-                  color: HotlineColors.backgroundPrimary,
+                  color: SpectacleColors.backgroundPrimary,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: Spacing.sm,

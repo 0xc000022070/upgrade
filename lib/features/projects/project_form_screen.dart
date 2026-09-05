@@ -239,7 +239,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
               else
                 SolidActionBar(
                   label: 'DELETE PROJECT',
-                  tone: HotlineColors.warning,
+                  tone: SpectacleColors.warning,
                   onTap: _confirmCascade,
                 ),
               const SizedBox(height: Spacing.md),
@@ -249,7 +249,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                           'NOTHING IS DELETED WITH IT.'
                     : 'THE $_below PROJECTS BELOW GO WITH IT. '
                           'THEIR ITEMS BECOME DROPS.',
-                style: HotlineText.label,
+                style: SpectacleText.label,
               ),
             ],
           ],

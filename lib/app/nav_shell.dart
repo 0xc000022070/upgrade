@@ -2,8 +2,8 @@ import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
 import '../design/effects/glitch.dart';
-import '../design/icons/hotline_icon.dart';
-import '../design/icons/hotline_icons.dart';
+import '../design/icons/spectacle_icon.dart';
+import '../design/icons/spectacle_icons.dart';
 import '../design/layout.dart';
 import '../design/spacing.dart';
 import '../design/typography.dart';
@@ -12,17 +12,17 @@ class NavDestination {
   const NavDestination(this.label, this.icon);
 
   final String label;
-  final HotlineIcons icon;
+  final SpectacleIcons icon;
 }
 
 /// Capture is a bar on HOME and the activity stream is HOME's RECENT section,
 /// so neither needs a destination of its own. HOSTS is the registered machines
 /// and the keys that get into them; SSH is what is running on them right now.
 const navDestinations = [
-  NavDestination('HOME', HotlineIcons.home),
-  NavDestination('PROJECTS', HotlineIcons.projects),
-  NavDestination('HOSTS', HotlineIcons.hosts),
-  NavDestination('SSH', HotlineIcons.connection),
+  NavDestination('HOME', SpectacleIcons.home),
+  NavDestination('PROJECTS', SpectacleIcons.projects),
+  NavDestination('HOSTS', SpectacleIcons.hosts),
+  NavDestination('SSH', SpectacleIcons.connection),
 ];
 
 /// Built from tokens rather than BottomNavigationBar: Material's version brings
@@ -47,10 +47,10 @@ class NavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: HotlineColors.backgroundSecondary,
+        color: SpectacleColors.backgroundSecondary,
         border: Border(
           top: BorderSide(
-            color: HotlineColors.borderNormal,
+            color: SpectacleColors.borderNormal,
             width: Borders.hairline,
           ),
         ),
@@ -95,7 +95,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? HotlineColors.accent : HotlineColors.textMuted;
+    final color = active ? SpectacleColors.accent : SpectacleColors.textMuted;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -108,10 +108,10 @@ class _NavItem extends StatelessWidget {
             // so activating a tab moves the segment rather than resizing it.
             Container(
               height: BarSizes.inlineThickness,
-              color: active ? HotlineColors.accent : const Color(0x00000000),
+              color: active ? SpectacleColors.accent : const Color(0x00000000),
             ),
             const SizedBox(height: Spacing.lg),
-            HotlineIcon(
+            SpectacleIcon(
               destination.icon,
               size: IconSizes.md,
               color: color,
@@ -120,7 +120,7 @@ class _NavItem extends StatelessWidget {
             const SizedBox(height: Spacing.sm),
             Text(
               destination.label,
-              style: HotlineText.navLabel.copyWith(color: color),
+              style: SpectacleText.navLabel.copyWith(color: color),
             ),
           ],
         ),

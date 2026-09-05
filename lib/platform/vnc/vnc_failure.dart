@@ -18,7 +18,7 @@ sealed class VncFailure implements Exception {
 
   /// What the transport actually said. Carried out of here so
   /// the caller, which is the half that knows the host's name, writes the
-  /// `hotline.vnc <host>: …` debug line.
+  /// `spectacle.vnc <host>: …` debug line.
   final String? detail;
 
   /// The reason line, given the host it happened to. Only the two failures that

@@ -14,8 +14,8 @@ import '../../design/components/list_row.dart';
 import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
-import '../../design/icons/hotline_icon.dart';
-import '../../design/icons/hotline_icons.dart';
+import '../../design/icons/spectacle_icon.dart';
+import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/host_key_dial.dart';
@@ -155,7 +155,7 @@ class _HostPanel extends ConsumerWidget {
       title: host.name,
       affordance: PanelAffordance(
         'EDIT',
-        icon: HotlineIcons.edit,
+        icon: SpectacleIcons.edit,
         onTap: () => openHostForm(context, host: host),
       ),
       bodyPadding: panelRowsPadding,
@@ -176,7 +176,7 @@ class _HostPanel extends ConsumerWidget {
               'STATE',
               _stateLine(outcome),
               color: outcome != null && !outcome!.ok
-                  ? HotlineColors.warning
+                  ? SpectacleColors.warning
                   : null,
             ),
           _ShellRow(host: host),
@@ -241,7 +241,7 @@ class _ShellRowState extends ConsumerState<_ShellRow> {
                   sessions.isEmpty
                       ? 'SHELL'
                       : 'SHELL · ${sessions.length} OPEN',
-                  color: _down ? HotlineColors.accent : null,
+                  color: _down ? SpectacleColors.accent : null,
                 ),
               ],
             );
@@ -284,7 +284,7 @@ class _ClipboardRow extends ConsumerWidget {
           'CLIPBOARD',
           clipboard.line,
           strong: clipboard.usable,
-          color: clipboard.usable ? null : HotlineColors.textMuted,
+          color: clipboard.usable ? null : SpectacleColors.textMuted,
         );
       },
     );
@@ -323,7 +323,7 @@ class _MetaRow extends StatelessWidget {
       height: RowMetrics.minHeight,
       child: Row(
         children: [
-          SizedBox(width: 96, child: Text(label, style: HotlineText.label)),
+          SizedBox(width: 96, child: Text(label, style: SpectacleText.label)),
           Expanded(
             child: Meta(value, strong: strong, color: color),
           ),
@@ -386,7 +386,7 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
           child: _MetaRow(
             'LINK',
             linkWord(result),
-            color: linkFailed(result) ? HotlineColors.warning : null,
+            color: linkFailed(result) ? SpectacleColors.warning : null,
             trailing: _trailing(),
           ),
         );
@@ -406,7 +406,7 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
     return PanelAffordance(
       failure ?? 'VERIFY',
       showIcon: false,
-      color: failure == null ? null : HotlineColors.warning,
+      color: failure == null ? null : SpectacleColors.warning,
       onTap: () => unawaited(_verify()),
     );
   }
@@ -454,7 +454,7 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
         verified = verifier.refusal == null;
       }
     } catch (error) {
-      debugPrint('hotline.verify ${host.name}: $error');
+      debugPrint('spectacle.verify ${host.name}: $error');
       failure = _failureWord(error);
     }
     if (!mounted) return;
@@ -534,13 +534,13 @@ class _TextAction extends StatelessWidget {
         height: TapTargets.minHeight,
         child: Row(
           children: [
-            const HotlineIcon(
-              HotlineIcons.add,
+            const SpectacleIcon(
+              SpectacleIcons.add,
               size: IconSizes.affordance,
-              color: HotlineColors.textMuted,
+              color: SpectacleColors.textMuted,
             ),
             const SizedBox(width: Spacing.sm),
-            Text(label, style: HotlineText.panelHeader),
+            Text(label, style: SpectacleText.panelHeader),
           ],
         ),
       ),

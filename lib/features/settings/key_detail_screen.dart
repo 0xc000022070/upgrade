@@ -60,7 +60,7 @@ class KeyDetailScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'KEY',
-          breadcrumb: '/ HOTLINE / HOSTS',
+          breadcrumb: '/ SPECTACLE / HOSTS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(
@@ -78,7 +78,7 @@ class KeyDetailScreen extends ConsumerWidget {
                   ),
                   child: SelectableText(
                     keyRecord.publicKey,
-                    style: HotlineText.rowTitle,
+                    style: SpectacleText.rowTitle,
                   ),
                 ),
                 Panel(
@@ -89,7 +89,7 @@ class KeyDetailScreen extends ConsumerWidget {
                           height: RowMetrics.minHeight,
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: Text('NO HOSTS', style: HotlineText.label),
+                            child: Text('NO HOSTS', style: SpectacleText.label),
                           ),
                         )
                       : ListRowGroup(
@@ -101,7 +101,11 @@ class KeyDetailScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: Spacing.xl),
-            _DeleteBar(enabled: canDelete, onTap: () => _delete(context, ref)),
+            _DeleteBar(
+              label: _deleteLabel(users.length),
+              enabled: canDelete,
+              onTap: () => _delete(context, ref),
+            ),
           ],
         ),
       ),
@@ -109,15 +113,30 @@ class KeyDetailScreen extends ConsumerWidget {
   }
 }
 
-class _DeleteBar extends StatelessWidget {
-  const _DeleteBar({required this.enabled, required this.onTap});
+/// The bar names what is holding the key, the way the host form's action bar
+/// names the field it is still missing. Greyed out with `DELETE` on it, the
+/// screen said no without saying why: the `[ USED BY ]` list above is the
+/// reason, and the two were not read as one thing.
+String _deleteLabel(int users) => switch (users) {
+  0 => 'DELETE',
+  1 => 'USED BY 1 HOST',
+  _ => 'USED BY $users HOSTS',
+};
 
+class _DeleteBar extends StatelessWidget {
+  const _DeleteBar({
+    required this.label,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
   final bool enabled;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final tone = enabled ? HotlineColors.warning : HotlineColors.textDisabled;
+    final tone = enabled ? SpectacleColors.warning : SpectacleColors.textDisabled;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: enabled ? onTap : null,
@@ -129,8 +148,8 @@ class _DeleteBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
         child: Text(
-          'DELETE',
-          style: HotlineText.valueStrong.copyWith(color: tone),
+          label,
+          style: SpectacleText.valueStrong.copyWith(color: tone),
         ),
       ),
     );

@@ -31,8 +31,8 @@ const _systemBars = SystemUiOverlayStyle(
   systemNavigationBarDividerColor: Color(0x00000000),
 );
 
-class HotlineApp extends StatelessWidget {
-  const HotlineApp({super.key, this.boot = const []});
+class SpectacleApp extends StatelessWidget {
+  const SpectacleApp({super.key, this.boot = const []});
 
   /// Steps recorded by `main()`, replayed by the boot log.
   final List<BootStep> boot;
@@ -40,10 +40,10 @@ class HotlineApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Hotline',
+      title: 'Spectacle',
       debugShowCheckedModeBanner: false,
-      theme: HotlineTheme.build(),
-      scrollBehavior: const HotlineScrollBehavior(),
+      theme: SpectacleTheme.build(),
+      scrollBehavior: const SpectacleScrollBehavior(),
       // The splash is the navigator's first route and hands the screen
       // to Home by replacing itself, so it is unreachable afterwards and a
       // resume never plays it. `AlertsHost` is inside the route it pushes
@@ -52,7 +52,7 @@ class HotlineApp extends StatelessWidget {
       // handler would be disposed at the moment Home appears.
       home: SplashRoute(
         next: (context) => AlertsHost(
-          child: BootGate(steps: boot, child: const HotlineShell()),
+          child: BootGate(steps: boot, child: const SpectacleShell()),
         ),
       ),
     );
@@ -62,14 +62,14 @@ class HotlineApp extends StatelessWidget {
 /// HOME, PROJECTS, HOSTS and SSH are the tabs, all kept mounted in an
 /// [IndexedStack], so a tab is never rebuilt from nothing and the screen the
 /// user comes back to is the screen they left.
-class HotlineShell extends ConsumerStatefulWidget {
-  const HotlineShell({super.key});
+class SpectacleShell extends ConsumerStatefulWidget {
+  const SpectacleShell({super.key});
 
   @override
-  ConsumerState<HotlineShell> createState() => _HotlineShellState();
+  ConsumerState<SpectacleShell> createState() => _SpectacleShellState();
 }
 
-class _HotlineShellState extends ConsumerState<HotlineShell> {
+class _SpectacleShellState extends ConsumerState<SpectacleShell> {
   /// Bumped per tab when it is brought forward, which is what [ScreenEntry]
   /// turns into "this screen entered" for the decode and smear effects.
   final _entries = List.filled(navDestinations.length, 0);
@@ -105,7 +105,7 @@ class _HotlineShellState extends ConsumerState<HotlineShell> {
         // screen in front of the user, never on a background tab.
         onTick: () => glitch.fire(ref.read(navIndexProvider)),
         child: Scaffold(
-          backgroundColor: HotlineColors.backgroundPrimary,
+          backgroundColor: SpectacleColors.backgroundPrimary,
           resizeToAvoidBottomInset: true,
           body: StaticSurface(
             child: IndexedStack(

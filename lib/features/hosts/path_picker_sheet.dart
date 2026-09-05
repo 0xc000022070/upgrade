@@ -84,7 +84,7 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
   }
 
   /// Case-insensitive and on the whole path, so `hot` finds
-  /// `~/Projects/github.com/luisnquin/hotline` by its last segment and `luis`
+  /// `~/Projects/github.com/luisnquin/spectacle` by its last segment and `luis`
   /// finds every checkout under that owner.
   List<String> _matching(List<String> directories) {
     final needle = _filter.text.trim().toLowerCase();
@@ -118,7 +118,7 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
         ),
       ],
       PathScanFailed(:final reason) => [
-        Text(reason.toUpperCase(), style: HotlineText.panelHeader),
+        Text(reason.toUpperCase(), style: SpectacleText.panelHeader),
         const SizedBox(height: Spacing.lg),
         Row(
           children: [
@@ -136,7 +136,7 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
       // whose every checkout is already registered is not this case: that one
       // keeps the list so the filter and the escape hatch stay reachable.
       PathScanFound(:final directories) when directories.isEmpty => [
-        Text('NO CHECKOUTS REPORTED', style: HotlineText.panelHeader),
+        Text('NO CHECKOUTS REPORTED', style: SpectacleText.panelHeader),
         const SizedBox(height: Spacing.lg),
         Row(
           children: [
@@ -171,7 +171,7 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
           padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
           child: Text(
             _filter.text.trim().isEmpty ? 'ALL REGISTERED' : 'NO MATCH',
-            style: HotlineText.panelHeader,
+            style: SpectacleText.panelHeader,
           ),
         )
       else
@@ -184,14 +184,14 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
                 leading: widget.multiple
                     ? Text(
                         _chosen.contains(directory) ? '[x]' : '[ ]',
-                        style: HotlineText.rowTitle,
+                        style: SpectacleText.rowTitle,
                       )
                     : null,
                 leadingWidth: _checkbox,
                 title: shortPathLabel(directory),
                 titleColor: !widget.multiple || _chosen.contains(directory)
                     ? null
-                    : HotlineColors.textSecondary,
+                    : SpectacleColors.textSecondary,
                 onTap: () => _take(directory),
               ),
           ],
@@ -201,7 +201,7 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
         children: [
           ActionBlock(
             label: 'TYPE A PATH',
-            tone: HotlineColors.textSecondary,
+            tone: SpectacleColors.textSecondary,
             onTap: () => setState(() => _manual = true),
           ),
           if (widget.multiple) ...[
@@ -210,8 +210,8 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
               label: 'ADD ${_chosen.length}',
               filled: _chosen.isNotEmpty,
               tone: _chosen.isEmpty
-                  ? HotlineColors.textSecondary
-                  : HotlineColors.accent,
+                  ? SpectacleColors.textSecondary
+                  : SpectacleColors.accent,
               onTap: () {
                 if (_chosen.isEmpty) return;
                 Navigator.pop(context, _chosen.toList());
@@ -257,7 +257,7 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
           ActionBlock(
             label: 'USE',
             filled: true,
-            tone: HotlineColors.accent,
+            tone: SpectacleColors.accent,
             onTap: () => _commitManual(controller.text),
           ),
         ],

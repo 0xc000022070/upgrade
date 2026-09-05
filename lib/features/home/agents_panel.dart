@@ -134,9 +134,9 @@ class _ColumnLabels extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const Row(
     children: [
-      Expanded(flex: 4, child: Text('AGENT', style: HotlineText.label)),
-      Expanded(flex: 3, child: Text('STATUS', style: HotlineText.label)),
-      Expanded(flex: 4, child: Text('WORK', style: HotlineText.label)),
+      Expanded(flex: 4, child: Text('AGENT', style: SpectacleText.label)),
+      Expanded(flex: 3, child: Text('STATUS', style: SpectacleText.label)),
+      Expanded(flex: 4, child: Text('WORK', style: SpectacleText.label)),
     ],
   );
 }
@@ -149,9 +149,9 @@ class _AgentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusColor = switch (agent.agentStatus) {
-      'working' => HotlineColors.accent,
-      'blocked' => HotlineColors.warning,
-      _ => HotlineColors.textMuted,
+      'working' => SpectacleColors.accent,
+      'blocked' => SpectacleColors.warning,
+      _ => SpectacleColors.textMuted,
     };
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
@@ -166,7 +166,7 @@ class _AgentRow extends StatelessWidget {
                 Expanded(
                   child: Text(
                     agentMarkName(agent.agent),
-                    style: HotlineText.rowTitle,
+                    style: SpectacleText.rowTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -190,7 +190,7 @@ class _AgentRow extends StatelessWidget {
                 Flexible(
                   child: Text(
                     agent.agentStatus.toUpperCase(),
-                    style: HotlineText.value.copyWith(color: statusColor),
+                    style: SpectacleText.value.copyWith(color: statusColor),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -202,7 +202,7 @@ class _AgentRow extends StatelessWidget {
             flex: 4,
             child: Text(
               agent.terminalTitleStripped,
-              style: HotlineText.rowSubtitle,
+              style: SpectacleText.rowSubtitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -223,13 +223,13 @@ class _Footer extends StatelessWidget {
   Widget build(BuildContext context) => Text.rich(
     TextSpan(
       children: [
-        TextSpan(text: '$idle idle · ', style: HotlineText.value),
+        TextSpan(text: '$idle idle · ', style: SpectacleText.value),
         TextSpan(
           text: '$blocked blocked',
-          style: HotlineText.value.copyWith(
+          style: SpectacleText.value.copyWith(
             color: blocked == 0
-                ? HotlineColors.textMuted
-                : HotlineColors.warning,
+                ? SpectacleColors.textMuted
+                : SpectacleColors.warning,
           ),
         ),
       ],
@@ -251,7 +251,7 @@ class _ErrorLine extends StatelessWidget {
       children: [
         Expanded(child: _DimLine(text)),
         if (timestamp != null)
-          Text(agentSnapshotAge(now, timestamp), style: HotlineText.value),
+          Text(agentSnapshotAge(now, timestamp), style: SpectacleText.value),
       ],
     );
   }
@@ -263,5 +263,5 @@ class _DimLine extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Text(text, style: HotlineText.value);
+  Widget build(BuildContext context) => Text(text, style: SpectacleText.value);
 }

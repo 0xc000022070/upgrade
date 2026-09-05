@@ -2,17 +2,17 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/providers.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/repositories/activity_repository.dart';
-import 'package:hotline/data/repositories/project_repository.dart';
-import 'package:hotline/data/repositories/task_repository.dart';
-import 'package:hotline/features/home/capture_bar.dart';
-import 'package:hotline/features/tasks/item_pickers.dart';
-import 'package:hotline/features/tasks/selection_bar.dart';
-import 'package:hotline/features/home/home_screen.dart';
+import 'package:spectacle/application/providers.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/repositories/activity_repository.dart';
+import 'package:spectacle/data/repositories/project_repository.dart';
+import 'package:spectacle/data/repositories/task_repository.dart';
+import 'package:spectacle/features/home/capture_bar.dart';
+import 'package:spectacle/features/tasks/item_pickers.dart';
+import 'package:spectacle/features/tasks/selection_bar.dart';
+import 'package:spectacle/features/home/home_screen.dart';
 
-import 'package:hotline/design/colors.dart';
+import 'package:spectacle/design/colors.dart';
 
 import 'support/platform_channels.dart';
 
@@ -205,10 +205,10 @@ void main() {
     expect(find.text('[ ]'), findsNWidgets(2));
     expect(find.text('[x]'), findsNothing);
     expect(find.text('SELECT'), findsNothing, reason: 'hidden in the mode');
-    expect(_verbColor(tester, Icons.arrow_forward), HotlineColors.textDisabled);
+    expect(_verbColor(tester, Icons.arrow_forward), SpectacleColors.textDisabled);
     expect(
       _verbColor(tester, Icons.delete_outline),
-      HotlineColors.textDisabled,
+      SpectacleColors.textDisabled,
     );
 
     // The first check is what lights them.
@@ -217,7 +217,7 @@ void main() {
     expect(find.text('1 SELECTED'), findsOneWidget);
     expect(
       _verbColor(tester, Icons.arrow_forward),
-      HotlineColors.textSecondary,
+      SpectacleColors.textSecondary,
     );
 
     await unmount(tester);

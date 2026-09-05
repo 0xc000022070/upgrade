@@ -5,14 +5,14 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/clips.dart';
-import 'package:hotline/features/screen/crop_notice.dart';
-import 'package:hotline/features/screen/framebuffer_view.dart';
-import 'package:hotline/features/screen/screen_preview.dart';
+import 'package:spectacle/application/clips.dart';
+import 'package:spectacle/features/screen/crop_notice.dart';
+import 'package:spectacle/features/screen/framebuffer_view.dart';
+import 'package:spectacle/features/screen/screen_preview.dart';
 
 void main() {
   test('HELD carries the clip size, SAVED the pixel size', () async {
-    final directory = Directory.systemTemp.createTempSync('hotline-notice');
+    final directory = Directory.systemTemp.createTempSync('spectacle-notice');
     addTearDown(() => directory.delete(recursive: true));
     final clips = ClipStore(directory);
     final clip = await clips.add(

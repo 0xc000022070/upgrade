@@ -14,8 +14,8 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/solid_action_bar.dart';
 import '../../design/effects/glitch.dart';
-import '../../design/icons/hotline_icon.dart';
-import '../../design/icons/hotline_icons.dart';
+import '../../design/icons/spectacle_icon.dart';
+import '../../design/icons/spectacle_icons.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
@@ -243,7 +243,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
               if (widget.fixedTarget == null && _target.projectId != null)
                 ToolbarChip(
                   label: _targetLabel(),
-                  tone: HotlineColors.accent,
+                  tone: SpectacleColors.accent,
                   onRemove: () =>
                       setState(() => _target = const ItemTarget.drops()),
                 ),
@@ -293,10 +293,10 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                         child: TextField(
                           controller: _controller,
                           focusNode: _focus,
-                          style: HotlineText.capture.copyWith(
-                            color: HotlineColors.textPrimary,
+                          style: SpectacleText.capture.copyWith(
+                            color: SpectacleColors.textPrimary,
                           ),
-                          cursorColor: HotlineColors.accent,
+                          cursorColor: SpectacleColors.accent,
                           cursorWidth: 2,
                           cursorRadius: Radius.zero,
                           keyboardType: _urlMode
@@ -309,7 +309,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.zero,
                             hintText: _urlMode ? 'https://' : 'Capture',
-                            hintStyle: HotlineText.capture,
+                            hintStyle: SpectacleText.capture,
                           ),
                         ),
                       ),
@@ -328,12 +328,12 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                           width: TapTargets.minHeight,
                           height: double.infinity,
                           child: Center(
-                            child: HotlineIcon(
-                              HotlineIcons.submit,
+                            child: SpectacleIcon(
+                              SpectacleIcons.submit,
                               size: IconSizes.md,
                               color: pending
-                                  ? HotlineColors.textSecondary
-                                  : HotlineColors.accent,
+                                  ? SpectacleColors.textSecondary
+                                  : SpectacleColors.accent,
                               glitch: _glitch,
                             ),
                           ),

@@ -4,14 +4,14 @@ import 'package:flutter/widgets.dart';
 
 import '../../design/colors.dart';
 import '../../design/components/key_cell.dart';
-import '../../design/icons/hotline_icons.dart';
+import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import '../../platform/shell/strip_bytes.dart';
 import '../../platform/vnc/keysyms.dart';
 
 /// One cell of the bar: what it is called, what it sends, and the mark it is
 /// drawn as when a word is not what it is.
-typedef _BarKey = ({String label, int keysym, HotlineIcons? icon});
+typedef _BarKey = ({String label, int keysym, SpectacleIcons? icon});
 
 /// The bar's keys, in the order the two apps the user lives in put them: the
 /// modifiers first, then what a shell needs to get out of something, then the
@@ -19,10 +19,10 @@ typedef _BarKey = ({String label, int keysym, HotlineIcons? icon});
 const _barKeys = <_BarKey>[
   (label: 'ESC', keysym: Keysyms.escape, icon: null),
   (label: 'TAB', keysym: Keysyms.tab, icon: null),
-  (label: 'LEFT', keysym: Keysyms.left, icon: HotlineIcons.arrowLeft),
-  (label: 'UP', keysym: Keysyms.up, icon: HotlineIcons.arrowUp),
-  (label: 'DOWN', keysym: Keysyms.down, icon: HotlineIcons.arrowDown),
-  (label: 'RIGHT', keysym: Keysyms.right, icon: HotlineIcons.arrowRight),
+  (label: 'LEFT', keysym: Keysyms.left, icon: SpectacleIcons.arrowLeft),
+  (label: 'UP', keysym: Keysyms.up, icon: SpectacleIcons.arrowUp),
+  (label: 'DOWN', keysym: Keysyms.down, icon: SpectacleIcons.arrowDown),
+  (label: 'RIGHT', keysym: Keysyms.right, icon: SpectacleIcons.arrowRight),
   (label: 'END', keysym: Keysyms.end, icon: null),
 ];
 
@@ -76,8 +76,8 @@ class ShellBar extends StatelessWidget {
     return Container(
       height: _barHeight,
       decoration: const BoxDecoration(
-        color: HotlineColors.surfacePrimary,
-        border: Border(top: BorderSide(color: HotlineColors.borderSubtle)),
+        color: SpectacleColors.surfacePrimary,
+        border: Border(top: BorderSide(color: SpectacleColors.borderSubtle)),
       ),
       child: Row(
         // The cells take the row's height rather than setting one, so the hit
@@ -125,7 +125,7 @@ class ShellBar extends StatelessWidget {
           KeyCell(
             key: const ValueKey('bar-keyboard'),
             label: 'KEYBOARD',
-            icon: HotlineIcons.keyboard,
+            icon: SpectacleIcons.keyboard,
             armed: keyboardOpen,
             minWidth: _barHeight,
             padding: _cellPadding,
@@ -157,5 +157,5 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Container(width: Borders.hairline, color: HotlineColors.borderSubtle);
+      Container(width: Borders.hairline, color: SpectacleColors.borderSubtle);
 }

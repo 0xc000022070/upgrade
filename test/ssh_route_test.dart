@@ -2,14 +2,14 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/agents.dart';
-import 'package:hotline/application/providers.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/data/repositories/key_repository.dart';
-import 'package:hotline/design/colors.dart';
-import 'package:hotline/features/shell/shell_sessions.dart';
-import 'package:hotline/features/ssh/ssh_screen.dart';
+import 'package:spectacle/application/agents.dart';
+import 'package:spectacle/application/providers.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/data/repositories/key_repository.dart';
+import 'package:spectacle/design/colors.dart';
+import 'package:spectacle/features/shell/shell_sessions.dart';
+import 'package:spectacle/features/ssh/ssh_screen.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -167,11 +167,11 @@ void main() {
                 as BoxDecoration)
             .color!;
 
-    expect(dot(), HotlineColors.accent);
+    expect(dot(), SpectacleColors.accent);
 
     shells.opened.single.exit(1);
     await ready(tester);
-    expect(dot(), HotlineColors.textMuted);
+    expect(dot(), SpectacleColors.textMuted);
 
     await unmount(tester);
   });

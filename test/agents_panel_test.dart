@@ -5,14 +5,14 @@ import 'dart:io';
 
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/agents.dart';
-import 'package:hotline/data/enums.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/features/home/agent_mark.dart';
-import 'package:hotline/features/home/agents_panel.dart';
-import 'package:hotline/platform/herdr_client.dart';
-import 'package:hotline/platform/keys.dart';
-import 'package:hotline/platform/host_keys.dart';
+import 'package:spectacle/application/agents.dart';
+import 'package:spectacle/data/enums.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/features/home/agent_mark.dart';
+import 'package:spectacle/features/home/agents_panel.dart';
+import 'package:spectacle/platform/herdr_client.dart';
+import 'package:spectacle/platform/keys.dart';
+import 'package:spectacle/platform/host_keys.dart';
 
 const hostA = Host(
   id: 'a',
@@ -43,7 +43,7 @@ AgentSnapshot agent({
   agentStatus: status,
   terminalTitleStripped: work,
   workspaceId: 'wQ',
-  cwd: '/workspace/hotline',
+  cwd: '/workspace/spectacle',
   stateChangeSeq: sequence,
 );
 

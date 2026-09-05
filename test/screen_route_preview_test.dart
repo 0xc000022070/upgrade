@@ -8,16 +8,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/agents.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/features/screen/host_screen.dart';
-import 'package:hotline/features/screen/screen_controller.dart';
-import 'package:hotline/features/screen/screen_preview.dart';
-import 'package:hotline/platform/keys.dart';
-import 'package:hotline/platform/vnc/rfb_client.dart';
-import 'package:hotline/platform/vnc/rfb_messages.dart';
-import 'package:hotline/platform/vnc/vnc_tunnel.dart';
-import 'package:hotline/platform/host_keys.dart';
+import 'package:spectacle/application/agents.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/features/screen/host_screen.dart';
+import 'package:spectacle/features/screen/screen_controller.dart';
+import 'package:spectacle/features/screen/screen_preview.dart';
+import 'package:spectacle/platform/keys.dart';
+import 'package:spectacle/platform/vnc/rfb_client.dart';
+import 'package:spectacle/platform/vnc/rfb_messages.dart';
+import 'package:spectacle/platform/vnc/vnc_tunnel.dart';
+import 'package:spectacle/platform/host_keys.dart';
 
 import 'support/vnc_channel.dart';
 
@@ -134,7 +134,7 @@ void main() {
   testWidgets('leaving the route stores a frame under the host id', (
     tester,
   ) async {
-    final root = Directory.systemTemp.createTempSync('hotline-screen');
+    final root = Directory.systemTemp.createTempSync('spectacle-screen');
     addTearDown(() => root.deleteSync(recursive: true));
     final previews = ScreenPreviews(Directory('${root.path}/screens'));
     addTearDown(previews.dispose);

@@ -11,9 +11,9 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/platform/shell/shell_connection.dart';
-import 'package:hotline/platform/shell/shell_tunnel.dart';
-import 'package:hotline/platform/host_keys.dart';
+import 'package:spectacle/platform/shell/shell_connection.dart';
+import 'package:spectacle/platform/shell/shell_tunnel.dart';
+import 'package:spectacle/platform/host_keys.dart';
 
 class FakePty implements ShellPty {
   final _stdout = StreamController<Uint8List>();

@@ -12,12 +12,12 @@ void stubDeviceChannels() {
   const codec = StandardMethodCodec();
 
   messenger.setMockMethodCallHandler(
-    const MethodChannel('dev.luisnquin.hotline/device'),
+    const MethodChannel('dev.luisnquin.spectacle/device'),
     (call) async => call.method == 'model' ? 'test device' : null,
   );
 
   messenger.setMockMessageHandler(
-    'dev.luisnquin.hotline/device/throttle',
+    'dev.luisnquin.spectacle/device/throttle',
     (message) async => codec.encodeSuccessEnvelope(null),
   );
 }

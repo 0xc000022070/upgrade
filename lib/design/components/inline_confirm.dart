@@ -19,8 +19,8 @@ class InlineConfirmBlock extends StatefulWidget {
     required this.label,
     required this.confirmLabel,
     required this.onConfirmed,
-    this.tone = HotlineColors.warning,
-    this.armedTone = HotlineColors.danger,
+    this.tone = SpectacleColors.warning,
+    this.armedTone = SpectacleColors.danger,
     this.window = const Duration(seconds: 3),
     this.compact = false,
   });

@@ -3,15 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/application/agents.dart';
-import 'package:hotline/application/providers.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/data/repositories/key_repository.dart';
-import 'package:hotline/design/colors.dart';
-import 'package:hotline/features/settings/host_form_screen.dart';
-import 'package:hotline/features/settings/key_detail_screen.dart';
-import 'package:hotline/platform/keys.dart';
+import 'package:spectacle/application/agents.dart';
+import 'package:spectacle/application/providers.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/data/repositories/key_repository.dart';
+import 'package:spectacle/design/colors.dart';
+import 'package:spectacle/features/settings/host_form_screen.dart';
+import 'package:spectacle/features/settings/key_detail_screen.dart';
+import 'package:spectacle/platform/keys.dart';
 
 import 'support/platform_channels.dart';
 
@@ -99,9 +99,12 @@ void main() {
     await tester.pumpWidget(host(KeyDetailScreen(keyRecord: managedKey)));
     await _ready(tester);
 
-    final delete = tester.widget<Text>(find.text('DELETE'));
-    expect(delete.style?.color, HotlineColors.textDisabled);
-    await tester.tap(find.text('DELETE'));
+    // The bar names the hold rather than reading DELETE, so the greyed-out
+    // state and the `[ USED BY ]` list above it say the same thing.
+    expect(find.text('DELETE'), findsNothing);
+    final delete = tester.widget<Text>(find.text('USED BY 1 HOST'));
+    expect(delete.style?.color, SpectacleColors.textDisabled);
+    await tester.tap(find.text('USED BY 1 HOST'));
     await tester.pump();
     expect(find.text('DELETE KEY?'), findsNothing);
     expect(await keys.all(), hasLength(1));

@@ -1,10 +1,10 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/data/database.dart';
-import 'package:hotline/data/repositories/host_repository.dart';
-import 'package:hotline/data/repositories/key_repository.dart';
-import 'package:hotline/platform/host_keys.dart';
-import 'package:hotline/data/enums.dart';
+import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/data/repositories/key_repository.dart';
+import 'package:spectacle/platform/host_keys.dart';
+import 'package:spectacle/data/enums.dart';
 
 /// The drift implementations behind the in-memory ones the
 /// screens are built against, so the two are held to the same behaviour and the
@@ -25,7 +25,7 @@ void main() {
 
   DateTime at(int day) => DateTime.utc(2026, 9, day, 10);
 
-  Future<void> key(String id, {String name = 'hotline', int day = 1}) {
+  Future<void> key(String id, {String name = 'spectacle', int day = 1}) {
     return keys.save(
       ManagedKey(
         id: id,

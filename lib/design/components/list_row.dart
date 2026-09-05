@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../colors.dart';
-import '../icons/hotline_icon.dart';
-import '../icons/hotline_icons.dart';
+import '../icons/spectacle_icon.dart';
+import '../icons/spectacle_icons.dart';
 import '../spacing.dart';
 import '../typography.dart';
 import 'progress_bar.dart';
@@ -100,7 +100,7 @@ class ListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = lead ? HotlineText.rowTitleLead : HotlineText.rowTitle;
+    final base = lead ? SpectacleText.rowTitleLead : SpectacleText.rowTitle;
     final titleStyle = titleColor == null
         ? base
         : base.copyWith(color: titleColor);
@@ -120,7 +120,7 @@ class ListRow extends StatelessWidget {
         indented(
           Text(
             kicker!.toUpperCase(),
-            style: HotlineText.rowKicker,
+            style: SpectacleText.rowKicker,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -152,8 +152,8 @@ class ListRow extends StatelessWidget {
           Text(
             subtitle!,
             style: subtitleColor == null
-                ? HotlineText.rowSubtitle
-                : HotlineText.rowSubtitle.copyWith(color: subtitleColor),
+                ? SpectacleText.rowSubtitle
+                : SpectacleText.rowSubtitle.copyWith(color: subtitleColor),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -162,7 +162,7 @@ class ListRow extends StatelessWidget {
         indented(
           Text(
             caption!,
-            style: HotlineText.label,
+            style: SpectacleText.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -200,16 +200,16 @@ class ListRow extends StatelessWidget {
                 value!,
                 textAlign: TextAlign.right,
                 style:
-                    (valueStrong ? HotlineText.valueStrong : HotlineText.value)
+                    (valueStrong ? SpectacleText.valueStrong : SpectacleText.value)
                         .copyWith(color: valueColor),
               ),
             ],
             if (node) ...[
               const SizedBox(width: Spacing.md),
-              const HotlineIcon(
-                HotlineIcons.progressMarker,
+              const SpectacleIcon(
+                SpectacleIcons.progressMarker,
                 size: IconSizes.glyph,
-                color: HotlineColors.textDisabled,
+                color: SpectacleColors.textDisabled,
               ),
             ],
             if (trailing != null) ...[
@@ -273,7 +273,7 @@ class ListRowGroup extends StatelessWidget {
           if (i > 0 && ruled)
             Container(
               height: Borders.hairline,
-              color: HotlineColors.borderSubtle,
+              color: SpectacleColors.borderSubtle,
             ),
           children[i],
         ],

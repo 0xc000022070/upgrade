@@ -4,7 +4,7 @@ library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/features/shell/shell_thumbnail.dart';
+import 'package:spectacle/features/shell/shell_thumbnail.dart';
 import 'package:xterm/xterm.dart';
 
 Terminal terminalShowing(List<String> lines, {int rows = 4, int columns = 20}) {

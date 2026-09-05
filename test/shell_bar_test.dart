@@ -6,9 +6,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/design/colors.dart';
-import 'package:hotline/features/shell/shell_bar.dart';
-import 'package:hotline/platform/vnc/keysyms.dart';
+import 'package:spectacle/design/colors.dart';
+import 'package:spectacle/features/shell/shell_bar.dart';
+import 'package:spectacle/platform/vnc/keysyms.dart';
 
 class BarRecord {
   final sent = <List<int>>[];
@@ -103,11 +103,11 @@ void main() {
       tester,
     ) async {
       await pumpBar(tester);
-      expect(tintOf(tester, 'CTRL'), HotlineColors.textSecondary);
+      expect(tintOf(tester, 'CTRL'), SpectacleColors.textSecondary);
 
       await pumpBar(tester, sticky: {StickyModifier.ctrl});
-      expect(tintOf(tester, 'CTRL'), HotlineColors.accent);
-      expect(tintOf(tester, 'ALT'), HotlineColors.textSecondary);
+      expect(tintOf(tester, 'CTRL'), SpectacleColors.accent);
+      expect(tintOf(tester, 'ALT'), SpectacleColors.textSecondary);
     });
 
     testWidgets('tapping one asks for it, tapping it again asks it back', (

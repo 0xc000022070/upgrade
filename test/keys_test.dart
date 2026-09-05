@@ -4,7 +4,7 @@ import 'dart:convert';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hotline/platform/keys.dart';
+import 'package:spectacle/platform/keys.dart';
 import 'package:pointycastle/digests/sha256.dart';
 
 void main() {
@@ -30,7 +30,7 @@ void main() {
 
   test('fingerprint is SHA256 of the OpenSSH public blob', () async {
     final generated = await Ed25519Keys(MemoryPrivateKeyStore())
-        .generate(id: 'key-2', name: 'hotline');
+        .generate(id: 'key-2', name: 'spectacle');
     final blob = base64Decode(generated.publicKey.split(' ')[1]);
     final expected = base64Encode(SHA256Digest().process(blob))
         .replaceAll('=', '');

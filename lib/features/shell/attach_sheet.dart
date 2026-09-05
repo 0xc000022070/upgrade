@@ -9,8 +9,8 @@ import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
-import '../../design/icons/hotline_icon.dart';
-import '../../design/icons/hotline_icons.dart';
+import '../../design/icons/spectacle_icon.dart';
+import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import 'clip_paste.dart';
@@ -140,12 +140,12 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
               onTap: _attachPhotos,
             ),
             const SheetRule(),
-            const Text('HELD', style: HotlineText.label),
+            const Text('HELD', style: SpectacleText.label),
             const SizedBox(height: Spacing.sm),
             if (held.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: Spacing.md),
-                child: Text('NOTHING HELD', style: HotlineText.label),
+                child: Text('NOTHING HELD', style: SpectacleText.label),
               )
             else
               Wrap(
@@ -166,7 +166,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
               Text(
                 _status!,
                 key: const ValueKey('attach-status'),
-                style: HotlineText.label,
+                style: SpectacleText.label,
               ),
             ],
           ],
@@ -211,7 +211,7 @@ class _ClipTile extends StatelessWidget {
                   height: _height,
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color: HotlineColors.borderNormal,
+                      color: SpectacleColors.borderNormal,
                       width: Borders.hairline,
                     ),
                   ),
@@ -234,11 +234,11 @@ class _ClipTile extends StatelessWidget {
                   onTap: onRemove,
                   child: Container(
                     padding: const EdgeInsets.all(Spacing.sm),
-                    color: HotlineColors.surfacePrimary,
-                    child: const HotlineIcon(
-                      HotlineIcons.close,
+                    color: SpectacleColors.surfacePrimary,
+                    child: const SpectacleIcon(
+                      SpectacleIcons.close,
                       size: IconSizes.affordance,
-                      color: HotlineColors.textSecondary,
+                      color: SpectacleColors.textSecondary,
                     ),
                   ),
                 ),
@@ -250,7 +250,7 @@ class _ClipTile extends StatelessWidget {
             clip.sizeLabel.isEmpty
                 ? clip.source.name.toUpperCase()
                 : clip.sizeLabel,
-            style: HotlineText.label,
+            style: SpectacleText.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

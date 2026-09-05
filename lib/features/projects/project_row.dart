@@ -44,14 +44,14 @@ class ProjectRow extends StatelessWidget {
     return ListRow(
       kicker: hasObjective ? named : null,
       title: hasObjective ? project.objective : named,
-      titleColor: dim ? HotlineColors.textMuted : null,
+      titleColor: dim ? SpectacleColors.textMuted : null,
       subtitle: blocked ? '[ BLOCKED BY ] ${project.lead}' : null,
-      subtitleColor: HotlineColors.warning,
+      subtitleColor: SpectacleColors.warning,
       caption: !blocked && showLead ? project.lead : null,
       progress: project.ratio,
       value: '${project.doneCount}/${project.totalCount}  ${project.percent}%',
       valueStrong: true,
-      valueColor: dim ? HotlineColors.textMuted : HotlineColors.accent,
+      valueColor: dim ? SpectacleColors.textMuted : SpectacleColors.accent,
       onTap: onTap,
     );
   }

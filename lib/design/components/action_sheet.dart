@@ -90,11 +90,11 @@ Future<bool> confirmAction(
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-                child: Text(message, style: HotlineText.prose),
+                child: Text(message, style: SpectacleText.prose),
               ),
               SolidActionBar(
                 label: confirmLabel,
-                tone: HotlineColors.danger,
+                tone: SpectacleColors.danger,
                 onTap: () => Navigator.of(context).pop(true),
               ),
               _PlainRow(
@@ -185,8 +185,8 @@ class _PromptState extends State<_Prompt> {
             child: TextField(
               controller: _controller,
               autofocus: true,
-              style: HotlineText.rowTitle,
-              cursorColor: HotlineColors.accent,
+              style: SpectacleText.rowTitle,
+              cursorColor: SpectacleColors.accent,
               cursorWidth: 2,
               cursorRadius: Radius.zero,
               textInputAction: TextInputAction.done,
@@ -195,7 +195,7 @@ class _PromptState extends State<_Prompt> {
                 isDense: true,
                 border: InputBorder.none,
                 hintText: widget.hint,
-                hintStyle: HotlineText.rowSubtitle,
+                hintStyle: SpectacleText.rowSubtitle,
               ),
             ),
           ),
@@ -278,13 +278,13 @@ class _Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: HotlineColors.surfacePrimary,
+      color: SpectacleColors.surfacePrimary,
       child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
           border: Border(
             top: BorderSide(
-              color: HotlineColors.borderNormal,
+              color: SpectacleColors.borderNormal,
               width: Borders.hairline,
             ),
           ),
@@ -306,7 +306,7 @@ class _Panel extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: Spacing.md),
                   child: Text(
                     title.toUpperCase(),
-                    style: HotlineText.panelHeader,
+                    style: SpectacleText.panelHeader,
                   ),
                 ),
                 child,
@@ -339,22 +339,22 @@ class _BlockRow extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
         padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
         decoration: BoxDecoration(
-          color: HotlineColors.accent,
+          color: SpectacleColors.accent,
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
         child: Row(
           children: [
             Text(
               '// ',
-              style: HotlineText.valueStrong.copyWith(
-                color: HotlineColors.backgroundPrimary,
+              style: SpectacleText.valueStrong.copyWith(
+                color: SpectacleColors.backgroundPrimary,
               ),
             ),
             Expanded(
               child: Text(
                 action.label,
-                style: HotlineText.rowTitle.copyWith(
-                  color: HotlineColors.backgroundPrimary,
+                style: SpectacleText.rowTitle.copyWith(
+                  color: SpectacleColors.backgroundPrimary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -392,7 +392,7 @@ class _PlainRow extends StatelessWidget {
           border: Border(
             bottom: BorderSide(
               color: divider
-                  ? HotlineColors.borderSubtle
+                  ? SpectacleColors.borderSubtle
                   : const Color(0x00000000),
               width: Borders.hairline,
             ),
@@ -400,8 +400,8 @@ class _PlainRow extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: HotlineText.rowTitle.copyWith(
-            color: danger ? HotlineColors.danger : HotlineColors.textPrimary,
+          style: SpectacleText.rowTitle.copyWith(
+            color: danger ? SpectacleColors.danger : SpectacleColors.textPrimary,
           ),
         ),
       ),

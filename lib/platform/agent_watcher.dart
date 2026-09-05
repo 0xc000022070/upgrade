@@ -29,14 +29,14 @@ const watcherLivenessPeriod = Duration(seconds: 10);
 /// at the bottom of the shade.
 const watcherChannelId = 'watcher';
 const watcherChannelName = 'Agent watcher';
-const watcherNotificationTitle = 'HOTLINE';
+const watcherNotificationTitle = 'SPECTACLE';
 
-const _hostsKey = 'hotline.watcher.hosts';
+const _hostsKey = 'spectacle.watcher.hosts';
 
-/// The evidence seam. With `--dart-define=HOTLINE_FAKE_WATCH=true` the watcher
+/// The evidence seam. With `--dart-define=SPECTACLE_FAKE_WATCH=true` the watcher
 /// never dials: each host's stream is a canned pair of snapshots, which is what
 /// produces the alert on an emulator that has no key on the host.
-const _fakeWatch = bool.fromEnvironment('HOTLINE_FAKE_WATCH');
+const _fakeWatch = bool.fromEnvironment('SPECTACLE_FAKE_WATCH');
 
 String encodeWatcherHosts(List<Host> hosts) => jsonEncode([
   for (final host in hosts)
@@ -163,7 +163,7 @@ class AgentWatcher {
       callback: agentWatcherEntry,
     );
     if (result is ServiceRequestFailure) {
-      debugPrint('hotline.herdr watcher: ${result.error}');
+      debugPrint('spectacle.herdr watcher: ${result.error}');
     }
   }
 
@@ -460,7 +460,7 @@ class _HostLoop {
   }
 
   // One line per failure, naming the host and what the transport said.
-  void _log(Object error) => debugPrint('hotline.herdr ${host.name}: $error');
+  void _log(Object error) => debugPrint('spectacle.herdr ${host.name}: $error');
 
   Future<void> _run() async {
     while (!_stopped) {
@@ -574,7 +574,7 @@ class _HostLoop {
       agentStatus: 'blocked',
       terminalTitleStripped: 'RUN THE MIGRATION?',
       workspaceId: 'wF',
-      cwd: '~/src/hotline',
+      cwd: '~/src/spectacle',
       stateChangeSeq: 2,
     );
     await _onSnapshot(const [], null);

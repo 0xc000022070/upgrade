@@ -27,9 +27,9 @@ fmt:
     dart format lib test
 
 # Debug APK (arm64 only); the same artifact runs on the emulator and on faraday.
-# HOTLINE_BUILD comes from the flake's shellHook and stamps §39.16's build line.
+# SPECTACLE_BUILD comes from the flake's shellHook and stamps §39.16's build line.
 apk:
-    flutter build apk --debug --target-platform android-arm64 --dart-define=HOTLINE_BUILD=${HOTLINE_BUILD:-dev}
+    flutter build apk --debug --target-platform android-arm64 --dart-define=SPECTACLE_BUILD=${SPECTACLE_BUILD:-dev}
 
 # Release APK, the artifact faraday is upgraded with. arm64 only: the emulator
 # on rose and faraday are both arm64, and the other two ABIs were 40 of the
@@ -37,7 +37,7 @@ apk:
 # pass it explicitly because a bare release build has reported versionCode 1
 # regardless of it.
 apk-release version="1.0.0" code="1":
-    flutter build apk --release --target-platform android-arm64 --build-name={{version}} --build-number={{code}} --dart-define=HOTLINE_BUILD=${HOTLINE_BUILD:-dev}
+    flutter build apk --release --target-platform android-arm64 --build-name={{version}} --build-number={{code}} --dart-define=SPECTACLE_BUILD=${SPECTACLE_BUILD:-dev}
 
 # Emulator on rose: the only device this repo drives interactively.
 dev:
@@ -52,7 +52,7 @@ run:
     ssh -fN -o ExitOnForwardFailure=yes -L 5038:127.0.0.1:5037 rose || true
     ADB_SERVER_SOCKET=tcp:127.0.0.1:5038 flutter run -d emulator-5554 \
         --pid-file build/run.pid \
-        --dart-define=HOTLINE_BUILD=${HOTLINE_BUILD:-dev}
+        --dart-define=SPECTACLE_BUILD=${SPECTACLE_BUILD:-dev}
 
 # The certificate faraday's installed copy carries. Release signs with the debug
 # keystore (android/app/build.gradle.kts), so this is ~/.android/debug.keystore
@@ -80,8 +80,8 @@ faraday:
     attached || { echo "faraday: no transport after connect" >&2; exit 1; }
     serial=$(phone device list | grep -E '^android[[:space:]]+faraday[[:space:]]' | grep -oE '[^[:space:]]+:[0-9]+' | head -1)
 
-    export HOTLINE_BUILD="${HOTLINE_BUILD:-$(git rev-parse --short HEAD)}"
-    git diff --quiet HEAD || echo "faraday: tree is dirty, the build line still stamps $HOTLINE_BUILD" >&2
+    export SPECTACLE_BUILD="${SPECTACLE_BUILD:-$(git rev-parse --short HEAD)}"
+    git diff --quiet HEAD || echo "faraday: tree is dirty, the build line still stamps $SPECTACLE_BUILD" >&2
 
     # Removed first so a failed build cannot leave a previous apk to verify.
     apk=build/app/outputs/flutter-apk/app-release.apk
@@ -96,7 +96,7 @@ faraday:
     # dumpsys is the one confirmation `phone` has no verb for. The timestamp is
     # read first because a rebuild at an unchanged build number proves nothing
     # by versionCode alone.
-    dumpsys() { adb -s "$serial" shell dumpsys package dev.luisnquin.hotline; }
+    dumpsys() { adb -s "$serial" shell dumpsys package dev.luisnquin.spectacle; }
     was=$(dumpsys | sed -n 's/.*lastUpdateTime=//p' | head -1)
 
     phone app install -t faraday "$apk"
@@ -107,11 +107,11 @@ faraday:
     now=$(sed -n 's/.*lastUpdateTime=//p' <<<"$pkg" | head -1)
     [[ -z $was || $now != "$was" ]] || { echo "faraday: lastUpdateTime still $was, nothing was replaced" >&2; exit 1; }
     grep -E 'firstInstallTime|lastUpdateTime' <<<"$pkg"
-    echo "faraday: $version+$code ($HOTLINE_BUILD) installed on $serial"
+    echo "faraday: $version+$code ($SPECTACLE_BUILD) installed on $serial"
 
 # faraday: install and launch only, for the user to review by hand.
 review:
     phone up --profile review
 
 desktop:
-    flutter run -d linux --dart-define=HOTLINE_BUILD=${HOTLINE_BUILD:-dev}
+    flutter run -d linux --dart-define=SPECTACLE_BUILD=${SPECTACLE_BUILD:-dev}

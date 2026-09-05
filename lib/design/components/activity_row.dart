@@ -27,15 +27,15 @@ class ActivityRow extends StatelessWidget {
               entry.detail == null
                   ? entry.title
                   : '${entry.title}   ${entry.detail}',
-              style: HotlineText.value.copyWith(
-                color: HotlineText.rowTitle.color,
+              style: SpectacleText.value.copyWith(
+                color: SpectacleText.rowTitle.color,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: Spacing.lg),
-          Text('${where.toUpperCase()}  $timeLabel', style: HotlineText.label),
+          Text('${where.toUpperCase()}  $timeLabel', style: SpectacleText.label),
         ],
       ),
     );

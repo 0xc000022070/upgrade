@@ -83,7 +83,7 @@ class _ShellThumbnailState extends State<ShellThumbnail> {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFF000000),
-        border: Border.all(color: HotlineColors.borderSubtle),
+        border: Border.all(color: SpectacleColors.borderSubtle),
       ),
       child: CustomPaint(
         painter: ShellThumbnailPainter(
@@ -124,7 +124,7 @@ class ShellThumbnailPainter extends CustomPainter {
         text: TextSpan(
           text: line,
           style: TextStyle(
-            color: HotlineColors.textPrimary,
+            color: SpectacleColors.textPrimary,
             fontFamily: FontFamilies.mono,
             fontSize: lineHeight,
             height: 1,

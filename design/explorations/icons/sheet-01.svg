@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1664" height="832" viewBox="0 0 1664 832">
-  <title>Hotline icon grammar exploration sheet 01</title>
+  <title>Spectacle icon grammar exploration sheet 01</title>
   <desc>Twenty-seven original monochrome glyph experiments across routed stroke, signal node, and open frame grammars.</desc>
   <style>
     .sheet-title { fill: #E8E8E3; font: 600 22px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 2px; }
@@ -17,7 +17,7 @@
 
   <rect width="1664" height="832" fill="#08090B"/>
   <path d="M32 72H1632" stroke="#252A31"/>
-  <text class="sheet-title" x="32" y="40">HOTLINE / ICON EXPLORATION 01</text>
+  <text class="sheet-title" x="32" y="40">SPECTACLE / ICON EXPLORATION 01</text>
   <text class="sheet-meta" x="1632" y="40" text-anchor="end">27 GLYPHS · 24×24 BASE · MONOCHROME</text>
 
   <text class="grammar-title" x="32" y="102">A / ROUTED STROKE</text>

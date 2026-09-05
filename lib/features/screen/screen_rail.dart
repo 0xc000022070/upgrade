@@ -2,8 +2,8 @@ import 'package:flutter/widgets.dart';
 
 import '../../design/colors.dart';
 import '../../design/components/panel.dart';
-import '../../design/icons/hotline_icon.dart';
-import '../../design/icons/hotline_icons.dart';
+import '../../design/icons/spectacle_icon.dart';
+import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 
 /// How far a drag has to carry past the point the recogniser claimed it. Small
@@ -143,9 +143,9 @@ class _ScreenRailState extends State<ScreenRail> {
               width: _handleWidth,
               height: TapTargets.minHeight,
               decoration: BoxDecoration(
-                color: HotlineColors.textMuted,
+                color: SpectacleColors.textMuted,
                 border: Border.all(
-                  color: HotlineColors.surfacePrimary,
+                  color: SpectacleColors.surfacePrimary,
                   width: Borders.hairline,
                 ),
                 borderRadius: const BorderRadius.horizontal(
@@ -183,21 +183,21 @@ class _ScreenRailState extends State<ScreenRail> {
               children: [
                 _RailToggle(
                   key: const ValueKey('rail-keyboard'),
-                  icon: HotlineIcons.keyboard,
+                  icon: SpectacleIcons.keyboard,
                   label: 'KEYBOARD',
                   active: widget.keyboardOpen,
                   onTap: widget.onKeyboard,
                 ),
                 _RailToggle(
                   key: const ValueKey('rail-keys'),
-                  icon: HotlineIcons.keys,
+                  icon: SpectacleIcons.keys,
                   label: 'KEYS',
                   active: widget.stripOpen,
                   onTap: widget.onStrip,
                 ),
                 _RailToggle(
                   key: const ValueKey('rail-crop'),
-                  icon: HotlineIcons.crop,
+                  icon: SpectacleIcons.crop,
                   label: 'CROP',
                   active: widget.cropArmed,
                   onTap: widget.onCrop,
@@ -220,7 +220,7 @@ class _RailToggle extends StatelessWidget {
     required this.onTap,
   });
 
-  final HotlineIcons icon;
+  final SpectacleIcons icon;
 
   /// Not drawn. The rail is glyphs only, and this is what each one is called to
   /// a screen reader and to a test.
@@ -233,7 +233,7 @@ class _RailToggle extends StatelessWidget {
     // Dim at rest, accent while the thing it toggles is up. A toggle needs no
     // press tint on top of that — the state it switches to is the feedback, and
     // it lands on the same frame.
-    final tint = active ? HotlineColors.accent : HotlineColors.textMuted;
+    final tint = active ? SpectacleColors.accent : SpectacleColors.textMuted;
     return Semantics(
       label: label,
       toggled: active,
@@ -244,7 +244,7 @@ class _RailToggle extends StatelessWidget {
           width: TapTargets.minHeight,
           height: TapTargets.minHeight,
           child: Center(
-            child: HotlineIcon(icon, size: IconSizes.toolbar, color: tint),
+            child: SpectacleIcon(icon, size: IconSizes.toolbar, color: tint),
           ),
         ),
       ),

@@ -45,7 +45,7 @@ class SelectionBar extends ConsumerWidget {
             Expanded(
               child: Text(
                 '${selection.count} SELECTED',
-                style: HotlineText.panelHeader,
+                style: SpectacleText.panelHeader,
               ),
             ),
             _BarAction(
@@ -98,10 +98,10 @@ class _BarActionState extends State<_BarAction> {
   Widget build(BuildContext context) {
     final enabled = widget.onTap != null;
     final color = !enabled
-        ? HotlineColors.textDisabled
+        ? SpectacleColors.textDisabled
         : _down
-        ? HotlineColors.accent
-        : HotlineColors.textSecondary;
+        ? SpectacleColors.accent
+        : SpectacleColors.textSecondary;
     return Semantics(
       button: true,
       label: widget.tooltip,

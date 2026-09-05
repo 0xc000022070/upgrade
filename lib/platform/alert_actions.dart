@@ -78,7 +78,7 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
     }
   } on HerdrFailure catch (error) {
     // The debug line, from an isolate that has no host name to put in it.
-    debugPrint('hotline.herdr ${target.address}: ${error.detail ?? error}');
+    debugPrint('spectacle.herdr ${target.address}: ${error.detail ?? error}');
     await redraw(
       line: alertFailedLine(alertFailureReason(error)),
       withActions: true,

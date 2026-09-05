@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1536" height="1118" viewBox="0 0 1536 1118">
-  <title>Hotline approved base grammar family sheet</title>
+  <title>Spectacle approved base grammar family sheet</title>
   <desc>Forty-three monochrome icons using the Signal nodes grammar.</desc>
   <style>
     .sheet-title { fill: #E8E8E3; font: 600 22px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 2px; }
@@ -60,7 +60,7 @@
 
   <rect width="1536" height="1118" fill="#08090B"/>
   <path d="M32 72H1504" stroke="#252A31"/>
-  <text class="sheet-title" x="32" y="40">HOTLINE / SIGNAL NODES FAMILY</text>
+  <text class="sheet-title" x="32" y="40">SPECTACLE / SIGNAL NODES FAMILY</text>
   <text class="meta" x="1504" y="40" text-anchor="end">43 GLYPHS · 24×24 · STROKE 1.75</text>
   <text class="section" x="32" y="102">APPROVED BASE GRAMMAR / PHASE 3 FAMILY</text>
 
