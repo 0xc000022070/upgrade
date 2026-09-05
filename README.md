@@ -30,3 +30,35 @@ Run `just gen` after touching a drift schema; generated Dart is gitignored.
 
 `phone.toml` declares the target handset. `phone up` builds, installs and
 launches; `phone shot --settle` reads the screen back.
+
+## Host setup
+
+Hotline uses one ordinary SSH key for shells, remote commands, and the VNC
+tunnel. Copy the public key shown by the app into `~/.ssh/authorized_keys`
+without a forced `command=`, `restrict`, or `permitopen` prefix. The key has the
+same access as an interactive login for that account.
+
+The AGENTS panel and SEND need `herdr` on the non-interactive SSH `PATH` and a
+session named `hub`. Hotline scans `~/Projects`, `~/.dotfiles`, and `~/src` for
+Git checkouts. Clipboard attachments need `wl-copy` and `wl-paste` on Wayland,
+`xclip` on X11, or `osascript` on macOS.
+
+An SSH login on Linux does not inherit the desktop display. Put this in the
+login shell setup when agents started from Hotline must read image attachments:
+
+```sh
+if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+  export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+  for socket in "$XDG_RUNTIME_DIR"/wayland-*; do
+    [ -S "$socket" ] || continue
+    WAYLAND_DISPLAY=${socket##*/}
+    export WAYLAND_DISPLAY
+    break
+  done
+fi
+```
+
+SCREEN forwards SSH to `127.0.0.1:5900`. The VNC server must offer RFB security
+type `None`; authentication stays at SSH. `wayvnc` can use this arrangement.
+Apple Screen Sharing does not offer that security type, so the built-in macOS
+server is not supported yet. SSH and macOS clipboard attachments still work.

@@ -49,41 +49,14 @@ xauthority=
 
 Future<void> _settle() => Future<void>.delayed(Duration.zero);
 
-/// A host with a plain key: the gate's verb is not a command its login
-/// shell knows, the probe script prints [probe], and the rest succeeds.
 void _answerProbeWith(FakeShellConnection connection, String probe) {
-  connection.answer = (command, _) => command == gateProbeCommand
-      ? _notFound
-      : ExecResult(
-          exitCode: 0,
-          stdout: Uint8List.fromList(
-            utf8.encode(command.contains('uname') ? probe : ''),
-          ),
-          stderr: Uint8List(0),
-        );
-}
-
-final _notFound = ExecResult(
-  exitCode: 127,
-  stdout: Uint8List(0),
-  stderr: Uint8List.fromList(utf8.encode('zsh: command not found: clip\n')),
-);
-
-/// A host behind the gate: the verbs answer, and nothing under `sh` runs.
-void _answerAsGate(FakeShellConnection connection, String probe) {
-  connection.answer = (command, _) => command.startsWith('clip ')
-      ? ExecResult(
-          exitCode: 0,
-          stdout: Uint8List.fromList(
-            utf8.encode(command == gateProbeCommand ? probe : ''),
-          ),
-          stderr: Uint8List(0),
-        )
-      : ExecResult(
-          exitCode: 2,
-          stdout: Uint8List(0),
-          stderr: Uint8List.fromList(utf8.encode('denied: $command\n')),
-        );
+  connection.answer = (command, _) => ExecResult(
+    exitCode: 0,
+    stdout: Uint8List.fromList(
+      utf8.encode(command.contains('uname') ? probe : ''),
+    ),
+    stderr: Uint8List(0),
+  );
 }
 
 void main() {
@@ -121,68 +94,15 @@ void main() {
       expect(result.outcome, PasteOutcome.pasted);
       expect(result.line, 'PASTED');
       final commands = connection.execs.map((exec) => exec.command).toList();
-      expect(commands, hasLength(4));
-      expect(commands[0], gateProbeCommand);
-      expect(commands[1], contains('uname -s'));
-      expect(commands[2], uploadCommand(ClipRoute.shell, clip.fileName));
-      expect(connection.execs[2].stdin, await clip.file.readAsBytes());
-      expect(commands[3], contains('wl-copy --type image/png'));
+      expect(commands, hasLength(3));
+      expect(commands[0], contains('uname -s'));
+      expect(commands[1], uploadCommand(clip.fileName));
+      expect(connection.execs[1].stdin, await clip.file.readAsBytes());
+      expect(commands[2], contains('wl-copy --type image/png'));
       expect(connection.writes.last, pasteKey);
       expect(session.clipboard?.backend, ClipboardBackend.wayland);
-      expect(session.clipboard?.route, ClipRoute.shell);
     },
   );
-
-  test(
-    'behind the gate the verbs carry it and nothing runs under sh',
-    () async {
-      final transport = FakeShellTransport();
-      final store = fakeShellSessions(transport);
-      final session = store.open(_nyx)!;
-      await _settle();
-      final connection = transport.opened.single;
-      _answerAsGate(connection, _waylandProbe);
-
-      final result = await pasteClip(
-        store: store,
-        session: session,
-        clip: clip,
-      );
-
-      expect(result.line, 'PASTED');
-      expect(connection.execs.map((exec) => exec.command), [
-        'clip probe',
-        'clip put ${clip.fileName}',
-        'clip copy ${clip.fileName}',
-      ]);
-      expect(connection.execs[1].stdin, await clip.file.readAsBytes());
-      expect(connection.writes.last, pasteKey);
-      expect(session.clipboard?.route, ClipRoute.gate);
-    },
-  );
-
-  test('a gate too old for the verb is reported off the sh attempt', () async {
-    final transport = FakeShellTransport();
-    final store = fakeShellSessions(transport);
-    final session = store.open(_nyx)!;
-    await _settle();
-    final connection = transport.opened.single;
-    connection.answer = (command, _) => ExecResult(
-      exitCode: 2,
-      stdout: Uint8List(0),
-      stderr: Uint8List.fromList(utf8.encode('denied: $command\n')),
-    );
-
-    final result = await pasteClip(store: store, session: session, clip: clip);
-
-    expect(result.outcome, PasteOutcome.failed);
-    expect(result.line, startsWith("FAILED · denied: sh -c 'mkdir -p"));
-    expect(
-      session.clipboard?.line,
-      startsWith("NONE · probe exit 2 · denied: sh -c 'printf"),
-    );
-    expect(connection.writes, isEmpty);
-  });
 
   test('a headless host gets the path typed in and nothing else', () async {
     final transport = FakeShellTransport();
@@ -196,7 +116,7 @@ void main() {
 
     expect(result.outcome, PasteOutcome.path);
     expect(result.line, 'PATH · no display server');
-    expect(connection.execs, hasLength(3));
+    expect(connection.execs, hasLength(2));
     expect(connection.written, contains('/tmp/hotline/${clip.fileName}'));
     expect(connection.writes.any((bytes) => bytes.contains(0x16)), isFalse);
   });
@@ -263,7 +183,7 @@ void main() {
     final session = store.open(_nyx)!;
     await _settle();
     final connection = transport.opened.single;
-    _answerAsGate(connection, _waylandProbe);
+    _answerProbeWith(connection, _waylandProbe);
     final bytes = Uint8List.fromList([1, 2, 3]);
     final name = freshPngName();
 
@@ -276,7 +196,7 @@ void main() {
 
     expect(result.line, 'PASTED');
     expect(name, matches(RegExp(r'^[0-9a-f-]+\.png$')));
-    expect(connection.execs[1].command, 'clip put $name');
+    expect(connection.execs[1].command, uploadCommand(name));
     expect(connection.execs[1].stdin, bytes);
     expect(clips.count, 1);
   });

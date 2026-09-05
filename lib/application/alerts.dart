@@ -38,8 +38,8 @@ const _answerKeys = <String, ({String yes, String no})>{
 
 const _defaultAnswerKeys = (yes: 'enter', no: 'esc');
 
-/// The key `agent keys` is asked to forward. One key, but the gate's verb takes
-/// a list and a later kind may need two.
+/// The key sent to the remote agent. Kept as a list because a later kind may
+/// need two.
 List<String> answerKeys(String agent, {required bool yes}) {
   final table = _answerKeys[agent.toLowerCase()] ?? _defaultAnswerKeys;
   return [yes ? table.yes : table.no];

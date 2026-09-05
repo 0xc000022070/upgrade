@@ -7,8 +7,8 @@ import '../platform/host_keys.dart';
 import '../platform/keys.dart';
 import 'agents.dart';
 
-/// The `agent paths` fetch, behind the same seam the send uses: today it is an
-/// ssh command, and what the picker consumes is a list of strings.
+/// The checkout scan, behind the same seam the send uses. What the picker
+/// consumes is a list of strings.
 typedef HerdrPaths = Future<List<String>> Function({
   required String address,
   required int port,
@@ -17,7 +17,7 @@ typedef HerdrPaths = Future<List<String>> Function({
   HostKeyVerifier? verifier,
 });
 
-/// The `agent models` fetch, same seam and same shape.
+/// The model scan, same seam and same shape.
 typedef HerdrModels = Future<List<String>> Function({
   required String address,
   required int port,
@@ -35,9 +35,7 @@ final class PathScanLoading extends PathScan {
   const PathScanLoading();
 }
 
-/// A scan that answered. An empty list is a host whose gate does not know the
-/// verb yet, which the picker says in its own words rather than as a failure:
-/// the directory can still be typed.
+/// A scan that answered. An empty list leaves manual directory entry available.
 final class PathScanFound extends PathScan {
   const PathScanFound(this.directories);
 
@@ -76,8 +74,8 @@ class PathScanner {
     ),
   );
 
-  /// The slugs [kind] accepts on [host]. Same failure words as the path scan,
-  /// because it is the same connection and the same gate answering.
+  /// The slugs [kind] accepts on [host]. Same failure words as the path scan
+  /// because both use the same connection.
   Future<PathScan> models(Host host, String kind) => _ask(
     host,
     (privateKey) => fetchModels(

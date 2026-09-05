@@ -32,8 +32,7 @@ class VncTunnel {
   /// The failure mapping is the agent poll's, one line at a time: a name that
   /// did not
   /// resolve, a machine that did not answer, a key the host would not take,
-  /// and — this section's own — a channel the host refused, which is what a key
-  /// line still reading `restrict` gives every time.
+  /// and — this section's own — a channel the host refused.
   Future<VncConnection> open({
     required String address,
     required int port,

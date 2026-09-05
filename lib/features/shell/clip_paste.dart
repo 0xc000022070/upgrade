@@ -44,8 +44,8 @@ Future<PasteResult> pasteClip({
 
 /// Lands one PNG on the host under [fileName] and pastes it into the session.
 ///
-/// The probe goes first, because the route it settles is the route the
-/// upload takes. The bytes go every time rather than being remembered per
+/// The probe goes first so the clipboard backend is known before upload. The
+/// bytes go every time rather than being remembered per
 /// host: `/tmp` is cleared by a reboot the app never hears about, and a path
 /// the agent is then told to read would be a lie. The clipboard command runs
 /// when the host has one; a host that does not, or one whose tool failed,
@@ -64,10 +64,7 @@ Future<PasteResult> pasteImage({
   final remote = remotePathFor(fileName);
   final ExecResult landed;
   try {
-    landed = await connection.exec(
-      uploadCommand(clipboard.route, fileName),
-      stdin: bytes,
-    );
+    landed = await connection.exec(uploadCommand(fileName), stdin: bytes);
   } catch (error) {
     return PasteResult(PasteOutcome.failed, detail: '$error');
   }

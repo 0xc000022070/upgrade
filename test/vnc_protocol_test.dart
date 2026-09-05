@@ -138,8 +138,7 @@ void main() {
 
   group('failure words', () {
     test('a refused channel is tunnel refused', () {
-      // What a key line still carrying `restrict` gives: the ssh connection is
-      // up, the `direct-tcpip` open is what the host says no to.
+      // The SSH connection is up; the host refuses only `direct-tcpip`.
       final failure = asVncFailure(
         SSHChannelOpenError(1, 'administratively prohibited'),
       );

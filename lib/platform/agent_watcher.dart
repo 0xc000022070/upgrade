@@ -466,7 +466,7 @@ class _HostLoop {
     while (!_stopped) {
       try {
         await _connectAndWatch();
-        // The stream ended without an error: the gate closed the connection.
+        // The stream ended without an error: the remote loop closed.
         throw const HerdrUnreachable('watch stream ended');
       } on HerdrFailure catch (error) {
         _log(error.detail ?? error);
