@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:xterm/src/core/buffer/cell_offset.dart';
 import 'package:xterm/src/core/buffer/range.dart';
+import 'package:xterm/src/core/buffer/range_line.dart';
 import 'package:xterm/src/core/buffer/segment.dart';
 import 'package:xterm/src/core/mouse/button.dart';
 import 'package:xterm/src/core/mouse/button_state.dart';
@@ -254,31 +255,26 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   }
 
   /// Selects entire words in the terminal that contains [from] and [to].
+  /// Select the word under [from], extended to the word under [to]. A point
+  /// with no word under it stands for its own cell, so a press on a gap still
+  /// selects and a drag across one still follows the finger. Spectacle patch.
   void selectWord(Offset from, [Offset? to]) {
-    final fromOffset = getCellOffset(from);
-    final fromBoundary = _terminal.buffer.getWordBoundary(fromOffset);
-    if (fromBoundary == null) return;
-    if (to == null) {
-      _controller.setSelection(
-        _terminal.buffer.createAnchorFromOffset(fromBoundary.begin),
-        _terminal.buffer.createAnchorFromOffset(fromBoundary.end),
-        mode: SelectionMode.line,
-      );
-    } else {
-      final toOffset = getCellOffset(to);
-      final toBoundary = _terminal.buffer.getWordBoundary(toOffset);
-      if (toBoundary == null) return;
-      final range = fromBoundary.merge(toBoundary);
-      _controller.setSelection(
-        _terminal.buffer.createAnchorFromOffset(range.begin),
-        _terminal.buffer.createAnchorFromOffset(range.end),
-        mode: SelectionMode.line,
-      );
+    var range = _wordOrCell(getCellOffset(from));
+    if (to != null) {
+      range = range.merge(_wordOrCell(getCellOffset(to)));
     }
+    _controller.setSelection(
+      _terminal.buffer.createAnchorFromOffset(range.begin),
+      _terminal.buffer.createAnchorFromOffset(range.end),
+      mode: SelectionMode.line,
+    );
   }
 
-  /// Selects characters in the terminal that starts from [from] to [to]. At
-  /// least one cell is selected even if [from] and [to] are same.
+  BufferRangeLine _wordOrCell(CellOffset offset) {
+    return _terminal.buffer.getWordBoundary(offset) ??
+        BufferRangeLine(offset, CellOffset(offset.x + 1, offset.y));
+  }
+
   void selectCharacters(Offset from, [Offset? to]) {
     final fromPosition = getCellOffset(from);
     if (to == null) {

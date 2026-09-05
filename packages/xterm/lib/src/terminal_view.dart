@@ -48,6 +48,7 @@ class TerminalView extends StatefulWidget {
     this.onKeyEvent,
     this.readOnly = false,
     this.hardwareKeyboardOnly = false,
+    this.keyboardOnTap = true,
     this.simulateScroll = true,
   });
 
@@ -134,6 +135,11 @@ class TerminalView extends StatefulWidget {
   /// True if only hardware keyboard events should be used as input. This will
   /// also prevent any on-screen keyboard to be shown.
   final bool hardwareKeyboardOnly;
+
+  /// True if a tap on the view asks for the on-screen keyboard. With it false
+  /// a tap only clears the selection, and the keyboard comes up through
+  /// [requestKeyboard] or the focus node alone. Spectacle patch.
+  final bool keyboardOnTap;
 
   /// If true, when the terminal is in alternate buffer (for example running
   /// vim, man, etc), if the application does not declare that it can handle
@@ -348,7 +354,7 @@ class TerminalViewState extends State<TerminalView> {
   void _onTapDown(_) {
     if (_controller.selection != null) {
       _controller.clearSelection();
-    } else {
+    } else if (widget.keyboardOnTap) {
       if (!widget.hardwareKeyboardOnly) {
         _customTextEditKey.currentState?.requestKeyboard();
       } else {
