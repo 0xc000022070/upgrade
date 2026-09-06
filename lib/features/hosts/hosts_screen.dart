@@ -28,6 +28,7 @@ import '../settings/key_form_screen.dart';
 import '../shell/host_shell_screen.dart';
 import '../shell/shell_sessions.dart';
 import '../shell/shell_status.dart';
+import '../shell/shell_watcher.dart';
 import 'host_key_sheet.dart';
 import 'link_probes.dart';
 import 'preview_tile.dart';
@@ -220,9 +221,10 @@ class _ShellRowState extends ConsumerState<_ShellRow> {
       onTap: () => openHostShell(context, widget.host),
       child: SizedBox(
         height: RowMetrics.minHeight,
-        child: AnimatedBuilder(
-          animation: store,
-          builder: (context, _) {
+        child: ShellWatcher(
+          store: store,
+          watch: (store) => store.forHost(widget.host.id),
+          builder: (context) {
             final sessions = store.forHost(widget.host.id);
             final worst = worstShellState(sessions);
             return Row(
@@ -264,9 +266,15 @@ class _ClipboardRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final store = ref.watch(shellSessionsProvider);
-    return AnimatedBuilder(
-      animation: store,
-      builder: (context, _) {
+    return ShellWatcher(
+      store: store,
+      // The row is about the tab the host is looking at: whether it is live
+      // and what its host answered the probe with are both that tab's news.
+      watch: (store) {
+        final active = store.activeFor(host.id);
+        return active == null ? const [] : [active];
+      },
+      builder: (context) {
         final active = store.activeFor(host.id);
         if (active == null || active.state is! ShellLive) {
           return const SizedBox.shrink();

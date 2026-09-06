@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
 import 'package:spectacle/data/repositories/shell_tab_repository.dart';
 import 'package:spectacle/features/shell/host_shell_screen.dart';
+import 'package:spectacle/features/shell/shell_card.dart';
 import 'package:spectacle/features/shell/shell_sessions.dart';
 import 'package:spectacle/platform/shell/shell_connection.dart';
 import 'package:spectacle/platform/vnc/keysyms.dart';
@@ -357,7 +358,9 @@ void main() {
       final session = sessions.open(_rose)!;
       await _settle();
       var notices = 0;
-      sessions.addListener(() => notices++);
+      // The tab's own notifier: the count is drawn by the bar under this
+      // terminal and by nothing on the screen behind it.
+      session.addListener(() => notices++);
 
       sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
       expect(notices, 1);
@@ -1017,6 +1020,146 @@ void main() {
       await _pumpDial(tester);
 
       expect(transport.sizes, hasLength(dials));
+    });
+  });
+
+  group('a change reaches the tab it happened to', () {
+    /// What each notifier said since it was wired, so a test can name where a
+    /// change was announced rather than only that something was.
+    ({int Function() store, int Function() session}) counts(
+      ShellSessions sessions,
+      ShellSession session,
+    ) {
+      var storeSaid = 0;
+      var sessionSaid = 0;
+      sessions.addListener(() => storeSaid++);
+      session.addListener(() => sessionSaid++);
+      return (store: () => storeSaid, session: () => sessionSaid);
+    }
+
+    test('arming a modifier and spending it leave the store silent', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final said = counts(sessions, session);
+
+      sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
+      sessions.send(session, Uint8List.fromList([4]));
+      sessions.send(session, Uint8List.fromList([4]));
+
+      // Armed, spent once, spent out: three changes, all of them this tab's.
+      expect(said.session(), 3);
+      expect(said.store(), 0);
+
+      await sessions.close(_rose.id, session);
+    });
+
+    testWidgets('a state tells the session and not the list', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _pumpDial(tester);
+      final said = counts(sessions, session);
+
+      transport.opened.single.drop();
+      await tester.pump();
+      expect(session.state, isA<ShellDropped>());
+
+      expect(said.session(), greaterThan(0));
+      expect(said.store(), 0);
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test('a title tells the tab that named itself', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final first = sessions.open(_rose)!;
+      final second = sessions.open(_rose)!;
+      await _settle();
+      var otherSaid = 0;
+      second.addListener(() => otherSaid++);
+      final said = counts(sessions, first);
+
+      transport.opened.first.emit('\x1b]0;htop\x07');
+      await _settle();
+
+      expect(first.title, 'htop');
+      expect(said.session(), greaterThan(0));
+      expect(said.store(), 0);
+      expect(otherSaid, 0);
+
+      await sessions.close(_rose.id, first);
+      await sessions.close(_rose.id, second);
+    });
+
+    test('opening, closing and activating tell the store', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      var storeSaid = 0;
+      sessions.addListener(() => storeSaid++);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+      expect(storeSaid, 1);
+
+      sessions.activate(_rose.id, session);
+      expect(storeSaid, 2);
+
+      await sessions.close(_rose.id, session);
+      expect(storeSaid, 3);
+    });
+
+    testWidgets('a change announced after retiring reaches nobody', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _pumpDial(tester);
+
+      await sessions.close(_rose.id, session);
+      await tester.pump();
+
+      expect(session.changed, returnsNormally);
+    });
+
+    testWidgets('a card follows its own tab and the store stays out of it', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final first = sessions.open(_rose)!;
+      final second = sessions.open(_rose)!;
+      await _pumpDial(tester);
+      var storeSaid = 0;
+      sessions.addListener(() => storeSaid++);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Row(
+            children: [
+              ShellCard(host: _rose, session: first),
+              ShellCard(host: _rose, session: second),
+            ],
+          ),
+        ),
+      );
+
+      transport.opened.first.emit('\x1b]0;htop\x07');
+      await tester.pump();
+      await tester.pump();
+
+      // The title is on the card without the store having said a word.
+      expect(find.text('htop'), findsOneWidget);
+      expect(storeSaid, 0);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await sessions.close(_rose.id, first);
+      await sessions.close(_rose.id, second);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
     });
   });
 }

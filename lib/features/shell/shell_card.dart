@@ -32,6 +32,16 @@ class ShellCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The card's own tab, not the store: what a shell prints and what state it
+    // is in are this session's news, and a keystroke in another tab is none of
+    // this card's business.
+    return AnimatedBuilder(
+      animation: session,
+      builder: (context, _) => _build(context),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final title = session.title;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,

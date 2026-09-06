@@ -12,6 +12,7 @@ import '../shell/host_shell_screen.dart';
 import '../shell/shell_card.dart';
 import '../shell/shell_sessions.dart';
 import '../shell/shell_status.dart';
+import '../shell/shell_watcher.dart';
 
 /// What is running, and what to run it on: the shells the app is holding, then
 /// the machines a new one starts on. The tab is the sessions — a host is
@@ -108,8 +109,7 @@ class _HostsPanel extends ConsumerWidget {
           if (hosts.isEmpty) return const EmptyState('NO HOSTS REGISTERED');
           return ListRowGroup(
             children: [
-              for (final host in hosts)
-                _HostRow(host: host, sessions: store.forHost(host.id)),
+              for (final host in hosts) _HostRow(host: host, store: store),
             ],
           );
         },
@@ -119,13 +119,23 @@ class _HostsPanel extends ConsumerWidget {
 }
 
 class _HostRow extends StatelessWidget {
-  const _HostRow({required this.host, required this.sessions});
+  const _HostRow({required this.host, required this.store});
 
   final Host host;
-  final List<ShellSession> sessions;
+  final ShellSessions store;
 
   @override
   Widget build(BuildContext context) {
+    // The dot is the worst of what this host's tabs are doing, so the row
+    // follows them as well as the set they came from.
+    return ShellWatcher(
+      store: store,
+      watch: (store) => store.forHost(host.id),
+      builder: (context) => _build(context, store.forHost(host.id)),
+    );
+  }
+
+  Widget _build(BuildContext context, List<ShellSession> sessions) {
     final worst = worstShellState(sessions);
     return ListRow(
       key: ValueKey('ssh-host-${host.id}'),
