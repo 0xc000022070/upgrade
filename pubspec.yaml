@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+55
+version: 1.0.0+57
 
 environment:
   sdk: ^3.13.0
@@ -62,7 +62,8 @@ dependencies:
 # lines fixed, a keyboardOnTap flag on the view so a tap on the shell is not a
 # call for the IME, and a touch selection that follows the finger, stays on the
 # cell the press landed on while the shell prints, and takes URLs and paths
-# whole; see its pubspec.
+# whole, and an onReport apart from onOutput so what the terminal answers on
+# its own behalf is not taken for something the user typed; see its pubspec.
 dependency_overrides:
   xterm:
     path: packages/xterm

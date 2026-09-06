@@ -439,6 +439,75 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('CTRL dragged down carries the next two keys, and the label '
+      'counts them off', (tester) async {
+    final transport = FakeShellTransport();
+    await tester.pumpWidget(app(fakeShellSessions(transport)));
+    await ready(tester);
+    final connection = transport.opened.single;
+    final terminal = tester
+        .widget<TerminalView>(find.byType(TerminalView))
+        .terminal;
+
+    await tester.drag(
+      find.byKey(const ValueKey('bar-CTRL')),
+      const Offset(0, 40),
+    );
+    await ready(tester);
+    expect(find.text('CTRL(x2)'), findsOneWidget);
+
+    // The keyboard's own characters, which never pass through the bar.
+    terminal.textInput('d');
+    await ready(tester);
+    expect(find.text('CTRL(x2)'), findsNothing);
+    expect(find.text('CTRL'), findsOneWidget);
+
+    terminal.textInput('d');
+    await ready(tester);
+    terminal.textInput('d');
+
+    expect(connection.writes, [
+      [0x04],
+      [0x04],
+      [0x64],
+    ]);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a bar key spends one of the count and the rest of it stands', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    await tester.pumpWidget(app(fakeShellSessions(transport)));
+    await ready(tester);
+    final connection = transport.opened.single;
+
+    await tester.drag(
+      find.byKey(const ValueKey('bar-ALT')),
+      const Offset(0, 40),
+    );
+    await ready(tester);
+
+    await tester.tap(find.byKey(const ValueKey('bar-LEFT')));
+    await ready(tester);
+    expect(find.text('ALT'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('bar-LEFT')));
+    await ready(tester);
+    expect(find.text('ALT'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('bar-LEFT')));
+
+    expect(connection.writes, [
+      [0x1b, 0x1b, 0x5b, 0x44],
+      [0x1b, 0x1b, 0x5b, 0x44],
+      [0x1b, 0x5b, 0x44],
+    ]);
+
+    await unmount(tester);
+  });
+
   testWidgets('the keyboard cell follows the keyboard the system shows, not '
       'the focus', (tester) async {
     addTearDown(tester.view.reset);

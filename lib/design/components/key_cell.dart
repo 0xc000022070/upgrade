@@ -1,10 +1,16 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../colors.dart';
 import '../icons/spectacle_icon.dart';
 import '../icons/spectacle_icons.dart';
+import '../motion.dart';
 import '../spacing.dart';
 import '../typography.dart';
+
+/// How far a vertical drag has to travel, once it has taken the pointer off
+/// the tap, before it counts as a flick in that direction.
+const _flickDistance = 8.0;
 
 /// One key drawn as a key: a tracked word or one of the artist's marks, with
 /// the press tint and the armed accent that say what it is doing.
@@ -21,6 +27,8 @@ class KeyCell extends StatefulWidget {
     this.icon,
     this.armed = false,
     this.inert = false,
+    this.repeat = 1,
+    this.onFlick,
     this.minWidth,
     this.padding = Spacing.md,
     this.height = TapTargets.minHeight,
@@ -34,6 +42,15 @@ class KeyCell extends StatefulWidget {
   /// Drawn as a key and worth nothing: no press tint, no arming. Dimmer than a
   /// key at rest, which is the only thing that says so before it is pressed.
   final bool inert;
+
+  /// How many things this key is armed for. Anything above one is drawn after
+  /// the label, `CTRL(x2)`, and the change rolls rather than cuts.
+  final int repeat;
+
+  /// A vertical drag over the cell, `1` down and `-1` up. Null leaves the cell
+  /// with nothing but its tap, which is what every key that cannot be counted
+  /// wants.
+  final void Function(int step)? onFlick;
 
   /// A floor, not a width: a cell is as wide as its label plus [padding] on
   /// either side, and no narrower than this. Null leaves the width to whatever
@@ -52,6 +69,7 @@ class KeyCell extends StatefulWidget {
 
 class _KeyCellState extends State<KeyCell> {
   bool _down = false;
+  double _travel = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -64,12 +82,41 @@ class _KeyCellState extends State<KeyCell> {
         ? SpectacleColors.accent
         : SpectacleColors.textSecondary;
     final icon = widget.icon;
+    final flick = widget.inert ? null : widget.onFlick;
+    final label = widget.repeat > 1
+        ? '${widget.label}(x${widget.repeat})'
+        : widget.label;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: widget.inert ? null : (_) => setState(() => _down = true),
       onTapCancel: widget.inert ? null : () => setState(() => _down = false),
       onTapUp: widget.inert ? null : (_) => setState(() => _down = false),
       onTap: widget.inert ? null : widget.onTap,
+      // The drag lives on the same detector as the tap so the two share an
+      // arena entry: a finger that moves takes the drag and the tap is
+      // cancelled under it, rather than both firing. The travel is counted
+      // from the finger's own first pixel, slop included, so the distance
+      // below is the distance the user actually moved.
+      dragStartBehavior: DragStartBehavior.down,
+      onVerticalDragStart: flick == null
+          ? null
+          : (_) {
+              _travel = 0;
+              setState(() => _down = true);
+            },
+      onVerticalDragUpdate: flick == null
+          ? null
+          : (details) => _travel += details.delta.dy,
+      onVerticalDragCancel: flick == null
+          ? null
+          : () => setState(() => _down = false),
+      onVerticalDragEnd: flick == null
+          ? null
+          : (_) {
+              setState(() => _down = false);
+              if (_travel.abs() < _flickDistance) return;
+              flick(_travel > 0 ? 1 : -1);
+            },
       child: Container(
         height: widget.height,
         constraints: widget.minWidth == null
@@ -82,14 +129,92 @@ class _KeyCellState extends State<KeyCell> {
         // The label is still the semantics: a glyph key reads as its name to a
         // screen reader, which a bare picture would not.
         child: Semantics(
-          label: widget.label,
+          label: widget.repeat > 1
+              ? '${widget.label} x${widget.repeat}'
+              : widget.label,
           child: icon == null
-              ? Text(
-                  widget.label,
+              ? _RollingLabel(
+                  text: label,
                   style: SpectacleText.panelHeader.copyWith(color: tint),
                 )
               : SpectacleIcon(icon, size: IconSizes.toolbar, color: tint),
         ),
+      ),
+    );
+  }
+}
+
+/// A word that changes by rolling: the one leaving goes out through the floor
+/// while the one arriving comes in through the ceiling, clipped to the line so
+/// neither is ever seen outside it.
+class _RollingLabel extends StatefulWidget {
+  const _RollingLabel({required this.text, required this.style});
+
+  final String text;
+  final TextStyle style;
+
+  @override
+  State<_RollingLabel> createState() => _RollingLabelState();
+}
+
+class _RollingLabelState extends State<_RollingLabel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController
+  _roll = AnimationController(vsync: this, duration: Motion.fast)
+    ..addStatusListener((status) {
+      // The word that left is dropped the moment it has, so the cell goes back
+      // to being as wide as the word it now reads.
+      if (status == AnimationStatus.completed && mounted) {
+        setState(() => _leaving = null);
+      }
+    });
+
+  String? _leaving;
+
+  @override
+  void didUpdateWidget(covariant _RollingLabel old) {
+    super.didUpdateWidget(old);
+    if (widget.text == old.text) return;
+    _leaving = old.text;
+    _roll.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _roll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final arriving = Text(widget.text, style: widget.style, maxLines: 1);
+    final leaving = _leaving;
+    if (leaving == null) return arriving;
+    return ClipRect(
+      child: AnimatedBuilder(
+        animation: _roll,
+        builder: (context, _) {
+          final t = Motion.transition.transform(_roll.value);
+          // The arriving word sizes the stack; the one leaving is laid over it
+          // and translated by its whole height, so a longer word going out is
+          // never what the cell is measured by.
+          return Stack(
+            children: [
+              FractionalTranslation(
+                translation: Offset(0, t - 1),
+                child: arriving,
+              ),
+              Positioned.fill(
+                child: FractionalTranslation(
+                  translation: Offset(0, t),
+                  child: Center(
+                    child: Text(leaving, style: widget.style, maxLines: 1),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
