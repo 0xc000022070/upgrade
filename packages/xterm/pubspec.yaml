@@ -10,11 +10,13 @@
 #                                           and a press is anchored at pointer-down
 #   lib/src/core/buffer/token.dart          new: the run rule a long press selects by
 #   lib/src/core/buffer/buffer.dart         getTokenBoundary, across soft wraps
+#   lib/src/utils/circular_buffer.dart      a trimmed, shifted or replaced row still
+#                                           knows its own index
 # Drop this directory and the dependency_overrides entry once a release of
 # xterm carries all of them.
 name: xterm
 description: xterm.dart is a fast and fully-featured terminal emulator for Flutter applications, with support for mobile and desktop platforms.
-version: 4.0.0+spectacle.4
+version: 4.0.0+spectacle.5
 homepage: https://github.com/TerminalStudio/xterm.dart
 publish_to: none
 
