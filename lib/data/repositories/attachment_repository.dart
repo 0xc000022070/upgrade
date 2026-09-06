@@ -67,6 +67,22 @@ class AttachmentRepository {
     return id;
   }
 
+  /// How many links each item holds, keyed by item. One query for a whole
+  /// screen rather than one stream per row: a panel of thirty drops would
+  /// otherwise open thirty subscriptions to answer a glyph. Items with no link
+  /// are absent rather than zero.
+  Stream<Map<String, int>> watchLinkCounts() {
+    final item = _db.attachments.itemId;
+    final total = _db.attachments.id.count();
+    final query = _db.selectOnly(_db.attachments)
+      ..addColumns([item, total])
+      ..where(_db.attachments.kind.equalsValue(AttachmentKind.url))
+      ..groupBy([item]);
+    return query.watch().map(
+      (rows) => {for (final row in rows) row.read(item)!: row.read(total)!},
+    );
+  }
+
   Future<void> delete(String id) =>
       (_db.delete(_db.attachments)..where((a) => a.id.equals(id))).go();
 }

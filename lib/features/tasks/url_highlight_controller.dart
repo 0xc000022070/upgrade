@@ -3,8 +3,10 @@ import 'package:flutter/widgets.dart';
 import '../../design/colors.dart';
 import 'link_input.dart';
 
-/// The capture field paints every token [extractUrls] would
-/// take, so the user is told before submit that it will file as a link.
+/// The capture field paints every token [urlTokens] recognises, so a link is
+/// legible as one while it is being typed. It says *this is a link* and nothing
+/// about filing: a URL inside the text stays inside the text, and an attachment
+/// is only ever what the link line committed.
 ///
 /// A controller rather than a chip or an overlay: the token has to stay
 /// editable text, and the field's own [TextEditingController.buildTextSpan] is

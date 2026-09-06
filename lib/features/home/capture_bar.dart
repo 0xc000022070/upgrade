@@ -35,9 +35,11 @@ import '../tasks/url_highlight_controller.dart';
 /// `link`, `image`, `+`, with `target` the only thing behind
 /// the `+`: next and blocked are states, and a capture has none.
 ///
-/// The URLs in the field are painted as they are typed, through
-/// [UrlHighlightController]. It is a readout of what `_submit` will do and
-/// changes nothing about it.
+/// A link is entered on a line of its own raised over that strip, never in
+/// this field: the capture text stays on screen, with its caret, while the URL
+/// is typed above it. The URLs already inside the text are painted as they are
+/// typed, through [UrlHighlightController], and stay there — they are part of
+/// what was written, and only the link line makes an attachment.
 class CaptureBar extends ConsumerStatefulWidget {
   const CaptureBar({
     super.key,
@@ -78,14 +80,18 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   /// in a single transaction.
   final _pending = <NewAttachment>[];
 
-  bool _urlMode = false;
-
-  /// The title, parked while the one field is holding a URL.
-  String _stashed = '';
+  /// The link line's own text. It outlives each opening of the line — the
+  /// strip is an overlay and reads it a frame late, so a controller disposed
+  /// on close would be read after it was gone. [_linkOpen] is whether the line
+  /// is up; the capture field is never borrowed for it, so there is nothing to
+  /// park.
+  final _linkField = TextEditingController();
+  bool _linkOpen = false;
 
   @override
   void dispose() {
     _controller.dispose();
+    _linkField.dispose();
     _focus.dispose();
     _glitch.dispose();
     super.dispose();
@@ -94,15 +100,12 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   /// Whitespace is not a capture: the guard is here rather than on the button
   /// so the IME action cannot get past it either.
   Future<void> _submit() async {
-    if (_urlMode) return _commitUrl();
-    final raw = _controller.text.trim();
-    if (raw.isEmpty) return;
-    // The line is kept as typed. A URL only leaves the title when it was
-    // the whole line, and then the link itself is what names the item.
-    final found = extractUrls(raw);
-    final stripped = titleWithoutUrls(raw, found);
-    final content = stripped.isEmpty ? (found.firstOrNull ?? raw) : raw;
-    final attachments = [..._pending, ...found.map(NewAttachment.url)];
+    final content = _controller.text.trim();
+    if (content.isEmpty) return;
+    // The line is filed exactly as typed. A URL inside it is part of what the
+    // user wrote and stays there; the only links an item gets are the ones
+    // committed on the link line.
+    final attachments = List<NewAttachment>.from(_pending);
     final target = widget.fixedTarget ?? _target;
     _controller.clear();
     // Submitting closes the form. The focus goes, and with it the
@@ -116,8 +119,8 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
       // the next thing typed is a drop again unless it is aimed again.
       _target = const ItemTarget.drops();
     });
-    _glitch.fire(seed: raw.hashCode);
-    widget.landing?.fire(seed: raw.hashCode);
+    _glitch.fire(seed: content.hashCode);
+    widget.landing?.fire(seed: content.hashCode);
     // The nav icon gets its arrival glitch back. It fires alongside the
     // strip rather than instead of it: the IME covers HOME's DROPS strip at
     // the moment the row lands, and the nav icon is the half still on screen.
@@ -134,34 +137,30 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
     ref.read(freshDropsProvider.notifier).add(widget.scope, id);
   }
 
-  void _commitUrl() {
-    final url = normalizeUrl(_controller.text);
-    setState(() {
-      if (url != null) _pending.add(NewAttachment.url(url));
-      _urlMode = false;
-      _controller.text = _stashed;
-      _controller.selection = TextSelection.collapsed(
-        offset: _controller.text.length,
-      );
-    });
-    _focus.requestFocus();
-  }
-
-  /// The clipboard is the common case and needs no prompt; the field
-  /// itself is the fallback, and never a second field.
-  Future<void> _link() async {
-    if (_urlMode) return _commitUrl();
+  /// The link glyph raises the line and nothing else. The clipboard is offered
+  /// in it when it holds a URL — one tap and a look, rather than one tap and a
+  /// chip the user never saw coming.
+  Future<void> _openLink() async {
+    if (_linkOpen) return _closeLink();
     final url = await urlFromClipboard();
     if (!mounted) return;
-    setState(() {
-      if (url != null) {
-        _pending.add(NewAttachment.url(url));
-      } else {
-        _stashed = _controller.text;
-        _urlMode = true;
-        _controller.clear();
-      }
-    });
+    _linkField.text = url ?? '';
+    _linkField.selection = TextSelection.collapsed(
+      offset: _linkField.text.length,
+    );
+    setState(() => _linkOpen = true);
+  }
+
+  void _attachLink(String value) {
+    final url = normalizeUrl(value);
+    if (url == null) return;
+    setState(() => _pending.add(NewAttachment.url(url)));
+    _closeLink();
+  }
+
+  void _closeLink() {
+    _linkField.clear();
+    setState(() => _linkOpen = false);
   }
 
   /// The gallery, and nothing between it and the chip.
@@ -235,6 +234,18 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
           final pending = value.text.trim().isNotEmpty;
           return KeyboardAccessory(
             focus: _focus,
+            field: !_linkOpen
+                ? null
+                : ToolbarField(
+                    label: 'LINK',
+                    controller: _linkField,
+                    action: 'Attach',
+                    hint: 'https://',
+                    keyboardType: TextInputType.url,
+                    accepts: (value) => normalizeUrl(value) != null,
+                    onSubmit: _attachLink,
+                    onCancel: _closeLink,
+                  ),
             chips: [
               // There is no standing target chip: DROPS is the
               // default and a chip that only ever says so is a readout of
@@ -266,8 +277,8 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
             actions: [
               ToolbarAction(
                 glyph: ToolbarGlyph.link,
-                lit: _urlMode,
-                onTap: _link,
+                lit: _linkOpen,
+                onTap: _openLink,
               ),
               ToolbarAction(glyph: ToolbarGlyph.image, onTap: _image),
             ],
@@ -299,16 +310,14 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                           cursorColor: SpectacleColors.accent,
                           cursorWidth: 2,
                           cursorRadius: Radius.zero,
-                          keyboardType: _urlMode
-                              ? TextInputType.url
-                              : TextInputType.text,
+                          keyboardType: TextInputType.text,
                           textInputAction: TextInputAction.done,
                           onSubmitted: (_) => _submit(),
                           decoration: InputDecoration(
                             isDense: true,
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.zero,
-                            hintText: _urlMode ? 'https://' : 'Capture',
+                            hintText: 'Capture',
                             hintStyle: SpectacleText.capture,
                           ),
                         ),
@@ -348,10 +357,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                 // on nothing.
                 if (pending) const SizedBox(height: Spacing.md),
                 if (pending)
-                  SolidActionBar(
-                    label: _urlMode ? 'Attach' : 'Capture',
-                    onTap: _submit,
-                  ),
+                  SolidActionBar(label: 'Capture', onTap: _submit),
               ],
             ),
           );

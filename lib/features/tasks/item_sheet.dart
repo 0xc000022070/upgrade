@@ -34,6 +34,7 @@ import 'image_input.dart';
 import 'image_viewer.dart';
 import 'item_pickers.dart';
 import 'link_input.dart';
+import 'link_text.dart';
 
 /// The quick view. Row tap and long press both land here; there is no separate
 /// action sheet any more.
@@ -54,9 +55,19 @@ Future<void> openItemSheet(BuildContext context, String taskId) {
 /// thing from either.
 enum _Mode { item, move, pair, send, dispatch }
 
-/// One field, three things it can be holding. A second field, a prompt
-/// or a dialog for a URL is the shape the user rejected.
-enum _FieldMode { title, url, reason }
+/// What the labelled line over the keyboard strip is holding, or null when
+/// there is none. The body field is the title and only ever the title: a link
+/// and a reason are their own values and are typed on their own line.
+enum _Line {
+  link('LINK', 'ATTACH', 'https://'),
+  reason('BLOCKED BY', 'BLOCK', 'what is holding it');
+
+  const _Line(this.label, this.action, this.hint);
+
+  final String label;
+  final String action;
+  final String hint;
+}
 
 class ItemSheet extends ConsumerStatefulWidget {
   const ItemSheet({super.key, required this.taskId});
@@ -71,7 +82,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   _Mode _mode = _Mode.item;
 
   bool _editing = false;
-  _FieldMode _fieldMode = _FieldMode.title;
+  _Line? _line;
 
   /// A drop's DELETE is off the footer until the breadcrumb is held.
   bool _deleteRevealed = false;
@@ -88,8 +99,9 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   final _field = TextEditingController();
   final _focus = FocusNode();
 
-  /// The title, parked while the one field is holding a URL or a reason.
-  String _stashed = '';
+  /// The line's own text. Kept for the life of the sheet rather than made per
+  /// opening: the strip is an overlay and reads it a frame late.
+  final _lineField = TextEditingController();
 
   /// Attached to the editing session, not to the row: the title and its
   /// attachments land together, because they were entered as one thing.
@@ -99,35 +111,42 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   void initState() {
     super.initState();
     _focus.addListener(() {
-      if (!_focus.hasFocus && _editing) _commit();
+      // The line over the strip holds the caret while it is up and the editor
+      // is open behind it: only a caret that left both ends the edit.
+      if (!_focus.hasFocus && _editing && _line == null) _commit();
     });
   }
 
   @override
   void dispose() {
     _field.dispose();
+    _lineField.dispose();
     _focus.dispose();
     super.dispose();
   }
 
-  void _startEdit(Task task, {_FieldMode mode = _FieldMode.title}) {
-    _stashed = task.title;
-    _fieldMode = mode;
-    _field.text = mode == _FieldMode.title ? task.title : '';
+  /// The editor, with the title in it. [line] raises a line over the strip at
+  /// the same time — BLOCK with the keyboard down has a reason to type and
+  /// nowhere to type it.
+  void _startEdit(Task task, {_Line? line}) {
+    _field.text = task.title;
     _field.selection = TextSelection.collapsed(offset: _field.text.length);
-    setState(() => _editing = true);
+    _lineField.clear();
+    setState(() {
+      _editing = true;
+      _line = line;
+    });
     _focus.requestFocus();
   }
 
   /// Blur, and every path out of the editor. The title and the attachments land
   /// together: they were typed as one thing.
   Future<void> _commit() async {
-    final value = (_fieldMode == _FieldMode.title ? _field.text : _stashed)
-        .trim();
+    final value = _field.text.trim();
     final attachments = List<NewAttachment>.from(_pending);
     setState(() {
       _editing = false;
-      _fieldMode = _FieldMode.title;
+      _line = null;
       _pending.clear();
     });
     final tasks = ref.read(taskRepositoryProvider);
@@ -143,47 +162,51 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     }
   }
 
-  /// The IME action. In URL and reason mode it takes what was typed and puts
-  /// the field back on the title without letting the keyboard go.
-  Future<void> _submit() async {
-    switch (_fieldMode) {
-      case _FieldMode.title:
-        await _commit();
-      case _FieldMode.url:
-        final url = normalizeUrl(_field.text);
-        setState(() {
-          if (url != null) _pending.add(NewAttachment.url(url));
-          _fieldMode = _FieldMode.title;
-          _field.text = _stashed;
-        });
-        _focus.requestFocus();
-      case _FieldMode.reason:
-        final reason = _field.text.trim();
-        setState(() {
-          _fieldMode = _FieldMode.title;
-          _field.text = _stashed;
-        });
-        _focus.requestFocus();
+  /// The IME action on the body field, which is the title and nothing else.
+  Future<void> _submit() => _commit();
+
+  /// The link glyph raises the line, prefilled from the clipboard when it holds
+  /// a URL. Nothing is attached until the line says so.
+  Future<void> _openLink() async {
+    if (_line != null) return _closeLine();
+    final url = await urlFromClipboard();
+    if (!mounted) return;
+    _lineField.text = url ?? '';
+    _lineField.selection = TextSelection.collapsed(
+      offset: _lineField.text.length,
+    );
+    setState(() => _line = _Line.link);
+  }
+
+  /// The keyboard went down with the line still up. The title editor was only
+  /// open because something was being typed, so it closes with it.
+  void _dismissLine() {
+    _closeLine();
+    if (_editing) _commit();
+  }
+
+  void _closeLine() {
+    _lineField.clear();
+    setState(() => _line = null);
+  }
+
+  /// What the line commits, by what it was holding. The keyboard stays: the
+  /// title is still open underneath and was never given up for this.
+  Future<void> _commitLine(String value) async {
+    final line = _line;
+    _closeLine();
+    switch (line) {
+      case null:
+        return;
+      case _Line.link:
+        final url = normalizeUrl(value);
+        if (url != null) setState(() => _pending.add(NewAttachment.url(url)));
+      case _Line.reason:
+        final reason = value.trim();
         if (reason.isNotEmpty) {
           await ref.read(taskRepositoryProvider).block(widget.taskId, reason);
         }
     }
-  }
-
-  /// The link icon: the clipboard is the common case and needs no prompt;
-  /// the field itself is the fallback.
-  Future<void> _link() async {
-    final url = await urlFromClipboard();
-    if (!mounted) return;
-    setState(() {
-      if (url != null) {
-        _pending.add(NewAttachment.url(url));
-      } else {
-        _stashed = _fieldMode == _FieldMode.title ? _field.text : _stashed;
-        _fieldMode = _FieldMode.url;
-        _field.clear();
-      }
-    });
   }
 
   /// The gallery, and nothing between it and the chip.
@@ -760,9 +783,11 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-          child: Text(
-            // Full title, unclipped. This is the one place in the app
-            // where an item's text is not cut to one line.
+          // Full title, unclipped. This is the one place in the app
+          // where an item's text is not cut to one line — and the one place a
+          // URL inside it is openable: the token takes the tap, the rest of the
+          // text opens the editor.
+          child: LinkText(
             task.title,
             style: SpectacleText.rowTitleLead.copyWith(
               color: !_isDrop(task) && task.done
@@ -775,8 +800,26 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     }
 
     final tasks = ref.read(taskRepositoryProvider);
+    final line = _line;
     return KeyboardAccessory(
       focus: _focus,
+      field: line == null
+          ? null
+          : ToolbarField(
+              label: line.label,
+              controller: _lineField,
+              action: line.action,
+              hint: line.hint,
+              keyboardType: line == _Line.link
+                  ? TextInputType.url
+                  : TextInputType.text,
+              accepts: line == _Line.link
+                  ? (value) => normalizeUrl(value) != null
+                  : null,
+              onSubmit: _commitLine,
+              onCancel: _closeLine,
+              onDismiss: _dismissLine,
+            ),
       chips: [
         for (final attachment in _pending)
           if (attachment.kind == AttachmentKind.image)
@@ -796,8 +839,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
       actions: [
         ToolbarAction(
           glyph: ToolbarGlyph.link,
-          lit: _fieldMode == _FieldMode.url,
-          onTap: _link,
+          lit: line == _Line.link,
+          onTap: _openLink,
         ),
         ToolbarAction(glyph: ToolbarGlyph.image, onTap: _image),
       ],
@@ -819,7 +862,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
               ),
               ToolbarAction(
                 glyph: ToolbarGlyph.block,
-                lit: _fieldMode == _FieldMode.reason,
+                lit: line == _Line.reason,
                 onTap: () => task.blockedReason == null
                     ? _toReason()
                     : tasks.unblock(task.id),
@@ -842,36 +885,25 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         controller: _field,
         focusNode: _focus,
         style: SpectacleText.rowTitleLead,
-        maxLines: _fieldMode == _FieldMode.title ? null : 1,
+        maxLines: null,
         cursorColor: SpectacleColors.accent,
         cursorWidth: 2,
         cursorRadius: Radius.zero,
-        keyboardType: _fieldMode == _FieldMode.url
-            ? TextInputType.url
-            : TextInputType.text,
+        keyboardType: TextInputType.text,
         textInputAction: TextInputAction.done,
         onSubmitted: (_) => _submit(),
-        decoration: InputDecoration(
+        decoration: const InputDecoration(
           isDense: true,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
-          hintText: switch (_fieldMode) {
-            _FieldMode.title => null,
-            _FieldMode.url => 'https://',
-            _FieldMode.reason => 'what is holding it',
-          },
-          hintStyle: SpectacleText.rowSubtitle,
+          contentPadding: EdgeInsets.symmetric(vertical: Spacing.md),
         ),
       ),
     );
   }
 
   void _toReason() {
-    setState(() {
-      _stashed = _fieldMode == _FieldMode.title ? _field.text : _stashed;
-      _fieldMode = _FieldMode.reason;
-      _field.clear();
-    });
+    _lineField.clear();
+    setState(() => _line = _Line.reason);
   }
 
   /// One row of solid action blocks, for the moment the keyboard is
@@ -927,7 +959,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
             // BLOCK raises the field in reason mode rather than opening an
             // editor of its own in the body.
             onTap: () => task.blockedReason == null
-                ? _startEdit(task, mode: _FieldMode.reason)
+                ? _startEdit(task, line: _Line.reason)
                 : tasks.unblock(task.id),
           ),
         ],

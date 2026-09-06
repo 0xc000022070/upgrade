@@ -7,6 +7,7 @@ import '../colors.dart';
 import '../motion.dart';
 import '../spacing.dart';
 import '../typography.dart';
+import 'action_block.dart';
 
 /// The toolbar's glyphs are named one by one, one glyph per verb and
 /// none reused. Naming them as an enum rather than passing [IconData] around is
@@ -77,6 +78,51 @@ class ToolbarChip {
   final Color tone;
 }
 
+/// One labelled line raised on the strip, above the chips and the glyphs, for
+/// a value that is not the body text: a link, a blocked reason.
+///
+/// The line belongs to the keyboard and dies with it, which is what separates
+/// it from the body field the design refuses to grow: the text the user was
+/// writing stays on screen underneath, with its caret, and never changes hands.
+class ToolbarField {
+  const ToolbarField({
+    required this.label,
+    required this.controller,
+    required this.action,
+    required this.onSubmit,
+    required this.onCancel,
+    this.onDismiss,
+    this.hint,
+    this.keyboardType,
+    this.accepts,
+  });
+
+  /// `LINK`, `BLOCKED BY`. Uppercase, in the panel header's type.
+  final String label;
+
+  final TextEditingController controller;
+
+  /// The commit block's word — `ATTACH`.
+  final String action;
+
+  final ValueChanged<String> onSubmit;
+  final VoidCallback onCancel;
+
+  /// The strip going down out from under the line — a dismissed keyboard
+  /// rather than an answered line. Defaults to [onCancel]; a host that has to
+  /// tell the two apart passes its own.
+  final VoidCallback? onDismiss;
+
+  final String? hint;
+  final TextInputType? keyboardType;
+
+  /// Whether what is typed can be committed yet. Null accepts anything
+  /// non-empty. The block goes to disabled ink and stops taking taps while this
+  /// is false, so a value the caller will refuse is refused where it was typed
+  /// instead of disappearing on submit.
+  final bool Function(String)? accepts;
+}
+
 /// The accessory strip, in its two-row shape, pinned above
 /// the IME for as long as [focus] holds it.
 ///
@@ -94,9 +140,15 @@ class KeyboardAccessory extends StatefulWidget {
     required this.child,
     this.extras = const [],
     this.chips = const [],
+    this.field,
   });
 
   final FocusNode focus;
+
+  /// The line raised over the strip, or null when there is none. Its focus
+  /// node belongs to the accessory: the host's field must be able to lose the
+  /// caret without the strip — and the line on it — going away.
+  final ToolbarField? field;
 
   /// The default row: `link`, `image`. The `+` that opens [extras] is
   /// appended here rather than passed in, because the swap is the accessory's
@@ -138,6 +190,10 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
   /// host, and it closes with the keyboard.
   bool _open = false;
 
+  /// The caret while a [ToolbarField] is up. It is the accessory's own, so the
+  /// host's field losing focus to it is not the keyboard going away.
+  final _fieldFocus = FocusNode();
+
   /// The rectangle the scrim leaves clear — [child]'s, in global coordinates.
   final _hole = ValueNotifier<Rect?>(null);
 
@@ -146,6 +202,8 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
   /// the sheet lifting off the keyboard, a chip row appearing.
   late final Ticker _tracker;
   final _holeKey = GlobalKey();
+
+  bool _gone = false;
 
   late final AnimationController _fade;
 
@@ -158,6 +216,7 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     _tracker = createTicker((_) => _measure());
     _fade = AnimationController(vsync: this, duration: Motion.accessory);
     widget.focus.addListener(_onFocus);
+    _fieldFocus.addListener(_onFocus);
   }
 
   @override
@@ -167,26 +226,51 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
       old.focus.removeListener(_onFocus);
       widget.focus.addListener(_onFocus);
     }
+    // The line takes the caret when it is raised and hands it back when it
+    // goes, so the keyboard never leaves and the host's field is live again the
+    // moment the line closes.
+    if (old.field == null && widget.field != null) {
+      _fieldFocus.requestFocus();
+    } else if (old.field != null && widget.field == null && _entry != null) {
+      // Only while the strip is still up: a line that went down with the
+      // keyboard has no caret to hand back, and asking for one there would
+      // raise the keyboard the user just dismissed.
+      widget.focus.requestFocus();
+    }
     _sync();
   }
 
   @override
   void dispose() {
+    // [State.mounted] is still true in here — the element is cleared after
+    // dispose returns — and the entry going down with the state has a listener
+    // that is already defunct. This is what says so.
+    _gone = true;
     widget.focus.removeListener(_onFocus);
+    _fieldFocus.removeListener(_onFocus);
     _remove();
     _tracker.dispose();
     _fade.dispose();
     _strip.dispose();
     _hole.dispose();
+    _fieldFocus.dispose();
     super.dispose();
   }
 
   void _onFocus() {
-    if (widget.focus.hasFocus) {
+    if (widget.focus.hasFocus || _fieldFocus.hasFocus) {
       _insert();
-    } else {
-      _remove();
+      return;
     }
+    // The caret is in flight between the two while a line opens or closes:
+    // both read unfocused for the rest of the frame, and tearing the strip
+    // down there would take the line with it. Decided after the frame, when
+    // whichever node is taking it has it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (widget.focus.hasFocus || _fieldFocus.hasFocus) return;
+      _remove();
+    });
   }
 
   void _insert() {
@@ -205,6 +289,10 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     _fade.forward(from: 0);
     if (!_tracker.isActive) _tracker.start();
     _reserve();
+    // Raised together with the strip rather than onto one already up — the
+    // footer's BLOCK opens the editor and the line in one move. The caret
+    // belongs to the line either way.
+    if (widget.field != null) _fieldFocus.requestFocus();
   }
 
   void _remove() {
@@ -213,7 +301,13 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     _entry = null;
     _scrim = null;
     _open = false;
-    _strip.value = null;
+    if (!_gone) {
+      _strip.value = null;
+      // The line lives on the strip: a keyboard dismissed under it takes it
+      // down rather than leaving it up with no caret in it.
+      final field = widget.field;
+      if (field != null) (field.onDismiss ?? field.onCancel)();
+    }
     if (_tracker.isActive) _tracker.stop();
     if (entry == null) return;
     entry.remove();
@@ -252,7 +346,7 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
         );
       }
     }
-    return _Strip(row, widget.chips, _open);
+    return _Strip(row, widget.chips, _open, widget.field);
   }
 
   void _swap(bool open) {
@@ -274,7 +368,10 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
   void _reserve() {
     final value = _entry == null
         ? 0.0
-        : KeyboardToolbar.heightFor(widget.chips.isNotEmpty);
+        : KeyboardToolbar.heightFor(
+            chips: widget.chips.isNotEmpty,
+            field: widget.field != null,
+          );
     if (KeyboardAccessory.reservedHeight.value == value) return;
     // Never during a build either: [_remove] can be reached from a dispose.
     WidgetsBinding.instance.addPostFrameCallback(
@@ -297,6 +394,8 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
                 actions: strip.actions,
                 chips: strip.chips,
                 extrasOpen: strip.open,
+                field: strip.field,
+                fieldFocus: _fieldFocus,
               ),
       ),
     );
@@ -351,7 +450,12 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     );
   }
 
-  void _dismiss() => widget.focus.unfocus();
+  /// Both nodes: the caret may be in the line rather than in the host's field,
+  /// and a scrim tap dismisses the whole surface either way.
+  void _dismiss() {
+    _fieldFocus.unfocus();
+    widget.focus.unfocus();
+  }
 
   @override
   Widget build(BuildContext context) =>
@@ -396,11 +500,12 @@ class _ScrimPane extends StatelessWidget {
 /// What the strip is showing right now. A plain holder, so the notifier fires
 /// on every host rebuild instead of comparing lists of closures.
 class _Strip {
-  const _Strip(this.actions, this.chips, this.open);
+  const _Strip(this.actions, this.chips, this.open, this.field);
 
   final List<ToolbarAction> actions;
   final List<ToolbarChip> chips;
   final bool open;
+  final ToolbarField? field;
 }
 
 /// The strip itself, separated from the overlay plumbing so a test can mount it
@@ -411,16 +516,29 @@ class KeyboardToolbar extends StatelessWidget {
     required this.actions,
     this.chips = const [],
     this.extrasOpen = false,
+    this.field,
+    this.fieldFocus,
   });
 
   static const height = 44.0;
   static const chipHeight = 28.0;
+  static const fieldHeight = 44.0;
 
-  static double heightFor(bool hasChips) =>
-      hasChips ? height + chipHeight + Spacing.md : height;
+  static double heightFor({required bool chips, bool field = false}) {
+    var value = height;
+    if (chips) value += chipHeight + Spacing.md;
+    if (field) value += fieldHeight;
+    return value;
+  }
 
   final List<ToolbarAction> actions;
   final List<ToolbarChip> chips;
+
+  final ToolbarField? field;
+
+  /// Owned by [KeyboardAccessory]; passed in so the line can be mounted on its
+  /// own in a test without the overlay.
+  final FocusNode? fieldFocus;
 
   /// Only the switcher's key: which row is up is decided upstream, and the
   /// strip's height is the same either way: no growth.
@@ -432,6 +550,9 @@ class KeyboardToolbar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Above the chips: what is being typed comes before what it will
+        // become, and the chip it commits to lands on the row underneath it.
+        if (field != null) _FieldLine(field: field!, focus: fieldFocus),
         if (chips.isNotEmpty)
           Container(
             height: chipHeight + Spacing.md,
@@ -477,6 +598,100 @@ class KeyboardToolbar extends StatelessWidget {
       ],
     );
   }
+}
+
+/// `LINK  [ …typed… ]  ATTACH  x` on one 44px line.
+class _FieldLine extends StatelessWidget {
+  const _FieldLine({required this.field, this.focus});
+
+  final ToolbarField field;
+  final FocusNode? focus;
+
+  @override
+  Widget build(BuildContext context) {
+    // The overlay is not under the app's own [Material], and a text field
+    // asserts one above it.
+    return Material(
+      type: MaterialType.transparency,
+      child: Container(
+        height: KeyboardToolbar.fieldHeight,
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+        decoration: const BoxDecoration(
+          color: SpectacleColors.surfacePrimary,
+          border: Border(
+            top: BorderSide(
+              color: SpectacleColors.borderNormal,
+              width: Borders.hairline,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(field.label, style: SpectacleText.panelHeader),
+            const SizedBox(width: Spacing.lg),
+            Expanded(
+              child: TextField(
+                controller: field.controller,
+                focusNode: focus,
+                style: SpectacleText.capture.copyWith(
+                  color: SpectacleColors.textPrimary,
+                ),
+                cursorColor: SpectacleColors.accent,
+                cursorWidth: 2,
+                cursorRadius: Radius.zero,
+                keyboardType: field.keyboardType,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (value) {
+                  if (_accepts(value)) field.onSubmit(value);
+                },
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  hintText: field.hint,
+                  hintStyle: SpectacleText.capture,
+                ),
+              ),
+            ),
+            const SizedBox(width: Spacing.md),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: field.controller,
+              builder: (context, value, _) {
+                final ready = _accepts(value.text);
+                // Disabled ink and no tap rather than a hidden block: the verb
+                // is what the line is for, and a value it will not take is
+                // answered where it was typed.
+                return ActionBlock(
+                  label: field.action,
+                  tone: ready
+                      ? SpectacleColors.accent
+                      : SpectacleColors.textDisabled,
+                  onTap: ready ? () => field.onSubmit(value.text) : null,
+                );
+              },
+            ),
+            const SizedBox(width: Spacing.md),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: field.onCancel,
+              child: const SizedBox(
+                width: TapTargets.minHeight,
+                height: KeyboardToolbar.fieldHeight,
+                child: Icon(
+                  Icons.close,
+                  size: IconSizes.sm,
+                  color: SpectacleColors.textMuted,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _accepts(String value) =>
+      field.accepts?.call(value) ?? value.trim().isNotEmpty;
 }
 
 class _ToolbarButton extends StatefulWidget {

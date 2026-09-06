@@ -14,6 +14,7 @@ import 'package:spectacle/data/views.dart';
 import 'package:spectacle/design/components/keyboard_toolbar.dart';
 import 'package:spectacle/features/tasks/item_sheet.dart';
 import 'package:spectacle/features/tasks/link_input.dart';
+import 'package:spectacle/features/tasks/link_text.dart';
 
 import 'support/platform_channels.dart';
 
@@ -39,6 +40,13 @@ Future<void> _ready(WidgetTester tester) =>
 /// names its glyph, which is what makes them findable.
 Finder _glyph(ToolbarGlyph glyph) => find.byWidgetPredicate(
   (widget) => widget is Icon && widget.icon == glyph.icon,
+);
+
+/// The line over the strip is in the root overlay, so it is told from the
+/// title editor by which side of that split it is on.
+final _line = find.descendant(
+  of: find.byType(KeyboardToolbar),
+  matching: find.byType(TextField),
 );
 
 void main() {
@@ -272,9 +280,13 @@ void main() {
     await tester.tap(find.text('BLOCK'));
     await _ready(tester);
     expect(find.byType(Dialog), findsNothing);
+    // The reason rides the same line the link does, over the strip, labelled
+    // by what it is asking for.
+    expect(find.text('BLOCKED BY'), findsOneWidget);
     expect(find.text('what is holding it'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).last, 'sin proveedor');
+    await tester.enterText(_line, 'sin proveedor');
+    await _ready(tester);
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 
@@ -316,7 +328,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the link icon attaches a clipboard URL without prompting', (
+  testWidgets('the link icon offers the clipboard URL on its own line', (
     tester,
   ) async {
     stubClipboard('https://garagehq.deuxfleurs.fr');
@@ -334,9 +346,20 @@ void main() {
     await tester.tap(_glyph(ToolbarGlyph.link));
     await _ready(tester);
 
-    // No field, no sheet, no dialog: the URL is already a chip on the strip.
-    expect(find.text('https://'), findsNothing);
+    // Offered, not taken: the URL is in the line where it can be read and
+    // corrected, and nothing is a chip until ATTACH says so.
     expect(find.byType(Dialog), findsNothing);
+    expect(find.text('LINK'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(_line).controller!.text,
+      'https://garagehq.deuxfleurs.fr',
+    );
+    expect(find.text('[ garagehq.deuxfleurs.fr ]'), findsNothing);
+
+    await tester.tap(find.text('ATTACH'));
+    await _ready(tester);
+
+    expect(_line, findsNothing);
     expect(find.text('[ garagehq.deuxfleurs.fr ]'), findsOneWidget);
     expect(
       await tester.runAsync(() => db.select(db.attachments).get()),
@@ -354,7 +377,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('with no URL on the clipboard the same field turns into one', (
+  testWidgets('with no URL on the clipboard the line comes up empty', (
     tester,
   ) async {
     stubClipboard(null);
@@ -368,18 +391,21 @@ void main() {
     await tester.tap(_glyph(ToolbarGlyph.link));
     await _ready(tester);
 
-    // The one field changed mode. A second field would be the form again.
-    expect(find.byType(TextField), findsOneWidget);
+    // Two fields, and the title is not one of them: the editor keeps the
+    // title it was opened with while the line asks for the URL.
     expect(find.text('https://'), findsOneWidget);
+    expect(tester.widget<TextField>(_line).controller!.text, isEmpty);
+    expect(find.byType(TextField), findsNWidgets(2));
 
-    await tester.enterText(find.byType(TextField), 'garagehq.deuxfleurs.fr');
+    await tester.enterText(_line, 'garagehq.deuxfleurs.fr');
+    await _ready(tester);
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 
-    // Submitting the URL attaches it and hands the field back to the title
-    // rather than closing the keyboard.
+    // Committing takes the line down and hands the keyboard back to the
+    // title rather than closing it.
     expect(find.text('[ garagehq.deuxfleurs.fr ]'), findsOneWidget);
-    expect(find.text('https://'), findsNothing);
+    expect(_line, findsNothing);
     expect(find.byType(KeyboardToolbar), findsOneWidget);
 
     await tester.testTextInput.receiveAction(TextInputAction.done);
@@ -387,6 +413,39 @@ void main() {
 
     final rows = await tester.runAsync(() => db.select(db.attachments).get());
     expect(rows!.single.value, 'https://garagehq.deuxfleurs.fr');
+    expect(
+      (await reload(tester, task)).title,
+      'revisar pgbouncer',
+      reason: 'the line never borrowed the title',
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('a URL in the title opens, and the rest of it opens the editor', (
+    tester,
+  ) async {
+    final opened = stubUrlLauncher();
+    final task = await tasks.capture('https://min.io/docs manana');
+
+    await tester.pumpWidget(host(task));
+    await _ready(tester);
+
+    // The token is the head of the line and the prose is its tail, so the two
+    // taps are the two ends of the same paragraph.
+    final title = tester.getRect(find.byType(LinkText));
+    await tester.tapAt(Offset(title.left + 8, title.center.dy));
+    await _ready(tester);
+
+    expect(opened, ['https://min.io/docs']);
+    expect(find.byType(TextField), findsNothing);
+
+    await tester.tapAt(Offset(title.right - 8, title.center.dy));
+    await _ready(tester);
+
+    // Everything that is not the token is still the way into the editor.
+    expect(opened, hasLength(1));
+    expect(find.byType(TextField), findsOneWidget);
 
     await unmount(tester);
   });
