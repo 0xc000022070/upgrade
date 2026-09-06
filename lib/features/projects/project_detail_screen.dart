@@ -7,12 +7,15 @@ import '../../application/navigation.dart';
 import '../../application/providers.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
+import '../../data/repositories/path_repository.dart';
 import '../../data/views.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
+import '../../design/components/action_sheet.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
+import '../../design/components/picker_row.dart';
 import '../../design/components/section.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/spectacle_icon.dart';
@@ -20,6 +23,7 @@ import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/sprite.dart';
 import '../../design/typography.dart';
+import '../code/workspace_screen.dart';
 import '../home/capture_bar.dart';
 import '../screen_scaffold.dart';
 import '../tasks/drops_panel.dart';
@@ -443,6 +447,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   stateful: true,
                   landing: _landing,
                 ),
+                _CodePanel(projectId: widget.projectId),
                 Panel(
                   title: 'NOTES',
                   affordance: PanelAffordance(
@@ -470,6 +475,93 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
 }
 
 enum _GoalAction { rename, delete }
+
+/// The directories this project's work happens in.
+///
+/// The link is set from either end, so this panel adds and drops it without
+/// owning it: the rows it draws are workspaces in their own right, and a
+/// project that never gets one is not incomplete.
+class _CodePanel extends ConsumerWidget {
+  const _CodePanel({required this.projectId});
+
+  final String projectId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final linked = ref.watch(projectWorkspacesProvider(projectId));
+    return Panel(
+      title: 'CODE',
+      affordance: PanelAffordance(
+        'LINK',
+        icon: SpectacleIcons.add,
+        onTap: () => _link(context, ref),
+      ),
+      bodyPadding: panelRowsPadding,
+      child: AsyncSection(
+        value: linked,
+        empty: 'no directories linked',
+        builder: (targets) => ListRowGroup(
+          children: [
+            for (final target in targets)
+              ListRow(
+                title: shortPathLabel(target.path.directory),
+                value: target.host.name.toUpperCase(),
+                onTap: () => openWorkspace(context, target.path, target.host),
+                onLongPress: () => _unlink(context, ref, target),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _link(BuildContext context, WidgetRef ref) async {
+    // Only the unlinked ones are offered. A directory already filed elsewhere
+    // is not a candidate here, and stealing it silently would leave the other
+    // project's section shorter with nothing said about it.
+    final free = await ref.read(pathRepositoryProvider).watchUnlinked().first;
+    if (!context.mounted) return;
+    final picked = await showPanelSheet<PathTarget>(
+      context,
+      title: 'LINK',
+      builder: (context) => PanelSheetBody(
+        title: 'LINK',
+        children: [
+          if (free.isEmpty) const EmptyState('every directory is linked'),
+          for (final target in free)
+            PickerRow(
+              label: shortPathLabel(target.path.directory),
+              subtitle: target.host.name.toUpperCase(),
+              onTap: () => Navigator.of(context).pop(target),
+            ),
+        ],
+      ),
+    );
+    if (picked == null) return;
+    await ref
+        .read(pathRepositoryProvider)
+        .setProject(picked.path.id, projectId);
+  }
+
+  Future<void> _unlink(
+    BuildContext context,
+    WidgetRef ref,
+    PathTarget target,
+  ) async {
+    await showActionSheet(
+      context,
+      title: shortPathLabel(target.path.directory),
+      actions: [
+        SheetAction(
+          'UNLINK',
+          () =>
+              ref.read(pathRepositoryProvider).setProject(target.path.id, null),
+        ),
+      ],
+      recommendFirst: false,
+    );
+  }
+}
 
 /// One panel per goal, its progress on the strip, its items inside. A
 /// done item stays where it is and goes dim — under a goal there is nowhere

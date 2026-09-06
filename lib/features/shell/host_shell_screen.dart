@@ -37,11 +37,16 @@ import 'shell_status.dart';
 ///
 /// The shell is a sheet over that screen, not a page in front of it: the
 /// screen stays drawn under the wash, and the header drags the sheet down.
-void openHostShell(BuildContext context, Host host, {ShellSession? session}) {
+void openHostShell(
+  BuildContext context,
+  Host host, {
+  ShellSession? session,
+  String? seed,
+}) {
   Navigator.of(
     context,
     rootNavigator: true,
-  ).push(ShellSheetRoute(host: host, session: session));
+  ).push(ShellSheetRoute(host: host, session: session, seed: seed));
 }
 
 /// The rule on the sheet's top edge, which is the whole of what says the shell
@@ -65,10 +70,14 @@ const _sheetLeaveShare = 1 / 3;
 /// The wash is lighter than the panel sheet's: what shows through it is the
 /// tab the shell was opened from, and it should still read as that tab.
 class ShellSheetRoute extends PopupRoute<void> {
-  ShellSheetRoute({required this.host, this.session});
+  ShellSheetRoute({required this.host, this.session, this.seed});
 
   final Host host;
   final ShellSession? session;
+
+  /// A line the shell opens on, which is how a workspace hands its directory
+  /// to a terminal.
+  final String? seed;
 
   /// Held for the route's life rather than made per frame: a curved animation
   /// listens to its parent, and one made in a build is one nobody disposes.
@@ -97,7 +106,7 @@ class ShellSheetRoute extends PopupRoute<void> {
     Animation<double> secondaryAnimation,
   ) {
     return _SheetFrame(
-      child: _SheetContents(host: host, session: session),
+      child: _SheetContents(host: host, session: session, seed: seed),
     );
   }
 
@@ -374,10 +383,11 @@ const _tabsShare = 0.55;
 /// path a fresh open takes, which is what makes the arriving host activate the
 /// tab it was asked for.
 class _SheetContents extends StatefulWidget {
-  const _SheetContents({required this.host, this.session});
+  const _SheetContents({required this.host, this.session, this.seed});
 
   final Host host;
   final ShellSession? session;
+  final String? seed;
 
   @override
   State<_SheetContents> createState() => _SheetContentsState();
@@ -401,6 +411,9 @@ class _SheetContentsState extends State<_SheetContents> {
       key: ValueKey(_host.id),
       host: _host,
       session: _session,
+      // Only the host the sheet opened on is the one the seed was meant for:
+      // switching hosts carries nothing of the directory it came from.
+      seed: _host.id == widget.host.id ? widget.seed : null,
       onSwitchHost: _switchTo,
     );
   }
@@ -416,6 +429,7 @@ class HostShellRoute extends ConsumerStatefulWidget {
     super.key,
     required this.host,
     this.session,
+    this.seed,
     this.onSwitchHost,
   });
 
@@ -428,6 +442,9 @@ class HostShellRoute extends ConsumerStatefulWidget {
   /// The tab to land on, when the way in named one. Null opens the host's last
   /// active tab, or its first shell when there is none.
   final ShellSession? session;
+
+  /// A line typed into a fresh tab as it comes up.
+  final String? seed;
 
   @override
   ConsumerState<HostShellRoute> createState() => _HostShellRouteState();
@@ -481,8 +498,14 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       if (!mounted) return;
       final sessions = ref.read(shellSessionsProvider);
       final wanted = widget.session;
+      final seed = widget.seed;
       if (wanted != null) {
         sessions.activate(widget.host.id, wanted);
+      } else if (seed != null && sessions.canOpen(widget.host.id)) {
+        // A seeded open is a tab of its own even when the host already has
+        // some: the caller asked for a shell in one directory, and landing in
+        // whatever tab was last active would not be that.
+        sessions.open(widget.host, prompt: _askHostKey, seed: seed);
       } else if (sessions.forHost(widget.host.id).isEmpty) {
         // A first visit opens one shell; a return finds the ones already
         // running and opens nothing.

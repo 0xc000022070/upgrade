@@ -130,6 +130,20 @@ final pathTargetsProvider = StreamProvider<List<PathTarget>>(
   (ref) => ref.watch(pathRepositoryProvider).watchTargets(),
 );
 
+/// The CODE list: every registered directory, host by host. Separate from
+/// [pathTargetsProvider] because the two want different shapes of the same
+/// table — the picker wants a flat list of targets, this wants panels.
+final workspacesByHostProvider = StreamProvider<List<HostWorkspaces>>(
+  (ref) => ref.watch(pathRepositoryProvider).watchByHost(),
+);
+
+/// The directories filed under one project, for its CODE section.
+final projectWorkspacesProvider =
+    StreamProvider.family<List<PathTarget>, String>(
+      (ref, projectId) =>
+          ref.watch(pathRepositoryProvider).watchForProject(projectId),
+    );
+
 /// One stream for every row that might carry the tag, rather than a query per
 /// drop: Home draws the whole list at once.
 final sentItemsProvider = StreamProvider<Set<String>>(

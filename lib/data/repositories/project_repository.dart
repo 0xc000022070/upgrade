@@ -199,6 +199,13 @@ class ProjectRepository {
         NotesCompanion(projectId: const Value(null), updatedAt: Value(now)),
       );
       await (_db.delete(_db.goals)..where((g) => g.projectId.isIn(ids))).go();
+      // A registered directory outlives the project it was filed under. The
+      // code on the machine did not stop existing because the plan around it
+      // did, so the link is cleared and the row stays. Done here because this
+      // database never enables `PRAGMA foreign_keys`: nothing else would.
+      await (_db.update(_db.paths)..where((p) => p.projectId.isIn(ids))).write(
+        const PathsCompanion(projectId: Value(null)),
+      );
       await (_db.delete(_db.projects)..where((p) => p.id.isIn(ids))).go();
       await _activity.log(
         entityType: EntityType.project,

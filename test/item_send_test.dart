@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -366,7 +367,7 @@ void main() {
 
     tearDown(() => db.close());
 
-    Future<void> addPath({String label = 'spectacle'}) => db
+    Future<void> addPath({String label = 'spectacle', String? projectId}) => db
         .into(db.paths)
         .insert(
           PathsCompanion.insert(
@@ -375,6 +376,7 @@ void main() {
             directory: '~/src/$label',
             label: label,
             createdAt: DateTime.utc(2026, 9, 3),
+            projectId: Value(projectId),
           ),
         );
 
@@ -447,6 +449,71 @@ void main() {
       // an item is not what decides whether an agent can pick it up.
       expect(find.text('DONE'), findsOneWidget);
       expect(find.text('SEND'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    });
+
+    testWidgets('one workspace under the project is not asked about', (
+      tester,
+    ) async {
+      final activity = ActivityRepository(db);
+      final project = await ProjectRepository(
+        db,
+        activity,
+      ).create(name: 'spectacle');
+      final id = await TaskRepository(
+        db,
+        activity,
+      ).create(title: 'ship the picker', projectId: project);
+      await addPath(projectId: project);
+
+      await tester.pumpWidget(app(id));
+      await _drain(tester);
+      await tester.tap(find.text('SEND'));
+      await _drain(tester);
+
+      // The one directory the project is worked in is not a choice, so the
+      // picker is skipped outright. What the send still does not know is which
+      // agent and which model, and those are still asked.
+      expect(find.text('SEND TO'), findsNothing);
+      expect(find.text('AGENT'), findsOneWidget);
+      expect(find.text('MODEL'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    });
+
+    testWidgets('two workspaces are a picker, the project\'s own on top', (
+      tester,
+    ) async {
+      final activity = ActivityRepository(db);
+      final project = await ProjectRepository(
+        db,
+        activity,
+      ).create(name: 'spectacle');
+      final id = await TaskRepository(
+        db,
+        activity,
+      ).create(title: 'ship the picker', projectId: project);
+      // Registered loose first, so the band and not the insertion order is
+      // what puts the project's directories on top.
+      await addPath(label: 'gate');
+      await addPath(label: 'spectacle', projectId: project);
+      await addPath(label: 'monolith', projectId: project);
+
+      await tester.pumpWidget(app(id));
+      await _drain(tester);
+      await tester.tap(find.text('SEND'));
+      await _drain(tester);
+
+      // Two directories under the project is a choice, so it is asked — and
+      // the two it is between are the ones at the top of the list.
+      expect(find.text('SEND TO'), findsOneWidget);
+      expect(find.text('LINKED'), findsNWidgets(2));
+      final loose = tester.getTopLeft(find.text('NYX / GATE')).dy;
+      expect(tester.getTopLeft(find.text('NYX / SPECTACLE')).dy, lessThan(loose));
+      expect(tester.getTopLeft(find.text('NYX / MONOLITH')).dy, lessThan(loose));
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));

@@ -217,13 +217,31 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     await ref.read(taskRepositoryProvider).pair(widget.taskId, otherId);
   }
 
-  void _toSend() {
+  void _toSend(List<PathTarget> linked) {
     _focus.unfocus();
+    // One workspace under the item's project is not a choice, so it is not
+    // offered as one. The kind and the model still are: those belong to the
+    // send, and the same directory is worked by claude one day and codex the
+    // next.
+    if (linked.length == 1) {
+      _toDispatch(linked.first);
+      return;
+    }
     setState(() {
       _mode = _Mode.send;
       _sendState = null;
       _target = null;
     });
+  }
+
+  /// The directories linked to the item's project, empty for a drop. Watched
+  /// rather than read so the picker below is subscribed by the time the footer
+  /// above is tapped.
+  List<PathTarget> _linkedWorkspaces(Task task) {
+    final projectId = task.projectId;
+    if (projectId == null) return const [];
+    return ref.watch(projectWorkspacesProvider(projectId)).valueOrNull ??
+        const [];
   }
 
   /// The chosen path, and how this send should be picked up. Both live on the
@@ -377,7 +395,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
               _sendState = null;
             }),
           ),
-          children: [_sendBody()],
+          children: [_sendBody(task)],
         );
       case _Mode.dispatch:
         return PanelSheetBody(
@@ -636,13 +654,42 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     );
   }
 
-  Widget _sendBody() {
-    final targets =
+  /// Every registered directory, the item's own ones first.
+  ///
+  /// The order is the whole difference a link makes here: a loose drop keeps
+  /// the flat list it always had, and an item under a project opens on the
+  /// directories that project is worked in, then the rest of their hosts,
+  /// then everywhere else.
+  Widget _sendBody(Task task) {
+    final all =
         ref.watch(pathTargetsProvider).valueOrNull ?? const <PathTarget>[];
+    final linked = _linkedWorkspaces(task);
+    final ids = {for (final target in linked) target.path.id};
+    final hosts = {for (final target in linked) target.host.id};
+    // Partitioned and not sorted: a sort is not stable in Dart, and the order
+    // inside each band is the order the user registered them in.
+    final targets = ids.isEmpty
+        ? all
+        : [
+            for (final target in all)
+              if (ids.contains(target.path.id)) target,
+            for (final target in all)
+              if (!ids.contains(target.path.id) &&
+                  hosts.contains(target.host.id))
+                target,
+            for (final target in all)
+              if (!ids.contains(target.path.id) &&
+                  !hosts.contains(target.host.id))
+                target,
+          ];
     return ListRowGroup(
       children: [
         for (final target in targets)
-          ListRow(title: target.title, onTap: () => _toDispatch(target)),
+          ListRow(
+            title: target.title,
+            kicker: ids.contains(target.path.id) ? 'LINKED' : null,
+            onTap: () => _toDispatch(target),
+          ),
         // The paths screen is in settings, two tabs away; a drop that needs a
         // directory that is not registered yet gets to register it here.
         ListRow(
@@ -838,6 +885,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   /// a long press on the breadcrumb reveals it.
   Widget _footer(Task task) {
     final tasks = ref.read(taskRepositoryProvider);
+    final linked = _linkedWorkspaces(task);
     return Wrap(
       spacing: Spacing.md,
       runSpacing: Spacing.md,
@@ -864,7 +912,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         // about whether an agent can pick it up. Only a host with no path at
         // all takes the verb away — a block that answers with an empty list.
         if ((ref.watch(pathTargetsProvider).valueOrNull ?? const []).isNotEmpty)
-          ActionBlock(label: 'SEND', onTap: _toSend),
+          ActionBlock(label: 'SEND', onTap: () => _toSend(linked)),
         if (!_isDrop(task)) ...[
           ActionBlock(
             label: task.bundleId == null ? 'PAIR' : 'UNPAIR',

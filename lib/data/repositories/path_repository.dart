@@ -18,6 +18,7 @@ class AgentPath {
     required this.directory,
     required this.label,
     required this.createdAt,
+    this.projectId,
   });
 
   final String id;
@@ -29,6 +30,10 @@ class AgentPath {
   final String label;
   final DateTime createdAt;
 
+  /// The project this directory is the code for, or null when it is filed under
+  /// none — which is the ordinary state and not a missing one.
+  final String? projectId;
+
   AgentPath copyWith({String? directory, String? label}) {
     return AgentPath(
       id: id,
@@ -36,6 +41,7 @@ class AgentPath {
       directory: directory ?? this.directory,
       label: label ?? this.label,
       createdAt: createdAt,
+      projectId: projectId,
     );
   }
 }
@@ -67,6 +73,15 @@ String shortPathLabel(String directory) {
   return '…/${segments[segments.length - 2]}/${segments.last}';
 }
 
+/// One host's registered directories, which is how the CODE list is drawn:
+/// a panel per host, and hosts that have none are absent rather than empty.
+class HostWorkspaces {
+  const HostWorkspaces({required this.host, required this.paths});
+
+  final Host host;
+  final List<AgentPath> paths;
+}
+
 /// A path with its host resolved, which is everything a send needs: the words
 /// the picker row shows and the four fields the connection is opened from.
 class PathTarget {
@@ -84,28 +99,42 @@ abstract interface class PathRepository {
   Stream<List<AgentPath>> watchForHost(String hostId);
   Future<List<AgentPath>> listForHost(String hostId);
 
+  /// Every registered directory on every host, host by host, for the CODE
+  /// list. Hosts with none are not in the result: a panel with no rows says
+  /// nothing the list above it did not already say.
+  Stream<List<HostWorkspaces>> watchByHost();
+
+  /// The directories filed under one project, for its own CODE section.
+  Stream<List<PathTarget>> watchForProject(String projectId);
+
+  /// The directories filed under no project at all, which is what the link
+  /// sheet offers.
+  Stream<List<PathTarget>> watchUnlinked();
+
+  /// Files [pathId] under [projectId], or under nothing when it is null. One
+  /// column, so linking and unlinking are the same write.
+  Future<void> setProject(String pathId, String? projectId);
+
+  /// Points an existing row at another directory, keeping its id so the
+  /// dispatches already written against it still read back.
+  Future<void> repoint(String pathId, String directory);
+
+  Future<void> remove(String pathId);
+
   /// Every path on every host, oldest first, for the send picker. A path only
   /// exists under a host that was saved, so there is no unreachable-looking
   /// target to filter out here — whether the host answers is what the send
   /// finds out.
   Stream<List<PathTarget>> watchTargets();
 
-  /// The host form's whole paths block in one write: [paths] becomes what the
-  /// host has, and anything it no longer names is gone.
-  ///
-  /// A set and not add/remove calls because the block is edited as a draft and
-  /// committed with the rest of the form — until the user saves, nothing the
-  /// editor did has touched the database, which is what makes discarding the
-  /// form discard the paths too.
-  Future<void> replaceForHost(String hostId, List<AgentPath> paths);
-
-  /// One path, written now. The form's draft is committed with the form; a path
-  /// registered from a drop has no form around it to be saved with, and the
-  /// send that follows needs the row to exist.
+  /// One path, written now. There is no draft to commit anywhere: a directory
+  /// is registered from the CODE list or from a drop that needs one, and both
+  /// want the row to exist by the time the sheet closes.
   Future<AgentPath> add({
     required String hostId,
     required String directory,
     String? label,
+    String? projectId,
   });
 }
 
@@ -156,6 +185,7 @@ class DriftPathRepository implements PathRepository {
     required String hostId,
     required String directory,
     String? label,
+    String? projectId,
   }) async {
     final path = AgentPath(
       id: _uuid.v7(),
@@ -165,6 +195,7 @@ class DriftPathRepository implements PathRepository {
           ? label!.trim()
           : defaultPathLabel(directory),
       createdAt: DateTime.now(),
+      projectId: projectId,
     );
     await _db
         .into(_db.paths)
@@ -175,40 +206,84 @@ class DriftPathRepository implements PathRepository {
             directory: path.directory,
             label: path.label,
             createdAt: path.createdAt,
+            projectId: Value(path.projectId),
           ),
         );
     return path;
   }
 
   @override
-  Future<void> replaceForHost(String hostId, List<AgentPath> paths) {
-    return _db.transaction(() async {
-      final keep = paths.map((path) => path.id).toList();
-      final gone =
-          await (_db.select(_db.paths)..where(
-                (p) => keep.isEmpty
-                    ? p.hostId.equals(hostId)
-                    : p.hostId.equals(hostId) & p.id.isNotIn(keep),
-              ))
-              .get();
-      for (final row in gone) {
-        await deletePathRows(_db, row.id);
+  Stream<List<HostWorkspaces>> watchByHost() {
+    final query = _db.select(_db.paths).join([
+      innerJoin(_db.hosts, _db.hosts.id.equalsExp(_db.paths.hostId)),
+    ])..orderBy([OrderingTerm.asc(_db.paths.directory)]);
+    return query.watch().map((rows) {
+      // Grouped in Dart rather than by a second query per host: the whole
+      // table is what the screen draws, so one join and one pass is the
+      // cheapest shape and the only one that stays a single stream.
+      final byHost = <String, List<AgentPath>>{};
+      final hosts = <String, Host>{};
+      for (final row in rows) {
+        final host = hostFromRow(row.readTable(_db.hosts));
+        hosts[host.id] = host;
+        (byHost[host.id] ??= []).add(_path(row.readTable(_db.paths)));
       }
-      for (final path in paths) {
-        await _db
-            .into(_db.paths)
-            .insertOnConflictUpdate(
-              PathsCompanion.insert(
-                id: path.id,
-                hostId: hostId,
-                directory: path.directory,
-                label: path.label,
-                createdAt: path.createdAt,
-              ),
-            );
-      }
+      final names = hosts.values.toList()
+        ..sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
+      return [
+        for (final host in names)
+          HostWorkspaces(host: host, paths: byHost[host.id]!),
+      ];
     });
   }
+
+  @override
+  Stream<List<PathTarget>> watchForProject(String projectId) =>
+      _targets((p) => p.projectId.equals(projectId));
+
+  @override
+  Stream<List<PathTarget>> watchUnlinked() =>
+      _targets((p) => p.projectId.isNull());
+
+  Stream<List<PathTarget>> _targets(Expression<bool> Function($PathsTable) where) {
+    final query = _db.select(_db.paths).join([
+      innerJoin(_db.hosts, _db.hosts.id.equalsExp(_db.paths.hostId)),
+    ]);
+    query.where(where(_db.paths));
+    query.orderBy([OrderingTerm.asc(_db.paths.directory)]);
+    return query.watch().map(
+      (rows) => [
+        for (final row in rows)
+          PathTarget(
+            path: _path(row.readTable(_db.paths)),
+            host: hostFromRow(row.readTable(_db.hosts)),
+          ),
+      ],
+    );
+  }
+
+  @override
+  Future<void> setProject(String pathId, String? projectId) async {
+    await (_db.update(_db.paths)..where((p) => p.id.equals(pathId))).write(
+      PathsCompanion(projectId: Value(projectId)),
+    );
+  }
+
+  @override
+  Future<void> repoint(String pathId, String directory) async {
+    await (_db.update(_db.paths)..where((p) => p.id.equals(pathId))).write(
+      PathsCompanion(
+        directory: Value(directory),
+        label: Value(defaultPathLabel(directory)),
+      ),
+    );
+  }
+
+  @override
+  Future<void> remove(String pathId) =>
+      _db.transaction(() => deletePathRows(_db, pathId));
 
   AgentPath _path(PathRow row) => AgentPath(
     id: row.id,
@@ -216,6 +291,7 @@ class DriftPathRepository implements PathRepository {
     directory: row.directory,
     label: row.label,
     createdAt: row.createdAt,
+    projectId: row.projectId,
   );
 }
 

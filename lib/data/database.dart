@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'spectacle'));
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   /// From v2 on there is real data on the user's handset, so the
   /// upgrade is additive — two new tables and two nullable columns, nothing
@@ -137,7 +137,13 @@ SELECT id, task_id, 'url', url, created_at FROM links
           '(SELECT agent FROM paths WHERE paths.id = dispatches.path_id), '
           "'claude')",
         );
-        await m.alterTable(TableMigration(paths));
+        // The rebuild takes its shape from the current definition, so every
+        // column added to `paths` after this migration was written is a column
+        // this rebuild has to be told about — it is not in the old table to be
+        // copied from.
+        await m.alterTable(
+          TableMigration(paths, newColumns: [paths.projectId]),
+        );
       }
       // One nullable column, not backfilled: a host with no password is the
       // host every build before this one had. Only from 7, as the host key
@@ -145,6 +151,17 @@ SELECT id, task_id, 'url', url, created_at FROM links
       // definition, which already carries it.
       if (from >= 7 && from < 13) {
         await m.addColumn(hosts, hosts.vncPassword);
+      }
+      // One nullable column and no backfill: a registered directory that
+      // predates the link belongs to no project, which is exactly what an
+      // unlinked one is, so the list this migration produces is the flat set
+      // the user already had.
+      //
+      // Only from 12. Below 9 `paths` is created above from the current
+      // definition, and 9 to 11 goes through the rebuild above, which is the
+      // same definition again — both already carry the column.
+      if (from >= 12 && from < 14) {
+        await m.addColumn(paths, paths.projectId);
       }
     },
   );
