@@ -156,6 +156,25 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('tabs running behind the named one are counted', (tester) async {
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    sessions.open(_rose);
+    await ready(tester);
+    expect(find.text('+1'), findsNothing);
+
+    sessions.open(_rose);
+    sessions.open(_nyx);
+    await ready(tester);
+
+    // NYX 1 in front, ROSE 1 and ROSE 2 behind it, on any host.
+    expect(find.text('NYX 1'), findsOneWidget);
+    expect(find.text('+2'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
   testWidgets('the last session closing takes the bar with it', (tester) async {
     await tester.pumpWidget(app());
     await ready(tester);
