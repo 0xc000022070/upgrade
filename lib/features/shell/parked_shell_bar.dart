@@ -31,16 +31,20 @@ class ParkedShellBar extends ConsumerWidget {
       builder: (context, _) {
         final session = store.parked;
         if (session == null) return const SizedBox.shrink();
-        return _Bar(session: session);
+        return _Bar(session: session, others: store.openCount - 1);
       },
     );
   }
 }
 
 class _Bar extends StatelessWidget {
-  const _Bar({required this.session});
+  const _Bar({required this.session, required this.others});
 
   final ShellSession session;
+
+  /// Tabs running behind the one named, on this host and on any other. The bar
+  /// leads to one shell, and this is how it says there are more.
+  final int others;
 
   @override
   Widget build(BuildContext context) {
@@ -79,6 +83,10 @@ class _Bar extends StatelessWidget {
                       color: SpectacleColors.textPrimary,
                     ),
                   ),
+                  if (others > 0) ...[
+                    const SizedBox(width: Spacing.md),
+                    Text('+$others', style: SpectacleText.panelHeader),
+                  ],
                   if (title != null) ...[
                     const SizedBox(width: Spacing.md),
                     Expanded(

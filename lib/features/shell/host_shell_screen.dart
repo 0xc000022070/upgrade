@@ -15,8 +15,11 @@ import '../../data/repositories/settings_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/key_cell.dart';
+import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
+import '../../design/icons/spectacle_icon.dart';
+import '../../design/icons/spectacle_icons.dart';
 import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
@@ -27,6 +30,7 @@ import '../hosts/host_key_sheet.dart';
 import 'attach_sheet.dart';
 import 'shell_bar.dart';
 import 'shell_sessions.dart';
+import 'shell_status.dart';
 
 /// The way in: a host panel's `SHELL >` row on HOSTS, a host row on SSH, or one
 /// of that tab's session cards, which names the session it wants on screen.
@@ -93,7 +97,7 @@ class ShellSheetRoute extends PopupRoute<void> {
     Animation<double> secondaryAnimation,
   ) {
     return _SheetFrame(
-      child: HostShellRoute(host: host, session: session),
+      child: _SheetContents(host: host, session: session),
     );
   }
 
@@ -362,15 +366,64 @@ const _reasonHeight = 32.0;
 /// readable share of the row.
 const _tabsShare = 0.55;
 
+/// What the sheet holds: one host's shell at a time, and the host it holds is
+/// the switcher's to change.
+///
+/// The shell is keyed by host id, so switching drops the state of the host
+/// being left and builds the one arrived at from its `initState` — the same
+/// path a fresh open takes, which is what makes the arriving host activate the
+/// tab it was asked for.
+class _SheetContents extends StatefulWidget {
+  const _SheetContents({required this.host, this.session});
+
+  final Host host;
+  final ShellSession? session;
+
+  @override
+  State<_SheetContents> createState() => _SheetContentsState();
+}
+
+class _SheetContentsState extends State<_SheetContents> {
+  late Host _host = widget.host;
+  late ShellSession? _session = widget.session;
+
+  void _switchTo(Host host, ShellSession session) {
+    if (host.id == _host.id) return;
+    setState(() {
+      _host = host;
+      _session = session;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return HostShellRoute(
+      key: ValueKey(_host.id),
+      host: _host,
+      session: _session,
+      onSwitchHost: _switchTo,
+    );
+  }
+}
+
 /// `/ <HOST> SHELL`: the host's own login shell, several at once as tabs.
 ///
 /// The sessions are not here. They live in the store, which outlives every
 /// visit — leaving and coming back finds the tabs where they were, still
 /// running, so this route's dispose closes nothing but the orientation lock.
 class HostShellRoute extends ConsumerStatefulWidget {
-  const HostShellRoute({super.key, required this.host, this.session});
+  const HostShellRoute({
+    super.key,
+    required this.host,
+    this.session,
+    this.onSwitchHost,
+  });
 
   final Host host;
+
+  /// How the shell hands the sheet another host to hold. Null where the shell
+  /// is not in a sheet, which leaves the header's host name a label.
+  final void Function(Host host, ShellSession session)? onSwitchHost;
 
   /// The tab to land on, when the way in named one. Null opens the host's last
   /// active tab, or its first shell when there is none.
@@ -535,6 +588,48 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     return answer ?? false;
   }
 
+  /// Every shell the app is holding, on every host, so the sheet can be handed
+  /// another host without going down and coming back up.
+  ///
+  /// Offered only while a second host has one: with a single host the tab row
+  /// beside the name is already the whole list.
+  Future<void> _openSwitcher() async {
+    final hosts = _store.openHosts;
+    final chosen = await showPanelSheet<(Host, ShellSession)>(
+      context,
+      title: 'SHELLS',
+      builder: (context) => PanelSheetBody(
+        title: 'SHELLS',
+        children: [
+          ListRowGroup(
+            children: [
+              for (final (host, sessions) in hosts)
+                for (final session in sessions)
+                  ListRow(
+                    key: ValueKey('shell-switch-${host.id}-${session.number}'),
+                    title: '${host.name.toUpperCase()} ${session.number}',
+                    subtitle: session.title,
+                    leading: ShellStateDot(state: session.state),
+                    value: identical(session, _store.activeFor(widget.host.id))
+                        ? 'ON SCREEN'
+                        : null,
+                    onTap: () =>
+                        Navigator.of(context).pop((host, session)),
+                  ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (!mounted || chosen == null) return;
+    final (host, session) = chosen;
+    if (host.id == widget.host.id) {
+      _store.activate(host.id, session);
+      return;
+    }
+    widget.onSwitchHost?.call(host, session);
+  }
+
   /// Whether the IME is up: what the system says it is showing, not what the
   /// view has focus. The two part company when the system back button hides
   /// the keyboard, which leaves the focus where it was.
@@ -689,6 +784,13 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                         sessions: sessions,
                         active: active,
                         canOpen: store.canOpen(widget.host.id),
+                        // A host to go to, and a sheet that can hold it: with
+                        // either missing the name is just the name.
+                        onSwitchHost:
+                            widget.onSwitchHost != null &&
+                                store.openHosts.length > 1
+                            ? _openSwitcher
+                            : null,
                         onSelect: _onSelect,
                         onNew: _onNew,
                         onClose: active == null ? null : () => _onClose(active),
@@ -1137,6 +1239,7 @@ class _Header extends StatelessWidget {
     required this.sessions,
     required this.active,
     required this.canOpen,
+    required this.onSwitchHost,
     required this.onSelect,
     required this.onNew,
     required this.onClose,
@@ -1147,6 +1250,10 @@ class _Header extends StatelessWidget {
   final List<ShellSession> sessions;
   final ShellSession? active;
   final bool canOpen;
+
+  /// Opens the list of every shell on every host, or null when this is the
+  /// only host with one.
+  final VoidCallback? onSwitchHost;
   final void Function(ShellSession session) onSelect;
   final VoidCallback onNew;
   final VoidCallback? onClose;
@@ -1164,12 +1271,7 @@ class _Header extends StatelessWidget {
         builder: (context, box) => Row(
           children: [
             const SizedBox(width: Spacing.screenEdge),
-            Text(
-              host.name.toUpperCase(),
-              style: SpectacleText.panelHeader.copyWith(
-                color: SpectacleColors.textPrimary,
-              ),
-            ),
+            _HostCell(name: host.name, onTap: onSwitchHost),
             const SizedBox(width: Spacing.lg),
             // The tabs take what they need and scroll for the rest, so a host
             // with nine shells open still has a header and not an overflow.
@@ -1212,6 +1314,45 @@ class _Header extends StatelessWidget {
             const SizedBox(width: Spacing.screenEdge),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The host the sheet is holding, and the way to another one.
+///
+/// A label until a second host has a shell, and a cell from then on: the mark
+/// beside the name is the whole of what says the name can be tapped.
+class _HostCell extends StatelessWidget {
+  const _HostCell({required this.name, required this.onTap});
+
+  final String name;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = Text(
+      name.toUpperCase(),
+      style: SpectacleText.panelHeader.copyWith(
+        color: SpectacleColors.textPrimary,
+      ),
+    );
+    if (onTap == null) return label;
+    return GestureDetector(
+      key: const ValueKey('shell-host-switch'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          label,
+          const SizedBox(width: Spacing.sm),
+          const SpectacleIcon(
+            SpectacleIcons.expand,
+            size: IconSizes.affordance,
+            color: SpectacleColors.textDisabled,
+          ),
+        ],
       ),
     );
   }

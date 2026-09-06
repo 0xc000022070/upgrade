@@ -271,6 +271,20 @@ class ShellSessions extends ChangeNotifier {
     return null;
   }
 
+  /// Every host that has a shell, in the order it first got one, each with its
+  /// tabs. The [Host] is the one its own sessions carry, which is the freshest
+  /// the store was handed.
+  List<(Host, List<ShellSession>)> get openHosts => [
+    for (final sessions in _byHost.values)
+      if (sessions.isNotEmpty)
+        (sessions.first.host, List.unmodifiable(sessions)),
+  ];
+
+  /// Tabs open across every host, which is what a way back has to account for
+  /// when it can only name one of them.
+  int get openCount =>
+      _byHost.values.fold(0, (total, sessions) => total + sessions.length);
+
   void activate(String hostId, ShellSession session) {
     _active[hostId] = session.number;
     _parkedHostId = hostId;
