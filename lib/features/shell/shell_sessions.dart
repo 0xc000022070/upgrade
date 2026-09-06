@@ -203,6 +203,23 @@ class ShellSession {
   /// by the tab closing, all three of which are the user deciding what happens
   /// next instead of the schedule.
   Timer? _reconnect;
+
+  bool _retired = false;
+
+  /// Lets go of the three listenables the view is handed rather than makes.
+  /// The view disposes only what it made itself, so a session that owns them
+  /// is the only thing that can, and a tab that has closed is the moment.
+  ///
+  /// Called at the end of the frame the tab was dropped in, never inside it: a
+  /// scroll controller disposed while a [Scrollable] is still attached fails
+  /// the detach that view is about to be asked for.
+  void dispose() {
+    if (_retired) return;
+    _retired = true;
+    controller.dispose();
+    focusNode.dispose();
+    scrollController.dispose();
+  }
 }
 
 /// Every host's shells, for as long as the app is running.
@@ -410,9 +427,21 @@ class ShellSessions extends ChangeNotifier {
     unawaited(session._output?.cancel());
     session._output = null;
     session._decoder = null;
+    _retire(session);
     final connection = session.connection;
     session.connection = null;
     await connection?.close();
+  }
+
+  /// Drops the session's controllers once the frame that removed its view has
+  /// run. [notifyListeners] is what takes the view out of the tree, and until
+  /// that rebuild happens the view is still attached to them.
+  void _retire(ShellSession session) {
+    WidgetsBinding.instance
+      ..addPostFrameCallback((_) => session.dispose())
+      // A close nothing else is watching would otherwise leave the callback
+      // waiting for a frame that has no reason to come.
+      ..ensureVisualUpdate();
   }
 
   /// What the user types goes to the remote, and every size the view settles

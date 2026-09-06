@@ -839,4 +839,114 @@ void main() {
       expect(transport.verifiers.single!.prompt, isNull);
     });
   });
+
+  group('a session lets go of what it owns', () {
+    /// A listenable that has been disposed refuses a new listener, which is
+    /// the only thing one says about itself from the outside.
+    void expectDisposed(ChangeNotifier notifier, String what) {
+      expect(
+        () => notifier.addListener(() {}),
+        throwsFlutterError,
+        reason: '$what should be disposed',
+      );
+    }
+
+    void expectAlive(ChangeNotifier notifier, String what) {
+      void listener() {}
+      expect(
+        () => notifier
+          ..addListener(listener)
+          ..removeListener(listener),
+        returnsNormally,
+        reason: '$what should still be alive',
+      );
+    }
+
+    testWidgets('closing a tab disposes its controllers once the frame has '
+        'run', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _pumpDial(tester);
+
+      await sessions.close(_rose.id, session);
+      // Still alive in the frame the tab was dropped in: the view holding
+      // them has not been rebuilt out of the tree yet.
+      expectAlive(session.controller, 'the selection controller');
+
+      await tester.pump();
+      expectDisposed(session.controller, 'the selection controller');
+      expectDisposed(session.focusNode, 'the focus node');
+      expectDisposed(session.scrollController, 'the scroll controller');
+    });
+
+    testWidgets('closing one tab leaves another tab alone', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final first = sessions.open(_rose)!;
+      final second = sessions.open(_rose)!;
+      await _pumpDial(tester);
+
+      await sessions.close(_rose.id, first);
+      await tester.pump();
+
+      expectDisposed(first.controller, "the closed tab's controller");
+      expectAlive(second.controller, "the open tab's controller");
+      expectAlive(second.focusNode, "the open tab's focus node");
+      expectAlive(second.scrollController, "the open tab's scroll controller");
+    });
+
+    testWidgets('a shell that exits clean disposes its own', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _pumpDial(tester);
+
+      transport.opened.single.exit(shellCleanExit);
+      await _pumpDial(tester);
+      await tester.pump();
+
+      expect(sessions.forHost(_rose.id), isEmpty);
+      expectDisposed(session.controller, "the exited tab's controller");
+      expectDisposed(session.scrollController, "the exited tab's scroll");
+    });
+
+    testWidgets('the view drawing the closed tab detaches without raising', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [shellSessionsProvider.overrideWithValue(sessions)],
+          child: const MaterialApp(home: HostShellRoute(host: _rose)),
+        ),
+      );
+      await tester.pump();
+      final first = sessions.forHost(_rose.id).single;
+      final second = sessions.open(_rose)!;
+      await _pumpDial(tester);
+      await tester.pump();
+
+      // The tab on screen goes, so its view is the one leaving the tree while
+      // the store retires what it was drawing with.
+      await sessions.close(_rose.id, second);
+      await tester.pump();
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(sessions.forHost(_rose.id), [first]);
+    });
+
+    test('retiring twice is a no-op', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      session.dispose();
+      expect(session.dispose, returnsNormally);
+    });
+  });
 }
