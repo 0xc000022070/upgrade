@@ -52,7 +52,14 @@ class AgentsPanel extends ConsumerWidget {
         horizontal: Spacing.panelPadding,
         vertical: Spacing.md,
       ),
+      // The feed is rebuilt on every watcher report, and a rebuilt
+      // StreamProvider passes through loading before its first event lands.
+      // Without this the body collapses to the spinner's 12px for a frame on
+      // every poll, which reads as a blink and shoves NEXT ACTION and DROPS up
+      // and back down. The spinner is for the first load, when there is nothing
+      // to hold.
       child: value.when(
+        skipLoadingOnReload: true,
         loading: () => const DelayedSpinner(),
         error: (error, _) => _DimLine('error: $error'),
         data: (data) => _AgentsBody(data: data, now: now ?? DateTime.now()),
