@@ -92,6 +92,19 @@ void main() {
       expect(take(terminal, 3, 1), url);
     });
 
+    test('a glyph wider than one cell does not slide the columns after it', () {
+      // The flattened line must be one UTF-16 unit per cell or an index stops
+      // being a column: '名' occupies two cells and the second holds no code
+      // point of its own, and an emoji is a surrogate pair in one cell run.
+      final terminal = terminalWith('名前 https://x.dev/a 😀 tail\r\n');
+      expect(take(terminal, 6, 0), 'https://x.dev/a');
+      expect(take(terminal, 25, 0), 'tail');
+      // The wide run is its own token, and the trailing half of a wide cell
+      // belongs to the glyph rather than splitting it.
+      expect(take(terminal, 0, 0), '名前');
+      expect(take(terminal, 1, 0), '名前');
+    });
+
     test('a press past the last row has nothing under it', () {
       final terminal = terminalWith('one\r\n');
       expect(terminal.buffer.getTokenBoundary(const CellOffset(0, 99)), isNull);
