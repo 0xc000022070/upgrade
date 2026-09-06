@@ -1,5 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
+import 'package:xterm/src/core/buffer/cell_offset.dart';
+import 'package:xterm/src/core/buffer/line.dart';
 import 'package:xterm/src/core/mouse/button.dart';
 import 'package:xterm/src/core/mouse/button_state.dart';
 import 'package:xterm/src/terminal_view.dart';
@@ -55,14 +57,67 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
 
   RenderTerminal get renderTerminal => terminalView.renderTerminal;
 
-  DragStartDetails? _lastDragStartDetails;
+  /// Where the finger went down, as a cell in the buffer rather than a pixel
+  /// on the screen. Spectacle patch.
+  ///
+  /// A long press is reported half a second after the down, and a drag frames
+  /// later still; a shell that is printing has scrolled the buffer under a
+  /// held finger by then, so the pixel it landed on now covers whatever text
+  /// has since risen into it — the selection lands rows away from the words
+  /// the user pressed. An anchor is the buffer's own handle on that cell and
+  /// follows the line wherever the scrollback carries it, so the press is
+  /// resolved once, when it happens, and read back later.
+  CellAnchor? _pressAnchor;
 
-  LongPressStartDetails? _lastLongPressStartDetails;
+  /// The pointer the anchor belongs to. A second finger is a pinch, not a
+  /// selection, and must not move where the first one landed.
+  int? _pressPointer;
+
+  @override
+  void dispose() {
+    _dropAnchor();
+    super.dispose();
+  }
+
+  void _dropAnchor() {
+    _pressAnchor?.dispose();
+    _pressAnchor = null;
+    _pressPointer = null;
+  }
+
+  void _onPointerDown(PointerDownEvent event) {
+    if (_pressPointer != null) return;
+    _dropAnchor();
+    final render = terminalView.renderTerminal;
+    final cell = render.getCellOffset(render.globalToLocal(event.position));
+    _pressPointer = event.pointer;
+    _pressAnchor = terminalView.widget.terminal.buffer.createAnchorFromOffset(
+      cell,
+    );
+  }
+
+  void _onPointerFinished(PointerEvent event) {
+    if (event.pointer != _pressPointer) return;
+    _dropAnchor();
+  }
+
+  /// The cell the press started on, or null once the line it was on has been
+  /// pushed out of the scrollback — there is nothing left to anchor to, and a
+  /// stale row index would be the same bug in another form.
+  CellOffset? get _pressCell {
+    final anchor = _pressAnchor;
+    return anchor != null && anchor.attached ? anchor.offset : null;
+  }
 
   @override
   Widget build(BuildContext context) {
     return TerminalGestureDetector(
-      child: widget.child,
+      child: Listener(
+        onPointerDown: _onPointerDown,
+        onPointerUp: _onPointerFinished,
+        onPointerCancel: _onPointerFinished,
+        child: widget.child,
+      ),
       onTapUp: widget.onTapUp,
       onSingleTapUp: onSingleTapUp,
       onTapDown: onTapDown,
@@ -178,31 +233,36 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
   }
 
   void onLongPressStart(LongPressStartDetails details) {
-    _lastLongPressStartDetails = details;
-    renderTerminal.selectWord(details.localPosition);
+    final from = _pressCell;
+    if (from == null) return;
+    renderTerminal.selectWordAt(from);
   }
 
   void onLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
-    renderTerminal.selectWord(
-      _lastLongPressStartDetails!.localPosition,
-      details.localPosition,
+    final from = _pressCell;
+    if (from == null) return;
+    renderTerminal.selectWordAt(
+      from,
+      renderTerminal.getCellOffset(details.localPosition),
     );
   }
 
   // void onLongPressUp() {}
 
   void onDragStart(DragStartDetails details) {
-    _lastDragStartDetails = details;
-
+    final from = _pressCell;
+    if (from == null) return;
     details.kind == PointerDeviceKind.mouse
-        ? renderTerminal.selectCharacters(details.localPosition)
-        : renderTerminal.selectWord(details.localPosition);
+        ? renderTerminal.selectCharactersAt(from)
+        : renderTerminal.selectWordAt(from);
   }
 
   void onDragUpdate(DragUpdateDetails details) {
-    renderTerminal.selectCharacters(
-      _lastDragStartDetails!.localPosition,
-      details.localPosition,
+    final from = _pressCell;
+    if (from == null) return;
+    renderTerminal.selectCharactersAt(
+      from,
+      renderTerminal.getCellOffset(details.localPosition),
     );
   }
 }

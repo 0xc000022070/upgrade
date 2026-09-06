@@ -60,8 +60,9 @@ dependencies:
 # offset. Claude Code runs on the alternate screen with mouse reporting on, so
 # its transcript never saw the scroll. packages/xterm is the release with both
 # lines fixed, a keyboardOnTap flag on the view so a tap on the shell is not a
-# call for the IME, and a touch selection that follows the finger; see its
-# pubspec.
+# call for the IME, and a touch selection that follows the finger, stays on the
+# cell the press landed on while the shell prints, and takes URLs and paths
+# whole; see its pubspec.
 dependency_overrides:
   xterm:
     path: packages/xterm

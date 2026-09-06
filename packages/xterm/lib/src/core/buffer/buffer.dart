@@ -4,6 +4,7 @@ import 'package:xterm/src/core/buffer/cell_offset.dart';
 import 'package:xterm/src/core/buffer/line.dart';
 import 'package:xterm/src/core/buffer/range_line.dart';
 import 'package:xterm/src/core/buffer/range.dart';
+import 'package:xterm/src/core/buffer/token.dart';
 import 'package:xterm/src/core/charset.dart';
 import 'package:xterm/src/core/cursor.dart';
 import 'package:xterm/src/core/reflow.dart';
@@ -510,6 +511,57 @@ class Buffer {
     r'/'.codeUnitAt(0),
     r'\'.codeUnitAt(0),
   };
+
+  /// The token under [position]: the run of non-blank cells around it, taken
+  /// across a soft wrap and less the punctuation the run only happens to end
+  /// in. Null when the cell under [position] is blank, which is the caller's
+  /// to answer. See token.dart for the rule. Spectacle patch.
+  BufferRangeLine? getTokenBoundary(CellOffset position) {
+    final width = viewWidth;
+    if (width <= 0 || position.y < 0 || position.y >= lines.length) return null;
+
+    // A wrapped row is a continuation of the one above it, so the logical line
+    // is walked out in both directions before it is read: a URL that ran off
+    // the right edge is one token and is selected as one.
+    var first = position.y;
+    while (first > 0 && lines[first].isWrapped) {
+      first--;
+    }
+    var last = position.y;
+    while (last + 1 < lines.length && lines[last + 1].isWrapped) {
+      last++;
+    }
+
+    // One UTF-16 unit per cell, so a match's index is a column: getText skips
+    // empty cells and would slide every offset after the first gap. A blank
+    // cell reads as a space, and the trailing half of a wide character as a
+    // replacement, which keeps it inside its run rather than splitting it.
+    final text = StringBuffer();
+    for (var y = first; y <= last; y++) {
+      final line = lines[y];
+      for (var x = 0; x < width; x++) {
+        final code = x < line.length ? line.getCodePoint(x) : 0;
+        if (code == 0) {
+          final wide = x > 0 && x - 1 < line.length && line.getWidth(x - 1) > 1;
+          text.writeCharCode(wide ? 0xfffd : 0x20);
+        } else if (code > 0xffff) {
+          text.writeCharCode(0xfffd);
+        } else {
+          text.writeCharCode(code);
+        }
+      }
+    }
+
+    final span = tokenAt(
+      text.toString(),
+      (position.y - first) * width + position.x,
+    );
+    if (span == null) return null;
+
+    CellOffset at(int index) =>
+        CellOffset(index % width, first + index ~/ width);
+    return BufferRangeLine(at(span.start), at(span.end));
+  }
 
   BufferRangeLine? getWordBoundary(CellOffset position) {
     var separators = wordSeparators ?? defaultWordSeparators;

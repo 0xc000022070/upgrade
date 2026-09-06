@@ -981,6 +981,7 @@ class _SelectionActionsState extends State<_SelectionActions> {
   @override
   void dispose() {
     _unlisten(widget.session);
+    _releaseGrip();
     super.dispose();
   }
 
@@ -1017,22 +1018,34 @@ class _SelectionActionsState extends State<_SelectionActions> {
   /// drag: the selection is normalised on every read, so once the finger
   /// crosses the other end the range no longer says which end is the still
   /// one. The cell itself and not the range's end, which is one past it.
-  CellOffset? _held;
+  ///
+  /// An anchor and not a [CellOffset], because a row index is only true of the
+  /// buffer that answered it: output arriving mid-drag pushes the scrollback
+  /// along and the still end would walk up the screen with it.
+  CellAnchor? _held;
 
   void _onGripStart(_SelectionPart grip) {
     final range = widget.session.controller.selection?.normalized;
     if (range == null) return;
-    _held = grip == _SelectionPart.begin
+    final cell = grip == _SelectionPart.begin
         ? CellOffset(math.max(0, range.end.x - 1), range.end.y)
         : range.begin;
+    _releaseGrip();
+    _held = widget.session.terminal.buffer.createAnchorFromOffset(cell);
+  }
+
+  void _releaseGrip() {
+    _held?.dispose();
+    _held = null;
   }
 
   /// The selection runs from the held cell to the one under the finger,
   /// whichever way round they are, and takes both.
   void _onGripDrag(Offset global) {
-    final held = _held;
+    final anchor = _held;
     final render = _terminalKey(widget.session).currentState?.renderTerminal;
-    if (held == null || render == null) return;
+    if (anchor == null || !anchor.attached || render == null) return;
+    final held = anchor.offset;
     final buffer = widget.session.terminal.buffer;
     final under = render.getCellOffset(render.globalToLocal(global));
     final first = under.isBefore(held) ? under : held;
@@ -1070,6 +1083,7 @@ class _SelectionActionsState extends State<_SelectionActions> {
               lineHeight: lineHeight,
               onStart: () => _onGripStart(part),
               onDrag: _onGripDrag,
+              onFinish: _releaseGrip,
             ),
           ),
         LayoutId(
@@ -1125,11 +1139,13 @@ class _Grip extends StatelessWidget {
     required this.lineHeight,
     required this.onStart,
     required this.onDrag,
+    required this.onFinish,
   });
 
   final double lineHeight;
   final VoidCallback onStart;
   final ValueChanged<Offset> onDrag;
+  final VoidCallback onFinish;
 
   static const bar = 2.0;
   static const knob = 10.0;
@@ -1149,6 +1165,8 @@ class _Grip extends StatelessWidget {
                 recognizer.onStart = (_) => onStart();
                 recognizer.onUpdate = (details) =>
                     onDrag(details.globalPosition);
+                recognizer.onEnd = (_) => onFinish();
+                recognizer.onCancel = onFinish;
               },
             ),
       },
