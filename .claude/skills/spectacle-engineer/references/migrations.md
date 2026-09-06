@@ -1,6 +1,6 @@
 # Schema and migrations
 
-- One schema bump per phase, additive `onUpgrade` blocks, cumulative with the earlier ones.
+- One schema bump per feature that needs one, additive `onUpgrade` blocks, cumulative with the earlier ones.
 - SQLite foreign keys are not enabled in this database. Every `REFERENCES` clause is documentation. Cascades and restrictions live in Dart, inside one transaction, with a test asserting the row survives a refusal.
 - Selections and defaults are absence of a row, never a backfilled value. A fresh install has no host.
 - Migration proof, required whenever the version moves, from `build/baseline/faraday-2026-09-01-release.apk`:

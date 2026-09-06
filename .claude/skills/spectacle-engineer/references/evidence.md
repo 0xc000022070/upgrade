@@ -1,8 +1,6 @@
-# Evidence and report
+# Evidence
 
-## Evidence
-
-Directory `evidence/phaseN/` in your scratchpad. README capped at: what shipped, checks, evidence index, deviations.
+Directory `evidence/<feature>/` in your scratchpad, with a README capped at: what shipped, the checks that ran, the evidence index.
 
 - Numbered PNGs, one per spec claim, in spec order. Cropped variants for header details, suffixed `b`.
 - Glitch effects via `screenrecord`, cut into consecutive frames.
@@ -10,9 +8,3 @@ Directory `evidence/phaseN/` in your scratchpad. README capped at: what shipped,
 - Zero-network claims come with a capture or a log line, not a sentence.
 - Park release apks at `rose:/tmp/spectacle-v<N>.apk` and state the md5. Emulator install in place; report `versionCode`, `firstInstallTime`, `lastUpdateTime`.
 - Reset the emulator display with `wm size reset` when done.
-
-## Report
-
-`herdr agent prompt wQ:p1 "BUILDER DONE: ..."` or `"CODEX DONE: ..."`.
-
-Include: files touched; tests added and total passing; failures in other agents' in-flight files by name and count, untouched; evidence path; the migration proof line; emulator install state; deviations with the reason. No evidence, no DONE.
