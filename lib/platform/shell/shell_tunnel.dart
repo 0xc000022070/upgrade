@@ -251,7 +251,29 @@ Future<ShellHost> dialSsh({
   HostKeyVerifier? verifier,
 }) async {
   final socket = await SSHSocket.connect(address, port, timeout: timeout);
-  final client = SSHClient(
+  return sshHostOver(
+    socket,
+    user: user,
+    privateKey: privateKey,
+    timeout: timeout,
+    keepAlive: keepAlive,
+    verifier: verifier,
+  );
+}
+
+/// The client over a socket that is already open. Split from [dialSsh] because
+/// the socket is the one half a test cannot have, and what happens to a
+/// connection that dies under the handshake is worth a test.
+ShellHost sshHostOver(
+  SSHSocket socket, {
+  required String user,
+  required String privateKey,
+  required Duration timeout,
+  required Duration keepAlive,
+  HostKeyVerifier? verifier,
+}) => _SshHost(
+  socket,
+  SSHClient(
     socket,
     username: user,
     identities: SSHKeyPair.fromPem(privateKey),
@@ -259,9 +281,8 @@ Future<ShellHost> dialSsh({
     authTimeout: timeout,
     keepAliveInterval: keepAlive,
     onVerifyHostKey: verifier?.verify,
-  );
-  return _SshHost(socket, client);
-}
+  ),
+);
 
 class _SshHost implements ShellHost {
   _SshHost(this._socket, this._client);
@@ -285,7 +306,11 @@ class _SshHost implements ShellHost {
   @override
   Future<void> close() async {
     _client.close();
-    _socket.close();
+    // Closing a socket the host reset finishes with the reset, and every dial
+    // that failed closes what it opened: unawaited, that error escapes to the
+    // zone and every unreachable host puts an unhandled exception in the log
+    // beside the failure the app had already worded.
+    await _socket.close().catchError((Object _) {});
   }
 }
 

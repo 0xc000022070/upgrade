@@ -91,7 +91,7 @@ class FakeShellTransport {
 
   /// Set to make the next dial fail, cleared to let it succeed. Null keeps a
   /// dial pending forever, which is how `CONNECTING` is held still.
-  ShellFailure? refuse;
+  Object? refuse;
   var stall = false;
 
   /// The dials [stall] is holding, so a test can let one land late — after

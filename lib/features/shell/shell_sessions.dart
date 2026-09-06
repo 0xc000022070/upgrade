@@ -54,9 +54,13 @@ final class ShellDropped extends ShellState {
 }
 
 final class ShellFailed extends ShellState {
-  const ShellFailed(this.kind);
+  const ShellFailed(this.kind, {this.detail});
 
   final ShellFailureKind kind;
+
+  /// What the transport said, under the line the header draws. Null when the
+  /// failure was the app's own and there is nothing beneath the words.
+  final String? detail;
 }
 
 /// How long the store waits before each reconnect, and so how many it makes.
@@ -194,6 +198,11 @@ class ShellSession extends ChangeNotifier {
   /// the pixel size moved.
   int? _columns;
   int? _rows;
+
+  /// What the last dial failed with, held across the waits between dials: a
+  /// schedule that runs out shows what the last one hit, not the drop that
+  /// started it. Dropped by a dial that lands.
+  String? _detail;
 
   /// The dial that holds the tab. Taken by every dial that starts and by
   /// everything that ends one, so whatever it replaced goes quiet.
@@ -633,6 +642,7 @@ class ShellSessions extends ChangeNotifier {
         return;
       }
       session.connection = connection;
+      session._detail = null;
       session.clipboard = null;
       session._probing = null;
       session._columns = columns;
@@ -689,6 +699,9 @@ class ShellSessions extends ChangeNotifier {
     final kind = error is ShellFailure
         ? error.kind
         : ShellFailureKind.streamClosed;
+    // A throw the transport has no reason for is worth its own words: the
+    // line reads `stream closed`, which on its own says nothing at all.
+    session._detail = error is ShellFailure ? error.detail : '$error';
     final was = session.state;
     final dropped = was is ShellDropped ? was.attempt : 0;
     // Every dial the link itself lost, the first one included: there is no
@@ -698,7 +711,7 @@ class ShellSessions extends ChangeNotifier {
       _drop(session, dropped + 1);
       return;
     }
-    session.state = ShellFailed(kind);
+    session.state = ShellFailed(kind, detail: session._detail);
     session.changed();
   }
 
@@ -710,7 +723,10 @@ class ShellSessions extends ChangeNotifier {
     session._disown();
     session._reconnect?.cancel();
     session._reconnect = null;
-    session.state = const ShellFailed(ShellFailureKind.streamClosed);
+    session.state = ShellFailed(
+      ShellFailureKind.streamClosed,
+      detail: session._detail,
+    );
     session.changed();
   }
 

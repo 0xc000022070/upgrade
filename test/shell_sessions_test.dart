@@ -531,6 +531,62 @@ void main() {
     expect(transport.sizes, isEmpty);
   });
 
+  test('a failure carries the words the transport failed with', () async {
+    final transport = FakeShellTransport()
+      ..refuse = const ShellFailure(
+        ShellFailureKind.keyRejected,
+        detail: 'SSHAuthFailError: publickey',
+      );
+    final sessions = fakeShellSessions(transport);
+
+    final session = sessions.open(_rose)!;
+    await _settle();
+
+    final state = session.state as ShellFailed;
+    expect(state.kind, ShellFailureKind.keyRejected);
+    expect(state.detail, 'SSHAuthFailError: publickey');
+  });
+
+  testWidgets('an error nobody mapped keeps its own words', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+
+    transport.opened.single.drop(StateError('no route to host'));
+    await tester.pump();
+    sessions.stopReconnect(session);
+    await tester.pump();
+
+    // The one failure the app has no word for is the one whose text is
+    // always kept, and giving up shows what the last dial hit.
+    final state = session.state as ShellFailed;
+    expect(state.kind, ShellFailureKind.streamClosed);
+    expect(state.detail, contains('no route to host'));
+
+    await sessions.close(_rose.id, session);
+  });
+
+  testWidgets('a shell that came back carries no detail', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+
+    transport.opened.single.drop(StateError('gone'));
+    await tester.pump();
+    await tester.pump(shellReconnectDelays.first);
+    await _pumpDial(tester);
+    expect(session.state, isA<ShellLive>());
+
+    transport.opened.last.drop(const ShellFailure(ShellFailureKind.keyRejected));
+    await tester.pump();
+
+    expect((session.state as ShellFailed).detail, isNull);
+
+    await sessions.close(_rose.id, session);
+  });
+
   test('every failure carries the reason line the header draws', () {
     expect(
       shellReason(ShellFailureKind.unreachable, 'ROSE'),

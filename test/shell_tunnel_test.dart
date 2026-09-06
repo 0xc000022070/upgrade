@@ -14,6 +14,52 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:spectacle/platform/shell/shell_connection.dart';
 import 'package:spectacle/platform/shell/shell_tunnel.dart';
 import 'package:spectacle/platform/host_keys.dart';
+import 'package:spectacle/platform/keys.dart';
+
+/// A socket that answers a dial and then goes away mid-handshake, which is
+/// what a host that resets the connection looks like from here. `dart:io`
+/// reports a reset on both ends of the socket: the stream the transport reads
+/// and the `done` nothing in dartssh2 is holding.
+class RudeSocket implements SSHSocket {
+  final _incoming = StreamController<Uint8List>();
+  final _outgoing = StreamController<List<int>>();
+  final _done = Completer<void>();
+
+  @override
+  Stream<Uint8List> get stream => _incoming.stream;
+
+  @override
+  StreamSink<List<int>> get sink => _outgoing.sink;
+
+  @override
+  Future<void> get done => _done.future;
+
+  static const _reason = SocketException('Connection reset by peer');
+
+  var _reset = false;
+
+  @override
+  Future<void> close() async {
+    if (_reset) throw _reason;
+    if (!_done.isCompleted) _done.complete();
+  }
+
+  @override
+  void destroy() {
+    if (!_done.isCompleted) _done.complete();
+  }
+
+  @override
+  Future<void> flush() async {}
+
+  /// The host going away under the handshake: the stream the transport reads
+  /// errors, and the close that follows fails the way `dart:io` fails the
+  /// close of a socket that was reset under it.
+  void reset() {
+    _reset = true;
+    _incoming.addError(_reason);
+  }
+}
 
 class FakePty implements ShellPty {
   final _stdout = StreamController<Uint8List>();
@@ -410,5 +456,33 @@ void main() {
 
       expect(host.closed, isTrue);
     });
+  });
+
+  test('a dial that fails leaves no unhandled error behind', () async {
+    final keys = Ed25519Keys(MemoryPrivateKeyStore());
+    await keys.generate(id: 'key-1', name: 'spectacle');
+    final privateKey = (await keys.privateKey('key-1'))!;
+
+    final loose = <Object>[];
+    final socket = RudeSocket();
+    await runZonedGuarded(() async {
+      final host = sshHostOver(
+        socket,
+        user: 'luis',
+        privateKey: privateKey,
+        timeout: const Duration(seconds: 1),
+        keepAlive: const Duration(seconds: 15),
+      );
+      socket.reset();
+      await expectLater(host.authenticated, throwsA(anything));
+      // What the tunnel does with a dial that failed: half-open is worse
+      // than none.
+      await host.close();
+    }, (error, _) => loose.add(error));
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    // The dial threw and the caller worded it. The client finishing its own
+    // end with the same error is not a second failure to report.
+    expect(loose, isEmpty);
   });
 }
