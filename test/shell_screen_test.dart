@@ -977,6 +977,105 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('output arriving under a held finger leaves the press where '
+        'it landed', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      final shell = transport.opened.single;
+      shell.emit('target\r\n');
+      await ready(tester);
+      final session = sessions.activeFor(_rose.id)!;
+
+      // The finger goes down on the word, then the shell prints past the
+      // bottom of the view before the half second is up. The buffer scrolls
+      // under the finger, so by the time the long press is reported the pixel
+      // it is on covers a line that was not there when it landed.
+      final gesture = await tester.startGesture(cellAt(tester, 2, 0));
+      shell.emit(
+        List.generate(
+          session.terminal.viewHeight + 10,
+          (i) => 'line $i\r\n',
+        ).join(),
+      );
+      await ready(tester);
+      await gesture.up();
+      await ready(tester);
+
+      expect(
+        session.terminal.buffer.getText(session.controller.selection),
+        'target',
+      );
+
+      await unmount(tester);
+    });
+
+    testWidgets('a press takes the run it lands in, and the URL inside that '
+        'run', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      transport.opened.single.emit('see url=https://x.dev/a/b?c=1 (done).\r\n');
+      await ready(tester);
+      final session = sessions.activeFor(_rose.id)!;
+      String selected() =>
+          session.terminal.buffer.getText(session.controller.selection);
+
+      Future<void> press(int x) async {
+        final gesture = await hold(tester, cellAt(tester, x, 0));
+        await tester.pump();
+        await gesture.up();
+        await ready(tester);
+      }
+
+      // Inside the link: the scheme wins over the run it sits in, so the
+      // `url=` prefix is left behind.
+      await press(18);
+      expect(selected(), 'https://x.dev/a/b?c=1');
+
+      // Outside it, on the prefix: no scheme under the finger, so the whole
+      // run comes, `=` and all.
+      await press(5);
+      expect(selected(), 'url=https://x.dev/a/b?c=1');
+
+      // A word the sentence wrapped and punctuated: the brackets and the stop
+      // are not part of it.
+      await press(32);
+      expect(selected(), 'done');
+
+      await unmount(tester);
+    });
+
+    testWidgets('a URL broken over a soft wrap is still one press', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      final session = sessions.activeFor(_rose.id)!;
+      // Longer than the view is wide, so the terminal wraps it onto the next
+      // row without a line of its own.
+      final url = 'https://x.dev/${'a' * (session.terminal.viewWidth + 20)}';
+      transport.opened.single.emit('$url\r\n');
+      await ready(tester);
+      expect(session.terminal.buffer.lines[1].isWrapped, isTrue);
+
+      final gesture = await hold(tester, cellAt(tester, 5, 0));
+      await tester.pump();
+      await gesture.up();
+      await ready(tester);
+
+      expect(
+        session.terminal.buffer.getText(session.controller.selection),
+        url,
+      );
+
+      await unmount(tester);
+    });
+
     testWidgets('the highlight is a wash the text shows through', (
       tester,
     ) async {

@@ -254,14 +254,21 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     );
   }
 
-  /// Selects entire words in the terminal that contains [from] and [to].
-  /// Select the word under [from], extended to the word under [to]. A point
-  /// with no word under it stands for its own cell, so a press on a gap still
+  /// Select the token under [from], extended to the token under [to]. A point
+  /// with no token under it stands for its own cell, so a press on a gap still
   /// selects and a drag across one still follows the finger. Spectacle patch.
   void selectWord(Offset from, [Offset? to]) {
-    var range = _wordOrCell(getCellOffset(from));
+    selectWordAt(getCellOffset(from), to == null ? null : getCellOffset(to));
+  }
+
+  /// [selectWord] in the buffer's own coordinates, for a caller holding a cell
+  /// it resolved earlier: a pixel is only worth what the scroll offset was
+  /// when the finger landed on it, and a shell that is printing moves the line
+  /// under a held finger before the long press is reported. Spectacle patch.
+  void selectWordAt(CellOffset from, [CellOffset? to]) {
+    var range = _tokenOrCell(from);
     if (to != null) {
-      range = range.merge(_wordOrCell(getCellOffset(to)));
+      range = range.merge(_tokenOrCell(to));
     }
     _controller.setSelection(
       _terminal.buffer.createAnchorFromOffset(range.begin),
@@ -270,20 +277,27 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     );
   }
 
-  BufferRangeLine _wordOrCell(CellOffset offset) {
-    return _terminal.buffer.getWordBoundary(offset) ??
+  BufferRangeLine _tokenOrCell(CellOffset offset) {
+    return _terminal.buffer.getTokenBoundary(offset) ??
         BufferRangeLine(offset, CellOffset(offset.x + 1, offset.y));
   }
 
   void selectCharacters(Offset from, [Offset? to]) {
-    final fromPosition = getCellOffset(from);
+    selectCharactersAt(
+      getCellOffset(from),
+      to == null ? null : getCellOffset(to),
+    );
+  }
+
+  /// [selectCharacters] in the buffer's own coordinates. Spectacle patch.
+  void selectCharactersAt(CellOffset fromPosition, [CellOffset? to]) {
     if (to == null) {
       _controller.setSelection(
         _terminal.buffer.createAnchorFromOffset(fromPosition),
         _terminal.buffer.createAnchorFromOffset(fromPosition),
       );
     } else {
-      var toPosition = getCellOffset(to);
+      var toPosition = to;
       if (toPosition.x >= fromPosition.x) {
         toPosition = CellOffset(toPosition.x + 1, toPosition.y);
       }

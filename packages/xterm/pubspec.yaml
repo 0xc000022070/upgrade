@@ -4,13 +4,17 @@
 #   lib/src/core/mouse/button.dart          wheel button ids 64-67, not 68-71
 #   lib/src/ui/scroll_handler.dart          local pointer position, not global
 #   lib/src/terminal_view.dart              keyboardOnTap, a tap need not raise the IME
-#   lib/src/ui/render.dart                  selectWord falls back to the cell on a gap
-#   lib/src/ui/gesture/gesture_handler.dart a touch tap acts on the up, not the deadline
+#   lib/src/ui/render.dart                  selectWord falls back to the cell on a gap,
+#                                           and selects by cell as well as by pixel
+#   lib/src/ui/gesture/gesture_handler.dart a touch tap acts on the up, not the deadline,
+#                                           and a press is anchored at pointer-down
+#   lib/src/core/buffer/token.dart          new: the run rule a long press selects by
+#   lib/src/core/buffer/buffer.dart         getTokenBoundary, across soft wraps
 # Drop this directory and the dependency_overrides entry once a release of
 # xterm carries all of them.
 name: xterm
 description: xterm.dart is a fast and fully-featured terminal emulator for Flutter applications, with support for mobile and desktop platforms.
-version: 4.0.0+spectacle.2
+version: 4.0.0+spectacle.3
 homepage: https://github.com/TerminalStudio/xterm.dart
 publish_to: none
 
