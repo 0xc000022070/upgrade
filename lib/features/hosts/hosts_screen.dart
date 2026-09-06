@@ -25,7 +25,7 @@ import '../screen_scaffold.dart';
 import '../settings/host_form_screen.dart';
 import '../settings/key_detail_screen.dart';
 import '../settings/key_form_screen.dart';
-import '../shell/host_shell_screen.dart';
+import '../shell/shell_sheet.dart';
 import '../shell/shell_sessions.dart';
 import '../shell/shell_status.dart';
 import '../shell/shell_watcher.dart';

@@ -5,7 +5,7 @@ import '../../design/colors.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
-import 'host_shell_screen.dart';
+import 'shell_sheet.dart';
 import 'shell_sessions.dart';
 import 'shell_watcher.dart';
 import 'shell_status.dart';
@@ -61,8 +61,7 @@ class _Bar extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       // The session, not the host: the bar names one tab and lands on the tab
       // it names.
-      onTap: () =>
-          openHostShell(context, session.host, session: session),
+      onTap: () => openHostShell(context, session.host, session: session),
       child: DecoratedBox(
         decoration: const BoxDecoration(
           color: SpectacleColors.surfacePrimary,

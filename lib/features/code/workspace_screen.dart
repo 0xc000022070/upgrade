@@ -13,7 +13,7 @@ import '../../design/spacing.dart';
 import '../../platform/shell/remote_shell.dart';
 import '../../platform/workspace/workspace_model.dart';
 import '../screen_scaffold.dart';
-import '../shell/host_shell_screen.dart';
+import '../shell/shell_sheet.dart';
 import 'diff_sheet.dart';
 import 'explorer_screen.dart';
 import 'workspace_controller.dart';

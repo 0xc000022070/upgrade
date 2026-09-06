@@ -4,7 +4,7 @@ import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
-import 'host_shell_screen.dart';
+import 'shell_sheet.dart';
 import 'shell_sessions.dart';
 import 'shell_status.dart';
 import 'shell_thumbnail.dart';
