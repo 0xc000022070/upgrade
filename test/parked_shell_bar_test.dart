@@ -87,7 +87,7 @@ void main() {
 
     expect(bar, findsOneWidget);
     expect(find.text('ROSE 1'), findsOneWidget);
-    expect(find.text('RESUME'), findsOneWidget);
+    expect(find.text('TAP TO RESUME'), findsOneWidget);
     // Over the nav bar and against it: the two are one block at the foot of
     // every tab.
     expect(

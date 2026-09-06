@@ -752,3 +752,9 @@ Amends §39.13's "No text blocks, no bottom bar; the capture bar stays where it 
 - Struck (2026-09-05): a second row of host chips over the tab row. The tab row is already the widest thing in a 36 px header and the second host is the exception, not the rule; a list that opens on demand costs nothing when one host is up.
 - Regression tests: one host leaves the name a label; a second host makes it a cell, and the sheet lists every session across hosts with `ON SCREEN` on the one in front; picking another host's tab keeps the same route and shows that host, and the drag out still lands on the tab; picking a tab on the host in front activates it; the host switched to is the one the bar names; tabs behind the named one are counted.
 - Ownership: one session; `lib/features/shell/host_shell_screen.dart`, `lib/features/shell/parked_shell_bar.dart`, `lib/features/shell/shell_sessions.dart` and their tests. Version bumps with the build that ships it.
+
+### 39.54 The parked bar's verb reads TAP TO RESUME (user, 2026-09-05, on §39.52: "i think that it should say \"tap to resume\" instead")
+- `RESUME` alone names what happens but not what does it. The bar is not a button with a border and it is not a row in a list; it is a strip that sits over the nav bar, and nothing else on it says the whole strip takes a tap. Amends §39.52's right-edge cell.
+- What changes: the accent text at the right edge reads `TAP TO RESUME`. Same style, same place, same target — the whole bar, not the words.
+- Regression tests: as §39.52, with the bar's verb read as `TAP TO RESUME`.
+- Ownership: one session; `lib/features/shell/parked_shell_bar.dart` and its test. No version bump: it ships with whatever build follows.
