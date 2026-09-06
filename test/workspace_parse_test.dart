@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectacle/platform/shell/remote_shell.dart';
 import 'package:spectacle/platform/workspace/workspace_commands.dart';
 import 'package:spectacle/platform/workspace/workspace_model.dart';
 
@@ -283,6 +284,35 @@ index 1a2b3c..4d5e6f 100644
         _script(WorkspaceCommands.listing('/srv/gate', 'lib/src')),
         contains("cd '/srv/gate/lib/src'"),
       );
+    });
+
+    test('a tilde is the home of the host, not a directory named ~', () {
+      // A registered directory is stored as the user typed it, so `~` reaches
+      // the host unexpanded and the host is the one that owes the expansion.
+      // Quoted whole it is a directory nobody has, and the screen words that
+      // as `directory gone`.
+      expect(
+        _script(WorkspaceCommands.overview('~/src/spectacle')),
+        contains("cd ~/'src/spectacle'"),
+      );
+      expect(
+        _script(WorkspaceCommands.listing('~/src/spectacle', 'lib')),
+        contains("cd ~/'src/spectacle/lib'"),
+      );
+      expect(
+        _script(WorkspaceCommands.file('~/src/spectacle', 'a.txt')),
+        contains("cd ~/'src/spectacle'"),
+      );
+    });
+
+    test('only the tilde leaves the quotes', () {
+      // The rest of the path is quoted exactly as before, so a space in it is
+      // still one argument and an apostrophe still cannot end the command.
+      expect(shellCd('~/my src'), "cd ~/'my src'");
+      expect(shellCd('~'), 'cd ~');
+      expect(shellCd('/srv/gate'), "cd '/srv/gate'");
+      // Only at the front: a tilde further in is a character in a name.
+      expect(shellCd('/srv/~gate'), "cd '/srv/~gate'");
     });
 
     test('a listing is not a repository question', () {

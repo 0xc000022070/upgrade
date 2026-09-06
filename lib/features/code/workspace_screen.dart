@@ -150,7 +150,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
             onTap: () => openHostShell(
               context,
               widget.host,
-              seed: 'cd ${shellQuote(_controller.directory)}',
+              seed: shellCd(_controller.directory),
             ),
           ),
         ],

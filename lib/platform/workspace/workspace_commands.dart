@@ -25,7 +25,7 @@ abstract final class WorkspaceCommands {
   /// `cd` plus the checkout test both answers share, with the two failures the
   /// caller can word given codes of their own.
   static String _enter(String directory) =>
-      'cd ${shellQuote(directory)} 2>/dev/null || exit $workspaceNoDirectory\n'
+      '${shellCd(directory)} 2>/dev/null || exit $workspaceNoDirectory\n'
       'git rev-parse --git-dir >/dev/null 2>&1 || exit $workspaceNoRepository\n';
 
   /// Everything the detail screen opens with: the branch line, the siblings,
@@ -61,7 +61,7 @@ abstract final class WorkspaceCommands {
   static String listing(String directory, String path) {
     final target = path.isEmpty ? directory : '$directory/$path';
     return underSh(
-      'cd ${shellQuote(target)} 2>/dev/null || exit $workspaceNoDirectory\n'
+      '${shellCd(target)} 2>/dev/null || exit $workspaceNoDirectory\n'
       "LC_ALL=C find . -mindepth 1 -maxdepth 1 -printf '%y\\t%s\\t%f\\n' "
       '2>/dev/null\n',
     );
@@ -74,7 +74,7 @@ abstract final class WorkspaceCommands {
     String path, {
     int bytes = 262144,
   }) => underSh(
-    'cd ${shellQuote(directory)} 2>/dev/null || exit $workspaceNoDirectory\n'
+    '${shellCd(directory)} 2>/dev/null || exit $workspaceNoDirectory\n'
     'head -c $bytes -- ${shellQuote(path)}\n',
   );
 }
