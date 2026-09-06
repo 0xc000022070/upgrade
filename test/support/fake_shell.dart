@@ -20,6 +20,10 @@ class FakeShellConnection implements ShellConnection {
   /// Every command run on a second channel, with what was written into it.
   final execs = <({String command, Uint8List? stdin})>[];
 
+  /// Held to keep [close] from completing, so a test can act inside the window
+  /// a redial spends shutting the shell that died down.
+  Completer<void>? hold;
+
   /// What those commands answer. The default is a host that runs anything
   /// and says nothing, which is what an upload looks like from here.
   ExecResult Function(String command, Uint8List? stdin) answer = (_, _) =>
@@ -39,6 +43,7 @@ class FakeShellConnection implements ShellConnection {
 
   @override
   Future<void> close() async {
+    await hold?.future;
     closed = true;
     if (!_exit.isCompleted) _exit.complete(null);
   }
@@ -89,6 +94,10 @@ class FakeShellTransport {
   ShellFailure? refuse;
   var stall = false;
 
+  /// The dials [stall] is holding, so a test can let one land late — after
+  /// whatever it was dialling for has moved on.
+  final _stalled = <Completer<ShellConnection>>[];
+
   Future<ShellConnection> open({
     required String address,
     required int port,
@@ -100,12 +109,26 @@ class FakeShellTransport {
   }) async {
     sizes.add([columns, rows]);
     verifiers.add(verifier);
-    if (stall) return Completer<ShellConnection>().future;
+    if (stall) {
+      final pending = Completer<ShellConnection>();
+      _stalled.add(pending);
+      return pending.future;
+    }
     final failure = refuse;
     if (failure != null) throw failure;
     final connection = FakeShellConnection();
     opened.add(connection);
     return connection;
+  }
+
+  /// Completes every dial [stall] is holding, oldest first.
+  void land() {
+    for (final pending in _stalled) {
+      final connection = FakeShellConnection();
+      opened.add(connection);
+      pending.complete(connection);
+    }
+    _stalled.clear();
   }
 }
 

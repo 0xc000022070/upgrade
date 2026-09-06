@@ -195,9 +195,22 @@ class ShellSession {
   int? _columns;
   int? _rows;
 
-  /// Guards a retry tapped while an attempt is still in flight, which would
-  /// otherwise leave two connections open against one host in one tab.
-  int _attempt = 0;
+  /// The dial that holds the tab. Taken by every dial that starts and by
+  /// everything that ends one, so whatever it replaced goes quiet.
+  late _Attempt _attempt = _Attempt._(this);
+
+  /// Set once, by [close]. A closed tab hands its claim to nothing and refuses
+  /// to hand out another.
+  bool _closed = false;
+
+  /// Hands the tab to a new dial. Only the claim handed back may write state
+  /// onto this session, and only until the next call.
+  _Attempt _claim() => _attempt = _Attempt._(this);
+
+  /// Takes the tab from whatever dial holds it without giving it to another,
+  /// so everything in flight goes quiet and nothing lands until the next dial
+  /// claims it.
+  void _disown() => _claim();
 
   /// The wait before the next reconnect. Cancelled by `STOP`, by a retry and
   /// by the tab closing, all three of which are the user deciding what happens
@@ -220,6 +233,25 @@ class ShellSession {
     focusNode.dispose();
     scrollController.dispose();
   }
+}
+
+/// One dial's claim on its tab.
+///
+/// A dial writes state onto its session only while [isCurrent] holds. A retry,
+/// the reconnect schedule and the tab closing each take the claim for
+/// themselves, and the one they replaced never becomes current again.
+///
+/// A counter did the same arithmetic, but a number carries no trace of the tab
+/// it belongs to — one session's compares equal to another's — and it cannot
+/// say that a tab is closed, which is the state that matters: a dial that took
+/// the next number after a close made itself current again and opened a
+/// connection nothing was left to close.
+class _Attempt {
+  _Attempt._(this._session);
+
+  final ShellSession _session;
+
+  bool get isCurrent => !_session._closed && identical(_session._attempt, this);
 }
 
 /// Every host's shells, for as long as the app is running.
@@ -408,9 +440,11 @@ class ShellSessions extends ChangeNotifier {
   /// Closes the connection and drops the tab. The number goes with it and is
   /// not handed out again.
   Future<void> close(String hostId, ShellSession session) async {
-    // Bumped so the exit and the output stream of the connection being closed
-    // cannot write a state onto a session that is already gone.
-    session._attempt++;
+    // Taken for good, so neither the exit, nor the output stream of the
+    // connection being closed, nor a dial the reconnect schedule is part way
+    // through can write onto a session that is already gone.
+    session._closed = true;
+    session._disown();
     session._reconnect?.cancel();
     session._reconnect = null;
     session.disarm();
@@ -542,9 +576,10 @@ class ShellSessions extends ChangeNotifier {
     HostKeyPrompt? prompt,
     bool reconnected = false,
   }) async {
-    final attempt = ++session._attempt;
+    final attempt = session._claim();
+    if (!attempt.isCurrent) return;
     final privateKey = await readPrivateKey(host.keyId);
-    if (attempt != session._attempt) return;
+    if (!attempt.isCurrent) return;
     if (privateKey == null) {
       // The host names a key whose secret is gone from the store. There is
       // nothing to offer the remote, so this never dials.
@@ -579,7 +614,7 @@ class ShellSessions extends ChangeNotifier {
           },
         ),
       );
-      if (attempt != session._attempt) {
+      if (!attempt.isCurrent) {
         await connection.close();
         return;
       }
@@ -617,11 +652,11 @@ class ShellSessions extends ChangeNotifier {
   Future<void> _awaitExit(
     ShellSession session,
     ShellConnection connection,
-    int attempt,
+    _Attempt attempt,
   ) async {
     try {
       final code = await connection.exitCode;
-      if (attempt != session._attempt) return;
+      if (!attempt.isCurrent) return;
       session.state = ShellExited(code);
       notifyListeners();
       // A shell the user typed `exit` into is finished, and its tab holds
@@ -635,8 +670,8 @@ class ShellSessions extends ChangeNotifier {
 
   /// Anything the transport throws that is not a [ShellFailure] is the
   /// connection going away without a word for it.
-  void _fail(ShellSession session, Object error, int attempt) {
-    if (attempt != session._attempt) return;
+  void _fail(ShellSession session, Object error, _Attempt attempt) {
+    if (!attempt.isCurrent) return;
     final kind = error is ShellFailure
         ? error.kind
         : ShellFailureKind.streamClosed;
@@ -658,7 +693,7 @@ class ShellSessions extends ChangeNotifier {
   /// on this host is a new tab.
   void stopReconnect(ShellSession session) {
     if (session.state is! ShellDropped) return;
-    session._attempt++;
+    session._disown();
     session._reconnect?.cancel();
     session._reconnect = null;
     session.state = const ShellFailed(ShellFailureKind.streamClosed);
@@ -681,10 +716,10 @@ class ShellSessions extends ChangeNotifier {
   Future<void> _redial(ShellSession session) async {
     session._reconnect = null;
     if (session.state is! ShellDropped) return;
-    // Bumped before anything closes: closing the old connection completes its
+    // Taken before anything closes: closing the old connection completes its
     // exit future, and an exit belonging to the attempt being replaced would
     // otherwise paint `EXITED` over the dial already under way.
-    session._attempt++;
+    session._disown();
     // Not awaited, here or in [close]: a cancel takes effect the moment it is
     // called — nothing else arrives from that stream — and the future it hands
     // back belongs to the stream's own zone, which is not always one the

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -947,6 +948,75 @@ void main() {
 
       session.dispose();
       expect(session.dispose, returnsNormally);
+    });
+  });
+
+  group('a dial holds a claim on its tab', () {
+    testWidgets('a tab closed while a reconnect shuts the old shell down '
+        'opens no new one', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _pumpDial(tester);
+      expect(session.state, isA<ShellLive>());
+
+      transport.opened.single.drop();
+      await tester.pump();
+      expect(session.state, isA<ShellDropped>());
+
+      // The wait runs out and the redial starts, which parks it on the close
+      // of the shell that died. The tab goes while it is parked there.
+      final hold = Completer<void>();
+      transport.opened.single.hold = hold;
+      await tester.pump(shellReconnectDelays.first);
+      final dials = transport.sizes.length;
+      unawaited(sessions.close(_rose.id, session));
+      await _pumpDial(tester);
+      hold.complete();
+      await _pumpDial(tester);
+
+      expect(transport.sizes, hasLength(dials));
+      expect(session.state, isNot(isA<ShellLive>()));
+      expect(sessions.forHost(_rose.id), isEmpty);
+    });
+
+    testWidgets('a dial that lands after the tab was closed closes what it '
+        'opened', (tester) async {
+      final transport = FakeShellTransport()..stall = true;
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _pumpDial(tester);
+      expect(session.state, isA<ShellConnecting>());
+
+      await sessions.close(_rose.id, session);
+      // The dial the closed tab started now lands, on a host that never heard
+      // it had been given up on.
+      transport.land();
+      await _pumpDial(tester);
+
+      expect(transport.opened.single.closed, isTrue);
+      expect(session.state, isNot(isA<ShellLive>()));
+      expect(session.connection, isNull);
+    });
+
+    testWidgets('a tab closed during the wait leaves the schedule dead', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _pumpDial(tester);
+
+      transport.opened.single.drop();
+      await tester.pump();
+      expect(session.state, isA<ShellDropped>());
+
+      await sessions.close(_rose.id, session);
+      final dials = transport.sizes.length;
+      await tester.pump(shellReconnectDelays.first);
+      await _pumpDial(tester);
+
+      expect(transport.sizes, hasLength(dials));
     });
   });
 }
