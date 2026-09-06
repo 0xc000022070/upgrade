@@ -143,6 +143,72 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the reason row opens on what the transport said', (
+    tester,
+  ) async {
+    String? copied;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String;
+          }
+          return null;
+        });
+
+    final transport = FakeShellTransport()
+      ..refuse = const ShellFailure(
+        ShellFailureKind.shellRefused,
+        detail: 'SSHChannelRequestError: pty-req denied',
+      );
+    await tester.pumpWidget(app(fakeShellSessions(transport)));
+    await ready(tester);
+
+    // Closed: one line, the words the header has room for.
+    expect(find.text('shell refused'), findsOneWidget);
+    expect(find.textContaining('pty-req denied'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('shell-reason')));
+    await ready(tester);
+
+    expect(
+      find.text('SSHChannelRequestError: pty-req denied'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('shell-detail-copy')));
+    await ready(tester);
+
+    expect(copied, 'SSHChannelRequestError: pty-req denied');
+
+    await tester.tap(find.byKey(const ValueKey('shell-reason')));
+    await ready(tester);
+
+    expect(find.textContaining('pty-req denied'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a failure with nothing more to say is not a button', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport()
+      ..refuse = const ShellFailure(ShellFailureKind.shellRefused);
+    await tester.pumpWidget(app(fakeShellSessions(transport)));
+    await ready(tester);
+
+    final closed = tester.getSize(find.byKey(const ValueKey('shell-reason')));
+    await tester.tap(find.byKey(const ValueKey('shell-reason')));
+    await ready(tester);
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('shell-reason'))),
+      closed,
+    );
+    expect(find.byKey(const ValueKey('shell-detail-copy')), findsNothing);
+
+    await unmount(tester);
+  });
+
   testWidgets('a lost link reads RECONNECTING with STOP beside it', (
     tester,
   ) async {

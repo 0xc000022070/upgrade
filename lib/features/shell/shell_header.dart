@@ -1,8 +1,10 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
+import '../../design/components/key_cell.dart';
 import '../../design/components/panel.dart';
 import '../../design/icons/spectacle_icon.dart';
 import '../../design/icons/spectacle_icons.dart';
@@ -85,8 +87,12 @@ class _ShellSheetGripState extends State<ShellSheetGrip> {
 const _headerHeight = TapTargets.minHeight;
 
 /// The row under it, drawn only when there is a failure to explain. Shorter
-/// than the header because it carries no hit target at all.
+/// than the header because the line itself carries no hit target.
 const _reasonHeight = 32.0;
+
+/// How much of the screen the open detail may take before it scrolls inside
+/// itself. Four lines of an ssh error, and the terminal keeps the rest.
+const _detailHeight = 56.0;
 
 /// How much of the header the tabs may take before they start to scroll inside
 /// it. Nine tabs are wider than a phone is, and the title is worth keeping a
@@ -285,29 +291,121 @@ String _kindWord(ShellFailureKind kind) => switch (kind) {
 /// Only the failures the schedule gave up on or never took reach this row: a
 /// key the host rejected and a key that changed are not waited out, they are
 /// read and acted on somewhere else.
-class ShellReasonRow extends StatelessWidget {
-  const ShellReasonRow({super.key, required this.host, required this.kind});
+/// The failure, in the words the header has room for, over the words the
+/// transport had. A tap opens the detail and a second puts it away; with
+/// nothing under the line the row is not a button and does not answer one.
+class ShellReasonRow extends StatefulWidget {
+  const ShellReasonRow({
+    super.key,
+    required this.host,
+    required this.kind,
+    this.detail,
+  });
 
   final Host host;
   final ShellFailureKind kind;
+  final String? detail;
+
+  @override
+  State<ShellReasonRow> createState() => _ShellReasonRowState();
+}
+
+class _ShellReasonRowState extends State<ShellReasonRow> {
+  var _open = false;
+
+  @override
+  void didUpdateWidget(ShellReasonRow old) {
+    super.didUpdateWidget(old);
+    // A failure that changed under the open detail is a different failure.
+    if (old.detail != widget.detail) _open = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = widget.detail;
+    return GestureDetector(
+      key: const ValueKey('shell-reason'),
+      behavior: HitTestBehavior.opaque,
+      onTap: detail == null ? null : () => setState(() => _open = !_open),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: _reasonHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.screenEdge,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      shellReason(widget.kind, widget.host.name),
+                      style: SpectacleText.panelHeader.copyWith(
+                        color: SpectacleColors.warning,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (detail != null)
+                    SpectacleIcon(
+                      _open ? SpectacleIcons.collapse : SpectacleIcons.expand,
+                      size: 12,
+                      color: SpectacleColors.textMuted,
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (detail != null && _open) _ReasonDetail(detail: detail),
+        ],
+      ),
+    );
+  }
+}
+
+/// What the machine said, whole. Scrolls rather than grows past a few lines:
+/// an ssh error runs long, and the terminal under it is what the user came
+/// for.
+class _ReasonDetail extends StatelessWidget {
+  const _ReasonDetail({required this.detail});
+
+  final String detail;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      key: const ValueKey('shell-reason'),
-      height: _reasonHeight,
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.screenEdge),
+      decoration: const BoxDecoration(
+        color: SpectacleColors.surfacePrimary,
+        border: Border(top: BorderSide(color: SpectacleColors.borderSubtle)),
+      ),
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.screenEdge,
+        Spacing.sm,
+        Spacing.sm,
+        Spacing.sm,
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(
-              shellReason(kind, host.name),
-              style: SpectacleText.panelHeader.copyWith(
-                color: SpectacleColors.warning,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: _detailHeight),
+              child: SingleChildScrollView(
+                child: Text(detail, style: SpectacleText.rowSubtitle),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
+          ),
+          const SizedBox(width: Spacing.sm),
+          KeyCell(
+            key: const ValueKey('shell-detail-copy'),
+            label: 'COPY',
+            minWidth: RowMetrics.minHeight,
+            padding: RowMetrics.padding,
+            height: RowMetrics.minHeight,
+            onTap: () => Clipboard.setData(ClipboardData(text: detail)),
           ),
         ],
       ),

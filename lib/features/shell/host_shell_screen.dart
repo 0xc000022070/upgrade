@@ -441,7 +441,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                       // The whole of what a failure costs the terminal: one
                       // short row, and only while there is a failure.
                       if (state is ShellFailed)
-                        ShellReasonRow(host: widget.host, kind: state.kind),
+                        ShellReasonRow(
+                          host: widget.host,
+                          kind: state.kind,
+                          detail: state.detail,
+                        ),
                     ],
                   ),
                 ),
