@@ -101,7 +101,7 @@ class _Bar extends StatelessWidget {
                     const Spacer(),
                   const SizedBox(width: Spacing.md),
                   Text(
-                    'RESUME',
+                    'TAP TO RESUME',
                     style: SpectacleText.panelHeader.copyWith(
                       color: SpectacleColors.accent,
                     ),
