@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/features/shell/host_shell_screen.dart';
+import 'package:spectacle/features/shell/shell_sheet.dart';
 import 'package:spectacle/features/shell/shell_sessions.dart';
 
 import 'support/fake_shell.dart';

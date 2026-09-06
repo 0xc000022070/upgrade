@@ -11,6 +11,7 @@ import 'package:spectacle/data/repositories/host_repository.dart';
 import 'package:spectacle/data/repositories/settings_repository.dart';
 import 'package:spectacle/design/colors.dart';
 import 'package:spectacle/features/shell/host_shell_screen.dart';
+import 'package:spectacle/features/shell/shell_sheet.dart';
 import 'package:spectacle/features/shell/shell_bar.dart';
 import 'package:spectacle/features/shell/shell_sessions.dart';
 import 'package:spectacle/platform/shell/shell_connection.dart';

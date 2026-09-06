@@ -8,7 +8,7 @@ import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/spacing.dart';
 import '../screen_scaffold.dart';
-import '../shell/host_shell_screen.dart';
+import '../shell/shell_sheet.dart';
 import '../shell/shell_card.dart';
 import '../shell/shell_sessions.dart';
 import '../shell/shell_status.dart';

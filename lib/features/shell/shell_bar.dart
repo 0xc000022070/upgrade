@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 
 import '../../design/colors.dart';
+import '../../design/components/cell_divider.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
@@ -136,7 +137,7 @@ class ShellBar extends StatelessWidget {
           ),
           // The scroll can take the keys away from the thumb; it never takes
           // the way back to the keyboard.
-          const _Divider(),
+          const CellDivider(),
           KeyCell(
             key: const ValueKey('bar-keyboard'),
             label: 'KEYBOARD',
@@ -185,12 +186,4 @@ class ShellBar extends StatelessWidget {
     }
     onSticky(Set.of(sticky)..remove(modifier), 1);
   }
-}
-
-class _Divider extends StatelessWidget {
-  const _Divider();
-
-  @override
-  Widget build(BuildContext context) =>
-      Container(width: Borders.hairline, color: SpectacleColors.borderSubtle);
 }
