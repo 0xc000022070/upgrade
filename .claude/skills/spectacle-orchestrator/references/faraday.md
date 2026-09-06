@@ -2,7 +2,7 @@
 
 Faraday is the user's Pixel 10 Pro Fold. It holds real data. Review surface only.
 
-- Push at every phase close automatically, without asking (user, 2026-09-03). Never per checkpoint.
+- Push at every shipped feature automatically, without asking (user, 2026-09-03).
 - Build it yourself from the committed tree: `nix develop path:$PWD -c just apk-release <version> <code>` with the build number from `pubspec.yaml`; park a copy at `rose:/tmp/spectacle-v<N>.apk`.
 - If a builder already parked one, fetch it: `scp rose:/tmp/spectacle-v<N>.apk <scratch>/`.
 - Verify before install, both from the android-sdk-build-tools 37.0.0 store path
