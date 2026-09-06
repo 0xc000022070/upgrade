@@ -64,6 +64,31 @@ void main() {
     ]);
   });
 
+  test('a seeded session types its line the moment the shell is up', () async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+
+    final session = sessions.open(_rose, seed: "cd '/srv/gate'")!;
+    await _settle();
+
+    // With the return on it: a line the user has to press enter on themselves
+    // is not a shell that opened where it was asked to.
+    expect(transport.opened.single.written, "cd '/srv/gate'\r");
+    // Spent once. A reconnect after the user has walked somewhere else must
+    // not drag them back to where the workspace was.
+    expect(session.seed, isNull);
+  });
+
+  test('an unseeded session writes nothing on its own', () async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+
+    sessions.open(_rose);
+    await _settle();
+
+    expect(transport.opened.single.written, isEmpty);
+  });
+
   test('the ninth session is the last one a host can open', () async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);

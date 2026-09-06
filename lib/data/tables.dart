@@ -258,6 +258,17 @@ class Paths extends Table {
   /// because the home directory that matters is the one on the other machine.
   TextColumn get directory => text()();
   TextColumn get label => text()();
+
+  /// The project this directory is the code for, or null. A directory belongs
+  /// to at most one project and a project holds any number of them; the two are
+  /// siblings, so a workspace with no project and a project with no workspace
+  /// are both ordinary.
+  ///
+  /// Like every other reference in this file it documents the relation without
+  /// enforcing it. Deleting a project nulls this column in
+  /// [DriftProjectRepository.delete], which is the only place that also knows
+  /// the rest of what a project takes with it.
+  TextColumn get projectId => text().nullable().references(Projects, #id)();
   DateTimeColumn get createdAt => dateTime()();
 
   @override

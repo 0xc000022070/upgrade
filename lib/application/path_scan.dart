@@ -98,17 +98,22 @@ class PathScanner {
       return PathScanFound(await run(privateKey));
     } on HerdrFailure catch (error) {
       debugPrint('spectacle.paths ${host.name}: ${error.detail ?? error}');
-      return PathScanFailed(switch (error) {
-        HerdrKeyRejected() => 'key rejected',
-        HerdrProtocolMismatch() => 'protocol ${error.protocol}',
-        HerdrUnresolved() => '${host.name.toLowerCase()} unresolved',
-        HerdrUnreachable() => '${host.name.toLowerCase()} unreachable',
-        HerdrHostKeyUnverified() => hostKeyReason(HostKeyRefusal.unverified),
-        HerdrHostKeyChanged() => hostKeyReason(HostKeyRefusal.changed),
-      });
+      return PathScanFailed(sshReason(error, host.name));
     }
   }
 }
+
+/// The one line an ssh failure is worded as, wherever it happened. Shared so a
+/// workspace that cannot be reached says what the path scan says about the same
+/// host rather than inventing a second vocabulary for it.
+String sshReason(HerdrFailure error, String hostName) => switch (error) {
+  HerdrKeyRejected() => 'key rejected',
+  HerdrProtocolMismatch() => 'protocol ${error.protocol}',
+  HerdrUnresolved() => '${hostName.toLowerCase()} unresolved',
+  HerdrUnreachable() => '${hostName.toLowerCase()} unreachable',
+  HerdrHostKeyUnverified() => hostKeyReason(HostKeyRefusal.unverified),
+  HerdrHostKeyChanged() => hostKeyReason(HostKeyRefusal.changed),
+};
 
 final pathScannerProvider = Provider(
   (ref) => PathScanner(

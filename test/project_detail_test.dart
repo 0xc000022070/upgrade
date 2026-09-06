@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show InsertMode, Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -308,5 +309,117 @@ void main() {
     expect(find.text('SELECT'), findsNothing);
 
     await unmount(tester);
+  });
+
+  group('the CODE panel', () {
+    Future<void> seedPath({String id = 'path-1', String? projectId}) async {
+      await db
+          .into(db.keys)
+          .insert(
+            KeysCompanion.insert(
+              id: 'key-1',
+              name: 'nyx',
+              publicKey: 'ssh-ed25519 AAAATEST',
+              fingerprint: 'SHA256:key-1',
+              createdAt: DateTime.utc(2026),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      await db
+          .into(db.hosts)
+          .insert(
+            HostsCompanion.insert(
+              id: 'host-1',
+              name: 'nyx',
+              address: '100.64.0.1',
+              user: 'luisnquin',
+              keyId: 'key-1',
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      await db
+          .into(db.paths)
+          .insert(
+            PathsCompanion.insert(
+              id: id,
+              hostId: 'host-1',
+              directory: '~/src/spectacle',
+              label: 'spectacle',
+              createdAt: DateTime.utc(2026, 9, 3),
+              projectId: Value(projectId),
+            ),
+          );
+    }
+
+    testWidgets('LINK offers the unlinked directories and files one', (
+      tester,
+    ) async {
+      final id = await projects.create(name: 'Infra personal');
+      await seedPath();
+
+      await tester.pumpWidget(host(ProjectDetailScreen(projectId: id)));
+      await _ready(tester);
+      expect(find.text('NO DIRECTORIES LINKED'), findsOneWidget);
+
+      await tapText(tester, 'LINK');
+      await tapText(tester, '…/src/spectacle');
+
+      // The row is now the panel's, and the host it lives on is the value:
+      // which machine holds the code is half of what a directory is.
+      expect(find.text('…/src/spectacle'), findsOneWidget);
+      expect(find.text('NYX'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a directory already filed elsewhere is not offered', (
+      tester,
+    ) async {
+      final other = await projects.create(name: 'Spectacle');
+      final id = await projects.create(name: 'Infra personal');
+      await seedPath(projectId: other);
+
+      await tester.pumpWidget(host(ProjectDetailScreen(projectId: id)));
+      await _ready(tester);
+      await tapText(tester, 'LINK');
+
+      expect(find.text('EVERY DIRECTORY IS LINKED'), findsOneWidget);
+      expect(find.text('…/src/spectacle'), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a long press unlinks the row and leaves the path', (
+      tester,
+    ) async {
+      final id = await projects.create(name: 'Infra personal');
+      await seedPath(projectId: id);
+
+      await tester.pumpWidget(host(ProjectDetailScreen(projectId: id)));
+      await _ready(tester);
+      expect(find.text('…/src/spectacle'), findsOneWidget);
+
+      await tester.longPress(find.text('…/src/spectacle'));
+      await _ready(tester);
+      await tapText(tester, 'UNLINK');
+
+      expect(find.text('NO DIRECTORIES LINKED'), findsOneWidget);
+      final rows = await tester.runAsync(() => db.select(db.paths).get());
+      expect(rows!.single.projectId, isNull);
+
+      await unmount(tester);
+    });
+
+    testWidgets('deleting the project leaves the directory registered', (
+      tester,
+    ) async {
+      final id = await projects.create(name: 'Infra personal');
+      await seedPath(projectId: id);
+
+      await tester.runAsync(() => projects.delete(id));
+      final rows = await tester.runAsync(() => db.select(db.paths).get());
+      expect(rows!.single.projectId, isNull);
+      expect(rows.single.directory, '~/src/spectacle');
+    });
   });
 }

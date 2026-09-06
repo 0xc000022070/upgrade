@@ -202,6 +202,46 @@ CREATE TABLE shell_tabs (
 )''',
 ];
 
+/// The v13 schema: v8 plus the host key columns, the vnc password, the two
+/// paths tables with the agent already moved onto the dispatch, and the shell
+/// tabs. `paths` has no `project_id` here, which is the whole point — the
+/// upgrade off it is the one that links a directory to a project.
+const _v13Schema = [
+  ..._v8Schema,
+  'ALTER TABLE hosts ADD COLUMN host_key_type TEXT',
+  'ALTER TABLE hosts ADD COLUMN host_key_fingerprint TEXT',
+  'ALTER TABLE hosts ADD COLUMN host_key_pinned_at TEXT',
+  'ALTER TABLE hosts ADD COLUMN vnc_password TEXT',
+  '''
+CREATE TABLE paths (
+  id TEXT NOT NULL,
+  host_id TEXT NOT NULL REFERENCES hosts (id),
+  directory TEXT NOT NULL,
+  label TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (id)
+)''',
+  '''
+CREATE TABLE dispatches (
+  id TEXT NOT NULL,
+  item_id TEXT NOT NULL REFERENCES tasks (id),
+  path_id TEXT NOT NULL REFERENCES paths (id),
+  pane_id TEXT NOT NULL,
+  agent TEXT NOT NULL DEFAULT 'claude',
+  model TEXT,
+  sent_at TEXT NOT NULL,
+  PRIMARY KEY (id)
+)''',
+  '''
+CREATE TABLE shell_tabs (
+  host_id TEXT NOT NULL REFERENCES hosts (id),
+  number INTEGER NOT NULL,
+  active INTEGER NOT NULL,
+  opened_at TEXT NOT NULL,
+  PRIMARY KEY (host_id, number)
+)''',
+];
+
 /// Drives [QueryExecutor.ensureOpen] to stamp `user_version = 2` and lay down
 /// the old schema, which is what makes the file drift later opens a real v2
 /// database rather than a v3 one with rows in it.
@@ -308,7 +348,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      13,
+      db.schemaVersion,
     );
 
     final projects = await db.select(db.projects).get();
@@ -392,7 +432,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      13,
+      db.schemaVersion,
     );
     expect(attachments.map((a) => a.id), ['l1', 'l2']);
     expect(attachments.every((a) => a.itemId == 't1'), isTrue);
@@ -474,7 +514,7 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        13,
+        db.schemaVersion,
       );
       expect(projects.map((p) => p.id), ['p1', 'p2']);
       expect(projects.every((p) => p.parentId == null), isTrue);
@@ -545,7 +585,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      13,
+      db.schemaVersion,
     );
     // The project tree survives untouched: the upgrade adds tables, it does not
     // rewrite a row.
@@ -647,7 +687,7 @@ void main() {
             .customSelect('PRAGMA user_version')
             .getSingle()
             .then((row) => row.read<int>('user_version')),
-        13,
+        db.schemaVersion,
       );
     },
   );
@@ -679,7 +719,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      13,
+      db.schemaVersion,
     );
     // The row the user already had keeps working, on the port the transport
     // was in fact dialling it on before the column existed.
@@ -736,7 +776,7 @@ void main() {
           .customSelect('PRAGMA user_version')
           .getSingle()
           .then((row) => row.read<int>('user_version')),
-      13,
+      db.schemaVersion,
     );
     // The host the user registered is untouched, on the port it was saved on.
     expect((await DriftHostRepository(db).all()).single.port, 357);
@@ -747,15 +787,7 @@ void main() {
 
     // And both take writes on a database the migration upgraded.
     final paths = DriftPathRepository(db);
-    await paths.replaceForHost('h1', [
-      AgentPath(
-        id: 'path-1',
-        hostId: 'h1',
-        directory: '~/src/spectacle',
-        label: 'spectacle',
-        createdAt: DateTime.parse(stamp(22)),
-      ),
-    ]);
+    final path = await paths.add(hostId: 'h1', directory: '~/src/spectacle');
     await db
         .into(db.tasks)
         .insert(
@@ -772,7 +804,7 @@ void main() {
           DispatchesCompanion.insert(
             id: 'dispatch-1',
             itemId: 'drop-1',
-            pathId: 'path-1',
+            pathId: path.id,
             paneId: 'wQ:pH',
             sentAt: DateTime.parse(stamp(22)),
           ),
@@ -826,10 +858,46 @@ void main() {
         .get()
         .then((rows) => rows.map((row) => row.read<String>('name')).toList());
     expect(columns, isNot(contains('agent')));
+    // And gains the link on the way through, since the rebuild that drops
+    // `agent` builds the table from the current definition.
+    expect(columns, contains('project_id'));
+    expect((await db.select(db.paths).get()).single.projectId, isNull);
     expect(
       (await DriftPathRepository(db).listForHost('h1')).single.label,
       'spectacle',
     );
+  });
+
+  test('a v13 database reads back with every path unlinked', () async {
+    final executor = NativeDatabase(file);
+    await executor.ensureOpen(_V2Database(13, _v13Schema));
+    await executor.runInsert(
+      'INSERT INTO keys (id, name, public_key, fingerprint, created_at) '
+      'VALUES (?, ?, ?, ?, ?)',
+      ['k1', 'nyx', 'ssh-ed25519 AAAA nyx', 'SHA256:k1', stamp(20)],
+    );
+    await executor.runInsert(
+      'INSERT INTO hosts (id, name, address, port, user, key_id) '
+      'VALUES (?, ?, ?, ?, ?, ?)',
+      ['h1', 'nyx', '100.118.60.77', 357, 'luisnquin', 'k1'],
+    );
+    await executor.runInsert(
+      'INSERT INTO paths (id, host_id, directory, label, created_at) '
+      'VALUES (?, ?, ?, ?, ?)',
+      ['p1', 'h1', '~/src/spectacle', 'spectacle', stamp(20)],
+    );
+    await executor.close();
+
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+
+    // The directory is still registered and belongs to nobody: a path that
+    // predates the link is exactly what an unlinked one is, so there is
+    // nothing to backfill and nothing was.
+    final path = (await DriftPathRepository(db).listForHost('h1')).single;
+    expect(path.directory, '~/src/spectacle');
+    expect(path.projectId, isNull);
+    expect(await DriftPathRepository(db).watchUnlinked().first, hasLength(1));
   });
 
   test('an upgraded database gains shell tabs, empty and writable', () async {

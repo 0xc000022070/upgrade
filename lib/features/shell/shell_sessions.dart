@@ -147,6 +147,11 @@ class ShellSession {
   ShellConnection? connection;
   ShellState state = const ShellConnecting();
 
+  /// A line typed into the shell the moment it comes up, and then forgotten.
+  /// A workspace opens its shell already in its own directory; a reconnect
+  /// after the user has walked somewhere else does not drag them back.
+  String? seed;
+
   /// What the bar has armed, waiting for the next key or character. It lives
   /// here rather than in the bar because the IME types straight into the
   /// terminal, where the bar is not in the path, and because switching tabs
@@ -297,11 +302,11 @@ class ShellSessions extends ChangeNotifier {
 
   /// Opens a shell and makes it the active tab. The `+` cell is gone at nine,
   /// so the refusal here is a guard rather than a path the user can walk.
-  ShellSession? open(Host host, {HostKeyPrompt? prompt}) {
+  ShellSession? open(Host host, {HostKeyPrompt? prompt, String? seed}) {
     if (!canOpen(host.id)) return null;
     final number = _nextNumber[host.id] ?? 1;
     _nextNumber[host.id] = number + 1;
-    final session = _start(host, number, prompt: prompt);
+    final session = _start(host, number, prompt: prompt, seed: seed);
     unawaited(tabs?.open(host.id, number));
     return session;
   }
@@ -309,12 +314,17 @@ class ShellSessions extends ChangeNotifier {
   /// A tab on a number that has already been decided: by [open], which takes
   /// the next one, or by [restore], which takes the one the tab had before the
   /// process died.
-  ShellSession _start(Host host, int number, {HostKeyPrompt? prompt}) {
+  ShellSession _start(
+    Host host,
+    int number, {
+    HostKeyPrompt? prompt,
+    String? seed,
+  }) {
     final session = ShellSession(
       number: number,
       terminal: Terminal(maxLines: shellScrollback),
       host: host,
-    );
+    )..seed = seed;
     _byHost.putIfAbsent(host.id, () => []).add(session);
     _active[host.id] = number;
     _parkedHostId = host.id;
@@ -531,6 +541,14 @@ class ShellSessions extends ChangeNotifier {
         (bytes) => session._decoder?.add(bytes),
         onError: (Object error) => _fail(session, error, attempt),
       );
+      // Written straight at the pty rather than waiting for a prompt: the
+      // shell reads its input when it is ready to, and the line is on screen
+      // above the first output either way.
+      final seed = session.seed;
+      if (seed != null) {
+        session.seed = null;
+        connection.write(Uint8List.fromList(utf8.encode('$seed\r')));
+      }
       unawaited(_awaitExit(session, connection, attempt));
       notifyListeners();
     } catch (error) {

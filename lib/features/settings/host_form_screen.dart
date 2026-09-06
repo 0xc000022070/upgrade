@@ -8,27 +8,21 @@ import 'package:uuid/uuid.dart';
 import '../../app/static_surface.dart';
 import '../../application/agents.dart';
 import '../../application/formatting.dart';
-import '../../application/providers.dart';
 import '../../data/enums.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/key_repository.dart';
-import '../../data/repositories/path_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/field_panel.dart';
-import '../../design/components/list_row.dart';
 import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/picker_row.dart';
 import '../../design/components/section.dart';
 import '../../design/components/solid_action_bar.dart';
-import '../../design/icons/spectacle_icon.dart';
-import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/host_keys.dart';
-import '../hosts/path_picker_sheet.dart';
 import '../hosts/host_key_sheet.dart';
 import '../screen/screen_preview.dart';
 import '../screen_scaffold.dart';
@@ -92,12 +86,6 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   String? _baseKeyId;
   Set<IntegrationKind>? _baseIntegrations;
 
-  /// The paths block, edited as a draft. Nothing here reaches the database
-  /// until the form is saved, which is what lets DISCARD take a path back out
-  /// with the rest of the form. Null until an existing host's rows are read.
-  List<AgentPath>? _paths;
-  List<AgentPath>? _basePaths;
-
   /// Set before a pop that has already committed, so the back handler does not
   /// offer to discard what it has just written.
   bool _leaving = false;
@@ -120,8 +108,6 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     if (host == null) {
       _integrations = <IntegrationKind>{};
       _baseIntegrations = <IntegrationKind>{};
-      _paths = <AgentPath>[];
-      _basePaths = <AgentPath>[];
       // One key is not a choice, and a picker holding a single row
       // reads as already chosen. The keys are a stream that has usually not
       // emitted by the time this runs, so the value present now is taken here
@@ -135,7 +121,6 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       });
     } else {
       unawaited(_loadIntegrations(host.id));
-      unawaited(_loadPaths(host.id));
     }
   }
 
@@ -151,15 +136,6 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     setState(() {
       _integrations = current.toSet();
       _baseIntegrations = current.toSet();
-    });
-  }
-
-  Future<void> _loadPaths(String hostId) async {
-    final current = await ref.read(pathRepositoryProvider).listForHost(hostId);
-    if (!mounted) return;
-    setState(() {
-      _paths = current.toList();
-      _basePaths = current.toList();
     });
   }
 
@@ -213,102 +189,12 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     // An existing host's rows are still in flight until both of these are set,
     // and nothing has been changed against a baseline that has not landed.
     if (base == null || current == null) return false;
-    if (!setEquals(base, current)) return true;
-    final basePaths = _basePaths;
-    final paths = _paths;
-    if (basePaths == null || paths == null) return false;
-    return !_samePaths(basePaths, paths);
-  }
-
-  /// Order counts, because it is the order the rows are drawn in. Ids are
-  /// compared alongside the fields: a row replaced by another with the same
-  /// directory is still a different path to anything pointing at it.
-  bool _samePaths(List<AgentPath> a, List<AgentPath> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i].id != b[i].id ||
-          a[i].directory != b[i].directory ||
-          a[i].label != b[i].label) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /// Adds paths, or re-points one, from what the host itself reports.
-  ///
-  /// Adding is a multiple pick: a machine's checkouts are registered in one
-  /// pass rather than one sheet each. The draft is what changes — nothing here
-  /// reaches the database until the form is saved, the same as every other
-  /// field on this screen.
-  Future<void> _pickPath([AgentPath? path]) async {
-    final host = _scanTarget();
-    if (host == null) return;
-    final paths = _paths;
-    if (paths == null) return;
-    final picked = await showPathPicker(
-      context,
-      host: host,
-      multiple: path == null,
-      taken: {for (final row in paths) row.directory},
-    );
-    if (picked == null || picked.isEmpty || !mounted) return;
-    setState(() {
-      if (path == null) {
-        for (final directory in picked) {
-          paths.add(
-            AgentPath(
-              id: const Uuid().v4(),
-              // Empty for a host that does not exist yet: the id arrives with
-              // the save, and the repository files every row under the host it
-              // is given rather than under the one the row remembers.
-              hostId: widget.host?.id ?? '',
-              directory: directory,
-              label: defaultPathLabel(directory),
-              createdAt: DateTime.now(),
-            ),
-          );
-        }
-      } else {
-        final at = paths.indexWhere((row) => row.id == path.id);
-        if (at >= 0) {
-          paths[at] = paths[at].copyWith(
-            directory: picked.first,
-            label: defaultPathLabel(picked.first),
-          );
-        }
-      }
-    });
-  }
-
-  /// The host the picker scans. An unsaved form is dialled on what is typed
-  /// into it, so a path can be picked before the host has ever been written —
-  /// and a form with no address or key yet has nothing to ask.
-  Host? _scanTarget() {
-    final host = widget.host;
-    if (host != null) return host;
-    final address = _address.text.trim();
-    final user = _user.text.trim();
-    final keyId = _keyId;
-    if (address.isEmpty || user.isEmpty || keyId == null) return null;
-    return Host(
-      id: '',
-      name: _name.text.trim(),
-      address: address,
-      port: int.tryParse(_port.text.trim()) ?? _defaultPort,
-      user: user,
-      keyId: keyId,
-      vncPassword: _vncPassword,
-    );
+    return !setEquals(base, current);
   }
 
   /// Blank is no password, not an empty one. Not trimmed: a space is a
   /// character a server would count.
   String? get _vncPassword => _password.text.isEmpty ? null : _password.text;
-
-  void _removePath(String id) {
-    setState(() => _paths?.removeWhere((path) => path.id == id));
-  }
 
   /// The back arrow and the system gesture are one door. [PopScope]
   /// holds the route so both arrive here and the pop is issued once, after the
@@ -351,13 +237,6 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       for (final kind in IntegrationKind.values) {
         await hosts.setIntegration(host.id, kind, integrations.contains(kind));
       }
-    }
-    // Written whether or not HERDR is on. The block is hidden when it is off,
-    // not emptied: switching it back on brings the same directories back
-    // instead of asking for them again.
-    final paths = _paths;
-    if (paths != null) {
-      await ref.read(pathRepositoryProvider).replaceForHost(host.id, paths);
     }
     // A machine is registered in order to be connected to, and until its key
     // is pinned nothing in the app will connect to it. Asking here is the same
@@ -520,8 +399,6 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                       keyboardType: TextInputType.visiblePassword,
                     ),
                   if (_hostKey != null) _hostKeyPanel(_hostKey!),
-                  if (integrations.contains(IntegrationKind.herdr))
-                    _pathsPanel(),
                 ],
               ),
               const SizedBox(height: Spacing.xl),
@@ -609,90 +486,6 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
 
   /// Drawn only while HERDR is on: a path exists to be sent to, and the send is
   /// what the integration is. The rows survive the switch going off — they are
-  /// hidden, not dropped.
-  ///
-  /// The block is a list and nothing else. Registering a path is a sheet over
-  /// the screen rather than a form grown inside the panel: the form was four
-  /// fields tall and pushed everything under it off a phone.
-  Widget _pathsPanel() {
-    final paths = _paths ?? const <AgentPath>[];
-    return Panel(
-      title: '[ PATHS ]',
-      bodyPadding: panelRowsPadding,
-      child: ListRowGroup(
-        children: [
-          for (final path in paths)
-            ListRow(
-              // One line and no mark: the directory is the whole row, and
-              // which agent works it is chosen when a drop is sent, not here.
-              title: shortPathLabel(path.directory),
-              trailing: _RemoveAction(onTap: () => _removePath(path.id)),
-              onTap: () => _pickPath(path),
-            ),
-          _AddAction(onTap: _pickPath),
-        ],
-      ),
-    );
-  }
-}
-
-/// The `×` at a path row's right edge. Its own recognizer inside the row's, so
-/// a tap here removes the path where a tap anywhere else opens it.
-class _RemoveAction extends StatelessWidget {
-  const _RemoveAction({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: SizedBox(
-        width: TapTargets.minHeight,
-        height: TapTargets.minHeight,
-        child: Center(
-          child: Text(
-            '×',
-            style: SpectacleText.valueStrong.copyWith(
-              color: SpectacleColors.textMuted,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The last row of the paths block. A text action and not a header affordance:
-/// the panel's header strip already carries the block's name, and the row sits
-/// where the next path will appear.
-class _AddAction extends StatelessWidget {
-  const _AddAction({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: const SizedBox(
-        height: TapTargets.minHeight,
-        child: Row(
-          children: [
-            SpectacleIcon(
-              SpectacleIcons.add,
-              size: IconSizes.affordance,
-              color: SpectacleColors.textMuted,
-            ),
-            SizedBox(width: Spacing.sm),
-            Text('ADD PATH', style: SpectacleText.panelHeader),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 /// The host form's read-only line: a label and a mono value, the shape HOSTS
