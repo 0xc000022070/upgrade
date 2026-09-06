@@ -9,6 +9,7 @@ import 'package:spectacle/features/shell/host_shell_screen.dart';
 import 'package:spectacle/features/shell/shell_sessions.dart';
 import 'package:spectacle/platform/shell/shell_connection.dart';
 import 'package:spectacle/platform/vnc/keysyms.dart';
+import 'package:xterm/xterm.dart';
 
 import 'support/fake_shell.dart';
 
@@ -194,6 +195,229 @@ void main() {
     expect(connection.writes.last, [0x63]);
   });
 
+  group('a modifier armed for more than one key', () {
+    test('two keys go through it, and the third does not', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
+      session.terminal.textInput('d');
+      expect(session.sticky, {StickyModifier.ctrl});
+      expect(session.stickyRepeat, 1);
+
+      session.terminal.textInput('d');
+      expect(session.sticky, isEmpty);
+      expect(session.stickyRepeat, 1);
+
+      session.terminal.textInput('d');
+
+      expect(connection.writes, [
+        [0x04],
+        [0x04],
+        [0x64],
+      ]);
+    });
+
+    test('a key off the bar spends one of the count too', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      sessions.arm(session, {StickyModifier.alt}, repeat: 2);
+      // What the bar hands down, already mapped to bytes.
+      sessions.send(session, Uint8List.fromList([0x1b, 0x5b, 0x41]));
+
+      expect(session.sticky, {StickyModifier.alt});
+      expect(session.stickyRepeat, 1);
+
+      sessions.send(session, Uint8List.fromList([0x1b, 0x5b, 0x41]));
+      expect(session.sticky, isEmpty);
+    });
+
+    test(
+      'what the terminal answers on its own is not one of the keys',
+      () async {
+        final transport = FakeShellTransport();
+        final sessions = fakeShellSessions(transport);
+
+        final session = sessions.open(_rose)!;
+        await _settle();
+        final connection = transport.opened.single;
+
+        sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
+        // DSR 6, "where is the cursor": what an agent asks the terminal while
+        // the user is deciding what to press.
+        session.terminal.write('\x1b[6n');
+
+        expect(session.sticky, {StickyModifier.ctrl});
+        expect(session.stickyRepeat, 2);
+
+        session.terminal.textInput('d');
+        session.terminal.textInput('d');
+
+        expect(connection.writes, [
+          [0x1b, 0x5b, 0x30, 0x3b, 0x30, 0x52],
+          [0x04],
+          [0x04],
+        ]);
+      },
+    );
+
+    test('every query the terminal answers leaves the count alone', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      sessions.arm(session, {StickyModifier.ctrl}, repeat: 3);
+      // Device attributes, operating status, cursor position, size: every
+      // reply xterm makes without being typed at.
+      for (final query in [
+        '\x1b[c',
+        '\x1b[>c',
+        '\x1b[5n',
+        '\x1b[6n',
+        '\x1b[18t',
+      ]) {
+        session.terminal.write(query);
+      }
+
+      expect(session.stickyRepeat, 3);
+      expect(session.sticky, {StickyModifier.ctrl});
+    });
+
+    test('ALT is not put in front of a reply', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      sessions.arm(session, {StickyModifier.alt}, repeat: 2);
+      session.terminal.write('\x1b[6n');
+
+      // The program asked where the cursor is; a meta prefix would make it
+      // read the answer as something else entirely.
+      expect(connection.writes, [
+        [0x1b, 0x5b, 0x30, 0x3b, 0x30, 0x52],
+      ]);
+    });
+
+    test('a mouse report is not one of the keys either', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      // Mouse reporting on, as an agent on the alternate screen leaves it.
+      session.terminal.write('\x1b[?1000h');
+      sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
+      session.terminal.mouseInput(
+        TerminalMouseButton.left,
+        TerminalMouseButtonState.down,
+        const CellOffset(0, 0),
+      );
+
+      expect(session.sticky, {StickyModifier.ctrl});
+      expect(session.stickyRepeat, 2);
+      expect(connection.writes, [
+        [0x1b, 0x5b, 0x4d, 0x20, 0x21, 0x22],
+      ]);
+    });
+
+    test('a paste is one key, however long it is', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
+      session.terminal.paste('abc');
+
+      expect(session.stickyRepeat, 1);
+      expect(session.sticky, {StickyModifier.ctrl});
+    });
+
+    test('every change to the count reaches whatever is drawing it', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+      var notices = 0;
+      sessions.addListener(() => notices++);
+
+      sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
+      expect(notices, 1);
+      session.terminal.textInput('d');
+      expect(notices, 2);
+      session.terminal.textInput('d');
+      expect(notices, 3);
+      // Nothing armed, nothing to redraw.
+      session.terminal.textInput('d');
+      expect(notices, 3);
+    });
+
+    test('an empty arming carries no count', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      sessions.arm(session, {StickyModifier.ctrl}, repeat: 3);
+      sessions.arm(session, const {}, repeat: 3);
+
+      expect(session.sticky, isEmpty);
+      expect(session.stickyRepeat, 1);
+    });
+
+    test('one session\'s count is not another\'s', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final first = sessions.open(_rose)!;
+      final second = sessions.open(_rose)!;
+      await _settle();
+
+      sessions.arm(first, {StickyModifier.ctrl}, repeat: 2);
+      sessions.activate(_rose.id, second);
+
+      expect(second.sticky, isEmpty);
+      expect(second.stickyRepeat, 1);
+
+      // Coming back finds the arming where it was left, count and all.
+      sessions.activate(_rose.id, first);
+      expect(first.sticky, {StickyModifier.ctrl});
+      expect(first.stickyRepeat, 2);
+    });
+
+    test('a closed session takes its count with it', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+      sessions.arm(session, {StickyModifier.ctrl}, repeat: 3);
+
+      await sessions.close(_rose.id, session);
+
+      expect(session.sticky, isEmpty);
+      expect(session.stickyRepeat, 1);
+    });
+  });
+
   test(
     'the return the keyboard inserts goes out as a carriage return',
     () async {
@@ -243,7 +467,7 @@ void main() {
     await _pumpDial(tester);
     transport.opened.single.emit('\x1b]0;luis@nyx: ~\x07');
     await _pumpDial(tester);
-    sessions.arm(session, {StickyModifier.ctrl});
+    sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
 
     transport.opened.single.drop();
     await tester.pump();
@@ -252,6 +476,7 @@ void main() {
 
     expect(session.title, isNull);
     expect(session.sticky, isEmpty);
+    expect(session.stickyRepeat, 1);
 
     await sessions.close(_rose.id, session);
   });

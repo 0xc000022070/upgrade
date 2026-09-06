@@ -1,0 +1,204 @@
+/// The shared key: what it reads, how it rolls when what it reads changes,
+/// and the vertical drag that counts an arming up and down.
+library;
+
+import 'package:flutter/widgets.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:spectacle/design/colors.dart';
+import 'package:spectacle/design/components/key_cell.dart';
+
+class CellRecord {
+  int taps = 0;
+  final flicks = <int>[];
+}
+
+Future<CellRecord> pumpCell(
+  WidgetTester tester, {
+  String label = 'CTRL',
+  int repeat = 1,
+  bool armed = false,
+  bool inert = false,
+  bool flickable = true,
+  CellRecord? record,
+}) async {
+  final kept = record ?? CellRecord();
+  await tester.pumpWidget(
+    Directionality(
+      textDirection: TextDirection.ltr,
+      child: Align(
+        alignment: Alignment.topLeft,
+        // A row, as the bar's is: it hands the cell an unbounded width, which
+        // is what leaves the cell as wide as the word it carries.
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            KeyCell(
+              key: const ValueKey('cell'),
+              label: label,
+              repeat: repeat,
+              armed: armed,
+              inert: inert,
+              minWidth: 36,
+              padding: 8,
+              onTap: () => kept.taps++,
+              onFlick: flickable ? kept.flicks.add : null,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  return kept;
+}
+
+Finder get _cell => find.byKey(const ValueKey('cell'));
+
+/// A drag the recognizer takes, of exactly [dy] from where the finger landed.
+Future<void> dragCell(WidgetTester tester, double dy) async {
+  await tester.drag(_cell, Offset(0, dy));
+  await tester.pumpAndSettle();
+}
+
+void main() {
+  group('what the cell reads', () {
+    testWidgets('one is the bare label and more says how many', (tester) async {
+      await pumpCell(tester);
+      expect(find.text('CTRL'), findsOneWidget);
+
+      await pumpCell(tester, repeat: 2);
+      await tester.pumpAndSettle();
+      expect(find.text('CTRL(x2)'), findsOneWidget);
+      expect(find.text('CTRL'), findsNothing);
+    });
+
+    testWidgets('the count is said to a screen reader in words', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await pumpCell(tester, repeat: 3);
+      await tester.pumpAndSettle();
+
+      expect(tester.getSemantics(_cell).label, contains('CTRL x3'));
+
+      handle.dispose();
+    });
+
+    testWidgets('an armed cell is the accent and a bare one is not', (
+      tester,
+    ) async {
+      await pumpCell(tester);
+      expect(
+        tester.widget<Text>(find.text('CTRL')).style?.color,
+        SpectacleColors.textSecondary,
+      );
+
+      await pumpCell(tester, armed: true, repeat: 2);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.text('CTRL(x2)')).style?.color,
+        SpectacleColors.accent,
+      );
+    });
+  });
+
+  group('the label rolls', () {
+    testWidgets('both words are on the cell while it does', (tester) async {
+      final record = await pumpCell(tester, armed: true);
+      await pumpCell(tester, armed: true, repeat: 2, record: record);
+
+      await tester.pump(const Duration(milliseconds: 70));
+      expect(find.text('CTRL'), findsOneWidget);
+      expect(find.text('CTRL(x2)'), findsOneWidget);
+
+      await tester.pumpAndSettle();
+      expect(find.text('CTRL'), findsNothing);
+      expect(find.text('CTRL(x2)'), findsOneWidget);
+    });
+
+    testWidgets('the word on its way out never sizes the cell', (tester) async {
+      final record = await pumpCell(tester, armed: true, repeat: 2);
+      await tester.pumpAndSettle();
+      final wide = tester.getSize(_cell).width;
+
+      await pumpCell(tester, armed: true, record: record);
+      await tester.pump(const Duration(milliseconds: 70));
+      final rolling = tester.getSize(_cell).width;
+
+      await tester.pumpAndSettle();
+      expect(rolling, tester.getSize(_cell).width);
+      expect(rolling, lessThan(wide));
+    });
+
+    testWidgets('a cell that is rebuilt with the same word does not roll', (
+      tester,
+    ) async {
+      final record = await pumpCell(tester, repeat: 2);
+      await tester.pumpAndSettle();
+
+      await pumpCell(tester, repeat: 2, armed: true, record: record);
+      await tester.pump(const Duration(milliseconds: 70));
+
+      expect(find.text('CTRL(x2)'), findsOneWidget);
+    });
+  });
+
+  group('the drag that counts', () {
+    testWidgets('down is a step up and up is a step down', (tester) async {
+      final record = await pumpCell(tester);
+
+      await dragCell(tester, 40);
+      expect(record.flicks, [1]);
+
+      await dragCell(tester, -40);
+      expect(record.flicks, [1, -1]);
+      expect(record.taps, 0);
+    });
+
+    testWidgets('a finger that comes back where it started counts nothing', (
+      tester,
+    ) async {
+      final record = await pumpCell(tester);
+
+      final gesture = await tester.startGesture(tester.getCenter(_cell));
+      await gesture.moveBy(const Offset(0, 25));
+      await gesture.moveBy(const Offset(0, -20));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(record.flicks, isEmpty);
+      expect(record.taps, 0);
+    });
+
+    testWidgets('a finger that never leaves the cell is a tap', (tester) async {
+      final record = await pumpCell(tester);
+
+      await tester.tap(_cell);
+      await tester.pumpAndSettle();
+
+      expect(record.taps, 1);
+      expect(record.flicks, isEmpty);
+    });
+
+    testWidgets('a cell with nothing to count ignores the drag', (
+      tester,
+    ) async {
+      final record = await pumpCell(tester, flickable: false);
+
+      await dragCell(tester, 40);
+
+      expect(record.flicks, isEmpty);
+      expect(record.taps, 0);
+    });
+
+    testWidgets('an inert cell answers neither', (tester) async {
+      final record = await pumpCell(tester, inert: true);
+
+      await dragCell(tester, 40);
+      await tester.tap(_cell);
+      await tester.pumpAndSettle();
+
+      expect(record.flicks, isEmpty);
+      expect(record.taps, 0);
+    });
+  });
+}

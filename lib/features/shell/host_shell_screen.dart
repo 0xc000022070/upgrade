@@ -636,8 +636,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                     value: identical(session, _store.activeFor(widget.host.id))
                         ? 'ON SCREEN'
                         : null,
-                    onTap: () =>
-                        Navigator.of(context).pop((host, session)),
+                    onTap: () => Navigator.of(context).pop((host, session)),
                   ),
             ],
           ),
@@ -671,8 +670,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     }
   }
 
-  void _onSticky(ShellSession session, Set<StickyModifier> sticky) {
-    _store.arm(session, sticky);
+  void _onSticky(ShellSession session, Set<StickyModifier> sticky, int repeat) {
+    _store.arm(session, sticky, repeat: repeat);
   }
 
   void _onBytes(ShellSession session, Uint8List bytes) {
@@ -861,7 +860,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                 if (active != null)
                   ShellBar(
                     sticky: active.sticky,
-                    onSticky: (sticky) => _onSticky(active, sticky),
+                    repeat: active.stickyRepeat,
+                    onSticky: (sticky, repeat) =>
+                        _onSticky(active, sticky, repeat),
                     onBytes: (bytes) => _onBytes(active, bytes),
                     keyboardOpen: _keyboardOpen,
                     onKeyboard: () => _onKeyboard(active),

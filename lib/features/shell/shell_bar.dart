@@ -40,6 +40,12 @@ const _barHeight = RowMetrics.minHeight;
 /// is not, and never narrower than the row is tall.
 const _cellPadding = RowMetrics.padding;
 
+/// How many keys one arming can be made to last. Two is the chord the gesture
+/// exists for — `CTRL D` twice out of an agent — and three is the margin for a
+/// process that ignored the first interrupt. Past that a user is holding a key
+/// down, which a soft keyboard does not do.
+const _maxRepeat = 3;
+
 /// The key bar under the terminal: always there, scrolling when the phone is
 /// too narrow, with the keyboard toggle pinned at the right end where a thumb
 /// can find it without scrolling back.
@@ -51,6 +57,7 @@ class ShellBar extends StatelessWidget {
   const ShellBar({
     super.key,
     required this.sticky,
+    this.repeat = 1,
     required this.onSticky,
     required this.onBytes,
     required this.keyboardOpen,
@@ -60,7 +67,13 @@ class ShellBar extends StatelessWidget {
   });
 
   final Set<StickyModifier> sticky;
-  final void Function(Set<StickyModifier>) onSticky;
+
+  /// How many keys the armed set survives. It belongs to the whole arming
+  /// rather than to one cell: two modifiers armed together are both spent on
+  /// the same keys.
+  final int repeat;
+
+  final void Function(Set<StickyModifier> sticky, int repeat) onSticky;
   final void Function(Uint8List bytes) onBytes;
   final bool keyboardOpen;
   final VoidCallback onKeyboard;
@@ -95,9 +108,11 @@ class ShellBar extends StatelessWidget {
                       key: ValueKey('bar-${modifier.label}'),
                       label: modifier.label,
                       armed: sticky.contains(modifier),
+                      repeat: sticky.contains(modifier) ? repeat : 1,
                       minWidth: _barHeight,
                       padding: _cellPadding,
                       onTap: () => _toggle(modifier),
+                      onFlick: (step) => _flick(modifier, step),
                     ),
                   for (final key in _barKeys)
                     KeyCell(
@@ -136,19 +151,39 @@ class ShellBar extends StatelessWidget {
     );
   }
 
-  /// A key goes as its bytes and spends whatever was armed. Spending it here
-  /// rather than in the store keeps one rule for both halves: the armed set
-  /// lasts exactly one key, wherever that key came from.
+  /// A key goes as its bytes, and nothing else: the armed set is spent where
+  /// every byte passes, which is the only place that sees the characters the
+  /// IME types straight into the terminal as well as these.
   void _send(int keysym) {
     final bytes = stripBytes(keysym, sticky);
     if (bytes != null) onBytes(bytes);
-    if (sticky.isNotEmpty) onSticky(const {});
   }
 
   void _toggle(StickyModifier modifier) {
     final next = Set.of(sticky);
     if (!next.remove(modifier)) next.add(modifier);
-    onSticky(next);
+    onSticky(next, next.isEmpty ? 1 : repeat);
+  }
+
+  /// A drag down arms the modifier and counts up, a drag up counts back and
+  /// then lets it go. Down from nothing lands on two rather than one: arming
+  /// for a single key is what the tap already does.
+  void _flick(StickyModifier modifier, int step) {
+    final armed = sticky.contains(modifier);
+    if (step > 0) {
+      final next = armed ? repeat + 1 : 2;
+      if (armed && next > _maxRepeat) return;
+      onSticky({...sticky, modifier}, next);
+      return;
+    }
+    if (!armed) return;
+    if (repeat > 2) {
+      // A copy, not the set the caller handed down: the store empties what it
+      // is given before it fills it.
+      onSticky(Set.of(sticky), repeat - 1);
+      return;
+    }
+    onSticky(Set.of(sticky)..remove(modifier), 1);
   }
 }
 

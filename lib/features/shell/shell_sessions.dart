@@ -158,6 +158,18 @@ class ShellSession {
   /// has to switch the armed set with the session.
   final Set<StickyModifier> sticky = <StickyModifier>{};
 
+  /// How many keys the armed set survives. One unless the bar's cell was
+  /// dragged down, which is the only way a chord like `CTRL D` twice reaches
+  /// a program from a keyboard that cannot hold a key down.
+  int stickyRepeat = 1;
+
+  /// Drops the arming whole. A count outliving the modifiers it belonged to
+  /// would be spent on the next thing armed, which the user never asked for.
+  void disarm() {
+    sticky.clear();
+    stickyRepeat = 1;
+  }
+
   /// What the shell called itself, through the escape sequence a shell uses to
   /// name its window. Null until it says, which a bare `sh` never does.
   String? title;
@@ -384,7 +396,7 @@ class ShellSessions extends ChangeNotifier {
     session._attempt++;
     session._reconnect?.cancel();
     session._reconnect = null;
-    session.sticky.clear();
+    session.disarm();
     _byHost[hostId]?.remove(session);
     if (_active[hostId] == session.number) {
       final rest = _byHost[hostId];
@@ -417,6 +429,16 @@ class ShellSessions extends ChangeNotifier {
       // for a line the shell should act on is `0d`.
       send(session, typedBytes(text.replaceAll('\n', '\r'), session.sticky));
     };
+    session.terminal.onReport = (text) {
+      // What the terminal answers on its own: the program asked where the
+      // cursor is, what the terminal is, how big it is, or turned mouse
+      // reporting on. None of it is a key, so an arming neither applies to it
+      // — `ALT` would put an `ESC` in front of a reply and the program would
+      // read the wrong answer — nor is spent by it. Claude Code asks for the
+      // cursor often enough that an arming meant for two keys would otherwise
+      // be down to one before the user pressed anything.
+      session.connection?.write(typedBytes(text, const {}));
+    };
     session.terminal.onTitleChange = (title) {
       session.title = title;
       notifyListeners();
@@ -431,12 +453,18 @@ class ShellSessions extends ChangeNotifier {
 
   /// The bar's bytes, and the terminal's own once they have been mapped.
   ///
-  /// One use is all an armed modifier gets, wherever the key came from, so the
-  /// set is spent here at the single point every byte passes through.
+  /// The armed set is spent here and nowhere else, at the single point every
+  /// byte passes through, so the bar's own keys and the characters the IME
+  /// types straight into the terminal count the same. One key takes one off
+  /// the count; the set goes when the count runs out.
   void send(ShellSession session, Uint8List bytes) {
     if (bytes.isNotEmpty) session.connection?.write(bytes);
     if (session.sticky.isEmpty) return;
-    session.sticky.clear();
+    if (session.stickyRepeat > 1) {
+      session.stickyRepeat--;
+    } else {
+      session.disarm();
+    }
     notifyListeners();
   }
 
@@ -468,13 +496,14 @@ class ShellSessions extends ChangeNotifier {
     return answer;
   }
 
-  /// Arms the bar's modifiers for the next key. Replaces the set rather than
+  /// Arms the bar's modifiers for the next keys. Replaces the set rather than
   /// merging: the bar draws the whole of what is armed and hands back the whole
-  /// of it.
-  void arm(ShellSession session, Set<StickyModifier> sticky) {
+  /// of it, the count included.
+  void arm(ShellSession session, Set<StickyModifier> sticky, {int repeat = 1}) {
     session.sticky
       ..clear()
       ..addAll(sticky);
+    session.stickyRepeat = sticky.isEmpty ? 1 : repeat;
     notifyListeners();
   }
 
@@ -639,7 +668,7 @@ class ShellSessions extends ChangeNotifier {
     // The title belonged to the shell that died. A new one that never names
     // itself would otherwise be read under the old one's name.
     session.title = null;
-    session.sticky.clear();
+    session.disarm();
     notifyListeners();
     await previous?.close();
     // No prompt: nothing about a timer firing says the user is looking at the
