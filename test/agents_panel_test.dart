@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_svg/flutter_svg.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:spectacle/application/agents.dart';
 import 'package:spectacle/data/enums.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/design/components/dot_spinner.dart';
 import 'package:spectacle/features/home/agent_mark.dart';
 import 'package:spectacle/features/home/agents_panel.dart';
 import 'package:spectacle/platform/herdr_client.dart';
@@ -577,6 +579,54 @@ void main() {
       find.descendant(of: find.byType(AgentMark), matching: find.text('?')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('a feed reload keeps the last rows on screen', (tester) async {
+    // The watcher pushes one report per host and every one of them rebuilds
+    // the feed. A rebuilt StreamProvider sits in loading until its first event
+    // lands, so a panel that renders that loading blinks its body away on
+    // every poll and drags the panels under it up with it.
+    final reloads = StateProvider((ref) => 0);
+    final feed = StreamController<AgentPanelState>.broadcast();
+    addTearDown(feed.close);
+    final container = ProviderContainer(
+      overrides: [
+        agentsFeedProvider.overrideWith((ref) {
+          ref.watch(reloads);
+          return feed.stream;
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: AgentsPanel())),
+      ),
+    );
+    feed.add(
+      snapshotOf([
+        agent(
+          pane: 'wQ:p1',
+          name: 'claude',
+          status: 'working',
+          work: 'live work',
+          sequence: 10,
+        ),
+      ], receivedAt: DateTime(2026)),
+    );
+    await tester.pump();
+    expect(find.text('live work'), findsOneWidget);
+
+    // The broadcast stream replays nothing, so the rebuilt provider stays in
+    // loading: what is on screen after this is what the panel does with a
+    // reload it has data behind.
+    container.read(reloads.notifier).state++;
+    await tester.pump();
+
+    expect(find.text('live work'), findsOneWidget);
+    expect(find.text('0 idle · 0 blocked'), findsOneWidget);
+    expect(find.byType(DelayedSpinner), findsNothing);
   });
 }
 

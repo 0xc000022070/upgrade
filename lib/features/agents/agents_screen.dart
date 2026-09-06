@@ -35,7 +35,10 @@ class AgentsScreen extends ConsumerWidget {
           breadcrumb: '/ SPECTACLE / AGENTS',
           onBack: () => Navigator.of(context).pop(),
           children: [
+            // Same reload blink as the panel: `waiting for host` would
+            // replace the workspaces on every report the watcher pushes.
             state.when(
+              skipLoadingOnReload: true,
               loading: () => const Panel(
                 title: 'WORKSPACES',
                 child: EmptyState('waiting for host'),
