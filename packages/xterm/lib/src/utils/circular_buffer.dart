@@ -30,15 +30,38 @@ class IndexAwareCircularBuffer<T extends IndexedItem> {
   @pragma('vm:prefer-inline')
   void _dropChild(int index) {
     final cyclicIndex = _getCyclicIndex(index);
-    _array[cyclicIndex]?._detach();
+    _evict(cyclicIndex, null);
     _array[cyclicIndex] = null;
+  }
+
+  /// Detaches whatever is about to be overwritten in [cyclicIndex], unless it
+  /// is [incoming] or has already been re-adopted at another index and so is
+  /// still in the list. Spectacle patch.
+  ///
+  /// A shift writes each slot in turn, and a slot's old occupant is usually
+  /// the item the previous write moved one place along: `scrollUp` runs
+  /// `lines[i] = lines[i + 1]` up the region, so the line adopted at `i` is
+  /// still sitting in slot `i + 1` when that slot is written next. Detaching
+  /// the old occupant unconditionally therefore tore a line loose from the
+  /// buffer it is still part of, and an anchor on it went dead — a long press
+  /// on the alternate screen, where every scroll goes through here, selected
+  /// nothing at all.
+  @pragma('vm:prefer-inline')
+  void _evict(int cyclicIndex, T? incoming) {
+    final previous = _array[cyclicIndex];
+    if (previous == null || identical(previous, incoming)) return;
+    // An item that has moved on records the index it moved to; only the one
+    // that still calls this slot home is leaving the list.
+    if (previous._owner != this) return;
+    if (_getCyclicIndex(previous.index) != cyclicIndex) return;
+    previous._detach();
   }
 
   /// Adds the specified [child] to the list at the specified [index].
   @pragma('vm:prefer-inline')
   void _adoptChild(int index, T child) {
     final cyclicIndex = _getCyclicIndex(index);
-    _array[cyclicIndex]?._detach();
+    _evict(cyclicIndex, child);
     _array[cyclicIndex] = child.._attach(this, index);
   }
 
@@ -48,8 +71,9 @@ class IndexAwareCircularBuffer<T extends IndexedItem> {
   void _moveChild(int fromIndex, int toIndex) {
     final fromCyclicIndex = _getCyclicIndex(fromIndex);
     final toCyclicIndex = _getCyclicIndex(toIndex);
-    _array[toCyclicIndex]?._detach();
-    _array[toCyclicIndex] = _array[fromCyclicIndex]?.._move(toIndex);
+    final child = _array[fromCyclicIndex];
+    _evict(toCyclicIndex, child);
+    _array[toCyclicIndex] = child?.._move(toIndex);
     _array[fromCyclicIndex] = null;
   }
 
@@ -224,8 +248,22 @@ class IndexAwareCircularBuffer<T extends IndexedItem> {
   /// instead just adjusts the start index and length.
   void trimStart(int count) {
     if (count > _length) count = _length;
+
+    // The dropped items leave the list, and everything behind them moves down
+    // by [count]: the absolute start has to move with them. Spectacle patch.
+    //
+    // Without it every surviving item kept reporting the index it had before
+    // the trim, which is [count] rows below where it now sits. An anchor made
+    // afterwards read that index straight back, so a press on the alternate
+    // screen — where a view that shrinks trims through here on every resize —
+    // selected the line [count] rows under the finger.
+    for (var i = 0; i < count; i++) {
+      _dropChild(i);
+    }
+
     _startIndex += count;
     _startIndex %= _array.length;
+    _absoluteStartIndex += count;
     _length -= count;
   }
 
@@ -240,17 +278,23 @@ class IndexAwareCircularBuffer<T extends IndexedItem> {
       copyStart = replacement.length - maxLength;
     }
 
-    for (var i = 0; i < copyStart; i++) {
-      _dropChild(i);
-    }
-
+    // The list starts over at slot zero, and the replacement has to be written
+    // through that start rather than the one the old contents ended on.
+    // Spectacle patch.
+    //
+    // The adoption ran first and placed every item at `_startIndex + i`, and
+    // only then was the start moved to zero: once the scrollback had wrapped
+    // and left a non-zero start behind, a reflow — any width change, so a
+    // pinch on the font — rotated the whole buffer and the view came back
+    // showing lines from further up.
     final copyLength = replacement.length - copyStart;
-    for (var i = 0; i < copyLength; i++) {
-      _adoptChild(i, replacement[copyStart + i]);
-    }
 
     _startIndex = 0;
     _length = copyLength;
+
+    for (var i = 0; i < copyLength; i++) {
+      _adoptChild(i, replacement[copyStart + i]);
+    }
   }
 
   /// Replaces the element at [index] with [value] and returns the replaced

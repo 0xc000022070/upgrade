@@ -1304,6 +1304,48 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('a press on a full-screen application takes the line under '
+        'the finger after the keyboard has been up', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      final shell = transport.opened.single;
+      final session = sessions.activeFor(_rose.id)!;
+      final terminal = session.terminal;
+
+      // The alternate screen, filled to its last row: a REPL, a pager, an
+      // editor. There is no scrollback behind it.
+      shell.emit('\x1b[?1049h');
+      await ready(tester);
+      shell.emit(
+        List.generate(terminal.viewHeight, (i) => 'row$i').join('\r\n'),
+      );
+      await ready(tester);
+      final tall = terminal.viewHeight;
+
+      // The keyboard comes up and takes rows off the view, then goes away
+      // again. Every row the shrink cut off the top is trimmed, and the rows
+      // that are left move up by that many.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 400);
+      await ready(tester);
+      expect(terminal.viewHeight, lessThan(tall));
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await ready(tester);
+
+      // A press on the third row down takes the third row down, not the one
+      // the row's index named before the view lost its top.
+      final third = terminal.buffer.lines[2].toString().trimRight();
+      final gesture = await hold(tester, cellAt(tester, 1, 2));
+      await tester.pump();
+      await gesture.up();
+      await ready(tester);
+
+      expect(terminal.buffer.getText(session.controller.selection), third);
+
+      await unmount(tester);
+    });
+
     testWidgets('the highlight is a wash the text shows through', (
       tester,
     ) async {
