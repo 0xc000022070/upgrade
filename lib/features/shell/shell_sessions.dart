@@ -108,7 +108,7 @@ String shellReason(ShellFailureKind kind, String host) => switch (kind) {
 /// The terminal outlives the connection on purpose. A session that failed or
 /// exited keeps every byte it printed, which is the only place the error the
 /// remote shell died of can still be read.
-class ShellSession {
+class ShellSession extends ChangeNotifier {
   ShellSession({
     required this.number,
     required this.terminal,
@@ -226,12 +226,26 @@ class ShellSession {
   /// Called at the end of the frame the tab was dropped in, never inside it: a
   /// scroll controller disposed while a [Scrollable] is still attached fails
   /// the detach that view is about to be asked for.
+  @override
   void dispose() {
     if (_retired) return;
     _retired = true;
     controller.dispose();
     focusNode.dispose();
     scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Tells the views drawing this tab that something about it moved: what it
+  /// printed, what it is called, what state it is in, what its bar has armed.
+  /// None of that is a fact about the set of tabs, so none of it goes to the
+  /// store.
+  ///
+  /// Silent once retired: a probe or a title that lands after the tab closed
+  /// has nobody left to tell, and the notifier it would tell is disposed.
+  void changed() {
+    if (_retired) return;
+    notifyListeners();
   }
 }
 
@@ -504,7 +518,7 @@ class ShellSessions extends ChangeNotifier {
     };
     session.terminal.onTitleChange = (title) {
       session.title = title;
-      notifyListeners();
+      session.changed();
     };
     session.terminal.onResize = (columns, rows, _, _) {
       if (columns == session._columns && rows == session._rows) return;
@@ -528,7 +542,7 @@ class ShellSessions extends ChangeNotifier {
     } else {
       session.disarm();
     }
-    notifyListeners();
+    session.changed();
   }
 
   /// The host's clipboard backend, asked once per connection and kept on it.
@@ -554,7 +568,7 @@ class ShellSessions extends ChangeNotifier {
     if (session.connection == connection) {
       session.clipboard = answer;
       session._probing = null;
-      notifyListeners();
+      session.changed();
     }
     return answer;
   }
@@ -567,7 +581,7 @@ class ShellSessions extends ChangeNotifier {
       ..clear()
       ..addAll(sticky);
     session.stickyRepeat = sticky.isEmpty ? 1 : repeat;
-    notifyListeners();
+    session.changed();
   }
 
   Future<void> _connect(
@@ -584,7 +598,7 @@ class ShellSessions extends ChangeNotifier {
       // The host names a key whose secret is gone from the store. There is
       // nothing to offer the remote, so this never dials.
       session.state = const ShellFailed(ShellFailureKind.keyRejected);
-      notifyListeners();
+      session.changed();
       return;
     }
 
@@ -643,7 +657,7 @@ class ShellSessions extends ChangeNotifier {
         connection.write(Uint8List.fromList(utf8.encode('$seed\r')));
       }
       unawaited(_awaitExit(session, connection, attempt));
-      notifyListeners();
+      session.changed();
     } catch (error) {
       _fail(session, error, attempt);
     }
@@ -658,7 +672,7 @@ class ShellSessions extends ChangeNotifier {
       final code = await connection.exitCode;
       if (!attempt.isCurrent) return;
       session.state = ShellExited(code);
-      notifyListeners();
+      session.changed();
       // A shell the user typed `exit` into is finished, and its tab holds
       // nothing they asked to keep. Every other code is the shell saying
       // something went wrong, so that tab stays for its output to be read.
@@ -685,7 +699,7 @@ class ShellSessions extends ChangeNotifier {
       return;
     }
     session.state = ShellFailed(kind);
-    notifyListeners();
+    session.changed();
   }
 
   /// Parks the schedule where the user stopped it. The session reads as a
@@ -697,12 +711,12 @@ class ShellSessions extends ChangeNotifier {
     session._reconnect?.cancel();
     session._reconnect = null;
     session.state = const ShellFailed(ShellFailureKind.streamClosed);
-    notifyListeners();
+    session.changed();
   }
 
   void _drop(ShellSession session, int attempt) {
     session.state = ShellDropped(attempt);
-    notifyListeners();
+    session.changed();
     session._reconnect = Timer(
       shellReconnectDelays[attempt - 1],
       () => unawaited(_redial(session)),
@@ -733,7 +747,7 @@ class ShellSessions extends ChangeNotifier {
     // itself would otherwise be read under the old one's name.
     session.title = null;
     session.disarm();
-    notifyListeners();
+    session.changed();
     await previous?.close();
     // No prompt: nothing about a timer firing says the user is looking at the
     // route, so an unpinned host is refused here as it is anywhere else

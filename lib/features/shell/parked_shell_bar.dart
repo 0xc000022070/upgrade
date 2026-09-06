@@ -7,6 +7,7 @@ import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import 'host_shell_screen.dart';
 import 'shell_sessions.dart';
+import 'shell_watcher.dart';
 import 'shell_status.dart';
 
 /// One row, over the nav bar: enough for a name, a state and a verb, and no
@@ -26,9 +27,15 @@ class ParkedShellBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final store = ref.watch(shellSessionsProvider);
-    return AnimatedBuilder(
-      animation: store,
-      builder: (context, _) {
+    return ShellWatcher(
+      store: store,
+      // The bar names one tab and says what it is called, so it follows that
+      // tab as well as the set that decides which one it is.
+      watch: (store) {
+        final session = store.parked;
+        return session == null ? const [] : [session];
+      },
+      builder: (context) {
         final session = store.parked;
         if (session == null) return const SizedBox.shrink();
         return _Bar(session: session, others: store.openCount - 1);

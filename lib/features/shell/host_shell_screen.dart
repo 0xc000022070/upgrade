@@ -31,6 +31,7 @@ import 'attach_sheet.dart';
 import 'shell_bar.dart';
 import 'shell_sessions.dart';
 import 'shell_status.dart';
+import 'shell_watcher.dart';
 
 /// The way in: a host panel's `SHELL >` row on HOSTS, a host row on SSH, or one
 /// of that tab's session cards, which names the session it wants on screen.
@@ -485,7 +486,14 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     // Held rather than read where it is used: `ref` is closed by the time
     // dispose runs, and this is the store the listener has to come off.
     _store = ref.read(shellSessionsProvider);
-    _store.addListener(_onSessions);
+    // Both notifiers: the strip is drawn from the set, and the header, the
+    // exit sheet and the pop that follows the last tab are all drawn from what
+    // the tabs themselves report.
+    _follower = ShellFollower(
+      store: _store,
+      watch: (store) => store.forHost(widget.host.id),
+      onChange: _onSessions,
+    );
     _clips = ref.read(clipStoreProvider);
     _clips.addListener(_onClips);
     // Landscape, as the screen route: a terminal is the other thing in the app
@@ -516,13 +524,14 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 
   @override
   void dispose() {
-    _store.removeListener(_onSessions);
+    _follower.dispose();
     _clips.removeListener(_onClips);
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     super.dispose();
   }
 
   late final ShellSessions _store;
+  late final ShellFollower _follower;
 
   /// Read for one number, the count on the bar's cell. A crop on the screen
   /// route while this one is under it is what changes it.
@@ -533,7 +542,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   }
 
   void _onSessions() {
-    if (!mounted || _announcing) return;
+    if (!mounted) return;
+    setState(() {});
+    if (_announcing) return;
     unawaited(_drain());
   }
 
@@ -785,9 +796,10 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       // The bar rides up with the keyboard rather than being covered by it.
       resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: AnimatedBuilder(
-          animation: store,
-          builder: (context, _) {
+        child: Builder(
+          // The rebuild comes from the follower wired in `initState`, which is
+          // watching the set and every tab in it.
+          builder: (context) {
             final sessions = store.forHost(widget.host.id);
             final active = store.activeFor(widget.host.id);
             _follow(active);
