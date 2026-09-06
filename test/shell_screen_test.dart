@@ -977,6 +977,64 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('a grip keeps its end when the scrollback rolls out from '
+        'under it', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      final shell = transport.opened.single;
+      final session = sessions.activeFor(_rose.id)!;
+      final terminal = session.terminal;
+      String selected() =>
+          terminal.buffer.getText(session.controller.selection!);
+      int rowOfWords() {
+        for (var y = terminal.buffer.height - 1; y >= 0; y--) {
+          final text = terminal.buffer.getText(
+            BufferRangeLine(
+              CellOffset(0, y),
+              CellOffset(terminal.viewWidth, y),
+            ),
+          );
+          if (text.trimRight() == 'one two three') return y;
+        }
+        return -1;
+      }
+
+      // Fill the scrollback to the brim: from here on every line printed drops
+      // one off the top, and the index of every line still in the buffer walks
+      // down by one with it.
+      shell.emit('${'filler\r\n' * shellScrollback}one two three\r\n');
+      await ready(tester);
+      expect(terminal.buffer.height, shellScrollback);
+      final before = rowOfWords();
+
+      final press = await hold(tester, cellAt(tester, 5, before));
+      await press.up();
+      await ready(tester);
+      expect(selected(), 'two');
+
+      // The end grip goes down, and two lines arrive before the finger moves.
+      final grip = find.byKey(const ValueKey('shell-select-end'));
+      final drag = await tester.startGesture(tester.getRect(grip).center);
+      await tester.pump();
+      shell.emit('\r\ntail a\r\ntail b');
+      await ready(tester);
+      final after = rowOfWords();
+      expect(after, before - 2);
+
+      // The finger carries the far end out to the last word. The near end is
+      // where the grip started, and a row number taken back then now points
+      // two lines below the words.
+      await drag.moveTo(cellAt(tester, 12, after));
+      await ready(tester);
+      expect(selected(), 'two three');
+
+      await drag.up();
+      await ready(tester);
+      await unmount(tester);
+    });
+
     testWidgets('output arriving under a held finger leaves the press where '
         'it landed', (tester) async {
       final transport = FakeShellTransport();
@@ -1008,6 +1066,107 @@ void main() {
         'target',
       );
 
+      await unmount(tester);
+    });
+
+    testWidgets('the press keeps its end while the shell prints under the '
+        'drag', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      final shell = transport.opened.single;
+      final session = sessions.activeFor(_rose.id)!;
+      String selected() =>
+          session.terminal.buffer.getText(session.controller.selection);
+
+      // On the last row of a full view, so the next line printed scrolls
+      // rather than filling empty space below.
+      final last = session.terminal.viewHeight - 1;
+      shell.emit('${'\r\n' * last}alpha bravo');
+      await ready(tester);
+
+      final gesture = await hold(tester, cellAt(tester, 1, last));
+      await tester.pump();
+      expect(selected(), 'alpha');
+
+      // Two lines arrive while the finger is still down, then it moves out to
+      // the second word. The far end is the finger's, the near end the
+      // press's, and the press's must not have gone down with the scroll.
+      shell.emit('\r\nline a\r\nline b');
+      await ready(tester);
+      await gesture.moveTo(cellAt(tester, 7, last));
+      await tester.pump();
+      expect(selected(), 'alpha bravo');
+
+      await gesture.up();
+      await ready(tester);
+      await unmount(tester);
+    });
+
+    testWidgets('a press whose line leaves the scrollback stops moving the '
+        'selection', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      final shell = transport.opened.single;
+      final session = sessions.activeFor(_rose.id)!;
+      final terminal = session.terminal;
+
+      shell.emit('${'filler\r\n' * shellScrollback}alpha bravo\r\n');
+      await ready(tester);
+      final row = terminal.buffer.height - 2;
+
+      final gesture = await hold(tester, cellAt(tester, 1, row));
+      await tester.pump();
+      expect(terminal.buffer.getText(session.controller.selection!), 'alpha');
+
+      // A whole scrollback's worth of output while the finger is down: the
+      // held line is gone, and with it both the selection's ends and the
+      // press's own cell. The drag has nothing to come from, so it lets go
+      // rather than reading a row number the buffer no longer answers for.
+      shell.emit('gone\r\n' * shellScrollback);
+      await ready(tester);
+      expect(session.controller.selection, isNull);
+      await gesture.moveTo(cellAt(tester, 2, terminal.buffer.height - 2));
+      await tester.pump();
+      expect(session.controller.selection, isNull);
+
+      await gesture.up();
+      await ready(tester);
+      await unmount(tester);
+    });
+
+    testWidgets('a second finger does not move where the first one landed', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      transport.opened.single.emit('alpha bravo charlie\r\n');
+      await ready(tester);
+      final session = sessions.activeFor(_rose.id)!;
+      String selected() =>
+          session.terminal.buffer.getText(session.controller.selection);
+
+      final one = await tester.startGesture(cellAt(tester, 1, 0), pointer: 1);
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      expect(selected(), 'alpha');
+
+      // The long press has already won the arena, so the second finger never
+      // reaches the recognizer — but it is a pointer down all the same, and it
+      // must not take the anchor off the word the first one is holding.
+      final two = await tester.startGesture(cellAt(tester, 14, 0), pointer: 2);
+      await tester.pump();
+      await one.moveTo(cellAt(tester, 8, 0));
+      await tester.pump();
+      expect(selected(), 'alpha bravo');
+
+      await two.up();
+      await one.up();
+      await ready(tester);
       await unmount(tester);
     });
 
