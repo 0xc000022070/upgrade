@@ -219,6 +219,12 @@ final itemAttachmentsProvider = StreamProvider.family<List<Attachment>, String>(
   (ref, id) => ref.watch(attachmentRepositoryProvider).watchForItem(id),
 );
 
+/// One subscription for every row on screen: the mark a row draws for its
+/// links reads this map rather than opening a stream of its own.
+final linkCountsProvider = StreamProvider<Map<String, int>>(
+  (ref) => ref.watch(attachmentRepositoryProvider).watchLinkCounts(),
+);
+
 final taskMatesProvider = StreamProvider.family<List<Task>, String>(
   (ref, id) => ref.watch(taskRepositoryProvider).watchMates(id),
 );

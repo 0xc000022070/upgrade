@@ -24,7 +24,7 @@ void stubDeviceChannels() {
 
 /// The link icon reads the clipboard before it does anything else, so every
 /// test of it has to say what is on the clipboard — including "nothing", which
-/// is the branch that flips the field into URL mode.
+/// is the branch that raises the line empty.
 void stubClipboard(String? text) {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(SystemChannels.platform, (call) async {
@@ -46,4 +46,27 @@ void stubForegroundTask() {
           _ => null,
         },
       );
+}
+
+/// A tap on a painted URL hands it to the platform. Nothing in a test process
+/// can open a browser, so the channel answers and the returned list records
+/// what it was asked to open.
+List<String> stubUrlLauncher() {
+  final opened = <String>[];
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+        const MethodChannel('plugins.flutter.io/url_launcher'),
+        (call) async {
+          final arguments = call.arguments as Map<Object?, Object?>?;
+          switch (call.method) {
+            case 'canLaunch':
+              return true;
+            case 'launch':
+              opened.add(arguments!['url']! as String);
+              return true;
+          }
+          return null;
+        },
+      );
+  return opened;
 }

@@ -11,6 +11,7 @@ import '../../design/icons/spectacle_icon.dart';
 import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import 'item_sheet.dart';
+import 'link_mark.dart';
 import 'sent_tag.dart';
 
 /// The row opens the quick view, the left glyph is the toggle, and the glitch
@@ -87,16 +88,22 @@ class _TaskRowState extends ConsumerState<TaskRow> {
       // A row that was sent and then filed keeps the tag, in the same slot.
       // The arrow wins when both are true: one flagged row per screen is the
       // mark the eye is looking for, and the tag is history.
-      trailing: task.isNext
-          ? const SpectacleIcon(
-              SpectacleIcons.forward,
-              size: IconSizes.glyph,
-              color: SpectacleColors.accent,
-            )
-          : (ref.watch(sentItemsProvider).valueOrNull ?? const <String>{})
-                .contains(task.id)
-          ? const SentTag()
-          : null,
+      trailing: trailingWithLinks(
+        links:
+            (ref.watch(linkCountsProvider).valueOrNull ??
+                const <String, int>{})[task.id] ??
+            0,
+        state: task.isNext
+            ? const SpectacleIcon(
+                SpectacleIcons.forward,
+                size: IconSizes.glyph,
+                color: SpectacleColors.accent,
+              )
+            : (ref.watch(sentItemsProvider).valueOrNull ?? const <String>{})
+                  .contains(task.id)
+            ? const SentTag()
+            : null,
+      ),
       // A filed task's verbs are the quick view's footer: more than two icons
       // can carry, so holding it opens the sheet unless the panel says
       // otherwise.

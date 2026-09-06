@@ -82,7 +82,10 @@ void main() {
     expect(taskRows, hasLength(1));
     expect(taskRows!.single.projectId, projectId);
     expect(taskRows.single.goalId, isNull);
-    expect(attachmentRows!.single.value, 'https://docs.flutter.dev');
+    // The URL was part of the sentence, so it stays in the title and is not
+    // filed a second time as an attachment.
+    expect(taskRows.single.title, 'Read https://docs.flutter.dev');
+    expect(attachmentRows, isEmpty);
     expect(find.byType(KeyboardToolbar), findsNothing);
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,

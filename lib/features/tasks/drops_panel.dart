@@ -14,6 +14,7 @@ import '../../design/effects/glitch.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import 'item_sheet.dart';
+import 'link_mark.dart';
 import 'sent_tag.dart';
 import 'task_row.dart';
 
@@ -122,6 +123,8 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
     // One stream for the panel rather than a query per row: the tag is a fact
     // about a handful of ids and the list can be long.
     final sent = ref.watch(sentItemsProvider).valueOrNull ?? const <String>{};
+    final links =
+        ref.watch(linkCountsProvider).valueOrNull ?? const <String, int>{};
 
     // Rows that left the panel while the mode was on — moved from a sheet,
     // deleted elsewhere — must not stay in a set the batch will act on. The
@@ -209,9 +212,14 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
                   // Not in the mode: the box is the row's leading edge there,
                   // and a tag next to a checkbox reads as a second thing to
                   // check.
-                  trailing: !selecting && sent.contains(task.id)
-                      ? const SentTag()
-                      : null,
+                  trailing: selecting
+                      ? null
+                      : trailingWithLinks(
+                          links: links[task.id] ?? 0,
+                          state: sent.contains(task.id)
+                              ? const SentTag()
+                              : null,
+                        ),
                 ),
           ],
         ),

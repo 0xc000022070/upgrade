@@ -20,34 +20,34 @@ String? normalizeUrl(String raw) {
   return withScheme;
 }
 
-/// The link icon attaches the clipboard without asking when the
-/// clipboard holds a URL, and switches the field to URL mode when it does not.
-/// Null is the second branch.
+/// What the link line opens prefilled with. The clipboard is the common case
+/// and typing a URL on a phone is not, so it is offered — and never taken: the
+/// user commits it, or edits it, or closes the line on it. Null when the
+/// clipboard holds prose, which opens the line empty.
 Future<String?> urlFromClipboard() async {
   final data = await Clipboard.getData(Clipboard.kTextPlain);
   return normalizeUrl(data?.text ?? '');
 }
 
 /// A recognised link and where its token sits in the text it was found in.
-/// The token is painted, so the offsets are as much of the answer as the URL.
+/// The token is painted and tapped where it stands, so the offsets are as much
+/// of the answer as the URL.
 class UrlToken {
   const UrlToken(this.start, this.end, this.url);
 
   final int start;
   final int end;
 
-  /// The normalized form [normalizeUrl] returns, which is what gets attached.
+  /// The normalized form [normalizeUrl] returns, which is what a tap opens.
   final String url;
 }
 
-/// URLs typed into the capture field are pulled out on submit. The whole
-/// words are tested rather than a URL pattern, so `pgbouncer.` at the end of a
-/// sentence stays in the title.
+/// The links inside a line of text, with their offsets. A URL written into a
+/// title stays in the title — it is part of what the user wrote — so this is
+/// read to paint the token and to open it, never to cut it out.
 ///
-/// The same tokens are painted in the field before submit, so this keeps the
-/// offsets and [extractUrls] is a projection of it: one definition of what
-/// counts as a link, or the highlight would promise something submit does not
-/// deliver.
+/// Whole words are tested rather than a URL pattern, so `pgbouncer.` at the end
+/// of a sentence stays prose.
 List<UrlToken> urlTokens(String text) {
   final found = <UrlToken>[];
   for (final word in RegExp(r'\S+').allMatches(text)) {
@@ -59,21 +59,6 @@ List<UrlToken> urlTokens(String text) {
     if (url != null) found.add(UrlToken(word.start, word.end, url));
   }
   return found;
-}
-
-List<String> extractUrls(String text) => [
-  for (final token in urlTokens(text)) token.url,
-];
-
-/// What is left of a title once its URLs are gone. They are stripped only when
-/// the title would otherwise be empty, so this is the caller's fallback rather
-/// than its first choice.
-String titleWithoutUrls(String text, List<String> urls) {
-  var rest = text;
-  for (final url in urls) {
-    rest = rest.replaceAll(url, ' ');
-  }
-  return rest.replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
 /// The chip's label: the host, without `www.`. A chip is 28px and a URL is not.

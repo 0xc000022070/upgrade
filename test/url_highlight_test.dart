@@ -4,9 +4,9 @@ import 'package:spectacle/design/colors.dart';
 import 'package:spectacle/features/tasks/link_input.dart';
 import 'package:spectacle/features/tasks/url_highlight_controller.dart';
 
-/// The highlight is a promise about what `_submit` will do, so
-/// the assertion that matters is that the painted ranges and [extractUrls]
-/// never disagree.
+/// The highlight is a promise about what a tap will open, so the assertion
+/// that matters is that the painted ranges and [urlTokens] never disagree:
+/// the readout opens exactly the runs the field marked.
 void main() {
   /// The spans a real field would get, flattened to (text, marked) pairs.
   List<(String, bool)> render(String text) {
@@ -52,23 +52,23 @@ void main() {
         render(text).where((span) => span.$2).single.$1,
         'https://min.io.',
       );
-      expect(extractUrls(text), ['https://min.io.']);
+      expect(urlTokens(text).single.url, 'https://min.io.');
     },
   );
 
-  test('a bracketed URL is neither painted nor taken', () {
+  test('a bracketed URL is neither painted nor opened', () {
     // `(https://...)` has no authority once the bracket is part of it, so
-    // `extractUrls` drops it — and the field must not claim otherwise.
+    // there is no token — and the field must not claim otherwise.
     const text = 'ver (https://min.io/docs)';
     expect(render(text).any((span) => span.$2), isFalse);
-    expect(extractUrls(text), isEmpty);
+    expect(urlTokens(text), isEmpty);
   });
 
-  test('a schemeless host stays prose, exactly as extractUrls says', () {
+  test('a schemeless host stays prose', () {
     expect(render('revisar pgbouncer.conf'), [
       ('revisar pgbouncer.conf', false),
     ]);
-    expect(extractUrls('revisar pgbouncer.conf'), isEmpty);
+    expect(urlTokens('revisar pgbouncer.conf'), isEmpty);
   });
 
   test('two URLs get two marks', () {
@@ -92,7 +92,7 @@ void main() {
     expect(marked.style!.decoration, TextDecoration.none);
   });
 
-  test('what is painted is what extractUrls takes, token for token', () {
+  test('what is painted is what a tap opens, token for token', () {
     const lines = [
       'https://min.io',
       'nada aqui',
@@ -101,8 +101,14 @@ void main() {
       'trailing https://min.io.',
     ];
     for (final line in lines) {
-      final painted = urlTokens(line).map((token) => token.url).toList();
-      expect(painted, extractUrls(line), reason: line);
+      final painted = render(line)
+          .where((span) => span.$2)
+          .map((span) => span.$1)
+          .toList();
+      final opened = urlTokens(
+        line,
+      ).map((token) => line.substring(token.start, token.end)).toList();
+      expect(painted, opened, reason: line);
     }
   });
 

@@ -8,6 +8,8 @@ import 'package:spectacle/data/database.dart';
 import 'package:spectacle/data/repositories/activity_repository.dart';
 import 'package:spectacle/data/repositories/goal_repository.dart';
 import 'package:spectacle/data/repositories/project_repository.dart';
+import 'package:spectacle/design/colors.dart';
+import 'package:spectacle/design/components/action_block.dart';
 import 'package:spectacle/design/components/keyboard_toolbar.dart';
 import 'package:spectacle/features/home/capture_bar.dart';
 
@@ -34,6 +36,18 @@ Future<void> _ready(WidgetTester tester) =>
 
 Finder _glyph(ToolbarGlyph glyph) => find.byWidgetPredicate(
   (widget) => widget is Icon && widget.icon == glyph.icon,
+);
+
+/// The strip lives in the root overlay rather than under the bar, so the two
+/// fields are told apart by which side of that split they are on.
+final _line = find.descendant(
+  of: find.byType(KeyboardToolbar),
+  matching: find.byType(TextField),
+);
+
+final _capture = find.descendant(
+  of: find.byType(CaptureBar),
+  matching: find.byType(TextField),
 );
 
 void main() {
@@ -153,7 +167,7 @@ void main() {
     expect(find.text('[ DROPS ]'), findsNothing);
     expect(
       KeyboardAccessory.reservedHeight.value,
-      KeyboardToolbar.heightFor(false),
+      KeyboardToolbar.heightFor(chips: false),
     );
 
     await tester.tap(_glyph(ToolbarGlyph.more));
@@ -167,7 +181,7 @@ void main() {
     expect(find.text('[ INFRA PERSONAL ]'), findsOneWidget);
     expect(
       KeyboardAccessory.reservedHeight.value,
-      KeyboardToolbar.heightFor(true),
+      KeyboardToolbar.heightFor(chips: true),
     );
 
     await tester.enterText(find.byType(TextField), 'revisar pgbouncer');
@@ -247,13 +261,33 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a URL typed into the line stays text and files nothing', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    await tester.enterText(find.byType(TextField), 'revisar https://min.io');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _ready(tester);
+
+    final tasks = await tester.runAsync(() => db.select(db.tasks).get());
+    final links = await tester.runAsync(() => db.select(db.attachments).get());
+    // The line is a sentence with a URL in it, not an attachment with a
+    // sentence around it. It is kept whole and stored once.
+    expect(tasks!.single.title, 'revisar https://min.io');
+    expect(links, isEmpty);
+
+    await unmount(tester);
+  });
+
   testWidgets(
-    'a URL typed into the line is filed as a link and left in place',
+    'a line that is only a URL is titled by it and attaches nothing',
     (tester) async {
       await tester.pumpWidget(host());
       await _ready(tester);
 
-      await tester.enterText(find.byType(TextField), 'revisar https://min.io');
+      await tester.enterText(find.byType(TextField), 'https://min.io');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await _ready(tester);
 
@@ -261,32 +295,12 @@ void main() {
       final links = await tester.runAsync(
         () => db.select(db.attachments).get(),
       );
-      // The title keeps the text as typed. Cutting the URL out of a line
-      // the user wrote leaves them re-reading a sentence with a hole in it.
-      expect(tasks!.single.title, 'revisar https://min.io');
-      expect(links!.single.value, 'https://min.io');
+      expect(tasks!.single.title, 'https://min.io');
+      expect(links, isEmpty);
 
       await unmount(tester);
     },
   );
-
-  testWidgets('a line that is only a URL is titled by the URL', (tester) async {
-    await tester.pumpWidget(host());
-    await _ready(tester);
-
-    await tester.enterText(find.byType(TextField), 'https://min.io');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await _ready(tester);
-
-    // The one strip case: with the URL gone the title would be empty, so
-    // the link is what names the row.
-    final tasks = await tester.runAsync(() => db.select(db.tasks).get());
-    final links = await tester.runAsync(() => db.select(db.attachments).get());
-    expect(tasks!.single.title, 'https://min.io');
-    expect(links!.single.value, 'https://min.io');
-
-    await unmount(tester);
-  });
 
   testWidgets('a goal target names its project in the chip', (tester) async {
     final project = await projects.create(name: 'Rommy');
@@ -310,7 +324,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('with no URL on the clipboard the capture line turns into one', (
+  testWidgets('the link glyph raises its own line and leaves the capture', (
     tester,
   ) async {
     await tester.pumpWidget(host());
@@ -322,16 +336,32 @@ void main() {
     await tester.tap(_glyph(ToolbarGlyph.link));
     await _ready(tester);
 
-    // The one line, in URL mode. The typed title is parked, not lost.
-    expect(find.byType(TextField), findsOneWidget);
+    // A second field over the strip. The capture keeps what was typed in it,
+    // and the strip reserves the line's height on top of its own.
+    expect(_line, findsOneWidget);
+    expect(find.text('LINK'), findsOneWidget);
     expect(find.text('https://'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(_capture).controller!.text,
+      'revisar pgbouncer',
+    );
+    expect(
+      KeyboardAccessory.reservedHeight.value,
+      KeyboardToolbar.heightFor(chips: false, field: true),
+    );
 
-    await tester.enterText(find.byType(TextField), 'min.io/docs');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.enterText(_line, 'min.io/docs');
+    await _ready(tester);
+    await tester.tap(find.text('ATTACH'));
     await _ready(tester);
 
+    // Committing takes the line down and leaves a chip behind it.
+    expect(_line, findsNothing);
     expect(find.text('[ min.io ]'), findsOneWidget);
-    expect(find.text('revisar pgbouncer'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(_capture).controller!.text,
+      'revisar pgbouncer',
+    );
 
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
@@ -344,7 +374,9 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a clipboard URL attaches with no prompt', (tester) async {
+  testWidgets('a clipboard URL arrives in the line and waits there', (
+    tester,
+  ) async {
     stubClipboard('https://garagehq.deuxfleurs.fr');
 
     await tester.pumpWidget(host());
@@ -356,7 +388,17 @@ void main() {
     await tester.tap(_glyph(ToolbarGlyph.link));
     await _ready(tester);
 
-    expect(find.text('https://'), findsNothing);
+    // Offered, not taken: the URL is visible and editable, and nothing is
+    // attached until the verb is pressed.
+    expect(
+      tester.widget<TextField>(_line).controller!.text,
+      'https://garagehq.deuxfleurs.fr',
+    );
+    expect(find.text('[ garagehq.deuxfleurs.fr ]'), findsNothing);
+
+    await tester.tap(find.text('ATTACH'));
+    await _ready(tester);
+
     expect(find.text('[ garagehq.deuxfleurs.fr ]'), findsOneWidget);
 
     await tester.testTextInput.receiveAction(TextInputAction.done);
@@ -368,7 +410,105 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the field paints the URL it is going to file, and only it', (
+  testWidgets('ATTACH is inert until the line reads as a URL', (tester) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    await tester.tap(find.byType(TextField));
+    await _ready(tester);
+    await tester.tap(_glyph(ToolbarGlyph.link));
+    await _ready(tester);
+
+    await tester.enterText(_line, 'esto no es un link');
+    await _ready(tester);
+
+    final blocked = tester.widget<ActionBlock>(find.byType(ActionBlock));
+    expect(blocked.onTap, isNull);
+    expect(blocked.tone, SpectacleColors.textDisabled);
+
+    // The tap lands and nothing happens: the line stays up with the text in
+    // it rather than swallowing it.
+    await tester.tap(find.text('ATTACH'));
+    await _ready(tester);
+    expect(_line, findsOneWidget);
+    expect(
+      tester.widget<TextField>(_line).controller!.text,
+      'esto no es un link',
+    );
+
+    await tester.enterText(_line, 'min.io');
+    await _ready(tester);
+    expect(
+      tester.widget<ActionBlock>(find.byType(ActionBlock)).tone,
+      SpectacleColors.accent,
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('the x takes the line down and attaches nothing', (tester) async {
+    stubClipboard('https://min.io');
+
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    await tester.tap(find.byType(TextField));
+    await _ready(tester);
+    await tester.enterText(find.byType(TextField), 'revisar pgbouncer');
+    await tester.tap(_glyph(ToolbarGlyph.link));
+    await _ready(tester);
+    expect(_line, findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.close));
+    await _ready(tester);
+
+    expect(_line, findsNothing);
+    expect(find.text('[ min.io ]'), findsNothing);
+    expect(
+      tester.widget<TextField>(_capture).controller!.text,
+      'revisar pgbouncer',
+    );
+    expect(
+      KeyboardAccessory.reservedHeight.value,
+      KeyboardToolbar.heightFor(chips: false),
+    );
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _ready(tester);
+
+    final links = await tester.runAsync(() => db.select(db.attachments).get());
+    expect(links, isEmpty);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the scrim takes the line down with the keyboard', (
+    tester,
+  ) async {
+    stubClipboard('https://min.io');
+
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    await tester.tap(find.byType(TextField));
+    await _ready(tester);
+    await tester.enterText(find.byType(TextField), 'revisar pgbouncer');
+    await tester.tap(_glyph(ToolbarGlyph.link));
+    await _ready(tester);
+    expect(_line, findsOneWidget);
+
+    await tester.tapAt(const Offset(10, 10));
+    await _ready(tester);
+
+    // The line belongs to the strip, so it leaves with it — and the caret is
+    // not handed back to the capture field, which would raise the keyboard the
+    // tap just dismissed.
+    expect(find.byType(KeyboardToolbar), findsNothing);
+    expect(KeyboardAccessory.reservedHeight.value, 0);
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(find.text('[ min.io ]'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the field paints the URL in the line, and only it', (
     tester,
   ) async {
     await tester.pumpWidget(host());
@@ -394,11 +534,12 @@ void main() {
       'mirar https://min.io/docs manana',
     );
 
-    // The highlight changes nothing about submit.
+    // The mark says *this is a link*, not *this will be filed as one*: the
+    // paint changes nothing about what submit writes.
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
     final rows = await tester.runAsync(() => db.select(db.attachments).get());
-    expect(rows!.single.value, 'https://min.io/docs');
+    expect(rows, isEmpty);
     final items = await tester.runAsync(() => db.select(db.tasks).get());
     expect(items!.single.title, 'mirar https://min.io/docs manana');
 
