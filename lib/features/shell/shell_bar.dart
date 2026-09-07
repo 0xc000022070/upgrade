@@ -73,6 +73,8 @@ class ShellBar extends StatelessWidget {
     required this.onKeyboard,
     this.clipCount = 0,
     this.onAttach,
+    this.searching = false,
+    this.onFind,
   });
 
   final Set<StickyModifier> sticky;
@@ -93,6 +95,12 @@ class ShellBar extends StatelessWidget {
   final int clipCount;
   final VoidCallback? onAttach;
 
+  /// Whether the search line is up. The cell is armed while it is, the way the
+  /// keyboard toggle is: a line the terminal is drawn above is easy to lose
+  /// track of on a phone.
+  final bool searching;
+  final VoidCallback? onFind;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -109,6 +117,18 @@ class ShellBar extends StatelessWidget {
           Expanded(
             child: _Keys(
               children: [
+                // At the head of the row, where the keys rest: what it opens
+                // is a line, not a key, and it is the one cell here that is
+                // not sent to the shell.
+                KeyCell(
+                  key: const ValueKey('bar-find'),
+                  label: 'FIND',
+                  icon: SpectacleIcons.search,
+                  armed: searching,
+                  minWidth: _barHeight,
+                  padding: _cellPadding,
+                  onTap: () => onFind?.call(),
+                ),
                 for (final modifier in _barModifiers)
                   KeyCell(
                     key: ValueKey('bar-${modifier.label}'),
