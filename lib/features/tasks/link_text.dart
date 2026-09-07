@@ -1,8 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import 'link_input.dart';
+import '../../application/urls.dart';
+import '../../platform/browser.dart';
 import 'url_highlight_controller.dart';
 
 /// A title, with the links inside it painted and openable where they stand.
@@ -45,12 +45,6 @@ class _LinkTextState extends State<LinkText> {
     _recognizers = [];
   }
 
-  Future<void> _open(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
   @override
   Widget build(BuildContext context) {
     _clear();
@@ -70,7 +64,7 @@ class _LinkTextState extends State<LinkText> {
         spans.add(TextSpan(text: text.substring(cursor, token.start)));
       }
       final recognizer = TapGestureRecognizer()
-        ..onTap = () => _open(token.url);
+        ..onTap = () => openUrl(token.url);
       _recognizers.add(recognizer);
       spans.add(
         TextSpan(

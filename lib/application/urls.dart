@@ -1,7 +1,16 @@
+/// What a URL is, for every surface that has to decide. The capture field
+/// paints these tokens and the item sheet files them; the grammar is one thing
+/// and neither of them owns it, which is why it is no longer filed under the
+/// link line that first needed it.
+///
+/// Handing one to the browser is `openUrl`, in `platform/`: that is a thing
+/// the device does and this is only a thing text is.
+library;
+
 import 'package:flutter/services.dart';
 
-/// What counts as a link. A bare host is accepted
-/// and given https; anything with whitespace or without a dot is not a URL —
+/// What counts as a link. A bare host is accepted and given https; anything
+/// with whitespace or without a dot is not a URL —
 /// the clipboard usually holds prose, and attaching that as a link is worse
 /// than doing nothing.
 String? normalizeUrl(String raw) {

@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../design/colors.dart';
-import 'link_input.dart';
+import '../../application/urls.dart';
 
 /// The capture field paints every token [urlTokens] recognises, so a link is
 /// legible as one while it is being typed. It says *this is a link* and nothing
