@@ -32,6 +32,14 @@ const _barKeys = <_BarKey>[
 /// which belongs to a compositor and not to a terminal.
 const _barModifiers = <StickyModifier>[StickyModifier.ctrl, StickyModifier.alt];
 
+/// How much of the scrolling half a fade covers at the end it goes on past,
+/// and how much of that is the bar's surface before the gradient starts. A
+/// fade that only thins is not seen: a glyph sits in the middle of its cell,
+/// where a gradient spread over the whole width has already run out. The solid
+/// part takes the sliver against the rule and the rest thins over the cell.
+const _fadeWidth = 32.0;
+const _fadeSolid = 0.28;
+
 /// The bar's own row, shorter than a tap target: the terminal is what the user
 /// came for and every row above it is taken from the screen. The whole row is
 /// the hit area, so a short cell is still not a small one.
@@ -47,9 +55,9 @@ const _cellPadding = RowMetrics.padding;
 /// down, which a soft keyboard does not do.
 const _maxRepeat = 3;
 
-/// The key bar under the terminal: always there, scrolling when the phone is
-/// too narrow, with the keyboard toggle pinned at the right end where a thumb
-/// can find it without scrolling back.
+/// The key bar under the terminal: always there, the keys scrolling when the
+/// phone is too narrow, with `ATTACH` and the keyboard toggle pinned past the
+/// rule at the right end where a thumb finds them without scrolling back.
 ///
 /// Controlled from the outside on purpose. The armed set belongs to the
 /// session, because the modifiers have to reach characters the IME types
@@ -99,45 +107,41 @@ class ShellBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final modifier in _barModifiers)
-                    KeyCell(
-                      key: ValueKey('bar-${modifier.label}'),
-                      label: modifier.label,
-                      armed: sticky.contains(modifier),
-                      repeat: sticky.contains(modifier) ? repeat : 1,
-                      minWidth: _barHeight,
-                      padding: _cellPadding,
-                      onTap: () => _toggle(modifier),
-                      onFlick: (step) => _flick(modifier, step),
-                    ),
-                  for (final key in _barKeys)
-                    KeyCell(
-                      key: ValueKey('bar-${key.label}'),
-                      label: key.label,
-                      icon: key.icon,
-                      minWidth: _barHeight,
-                      padding: _cellPadding,
-                      onTap: () => _send(key.keysym),
-                    ),
+            child: _Keys(
+              children: [
+                for (final modifier in _barModifiers)
                   KeyCell(
-                    key: const ValueKey('bar-ATTACH'),
-                    label: clipCount == 0 ? 'ATTACH' : 'ATTACH!',
+                    key: ValueKey('bar-${modifier.label}'),
+                    label: modifier.label,
+                    armed: sticky.contains(modifier),
+                    repeat: sticky.contains(modifier) ? repeat : 1,
                     minWidth: _barHeight,
                     padding: _cellPadding,
-                    onTap: () => onAttach?.call(),
+                    onTap: () => _toggle(modifier),
+                    onFlick: (step) => _flick(modifier, step),
                   ),
-                ],
-              ),
+                for (final key in _barKeys)
+                  KeyCell(
+                    key: ValueKey('bar-${key.label}'),
+                    label: key.label,
+                    icon: key.icon,
+                    minWidth: _barHeight,
+                    padding: _cellPadding,
+                    onTap: () => _send(key.keysym),
+                  ),
+              ],
             ),
           ),
           // The scroll can take the keys away from the thumb; it never takes
-          // the way back to the keyboard.
+          // the photo in or the way back to the keyboard.
           const CellDivider(),
+          KeyCell(
+            key: const ValueKey('bar-ATTACH'),
+            label: clipCount == 0 ? 'ATTACH' : 'ATTACH!',
+            minWidth: _barHeight,
+            padding: _cellPadding,
+            onTap: () => onAttach?.call(),
+          ),
           KeyCell(
             key: const ValueKey('bar-keyboard'),
             label: 'KEYBOARD',
@@ -186,4 +190,96 @@ class ShellBar extends StatelessWidget {
     }
     onSticky(Set.of(sticky)..remove(modifier), 1);
   }
+}
+
+/// The scrolling half of the bar, with a fade over whichever end still has
+/// cells behind it.
+///
+/// The metrics are followed rather than the offset: the same answer covers a
+/// row scrolled past its start and a row too wide for the phone that has not
+/// been touched, and a bar whose keys all fit reports neither.
+class _Keys extends StatefulWidget {
+  const _Keys({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  State<_Keys> createState() => _KeysState();
+}
+
+class _KeysState extends State<_Keys> {
+  var _before = 0.0;
+  var _after = 0.0;
+
+  bool _onMetrics(ScrollMetrics metrics) {
+    if (metrics.extentBefore == _before && metrics.extentAfter == _after) {
+      return false;
+    }
+    setState(() {
+      _before = metrics.extentBefore;
+      _after = metrics.extentAfter;
+    });
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Two listeners because the row changes width without being scrolled: a
+    // rotation and the first layout both report metrics and no scroll.
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (notification) => _onMetrics(notification.metrics),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) => _onMetrics(notification.metrics),
+        child: Stack(
+          fit: StackFit.passthrough,
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: widget.children,
+              ),
+            ),
+            if (_before > 0) const _Fade(key: ValueKey('bar-fade-start')),
+            if (_after > 0)
+              const _Fade(key: ValueKey('bar-fade-end'), end: true),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The bar's own surface, thinning out over the cell it cuts. Takes no taps:
+/// what is under it is half a key and still a key.
+class _Fade extends StatelessWidget {
+  const _Fade({super.key, this.end = false});
+
+  final bool end;
+
+  @override
+  Widget build(BuildContext context) => Positioned(
+    top: 0,
+    bottom: 0,
+    left: end ? null : 0,
+    right: end ? 0 : null,
+    width: _fadeWidth,
+    child: IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: end ? Alignment.centerRight : Alignment.centerLeft,
+            end: end ? Alignment.centerLeft : Alignment.centerRight,
+            // The same colour twice, one of them invisible: a fade to a
+            // transparent black would grey the cell under it on the way out.
+            colors: [
+              SpectacleColors.surfacePrimary,
+              SpectacleColors.surfacePrimary.withValues(alpha: 0),
+            ],
+            stops: const [_fadeSolid, 1],
+          ),
+        ),
+      ),
+    ),
+  );
 }
