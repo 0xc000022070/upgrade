@@ -184,14 +184,22 @@ class ShellSession extends ChangeNotifier {
 
   /// How many keys the armed set survives. One unless the bar's cell was
   /// dragged down, which is the only way a chord like `CTRL D` twice reaches
-  /// a program from a keyboard that cannot hold a key down.
+  /// a program from a keyboard that cannot hold a key down. Moot while the
+  /// arming is latched, which no key counts against.
   int stickyRepeat = 1;
 
+  /// Whether the armed set survives keys at all. A modifier held down on the
+  /// bar is armed until it is tapped off: nothing spends it, and no count
+  /// stands for how long it lasts.
+  bool stickyLocked = false;
+
   /// Drops the arming whole. A count outliving the modifiers it belonged to
-  /// would be spent on the next thing armed, which the user never asked for.
+  /// would be spent on the next thing armed, which the user never asked for,
+  /// and a latch outliving them would arm the next thing forever.
   void disarm() {
     sticky.clear();
     stickyRepeat = 1;
+    stickyLocked = false;
   }
 
   /// What the shell called itself, through the escape sequence a shell uses to
@@ -577,6 +585,9 @@ class ShellSessions extends ChangeNotifier {
       session.connection?.write(bytes);
     }
     if (session.sticky.isEmpty) return;
+    // A latched arming is not spent, only released: the whole point of holding
+    // a modifier down is that the keys under it do not use it up.
+    if (session.stickyLocked) return;
     if (session.stickyRepeat > 1) {
       session.stickyRepeat--;
     } else {
@@ -615,12 +626,18 @@ class ShellSessions extends ChangeNotifier {
 
   /// Arms the bar's modifiers for the next keys. Replaces the set rather than
   /// merging: the bar draws the whole of what is armed and hands back the whole
-  /// of it, the count included.
-  void arm(ShellSession session, Set<StickyModifier> sticky, {int repeat = 1}) {
+  /// of it, the count and the latch included.
+  void arm(
+    ShellSession session,
+    Set<StickyModifier> sticky, {
+    int repeat = 1,
+    bool locked = false,
+  }) {
     session.sticky
       ..clear()
       ..addAll(sticky);
     session.stickyRepeat = sticky.isEmpty ? 1 : repeat;
+    session.stickyLocked = sticky.isNotEmpty && locked;
     session.changed();
   }
 

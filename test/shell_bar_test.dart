@@ -11,7 +11,7 @@ import 'package:spectacle/design/icons/spectacle_icon.dart';
 import 'package:spectacle/features/shell/shell_bar.dart';
 import 'package:spectacle/platform/vnc/keysyms.dart';
 
-typedef Arming = ({Set<StickyModifier> keys, int repeat});
+typedef Arming = ({Set<StickyModifier> keys, int repeat, bool locked});
 
 class BarRecord {
   final sent = <List<int>>[];
@@ -21,14 +21,15 @@ class BarRecord {
   int finds = 0;
 
   /// Every arming the bar asked for, one readable line each: the modifiers by
-  /// name and the count when there is one. Records hold their set by identity,
-  /// so the shape they are compared in is a written one.
+  /// name, and the count or the latch when there is one. Records hold their
+  /// set by identity, so the shape they are compared in is a written one.
   List<String> get armings => armed.map((arming) {
     final keys = arming.keys.isEmpty
         ? 'none'
         : (arming.keys.map((modifier) => modifier.label).toList()..sort()).join(
             '+',
           );
+    if (arming.locked) return '$keys held';
     return arming.repeat > 1 ? '$keys x${arming.repeat}' : keys;
   }).toList();
 }
@@ -37,6 +38,7 @@ Future<BarRecord> pumpBar(
   WidgetTester tester, {
   Set<StickyModifier> sticky = const {},
   int repeat = 1,
+  bool locked = false,
   bool keyboardOpen = false,
   int clipCount = 0,
   bool searching = false,
@@ -50,8 +52,9 @@ Future<BarRecord> pumpBar(
           child: ShellBar(
             sticky: sticky,
             repeat: repeat,
-            onSticky: (keys, repeat) =>
-                record.armed.add((keys: keys, repeat: repeat)),
+            locked: locked,
+            onSticky: (keys, repeat, locked) =>
+                record.armed.add((keys: keys, repeat: repeat, locked: locked)),
             onBytes: (Uint8List bytes) => record.sent.add(bytes),
             keyboardOpen: keyboardOpen,
             onKeyboard: () => record.keyboards++,
@@ -70,6 +73,13 @@ Future<BarRecord> pumpBar(
 Future<void> tapCell(WidgetTester tester, String label) async {
   await tester.tap(find.byKey(ValueKey('bar-$label')));
   await tester.pump();
+}
+
+/// A press held over one cell, long enough for the hold to take the arena off
+/// the tap.
+Future<void> holdCell(WidgetTester tester, String label) async {
+  await tester.longPress(find.byKey(ValueKey('bar-$label')));
+  await tester.pumpAndSettle();
 }
 
 /// A vertical drag over one cell, far enough past the slop to be a flick.
@@ -310,6 +320,107 @@ void main() {
         lessThan(before.left),
       );
       expect(record.armed, isEmpty);
+    });
+  });
+
+  group('a modifier held down', () {
+    testWidgets('a press latches it', (tester) async {
+      final record = await pumpBar(tester);
+
+      await holdCell(tester, 'CTRL');
+
+      expect(record.armings, ['CTRL held']);
+    });
+
+    testWidgets('the cell says forever rather than a number', (tester) async {
+      await pumpBar(tester, sticky: {StickyModifier.ctrl}, locked: true);
+      await tester.pumpAndSettle();
+
+      expect(find.text('CTRL(∞)'), findsOneWidget);
+      expect(find.text('CTRL'), findsNothing);
+      expect(tintOf(tester, 'CTRL'), SpectacleColors.accent);
+    });
+
+    testWidgets('a press over a counted cell drops the count', (tester) async {
+      final record = await pumpBar(
+        tester,
+        sticky: {StickyModifier.ctrl},
+        repeat: 3,
+      );
+
+      await holdCell(tester, 'CTRL');
+
+      expect(record.armings, ['CTRL held']);
+      expect(record.armed.single.repeat, 1);
+    });
+
+    testWidgets('a tap lets it go', (tester) async {
+      final record = await pumpBar(
+        tester,
+        sticky: {StickyModifier.ctrl},
+        locked: true,
+      );
+
+      await tapCell(tester, 'CTRL');
+
+      expect(record.armings, ['none']);
+      expect(record.armed.single.locked, isFalse);
+    });
+
+    testWidgets('a drag down leaves it where it is, a drag up lets it go', (
+      tester,
+    ) async {
+      final down = await pumpBar(
+        tester,
+        sticky: {StickyModifier.ctrl},
+        locked: true,
+      );
+      await flickCell(tester, 'CTRL', down: true);
+      expect(down.armed, isEmpty);
+
+      final up = await pumpBar(
+        tester,
+        sticky: {StickyModifier.ctrl},
+        locked: true,
+      );
+      await flickCell(tester, 'CTRL', down: false);
+      expect(up.armings, ['none']);
+      expect(up.armed.single.locked, isFalse);
+    });
+
+    testWidgets('the latch is the arming\'s, not the cell\'s', (tester) async {
+      final joined = await pumpBar(
+        tester,
+        sticky: {StickyModifier.ctrl},
+        locked: true,
+      );
+      await tapCell(tester, 'ALT');
+      expect(joined.armings, ['ALT+CTRL held']);
+
+      final both = await pumpBar(
+        tester,
+        sticky: {StickyModifier.ctrl, StickyModifier.alt},
+        locked: true,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('CTRL(∞)'), findsOneWidget);
+      expect(find.text('ALT(∞)'), findsOneWidget);
+
+      await tapCell(tester, 'CTRL');
+      expect(both.armings, ['ALT held']);
+    });
+
+    testWidgets('only the modifiers can be held', (tester) async {
+      final record = await pumpBar(tester);
+
+      await holdCell(tester, 'ESC');
+
+      expect(record.armed, isEmpty);
+      // A key with nothing to hold is still a key: the hold is a press, and
+      // the press is what it answers.
+      expect(record.sent, [
+        [0x1b],
+      ]);
     });
   });
 

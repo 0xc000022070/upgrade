@@ -335,8 +335,13 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     }
   }
 
-  void _onSticky(ShellSession session, Set<StickyModifier> sticky, int repeat) {
-    _store.arm(session, sticky, repeat: repeat);
+  void _onSticky(
+    ShellSession session,
+    Set<StickyModifier> sticky,
+    int repeat,
+    bool locked,
+  ) {
+    _store.arm(session, sticky, repeat: repeat, locked: locked);
   }
 
   void _onBytes(ShellSession session, Uint8List bytes) {
@@ -541,8 +546,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                   ShellBar(
                     sticky: active.sticky,
                     repeat: active.stickyRepeat,
-                    onSticky: (sticky, repeat) =>
-                        _onSticky(active, sticky, repeat),
+                    locked: active.stickyLocked,
+                    onSticky: (sticky, repeat, locked) =>
+                        _onSticky(active, sticky, repeat, locked),
                     onBytes: (bytes) => _onBytes(active, bytes),
                     keyboardOpen: _keyboardOpen,
                     onKeyboard: () => _onKeyboard(active),

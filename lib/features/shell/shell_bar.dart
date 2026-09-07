@@ -67,6 +67,7 @@ class ShellBar extends StatelessWidget {
     super.key,
     required this.sticky,
     this.repeat = 1,
+    this.locked = false,
     required this.onSticky,
     required this.onBytes,
     required this.keyboardOpen,
@@ -84,7 +85,13 @@ class ShellBar extends StatelessWidget {
   /// the same keys.
   final int repeat;
 
-  final void Function(Set<StickyModifier> sticky, int repeat) onSticky;
+  /// Whether the armed set survives keys at all. A latched arming is spent by
+  /// nothing and ends only when the last modifier is tapped off it, which is
+  /// what a hand working a chord over and over asks for and no count says.
+  final bool locked;
+
+  final void Function(Set<StickyModifier> sticky, int repeat, bool locked)
+  onSticky;
   final void Function(Uint8List bytes) onBytes;
   final bool keyboardOpen;
   final VoidCallback onKeyboard;
@@ -135,10 +142,12 @@ class ShellBar extends StatelessWidget {
                     label: modifier.label,
                     armed: sticky.contains(modifier),
                     repeat: sticky.contains(modifier) ? repeat : 1,
+                    locked: locked && sticky.contains(modifier),
                     minWidth: _barHeight,
                     padding: _cellPadding,
                     onTap: () => _toggle(modifier),
                     onFlick: (step) => _flick(modifier, step),
+                    onLongPress: () => _latch(modifier),
                   ),
                 for (final key in _barKeys)
                   KeyCell(
@@ -184,31 +193,54 @@ class ShellBar extends StatelessWidget {
     if (bytes != null) onBytes(bytes);
   }
 
+  /// A tap adds a modifier to the arming or takes it off, whatever the arming
+  /// is: the latch and the count belong to the set, so a modifier tapped on
+  /// under a latch is latched with it, and the arming ends when the last one
+  /// is tapped off.
   void _toggle(StickyModifier modifier) {
     final next = Set.of(sticky);
     if (!next.remove(modifier)) next.add(modifier);
-    onSticky(next, next.isEmpty ? 1 : repeat);
+    if (next.isEmpty) {
+      onSticky(next, 1, false);
+      return;
+    }
+    onSticky(next, repeat, locked);
   }
+
+  /// A press held over a modifier latches the arming: armed until it is tapped
+  /// off, and spent by nothing in between. The count goes with it — there is
+  /// no number under a modifier no key takes anything off.
+  void _latch(StickyModifier modifier) =>
+      onSticky({...sticky, modifier}, 1, true);
 
   /// A drag down arms the modifier and counts up, a drag up counts back and
   /// then lets it go. Down from nothing lands on two rather than one: arming
   /// for a single key is what the tap already does.
+  ///
+  /// A latched arming only comes down: there is nothing above forever, so a
+  /// drag down over one leaves it where it is, and a drag up lets it go whole
+  /// the way the tap does.
   void _flick(StickyModifier modifier, int step) {
     final armed = sticky.contains(modifier);
+    if (locked && armed) {
+      if (step > 0) return;
+      onSticky(Set.of(sticky)..remove(modifier), 1, false);
+      return;
+    }
     if (step > 0) {
       final next = armed ? repeat + 1 : 2;
       if (armed && next > _maxRepeat) return;
-      onSticky({...sticky, modifier}, next);
+      onSticky({...sticky, modifier}, next, false);
       return;
     }
     if (!armed) return;
     if (repeat > 2) {
       // A copy, not the set the caller handed down: the store empties what it
       // is given before it fills it.
-      onSticky(Set.of(sticky), repeat - 1);
+      onSticky(Set.of(sticky), repeat - 1, false);
       return;
     }
-    onSticky(Set.of(sticky)..remove(modifier), 1);
+    onSticky(Set.of(sticky)..remove(modifier), 1, false);
   }
 }
 
