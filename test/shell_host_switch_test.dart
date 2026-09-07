@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectacle/app/spectacle_app.dart';
+import 'package:spectacle/application/agents.dart';
 import 'package:spectacle/application/providers.dart';
 import 'package:spectacle/data/database.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
@@ -32,11 +33,13 @@ const _nyx = Host(
 void main() {
   late AppDatabase db;
   late ShellSessions sessions;
+  late InMemoryHostRepository hosts;
 
   setUp(() {
     stubDeviceChannels();
     db = AppDatabase(NativeDatabase.memory());
     sessions = fakeShellSessions(FakeShellTransport());
+    hosts = InMemoryHostRepository();
   });
 
   tearDown(() => db.close());
@@ -44,6 +47,7 @@ void main() {
   Widget app() => ProviderScope(
     overrides: [
       databaseProvider.overrideWithValue(db),
+      hostRepositoryProvider.overrideWithValue(hosts),
       shellSessionsProvider.overrideWithValue(sessions),
     ],
     child: const MaterialApp(home: SpectacleShell()),
@@ -166,6 +170,78 @@ void main() {
     expect(sessions.activeFor(_nyx.id)!.number, 1);
 
     await unmount(tester);
+  });
+
+  group('a host with no shell yet', () {
+    testWidgets('a second host on the list makes the name a cell and is '
+        'offered under TAKE OVER', (tester) async {
+      await hosts.save(_rose);
+      await hosts.save(_nyx);
+      await tester.pumpWidget(app());
+      await ready(tester);
+
+      sessions.open(_rose);
+      await ready(tester);
+      await raise(tester);
+
+      expect(switcher, findsOneWidget);
+      await tester.tap(switcher);
+      await ready(tester);
+
+      expect(find.text('TAKE OVER'), findsOneWidget);
+      expect(find.byKey(const ValueKey('shell-take-h2')), findsOneWidget);
+      // The host already running is a session row, not an offer.
+      expect(find.byKey(const ValueKey('shell-switch-h1-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('shell-take-h1')), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('taking one over opens its shell in the same sheet', (
+      tester,
+    ) async {
+      await hosts.save(_rose);
+      await hosts.save(_nyx);
+      await tester.pumpWidget(app());
+      await ready(tester);
+
+      sessions.open(_rose);
+      await ready(tester);
+      await raise(tester);
+      final route = ModalRoute.of(tester.element(header));
+
+      await tester.tap(switcher);
+      await ready(tester);
+      await tester.tap(find.byKey(const ValueKey('shell-take-h2')));
+      await ready(tester);
+
+      expect(sessions.forHost(_nyx.id), hasLength(1));
+      expect(find.text('NYX'), findsOneWidget);
+      expect(ModalRoute.of(tester.element(header)), same(route));
+
+      await tester.drag(header, const Offset(0, 400));
+      await ready(tester);
+      expect(header, findsNothing);
+      expect(bar, findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('one host and nothing else leaves the name a label', (
+      tester,
+    ) async {
+      await hosts.save(_rose);
+      await tester.pumpWidget(app());
+      await ready(tester);
+
+      sessions.open(_rose);
+      await ready(tester);
+      await raise(tester);
+
+      expect(switcher, findsNothing);
+
+      await unmount(tester);
+    });
   });
 
   testWidgets('the host the sheet switched to is the one the bar names', (

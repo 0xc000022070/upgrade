@@ -268,7 +268,7 @@ class _SheetContentsState extends State<_SheetContents> {
   late Host _host = widget.host;
   late ShellSession? _session = widget.session;
 
-  void _switchTo(Host host, ShellSession session) {
+  void _switchTo(Host host, ShellSession? session) {
     if (host.id == _host.id) return;
     setState(() {
       _host = host;
