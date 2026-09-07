@@ -28,7 +28,9 @@ class KeyCell extends StatefulWidget {
     this.armed = false,
     this.inert = false,
     this.repeat = 1,
+    this.locked = false,
     this.onFlick,
+    this.onLongPress,
     this.minWidth,
     this.padding = Spacing.md,
     this.height = TapTargets.minHeight,
@@ -47,10 +49,19 @@ class KeyCell extends StatefulWidget {
   /// the label, `CTRL(x2)`, and the change rolls rather than cuts.
   final int repeat;
 
+  /// Armed for everything that follows rather than for a count. Drawn
+  /// `CTRL(∞)`, which replaces the count rather than sitting beside it: a
+  /// number under a modifier nothing spends says nothing.
+  final bool locked;
+
   /// A vertical drag over the cell, `1` down and `-1` up. Null leaves the cell
   /// with nothing but its tap, which is what every key that cannot be counted
   /// wants.
   final void Function(int step)? onFlick;
+
+  /// A press held over the cell. Null on every key that has nothing to hold —
+  /// a key that sends bytes is over the moment it is pressed.
+  final VoidCallback? onLongPress;
 
   /// A floor, not a width: a cell is as wide as its label plus [padding] on
   /// either side, and no narrower than this. Null leaves the width to whatever
@@ -83,7 +94,10 @@ class _KeyCellState extends State<KeyCell> {
         : SpectacleColors.textSecondary;
     final icon = widget.icon;
     final flick = widget.inert ? null : widget.onFlick;
-    final label = widget.repeat > 1
+    final hold = widget.inert ? null : widget.onLongPress;
+    final label = widget.locked
+        ? '${widget.label}(∞)'
+        : widget.repeat > 1
         ? '${widget.label}(x${widget.repeat})'
         : widget.label;
     return GestureDetector(
@@ -92,6 +106,10 @@ class _KeyCellState extends State<KeyCell> {
       onTapCancel: widget.inert ? null : () => setState(() => _down = false),
       onTapUp: widget.inert ? null : (_) => setState(() => _down = false),
       onTap: widget.inert ? null : widget.onTap,
+      // The hold shares the detector with the tap for the same reason the drag
+      // does: the two are in one arena, so a finger that stays wins the hold
+      // and the tap under it is cancelled rather than both firing.
+      onLongPress: hold,
       // The drag lives on the same detector as the tap so the two share an
       // arena entry: a finger that moves takes the drag and the tap is
       // cancelled under it, rather than both firing. The travel is counted
@@ -129,7 +147,9 @@ class _KeyCellState extends State<KeyCell> {
         // The label is still the semantics: a glyph key reads as its name to a
         // screen reader, which a bare picture would not.
         child: Semantics(
-          label: widget.repeat > 1
+          label: widget.locked
+              ? '${widget.label} latched'
+              : widget.repeat > 1
               ? '${widget.label} x${widget.repeat}'
               : widget.label,
           child: icon == null

@@ -422,6 +422,77 @@ void main() {
     });
   });
 
+  group('a modifier held down', () {
+    test('every key goes through it and it stays up', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      sessions.arm(session, {StickyModifier.ctrl}, locked: true);
+      session.terminal.textInput('d');
+      session.terminal.textInput('d');
+      session.terminal.textInput('d');
+
+      expect(session.sticky, {StickyModifier.ctrl});
+      expect(session.stickyLocked, isTrue);
+      expect(connection.writes, [
+        [0x04],
+        [0x04],
+        [0x04],
+      ]);
+    });
+
+    test('a key off the bar spends nothing either', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      sessions.arm(session, {StickyModifier.alt}, locked: true);
+      sessions.send(session, Uint8List.fromList([0x1b, 0x5b, 0x41]));
+      sessions.send(session, Uint8List.fromList([0x1b, 0x5b, 0x41]));
+
+      expect(session.sticky, {StickyModifier.alt});
+      expect(session.stickyLocked, isTrue);
+    });
+
+    test('an empty arming carries no latch', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      sessions.arm(session, {StickyModifier.ctrl}, locked: true);
+      sessions.arm(session, const {}, locked: true);
+
+      expect(session.sticky, isEmpty);
+      expect(session.stickyLocked, isFalse);
+    });
+
+    testWidgets('a reconnect drops the latch with the set', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _pumpDial(tester);
+      sessions.arm(session, {StickyModifier.ctrl}, locked: true);
+
+      transport.opened.single.drop();
+      await tester.pump();
+      await tester.pump(shellReconnectDelays.first);
+      await _pumpDial(tester);
+
+      expect(session.sticky, isEmpty);
+      expect(session.stickyLocked, isFalse);
+
+      await sessions.close(_rose.id, session);
+    });
+  });
+
   test(
     'the return the keyboard inserts goes out as a carriage return',
     () async {
@@ -579,7 +650,9 @@ void main() {
     await _pumpDial(tester);
     expect(session.state, isA<ShellLive>());
 
-    transport.opened.last.drop(const ShellFailure(ShellFailureKind.keyRejected));
+    transport.opened.last.drop(
+      const ShellFailure(ShellFailureKind.keyRejected),
+    );
     await tester.pump();
 
     expect((session.state as ShellFailed).detail, isNull);
