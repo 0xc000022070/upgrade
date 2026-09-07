@@ -7,6 +7,8 @@ import 'package:spectacle/features/shell/shell_surface.dart';
 import 'package:spectacle/features/shell/shell_terminal.dart';
 import 'package:xterm/xterm.dart';
 
+import 'support/platform_channels.dart';
+
 /// A terminal's geometry with no terminal behind it: square-ish cells on a
 /// grid, and the inset a real surface carries already carried.
 class _FakeSurface implements ShellSurface {
@@ -177,6 +179,55 @@ void main() {
       shellTerminalPadding.topLeft,
     );
     expect(surface.lineHeight, greaterThan(0));
+  });
+
+  testWidgets('a selected link is handed to the browser', (tester) async {
+    final opened = stubUrlLauncher();
+    final session = _session();
+    addTearDown(session.dispose);
+    await _pump(tester, session, surfaceOf: (_) => const _FakeSurface());
+    const url = 'http://100.118.60.77:8080/';
+    session.terminal.write(url);
+    _select(session, 0, url.length - 1, row: 0);
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('shell-open')));
+    await tester.pumpAndSettle();
+
+    expect(opened, [url]);
+    // The verb spent the selection, the way copying it does.
+    expect(session.controller.selection, isNull);
+  });
+
+  testWidgets('a selection that is not a link has nothing to open', (
+    tester,
+  ) async {
+    final session = _session();
+    addTearDown(session.dispose);
+    await _pump(tester, session, surfaceOf: (_) => const _FakeSurface());
+    session.terminal.write('revisar pgbouncer.conf');
+    _select(session, 8, 21, row: 0);
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('shell-open')), findsNothing);
+    expect(find.byKey(const ValueKey('shell-copy')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-copy-clear')), findsOneWidget);
+  });
+
+  testWidgets('a link the device refuses keeps the selection', (tester) async {
+    stubUrlLauncher(takes: false);
+    final session = _session();
+    addTearDown(session.dispose);
+    await _pump(tester, session, surfaceOf: (_) => const _FakeSurface());
+    const url = 'https://min.io/docs';
+    session.terminal.write(url);
+    _select(session, 0, url.length - 1, row: 0);
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('shell-open')));
+    await tester.pumpAndSettle();
+
+    expect(session.controller.selection, isNotNull);
   });
 
   testWidgets('nothing is drawn while there is no selection', (tester) async {

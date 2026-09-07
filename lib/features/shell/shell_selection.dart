@@ -5,17 +5,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:xterm/xterm.dart';
 
+import '../../application/urls.dart';
 import '../../design/colors.dart';
 import '../../design/components/cell_divider.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/spacing.dart';
+import '../../platform/browser.dart';
 import 'shell_sessions.dart';
 import 'shell_surface.dart';
 
 /// The selection's furniture, which xterm does not draw for a touch: a grip at
 /// either end of it to drag that end by, and a floating cell that reads the
-/// selected text out of the buffer and onto the clipboard. Nothing while there
-/// is no selection.
+/// selected text out of the buffer — onto the clipboard, or, when the text is
+/// a link, into the browser. Nothing while there is no selection.
 ///
 /// The cell sits on the selection, over the top line of it, the way a text
 /// field's toolbar sits on the words: the finger that made the selection is
@@ -146,11 +148,28 @@ class _SelectionActionsState extends State<ShellSelectionActions> {
     controller.clearSelection();
   }
 
+  /// The selected text when it is a link, and null when it is anything else.
+  /// Read on every build: a grip dragged one cell either way changes the
+  /// answer, and the answer is what says whether there is a verb to draw.
+  String? get _link {
+    final selection = widget.session.controller.selection;
+    if (selection == null) return null;
+    return explicitUrl(widget.session.terminal.buffer.getText(selection));
+  }
+
+  /// The selection is spent by opening it, the way it is spent by copying it —
+  /// but only if something took the URL. A launch that went nowhere leaves the
+  /// words on the screen to try again with.
+  Future<void> _open(String url) async {
+    if (await openUrl(url)) widget.session.controller.clearSelection();
+  }
+
   @override
   Widget build(BuildContext context) {
     final selection = widget.session.controller.selection;
     if (selection == null) return const SizedBox.shrink();
     final lineHeight = widget.surfaceOf(widget.session)?.lineHeight ?? 0;
+    final link = _link;
     return CustomMultiChildLayout(
       // The surface is asked again at layout: the terminal corrects its own
       // scroll offset while it lays out, and what this build read is a frame
@@ -192,6 +211,17 @@ class _SelectionActionsState extends State<ShellSelectionActions> {
                     height: RowMetrics.minHeight,
                     onTap: _copy,
                   ),
+                  if (link != null) ...[
+                    const CellDivider(),
+                    KeyCell(
+                      key: const ValueKey('shell-open'),
+                      label: 'OPEN',
+                      minWidth: RowMetrics.minHeight,
+                      padding: RowMetrics.padding,
+                      height: RowMetrics.minHeight,
+                      onTap: () => _open(link),
+                    ),
+                  ],
                   const CellDivider(),
                   KeyCell(
                     key: const ValueKey('shell-copy-clear'),

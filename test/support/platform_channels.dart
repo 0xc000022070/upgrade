@@ -50,8 +50,9 @@ void stubForegroundTask() {
 
 /// A tap on a painted URL hands it to the platform. Nothing in a test process
 /// can open a browser, so the channel answers and the returned list records
-/// what it was asked to open.
-List<String> stubUrlLauncher() {
+/// what it was asked to open. [takes] is what the device says it did with the
+/// URL: false is a phone with nothing registered for the scheme.
+List<String> stubUrlLauncher({bool takes = true}) {
   final opened = <String>[];
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(
@@ -63,7 +64,7 @@ List<String> stubUrlLauncher() {
               return true;
             case 'launch':
               opened.add(arguments!['url']! as String);
-              return true;
+              return takes;
           }
           return null;
         },

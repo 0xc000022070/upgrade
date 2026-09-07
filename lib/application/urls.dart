@@ -9,10 +9,10 @@ library;
 
 import 'package:flutter/services.dart';
 
-/// What counts as a link. A bare host is accepted and given https; anything
-/// with whitespace or without a dot is not a URL —
-/// the clipboard usually holds prose, and attaching that as a link is worse
-/// than doing nothing.
+/// What counts as a link in prose. A bare host is accepted and given https;
+/// anything with whitespace or without a dot is not a URL — the clipboard
+/// usually holds prose, and attaching that as a link is worse than doing
+/// nothing.
 String? normalizeUrl(String raw) {
   final value = raw.trim();
   if (value.isEmpty || value.contains(RegExp(r'\s'))) return null;
@@ -21,12 +21,25 @@ String? normalizeUrl(String raw) {
   if (!value.contains('://') && RegExp(r'^[a-zA-Z][\w+.-]*:').hasMatch(value)) {
     return null;
   }
-  final withScheme = value.contains('://') ? value : 'https://$value';
-  final uri = Uri.tryParse(withScheme);
+  final url = explicitUrl(value.contains('://') ? value : 'https://$value');
+  // A host with no dot in it is a word. Prose is full of them, and nobody
+  // titling a drop `localhost` meant a link.
+  if (url == null || !Uri.parse(url).host.contains('.')) return null;
+  return url;
+}
+
+/// A URL taken exactly as it is written, for text that already says what it
+/// is. Nothing is promoted and no dot is demanded: terminal output says
+/// `http://localhost:3000` and `http://100.118.60.77:8080/`, and a host with
+/// no dot in it is a real host there. The scheme carries the whole decision,
+/// so a path, a flag or a word that merely reads like a host stays what it is.
+String? explicitUrl(String raw) {
+  final value = raw.trim();
+  if (value.isEmpty || value.contains(RegExp(r'\s'))) return null;
+  final uri = Uri.tryParse(value);
   if (uri == null || !uri.hasAuthority) return null;
   if (uri.scheme != 'http' && uri.scheme != 'https') return null;
-  if (!uri.host.contains('.')) return null;
-  return withScheme;
+  return value;
 }
 
 /// What the link line opens prefilled with. The clipboard is the common case
