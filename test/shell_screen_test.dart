@@ -13,7 +13,9 @@ import 'package:spectacle/design/colors.dart';
 import 'package:spectacle/features/shell/host_shell_screen.dart';
 import 'package:spectacle/features/shell/shell_sheet.dart';
 import 'package:spectacle/features/shell/shell_bar.dart';
+import 'package:spectacle/features/shell/shell_header.dart';
 import 'package:spectacle/features/shell/shell_sessions.dart';
+import 'package:spectacle/features/shell/shell_status.dart';
 import 'package:spectacle/platform/shell/shell_connection.dart';
 import 'package:xterm/xterm.dart';
 
@@ -28,6 +30,32 @@ const _rose = Host(
   user: 'luis',
   keyId: 'key-1',
 );
+
+/// The word one tab is drawn with.
+String labelOfTab(WidgetTester tester, int number) => tester
+    .widget<Text>(
+      find.descendant(
+        of: find.byKey(ValueKey('shell-tab-$number')),
+        matching: find.byType(Text),
+      ),
+    )
+    .data!;
+
+/// The colour of one tab's state dot.
+Color? dotOfTab(WidgetTester tester, int number) =>
+    (tester
+                .widget<Container>(
+                  find.descendant(
+                    of: find.descendant(
+                      of: find.byKey(ValueKey('shell-tab-$number')),
+                      matching: find.byType(ShellStateDot),
+                    ),
+                    matching: find.byType(Container),
+                  ),
+                )
+                .decoration
+            as BoxDecoration)
+        .color;
 
 void main() {
   setUp(stubDeviceChannels);
@@ -170,10 +198,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('shell-reason')));
     await ready(tester);
 
-    expect(
-      find.text('SSHChannelRequestError: pty-req denied'),
-      findsOneWidget,
-    );
+    expect(find.text('SSHChannelRequestError: pty-req denied'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('shell-detail-copy')));
     await ready(tester);
@@ -200,10 +225,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('shell-reason')));
     await ready(tester);
 
-    expect(
-      tester.getSize(find.byKey(const ValueKey('shell-reason'))),
-      closed,
-    );
+    expect(tester.getSize(find.byKey(const ValueKey('shell-reason'))), closed);
     expect(find.byKey(const ValueKey('shell-detail-copy')), findsNothing);
 
     await unmount(tester);
@@ -259,6 +281,125 @@ void main() {
     expect(sessions.activeFor(_rose.id)?.number, 1);
 
     await unmount(tester);
+  });
+
+  group('a tab says which shell it is', () {
+    test('a shell with no title reads its number', () {
+      expect(shellTabLabel(null, 3), '3');
+      expect(shellTabLabel('   ', 3), '3');
+    });
+
+    test('a login shell reads where it is, not who it is', () {
+      expect(shellTabLabel('luis@nyx: ~/Projects/spectacle', 1), 'spectacle');
+      expect(shellTabLabel('luis@nyx: ~', 1), '~');
+      expect(shellTabLabel('~/Projects/spectacle', 1), 'spectacle');
+    });
+
+    test('a title with a space in it is a sentence and is kept whole', () {
+      expect(shellTabLabel('vim design/SPEC.md', 2), 'vim design/SPEC.md');
+      expect(shellTabLabel('htop', 2), 'htop');
+    });
+
+    testWidgets('the title a shell sets lands on its tab', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      expect(labelOfTab(tester, 1), '1');
+
+      transport.opened.first.emit('\x1b]0;luis@rose: ~/Projects/spectacle\x07');
+      await ready(tester);
+
+      expect(labelOfTab(tester, 1), 'spectacle');
+
+      await unmount(tester);
+    });
+
+    testWidgets('a long title cannot take the header', (tester) async {
+      tester.view.physicalSize = const Size(411, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+
+      transport.opened.first.emit(
+        '\x1b]0;a title far wider than any phone has room for\x07',
+      );
+      await ready(tester);
+
+      expect(
+        tester.getSize(find.byKey(const ValueKey('shell-tab-1'))).width,
+        lessThan(411 * 0.55),
+      );
+      expect(tester.takeException(), isNull);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a tab carries the state of the shell in it', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+
+      expect(dotOfTab(tester, 1), SpectacleColors.accent);
+
+      transport.opened.first.drop();
+      await ready(tester);
+
+      expect(dotOfTab(tester, 1), isNot(SpectacleColors.accent));
+
+      await tester.tap(find.text('STOP'));
+      await ready(tester);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a numbered tab takes no more room than its number', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+
+      // The cap is on the word, not on the cell: a tab that says `1` is a tap
+      // target wide and leaves the rest of the row to what the shell is doing.
+      expect(
+        tester.getSize(find.byKey(const ValueKey('shell-tab-1'))).width,
+        lessThan(60),
+      );
+
+      await unmount(tester);
+    });
+
+    testWidgets('a tab opened past the edge is brought into view', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(411, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      for (var i = 0; i < 8; i++) {
+        sessions.open(_rose);
+      }
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+
+      // Through the store, the way the plus opens one: the plus itself is off
+      // the right edge here, which is the very thing being fixed.
+      sessions.open(_rose);
+      await ready(tester);
+
+      final ninth = tester.getRect(find.byKey(const ValueKey('shell-tab-9')));
+      expect(ninth.left, greaterThanOrEqualTo(0));
+      expect(ninth.right, lessThanOrEqualTo(411));
+
+      await unmount(tester);
+    });
   });
 
   testWidgets('the plus is gone once nine tabs are open', (tester) async {
