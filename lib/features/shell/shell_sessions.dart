@@ -248,6 +248,11 @@ class ShellSession extends ChangeNotifier {
 
   bool _retired = false;
 
+  /// Whether the tab has closed and let go of what it owns. What a view left
+  /// behind on the terminal — a mark, an anchor — is released with the buffer
+  /// and must not be released again through a listenable that is gone.
+  bool get retired => _retired;
+
   /// Lets go of the three listenables the view is handed rather than makes.
   /// The view disposes only what it made itself, so a session that owns them
   /// is the only thing that can, and a tab that has closed is the moment.

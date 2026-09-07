@@ -21,6 +21,7 @@ import 'attach_sheet.dart';
 import 'shell_bar.dart';
 import 'shell_header.dart';
 import 'shell_selection.dart';
+import 'shell_search.dart';
 import 'shell_sessions.dart';
 import 'shell_status.dart';
 import 'shell_tail.dart';
@@ -143,6 +144,10 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   /// Read for one number, the count on the bar's cell. A crop on the screen
   /// route while this one is under it is what changes it.
   late final ClipStore _clips;
+
+  /// Whether the search line is up. It belongs to the route rather than to a
+  /// session: what is being looked for is looked for in the tab on screen.
+  var _searching = false;
 
   void _onClips() {
     if (mounted) setState(() {});
@@ -484,6 +489,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                           ),
                         ),
                 ),
+                if (active != null && _searching)
+                  ShellSearchRow(
+                    session: active,
+                    onClose: () => setState(() => _searching = false),
+                  ),
                 if (active != null)
                   ShellBar(
                     sticky: active.sticky,
@@ -494,6 +504,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                     keyboardOpen: _keyboardOpen,
                     onKeyboard: () => _onKeyboard(active),
                     clipCount: _clips.count,
+                    searching: _searching,
+                    onFind: () => setState(() => _searching = !_searching),
                     onAttach: () => showAttachSheet(context, session: active),
                   ),
               ],

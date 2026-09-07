@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectacle/design/colors.dart';
+import 'package:spectacle/design/icons/spectacle_icon.dart';
 import 'package:spectacle/features/shell/shell_bar.dart';
 import 'package:spectacle/platform/vnc/keysyms.dart';
 
@@ -17,6 +18,7 @@ class BarRecord {
   final armed = <Arming>[];
   int keyboards = 0;
   int attaches = 0;
+  int finds = 0;
 
   /// Every arming the bar asked for, one readable line each: the modifiers by
   /// name and the count when there is one. Records hold their set by identity,
@@ -37,6 +39,7 @@ Future<BarRecord> pumpBar(
   int repeat = 1,
   bool keyboardOpen = false,
   int clipCount = 0,
+  bool searching = false,
 }) async {
   final record = BarRecord();
   await tester.pumpWidget(
@@ -54,6 +57,8 @@ Future<BarRecord> pumpBar(
             onKeyboard: () => record.keyboards++,
             clipCount: clipCount,
             onAttach: () => record.attaches++,
+            searching: searching,
+            onFind: () => record.finds++,
           ),
         ),
       ),
@@ -89,6 +94,16 @@ Color? tintOf(WidgetTester tester, String label) => tester
     )
     .style
     ?.color;
+
+/// The tint of a cell drawn as an icon rather than a word.
+Color iconTintOf(WidgetTester tester, String label) => tester
+    .widget<SpectacleIcon>(
+      find.descendant(
+        of: find.byKey(ValueKey('bar-$label')),
+        matching: find.byType(SpectacleIcon),
+      ),
+    )
+    .color;
 
 void main() {
   group('the keys', () {
@@ -348,8 +363,10 @@ void main() {
       expect(find.byKey(const ValueKey('bar-fade-end')), findsOneWidget);
       expect(find.byKey(const ValueKey('bar-fade-start')), findsNothing);
 
+      // From the head of the strip: at this width the cells past it are half
+      // under the fixed half of the bar, where a drag is not a scroll.
       await tester.drag(
-        find.byKey(const ValueKey('bar-ESC')),
+        find.byKey(const ValueKey('bar-find')),
         const Offset(-400, 0),
       );
       await tester.pumpAndSettle();
@@ -383,6 +400,34 @@ void main() {
       await tester.pump();
 
       expect(record.sent, isNotEmpty);
+    });
+  });
+
+  group('the cell that opens the line', () {
+    testWidgets('FIND leads the strip and puts nothing on the wire', (
+      tester,
+    ) async {
+      final record = await pumpBar(tester);
+
+      final find_ = find.byKey(const ValueKey('bar-find'));
+      expect(
+        tester.getRect(find_).left,
+        lessThan(tester.getRect(find.byKey(const ValueKey('bar-CTRL'))).left),
+      );
+
+      await tapCell(tester, 'find');
+
+      expect(record.finds, 1);
+      expect(record.sent, isEmpty);
+      expect(record.armed, isEmpty);
+    });
+
+    testWidgets('FIND reads accent while the line is open', (tester) async {
+      await pumpBar(tester);
+      expect(iconTintOf(tester, 'find'), SpectacleColors.textSecondary);
+
+      await pumpBar(tester, searching: true);
+      expect(iconTintOf(tester, 'find'), SpectacleColors.accent);
     });
   });
 
