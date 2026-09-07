@@ -1,7 +1,7 @@
 # Spec
 
 - `design/SPEC.md` is the contract: §39.x, one subsection per feature, written by you from the user's words, quoting them with the date.
-- A user ruling amends the spec first, then the code. Commit spec edits alone.
+- A user ruling amends the spec first, then the code, and one commit carries both (user, 2026-09-06: "a single commit for spec and impl"). A spec edit with no code behind it — a struck idea, a correction — still commits alone.
 - Record struck ideas in place with the date and why, so they do not come back.
 - Each section ends with the regression tests it expects, so the gate has something to check the suite against.
 
