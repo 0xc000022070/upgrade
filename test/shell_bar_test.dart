@@ -336,6 +336,56 @@ void main() {
     });
   });
 
+  group('the end the row goes on past', () {
+    testWidgets('the keys fade at the end there are more behind', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await pumpBar(tester);
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('bar-fade-end')), findsOneWidget);
+      expect(find.byKey(const ValueKey('bar-fade-start')), findsNothing);
+
+      await tester.drag(
+        find.byKey(const ValueKey('bar-ESC')),
+        const Offset(-400, 0),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('bar-fade-start')), findsOneWidget);
+      expect(find.byKey(const ValueKey('bar-fade-end')), findsNothing);
+    });
+
+    testWidgets('a bar with room for every cell fades at neither end', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(900, 200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await pumpBar(tester);
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('bar-fade-start')), findsNothing);
+      expect(find.byKey(const ValueKey('bar-fade-end')), findsNothing);
+    });
+
+    testWidgets('a fade takes no taps: the cell under it is pressed', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final record = await pumpBar(tester);
+      await tester.pump();
+
+      final fade = tester.getRect(find.byKey(const ValueKey('bar-fade-end')));
+      await tester.tapAt(fade.center);
+      await tester.pump();
+
+      expect(record.sent, isNotEmpty);
+    });
+  });
+
   group('the two cells that are not keys', () {
     testWidgets('no PASTE: the phone clipboard is not a cell', (tester) async {
       await pumpBar(tester);
@@ -374,6 +424,24 @@ void main() {
         before,
       );
       expect(find.byKey(const ValueKey('bar-CTRL')), findsOneWidget);
+    });
+
+    testWidgets('ATTACH stays put when the keys scroll', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final record = await pumpBar(tester);
+
+      final before = tester.getRect(find.byKey(const ValueKey('bar-ATTACH')));
+      await tester.drag(
+        find.byKey(const ValueKey('bar-ESC')),
+        const Offset(-160, 0),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(find.byKey(const ValueKey('bar-ATTACH'))), before);
+      await tester.tap(find.byKey(const ValueKey('bar-ATTACH')));
+      await tester.pump();
+      expect(record.attaches, 1);
     });
 
     testWidgets('ATTACH is on the bar with nothing held, unmarked', (
