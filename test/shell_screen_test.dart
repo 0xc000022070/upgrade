@@ -1730,6 +1730,137 @@ void main() {
       await unmount(tester);
     });
   });
+
+  group('the way back to the live line', () {
+    /// A screenful of output and then some, so there is something behind the
+    /// bottom of the view to scroll into.
+    Future<ShellSession> filled(
+      WidgetTester tester,
+      FakeShellTransport transport,
+      ShellSessions sessions,
+    ) async {
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      transport.opened.single.emit('line\r\n' * 200);
+      await ready(tester);
+      return sessions.activeFor(_rose.id)!;
+    }
+
+    /// Puts the view a screenful up, the way a finger dragging down does.
+    void scrollUp(ShellSession session) {
+      final position = session.scrollController.position;
+      session.scrollController.jumpTo(position.maxScrollExtent - 200);
+    }
+
+    final tail = find.byKey(const ValueKey('shell-tail'));
+
+    testWidgets('nothing to offer while the last line is on the screen', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = await filled(tester, transport, sessions);
+
+      // The terminal follows its own output, so a shell left alone is on its
+      // last line however much it prints.
+      expect(session.scrollController.position.extentAfter, 0);
+      expect(tail, findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a view dragged off the last line offers the way back', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = await filled(tester, transport, sessions);
+
+      await tester.drag(find.byType(TerminalView), const Offset(0, 200));
+      await tester.pump();
+
+      expect(tail, findsOneWidget);
+
+      await tester.tap(tail);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final position = session.scrollController.position;
+      expect(position.pixels, position.maxScrollExtent);
+      expect(tail, findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('output printed under a reader moves neither the view nor the '
+        'cell', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = await filled(tester, transport, sessions);
+
+      scrollUp(session);
+      await tester.pump();
+      final at = session.scrollController.position.pixels;
+      expect(tail, findsOneWidget);
+
+      transport.opened.single.emit('more\r\n' * 20);
+      await ready(tester);
+
+      expect(session.scrollController.position.pixels, at);
+      expect(tail, findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a key from the bar puts the view back on the last line', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = await filled(tester, transport, sessions);
+
+      scrollUp(session);
+      await tester.pump();
+      expect(tail, findsOneWidget);
+
+      await tester.tap(find.text('ESC'));
+      await tester.pump();
+
+      final position = session.scrollController.position;
+      expect(position.pixels, position.maxScrollExtent);
+      expect(tail, findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('the corner belongs to the selection while there is one', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = await filled(tester, transport, sessions);
+
+      scrollUp(session);
+      await tester.pump();
+      expect(tail, findsOneWidget);
+
+      final buffer = session.terminal.buffer;
+      session.controller.setSelection(
+        buffer.createAnchor(0, 0),
+        buffer.createAnchor(4, 0),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('shell-copy')), findsOneWidget);
+      expect(tail, findsNothing);
+
+      session.controller.clearSelection();
+      await tester.pump();
+      expect(tail, findsOneWidget);
+
+      await unmount(tester);
+    });
+  });
 }
 
 /// A page to pop back to, so the last tab closing has somewhere to land.
