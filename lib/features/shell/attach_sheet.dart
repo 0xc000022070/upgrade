@@ -53,6 +53,7 @@ class _AttachSheet extends ConsumerStatefulWidget {
 class _AttachSheetState extends ConsumerState<_AttachSheet> {
   String? _status;
   bool _busy = false;
+  bool _help = false;
 
   Future<void> _attachHeld(Clip clip) async {
     if (_busy) return;
@@ -128,12 +129,26 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
         final held = clips.clips;
         return PanelSheetBody(
           title: 'ATTACH',
-          affordance: PanelAffordance(
-            'CANCEL',
-            showIcon: false,
-            onTap: () => Navigator.of(context).pop(),
+          affordance: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PanelAffordance(
+                '?',
+                key: const ValueKey('attach-help'),
+                showIcon: false,
+                color: _help ? SpectacleColors.accent : null,
+                onTap: () => setState(() => _help = !_help),
+              ),
+              const SizedBox(width: Spacing.lg),
+              PanelAffordance(
+                'CANCEL',
+                showIcon: false,
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
           children: [
+            if (_help) ...[const _AttachHelp(), const SheetRule()],
             ActionBlock(
               key: const ValueKey('attach-photos'),
               label: 'PHOTOS',
@@ -172,6 +187,41 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
           ],
         );
       },
+    );
+  }
+}
+
+/// What the sheet says about itself under the `?`: what a picture is for,
+/// what each of the two ways in does, and what a failure falls back to. Body
+/// copy is the one place the app is read rather than scanned, so it is the
+/// sheet's Sans and not another tracked label.
+class _AttachHelp extends StatelessWidget {
+  const _AttachHelp();
+
+  static const _lines = [
+    'Puts a picture in the hands of whatever is running in this shell. '
+        'An agent under the pty reads it off the clipboard, so it sees the '
+        'image itself and not a file name it has to go and open.',
+    'PHOTOS picks from the gallery, as many as you like. Each one is '
+        'uploaded to the host, put on the host clipboard and pasted with '
+        'Ctrl+V, in the order you picked them. A host with no clipboard tool '
+        'gets the file path typed at the cursor instead.',
+    'HELD is what a crop off the SCREEN viewer is kept in, for as long as '
+        'the app is running. Tap one to attach it, × to drop it.',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      key: const ValueKey('attach-help-body'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < _lines.length; i++) ...[
+          if (i > 0) const SizedBox(height: Spacing.md),
+          Text(_lines[i], style: SpectacleText.prose),
+        ],
+      ],
     );
   }
 }
