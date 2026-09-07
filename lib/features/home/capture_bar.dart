@@ -21,7 +21,7 @@ import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../tasks/image_input.dart';
 import '../tasks/item_pickers.dart';
-import '../tasks/link_input.dart';
+import '../../application/urls.dart';
 import '../tasks/url_highlight_controller.dart';
 
 /// Capture is pinned to the bottom of HOME and is a panel like

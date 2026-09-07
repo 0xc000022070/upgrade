@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../application/agents.dart';
 import '../../application/formatting.dart';
 import '../../application/path_scan.dart';
 import '../../application/providers.dart';
 import '../../application/send.dart';
+import '../../application/urls.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
 import '../../data/repositories/attachment_repository.dart';
@@ -28,12 +28,12 @@ import '../../design/components/panel_sheet.dart';
 import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
+import '../../platform/browser.dart';
 import '../hosts/path_picker_sheet.dart';
 import '../home/agent_mark.dart';
 import 'image_input.dart';
 import 'image_viewer.dart';
 import 'item_pickers.dart';
-import 'link_input.dart';
 import 'link_text.dart';
 
 /// The quick view. Row tap and long press both land here; there is no separate
@@ -219,11 +219,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     _focus.requestFocus();
   }
 
-  Future<void> _open(Attachment attachment) async {
-    final uri = Uri.tryParse(attachment.value);
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
+  Future<void> _open(Attachment attachment) => openUrl(attachment.value);
 
   void _toPicker(_Mode mode) {
     _focus.unfocus();

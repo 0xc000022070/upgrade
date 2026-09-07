@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectacle/application/urls.dart';
 import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/features/tasks/link_input.dart';
 import 'package:spectacle/features/tasks/url_highlight_controller.dart';
 
 /// The highlight is a promise about what a tap will open, so the assertion
