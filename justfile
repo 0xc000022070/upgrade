@@ -109,6 +109,78 @@ faraday:
     grep -E 'firstInstallTime|lastUpdateTime' <<<"$pkg"
     echo "faraday: $version+$code ($SPECTACLE_BUILD) installed on $serial"
 
+# Where the apk faraday pulls is staged. Inside the tree and gitignored, and not
+# under build/, which `flutter clean` empties.
+apk_repo := justfile_directory() / "publish"
+
+# Build and verify a release apk and leave it where faraday can fetch it over
+# the tailnet, for the stretch with no adb transport to push over. The three
+# assertions `faraday` makes matter more here, not less: nothing on the other
+# end reads them back, the phone installs whatever this directory holds.
+#
+#     just publish
+#     tailscale serve --bg publish   # https://<this host>.<tailnet>.ts.net
+#
+# One apk is kept, never a history. dumpsys cannot confirm the install from
+# here either: §39.16's BUILD line in SYS is what says which one landed.
+publish:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    stamp=$(sed -n 's/^version:[[:space:]]*\([^+[:space:]]\{1,\}\)+\([0-9]\{1,\}\)[[:space:]]*$/\1 \2/p' pubspec.yaml)
+    [[ -n $stamp ]] || { echo "publish: pubspec.yaml has no 'version: <name>+<code>' line" >&2; exit 1; }
+    read -r version code <<<"$stamp"
+
+    tools=${ANDROID_HOME:?run inside the nix dev shell}/build-tools/37.0.0
+
+    export SPECTACLE_BUILD="${SPECTACLE_BUILD:-$(git rev-parse --short HEAD)}"
+    git diff --quiet HEAD || echo "publish: tree is dirty, the build line still stamps $SPECTACLE_BUILD" >&2
+
+    apk=build/app/outputs/flutter-apk/app-release.apk
+    rm -f "$apk"
+    just apk-release "$version" "$code"
+
+    badged=$("$tools/aapt2" dump badging "$apk" | sed -n "1s/.*versionCode='\([0-9]*\)'.*/\1/p")
+    [[ $badged == "$code" ]] || { echo "publish: apk reports versionCode $badged, pubspec says $code" >&2; exit 1; }
+    cert=$("$tools/apksigner" verify --print-certs "$apk" | awk '/certificate SHA-256 digest:/ {print $NF; exit}')
+    [[ $cert == "{{faraday_cert}}" ]] || { echo "publish: apk signed by $cert, not the key faraday trusts" >&2; exit 1; }
+
+    # '-' and not '+' before the code: a literal + in a url path is legal and
+    # reads as a space to enough clients to not be worth finding out which.
+    name="spectacle-$version-$code.apk"
+    mkdir -p "{{apk_repo}}"
+    rm -f "{{apk_repo}}"/spectacle-*.apk "{{apk_repo}}/latest.apk"
+    install -m644 "$apk" "{{apk_repo}}/$name"
+    # A hard link, so the stable url costs no second copy of 60 MB and does not
+    # depend on the file server following symlinks out of its own root.
+    ln "{{apk_repo}}/$name" "{{apk_repo}}/latest.apk"
+
+    sum=$(sha256sum "{{apk_repo}}/$name" | cut -d' ' -f1)
+    size=$(du -h "{{apk_repo}}/$name" | cut -f1)
+    when=$(date -Is)
+
+    # The page is read on the phone that is about to install from it: one link
+    # big enough to hit, and the stamp to compare against SYS afterwards.
+    {
+        printf '<!doctype html><meta charset=utf-8>'
+        printf '<meta name=viewport content="width=device-width,initial-scale=1">'
+        printf '<title>spectacle</title>'
+        printf '<style>body{background:#111;color:#eee;font:14px/1.6 ui-monospace,monospace;margin:0;padding:2rem 1.25rem;max-width:34rem}'
+        printf 'a.get{display:block;padding:1.1rem;margin:1.5rem 0;background:#eee;color:#111;text-align:center;text-decoration:none;letter-spacing:.08em}'
+        printf 'dt{color:#777;float:left;width:5.5rem;clear:left}dd{margin:0 0 .35rem 5.5rem;word-break:break-all}</style>'
+        printf '<h1>SPECTACLE</h1>'
+        printf '<a class="get" href="%s">INSTALL %s (%s)</a>' "$name" "$version" "$code"
+        printf '<dl>'
+        printf '<dt>build</dt><dd>%s</dd>' "$SPECTACLE_BUILD"
+        printf '<dt>size</dt><dd>%s</dd>' "$size"
+        printf '<dt>built</dt><dd>%s</dd>' "$when"
+        printf '<dt>sha256</dt><dd>%s</dd>' "$sum"
+        printf '</dl>'
+        printf '<p style="color:#777">SYS must read v%s (%s) %s once it lands.</p>' "$version" "$code" "$SPECTACLE_BUILD"
+    } > "{{apk_repo}}/index.html"
+
+    echo "publish: $name ($SPECTACLE_BUILD) -> {{apk_repo}}"
+
 # faraday: install and launch only, for the user to review by hand.
 review:
     phone up --profile review

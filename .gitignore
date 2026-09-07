@@ -62,3 +62,6 @@ result-*
 *.g.dart
 *.drift.dart
 *.freezed.dart
+
+# Release artifacts staged for faraday to pull — `just publish`
+/publish/
