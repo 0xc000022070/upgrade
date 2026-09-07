@@ -12,22 +12,43 @@ import '../../design/typography.dart';
 /// the panel for every chunk that arrives.
 const _thumbnailInterval = Duration(milliseconds: 500);
 
-/// Roughly how wide a mono glyph is against its height. Used to size the
-/// miniature's text so a full-width line fits the box rather than to lay
-/// anything out: the painter measures what it draws.
-const _monoAspect = 0.6;
+/// The size the miniature's glyphs are drawn at, and the room one line takes.
+/// Small, and no smaller: a card 160 points wide holds about thirty columns of
+/// this, which is a prompt and the tail of what it answered.
+const thumbnailFontSize = 9.0;
+const thumbnailLineHeight = 11.0;
 
-/// What the miniature draws: the lines the terminal is showing, oldest first.
+/// What the miniature draws: the lines the terminal is showing, oldest first,
+/// ending at the last one with anything on it.
 ///
 /// Trailing spaces go, because a line of them is a line of nothing at this
-/// size and the painter should not spend a layout on it.
+/// size and the painter should not spend a layout on it. The blank rows under
+/// the cursor go with them: a shell's viewport is mostly empty and a card
+/// anchored on its last row is a card of nothing. A blank line between two
+/// written ones is output and stays.
 List<String> thumbnailLines(Terminal terminal) {
   final buffer = terminal.buffer;
   final first = (buffer.height - buffer.viewHeight).clamp(0, buffer.height);
-  return [
+  final lines = [
     for (var i = first; i < buffer.height; i++)
       buffer.lines[i].getText().trimRight(),
   ];
+  var last = lines.length;
+  while (last > 0 && lines[last - 1].isEmpty) {
+    last--;
+  }
+  return lines.sublist(0, last);
+}
+
+/// The lines a card of this height has room for, oldest first: the tail of
+/// [lines], because the newest output and the prompt under it are the part
+/// worth a glance. What is older falls off the top, the way a terminal keeps
+/// what has already been read.
+List<String> thumbnailTail(List<String> lines, double height) {
+  final rows = height ~/ thumbnailLineHeight;
+  if (rows <= 0) return const [];
+  if (lines.length <= rows) return lines;
+  return lines.sublist(lines.length - rows);
 }
 
 /// A live miniature of one session's terminal: what it is showing, small, on
@@ -85,59 +106,54 @@ class _ShellThumbnailState extends State<ShellThumbnail> {
         color: const Color(0xFF000000),
         border: Border.all(color: SpectacleColors.borderSubtle),
       ),
-      child: CustomPaint(
-        painter: ShellThumbnailPainter(
-          lines: _lines,
-          columns: widget.terminal.viewWidth,
+      child: ClipRect(
+        child: CustomPaint(
+          painter: ShellThumbnailPainter(lines: _lines),
+          size: Size.infinite,
         ),
-        size: Size.infinite,
       ),
     );
   }
 }
 
-/// The miniature itself: the lines scaled to the box, glyphs in the text
-/// colour, nothing else. No attributes — colour and weight are illegible at
-/// this size, and the card is a glance, not a read.
+/// The miniature itself: the tail of the lines at a fixed size, glyphs in the
+/// text colour, nothing else. No attributes — colour and weight are illegible
+/// at this size, and the card is a glance, not a read.
+///
+/// Nothing is scaled to make a full line fit: the size is what makes the text
+/// readable, so a line wider than the card is cut by its edge instead.
 class ShellThumbnailPainter extends CustomPainter {
-  const ShellThumbnailPainter({required this.lines, required this.columns});
+  const ShellThumbnailPainter({required this.lines});
 
   final List<String> lines;
-  final int columns;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (lines.isEmpty || size.isEmpty) return;
-    // Sized by both edges: the tallest text that still fits the rows, and the
-    // widest that still fits a full line of the terminal's own columns.
-    final byHeight = size.height / lines.length;
-    final byWidth = columns <= 0
-        ? byHeight
-        : size.width / (columns * _monoAspect);
-    final lineHeight = byHeight < byWidth ? byHeight : byWidth;
-    if (lineHeight <= 0) return;
+    canvas.clipRect(Offset.zero & size);
+    final drawn = thumbnailTail(lines, size.height);
 
-    for (var i = 0; i < lines.length; i++) {
-      final line = lines[i];
+    for (var i = 0; i < drawn.length; i++) {
+      final line = drawn[i];
       if (line.isEmpty) continue;
       final painter = TextPainter(
         text: TextSpan(
           text: line,
-          style: TextStyle(
+          style: const TextStyle(
             color: SpectacleColors.textPrimary,
             fontFamily: FontFamilies.mono,
-            fontSize: lineHeight,
+            fontSize: thumbnailFontSize,
             height: 1,
           ),
         ),
         textDirection: TextDirection.ltr,
         maxLines: 1,
       )..layout();
-      painter.paint(canvas, Offset(0, i * lineHeight));
+      painter.paint(canvas, Offset(0, i * thumbnailLineHeight));
     }
   }
 
   @override
   bool shouldRepaint(ShellThumbnailPainter old) =>
-      old.columns != columns || !listEquals(old.lines, lines);
+      !listEquals(old.lines, lines);
 }

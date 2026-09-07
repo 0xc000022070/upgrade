@@ -70,8 +70,10 @@ class ShellCard extends StatelessWidget {
                   Positioned.fill(
                     child: ShellThumbnail(terminal: session.terminal),
                   ),
+                  // The trailing corner: the leading one is where the
+                  // miniature's first line starts.
                   Positioned(
-                    left: Spacing.sm,
+                    right: Spacing.sm,
                     top: Spacing.sm,
                     child: ShellStateDot(
                       key: ValueKey('shell-dot-${host.id}-${session.number}'),

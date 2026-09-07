@@ -176,6 +176,24 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the card keeps its first line clear of the dot', (tester) async {
+    sized(tester);
+    await seed();
+    shells.stall = false;
+    sessions.open(_rose);
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    // The output starts in the top leading corner now, so the mark sits in the
+    // other one.
+    final card = tester.getRect(find.byKey(const ValueKey('shell-card-h1-1')));
+    final dot = tester.getRect(find.byKey(const ValueKey('shell-dot-h1-1')));
+
+    expect(card.right - dot.right, lessThan(dot.left - card.left));
+
+    await unmount(tester);
+  });
+
   testWidgets('a card opens its own host on its own tab', (tester) async {
     sized(tester);
     await seed();
