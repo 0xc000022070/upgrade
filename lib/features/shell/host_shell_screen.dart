@@ -23,6 +23,7 @@ import 'shell_header.dart';
 import 'shell_selection.dart';
 import 'shell_sessions.dart';
 import 'shell_status.dart';
+import 'shell_tail.dart';
 import 'shell_terminal.dart';
 import 'shell_watcher.dart';
 
@@ -478,6 +479,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                                 fontSize: fontSize,
                               ),
                               ShellSelectionActions(session: active),
+                              ShellTailCell(session: active),
                             ],
                           ),
                         ),

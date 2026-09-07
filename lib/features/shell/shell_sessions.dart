@@ -148,6 +148,26 @@ class ShellSession extends ChangeNotifier {
   /// user scrolls away from and back to.
   final ScrollController scrollController = ScrollController();
 
+  /// Where the view sits in the buffer, and null while there is nothing to
+  /// ask: a tab whose view is not attached yet, one being swapped for another,
+  /// and a position that has not been through a layout have no answer.
+  ScrollPosition? get tailPosition {
+    if (scrollController.positions.length != 1) return null;
+    final position = scrollController.position;
+    if (!position.hasPixels || !position.hasContentDimensions) return null;
+    return position;
+  }
+
+  /// Puts the view back on the last line, where what the shell is about to say
+  /// will be printed. The view follows the output on its own from there.
+  void followTail() {
+    final position = tailPosition;
+    if (position == null) return;
+    if (position.pixels < position.maxScrollExtent) {
+      position.jumpTo(position.maxScrollExtent);
+    }
+  }
+
   ShellConnection? connection;
   ShellState state = const ShellConnecting();
 
@@ -544,7 +564,13 @@ class ShellSessions extends ChangeNotifier {
   /// types straight into the terminal count the same. One key takes one off
   /// the count; the set goes when the count runs out.
   void send(ShellSession session, Uint8List bytes) {
-    if (bytes.isNotEmpty) session.connection?.write(bytes);
+    if (bytes.isNotEmpty) {
+      // A key is not a read: the bar's bytes never pass the view, so a shell
+      // asked for something from up in the scrollback would answer off the
+      // screen.
+      session.followTail();
+      session.connection?.write(bytes);
+    }
     if (session.sticky.isEmpty) return;
     if (session.stickyRepeat > 1) {
       session.stickyRepeat--;
