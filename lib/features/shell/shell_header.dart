@@ -8,10 +8,12 @@ import '../../design/components/key_cell.dart';
 import '../../design/components/panel.dart';
 import '../../design/icons/spectacle_icon.dart';
 import '../../design/icons/spectacle_icons.dart';
+import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/shell/shell_connection.dart';
 import 'shell_sessions.dart';
+import 'shell_status.dart';
 
 /// What the sheet's grip needs from the route it is a grip for. Named rather
 /// than reached for through the route's own type: the header is a header
@@ -94,15 +96,41 @@ const _reasonHeight = 32.0;
 /// itself. Four lines of an ssh error, and the terminal keeps the rest.
 const _detailHeight = 56.0;
 
+/// How wide one tab may grow before its word is cut off. Two named tabs and
+/// part of a third fit the strip on a phone, which is enough to tell the tab
+/// in use from the ones beside it without the strip becoming the header. The
+/// word is what is cut to it; the cell is as wide as what it holds.
+const _tabMaxWidth = 88.0;
+
 /// How much of the header the tabs may take before they start to scroll inside
 /// it. Nine tabs are wider than a phone is, and the title is worth keeping a
 /// readable share of the row.
 const _tabsShare = 0.55;
 
+/// The word one tab is drawn with: what its shell calls itself, cut down to
+/// what a cell holds, and its number until it calls itself anything.
+///
+/// A login shell's title is who and where — `luis@nyx: ~/Projects/spectacle` —
+/// and the where is the half that tells two tabs apart. A title with a space in
+/// it is a sentence the program wrote and is kept as it stands, slashes
+/// included: `vim design/SPEC.md` is not a path.
+String shellTabLabel(String? title, int number) {
+  final named = title?.trim() ?? '';
+  if (named.isEmpty) return '$number';
+  final said = named.indexOf(': ');
+  final rest = said == -1 ? named : named.substring(said + 2).trim();
+  if (rest.isEmpty) return '$number';
+  if (!rest.contains(' ') && rest.contains('/')) {
+    final segments = rest.split('/').where((segment) => segment.isNotEmpty);
+    if (segments.isNotEmpty) return segments.last;
+  }
+  return rest;
+}
+
 /// The route's whole chrome: the host, its tabs, what the shell calls itself,
 /// and the way to close the one on screen — one row, because everything else
 /// on this route is the terminal.
-class ShellHeader extends StatelessWidget {
+class ShellHeader extends StatefulWidget {
   const ShellHeader({
     super.key,
     required this.host,
@@ -130,7 +158,41 @@ class ShellHeader extends StatelessWidget {
   final VoidCallback? onStop;
 
   @override
+  State<ShellHeader> createState() => _ShellHeaderState();
+}
+
+class _ShellHeaderState extends State<ShellHeader> {
+  /// Whichever tab is active, wherever it has moved to. One key rather than one
+  /// per tab: the active tab is the only one ever asked where it is.
+  final _activeTab = GlobalKey();
+
+  @override
+  void didUpdateWidget(ShellHeader old) {
+    super.didUpdateWidget(old);
+    if (old.active == widget.active &&
+        old.sessions.length == widget.sessions.length) {
+      return;
+    }
+    // After the frame that lays the new strip out: a tab opened this build has
+    // no box to bring into view until it has been through a layout.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final tab = _activeTab.currentContext;
+      if (!mounted || tab == null) return;
+      Scrollable.ensureVisible(
+        tab,
+        alignment: 0.5,
+        duration: Motion.fast,
+        curve: Motion.transition,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final host = widget.host;
+    final sessions = widget.sessions;
+    final active = widget.active;
+    final onClose = widget.onClose;
     return Container(
       key: const ValueKey('shell-header'),
       height: _headerHeight,
@@ -141,7 +203,7 @@ class ShellHeader extends StatelessWidget {
         builder: (context, box) => Row(
           children: [
             const SizedBox(width: Spacing.screenEdge),
-            _HostCell(name: host.name, onTap: onSwitchHost),
+            _HostCell(name: host.name, onTap: widget.onSwitchHost),
             const SizedBox(width: Spacing.lg),
             // The tabs take what they need and scroll for the rest, so a host
             // with nine shells open still has a header and not an overflow.
@@ -153,17 +215,21 @@ class ShellHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     for (final session in sessions)
-                      _TabCell(
-                        key: ValueKey('shell-tab-${session.number}'),
-                        label: '${session.number}',
-                        active: session == active,
-                        onTap: () => onSelect(session),
+                      KeyedSubtree(
+                        key: session == active ? _activeTab : null,
+                        child: _TabCell(
+                          key: ValueKey('shell-tab-${session.number}'),
+                          label: shellTabLabel(session.title, session.number),
+                          state: session.state,
+                          active: session == active,
+                          onTap: () => widget.onSelect(session),
+                        ),
                       ),
-                    if (canOpen)
+                    if (widget.canOpen)
                       _TabCell(
                         key: const ValueKey('shell-tab-new'),
                         label: '+',
-                        onTap: onNew,
+                        onTap: widget.onNew,
                       ),
                   ],
                 ),
@@ -172,14 +238,14 @@ class ShellHeader extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-                child: _Middle(session: active, onStop: onStop),
+                child: _Middle(session: active, onStop: widget.onStop),
               ),
             ),
             if (onClose != null)
               _TabCell(
                 key: const ValueKey('shell-tab-close'),
                 label: '×',
-                onTap: onClose!,
+                onTap: onClose,
               ),
             const SizedBox(width: Spacing.screenEdge),
           ],
@@ -418,10 +484,16 @@ class _TabCell extends StatelessWidget {
     super.key,
     required this.label,
     required this.onTap,
+    this.state,
     this.active = false,
   });
 
   final String label;
+
+  /// What the shell in this tab is doing, drawn as the dot the cards carry.
+  /// Null on the cells that hold no shell — the plus and the close.
+  final ShellState? state;
+
   final bool active;
   final VoidCallback onTap;
 
@@ -433,6 +505,7 @@ class _TabCell extends StatelessWidget {
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(minWidth: TapTargets.minHeight),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
         // The cell takes the row it is in rather than setting a height of its
         // own, so its underline sits on the row's edge and the hairline under
         // the header does not push it over.
@@ -448,9 +521,28 @@ class _TabCell extends StatelessWidget {
             ),
           ),
         ),
-        child: Text(
-          label,
-          style: SpectacleText.panelHeader.copyWith(color: tint),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (state case final state?) ...[
+              ShellStateDot(state: state),
+              const SizedBox(width: Spacing.sm),
+            ],
+            // The cap is on the word and not on the cell: a Container that
+            // aligns its child takes every pixel its constraints allow, so a
+            // cell capped at [_tabMaxWidth] is that wide even when it says `1`,
+            // and the row has nothing left for what the shell is doing.
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: _tabMaxWidth),
+              child: Text(
+                label,
+                style: SpectacleText.panelHeader.copyWith(color: tint),
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
       ),
     );
