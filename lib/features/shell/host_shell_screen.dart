@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/agents.dart';
 import '../../application/clips.dart';
 import '../../application/providers.dart';
 import '../../application/shell_font.dart';
@@ -14,6 +15,7 @@ import '../../design/components/action_block.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
+import '../../design/typography.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/vnc/keysyms.dart';
 import '../hosts/host_key_sheet.dart';
@@ -44,9 +46,11 @@ class HostShellRoute extends ConsumerStatefulWidget {
 
   final Host host;
 
-  /// How the shell hands the sheet another host to hold. Null where the shell
-  /// is not in a sheet, which leaves the header's host name a label.
-  final void Function(Host host, ShellSession session)? onSwitchHost;
+  /// How the shell hands the sheet another host to hold, with the tab to land
+  /// on or none — a host being taken over has no tab yet, and opens its first
+  /// one where it arrives. Null where the shell is not in a sheet, which
+  /// leaves the header's host name a label.
+  final void Function(Host host, ShellSession? session)? onSwitchHost;
 
   /// The tab to land on, when the way in named one. Null opens the host's last
   /// active tab, or its first shell when there is none.
@@ -241,7 +245,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   /// beside the name is already the whole list.
   Future<void> _openSwitcher() async {
     final hosts = _store.openHosts;
-    final chosen = await showPanelSheet<(Host, ShellSession)>(
+    final idle = _idleHosts;
+    final chosen = await showPanelSheet<(Host, ShellSession?)>(
       context,
       title: 'SHELLS',
       builder: (context) => PanelSheetBody(
@@ -263,16 +268,53 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                   ),
             ],
           ),
+          if (idle.isNotEmpty) ...[
+            const SheetRule(),
+            const Text('TAKE OVER', style: SpectacleText.panelHeader),
+            const SizedBox(height: Spacing.sm),
+            ListRowGroup(
+              children: [
+                for (final host in idle)
+                  ListRow(
+                    key: ValueKey('shell-take-${host.id}'),
+                    title: host.name.toUpperCase(),
+                    subtitle: 'ssh, ${host.user}',
+                    onTap: () => Navigator.of(context).pop((host, null)),
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );
     if (!mounted || chosen == null) return;
     final (host, session) = chosen;
     if (host.id == widget.host.id) {
-      _store.activate(host.id, session);
+      if (session != null) _store.activate(host.id, session);
       return;
     }
+    // A host with no tab named opens its first one where it lands, which is
+    // the path a first visit takes: the unknown-key sheet it may raise belongs
+    // to the host being dialled, not to this one, which is about to go.
     widget.onSwitchHost?.call(host, session);
+  }
+
+  /// How many hosts the switcher could lead to: the ones with a shell and the
+  /// ones on the list without one. Read in build, so the header takes the cell
+  /// as soon as the list arrives.
+  int get _reachable => {
+    for (final (host, _) in _store.openHosts) host.id,
+    for (final host in ref.watch(hostsProvider).valueOrNull ?? const <Host>[])
+      host.id,
+  }.length;
+
+  /// The hosts on the list with no shell on them, in the order the list keeps.
+  List<Host> get _idleHosts {
+    final open = {for (final (host, _) in _store.openHosts) host.id};
+    return [
+      for (final host in ref.read(hostsProvider).valueOrNull ?? const <Host>[])
+        if (!open.contains(host.id)) host,
+    ];
   }
 
   /// Whether the IME is up: what the system says it is showing, not what the
@@ -431,10 +473,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                         active: active,
                         canOpen: store.canOpen(widget.host.id),
                         // A host to go to, and a sheet that can hold it: with
-                        // either missing the name is just the name.
+                        // either missing the name is just the name. A host
+                        // counts whether it has a shell or not — taking one
+                        // over is a place the switcher leads.
                         onSwitchHost:
-                            widget.onSwitchHost != null &&
-                                store.openHosts.length > 1
+                            widget.onSwitchHost != null && _reachable > 1
                             ? _openSwitcher
                             : null,
                         onSelect: _onSelect,
