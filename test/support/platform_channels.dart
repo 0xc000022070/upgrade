@@ -43,7 +43,27 @@ void stubDeviceChannels({
     'dev.luisnquin.spectacle/device/throttle',
     (message) async => codec.encodeSuccessEnvelope(null),
   );
+
+  // Same shape for the network watcher: answering `listen` is enough, because
+  // nothing is replayed on subscribe. What a test wants to say afterwards goes
+  // through [pushNetwork].
+  messenger.setMockMessageHandler(
+    'dev.luisnquin.spectacle/device/network',
+    (message) async => codec.encodeSuccessEnvelope(null),
+  );
 }
+
+/// A network arriving under the app, or the one it had going. The platform
+/// side is a default-network callback; from a test process it is this, pushed
+/// onto the channel the app is listening on.
+Future<void> pushNetwork(bool up) => TestDefaultBinaryMessengerBinding
+    .instance
+    .defaultBinaryMessenger
+    .handlePlatformMessage(
+      'dev.luisnquin.spectacle/device/network',
+      const StandardMethodCodec().encodeSuccessEnvelope(up),
+      (_) {},
+    );
 
 /// The link icon reads the clipboard before it does anything else, so every
 /// test of it has to say what is on the clipboard — including "nothing", which

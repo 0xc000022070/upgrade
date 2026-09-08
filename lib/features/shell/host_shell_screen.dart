@@ -231,6 +231,10 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       final request = session?.pin;
       if (session == null || request == null) break;
       _pinShown = (session: session, id: request.id);
+      // Nothing reconnects under the sheet: the request belongs to this
+      // session's shell, and a redial would take that shell away from the
+      // answer the user is typing.
+      final release = _store.hold();
       try {
         final answer = await _pinSheetFor(session, request);
         if (!mounted) return;
@@ -240,6 +244,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           await _store.answerPin(session, answer.passphrase);
         }
       } finally {
+        release();
         _pinShown = null;
         _pinSheet = null;
       }
@@ -510,7 +515,12 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   /// this future inside the handshake.
   Future<bool> _askHostKey(HostKeyOffer offer) async {
     if (!mounted) return false;
-    return askHostKey(context, host: widget.host, offer: offer);
+    final release = _store.hold();
+    try {
+      return await askHostKey(context, host: widget.host, offer: offer);
+    } finally {
+      release();
+    }
   }
 
   Future<void> _onClose(ShellSession session) async {
@@ -587,12 +597,13 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                             : () => store.stopReconnect(active),
                       ),
                       // The whole of what a failure costs the terminal: one
-                      // short row, and only while there is a failure.
-                      if (state is ShellFailed)
+                      // short row, and only while there is one. A tab waiting
+                      // reads the same, on what its last dial hit.
+                      if (state?.failure case final failure?)
                         ShellReasonRow(
                           host: widget.host,
-                          kind: state.kind,
-                          detail: state.detail,
+                          kind: failure.kind,
+                          detail: failure.detail,
                         ),
                     ],
                   ),

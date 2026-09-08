@@ -46,6 +46,23 @@ Future<void> _pumpDial(WidgetTester tester) async {
   await tester.pump();
 }
 
+/// Runs a live session's whole schedule out with nothing answering, which is
+/// what a phone asleep in a pocket does to one. Leaves the transport refusing.
+Future<void> _spend(
+  WidgetTester tester,
+  FakeShellTransport transport,
+  ShellSession session,
+) async {
+  transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
+  transport.opened.single.drop();
+  await tester.pump();
+  for (final delay in shellReconnectDelays) {
+    expect(session.state, isA<ShellDropped>());
+    await tester.pump(delay);
+    await _pumpDial(tester);
+  }
+}
+
 void main() {
   test('numbers run from one in open order and are never reused', () async {
     final transport = FakeShellTransport();
@@ -795,28 +812,164 @@ void main() {
     await sessions.close(_rose.id, session);
   });
 
-  testWidgets('six waits and then the session gives up', (tester) async {
+  testWidgets('six waits and then the tab waits, off every clock', (
+    tester,
+  ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     final session = sessions.open(_rose)!;
     await _pumpDial(tester);
 
-    transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
-    transport.opened.single.drop();
-    await tester.pump();
+    await _spend(tester, transport, session);
 
-    for (final delay in shellReconnectDelays) {
-      expect(session.state, isA<ShellDropped>());
-      await tester.pump(delay);
-      await _pumpDial(tester);
-    }
-
-    // Six dials after the first, and the reason row once the last one is
-    // spent — carrying what the last dial actually hit, not the drop that
-    // started the schedule.
+    // Six dials after the first, and then nothing: the schedule can run out in
+    // a pocket, so its end is a tab waiting rather than a tab that failed. It
+    // carries what the last dial actually hit, not the drop that started it.
     expect(transport.verifiers, hasLength(1 + shellReconnectDelays.length));
+    expect(session.state, isA<ShellWaiting>());
+    expect((session.state as ShellWaiting).kind, ShellFailureKind.unreachable);
+    expect(session.state.failure?.kind, ShellFailureKind.unreachable);
+
+    await tester.pump(const Duration(minutes: 5));
+    await _pumpDial(tester);
+    expect(transport.verifiers, hasLength(1 + shellReconnectDelays.length));
+
+    await sessions.close(_rose.id, session);
+  });
+
+  testWidgets('a wake dials the same command against the same pane', (
+    tester,
+  ) async {
+    const pane = (session: 'work', pane: '%3');
+    const attach = 'herdr attach work %3';
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose, command: attach, pane: pane)!;
+    await _pumpDial(tester);
+
+    await _spend(tester, transport, session);
+    transport.refuse = null;
+    sessions.wakeAll();
+    await _pumpDial(tester);
+
+    // The whole of the ruling: the tab comes back on the pane it was on, with
+    // the agent that is running there, under the mark that says a shell died.
+    expect(session.state, isA<ShellLive>());
+    expect(transport.commands.last, attach);
+    expect(session.pane, pane);
+    expect(session.terminal.buffer.getText(), contains('-- reconnected --'));
+
+    await sessions.close(_rose.id, session);
+  });
+
+  testWidgets('a wake is the first of a fresh schedule, not one dial', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+
+    await _spend(tester, transport, session);
+    final spent = transport.verifiers.length;
+    sessions.wakeAll();
+    await _pumpDial(tester);
+
+    // The wake dialled, missed, and is waiting two seconds rather than running
+    // the whole minute out again with nobody looking.
+    expect(transport.verifiers, hasLength(spent + 1));
+    expect(session.state, isA<ShellDropped>());
+    expect((session.state as ShellDropped).attempt, 2);
+
+    transport.refuse = null;
+    await tester.pump(shellReconnectDelays[1]);
+    await _pumpDial(tester);
+    expect(session.state, isA<ShellLive>());
+
+    await sessions.close(_rose.id, session);
+  });
+
+  testWidgets('a live tab and a tab that failed on an answer are not woken', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final live = sessions.open(_rose)!;
+    await _pumpDial(tester);
+
+    transport.refuse = const ShellFailure(ShellFailureKind.hostKeyChanged);
+    final refused = sessions.open(_nyx)!;
+    await _pumpDial(tester);
+    transport.refuse = null;
+    final dialled = transport.verifiers.length;
+
+    sessions.wakeAll();
+    await _pumpDial(tester);
+
+    // A network arriving says nothing about a key that is not the one pinned,
+    // and a tab with a shell on the other end has nothing to come back from.
+    expect(live.state, isA<ShellLive>());
+    expect(refused.state, isA<ShellFailed>());
+    expect(transport.verifiers, hasLength(dialled));
+
+    await sessions.close(_rose.id, live);
+    await sessions.close(_nyx.id, refused);
+  });
+
+  testWidgets('a sheet holds every wake until it comes down', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+
+    await _spend(tester, transport, session);
+    transport.refuse = null;
+    final spent = transport.verifiers.length;
+
+    final release = sessions.hold();
+    final second = sessions.hold();
+    sessions.wakeAll();
+    await _pumpDial(tester);
+
+    // The user is answering something the host asked, and a redial would take
+    // the shell the question belongs to out from under the answer.
+    expect(transport.verifiers, hasLength(spent));
+    expect(session.state, isA<ShellWaiting>());
+
+    release();
+    sessions.wakeAll();
+    await _pumpDial(tester);
+    expect(transport.verifiers, hasLength(spent));
+
+    second();
+    sessions.wakeAll();
+    await _pumpDial(tester);
+    expect(session.state, isA<ShellLive>());
+
+    await sessions.close(_rose.id, session);
+  });
+
+  testWidgets('STOP on a waiting tab ends it on the words it was showing', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+
+    await _spend(tester, transport, session);
+    sessions.stopReconnect(session);
+    transport.refuse = null;
+    final spent = transport.verifiers.length;
+
+    // Not `stream closed`, which is only what a tab stopped mid-schedule ends
+    // on: this one was already reading what its last dial hit.
     expect(session.state, isA<ShellFailed>());
     expect((session.state as ShellFailed).kind, ShellFailureKind.unreachable);
+
+    sessions.wakeAll();
+    await _pumpDial(tester);
+    expect(transport.verifiers, hasLength(spent));
 
     await sessions.close(_rose.id, session);
   });

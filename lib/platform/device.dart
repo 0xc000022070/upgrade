@@ -1,7 +1,8 @@
 import 'package:flutter/services.dart';
 
 /// Facts Flutter does not expose and that are not worth a package each: the OS
-/// throttle signal (the static pauses under it), the device model, which the
+/// throttle signal (the static pauses under it), the network coming and going
+/// (a shell whose schedule is spent dials again on it), the device model, which the
 /// boot log prints, and the installed version, which the settings build line
 /// prints. All fail soft — on desktop and in tests the
 /// channels are simply absent.
@@ -9,6 +10,9 @@ abstract final class Device {
   static const _channel = MethodChannel('dev.luisnquin.spectacle/device');
   static const _throttleEvents = EventChannel(
     'dev.luisnquin.spectacle/device/throttle',
+  );
+  static const _networkEvents = EventChannel(
+    'dev.luisnquin.spectacle/device/network',
   );
 
   /// True while the OS is asking the app to spend less: battery saver on, or a
@@ -19,6 +23,18 @@ abstract final class Device {
   /// change: both signals can arrive with the app in front, and the static has
   /// to stop at that moment rather than at the next resume.
   static Stream<bool> throttleChanges() => _throttleEvents
+      .receiveBroadcastStream()
+      .map((event) => event as bool? ?? false)
+      .handleError((Object _) {});
+
+  /// True when a network arrived under the app, false when the one it had
+  /// went. A handover straight from wifi to cell is an arrival: the default
+  /// network changed, and a socket on the old one is dead either way.
+  ///
+  /// Nothing is replayed on subscribe. The network the phone already had when
+  /// the app started is not news, and a shell waiting is waiting because that
+  /// network could not reach the host.
+  static Stream<bool> networkChanges() => _networkEvents
       .receiveBroadcastStream()
       .map((event) => event as bool? ?? false)
       .handleError((Object _) {});

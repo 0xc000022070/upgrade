@@ -12,6 +12,7 @@ import '../features/home/home_screen.dart';
 import '../features/hosts/hosts_screen.dart';
 import '../features/projects/projects_screen.dart';
 import '../features/shell/parked_shell_bar.dart';
+import '../features/shell/shell_wake.dart';
 import '../features/ssh/ssh_screen.dart';
 import 'alerts_boot.dart';
 import 'autonomous_ticks.dart';
@@ -54,7 +55,9 @@ class SpectacleApp extends StatelessWidget {
       // handler would be disposed at the moment Home appears.
       home: SplashRoute(
         next: (context) => AlertsHost(
-          child: BootGate(steps: boot, child: const SpectacleShell()),
+          child: ShellWakeHost(
+            child: BootGate(steps: boot, child: const SpectacleShell()),
+          ),
         ),
       ),
     );

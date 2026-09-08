@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectacle/features/shell/shell_sessions.dart';
 import 'package:spectacle/platform/shell/shell_connection.dart';
 import 'package:xterm/xterm.dart';
 
@@ -176,6 +177,39 @@ void main() {
     expect(find.textContaining('RECONNECTING'), findsNothing);
     expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
     expect(transport.opened, hasLength(1));
+
+    await unmount(tester);
+  });
+
+  testWidgets('a spent schedule reads WAITING with STOP and a reason', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+
+    transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
+    transport.opened.single.drop();
+    await ready(tester);
+    for (final delay in shellReconnectDelays) {
+      await tester.pump(delay);
+      await ready(tester);
+    }
+
+    // One word, muted, where the count was, and no spinner: the app is not
+    // working, it is waiting. The row underneath says what the last dial hit,
+    // and `STOP` is the same way out it offers mid-schedule.
+    expect(find.text('WAITING'), findsOneWidget);
+    expect(find.textContaining('RECONNECTING'), findsNothing);
+    expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
+    expect(find.text('STOP'), findsOneWidget);
+
+    await tester.tap(find.text('STOP'));
+    await ready(tester);
+
+    expect(find.text('WAITING'), findsNothing);
+    expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
 
     await unmount(tester);
   });
