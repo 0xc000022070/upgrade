@@ -6,6 +6,7 @@ import '../motion.dart';
 import '../spacing.dart';
 import 'action_block.dart';
 import 'keyboard_toolbar.dart';
+import 'meta.dart';
 import 'panel.dart';
 
 /// The item quick view, the MOVE picker and the PAIR picker are
@@ -176,6 +177,28 @@ class SheetRule extends StatelessWidget {
       height: Borders.hairline,
       margin: const EdgeInsets.symmetric(vertical: Spacing.md),
       color: SpectacleColors.borderSubtle,
+    );
+  }
+}
+
+/// Every fact in a sheet is a `[ LABEL ]` over its value, so the body reads as
+/// a readout and not as a form.
+class SheetField extends StatelessWidget {
+  const SheetField({super.key, required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Meta('[ $label ]'),
+        const SizedBox(height: Spacing.sm),
+        child,
+      ],
     );
   }
 }
