@@ -8,14 +8,24 @@ import '../../design/components/panel.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/herdr_client.dart';
+import '../agents/agent_shell.dart';
 import '../agents/agents_screen.dart';
 import 'agent_mark.dart';
 
 class AgentsPanel extends ConsumerWidget {
-  const AgentsPanel({super.key, this.state, this.onViewAll, this.now});
+  const AgentsPanel({
+    super.key,
+    this.state,
+    this.onViewAll,
+    this.onOpen,
+    this.now,
+  });
 
   final AgentPanelState? state;
   final VoidCallback? onViewAll;
+
+  /// A row's tap. Null takes it to the agent's pane in the shell sheet.
+  final AgentOpen? onOpen;
   final DateTime? now;
 
   @override
@@ -62,17 +72,28 @@ class AgentsPanel extends ConsumerWidget {
         skipLoadingOnReload: true,
         loading: () => const DelayedSpinner(),
         error: (error, _) => _DimLine('error: $error'),
-        data: (data) => _AgentsBody(data: data, now: now ?? DateTime.now()),
+        data: (data) => _AgentsBody(
+          data: data,
+          now: now ?? DateTime.now(),
+          onOpen:
+              onOpen ??
+              (host, agent) => openAgentShell(context, ref, host, agent),
+        ),
       ),
     );
   }
 }
 
 class _AgentsBody extends StatelessWidget {
-  const _AgentsBody({required this.data, required this.now});
+  const _AgentsBody({
+    required this.data,
+    required this.now,
+    required this.onOpen,
+  });
 
   final AgentPanelState data;
   final DateTime now;
+  final AgentOpen onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -80,8 +101,13 @@ class _AgentsBody extends StatelessWidget {
     if (data.noHost) return const _DimLine(AgentPanelState.blockedLine);
 
     final failures = data.failures;
-    final active = data.agents.where((agent) => agent.state.active).toList()
-      ..sort((a, b) => b.stateChangeSeq.compareTo(a.stateChangeSeq));
+    // Rows keep their host: a tap needs the machine the agent was read from,
+    // and the merged list has already lost it.
+    final active = [
+      for (final outcome in data.outcomes)
+        for (final agent in outcome.agents)
+          if (agent.state.active) (host: outcome.host, agent: agent),
+    ]..sort((a, b) => b.agent.stateChangeSeq.compareTo(a.agent.stateChangeSeq));
     // Resting and not idle: an agent whose work finished unwatched is idle
     // with something to read, and it is counted here rather than nowhere.
     final idle = data.agents.where((agent) => agent.state.resting).length;
@@ -108,7 +134,8 @@ class _AgentsBody extends StatelessWidget {
         if (active.isNotEmpty) ...[
           const _ColumnLabels(),
           const SizedBox(height: Spacing.sm),
-          for (final agent in active.take(3)) _AgentRow(agent),
+          for (final row in active.take(3))
+            _AgentRow(row.agent, onTap: () => onOpen(row.host, row.agent)),
           const SizedBox(height: Spacing.md),
         ],
         if (answered) _Footer(idle: idle, blocked: blocked),
@@ -140,68 +167,73 @@ class _ColumnLabels extends StatelessWidget {
 }
 
 class _AgentRow extends StatelessWidget {
-  const _AgentRow(this.agent);
+  const _AgentRow(this.agent, {required this.onTap});
 
   final AgentSnapshot agent;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final statusColor = agentStateColor(agent.state);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 4,
-            child: Row(
-              children: [
-                AgentMark(agent.agent),
-                const SizedBox(width: Spacing.md),
-                Expanded(
-                  child: Text(
-                    agentMarkName(agent.agent),
-                    style: SpectacleText.rowTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 4,
+              child: Row(
+                children: [
+                  AgentMark(agent.agent),
+                  const SizedBox(width: Spacing.md),
+                  Expanded(
+                    child: Text(
+                      agentMarkName(agent.agent),
+                      style: SpectacleText.rowTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    shape: BoxShape.circle,
+            Expanded(
+              flex: 3,
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                const SizedBox(width: Spacing.sm),
-                Flexible(
-                  child: Text(
-                    agent.state.label,
-                    style: SpectacleText.value.copyWith(color: statusColor),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: Spacing.sm),
+                  Flexible(
+                    child: Text(
+                      agent.state.label,
+                      style: SpectacleText.value.copyWith(color: statusColor),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            flex: 4,
-            child: Text(
-              agent.terminalTitleStripped,
-              style: SpectacleText.rowSubtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            Expanded(
+              flex: 4,
+              child: Text(
+                agent.terminalTitleStripped,
+                style: SpectacleText.rowSubtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

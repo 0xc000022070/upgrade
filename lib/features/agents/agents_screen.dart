@@ -13,6 +13,7 @@ import '../../design/typography.dart';
 import '../../platform/herdr_client.dart';
 import '../home/agent_mark.dart';
 import '../screen_scaffold.dart';
+import 'agent_shell.dart';
 
 void openAgents(BuildContext context) {
   Navigator.of(
@@ -22,7 +23,10 @@ void openAgents(BuildContext context) {
 }
 
 class AgentsScreen extends ConsumerWidget {
-  const AgentsScreen({super.key});
+  const AgentsScreen({super.key, this.onOpen});
+
+  /// A row's tap. Null takes it to the agent's pane in the shell sheet.
+  final AgentOpen? onOpen;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -44,7 +48,12 @@ class AgentsScreen extends ConsumerWidget {
               ),
               error: (error, _) =>
                   Panel(title: 'WORKSPACES', child: Text('error: $error')),
-              data: (feed) => _Feed(feed),
+              data: (feed) => _Feed(
+                feed,
+                onOpen:
+                    onOpen ??
+                    (host, agent) => openAgentShell(context, ref, host, agent),
+              ),
             ),
           ],
         ),
@@ -57,9 +66,10 @@ class AgentsScreen extends ConsumerWidget {
 /// exactly: the blocked line, one line per failing host, workspaces for
 /// the hosts that answered.
 class _Feed extends StatelessWidget {
-  const _Feed(this.feed);
+  const _Feed(this.feed, {required this.onOpen});
 
   final AgentPanelState feed;
+  final AgentOpen onOpen;
 
   /// Nothing to read on this route: no host set, or every host answered and
   /// none of them is running an agent. A host that failed is not empty — its
@@ -136,6 +146,7 @@ class _Feed extends StatelessWidget {
                   subtitle: '${agent.paneId} · ${path.basename(agent.cwd)}',
                   value: agent.state.label,
                   valueColor: agentStateColor(agent.state),
+                  onTap: () => onOpen(outcome.host, agent),
                 ),
             ],
           ),

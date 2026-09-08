@@ -80,6 +80,43 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
+  testWidgets('a row hands its tap the host and the agent', (tester) async {
+    final opened = <(Host, AgentSnapshot)>[];
+    final claude = agent('claude', workspace: 'w22');
+    final state = AgentPanelState([
+      HostOutcome(
+        host: nyx,
+        kind: AgentOutcomeKind.snapshot,
+        agents: [agent('codex', workspace: 'w9', status: 'idle')],
+      ),
+      HostOutcome(
+        host: rose,
+        kind: AgentOutcomeKind.snapshot,
+        agents: [claude],
+      ),
+    ]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          agentsFeedProvider.overrideWith((ref) => Stream.value(state)),
+        ],
+        child: MaterialApp(
+          home: AgentsScreen(
+            onOpen: (host, agent) => opened.add((host, agent)),
+          ),
+        ),
+      ),
+    );
+    await ready(tester);
+
+    await tester.tap(find.widgetWithText(ListRow, 'CLAUDE'));
+
+    expect(opened, [(rose, claude)]);
+
+    await unmount(tester);
+  });
+
   testWidgets('VIEW ALL mirrors no-host and failure states', (tester) async {
     await tester.pumpWidget(host(const AgentPanelState.noHost()));
     await ready(tester);

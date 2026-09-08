@@ -43,6 +43,7 @@ class HostShellRoute extends ConsumerStatefulWidget {
     required this.host,
     this.session,
     this.seed,
+    this.pane,
     this.onSwitchHost,
   });
 
@@ -60,6 +61,9 @@ class HostShellRoute extends ConsumerStatefulWidget {
 
   /// A line typed into a fresh tab as it comes up.
   final String? seed;
+
+  /// The herdr pane that line attaches the tab to, kept on the tab.
+  final String? pane;
 
   @override
   ConsumerState<HostShellRoute> createState() => _HostShellRouteState();
@@ -127,7 +131,12 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
         // A seeded open is a tab of its own even when the host already has
         // some: the caller asked for a shell in one directory, and landing in
         // whatever tab was last active would not be that.
-        sessions.open(widget.host, prompt: _askHostKey, seed: seed);
+        sessions.open(
+          widget.host,
+          prompt: _askHostKey,
+          seed: seed,
+          pane: widget.pane,
+        );
       } else if (sessions.forHost(widget.host.id).isEmpty) {
         // A first visit opens one shell; a return finds the ones already
         // running and opens nothing.
