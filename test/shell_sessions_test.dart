@@ -558,6 +558,42 @@ void main() {
     await sessions.close(_rose.id, session);
   });
 
+  test('a tab opened on a pane is the one the store hands back for it', () {
+    final sessions = fakeShellSessions(FakeShellTransport());
+
+    final bare = sessions.open(_rose)!;
+    final attached = sessions.open(_rose, seed: 'attach', pane: 'w22:p1')!;
+    sessions.open(_nyx, seed: 'attach', pane: 'w22:p1');
+
+    expect(bare.pane, isNull);
+    expect(attached.pane, 'w22:p1');
+    expect(sessions.holding(_rose.id, 'w22:p1'), same(attached));
+    // Same pane id on another host is another pane.
+    expect(sessions.holding(_rose.id, 'w26:p1'), isNull);
+    expect(sessions.holding(_nyx.id, 'w22:p1'), isNot(same(attached)));
+  });
+
+  testWidgets('a reconnect drops the pane with the title', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose, seed: 'attach', pane: 'w22:p1')!;
+    await _pumpDial(tester);
+    expect(sessions.holding(_rose.id, 'w22:p1'), same(session));
+
+    transport.opened.single.drop();
+    await tester.pump();
+    await tester.pump(shellReconnectDelays.first);
+    await _pumpDial(tester);
+
+    // The shell that came back is bare: the attach was typed into the one
+    // that died, and nothing typed it again.
+    expect(session.pane, isNull);
+    expect(sessions.holding(_rose.id, 'w22:p1'), isNull);
+    expect(transport.opened.last.written, isEmpty);
+
+    await sessions.close(_rose.id, session);
+  });
+
   test('a resize is forwarded once per size', () async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);

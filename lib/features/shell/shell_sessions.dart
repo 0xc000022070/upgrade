@@ -237,6 +237,11 @@ class ShellSession extends ChangeNotifier {
   /// after the user has walked somewhere else does not drag them back.
   String? seed;
 
+  /// The herdr pane the seed attached this tab to, so a tap on that agent
+  /// finds this tab rather than opening another. In memory only: a restored
+  /// tab is a bare shell, and so is a reconnected one, which clears it.
+  String? pane;
+
   /// What the bar has armed, waiting for the next key or character. It lives
   /// here rather than in the bar because the IME types straight into the
   /// terminal, where the bar is not in the path, and because switching tabs
@@ -483,13 +488,32 @@ class ShellSessions extends ChangeNotifier {
   bool canOpen(String hostId) =>
       (_byHost[hostId]?.length ?? 0) < maxShellSessions;
 
+  /// The tab on [hostId] attached to [pane], or null when no tab is.
+  ShellSession? holding(String hostId, String pane) {
+    for (final session in forHost(hostId)) {
+      if (session.pane == pane) return session;
+    }
+    return null;
+  }
+
   /// Opens a shell and makes it the active tab. The `+` cell is gone at nine,
   /// so the refusal here is a guard rather than a path the user can walk.
-  ShellSession? open(Host host, {HostKeyPrompt? prompt, String? seed}) {
+  ShellSession? open(
+    Host host, {
+    HostKeyPrompt? prompt,
+    String? seed,
+    String? pane,
+  }) {
     if (!canOpen(host.id)) return null;
     final number = _nextNumber[host.id] ?? 1;
     _nextNumber[host.id] = number + 1;
-    final session = _start(host, number, prompt: prompt, seed: seed);
+    final session = _start(
+      host,
+      number,
+      prompt: prompt,
+      seed: seed,
+      pane: pane,
+    );
     unawaited(tabs?.open(host.id, number));
     return session;
   }
@@ -502,12 +526,16 @@ class ShellSessions extends ChangeNotifier {
     int number, {
     HostKeyPrompt? prompt,
     String? seed,
+    String? pane,
   }) {
-    final session = ShellSession(
-      number: number,
-      terminal: Terminal(maxLines: shellScrollback),
-      host: host,
-    )..seed = seed;
+    final session =
+        ShellSession(
+            number: number,
+            terminal: Terminal(maxLines: shellScrollback),
+            host: host,
+          )
+          ..seed = seed
+          ..pane = pane;
     _byHost.putIfAbsent(host.id, () => []).add(session);
     _active[host.id] = number;
     _parkedHostId = host.id;
@@ -922,9 +950,12 @@ class ShellSessions extends ChangeNotifier {
     session._decoder = null;
     final previous = session.connection;
     session.connection = null;
-    // The title belonged to the shell that died. A new one that never names
-    // itself would otherwise be read under the old one's name.
+    // The title belonged to the shell that died, and so did the pane its seed
+    // attached. A new one that never names itself would otherwise be read
+    // under the old one's name, and a tap on that agent would land in a bare
+    // shell.
     session.title = null;
+    session.pane = null;
     session.pin = null;
     session.disarm();
     session.changed();

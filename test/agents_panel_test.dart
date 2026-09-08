@@ -71,6 +71,54 @@ Widget host(AgentPanelState state, {DateTime? now}) => ProviderScope(
 );
 
 void main() {
+  testWidgets('a row hands its tap the host and the agent', (tester) async {
+    final opened = <(Host, AgentSnapshot)>[];
+    final claude = agent(
+      pane: 'w22:p1',
+      name: 'claude',
+      status: 'working',
+      work: 'refactor',
+      sequence: 4,
+    );
+    final state = AgentPanelState([
+      HostOutcome(
+        host: hostA,
+        kind: AgentOutcomeKind.snapshot,
+        agents: [
+          agent(
+            pane: 'w9:p1',
+            name: 'codex',
+            status: 'idle',
+            work: 'done',
+            sequence: 9,
+          ),
+        ],
+      ),
+      HostOutcome(
+        host: hostB,
+        kind: AgentOutcomeKind.snapshot,
+        agents: [claude],
+      ),
+    ]);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: AgentsPanel(
+              state: state,
+              onOpen: (host, agent) => opened.add((host, agent)),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('CLAUDE'));
+
+    // The host is the one the row was read from, not the first in the feed.
+    expect(opened, [(hostB, claude)]);
+  });
+
   test('no host keeps the polling provider idle', () async {
     var fetches = 0;
     final container = ProviderContainer(

@@ -86,6 +86,14 @@ abstract final class HerdrCommands {
   static String list([String session = defaultSession]) =>
       underSh('exec ${_herdr(session, 'agent list')}');
 
+  /// A line for a login shell, not a command for an exec channel: the attach
+  /// is a TUI that owns the terminal until the user detaches, and it exits
+  /// back into the shell it was typed in.
+  static String attach(String pane, {String session = defaultSession}) {
+    _requirePane(pane);
+    return _herdr(session, 'agent attach ${shellQuote(pane)}');
+  }
+
   static String watch([String session = defaultSession]) => underSh(
     'while :; do ${_herdr(session, 'agent list')} || exit; sleep 2; done',
   );
