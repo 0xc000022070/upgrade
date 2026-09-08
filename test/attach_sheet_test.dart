@@ -13,6 +13,7 @@ import 'package:spectacle/design/colors.dart';
 import 'package:spectacle/design/components/panel.dart';
 import 'package:spectacle/features/shell/attach_sheet.dart';
 import 'package:spectacle/features/shell/shell_sessions.dart';
+import 'package:spectacle/platform/shell/remote_shell.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -168,7 +169,8 @@ void main() {
     await tester.tap(help);
     await tester.pumpAndSettle();
 
-    expect(connection.execs, isEmpty);
+    // The one exec a live shell runs on its own is the pinentry mark.
+    expect(connection.execs.map((exec) => exec.command), [pinentryMarkCommand]);
     expect(connection.writes, isEmpty);
     expect(clips.count, 0);
   });
