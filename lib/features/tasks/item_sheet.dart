@@ -330,9 +330,9 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   Future<void> _dispatch(PathTarget target) async {
     final task = ref.read(taskProvider(widget.taskId)).valueOrNull;
     if (task == null) return;
-    // The title as it was typed and the links as they are attached, read once
-    // here: a send is one message, and re-reading it inside the transport would
-    // let an edit land halfway through.
+    // The title as it was typed and the attachments as they are attached, read
+    // once here: a send is one message, and re-reading it inside the transport
+    // would let an edit land halfway through.
     final attachments =
         ref.read(itemAttachmentsProvider(widget.taskId)).valueOrNull ??
         const <Attachment>[];
@@ -349,6 +349,13 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
       links: [
         for (final attachment in attachments)
           if (attachment.kind == AttachmentKind.url) attachment.value,
+      ],
+      // An image row holds a path relative to app support; the file is what
+      // goes up, so it is resolved here where the resolver lives.
+      imagePaths: [
+        for (final attachment in attachments)
+          if (attachment.kind == AttachmentKind.image)
+            ?ImageAttachments.absolute(attachment.value),
       ],
     );
     if (!mounted) return;
