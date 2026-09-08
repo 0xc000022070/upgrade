@@ -16,6 +16,7 @@ import '../features/ssh/ssh_screen.dart';
 import 'alerts_boot.dart';
 import 'autonomous_ticks.dart';
 import 'boot.dart';
+import 'keyboard_release.dart';
 import 'nav_shell.dart';
 import 'splash_route.dart';
 import 'static_surface.dart';
@@ -101,36 +102,41 @@ class _SpectacleShellState extends ConsumerState<SpectacleShell> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _systemBars,
-      child: AutonomousTicks(
-        // One event at a time: the tick always lands on the icon of the
-        // screen in front of the user, never on a background tab.
-        onTick: () => glitch.fire(ref.read(navIndexProvider)),
-        child: Scaffold(
-          backgroundColor: SpectacleColors.backgroundPrimary,
-          resizeToAvoidBottomInset: true,
-          body: StaticSurface(
-            child: IndexedStack(
-              index: index,
+      // Outside the tabs and every route pushed over them: the keyboard is the
+      // window's, not a screen's, and the screen that had it up when the window
+      // stopped is not always the one that comes back.
+      child: KeyboardRelease(
+        child: AutonomousTicks(
+          // One event at a time: the tick always lands on the icon of the
+          // screen in front of the user, never on a background tab.
+          onTick: () => glitch.fire(ref.read(navIndexProvider)),
+          child: Scaffold(
+            backgroundColor: SpectacleColors.backgroundPrimary,
+            resizeToAvoidBottomInset: true,
+            body: StaticSurface(
+              child: IndexedStack(
+                index: index,
+                children: [
+                  for (var i = 0; i < screens.length; i++)
+                    ScreenEntry(tick: _entries[i], child: screens[i]),
+                ],
+              ),
+            ),
+            // The parked shell rides over the nav bar rather than in the body:
+            // it belongs to the app and not to a tab, and the shell sheet comes
+            // down onto it from any of the four.
+            bottomNavigationBar: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                for (var i = 0; i < screens.length; i++)
-                  ScreenEntry(tick: _entries[i], child: screens[i]),
+                const ParkedShellBar(),
+                NavBar(
+                  currentIndex: index,
+                  onSelected: (next) =>
+                      ref.read(navIndexProvider.notifier).state = next,
+                  glitch: glitch.controllers,
+                ),
               ],
             ),
-          ),
-          // The parked shell rides over the nav bar rather than in the body:
-          // it belongs to the app and not to a tab, and the shell sheet comes
-          // down onto it from any of the four.
-          bottomNavigationBar: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const ParkedShellBar(),
-              NavBar(
-                currentIndex: index,
-                onSelected: (next) =>
-                    ref.read(navIndexProvider.notifier).state = next,
-                glitch: glitch.controllers,
-              ),
-            ],
           ),
         ),
       ),
