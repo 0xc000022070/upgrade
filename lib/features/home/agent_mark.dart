@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../application/agent_kind.dart';
+import '../../application/agent_state.dart';
 import '../../design/colors.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
@@ -18,6 +19,19 @@ String? agentMarkAsset(String agent) => AgentKind.lookup(agent)?.markAsset;
 
 /// The name as herdr reports it, uppercased, `?` when it reports none.
 String agentMarkName(String agent) => agent.isEmpty ? '?' : agent.toUpperCase();
+
+/// The colour a state is drawn in, here rather than on the state itself: what
+/// a word means is the application's, what it looks like is the design's. One
+/// switch, shared by the Home panel row and the `VIEW ALL` route row, so the
+/// two cannot disagree about what `done` looks like — and exhaustive, so a
+/// state added to the sealed type is named here by the analyser.
+Color agentStateColor(AgentState state) => switch (state) {
+  WorkingState() => SpectacleColors.accent,
+  BlockedState() => SpectacleColors.warning,
+  // Work that finished and has not been read yet, against work that was.
+  DoneState() => SpectacleColors.textPrimary,
+  IdleState() || UnknownState() => SpectacleColors.textMuted,
+};
 
 /// The glyph box, now carrying the agent's own mark
 /// instead of a letter. Shared by the Home panel row and the `VIEW ALL` route

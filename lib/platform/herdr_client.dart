@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 
 import '../application/agent_kind.dart';
+import '../application/agent_state.dart';
 import 'host_keys.dart';
 import 'shell/remote_shell.dart';
 
@@ -13,7 +14,7 @@ class AgentSnapshot {
   const AgentSnapshot({
     required this.paneId,
     required this.agent,
-    required this.agentStatus,
+    required this.state,
     required this.terminalTitleStripped,
     required this.workspaceId,
     required this.cwd,
@@ -22,7 +23,11 @@ class AgentSnapshot {
 
   final String paneId;
   final String agent;
-  final String agentStatus;
+
+  /// What herdr reported this pane's agent to be. The word it sent survives on
+  /// the state and goes back out in [toJson]; nothing above this reads it.
+  final AgentState state;
+
   final String terminalTitleStripped;
   final String workspaceId;
   final String cwd;
@@ -30,7 +35,7 @@ class AgentSnapshot {
 
   /// The blocked edge is a question about this one field, asked often enough
   /// to be worth a name.
-  bool get blocked => agentStatus == 'blocked';
+  bool get blocked => state.blocked;
 
   /// The seven fields the watcher's projection consumes, so a
   /// snapshot survives the hop from the watcher's isolate to the UI's without a
@@ -38,7 +43,7 @@ class AgentSnapshot {
   Map<String, Object?> toJson() => {
     'pane_id': paneId,
     'agent': agent,
-    'agent_status': agentStatus,
+    'agent_status': state.word,
     'terminal_title_stripped': terminalTitleStripped,
     'workspace_id': workspaceId,
     'cwd': cwd,
@@ -55,7 +60,7 @@ class AgentSnapshot {
     return AgentSnapshot(
       paneId: field<String>('pane_id'),
       agent: field<String>('agent'),
-      agentStatus: field<String>('agent_status'),
+      state: AgentState.of(field<String>('agent_status')),
       terminalTitleStripped: field<String>('terminal_title_stripped'),
       workspaceId: field<String>('workspace_id'),
       cwd: field<String>('cwd'),

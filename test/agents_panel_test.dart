@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectacle/application/agent_state.dart';
 import 'package:spectacle/application/agents.dart';
 import 'package:spectacle/data/enums.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
@@ -41,7 +42,7 @@ AgentSnapshot agent({
 }) => AgentSnapshot(
   paneId: pane,
   agent: name,
-  agentStatus: status,
+  state: AgentState.of(status),
   terminalTitleStripped: work,
   workspaceId: 'wQ',
   cwd: '/workspace/spectacle',
@@ -384,6 +385,54 @@ void main() {
     expect(find.text('AGENT'), findsNothing);
     expect(find.text('waiting'), findsNothing);
     expect(find.text('1 idle · 0 blocked'), findsOneWidget);
+  });
+
+  testWidgets('an agent that finished unseen work is counted, not lost', (
+    tester,
+  ) async {
+    final state = snapshotOf([
+      agent(
+        pane: 'wQ:p1',
+        name: 'claude',
+        status: 'done',
+        work: 'finished',
+        sequence: 1,
+      ),
+      agent(
+        pane: 'wQ:p2',
+        name: 'codex',
+        status: 'idle',
+        work: 'waiting',
+        sequence: 2,
+      ),
+    ], receivedAt: DateTime(2026));
+    await tester.pumpWidget(host(state));
+
+    // `done` is the idle a phone sees most: the tab was never focused, so the
+    // work that finished was never seen. Counted as neither idle nor active,
+    // it was on the panel nowhere at all.
+    expect(find.text('2 idle · 0 blocked'), findsOneWidget);
+    expect(find.text('finished'), findsNothing);
+  });
+
+  testWidgets('a word the app cannot place is still one of the agents', (
+    tester,
+  ) async {
+    final state = snapshotOf([
+      agent(
+        pane: 'wQ:p1',
+        name: 'claude',
+        status: 'compacting',
+        work: 'somewhere',
+        sequence: 1,
+      ),
+    ], receivedAt: DateTime(2026));
+    await tester.pumpWidget(host(state));
+
+    // Not idle and not blocked, because neither is known to be true; the
+    // header count is where it is answered for.
+    expect(find.text('0 idle · 0 blocked'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
   });
 
   testWidgets('unreachable state shows host and last snapshot age', (

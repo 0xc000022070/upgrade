@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectacle/application/agent_state.dart';
 import 'package:spectacle/application/agents.dart';
 import 'package:spectacle/application/providers.dart';
 import 'package:spectacle/data/database.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/design/colors.dart';
+import 'package:spectacle/design/components/list_row.dart';
 import 'package:spectacle/features/agents/agents_screen.dart';
 import 'package:spectacle/features/home/agent_mark.dart';
 import 'package:spectacle/platform/herdr_client.dart';
@@ -30,10 +33,14 @@ const rose = Host(
   keyId: 'k1',
 );
 
-AgentSnapshot agent(String name, {required String workspace}) => AgentSnapshot(
+AgentSnapshot agent(
+  String name, {
+  required String workspace,
+  String status = 'working',
+}) => AgentSnapshot(
   paneId: '$workspace:p1',
   agent: name,
-  agentStatus: 'working',
+  state: AgentState.of(status),
   terminalTitleStripped: 'work',
   workspaceId: workspace,
   cwd: '/workspace/spectacle',
@@ -200,6 +207,36 @@ void main() {
     expect(find.text('C'), findsNothing);
     expect(find.text('X'), findsNothing);
     expect(find.text('GIZMO'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('a finished agent is not dressed as an idle one', (tester) async {
+    await tester.pumpWidget(
+      host(
+        AgentPanelState([
+          HostOutcome(
+            host: nyx,
+            kind: AgentOutcomeKind.snapshot,
+            agents: [
+              agent('claude', workspace: 'wQ', status: 'done'),
+              agent('codex', workspace: 'wQ', status: 'idle'),
+              agent('gizmo', workspace: 'wQ', status: 'compacting'),
+            ],
+          ),
+        ]),
+      ),
+    );
+    await ready(tester);
+
+    final rows = {
+      for (final row in tester.widgetList<ListRow>(find.byType(ListRow)))
+        row.value: row.valueColor,
+    };
+    // Work waiting to be read is brighter than work that was already seen,
+    // and a word the app cannot place is drawn as itself rather than dropped.
+    expect(rows['DONE'], SpectacleColors.textPrimary);
+    expect(rows['IDLE'], SpectacleColors.textMuted);
+    expect(rows['COMPACTING'], SpectacleColors.textMuted);
     await unmount(tester);
   });
 

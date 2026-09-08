@@ -14,7 +14,7 @@ void main() {
     expect(agents, hasLength(3));
     expect(agents.first.paneId, 'wQ:p1');
     expect(agents.first.agent, 'claude');
-    expect(agents.first.agentStatus, 'idle');
+    expect(agents.first.state.word, 'idle');
     expect(agents.first.terminalTitleStripped, 'app-init-orchestator');
     expect(agents.first.workspaceId, 'wQ');
     expect(agents.first.cwd, '/home/luisnquin/.dotfiles');
