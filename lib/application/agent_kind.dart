@@ -72,6 +72,24 @@ sealed class AgentKind {
   /// is not that dialog.
   List<String>? trustKeys(String screen) =>
       screen.toLowerCase().contains(trustPhrase) ? trustAnswer : null;
+
+  /// What it prints at the head of the line where it copies back a message the
+  /// user sent. The buffer holds what was printed, so this echo is the only
+  /// trace a sent message leaves in it.
+  String get turnMark;
+
+  /// Where this kind's mark is on [line], or null when the line is not one of
+  /// its turns.
+  ///
+  /// The mark has to open the line — a `>` in the middle of a sentence the
+  /// agent printed is not a turn — and something has to follow it, which is
+  /// what keeps the empty input box off the list.
+  int? turnMarkAt(String line) {
+    final at = line.indexOf(turnMark);
+    if (at == -1) return null;
+    if (line.substring(0, at).trimLeft().isNotEmpty) return null;
+    return line.substring(at + turnMark.length).trim().isEmpty ? null : at;
+  }
 }
 
 class ClaudeKind extends AgentKind {
@@ -98,6 +116,9 @@ class ClaudeKind extends AgentKind {
 
   @override
   ({String yes, String no}) get answerKeys => (yes: 'enter', no: 'esc');
+
+  @override
+  String get turnMark => '> ';
 }
 
 class CodexKind extends AgentKind {
@@ -125,4 +146,7 @@ class CodexKind extends AgentKind {
 
   @override
   ({String yes, String no}) get answerKeys => (yes: 'y', no: 'n');
+
+  @override
+  String get turnMark => '\u203a ';
 }

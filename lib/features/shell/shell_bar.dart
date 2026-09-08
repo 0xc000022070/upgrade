@@ -76,6 +76,9 @@ class ShellBar extends StatelessWidget {
     this.onAttach,
     this.searching = false,
     this.onFind,
+    this.turns = 0,
+    this.jumping = false,
+    this.onTurns,
   });
 
   final Set<StickyModifier> sticky;
@@ -108,6 +111,17 @@ class ShellBar extends StatelessWidget {
   final bool searching;
   final VoidCallback? onFind;
 
+  /// How many of the user's own turns the pane kept. The cell is there only
+  /// while there are some to step between, and while the line it raises is up
+  /// — a cell that vanished under the thumb that armed it leaves nothing to
+  /// tap off.
+  final int turns;
+
+  /// Whether the jumper line is up. Armed the way `FIND` is, for the same
+  /// reason: a line the terminal is drawn above is easy to lose on a phone.
+  final bool jumping;
+  final VoidCallback? onTurns;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -136,6 +150,20 @@ class ShellBar extends StatelessWidget {
                   padding: _cellPadding,
                   onTap: () => onFind?.call(),
                 ),
+                // Beside it and on the same errand, and there only when the
+                // pane has turns to step between: a shell that never ran an
+                // agent has nothing to jump to, and neither has a pane whose
+                // agent took the alternate screen with the scrollback.
+                if (turns > 0 || jumping)
+                  KeyCell(
+                    key: const ValueKey('bar-turns'),
+                    label: 'TURNS',
+                    icon: SpectacleIcons.message,
+                    armed: jumping,
+                    minWidth: _barHeight,
+                    padding: _cellPadding,
+                    onTap: () => onTurns?.call(),
+                  ),
                 for (final modifier in _barModifiers)
                   KeyCell(
                     key: ValueKey('bar-${modifier.label}'),

@@ -67,6 +67,22 @@ void main() {
       expect(answerKeys('codex', yes: false), const ['n']);
     });
 
+    test('knows the line it copies a sent message onto', () {
+      expect(const ClaudeKind().turnMarkAt('> read the gate log'), 0);
+      expect(const CodexKind().turnMarkAt('› read the gate log'), 0);
+      // Indented by the agent's own frame, and still the head of the line.
+      expect(const ClaudeKind().turnMarkAt('  > read the gate log'), 2);
+    });
+
+    test('does not take the other agent\'s mark, a mid-line one, or an empty '
+        'input box', () {
+      expect(const ClaudeKind().turnMarkAt('› read the gate log'), isNull);
+      expect(const CodexKind().turnMarkAt('> read the gate log'), isNull);
+      expect(const ClaudeKind().turnMarkAt('the diff is > 400 lines'), isNull);
+      expect(const ClaudeKind().turnMarkAt('> '), isNull);
+      expect(const ClaudeKind().turnMarkAt(''), isNull);
+    });
+
     test('names a mark file that is in the bundle', () {
       for (final kind in AgentKind.all) {
         expect(
