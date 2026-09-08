@@ -12,7 +12,6 @@ import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
-import '../../design/components/action_sheet.dart';
 import '../../design/components/field_panel.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel_sheet.dart';
@@ -31,7 +30,6 @@ import 'shell_sessions.dart';
 import 'shell_status.dart';
 import 'shell_tail.dart';
 import 'shell_terminal.dart';
-import 'shell_turns.dart';
 import 'shell_watcher.dart';
 
 /// `/ <HOST> SHELL`: the host's own login shell, several at once as tabs.
@@ -165,11 +163,6 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   /// Whether the search line is up. It belongs to the route rather than to a
   /// session: what is being looked for is looked for in the tab on screen.
   var _searching = false;
-
-  /// Whether the jumper line is up, and on the route for the same reason. One
-  /// line at a time: the terminal is what the screen is for, and opening
-  /// either of them closes the other.
-  var _jumping = false;
 
   /// The request the sheet is up for, so a `done` from the host can take the
   /// sheet down and nothing else can.
@@ -417,35 +410,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   bool _keyboardUp(ShellSession session) =>
       MediaQuery.viewInsetsOf(context).bottom > 0 && session.focusNode.hasFocus;
 
-  /// The two lines under the terminal are one line at a time: the screen is
-  /// the pane, and a phone that has given a row to each has given away the
-  /// thing it came for.
-  ///
-  /// One cell raises both lines, so the tap has to ask what the pane has
-  /// before it can answer. A pane with turns to step between is offered the
-  /// choice; a pane with none has one answer and is given it straight, because
-  /// a menu of one item is a tap spent on nothing.
-  void _onFind(int turns) {
-    if (_searching || _jumping) {
-      setState(() {
-        _searching = false;
-        _jumping = false;
-      });
-      return;
-    }
-    if (turns == 0) {
-      setState(() => _searching = true);
-      return;
-    }
-    showActionSheet(
-      context,
-      title: 'FIND',
-      recommendFirst: false,
-      actions: [
-        SheetAction('PATTERN', () => setState(() => _searching = true)),
-        SheetAction('YOUR TURNS', () => setState(() => _jumping = true)),
-      ],
-    );
+  void _onFind() {
+    setState(() => _searching = !_searching);
   }
 
   void _onKeyboard(ShellSession session) {
@@ -671,45 +637,25 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                     onClose: () => setState(() => _searching = false),
                   ),
                 if (active != null)
-                  // One scan behind the line and behind the cell that raises
-                  // it, so what the menu offers and what the line counts
-                  // cannot disagree.
-                  ShellTurnsWatch(
-                    session: active,
-                    builder: (context, turns) => Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_jumping)
-                          ShellTurnsRow(
-                            session: active,
-                            turns: turns,
-                            onClose: () => setState(() => _jumping = false),
-                          ),
-                        // The lamp answers the same question the tap does, so
-                        // it is rebuilt on the focus that question reads and
-                        // not only on the inset: a lit key over a keyboard
-                        // that is not there is how the jam looked before the
-                        // tap converged.
-                        ListenableBuilder(
-                          listenable: active.focusNode,
-                          builder: (context, _) => ShellBar(
-                            sticky: active.sticky,
-                            repeat: active.stickyRepeat,
-                            locked: active.stickyLocked,
-                            onSticky: (sticky, repeat, locked) =>
-                                _onSticky(active, sticky, repeat, locked),
-                            onBytes: (bytes) => _onBytes(active, bytes),
-                            keyboardOpen: _keyboardUp(active),
-                            onKeyboard: () => _onKeyboard(active),
-                            clipCount: _clips.count,
-                            searching: _searching,
-                            jumping: _jumping,
-                            onFind: () => _onFind(turns.length),
-                            onAttach: () =>
-                                showAttachSheet(context, session: active),
-                          ),
-                        ),
-                      ],
+                  // The lamp answers the same question the tap does, so it is
+                  // rebuilt on the focus that question reads and not only on
+                  // the inset: a lit key over a keyboard that is not there is
+                  // how the jam looked before the tap converged.
+                  ListenableBuilder(
+                    listenable: active.focusNode,
+                    builder: (context, _) => ShellBar(
+                      sticky: active.sticky,
+                      repeat: active.stickyRepeat,
+                      locked: active.stickyLocked,
+                      onSticky: (sticky, repeat, locked) =>
+                          _onSticky(active, sticky, repeat, locked),
+                      onBytes: (bytes) => _onBytes(active, bytes),
+                      keyboardOpen: _keyboardUp(active),
+                      onKeyboard: () => _onKeyboard(active),
+                      clipCount: _clips.count,
+                      searching: _searching,
+                      onFind: _onFind,
+                      onAttach: () => showAttachSheet(context, session: active),
                     ),
                   ),
               ],

@@ -75,7 +75,6 @@ class ShellBar extends StatelessWidget {
     this.clipCount = 0,
     this.onAttach,
     this.searching = false,
-    this.jumping = false,
     this.onFind,
   });
 
@@ -105,11 +104,6 @@ class ShellBar extends StatelessWidget {
 
   /// Whether the search line is up.
   final bool searching;
-
-  /// Whether the jumper line is up. The cell is armed while either line is,
-  /// the way the keyboard toggle is: a line the terminal is drawn above is
-  /// easy to lose track of on a phone.
-  final bool jumping;
 
   /// What the one cell for both lines does. Which of them it raises is not
   /// this widget's to decide — it depends on what the pane has to offer, and
@@ -141,7 +135,7 @@ class ShellBar extends StatelessWidget {
                   key: const ValueKey('bar-find'),
                   label: 'FIND',
                   icon: SpectacleIcons.search,
-                  armed: searching || jumping,
+                  armed: searching,
                   minWidth: _barHeight,
                   padding: _cellPadding,
                   onTap: () => onFind?.call(),

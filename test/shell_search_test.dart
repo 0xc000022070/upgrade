@@ -274,6 +274,27 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
     });
 
+    testWidgets('FIND is the whole gesture: one tap raises the line, the next '
+        'takes it down', (tester) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+
+      // One frame, so nothing had the chance to stand between the tap and the
+      // field: the cell has one answer and gives it.
+      await tester.tap(find.byKey(const ValueKey('bar-find')));
+      await tester.pump();
+      expect(find.byKey(_field), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('bar-find')));
+      await tester.pump();
+      expect(find.byKey(_field), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    });
+
     testWidgets('a key from the bar still reaches the shell while the line '
         'is up', (tester) async {
       final transport = FakeShellTransport();
