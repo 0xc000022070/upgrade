@@ -17,6 +17,7 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/picker_row.dart';
 import '../../design/components/section.dart';
+import '../../design/components/spectacle_field.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/spectacle_icon.dart';
 import '../../design/icons/spectacle_icons.dart';
@@ -650,24 +651,13 @@ class _GoalEditorState extends State<_GoalEditor> {
         showIcon: false,
         onTap: widget.onCancel,
       ),
-      child: TextField(
+      child: SpectacleField(
         controller: _field,
         autofocus: true,
         style: SpectacleText.rowTitleLead,
-        maxLines: 1,
-        cursorColor: SpectacleColors.accent,
-        cursorWidth: 2,
-        cursorRadius: Radius.zero,
-        textCapitalization: TextCapitalization.none,
-        textInputAction: TextInputAction.done,
+        hint: widget.hint,
+        contentPadding: const EdgeInsets.symmetric(vertical: Spacing.sm),
         onSubmitted: (_) => _submit(),
-        decoration: InputDecoration(
-          isDense: true,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-          hintText: widget.hint,
-          hintStyle: SpectacleText.rowSubtitle,
-        ),
       ),
     );
   }

@@ -13,6 +13,7 @@ import '../../design/components/keyboard_toolbar.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/solid_action_bar.dart';
+import '../../design/components/spectacle_field.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/spectacle_icon.dart';
 import '../../design/icons/spectacle_icons.dart';
@@ -32,7 +33,7 @@ import '../tasks/url_highlight_controller.dart';
 /// The toolbar row was withdrawn from inside the panel: the icons live on
 /// the strip above the keyboard, and the `→ DROPS` block is now the target
 /// icon with its answer showing as the first chip. That strip is cut to
-/// `link`, `image`, `+`, with `target` the only thing behind
+/// `link`, `image`, `newline`, `+`, with `target` the only thing behind
 /// the `+`: next and blocked are states, and a capture has none.
 ///
 /// A link is entered on a line of its own raised over that strip, never in
@@ -281,6 +282,10 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                 onTap: _openLink,
               ),
               ToolbarAction(glyph: ToolbarGlyph.image, onTap: _image),
+              ToolbarAction(
+                glyph: ToolbarGlyph.newline,
+                onTap: () => insertNewline(_controller),
+              ),
             ],
             // Capture aims, and that is all it does.
             extras: widget.fixedTarget != null
@@ -296,30 +301,23 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(
-                  height: RowMetrics.minHeight,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: RowMetrics.minHeight,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
-                        child: TextField(
+                        child: SpectacleField(
                           controller: _controller,
                           focusNode: _focus,
                           style: SpectacleText.capture.copyWith(
                             color: SpectacleColors.textPrimary,
                           ),
-                          cursorColor: SpectacleColors.accent,
-                          cursorWidth: 2,
-                          cursorRadius: Radius.zero,
-                          keyboardType: TextInputType.text,
-                          textInputAction: TextInputAction.done,
+                          maxLines: SpectacleField.bodyLines,
+                          hint: 'Capture',
+                          hintStyle: SpectacleText.capture,
                           onSubmitted: (_) => _submit(),
-                          decoration: InputDecoration(
-                            isDense: true,
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.zero,
-                            hintText: 'Capture',
-                            hintStyle: SpectacleText.capture,
-                          ),
                         ),
                       ),
                       const SizedBox(width: Spacing.md),
@@ -335,7 +333,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                         onTap: _submit,
                         child: SizedBox(
                           width: TapTargets.minHeight,
-                          height: double.infinity,
+                          height: RowMetrics.minHeight,
                           child: Center(
                             child: SpectacleIcon(
                               SpectacleIcons.submit,

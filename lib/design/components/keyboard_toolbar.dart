@@ -8,6 +8,7 @@ import '../motion.dart';
 import '../spacing.dart';
 import '../typography.dart';
 import 'action_block.dart';
+import 'spectacle_field.dart';
 
 /// The toolbar's glyphs are named one by one, one glyph per verb and
 /// none reused. Naming them as an enum rather than passing [IconData] around is
@@ -17,6 +18,7 @@ import 'action_block.dart';
 enum ToolbarGlyph {
   link(Icons.link, 'LINK'),
   image(Icons.image_outlined, 'IMAGE'),
+  newline(Icons.keyboard_return, 'NEWLINE'),
   more(Icons.add, 'MORE'),
   back(Icons.arrow_back, 'BACK'),
   target(Icons.folder_open, 'TARGET'),
@@ -82,8 +84,9 @@ class ToolbarChip {
 /// a value that is not the body text: a link, a blocked reason.
 ///
 /// The line belongs to the keyboard and dies with it, which is what separates
-/// it from the body field the design refuses to grow: the text the user was
-/// writing stays on screen underneath, with its caret, and never changes hands.
+/// it from the body field, which is capped rather than borrowed: the text the
+/// user was writing stays on screen underneath, with its caret, and never
+/// changes hands.
 class ToolbarField {
   const ToolbarField({
     required this.label,
@@ -630,27 +633,18 @@ class _FieldLine extends StatelessWidget {
             Text(field.label, style: SpectacleText.panelHeader),
             const SizedBox(width: Spacing.lg),
             Expanded(
-              child: TextField(
+              child: SpectacleField(
                 controller: field.controller,
                 focusNode: focus,
                 style: SpectacleText.capture.copyWith(
                   color: SpectacleColors.textPrimary,
                 ),
-                cursorColor: SpectacleColors.accent,
-                cursorWidth: 2,
-                cursorRadius: Radius.zero,
+                hint: field.hint,
+                hintStyle: SpectacleText.capture,
                 keyboardType: field.keyboardType,
-                textInputAction: TextInputAction.done,
                 onSubmitted: (value) {
                   if (_accepts(value)) field.onSubmit(value);
                 },
-                decoration: InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  hintText: field.hint,
-                  hintStyle: SpectacleText.capture,
-                ),
               ),
             ),
             const SizedBox(width: Spacing.md),

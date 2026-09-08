@@ -5,6 +5,7 @@ import '../motion.dart';
 import '../spacing.dart';
 import '../typography.dart';
 import 'solid_action_bar.dart';
+import 'spectacle_field.dart';
 
 class SheetAction {
   const SheetAction(
@@ -182,21 +183,12 @@ class _PromptState extends State<_Prompt> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-            child: TextField(
+            child: SpectacleField(
               controller: _controller,
               autofocus: true,
-              style: SpectacleText.rowTitle,
-              cursorColor: SpectacleColors.accent,
-              cursorWidth: 2,
-              cursorRadius: Radius.zero,
-              textInputAction: TextInputAction.done,
+              hint: widget.hint,
+              contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
               onSubmitted: (_) => _submit(),
-              decoration: InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                hintText: widget.hint,
-                hintStyle: SpectacleText.rowSubtitle,
-              ),
             ),
           ),
           // The commit only exists while there is something to commit, which is
