@@ -9,6 +9,7 @@ import '../platform/herdr_client.dart';
 import '../platform/shell/remote_shell.dart';
 import '../platform/host_keys.dart';
 import '../platform/keys.dart';
+import 'agent_kind.dart';
 import 'agents.dart';
 import 'providers.dart';
 
@@ -21,7 +22,7 @@ typedef HerdrSend = Future<SpawnResult> Function({
   required int port,
   required String user,
   required String privateKey,
-  required String kind,
+  required AgentKind kind,
   required String directory,
   required String prompt,
   List<RemoteFile> images,
@@ -46,7 +47,7 @@ Future<SpawnResult> _fakeSend({
   required int port,
   required String user,
   required String privateKey,
-  required String kind,
+  required AgentKind kind,
   required String directory,
   required String prompt,
   List<RemoteFile> images = const [],
@@ -138,7 +139,7 @@ class Sender {
     required String itemId,
     required String title,
     required List<String> links,
-    required String kind,
+    required AgentKind kind,
     List<String> imagePaths = const [],
     String? model,
   }) async {
@@ -199,7 +200,7 @@ class Sender {
           pathId: target.path.id,
           paneId: paneId,
           title: title,
-          agent: kind,
+          agent: kind.name,
           model: model,
         );
         return SendSent(paneId);

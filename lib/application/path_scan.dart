@@ -5,6 +5,7 @@ import '../data/repositories/host_repository.dart';
 import '../platform/herdr_client.dart';
 import '../platform/host_keys.dart';
 import '../platform/keys.dart';
+import 'agent_kind.dart';
 import 'agents.dart';
 
 /// The checkout scan, behind the same seam the send uses. What the picker
@@ -23,7 +24,7 @@ typedef HerdrModels = Future<List<String>> Function({
   required int port,
   required String user,
   required String privateKey,
-  required String kind,
+  required AgentKind kind,
   HostKeyVerifier? verifier,
 });
 
@@ -76,7 +77,7 @@ class PathScanner {
 
   /// The slugs [kind] accepts on [host]. Same failure words as the path scan
   /// because both use the same connection.
-  Future<PathScan> models(Host host, String kind) => _ask(
+  Future<PathScan> models(Host host, AgentKind kind) => _ask(
     host,
     (privateKey) => fetchModels(
       address: host.address,

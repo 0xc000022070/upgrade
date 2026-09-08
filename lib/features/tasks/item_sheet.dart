@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/agent_kind.dart';
 import '../../application/agents.dart';
 import '../../application/clipboard_text.dart';
 import '../../application/formatting.dart';
@@ -269,7 +270,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   /// The chosen path, and how this send should be picked up. Both live on the
   /// send and not on the path: the same directory is worked by claude one day
   /// and codex the next, and the row should not have to be edited to say so.
-  String _kind = agentMarkKinds.first;
+  AgentKind _kind = AgentKind.all.first;
   String? _model;
   PathScan _models = const PathScanLoading();
 
@@ -604,11 +605,11 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
       const SizedBox(height: Spacing.sm),
       Row(
         children: [
-          for (final kind in agentMarkKinds) ...[
-            if (kind != agentMarkKinds.first) const SizedBox(width: Spacing.md),
+          for (final kind in AgentKind.all) ...[
+            if (kind != AgentKind.all.first) const SizedBox(width: Spacing.md),
             Expanded(
               child: ActionBlock(
-                label: agentMarkName(kind),
+                label: agentMarkName(kind.name),
                 filled: kind == _kind,
                 tone: kind == _kind
                     ? SpectacleColors.accent

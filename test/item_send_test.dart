@@ -7,6 +7,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectacle/application/agent_kind.dart';
 import 'package:spectacle/application/agents.dart';
 import 'package:spectacle/application/path_scan.dart';
 import 'package:spectacle/application/providers.dart';
@@ -253,12 +254,12 @@ void main() {
             model,
             verifier,
           }) async {
-            calls.add(_Call(kind, directory, prompt));
+            calls.add(_Call(kind.name, directory, prompt));
             verifiers.add(verifier);
             return const SpawnSent('wQ:p7');
           })(
             target: _target(),
-            kind: 'claude',
+            kind: const ClaudeKind(),
             itemId: itemId,
             title: 'read the gate log',
             links: const ['https://a.example'],
@@ -316,7 +317,7 @@ void main() {
               model,
               verifier,
             }) async {
-              calls.add(_Call(kind, directory, prompt, images));
+              calls.add(_Call(kind.name, directory, prompt, images));
               return const SpawnSent('wQ:p7');
             },
             readImage: (path) async {
@@ -325,7 +326,7 @@ void main() {
             },
           )(
             target: _target(),
-            kind: 'claude',
+            kind: const ClaudeKind(),
             itemId: itemId,
             title: 'what is wrong here',
             links: const ['https://a.example'],
@@ -381,7 +382,7 @@ void main() {
             readImage: (path) async => throw const FileSystemException('gone'),
           )(
             target: _target(),
-            kind: 'claude',
+            kind: const ClaudeKind(),
             itemId: itemId,
             title: 'what is wrong here',
             links: const [],
@@ -412,7 +413,7 @@ void main() {
               }) async => SpawnRefused(refusal),
             )(
               target: _target(),
-              kind: 'claude',
+              kind: const ClaudeKind(),
               itemId: itemId,
               title: 'read the gate log',
               links: const [],
@@ -445,7 +446,7 @@ void main() {
               }) async => throw failure,
             )(
               target: _target(),
-              kind: 'claude',
+              kind: const ClaudeKind(),
               itemId: itemId,
               title: 'read the gate log',
               links: const [],
@@ -481,7 +482,7 @@ void main() {
             return const SpawnSent('wQ:p7');
           })(
             target: _target(),
-            kind: 'claude',
+            kind: const ClaudeKind(),
             itemId: itemId,
             title: 'read the gate log',
             links: const [],
@@ -716,7 +717,7 @@ void main() {
                 verifier,
               }) async {
                 seen = prompt;
-                seenKind = kind;
+                seenKind = kind.name;
                 seenModel = model;
                 return const SpawnSent('wQ:p7');
               },
