@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -270,5 +271,45 @@ void main() {
       "label with ' quote",
       '--no-focus',
     ]);
+  });
+
+  test('an exchange that stops moving is given up on and then let go', () async {
+    final stalled = Completer<void>();
+
+    await expectLater(
+      awaitWithin(stalled.future, const Duration(milliseconds: 20)),
+      throwsA(isA<TimeoutException>()),
+    );
+
+    // What the abandoned exchange fails with once its channel closes under it
+    // has nowhere to go, and must not reach the zone as an unhandled error.
+    stalled.completeError(const SocketException('channel closed'));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+  });
+
+  test('an exchange already inside a deadline is waited on whole', () async {
+    final finished = Completer<void>();
+    var done = false;
+    unawaited(awaitWithin(finished.future, null).then((_) => done = true));
+
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(done, isFalse);
+
+    finished.complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(done, isTrue);
+  });
+
+  test('an upload is given the time its own bytes need and no more', () {
+    expect(uploadDeadline(0), uploadOpening);
+    expect(
+      uploadDeadline(uploadRate * 4),
+      uploadOpening + const Duration(seconds: 4),
+    );
+    expect(uploadDeadline(8 * 1024 * 1024), lessThan(const Duration(minutes: 7)));
+    expect(
+      uploadDeadline(2 * 1024 * 1024),
+      greaterThan(uploadDeadline(1024 * 1024)),
+    );
   });
 }

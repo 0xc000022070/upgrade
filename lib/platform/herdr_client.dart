@@ -351,9 +351,10 @@ class HerdrSession {
   /// prompt on stdin. Any failure after workspace creation closes that
   /// workspace.
   ///
-  /// The images go first and outside the deadline: nothing has been created
-  /// yet, so an upload that fails leaves no workspace behind, and a photo on a
-  /// phone's uplink is not the hang the deadline is there to catch.
+  /// The images go first and outside [deadline]: nothing has been created yet,
+  /// so an upload that fails leaves no workspace behind, and a photo on a
+  /// phone's uplink is not the hang that deadline is there to catch. They are
+  /// bounded all the same, each by its own [uploadDeadline].
   Future<SpawnResult> spawn({
     required String kind,
     required String directory,
@@ -533,11 +534,17 @@ class HerdrSession {
     for (final image in images) {
       final SSHRunResult result;
       try {
-        result = await _guard(
-          () => _runWithStdin(uploadCommand(image.name), image.bytes),
+        result = await _runWithStdin(
+          uploadCommand(image.name),
+          image.bytes,
+          within: uploadDeadline(image.bytes.length),
         );
+      } on TimeoutException {
+        return '${image.name} timed out';
       } on HerdrFailure catch (error) {
         return error.detail ?? '$error';
+      } catch (error) {
+        return '$error';
       }
       if (result.exitCode != 0) {
         final said = utf8.decode(result.stderr).trim();
@@ -556,27 +563,42 @@ class HerdrSession {
 
   /// `runWithResult` has no way to write stdin, and both the prompt and an
   /// upload are a command whose whole input arrives that way.
-  Future<SSHRunResult> _runWithStdin(String command, Uint8List stdin) async {
+  ///
+  /// [within] bounds the whole exchange. Nothing under this notices a link
+  /// that has stopped moving — the keepalive pings on its own timer and
+  /// swallows whatever comes back — so a channel that stalls stalls for as
+  /// long as the app is willing to wait on it, and this is where that is
+  /// decided.
+  Future<SSHRunResult> _runWithStdin(
+    String command,
+    Uint8List stdin, {
+    Duration? within,
+  }) async {
     final session = await _guard(() => _client.execute(command));
-    final out = BytesBuilder(copy: false);
-    final err = BytesBuilder(copy: false);
-    final drained = Future.wait([
-      session.stdout.cast<List<int>>().forEach(out.add),
-      session.stderr.cast<List<int>>().forEach(err.add),
-    ]);
-    session.stdin.add(stdin);
-    await session.stdin.close();
-    await Future.wait([session.done, drained]);
-    session.close();
-    final stdout = out.takeBytes();
-    final stderr = err.takeBytes();
-    return SSHRunResult(
-      output: Uint8List.fromList([...stdout, ...stderr]),
-      exitCode: session.exitCode,
-      exitSignal: session.exitSignal,
-      stdout: stdout,
-      stderr: stderr,
-    );
+    try {
+      final out = BytesBuilder(copy: false);
+      final err = BytesBuilder(copy: false);
+      final drained = Future.wait([
+        session.stdout.cast<List<int>>().forEach(out.add),
+        session.stderr.cast<List<int>>().forEach(err.add),
+      ]);
+      session.stdin.add(stdin);
+      await awaitWithin(Future(() async {
+        await session.stdin.close();
+        await Future.wait([session.done, drained]);
+      }), within);
+      final stdout = out.takeBytes();
+      final stderr = err.takeBytes();
+      return SSHRunResult(
+        output: Uint8List.fromList([...stdout, ...stderr]),
+        exitCode: session.exitCode,
+        exitSignal: session.exitSignal,
+        stdout: stdout,
+        stderr: stderr,
+      );
+    } finally {
+      session.close();
+    }
   }
 
   Future<void> _closeWorkspace(String workspace) async {
@@ -628,6 +650,31 @@ class HerdrSession {
 
 /// How long a send waits for workspace creation, agent startup, and the prompt.
 const spawnDeadline = Duration(seconds: 45);
+
+/// What an image's bytes are given before the upload is called a hang: a flat
+/// cost for opening the channel, plus the time the bytes themselves need at a
+/// rate a phone away from wifi still meets.
+///
+/// Sized to the payload rather than flat, because one window cannot be both:
+/// short enough to catch a stall and long enough for a picture.
+const uploadOpening = Duration(seconds: 15);
+
+/// Bytes per second the budget assumes, well under a bad uplink's real rate.
+const uploadRate = 24 * 1024;
+
+Duration uploadDeadline(int bytes) =>
+    uploadOpening + Duration(milliseconds: bytes * 1000 ~/ uploadRate);
+
+/// Waits for [exchange], or, past [within], stops waiting and abandons it.
+/// A null [within] is the unbounded wait, for the exchanges that are already
+/// inside a deadline of their own.
+///
+/// What is abandoned is still holding a channel that is about to be closed
+/// under it, and `timeout` drops whatever it fails with then: the caller has
+/// already been told the exchange gave up, and one failure is the whole of
+/// what happened.
+Future<void> awaitWithin(Future<void> exchange, Duration? within) =>
+    within == null ? exchange : exchange.timeout(within);
 
 /// How long a fresh pane's shell may take to reach its prompt. A login shell
 /// on this kind of host is there in well under a second; the window is for

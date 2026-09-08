@@ -6,6 +6,12 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+/// The longest side a picture goes to a host at, whichever way it was
+/// attached. A phone's camera is four thousand pixels across and an encode of
+/// that is most of a byte budget on its own; the agents on the other end
+/// shrink anything past about half this before they look at it.
+const photoAttachEdge = 2048.0;
+
 /// Where a clip came from: a box drawn over a host's screen, or the gallery.
 enum ClipSource { screen, photo }
 
