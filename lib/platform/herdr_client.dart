@@ -120,9 +120,13 @@ abstract final class HerdrCommands {
 
   static String sessions() => underSh('exec herdr session list --json');
 
-  /// A line for a login shell, not a command for an exec channel: the attach
-  /// is a TUI that owns the terminal until the user detaches, and it exits
-  /// back into the shell it was typed in.
+  /// The command a shell tab runs in place of the login shell, on a channel
+  /// with a pty — the attach is a TUI and owns the terminal until the user
+  /// detaches, at which point the command exits and takes the tab with it.
+  ///
+  /// Quoted for a shell all the same: sshd runs an exec request through the
+  /// user's `$SHELL -c`, non-interactively, which is also why no rc of theirs
+  /// is in front of it.
   static String attach(PaneRef pane) {
     _requirePane(pane.pane);
     return _herdr(pane.session, 'agent attach ${shellQuote(pane.pane)}');

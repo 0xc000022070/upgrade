@@ -563,8 +563,8 @@ void main() {
 
     const pane = (session: 'lab', pane: 'w22:p1');
     final bare = sessions.open(_rose)!;
-    final attached = sessions.open(_rose, seed: 'attach', pane: pane)!;
-    sessions.open(_nyx, seed: 'attach', pane: pane);
+    final attached = sessions.open(_rose, command: 'attach', pane: pane)!;
+    sessions.open(_nyx, command: 'attach', pane: pane);
 
     expect(bare.pane, isNull);
     expect(attached.pane, pane);
@@ -583,11 +583,11 @@ void main() {
     expect(sessions.holding(_nyx.id, pane), isNot(same(attached)));
   });
 
-  testWidgets('a reconnect drops the pane with the title', (tester) async {
+  testWidgets('a reconnect comes back on the same pane', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     const pane = (session: 'lab', pane: 'w22:p1');
-    final session = sessions.open(_rose, seed: 'attach', pane: pane)!;
+    final session = sessions.open(_rose, command: 'attach', pane: pane)!;
     await _pumpDial(tester);
     expect(sessions.holding(_rose.id, pane), same(session));
 
@@ -596,10 +596,12 @@ void main() {
     await tester.pump(shellReconnectDelays.first);
     await _pumpDial(tester);
 
-    // The shell that came back is bare: the attach was typed into the one
-    // that died, and nothing typed it again.
-    expect(session.pane, isNull);
-    expect(sessions.holding(_rose.id, pane), isNull);
+    // The attach is the channel's command rather than a line someone typed
+    // once, so the dial that replaces a dropped one carries it again and the
+    // tab is still the pane's.
+    expect(session.pane, pane);
+    expect(sessions.holding(_rose.id, pane), same(session));
+    expect(transport.commands, ['attach', 'attach']);
     expect(transport.opened.last.written, isEmpty);
 
     await sessions.close(_rose.id, session);

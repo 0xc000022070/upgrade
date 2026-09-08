@@ -89,6 +89,10 @@ class FakeShellTransport {
   /// host with.
   final verifiers = <HostKeyVerifier?>[];
 
+  /// One per dial, in order: what the tab asked to run in place of the login
+  /// shell, and null for the tabs that wanted the login shell.
+  final commands = <String?>[];
+
   /// Set to make the next dial fail, cleared to let it succeed. Null keeps a
   /// dial pending forever, which is how `CONNECTING` is held still.
   Object? refuse;
@@ -106,9 +110,11 @@ class FakeShellTransport {
     HostKeyVerifier? verifier,
     required int columns,
     required int rows,
+    String? command,
   }) async {
     sizes.add([columns, rows]);
     verifiers.add(verifier);
+    commands.add(command);
     if (stall) {
       final pending = Completer<ShellConnection>();
       _stalled.add(pending);

@@ -159,6 +159,16 @@ class FakeHost implements ShellHost {
   }
 
   @override
+  Future<ShellPty> run(String command, SSHPtyConfig config) async {
+    requests.add(
+      'run $command ${config.type} ${config.width}x${config.height}',
+    );
+    final error = shellError;
+    if (error != null) throw error;
+    return pty;
+  }
+
+  @override
   Future<void> close() async => closed = true;
 }
 
@@ -179,14 +189,16 @@ ShellTunnel tunnelTo(FakeHost host, {Object? dialError}) => ShellTunnel(
       },
 );
 
-Future<ShellConnection> openOn(ShellTunnel tunnel) => tunnel.open(
-  address: 'nyx',
-  port: 357,
-  user: 'luisnquin',
-  privateKey: 'pem',
-  columns: 100,
-  rows: 40,
-);
+Future<ShellConnection> openOn(ShellTunnel tunnel, {String? command}) =>
+    tunnel.open(
+      address: 'nyx',
+      port: 357,
+      user: 'luisnquin',
+      privateKey: 'pem',
+      columns: 100,
+      rows: 40,
+      command: command,
+    );
 
 Future<ShellFailureKind> kindOf(Future<void> Function() body) async {
   try {
@@ -207,6 +219,26 @@ void main() {
         addTearDown(connection.close);
 
         expect(host.requests, ['shell xterm-256color 100x40']);
+      },
+    );
+
+    test(
+      'a command runs on a pty of its own and no shell is asked for',
+      () async {
+        final host = FakeHost();
+        final connection = await openOn(
+          tunnelTo(host),
+          command: "herdr agent attach 'w22:p1'",
+        );
+        addTearDown(connection.close);
+
+        // The same pty on the same kind of channel, under an exec request
+        // instead of a shell request — `ssh -t`. Nothing is written at a
+        // prompt, because there is no shell in front of the command to have
+        // one.
+        expect(host.requests, [
+          "run herdr agent attach 'w22:p1' xterm-256color 100x40",
+        ]);
       },
     );
   });

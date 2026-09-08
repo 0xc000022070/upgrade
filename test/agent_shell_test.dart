@@ -83,7 +83,7 @@ void main() {
 
   final header = find.byKey(const ValueKey('shell-header'));
 
-  testWidgets('a first tap opens a tab with the attach typed into it', (
+  testWidgets('a first tap opens a tab running the attach as its command', (
     tester,
   ) async {
     final transport = FakeShellTransport();
@@ -100,9 +100,11 @@ void main() {
     expect(container.read(navIndexProvider), SshScreen.navIndex);
     final session = sessions.forHost(_rose.id).single;
     expect(session.pane, _pane);
-    // Typed into the login shell as its first line, not run over a channel
-    // of its own: the tab is a shell that happens to be watching a pane.
-    expect(transport.opened.single.written, '$_attach\r');
+    expect(session.command, _attach);
+    // The channel's own command, and nothing typed at a shell: a line written
+    // at a login shell races whatever that shell reads before its prompt.
+    expect(transport.commands, [_attach]);
+    expect(transport.opened.single.written, isEmpty);
     expect(
       transport.opened.single.execs.map((exec) => exec.command),
       everyElement(isNot(contains('agent attach'))),
