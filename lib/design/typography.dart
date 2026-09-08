@@ -12,8 +12,13 @@ abstract final class FontFamilies {
   /// Everything structural. Mono is the default, not the exception.
   static const mono = 'IBM Plex Mono';
 
+  /// The icons a shell prompt draws — git branch, host, nix snowflake —
+  /// that live in Nerd Fonts' private-use range. A fallback, not a
+  /// typeface: it carries no letterforms of its own to compete with mono.
+  static const monoSymbols = 'Symbols Nerd Font Mono';
+
   /// Reported by the boot log.
-  static const count = 3;
+  static const count = 4;
 }
 
 /// Sized off the 360dp mocks in design/explorations/screens.

@@ -47,7 +47,11 @@ final _shellTextStyles = <double, TerminalStyle>{};
 
 TerminalStyle _shellTextStyle(double fontSize) => _shellTextStyles.putIfAbsent(
   fontSize,
-  () => TerminalStyle(fontSize: fontSize, fontFamily: FontFamilies.mono),
+  () => TerminalStyle(
+    fontSize: fontSize,
+    fontFamily: FontFamilies.mono,
+    fontFamilyFallback: const [FontFamilies.monoSymbols],
+  ),
 );
 
 /// The view, keyed by session so switching tabs swaps the whole thing rather

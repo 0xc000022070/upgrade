@@ -142,6 +142,7 @@ class ShellThumbnailPainter extends CustomPainter {
           style: const TextStyle(
             color: SpectacleColors.textPrimary,
             fontFamily: FontFamilies.mono,
+            fontFamilyFallback: [FontFamilies.monoSymbols],
             fontSize: thumbnailFontSize,
             height: 1,
           ),
