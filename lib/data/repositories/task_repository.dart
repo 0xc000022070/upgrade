@@ -7,6 +7,7 @@ import '../enums.dart';
 import '../views.dart';
 import 'activity_repository.dart';
 import 'attachment_repository.dart';
+import 'mutation.dart';
 
 class TaskRepository {
   TaskRepository(AppDatabase db, this._activity)
@@ -20,6 +21,15 @@ class TaskRepository {
   /// inside one transaction without the call site holding both.
   final AttachmentRepository _attachments;
   static const _uuid = Uuid();
+
+  late final _mutations = Mutations<Task>(
+    db: _db,
+    activity: _activity,
+    entityType: EntityType.task,
+    read: _byId,
+    title: (task) => task.title,
+    context: (task) => _projectName(task.projectId),
+  );
 
   Stream<NextAction?> watchNextAction() => _db.watchNextAction();
 
@@ -180,239 +190,175 @@ class TaskRepository {
     at: at,
   );
 
-  Future<void> setDone(String id, bool done, {DateTime? at}) {
-    final now = at ?? DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final task = await _byId(id);
-      if (task.done == done) return;
-      await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
-        TasksCompanion(
-          done: Value(done),
-          // Finishing the flagged task retires the flag: leaving it set would
-          // point NEXT ACTION at something already crossed off.
-          isNext: done ? const Value(false) : const Value.absent(),
-          updatedAt: Value(now),
-        ),
-      );
-      await _activity.log(
-        entityType: EntityType.task,
-        entityId: id,
-        action: done ? ActivityAction.completed : ActivityAction.reopened,
-        title: task.title,
-        context: await _projectName(task.projectId),
-        at: now,
-      );
-    });
-  }
+  Future<void> setDone(String id, bool done, {DateTime? at}) => _mutations
+      .on(id)
+      .at(at)
+      .unchangedWhen((task) => task.done == done)
+      .writes(done ? ActivityAction.completed : ActivityAction.reopened, (
+        task,
+        now,
+      ) async {
+        await _write(
+          id,
+          TasksCompanion(
+            done: Value(done),
+            // Finishing the flagged task retires the flag: leaving it set would
+            // point NEXT ACTION at something already crossed off.
+            isNext: done ? const Value(false) : const Value.absent(),
+            updatedAt: Value(now),
+          ),
+        );
+        return null;
+      });
 
-  Future<void> block(String id, String reason, {DateTime? at}) {
-    final now = at ?? DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final task = await _byId(id);
-      await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
-        TasksCompanion(blockedReason: Value(reason), updatedAt: Value(now)),
-      );
-      await _activity.log(
-        entityType: EntityType.task,
-        entityId: id,
-        action: ActivityAction.blocked,
-        title: task.title,
-        context: await _projectName(task.projectId),
-        detail: reason,
-        at: now,
-      );
-    });
-  }
+  Future<void> block(String id, String reason, {DateTime? at}) => _mutations
+      .on(id)
+      .at(at)
+      .writes(ActivityAction.blocked, (task, now) async {
+        await _write(
+          id,
+          TasksCompanion(blockedReason: Value(reason), updatedAt: Value(now)),
+        );
+        return reason;
+      });
 
-  Future<void> unblock(String id, {DateTime? at}) {
-    final now = at ?? DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final task = await _byId(id);
-      if (task.blockedReason == null) return;
-      await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
-        TasksCompanion(blockedReason: const Value(null), updatedAt: Value(now)),
-      );
-      await _activity.log(
-        entityType: EntityType.task,
-        entityId: id,
-        action: ActivityAction.unblocked,
-        title: task.title,
-        context: await _projectName(task.projectId),
-        at: now,
-      );
-    });
-  }
+  Future<void> unblock(String id, {DateTime? at}) => _mutations
+      .on(id)
+      .at(at)
+      .unchangedWhen((task) => task.blockedReason == null)
+      .writes(ActivityAction.unblocked, (task, now) async {
+        await _write(
+          id,
+          TasksCompanion(
+            blockedReason: const Value(null),
+            updatedAt: Value(now),
+          ),
+        );
+        return null;
+      });
 
   /// At most one task in the database carries the flag. Clearing
   /// the others in the same transaction is what makes that an invariant rather
   /// than a convention every call site has to remember.
-  Future<void> setNext(String id, {DateTime? at}) {
-    final now = at ?? DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final task = await _byId(id);
-      await _clearNext(now);
-      await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
-        TasksCompanion(isNext: const Value(true), updatedAt: Value(now)),
-      );
-      await _activity.log(
-        entityType: EntityType.task,
-        entityId: id,
-        action: ActivityAction.flaggedNext,
-        title: task.title,
-        context: await _projectName(task.projectId),
-        at: now,
-      );
-    });
-  }
+  Future<void> setNext(String id, {DateTime? at}) => _mutations
+      .on(id)
+      .at(at)
+      .writes(ActivityAction.flaggedNext, (task, now) async {
+        await _clearNext(now);
+        await _write(
+          id,
+          TasksCompanion(isNext: const Value(true), updatedAt: Value(now)),
+        );
+        return null;
+      });
 
   /// `UNSET`: the flag comes off without anything else taking
   /// it, so HOME's NEXT ACTION panel goes away rather than moving on.
-  Future<void> unsetNext(String id, {DateTime? at}) {
-    final now = at ?? DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final task = await _byId(id);
-      if (!task.isNext) return;
-      await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
-        TasksCompanion(isNext: const Value(false), updatedAt: Value(now)),
-      );
-      await _activity.log(
-        entityType: EntityType.task,
-        entityId: id,
-        action: ActivityAction.updated,
-        title: task.title,
-        context: await _projectName(task.projectId),
-        detail: 'unflagged',
-        at: now,
-      );
-    });
-  }
+  Future<void> unsetNext(String id, {DateTime? at}) => _mutations
+      .on(id)
+      .at(at)
+      .unchangedWhen((task) => !task.isNext)
+      .writes(ActivityAction.updated, (task, now) async {
+        await _write(
+          id,
+          TasksCompanion(isNext: const Value(false), updatedAt: Value(now)),
+        );
+        return 'unflagged';
+      });
 
   /// A bundle moves whole. The member lookup happens inside the
   /// transaction, so a concurrent pair cannot leave half a bundle behind.
-  Future<void> moveToTarget(String id, ItemTarget target, {DateTime? at}) {
-    final now = at ?? DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final task = await _byId(id);
-      if (task.projectId == target.projectId && task.goalId == target.goalId) {
-        return;
-      }
-      final ids = await _bundleMemberIds(task);
-      await (_db.update(_db.tasks)..where((t) => t.id.isIn(ids))).write(
-        TasksCompanion(
-          projectId: Value(target.projectId),
-          goalId: Value(target.goalId),
-          updatedAt: Value(now),
-        ),
-      );
-      await _activity.log(
-        entityType: EntityType.task,
-        entityId: id,
-        action: ActivityAction.moved,
-        title: task.title,
-        context: await _projectName(target.projectId),
-        detail: ids.length > 1 ? 'bundle of ${ids.length}' : null,
-        at: now,
-      );
-    });
-  }
+  Future<void> moveToTarget(String id, ItemTarget target, {DateTime? at}) =>
+      _mutations
+          .on(id)
+          .at(at)
+          .unchangedWhen(
+            (task) =>
+                task.projectId == target.projectId &&
+                task.goalId == target.goalId,
+          )
+          .context(() => _projectName(target.projectId))
+          .writes(ActivityAction.moved, (task, now) async {
+            final ids = await _bundleMemberIds(task);
+            await (_db.update(_db.tasks)..where((t) => t.id.isIn(ids))).write(
+              TasksCompanion(
+                projectId: Value(target.projectId),
+                goalId: Value(target.goalId),
+                updatedAt: Value(now),
+              ),
+            );
+            return ids.length > 1 ? 'bundle of ${ids.length}' : null;
+          });
 
   /// Pairing is a union. Whichever bundle already exists wins,
   /// so joining an item to a pair makes a trio rather than splitting it.
-  Future<void> pair(String id, String otherId, {DateTime? at}) {
-    final now = at ?? DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final task = await _byId(id);
-      final other = await _byId(otherId);
-      final bundleId = task.bundleId ?? other.bundleId ?? _uuid.v7();
-      final ids = {
-        ...await _bundleMemberIds(task),
-        ...await _bundleMemberIds(other),
-      };
-      await (_db.update(_db.tasks)..where((t) => t.id.isIn(ids))).write(
-        TasksCompanion(bundleId: Value(bundleId), updatedAt: Value(now)),
-      );
-      await _activity.log(
-        entityType: EntityType.task,
-        entityId: id,
-        action: ActivityAction.updated,
-        title: task.title,
-        context: await _projectName(task.projectId),
-        detail: 'paired with ${other.title}',
-        at: now,
-      );
-    });
-  }
+  Future<void> pair(String id, String otherId, {DateTime? at}) => _mutations
+      .on(id)
+      .at(at)
+      .writes(ActivityAction.updated, (task, now) async {
+        final other = await _byId(otherId);
+        final bundleId = task.bundleId ?? other.bundleId ?? _uuid.v7();
+        final ids = {
+          ...await _bundleMemberIds(task),
+          ...await _bundleMemberIds(other),
+        };
+        await (_db.update(_db.tasks)..where((t) => t.id.isIn(ids))).write(
+          TasksCompanion(bundleId: Value(bundleId), updatedAt: Value(now)),
+        );
+        return 'paired with ${other.title}';
+      });
 
   /// Unpairing clears the id on this item only; the rest of the
   /// bundle stays together.
-  Future<void> unpair(String id, {DateTime? at}) {
-    final now = at ?? DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final task = await _byId(id);
-      if (task.bundleId == null) return;
-      await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
-        TasksCompanion(bundleId: const Value(null), updatedAt: Value(now)),
-      );
-      await _activity.log(
-        entityType: EntityType.task,
-        entityId: id,
-        action: ActivityAction.updated,
-        title: task.title,
-        context: await _projectName(task.projectId),
-        detail: 'unpaired',
-        at: now,
-      );
-    });
-  }
+  Future<void> unpair(String id, {DateTime? at}) => _mutations
+      .on(id)
+      .at(at)
+      .unchangedWhen((task) => task.bundleId == null)
+      .writes(ActivityAction.updated, (task, now) async {
+        await _write(
+          id,
+          TasksCompanion(bundleId: const Value(null), updatedAt: Value(now)),
+        );
+        return 'unpaired';
+      });
 
-  Future<void> edit(String id, {String? title, int? effort, DateTime? at}) {
-    final now = at ?? DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final task = await _byId(id);
-      await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
-        TasksCompanion(
-          title: title == null ? const Value.absent() : Value(title),
-          effort: effort == null ? const Value.absent() : Value(effort),
-          updatedAt: Value(now),
-        ),
-      );
-      await _activity.log(
-        entityType: EntityType.task,
-        entityId: id,
-        action: ActivityAction.updated,
-        title: title ?? task.title,
-        context: await _projectName(task.projectId),
-        at: now,
-      );
-    });
-  }
+  Future<void> edit(String id, {String? title, int? effort, DateTime? at}) =>
+      _mutations.on(id).at(at).titled(title).writes(ActivityAction.updated, (
+        task,
+        now,
+      ) async {
+        await _write(
+          id,
+          TasksCompanion(
+            title: title == null ? const Value.absent() : Value(title),
+            effort: effort == null ? const Value.absent() : Value(effort),
+            updatedAt: Value(now),
+          ),
+        );
+        return null;
+      });
 
   /// Deleting drops the task's notes and links with it: neither has a screen
   /// that can reach it once the item is gone, and the foreign keys would refuse
   /// the delete. A bundled item is deleted alone — a bundle moves whole, it
   /// does not die whole.
-  Future<void> delete(String id, {DateTime? at}) {
-    final now = at ?? DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final task = await _byId(id);
-      await (_db.delete(
-        _db.attachments,
-      )..where((a) => a.itemId.equals(id))).go();
-      // The older rows migrated into `attachments` but were left behind in
-      // `links`; a deleted item takes both copies with it.
-      await (_db.delete(_db.links)..where((l) => l.taskId.equals(id))).go();
-      await (_db.delete(_db.notes)..where((n) => n.taskId.equals(id))).go();
-      await (_db.delete(_db.tasks)..where((t) => t.id.equals(id))).go();
-      await _activity.log(
-        entityType: EntityType.task,
-        entityId: id,
-        action: ActivityAction.deleted,
-        title: task.title,
-        context: await _projectName(task.projectId),
-        at: now,
-      );
-    });
-  }
+  Future<void> delete(String id, {DateTime? at}) => _mutations
+      .on(id)
+      .at(at)
+      .writes(ActivityAction.deleted, (task, now) async {
+        await (_db.delete(
+          _db.attachments,
+        )..where((a) => a.itemId.equals(id))).go();
+        // The older rows migrated into `attachments` but were left behind in
+        // `links`; a deleted item takes both copies with it.
+        await (_db.delete(_db.links)..where((l) => l.taskId.equals(id))).go();
+        await (_db.delete(_db.notes)..where((n) => n.taskId.equals(id))).go();
+        await (_db.delete(_db.tasks)..where((t) => t.id.equals(id))).go();
+        return null;
+      });
+
+  Future<int> _write(String id, TasksCompanion values) =>
+      (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(values);
 
   Future<Set<String>> _bundleMemberIds(Task task) async {
     final bundleId = task.bundleId;

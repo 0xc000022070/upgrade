@@ -5,6 +5,7 @@ import '../database.dart';
 import '../enums.dart';
 import '../views.dart';
 import 'activity_repository.dart';
+import 'mutation.dart';
 
 /// A goal is a grouping inside one project; it owns no
 /// state, so every operation here is about where items sit, not about the goal.
@@ -14,6 +15,15 @@ class GoalRepository {
   final AppDatabase _db;
   final ActivityRepository _activity;
   static const _uuid = Uuid();
+
+  late final _mutations = Mutations<Goal>(
+    db: _db,
+    activity: _activity,
+    entityType: EntityType.goal,
+    read: _byId,
+    title: (goal) => goal.title,
+    context: (goal) => _projectName(goal.projectId),
+  );
 
   Stream<List<Goal>> watchByProject(String projectId) {
     return (_db.select(_db.goals)
@@ -59,45 +69,32 @@ class GoalRepository {
     });
   }
 
-  Future<void> rename(String id, String title, {DateTime? at}) {
-    final now = at ?? DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final goal = await _byId(id);
-      if (goal.title == title) return;
-      await (_db.update(_db.goals)..where((g) => g.id.equals(id))).write(
-        GoalsCompanion(title: Value(title)),
-      );
-      await _activity.log(
-        entityType: EntityType.goal,
-        entityId: id,
-        action: ActivityAction.updated,
-        title: title,
-        context: await _projectName(goal.projectId),
-        at: now,
-      );
-    });
-  }
+  /// The goals table has no `updated_at`: a goal is a label over
+  /// items, and the items carry their own times.
+  Future<void> rename(String id, String title, {DateTime? at}) => _mutations
+      .on(id)
+      .at(at)
+      .titled(title)
+      .unchangedWhen((goal) => goal.title == title)
+      .writes(ActivityAction.updated, (goal, now) async {
+        await (_db.update(_db.goals)..where((g) => g.id.equals(id))).write(
+          GoalsCompanion(title: Value(title)),
+        );
+        return null;
+      });
 
   /// The items under a deleted goal fall back to the project's
   /// DROPS. Deleting a grouping never deletes what was grouped.
-  Future<void> delete(String id, {DateTime? at}) {
-    final now = at ?? DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final goal = await _byId(id);
-      await (_db.update(_db.tasks)..where((t) => t.goalId.equals(id))).write(
-        TasksCompanion(goalId: const Value(null), updatedAt: Value(now)),
-      );
-      await (_db.delete(_db.goals)..where((g) => g.id.equals(id))).go();
-      await _activity.log(
-        entityType: EntityType.goal,
-        entityId: id,
-        action: ActivityAction.deleted,
-        title: goal.title,
-        context: await _projectName(goal.projectId),
-        at: now,
-      );
-    });
-  }
+  Future<void> delete(String id, {DateTime? at}) => _mutations
+      .on(id)
+      .at(at)
+      .writes(ActivityAction.deleted, (goal, now) async {
+        await (_db.update(_db.tasks)..where((t) => t.goalId.equals(id))).write(
+          TasksCompanion(goalId: const Value(null), updatedAt: Value(now)),
+        );
+        await (_db.delete(_db.goals)..where((g) => g.id.equals(id))).go();
+        return null;
+      });
 
   Future<int> _nextOrder(String projectId) async {
     final rows = await (_db.select(
