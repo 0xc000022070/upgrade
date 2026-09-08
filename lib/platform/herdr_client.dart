@@ -176,6 +176,16 @@ done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
     );
   }
 
+  /// The pane a send opens is nobody's terminal: the only line typed at its
+  /// shell is the agent's own start, flags and all, and that line has no
+  /// business in the history the user searches on their machine. Both names
+  /// because the shell on the far side is zsh's or bash's, and the ignore
+  /// lists because they are what a host's rc leaves alone — `HISTFILE` is
+  /// assigned outright by every generated rc there is, so a value put here
+  /// loses to the one the rc names a moment later.
+  static const _withoutHistory =
+      "--env 'HISTORY_IGNORE=*' --env 'HISTIGNORE=*'";
+
   static String workspaceCreate(
     String directory, {
     required String label,
@@ -185,7 +195,7 @@ done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
     r'''case "$dir" in '~') dir="$HOME";; '~/'*) dir="$HOME/${dir#'~/'}";; esac; '''
     r'''[ -d "$dir" ] || { printf '%s\n' 'spectacle: no directory' >&2; exit 20; }; '''
     '${_herdr(session, 'workspace create --cwd "\$dir" '
-    '--label ${shellQuote(label)} --no-focus')}',
+    '--label ${shellQuote(label)} $_withoutHistory --no-focus')}',
   );
 
   static String agentStart({

@@ -428,6 +428,12 @@ void main() {
       directory.path,
       '--label',
       "label with ' quote",
+      // The pane's shell keeps no history: the `*` reaches herdr as a pattern
+      // and not as whatever the working directory happened to hold.
+      '--env',
+      'HISTORY_IGNORE=*',
+      '--env',
+      'HISTIGNORE=*',
       '--no-focus',
     ]);
   });
