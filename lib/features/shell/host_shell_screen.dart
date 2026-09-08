@@ -29,6 +29,7 @@ import 'shell_sessions.dart';
 import 'shell_status.dart';
 import 'shell_tail.dart';
 import 'shell_terminal.dart';
+import 'shell_turns.dart';
 import 'shell_watcher.dart';
 
 /// `/ <HOST> SHELL`: the host's own login shell, several at once as tabs.
@@ -153,6 +154,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   /// Whether the search line is up. It belongs to the route rather than to a
   /// session: what is being looked for is looked for in the tab on screen.
   var _searching = false;
+
+  /// Whether the jumper line is up, and on the route for the same reason. One
+  /// line at a time: the terminal is what the screen is for, and opening
+  /// either of them closes the other.
+  var _jumping = false;
 
   /// The request the sheet is up for, so a `done` from the host can take the
   /// sheet down and nothing else can.
@@ -400,6 +406,19 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   bool _keyboardUp(ShellSession session) =>
       MediaQuery.viewInsetsOf(context).bottom > 0 && session.focusNode.hasFocus;
 
+  /// The two lines under the terminal are one line: the screen is the pane,
+  /// and a phone that has given a row to each has given away the thing it came
+  /// for.
+  void _onFind() => setState(() {
+    _searching = !_searching;
+    if (_searching) _jumping = false;
+  });
+
+  void _onTurns() => setState(() {
+    _jumping = !_jumping;
+    if (_jumping) _searching = false;
+  });
+
   void _onKeyboard(ShellSession session) {
     final focus = session.focusNode;
     if (_keyboardUp(session)) {
@@ -623,25 +642,46 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                     onClose: () => setState(() => _searching = false),
                   ),
                 if (active != null)
-                  // The lamp answers the same question the tap does, so it is
-                  // rebuilt on the focus that question reads and not only on
-                  // the inset: a lit key over a keyboard that is not there is
-                  // how the jam looked before the tap converged.
-                  ListenableBuilder(
-                    listenable: active.focusNode,
-                    builder: (context, _) => ShellBar(
-                      sticky: active.sticky,
-                      repeat: active.stickyRepeat,
-                      locked: active.stickyLocked,
-                      onSticky: (sticky, repeat, locked) =>
-                          _onSticky(active, sticky, repeat, locked),
-                      onBytes: (bytes) => _onBytes(active, bytes),
-                      keyboardOpen: _keyboardUp(active),
-                      onKeyboard: () => _onKeyboard(active),
-                      clipCount: _clips.count,
-                      searching: _searching,
-                      onFind: () => setState(() => _searching = !_searching),
-                      onAttach: () => showAttachSheet(context, session: active),
+                  // One scan behind both the line and the cell that raises it,
+                  // so the count on each cannot disagree with the other.
+                  ShellTurnsWatch(
+                    session: active,
+                    builder: (context, turns) => Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_jumping)
+                          ShellTurnsRow(
+                            session: active,
+                            turns: turns,
+                            onClose: () => setState(() => _jumping = false),
+                          ),
+                        // The lamp answers the same question the tap does, so
+                        // it is rebuilt on the focus that question reads and
+                        // not only on the inset: a lit key over a keyboard
+                        // that is not there is how the jam looked before the
+                        // tap converged.
+                        ListenableBuilder(
+                          listenable: active.focusNode,
+                          builder: (context, _) => ShellBar(
+                            sticky: active.sticky,
+                            repeat: active.stickyRepeat,
+                            locked: active.stickyLocked,
+                            onSticky: (sticky, repeat, locked) =>
+                                _onSticky(active, sticky, repeat, locked),
+                            onBytes: (bytes) => _onBytes(active, bytes),
+                            keyboardOpen: _keyboardUp(active),
+                            onKeyboard: () => _onKeyboard(active),
+                            clipCount: _clips.count,
+                            searching: _searching,
+                            onFind: _onFind,
+                            turns: turns.length,
+                            jumping: _jumping,
+                            onTurns: _onTurns,
+                            onAttach: () =>
+                                showAttachSheet(context, session: active),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],
