@@ -433,6 +433,7 @@ class _HostLoop {
   Future<void>? _running;
   HerdrSession? _session;
   bool _stopped = false;
+  Completer<void>? _waiting;
   List<AgentSnapshot> _lastAgents = const [];
   DateTime? _lastGoodAt;
 
@@ -451,6 +452,12 @@ class _HostLoop {
   Future<void> stop() async {
     _stopped = true;
     _session?.close();
+    // A loop between retries is asleep in [_wait], and `await _running` would
+    // hold the caller there for the rest of that sleep — a minute, once the
+    // backoff has grown to its ceiling.
+    if (_waiting case final waiting? when !waiting.isCompleted) {
+      waiting.complete();
+    }
     await _running;
     // The alert is cleared when the app stops being able to say the
     // pane is still blocked, and a watcher that is going away cannot.
@@ -462,6 +469,18 @@ class _HostLoop {
 
   // One line per failure, naming the host and what the transport said.
   void _log(Object error) => debugPrint('spectacle.herdr ${host.name}: $error');
+
+  /// A sleep [stop] can cut short. Every wait this loop takes goes through it:
+  /// the service is torn down by Android's `onDestroy`, which is on a clock,
+  /// and a loop still asleep in its own backoff carries the whole service past
+  /// it.
+  Future<void> _wait(Duration duration) async {
+    final waiting = _waiting = Completer<void>();
+    final timer = Timer(duration, waiting.complete);
+    await waiting.future;
+    timer.cancel();
+    _waiting = null;
+  }
 
   Future<void> _run() async {
     while (!_stopped) {
@@ -480,7 +499,7 @@ class _HostLoop {
         _session = null;
       }
       if (_stopped) return;
-      await Future<void>.delayed(_backoff.current);
+      await _wait(_backoff.current);
       _backoff.advance();
     }
   }
@@ -580,11 +599,11 @@ class _HostLoop {
       stateChangeSeq: 2,
     );
     await _onSnapshot(const [], null);
-    await Future<void>.delayed(const Duration(seconds: 5));
+    await _wait(const Duration(seconds: 5));
     if (_stopped) return;
     await _onSnapshot(const [blocked], null);
     while (!_stopped) {
-      await Future<void>.delayed(const Duration(seconds: 30));
+      await _wait(const Duration(seconds: 30));
     }
   }
 }
