@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
 
@@ -31,16 +32,17 @@ const _outputSettles = Motion.fast;
 
 /// Every place the pane kept a copy of something the user sent, oldest first.
 ///
-/// Empty on an alternate-screen pane, and that is the whole of the "when
-/// available" rule: there is no scrollback behind an alternate screen, so the
-/// buffer holds one screen and there is nothing to step between. The main
-/// buffer is still alive underneath it and would answer with the shell lines
+/// Whichever buffer the pane is showing is the one read, and on an alternate
+/// screen that is one screen with no scrollback behind it. A Claude pane is
+/// always on one, so what it answers is the turns it is showing and no more:
+/// enough to mark where in a wall of tool output the user last spoke, and the
+/// steps walk that mark rather than the view, since there is nowhere to
+/// scroll. The main buffer alive underneath would answer with the shell lines
 /// from before the agent launched, which is why it is not read instead.
 ///
 /// Every kind is asked rather than one being chosen: a shell tab is an ssh
 /// session, and nothing about it says what was started inside it.
 List<ShellTurn> shellTurns(Terminal terminal) {
-  if (terminal.isUsingAltBuffer) return const [];
   final buffer = terminal.buffer;
   final found = <ShellTurn>[];
   for (var y = buffer.height - 1; y >= 0 && found.length < shellTurnCap; y--) {
@@ -118,7 +120,11 @@ class _ShellTurnsWatchState extends State<ShellTurnsWatch> {
       _settling = null;
       if (!mounted) return;
       final turns = shellTurns(widget.session.terminal);
-      if (turns.length == _turns.length) return;
+      // Compared whole and not by count. An alternate screen redraws in
+      // place, so the same number of turns can sit on different lines from
+      // one repaint to the next, and a count that has not moved is not a
+      // screen that has not moved.
+      if (listEquals(turns, _turns)) return;
       setState(() => _turns = turns);
     });
   }
@@ -173,9 +179,10 @@ class _ShellTurnsRowState extends State<ShellTurnsRow> {
   void didUpdateWidget(ShellTurnsRow old) {
     super.didUpdateWidget(old);
     // A turn printed while the line is up moves every older turn's index by
-    // one, and the newest is where a jumper that has not been stepped belongs.
-    if (old.session == widget.session &&
-        old.turns.length == widget.turns.length) {
+    // one, and a redraw moves the lines under all of them, so the mark is laid
+    // again whenever the list is not the one it was laid from. The newest is
+    // where a jumper that has not been stepped belongs.
+    if (old.session == widget.session && listEquals(old.turns, widget.turns)) {
       return;
     }
     _index = _newest;

@@ -12,6 +12,7 @@ import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
+import '../../design/components/action_sheet.dart';
 import '../../design/components/field_panel.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel_sheet.dart';
@@ -416,18 +417,36 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   bool _keyboardUp(ShellSession session) =>
       MediaQuery.viewInsetsOf(context).bottom > 0 && session.focusNode.hasFocus;
 
-  /// The two lines under the terminal are one line: the screen is the pane,
-  /// and a phone that has given a row to each has given away the thing it came
-  /// for.
-  void _onFind() => setState(() {
-    _searching = !_searching;
-    if (_searching) _jumping = false;
-  });
-
-  void _onTurns() => setState(() {
-    _jumping = !_jumping;
-    if (_jumping) _searching = false;
-  });
+  /// The two lines under the terminal are one line at a time: the screen is
+  /// the pane, and a phone that has given a row to each has given away the
+  /// thing it came for.
+  ///
+  /// One cell raises both lines, so the tap has to ask what the pane has
+  /// before it can answer. A pane with turns to step between is offered the
+  /// choice; a pane with none has one answer and is given it straight, because
+  /// a menu of one item is a tap spent on nothing.
+  void _onFind(int turns) {
+    if (_searching || _jumping) {
+      setState(() {
+        _searching = false;
+        _jumping = false;
+      });
+      return;
+    }
+    if (turns == 0) {
+      setState(() => _searching = true);
+      return;
+    }
+    showActionSheet(
+      context,
+      title: 'FIND',
+      recommendFirst: false,
+      actions: [
+        SheetAction('PATTERN', () => setState(() => _searching = true)),
+        SheetAction('YOUR TURNS', () => setState(() => _jumping = true)),
+      ],
+    );
+  }
 
   void _onKeyboard(ShellSession session) {
     final focus = session.focusNode;
@@ -652,8 +671,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                     onClose: () => setState(() => _searching = false),
                   ),
                 if (active != null)
-                  // One scan behind both the line and the cell that raises it,
-                  // so the count on each cannot disagree with the other.
+                  // One scan behind the line and behind the cell that raises
+                  // it, so what the menu offers and what the line counts
+                  // cannot disagree.
                   ShellTurnsWatch(
                     session: active,
                     builder: (context, turns) => Column(
@@ -683,10 +703,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                             onKeyboard: () => _onKeyboard(active),
                             clipCount: _clips.count,
                             searching: _searching,
-                            onFind: _onFind,
-                            turns: turns.length,
                             jumping: _jumping,
-                            onTurns: _onTurns,
+                            onFind: () => _onFind(turns.length),
                             onAttach: () =>
                                 showAttachSheet(context, session: active),
                           ),

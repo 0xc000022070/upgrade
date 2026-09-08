@@ -75,10 +75,8 @@ class ShellBar extends StatelessWidget {
     this.clipCount = 0,
     this.onAttach,
     this.searching = false,
-    this.onFind,
-    this.turns = 0,
     this.jumping = false,
-    this.onTurns,
+    this.onFind,
   });
 
   final Set<StickyModifier> sticky;
@@ -105,22 +103,18 @@ class ShellBar extends StatelessWidget {
   final int clipCount;
   final VoidCallback? onAttach;
 
-  /// Whether the search line is up. The cell is armed while it is, the way the
-  /// keyboard toggle is: a line the terminal is drawn above is easy to lose
-  /// track of on a phone.
+  /// Whether the search line is up.
   final bool searching;
-  final VoidCallback? onFind;
 
-  /// How many of the user's own turns the pane kept. The cell is there only
-  /// while there are some to step between, and while the line it raises is up
-  /// — a cell that vanished under the thumb that armed it leaves nothing to
-  /// tap off.
-  final int turns;
-
-  /// Whether the jumper line is up. Armed the way `FIND` is, for the same
-  /// reason: a line the terminal is drawn above is easy to lose on a phone.
+  /// Whether the jumper line is up. The cell is armed while either line is,
+  /// the way the keyboard toggle is: a line the terminal is drawn above is
+  /// easy to lose track of on a phone.
   final bool jumping;
-  final VoidCallback? onTurns;
+
+  /// What the one cell for both lines does. Which of them it raises is not
+  /// this widget's to decide — it depends on what the pane has to offer, and
+  /// the pane is what is scanned above it.
+  final VoidCallback? onFind;
 
   @override
   Widget build(BuildContext context) {
@@ -140,30 +134,18 @@ class ShellBar extends StatelessWidget {
               children: [
                 // At the head of the row, where the keys rest: what it opens
                 // is a line, not a key, and it is the one cell here that is
-                // not sent to the shell.
+                // not sent to the shell. Both lines are behind it — a second
+                // cell that came and went with the pane's turns moved the keys
+                // under the thumb reaching for them.
                 KeyCell(
                   key: const ValueKey('bar-find'),
                   label: 'FIND',
                   icon: SpectacleIcons.search,
-                  armed: searching,
+                  armed: searching || jumping,
                   minWidth: _barHeight,
                   padding: _cellPadding,
                   onTap: () => onFind?.call(),
                 ),
-                // Beside it and on the same errand, and there only when the
-                // pane has turns to step between: a shell that never ran an
-                // agent has nothing to jump to, and neither has a pane whose
-                // agent took the alternate screen with the scrollback.
-                if (turns > 0 || jumping)
-                  KeyCell(
-                    key: const ValueKey('bar-turns'),
-                    label: 'TURNS',
-                    icon: SpectacleIcons.message,
-                    armed: jumping,
-                    minWidth: _barHeight,
-                    padding: _cellPadding,
-                    onTap: () => onTurns?.call(),
-                  ),
                 for (final modifier in _barModifiers)
                   KeyCell(
                     key: ValueKey('bar-${modifier.label}'),
