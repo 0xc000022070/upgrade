@@ -111,6 +111,8 @@ String spawnRefusalReason(SpawnRefusal refusal) => switch (refusal) {
   SpawnRefusal.startFailed => 'agent start failed',
   SpawnRefusal.spawnFailed => 'spawn failed',
   SpawnRefusal.timedOut => 'spawn timed out',
+  SpawnRefusal.noSession => 'no herdr session',
+  SpawnRefusal.noDefaultSession => 'no default session',
 };
 
 /// One send, end to end: key, dial, prompt, and the row that says it happened.

@@ -25,6 +25,7 @@ const _rose = Host(
 );
 
 const _agent = AgentSnapshot(
+  session: 'lab',
   paneId: 'w22:p1',
   agent: 'claude',
   state: WorkingState(),
@@ -34,22 +35,29 @@ const _agent = AgentSnapshot(
   stateChangeSeq: 4,
 );
 
-const _attach = "env HERDR_SESSION='hub' herdr agent attach 'w22:p1'";
+const _pane = (session: 'lab', pane: 'w22:p1');
+
+const _attach = "env HERDR_SESSION='lab' herdr agent attach 'w22:p1'";
 
 void main() {
   setUp(stubDeviceChannels);
 
-  test('the attach line is the pane under the hub session', () {
-    expect(HerdrCommands.attach('w22:p1'), _attach);
+  test("the attach line is the pane under the agent's own session", () {
+    expect(HerdrCommands.attach(_pane), _attach);
+    expect(_attach, isNot(contains('hub')));
     expect(
-      HerdrCommands.attach('w22:p1', session: 'lab'),
-      "env HERDR_SESSION='lab' herdr agent attach 'w22:p1'",
+      HerdrCommands.attach((session: 'default', pane: 'w22:p1')),
+      "env HERDR_SESSION='default' herdr agent attach 'w22:p1'",
     );
   });
 
-  test('a pane that is not one is refused before it reaches a line', () {
+  test('a pane or a session that is not one is refused before a line', () {
     expect(
-      () => HerdrCommands.attach('w22:p1; reboot'),
+      () => HerdrCommands.attach((session: 'lab', pane: 'w22:p1; reboot')),
+      throwsA(isA<HerdrProtocolMismatch>()),
+    );
+    expect(
+      () => HerdrCommands.attach((session: 'lab; reboot', pane: 'w22:p1')),
       throwsA(isA<HerdrProtocolMismatch>()),
     );
   });
@@ -91,7 +99,7 @@ void main() {
     expect(header, findsOneWidget);
     expect(container.read(navIndexProvider), SshScreen.navIndex);
     final session = sessions.forHost(_rose.id).single;
-    expect(session.pane, 'w22:p1');
+    expect(session.pane, _pane);
     // Typed into the login shell as its first line, not run over a channel
     // of its own: the tab is a shell that happens to be watching a pane.
     expect(transport.opened.single.written, '$_attach\r');

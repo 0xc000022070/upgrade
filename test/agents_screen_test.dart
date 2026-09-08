@@ -37,7 +37,9 @@ AgentSnapshot agent(
   String name, {
   required String workspace,
   String status = 'working',
+  String session = 'default',
 }) => AgentSnapshot(
+  session: session,
   paneId: '$workspace:p1',
   agent: name,
   state: AgentState.of(status),
@@ -163,6 +165,33 @@ void main() {
     expect(find.text('WQ'), findsOneWidget);
     expect(find.text('WR'), findsOneWidget);
     expect(find.textContaining('NYX'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('a host with agents in two sessions names the session', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        AgentPanelState([
+          HostOutcome(
+            host: nyx,
+            kind: AgentOutcomeKind.snapshot,
+            agents: [
+              agent('claude', workspace: 'wQ', session: 'lab'),
+              agent('codex', workspace: 'wQ', session: 'default'),
+            ],
+          ),
+        ]),
+      ),
+    );
+    await ready(tester);
+
+    // The same rule as the host's name: one session is nobody's business,
+    // two have to be told apart, and the same workspace id lives in both.
+    expect(find.text('DEFAULT / WQ'), findsOneWidget);
+    expect(find.text('LAB / WQ'), findsOneWidget);
+    expect(find.text('WQ'), findsNothing);
     await unmount(tester);
   });
 

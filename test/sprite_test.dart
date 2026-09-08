@@ -227,6 +227,7 @@ void main() {
         port: 357,
         user: 'luisnquin',
         keyId: 'k1',
+        session: 'default',
         paneId: 'wQ:pH',
         agent: 'claude',
         text: 'waiting',

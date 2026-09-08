@@ -541,7 +541,7 @@ class _HostLoop {
       // The expanded form carries the pane's tail, read over the same
       // connection. A tail that fails to arrive is not worth losing the alert
       // over, so [HerdrSession.read] answers null and the alert goes out flat.
-      final tail = session == null ? null : await session.read(snapshot.paneId);
+      final tail = session == null ? null : await session.read(snapshot.pane);
       await AlertNotifications.alert(
         target: AlertTarget.forHost(host, snapshot),
         snapshot: snapshot,
@@ -570,6 +570,7 @@ class _HostLoop {
 
   Future<void> _watchFake() async {
     const blocked = AgentSnapshot(
+      session: 'default',
       paneId: 'wF:p1',
       agent: 'claude',
       state: BlockedState(),

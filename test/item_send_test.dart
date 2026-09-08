@@ -78,6 +78,7 @@ void main() {
     final command = HerdrCommands.workspaceCreate(
       "~/src/spectacle with 'quote'",
       label: 'spectacle',
+      session: 'default',
     );
     expect(command, contains('spectacle with'));
     expect(command, contains('quote'));
@@ -155,7 +156,7 @@ void main() {
   });
 
   group('remote transaction failures', () {
-    test('every refusal has one line, and they are four different lines', () {
+    test('every refusal has one line, and no two are the same line', () {
       final lines = {
         for (final refusal in SpawnRefusal.values) spawnRefusalReason(refusal),
       };
@@ -170,6 +171,13 @@ void main() {
       expect(
         spawnRefusalReason(SpawnRefusal.uploadFailed),
         'image upload failed',
+      );
+      // The two the roster refuses with: nowhere to start, and too many
+      // places with no default to pick among them.
+      expect(spawnRefusalReason(SpawnRefusal.noSession), 'no herdr session');
+      expect(
+        spawnRefusalReason(SpawnRefusal.noDefaultSession),
+        'no default session',
       );
     });
   });

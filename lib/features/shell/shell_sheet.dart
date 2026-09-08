@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
 import '../../design/motion.dart';
+import '../../platform/herdr_client.dart';
 import 'host_shell_screen.dart';
 import 'shell_header.dart';
 import 'shell_sessions.dart';
@@ -17,7 +18,7 @@ void openHostShell(
   Host host, {
   ShellSession? session,
   String? seed,
-  String? pane,
+  PaneRef? pane,
 }) {
   Navigator.of(
     context,
@@ -57,7 +58,7 @@ class ShellSheetRoute extends PopupRoute<void> implements SheetDrag {
 
   /// The herdr pane the seed attaches the tab to, remembered on the tab so
   /// the next tap on that agent finds it.
-  final String? pane;
+  final PaneRef? pane;
 
   /// Held for the route's life rather than made per frame: a curved animation
   /// listens to its parent, and one made in a build is one nobody disposes.
@@ -274,7 +275,7 @@ class _SheetContents extends StatefulWidget {
   final Host host;
   final ShellSession? session;
   final String? seed;
-  final String? pane;
+  final PaneRef? pane;
 
   @override
   State<_SheetContents> createState() => _SheetContentsState();

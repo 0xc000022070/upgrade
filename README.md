@@ -38,8 +38,9 @@ tunnel. Copy the public key shown by the app into `~/.ssh/authorized_keys`
 without a forced `command=`, `restrict`, or `permitopen` prefix. The key has the
 same access as an interactive login for that account.
 
-The AGENTS panel and SEND need `herdr` on the non-interactive SSH `PATH` and a
-session named `hub`. Spectacle scans `~/Projects`, `~/.dotfiles`, and `~/src` for
+The AGENTS panel and SEND need `herdr` on the non-interactive SSH `PATH`. Every
+running herdr session is listed. SEND starts its agent in herdr's default
+session, or in the one session running when the default is not. Spectacle scans `~/Projects`, `~/.dotfiles`, and `~/src` for
 Git checkouts. Clipboard attachments need `wl-copy` and `wl-paste` on Wayland,
 `xclip` on X11, or `osascript` on macOS.
 

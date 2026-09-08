@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -9,10 +10,11 @@ void main() {
   test('parses a local herdr agent list fixture', () {
     final source = File('test/fixtures/herdr_agent_list.json')
         .readAsStringSync();
-    final agents = HerdrClient.parseAgentList(source);
+    final agents = HerdrClient.parseAgentList(source, session: 'lab');
 
     expect(agents, hasLength(3));
     expect(agents.first.paneId, 'wQ:p1');
+    expect(agents.first.session, 'lab');
     expect(agents.first.agent, 'claude');
     expect(agents.first.state.word, 'idle');
     expect(agents.first.terminalTitleStripped, 'app-init-orchestator');
@@ -20,6 +22,146 @@ void main() {
     expect(agents.first.cwd, '/home/luisnquin/.dotfiles');
     expect(agents.first.stateChangeSeq, 248);
   });
+
+  String agentList(String pane, {String agent = 'claude'}) => jsonEncode({
+    'id': 'cli:agent:list',
+    'result': {
+      'type': 'agent_list',
+      'agents': [
+        {
+          'agent': agent,
+          'agent_status': 'working',
+          'cwd': '/home/luisnquin/src',
+          'pane_id': pane,
+          'state_change_seq': 1,
+          'terminal_title_stripped': 'spectacle',
+          'workspace_id': pane.split(':').first,
+        },
+      ],
+    },
+  });
+
+  String roster(List<(String, {bool running, bool isDefault})> sessions) =>
+      jsonEncode({
+        'sessions': [
+          for (final (name, :running, :isDefault) in sessions)
+            {'default': isDefault, 'name': name, 'running': running},
+        ],
+      });
+
+  const stopped =
+      '{"id":"cli:agent:list","error":{"code":"server_not_running",'
+      '"message":"no herdr server is running"}}';
+
+  test('a sweep of two sessions stamps each agent with its own', () {
+    final agents = HerdrClient.parseSweepOutput(
+      'default\t${agentList('w1:p1')}\n'
+      'lab\t${agentList('w1:p1', agent: 'codex')}\n'
+      '${roster([('default', running: true, isDefault: true), ('lab', running: true, isDefault: false)])}\n',
+    );
+
+    expect(agents.map((agent) => agent.session), ['default', 'lab']);
+    expect(agents.map((agent) => agent.paneId), ['w1:p1', 'w1:p1']);
+    expect(agents.map((agent) => agent.agent), ['claude', 'codex']);
+    expect(agents.first.pane, (session: 'default', pane: 'w1:p1'));
+  });
+
+  test('a session that stopped between the roster and its turn is skipped', () {
+    final agents = HerdrClient.parseSweepOutput(
+      'default\t${agentList('w1:p1')}\n'
+      'lab\t$stopped\n'
+      '${roster([('default', running: true, isDefault: true), ('lab', running: true, isDefault: false)])}\n',
+    );
+
+    expect(agents.map((agent) => agent.session), ['default']);
+  });
+
+  test('a running session that printed no line is a protocol mismatch', () {
+    // The roster says the host runs it; the sweep never asked it. That is
+    // the host's `session list` no longer reading the way the sweep reads it,
+    // and an empty panel would hide it.
+    expect(
+      () => HerdrClient.parseSweepOutput(
+        'default\t${agentList('w1:p1')}\n'
+        '${roster([('default', running: true, isDefault: true), ('lab', running: true, isDefault: false)])}\n',
+      ),
+      throwsA(isA<HerdrProtocolMismatch>()),
+    );
+    // A stopped one it never asked is fine: nothing to answer.
+    expect(
+      HerdrClient.parseSweepOutput(
+        'default\t${agentList('w1:p1')}\n'
+        '${roster([('default', running: true, isDefault: true), ('lab', running: false, isDefault: false)])}\n',
+      ),
+      hasLength(1),
+    );
+  });
+
+  test('an empty roster is an empty frame, and no roster is no frame', () {
+    expect(HerdrClient.parseSweepOutput('${roster([])}\n'), isEmpty);
+    expect(
+      HerdrClient.parseSweepOutput(
+        '${roster([('default', running: false, isDefault: true)])}\n',
+      ),
+      isEmpty,
+    );
+    expect(
+      () => HerdrClient.parseSweepOutput(''),
+      throwsA(isA<HerdrProtocolMismatch>()),
+    );
+    expect(
+      () => HerdrClient.parseSweepOutput('herdr: command not found\n'),
+      throwsA(isA<HerdrProtocolMismatch>()),
+    );
+  });
+
+  test(
+    'the spawn target is the running default, else the only one running',
+    () {
+      SpawnTarget target(List<(String, {bool running, bool isDefault})> rows) =>
+          HerdrClient.spawnTarget(HerdrClient.parseSessions(roster(rows)));
+
+      expect(
+        target([
+          ('default', running: true, isDefault: true),
+          ('lab', running: true, isDefault: false),
+        ]),
+        isA<SpawnTargetSession>().having((t) => t.name, 'name', 'default'),
+      );
+      expect(
+        target([
+          ('default', running: false, isDefault: true),
+          ('hub', running: true, isDefault: false),
+        ]),
+        isA<SpawnTargetSession>().having((t) => t.name, 'name', 'hub'),
+      );
+      expect(
+        target([('default', running: false, isDefault: true)]),
+        isA<SpawnTargetRefused>().having(
+          (t) => t.refusal,
+          'refusal',
+          SpawnRefusal.noSession,
+        ),
+      );
+      expect(
+        target([
+          ('default', running: false, isDefault: true),
+          ('lab', running: true, isDefault: false),
+          ('hub', running: true, isDefault: false),
+        ]),
+        isA<SpawnTargetRefused>().having(
+          (t) => t.refusal,
+          'refusal',
+          SpawnRefusal.noDefaultSession,
+        ),
+      );
+      // A name the app would never put on a line is not a session it can use.
+      expect(
+        target([('my session', running: true, isDefault: true)]),
+        isA<SpawnTargetRefused>(),
+      );
+    },
+  );
 
   test('a lookup failure is not a refused connection', () {
     // Dart words the DNS failure in the exception's own message; the errno
@@ -56,6 +198,7 @@ void main() {
     expect(
       () => HerdrClient.parseAgentList(
         '{"protocol":22,"result":{"type":"other"}}',
+        session: 'default',
       ),
       throwsA(
         isA<HerdrProtocolMismatch>().having(
@@ -129,30 +272,44 @@ void main() {
   });
 
   test('process info targets the pane under the session', () {
-    final command = HerdrCommands.processInfo('w1:p2', 'hub');
+    final command = HerdrCommands.processInfo((session: 'lab', pane: 'w1:p2'));
     expect(command, contains('pane process-info --pane'));
     expect(command, contains('w1:p2'));
-    expect(command, contains('HERDR_SESSION='));
+    expect(command, matches(r"HERDR_SESSION=('|'\\'')lab"));
     expect(
-      () => HerdrCommands.processInfo('w1:p2; reboot'),
+      () => HerdrCommands.processInfo((session: 'lab', pane: 'w1:p2; reboot')),
       throwsA(isA<HerdrProtocolMismatch>()),
     );
   });
 
-  test('remote commands reject injected pane ids and keys', () {
+  test('remote commands reject injected pane ids, keys and sessions', () {
     expect(
-      () => HerdrCommands.read('wH:p1; reboot'),
+      () => HerdrCommands.read((session: 'lab', pane: 'wH:p1; reboot')),
       throwsA(isA<HerdrProtocolMismatch>()),
     );
     expect(
-      () => HerdrCommands.keys('wH:p1', const ['enter; reboot']),
+      () => HerdrCommands.keys(
+        (session: 'lab', pane: 'wH:p1'),
+        const ['enter; reboot'],
+      ),
+      throwsA(isA<HerdrProtocolMismatch>()),
+    );
+    expect(
+      () => HerdrCommands.keys(
+        (session: "lab' reboot '", pane: 'wH:p1'),
+        const ['enter'],
+      ),
+      throwsA(isA<HerdrProtocolMismatch>()),
+    );
+    expect(
+      () => HerdrCommands.workspaceClose('wH', session: 'a b'),
       throwsA(isA<HerdrProtocolMismatch>()),
     );
   });
 
   test('agent startup carries the unattended flags and optional model', () {
     final claude = HerdrCommands.agentStart(
-      pane: 'wH:p4',
+      pane: (session: 'lab', pane: 'wH:p4'),
       name: 'spectacle-wh',
       kind: const ClaudeKind(),
       model: 'sonnet',
@@ -161,9 +318,10 @@ void main() {
     expect(claude, contains('skipDangerousModePermissionPrompt'));
     expect(claude, contains('--model'));
     expect(claude, contains('sonnet'));
+    expect(claude, matches(r"HERDR_SESSION=('|'\\'')lab"));
 
     final codex = HerdrCommands.agentStart(
-      pane: 'wH:p4',
+      pane: (session: 'lab', pane: 'wH:p4'),
       name: 'spectacle-wh',
       kind: const CodexKind(),
     );
@@ -191,7 +349,7 @@ void main() {
   });
 
   test('a prompt waits for the agent to take it and a stall is retryable', () {
-    final prompt = HerdrCommands.prompt('w1:p2');
+    final prompt = HerdrCommands.prompt((session: 'lab', pane: 'w1:p2'));
     expect(prompt, contains('agent prompt'));
     expect(prompt, contains('--wait --until working --timeout 6000'));
     expect(
@@ -216,21 +374,21 @@ void main() {
   });
 
   test('wait and read target the pane under the session', () {
-    final wait = HerdrCommands.wait(
-      'w1:p2',
-      timeout: const Duration(seconds: 15),
-      session: 'hub',
-    );
+    const pane = (session: 'lab', pane: 'w1:p2');
+    final wait = HerdrCommands.wait(pane, timeout: const Duration(seconds: 15));
     expect(wait, contains('agent wait'));
     expect(wait, contains('w1:p2'));
     expect(wait, contains('--until idle --timeout 15000'));
-    expect(wait, contains('HERDR_SESSION='));
+    expect(wait, matches(r"HERDR_SESSION=('|'\\'')lab"));
     expect(
-      HerdrCommands.read('w1:p2', lines: 40),
+      HerdrCommands.read(pane, lines: 40),
       contains('--lines 40 --format text'),
     );
     expect(
-      () => HerdrCommands.wait('w1:p2; reboot', timeout: Duration.zero),
+      () => HerdrCommands.wait((
+        session: 'lab',
+        pane: 'w1:p2; reboot',
+      ), timeout: Duration.zero),
       throwsA(isA<HerdrProtocolMismatch>()),
     );
   });
@@ -255,7 +413,7 @@ void main() {
         HerdrCommands.workspaceCreate(
           directory.path,
           label: "label with ' quote",
-          session: 'test session',
+          session: 'test.session-1',
         ),
       ],
       environment: {'PATH': '${bin.path}:/usr/bin:/bin'},
@@ -263,7 +421,7 @@ void main() {
 
     expect(result.exitCode, 0, reason: '${result.stderr}');
     expect((result.stdout as String).trim().split('\n'), [
-      'session=test session',
+      'session=test.session-1',
       'workspace',
       'create',
       '--cwd',

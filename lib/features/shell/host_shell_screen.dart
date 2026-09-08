@@ -17,6 +17,7 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
+import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/vnc/keysyms.dart';
 import '../hosts/host_key_sheet.dart';
@@ -63,7 +64,7 @@ class HostShellRoute extends ConsumerStatefulWidget {
   final String? seed;
 
   /// The herdr pane that line attaches the tab to, kept on the tab.
-  final String? pane;
+  final PaneRef? pane;
 
   @override
   ConsumerState<HostShellRoute> createState() => _HostShellRouteState();
