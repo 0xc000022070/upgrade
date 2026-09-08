@@ -5,12 +5,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../application/clips.dart';
 
-/// The longest side a photo goes to a host at. A phone's camera is four
-/// thousand pixels across and a PNG of that is most of a byte budget on its
-/// own; the agents on the other end shrink anything past about half this
-/// before they look at it.
-const photoAttachEdge = 2048.0;
-
 /// Gallery only, no camera, as many as the user picks, in the order picked.
 /// The picker's own resize is used on the way in; what comes back is then
 /// made a PNG here, because that is the one type the clipboard readers on

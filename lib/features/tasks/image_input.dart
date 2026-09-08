@@ -5,6 +5,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../application/clips.dart';
+
 /// An image attachment is a copy, not a reference. The gallery
 /// entry the user picked can be deleted, moved or re-encoded by the OS, and a
 /// content URI does not survive a reinstall; the app support directory does.
@@ -35,8 +37,17 @@ abstract final class ImageAttachments {
 
   /// Gallery only, no camera. Returns the relative path of the copy, or
   /// null when the picker was dismissed.
+  ///
+  /// The picker's own resize is used on the way in. What is kept is what is
+  /// sent, and a camera's full frame is tens of times the bytes of a picture
+  /// an agent can read just as well — the phone's own storage pays for the
+  /// difference too, for the whole life of the drop.
   static Future<String?> pick() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: photoAttachEdge,
+      maxHeight: photoAttachEdge,
+    );
     if (picked == null) return null;
     if (_root == null) await init();
     final extension = p.extension(picked.path).toLowerCase();
