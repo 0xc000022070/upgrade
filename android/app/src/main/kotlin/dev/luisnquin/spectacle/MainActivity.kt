@@ -5,7 +5,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -16,6 +20,9 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val power by lazy { getSystemService(Context.POWER_SERVICE) as PowerManager }
+    private val connectivity by lazy {
+        getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    }
 
     // One document picker at a time: the Dart call waiting on it, and for a
     // save, the bytes to write once the user has chosen where.
@@ -59,6 +66,9 @@ class MainActivity : FlutterActivity() {
 
         EventChannel(messenger, "dev.luisnquin.spectacle/device/throttle")
             .setStreamHandler(ThrottleStreamHandler(this, power))
+
+        EventChannel(messenger, "dev.luisnquin.spectacle/device/network")
+            .setStreamHandler(NetworkStreamHandler(connectivity))
     }
 
     private fun saveDocument(name: String, mime: String, bytes: ByteArray, result: MethodChannel.Result) {
@@ -194,5 +204,42 @@ private class ThrottleStreamHandler(
         if (throttled == last) return
         last = throttled
         events?.success(throttled)
+    }
+}
+
+// The default network is the one the app's sockets are on, so a handover
+// straight from wifi to cell arrives here as a loss and an arrival even though
+// the phone was never without a network — which is exactly the case a shell
+// whose reconnect schedule is spent has to be dialled again for.
+//
+// Nothing is replayed on subscribe: the network the phone already had is what
+// the waiting shells failed on.
+private class NetworkStreamHandler(
+    private val connectivity: ConnectivityManager,
+) : EventChannel.StreamHandler {
+    private val main = Handler(Looper.getMainLooper())
+    private var callback: ConnectivityManager.NetworkCallback? = null
+    private var events: EventChannel.EventSink? = null
+
+    override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
+        events = sink
+        val watcher = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) = emit(true)
+            override fun onLost(network: Network) = emit(false)
+        }
+        callback = watcher
+        connectivity.registerDefaultNetworkCallback(watcher)
+    }
+
+    override fun onCancel(arguments: Any?) {
+        callback?.let { connectivity.unregisterNetworkCallback(it) }
+        callback = null
+        events = null
+    }
+
+    // The callback runs on a binder thread and an EventSink may only be touched
+    // from the main one.
+    private fun emit(up: Boolean) {
+        main.post { events?.success(up) }
     }
 }

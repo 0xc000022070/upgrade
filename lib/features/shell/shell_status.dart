@@ -33,9 +33,11 @@ class ShellStateDot extends StatelessWidget {
       ShellLive() => SpectacleColors.accent,
       ShellFailed() => SpectacleColors.warning,
       // A dropped session is neither: there is no shell on the other end and
-      // the store has not given up on getting one.
+      // the store has not given up on getting one. Nor has it for one waiting,
+      // which is the same tab with its schedule spent.
       ShellConnecting() ||
       ShellDropped() ||
+      ShellWaiting() ||
       ShellExited() => SpectacleColors.textMuted,
     };
     return Container(

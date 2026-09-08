@@ -4,6 +4,9 @@
          so a release build reaches nothing: SPEC.md §39.20 polls herdr over ssh
          and every host came back unreachable until this was declared here. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- The default network is watched so a shell whose reconnect schedule is
+         spent is dialled again the moment the phone has a network to dial over. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <!-- SPEC.md §39.31. The watcher is a foreground service: API 34+ makes the
          type a manifest declaration and specialUse the only one that fits an
          app holding ssh connections open for its own user. POST_NOTIFICATIONS

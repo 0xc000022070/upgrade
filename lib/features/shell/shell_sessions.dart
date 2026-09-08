@@ -65,6 +65,30 @@ final class ShellFailed extends ShellState {
   final String? detail;
 }
 
+/// The schedule is spent and nothing is on a clock. The terminal still holds
+/// what the dead shell printed and the tab still carries the command and the
+/// pane it attaches to, so the next wake comes back to the same agent rather
+/// than to a login. [kind] is what the last dial hit, not the drop that
+/// started the schedule.
+final class ShellWaiting extends ShellState {
+  const ShellWaiting(this.kind, {this.detail});
+
+  final ShellFailureKind kind;
+
+  final String? detail;
+}
+
+/// What the session hit, when it hit something. A tab waiting reads under the
+/// header the same way a tab that failed does: the link is equally gone, and
+/// the only difference is whether anything will dial again.
+extension ShellStateFailure on ShellState {
+  ({ShellFailureKind kind, String? detail})? get failure => switch (this) {
+    ShellFailed(:final kind, :final detail) => (kind: kind, detail: detail),
+    ShellWaiting(:final kind, :final detail) => (kind: kind, detail: detail),
+    _ => null,
+  };
+}
+
 /// How long the store waits before each reconnect, and so how many it makes.
 /// The first two cover a wifi handover; the rest cover a lift ride and a
 /// tunnel, after which a phone that still cannot see the host is somewhere the
@@ -434,6 +458,9 @@ class ShellSessions extends ChangeNotifier {
   final _pinnedThisRun = <String, PinnedHostKey>{};
 
   bool _restored = false;
+
+  /// How many sheets are up. Nothing is woken while this is above zero.
+  int _held = 0;
 
   List<ShellSession> forHost(String hostId) =>
       List.unmodifiable(_byHost[hostId] ?? const <ShellSession>[]);
@@ -893,26 +920,75 @@ class ShellSessions extends ChangeNotifier {
     // Every dial the link itself lost, the first one included: there is no
     // button for the user to press, so a host that was not there a second ago
     // is tried again rather than left on screen as a dead tab.
-    if (shellReconnects(kind) && dropped < shellReconnectDelays.length) {
-      _drop(session, dropped + 1);
+    if (shellReconnects(kind)) {
+      if (dropped < shellReconnectDelays.length) {
+        _drop(session, dropped + 1);
+        return;
+      }
+      // The schedule is spent, and sixty-eight seconds of it may have run in
+      // a pocket. Nothing is on a clock from here; the phone coming back in
+      // front or a network arriving is what dials again.
+      session.state = ShellWaiting(kind, detail: session._detail);
+      session.changed();
       return;
     }
     session.state = ShellFailed(kind, detail: session._detail);
     session.changed();
   }
 
+  /// Holds every wake until the returned callback is called. Raised with the
+  /// passphrase and host key sheets: answering what the host asked is the
+  /// user's turn, and a reconnect underneath it would take the shell the
+  /// question belongs to out from under the answer. A count, so two sheets at
+  /// once still leave one hold standing.
+  VoidCallback hold() {
+    _held++;
+    var released = false;
+    return () {
+      if (released) return;
+      released = true;
+      _held--;
+    };
+  }
+
+  /// Dials every tab whose schedule ran out. The phone is what calls this —
+  /// coming back in front, or finding a network — and a tab still inside its
+  /// schedule has a timer of its own and is left to it.
+  void wakeAll() {
+    for (final sessions in _byHost.values) {
+      for (final session in List.of(sessions)) {
+        wake(session);
+      }
+    }
+  }
+
+  /// One tab, as the first step of a fresh schedule: a dial that misses waits
+  /// two seconds and goes on, rather than running the whole minute out again
+  /// with nobody looking.
+  void wake(ShellSession session) {
+    if (_held > 0 || session.state is! ShellWaiting) return;
+    session.state = const ShellDropped(1);
+    session.changed();
+    unawaited(_redial(session));
+  }
+
   /// Parks the schedule where the user stopped it. The session reads as a
   /// dropped link that gave up, which is what it is; the way back into a shell
   /// on this host is a new tab.
   void stopReconnect(ShellSession session) {
-    if (session.state is! ShellDropped) return;
+    // A tab mid-schedule is stopped on the drop that started it; a tab waiting
+    // is stopped on what its last dial actually hit, which is the line it was
+    // already showing.
+    final kind = switch (session.state) {
+      ShellDropped() => ShellFailureKind.streamClosed,
+      ShellWaiting(:final kind) => kind,
+      _ => null,
+    };
+    if (kind == null) return;
     session._disown();
     session._reconnect?.cancel();
     session._reconnect = null;
-    session.state = ShellFailed(
-      ShellFailureKind.streamClosed,
-      detail: session._detail,
-    );
+    session.state = ShellFailed(kind, detail: session._detail);
     session.changed();
   }
 

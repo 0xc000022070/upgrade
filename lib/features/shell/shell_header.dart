@@ -312,12 +312,16 @@ class _Middle extends StatelessWidget {
       ShellDropped(:final attempt) =>
         'RECONNECTING $attempt/${shellReconnectDelays.length}',
       ShellExited(:final code) => 'EXITED ${code ?? '—'}',
+      // Not the failure's words: the schedule is spent but the tab is not
+      // over, and the row underneath is already saying what it hit.
+      ShellWaiting() => 'WAITING',
       ShellFailed(:final kind) => kind.line.short,
     };
     if (word == null) return const SizedBox.shrink();
+    final between = state is ShellDropped || state is ShellWaiting;
     final label = Text(
       word,
-      style: state is ShellDropped
+      style: between
           ? SpectacleText.panelHeader.copyWith(color: SpectacleColors.textMuted)
           : SpectacleText.panelHeader,
       textAlign: TextAlign.right,
@@ -327,7 +331,7 @@ class _Middle extends StatelessWidget {
     // The only hit target the row carries. Dialling again is the app's job, so
     // there is nothing to press while it works — stopping it is the one part
     // of a reconnect that is a decision, and only the user can make it.
-    if (state is! ShellDropped || onStop == null) return label;
+    if (!between || onStop == null) return label;
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
