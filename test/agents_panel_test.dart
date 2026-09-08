@@ -40,6 +40,7 @@ AgentSnapshot agent({
   required String work,
   required int sequence,
 }) => AgentSnapshot(
+  session: 'default',
   paneId: pane,
   agent: name,
   state: AgentState.of(status),

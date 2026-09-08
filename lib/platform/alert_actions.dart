@@ -72,7 +72,7 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
       privateKey: privateKey,
     );
     try {
-      await session.sendKeys(target.paneId, answerKeys(target.agent, yes: yes));
+      await session.sendKeys(target.pane, answerKeys(target.agent, yes: yes));
     } finally {
       session.close();
     }

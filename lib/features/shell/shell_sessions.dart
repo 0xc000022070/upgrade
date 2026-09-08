@@ -10,6 +10,7 @@ import '../../application/agents.dart';
 import '../../application/providers.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/shell_tab_repository.dart';
+import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/shell/host_clipboard.dart';
 import '../../platform/shell/remote_shell.dart';
@@ -240,7 +241,7 @@ class ShellSession extends ChangeNotifier {
   /// The herdr pane the seed attached this tab to, so a tap on that agent
   /// finds this tab rather than opening another. In memory only: a restored
   /// tab is a bare shell, and so is a reconnected one, which clears it.
-  String? pane;
+  PaneRef? pane;
 
   /// What the bar has armed, waiting for the next key or character. It lives
   /// here rather than in the bar because the IME types straight into the
@@ -489,7 +490,7 @@ class ShellSessions extends ChangeNotifier {
       (_byHost[hostId]?.length ?? 0) < maxShellSessions;
 
   /// The tab on [hostId] attached to [pane], or null when no tab is.
-  ShellSession? holding(String hostId, String pane) {
+  ShellSession? holding(String hostId, PaneRef pane) {
     for (final session in forHost(hostId)) {
       if (session.pane == pane) return session;
     }
@@ -502,7 +503,7 @@ class ShellSessions extends ChangeNotifier {
     Host host, {
     HostKeyPrompt? prompt,
     String? seed,
-    String? pane,
+    PaneRef? pane,
   }) {
     if (!canOpen(host.id)) return null;
     final number = _nextNumber[host.id] ?? 1;
@@ -526,7 +527,7 @@ class ShellSessions extends ChangeNotifier {
     int number, {
     HostKeyPrompt? prompt,
     String? seed,
-    String? pane,
+    PaneRef? pane,
   }) {
     final session =
         ShellSession(

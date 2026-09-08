@@ -38,7 +38,9 @@ AgentSnapshot snapshot({
   String agent = 'claude',
   String status = 'blocked',
   String title = 'ALLOW touch probe.txt?',
+  String session = 'default',
 }) => AgentSnapshot(
+  session: session,
   paneId: pane,
   agent: agent,
   state: AgentState.of(status),
@@ -323,20 +325,35 @@ void main() {
   });
 
   group('the remote commands', () {
-    test('run Herdr in the configured session through sh', () {
-      expect(HerdrCommands.list(), contains('HERDR_SESSION='));
-      expect(HerdrCommands.list(), contains('hub'));
+    test('list and watch sweep every running session, naming none', () {
+      expect(HerdrCommands.list(), contains('herdr session list --json'));
       expect(HerdrCommands.list(), contains('herdr agent list'));
+      expect(HerdrCommands.list(), isNot(contains('hub')));
+      expect(HerdrCommands.list(), isNot(contains("HERDR_SESSION='")));
       expect(HerdrCommands.watch(), contains('sleep 2'));
-      expect(HerdrCommands.read('wQ:p1'), contains('agent read'));
+      expect(HerdrCommands.watch(), isNot(contains("HERDR_SESSION='")));
+    });
+
+    test('read and keys carry the session the pane was listed in', () {
+      const pane = (session: 'lab', pane: 'wQ:p1');
+      expect(HerdrCommands.read(pane), contains('agent read'));
+      expect(HerdrCommands.read(pane), matches(r"HERDR_SESSION=('|'\\'')lab"));
       expect(
-        HerdrCommands.keys('wQ:p1', const ['enter']),
+        HerdrCommands.keys(pane, const ['enter']),
         contains('agent send-keys'),
+      );
+      expect(
+        HerdrCommands.keys(pane, const ['enter']),
+        matches(r"HERDR_SESSION=('|'\\'')lab"),
+      );
+      expect(
+        () => HerdrCommands.read((session: 'lab; reboot', pane: 'wQ:p1')),
+        throwsA(isA<HerdrProtocolMismatch>()),
       );
     });
   });
 
-  test('a watch stream of one JSON document per line parses', () async {
+  test('a watch stream of one sweep per frame parses', () async {
     String line(String status, int seq) => jsonEncode({
       'id': 'cli:agent:list',
       'result': {
@@ -355,8 +372,13 @@ void main() {
       },
     });
 
-    final working = line('working', 1);
-    final blocked = line('blocked', 2);
+    final roster = jsonEncode({
+      'sessions': [
+        {'default': true, 'name': 'default', 'running': true},
+      ],
+    });
+    final working = 'default\t${line('working', 1)}\n$roster';
+    final blocked = 'default\t${line('blocked', 2)}\n$roster';
     final stream = '$working\n$blocked\n';
     // The remote loop writes whole lines, but tcp may cut them anywhere, so the
     // split has to be the line terminator's job and not the packet's.
@@ -372,6 +394,7 @@ void main() {
     expect(frames.first.single.blocked, isFalse);
     expect(frames.last.single.state.word, 'blocked');
     expect(frames.last.single.blocked, isTrue);
+    expect(frames.last.single.session, 'default');
   });
 
   group('the notification body', () {
@@ -425,10 +448,12 @@ void main() {
   });
 
   test('an alert target survives the trip through a notification payload', () {
-    final target = AlertTarget.forHost(host, snapshot());
+    final target = AlertTarget.forHost(host, snapshot(session: 'lab'));
     final decoded = AlertTarget.decode(target.encode())!;
 
     expect(decoded.address, '100.64.0.1');
+    expect(decoded.session, 'lab');
+    expect(decoded.pane, (session: 'lab', pane: 'wQ:p1'));
     expect(decoded.port, 22);
     expect(decoded.user, 'luisnquin');
     expect(decoded.keyId, 'k1');

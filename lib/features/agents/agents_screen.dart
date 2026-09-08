@@ -112,12 +112,27 @@ class _Feed extends StatelessWidget {
     );
   }
 
+  /// A host's agents by session, then workspace. The session goes in the
+  /// title on the same rule as the host's name: only when there is more than
+  /// one to tell apart.
   List<Widget> _workspacePanels(HostOutcome outcome, {required bool named}) {
-    final groups = <String, List<AgentSnapshot>>{};
+    final groups =
+        <({String session, String workspace}), List<AgentSnapshot>>{};
     for (final agent in outcome.agents) {
-      groups.putIfAbsent(agent.workspaceId, () => []).add(agent);
+      groups
+          .putIfAbsent((
+            session: agent.session,
+            workspace: agent.workspaceId,
+          ), () => [])
+          .add(agent);
     }
-    final workspaces = groups.keys.toList()..sort();
+    final workspaces = groups.keys.toList()
+      ..sort(
+        (a, b) => a.session != b.session
+            ? a.session.compareTo(b.session)
+            : a.workspace.compareTo(b.workspace),
+      );
+    final sessions = {for (final key in workspaces) key.session};
     if (workspaces.isEmpty) {
       return [
         Panel(
@@ -129,10 +144,11 @@ class _Feed extends StatelessWidget {
     return [
       for (final workspace in workspaces)
         Panel(
-          title: named
-              ? '${outcome.host.name.toUpperCase()} / '
-                    '${workspace.toUpperCase()}'
-              : workspace.toUpperCase(),
+          title: [
+            if (named) outcome.host.name,
+            if (sessions.length > 1) workspace.session,
+            workspace.workspace,
+          ].join(' / ').toUpperCase(),
           bodyPadding: panelRowsPadding,
           child: ListRowGroup(
             children: [

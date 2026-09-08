@@ -162,6 +162,7 @@ class AlertTarget {
     required this.port,
     required this.user,
     required this.keyId,
+    required this.session,
     required this.paneId,
     required this.agent,
     required this.text,
@@ -172,6 +173,10 @@ class AlertTarget {
   final int port;
   final String user;
   final String keyId;
+
+  /// The herdr session the pane is in, carried with the pane because the
+  /// answer is typed into that session and no other.
+  final String session;
   final String paneId;
   final String agent;
 
@@ -187,12 +192,15 @@ class AlertTarget {
     port: host.port,
     user: host.user,
     keyId: host.keyId,
+    session: snapshot.session,
     paneId: snapshot.paneId,
     agent: snapshot.agent,
     text: alertText(snapshot),
   );
 
   String get title => blockedTitle(agent);
+
+  PaneRef get pane => (session: session, pane: paneId);
 
   int get notificationId => alertNotificationId(hostId, paneId);
 
@@ -202,6 +210,7 @@ class AlertTarget {
     'port': port,
     'user': user,
     'key_id': keyId,
+    'session': session,
     'pane_id': paneId,
     'agent': agent,
     'text': text,
@@ -218,6 +227,7 @@ class AlertTarget {
         port: json['port']! as int,
         user: json['user']! as String,
         keyId: json['key_id']! as String,
+        session: json['session']! as String,
         paneId: json['pane_id']! as String,
         agent: json['agent']! as String,
         text: json['text']! as String,

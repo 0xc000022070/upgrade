@@ -71,23 +71,21 @@ void main() {
       privateKeyStoreProvider.overrideWithValue(privateKeys),
       pathScannerProvider.overrideWithValue(
         PathScanner(
-          fetch:
-              ({
-                required address,
-                required port,
-                required user,
-                required privateKey,
-                verifier,
-              }) async => _scanned,
-          fetchModels:
-              ({
-                required address,
-                required port,
-                required user,
-                required privateKey,
-                required kind,
-                verifier,
-              }) async => const [],
+          fetch: ({
+            required address,
+            required port,
+            required user,
+            required privateKey,
+            verifier,
+          }) async => _scanned,
+          fetchModels: ({
+            required address,
+            required port,
+            required user,
+            required privateKey,
+            required kind,
+            verifier,
+          }) async => const [],
           keys: Ed25519Keys(privateKeys),
         ),
       ),
@@ -257,7 +255,7 @@ void main() {
     tester,
   ) async {
     // Nothing on this screen is a herdr thing: a checkout is found with find
-    // and read with git, and only handing work to an agent needs a hub.
+    // and read with git, and only handing work to an agent needs a herdr session.
     await hosts.save(_host('1', 'nyx'));
     await open(tester);
     await toCode(tester);

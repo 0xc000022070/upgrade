@@ -27,7 +27,7 @@ void openAgentShell(
   AgentSnapshot agent,
 ) {
   ref.read(navIndexProvider.notifier).state = SshScreen.navIndex;
-  final held = ref.read(shellSessionsProvider).holding(host.id, agent.paneId);
+  final held = ref.read(shellSessionsProvider).holding(host.id, agent.pane);
   if (held != null) {
     openHostShell(context, host, session: held);
     return;
@@ -35,7 +35,7 @@ void openAgentShell(
   openHostShell(
     context,
     host,
-    seed: HerdrCommands.attach(agent.paneId),
-    pane: agent.paneId,
+    seed: HerdrCommands.attach(agent.pane),
+    pane: agent.pane,
   );
 }
