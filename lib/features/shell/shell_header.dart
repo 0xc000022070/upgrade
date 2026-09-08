@@ -238,7 +238,7 @@ class _ShellHeaderState extends State<ShellHeader> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-                child: _Middle(session: active, onStop: widget.onStop),
+                child: _Middle(state: active?.state, onStop: widget.onStop),
               ),
             ),
             if (onClose != null)
@@ -294,21 +294,20 @@ class _HostCell extends StatelessWidget {
   }
 }
 
-/// What the shell calls itself while it is live, and where the session is when
-/// it is not. Nothing at all for a live shell that never named itself: the
-/// prompt under it is already saying everything this line could.
+/// Where the session is when it is not live. Nothing at all while it is: what
+/// the shell calls itself is already the tab's word, and the pane under the row
+/// says the rest.
 class _Middle extends StatelessWidget {
-  const _Middle({required this.session, required this.onStop});
+  const _Middle({required this.state, required this.onStop});
 
-  final ShellSession? session;
+  final ShellState? state;
   final VoidCallback? onStop;
 
   @override
   Widget build(BuildContext context) {
-    final state = session?.state;
     final word = switch (state) {
       null => null,
-      ShellLive() => session?.title,
+      ShellLive() => null,
       ShellConnecting() => 'CONNECTING',
       ShellDropped(:final attempt) =>
         'RECONNECTING $attempt/${shellReconnectDelays.length}',
