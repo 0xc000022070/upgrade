@@ -7,6 +7,7 @@ import 'package:spectacle/application/providers.dart';
 import 'package:spectacle/data/database.dart';
 import 'package:spectacle/data/enums.dart';
 import 'package:spectacle/data/repositories/activity_repository.dart';
+import 'package:spectacle/data/repositories/attachment_repository.dart';
 import 'package:spectacle/data/repositories/goal_repository.dart';
 import 'package:spectacle/data/repositories/project_repository.dart';
 import 'package:spectacle/data/repositories/task_repository.dart';
@@ -14,6 +15,7 @@ import 'package:spectacle/design/components/panel.dart';
 import 'package:spectacle/features/projects/project_detail_screen.dart';
 import 'package:spectacle/features/projects/project_form_screen.dart';
 import 'package:spectacle/features/projects/projects_screen.dart';
+import 'package:spectacle/features/tasks/selection_bar.dart';
 
 import 'support/platform_channels.dart';
 
@@ -295,6 +297,49 @@ void main() {
     await tester.tap(find.text('Rotar llaves ssh'));
     await _ready(tester);
     expect(find.text('1 SELECTED'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the copy verb reads the project panel, not Home', (
+    tester,
+  ) async {
+    final written = recordClipboardWrites();
+    final id = await projects.create(name: 'Infra personal');
+    // Home's own drops are the trap: the bar is the same widget in both
+    // scopes, and a copy that read the wrong stream would come out empty here.
+    await tasks.capture('esto vive en home');
+    await tasks.create(
+      title: 'viejo',
+      projectId: id,
+      at: DateTime.utc(2026, 9, 1),
+    );
+    await tasks.create(
+      title: 'nuevo',
+      projectId: id,
+      attachments: const [NewAttachment.url('https://a.example')],
+      at: DateTime.utc(2026, 9, 2),
+    );
+
+    await tester.pumpWidget(host(ProjectDetailScreen(projectId: id)));
+    await _ready(tester);
+
+    await tester.longPress(find.text('viejo'));
+    await _ready(tester);
+    await tester.tap(find.text('nuevo'));
+    await _ready(tester);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SelectionBar),
+        matching: find.byIcon(Icons.content_copy_outlined),
+      ),
+    );
+    await _ready(tester);
+
+    expect(written, ['nuevo\n\nhttps://a.example\n\nviejo']);
+    expect(find.text('2 COPIED'), findsOneWidget);
+    expect(find.byType(SelectionBar), findsOneWidget);
 
     await unmount(tester);
   });

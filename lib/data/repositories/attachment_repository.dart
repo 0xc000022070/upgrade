@@ -46,6 +46,27 @@ class AttachmentRepository {
     )..where((a) => a.itemId.equals(itemId))).get();
   }
 
+  /// What a whole set holds, keyed by item, in one query. The same reason
+  /// [watchLinkCounts] exists: a batch of thirty drops must not become thirty
+  /// selects. Items with no attachment are absent rather than empty, and each
+  /// list is in the order the attachments were made.
+  Future<Map<String, List<Attachment>>> forItems(
+    Iterable<String> itemIds,
+  ) async {
+    final ids = itemIds.toList();
+    if (ids.isEmpty) return const {};
+    final rows =
+        await (_db.select(_db.attachments)
+              ..where((a) => a.itemId.isIn(ids))
+              ..orderBy([(a) => OrderingTerm.asc(a.createdAt)]))
+            .get();
+    final byItem = <String, List<Attachment>>{};
+    for (final row in rows) {
+      byItem.putIfAbsent(row.itemId, () => []).add(row);
+    }
+    return byItem;
+  }
+
   Future<String> create({
     required String itemId,
     required AttachmentKind kind,
