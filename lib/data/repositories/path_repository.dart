@@ -136,6 +136,11 @@ abstract interface class PathRepository {
     String? label,
     String? projectId,
   });
+
+  /// Writes [path] under its own id, replacing what is there. The project
+  /// link is not touched: a row that had one keeps it, a new row has none.
+  /// This is the bundle's write, which carries no projects.
+  Future<void> put(AgentPath path);
 }
 
 class DriftPathRepository implements PathRepository {
@@ -229,9 +234,7 @@ class DriftPathRepository implements PathRepository {
         (byHost[host.id] ??= []).add(_path(row.readTable(_db.paths)));
       }
       final names = hosts.values.toList()
-        ..sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-        );
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       return [
         for (final host in names)
           HostWorkspaces(host: host, paths: byHost[host.id]!),
@@ -247,7 +250,9 @@ class DriftPathRepository implements PathRepository {
   Stream<List<PathTarget>> watchUnlinked() =>
       _targets((p) => p.projectId.isNull());
 
-  Stream<List<PathTarget>> _targets(Expression<bool> Function($PathsTable) where) {
+  Stream<List<PathTarget>> _targets(
+    Expression<bool> Function($PathsTable) where,
+  ) {
     final query = _db.select(_db.paths).join([
       innerJoin(_db.hosts, _db.hosts.id.equalsExp(_db.paths.hostId)),
     ]);
@@ -284,6 +289,21 @@ class DriftPathRepository implements PathRepository {
   @override
   Future<void> remove(String pathId) =>
       _db.transaction(() => deletePathRows(_db, pathId));
+
+  @override
+  Future<void> put(AgentPath path) {
+    return _db
+        .into(_db.paths)
+        .insertOnConflictUpdate(
+          PathsCompanion(
+            id: Value(path.id),
+            hostId: Value(path.hostId),
+            directory: Value(path.directory),
+            label: Value(path.label),
+            createdAt: Value(path.createdAt),
+          ),
+        );
+  }
 
   AgentPath _path(PathRow row) => AgentPath(
     id: row.id,

@@ -28,7 +28,14 @@ enum ReasonLine {
   tunnelRefused('tunnel refused'),
   authUnsupported('auth unsupported'),
   passwordNeeded('password needed'),
-  passwordRejected('password rejected');
+  passwordRejected('password rejected'),
+
+  /// The bundle's five, read uppercased on the `BUNDLE` panel.
+  notABundle('not a bundle'),
+  newerBundle('newer bundle'),
+  wrongPassphrase('wrong passphrase'),
+  bundleIncomplete('bundle incomplete'),
+  noPicker('no picker');
 
   const ReasonLine(this.words, {this.names = false});
 

@@ -13,8 +13,8 @@ import '../../design/colors.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
+import '../../design/components/panel_text_action.dart';
 import '../../design/components/section.dart';
-import '../../design/icons/spectacle_icon.dart';
 import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
@@ -117,7 +117,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
               ),
           ],
         ),
-        _TextAction(label: 'ADD HOST', onTap: () => openHostForm(context)),
+        PanelTextAction(label: 'ADD HOST', onTap: () => openHostForm(context)),
         const SizedBox(height: Spacing.xl),
         _KeysPanel(keys: keys),
       ],
@@ -512,7 +512,7 @@ class _KeysPanel extends StatelessWidget {
               ],
             ),
           ),
-          _TextAction(label: 'ADD KEY', onTap: () => openNewKey(context)),
+          PanelTextAction(label: 'ADD KEY', onTap: () => openNewKey(context)),
         ],
       ),
     );
@@ -525,33 +525,4 @@ String shortFingerprint(String fingerprint) {
   const limit = 28;
   if (fingerprint.length <= limit) return fingerprint;
   return '${fingerprint.substring(0, limit)}…';
-}
-
-class _TextAction extends StatelessWidget {
-  const _TextAction({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: SizedBox(
-        height: TapTargets.minHeight,
-        child: Row(
-          children: [
-            const SpectacleIcon(
-              SpectacleIcons.add,
-              size: IconSizes.affordance,
-              color: SpectacleColors.textMuted,
-            ),
-            const SizedBox(width: Spacing.sm),
-            Text(label, style: SpectacleText.panelHeader),
-          ],
-        ),
-      ),
-    );
-  }
 }

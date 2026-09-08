@@ -31,6 +31,18 @@ Run `just gen` after touching a drift schema; generated Dart is gitignored.
 `phone.toml` declares the target handset. `phone up` builds, installs and
 launches; `phone shot --settle` reads the screen back.
 
+## Second phone
+
+The BUNDLE panel on SYS moves the hosts and keys to another phone without a
+backend. EXPORT asks for a passphrase twice, seals every key with its private
+half, every host with its pinned host key and VNC password, and every path into
+one file, and hands the file to the system document picker as
+`spectacle-<date>.bundle`. IMPORT picks a file, asks for the passphrase, shows
+the count, and merges by id: nothing on the phone is deleted, and a bundle
+naming a key neither side has is refused whole. The file is Argon2id plus an
+XSalsa20-Poly1305 box, so it is safe to park in a drive or a chat with yourself;
+the passphrase is not.
+
 ## Host setup
 
 Spectacle uses one ordinary SSH key for shells, remote commands, and the VNC

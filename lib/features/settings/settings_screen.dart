@@ -10,6 +10,7 @@ import '../../design/typography.dart';
 import '../../platform/device.dart';
 import '../screen_scaffold.dart';
 import 'alerts_block.dart';
+import 'bundle_panel.dart';
 
 /// Settings is a route pushed from HOME's `SYS` crumb action, on the root
 /// navigator so the nav bar is not part of it.
@@ -72,8 +73,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 // Hosts and keys are the HOSTS tab now; what is left here is
                 // the app's own settings. Alerts stay: what they watch is a
-                // preference, not a machine.
+                // preference, not a machine. The bundle is the phone's whole
+                // set of hosts and keys leaving or arriving, which is a
+                // system act, not a row on the tab that lists them.
                 const AlertsSettingsBlock(),
+                const BundlePanel(),
                 Panel(
                   title: '[ BUILD ]',
                   child: FutureBuilder<BuildInfo?>(
