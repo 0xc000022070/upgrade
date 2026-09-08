@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectacle/application/agent_kind.dart';
 import 'package:spectacle/platform/herdr_client.dart';
 
 void main() {
@@ -153,7 +154,7 @@ void main() {
     final claude = HerdrCommands.agentStart(
       pane: 'wH:p4',
       name: 'spectacle-wh',
-      kind: 'claude',
+      kind: const ClaudeKind(),
       model: 'sonnet',
     );
     expect(claude, contains('dangerously-skip-permissions'));
@@ -164,7 +165,7 @@ void main() {
     final codex = HerdrCommands.agentStart(
       pane: 'wH:p4',
       name: 'spectacle-wh',
-      kind: 'codex',
+      kind: const CodexKind(),
     );
     expect(codex, contains('--yolo'));
   });
@@ -182,11 +183,11 @@ void main() {
   2. No, quit
 ''';
     const idle = '❯\n  ⏵⏵ bypass permissions on (shift+tab to cycle)\n';
-    expect(HerdrClient.trustPromptKeys('claude', claude), ['down', 'enter']);
-    expect(HerdrClient.trustPromptKeys('codex', codex), ['enter']);
-    expect(HerdrClient.trustPromptKeys('claude', idle), isNull);
-    expect(HerdrClient.trustPromptKeys('claude', codex), isNull);
-    expect(HerdrClient.trustPromptKeys('codex', claude), isNull);
+    expect(const ClaudeKind().trustKeys(claude), ['down', 'enter']);
+    expect(const CodexKind().trustKeys(codex), ['enter']);
+    expect(const ClaudeKind().trustKeys(idle), isNull);
+    expect(const ClaudeKind().trustKeys(codex), isNull);
+    expect(const CodexKind().trustKeys(claude), isNull);
   });
 
   test('a prompt waits for the agent to take it and a stall is retryable', () {
@@ -273,19 +274,22 @@ void main() {
     ]);
   });
 
-  test('an exchange that stops moving is given up on and then let go', () async {
-    final stalled = Completer<void>();
+  test(
+    'an exchange that stops moving is given up on and then let go',
+    () async {
+      final stalled = Completer<void>();
 
-    await expectLater(
-      awaitWithin(stalled.future, const Duration(milliseconds: 20)),
-      throwsA(isA<TimeoutException>()),
-    );
+      await expectLater(
+        awaitWithin(stalled.future, const Duration(milliseconds: 20)),
+        throwsA(isA<TimeoutException>()),
+      );
 
-    // What the abandoned exchange fails with once its channel closes under it
-    // has nowhere to go, and must not reach the zone as an unhandled error.
-    stalled.completeError(const SocketException('channel closed'));
-    await Future<void>.delayed(const Duration(milliseconds: 20));
-  });
+      // What the abandoned exchange fails with once its channel closes under it
+      // has nowhere to go, and must not reach the zone as an unhandled error.
+      stalled.completeError(const SocketException('channel closed'));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    },
+  );
 
   test('an exchange already inside a deadline is waited on whole', () async {
     final finished = Completer<void>();
@@ -306,7 +310,10 @@ void main() {
       uploadDeadline(uploadRate * 4),
       uploadOpening + const Duration(seconds: 4),
     );
-    expect(uploadDeadline(8 * 1024 * 1024), lessThan(const Duration(minutes: 7)));
+    expect(
+      uploadDeadline(8 * 1024 * 1024),
+      lessThan(const Duration(minutes: 7)),
+    );
     expect(
       uploadDeadline(2 * 1024 * 1024),
       greaterThan(uploadDeadline(1024 * 1024)),

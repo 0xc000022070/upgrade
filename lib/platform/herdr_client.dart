@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 
+import '../application/agent_kind.dart';
 import 'host_keys.dart';
 import 'shell/remote_shell.dart';
 
@@ -90,14 +91,17 @@ for root in "$HOME/Projects" "$HOME/.dotfiles" "$HOME/src"; do
 done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
 ''');
 
-  static String models(String kind, [String session = defaultSession]) =>
-      switch (kind) {
-        'codex' => underSh(
-          'exec ${_env(session)} codex debug models --bundled',
-        ),
-        'claude' => underSh(r'''printf '%s\n' '["opus","sonnet","fable"]' '''),
-        _ => throw ArgumentError.value(kind, 'kind'),
-      };
+  /// A kind that ships with a list prints it; one that does not is asked on
+  /// the host. Both answer the same JSON array on stdout, so the caller has one
+  /// thing to parse.
+  static String models(AgentKind kind, [String session = defaultSession]) {
+    final bundled = kind.bundledModels;
+    if (bundled != null) {
+      return underSh("printf '%s\\n' ${shellQuote(jsonEncode(bundled))}");
+    }
+    final argv = kind.modelsArgv.map(shellQuote).join(' ');
+    return underSh('exec ${_env(session)} $argv');
+  }
 
   static String read(
     String pane, {
@@ -153,31 +157,22 @@ done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
   static String agentStart({
     required String pane,
     required String name,
-    required String kind,
+    required AgentKind kind,
     String? model,
     String session = defaultSession,
   }) {
     _requirePane(pane);
-    if (kind != 'claude' && kind != 'codex') {
-      throw ArgumentError.value(kind, 'kind');
-    }
     if (model != null && !_model.hasMatch(model)) {
       throw ArgumentError.value(model, 'model');
     }
-    final flags = kind == 'claude'
-        ? <String>[
-            '--settings',
-            '{"skipDangerousModePermissionPrompt":true}',
-            '--dangerously-skip-permissions',
-          ]
-        : <String>['--yolo'];
+    final flags = [...kind.startFlags];
     if (model != null) flags.addAll(['--model', model]);
     final arguments = [
       'agent',
       'start',
       name,
       '--kind',
-      kind,
+      kind.name,
       '--pane',
       pane,
       '--',
@@ -356,7 +351,7 @@ class HerdrSession {
   /// phone's uplink is not the hang that deadline is there to catch. They are
   /// bounded all the same, each by its own [uploadDeadline].
   Future<SpawnResult> spawn({
-    required String kind,
+    required AgentKind kind,
     required String directory,
     required String prompt,
     List<RemoteFile> images = const [],
@@ -455,7 +450,7 @@ class HerdrSession {
   Future<SSHRunResult> _startAtPrompt({
     required String pane,
     required String name,
-    required String kind,
+    required AgentKind kind,
     String? model,
   }) async {
     final settle = Stopwatch()..start();
@@ -506,14 +501,14 @@ class HerdrSession {
   /// so the dialog is answered for them and `agent wait` judges the start.
   /// Null when the pane shows anything else: the start's own answer is then
   /// the one to report.
-  Future<SSHRunResult?> _acceptTrust(String pane, String kind) async {
+  Future<SSHRunResult?> _acceptTrust(String pane, AgentKind kind) async {
     final screen = await _guard(
       () => _client.runWithResult(
         HerdrCommands.read(pane, session: _sessionName, lines: trustLines),
       ),
     );
     if (screen.exitCode != 0) return null;
-    final keys = HerdrClient.trustPromptKeys(kind, utf8.decode(screen.stdout));
+    final keys = kind.trustKeys(utf8.decode(screen.stdout));
     if (keys == null) return null;
     final answered = await _guard(
       () => _client.runWithResult(HerdrCommands.keys(pane, keys, _sessionName)),
@@ -583,10 +578,13 @@ class HerdrSession {
         session.stderr.cast<List<int>>().forEach(err.add),
       ]);
       session.stdin.add(stdin);
-      await awaitWithin(Future(() async {
-        await session.stdin.close();
-        await Future.wait([session.done, drained]);
-      }), within);
+      await awaitWithin(
+        Future(() async {
+          await session.stdin.close();
+          await Future.wait([session.done, drained]);
+        }),
+        within,
+      );
       final stdout = out.takeBytes();
       final stderr = err.takeBytes();
       return SSHRunResult(
@@ -623,7 +621,7 @@ class HerdrSession {
   }
 
   /// Empty leaves the agent's own default model selected.
-  Future<List<String>> models(String kind) async {
+  Future<List<String>> models(AgentKind kind) async {
     final result = await _guard(
       () => _client.runWithResult(HerdrCommands.models(kind, _sessionName)),
     );
@@ -800,22 +798,6 @@ class HerdrClient {
     if (processes is! List<Object?> || processes.length != 1) return false;
     final only = processes.single;
     return only is Map<String, Object?> && only['pid'] == shell;
-  }
-
-  /// The keys that accept the agent's first-run trust dialog, or null when the
-  /// screen is not that dialog. Claude Code opens on `No, exit`; Codex opens
-  /// on `Yes, continue`. Matched on the dialog's own words, not its layout.
-  static List<String>? trustPromptKeys(String kind, String screen) {
-    final text = screen.toLowerCase();
-    return switch (kind) {
-      'claude' when text.contains('trust this folder') => const [
-        'down',
-        'enter',
-      ],
-      'codex' when text.contains('trust the contents of this directory') =>
-        const ['enter'],
-      _ => null,
-    };
   }
 
   /// Whether a failed `agent prompt --wait` means the text was never read:
@@ -1000,7 +982,7 @@ class HerdrClient {
     required int port,
     required String user,
     required String privateKey,
-    required String kind,
+    required AgentKind kind,
     HostKeyVerifier? verifier,
   }) async {
     final session = await connect(
@@ -1022,7 +1004,7 @@ class HerdrClient {
     required int port,
     required String user,
     required String privateKey,
-    required String kind,
+    required AgentKind kind,
     required String directory,
     required String prompt,
     List<RemoteFile> images = const [],

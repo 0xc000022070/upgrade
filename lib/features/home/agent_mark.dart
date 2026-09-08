@@ -1,23 +1,20 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../application/agent_kind.dart';
 import '../../design/colors.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 
-/// The kinds that have a mark under `assets/icons/`.
-///
-/// A manifest rather than a lookup: the asset bundle can be enumerated at
-/// runtime only by parsing `AssetManifest`, which is a file read and a decode
-/// on the way to drawing a 16px glyph. So the list is the truth, and the files
-/// are checked against it by [agentMarkAsset]'s test rather than at runtime — a
-/// kind added here without its file renders an empty box, which is worse than
-/// the `?` it would have fallen back to.
-const agentMarkKinds = {'claude', 'codex'};
-
 /// The mark file for a kind, or null when it falls back to `?`.
-String? agentMarkAsset(String agent) =>
-    agentMarkKinds.contains(agent) ? 'assets/icons/agent-$agent.svg' : null;
+///
+/// The kind names its own file rather than the bundle being searched for one:
+/// the asset bundle can be enumerated at runtime only by parsing
+/// `AssetManifest`, which is a file read and a decode on the way to drawing a
+/// 16px glyph. The files are checked against the kinds by this function's test
+/// rather than at runtime — a kind whose file is missing renders an empty box,
+/// which is worse than the `?` it would have fallen back to.
+String? agentMarkAsset(String agent) => AgentKind.lookup(agent)?.markAsset;
 
 /// The name as herdr reports it, uppercased, `?` when it reports none.
 String agentMarkName(String agent) => agent.isEmpty ? '?' : agent.toUpperCase();

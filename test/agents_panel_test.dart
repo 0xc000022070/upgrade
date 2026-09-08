@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -469,21 +468,6 @@ void main() {
     expect(find.textContaining('blocked'), findsNothing);
     expect(find.text('0'), findsNothing);
     expect(find.text('VIEW ALL'), findsNothing);
-  });
-
-  test('every listed kind has its mark file', () {
-    // The manifest in [agentMarkKinds] is what the row trusts, so a kind
-    // listed without its file is an empty box rather than the `?` it would
-    // have fallen back to. Nothing at runtime can catch that; this does.
-    for (final kind in agentMarkKinds) {
-      expect(
-        File(agentMarkAsset(kind)!).existsSync(),
-        isTrue,
-        reason: 'agentMarkKinds lists $kind but assets/icons has no file',
-      );
-    }
-    // These two are required; the rest land as the artist traces them.
-    expect(agentMarkKinds, containsAll(<String>['claude', 'codex']));
   });
 
   testWidgets('a claude row renders the claude mark and no C', (tester) async {

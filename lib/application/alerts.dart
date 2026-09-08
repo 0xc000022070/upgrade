@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/host_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../platform/herdr_client.dart';
+import 'agent_kind.dart';
 import 'agents.dart';
 import 'providers.dart';
 
@@ -28,20 +29,16 @@ int alertNotificationId(String hostId, String paneId) {
   return 1000 + hash;
 }
 
-/// The key table as the spec writes it, not yet checked against a live
-/// blocked pane: the emulator's key is not on nyx, so nothing here has answered
-/// a real prompt. A kind with no entry answers the way most TUIs do.
-const _answerKeys = <String, ({String yes, String no})>{
-  'claude': (yes: 'enter', no: 'esc'),
-  'codex': (yes: 'y', no: 'n'),
-};
-
+/// What a pane running nothing the app knows is answered with. The keys as the
+/// spec writes them are not yet checked against a live blocked pane: the
+/// emulator's key is not on nyx, so nothing here has answered a real prompt.
 const _defaultAnswerKeys = (yes: 'enter', no: 'esc');
 
 /// The key sent to the remote agent. Kept as a list because a later kind may
-/// need two.
+/// need two. herdr names whatever the pane is running, so a name that is no
+/// agent of ours is answered the way most TUIs are.
 List<String> answerKeys(String agent, {required bool yes}) {
-  final table = _answerKeys[agent.toLowerCase()] ?? _defaultAnswerKeys;
+  final table = AgentKind.lookup(agent)?.answerKeys ?? _defaultAnswerKeys;
   return [yes ? table.yes : table.no];
 }
 
