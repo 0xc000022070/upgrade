@@ -80,21 +80,12 @@ class _AgentsBody extends StatelessWidget {
     if (data.noHost) return const _DimLine(AgentPanelState.blockedLine);
 
     final failures = data.failures;
-    final active =
-        data.agents
-            .where(
-              (agent) =>
-                  agent.agentStatus == 'working' ||
-                  agent.agentStatus == 'blocked',
-            )
-            .toList()
-          ..sort((a, b) => b.stateChangeSeq.compareTo(a.stateChangeSeq));
-    final idle = data.agents
-        .where((agent) => agent.agentStatus == 'idle')
-        .length;
-    final blocked = data.agents
-        .where((agent) => agent.agentStatus == 'blocked')
-        .length;
+    final active = data.agents.where((agent) => agent.state.active).toList()
+      ..sort((a, b) => b.stateChangeSeq.compareTo(a.stateChangeSeq));
+    // Resting and not idle: an agent whose work finished unwatched is idle
+    // with something to read, and it is counted here rather than nowhere.
+    final idle = data.agents.where((agent) => agent.state.resting).length;
+    final blocked = data.agents.where((agent) => agent.blocked).length;
     // Every host failed, so there is no snapshot behind the panel and a
     // `0 idle · 0 blocked` footer would read as "nothing is running" rather
     // than "nobody answered".
@@ -155,11 +146,7 @@ class _AgentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = switch (agent.agentStatus) {
-      'working' => SpectacleColors.accent,
-      'blocked' => SpectacleColors.warning,
-      _ => SpectacleColors.textMuted,
-    };
+    final statusColor = agentStateColor(agent.state);
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
       child: Row(
@@ -196,7 +183,7 @@ class _AgentRow extends StatelessWidget {
                 const SizedBox(width: Spacing.sm),
                 Flexible(
                   child: Text(
-                    agent.agentStatus.toUpperCase(),
+                    agent.state.label,
                     style: SpectacleText.value.copyWith(color: statusColor),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

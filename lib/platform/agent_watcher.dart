@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
+import '../application/agent_state.dart';
 import '../application/agents.dart';
 import '../application/alerts.dart';
 import '../data/repositories/host_repository.dart';
@@ -571,7 +572,7 @@ class _HostLoop {
     const blocked = AgentSnapshot(
       paneId: 'wF:p1',
       agent: 'claude',
-      agentStatus: 'blocked',
+      state: BlockedState(),
       terminalTitleStripped: 'RUN THE MIGRATION?',
       workspaceId: 'wF',
       cwd: '~/src/spectacle',

@@ -4,7 +4,6 @@ import 'package:path/path.dart' as path;
 
 import '../../app/static_surface.dart';
 import '../../application/agents.dart';
-import '../../design/colors.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
@@ -135,12 +134,8 @@ class _Feed extends StatelessWidget {
                   leadingWidth: 24,
                   title: agentMarkName(agent.agent),
                   subtitle: '${agent.paneId} · ${path.basename(agent.cwd)}',
-                  value: agent.agentStatus.toUpperCase(),
-                  valueColor: switch (agent.agentStatus) {
-                    'working' => SpectacleColors.accent,
-                    'blocked' => SpectacleColors.warning,
-                    _ => SpectacleColors.textMuted,
-                  },
+                  value: agent.state.label,
+                  valueColor: agentStateColor(agent.state),
                 ),
             ],
           ),

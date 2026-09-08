@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectacle/application/agent_state.dart';
 import 'package:spectacle/application/agents.dart';
 import 'package:spectacle/application/alerts.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
@@ -40,7 +41,7 @@ AgentSnapshot snapshot({
 }) => AgentSnapshot(
   paneId: pane,
   agent: agent,
-  agentStatus: status,
+  state: AgentState.of(status),
   terminalTitleStripped: title,
   workspaceId: pane.split(':').first,
   cwd: '/home/luisnquin/src',
@@ -367,9 +368,9 @@ void main() {
     final frames = await HerdrClient.parseWatchStream(bytes).toList();
 
     expect(frames, hasLength(2));
-    expect(frames.first.single.agentStatus, 'working');
+    expect(frames.first.single.state.word, 'working');
     expect(frames.first.single.blocked, isFalse);
-    expect(frames.last.single.agentStatus, 'blocked');
+    expect(frames.last.single.state.word, 'blocked');
     expect(frames.last.single.blocked, isTrue);
   });
 
