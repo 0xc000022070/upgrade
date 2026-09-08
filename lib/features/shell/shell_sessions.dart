@@ -233,15 +233,10 @@ class ShellSession extends ChangeNotifier {
   ShellConnection? connection;
   ShellState state = const ShellConnecting();
 
-  /// A line typed into the shell the moment it comes up, and then forgotten.
-  /// A workspace opens its shell already in its own directory; a reconnect
-  /// after the user has walked somewhere else does not drag them back.
-  String? seed;
-
   /// What this tab runs in place of the host's login shell, for the tab's
   /// whole life: a reconnect after the network dropped comes back to the same
-  /// agent rather than to a bare prompt. Null is a login shell, which is every
-  /// tab the user opens by hand.
+  /// agent, or to the same directory, rather than to a bare prompt. Null is a
+  /// login shell, which is every tab the user opens by hand.
   String? command;
 
   /// The herdr pane [command] attaches this tab to, so a tap on that agent
@@ -508,7 +503,6 @@ class ShellSessions extends ChangeNotifier {
   ShellSession? open(
     Host host, {
     HostKeyPrompt? prompt,
-    String? seed,
     String? command,
     PaneRef? pane,
   }) {
@@ -519,7 +513,6 @@ class ShellSessions extends ChangeNotifier {
       host,
       number,
       prompt: prompt,
-      seed: seed,
       command: command,
       pane: pane,
     );
@@ -534,7 +527,6 @@ class ShellSessions extends ChangeNotifier {
     Host host,
     int number, {
     HostKeyPrompt? prompt,
-    String? seed,
     String? command,
     PaneRef? pane,
   }) {
@@ -544,7 +536,6 @@ class ShellSessions extends ChangeNotifier {
             terminal: Terminal(maxLines: shellScrollback),
             host: host,
           )
-          ..seed = seed
           ..command = command
           ..pane = pane;
     _byHost.putIfAbsent(host.id, () => []).add(session);
@@ -858,14 +849,6 @@ class ShellSessions extends ChangeNotifier {
         (bytes) => session._decoder?.add(bytes),
         onError: (Object error) => _fail(session, error, attempt),
       );
-      // Written straight at the pty rather than waiting for a prompt: the
-      // shell reads its input when it is ready to, and the line is on screen
-      // above the first output either way.
-      final seed = session.seed;
-      if (seed != null) {
-        session.seed = null;
-        connection.write(Uint8List.fromList(utf8.encode('$seed\r')));
-      }
       unawaited(_awaitExit(session, connection, attempt));
       unawaited(_mark(connection));
       session.changed();

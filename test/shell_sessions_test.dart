@@ -69,22 +69,21 @@ void main() {
     ]);
   });
 
-  test('a seeded session types its line the moment the shell is up', () async {
+  test("a directory is the tab's command, not a typed line", () async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 
-    final session = sessions.open(_rose, seed: "cd '/srv/gate'")!;
+    final session = sessions.open(_rose, command: shellIn('/srv/gate'))!;
     await _settle();
 
-    // With the return on it: a line the user has to press enter on themselves
-    // is not a shell that opened where it was asked to.
-    expect(transport.opened.single.written, "cd '/srv/gate'\r");
-    // Spent once. A reconnect after the user has walked somewhere else must
-    // not drag them back to where the workspace was.
-    expect(session.seed, isNull);
+    expect(session.command, "cd '/srv/gate' && exec \$SHELL -l");
+    expect(transport.commands, [session.command]);
+    // Nothing typed at the far end: a line written at a login shell races
+    // whatever that shell reads before its prompt.
+    expect(transport.opened.single.written, isEmpty);
   });
 
-  test('an unseeded session writes nothing on its own', () async {
+  test('a plain session writes nothing on its own', () async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 

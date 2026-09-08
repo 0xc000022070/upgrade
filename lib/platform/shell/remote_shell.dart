@@ -21,6 +21,18 @@ String shellCd(String directory) {
   return 'cd ${shellQuote(directory)}';
 }
 
+/// The command a tab runs to come up in [directory] rather than in `$HOME`:
+/// the `cd`, then a login shell in its place, which is what `ssh -t host 'cd
+/// dir && exec $SHELL -l'` asks for.
+///
+/// The shell is exec'd rather than typed at. A line written at a login shell
+/// races everything that shell reads before its prompt, and a host whose rc
+/// asks which session to open takes the line's first character as its answer.
+/// `$SHELL` is left for the host to expand, because whose shell it is belongs
+/// to the host; and a `cd` that fails ends the tab where it stands rather than
+/// opening a shell somewhere nobody asked for.
+String shellIn(String directory) => '${shellCd(directory)} && exec \$SHELL -l';
+
 /// Where a file the app pushes lands on a host. World-writable and cleared by
 /// the host's own reboot, which is the right lifetime for a file nothing ever
 /// comes back for. Shared by the shell's paste and by a send's images, so the
