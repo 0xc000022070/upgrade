@@ -14,7 +14,34 @@ import '../../platform/vnc/vnc_tunnel.dart';
 
 /// The three states, which are the whole of what the breadcrumb's right-hand
 /// side can say.
-enum ScreenPhase { connecting, live, failed }
+/// Where the route's one connection is, and nothing else.
+///
+/// Sealed rather than an enum because the failed state has something to say
+/// and the other two do not: the reason line used to sit beside the phase as
+/// its own nullable field, which meant every reader of it wrote `?? ''` for a
+/// case that cannot happen and nothing but a comment said so.
+sealed class ScreenPhase {
+  const ScreenPhase();
+}
+
+/// Dialling, or dialling again after a failure.
+final class ScreenConnecting extends ScreenPhase {
+  const ScreenConnecting();
+}
+
+/// A framebuffer is arriving.
+final class ScreenLive extends ScreenPhase {
+  const ScreenLive();
+}
+
+final class ScreenFailed extends ScreenPhase {
+  const ScreenFailed(this.reason);
+
+  /// The line, already worded: `nyx unreachable`, `key rejected`,
+  /// `tunnel refused`, `auth unsupported`, `password needed`,
+  /// `password rejected`, `stream closed`.
+  final String reason;
+}
 
 /// One update's worth of pixels as an image.
 ///
@@ -72,8 +99,7 @@ class HostScreenController extends ChangeNotifier {
   VncConnection? _connection;
   StreamSubscription<Framebuffer>? _frames;
 
-  ScreenPhase _phase = ScreenPhase.connecting;
-  String? _reason;
+  ScreenPhase _phase = const ScreenConnecting();
   ui.Image? _image;
   Framebuffer? _lastFramebuffer;
   Size _framebufferSize = Size.zero;
@@ -85,11 +111,6 @@ class HostScreenController extends ChangeNotifier {
   int _attempt = 0;
 
   ScreenPhase get phase => _phase;
-
-  /// The reason line, already worded: `nyx unreachable`, `key rejected`,
-  /// `tunnel refused`, `auth unsupported`, `password needed`,
-  /// `password rejected`, `stream closed`.
-  String? get reason => _reason;
 
   ui.Image? get image => _image;
   Size get framebufferSize => _framebufferSize;
@@ -107,8 +128,7 @@ class HostScreenController extends ChangeNotifier {
 
   Future<void> connect() async {
     final attempt = ++_attempt;
-    _phase = ScreenPhase.connecting;
-    _reason = null;
+    _phase = const ScreenConnecting();
     notifyListeners();
 
     final privateKey = await _readPrivateKey(host.keyId);
@@ -149,7 +169,7 @@ class HostScreenController extends ChangeNotifier {
         _onFrame,
         onError: (Object error) => _fail(error),
       );
-      _phase = ScreenPhase.live;
+      _phase = const ScreenLive();
       notifyListeners();
       // The pump runs unawaited: it lives as long as the connection, and every
       // way it can end already reports itself through [frames].
@@ -269,9 +289,9 @@ class HostScreenController extends ChangeNotifier {
     if (_disposed) return;
     final failure = asVncFailure(error);
     _log(failure?.detail ?? error);
-    _phase = ScreenPhase.failed;
-    _reason =
-        failure?.reason(host.name) ?? const VncStreamClosed().reason(host.name);
+    _phase = ScreenFailed(
+      failure?.reason(host.name) ?? const VncStreamClosed().reason(host.name),
+    );
     notifyListeners();
     // The connection is dropped, not kept for the retry: a retry opens a fresh
     // one, and holding a dead client would keep its zlib stream alive with it.
@@ -288,7 +308,8 @@ class HostScreenController extends ChangeNotifier {
   }
 
   /// One debug line per host, named after this feature.
-  void _log(Object message) => debugPrint('spectacle.vnc ${host.name}: $message');
+  void _log(Object message) =>
+      debugPrint('spectacle.vnc ${host.name}: $message');
 
   @override
   void dispose() {

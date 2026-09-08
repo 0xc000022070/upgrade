@@ -168,7 +168,10 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
               .add(png, source: ClipSource.screen, hostName: widget.host.name);
           _say(heldNotice(clip));
         case CropTarget.save:
-          await widget.save(png, 'spectacle-${DateTime.now().toIso8601String()}');
+          await widget.save(
+            png,
+            'spectacle-${DateTime.now().toIso8601String()}',
+          );
           _say(savedNotice(rect.width, rect.height));
       }
     } catch (error) {
@@ -215,7 +218,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
                     // Over the picture, and only where the rail itself is: the
                     // [Align] hit-tests nothing of its own, so every tap that
                     // misses a toggle still reaches the framebuffer under it.
-                    if (_controller.phase == ScreenPhase.live)
+                    if (_controller.phase is ScreenLive)
                       Positioned.fill(
                         child: ScreenRail(
                           keyboardOpen: _keyboardOpen,
@@ -304,7 +307,7 @@ class _Crumb extends StatelessWidget {
           // While live the breadcrumb stands alone — `LIVE` said nothing the
           // picture was not already saying, and `KEYS` is the rail's job now.
           // What a crop came to borrows the slot for a moment.
-          if (controller.phase != ScreenPhase.live) ...[
+          if (controller.phase is! ScreenLive) ...[
             const SizedBox(width: Spacing.lg),
             _State(controller: controller),
           ] else if (notice != null) ...[
@@ -331,17 +334,17 @@ class _State extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     switch (controller.phase) {
-      case ScreenPhase.connecting:
+      case ScreenConnecting():
         return const Text('CONNECTING', style: SpectacleText.panelHeader);
-      case ScreenPhase.live:
+      case ScreenLive():
         // Unreachable from [_Crumb], which does not build this while live.
         return const SizedBox.shrink();
-      case ScreenPhase.failed:
+      case ScreenFailed(:final reason):
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              controller.reason ?? '',
+              reason,
               style: SpectacleText.panelHeader.copyWith(
                 color: SpectacleColors.warning,
               ),
@@ -372,8 +375,10 @@ class _Body extends StatelessWidget {
     if (controller.image == null) {
       return ScreenGround(
         child: Text(switch (controller.phase) {
-          ScreenPhase.failed => controller.reason ?? '',
-          _ => 'CONNECTING',
+          ScreenFailed(:final reason) => reason,
+          // A live connection with nothing decoded yet is still waiting on its
+          // first update, which reads the same as dialling.
+          ScreenConnecting() || ScreenLive() => 'CONNECTING',
         }, style: SpectacleText.panelHeader),
       );
     }
