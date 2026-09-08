@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../application/path_scan.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
@@ -108,7 +107,7 @@ class WorkspaceController extends ChangeNotifier {
     } on HerdrFailure catch (error) {
       debugPrint('spectacle.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed || attempt != _attempt) return;
-      _fail(sshReason(error, host.name));
+      _fail(error.reason(host.name));
     }
   }
 
@@ -188,7 +187,7 @@ class WorkspaceController extends ChangeNotifier {
     } on HerdrFailure catch (error) {
       debugPrint('spectacle.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed) return null;
-      _fail(sshReason(error, host.name));
+      _fail(error.reason(host.name));
       return null;
     }
   }

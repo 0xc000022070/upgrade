@@ -94,20 +94,6 @@ bool shellReconnects(ShellFailureKind kind) =>
     kind == ShellFailureKind.streamClosed ||
     kind == ShellFailureKind.unreachable;
 
-/// The reason line for a failure, worded the way the screen route words its
-/// own, so a host says the same thing about itself wherever it fails.
-String shellReason(ShellFailureKind kind, String host) => switch (kind) {
-  ShellFailureKind.unreachable => '${host.toLowerCase()} unreachable',
-  ShellFailureKind.unresolved => '${host.toLowerCase()} unresolved',
-  ShellFailureKind.keyRejected => 'key rejected',
-  ShellFailureKind.shellRefused => 'shell refused',
-  ShellFailureKind.streamClosed => 'stream closed',
-  ShellFailureKind.hostKeyUnverified => hostKeyReason(
-    HostKeyRefusal.unverified,
-  ),
-  ShellFailureKind.hostKeyChanged => hostKeyReason(HostKeyRefusal.changed),
-};
-
 /// The private OSC a host's `pinentry-gate` asks a terminal through, and
 /// tells it the request was settled elsewhere. Either way the id comes next.
 const pinentryOsc = '7771';

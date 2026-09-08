@@ -9,6 +9,7 @@ import '../data/repositories/key_repository.dart';
 import '../platform/herdr_client.dart';
 import '../platform/host_key_dial.dart';
 import '../platform/host_keys.dart';
+import 'reason_lines.dart';
 import '../platform/keys.dart';
 
 /// What one host answered on the last poll. Every host with
@@ -58,14 +59,12 @@ class HostOutcome {
   /// say which.
   String get reason => switch (kind) {
     AgentOutcomeKind.snapshot => '',
-    AgentOutcomeKind.unreachable => '${host.name.toLowerCase()} unreachable',
-    AgentOutcomeKind.unresolved => '${host.name.toLowerCase()} unresolved',
-    AgentOutcomeKind.keyRejected => 'key rejected',
-    AgentOutcomeKind.protocolMismatch => 'protocol ${protocol ?? '?'}',
-    AgentOutcomeKind.hostKeyUnverified => hostKeyReason(
-      HostKeyRefusal.unverified,
-    ),
-    AgentOutcomeKind.hostKeyChanged => hostKeyReason(HostKeyRefusal.changed),
+    AgentOutcomeKind.unreachable => ReasonLine.unreachable.on(host.name),
+    AgentOutcomeKind.unresolved => ReasonLine.unresolved.on(host.name),
+    AgentOutcomeKind.keyRejected => ReasonLine.keyRejected.words,
+    AgentOutcomeKind.protocolMismatch => protocolLine(protocol),
+    AgentOutcomeKind.hostKeyUnverified => ReasonLine.hostKeyUnverified.words,
+    AgentOutcomeKind.hostKeyChanged => ReasonLine.hostKeyChanged.words,
   };
 }
 

@@ -663,14 +663,11 @@ void main() {
   });
 
   test('every failure carries the reason line the header draws', () {
-    expect(
-      shellReason(ShellFailureKind.unreachable, 'ROSE'),
-      'rose unreachable',
-    );
-    expect(shellReason(ShellFailureKind.unresolved, 'ROSE'), 'rose unresolved');
-    expect(shellReason(ShellFailureKind.keyRejected, 'ROSE'), 'key rejected');
-    expect(shellReason(ShellFailureKind.shellRefused, 'ROSE'), 'shell refused');
-    expect(shellReason(ShellFailureKind.streamClosed, 'ROSE'), 'stream closed');
+    expect(ShellFailureKind.unreachable.line.on('ROSE'), 'rose unreachable');
+    expect(ShellFailureKind.unresolved.line.on('ROSE'), 'rose unresolved');
+    expect(ShellFailureKind.keyRejected.line.on('ROSE'), 'key rejected');
+    expect(ShellFailureKind.shellRefused.line.on('ROSE'), 'shell refused');
+    expect(ShellFailureKind.streamClosed.line.on('ROSE'), 'stream closed');
   });
 
   testWidgets('the store keeps its sessions across a route dispose', (

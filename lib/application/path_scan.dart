@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/host_repository.dart';
 import '../platform/herdr_client.dart';
 import '../platform/host_keys.dart';
+import 'reason_lines.dart';
 import '../platform/keys.dart';
 import 'agent_kind.dart';
 import 'agents.dart';
@@ -94,27 +95,17 @@ class PathScanner {
     Future<List<String>> Function(String privateKey) run,
   ) async {
     final privateKey = await keys.privateKey(host.keyId);
-    if (privateKey == null) return const PathScanFailed('key rejected');
+    if (privateKey == null) {
+      return PathScanFailed(ReasonLine.keyRejected.words);
+    }
     try {
       return PathScanFound(await run(privateKey));
     } on HerdrFailure catch (error) {
       debugPrint('spectacle.paths ${host.name}: ${error.detail ?? error}');
-      return PathScanFailed(sshReason(error, host.name));
+      return PathScanFailed(error.reason(host.name));
     }
   }
 }
-
-/// The one line an ssh failure is worded as, wherever it happened. Shared so a
-/// workspace that cannot be reached says what the path scan says about the same
-/// host rather than inventing a second vocabulary for it.
-String sshReason(HerdrFailure error, String hostName) => switch (error) {
-  HerdrKeyRejected() => 'key rejected',
-  HerdrProtocolMismatch() => 'protocol ${error.protocol}',
-  HerdrUnresolved() => '${hostName.toLowerCase()} unresolved',
-  HerdrUnreachable() => '${hostName.toLowerCase()} unreachable',
-  HerdrHostKeyUnverified() => hostKeyReason(HostKeyRefusal.unverified),
-  HerdrHostKeyChanged() => hostKeyReason(HostKeyRefusal.changed),
-};
 
 final pathScannerProvider = Provider(
   (ref) => PathScanner(
