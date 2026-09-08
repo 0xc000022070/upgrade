@@ -23,8 +23,8 @@ const _rose = Host(
   keyId: 'key-1',
 );
 
-const _cell = ValueKey('bar-turns');
 const _find = ValueKey('bar-find');
+const _field = ValueKey('shell-find-field');
 const _prev = ValueKey('shell-turns-prev');
 const _next = ValueKey('shell-turns-next');
 const _close = ValueKey('shell-turns-close');
@@ -97,17 +97,25 @@ void main() {
       expect(shellTurns(terminal), hasLength(1));
     });
 
-    test('a pane on the alternate screen answers none', () {
+    test('a pane on the alternate screen answers what the screen holds', () {
       final terminal = Terminal()..write(_claudePane);
       expect(shellTurns(terminal), hasLength(2));
 
-      // What Claude Code sends when it takes the screen. The main buffer is
-      // still alive underneath and still holds those marks; they are not an
-      // answer, because they are not what the pane is showing.
+      // What Claude Code sends when it takes the screen, which it always does.
+      // The main buffer is still alive underneath and still holds those marks;
+      // they are not the answer, because they are not what the pane shows.
       terminal.write('\x1b[?1049h');
-
       expect(terminal.isUsingAltBuffer, isTrue);
       expect(shellTurns(terminal), isEmpty);
+
+      terminal.write('> read the gate log\r\n\u25cf Bash(flutter test)\r\n');
+
+      final turns = shellTurns(terminal);
+      expect(turns, hasLength(1));
+      expect(
+        terminal.buffer.lines[turns.single.line].getText().trim(),
+        '> read the gate log',
+      );
     });
 
     test('a pane with more turns than the cap keeps the newest', () {
@@ -231,6 +239,35 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
+    testWidgets('a redraw that keeps the count still moves the mark', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final session = await row(
+        tester,
+        transport,
+        output: '\x1b[?1049h> one\r\n\u25cf work\r\n',
+      );
+
+      final before = session.controller.highlights.single.range!.begin.y;
+
+      // The screen drawn again with the turn further down it, which is what an
+      // alternate-screen agent does on every repaint. One turn before and one
+      // after, so a watch counting them sees nothing happen.
+      transport.opened.single.emit('\x1b[2J\x1b[H\r\n\r\n> one\r\n');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump();
+
+      expect(shellTurns(session.terminal), hasLength(1));
+      expect(
+        session.controller.highlights.single.range!.begin.y,
+        greaterThan(before),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    });
+
     testWidgets('closing takes the wash with it', (tester) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
@@ -289,26 +326,27 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
     }
 
-    testWidgets('a pane with no turns has no cell, and one that prints them '
-        'grows it', (tester) async {
+    testWidgets('a pane with nothing to step through is not made to pick', (
+      tester,
+    ) async {
       final transport = FakeShellTransport();
       await tester.pumpWidget(app(fakeShellSessions(transport)));
       await ready(tester);
 
       transport.opened.single.emit('~/spectacle main > just test\r\n');
       await ready(tester);
-      expect(find.byKey(_cell), findsNothing);
 
-      transport.opened.single.emit('> read the gate log\r\n');
-      await ready(tester);
-      expect(find.byKey(_cell), findsOneWidget);
+      await tester.tap(find.byKey(_find));
+      await tester.pumpAndSettle();
+
+      expect(find.text('YOUR TURNS'), findsNothing);
+      expect(find.byKey(_field), findsOneWidget);
 
       await unmount(tester);
     });
 
-    testWidgets('the cell raises the line and the line goes back down', (
-      tester,
-    ) async {
+    testWidgets('a pane that has kept turns offers them beside the pattern, '
+        'and the pick raises the line', (tester) async {
       final transport = FakeShellTransport();
       await tester.pumpWidget(app(fakeShellSessions(transport)));
       await ready(tester);
@@ -317,8 +355,16 @@ void main() {
 
       expect(find.byKey(_prev), findsNothing);
 
-      await tester.tap(find.byKey(_cell));
-      await tester.pump();
+      await tester.tap(find.byKey(_find));
+      await tester.pumpAndSettle();
+      expect(find.text('PATTERN'), findsOneWidget);
+      expect(find.text('YOUR TURNS'), findsOneWidget);
+      // The menu is the whole of the tap: neither line is up behind it.
+      expect(find.byKey(_field), findsNothing);
+      expect(find.byKey(_prev), findsNothing);
+
+      await tester.tap(find.text('YOUR TURNS'));
+      await tester.pumpAndSettle();
       expect(find.byKey(_prev), findsOneWidget);
       expect(find.byKey(const ValueKey('shell-turns-count')), findsOneWidget);
 
@@ -329,7 +375,9 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('one line at a time: each closes the other', (tester) async {
+    testWidgets('the pattern is still one pick away on a pane with turns', (
+      tester,
+    ) async {
       final transport = FakeShellTransport();
       await tester.pumpWidget(app(fakeShellSessions(transport)));
       await ready(tester);
@@ -337,18 +385,39 @@ void main() {
       await ready(tester);
 
       await tester.tap(find.byKey(_find));
-      await tester.pump();
-      expect(find.byKey(const ValueKey('shell-find-field')), findsOneWidget);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('PATTERN'));
+      await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(_cell));
-      await tester.pump();
-      expect(find.byKey(const ValueKey('shell-find-field')), findsNothing);
+      expect(find.byKey(_field), findsOneWidget);
+      expect(find.byKey(_prev), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('one cell for both lines: it is armed while either is up and '
+        'takes it back down', (tester) async {
+      final transport = FakeShellTransport();
+      await tester.pumpWidget(app(fakeShellSessions(transport)));
+      await ready(tester);
+      transport.opened.single.emit(_claudePane);
+      await ready(tester);
+
+      // The cell that came and went with the pane's turns is gone: there is
+      // one, and no menu is raised over a line that is already up.
+      expect(find.byKey(const ValueKey('bar-turns')), findsNothing);
+
+      await tester.tap(find.byKey(_find));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('YOUR TURNS'));
+      await tester.pumpAndSettle();
       expect(find.byKey(_prev), findsOneWidget);
 
       await tester.tap(find.byKey(_find));
-      await tester.pump();
-      expect(find.byKey(const ValueKey('shell-find-field')), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('YOUR TURNS'), findsNothing);
       expect(find.byKey(_prev), findsNothing);
+      expect(find.byKey(_field), findsNothing);
 
       await unmount(tester);
     });
