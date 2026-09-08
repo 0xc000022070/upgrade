@@ -26,6 +26,14 @@ analyze:
 fmt:
     dart format lib test
 
+# `-j` is every core, not flutter's default of half of them: package:test
+# parallelises by file, so the wall clock is the slowest file rather than the
+# total, and half the cores left the tail of the run idle.
+
+# The suite, or the paths named: `just test test/shell_tabs_test.dart`.
+test *args:
+    flutter test -j {{ num_cpus() }} {{ args }}
+
 # Debug APK (arm64 only); the same artifact runs on the emulator and on faraday.
 # SPECTACLE_BUILD comes from the flake's shellHook and stamps §39.16's build line.
 apk:
