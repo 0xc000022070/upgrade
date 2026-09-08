@@ -764,6 +764,39 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the keyboard cell recovers an inset with no keyboard under it', (
+    tester,
+  ) async {
+    addTearDown(tester.view.reset);
+    final transport = FakeShellTransport();
+    await tester.pumpWidget(app(fakeShellSessions(transport)));
+    await ready(tester);
+
+    bool focused() => tester
+        .widget<TerminalView>(find.byType(TerminalView))
+        .focusNode!
+        .hasFocus;
+    bool armed() => tester.widget<ShellBar>(find.byType(ShellBar)).keyboardOpen;
+
+    // What the window comes back with when it was stopped with the keyboard
+    // up: the inset stands, nothing holds focus, and there is no keyboard
+    // under it. The inset alone would light the cell and every tap on it would
+    // put away a keyboard that is not there, which left the strip jammed until
+    // the app was killed.
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await ready(tester);
+    expect(focused(), isFalse);
+    expect(armed(), isFalse);
+
+    await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
+    await ready(tester);
+    // One tap asks for a real keyboard, and a real keyboard is what replaces
+    // the inset it left standing.
+    expect(focused(), isTrue);
+
+    await unmount(tester);
+  });
+
   group('AUTHORIZATION REQUIRED', () {
     const id = '0123456789abcdef';
     String request({String requestId = id, String error = ''}) {

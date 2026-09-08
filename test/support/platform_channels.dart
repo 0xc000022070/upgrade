@@ -86,3 +86,16 @@ List<String> stubUrlLauncher({bool takes = true}) {
       );
   return opened;
 }
+
+/// What the app asked the IME for. Showing and hiding a keyboard leaves nothing
+/// on screen a test process can see — there is no keyboard in one — so the
+/// claim is the call. The returned list grows with every one, newest last.
+List<String> recordTextInput() {
+  final calls = <String>[];
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(SystemChannels.textInput, (call) async {
+        calls.add(call.method);
+        return null;
+      });
+  return calls;
+}

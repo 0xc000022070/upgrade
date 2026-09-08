@@ -390,20 +390,27 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     ];
   }
 
-  /// Whether the IME is up: what the system says it is showing, not what the
-  /// view has focus. The two part company when the system back button hides
-  /// the keyboard, which leaves the focus where it was.
-  bool get _keyboardOpen => MediaQuery.viewInsetsOf(context).bottom > 0;
+  /// Whether the IME is up: an inset the system reports *and* a view focused to
+  /// have raised it. Neither alone is the answer. Focus alone parts company
+  /// with the truth when the system back button hides the keyboard, which
+  /// leaves the focus where it was. The inset alone parts company with it when
+  /// the window comes back from a stop with the keyboard's inset standing and
+  /// no keyboard under it — `KeyboardRelease` is what keeps that rare, and
+  /// reading both is what keeps it recoverable when it happens anyway.
+  bool _keyboardUp(ShellSession session) =>
+      MediaQuery.viewInsetsOf(context).bottom > 0 && session.focusNode.hasFocus;
 
   void _onKeyboard(ShellSession session) {
     final focus = session.focusNode;
-    if (_keyboardOpen) {
+    if (_keyboardUp(session)) {
       focus.unfocus();
     } else if (focus.hasFocus) {
       // Focus the view already has cannot be asked for again, so the keyboard
       // the system took away is asked back directly.
       SystemChannels.textInput.invokeMethod<void>('TextInput.show');
     } else {
+      // Also the way out of an inset with nothing under it: taking focus
+      // raises a real keyboard, and a real keyboard reports a fresh inset.
       focus.requestFocus();
     }
   }
@@ -616,19 +623,26 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                     onClose: () => setState(() => _searching = false),
                   ),
                 if (active != null)
-                  ShellBar(
-                    sticky: active.sticky,
-                    repeat: active.stickyRepeat,
-                    locked: active.stickyLocked,
-                    onSticky: (sticky, repeat, locked) =>
-                        _onSticky(active, sticky, repeat, locked),
-                    onBytes: (bytes) => _onBytes(active, bytes),
-                    keyboardOpen: _keyboardOpen,
-                    onKeyboard: () => _onKeyboard(active),
-                    clipCount: _clips.count,
-                    searching: _searching,
-                    onFind: () => setState(() => _searching = !_searching),
-                    onAttach: () => showAttachSheet(context, session: active),
+                  // The lamp answers the same question the tap does, so it is
+                  // rebuilt on the focus that question reads and not only on
+                  // the inset: a lit key over a keyboard that is not there is
+                  // how the jam looked before the tap converged.
+                  ListenableBuilder(
+                    listenable: active.focusNode,
+                    builder: (context, _) => ShellBar(
+                      sticky: active.sticky,
+                      repeat: active.stickyRepeat,
+                      locked: active.stickyLocked,
+                      onSticky: (sticky, repeat, locked) =>
+                          _onSticky(active, sticky, repeat, locked),
+                      onBytes: (bytes) => _onBytes(active, bytes),
+                      keyboardOpen: _keyboardUp(active),
+                      onKeyboard: () => _onKeyboard(active),
+                      clipCount: _clips.count,
+                      searching: _searching,
+                      onFind: () => setState(() => _searching = !_searching),
+                      onAttach: () => showAttachSheet(context, session: active),
+                    ),
                   ),
               ],
             );
