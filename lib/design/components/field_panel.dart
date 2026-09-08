@@ -4,6 +4,7 @@ import '../colors.dart';
 import '../spacing.dart';
 import '../typography.dart';
 import 'panel.dart';
+import 'spectacle_field.dart';
 
 /// A form is not an exception to the skin. Every field is a
 /// panel whose header strip is the field's name, so a form reads as the same
@@ -54,15 +55,11 @@ class FieldPanel extends StatelessWidget {
         Spacing.panelPadding,
         Spacing.sm,
       ),
-      child: TextField(
+      child: SpectacleField(
         controller: controller,
         autofocus: autofocus,
         maxLines: maxLines,
-        minLines: 1,
-        style: SpectacleText.rowTitle,
-        cursorColor: SpectacleColors.accent,
-        cursorWidth: 2,
-        cursorRadius: Radius.zero,
+        hint: hint,
         textInputAction: maxLines == 1
             ? textInputAction
             : TextInputAction.newline,
@@ -72,15 +69,7 @@ class FieldPanel extends StatelessWidget {
         onChanged: onChanged,
         onSubmitted: onSubmitted,
         obscureText: obscureText,
-        autocorrect: !obscureText,
-        enableSuggestions: !obscureText,
-        decoration: InputDecoration(
-          isDense: true,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
-          hintText: hint,
-          hintStyle: SpectacleText.rowSubtitle,
-        ),
+        contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
       ),
     );
   }

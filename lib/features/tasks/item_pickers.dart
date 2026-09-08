@@ -6,9 +6,9 @@ import '../../application/providers.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
 import '../../data/views.dart';
-import '../../design/colors.dart';
 import '../../design/components/picker_row.dart';
 import '../../design/components/panel_sheet.dart';
+import '../../design/components/spectacle_field.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 
@@ -156,22 +156,13 @@ class _PairPickerBodyState extends ConsumerState<PairPickerBody> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        TextField(
+        SpectacleField(
           controller: _search,
           autofocus: true,
-          style: SpectacleText.rowTitle,
-          cursorColor: SpectacleColors.accent,
-          cursorWidth: 2,
-          cursorRadius: Radius.zero,
+          hint: 'search',
           textInputAction: TextInputAction.search,
+          contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
           onChanged: (value) => setState(() => _query = value),
-          decoration: const InputDecoration(
-            isDense: true,
-            border: InputBorder.none,
-            contentPadding: EdgeInsets.symmetric(vertical: Spacing.md),
-            hintText: 'search',
-            hintStyle: SpectacleText.rowSubtitle,
-          ),
         ),
         const SheetRule(),
         if (matches.isEmpty)

@@ -11,6 +11,7 @@ import 'package:spectacle/data/repositories/project_repository.dart';
 import 'package:spectacle/design/colors.dart';
 import 'package:spectacle/design/components/action_block.dart';
 import 'package:spectacle/design/components/keyboard_toolbar.dart';
+import 'package:spectacle/design/components/spectacle_field.dart';
 import 'package:spectacle/features/home/capture_bar.dart';
 
 import 'support/platform_channels.dart';
@@ -320,6 +321,53 @@ void main() {
     // `[ ROMMY / SHIP MVP ]`. A goal title alone does not say which
     // project it sits under, and two projects can hold the same goal.
     expect(find.text('[ ROMMY / SHIP MVP ]'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the capture line grows to the cap and stops there', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    final one = tester.getSize(_capture).height;
+
+    await tester.enterText(_capture, List.filled(6, 'x').join('\n'));
+    await tester.pump();
+    final six = tester.getSize(_capture).height;
+
+    await tester.enterText(_capture, List.filled(12, 'x').join('\n'));
+    await tester.pump();
+
+    // Six lines is taller than one and twelve is not taller than six: past the
+    // cap the text scrolls inside the field instead of taking the screen.
+    expect(six, greaterThan(one));
+    expect(tester.getSize(_capture).height, six);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the newline glyph breaks the line the keyboard commits', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    await tester.tap(find.byType(TextField));
+    await _ready(tester);
+
+    final field = tester.widget<TextField>(_capture);
+    expect(field.maxLines, SpectacleField.bodyLines);
+    expect(field.textInputAction, TextInputAction.done);
+
+    await tester.enterText(_capture, 'revisar pgbouncer');
+    await tester.tap(_glyph(ToolbarGlyph.newline));
+    await _ready(tester);
+
+    expect(
+      tester.widget<TextField>(_capture).controller!.text,
+      'revisar pgbouncer\n',
+    );
 
     await unmount(tester);
   });

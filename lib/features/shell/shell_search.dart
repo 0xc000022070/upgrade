@@ -6,6 +6,7 @@ import 'package:xterm/xterm.dart';
 import '../../design/colors.dart';
 import '../../design/components/cell_divider.dart';
 import '../../design/components/key_cell.dart';
+import '../../design/components/spectacle_field.dart';
 import '../../design/icons/spectacle_icons.dart';
 import '../../design/motion.dart';
 import '../../design/spacing.dart';
@@ -158,7 +159,9 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
       if (hit.line >= buffer.height) continue;
       final p1 = buffer.createAnchorFromOffset(CellOffset(hit.start, hit.line));
       final p2 = buffer.createAnchorFromOffset(CellOffset(hit.end, hit.line));
-      _anchors..add(p1)..add(p2);
+      _anchors
+        ..add(p1)
+        ..add(p2);
       _marks.add(
         controller.highlight(
           p1: p1,
@@ -219,28 +222,15 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
                   horizontal: RowMetrics.padding,
                 ),
                 child: Center(
-                  child: TextField(
+                  child: SpectacleField(
                     key: const ValueKey('shell-find-field'),
                     controller: _query,
                     autofocus: true,
-                    maxLines: 1,
-                    style: SpectacleText.rowTitle,
-                    cursorColor: SpectacleColors.accent,
-                    cursorWidth: 2,
-                    cursorRadius: Radius.zero,
+                    hint: 'FIND',
                     textInputAction: TextInputAction.search,
-                    keyboardType: TextInputType.text,
-                    autocorrect: false,
-                    enableSuggestions: false,
+                    suggest: false,
                     onChanged: _onQuery,
                     onSubmitted: (_) => _step(-1),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                      hintText: 'FIND',
-                      hintStyle: SpectacleText.rowSubtitle,
-                    ),
                   ),
                 ),
               ),

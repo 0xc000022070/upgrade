@@ -13,6 +13,7 @@ import 'package:spectacle/data/repositories/project_repository.dart';
 import 'package:spectacle/data/repositories/task_repository.dart';
 import 'package:spectacle/data/views.dart';
 import 'package:spectacle/design/components/keyboard_toolbar.dart';
+import 'package:spectacle/design/components/spectacle_field.dart';
 import 'package:spectacle/features/tasks/item_sheet.dart';
 import 'package:spectacle/features/tasks/link_text.dart';
 
@@ -480,6 +481,34 @@ void main() {
     // Everything that is not the token is still the way into the editor.
     expect(opened, hasLength(1));
     expect(find.byType(TextField), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the title editor is capped and breaks its lines on the strip', (
+    tester,
+  ) async {
+    final task = await tasks.capture('revisar pgbouncer');
+
+    await tester.pumpWidget(host(task));
+    await _ready(tester);
+    await tester.tap(find.byType(LinkText));
+    await _ready(tester);
+
+    // The editor used to be unbounded, which is what let a long item carry the
+    // sheet it was typed in off the screen.
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.maxLines, SpectacleField.bodyLines);
+    expect(field.keyboardType, TextInputType.text);
+    expect(field.textInputAction, TextInputAction.done);
+
+    await tester.tap(_glyph(ToolbarGlyph.newline));
+    await _ready(tester);
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'revisar pgbouncer\n',
+    );
 
     await unmount(tester);
   });

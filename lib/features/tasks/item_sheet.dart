@@ -21,6 +21,7 @@ import '../../design/components/keyboard_toolbar.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
+import '../../design/components/spectacle_field.dart';
 import '../../design/icons/spectacle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
@@ -518,6 +519,10 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           onTap: _openLink,
         ),
         ToolbarAction(glyph: ToolbarGlyph.image, onTap: _image),
+        ToolbarAction(
+          glyph: ToolbarGlyph.newline,
+          onTap: () => insertNewline(_field),
+        ),
       ],
       // A drop has one extra verb, the one that stops it being a drop.
       extras: _isDrop(task)
@@ -556,22 +561,13 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                 onTap: () => tasks.setDone(task.id, !task.done),
               ),
             ],
-      child: TextField(
+      child: SpectacleField(
         controller: _field,
         focusNode: _focus,
         style: SpectacleText.rowTitleLead,
-        maxLines: null,
-        cursorColor: SpectacleColors.accent,
-        cursorWidth: 2,
-        cursorRadius: Radius.zero,
-        keyboardType: TextInputType.text,
-        textInputAction: TextInputAction.done,
+        maxLines: SpectacleField.bodyLines,
+        contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
         onSubmitted: (_) => _submit(),
-        decoration: const InputDecoration(
-          isDense: true,
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: Spacing.md),
-        ),
       ),
     );
   }
