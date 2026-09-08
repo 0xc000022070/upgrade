@@ -33,6 +33,21 @@ void stubClipboard(String? text) {
       });
 }
 
+/// The other direction: what the app *wrote* to the clipboard. A copy leaves
+/// nothing on the screen to assert on, so the claim is the text the platform
+/// was handed. The returned list grows with every write, newest last.
+List<String> recordClipboardWrites() {
+  final written = <String>[];
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          written.add((call.arguments as Map)['text'] as String);
+        }
+        return null;
+      });
+  return written;
+}
+
 /// `AlertsHost` reconciles the foreground service the moment it
 /// mounts, so any test that mounts it answers the plugin's channel. `false` is
 /// "no service running", which makes both `start` and `stop` no-ops in a test

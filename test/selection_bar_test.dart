@@ -7,7 +7,9 @@ import 'package:spectacle/app/nav_shell.dart';
 import 'package:spectacle/application/drop_selection.dart';
 import 'package:spectacle/application/providers.dart';
 import 'package:spectacle/data/database.dart';
+import 'package:spectacle/data/enums.dart';
 import 'package:spectacle/data/repositories/activity_repository.dart';
+import 'package:spectacle/data/repositories/attachment_repository.dart';
 import 'package:spectacle/data/repositories/project_repository.dart';
 import 'package:spectacle/data/repositories/task_repository.dart';
 import 'package:spectacle/features/home/capture_bar.dart';
@@ -52,6 +54,7 @@ void main() {
   late AppDatabase db;
   late TaskRepository tasks;
   late ProjectRepository projects;
+  late AttachmentRepository attachments;
 
   setUp(() async {
     stubDeviceChannels();
@@ -59,6 +62,7 @@ void main() {
     final activity = ActivityRepository(db);
     projects = ProjectRepository(db, activity);
     tasks = TaskRepository(db, activity);
+    attachments = AttachmentRepository(db);
   });
 
   tearDown(() => db.close());
@@ -265,6 +269,85 @@ void main() {
     expect(rows!.any((task) => task.title == 'borrar esto'), isFalse);
     expect(find.byType(SelectionBar), findsNothing);
     expect(find.byType(CaptureBar), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the copy verb takes the panel order and keeps the set', (
+    tester,
+  ) async {
+    final written = recordClipboardWrites();
+    final uno = await tasks.capture('uno');
+    await tasks.capture('dos');
+    final tres = await tasks.capture('tres');
+    // The one with a link proves the entry shape survives the batch.
+    await attachments.create(
+      itemId: tres,
+      kind: AttachmentKind.url,
+      value: 'https://a.example',
+    );
+
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    // Checked oldest first, drawn newest first: what the clipboard carries is
+    // the panel's order, not the order the set was assembled in.
+    await tester.longPress(find.text('uno'));
+    await _ready(tester);
+    await tester.tap(find.text('tres'));
+    await _ready(tester);
+    expect(_selection(tester).ids, {uno, tres});
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SelectionBar),
+        matching: find.byIcon(Icons.content_copy_outlined),
+      ),
+    );
+    await _ready(tester);
+
+    expect(written, ['tres\n\nhttps://a.example\n\nuno']);
+    // Nothing left the panel, so nothing leaves the mode either: the same two
+    // rows are still checked and the bar is still up.
+    expect(find.byType(SelectionBar), findsOneWidget);
+    expect(_selection(tester).ids, {uno, tres});
+    expect(find.text('2 COPIED'), findsOneWidget);
+    expect(find.text('2 SELECTED'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('2 SELECTED'), findsOneWidget);
+    expect(find.text('2 COPIED'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a check while the notice is up puts the count back', (
+    tester,
+  ) async {
+    recordClipboardWrites();
+    await tasks.capture('uno');
+    await tasks.capture('dos');
+
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    await tester.longPress(find.text('uno'));
+    await _ready(tester);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SelectionBar),
+        matching: find.byIcon(Icons.content_copy_outlined),
+      ),
+    );
+    await _ready(tester);
+    expect(find.text('1 COPIED'), findsOneWidget);
+
+    // Inside the window: the notice is about a selection that no longer
+    // exists, so it goes rather than counting rows it never copied.
+    await tester.tap(find.text('dos'));
+    await _ready(tester);
+    expect(find.text('1 COPIED'), findsNothing);
+    expect(find.text('2 SELECTED'), findsOneWidget);
 
     await unmount(tester);
   });

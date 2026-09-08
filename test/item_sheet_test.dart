@@ -199,6 +199,40 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('COPY takes the drop text and says it did', (tester) async {
+    final written = recordClipboardWrites();
+    final task = await tasks.capture('revisar pgbouncer');
+    await attachments.create(
+      itemId: task,
+      kind: AttachmentKind.url,
+      value: 'https://a.example',
+    );
+    // Attached the same way and left behind all the same: a path under the
+    // app's support directory is not something anywhere else can open.
+    await attachments.create(
+      itemId: task,
+      kind: AttachmentKind.image,
+      value: 'attachments/019-a.png',
+    );
+
+    await tester.pumpWidget(host(task));
+    await _ready(tester);
+
+    await tester.tap(find.text('COPY'));
+    await _ready(tester);
+
+    expect(written, ['revisar pgbouncer\n\nhttps://a.example']);
+    // Nothing on the screen moved, so the label is the whole answer.
+    expect(find.text('COPIED'), findsOneWidget);
+    expect(find.text('COPY'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('COPY'), findsOneWidget);
+    expect(find.text('COPIED'), findsNothing);
+
+    await unmount(tester);
+  });
+
   testWidgets('a project row with no goal gets the full sheet', (tester) async {
     // Ruling reversed 2026-09-02: the project is what makes a task, so
     // a row in a project's DROPS panel keeps every state block. This is the

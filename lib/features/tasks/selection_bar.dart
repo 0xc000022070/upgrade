@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/drop_selection.dart';
 import '../../design/colors.dart';
+import '../../design/components/flash_block.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../home/capture_bar.dart';
@@ -16,7 +19,7 @@ import 'drop_actions.dart';
 /// It is built on [BottomBarFrame] rather than on its own padding and panel:
 /// the two bars trade the same slot, and a height they each computed would
 /// shift every panel on the screen the moment the mode came on.
-class SelectionBar extends ConsumerWidget {
+class SelectionBar extends ConsumerStatefulWidget {
   const SelectionBar({super.key, required this.scope});
 
   /// The panel that owns the mode. The bar acts on that panel's rows and on
@@ -24,11 +27,43 @@ class SelectionBar extends ConsumerWidget {
   final String scope;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SelectionBar> createState() => _SelectionBarState();
+}
+
+class _SelectionBarState extends ConsumerState<SelectionBar> {
+  /// How many rows the last copy took, while the notice is up. The count slot
+  /// is the only place a verb that moves nothing can report from.
+  int? _copied;
+  Timer? _endNotice;
+
+  @override
+  void dispose() {
+    _endNotice?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _copy(Set<String> ids) async {
+    final count = await copyDrops(ref, widget.scope, ids);
+    if (!mounted || count == 0) return;
+    setState(() => _copied = count);
+    _endNotice?.cancel();
+    _endNotice = Timer(flashWindow, _forgetNotice);
+  }
+
+  void _forgetNotice() {
+    _endNotice?.cancel();
+    if (mounted && _copied != null) setState(() => _copied = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final selection = ref.watch(dropSelectionProvider);
     final notifier = ref.read(dropSelectionProvider.notifier);
     // Emptying the set does not leave the mode — it disables the verbs.
     final empty = selection.count == 0;
+    // A check or an uncheck ends the notice on the spot: `2 COPIED` over three
+    // checked rows would be reporting on a selection that is gone.
+    ref.listen(dropSelectionProvider, (_, _) => _forgetNotice());
 
     return BottomBarFrame(
       title: 'SELECTION',
@@ -44,9 +79,16 @@ class SelectionBar extends ConsumerWidget {
             const SizedBox(width: Spacing.md),
             Expanded(
               child: Text(
-                '${selection.count} SELECTED',
+                _copied == null
+                    ? '${selection.count} SELECTED'
+                    : '$_copied COPIED',
                 style: SpectacleText.panelHeader,
               ),
+            ),
+            _BarAction(
+              icon: Icons.content_copy_outlined,
+              tooltip: 'COPY',
+              onTap: empty ? null : () => _copy(selection.ids),
             ),
             _BarAction(
               icon: Icons.arrow_forward,

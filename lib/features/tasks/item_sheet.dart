@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/agents.dart';
+import '../../application/clipboard_text.dart';
 import '../../application/formatting.dart';
 import '../../application/path_scan.dart';
 import '../../application/providers.dart';
@@ -19,6 +21,7 @@ import '../../data/views.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/dot_spinner.dart';
+import '../../design/components/flash_block.dart';
 import '../../design/components/inline_confirm.dart';
 import '../../design/components/keyboard_toolbar.dart';
 import '../../design/components/list_row.dart';
@@ -909,12 +912,32 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     setState(() => _line = _Line.reason);
   }
 
+  /// The drop as text: the title as it was typed, then a blank line and its
+  /// links. The images stay behind — their value is a path under the app's
+  /// support directory, and nothing outside the app can open it.
+  Future<void> _copyText(Task task) async {
+    final attachments =
+        ref.read(itemAttachmentsProvider(widget.taskId)).valueOrNull ??
+        const <Attachment>[];
+    await Clipboard.setData(
+      ClipboardData(
+        text: dropClipboardText([
+          DropText(task.title, [
+            for (final attachment in attachments)
+              if (attachment.kind == AttachmentKind.url) attachment.value,
+          ]),
+        ]),
+      ),
+    );
+  }
+
   /// One row of solid action blocks, for the moment the keyboard is
   /// down. It wraps rather than scrolls — six verbs do not fit across a phone,
   /// and a horizontally scrolling row hides the half of them a user is looking
   /// for.
   ///
-  /// A drop cuts that row down: MOVE, which is what turns it into a task.
+  /// A drop cuts that row down: COPY, which takes its text off the phone, and
+  /// MOVE, which is what turns it into a task.
   /// SEND is on both — filing an item under a project does not stop an agent
   /// picking it up. DELETE is not a state, but it is not on the row either —
   /// a long press on the breadcrumb reveals it.
@@ -942,6 +965,14 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                 task.isNext ? tasks.unsetNext(task.id) : tasks.setNext(task.id),
           ),
         ],
+        // First on a drop's row: it is what the text is for, and it is the one
+        // verb here that changes nothing, so it says so in its own label.
+        if (_isDrop(task))
+          FlashActionBlock(
+            label: 'COPY',
+            flashLabel: 'COPIED',
+            onTap: () => _copyText(task),
+          ),
         ActionBlock(label: 'MOVE', onTap: () => _toPicker(_Mode.move)),
         // Filed or not: what is sent is the text, and a project says nothing
         // about whether an agent can pick it up. Only a host with no path at
