@@ -10,6 +10,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectacle/platform/vnc/framebuffer.dart';
 import 'package:spectacle/platform/vnc/keysyms.dart';
+import 'package:spectacle/platform/vnc/rect_encoding.dart';
 import 'package:spectacle/platform/vnc/rfb_client.dart';
 import 'package:spectacle/platform/vnc/rfb_messages.dart';
 import 'package:spectacle/platform/vnc/vnc_auth.dart';
@@ -26,7 +27,7 @@ Uint8List expectedClientHandshake() {
     Rfb.securityNone,
     1,
     ...RfbClientMessages.setPixelFormat(),
-    ...RfbClientMessages.setEncodings(),
+    ...RfbClientMessages.setEncodings(RectEncoding.offer),
   ];
   return Uint8List.fromList(out);
 }
@@ -42,7 +43,7 @@ Uint8List expectedPasswordHandshake(String password) => Uint8List.fromList([
   ...vncAuthResponse(password, challenge),
   1,
   ...RfbClientMessages.setPixelFormat(),
-  ...RfbClientMessages.setEncodings(),
+  ...RfbClientMessages.setEncodings(RectEncoding.offer),
 ]);
 
 Uint8List hex(String text) => Uint8List.fromList([
@@ -192,7 +193,7 @@ void main() {
           ...vncAuthResponse('pw', challenge),
           1,
           ...RfbClientMessages.setPixelFormat(),
-          ...RfbClientMessages.setEncodings(),
+          ...RfbClientMessages.setEncodings(RectEncoding.offer),
         ]),
       );
     });
@@ -224,7 +225,9 @@ void main() {
     });
 
     test('asks for ZRLE, CopyRect, Raw and DesktopSize, in that order', () {
-      final encodings = ByteData.sublistView(RfbClientMessages.setEncodings());
+      final encodings = ByteData.sublistView(
+        RfbClientMessages.setEncodings(RectEncoding.offer),
+      );
       expect(encodings.getUint16(2), 4);
       expect(
         [for (var i = 0; i < 4; i++) encodings.getInt32(4 + i * 4)],

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'byte_reader.dart';
 import 'framebuffer.dart';
+import 'rect_encoding.dart';
 import 'rfb_messages.dart';
 import 'vnc_auth.dart';
 import 'vnc_failure.dart';
@@ -65,7 +66,7 @@ class RfbClient {
     _serverInit = init;
     _framebuffer = Framebuffer(init.width, init.height);
     _send(RfbClientMessages.setPixelFormat());
-    _send(RfbClientMessages.setEncodings());
+    _send(RfbClientMessages.setEncodings(RectEncoding.offer));
     return init;
   }
 
@@ -189,49 +190,29 @@ class RfbClient {
   Future<void> _readFramebufferUpdate() async {
     await _reader.skip(1);
     final rects = await _reader.readU16();
-    final target = _framebuffer!;
+    final target = RectTarget(
+      reader: _reader,
+      framebuffer: _framebuffer!,
+      zrle: _zrle,
+    );
     for (var i = 0; i < rects; i++) {
       final x = await _reader.readU16();
       final y = await _reader.readU16();
       final width = await _reader.readU16();
       final height = await _reader.readU16();
-      final encoding = await _reader.readS32();
-      switch (encoding) {
-        case Rfb.encodingRaw:
-          final data = await _reader.read(width * height * Rfb.bytesPerPixel);
-          target.blitRaw(data, x, y, width, height);
-        case Rfb.encodingCopyRect:
-          final sourceX = await _reader.readU16();
-          final sourceY = await _reader.readU16();
-          target.copyRect(
-            sourceX: sourceX,
-            sourceY: sourceY,
-            x: x,
-            y: y,
-            w: width,
-            h: height,
-          );
-        case Rfb.encodingZrle:
-          final length = await _reader.readU32();
-          final compressed = await _reader.read(length);
-          _zrle.decodeRect(
-            target,
-            _zrle.inflate(compressed),
-            x: x,
-            y: y,
-            width: width,
-            height: height,
-          );
-        case Rfb.encodingDesktopSize:
-          // The pseudo-rect carries the new geometry in its width and height
-          // and no data at all.
-          target.resize(width, height);
-          _needsFullUpdate = true;
-        default:
-          throw VncStreamClosed('rect encoding $encoding');
-      }
+      final code = await _reader.readS32();
+      final encoding = RectEncoding.of(code);
+      // Only an encoding this client never offered lands here, and the bytes
+      // behind it are of an unknown length: the reader cannot be skipped past
+      // the rect and is no longer aligned to the next one.
+      if (encoding == null) throw VncStreamClosed('rect encoding $code');
+      await encoding.read(
+        RfbRect(x: x, y: y, width: width, height: height),
+        target,
+      );
     }
-    if (!_frames.isClosed) _frames.add(target);
+    if (target.resized) _needsFullUpdate = true;
+    if (!_frames.isClosed) _frames.add(target.framebuffer);
   }
 
   /// One non-incremental request first, incremental after, and at most

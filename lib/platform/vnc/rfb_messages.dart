@@ -11,14 +11,6 @@ abstract final class Rfb {
   static const encodingZrle = 16;
   static const encodingDesktopSize = -223;
 
-  /// The preference order, most wanted first.
-  static const encodings = <int>[
-    encodingZrle,
-    encodingCopyRect,
-    encodingRaw,
-    encodingDesktopSize,
-  ];
-
   static const securityInvalid = 0;
   static const securityNone = 1;
   static const securityVncAuth = 2;
@@ -190,7 +182,10 @@ abstract final class RfbClientMessages {
     return out;
   }
 
-  static Uint8List setEncodings([List<int> encodings = Rfb.encodings]) {
+  /// The list is the caller's, and the caller is the client, which takes it
+  /// from the encoding registry: this file writes bytes and does not decide
+  /// which encodings the app can read.
+  static Uint8List setEncodings(List<int> encodings) {
     final out = Uint8List(4 + encodings.length * 4);
     final data = ByteData.sublistView(out);
     data
