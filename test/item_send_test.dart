@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
@@ -23,6 +25,7 @@ import 'package:spectacle/features/tasks/sent_tag.dart';
 import 'package:spectacle/platform/herdr_client.dart';
 import 'package:spectacle/platform/keys.dart';
 import 'package:spectacle/platform/host_keys.dart';
+import 'package:spectacle/platform/shell/remote_shell.dart';
 
 import 'support/platform_channels.dart';
 
@@ -32,11 +35,12 @@ import 'support/platform_channels.dart';
 /// What the transport was called with, so a test can assert the command's
 /// inputs and the prompt without a socket.
 class _Call {
-  _Call(this.kind, this.directory, this.prompt);
+  _Call(this.kind, this.directory, this.prompt, [this.images = const []]);
 
   final String kind;
   final String directory;
   final String prompt;
+  final List<RemoteFile> images;
 }
 
 Host _host = const Host(
@@ -99,6 +103,56 @@ void main() {
     );
   });
 
+  test('images are one host path per line, under the links', () {
+    final prompt = sendPrompt(
+      title: 'what is wrong here',
+      links: const ['https://a.example'],
+      images: [
+        RemoteFile('a.png', Uint8List(0)),
+        RemoteFile('b.png', Uint8List(0)),
+      ],
+    );
+    expect(
+      prompt,
+      'what is wrong here\n\nhttps://a.example\n'
+      '/tmp/spectacle/a.png\n/tmp/spectacle/b.png',
+    );
+  });
+
+  test('a drop with an image and no link still opens with the blank line', () {
+    expect(
+      sendPrompt(
+        title: 'what is wrong here',
+        links: const [],
+        images: [RemoteFile('a.png', Uint8List(0))],
+      ),
+      'what is wrong here\n\n/tmp/spectacle/a.png',
+    );
+  });
+
+  test('a name is the file s own and cannot climb out of the directory', () {
+    expect(
+      RemoteFile.fromPath('/data/app/attachments/019-a.png', Uint8List(0)).name,
+      '019-a.png',
+    );
+    expect(
+      RemoteFile.fromPath('../../etc/passwd', Uint8List(0)).remotePath,
+      '/tmp/spectacle/passwd',
+    );
+    expect(
+      RemoteFile.fromPath("a b';rm -rf .png", Uint8List(0)).name,
+      'a_b__rm_-rf_.png',
+    );
+    expect(RemoteFile.fromPath('/x/.hidden', Uint8List(0)).name, 'file.hidden');
+  });
+
+  test('the upload command makes the directory and takes the file whole', () {
+    expect(
+      uploadCommand('a.png'),
+      underSh("mkdir -p '/tmp/spectacle' && cat > '/tmp/spectacle/a.png'"),
+    );
+  });
+
   group('remote transaction failures', () {
     test('every refusal has one line, and they are four different lines', () {
       final lines = {
@@ -112,6 +166,10 @@ void main() {
       );
       expect(spawnRefusalReason(SpawnRefusal.spawnFailed), 'spawn failed');
       expect(spawnRefusalReason(SpawnRefusal.timedOut), 'spawn timed out');
+      expect(
+        spawnRefusalReason(SpawnRefusal.uploadFailed),
+        'image upload failed',
+      );
     });
   });
 
@@ -159,10 +217,11 @@ void main() {
       return rows.single.id;
     }
 
-    Sender sender(HerdrSend send) => Sender(
+    Sender sender(HerdrSend send, {ReadImage? readImage}) => Sender(
       send: send,
       keys: Ed25519Keys(privateKeys),
       dispatches: dispatches,
+      readImage: readImage ?? (path) async => Uint8List.fromList([1, 2, 3]),
     );
 
     test('a pane id is a row, and the row says where it went', () async {
@@ -190,6 +249,7 @@ void main() {
             required kind,
             required directory,
             required prompt,
+            images = const <RemoteFile>[],
             model,
             verifier,
           }) async {
@@ -237,6 +297,102 @@ void main() {
       expect(sent.detail, 'wQ:p7');
     });
 
+    test('a drop s images go up as files and the prompt names them', () async {
+      final calls = <_Call>[];
+      final read = <String>[];
+      final itemId = await onlyTaskId();
+
+      final state =
+          await sender(
+            ({
+              required address,
+              required port,
+              required user,
+              required privateKey,
+              required kind,
+              required directory,
+              required prompt,
+              images = const <RemoteFile>[],
+              model,
+              verifier,
+            }) async {
+              calls.add(_Call(kind, directory, prompt, images));
+              return const SpawnSent('wQ:p7');
+            },
+            readImage: (path) async {
+              read.add(path);
+              return Uint8List.fromList([path.length]);
+            },
+          )(
+            target: _target(),
+            kind: 'claude',
+            itemId: itemId,
+            title: 'what is wrong here',
+            links: const ['https://a.example'],
+            imagePaths: const [
+              '/support/attachments/first.png',
+              '/support/attachments/second.jpg',
+            ],
+          );
+
+      expect(state, isA<SendSent>());
+      // Every file is read once, in the order it was attached, and the bytes
+      // that were read are the bytes the transport was handed.
+      expect(read, const [
+        '/support/attachments/first.png',
+        '/support/attachments/second.jpg',
+      ]);
+      final images = calls.single.images;
+      expect(images.map((image) => image.name), const [
+        'first.png',
+        'second.jpg',
+      ]);
+      expect(images.first.bytes, Uint8List.fromList([30]));
+      expect(images.last.bytes, Uint8List.fromList([31]));
+      // The prompt says where the host will find them, not where the phone
+      // kept them.
+      expect(
+        calls.single.prompt,
+        'what is wrong here\n\nhttps://a.example\n'
+        '/tmp/spectacle/first.png\n/tmp/spectacle/second.jpg',
+      );
+    });
+
+    test('an attachment that cannot be read never dials', () async {
+      final itemId = await onlyTaskId();
+      var dialled = false;
+      final state =
+          await sender(
+            ({
+              required address,
+              required port,
+              required user,
+              required privateKey,
+              required kind,
+              required directory,
+              required prompt,
+              images = const <RemoteFile>[],
+              model,
+              verifier,
+            }) async {
+              dialled = true;
+              return const SpawnSent('wQ:p7');
+            },
+            readImage: (path) async => throw const FileSystemException('gone'),
+          )(
+            target: _target(),
+            kind: 'claude',
+            itemId: itemId,
+            title: 'what is wrong here',
+            links: const [],
+            imagePaths: const ['/support/attachments/first.png'],
+          );
+
+      expect(dialled, isFalse);
+      expect((state as SendFailed).reason, 'image unreadable');
+      expect(await dispatches.watchForItem(itemId).first, isEmpty);
+    });
+
     test('no refused transaction leaves a row behind', () async {
       final itemId = await onlyTaskId();
       for (final refusal in SpawnRefusal.values) {
@@ -250,6 +406,7 @@ void main() {
                 required kind,
                 required directory,
                 required prompt,
+                images = const <RemoteFile>[],
                 model,
                 verifier,
               }) async => SpawnRefused(refusal),
@@ -282,6 +439,7 @@ void main() {
                 required kind,
                 required directory,
                 required prompt,
+                images = const <RemoteFile>[],
                 model,
                 verifier,
               }) async => throw failure,
@@ -315,6 +473,7 @@ void main() {
             required kind,
             required directory,
             required prompt,
+            images = const <RemoteFile>[],
             model,
             verifier,
           }) async {
@@ -512,8 +671,14 @@ void main() {
       expect(find.text('SEND TO'), findsOneWidget);
       expect(find.text('LINKED'), findsNWidgets(2));
       final loose = tester.getTopLeft(find.text('NYX / GATE')).dy;
-      expect(tester.getTopLeft(find.text('NYX / SPECTACLE')).dy, lessThan(loose));
-      expect(tester.getTopLeft(find.text('NYX / MONOLITH')).dy, lessThan(loose));
+      expect(
+        tester.getTopLeft(find.text('NYX / SPECTACLE')).dy,
+        lessThan(loose),
+      );
+      expect(
+        tester.getTopLeft(find.text('NYX / MONOLITH')).dy,
+        lessThan(loose),
+      );
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
@@ -546,6 +711,7 @@ void main() {
                 required kind,
                 required directory,
                 required prompt,
+                images = const <RemoteFile>[],
                 model,
                 verifier,
               }) async {
@@ -603,6 +769,7 @@ void main() {
                 required kind,
                 required directory,
                 required prompt,
+                images = const <RemoteFile>[],
                 model,
                 verifier,
               }) async {

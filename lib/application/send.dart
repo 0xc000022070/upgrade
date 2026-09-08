@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/repositories/dispatch_repository.dart';
 import '../data/repositories/path_repository.dart';
 import '../platform/herdr_client.dart';
+import '../platform/shell/remote_shell.dart';
 import '../platform/host_keys.dart';
 import '../platform/keys.dart';
 import 'agents.dart';
@@ -21,9 +24,16 @@ typedef HerdrSend = Future<SpawnResult> Function({
   required String kind,
   required String directory,
   required String prompt,
+  List<RemoteFile> images,
   String? model,
   HostKeyVerifier? verifier,
 });
+
+/// How a local file becomes bytes. A seam for the same reason [HerdrSend] is
+/// one: a test drives a send with images and no filesystem under it.
+typedef ReadImage = Future<Uint8List> Function(String path);
+
+Future<Uint8List> _readFile(String path) => File(path).readAsBytes();
 
 /// The evidence seam, the one the watcher already uses. With
 /// `--dart-define=SPECTACLE_FAKE_SPAWN=true` the send never dials and answers
@@ -39,6 +49,7 @@ Future<SpawnResult> _fakeSend({
   required String kind,
   required String directory,
   required String prompt,
+  List<RemoteFile> images = const [],
   String? model,
   HostKeyVerifier? verifier,
 }) async {
@@ -54,14 +65,21 @@ final herdrSendProvider = Provider<HerdrSend>((ref) {
 });
 
 /// What the agent is handed on stdin: the drop's title as it was typed, then a
-/// blank line and one link per line.
+/// blank line, one link per line, and one image path per line under them.
 ///
 /// Not a template with headings. The title is the whole instruction the user
 /// wrote, and anything wrapped around it would be words the agent reads as
-/// coming from them.
-String sendPrompt({required String title, required List<String> links}) {
-  if (links.isEmpty) return title;
-  return '$title\n\n${links.join('\n')}';
+/// coming from them. An image is its path on the host and nothing else, which
+/// is what both agents document as the way to hand them a picture; the bytes
+/// are already there by the time this string is read.
+String sendPrompt({
+  required String title,
+  required List<String> links,
+  List<RemoteFile> images = const [],
+}) {
+  final lines = [...links, for (final image in images) image.remotePath];
+  if (lines.isEmpty) return title;
+  return '$title\n\n${lines.join('\n')}';
 }
 
 sealed class SendState {
@@ -88,6 +106,7 @@ final class SendFailed extends SendState {
 
 String spawnRefusalReason(SpawnRefusal refusal) => switch (refusal) {
   SpawnRefusal.noDirectory => 'no such directory',
+  SpawnRefusal.uploadFailed => 'image upload failed',
   SpawnRefusal.startFailed => 'agent start failed',
   SpawnRefusal.spawnFailed => 'spawn failed',
   SpawnRefusal.timedOut => 'spawn timed out',
@@ -103,11 +122,13 @@ class Sender {
     required this.send,
     required this.keys,
     required this.dispatches,
+    this.readImage = _readFile,
   });
 
   final HerdrSend send;
   final Ed25519Keys keys;
   final DispatchRepository dispatches;
+  final ReadImage readImage;
 
   /// [kind] and [model] are the send's, not the path's: where the work goes is
   /// a property of the directory, what picks it up is a property of this send.
@@ -118,15 +139,30 @@ class Sender {
     required String title,
     required List<String> links,
     required String kind,
+    List<String> imagePaths = const [],
     String? model,
   }) async {
     final host = target.host;
-    void log(Object error) => debugPrint('spectacle.spawn ${host.name}: $error');
+    void log(Object error) =>
+        debugPrint('spectacle.spawn ${host.name}: $error');
 
     final privateKey = await keys.privateKey(host.keyId);
     if (privateKey == null) {
       log('no private key stored for ${host.keyId}');
       return const SendFailed('key rejected');
+    }
+    // Read before the dial. An attachment whose file is gone cannot be sent
+    // without the prompt naming a path the agent would never find, so the send
+    // fails here rather than going out with a line about a picture that is not
+    // there.
+    final images = <RemoteFile>[];
+    for (final path in imagePaths) {
+      try {
+        images.add(RemoteFile.fromPath(path, await readImage(path)));
+      } catch (error) {
+        log(error);
+        return const SendFailed('image unreadable');
+      }
     }
     final SpawnResult result;
     try {
@@ -138,7 +174,8 @@ class Sender {
         kind: kind,
         model: model,
         directory: target.path.directory,
-        prompt: sendPrompt(title: title, links: links),
+        images: images,
+        prompt: sendPrompt(title: title, links: links, images: images),
         verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
       );
     } on HerdrFailure catch (error) {

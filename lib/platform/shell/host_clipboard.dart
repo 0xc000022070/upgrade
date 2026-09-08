@@ -1,6 +1,13 @@
 import 'dart:convert';
 
-export 'remote_shell.dart' show shellQuote, underSh;
+export 'remote_shell.dart'
+    show
+        RemoteFile,
+        remotePathFor,
+        remoteUploadDirectory,
+        shellQuote,
+        underSh,
+        uploadCommand;
 
 import 'remote_shell.dart';
 import 'shell_connection.dart';
@@ -50,10 +57,6 @@ class HostClipboard {
   @override
   String toString() => 'HostClipboard($line $environment)';
 }
-
-/// Where clips land on a host. World-writable and cleared by the host's own
-/// reboot, which is the right lifetime for a file the app never comes back for.
-const remoteClipDirectory = '/tmp/spectacle';
 
 /// What the host is asked, once per connection: the kernel, the wayland
 /// socket under the runtime directory when the environment does not name
@@ -219,15 +222,6 @@ String? clipboardCommand(HostClipboard clipboard, String fileName) {
   };
   return script == null ? null : underSh(script);
 }
-
-/// The command a clip's bytes are written into: the directory made if it is
-/// not, the file taken whole from stdin.
-String uploadCommand(String fileName) => underSh(
-  'mkdir -p ${shellQuote(remoteClipDirectory)} && '
-  'cat > ${shellQuote(remotePathFor(fileName))}',
-);
-
-String remotePathFor(String fileName) => '$remoteClipDirectory/$fileName';
 
 /// Runs the probe on a live connection. A channel that fails to open is the
 /// same answer as a probe that did: nothing here can set a clipboard.

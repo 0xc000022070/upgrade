@@ -220,7 +220,13 @@ done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
 
 /// A refused spawn is data rather than an exception: the connection worked,
 /// but one step of the remote transaction did not.
-enum SpawnRefusal { noDirectory, startFailed, spawnFailed, timedOut }
+enum SpawnRefusal {
+  noDirectory,
+  uploadFailed,
+  startFailed,
+  spawnFailed,
+  timedOut,
+}
 
 sealed class SpawnResult {
   const SpawnResult();
@@ -341,15 +347,25 @@ class HerdrSession {
     }
   }
 
-  /// Creates a workspace, starts one agent, then sends the prompt on stdin.
-  /// Any failure after workspace creation closes that workspace.
+  /// Lands [images], creates a workspace, starts one agent, then sends the
+  /// prompt on stdin. Any failure after workspace creation closes that
+  /// workspace.
+  ///
+  /// The images go first and outside the deadline: nothing has been created
+  /// yet, so an upload that fails leaves no workspace behind, and a photo on a
+  /// phone's uplink is not the hang the deadline is there to catch.
   Future<SpawnResult> spawn({
     required String kind,
     required String directory,
     required String prompt,
+    List<RemoteFile> images = const [],
     String? model,
     Duration deadline = spawnDeadline,
   }) async {
+    final upload = await _upload(images);
+    if (upload != null) {
+      return SpawnRefused(SpawnRefusal.uploadFailed, upload);
+    }
     String? workspace;
     var expired = false;
     try {
@@ -509,17 +525,46 @@ class HerdrSession {
     );
   }
 
-  Future<SSHRunResult> _runPrompt(String pane, String prompt) async {
-    final session = await _guard(
-      () => _client.execute(HerdrCommands.prompt(pane, _sessionName)),
-    );
+  /// Every image on one exec channel each, in the order they were attached.
+  /// Null when they all landed; the first failure's words otherwise, and the
+  /// send stops there rather than prompting an agent about a picture that is
+  /// not on the host.
+  Future<String?> _upload(List<RemoteFile> images) async {
+    for (final image in images) {
+      final SSHRunResult result;
+      try {
+        result = await _guard(
+          () => _runWithStdin(uploadCommand(image.name), image.bytes),
+        );
+      } on HerdrFailure catch (error) {
+        return error.detail ?? '$error';
+      }
+      if (result.exitCode != 0) {
+        final said = utf8.decode(result.stderr).trim();
+        return said.isEmpty
+            ? '${image.name} exit ${result.exitCode}'
+            : '${image.name}: $said';
+      }
+    }
+    return null;
+  }
+
+  Future<SSHRunResult> _runPrompt(String pane, String prompt) => _runWithStdin(
+    HerdrCommands.prompt(pane, _sessionName),
+    utf8.encode(prompt),
+  );
+
+  /// `runWithResult` has no way to write stdin, and both the prompt and an
+  /// upload are a command whose whole input arrives that way.
+  Future<SSHRunResult> _runWithStdin(String command, Uint8List stdin) async {
+    final session = await _guard(() => _client.execute(command));
     final out = BytesBuilder(copy: false);
     final err = BytesBuilder(copy: false);
     final drained = Future.wait([
       session.stdout.cast<List<int>>().forEach(out.add),
       session.stderr.cast<List<int>>().forEach(err.add),
     ]);
-    session.stdin.add(utf8.encode(prompt));
+    session.stdin.add(stdin);
     await session.stdin.close();
     await Future.wait([session.done, drained]);
     session.close();
@@ -933,6 +978,7 @@ class HerdrClient {
     required String kind,
     required String directory,
     required String prompt,
+    List<RemoteFile> images = const [],
     String? model,
     HostKeyVerifier? verifier,
   }) async {
@@ -948,6 +994,7 @@ class HerdrClient {
         kind: kind,
         directory: directory,
         prompt: prompt,
+        images: images,
         model: model,
       );
     } finally {
