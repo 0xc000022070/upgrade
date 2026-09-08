@@ -17,6 +17,10 @@ abstract interface class ShellHost {
   /// A session channel with a pty on it and nothing else on it.
   Future<ShellPty> shell(SSHPtyConfig pty);
 
+  /// A session channel with a pty on it running one command, which is what
+  /// `ssh -t host cmd` asks for.
+  Future<ShellPty> run(String command, SSHPtyConfig pty);
+
   /// A session channel running one command, without a pty.
   Future<ShellExec> execute(String command);
 
@@ -61,12 +65,18 @@ typedef ShellDialer = Future<ShellHost> Function({
   HostKeyVerifier? verifier,
 });
 
-/// The transport: the host's own ssh connection with the remote's login shell
-/// on a pty inside it.
+/// The transport: the host's own ssh connection with a pty inside it, carrying
+/// either the remote's login shell or one command.
 ///
-/// The entry point is the user's rule and the whole of it: a shell request on
-/// a session channel with a pty. No command, no `exec`, no environment, no rc
+/// A tab with no command is the user's rule and the whole of it: a shell
+/// request on a session channel with a pty. No `exec`, no environment, no rc
 /// of our own and no multiplexer — what sshd starts for the user is what runs.
+///
+/// A tab with one is an exec request on the same kind of channel, which is
+/// what `ssh -t` is. It exists because typing a line at a login shell is a
+/// race against everything that shell reads before its prompt: a host whose rc
+/// asks which session to open eats the line's first character, and no delay
+/// fixes it because the reader is what runs first, not what runs late.
 class ShellTunnel {
   const ShellTunnel({
     this.timeout = const Duration(seconds: 10),
@@ -96,6 +106,7 @@ class ShellTunnel {
     required String privateKey,
     required int columns,
     required int rows,
+    String? command,
     HostKeyVerifier? verifier,
   }) async {
     final host = await _guard(
@@ -117,14 +128,17 @@ class ShellTunnel {
       // ssh error, and the verifier is the only thing that knows which of the
       // two refusals it was.
       await _guard(address, () => host.authenticated, verifier);
+      final config = SSHPtyConfig(
+        type: terminalType,
+        width: columns,
+        height: rows,
+      );
       final pty = await _guard(
         address,
-        () => host.shell(
-          SSHPtyConfig(type: terminalType, width: columns, height: rows),
-        ),
+        () => command == null ? host.shell(config) : host.run(command, config),
         verifier,
       );
-      _log(address, 'shell on $terminalType ${columns}x$rows');
+      _log(address, '${command ?? 'shell'} on $terminalType ${columns}x$rows');
       return SshShellConnection(host, pty);
     } catch (_) {
       // Half-open is worse than none: an ssh connection left behind counts
@@ -298,6 +312,13 @@ class _SshHost implements ShellHost {
       // The pty and nothing beside it: no environment map, no x11, and the
       // shell request rather than an exec.
       _SshPty(await _client.shell(pty: pty));
+
+  @override
+  Future<ShellPty> run(String command, SSHPtyConfig pty) async =>
+      // Same channel and same pty as [shell]; the exec request in place of the
+      // shell request is the only difference, so a detach ends the channel the
+      // way `exit` ends a shell.
+      _SshPty(await _client.execute(command, pty: pty));
 
   @override
   Future<ShellExec> execute(String command) async =>

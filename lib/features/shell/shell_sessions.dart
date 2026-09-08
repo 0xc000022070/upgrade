@@ -238,9 +238,15 @@ class ShellSession extends ChangeNotifier {
   /// after the user has walked somewhere else does not drag them back.
   String? seed;
 
-  /// The herdr pane the seed attached this tab to, so a tap on that agent
+  /// What this tab runs in place of the host's login shell, for the tab's
+  /// whole life: a reconnect after the network dropped comes back to the same
+  /// agent rather than to a bare prompt. Null is a login shell, which is every
+  /// tab the user opens by hand.
+  String? command;
+
+  /// The herdr pane [command] attaches this tab to, so a tap on that agent
   /// finds this tab rather than opening another. In memory only: a restored
-  /// tab is a bare shell, and so is a reconnected one, which clears it.
+  /// tab is a bare shell, and its pane is not restored with it.
   PaneRef? pane;
 
   /// What the bar has armed, waiting for the next key or character. It lives
@@ -503,6 +509,7 @@ class ShellSessions extends ChangeNotifier {
     Host host, {
     HostKeyPrompt? prompt,
     String? seed,
+    String? command,
     PaneRef? pane,
   }) {
     if (!canOpen(host.id)) return null;
@@ -513,6 +520,7 @@ class ShellSessions extends ChangeNotifier {
       number,
       prompt: prompt,
       seed: seed,
+      command: command,
       pane: pane,
     );
     unawaited(tabs?.open(host.id, number));
@@ -527,6 +535,7 @@ class ShellSessions extends ChangeNotifier {
     int number, {
     HostKeyPrompt? prompt,
     String? seed,
+    String? command,
     PaneRef? pane,
   }) {
     final session =
@@ -536,6 +545,7 @@ class ShellSessions extends ChangeNotifier {
             host: host,
           )
           ..seed = seed
+          ..command = command
           ..pane = pane;
     _byHost.putIfAbsent(host.id, () => []).add(session);
     _active[host.id] = number;
@@ -814,6 +824,7 @@ class ShellSessions extends ChangeNotifier {
         privateKey: privateKey,
         columns: columns,
         rows: rows,
+        command: session.command,
         verifier: HostKeyVerifier(
           pinned: _pinnedThisRun[host.id] ?? host.hostKey,
           // Null on a reconnect and on anything else that arrives without a
@@ -951,12 +962,11 @@ class ShellSessions extends ChangeNotifier {
     session._decoder = null;
     final previous = session.connection;
     session.connection = null;
-    // The title belonged to the shell that died, and so did the pane its seed
-    // attached. A new one that never names itself would otherwise be read
-    // under the old one's name, and a tap on that agent would land in a bare
-    // shell.
+    // The title belonged to the shell that died: a new one that never names
+    // itself would otherwise be read under the old one's name. The pane
+    // outlives it, because the dial that follows carries the same attach and
+    // comes back to the same agent.
     session.title = null;
-    session.pane = null;
     session.pin = null;
     session.disarm();
     session.changed();

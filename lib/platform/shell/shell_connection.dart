@@ -54,9 +54,10 @@ class ExecResult {
   String get err => utf8.decode(stderr, allowMalformed: true);
 }
 
-/// What the store needs of the transport: open one shell at this size.
-/// The real one is `ShellTunnel.open`. Failures are thrown as the
-/// `VncFailure`-style reasons the header already knows how to word.
+/// What the store needs of the transport: open one shell at this size, or one
+/// [command] on a pty of that size instead of the login shell. The real one is
+/// `ShellTunnel.open`. Failures are thrown as the `VncFailure`-style reasons
+/// the header already knows how to word.
 typedef ShellOpener = Future<ShellConnection> Function({
   required String address,
   required int port,
@@ -64,6 +65,7 @@ typedef ShellOpener = Future<ShellConnection> Function({
   required String privateKey,
   required int columns,
   required int rows,
+  String? command,
   HostKeyVerifier? verifier,
 });
 
