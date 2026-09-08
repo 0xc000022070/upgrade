@@ -54,10 +54,44 @@ Future<void> openItemSheet(BuildContext context, String taskId) {
 /// gets exactly one modal surface, and a sheet stacked on a sheet is the chrome
 /// the design exists to remove.
 ///
-/// [send] is the picker and the state of the send that follows it, in one mode:
-/// the target it picked is what a retry needs, and going back means the same
-/// thing from either.
-enum _Mode { item, move, pair, send, dispatch }
+/// Sealed rather than an enum because two of the five carry something. The
+/// picked target and the state of the send that followed it used to sit beside
+/// the mode as their own nullable fields, which left three reads writing
+/// `if (target != null)` for a case that cannot happen and two writing
+/// `?? ''` for the same one. A dispatch is not a dispatch without a target.
+sealed class _Mode {
+  const _Mode();
+}
+
+final class _Item extends _Mode {
+  const _Item();
+}
+
+final class _Move extends _Mode {
+  const _Move();
+}
+
+final class _Pair extends _Mode {
+  const _Pair();
+}
+
+/// The picker over the workspaces linked to the item's project.
+final class _Send extends _Mode {
+  const _Send();
+}
+
+/// One workspace picked, and what the send to it is doing once it has gone
+/// out. One mode and not two: the target the picker chose is what a retry
+/// needs, and going back means the same thing from either.
+final class _Dispatch extends _Mode {
+  const _Dispatch(this.target, {this.state});
+
+  final PathTarget target;
+
+  /// Null until `SEND` is tapped: before that this is the agent and model
+  /// picker, after it the one line the send is saying.
+  final SendState? state;
+}
 
 /// What the labelled line over the keyboard strip is holding, or null when
 /// there is none. The body field is the title and only ever the title: a link
@@ -83,22 +117,13 @@ class ItemSheet extends ConsumerStatefulWidget {
 }
 
 class _ItemSheetState extends ConsumerState<ItemSheet> {
-  _Mode _mode = _Mode.item;
+  _Mode _mode = const _Item();
 
   bool _editing = false;
   _Line? _line;
 
   /// A drop's DELETE is off the footer until the breadcrumb is held.
   bool _deleteRevealed = false;
-
-  /// The picked target, kept past the send: a failed send retries to the same
-  /// place, and the state lines name it.
-  PathTarget? _target;
-
-  /// Null while the picker is up. The send belongs to the open sheet and to
-  /// nothing else — closing it forgets an answer the `[ SENT ]` panel already
-  /// holds.
-  SendState? _sendState;
 
   final _field = TextEditingController();
   final _focus = FocusNode();
@@ -231,12 +256,12 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   }
 
   Future<void> _move(ItemTarget target) async {
-    setState(() => _mode = _Mode.item);
+    setState(() => _mode = const _Item());
     await ref.read(taskRepositoryProvider).moveToTarget(widget.taskId, target);
   }
 
   Future<void> _pair(String otherId) async {
-    setState(() => _mode = _Mode.item);
+    setState(() => _mode = const _Item());
     await ref.read(taskRepositoryProvider).pair(widget.taskId, otherId);
   }
 
@@ -250,11 +275,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
       _toDispatch(linked.first);
       return;
     }
-    setState(() {
-      _mode = _Mode.send;
-      _sendState = null;
-      _target = null;
-    });
+    setState(() => _mode = const _Send());
   }
 
   /// The directories linked to the item's project, empty for a drop. Watched
@@ -276,17 +297,13 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
 
   void _toDispatch(PathTarget target) {
     setState(() {
-      _mode = _Mode.dispatch;
-      _target = target;
-      _sendState = null;
+      _mode = _Dispatch(target);
       _model = null;
     });
-    _loadModels();
+    _loadModels(target);
   }
 
-  Future<void> _loadModels() async {
-    final target = _target;
-    if (target == null) return;
+  Future<void> _loadModels(PathTarget target) async {
     final kind = _kind;
     setState(() => _models = const PathScanLoading());
     final scan = await ref.read(pathScannerProvider).models(target.host, kind);
@@ -340,10 +357,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     final attachments =
         ref.read(itemAttachmentsProvider(widget.taskId)).valueOrNull ??
         const <Attachment>[];
-    setState(() {
-      _target = target;
-      _sendState = const SendSending();
-    });
+    setState(() => _mode = _Dispatch(target, state: const SendSending()));
     final state = await ref.read(senderProvider)(
       target: target,
       kind: _kind,
@@ -363,7 +377,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
       ],
     );
     if (!mounted) return;
-    setState(() => _sendState = state);
+    setState(() => _mode = _Dispatch(target, state: state));
   }
 
   Future<void> _delete() async {
@@ -389,13 +403,13 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     if (task == null) return const SizedBox.shrink();
 
     switch (_mode) {
-      case _Mode.move:
+      case _Move():
         return PanelSheetBody(
           title: 'MOVE TO',
           affordance: PanelAffordance(
             'BACK',
             icon: SpectacleIcons.back,
-            onTap: () => setState(() => _mode = _Mode.item),
+            onTap: () => setState(() => _mode = const _Item()),
           ),
           children: [
             TargetPickerBody(
@@ -404,43 +418,44 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
             ),
           ],
         );
-      case _Mode.pair:
+      case _Pair():
         return PanelSheetBody(
           title: 'PAIR WITH',
           affordance: PanelAffordance(
             'BACK',
             icon: SpectacleIcons.back,
-            onTap: () => setState(() => _mode = _Mode.item),
+            onTap: () => setState(() => _mode = const _Item()),
           ),
           children: [PairPickerBody(taskId: widget.taskId, onPicked: _pair)],
         );
-      case _Mode.send:
+      case _Send():
         return PanelSheetBody(
           title: 'SEND TO',
           affordance: PanelAffordance(
             'BACK',
             icon: SpectacleIcons.back,
-            onTap: () => setState(() {
-              _mode = _Mode.item;
-              _sendState = null;
-            }),
+            onTap: () => setState(() => _mode = const _Item()),
           ),
           children: [_sendBody(task)],
         );
-      case _Mode.dispatch:
+      case final _Dispatch dispatch:
         return PanelSheetBody(
-          title: _target?.title ?? 'SEND',
+          title: dispatch.target.title,
           affordance: PanelAffordance(
             'BACK',
             icon: SpectacleIcons.back,
-            onTap: () => setState(() {
-              _mode = _sendState == null ? _Mode.send : _Mode.item;
-              _sendState = null;
-            }),
+            // Back out of the picker while nothing has gone out; back out of
+            // the sheet's body once something has, because the picker would
+            // offer to send the same item a second time.
+            onTap: () => setState(
+              () => _mode = dispatch.state == null
+                  ? const _Send()
+                  : const _Item(),
+            ),
           ),
-          children: _dispatchBody(),
+          children: _dispatchBody(dispatch),
         );
-      case _Mode.item:
+      case _Item():
         return PanelSheetBody(
           title: location?.label ?? 'DROPS',
           // A drop's footer carries no state verbs, so its delete hangs off
@@ -597,9 +612,10 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   /// Both are offered as blocks and never as a field. A slug typed by hand is
   /// a slug that can be wrong, and the host is the only party that knows which
   /// ones its CLIs accept.
-  List<Widget> _dispatchBody() {
-    final state = _sendState;
-    if (state != null) return [_sendStatus(state)];
+  List<Widget> _dispatchBody(_Dispatch dispatch) {
+    if (dispatch.state case final state?) {
+      return [_sendStatus(dispatch.target, state)];
+    }
     return [
       Text('AGENT', style: SpectacleText.panelHeader),
       const SizedBox(height: Spacing.sm),
@@ -620,7 +636,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                     _kind = kind;
                     _model = null;
                   });
-                  _loadModels();
+                  _loadModels(dispatch.target);
                 },
               ),
             ),
@@ -638,10 +654,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           label: 'SEND',
           filled: true,
           tone: SpectacleColors.accent,
-          onTap: () {
-            final target = _target;
-            if (target != null) _dispatch(target);
-          },
+          onTap: () => _dispatch(dispatch.target),
         ),
       ),
     ];
@@ -732,14 +745,14 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   }
 
   /// What the send is doing, in the sheet the send was started from.
-  Widget _sendStatus(SendState state) {
+  Widget _sendStatus(PathTarget target, SendState state) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         _Field(
           label: 'TO',
-          child: Text(_target?.title ?? '', style: SpectacleText.value),
+          child: Text(target.title, style: SpectacleText.value),
         ),
         const SizedBox(height: Spacing.lg),
         Text(
@@ -766,13 +779,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                   onTap: () => Navigator.of(context).pop(),
                 )
               else
-                ActionBlock(
-                  label: 'RETRY',
-                  onTap: () {
-                    final target = _target;
-                    if (target != null) _dispatch(target);
-                  },
-                ),
+                ActionBlock(label: 'RETRY', onTap: () => _dispatch(target)),
             ],
           ),
         ],
@@ -856,7 +863,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ? [
               ToolbarAction(
                 glyph: ToolbarGlyph.move,
-                onTap: () => _toPicker(_Mode.move),
+                onTap: () => _toPicker(const _Move()),
               ),
             ]
           : [
@@ -876,11 +883,11 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
               ),
               ToolbarAction(
                 glyph: ToolbarGlyph.pair,
-                onTap: () => _toPicker(_Mode.pair),
+                onTap: () => _toPicker(const _Pair()),
               ),
               ToolbarAction(
                 glyph: ToolbarGlyph.move,
-                onTap: () => _toPicker(_Mode.move),
+                onTap: () => _toPicker(const _Move()),
               ),
               ToolbarAction(
                 glyph: ToolbarGlyph.done,
@@ -974,7 +981,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
             flashLabel: 'COPIED',
             onTap: () => _copyText(task),
           ),
-        ActionBlock(label: 'MOVE', onTap: () => _toPicker(_Mode.move)),
+        ActionBlock(label: 'MOVE', onTap: () => _toPicker(const _Move())),
         // Filed or not: what is sent is the text, and a project says nothing
         // about whether an agent can pick it up. Only a host with no path at
         // all takes the verb away — a block that answers with an empty list.
@@ -984,7 +991,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ActionBlock(
             label: task.bundleId == null ? 'PAIR' : 'UNPAIR',
             onTap: () => task.bundleId == null
-                ? _toPicker(_Mode.pair)
+                ? _toPicker(const _Pair())
                 : tasks.unpair(task.id),
           ),
           ActionBlock(
