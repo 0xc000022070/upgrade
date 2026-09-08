@@ -6,14 +6,37 @@ import 'package:flutter_test/flutter_test.dart';
 /// mounts the static background has to answer `listen` or it fails on an
 /// exception the app itself never sees. Answering it is enough: the driver
 /// starts from "not throttled" and these tests never change that.
-void stubDeviceChannels() {
+///
+/// The document picker is on the same channel. [document] is what `IMPORT`'s
+/// picker comes back with, [onSave] sees what `EXPORT` handed the picker, and
+/// [picker] false is a platform with none: both calls are then missing.
+void stubDeviceChannels({
+  Uint8List? document,
+  void Function(String name, Uint8List bytes)? onSave,
+  bool picker = true,
+}) {
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   const codec = StandardMethodCodec();
 
   messenger.setMockMethodCallHandler(
     const MethodChannel('dev.luisnquin.spectacle/device'),
-    (call) async => call.method == 'model' ? 'test device' : null,
+    (call) async {
+      switch (call.method) {
+        case 'model':
+          return 'test device';
+        case 'saveDocument':
+          if (!picker) throw MissingPluginException();
+          final args = call.arguments as Map;
+          onSave?.call(args['name'] as String, args['bytes'] as Uint8List);
+          return onSave != null;
+        case 'openDocument':
+          if (!picker) throw MissingPluginException();
+          return document;
+        default:
+          return null;
+      }
+    },
   );
 
   messenger.setMockMessageHandler(

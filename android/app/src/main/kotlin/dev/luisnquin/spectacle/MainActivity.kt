@@ -1,9 +1,11 @@
 package dev.luisnquin.spectacle
 
+import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -14,6 +16,11 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val power by lazy { getSystemService(Context.POWER_SERVICE) as PowerManager }
+
+    // One document picker at a time: the Dart call waiting on it, and for a
+    // save, the bytes to write once the user has chosen where.
+    private var pendingDocument: MethodChannel.Result? = null
+    private var pendingBytes: ByteArray? = null
 
     // The Android 12+ splash fades itself out over the app window it is already
     // covering. SPEC 16c.1 gives the whole boot log 600ms, and measurement put
@@ -39,12 +46,75 @@ class MainActivity : FlutterActivity() {
                     // version name and code the apk was signed with, so no
                     // package carries them into Dart.
                     "build" -> result.success(buildInfo())
+                    // SPEC 39.93's bundle goes through the system picker, so
+                    // the app never decides where the file lives.
+                    "saveDocument" -> saveDocument(call.argument<String>("name") ?: "spectacle.bundle",
+                        call.argument<String>("mime") ?: "application/octet-stream",
+                        call.argument<ByteArray>("bytes") ?: ByteArray(0),
+                        result)
+                    "openDocument" -> openDocument(result)
                     else -> result.notImplemented()
                 }
             }
 
         EventChannel(messenger, "dev.luisnquin.spectacle/device/throttle")
             .setStreamHandler(ThrottleStreamHandler(this, power))
+    }
+
+    private fun saveDocument(name: String, mime: String, bytes: ByteArray, result: MethodChannel.Result) {
+        if (pendingDocument != null) {
+            result.error("busy", "a document picker is already up", null)
+            return
+        }
+        pendingDocument = result
+        pendingBytes = bytes
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = mime
+            putExtra(Intent.EXTRA_TITLE, name)
+        }
+        startActivityForResult(intent, SAVE_DOCUMENT)
+    }
+
+    private fun openDocument(result: MethodChannel.Result) {
+        if (pendingDocument != null) {
+            result.error("busy", "a document picker is already up", null)
+            return
+        }
+        pendingDocument = result
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+        }
+        startActivityForResult(intent, OPEN_DOCUMENT)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != SAVE_DOCUMENT && requestCode != OPEN_DOCUMENT) return
+        val result = pendingDocument ?: return
+        val bytes = pendingBytes
+        pendingDocument = null
+        pendingBytes = null
+        val uri: Uri? = if (resultCode == Activity.RESULT_OK) data?.data else null
+        if (uri == null) {
+            // Dismissed: nothing happened, and Dart says nothing about it.
+            result.success(if (requestCode == SAVE_DOCUMENT) false else null)
+            return
+        }
+        try {
+            if (requestCode == SAVE_DOCUMENT) {
+                contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes ?: ByteArray(0)) }
+                    ?: throw IllegalStateException("no stream for $uri")
+                result.success(true)
+            } else {
+                val read = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: throw IllegalStateException("no stream for $uri")
+                result.success(read)
+            }
+        } catch (e: Exception) {
+            result.error("document", e.message, null)
+        }
     }
 
     private fun buildInfo(): Map<String, Any> {
@@ -58,6 +128,9 @@ class MainActivity : FlutterActivity() {
         return mapOf("version" to (info.versionName ?: ""), "code" to code)
     }
 }
+
+private const val SAVE_DOCUMENT = 3901
+private const val OPEN_DOCUMENT = 3902
 
 // Battery saver and thermal pressure are two OS signals with one meaning for
 // this app: stop spending frames on decoration. They are merged here rather than
