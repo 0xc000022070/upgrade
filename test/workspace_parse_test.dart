@@ -315,6 +315,14 @@ index 1a2b3c..4d5e6f 100644
       expect(shellCd('/srv/~gate'), "cd '/srv/~gate'");
     });
 
+    test('a shell in a directory execs one, and only after the cd', () {
+      // `&&`, not `;`: a directory that is gone leaves the tab with the cd's
+      // own error rather than a shell in the home the caller never asked for.
+      expect(shellIn('~/my src'), "cd ~/'my src' && exec \$SHELL -l");
+      // Left for the host to expand: whose shell it is is the host's answer.
+      expect(shellIn('/srv/gate'), contains(r'exec $SHELL'));
+    });
+
     test('a listing is not a repository question', () {
       // The explorer walks any directory the workspace holds, and a checkout
       // test on every step would be a round trip spent on nothing.

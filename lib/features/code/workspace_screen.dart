@@ -145,12 +145,12 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           ListRow(
             title: 'SHELL',
             value: 'OPEN',
-            // The directory is handed over as a typed line, so the terminal
-            // comes up where the screen was rather than in `$HOME`.
+            // The directory is the tab's own command, so the terminal comes up
+            // where the screen was rather than in `$HOME`.
             onTap: () => openHostShell(
               context,
               widget.host,
-              seed: shellCd(_controller.directory),
+              command: shellIn(_controller.directory),
             ),
           ),
         ],

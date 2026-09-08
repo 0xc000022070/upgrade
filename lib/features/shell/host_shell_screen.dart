@@ -42,7 +42,6 @@ class HostShellRoute extends ConsumerStatefulWidget {
     super.key,
     required this.host,
     this.session,
-    this.seed,
     this.command,
     this.pane,
     this.onSwitchHost,
@@ -59,9 +58,6 @@ class HostShellRoute extends ConsumerStatefulWidget {
   /// The tab to land on, when the way in named one. Null opens the host's last
   /// active tab, or its first shell when there is none.
   final ShellSession? session;
-
-  /// A line typed into a fresh tab as it comes up.
-  final String? seed;
 
   /// What a fresh tab runs in place of the login shell.
   final String? command;
@@ -128,19 +124,16 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       if (!mounted) return;
       final sessions = ref.read(shellSessionsProvider);
       final wanted = widget.session;
-      final seed = widget.seed;
       final command = widget.command;
       if (wanted != null) {
         sessions.activate(widget.host.id, wanted);
-      } else if ((seed != null || command != null) &&
-          sessions.canOpen(widget.host.id)) {
-        // A seeded or commanded open is a tab of its own even when the host
-        // already has some: the caller asked for one directory or one agent,
-        // and landing in whatever tab was last active would not be that.
+      } else if (command != null && sessions.canOpen(widget.host.id)) {
+        // A commanded open is a tab of its own even when the host already has
+        // some: the caller asked for one directory or one agent, and landing
+        // in whatever tab was last active would not be that.
         sessions.open(
           widget.host,
           prompt: _askHostKey,
-          seed: seed,
           command: command,
           pane: widget.pane,
         );

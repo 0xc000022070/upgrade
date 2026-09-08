@@ -17,18 +17,11 @@ void openHostShell(
   BuildContext context,
   Host host, {
   ShellSession? session,
-  String? seed,
   String? command,
   PaneRef? pane,
 }) {
   Navigator.of(context, rootNavigator: true).push(
-    ShellSheetRoute(
-      host: host,
-      session: session,
-      seed: seed,
-      command: command,
-      pane: pane,
-    ),
+    ShellSheetRoute(host: host, session: session, command: command, pane: pane),
   );
 }
 
@@ -53,23 +46,13 @@ const _sheetLeaveShare = 1 / 3;
 /// The wash is lighter than the panel sheet's: what shows through it is the
 /// tab the shell was opened from, and it should still read as that tab.
 class ShellSheetRoute extends PopupRoute<void> implements SheetDrag {
-  ShellSheetRoute({
-    required this.host,
-    this.session,
-    this.seed,
-    this.command,
-    this.pane,
-  });
+  ShellSheetRoute({required this.host, this.session, this.command, this.pane});
 
   final Host host;
   final ShellSession? session;
 
-  /// A line the shell opens on, which is how a workspace hands its directory
-  /// to a terminal.
-  final String? seed;
-
   /// What the tab runs in place of the login shell, which is how an agent row
-  /// hands its attach to a terminal.
+  /// hands its attach, and a workspace its directory, to a terminal.
   final String? command;
 
   /// The herdr pane [command] attaches the tab to, remembered on the tab so
@@ -106,7 +89,6 @@ class ShellSheetRoute extends PopupRoute<void> implements SheetDrag {
       child: _SheetContents(
         host: host,
         session: session,
-        seed: seed,
         command: command,
         pane: pane,
       ),
@@ -285,14 +267,12 @@ class _SheetContents extends StatefulWidget {
   const _SheetContents({
     required this.host,
     this.session,
-    this.seed,
     this.command,
     this.pane,
   });
 
   final Host host;
   final ShellSession? session;
-  final String? seed;
   final String? command;
   final PaneRef? pane;
 
@@ -321,7 +301,6 @@ class _SheetContentsState extends State<_SheetContents> {
       // Only the host the sheet opened on is the one they were meant for:
       // switching hosts carries nothing of the directory or the agent it came
       // from.
-      seed: _host.id == widget.host.id ? widget.seed : null,
       command: _host.id == widget.host.id ? widget.command : null,
       pane: _host.id == widget.host.id ? widget.pane : null,
       onSwitchHost: _switchTo,
