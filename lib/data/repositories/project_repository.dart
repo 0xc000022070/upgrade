@@ -5,6 +5,7 @@ import '../database.dart';
 import '../enums.dart';
 import '../views.dart';
 import 'activity_repository.dart';
+import 'mutation.dart';
 
 class ProjectRepository {
   ProjectRepository(this._db, this._activity);
@@ -15,6 +16,15 @@ class ProjectRepository {
 
   /// The "leave it alone" value of [edit]'s three-valued `parentId`.
   static const _keepParent = Object();
+
+  /// A project is its own context, so its events carry none.
+  late final _mutations = Mutations<Project>(
+    db: _db,
+    activity: _activity,
+    entityType: EntityType.project,
+    read: _byId,
+    title: (project) => project.name,
+  );
 
   /// The flat list the MOVE picker and the `[ PARENT ]` picker are
   /// drawn from. Ordered by creation, not priority: priority is stored as its
@@ -112,57 +122,41 @@ class ProjectRepository {
     ProjectStatus? status,
     Priority? priority,
     Object? parentId = _keepParent,
-  }) {
-    final now = DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final project = await _byId(id);
-      final moving = !identical(parentId, _keepParent);
-      if (moving && parentId != null) {
-        await _guardParent(id, parentId as String);
-      }
-      await (_db.update(_db.projects)..where((p) => p.id.equals(id))).write(
-        ProjectsCompanion(
-          parentId: moving ? Value(parentId as String?) : const Value.absent(),
-          name: name == null ? const Value.absent() : Value(name),
-          description: description == null
-              ? const Value.absent()
-              : Value(description),
-          objective: objective == null
-              ? const Value.absent()
-              : Value(objective),
-          status: status == null ? const Value.absent() : Value(status),
-          priority: priority == null ? const Value.absent() : Value(priority),
-          updatedAt: Value(now),
-        ),
-      );
-      await _activity.log(
-        entityType: EntityType.project,
-        entityId: id,
-        action: ActivityAction.updated,
-        title: name ?? project.name,
-        at: now,
-      );
-    });
-  }
+  }) => _mutations.on(id).titled(name).writes(ActivityAction.updated, (
+    project,
+    now,
+  ) async {
+    final moving = !identical(parentId, _keepParent);
+    if (moving && parentId != null) {
+      await _guardParent(id, parentId as String);
+    }
+    await _write(
+      id,
+      ProjectsCompanion(
+        parentId: moving ? Value(parentId as String?) : const Value.absent(),
+        name: name == null ? const Value.absent() : Value(name),
+        description: description == null
+            ? const Value.absent()
+            : Value(description),
+        objective: objective == null ? const Value.absent() : Value(objective),
+        status: status == null ? const Value.absent() : Value(status),
+        priority: priority == null ? const Value.absent() : Value(priority),
+        updatedAt: Value(now),
+      ),
+    );
+    return null;
+  });
 
-  Future<void> setStatus(String id, ProjectStatus status) {
-    final now = DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final project = await _byId(id);
-      if (project.status == status) return;
-      await (_db.update(_db.projects)..where((p) => p.id.equals(id))).write(
-        ProjectsCompanion(status: Value(status), updatedAt: Value(now)),
-      );
-      await _activity.log(
-        entityType: EntityType.project,
-        entityId: id,
-        action: ActivityAction.updated,
-        title: project.name,
-        detail: '${project.status.name} → ${status.name}',
-        at: now,
-      );
-    });
-  }
+  Future<void> setStatus(String id, ProjectStatus status) => _mutations
+      .on(id)
+      .unchangedWhen((project) => project.status == status)
+      .writes(ActivityAction.updated, (project, now) async {
+        await _write(
+          id,
+          ProjectsCompanion(status: Value(status), updatedAt: Value(now)),
+        );
+        return '${project.status.name} → ${status.name}';
+      });
 
   /// Archive and unarchive are one tap, not a trip through the
   /// status field, but they write the same column the form's STATUS block does.
@@ -180,43 +174,41 @@ class ProjectRepository {
   /// transaction. Leaving the children behind would orphan them — a project
   /// whose parent is gone is reachable from no list, since every list is either
   /// roots-only or a parent's own panel.
-  Future<void> delete(String id, {DateTime? at}) {
-    final now = at ?? DateTime.now().toUtc();
-    return _db.transaction(() async {
-      final project = await _byId(id);
-      final ids = await _db.subtreeIds(id);
-      await (_db.update(_db.tasks)..where((t) => t.projectId.isIn(ids))).write(
-        TasksCompanion(
-          projectId: const Value(null),
-          goalId: const Value(null),
-          updatedAt: Value(now),
-        ),
-      );
-      await (_db.delete(
-        _db.notes,
-      )..where((n) => n.projectId.isIn(ids) & n.taskId.isNull())).go();
-      await (_db.update(_db.notes)..where((n) => n.projectId.isIn(ids))).write(
-        NotesCompanion(projectId: const Value(null), updatedAt: Value(now)),
-      );
-      await (_db.delete(_db.goals)..where((g) => g.projectId.isIn(ids))).go();
-      // A registered directory outlives the project it was filed under. The
-      // code on the machine did not stop existing because the plan around it
-      // did, so the link is cleared and the row stays. Done here because this
-      // database never enables `PRAGMA foreign_keys`: nothing else would.
-      await (_db.update(_db.paths)..where((p) => p.projectId.isIn(ids))).write(
-        const PathsCompanion(projectId: Value(null)),
-      );
-      await (_db.delete(_db.projects)..where((p) => p.id.isIn(ids))).go();
-      await _activity.log(
-        entityType: EntityType.project,
-        entityId: id,
-        action: ActivityAction.deleted,
-        title: project.name,
-        detail: ids.length > 1 ? 'and ${ids.length - 1} below' : null,
-        at: now,
-      );
-    });
-  }
+  Future<void> delete(
+    String id, {
+    DateTime? at,
+  }) => _mutations.on(id).at(at).writes(ActivityAction.deleted, (
+    project,
+    now,
+  ) async {
+    final ids = await _db.subtreeIds(id);
+    await (_db.update(_db.tasks)..where((t) => t.projectId.isIn(ids))).write(
+      TasksCompanion(
+        projectId: const Value(null),
+        goalId: const Value(null),
+        updatedAt: Value(now),
+      ),
+    );
+    await (_db.delete(
+      _db.notes,
+    )..where((n) => n.projectId.isIn(ids) & n.taskId.isNull())).go();
+    await (_db.update(_db.notes)..where((n) => n.projectId.isIn(ids))).write(
+      NotesCompanion(projectId: const Value(null), updatedAt: Value(now)),
+    );
+    await (_db.delete(_db.goals)..where((g) => g.projectId.isIn(ids))).go();
+    // A registered directory outlives the project it was filed under. The
+    // code on the machine did not stop existing because the plan around it
+    // did, so the link is cleared and the row stays. Done here because this
+    // database never enables `PRAGMA foreign_keys`: nothing else would.
+    await (_db.update(_db.paths)..where((p) => p.projectId.isIn(ids))).write(
+      const PathsCompanion(projectId: Value(null)),
+    );
+    await (_db.delete(_db.projects)..where((p) => p.id.isIn(ids))).go();
+    return ids.length > 1 ? 'and ${ids.length - 1} below' : null;
+  });
+
+  Future<int> _write(String id, ProjectsCompanion values) =>
+      (_db.update(_db.projects)..where((p) => p.id.equals(id))).write(values);
 
   Future<Project> _byId(String id) =>
       (_db.select(_db.projects)..where((p) => p.id.equals(id))).getSingle();
