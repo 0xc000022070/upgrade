@@ -627,7 +627,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the header takes the title the shell sets, while it is live', (
+  testWidgets('the title the shell sets reaches the tab and nowhere else', (
     tester,
   ) async {
     final transport = FakeShellTransport();
@@ -637,14 +637,13 @@ void main() {
     transport.opened.single.emit('\x1b]0;luis@nyx: ~\x07');
     await ready(tester);
 
-    expect(find.text('luis@nyx: ~'), findsOneWidget);
+    expect(find.text('~'), findsOneWidget);
+    expect(find.text('luis@nyx: ~'), findsNothing);
 
-    // Once the shell is gone its name for itself is stale, and the state is
-    // what the row is for.
+    // Once the shell is gone the state is what the row is for.
     transport.opened.single.exit(1);
     await ready(tester);
 
-    expect(find.text('luis@nyx: ~'), findsNothing);
     expect(find.text('EXITED 1'), findsOneWidget);
 
     await unmount(tester);
