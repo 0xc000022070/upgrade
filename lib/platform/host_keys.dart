@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../application/reason_lines.dart';
+
 /// The machine's own key as the app keeps it: what kind it is and the OpenSSH
 /// fingerprint of it.
 ///
@@ -128,7 +130,9 @@ class HostKeyVerifier {
 /// The two lines every transport words a host key failure as. One sentence per
 /// refusal, the same in the shell's header, on the AGENTS panel and on HOSTS,
 /// because it is the same fact wherever it is found.
-String hostKeyReason(HostKeyRefusal refusal) => switch (refusal) {
-  HostKeyRefusal.unverified => 'host key unverified',
-  HostKeyRefusal.changed => 'host key changed',
-};
+extension HostKeyRefusalLine on HostKeyRefusal {
+  ReasonLine get line => switch (this) {
+    HostKeyRefusal.unverified => ReasonLine.hostKeyUnverified,
+    HostKeyRefusal.changed => ReasonLine.hostKeyChanged,
+  };
+}

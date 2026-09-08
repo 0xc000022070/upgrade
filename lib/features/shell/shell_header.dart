@@ -313,7 +313,7 @@ class _Middle extends StatelessWidget {
       ShellDropped(:final attempt) =>
         'RECONNECTING $attempt/${shellReconnectDelays.length}',
       ShellExited(:final code) => 'EXITED ${code ?? '—'}',
-      ShellFailed(:final kind) => _kindWord(kind),
+      ShellFailed(:final kind) => kind.line.short,
     };
     if (word == null) return const SizedBox.shrink();
     final label = Text(
@@ -339,18 +339,6 @@ class _Middle extends StatelessWidget {
     );
   }
 }
-
-/// The failure as one word for the header. The sentence with the host's name
-/// in it belongs to the row underneath.
-String _kindWord(ShellFailureKind kind) => switch (kind) {
-  ShellFailureKind.unresolved => 'UNRESOLVED',
-  ShellFailureKind.unreachable => 'UNREACHABLE',
-  ShellFailureKind.keyRejected => 'KEY REJECTED',
-  ShellFailureKind.shellRefused => 'SHELL REFUSED',
-  ShellFailureKind.streamClosed => 'STREAM CLOSED',
-  ShellFailureKind.hostKeyUnverified => 'HOST KEY UNVERIFIED',
-  ShellFailureKind.hostKeyChanged => 'HOST KEY CHANGED',
-};
 
 /// Why the shell is not there, in a sentence with the host's name in it.
 ///
@@ -407,7 +395,7 @@ class _ShellReasonRowState extends State<ShellReasonRow> {
                 children: [
                   Expanded(
                     child: Text(
-                      shellReason(widget.kind, widget.host.name),
+                      widget.kind.line.on(widget.host.name),
                       style: SpectacleText.panelHeader.copyWith(
                         color: SpectacleColors.warning,
                       ),

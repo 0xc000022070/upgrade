@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dartssh2/dartssh2.dart';
 
+import '../../application/reason_lines.dart';
 import '../herdr_client.dart';
 import '../host_keys.dart';
 
@@ -21,10 +22,11 @@ sealed class VncFailure implements Exception {
   /// `spectacle.vnc <host>: …` debug line.
   final String? detail;
 
-  /// The reason line, given the host it happened to. Only the two failures that
-  /// are about reaching a machine name it — the rest are about this connection
-  /// and read the same wherever they happen.
-  String reason(String host);
+  /// Which of the app's reason lines this failure is.
+  ReasonLine get line;
+
+  /// That line, given the host it happened to.
+  String reason(String host) => line.on(host);
 
   @override
   String toString() => '$runtimeType(${detail ?? ''})';
@@ -34,21 +36,21 @@ final class VncUnreachable extends VncFailure {
   const VncUnreachable([super.detail]);
 
   @override
-  String reason(String host) => '${host.toLowerCase()} unreachable';
+  ReasonLine get line => ReasonLine.unreachable;
 }
 
 final class VncUnresolved extends VncFailure {
   const VncUnresolved([super.detail]);
 
   @override
-  String reason(String host) => '${host.toLowerCase()} unresolved';
+  ReasonLine get line => ReasonLine.unresolved;
 }
 
 final class VncKeyRejected extends VncFailure {
   const VncKeyRejected([super.detail]);
 
   @override
-  String reason(String host) => 'key rejected';
+  ReasonLine get line => ReasonLine.keyRejected;
 }
 
 /// The `direct-tcpip` channel open was denied. SSH is live, so this is its own
@@ -57,7 +59,7 @@ final class VncTunnelRefused extends VncFailure {
   const VncTunnelRefused([super.detail]);
 
   @override
-  String reason(String host) => 'tunnel refused';
+  ReasonLine get line => ReasonLine.tunnelRefused;
 }
 
 /// The server's security list has neither `None` nor VNC Authentication
@@ -66,7 +68,7 @@ final class VncAuthUnsupported extends VncFailure {
   const VncAuthUnsupported([super.detail]);
 
   @override
-  String reason(String host) => 'auth unsupported';
+  ReasonLine get line => ReasonLine.authUnsupported;
 }
 
 /// The server offers VNC Authentication and nothing weaker, and the host row
@@ -75,7 +77,7 @@ final class VncPasswordNeeded extends VncFailure {
   const VncPasswordNeeded([super.detail]);
 
   @override
-  String reason(String host) => 'password needed';
+  ReasonLine get line => ReasonLine.passwordNeeded;
 }
 
 /// The server failed the password response. Worded beside `key rejected`,
@@ -84,7 +86,7 @@ final class VncAuthRejected extends VncFailure {
   const VncAuthRejected([super.detail]);
 
   @override
-  String reason(String host) => 'password rejected';
+  ReasonLine get line => ReasonLine.passwordRejected;
 }
 
 /// The RFB stream ended. Covers the tunnel dropping mid-session and a
@@ -94,7 +96,7 @@ final class VncStreamClosed extends VncFailure {
   const VncStreamClosed([super.detail]);
 
   @override
-  String reason(String host) => 'stream closed';
+  ReasonLine get line => ReasonLine.streamClosed;
 }
 
 /// Nothing is pinned for this host and the screen route's own sheet was not
@@ -103,7 +105,7 @@ final class VncHostKeyUnverified extends VncFailure {
   const VncHostKeyUnverified([super.detail]);
 
   @override
-  String reason(String host) => hostKeyReason(HostKeyRefusal.unverified);
+  ReasonLine get line => ReasonLine.hostKeyUnverified;
 }
 
 /// The machine presented a key that is not the one pinned for it.
@@ -111,7 +113,7 @@ final class VncHostKeyChanged extends VncFailure {
   const VncHostKeyChanged([super.detail]);
 
   @override
-  String reason(String host) => hostKeyReason(HostKeyRefusal.changed);
+  ReasonLine get line => ReasonLine.hostKeyChanged;
 }
 
 /// Every error the ssh layer can raise, on those lines.

@@ -181,14 +181,7 @@ class Sender {
       );
     } on HerdrFailure catch (error) {
       log(error.detail ?? error);
-      return SendFailed(switch (error) {
-        HerdrKeyRejected() => 'key rejected',
-        HerdrProtocolMismatch() => 'protocol ${error.protocol}',
-        HerdrUnresolved() => '${host.name.toLowerCase()} unresolved',
-        HerdrUnreachable() => '${host.name.toLowerCase()} unreachable',
-        HerdrHostKeyUnverified() => hostKeyReason(HostKeyRefusal.unverified),
-        HerdrHostKeyChanged() => hostKeyReason(HostKeyRefusal.changed),
-      });
+      return SendFailed(error.reason(host.name));
     }
     switch (result) {
       // The row is written here and only here: a send that did not come back

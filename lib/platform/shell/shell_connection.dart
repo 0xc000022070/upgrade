@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../application/reason_lines.dart';
 import '../host_keys.dart';
 
 /// One live shell on a host, whatever is carrying it.
@@ -92,6 +93,21 @@ enum ShellFailureKind {
   /// with no way past it here; the pin is dropped on the host form or not at
   /// all.
   hostKeyChanged,
+}
+
+/// Which sentence each kind is worded as. The header's word and the reason
+/// row's line are both read off it, so the two cannot say different things
+/// about the same failure.
+extension ShellFailureLine on ShellFailureKind {
+  ReasonLine get line => switch (this) {
+    ShellFailureKind.unresolved => ReasonLine.unresolved,
+    ShellFailureKind.unreachable => ReasonLine.unreachable,
+    ShellFailureKind.keyRejected => ReasonLine.keyRejected,
+    ShellFailureKind.shellRefused => ReasonLine.shellRefused,
+    ShellFailureKind.streamClosed => ReasonLine.streamClosed,
+    ShellFailureKind.hostKeyUnverified => ReasonLine.hostKeyUnverified,
+    ShellFailureKind.hostKeyChanged => ReasonLine.hostKeyChanged,
+  };
 }
 
 /// Thrown by the opener and by the transport while a session is up.

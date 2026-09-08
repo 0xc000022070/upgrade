@@ -7,6 +7,7 @@ import 'package:dartssh2/dartssh2.dart';
 
 import '../application/agent_kind.dart';
 import '../application/agent_state.dart';
+import '../application/reason_lines.dart';
 import 'host_keys.dart';
 import 'shell/remote_shell.dart';
 
@@ -255,12 +256,22 @@ sealed class HerdrFailure implements Exception {
   /// thing this layer deliberately does not know. The caller has both halves.
   final String? detail;
 
+  /// Which of the app's reason lines this failure is.
+  ReasonLine get line;
+
+  /// That line, given the host it happened to. The host's name is a thing this
+  /// layer deliberately does not know, so it is handed in.
+  String reason(String host) => line.on(host);
+
   @override
   String toString() => '$runtimeType(${detail ?? ''})';
 }
 
 final class HerdrUnreachable extends HerdrFailure {
   const HerdrUnreachable([super.detail]);
+
+  @override
+  ReasonLine get line => ReasonLine.unreachable;
 }
 
 /// The name never resolved, so no socket was ever opened. Separate from
@@ -268,27 +279,46 @@ final class HerdrUnreachable extends HerdrFailure {
 /// in the address, against a port, a firewall or a dead machine.
 final class HerdrUnresolved extends HerdrFailure {
   const HerdrUnresolved([super.detail]);
+
+  @override
+  ReasonLine get line => ReasonLine.unresolved;
 }
 
 final class HerdrKeyRejected extends HerdrFailure {
   const HerdrKeyRejected([super.detail]);
+
+  @override
+  ReasonLine get line => ReasonLine.keyRejected;
 }
 
 /// Nothing is pinned for this host, and nothing on this path may ask: the
 /// poll, the watcher and the send all run with nobody looking at them.
 final class HerdrHostKeyUnverified extends HerdrFailure {
   const HerdrHostKeyUnverified([super.detail]);
+
+  @override
+  ReasonLine get line => ReasonLine.hostKeyUnverified;
 }
 
 /// The machine presented a key that is not the one pinned for it.
 final class HerdrHostKeyChanged extends HerdrFailure {
   const HerdrHostKeyChanged([super.detail]);
+
+  @override
+  ReasonLine get line => ReasonLine.hostKeyChanged;
 }
 
 final class HerdrProtocolMismatch extends HerdrFailure {
   const HerdrProtocolMismatch([this.protocol, super.detail]);
 
   final int? protocol;
+
+  @override
+  ReasonLine get line => ReasonLine.protocolMismatch;
+
+  /// The only failure whose line carries a value.
+  @override
+  String reason(String host) => protocolLine(protocol);
 }
 
 /// One authenticated connection to a host, held open.
