@@ -33,12 +33,14 @@ const _outputSettles = Motion.fast;
 /// Every place the pane kept a copy of something the user sent, oldest first.
 ///
 /// Whichever buffer the pane is showing is the one read, and on an alternate
-/// screen that is one screen with no scrollback behind it. A Claude pane is
-/// always on one, so what it answers is the turns it is showing and no more:
-/// enough to mark where in a wall of tool output the user last spoke, and the
-/// steps walk that mark rather than the view, since there is nowhere to
-/// scroll. The main buffer alive underneath would answer with the shell lines
-/// from before the agent launched, which is why it is not read instead.
+/// screen that is one screen with no scrollback behind it. An agent asked for
+/// a fullscreen tui is on one, and then what this answers is the turns on that
+/// screen and no more: enough to mark where in a wall of tool output the user
+/// last spoke, with the steps walking that mark rather than the view, since
+/// there is nowhere to scroll. The same agent on its classic renderer keeps
+/// the main screen and gets the whole history. The buffer alive underneath an
+/// alternate screen is not read instead: it holds the shell lines from before
+/// the agent launched.
 ///
 /// Every kind is asked rather than one being chosen: a shell tab is an ssh
 /// session, and nothing about it says what was started inside it.
