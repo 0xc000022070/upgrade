@@ -12,6 +12,7 @@ import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/shell_tab_repository.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/shell/host_clipboard.dart';
+import '../../platform/shell/remote_shell.dart';
 import '../../platform/shell/shell_connection.dart';
 import '../../platform/shell/shell_tunnel.dart';
 import '../../platform/shell/strip_bytes.dart';
@@ -106,6 +107,80 @@ String shellReason(ShellFailureKind kind, String host) => switch (kind) {
   ),
   ShellFailureKind.hostKeyChanged => hostKeyReason(HostKeyRefusal.changed),
 };
+
+/// The private OSC a host's `pinentry-gate` asks a terminal through, and
+/// tells it the request was settled elsewhere. Either way the id comes next.
+const pinentryOsc = '7771';
+
+/// What the host's pinentry is asking: the words the agent gave it, decoded
+/// off the OSC's payload. `pin` wants a passphrase; `confirm` and `message`
+/// want a yes, and carry the agent's own labels for the blocks.
+class PinRequest {
+  const PinRequest({
+    required this.id,
+    required this.mode,
+    this.desc = '',
+    this.prompt = '',
+    this.error = '',
+    this.ok = '',
+    this.cancel = '',
+  });
+
+  /// Null for anything that is not a request: an id that is not one, a
+  /// payload that is not base64 or not JSON. A host is trusted to run a shell,
+  /// not to shape a command, and the id is the one thing here that reaches one.
+  static PinRequest? decode(String id, String payload) {
+    if (!pinentryRequestId.hasMatch(id)) return null;
+    try {
+      final json = jsonDecode(utf8.decode(base64Decode(payload)));
+      if (json is! Map<String, Object?>) return null;
+      String field(String key) {
+        final value = json[key];
+        return value is String ? value : '';
+      }
+
+      final mode = field('mode');
+      return PinRequest(
+        id: id,
+        mode: mode.isEmpty ? 'pin' : mode,
+        desc: field('desc'),
+        prompt: field('prompt'),
+        error: field('error'),
+        ok: field('ok'),
+        cancel: field('cancel'),
+      );
+    } on FormatException {
+      return null;
+    }
+  }
+
+  final String id;
+  final String mode;
+  final String desc;
+  final String prompt;
+  final String error;
+  final String ok;
+  final String cancel;
+
+  /// The field's label: the agent's prompt without its colon, in the app's
+  /// case, or the word the box on the computer uses.
+  String get promptLabel => _label(prompt, 'PASSPHRASE');
+
+  /// The affirmative block. `UNLOCK` for a passphrase; a confirm carries the
+  /// agent's own word, with pinentry's `_` mnemonic mark taken off.
+  String get okLabel => _label(ok, mode == 'pin' ? 'UNLOCK' : 'OK');
+
+  String get cancelLabel => _label(cancel, 'CANCEL');
+
+  static String _label(String text, String fallback) {
+    final cleaned = text
+        .replaceAll('_', '')
+        .trim()
+        .replaceAll(RegExp(r':$'), '')
+        .toUpperCase();
+    return cleaned.isEmpty ? fallback : cleaned;
+  }
+}
 
 /// One shell: its tab number, its terminal, and the connection under it.
 ///
@@ -205,6 +280,11 @@ class ShellSession extends ChangeNotifier {
   /// What the shell called itself, through the escape sequence a shell uses to
   /// name its window. Null until it says, which a bare `sh` never does.
   String? title;
+
+  /// What the host's pinentry is asking this tab, while it is asking. Set by
+  /// the OSC, cleared by the answer, by `done`, and by the link going: a
+  /// request outlives none of the connection it arrived on.
+  PinRequest? pin;
 
   /// What the host answered about its clipboard on this connection. Null
   /// until asked, and dropped with the connection: the answer is about the
@@ -562,6 +642,22 @@ class ShellSessions extends ChangeNotifier {
       session.title = title;
       session.changed();
     };
+    session.terminal.onPrivateOSC = (code, args) {
+      if (code != pinentryOsc || args.length < 2) return;
+      switch (args.first) {
+        case 'pin' when args.length >= 3:
+          // A second request while one stands replaces it: the fifo the first
+          // would be answered on is gone with the request that made it.
+          final request = PinRequest.decode(args[1], args[2]);
+          if (request == null) return;
+          session.pin = request;
+          session.changed();
+        case 'done':
+          if (session.pin?.id != args[1]) return;
+          session.pin = null;
+          session.changed();
+      }
+    };
     session.terminal.onResize = (columns, rows, _, _) {
       if (columns == session._columns && rows == session._rows) return;
       session._columns = columns;
@@ -641,6 +737,36 @@ class ShellSessions extends ChangeNotifier {
     session.changed();
   }
 
+  /// Tells the host's pinentry that this shell's pty is a place to ask. On
+  /// the shell's own connection, so the channel's parent is the sshd session
+  /// the shell hangs off and the mark names it. A host without the pinentry
+  /// gets a directory nobody reads, and a host whose `ps` disagrees gets
+  /// nothing; neither is worth a word in the terminal.
+  Future<void> _mark(ShellConnection connection) async {
+    try {
+      await connection.exec(pinentryMarkCommand);
+    } catch (_) {}
+  }
+
+  /// Answers the request the tab is holding. Null is the cancel, which is a
+  /// decision and reaches every surface; a sheet merely swiped away calls
+  /// nothing. The request is dropped before the channel is opened, so a
+  /// second tap sends nothing twice.
+  Future<void> answerPin(ShellSession session, String? passphrase) async {
+    final request = session.pin;
+    final connection = session.connection;
+    if (request == null) return;
+    session.pin = null;
+    session.changed();
+    if (connection == null) return;
+    try {
+      await connection.exec(
+        pinentryAnswerCommand(request.id),
+        stdin: Uint8List.fromList(utf8.encode('${passphrase ?? ''}\n')),
+      );
+    } catch (_) {}
+  }
+
   Future<void> _connect(
     Host host,
     ShellSession session, {
@@ -715,6 +841,7 @@ class ShellSessions extends ChangeNotifier {
         connection.write(Uint8List.fromList(utf8.encode('$seed\r')));
       }
       unawaited(_awaitExit(session, connection, attempt));
+      unawaited(_mark(connection));
       session.changed();
     } catch (error) {
       _fail(session, error, attempt);
@@ -730,6 +857,7 @@ class ShellSessions extends ChangeNotifier {
       final code = await connection.exitCode;
       if (!attempt.isCurrent) return;
       session.state = ShellExited(code);
+      session.pin = null;
       session.changed();
       // A shell the user typed `exit` into is finished, and its tab holds
       // nothing they asked to keep. Every other code is the shell saying
@@ -744,6 +872,7 @@ class ShellSessions extends ChangeNotifier {
   /// connection going away without a word for it.
   void _fail(ShellSession session, Object error, _Attempt attempt) {
     if (!attempt.isCurrent) return;
+    session.pin = null;
     final kind = error is ShellFailure
         ? error.kind
         : ShellFailureKind.streamClosed;
@@ -810,6 +939,7 @@ class ShellSessions extends ChangeNotifier {
     // The title belonged to the shell that died. A new one that never names
     // itself would otherwise be read under the old one's name.
     session.title = null;
+    session.pin = null;
     session.disarm();
     session.changed();
     await previous?.close();

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:spectacle/data/repositories/shell_tab_repository.dart';
 import 'package:spectacle/features/shell/host_shell_screen.dart';
 import 'package:spectacle/features/shell/shell_card.dart';
 import 'package:spectacle/features/shell/shell_sessions.dart';
+import 'package:spectacle/platform/shell/remote_shell.dart';
 import 'package:spectacle/platform/shell/shell_connection.dart';
 import 'package:spectacle/platform/vnc/keysyms.dart';
 import 'package:xterm/xterm.dart';
@@ -796,6 +798,197 @@ void main() {
     );
 
     await sessions.close(_rose.id, session);
+  });
+
+  group('a passphrase the host asks for', () {
+    const id = '0123456789abcdef';
+    String osc(Map<String, Object?> payload) =>
+        '\x1b]7771;pin;$id;${base64Encode(utf8.encode(jsonEncode(payload)))}\x07';
+
+    test(
+      'a request becomes the tab\'s, and done for its id clears it',
+      () async {
+        final transport = FakeShellTransport();
+        final sessions = fakeShellSessions(transport);
+        final session = sessions.open(_rose)!;
+        await _settle();
+        final connection = transport.opened.single;
+        var told = 0;
+        session.addListener(() => told++);
+
+        connection.emit(
+          osc({
+            'mode': 'pin',
+            'desc': 'Please enter the passphrase\n  SHA256:abc',
+            'prompt': 'Passphrase:',
+            'error': 'Bad Passphrase (try 2 of 3)',
+          }),
+        );
+        await _settle();
+        final request = session.pin!;
+        expect(request.id, id);
+        expect(request.desc, 'Please enter the passphrase\n  SHA256:abc');
+        expect(request.promptLabel, 'PASSPHRASE');
+        expect(request.error, 'Bad Passphrase (try 2 of 3)');
+        expect(request.okLabel, 'UNLOCK');
+        expect(request.cancelLabel, 'CANCEL');
+        expect(told, 1);
+        // The sequence is swallowed whole, nothing of it lands on the screen.
+        expect(session.terminal.buffer.getText(), isNot(contains('7771')));
+
+        connection.emit('\x1b]7771;done;fedcba9876543210\x07');
+        await _settle();
+        expect(session.pin, isNotNull);
+
+        connection.emit('\x1b]7771;done;$id\x07');
+        await _settle();
+        expect(session.pin, isNull);
+        expect(told, 2);
+
+        await sessions.close(_rose.id, session);
+      },
+    );
+
+    test('a confirm carries the agent\'s own labels', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      transport.opened.single.emit(
+        osc({
+          'mode': 'confirm',
+          'desc': 'Really?',
+          'ok': '_Yes',
+          'cancel': '_No',
+        }),
+      );
+      await _settle();
+      expect(session.pin!.okLabel, 'YES');
+      expect(session.pin!.cancelLabel, 'NO');
+      expect(session.pin!.promptLabel, 'PASSPHRASE');
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test('a shell that comes up marks its pty first', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      final marks = transport.opened.single.execs;
+      expect(marks.map((exec) => exec.command), [pinentryMarkCommand]);
+      expect(marks.single.stdin, isNull);
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test('an answer goes down the fifo on stdin, never on the line', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      connection.emit(osc({'mode': 'pin'}));
+      await _settle();
+      await sessions.answerPin(session, 'hunter2');
+
+      expect(session.pin, isNull);
+      final answer = connection.execs.last;
+      expect(answer.command, pinentryAnswerCommand(id));
+      expect(answer.command, isNot(contains('hunter2')));
+      expect(utf8.decode(answer.stdin!), 'hunter2\n');
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test('a cancel is the bare newline', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      connection.emit(osc({'mode': 'pin'}));
+      await _settle();
+      await sessions.answerPin(session, null);
+
+      expect(session.pin, isNull);
+      expect(connection.execs.last.command, pinentryAnswerCommand(id));
+      expect(connection.execs.last.stdin, [0x0a]);
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test(
+      'an id that is not hex is no request, and nothing runs for it',
+      () async {
+        final transport = FakeShellTransport();
+        final sessions = fakeShellSessions(transport);
+        final session = sessions.open(_rose)!;
+        await _settle();
+        final connection = transport.opened.single;
+
+        final payload = base64Encode(utf8.encode(jsonEncode({'mode': 'pin'})));
+        connection.emit('\x1b]7771;pin;../x;$payload\x07');
+        connection.emit('\x1b]7771;pin;$id;not base64!\x07');
+        connection.emit('\x1b]7771;pin;$id\x07');
+        await _settle();
+        expect(session.pin, isNull);
+
+        await sessions.answerPin(session, 'hunter2');
+        expect(connection.execs.map((exec) => exec.command), [
+          pinentryMarkCommand,
+        ]);
+
+        await sessions.close(_rose.id, session);
+      },
+    );
+
+    testWidgets('a shell that comes back marks again and forgets the request', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _pumpDial(tester);
+      transport.opened.single.emit(osc({'mode': 'pin'}));
+      await _pumpDial(tester);
+      expect(session.pin, isNotNull);
+
+      transport.opened.single.drop();
+      await tester.pump();
+      expect(session.pin, isNull);
+
+      await tester.pump(shellReconnectDelays.first);
+      await _pumpDial(tester);
+      expect(session.state, isA<ShellLive>());
+      expect(transport.opened, hasLength(2));
+      expect(transport.opened.last.execs.map((exec) => exec.command), [
+        pinentryMarkCommand,
+      ]);
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test('a shell that exits takes its request with it', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      connection.emit(osc({'mode': 'pin'}));
+      await _settle();
+      expect(session.pin, isNotNull);
+      connection.exit(0);
+      await _settle();
+      expect(session.pin, isNull);
+
+      await sessions.close(_rose.id, session);
+    });
   });
 
   testWidgets('a shell the user exited is not reconnected', (tester) async {

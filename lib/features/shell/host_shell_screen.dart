@@ -12,6 +12,7 @@ import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
+import '../../design/components/field_panel.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
@@ -153,6 +154,15 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   /// session: what is being looked for is looked for in the tab on screen.
   var _searching = false;
 
+  /// The request the sheet is up for, so a `done` from the host can take the
+  /// sheet down and nothing else can.
+  ({ShellSession session, String id})? _pinShown;
+  BuildContext? _pinSheet;
+
+  /// A request the user swiped off the phone. It stays open on the computer
+  /// and is not put back in front of them; the next id is a new request.
+  String? _pinDismissed;
+
   void _onClips() {
     if (mounted) setState(() {});
   }
@@ -160,6 +170,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   void _onSessions() {
     if (!mounted) return;
     setState(() {});
+    _withdrawPin();
+    if (_pinShown == null) unawaited(_askPins());
     if (_announcing) return;
     unawaited(_drain());
   }
@@ -189,6 +201,67 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     } finally {
       _announcing = false;
     }
+  }
+
+  /// Takes the sheet down when the request it was up for is gone: answered on
+  /// the computer, given up on by the agent, replaced, or lost with the link.
+  void _withdrawPin() {
+    final shown = _pinShown;
+    if (shown == null || shown.session.pin?.id == shown.id) return;
+    final sheet = _pinSheet;
+    if (sheet != null && sheet.mounted) Navigator.of(sheet).pop();
+  }
+
+  /// A request on any of this host's tabs, one sheet at a time as the exit
+  /// sheets are. The sheet coming down on its own — `done`, a swipe — sends
+  /// nothing; only a tap on one of its blocks reaches the host.
+  Future<void> _askPins() async {
+    while (mounted) {
+      final session = _nextPin(_store.forHost(widget.host.id));
+      final request = session?.pin;
+      if (session == null || request == null) break;
+      _pinShown = (session: session, id: request.id);
+      try {
+        final answer = await _pinSheetFor(session, request);
+        if (!mounted) return;
+        if (answer == null) {
+          _pinDismissed = request.id;
+        } else if (session.pin?.id == request.id) {
+          await _store.answerPin(session, answer.passphrase);
+        }
+      } finally {
+        _pinShown = null;
+        _pinSheet = null;
+      }
+    }
+  }
+
+  ShellSession? _nextPin(List<ShellSession> sessions) {
+    for (final session in sessions) {
+      final request = session.pin;
+      if (request == null || session.state is! ShellLive) continue;
+      if (request.id == _pinDismissed) continue;
+      return session;
+    }
+    return null;
+  }
+
+  Future<({String? passphrase})?> _pinSheetFor(
+    ShellSession session,
+    PinRequest request,
+  ) {
+    const title = 'AUTHORIZATION REQUIRED';
+    return showPanelSheet<({String? passphrase})>(
+      context,
+      title: title,
+      builder: (context) {
+        _pinSheet = context;
+        return PanelSheetBody(
+          title: title,
+          children: [_PinSheet(number: session.number, request: request)],
+        );
+      },
+    );
   }
 
   ShellSession? _nextBadExit(List<ShellSession> sessions) {
@@ -562,6 +635,90 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           },
         ),
       ),
+    );
+  }
+}
+
+/// What is under `AUTHORIZATION REQUIRED`: which shell, the agent's own words
+/// about the key, the error of a failed try, the field when a passphrase is
+/// wanted, and the two blocks under the agent's labels. Owns the field's
+/// controller, which is why it is a widget of its own.
+class _PinSheet extends StatefulWidget {
+  const _PinSheet({required this.number, required this.request});
+
+  final int number;
+  final PinRequest request;
+
+  @override
+  State<_PinSheet> createState() => _PinSheetState();
+}
+
+class _PinSheetState extends State<_PinSheet> {
+  final _field = TextEditingController();
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  void _decide(String? passphrase) =>
+      Navigator.of(context).pop((passphrase: passphrase));
+
+  @override
+  Widget build(BuildContext context) {
+    final request = widget.request;
+    final wantsPin = request.mode == 'pin';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('SHELL ${widget.number}', style: SpectacleText.label),
+        if (request.desc.isNotEmpty) ...[
+          const SizedBox(height: Spacing.sm),
+          Text(request.desc, style: SpectacleText.prose),
+        ],
+        if (request.error.isNotEmpty) ...[
+          const SizedBox(height: Spacing.sm),
+          Text(
+            request.error,
+            style: SpectacleText.prose.copyWith(color: SpectacleColors.danger),
+          ),
+        ],
+        const SizedBox(height: Spacing.md),
+        if (wantsPin) ...[
+          FieldPanel(
+            label: request.promptLabel,
+            controller: _field,
+            obscureText: true,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            onSubmitted: _decide,
+          ),
+          const SizedBox(height: Spacing.md),
+        ],
+        Row(
+          children: [
+            if (request.mode != 'message') ...[
+              Expanded(
+                child: ActionBlock(
+                  label: request.cancelLabel,
+                  onTap: () => _decide(null),
+                ),
+              ),
+              const SizedBox(width: Spacing.md),
+            ],
+            Expanded(
+              child: ActionBlock(
+                label: request.okLabel,
+                tone: SpectacleColors.accent,
+                filled: true,
+                onTap: () => _decide(wantsPin ? _field.text : 'ok'),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

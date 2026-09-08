@@ -59,3 +59,36 @@ class RemoteFile {
 
   String get remotePath => remotePathFor(name);
 }
+
+/// Where a host's `pinentry-gate` looks for terminals that want to be asked,
+/// and where it puts the fifo an answer goes into. The pinentry's own runtime
+/// directory; the shell expands it on the host, never the phone.
+const pinentryGateDirectory =
+    r'${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pinentry-gate';
+
+/// Marks this connection's shell as a place to ask. Run on an exec channel of
+/// the same connection: the channel's parent is the sshd session that also
+/// holds the shell, so `$PPID` names it, and the pty under that session is
+/// the shell's. The mark is the pid, which is what lets the pinentry tell a
+/// live mark from one whose session ended.
+final pinentryMarkCommand = underSh(
+  'd="$pinentryGateDirectory" && mkdir -p "\$d/tty" && chmod 700 "\$d" && '
+  't=\$(ps -eo ppid=,tty= | awk -v p="\$PPID" '
+  "'\$1 == p && \$2 ~ /^pts\\// { print \$2; exit }') && "
+  '[ -n "\$t" ] && printf %s "\$PPID" > "\$d/tty/pts-\${t#pts/}"',
+);
+
+/// What a request's id looks like; anything else is not one and is never put
+/// in a command.
+final pinentryRequestId = RegExp(r'^[a-f0-9]{16,32}$');
+
+/// Answers a request: the passphrase and its newline on stdin, a bare newline
+/// for a cancel. The fifo is written as it is and never created — once the
+/// pinentry has taken it down the request is settled, and a passphrase must
+/// not end up in a regular file in its place.
+String pinentryAnswerCommand(String id) {
+  assert(pinentryRequestId.hasMatch(id));
+  return underSh(
+    'f="$pinentryGateDirectory/$id" && [ -p "\$f" ] && cat > "\$f"',
+  );
+}
