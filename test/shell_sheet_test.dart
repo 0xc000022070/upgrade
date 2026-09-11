@@ -7,6 +7,7 @@ import 'package:spectacle/features/shell/shell_sessions.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/shell_route.dart' show noWorkspaces;
 
 const _rose = Host(
   id: 'h1',
@@ -29,7 +30,10 @@ void main() {
   setUp(stubDeviceChannels);
 
   Widget app(ShellSessions sessions) => ProviderScope(
-    overrides: [shellSessionsProvider.overrideWithValue(sessions)],
+    overrides: [
+      shellSessionsProvider.overrideWithValue(sessions),
+      noWorkspaces,
+    ],
     child: const MaterialApp(home: _Launcher()),
   );
 

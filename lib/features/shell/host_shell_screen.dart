@@ -9,6 +9,7 @@ import '../../application/clips.dart';
 import '../../application/providers.dart';
 import '../../application/shell_font.dart';
 import '../../data/repositories/host_repository.dart';
+import '../../data/repositories/path_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
@@ -20,6 +21,7 @@ import '../../design/typography.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/vnc/keysyms.dart';
+import '../code/diff_sheet.dart';
 import '../hosts/host_key_sheet.dart';
 import 'attach_sheet.dart';
 import 'shell_bar.dart';
@@ -43,6 +45,7 @@ class HostShellRoute extends ConsumerStatefulWidget {
     required this.host,
     this.session,
     this.command,
+    this.directory,
     this.pane,
     this.onSwitchHost,
   });
@@ -61,6 +64,10 @@ class HostShellRoute extends ConsumerStatefulWidget {
 
   /// What a fresh tab runs in place of the login shell.
   final String? command;
+
+  /// Where [command] leaves that tab standing, which is what the header's
+  /// `DIFF` opens on until the shell says it has moved.
+  final String? directory;
 
   /// The herdr pane [command] attaches the tab to, kept on the tab.
   final PaneRef? pane;
@@ -135,6 +142,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           widget.host,
           prompt: _askHostKey,
           command: command,
+          directory: widget.directory,
           pane: widget.pane,
         );
       } else if (sessions.forHost(widget.host.id).isEmpty) {
@@ -476,6 +484,98 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     _store.open(widget.host, prompt: _askHostKey);
   }
 
+  /// What the header's mark falls back to when the host cannot be asked where
+  /// the tab is standing: the directories registered on this host, one opening
+  /// straight away and several a pick.
+  ///
+  /// Read in build, so a directory registered while the shell is open puts the
+  /// mark on the row without the route being left and come back to.
+  List<({String directory, String label})> _diffTargets() {
+    final groups =
+        ref.watch(workspacesByHostProvider).valueOrNull ??
+        const <HostWorkspaces>[];
+    return [
+      for (final group in groups)
+        if (group.host.id == widget.host.id)
+          for (final path in group.paths)
+            (directory: path.directory, label: path.label),
+    ];
+  }
+
+  /// The directory each tab's checkout was last asked about, under the tab's
+  /// own mark, which no two tabs share and no tab changes. Dropped when the
+  /// connection goes, so a reconnect asks again.
+  final _asked = <String, String?>{};
+
+  /// Asks the host what checkout the tab is standing in, so the mark on the
+  /// header is dimmed or lit before it is tapped rather than after. Asked once
+  /// per place: a tab that says it has moved is asked again, and the answer is
+  /// written back so the rebuild it causes is not a second question.
+  void _askRepository(ShellSession? session) {
+    if (session == null) return;
+    if (session.connection == null) {
+      _asked.remove(session.mark);
+      return;
+    }
+    final mark = session.mark;
+    if (_asked.containsKey(mark) && _asked[mark] == session.cwd) return;
+    _asked[mark] = session.cwd;
+    unawaited(
+      _store.repositoryFromHost(session).then((_) {
+        if (mounted) _asked[mark] = session.cwd;
+      }),
+    );
+  }
+
+  /// The checkout the tab is standing in, and everything else is a fallback. A
+  /// shell that has been walked around in is standing somewhere the app was
+  /// never told about, and that is the whole point of the mark.
+  ///
+  /// Nothing is asked here. The mark was lit by an answer the screen already
+  /// has, so the sheet goes up on the tap rather than on the round trip after
+  /// it — and the sheet says for itself what it is still waiting for.
+  Future<void> _onDiff(
+    ShellSession? active,
+    List<({String directory, String label})> targets,
+  ) async {
+    final directory =
+        active?.repository ??
+        (targets.length == 1
+            ? targets.first.directory
+            : await _pickWorkspace(targets));
+    if (!mounted || directory == null) return;
+    await showDiffSheetAt(context, widget.host, directory);
+  }
+
+  /// Which checkout, when the host could not say and the tab was told more
+  /// than one. Nothing is chosen for the user here: two directories on the
+  /// same machine are two different repositories.
+  Future<String?> _pickWorkspace(
+    List<({String directory, String label})> targets,
+  ) {
+    const title = 'DIFF';
+    return showPanelSheet<String>(
+      context,
+      title: title,
+      builder: (context) => PanelSheetBody(
+        title: title,
+        children: [
+          ListRowGroup(
+            children: [
+              for (final target in targets)
+                ListRow(
+                  key: ValueKey('shell-diff-${target.directory}'),
+                  title: target.label.toUpperCase(),
+                  subtitle: shortPathLabel(target.directory),
+                  onTap: () => Navigator.of(context).pop(target.directory),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   double get _fontSize =>
       _pinched ??
       ref.read(shellFontSizeProvider).valueOrNull ??
@@ -567,6 +667,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
             final active = store.activeFor(widget.host.id);
             _follow(active);
             final state = active?.state;
+            final diffTargets = _diffTargets();
+            _askRepository(active);
             return Column(
               children: [
                 // The rows above the terminal are the sheet's grip: the
@@ -592,6 +694,17 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                         onSelect: _onSelect,
                         onNew: _onNew,
                         onClose: active == null ? null : () => _onClose(active),
+                        // A live shell can always be asked where it is, so
+                        // the mark is on the row whether the app was told a
+                        // directory or not — dimmed until something it could
+                        // open is known.
+                        onDiff:
+                            diffTargets.isEmpty && active?.connection == null
+                            ? null
+                            : () => _onDiff(active, diffTargets),
+                        diffReady:
+                            active?.repository != null ||
+                            diffTargets.isNotEmpty,
                         onStop: active == null
                             ? null
                             : () => store.stopReconnect(active),

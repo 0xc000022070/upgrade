@@ -68,9 +68,8 @@ void main() {
     });
 
     test('a rename keeps where it came from', () {
-      final renamed = parseStatus(
-        _status,
-      ).changes.firstWhere((c) => c.kind == WorkspaceChangeKind.renamed);
+      final renamed = parseStatus(_status).changes
+          .firstWhere((c) => c.kind == WorkspaceChangeKind.renamed);
       expect(renamed.path, 'lib/new name.dart');
       expect(renamed.origin, 'old name.dart');
     });
@@ -95,9 +94,7 @@ void main() {
     });
 
     test('the last record needs no trailing blank line', () {
-      final rows = parseWorktrees(
-        'worktree /srv/gate\nHEAD 9a8b\ndetached\n',
-      );
+      final rows = parseWorktrees('worktree /srv/gate\nHEAD 9a8b\ndetached\n');
       expect(rows.single.directory, '/srv/gate');
       expect(rows.single.branch, isNull);
     });
@@ -211,29 +208,118 @@ index 1a2b3c..4d5e6f 100644
 
     test('every line is classified and the marker column is dropped', () {
       final lines = parseDiff(diff);
-      final kinds = lines.map((l) => l.kind).toList();
-      expect(kinds.take(4), everyElement(DiffLineKind.meta));
-      expect(kinds[4], DiffLineKind.hunk);
-      expect(lines[5].kind, DiffLineKind.context);
-      expect(lines[5].text, "import 'dart:io';");
-      expect(lines[6].kind, DiffLineKind.removed);
-      expect(lines[6].text, 'const port = 22;');
-      expect(lines[7].kind, DiffLineKind.added);
-      expect(lines[7].text, 'const port = 357;');
+      expect(lines[0].kind, DiffLineKind.hunk);
+      expect(lines[1].kind, DiffLineKind.context);
+      expect(lines[1].text, "import 'dart:io';");
+      expect(lines[2].kind, DiffLineKind.removed);
+      expect(lines[2].text, 'const port = 22;');
+      expect(lines[3].kind, DiffLineKind.added);
+      expect(lines[3].text, 'const port = 357;');
       expect(lines.last.kind, DiffLineKind.meta);
     });
 
     test('an empty context line survives as an empty line', () {
       final lines = parseDiff(diff);
-      final blank = lines[8];
+      final blank = lines[4];
       expect(blank.kind, DiffLineKind.context);
       expect(blank.text, '');
     });
 
-    test('the +++ header is not read as an addition', () {
+    test('the preamble is not drawn, the +++ header least of all', () {
+      // The panel's own header already says which file this is, and a `+++`
+      // read as an addition would be a green line the file does not have.
       final lines = parseDiff(diff);
-      expect(lines[3].kind, DiffLineKind.meta);
-      expect(lines[3].text, '+++ b/lib/main.dart');
+      expect(
+        lines.map((line) => line.text),
+        isNot(contains(startsWith('+++'))),
+      );
+      expect(
+        lines.map((line) => line.text),
+        isNot(contains(startsWith('diff --git'))),
+      );
+    });
+
+    test('a line carries the numbers it has on each side of the change', () {
+      final lines = parseDiff(diff);
+      // `@@ -1,4 +1,4 @@`: the context line is line one either side, the
+      // removed line is line two of the old file and of no new one, and the
+      // line that replaced it is line two of the new file only.
+      expect((lines[1].oldLine, lines[1].newLine), (1, 1));
+      expect((lines[2].oldLine, lines[2].newLine), (2, null));
+      expect((lines[3].oldLine, lines[3].newLine), (null, 2));
+      expect((lines[4].oldLine, lines[4].newLine), (3, 3));
+      // The hunk header sits over both sides and is numbered by neither.
+      expect(lines[0].oldLine, isNull);
+      expect(lines[0].newLine, isNull);
+    });
+
+    test('a second hunk starts counting where its header says', () {
+      final lines = parseDiff('''
+@@ -1,1 +1,1 @@
+ first
+@@ -40,2 +41,2 @@
+ fortieth
+''');
+      expect(lines[1].oldLine, 1);
+      expect((lines[3].oldLine, lines[3].newLine), (40, 41));
+    });
+  });
+
+  group('the history', () {
+    test('a log line is split on the field mark, subject and all', () {
+      const log =
+          '1a2b3c${workspaceField}1a2b3c${workspaceField}Luis'
+          '${workspaceField}3 days ago${workspaceField}fix(shell): the font\n'
+          '4d5e6f${workspaceField}4d5e6f${workspaceField}Luis'
+          '${workspaceField}2 weeks ago${workspaceField}docs(spec): rulings\n';
+      final commits = parseCommits(log);
+      expect(commits, hasLength(2));
+      expect(commits.first.short, '1a2b3c');
+      expect(commits.first.author, 'Luis');
+      expect(commits.first.age, '3 days ago');
+      expect(commits.first.subject, 'fix(shell): the font');
+      expect(commits.last.subject, 'docs(spec): rulings');
+    });
+
+    test('a subject with a tab or a pipe in it is still one subject', () {
+      final commits = parseCommits(
+        'aaa${workspaceField}aaa${workspaceField}Luis'
+        '${workspaceField}an hour ago${workspaceField}feat: a\tb | c\n',
+      );
+      expect(commits.single.subject, 'feat: a\tb | c');
+    });
+
+    test('the letters say what happened to each file', () {
+      final changes = parseNameStatus(
+        'M\tlib/main.dart\n'
+        'A\tlib/new.dart\n'
+        'D\tlib/gone.dart\n'
+        'R100\tlib/old.dart\tlib/renamed.dart\n',
+      );
+      expect(changes.map((change) => change.kind), [
+        WorkspaceChangeKind.modified,
+        WorkspaceChangeKind.added,
+        WorkspaceChangeKind.deleted,
+        WorkspaceChangeKind.renamed,
+      ]);
+      // A rename is drawn as the name it has now, over the name it had.
+      expect(changes.last.path, 'lib/renamed.dart');
+      expect(changes.last.origin, 'lib/old.dart');
+    });
+
+    test("a commit's files carry both the counts and the kinds", () {
+      final files = parseCommitFiles(
+        '3\t1\tlib/main.dart\n'
+        '9\t0\tlib/new.dart\n'
+        '$workspaceRecord\n'
+        'M\tlib/main.dart\n'
+        'A\tlib/new.dart\n',
+      );
+      expect(files, hasLength(2));
+      expect(files.first.path, 'lib/main.dart');
+      expect(files.first.kind, WorkspaceChangeKind.modified);
+      expect((files.first.added, files.first.removed), (3, 1));
+      expect(files.last.kind, WorkspaceChangeKind.added);
     });
   });
 
@@ -245,6 +331,10 @@ index 1a2b3c..4d5e6f 100644
         WorkspaceCommands.newFileDiff('~/src/spectacle', 'scratch.txt'),
         WorkspaceCommands.listing('~/src/spectacle', 'lib'),
         WorkspaceCommands.file('~/src/spectacle', 'lib/main.dart'),
+        WorkspaceCommands.commits('~/src/spectacle'),
+        WorkspaceCommands.commitFiles('~/src/spectacle', '1a2b3c'),
+        WorkspaceCommands.commitDiff('~/src/spectacle', '1a2b3c', 'a.dart'),
+        WorkspaceCommands.repository('~/src/spectacle'),
       ];
       for (final command in commands) {
         expect(command, startsWith("sh -c '"));
@@ -265,6 +355,16 @@ index 1a2b3c..4d5e6f 100644
       expect(command, contains('exit $workspaceNoDirectory'));
       expect(command, contains('exit $workspaceNoRepository'));
       expect(workspaceNoDirectory, isNot(workspaceNoRepository));
+    });
+
+    test('the checkout a directory is inside is what is asked for', () {
+      final command = WorkspaceCommands.repository('~/src/spectacle/lib');
+      // The top level, not the directory: a shell three directories deep
+      // opens the whole repository rather than a corner of it.
+      expect(_script(command), contains('git rev-parse --show-toplevel'));
+      expect(_script(command), contains("cd ~/'src/spectacle/lib'"));
+      // And a directory inside no checkout says so by saying nothing.
+      expect(command, contains('exit $workspaceNoRepository'));
     });
 
     test('a quote in a path cannot end the command', () {
@@ -344,9 +444,49 @@ index 1a2b3c..4d5e6f 100644
       expect(command, contains('--no-index -- /dev/null'));
       expect(command, contains('exit 0'));
     });
+
+    test('the log is capped and its fields are marked', () {
+      final command = WorkspaceCommands.commits('/srv/gate', count: 20);
+      expect(command, contains('log'));
+      expect(command, contains('-n 20'));
+      // The fields are split on `US`, which a subject cannot hold.
+      expect(r"%x1f".allMatches(command), hasLength(4));
+    });
+
+    test("a commit's files are counted and named in one trip", () {
+      final command = WorkspaceCommands.commitFiles('/srv/gate', '1a2b3c');
+      expect(command, contains('--numstat'));
+      expect(command, contains('--name-status'));
+      expect(r"\036".allMatches(command), hasLength(1));
+    });
+
+    test('a merge is read along its first parent, so it has a diff at all', () {
+      // A merge against every parent is empty, which would read on the screen
+      // as a commit that changed nothing.
+      expect(
+        WorkspaceCommands.commitFiles('/srv/gate', '1a2b3c'),
+        contains('--first-parent'),
+      );
+      expect(
+        WorkspaceCommands.commitDiff('/srv/gate', '1a2b3c', 'a.dart'),
+        contains('--first-parent'),
+      );
+    });
+
+    test('nothing in the history writes', () {
+      final commands = [
+        WorkspaceCommands.commits('/srv/gate'),
+        WorkspaceCommands.commitFiles('/srv/gate', '1a2b3c'),
+        WorkspaceCommands.commitDiff('/srv/gate', '1a2b3c', 'a.dart'),
+      ];
+      for (final command in commands) {
+        expect(command, isNot(contains('checkout')));
+        expect(command, isNot(contains('reset')));
+        expect(command, contains('--no-color'));
+      }
+    });
   });
 }
-
 
 /// The script the host runs, with the outer `sh -c` quoting undone — which is
 /// the only level a test about the script itself should be reading at.

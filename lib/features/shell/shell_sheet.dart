@@ -18,10 +18,17 @@ void openHostShell(
   Host host, {
   ShellSession? session,
   String? command,
+  String? directory,
   PaneRef? pane,
 }) {
   Navigator.of(context, rootNavigator: true).push(
-    ShellSheetRoute(host: host, session: session, command: command, pane: pane),
+    ShellSheetRoute(
+      host: host,
+      session: session,
+      command: command,
+      directory: directory,
+      pane: pane,
+    ),
   );
 }
 
@@ -46,7 +53,13 @@ const _sheetLeaveShare = 1 / 3;
 /// The wash is lighter than the panel sheet's: what shows through it is the
 /// tab the shell was opened from, and it should still read as that tab.
 class ShellSheetRoute extends PopupRoute<void> implements SheetDrag {
-  ShellSheetRoute({required this.host, this.session, this.command, this.pane});
+  ShellSheetRoute({
+    required this.host,
+    this.session,
+    this.command,
+    this.directory,
+    this.pane,
+  });
 
   final Host host;
   final ShellSession? session;
@@ -54,6 +67,9 @@ class ShellSheetRoute extends PopupRoute<void> implements SheetDrag {
   /// What the tab runs in place of the login shell, which is how an agent row
   /// hands its attach, and a workspace its directory, to a terminal.
   final String? command;
+
+  /// Where [command] leaves the tab standing.
+  final String? directory;
 
   /// The herdr pane [command] attaches the tab to, remembered on the tab so
   /// the next tap on that agent finds it.
@@ -90,6 +106,7 @@ class ShellSheetRoute extends PopupRoute<void> implements SheetDrag {
         host: host,
         session: session,
         command: command,
+        directory: directory,
         pane: pane,
       ),
     );
@@ -268,12 +285,14 @@ class _SheetContents extends StatefulWidget {
     required this.host,
     this.session,
     this.command,
+    this.directory,
     this.pane,
   });
 
   final Host host;
   final ShellSession? session;
   final String? command;
+  final String? directory;
   final PaneRef? pane;
 
   @override
@@ -302,6 +321,7 @@ class _SheetContentsState extends State<_SheetContents> {
       // switching hosts carries nothing of the directory or the agent it came
       // from.
       command: _host.id == widget.host.id ? widget.command : null,
+      directory: _host.id == widget.host.id ? widget.directory : null,
       pane: _host.id == widget.host.id ? widget.pane : null,
       onSwitchHost: _switchTo,
     );

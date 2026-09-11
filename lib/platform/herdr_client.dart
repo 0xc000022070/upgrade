@@ -228,6 +228,13 @@ done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
     return underSh('exec ${_herdr(pane.session, arguments)}');
   }
 
+  /// The session's panes, each with the directory its own shell is standing
+  /// in. A tab attached to a pane is not standing where its attach is: the
+  /// shell that has the directory belongs to the multiplexer, and the
+  /// multiplexer is what can be asked about it.
+  static String panes(String session) =>
+      underSh('exec ${_herdr(session, 'pane list')}');
+
   static String processInfo(PaneRef pane) {
     _requirePane(pane.pane);
     return underSh(
@@ -967,6 +974,34 @@ class HerdrClient {
     if (processes is! List<Object?> || processes.length != 1) return false;
     final only = processes.single;
     return only is Map<String, Object?> && only['pid'] == shell;
+  }
+
+  /// Where one pane's shell is standing, out of a `pane list`. The shell's own
+  /// directory and not `foreground_cwd`: the directory a `vim` is standing in
+  /// is not the directory the shell is standing in.
+  ///
+  /// A null [paneId] asks for the focused pane, which is what a tab holding a
+  /// whole session is showing.
+  static String? parsePaneCwd(String source, String? paneId) {
+    Object? decoded;
+    try {
+      decoded = jsonDecode(source);
+    } on FormatException {
+      return null;
+    }
+    final result = decoded is Map<String, Object?> ? decoded['result'] : null;
+    final panes = result is Map<String, Object?> ? result['panes'] : null;
+    if (panes is! List<Object?>) return null;
+    for (final pane in panes) {
+      if (pane is! Map<String, Object?>) continue;
+      final wanted = paneId == null
+          ? pane['focused'] == true
+          : pane['pane_id'] == paneId;
+      if (!wanted) continue;
+      final cwd = pane['cwd'];
+      return cwd is String && cwd.startsWith('/') ? cwd : null;
+    }
+    return null;
   }
 
   /// Whether a failed `agent prompt --wait` means the text was never read:

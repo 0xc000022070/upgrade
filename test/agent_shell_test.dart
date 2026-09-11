@@ -8,6 +8,7 @@ import 'package:spectacle/features/agents/agent_shell.dart';
 import 'package:spectacle/features/shell/shell_sessions.dart';
 import 'package:spectacle/features/ssh/ssh_screen.dart';
 import 'package:spectacle/platform/herdr_client.dart';
+import 'package:spectacle/platform/shell/remote_shell.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -103,7 +104,7 @@ void main() {
     expect(session.command, _attach);
     // The channel's own command, and nothing typed at a shell: a line written
     // at a login shell races whatever that shell reads before its prompt.
-    expect(transport.commands, [_attach]);
+    expect(transport.commands, [shellMarked(session.mark, command: _attach)]);
     expect(transport.opened.single.written, isEmpty);
     expect(
       transport.opened.single.execs.map((exec) => exec.command),

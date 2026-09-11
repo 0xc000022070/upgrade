@@ -139,6 +139,31 @@ class WorkspaceController extends ChangeNotifier {
     return parseDiff(reply.stdout);
   }
 
+  /// The history behind the directory, newest first. Read once per screen and
+  /// held by the caller: a list of a hundred subjects does not change while a
+  /// diff is being read.
+  Future<List<Commit>?> commits() async {
+    final reply = await _run(WorkspaceCommands.commits(_directory));
+    if (reply == null || !reply.ok) return null;
+    return parseCommits(reply.stdout);
+  }
+
+  /// What one commit touched, counts and kinds together.
+  Future<List<WorkspaceFile>?> commitFiles(String sha) async {
+    final reply = await _run(WorkspaceCommands.commitFiles(_directory, sha));
+    if (reply == null || !reply.ok) return null;
+    return parseCommitFiles(reply.stdout);
+  }
+
+  /// One file's hunks inside one commit.
+  Future<List<DiffLine>?> commitDiff(String sha, String path) async {
+    final reply = await _run(
+      WorkspaceCommands.commitDiff(_directory, sha, path),
+    );
+    if (reply == null || !reply.ok) return null;
+    return parseDiff(reply.stdout);
+  }
+
   /// One directory's entries, [path] relative to [directory] and empty for the
   /// root itself.
   Future<List<DirEntry>?> list(String path) async {
