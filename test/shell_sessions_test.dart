@@ -16,6 +16,7 @@ import 'package:spectacle/platform/vnc/keysyms.dart';
 import 'package:xterm/xterm.dart';
 
 import 'support/fake_shell.dart';
+import 'support/shell_route.dart' show noWorkspaces;
 
 const _rose = Host(
   id: 'h1',
@@ -94,7 +95,9 @@ void main() {
     await _settle();
 
     expect(session.command, "cd '/srv/gate' && exec \$SHELL -l");
-    expect(transport.commands, [session.command]);
+    expect(transport.commands, [
+      shellMarked(session.mark, command: session.command),
+    ]);
     // Nothing typed at the far end: a line written at a login shell races
     // whatever that shell reads before its prompt.
     expect(transport.opened.single.written, isEmpty);
@@ -617,7 +620,8 @@ void main() {
     // tab is still the pane's.
     expect(session.pane, pane);
     expect(sessions.holding(_rose.id, pane), same(session));
-    expect(transport.commands, ['attach', 'attach']);
+    final marked = shellMarked(session.mark, command: 'attach');
+    expect(transport.commands, [marked, marked]);
     expect(transport.opened.last.written, isEmpty);
 
     await sessions.close(_rose.id, session);
@@ -743,7 +747,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [shellSessionsProvider.overrideWithValue(sessions)],
+        overrides: [
+          shellSessionsProvider.overrideWithValue(sessions),
+          noWorkspaces,
+        ],
         child: const MaterialApp(home: HostShellRoute(host: _rose)),
       ),
     );
@@ -855,7 +862,7 @@ void main() {
     // The whole of the ruling: the tab comes back on the pane it was on, with
     // the agent that is running there, under the mark that says a shell died.
     expect(session.state, isA<ShellLive>());
-    expect(transport.commands.last, attach);
+    expect(transport.commands.last, shellMarked(session.mark, command: attach));
     expect(session.pane, pane);
     expect(session.terminal.buffer.getText(), contains('-- reconnected --'));
 
@@ -1443,7 +1450,10 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [shellSessionsProvider.overrideWithValue(sessions)],
+          overrides: [
+            shellSessionsProvider.overrideWithValue(sessions),
+            noWorkspaces,
+          ],
           child: const MaterialApp(home: HostShellRoute(host: _rose)),
         ),
       );

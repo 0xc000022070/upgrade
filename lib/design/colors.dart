@@ -23,3 +23,20 @@ abstract final class SpectacleColors {
   static const warning = Color(0xFFD6A34B);
   static const danger = Color(0xFFB84A4A);
 }
+
+/// The second palette, held under the first: the colours the text *inside* a
+/// diff line is given, once the ground and the glyph have said which side of
+/// the change that line is on.
+///
+/// None of them is [SpectacleColors.accent] or [SpectacleColors.danger], which
+/// already mean added and removed here, and none is brighter than
+/// [SpectacleColors.textPrimary], which is what an uncoloured line is. Syntax
+/// is the quieter of the two things a diff says.
+abstract final class SyntaxColors {
+  static const keyword = Color(0xFF9E8CD0);
+  static const type = Color(0xFF6FB3A8);
+  static const string = Color(0xFFC49A5E);
+  static const number = Color(0xFF8AA9C4);
+  static const comment = Color(0xFF5B6470);
+  static const annotation = Color(0xFF8A93B8);
+}

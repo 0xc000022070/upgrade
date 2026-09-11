@@ -102,10 +102,10 @@ const _detailHeight = 56.0;
 /// word is what is cut to it; the cell is as wide as what it holds.
 const _tabMaxWidth = 88.0;
 
-/// How much of the header the tabs may take before they start to scroll inside
-/// it. Nine tabs are wider than a phone is, and the title is worth keeping a
-/// readable share of the row.
-const _tabsShare = 0.55;
+/// How much of the header the word between the cells may take. The tabs are
+/// what gives way on a narrow row, but not all of it: a long state word is
+/// still cut before it leaves the strip nothing to scroll.
+const _statusShare = 0.4;
 
 /// The word one tab is drawn with: what its shell calls itself, cut down to
 /// what a cell holds, and its number until it calls itself anything.
@@ -142,6 +142,8 @@ class ShellHeader extends StatefulWidget {
     required this.onNew,
     required this.onClose,
     required this.onStop,
+    required this.onDiff,
+    this.diffReady = false,
   });
 
   final Host host;
@@ -156,6 +158,16 @@ class ShellHeader extends StatefulWidget {
   final VoidCallback onNew;
   final VoidCallback? onClose;
   final VoidCallback? onStop;
+
+  /// Opens the diff of the repository the tab is standing in, or null when
+  /// there is none to open — a host with no registered directory and a tab
+  /// that has never said where it is.
+  final VoidCallback? onDiff;
+
+  /// Whether there is a checkout for it to open. False dims the mark and takes
+  /// its tap away: a tap that can only answer `NOT A CHECKOUT` is a tap spent
+  /// on what the app already knew.
+  final bool diffReady;
 
   @override
   State<ShellHeader> createState() => _ShellHeaderState();
@@ -193,6 +205,7 @@ class _ShellHeaderState extends State<ShellHeader> {
     final sessions = widget.sessions;
     final active = widget.active;
     final onClose = widget.onClose;
+    final onDiff = widget.onDiff;
     return Container(
       key: const ValueKey('shell-header'),
       height: _headerHeight,
@@ -205,10 +218,10 @@ class _ShellHeaderState extends State<ShellHeader> {
             const SizedBox(width: Spacing.screenEdge),
             _HostCell(name: host.name, onTap: widget.onSwitchHost),
             const SizedBox(width: Spacing.lg),
-            // The tabs take what they need and scroll for the rest, so a host
-            // with nine shells open still has a header and not an overflow.
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: box.maxWidth * _tabsShare),
+            // The strip is the one part of the row that gives way: the cells
+            // beside it keep the size of what they hold, and nine shells open
+            // scroll inside whatever is left rather than overflowing the row.
+            Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -235,11 +248,18 @@ class _ShellHeaderState extends State<ShellHeader> {
                 ),
               ),
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-                child: _Middle(state: active?.state, onStop: widget.onStop),
+            if (onDiff != null)
+              _TabCell(
+                key: const ValueKey('shell-tab-diff'),
+                icon: SpectacleIcons.branch,
+                dimmed: !widget.diffReady,
+                onTap: widget.diffReady ? onDiff : null,
               ),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: box.maxWidth * _statusShare,
+              ),
+              child: _Middle(state: active?.state, onStop: widget.onStop),
             ),
             if (onClose != null)
               _TabCell(
@@ -331,14 +351,20 @@ class _Middle extends StatelessWidget {
     // The only hit target the row carries. Dialling again is the app's job, so
     // there is nothing to press while it works — stopping it is the one part
     // of a reconnect that is a decision, and only the user can make it.
-    if (!between || onStop == null) return label;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Flexible(child: label),
-        const SizedBox(width: Spacing.lg),
-        PanelAffordance('STOP', showIcon: false, onTap: onStop!),
-      ],
+    // The word takes the room it needs and no more: while a shell is live
+    // there is nothing here at all, and the strip has the row to itself.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+      child: !between || onStop == null
+          ? label
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(child: label),
+                const SizedBox(width: Spacing.lg),
+                PanelAffordance('STOP', showIcon: false, onTap: onStop!),
+              ],
+            ),
     );
   }
 }
@@ -473,24 +499,40 @@ class _ReasonDetail extends StatelessWidget {
 class _TabCell extends StatelessWidget {
   const _TabCell({
     super.key,
-    required this.label,
+    this.label,
+    this.icon,
     required this.onTap,
     this.state,
     this.active = false,
-  });
+    this.dimmed = false,
+  }) : assert(label != null || icon != null, 'a word or a mark, not neither');
 
-  final String label;
+  final String? label;
+
+  /// Drawn in place of the word. The row holds nine tabs before it holds
+  /// anything else, and a mark costs a mark's width where a word costs four
+  /// letters of one.
+  final SpectacleIcons? icon;
+
+  /// Drawn, and not tappable. What it means is the cell's own: the diff mark
+  /// dims where the tab is standing in no checkout.
+  final bool dimmed;
 
   /// What the shell in this tab is doing, drawn as the dot the cards carry.
   /// Null on the cells that hold no shell — the plus and the close.
   final ShellState? state;
 
   final bool active;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final tint = active ? SpectacleColors.accent : SpectacleColors.textMuted;
+    final tint = switch ((active, dimmed)) {
+      (true, _) => SpectacleColors.accent,
+      (false, true) => SpectacleColors.textDisabled,
+      (false, false) => SpectacleColors.textMuted,
+    };
+    final label = this.label;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -523,16 +565,19 @@ class _TabCell extends StatelessWidget {
             // aligns its child takes every pixel its constraints allow, so a
             // cell capped at [_tabMaxWidth] is that wide even when it says `1`,
             // and the row has nothing left for what the shell is doing.
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _tabMaxWidth),
-              child: Text(
-                label,
-                style: SpectacleText.panelHeader.copyWith(color: tint),
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
+            if (icon case final icon?)
+              SpectacleIcon(icon, size: IconSizes.sm, color: tint)
+            else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _tabMaxWidth),
+                child: Text(
+                  label!,
+                  style: SpectacleText.panelHeader.copyWith(color: tint),
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
           ],
         ),
       ),

@@ -33,6 +33,83 @@ String shellCd(String directory) {
 /// opening a shell somewhere nobody asked for.
 String shellIn(String directory) => '${shellCd(directory)} && exec \$SHELL -l';
 
+/// The variable every tab's shell carries, so a host can be asked which of its
+/// processes is that tab. Exported before the `exec`, which is what carries it
+/// into the login shell that replaces it.
+const shellMarkVariable = 'SPECTACLE_TAB';
+
+/// What a mark may be, which is the one thing here that reaches a command the
+/// host runs: letters and digits, and nothing a shell or a `grep` reads as
+/// anything but itself.
+final shellMark = RegExp(r'^[a-z0-9]{6,32}$');
+
+/// What a tab actually runs: its mark, then whatever the tab was opened for —
+/// a directory to come up in, a pane to attach to, or the login shell itself.
+String shellMarked(String mark, {String? command}) {
+  assert(shellMark.hasMatch(mark));
+  return 'export $shellMarkVariable=$mark; ${command ?? 'exec \$SHELL -l'}';
+}
+
+/// Where the shell marked [mark] is standing, read off the host's own process
+/// table rather than waited for from the shell.
+///
+/// The topmost marked process is the tab's shell: everything it starts
+/// inherits the mark, and a child's directory is not the shell's. `/proc` and
+/// nothing else — a host that keeps its processes elsewhere answers nothing,
+/// which is what puts the tab back on what it was told.
+///
+/// `environ` is read a line at a time rather than with `grep -z`, which is
+/// GNU's and not every host's; stderr is closed at the top because a process
+/// list walked by a user is mostly other people's.
+String shellCwdProbe(String mark) {
+  assert(shellMark.hasMatch(mark));
+  const marked =
+      'tr "\\000" "\\n" < "\$1/environ" | grep -qx "$shellMarkVariable=';
+  return underSh(
+    'exec 2>/dev/null; '
+    'm() { $marked\$2"; }; '
+    'c=; s=; '
+    'for p in /proc/[0-9]*; do '
+    'm "\$p" $mark || continue; '
+    // The multiplexer is looked for on every marked process and the shell only
+    // on the topmost, so a client started deep in the tab is still found.
+    'a=\$(tr "\\000" " " < "\$p/cmdline"); '
+    'case "\${a%% *}" in herdr|*/herdr) '
+    's=\$(tr "\\000" "\\n" < "\$p/environ" | sed -n "s/^HERDR_SESSION=//p"); '
+    '[ -n "\$s" ] || case " \$a" in *" --session "*) '
+    's=\${a#* --session }; s=\${s%% *};; esac; '
+    '[ -n "\$s" ] || s=default;; esac; '
+    '[ -n "\$c" ] && continue; '
+    'q=\$(sed -n "s/^PPid:[[:space:]]*//p" "\$p/status"); '
+    'm "/proc/\$q" $mark && continue; '
+    'c=\$(readlink "\$p/cwd"); '
+    'done; '
+    'printf "%s\\n%s\\n" "\$c" "\$s"; '
+    '[ -n "\$c" ] || [ -n "\$s" ]',
+  );
+}
+
+/// Where a tab is standing, out of what [shellCwdProbe] answers: the directory
+/// of the tab's own shell, and the multiplexer session a client running in the
+/// tab is on. Both can be missing, and the session being there is what makes
+/// the directory a fallback rather than the answer.
+typedef ShellPlace = ({String? cwd, String? herdrSession});
+
+ShellPlace parseShellPlace(String source) {
+  final lines = source.split('\n');
+  String? line(int index) {
+    if (index >= lines.length) return null;
+    final value = lines[index].trim();
+    return value.isEmpty ? null : value;
+  }
+
+  final cwd = line(0);
+  return (
+    cwd: cwd != null && cwd.startsWith('/') ? cwd : null,
+    herdrSession: line(1),
+  );
+}
+
 /// Where a file the app pushes lands on a host. World-writable and cleared by
 /// the host's own reboot, which is the right lifetime for a file nothing ever
 /// comes back for. Shared by the shell's paste and by a send's images, so the

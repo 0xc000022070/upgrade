@@ -184,9 +184,7 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
       final connection = transport.opened.single;
-      expect(connection.execs.map((exec) => exec.command), [
-        pinentryMarkCommand,
-      ]);
+      expect(connection.execs.first.command, pinentryMarkCommand);
 
       connection.emit(request(error: 'Bad Passphrase (try 2 of 3)'));
       await ready(tester);
@@ -247,7 +245,10 @@ void main() {
       await ready(tester);
 
       expect(find.text('AUTHORIZATION REQUIRED'), findsNothing);
-      expect(connection.execs, hasLength(1));
+      expect(
+        connection.execs.map((exec) => exec.command),
+        isNot(contains(pinentryAnswerCommand(id))),
+      );
 
       await unmount(tester);
     });
@@ -269,7 +270,10 @@ void main() {
       await ready(tester);
 
       expect(find.text('AUTHORIZATION REQUIRED'), findsNothing);
-      expect(connection.execs, hasLength(1));
+      expect(
+        connection.execs.map((exec) => exec.command),
+        isNot(contains(pinentryAnswerCommand(id))),
+      );
       // The computer still has it; the phone is not asked twice for one id.
       expect(sessions.forHost(rose.id).single.pin?.id, id);
       connection.emit('hello\n');

@@ -113,6 +113,28 @@ class WorkspaceOverview {
   final List<WorkspaceFile> files;
 }
 
+/// One commit of the history, as the list draws it.
+class Commit {
+  const Commit({
+    required this.sha,
+    required this.short,
+    required this.author,
+    required this.age,
+    required this.subject,
+  });
+
+  final String sha;
+  final String short;
+  final String author;
+
+  /// `3 days ago`, in git's own words. The phone does no date arithmetic and
+  /// keeps no timezone of its own: whose clock a commit was made on is the
+  /// host's business, and `%ar` is already the sentence a person reads.
+  final String age;
+
+  final String subject;
+}
+
 enum DirEntryKind { directory, file, link }
 
 class DirEntry {
@@ -128,10 +150,16 @@ class DirEntry {
 enum DiffLineKind { meta, hunk, added, removed, context }
 
 class DiffLine {
-  const DiffLine(this.kind, this.text);
+  const DiffLine(this.kind, this.text, {this.oldLine, this.newLine});
 
   final DiffLineKind kind;
   final String text;
+
+  /// Where this line sits in the file before the change and in the file after
+  /// it. Null on the side the line is not on — an added line has no number on
+  /// the left — and on everything that is not a line of a file.
+  final int? oldLine;
+  final int? newLine;
 }
 
 /// Splits the composed answer of [WorkspaceCommands.overview] and parses each
@@ -273,6 +301,66 @@ List<WorkspaceFile> parseNumstat(String output) {
   return files;
 }
 
+/// One line per commit, its fields separated by [workspaceField]. A subject
+/// carrying that character is not a subject git could have been given, so
+/// everything past the fourth separator is the subject whole.
+List<Commit> parseCommits(String output) {
+  final commits = <Commit>[];
+  for (final line in _lines(output)) {
+    final fields = line.split(workspaceField);
+    if (fields.length < 5) continue;
+    commits.add(
+      Commit(
+        sha: fields[0],
+        short: fields[1],
+        author: fields[2],
+        age: fields[3],
+        subject: fields.sublist(4).join(workspaceField),
+      ),
+    );
+  }
+  return commits;
+}
+
+/// `<code>\t<path>` off `--name-status`, and `R<score>\t<old>\t<new>` for a
+/// rename. The score is not read: how alike the two files are says nothing the
+/// row has room for.
+List<WorkspaceChange> parseNameStatus(String output) {
+  final changes = <WorkspaceChange>[];
+  for (final line in _lines(output)) {
+    final fields = line.split('\t');
+    if (fields.length < 2) continue;
+    final kind = _kindOf(fields[0]);
+    final renamed = kind == WorkspaceChangeKind.renamed && fields.length >= 3;
+    changes.add(
+      WorkspaceChange(
+        path: renamed ? fields[2] : fields[1],
+        kind: kind,
+        origin: renamed ? fields[1] : null,
+      ),
+    );
+  }
+  return changes;
+}
+
+/// The two sections of [WorkspaceCommands.commitFiles]: the counts, and the
+/// letters that say what happened. Same shape as the working tree's list, so
+/// one row widget draws both.
+List<WorkspaceFile> parseCommitFiles(String output) {
+  final sections = output.split(workspaceRecord);
+  String section(int index) => index < sections.length ? sections[index] : '';
+  return mergeFiles(
+    WorkspaceStatus(
+      branch: null,
+      upstream: null,
+      ahead: 0,
+      behind: 0,
+      changes: parseNameStatus(section(1)),
+    ),
+    parseNumstat(section(0)),
+  );
+}
+
 /// The diff list the screen draws: numstat for what git can count, then the
 /// untracked files, which numstat says nothing about and which are most of
 /// what a half-finished change looks like.
@@ -345,27 +433,71 @@ List<DirEntry> parseListing(String output) {
 List<DiffLine> parseDiff(String output) {
   final lines = <DiffLine>[];
   var started = false;
+  var oldNo = 0;
+  var newNo = 0;
   for (final line in _lines(output, keepEmpty: true)) {
     if (line.startsWith('@@')) {
       started = true;
+      final at = _hunkStarts(line);
+      oldNo = at.$1;
+      newNo = at.$2;
       lines.add(DiffLine(DiffLineKind.hunk, line));
     } else if (!started) {
-      // The `diff --git`, `index`, `---` and `+++` preamble. Kept so a file
-      // with no hunks still says what it is, and drawn muted.
+      // The `diff --git`, `index`, `---` and `+++` preamble says what the
+      // panel's own header already says, so it is dropped rather than drawn.
+      // What is left of a preamble — `Binary files … differ`, a mode git could
+      // not apply — is the only thing a file with no hunks has to say.
+      if (_preamble.any(line.startsWith)) continue;
       lines.add(DiffLine(DiffLineKind.meta, line));
     } else if (line.startsWith('+')) {
-      lines.add(DiffLine(DiffLineKind.added, line.substring(1)));
+      lines.add(
+        DiffLine(DiffLineKind.added, line.substring(1), newLine: newNo++),
+      );
     } else if (line.startsWith('-')) {
-      lines.add(DiffLine(DiffLineKind.removed, line.substring(1)));
+      lines.add(
+        DiffLine(DiffLineKind.removed, line.substring(1), oldLine: oldNo++),
+      );
     } else if (line.startsWith('\\')) {
       lines.add(DiffLine(DiffLineKind.meta, line));
     } else {
       lines.add(
-        DiffLine(DiffLineKind.context, line.isEmpty ? line : line.substring(1)),
+        DiffLine(
+          DiffLineKind.context,
+          line.isEmpty ? line : line.substring(1),
+          oldLine: oldNo++,
+          newLine: newNo++,
+        ),
       );
     }
   }
   return lines;
+}
+
+const _preamble = [
+  'diff --git ',
+  'index ',
+  '--- ',
+  '+++ ',
+  'old mode ',
+  'new mode ',
+  'new file mode ',
+  'deleted file mode ',
+  'similarity index ',
+  'dissimilarity index ',
+  'rename from ',
+  'rename to ',
+  'copy from ',
+  'copy to ',
+];
+
+/// The first line number either side of `@@ -a,b +c,d @@`. A hunk git could
+/// not be read out of starts both sides at one, which is where a file starts.
+(int, int) _hunkStarts(String header) {
+  final match = RegExp(r'^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@').firstMatch(
+    header,
+  );
+  if (match == null) return (1, 1);
+  return (int.parse(match.group(1)!), int.parse(match.group(2)!));
 }
 
 WorkspaceChangeKind _kindOf(String code) {

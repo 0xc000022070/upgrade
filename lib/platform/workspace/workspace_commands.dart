@@ -5,6 +5,11 @@ import '../shell/remote_shell.dart';
 /// somebody's diff.
 const workspaceRecord = '\u001e';
 
+/// What separates the fields inside one line of `log`. `US`, for the reason
+/// [workspaceRecord] is `RS`: a subject holds whatever a person typed into
+/// it, tabs and pipes included.
+const workspaceField = '\u001f';
+
 /// The directory named is not there.
 const workspaceNoDirectory = 20;
 
@@ -18,15 +23,23 @@ const workspaceNoRepository = 21;
 /// one user action is one command, and a screen that wants three answers asks
 /// for them at once and splits the reply on [workspaceRecord].
 ///
-/// Nothing here writes. The whole surface is `status`, `worktree list`, `diff`
-/// and a listing — a workspace is read from the phone and changed from the
-/// shell.
+/// Nothing here writes. The whole surface is `status`, `worktree list`, `log`,
+/// `show`, `diff` and a listing — a workspace is read from the phone and
+/// changed from the shell. Reading a commit does not move `HEAD`.
 abstract final class WorkspaceCommands {
   /// `cd` plus the checkout test both answers share, with the two failures the
   /// caller can word given codes of their own.
   static String _enter(String directory) =>
       '${shellCd(directory)} 2>/dev/null || exit $workspaceNoDirectory\n'
       'git rev-parse --git-dir >/dev/null 2>&1 || exit $workspaceNoRepository\n';
+
+  /// The checkout a directory is inside, which is what the viewer opens: a
+  /// shell three directories deep is still standing in the whole repository.
+  /// A directory inside none exits non-zero and says so by saying nothing.
+  static String repository(String directory) => underSh(
+    '${_enter(directory)}'
+    'exec git rev-parse --show-toplevel\n',
+  );
 
   /// Everything the detail screen opens with: the branch line, the siblings,
   /// and what has changed. Three answers, one trip.
@@ -77,4 +90,32 @@ abstract final class WorkspaceCommands {
     '${shellCd(directory)} 2>/dev/null || exit $workspaceNoDirectory\n'
     'head -c $bytes -- ${shellQuote(path)}\n',
   );
+
+  /// The history behind the directory, newest first and capped: a phone is not
+  /// where a repository is read whole, and this list is a picker.
+  static String commits(String directory, {int count = 100}) => underSh(
+    '${_enter(directory)}'
+    'git --no-pager log --no-color -n $count '
+    "--pretty='format:%H%x1f%h%x1f%an%x1f%ar%x1f%s'\n",
+  );
+
+  /// One commit's files, in one trip: the counts, then the letters that say
+  /// what happened to each path. `--first-parent` so a merge shows the change
+  /// it brought in rather than nothing at all.
+  static String commitFiles(String directory, String sha) => underSh(
+    '${_enter(directory)}'
+    'git --no-pager show --no-color --first-parent --numstat --format= '
+    '${shellQuote(sha)}\n'
+    "printf '\\036\\n'\n"
+    'git --no-pager show --no-color --first-parent --name-status --format= '
+    '${shellQuote(sha)}\n',
+  );
+
+  /// One file's hunks inside one commit.
+  static String commitDiff(String directory, String sha, String path) =>
+      underSh(
+        '${_enter(directory)}'
+        'git --no-pager show --no-color --first-parent --format= '
+        '${shellQuote(sha)} -- ${shellQuote(path)}\n',
+      );
 }

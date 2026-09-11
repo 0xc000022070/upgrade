@@ -13,6 +13,7 @@ enum SpectacleIcons {
   attachment('attachment'),
   back('back'),
   blocked('blocked'),
+  branch('branch'),
   channel('channel'),
   checkboxChecked('checkbox-checked'),
   checkboxEmpty('checkbox-empty'),

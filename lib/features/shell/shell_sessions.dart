@@ -17,6 +17,7 @@ import '../../platform/shell/remote_shell.dart';
 import '../../platform/shell/shell_connection.dart';
 import '../../platform/shell/shell_tunnel.dart';
 import '../../platform/shell/strip_bytes.dart';
+import '../../platform/workspace/workspace_commands.dart';
 import '../../platform/vnc/keysyms.dart';
 
 /// How much scrollback a session keeps. A build log on the remote is the case
@@ -123,6 +124,27 @@ bool shellReconnects(ShellFailureKind kind) =>
 /// tells it the request was settled elsewhere. Either way the id comes next.
 const pinentryOsc = '7771';
 
+/// The OSC a shell reports its working directory on, `file://<host>/<path>`,
+/// emitted beside the prompt by a shell configured to and by nothing else. A
+/// tab whose shell never says keeps the directory it was opened at.
+const cwdOsc = '7';
+
+/// The path out of an OSC 7 payload, or null when it is not one. The host part
+/// is dropped: what a host calls itself in a URL is not what the app dialled,
+/// and the path is the only field anything here wants.
+///
+/// The segments are read rather than the path, which is where the escaping a
+/// hook writes comes off. A payload that names no segment said nothing — the
+/// root reads the same as a bare `file://<host>`, and a checkout at `/` is not
+/// a thing a phone opens.
+String? cwdFromOsc(String payload) {
+  final uri = Uri.tryParse(payload.trim());
+  if (uri == null || uri.scheme != 'file') return null;
+  final segments = uri.pathSegments.where((segment) => segment.isNotEmpty);
+  if (segments.isEmpty) return null;
+  return '/${segments.join('/')}';
+}
+
 /// What the host's pinentry is asking: the words the agent gave it, decoded
 /// off the OSC's payload. `pin` wants a passphrase; `confirm` and `message`
 /// want a yes, and carry the agent's own labels for the blocks.
@@ -198,6 +220,14 @@ class PinRequest {
 /// The terminal outlives the connection on purpose. A session that failed or
 /// exited keeps every byte it printed, which is the only place the error the
 /// remote shell died of can still be read.
+/// A mark no other tab of this run carries, in the alphabet [shellMark] holds
+/// a mark to. The clock gives it its uniqueness and the counter covers two
+/// tabs opened inside the same microsecond.
+int _marks = 0;
+String _newMark() =>
+    's${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}'
+    '${(_marks++).toRadixString(36)}';
+
 class ShellSession extends ChangeNotifier {
   ShellSession({
     required this.number,
@@ -262,6 +292,23 @@ class ShellSession extends ChangeNotifier {
   /// agent, or to the same directory, rather than to a bare prompt. Null is a
   /// login shell, which is every tab the user opens by hand.
   String? command;
+
+  /// Where the shell is, as far as the app was told. Seeded with the directory
+  /// the tab was opened at and replaced by whatever the shell reports beside
+  /// its prompt. Null on a tab opened at no directory whose shell never says
+  /// where it went — which is why the host is asked as well.
+  String? cwd;
+
+  /// The checkout the tab is standing inside, as the host last answered.
+  /// Null is both answers the app has not got yet and a directory that is in
+  /// no checkout at all, which is why the mark on the header is dimmed until
+  /// the host has said otherwise.
+  String? repository;
+
+  /// What this tab's shell is marked with, so the host can be asked which of
+  /// its processes is this tab and where that process is standing. One per
+  /// session and never reused: two tabs on the same host are two shells.
+  final String mark = _newMark();
 
   /// The herdr pane [command] attaches this tab to, so a tap on that agent
   /// finds this tab rather than opening another. In memory only: a restored
@@ -517,6 +564,88 @@ class ShellSessions extends ChangeNotifier {
   bool canOpen(String hostId) =>
       (_byHost[hostId]?.length ?? 0) < maxShellSessions;
 
+  /// Where [session]'s shell is standing, asked of the host rather than taken
+  /// from what the shell has said.
+  ///
+  /// Runs on a second channel of the connection the tab already holds, so the
+  /// shell on the pty sees none of it and the user's own line is not disturbed.
+  /// The answer is kept on the session, which is what makes the header's mark
+  /// tapped again after a `cd` open somewhere else.
+  ///
+  /// A tab holding the multiplexer is asked of the multiplexer instead. What
+  /// such a tab runs is a client, and a client stands in the directory it was
+  /// started from for as long as it lives; the shell that has walked anywhere
+  /// is the pane's, and it belongs to the herdr server rather than to this
+  /// connection's process tree. A tab attached to one pane is asked for that
+  /// pane, a tab holding a session for the pane that session has focused.
+  ///
+  /// Null when there is no connection to ask on, or when the host has no
+  /// `/proc` to answer from. The caller falls back; nothing here overwrites
+  /// what the tab already had with nothing.
+  Future<String?> cwdFromHost(ShellSession session) async {
+    final connection = session.connection;
+    if (connection == null) return null;
+    try {
+      final pane = session.pane;
+      var herdrSession = pane?.session;
+      String? answer;
+      if (herdrSession == null) {
+        final probe = await connection.exec(shellCwdProbe(session.mark));
+        if (probe.exitCode != 0) return null;
+        final place = parseShellPlace(probe.out);
+        herdrSession = place.herdrSession;
+        answer = place.cwd;
+      }
+      if (herdrSession != null && HerdrCommands.isSessionName(herdrSession)) {
+        final panes = await connection.exec(HerdrCommands.panes(herdrSession));
+        if (panes.exitCode == 0) {
+          answer = HerdrClient.parsePaneCwd(panes.out, pane?.pane) ?? answer;
+        }
+      }
+      if (answer == null || !answer.startsWith('/')) return null;
+      if (answer != session.cwd) {
+        session.cwd = answer;
+        session.changed();
+      }
+      return answer;
+    } on HerdrFailure catch (error) {
+      debugPrint(
+        'spectacle.shell ${session.host.name}: ${error.detail ?? error}',
+      );
+      return null;
+    }
+  }
+
+  /// The checkout [session] is standing inside, asked of the host on the same
+  /// second channel: where the shell is, then what repository that is part of.
+  ///
+  /// Kept on the session, because the header draws its mark from it and the
+  /// viewer opens on it. Null leaves the mark dimmed — a directory that is in
+  /// no checkout has no diff to show, and saying so after a tap would be
+  /// spending the tap on what the app could have known.
+  Future<String?> repositoryFromHost(ShellSession session) async {
+    final connection = session.connection;
+    if (connection == null) return null;
+    final directory = await cwdFromHost(session) ?? session.cwd;
+    if (directory == null) return _repository(session, null);
+    final result = await connection.exec(
+      WorkspaceCommands.repository(directory),
+    );
+    final top = result.out.trim();
+    if (result.exitCode != 0 || !top.startsWith('/')) {
+      return _repository(session, null);
+    }
+    return _repository(session, top);
+  }
+
+  String? _repository(ShellSession session, String? repository) {
+    if (session.repository != repository) {
+      session.repository = repository;
+      session.changed();
+    }
+    return repository;
+  }
+
   /// The tab on [hostId] attached to [pane], or null when no tab is.
   ShellSession? holding(String hostId, PaneRef pane) {
     for (final session in forHost(hostId)) {
@@ -531,6 +660,7 @@ class ShellSessions extends ChangeNotifier {
     Host host, {
     HostKeyPrompt? prompt,
     String? command,
+    String? directory,
     PaneRef? pane,
   }) {
     if (!canOpen(host.id)) return null;
@@ -541,6 +671,7 @@ class ShellSessions extends ChangeNotifier {
       number,
       prompt: prompt,
       command: command,
+      directory: directory,
       pane: pane,
     );
     unawaited(tabs?.open(host.id, number));
@@ -555,6 +686,7 @@ class ShellSessions extends ChangeNotifier {
     int number, {
     HostKeyPrompt? prompt,
     String? command,
+    String? directory,
     PaneRef? pane,
   }) {
     final session =
@@ -564,6 +696,7 @@ class ShellSessions extends ChangeNotifier {
             host: host,
           )
           ..command = command
+          ..cwd = directory
           ..pane = pane;
     _byHost.putIfAbsent(host.id, () => []).add(session);
     _active[host.id] = number;
@@ -686,6 +819,13 @@ class ShellSessions extends ChangeNotifier {
       session.changed();
     };
     session.terminal.onPrivateOSC = (code, args) {
+      if (code == cwdOsc) {
+        final cwd = args.isEmpty ? null : cwdFromOsc(args.first);
+        if (cwd == null || cwd == session.cwd) return;
+        session.cwd = cwd;
+        session.changed();
+        return;
+      }
       if (code != pinentryOsc || args.length < 2) return;
       switch (args.first) {
         case 'pin' when args.length >= 3:
@@ -842,7 +982,7 @@ class ShellSessions extends ChangeNotifier {
         privateKey: privateKey,
         columns: columns,
         rows: rows,
-        command: session.command,
+        command: shellMarked(session.mark, command: session.command),
         verifier: HostKeyVerifier(
           pinned: _pinnedThisRun[host.id] ?? host.hostKey,
           // Null on a reconnect and on anything else that arrives without a

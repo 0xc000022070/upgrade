@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectacle/app/spectacle_app.dart';
 import 'package:spectacle/application/agents.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
 import 'package:spectacle/data/repositories/path_repository.dart';
 import 'package:spectacle/design/layout.dart';
+import 'package:spectacle/features/code/diff_sheet.dart';
 import 'package:spectacle/features/code/workspace_screen.dart';
 import 'package:spectacle/platform/herdr_client.dart';
 import 'package:spectacle/platform/keys.dart';
@@ -52,6 +56,18 @@ diff --git a/lib/main.dart b/lib/main.dart
 +const port = 357;
 ''';
 
+String get _log =>
+    '1a2b3c4d5e${workspaceField}1a2b3c${workspaceField}Luis'
+    '${workspaceField}3 days ago${workspaceField}fix(shell): the font\n'
+    '5e6f7a8b9c${workspaceField}5e6f7a${workspaceField}Luis'
+    '${workspaceField}2 weeks ago${workspaceField}docs(spec): rulings\n';
+
+/// What one commit touched: the counts, then the letters.
+String get _commitFiles =>
+    '2\t0\tlib/shell/shell_header.dart\n'
+    '$workspaceRecord\n'
+    'M\tlib/shell/shell_header.dart\n';
+
 /// A runner that answers from a table and keeps the tape.
 class FakeRunner implements WorkspaceRunner {
   FakeRunner({this.overview, this.fail});
@@ -74,6 +90,12 @@ class FakeRunner implements WorkspaceRunner {
     for (final entry in answers.entries) {
       if (command.contains(entry.key)) return entry.value;
     }
+    if (command.contains('git --no-pager log')) {
+      return WorkspaceReply(exitCode: 0, stdout: _log, stderr: '');
+    }
+    if (command.contains('--numstat --format=')) {
+      return WorkspaceReply(exitCode: 0, stdout: _commitFiles, stderr: '');
+    }
     if (command.contains('git status')) {
       return WorkspaceReply(
         exitCode: 0,
@@ -81,7 +103,7 @@ class FakeRunner implements WorkspaceRunner {
         stderr: '',
       );
     }
-    if (command.contains('diff')) {
+    if (command.contains('diff') || command.contains('show')) {
       return const WorkspaceReply(exitCode: 0, stdout: _diff, stderr: '');
     }
     if (command.contains('find')) {
@@ -127,17 +149,17 @@ void main() {
   Widget app(FakeRunner runner) => ProviderScope(
     overrides: [privateKeyStoreProvider.overrideWithValue(privateKeys)],
     child: MaterialApp(
+      builder: houseText,
       home: WorkspaceScreen(
         path: path,
         host: host,
-        open:
-            ({
-              required address,
-              required port,
-              required user,
-              required privateKey,
-              verifier,
-            }) async => runner,
+        open: ({
+          required address,
+          required port,
+          required user,
+          required privateKey,
+          verifier,
+        }) async => runner,
       ),
     ),
   );
@@ -216,8 +238,7 @@ void main() {
       await open(
         tester,
         runner: FakeRunner(
-          overview:
-              '# branch.head main\n$workspaceRecord\n$workspaceRecord\n',
+          overview: '# branch.head main\n$workspaceRecord\n$workspaceRecord\n',
         ),
       );
 
@@ -265,10 +286,7 @@ void main() {
     testWidgets('an unreachable host says what the path scan says', (
       tester,
     ) async {
-      await open(
-        tester,
-        runner: FakeRunner(fail: const HerdrUnreachable()),
-      );
+      await open(tester, runner: FakeRunner(fail: const HerdrUnreachable()));
 
       expect(find.text('nyx unreachable'), findsOneWidget);
       expect(find.text('RETRY'), findsOneWidget);
@@ -314,18 +332,22 @@ void main() {
       expect(runner.closed, isTrue);
     });
 
-    testWidgets('a change opens its hunks in a sheet', (tester) async {
+    testWidgets('a change opens its hunks in the viewer', (tester) async {
       final runner = await open(tester);
 
       await tapText(tester, 'lib/main.dart');
 
       expect(runner.commands.last, contains('diff'));
       expect(runner.commands.last, contains('lib/main.dart'));
-      // With the gutter marker back on the front: the parser drops the column
-      // so the row can put it there itself, which is what tells the two lines
-      // apart without a colour.
-      expect(find.text('-const port = 22;'), findsOneWidget);
-      expect(find.text('+const port = 357;'), findsOneWidget);
+      // The marker is a column of its own, in the colour that says which side
+      // the line is on, so the line itself is the line that is in the file.
+      expect(find.text('const port = 22;'), findsOneWidget);
+      expect(find.text('const port = 357;'), findsOneWidget);
+      // And the preamble is not drawn at all: the panel's header is the path.
+      expect(
+        find.text('diff --git a/lib/main.dart b/lib/main.dart'),
+        findsNothing,
+      );
 
       await unmount(tester);
     });
@@ -343,17 +365,12 @@ void main() {
 
   group('the explorer', () {
     Future<FakeRunner> browse(WidgetTester tester, {Size? size}) async {
-      final runner = await open(
-        tester,
-        size: size ?? const Size(400, 1600),
-      );
+      final runner = await open(tester, size: size ?? const Size(400, 1600));
       await tapText(tester, 'BROWSE');
       return runner;
     }
 
-    testWidgets('opens on the root and walks into a directory', (
-      tester,
-    ) async {
+    testWidgets('opens on the root and walks into a directory', (tester) async {
       final runner = await browse(tester);
 
       expect(find.text('lib'), findsOneWidget);
@@ -405,10 +422,7 @@ void main() {
     testWidgets('unfolded, the list and the file are both on screen', (
       tester,
     ) async {
-      await browse(
-        tester,
-        size: Size(Layout.columnMax * 2, 1600),
-      );
+      await browse(tester, size: Size(Layout.columnMax * 2, 1600));
       expect(find.text('PICK A FILE'), findsOneWidget);
 
       await tapText(tester, 'README.md');
@@ -471,6 +485,225 @@ void main() {
       await tapText(tester, 'BROWSE');
 
       expect(find.text('COULD NOT READ IT'), findsOneWidget);
+
+      await unmount(tester);
+    });
+  });
+
+  group('the diff viewer', () {
+    /// The viewer as the workspace opens it: over the connection the screen
+    /// already holds, on the file that was tapped.
+    Future<FakeRunner> viewer(WidgetTester tester, {Size? size}) async {
+      final runner = await open(tester, size: size ?? const Size(400, 1600));
+      await tapText(tester, 'lib/main.dart');
+      return runner;
+    }
+
+    /// Only what is on the sheet. The workspace screen it opened over stays
+    /// mounted underneath, and it says several of the same words.
+    Finder onSheet(Finder matching) =>
+        find.descendant(of: find.byType(DiffSheet), matching: matching);
+
+    /// One of the sheet's two lists, which both come up folded.
+    Future<void> unfold(WidgetTester tester, String title) async {
+      await tester.tap(onSheet(find.text(title)));
+      await ready(tester);
+    }
+
+    /// The same viewer with the file put down and both lists opened, which is
+    /// where the rows are picked from.
+    Future<FakeRunner> panes(WidgetTester tester) async {
+      final runner = await viewer(tester);
+      await tapText(tester, 'CLOSE');
+      await unfold(tester, 'CHANGES');
+      await unfold(tester, 'COMMITS');
+      return runner;
+    }
+
+    testWidgets('is drawn in the house style, not the framework debug one', (
+      tester,
+    ) async {
+      await panes(tester);
+
+      // A route pushed on the root navigator has no `Material` over it, and
+      // what the framework draws text with there underlines every word on the
+      // screen in yellow. Nothing on this sheet asks for a decoration, so
+      // nothing on it may have one.
+      for (final word in ['COMMITS', 'CHANGES', 'WORKING TREE']) {
+        final style = DefaultTextStyle.of(tester.element(find.text(word).first))
+            .style;
+        expect(style.decoration ?? TextDecoration.none, TextDecoration.none);
+        expect(style.fontFamily, isNot('monospace'));
+      }
+    });
+
+    testWidgets('opens on the working tree with the history beside it', (
+      tester,
+    ) async {
+      final runner = await panes(tester);
+
+      expect(find.text('WORKING TREE'), findsWidgets);
+      expect(find.text('COMMITS'), findsOneWidget);
+      expect(find.text('fix(shell): the font'), findsOneWidget);
+      expect(find.text('docs(spec): rulings'), findsOneWidget);
+      // The history is one command, and the working tree is not asked for
+      // again: it is the answer the screen underneath already has.
+      expect(
+        runner.commands.where((command) => command.contains('log')),
+        hasLength(1),
+      );
+      expect(
+        runner.commands.where((command) => command.contains('git status')),
+        hasLength(1),
+      );
+
+      await unmount(tester);
+    });
+
+    testWidgets('a commit points the whole screen at it', (tester) async {
+      final runner = await panes(tester);
+
+      await tapText(tester, 'fix(shell): the font');
+
+      expect(runner.commands.last, contains('--numstat --format='));
+      expect(runner.commands.last, contains('1a2b3c4d5e'));
+      // That commit's files, in place of the working tree's.
+      expect(onSheet(find.text('lib/shell/shell_header.dart')), findsOneWidget);
+      expect(onSheet(find.text('lib/main.dart')), findsNothing);
+      // And the head line is that commit.
+      expect(onSheet(find.text('uncommitted changes')), findsNothing);
+      expect(onSheet(find.text('fix(shell): the font')), findsWidgets);
+
+      await unmount(tester);
+    });
+
+    testWidgets('the working tree is a row of its own to come back to', (
+      tester,
+    ) async {
+      await panes(tester);
+      await tapText(tester, 'fix(shell): the font');
+      expect(onSheet(find.text('lib/main.dart')), findsNothing);
+
+      await tapText(tester, 'WORKING TREE');
+
+      expect(onSheet(find.text('lib/main.dart')), findsOneWidget);
+      expect(onSheet(find.text('scratch.txt')), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('is on the screen before the answer is', (tester) async {
+      final answering = Completer<WorkspaceRunner>();
+      tester.view.physicalSize = const Size(400, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [privateKeyStoreProvider.overrideWithValue(privateKeys)],
+          child: MaterialApp(
+            builder: houseText,
+            home: DiffSheet(
+              host: host,
+              directory: path.directory,
+              open:
+                  ({
+                    required address,
+                    required port,
+                    required user,
+                    required privateKey,
+                    verifier,
+                  }) => answering.future,
+            ),
+          ),
+        ),
+      );
+      // Long enough for the strips to finish decoding, and not long enough
+      // for a socket that is never going to open.
+      await ready(tester);
+
+      // Not one round trip has landed and the whole shape is already drawn:
+      // a word where the subject goes, a word on the strip of each list.
+      expect(find.text('loading…'), findsOneWidget);
+      expect(find.text('reading the checkout'), findsOneWidget);
+      expect(find.text('LOADING'), findsNWidgets(2));
+      expect(find.text('CHANGES'), findsOneWidget);
+      expect(find.text('COMMITS'), findsOneWidget);
+
+      answering.complete(FakeRunner());
+      await ready(tester);
+
+      expect(find.text('loading…'), findsNothing);
+      expect(find.text('LOADING'), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('both lists come up folded', (tester) async {
+      await viewer(tester);
+      // Folded on a phone with a file open is folded and off the screen: the
+      // file has the width, and `CLOSE` is the way back to the lists.
+      expect(find.text('const port = 357;'), findsOneWidget);
+
+      await tapText(tester, 'CLOSE');
+
+      // Two strips with their counts, and not one row under either.
+      expect(onSheet(find.text('CHANGES')), findsOneWidget);
+      expect(onSheet(find.text('COMMITS')), findsOneWidget);
+      expect(onSheet(find.text('fix(shell): the font')), findsNothing);
+      expect(onSheet(find.text('scratch.txt')), findsNothing);
+
+      await unfold(tester, 'COMMITS');
+
+      // One fold is one list: opening the history leaves the changes folded.
+      expect(onSheet(find.text('fix(shell): the font')), findsOneWidget);
+      expect(onSheet(find.text('scratch.txt')), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('picking a file folds the list it was picked from', (
+      tester,
+    ) async {
+      await panes(tester);
+      expect(onSheet(find.text('fix(shell): the font')), findsOneWidget);
+
+      await tapText(tester, 'scratch.txt');
+
+      expect(onSheet(find.text('fix(shell): the font')), findsNothing);
+      expect(onSheet(find.text('lib/main.dart')), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('back leaves the file first and the sheet second', (
+      tester,
+    ) async {
+      await viewer(tester);
+      expect(find.text('const port = 357;'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await ready(tester);
+      expect(find.text('const port = 357;'), findsNothing);
+      // Still the sheet: the list is what is left on it.
+      expect(find.text('COMMITS'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await ready(tester);
+      expect(find.text('COMMITS'), findsNothing);
+      expect(find.text('BROWSE'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('carries no BACK and no REFRESH of its own', (tester) async {
+      await viewer(tester);
+
+      // The scrim is the way out and what is on the sheet was read when it
+      // opened. Two cells that say what the phone already offers are two
+      // cells the sheet does not spend.
+      expect(onSheet(find.text('BACK')), findsNothing);
+      expect(onSheet(find.text('REFRESH')), findsNothing);
 
       await unmount(tester);
     });

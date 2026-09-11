@@ -1,9 +1,11 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectacle/application/providers.dart';
 import 'package:spectacle/data/database.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/data/repositories/path_repository.dart';
 import 'package:spectacle/features/shell/host_shell_screen.dart';
 import 'package:spectacle/features/shell/shell_sheet.dart';
 import 'package:spectacle/features/shell/shell_sessions.dart';
@@ -22,16 +24,34 @@ const rose = Host(
   keyId: 'key-1',
 );
 
-/// Most of the route needs no database. The pinch does, since the size it
-/// lands on is written to settings, so those tests hand one in.
+/// The route on a store, with no registered directory behind it unless the
+/// test hands in a database that has one.
 Widget app(ShellSessions sessions, {Widget? home, AppDatabase? db}) =>
     ProviderScope(
       overrides: [
         shellSessionsProvider.overrideWithValue(sessions),
-        if (db != null) databaseProvider.overrideWithValue(db),
+        if (db != null) databaseProvider.overrideWithValue(db) else noWorkspaces,
       ],
       child: MaterialApp(home: home ?? const HostShellRoute(host: rose)),
     );
+
+/// A host with nothing registered on it, which is what every test that is
+/// about the tabs, the keys or the terminal wants the header to read.
+///
+/// The answer and not the database it would come out of: drift keeps timers a
+/// widget test never settles, and a test that says nothing about the
+/// workspaces should not be paying for one.
+Override get noWorkspaces => workspacesByHostProvider.overrideWith(
+  (ref) => Stream.value(const <HostWorkspaces>[]),
+);
+
+/// A database with nothing in it, closed when the test ends. For the tests
+/// that read what was written — the pinch, and the registered directories.
+AppDatabase memoryDatabase() {
+  final db = AppDatabase(NativeDatabase.memory());
+  addTearDown(db.close);
+  return db;
+}
 
 /// The store dials off a microtask and the panels decode their headers over
 /// a few frames, so nothing is on screen after a single pump.

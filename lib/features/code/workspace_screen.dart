@@ -151,6 +151,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
               context,
               widget.host,
               command: shellIn(_controller.directory),
+              directory: _controller.directory,
             ),
           ),
         ],
@@ -199,33 +200,17 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
               children: [
                 for (final file in files)
                   ListRow(
-                    kicker: _kindWord(file),
+                    kicker: fileKindWord(file),
                     title: file.path,
                     subtitle: file.origin,
-                    value: _countWord(file),
-                    onTap: () => showDiffSheet(context, _controller, file),
+                    value: fileCountWord(file),
+                    onTap: () => showDiffSheet(context, _controller, file: file),
                   ),
               ],
             ),
     );
   }
 }
-
-/// `+3 -1` on a row that git could count, one word on a row it could not.
-String _countWord(WorkspaceFile file) {
-  if (file.untracked) return 'NEW';
-  if (file.binary) return 'BINARY';
-  return '+${file.added} -${file.removed}';
-}
-
-String _kindWord(WorkspaceFile file) => switch (file.kind) {
-  WorkspaceChangeKind.modified => 'MODIFIED',
-  WorkspaceChangeKind.added => 'ADDED',
-  WorkspaceChangeKind.deleted => 'DELETED',
-  WorkspaceChangeKind.renamed => 'RENAMED',
-  WorkspaceChangeKind.untracked => 'UNTRACKED',
-  WorkspaceChangeKind.conflicted => 'CONFLICT',
-};
 
 /// `+2 -1` against the upstream, or nothing when there is no upstream or the
 /// branch is level with it. Level is the ordinary case and says nothing worth

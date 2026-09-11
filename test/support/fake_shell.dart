@@ -98,6 +98,10 @@ class FakeShellTransport {
   Object? refuse;
   var stall = false;
 
+  /// Run on every connection the moment it is handed back, which is the only
+  /// place a test can answer a question the screen asks on its first frame.
+  void Function(FakeShellConnection connection)? opening;
+
   /// The dials [stall] is holding, so a test can let one land late — after
   /// whatever it was dialling for has moved on.
   final _stalled = <Completer<ShellConnection>>[];
@@ -124,6 +128,7 @@ class FakeShellTransport {
     if (failure != null) throw failure;
     final connection = FakeShellConnection();
     opened.add(connection);
+    opening?.call(connection);
     return connection;
   }
 
@@ -132,6 +137,7 @@ class FakeShellTransport {
     for (final pending in _stalled) {
       final connection = FakeShellConnection();
       opened.add(connection);
+      opening?.call(connection);
       pending.complete(connection);
     }
     _stalled.clear();

@@ -8,6 +8,7 @@ import '../application/navigation.dart';
 import '../design/colors.dart';
 import '../design/effects/screen_entry.dart';
 import '../design/theme.dart';
+import '../design/typography.dart';
 import '../features/home/home_screen.dart';
 import '../features/hosts/hosts_screen.dart';
 import '../features/projects/projects_screen.dart';
@@ -34,6 +35,17 @@ const _systemBars = SystemUiOverlayStyle(
   systemNavigationBarDividerColor: Color(0x00000000),
 );
 
+/// What text is drawn with where nothing above it has said.
+///
+/// A screen pushed on the root navigator is outside the shell's `Scaffold`,
+/// and the framework's answer for text with no `Material` over it is its own
+/// debug style: yellow double underlines under every word on the screen,
+/// carried into whatever the style beside them did not name. The house has an
+/// answer of its own, and this is where it is given — over the navigator, so
+/// every route is under it.
+Widget houseText(BuildContext context, Widget? child) =>
+    DefaultTextStyle(style: SpectacleText.prose, child: child!);
+
 class SpectacleApp extends StatelessWidget {
   const SpectacleApp({super.key, this.boot = const []});
 
@@ -47,6 +59,7 @@ class SpectacleApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: SpectacleTheme.build(),
       scrollBehavior: const SpectacleScrollBehavior(),
+      builder: houseText,
       // The splash is the navigator's first route and hands the screen
       // to Home by replacing itself, so it is unreachable afterwards and a
       // resume never plays it. `AlertsHost` is inside the route it pushes
