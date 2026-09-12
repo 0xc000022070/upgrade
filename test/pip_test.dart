@@ -108,6 +108,55 @@ void main() {
       expect(pip.armings.last, isFalse);
     });
 
+    testWidgets('a host the app has lost does not keep it armed', (
+      tester,
+    ) async {
+      final pip = FakePip();
+      final feed = StreamController<AgentPanelState>();
+      await tester.pumpWidget(
+        harness(pip, feed.stream, const PipHost(child: SizedBox())),
+      );
+      feed.add(panel([agent('claude', 'working')]));
+      await tester.pumpAndSettle();
+
+      expect(pip.armings.last, isTrue);
+
+      // A failure carries the last agents its host was seen with, so that a
+      // blink does not empty the panel. Armed off those, the window stayed up
+      // over a machine that had simply been switched off for the night, and
+      // nothing could bring it back down: the count only empties on a snapshot,
+      // and the host that would send one is gone.
+      feed.add(
+        AgentPanelState([
+          HostOutcome(
+            host: nyx,
+            kind: AgentOutcomeKind.unreachable,
+            agents: [agent('claude', 'working')],
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(pip.armings.last, isFalse);
+
+      // What is asked is which agents the app can see, not whether anything
+      // failed: another host still answering with work on it arms the window
+      // while the first one is still down.
+      feed.add(
+        AgentPanelState([
+          const HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
+          HostOutcome(
+            host: rose,
+            kind: AgentOutcomeKind.snapshot,
+            agents: [agent('amp', 'working')],
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(pip.armings.last, isTrue);
+    });
+
     testWidgets('a device without the window is never armed', (tester) async {
       final pip = FakePip(here: false);
       await tester.pumpWidget(
