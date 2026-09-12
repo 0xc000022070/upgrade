@@ -204,7 +204,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                     title: file.path,
                     subtitle: file.origin,
                     value: fileCountWord(file),
-                    onTap: () => showDiffSheet(context, _controller, file: file),
+                    onTap: () =>
+                        showDiffSheet(context, _controller, file: file),
                   ),
               ],
             ),
