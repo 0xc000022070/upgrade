@@ -332,6 +332,10 @@ class AgentWatcherHandler extends TaskHandler {
   final BlockedEdges _edges = BlockedEdges();
   final Map<String, _HostLoop> _loops = {};
   final Map<String, WatcherReport> _reports = {};
+
+  /// The line the shade is currently showing, so a report that does not move it
+  /// does not repost it.
+  String? _persistent;
   List<Host> _hosts = const [];
 
   @override
@@ -401,14 +405,21 @@ class AgentWatcherHandler extends TaskHandler {
       outcomes.add(report.toOutcome(host));
       if (report.retryIn case final retry?) retries[host.id] = retry;
     }
+    final text = outcomes.isEmpty
+        ? watcherNotificationText([
+            for (final host in _hosts)
+              HostOutcome(host: host, kind: AgentOutcomeKind.snapshot),
+          ])
+        : watcherNotificationText(outcomes, retries: retries);
+    // A host reports whenever it has anything to say, and most of what it says
+    // does not move the line: a title changing three panes down is a report and
+    // the tally over it is the same tally. Posting it again is a binder call and
+    // a redraw of a row in the shade that already reads that way.
+    if (text == _persistent) return;
+    _persistent = text;
     FlutterForegroundTask.updateService(
       notificationTitle: watcherNotificationTitle,
-      notificationText: outcomes.isEmpty
-          ? watcherNotificationText([
-              for (final host in _hosts)
-                HostOutcome(host: host, kind: AgentOutcomeKind.snapshot),
-            ])
-          : watcherNotificationText(outcomes, retries: retries),
+      notificationText: text,
     );
   }
 }

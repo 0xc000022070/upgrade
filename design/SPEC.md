@@ -1177,3 +1177,23 @@ Nothing else follows it in. An item unfiled by MOVE keeps whatever `isNext` and 
 Struck: a `DONE` verb on the multi-select bar. Its verbs are the ones worth doing to a set — copy the text out, file them all under a project, delete them — and finishing things is done one at a time, by the row the eye is already on.
 
 Struck: `done` in the toolbar extras behind `+`. That row exists for what cannot be reached while the keyboard is up, and the footer under the keyboard is exactly where DONE already is.
+
+### The ongoing notification says what the agents are, not what the watcher is
+
+The watcher has always posted a notification of its own: silent, at the bottom of the shade, there for as long as `[ ALERTS ]` is on, because Android will not hold a service's connections open without one. It said `WATCHING 2 HOSTS`. That is a line about the app. The phone comes out of a pocket to answer a different question — whether anything is waiting on the user — and the one surface the app has on screen without being opened was the one surface that did not answer it.
+
+So the line is the tally. `1 BLOCKED · 3 WORKING`, across every host at once, blocked first because that is the count about to cost the user something. The states counted are the states that earn a row on the AGENTS panel and no others: one rule for both surfaces, and an agent at rest is the night going the way it was supposed to rather than news. With nothing active the host count has the line back, being the only thing left to say. A host that is down takes it ahead of either — a watcher that cannot reach a host is not a watcher reporting that the host is quiet, and the tally it could still draw is the last one it was told rather than the one that is true.
+
+**A report that does not move the line does not repost it.** herdr sends a report whenever it has anything to say, and most of what it says is a terminal title three panes down; the tally over that is the same tally. The line the shade is currently showing is kept and compared, and the service posts only when they differ.
+
+**The client this was measured against carries the idea somewhere the app cannot follow.** It is the same idea — a phone that says what the agents are doing without being opened — and its surfaces are a lock-screen Live Activity, the Dynamic Island above it, and a timeline of pings inside the app. None of them is a status bar, and none of them is Android: the lock-screen card is ActivityKit, and this repository has no iOS target to build one in. The shade's ongoing notification is the surface of that shape that exists here, it was already being posted every time a report landed, and what it cost to make it say the right thing was the text.
+
+**Its transport is the one the watcher already does better.** There, an agent POSTs to a hosted endpoint whose URL is itself the credential, and a vendor's push wakes the phone. Here the watcher holds herdr's own `agent watch` open per host over ssh, on a key the phone generated and a host fingerprint it pinned: the same liveness, with no third machine in the path, no bearer token left in a shell history, and a state that is herdr's reading of the pane rather than whatever each agent remembered to report about itself. What the push buys and this does not is a phone whose app is gone — the ongoing line is live only while the service is, which is the trade `[ ALERTS ]` already names on the row that turns it on.
+
+Struck: a lock-screen card and a Dynamic Island. They are the same tally on a platform this does not build for, and the day it does they are a rendering of a line that already exists rather than a feature to be designed then.
+
+Struck: an endpoint agents ping, and the pairing code and hosted key that go with it. It would be a second way for an agent to say what herdr is already asked, reachable by anyone holding a URL, and it would put a machine the user does not own between the phone and their own panes.
+
+Struck: naming the agent in the tally. A blocked agent already raises the alert that names it and offers the answer; the ongoing line is the count, it is read at a glance from a lock screen, and a line that changes width every time an agent starts is a line that has to be read twice.
+
+Struck: a `DONE` that lingers on the line for a while after the work ends, the way the surveyed client holds one for a minute and a half. `done` here is not an event: it is where an agent rests once the tab it finished in went unwatched, which from a phone is every tab. Counting it would mean counting the whole night.
