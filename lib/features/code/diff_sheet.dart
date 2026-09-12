@@ -362,7 +362,11 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
           _headline(),
           const SizedBox(height: Spacing.panelGap),
           Flexible(
-            fit: tall ? FlexFit.tight : FlexFit.loose,
+            // Only a file asks for the whole sheet. A list unfolded over four
+            // rows is four rows tall: what the screen was asked for is on it,
+            // and the rest of a panel stretched to the cap is ground between
+            // the reader and the terminal they opened the diff against.
+            fit: _file != null ? FlexFit.tight : FlexFit.loose,
             child: _panes(tall: tall),
           ),
         ],
@@ -439,6 +443,10 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final wide = width >= Layout.columnMax;
+        // One column and nothing picked: there are no hunks to stand beside,
+        // so the row is the list and carrying it would only stretch the list
+        // to a height the sheet does not otherwise ask for.
+        if (!wide && _file == null) return _list();
         // Folded over a file, the lists are two header strips, and a column
         // holding two fifths of a wide screen to draw them is two fifths of
         // the screen not drawing the file. Folded they keep the width their
@@ -469,17 +477,18 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   /// that is read gets the width.
   static const _listShare = 0.42;
 
-  /// A folded panel is its own height and an unfolded one takes what is left,
-  /// so two folds and a file are three states of one column rather than three
-  /// layouts.
+  /// A folded panel is its own height and an unfolded one takes what its rows
+  /// need up to what is left, so two folds and a file are three states of one
+  /// column rather than three layouts. Flexible and not expanded: the share is
+  /// a cap on the panel and not a size handed to it.
   Widget _list() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (_changesOpen) Expanded(flex: 3, child: _changes()) else _changes(),
+        if (_changesOpen) Flexible(flex: 3, child: _changes()) else _changes(),
         const SizedBox(height: Spacing.panelGap),
-        if (_historyOpen) Expanded(flex: 2, child: _history()) else _history(),
+        if (_historyOpen) Flexible(flex: 2, child: _history()) else _history(),
       ],
     );
   }

@@ -714,6 +714,29 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('an unfolded list is as tall as its rows', (tester) async {
+      await viewer(tester);
+      await tapText(tester, 'CLOSE');
+      await unfold(tester, 'CHANGES');
+
+      // The sheet is only as tall as what is unfolded, and two rows unfolded
+      // are two rows. A panel stretched to the sheet's cap under them is
+      // ground between the reader and the terminal the diff was opened over.
+      final panel = find
+          .ancestor(
+            of: onSheet(find.text('CHANGES')),
+            matching: find.byType(Panel),
+          )
+          .first;
+      final last = tester.getRect(onSheet(find.text('scratch.txt')));
+      expect(
+        tester.getRect(panel).bottom - last.bottom,
+        lessThan(RowMetrics.minHeight),
+      );
+
+      await unmount(tester);
+    });
+
     testWidgets('folded over a file, the strips keep only their own width', (
       tester,
     ) async {
