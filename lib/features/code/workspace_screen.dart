@@ -202,6 +202,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                   ListRow(
                     kicker: fileKindWord(file),
                     title: file.path,
+                    pathTitle: true,
                     subtitle: file.origin,
                     value: fileCountWord(file),
                     onTap: () =>

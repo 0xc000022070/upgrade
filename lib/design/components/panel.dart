@@ -9,6 +9,7 @@ import '../icons/spectacle_icon.dart';
 import '../icons/spectacle_icons.dart';
 import '../spacing.dart';
 import '../typography.dart';
+import 'path_line.dart';
 import 'signal_text.dart';
 
 /// Every section on every screen is one of these: 1px border,
@@ -23,6 +24,7 @@ class Panel extends StatelessWidget {
     super.key,
     this.child,
     this.title,
+    this.pathTitle = false,
     this.leading,
     this.affordance,
     this.onHeaderTap,
@@ -38,6 +40,11 @@ class Panel extends StatelessWidget {
 
   /// Omitted only by panels that are their own header — the detail hero card.
   final String? title;
+
+  /// The title is a file path, which is identified by its end. Set here rather
+  /// than guessed from the string: a title with a slash in it is not
+  /// necessarily a path, and a path is not necessarily too long to matter.
+  final bool pathTitle;
 
   /// The `x` at the left of the header strip when a panel is in
   /// selection mode. Nothing else uses it: a strip's left is its title.
@@ -92,6 +99,7 @@ class Panel extends StatelessWidget {
             if (glitch == null)
               _HeaderStrip(
                 title: title!,
+                pathTitle: pathTitle,
                 leading: leading,
                 affordance: affordance,
                 onTap: onHeaderTap,
@@ -103,6 +111,7 @@ class Panel extends StatelessWidget {
                 controller: glitch,
                 child: _HeaderStrip(
                   title: title!,
+                  pathTitle: pathTitle,
                   leading: leading,
                   affordance: affordance,
                   onTap: onHeaderTap,
@@ -126,6 +135,7 @@ class Panel extends StatelessWidget {
 class _HeaderStrip extends StatelessWidget {
   const _HeaderStrip({
     required this.title,
+    required this.pathTitle,
     required this.ruled,
     this.leading,
     this.affordance,
@@ -134,6 +144,7 @@ class _HeaderStrip extends StatelessWidget {
   });
 
   final String title;
+  final bool pathTitle;
   final Widget? leading;
   final Widget? affordance;
   final VoidCallback? onTap;
@@ -162,13 +173,19 @@ class _HeaderStrip extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: vertical),
-              child: SignalText(
-                title.toUpperCase(),
-                style: SpectacleText.panelHeader,
-                decodeOnEntry: true,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: pathTitle
+                  ? PathLine(
+                      title.toUpperCase(),
+                      style: SpectacleText.panelHeader,
+                      decode: true,
+                    )
+                  : SignalText(
+                      title.toUpperCase(),
+                      style: SpectacleText.panelHeader,
+                      decodeOnEntry: true,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
             ),
           ),
           // The title is handed the strip's slack, so a strip shrunk to the
