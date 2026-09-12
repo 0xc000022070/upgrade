@@ -67,11 +67,17 @@ class _FramebufferViewState extends State<FramebufferView> {
   /// drag reads as a small pinch on its own.
   _TwoFinger _mode = _TwoFinger.undecided;
 
-  /// How far the span has to leave its starting value, and how far the fingers
-  /// have to travel together, before the gesture is one or the other.
-  static const _pinchDeadband = 0.25;
-  static const _dragDeadband = 20.0;
-  double _panTravel = 0.0;
+  /// How far either half of the gesture has to get before it is read as one or
+  /// the other. One distance for both, because the two are now measured the
+  /// same way and against each other.
+  static const _deadband = 20.0;
+
+  /// Where the pair was when the two-finger phase began, and where each live
+  /// pointer is now. The gesture reports its span as a ratio and its drag in
+  /// pixels; telling them apart means putting both in pixels, and the span the
+  /// ratio was taken against is only recoverable from the pointers themselves.
+  Offset _startFocal = Offset.zero;
+  final Map<int, Offset> _pointers = {};
 
   /// "one button 4/5 press-release per 40 px".
   static const _wheelStep = 40.0;
@@ -145,10 +151,16 @@ class _FramebufferViewState extends State<FramebufferView> {
     }
   }
 
+  double? get _span {
+    if (_pointers.length != 2) return null;
+    final points = _pointers.values.toList();
+    return (points.first - points.last).distance;
+  }
+
   void _onScaleStart(ScaleStartDetails details) {
     _lastScale = 1.0;
     _mode = _TwoFinger.undecided;
-    _panTravel = 0.0;
+    _startFocal = details.localFocalPoint;
     _wheelTravel = 0.0;
   }
 
@@ -159,15 +171,22 @@ class _FramebufferViewState extends State<FramebufferView> {
     // Accumulated before the gesture is decided, so the travel the deadband
     // spent is still counted once it is.
     _wheelTravel += details.focalPointDelta.dy;
-    _panTravel += details.focalPointDelta.distance;
     if (_mode == _TwoFinger.undecided) {
-      if ((details.scale - 1.0).abs() > _pinchDeadband) {
-        _mode = _TwoFinger.zooming;
-      } else if (_panTravel > _dragDeadband) {
-        _mode = _TwoFinger.dragging;
-      } else {
-        return;
-      }
+      final span = _span;
+      if (span == null || details.scale <= 0) return;
+      // How far the pair has gone together against how far it has opened or
+      // closed, both from where the two-finger phase began and both in pixels.
+      // Which is larger decides; neither gets a line of its own to cross
+      // first. A threshold on the reported ratio cannot be compared with one
+      // in pixels, and the fingers only reach a given ratio by travelling
+      // further the wider apart they started — which is how a hand always
+      // starts a pinch that closes, and why closing one used to pan instead.
+      final together = (details.localFocalPoint - _startFocal).distance;
+      final apart = (span - span / details.scale).abs() / 2;
+      if (together <= _deadband && apart <= _deadband) return;
+      // The tie is one finger held while the other moves: half of that is the
+      // pair travelling and half is the pair closing, and it is a pinch.
+      _mode = apart >= together ? _TwoFinger.zooming : _TwoFinger.dragging;
     }
     var next = _transform;
     if (_mode == _TwoFinger.zooming) {
@@ -201,82 +220,91 @@ class _FramebufferViewState extends State<FramebufferView> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final viewport = Size(constraints.maxWidth, constraints.maxHeight);
-        _sync(viewport);
-        final transform = _transform;
-        final picture = ColoredBox(
-          // Black ground, not the app's near-black. The host's own
-          // desktop is the only thing lit on this route.
-          color: const Color(0xFF000000),
-          child: CustomPaint(
-            painter: _FramebufferPainter(
-              image: widget.image,
-              transform: transform,
-            ),
-            size: viewport,
-          ),
-        );
-        if (widget.cropping) {
-          final box = _cropBox;
-          return GestureDetector(
-            key: const ValueKey('crop-surface'),
-            // The pan is the only gesture here. A tap, a long press and a
-            // pinch all fall through to nothing, which is the point of a
-            // mode whose pointer must not reach the host.
-            behavior: HitTestBehavior.opaque,
-            onPanStart: (details) => setState(() {
-              _cropStart = details.localPosition;
-              _cropEnd = details.localPosition;
-              _cropDrawn = false;
-            }),
-            onPanUpdate: (details) =>
-                setState(() => _cropEnd = details.localPosition),
-            onPanEnd: (_) => _onCropEnd(transform),
-            child: Stack(
-              children: [
-                Positioned.fill(child: picture),
-                if (box != null)
-                  Positioned.fill(
-                    child: CustomPaint(painter: _CropPainter(box: box)),
-                  ),
-                if (box != null && _cropDrawn)
-                  _CropVerbs(
-                    box: box,
-                    viewport: viewport,
-                    onSave: () => _take(transform, CropTarget.save),
-                    onHold: () => _take(transform, CropTarget.hold),
-                  ),
-              ],
+    // Over every gesture below, and passive: the recognizers read the span as
+    // a ratio of where the fingers started, and the raw pointers are the only
+    // place the pixels behind that ratio still exist.
+    return Listener(
+      onPointerDown: (event) => _pointers[event.pointer] = event.localPosition,
+      onPointerMove: (event) => _pointers[event.pointer] = event.localPosition,
+      onPointerUp: (event) => _pointers.remove(event.pointer),
+      onPointerCancel: (event) => _pointers.remove(event.pointer),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final viewport = Size(constraints.maxWidth, constraints.maxHeight);
+          _sync(viewport);
+          final transform = _transform;
+          final picture = ColoredBox(
+            // Black ground, not the app's near-black. The host's own
+            // desktop is the only thing lit on this route.
+            color: const Color(0xFF000000),
+            child: CustomPaint(
+              painter: _FramebufferPainter(
+                image: widget.image,
+                transform: transform,
+              ),
+              size: viewport,
             ),
           );
-        }
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          // Tap moves the pointer there and left-clicks.
-          onTapUp: (details) =>
-              widget.onClick(transform.toFramebuffer(details.localPosition)),
-          onLongPressStart: (details) => widget.onRightClick(
-            transform.toFramebuffer(details.localPosition),
-          ),
-          // "long press then drag holds button 1 while moving": the right-click
-          // has already gone by then, and the drag opens with button 1 down at
-          // the first move — which is how a drag out of a context menu behaves
-          // on the host too.
-          onLongPressMoveUpdate: (details) => widget.onDrag(
-            transform.toFramebuffer(details.localPosition),
-            down: true,
-          ),
-          onLongPressEnd: (details) => widget.onDrag(
-            transform.toFramebuffer(details.localPosition),
-            down: false,
-          ),
-          onScaleStart: _onScaleStart,
-          onScaleUpdate: _onScaleUpdate,
-          child: picture,
-        );
-      },
+          if (widget.cropping) {
+            final box = _cropBox;
+            return GestureDetector(
+              key: const ValueKey('crop-surface'),
+              // The pan is the only gesture here. A tap, a long press and a
+              // pinch all fall through to nothing, which is the point of a
+              // mode whose pointer must not reach the host.
+              behavior: HitTestBehavior.opaque,
+              onPanStart: (details) => setState(() {
+                _cropStart = details.localPosition;
+                _cropEnd = details.localPosition;
+                _cropDrawn = false;
+              }),
+              onPanUpdate: (details) =>
+                  setState(() => _cropEnd = details.localPosition),
+              onPanEnd: (_) => _onCropEnd(transform),
+              child: Stack(
+                children: [
+                  Positioned.fill(child: picture),
+                  if (box != null)
+                    Positioned.fill(
+                      child: CustomPaint(painter: _CropPainter(box: box)),
+                    ),
+                  if (box != null && _cropDrawn)
+                    _CropVerbs(
+                      box: box,
+                      viewport: viewport,
+                      onSave: () => _take(transform, CropTarget.save),
+                      onHold: () => _take(transform, CropTarget.hold),
+                    ),
+                ],
+              ),
+            );
+          }
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            // Tap moves the pointer there and left-clicks.
+            onTapUp: (details) =>
+                widget.onClick(transform.toFramebuffer(details.localPosition)),
+            onLongPressStart: (details) => widget.onRightClick(
+              transform.toFramebuffer(details.localPosition),
+            ),
+            // "long press then drag holds button 1 while moving": the right-click
+            // has already gone by then, and the drag opens with button 1 down at
+            // the first move — which is how a drag out of a context menu behaves
+            // on the host too.
+            onLongPressMoveUpdate: (details) => widget.onDrag(
+              transform.toFramebuffer(details.localPosition),
+              down: true,
+            ),
+            onLongPressEnd: (details) => widget.onDrag(
+              transform.toFramebuffer(details.localPosition),
+              down: false,
+            ),
+            onScaleStart: _onScaleStart,
+            onScaleUpdate: _onScaleUpdate,
+            child: picture,
+          );
+        },
+      ),
     );
   }
 }

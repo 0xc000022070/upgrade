@@ -162,4 +162,85 @@ void main() {
       expect(recorder.wheels, isEmpty, reason: 'zoomed in, the drag pans');
     },
   );
+
+  testWidgets('a pinch that closes zooms back out however wide it started', (
+    tester,
+  ) async {
+    final recorder = await pumpView(tester);
+
+    // In first, from the close pinch a hand opens with.
+    var first = await tester.startGesture(
+      inView(const Offset(150, _top + 100)),
+    );
+    var second = await tester.startGesture(
+      inView(const Offset(250, _top + 100)),
+    );
+    await tester.pump();
+    for (var step = 0; step < 4; step++) {
+      await first.moveBy(const Offset(-25, 0));
+      await second.moveBy(const Offset(25, 0));
+      await tester.pump();
+    }
+    await first.up();
+    await second.up();
+    await tester.pumpAndSettle();
+
+    // And back out. A hand that is about to close starts wide, which is the
+    // whole of the difference: the fingers have further to travel before the
+    // span has changed by as much of itself.
+    first = await tester.startGesture(inView(const Offset(50, _top + 100)));
+    second = await tester.startGesture(inView(const Offset(350, _top + 100)));
+    await tester.pump();
+    for (var step = 0; step < 5; step++) {
+      await first.moveBy(const Offset(20, 0));
+      await second.moveBy(const Offset(-20, 0));
+      await tester.pump();
+    }
+    await first.up();
+    await second.up();
+    await tester.pumpAndSettle();
+    expect(recorder.wheels, isEmpty, reason: 'a pinch is not a scroll');
+
+    // Back at fit there is nothing to pan, so the two-finger drag is the
+    // wheel again. It is the only reading the view gives of its own zoom.
+    first = await tester.startGesture(inView(const Offset(150, _top + 60)));
+    second = await tester.startGesture(inView(const Offset(250, _top + 60)));
+    await tester.pump();
+    for (var step = 0; step < 5; step++) {
+      await first.moveBy(const Offset(0, 25));
+      await second.moveBy(const Offset(0, 25));
+      await tester.pump();
+    }
+    await first.up();
+    await second.up();
+    await tester.pumpAndSettle();
+
+    expect(recorder.wheels, isNotEmpty, reason: 'the pinch never zoomed out');
+  });
+
+  testWidgets('a wide two-finger drag is still a drag, not a pinch', (
+    tester,
+  ) async {
+    final recorder = await pumpView(tester);
+
+    // The same span the pinch above closes from, moving as one.
+    final first = await tester.startGesture(
+      inView(const Offset(50, _top + 60)),
+    );
+    final second = await tester.startGesture(
+      inView(const Offset(350, _top + 60)),
+    );
+    await tester.pump();
+    for (var step = 0; step < 5; step++) {
+      await first.moveBy(const Offset(0, 25));
+      await second.moveBy(const Offset(0, 25));
+      await tester.pump();
+    }
+    await first.up();
+    await second.up();
+    await tester.pumpAndSettle();
+
+    expect(recorder.wheels, isNotEmpty, reason: 'at fit the drag is the wheel');
+    expect(recorder.wheels.every((wheel) => wheel.$2), isTrue);
+  });
 }
