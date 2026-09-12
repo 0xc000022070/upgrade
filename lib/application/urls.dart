@@ -145,7 +145,8 @@ class UrlToken {
 
 /// The links inside a line of text, with their offsets. A URL written into a
 /// title stays in the title — it is part of what the user wrote — so this is
-/// read to paint the token and to open it, never to cut it out.
+/// read to paint the token, to open it, and to clean it where it stands; never
+/// to cut it out.
 ///
 /// Whole words are tested rather than a URL pattern, so `pgbouncer.` at the end
 /// of a sentence stays prose.
@@ -160,6 +161,31 @@ List<UrlToken> urlTokens(String text) {
     if (url != null) found.add(UrlToken(word.start, word.end, url));
   }
   return found;
+}
+
+/// The same line with the tracking fields cut out of the links written into it.
+///
+/// A token is painted where it stands and opened from where it stands, so the
+/// address on the screen and the address a tap hands over have to be the same
+/// string. Filing the line exactly as typed left them disagreeing: the row read
+/// `...?utm_source=newsletter&utm_me…` and the tap opened the link without any
+/// of it.
+///
+/// This runs where a line is committed, never while it is being typed: text
+/// that rewrites itself under the cursor is worse than a long URL.
+String withoutTrackingInText(String text) {
+  final tokens = urlTokens(text);
+  if (tokens.isEmpty) return text;
+  final clean = StringBuffer();
+  var read = 0;
+  for (final token in tokens) {
+    clean
+      ..write(text.substring(read, token.start))
+      ..write(token.url);
+    read = token.end;
+  }
+  clean.write(text.substring(read));
+  return clean.toString();
 }
 
 /// The chip's label: the host, without `www.`. A chip is 28px and a URL is not.

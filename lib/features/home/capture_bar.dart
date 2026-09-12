@@ -101,11 +101,12 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   /// Whitespace is not a capture: the guard is here rather than on the button
   /// so the IME action cannot get past it either.
   Future<void> _submit() async {
-    final content = _controller.text.trim();
+    final content = withoutTrackingInText(_controller.text.trim());
     if (content.isEmpty) return;
-    // The line is filed exactly as typed. A URL inside it is part of what the
-    // user wrote and stays there; the only links an item gets are the ones
-    // committed on the link line.
+    // The line is filed as typed but for the campaign fields inside a URL,
+    // which go where every other link the app keeps loses them. A URL is
+    // otherwise part of what the user wrote and stays there; the only links an
+    // item gets are the ones committed on the link line.
     final attachments = List<NewAttachment>.from(_pending);
     final target = widget.fixedTarget ?? _target;
     _controller.clear();
@@ -354,8 +355,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                 // spends a full-width accent bar — or the height it costs —
                 // on nothing.
                 if (pending) const SizedBox(height: Spacing.md),
-                if (pending)
-                  SolidActionBar(label: 'Capture', onTap: _submit),
+                if (pending) SolidActionBar(label: 'Capture', onTap: _submit),
               ],
             ),
           );

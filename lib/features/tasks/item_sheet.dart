@@ -152,7 +152,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   /// Blur, and every path out of the editor. The title and the attachments land
   /// together: they were typed as one thing.
   Future<void> _commit() async {
-    final value = _field.text.trim();
+    final value = withoutTrackingInText(_field.text.trim());
     final attachments = List<NewAttachment>.from(_pending);
     setState(() {
       _editing = false;
