@@ -1,0 +1,143 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../application/agents.dart';
+import '../../application/navigation.dart';
+import '../../design/colors.dart';
+import '../../design/layout.dart';
+import '../../design/spacing.dart';
+import '../../design/typography.dart';
+
+/// One row over the nav bar, the height the parked shell takes, so the two
+/// stack without either looking like the taller kind of thing.
+const agentStatusBarHeight = 36.0;
+
+/// The block at the head of the line, at the size the line is drawn at.
+const agentStatusMarkSize = 6.0;
+
+/// What the agents are, on the screens that do not have the panel.
+///
+/// The AGENTS panel answers this on HOME and answers it better — the rows, the
+/// work each agent is on, a tap into the pane. What it cannot do is answer it
+/// from PROJECTS, from HOSTS, or from a terminal, which is where the user is
+/// when they stop to wonder. This is that answer, in one line, on the one strip
+/// of the window that belongs to the app rather than to a tab.
+class AgentStatusBar extends ConsumerWidget {
+  const AgentStatusBar({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // HOME has the panel, and the panel says all of this and the rows under it.
+    // Two answers to one question on one screen is one of them too many.
+    if (ref.watch(navIndexProvider) == 0) return const SizedBox.shrink();
+
+    final data = ref.watch(agentsFeedProvider).valueOrNull;
+    if (data == null || data.noHost) return const SizedBox.shrink();
+
+    final failures = data.failures;
+    final states = AgentStates.of(data.outcomes);
+    // Nothing live and nobody down: no bar at all. Height is the scarce thing
+    // on this window — a terminal is already giving up a row to the parked
+    // shell — and a bar that stands up to report that there is nothing to
+    // report is the one the reader stops seeing.
+    if (failures.isEmpty && !states.news) return const SizedBox.shrink();
+
+    // The failure leads and the counts follow it rather than being suppressed
+    // by it. The shade drops the tally under a failure because the count it
+    // could draw came off the host that stopped answering; the count here is
+    // taken over the hosts that did answer, so a machine that is down and a
+    // machine that is working are two true things and there is room to say
+    // both.
+    final line = [
+      if (failures.isNotEmpty)
+        failures.length == 1
+            ? failures.first.reason.toUpperCase()
+            : '${failures.first.reason.toUpperCase()} +${failures.length - 1}',
+      states.line,
+    ].where((part) => part.isNotEmpty).join(' · ');
+
+    return GestureDetector(
+      key: const ValueKey('agent-status'),
+      behavior: HitTestBehavior.opaque,
+      // Where the rows are. The bar is a count and the count is not an answer:
+      // a blocked agent is answered in the pane it is blocked in, and the panel
+      // is the door to it.
+      onTap: () => ref.read(navIndexProvider.notifier).state = 0,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: SpectacleColors.surfacePrimary,
+          border: Border(
+            top: BorderSide(
+              color: SpectacleColors.borderNormal,
+              width: Borders.hairline,
+            ),
+          ),
+        ),
+        child: ContentColumn(
+          child: ConstrainedBox(
+            // A floor rather than a height: the line grows with the reader's
+            // text size and a fixed row would take the bottom off it.
+            constraints: const BoxConstraints(minHeight: agentStatusBarHeight),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.screenEdge,
+                vertical: Spacing.md,
+              ),
+              child: Row(
+                children: [
+                  _Mark(_tint(states, down: failures.isNotEmpty)),
+                  const SizedBox(width: Spacing.md),
+                  Expanded(
+                    child: Text(
+                      line,
+                      style: SpectacleText.panelHeader.copyWith(
+                        color: SpectacleColors.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: Spacing.md),
+                  const Text('AGENTS', style: SpectacleText.panelHeader),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The one colour the bar gets, given to the state that most wants the user.
+  /// Blocked outranks a host being down: a machine nobody can reach is the app
+  /// failing to look, and an agent stopped at a question is the user being
+  /// waited on.
+  Color _tint(AgentStates states, {required bool down}) {
+    if (states.blocked > 0) return SpectacleColors.accent;
+    if (down) return SpectacleColors.warning;
+    if (states.working > 0) return SpectacleColors.textPrimary;
+    return SpectacleColors.textMuted;
+  }
+}
+
+class _Mark extends StatelessWidget {
+  const _Mark(this.color);
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    // Sized off the line it sits on rather than held at the size it was drawn
+    // at: the phone's scale is a curve and gives a small size most of the rise,
+    // so a block fixed at six pixels shrinks against its own text until it
+    // reads as a speck of dust on the bar.
+    final size = SpectacleText.panelHeader.fontSize!;
+    final scale = MediaQuery.textScalerOf(context).scale(size) / size;
+    return SizedBox(
+      key: const ValueKey('agent-status-mark'),
+      width: agentStatusMarkSize * scale,
+      height: agentStatusMarkSize * scale,
+      child: ColoredBox(color: color),
+    );
+  }
+}
