@@ -94,4 +94,40 @@ void main() {
       'http://localhost:3000/dash?tab=logs',
     );
   });
+
+  test('a link written into a line is cleaned where it stands', () {
+    expect(
+      withoutTrackingInText(
+        'leer https://blog.dev/post?utm_source=news&id=42 manana',
+      ),
+      'leer https://blog.dev/post?id=42 manana',
+    );
+  });
+
+  test('a line the tracking is the whole of comes back as the bare link', () {
+    expect(
+      withoutTrackingInText('https://blog.dev/post?utm_source=news&gclid=x'),
+      'https://blog.dev/post',
+    );
+  });
+
+  test('two links in one line are both cleaned', () {
+    expect(
+      withoutTrackingInText(
+        'https://a.dev/?fbclid=1 vs https://b.dev/?utm_medium=x&keep=1',
+      ),
+      'https://a.dev/ vs https://b.dev/?keep=1',
+    );
+  });
+
+  test('prose with no link in it is handed back untouched', () {
+    expect(
+      withoutTrackingInText('revisar pgbouncer utm_source=x'),
+      'revisar pgbouncer utm_source=x',
+    );
+  });
+
+  test('a word that only reads like a host is left alone', () {
+    expect(withoutTrackingInText('etc. blog.dev'), 'etc. blog.dev');
+  });
 }
