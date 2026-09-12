@@ -268,10 +268,11 @@ void main() {
       'assets/icons/agent-claude.svg',
       'assets/icons/agent-codex.svg',
     ]);
-    // The unknown kind is the third row's box, and the only `?` on screen.
-    expect(find.text('?'), findsOneWidget);
+    // The unknown kind is the third row's box, drawn as its own initial. The
+    // two that have a file are drawn from it and never fall back to a letter.
+    expect(find.text('G'), findsOneWidget);
+    expect(find.text('?'), findsNothing);
     expect(find.text('C'), findsNothing);
-    expect(find.text('X'), findsNothing);
     expect(find.text('GIZMO'), findsOneWidget);
     await unmount(tester);
   });

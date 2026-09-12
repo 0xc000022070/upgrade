@@ -669,7 +669,7 @@ void main() {
     expect(find.text('CODEX'), findsOneWidget);
   });
 
-  testWidgets('a kind with no mark file keeps the ? box', (tester) async {
+  testWidgets('a kind with no mark file keeps its own letter', (tester) async {
     await tester.pumpWidget(
       host(
         snapshotOf([
@@ -691,7 +691,10 @@ void main() {
       ),
       findsNothing,
     );
-    expect(find.text('?'), findsOneWidget);
+    // Its own initial rather than a question mark, which would be the same box
+    // for every name the app has no file for.
+    expect(find.text('G'), findsOneWidget);
+    expect(find.text('?'), findsNothing);
     // The fallback is the box only. The name is still what herdr reported.
     expect(find.text('GIZMO'), findsOneWidget);
   });

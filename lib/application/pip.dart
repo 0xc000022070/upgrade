@@ -58,10 +58,15 @@ final pipArmedProvider = Provider<bool>((ref) {
   if (ref.watch(pipAvailableProvider).valueOrNull != true) return false;
 
   // The feed keeps its last value after whatever was producing it stops, so a
-  // tally is not on its own evidence that anything is still being watched.
-  // Asked first, this leaves the window to the watcher: nothing else dials once
-  // the user has left, and a tile frozen at the moment they walked away has
-  // nothing that could take it back down.
+  // tally is not on its own evidence that anything is still being watched. What
+  // this gate catches is the app reopened over an old count with nothing
+  // dialling: it arms nothing, for the reason the strip over the nav bar is
+  // absent rather than stale. What it cannot catch is the window going dead
+  // under itself — with the watcher off, the panel on screen is what keeps the
+  // feed live, and leaving is what both opens the window and stops it. Arming
+  // has already happened by then and nothing on this side closes a window that
+  // is up, so the honest half of that case belongs to the window, which says
+  // it is not watching rather than drawing a count nothing is refreshing.
   if (!ref.watch(agentsFeedLiveProvider)) return false;
 
   final agents = ref.watch(agentsFeedProvider).valueOrNull;
