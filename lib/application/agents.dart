@@ -79,24 +79,36 @@ class HostOutcome {
   /// because that is how the spec writes them; [AgentsPanel] prefixes the
   /// others when more than one host is failing and the line would otherwise not
   /// say which.
-  String get reason => switch (kind) {
-    AgentOutcomeKind.snapshot => '',
-    AgentOutcomeKind.unreachable => ReasonLine.unreachable.on(host.name),
-    AgentOutcomeKind.unresolved => ReasonLine.unresolved.on(host.name),
-    AgentOutcomeKind.keyRejected => ReasonLine.keyRejected.words,
-    AgentOutcomeKind.protocolMismatch => protocolLine(protocol),
-    AgentOutcomeKind.hostKeyUnverified => ReasonLine.hostKeyUnverified.words,
-    AgentOutcomeKind.hostKeyChanged => ReasonLine.hostKeyChanged.words,
+  /// The sentence this kind is worded as, and the only place a kind is mapped
+  /// to one. `protocolMismatch` is the line that carries a value, so its words
+  /// are built by [protocolLine] rather than read off the enum.
+  ReasonLine? get _line => switch (kind) {
+    AgentOutcomeKind.snapshot => null,
+    AgentOutcomeKind.unreachable => ReasonLine.unreachable,
+    AgentOutcomeKind.unresolved => ReasonLine.unresolved,
+    AgentOutcomeKind.keyRejected => ReasonLine.keyRejected,
+    AgentOutcomeKind.protocolMismatch => ReasonLine.protocolMismatch,
+    AgentOutcomeKind.hostKeyUnverified => ReasonLine.hostKeyUnverified,
+    AgentOutcomeKind.hostKeyChanged => ReasonLine.hostKeyChanged,
   };
 
+  String get reason {
+    if (kind == AgentOutcomeKind.protocolMismatch) {
+      return protocolLine(protocol);
+    }
+    // A line that does not name a host drops the one it is handed, so the
+    // caller does not have to know which kind it is holding.
+    return _line?.on(host.name) ?? '';
+  }
+
   /// [reason] with the host in front of it where the words do not already
-  /// carry one. Two of the six name their host because that is how the spec
-  /// writes them; the other four are bare, and a bare `key rejected` on a
-  /// surface that shows one failure and counts the others does not say which
-  /// machine.
+  /// carry one. Which lines those are is the enum's own `names`, asked rather
+  /// than listed again here: a bare `key rejected` on a surface that shows one
+  /// failure and counts the others does not say which machine.
   String get namedReason {
-    const named = {AgentOutcomeKind.unreachable, AgentOutcomeKind.unresolved};
-    if (named.contains(kind)) return reason;
+    final line = _line;
+    if (line == null) return '';
+    if (line.names) return line.on(host.name);
     return '${host.name.toLowerCase()} · $reason';
   }
 }
