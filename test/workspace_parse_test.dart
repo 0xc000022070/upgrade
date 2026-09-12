@@ -263,6 +263,48 @@ index 1a2b3c..4d5e6f 100644
       expect(lines[1].oldLine, 1);
       expect((lines[3].oldLine, lines[3].newLine), (40, 41));
     });
+
+    test('a file cut at the cap says so instead of ending like a file', () {
+      final lines = parseDiff('''
+@@ -1,3 +1,3 @@
+ first
+-second
++third
+''', complete: false);
+
+      // Three lines of the file, and then the row that is not one of them.
+      expect(lines.last.kind, DiffLineKind.capped);
+      expect(lines.last.text, 'kept 3 lines; the rest did not fit');
+      // The count is of the file's lines. A reader compares it with the count
+      // the change list showed, and that one does not count hunk headers.
+      expect(
+        lines.where((line) => line.kind == DiffLineKind.hunk),
+        hasLength(1),
+      );
+    });
+
+    test('half a line is dropped rather than drawn as a whole one', () {
+      // `head -c` cuts at a byte, so the answer can stop inside a line. Drawn,
+      // that line is indistinguishable from a line that is really that short.
+      final lines = parseDiff('''
+@@ -1,3 +1,3 @@
+ first
+-second
++thi''', complete: false);
+
+      expect(lines.map((line) => line.text), isNot(contains('thi')));
+      expect(lines.last.kind, DiffLineKind.capped);
+      expect(lines.last.text, startsWith('kept 2 lines'));
+    });
+
+    test('a whole answer ends on the file and says nothing extra', () {
+      final lines = parseDiff('''
+@@ -1,1 +1,1 @@
+ first
+''');
+
+      expect(lines.where((line) => line.kind == DiffLineKind.capped), isEmpty);
+    });
   });
 
   group('a whole source, split apart', () {

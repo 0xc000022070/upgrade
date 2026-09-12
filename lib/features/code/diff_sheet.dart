@@ -1245,6 +1245,11 @@ class _DiffRow extends StatelessWidget {
   /// The same two hues again, over the run that actually changed. A whole-line
   /// ground says the line is on one side of the change; this says which of its
   /// words put it there, and it has to be readable over the ground it sits on.
+  /// The warning amber at the weight the two sides carry theirs, so the row
+  /// that ends a cut file reads as one of this body's own rows and not as a
+  /// banner dropped on top of it.
+  static const _cappedGround = Color(0x1FD6A34B);
+
   static const _addedRun = Color(0x40B7FF2A);
   static const _removedRun = Color(0x4DB84A4A);
 
@@ -1280,6 +1285,16 @@ class _DiffRow extends StatelessWidget {
         SpectacleColors.textSecondary,
         SpectacleColors.textDisabled,
         null,
+      ),
+      // The one row that is not the file. It says the reading stopped short,
+      // so it is the colour this app spends on a state that is not wrong but
+      // is not finished either, and it carries a ground so a reader who
+      // arrives at the bottom cannot take it for the last line of the diff.
+      DiffLineKind.capped => (
+        '…',
+        SpectacleColors.warning,
+        SpectacleColors.warning,
+        _cappedGround,
       ),
     };
     final numbers = SpectacleText.noteBody.copyWith(
@@ -1373,16 +1388,18 @@ class _DiffRow extends StatelessWidget {
     );
   }
 
-  /// The line cut into runs of one colour. A hunk header and the `diff --git`
-  /// preamble are git's words about the file rather than lines of it, so they
-  /// are left the colour they already have — colouring them would say they
-  /// were code.
+  /// The line cut into runs of one colour. A hunk header, the `diff --git`
+  /// preamble and the row that says where a cut file stops are words about the
+  /// file rather than lines of it, so they are left the colour they already
+  /// have — colouring them would say they were code, and a sentence read
+  /// through a Dart lexer picks out its keywords.
   InlineSpan _text() {
     final language = this.language;
     final runs =
         language == null ||
             line.kind == DiffLineKind.hunk ||
-            line.kind == DiffLineKind.meta
+            line.kind == DiffLineKind.meta ||
+            line.kind == DiffLineKind.capped
         ? [(text: line.text, token: SyntaxToken.plain)]
         : highlight(line.text, language);
     final run = changed;
