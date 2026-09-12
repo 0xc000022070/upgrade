@@ -55,6 +55,33 @@ Widget pane(ScrollController scroll, List<int> rows) => Directionality(
 );
 
 void main() {
+  group('how a hunk header reads', () {
+    test('the symbol git found comes first', () {
+      expect(
+        hunkHeadline(
+          '@@ -753,11 +811,79 @@ class _DiffBody extends StatelessWidget',
+        ),
+        'class _DiffBody extends StatelessWidget  @@ -753,11 +811,79 @@',
+      );
+    });
+
+    test('a header git found no symbol for is left as it came', () {
+      expect(hunkHeadline('@@ -1,3 +1,3 @@'), '@@ -1,3 +1,3 @@');
+      expect(hunkHeadline('@@ -1,3 +1,3 @@ '), '@@ -1,3 +1,3 @@ ');
+    });
+
+    test('the ranges are kept whole', () {
+      expect(
+        hunkHeadline('@@ -9 +9 @@ func main() {'),
+        'func main() {  @@ -9 +9 @@',
+      );
+    });
+
+    test('something that is not a header is not rewritten', () {
+      expect(hunkHeadline('diff --git a/x b/x'), 'diff --git a/x b/x');
+    });
+  });
+
   group('which hunk a line is inside', () {
     test('only the headers are rows to hold', () {
       expect(
