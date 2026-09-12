@@ -42,7 +42,7 @@ class ProjectRow extends StatelessWidget {
         : '${project.name}  ·  ${project.status.name}';
     final hasObjective = project.objective.trim().isNotEmpty;
     return ListRow(
-      kicker: hasObjective ? named : null,
+      kicker: hasObjective ? named.toUpperCase() : null,
       title: hasObjective ? project.objective : named,
       titleColor: dim ? SpectacleColors.textMuted : null,
       subtitle: blocked ? '[ BLOCKED BY ] ${project.lead}' : null,

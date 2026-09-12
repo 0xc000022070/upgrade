@@ -11,6 +11,7 @@ import 'package:spectacle/data/repositories/path_repository.dart';
 import 'package:spectacle/design/components/action_block.dart';
 import 'package:spectacle/design/components/list_row.dart';
 import 'package:spectacle/design/components/panel.dart';
+import 'package:spectacle/design/components/path_line.dart';
 import 'package:spectacle/design/colors.dart';
 import 'package:spectacle/design/layout.dart';
 import 'package:spectacle/design/spacing.dart';
@@ -649,6 +650,24 @@ void main() {
       expect(find.text('COMMITS'), findsOneWidget);
       expect(find.text('fix(shell): the font'), findsOneWidget);
       expect(find.text('docs(spec): rulings'), findsOneWidget);
+      // A sha is the string the reader retypes into git, so the row draws the
+      // one git printed. The capitals over a row belong to words this app
+      // chose, and a sha is not one of them.
+      expect(find.text('1a2b3c'), findsOneWidget);
+      expect(find.text('1A2B3C'), findsNothing);
+
+      // Picking one names the panel by the same sha, and the panel is a strip
+      // that capitalises what it is handed unless it is told the title came
+      // from outside. Two spellings of one sha, an inch apart, is the bug.
+      await tapText(tester, 'fix(shell): the font');
+      await ready(tester);
+      expect(
+        tester
+            .widgetList<Panel>(find.byType(Panel))
+            .where((panel) => panel.literalTitle)
+            .map((panel) => panel.title),
+        contains('SPECTACLE / 1a2b3c'),
+      );
       // The history is one command, and the working tree is not asked for
       // again: it is the answer the screen underneath already has.
       expect(
@@ -798,12 +817,20 @@ void main() {
       final pane = tester
           .widgetList<Panel>(onSheet(find.byType(Panel)))
           .singleWhere((panel) => panel.title == 'lib/main.dart');
-      expect(pane.pathTitle, isTrue);
+      expect(pane.literalTitle, isTrue);
+      // And the strip hands it over unchanged: the case is the file's, not the
+      // header's, on a filesystem that tells two of them apart by it.
+      expect(
+        tester
+            .widgetList<PathLine>(onSheet(find.byType(PathLine)))
+            .map((line) => line.path),
+        contains('lib/main.dart'),
+      );
 
       await tapText(tester, 'CLOSE');
       await unfold(tester, 'CHANGES');
       expect(
-        tester.widget<ListRow>(fileRow('lib/main.dart')).pathTitle,
+        tester.widget<ListRow>(fileRow('lib/main.dart')).literalTitle,
         isTrue,
       );
 
@@ -826,7 +853,7 @@ void main() {
           .first;
       final code = find
           .ancestor(
-            of: onSheet(find.text('LIB/MAIN.DART')),
+            of: onSheet(find.text('lib/main.dart')),
             matching: find.byType(Panel),
           )
           .first;

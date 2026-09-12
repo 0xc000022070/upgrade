@@ -407,7 +407,8 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
     return Panel(
       title:
           '${_controller.label.toUpperCase()} / '
-          '${source == null ? 'WORKING TREE' : source.short.toUpperCase()}',
+          '${source == null ? 'WORKING TREE' : source.short}',
+      literalTitle: source != null,
       affordance: loading
           ? null
           : _Stat(added: added, removed: removed, files: files.length),
@@ -537,7 +538,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
                           key: ValueKey('diff-file-${file.path}'),
                           kicker: fileKindWord(file),
                           title: file.path,
-                          pathTitle: true,
+                          literalTitle: true,
                           subtitle: file.origin,
                           titleColor: file.path == _file?.path
                               ? SpectacleColors.accent
@@ -734,7 +735,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       // The path and not its last segment: two files of the same name in two
       // directories are the ordinary case in a repository.
       title: file.path,
-      pathTitle: true,
+      literalTitle: true,
       affordance: wide
           ? _Stat(added: file.added ?? 0, removed: file.removed ?? 0)
           : PanelAffordance(
