@@ -61,7 +61,7 @@ diff --git a/lib/main.dart b/lib/main.dart
 @@ -1,3 +1,3 @@
 -const port = 22;
 +const port = 357;
-+$_wide
+ $_wide
 ''';
 
 String get _log =>
@@ -146,6 +146,19 @@ class FakeRunner implements WorkspaceRunner {
 
   @override
   Future<void> close() async => closed = true;
+}
+
+/// The pieces of a drawn line that carry a ground of their own, which is how
+/// the viewer says this much of the line is what changed.
+List<String> litRuns(WidgetTester tester, Finder line) {
+  final runs = <String>[];
+  tester.widget<Text>(line).textSpan?.visitChildren((span) {
+    if (span is TextSpan && span.style?.backgroundColor != null) {
+      runs.add(span.text ?? '');
+    }
+    return true;
+  });
+  return runs;
 }
 
 void main() {
@@ -803,6 +816,21 @@ void main() {
       await tapText(tester, 'scratch.txt');
 
       expect(runner.commands.last, contains('--no-index'));
+
+      await unmount(tester);
+    });
+
+    testWidgets('the word that changed is lit inside the line', (tester) async {
+      await viewer(tester);
+
+      // The pair differs by the port and nothing else, so the port is what
+      // carries a ground of its own on both sides of the change.
+      expect(litRuns(tester, onSheet(find.text('const port = 357;'))), ['357']);
+      expect(litRuns(tester, onSheet(find.text('const port = 22;'))), ['22']);
+
+      // A line nothing replaced has no run to point at; its row already says
+      // everything there is to say about it.
+      expect(litRuns(tester, onSheet(find.text(_wide))), isEmpty);
 
       await unmount(tester);
     });

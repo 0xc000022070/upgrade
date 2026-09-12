@@ -1166,6 +1166,18 @@ A phone is narrower than the lines people write, and the viewer answered that wi
 
 Struck: shrinking the face until the longest line fits. A diff read at six points is not read, and the face is the app's own decision rather than a slider.
 
+### The line says which of its words changed
+
+A row painted green says the line is in the file now and a row painted red says it was, which for a line edited in one place leaves the reader comparing two nearly identical strings by eye to find the place. The viewer marks it instead: the run of the line that its partner does not have carries the row's own hue at a weight the ground does not, so the port number, the renamed call, the flipped flag reads at a glance and the rest of the line stays ordinary text.
+
+**A pair is only a pair when the counts agree.** git hands over the removed lines and then the added ones and never says which replaced which. When the two blocks are the same length they are read in order, one against one. When they are not, nothing further is claimed — the rows keep their ground and no run is marked, because the alternative is pointing confidently at a line that was never the other one's version.
+
+**A word is marked whole.** `port` against `ports` share three letters and marking the `s` alone is true and useless; the run is widened at both ends to the edges of the words it opens and closes inside. Two lines that share almost nothing are left alone for the same reason: whatever characters they have in common coincided rather than survived.
+
+**The colours are two cuts of one line, not two coats.** The run that changed and the runs the highlighter found are decided separately and the line is cut at both, so a marked span keeps whatever colour its syntax gave it. The mark is a ground behind the text and never the text's own colour, which belongs to what the word is rather than to when it arrived.
+
+Struck: pairing lines across a block by how alike they are. It finds the right partner more often than counting does and it is a guess either way; a rule the reader can hold — same many out, same many in — is worth more on a phone than a better average.
+
 ### A pasted link loses the campaign that was stamped on it
 
 A URL reaches the phone through a share sheet or a copy button, and both of them write on it first. `utm_source`, `utm_medium`, `utm_campaign`, a `gclid` or an `fbclid` sixty characters long, the mail platform's `mc_eid` — none of it means anything to the page being opened, all of it says which campaign produced the tap, and together it is why a pasted address fills three lines of a drop instead of one. The app cuts those fields out before the link is kept or handed over.
