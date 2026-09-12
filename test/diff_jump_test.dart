@@ -96,6 +96,51 @@ void main() {
       expect(jumps.from, isNull);
       expect(find.byKey(const ValueKey('diff-return')), findsNothing);
     });
+
+    testWidgets('a drag is one movement however many jumps it arrives as', (
+      tester,
+    ) async {
+      final jumps = mounted(tester);
+      await tester.pumpWidget(pane(jumps));
+
+      // The reader is a third of the way down and takes hold of the strip.
+      jumps.scroll.jumpTo(300);
+      await tester.pump();
+      jumps.hold();
+      // A thumb travelling down it hands over a jump per frame.
+      for (final offset in [340.0, 420.0, 530.0, 550.0]) {
+        jumps.to(offset);
+        await tester.pump();
+      }
+      jumps.release();
+      await tester.pump();
+
+      // Not 530: the frame before the last one is not a place the reader was.
+      expect(jumps.from, 300);
+    });
+
+    testWidgets('the next drag begins where the last one left the pane', (
+      tester,
+    ) async {
+      final jumps = mounted(tester);
+      await tester.pumpWidget(pane(jumps));
+
+      jumps.hold();
+      jumps.to(500);
+      await tester.pump();
+      jumps.release();
+      await tester.pump();
+
+      jumps.hold();
+      jumps.to(200);
+      await tester.pump();
+      jumps.release();
+      await tester.pump();
+
+      // Letting go ends the movement, so the second drag keeps its own origin
+      // rather than inheriting the first one's.
+      expect(jumps.from, 500);
+    });
   });
 
   group('the way back to where a jump began', () {

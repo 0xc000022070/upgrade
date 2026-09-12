@@ -70,8 +70,11 @@ class DiffMap extends StatelessWidget {
       builder: (context, constraints) => GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (tap) => _jump(tap.localPosition.dy, constraints.maxHeight),
+        onVerticalDragStart: (drag) => jumps.hold(),
         onVerticalDragUpdate: (drag) =>
             _jump(drag.localPosition.dy, constraints.maxHeight),
+        onVerticalDragEnd: (drag) => jumps.release(),
+        onVerticalDragCancel: jumps.release,
         child: CustomPaint(
           size: Size.infinite,
           painter: _MapPainter(
