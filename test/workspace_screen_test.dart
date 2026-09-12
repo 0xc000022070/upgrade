@@ -9,7 +9,9 @@ import 'package:spectacle/application/agents.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
 import 'package:spectacle/data/repositories/path_repository.dart';
 import 'package:spectacle/design/components/action_block.dart';
+import 'package:spectacle/design/components/panel.dart';
 import 'package:spectacle/design/layout.dart';
+import 'package:spectacle/design/spacing.dart';
 import 'package:spectacle/features/code/diff_map.dart';
 import 'package:spectacle/features/code/diff_sheet.dart';
 import 'package:spectacle/features/code/workspace_screen.dart';
@@ -708,6 +710,52 @@ void main() {
       // One fold is one list: opening the history leaves the changes folded.
       expect(onSheet(find.text('fix(shell): the font')), findsOneWidget);
       expect(onSheet(find.text('scratch.txt')), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('folded over a file, the strips keep only their own width', (
+      tester,
+    ) async {
+      await viewer(tester, size: Size(Layout.columnMax * 2, 1600));
+
+      // Picking a file folds both lists, and a folded list is a header strip.
+      // A column holding two fifths of a wide screen to draw one strip is two
+      // fifths of the screen not drawing the file.
+      final panel = find
+          .ancestor(
+            of: onSheet(find.text('CHANGES')),
+            matching: find.byType(Panel),
+          )
+          .first;
+      final code = find
+          .ancestor(
+            of: onSheet(find.text('LIB/MAIN.DART')),
+            matching: find.byType(Panel),
+          )
+          .first;
+      final foldedList = tester.getSize(panel).width;
+      final foldedCode = tester.getSize(code).width;
+      expect(foldedCode, greaterThan(foldedList * 3));
+
+      // The count stands off the title even on a strip with no slack in it.
+      final affordance = find.descendant(
+        of: panel,
+        matching: find.byType(PanelAffordance),
+      );
+      expect(
+        tester.getRect(affordance).left -
+            tester.getRect(onSheet(find.text('CHANGES'))).right,
+        greaterThanOrEqualTo(Spacing.md),
+      );
+
+      // They cannot go: a wide pane carries its stat where a narrow one
+      // carries CLOSE, so the strips are the only way back to the list. What
+      // unfolding gives the list comes out of the file's column.
+      await unfold(tester, 'CHANGES');
+
+      expect(tester.getSize(panel).width, greaterThan(foldedList));
+      expect(tester.getSize(code).width, lessThan(foldedCode));
 
       await unmount(tester);
     });

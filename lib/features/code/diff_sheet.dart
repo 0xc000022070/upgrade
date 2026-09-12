@@ -439,13 +439,24 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final wide = width >= Layout.columnMax;
+        // Folded over a file, the lists are two header strips, and a column
+        // holding two fifths of a wide screen to draw them is two fifths of
+        // the screen not drawing the file. Folded they keep the width their
+        // own words need, which is the width they would have had on a phone
+        // plus nothing. They cannot go: a wide pane carries its stat where a
+        // narrow one carries CLOSE, so the strips are the way back to the
+        // list.
+        final strips = wide && _file != null && !_changesOpen && !_historyOpen;
         final listWidth = wide
             ? width * _listShare - Spacing.panelGap / 2
             : (_file == null ? width : 0.0);
         return Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(width: listWidth, child: _list()),
+            if (strips)
+              IntrinsicWidth(child: _list())
+            else
+              SizedBox(width: listWidth, child: _list()),
             SizedBox(width: wide ? Spacing.panelGap : 0),
             Expanded(child: _hunks(wide: wide)),
           ],
