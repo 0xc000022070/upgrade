@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectacle/features/code/diff_jump.dart';
 import 'package:spectacle/features/code/hunk_pin.dart';
 import 'package:spectacle/platform/workspace/workspace_model.dart';
 
@@ -43,7 +44,7 @@ Widget pane(ScrollController scroll, List<int> rows) => Directionality(
             right: 0,
             child: HunkPin(
               rows: rows,
-              scroll: scroll,
+              jumps: DiffJumps(scroll),
               rowHeight: _rowHeight,
               rowAt: _Held.new,
             ),

@@ -1270,6 +1270,56 @@ already spoken for — down the file and across it — and a third gesture on to
 of them would have to be disambiguated from both. The thing a reader reaches
 into a diff on a phone to take out is one line.
 
+### A jump keeps the place it took the reader from
+
+The pane moves three ways the thumb never touched: a tap on the strip, the
+walk to the next hunk, a touch on the held header. Each of them is one step,
+and a step is the movement that can be wrong — a thumb aimed at a strip
+sixteen pixels wide is aiming at a whole file, and the walk lands wherever
+the next header happens to be. What it costs is the same every time: the
+scroll that got the reader to where they were is spent, and a long file
+gives it back only as a fling and a guess.
+
+**Every movement the reader's thumb did not make keeps where it began.** One
+place behind the pane and not a trail of them: the jump that is worth
+undoing is the one just taken, and a history of jumps is a second thing to
+navigate inside the thing being navigated.
+
+**The way back is offered as the line it goes to.** A cell in the corner of
+the pane carrying the number the gutter had there, so it says where it lands
+and not only that it lands somewhere. It is the number and not an arrow
+because the terminal's way back has one destination and always the same one,
+and this one points somewhere new every time it appears.
+
+**It stands in the corner the strip is not in.** Bottom left: the pane's
+right edge is the strip, and a cell over the bottom of it would take the
+touches aimed at the end of the file.
+
+**A jump that landed within a pane of where it began left nothing behind.**
+The lines it came from are still on the screen, and offering a way back to
+something the reader can already see is offering to move them for nothing.
+
+**It is read from where the pane is, never set and never cleared.** A reader
+who scrolls back by hand arrives without taking it, and it goes when they
+get there because it is a reading of the distance and not a mark left behind
+by the jump. Nothing about it can go stale, which is the property that lets
+it live in a corner nobody is looking at.
+
+**It rides back where the jump jumped.** The jump was asked for and its end
+is recognised by whoever asked; the return has to be recognised as a return,
+and a pane that arrives already somewhere else says nothing about where it
+came from.
+
+Struck: a stack of the jumps behind the last one. The pane would then carry
+a history whose own shape has to be shown and moved through, and the reader
+who wanted the previous four places has a scrollbar and a strip for exactly
+that.
+
+Struck: a mark the reader sets on a line by hand. It is a second kind of
+place to keep, set by an action that has to be learned and cleared by
+another, and the case it answers — go back to what I was reading — is
+already answered by the jump that took them away from it.
+
 ### A pasted link loses the campaign that was stamped on it
 
 A URL reaches the phone through a share sheet or a copy button, and both of them write on it first. `utm_source`, `utm_medium`, `utm_campaign`, a `gclid` or an `fbclid` sixty characters long, the mail platform's `mc_eid` — none of it means anything to the page being opened, all of it says which campaign produced the tap, and together it is why a pasted address fills three lines of a drop instead of one. The app cuts those fields out before the link is kept or handed over.
