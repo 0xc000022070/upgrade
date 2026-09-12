@@ -5,6 +5,7 @@ import '../icons/spectacle_icon.dart';
 import '../icons/spectacle_icons.dart';
 import '../spacing.dart';
 import '../typography.dart';
+import 'path_line.dart';
 import 'progress_bar.dart';
 import 'signal_text.dart';
 
@@ -19,6 +20,7 @@ class ListRow extends StatelessWidget {
   const ListRow({
     super.key,
     required this.title,
+    this.pathTitle = false,
     this.kicker,
     this.subtitle,
     this.caption,
@@ -43,6 +45,11 @@ class ListRow extends StatelessWidget {
   final String? kicker;
 
   final String title;
+
+  /// The title is a file path, which is identified by its end. Set here rather
+  /// than guessed from the string: a title with a slash in it is not
+  /// necessarily a path, and a path is not necessarily too long to matter.
+  final bool pathTitle;
 
   /// Second line. On a blocked row this is the reason, in warning.
   final String? subtitle;
@@ -137,13 +144,15 @@ class ListRow extends StatelessWidget {
             const SizedBox(width: Spacing.lg),
           ],
           Expanded(
-            child: SignalText(
-              title,
-              style: titleStyle,
-              decodeOnEntry: decode,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: pathTitle
+                ? PathLine(title, style: titleStyle, decode: decode)
+                : SignalText(
+                    title,
+                    style: titleStyle,
+                    decodeOnEntry: decode,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
           ),
         ],
       ),

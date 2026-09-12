@@ -9,6 +9,7 @@ import 'package:spectacle/application/agents.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
 import 'package:spectacle/data/repositories/path_repository.dart';
 import 'package:spectacle/design/components/action_block.dart';
+import 'package:spectacle/design/components/list_row.dart';
 import 'package:spectacle/design/components/panel.dart';
 import 'package:spectacle/design/layout.dart';
 import 'package:spectacle/design/spacing.dart';
@@ -544,6 +545,22 @@ void main() {
   });
 
   group('the diff viewer', () {
+    /// Only what is on the sheet. The workspace screen it opened over stays
+    /// mounted underneath, and it says several of the same words.
+    Finder onSheet(Finder matching) =>
+        find.descendant(of: find.byType(DiffSheet), matching: matching);
+
+    /// A file row is found by its path and not by the words it draws: a path
+    /// too wide for its row gives up leading directories, and the test font is
+    /// square, so the fixtures' rows shorten where a device's would not.
+    Finder fileRow(String path) =>
+        onSheet(find.byKey(ValueKey('diff-file-$path')));
+
+    Future<void> tapFile(WidgetTester tester, String path) async {
+      await tester.tap(fileRow(path));
+      await ready(tester);
+    }
+
     /// The viewer as the workspace opens it: over the connection the screen
     /// already holds, on the file that was tapped.
     Future<FakeRunner> viewer(WidgetTester tester, {Size? size}) async {
@@ -551,11 +568,6 @@ void main() {
       await tapText(tester, 'lib/main.dart');
       return runner;
     }
-
-    /// Only what is on the sheet. The workspace screen it opened over stays
-    /// mounted underneath, and it says several of the same words.
-    Finder onSheet(Finder matching) =>
-        find.descendant(of: find.byType(DiffSheet), matching: matching);
 
     /// One of the sheet's two lists, which both come up folded.
     Future<void> unfold(WidgetTester tester, String title) async {
@@ -621,8 +633,8 @@ void main() {
       expect(runner.commands.last, contains('--numstat --format='));
       expect(runner.commands.last, contains('1a2b3c4d5e'));
       // That commit's files, in place of the working tree's.
-      expect(onSheet(find.text('lib/shell/shell_header.dart')), findsOneWidget);
-      expect(onSheet(find.text('lib/main.dart')), findsNothing);
+      expect(fileRow('lib/shell/shell_header.dart'), findsOneWidget);
+      expect(fileRow('lib/main.dart'), findsNothing);
       // And the head line is that commit.
       expect(onSheet(find.text('uncommitted changes')), findsNothing);
       expect(onSheet(find.text('fix(shell): the font')), findsWidgets);
@@ -635,11 +647,11 @@ void main() {
     ) async {
       await panes(tester);
       await tapText(tester, 'fix(shell): the font');
-      expect(onSheet(find.text('lib/main.dart')), findsNothing);
+      expect(fileRow('lib/main.dart'), findsNothing);
 
       await tapText(tester, 'WORKING TREE');
 
-      expect(onSheet(find.text('lib/main.dart')), findsOneWidget);
+      expect(fileRow('lib/main.dart'), findsOneWidget);
       expect(onSheet(find.text('scratch.txt')), findsOneWidget);
 
       await unmount(tester);
@@ -737,6 +749,29 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('a file is titled by a path in both places it is named', (
+      tester,
+    ) async {
+      await viewer(tester);
+
+      // A path is identified by its end, and ellipsis drops exactly that end.
+      // The two places that draw one say it is a path rather than each of them
+      // deciding from the string what a slash in a title means.
+      final pane = tester
+          .widgetList<Panel>(onSheet(find.byType(Panel)))
+          .singleWhere((panel) => panel.title == 'lib/main.dart');
+      expect(pane.pathTitle, isTrue);
+
+      await tapText(tester, 'CLOSE');
+      await unfold(tester, 'CHANGES');
+      expect(
+        tester.widget<ListRow>(fileRow('lib/main.dart')).pathTitle,
+        isTrue,
+      );
+
+      await unmount(tester);
+    });
+
     testWidgets('folded over a file, the strips keep only their own width', (
       tester,
     ) async {
@@ -792,7 +827,7 @@ void main() {
       await tapText(tester, 'scratch.txt');
 
       expect(onSheet(find.text('fix(shell): the font')), findsNothing);
-      expect(onSheet(find.text('lib/main.dart')), findsNothing);
+      expect(fileRow('lib/main.dart'), findsNothing);
 
       await unmount(tester);
     });
@@ -851,7 +886,7 @@ void main() {
       await tapText(tester, 'fix(shell): the font');
       final asked = diffsAsked(runner);
 
-      await tapText(tester, 'lib/shell/shell_header.dart');
+      await tapFile(tester, 'lib/shell/shell_header.dart');
       expect(find.text('const mark = true;'), findsOneWidget);
 
       await tester.tap(onSheet(find.byKey(const ValueKey('diff-next-file'))));
@@ -868,7 +903,7 @@ void main() {
     testWidgets('the walk says where in the list the file is', (tester) async {
       await panes(tester);
       await tapText(tester, 'fix(shell): the font');
-      await tapText(tester, 'lib/shell/shell_tabs.dart');
+      await tapFile(tester, 'lib/shell/shell_tabs.dart');
 
       // Named, so the count is not read as a place in the hunks.
       expect(onSheet(find.text('FILE 2 / 2')), findsOneWidget);
@@ -1041,7 +1076,7 @@ void main() {
       await ready(tester);
       await tapText(tester, 'CLOSE');
       await unfold(tester, 'CHANGES');
-      await tapText(tester, 'lib/main.dart');
+      await tapFile(tester, 'lib/main.dart');
 
       expect(find.byKey(const ValueKey('diff-copy-line')), findsNothing);
 

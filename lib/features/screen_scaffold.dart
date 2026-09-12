@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
 import '../design/components/panel.dart';
+import '../design/components/path_line.dart';
 import '../design/components/signal_text.dart';
 import '../design/layout.dart';
 import '../design/spacing.dart';
@@ -220,23 +221,10 @@ class _SegmentedCrumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (segments.isEmpty) return const SizedBox.shrink();
-    final scaler = MediaQuery.textScalerOf(context);
-    final direction = Directionality.of(context);
-
-    double widthOf(String text) {
-      final painter = TextPainter(
-        text: TextSpan(text: text, style: _style),
-        textDirection: direction,
-        textScaler: scaler,
-        maxLines: 1,
-      )..layout();
-      final width = painter.width;
-      painter.dispose();
-      return width;
-    }
-
     return LayoutBuilder(
       builder: (context, constraints) {
+        double widthOf(String text) => lineWidth(context, text, _style);
+
         var dropped = 0;
         // Never past the immediate parent: `/ … / HOMELAB` is the floor, and a
         // name too long even for that ellipsizes on its own below.
