@@ -102,6 +102,19 @@ diff --git a/lib/shell/shell_tabs.dart b/lib/shell/shell_tabs.dart
 +const tabs = 8;
 ''';
 
+/// An answer `head` stopped at the cap: the same bytes the command asked for,
+/// which is how a caller tells a diff that ended from one that was cut. Short
+/// lines and many of them, so the test pays for laying out the handful that
+/// are on screen rather than for every character of half a megabyte.
+String cappedDiff(String head) {
+  final body = StringBuffer(head);
+  final line = ' ${'x' * 200}\n';
+  while (body.length < WorkspaceCommands.diffBytes) {
+    body.write(line);
+  }
+  return body.toString();
+}
+
 /// A runner that answers from a table and keeps the tape.
 class FakeRunner implements WorkspaceRunner {
   FakeRunner({this.overview, this.fail});
@@ -602,10 +615,18 @@ void main() {
 
     /// The viewer as the workspace opens it: over the connection the screen
     /// already holds, on the file that was tapped.
-    Future<FakeRunner> viewer(WidgetTester tester, {Size? size}) async {
-      final runner = await open(tester, size: size ?? const Size(400, 1600));
+    Future<FakeRunner> viewer(
+      WidgetTester tester, {
+      Size? size,
+      FakeRunner? runner,
+    }) async {
+      final opened = await open(
+        tester,
+        runner: runner,
+        size: size ?? const Size(400, 1600),
+      );
       await tapText(tester, 'lib/main.dart');
-      return runner;
+      return opened;
     }
 
     /// One of the sheet's two lists, which both come up folded.
@@ -1155,6 +1176,60 @@ void main() {
       // Git writes the coordinates first and the symbol last, which on a phone
       // puts the only half worth reading off the right edge.
       expect(find.text('void main() {  @@ -1,3 +1,3 @@'), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testWidgets('a file cut at the cap says so at the end of it', (
+      tester,
+    ) async {
+      // The whole-source answer is cut before it reaches the only file in it,
+      // so the viewer falls back to asking for that file by name — and that
+      // answer is cut too, which is the case a file bigger than the cap is.
+      final runner = FakeRunner();
+      runner.answers['HEAD | head -c'] = WorkspaceReply(
+        exitCode: 0,
+        stdout: cappedDiff(
+          'diff --git a/lib/main.dart b/lib/main.dart\n@@ -1,900 +1,900 @@\n',
+        ),
+        stderr: '',
+      );
+      // Keyed on the fragment before the path: the path itself arrives under
+      // the outer `sh -c` quoting, so it is not the string it started as.
+      runner.answers['HEAD -- '] = WorkspaceReply(
+        exitCode: 0,
+        stdout: cappedDiff('@@ -1,900 +1,900 @@\n'),
+        stderr: '',
+      );
+      await viewer(tester, runner: runner);
+
+      final body = tester.state<ScrollableState>(
+        onSheet(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
+          ),
+        ).last,
+      );
+      body.position.jumpTo(body.position.maxScrollExtent);
+      await ready(tester);
+
+      // The reader who scrolls to the bottom of a cut file would otherwise
+      // have no way to tell it from the bottom of a whole one.
+      final notice = onSheet(find.textContaining('kept '));
+      expect(notice, findsOneWidget);
+
+      // And it is a sentence, not a line of the file: read through the lexer
+      // it picks out its own words as keywords and its count as a literal.
+      final colours = <Color?>{};
+      tester.widget<Text>(notice).textSpan?.visitChildren((span) {
+        if (span is TextSpan && span.text != null) {
+          colours.add(span.style?.color);
+        }
+        return true;
+      });
+      expect(colours, hasLength(1));
+
       await unmount(tester);
     });
 

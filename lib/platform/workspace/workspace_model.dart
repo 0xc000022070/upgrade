@@ -147,7 +147,7 @@ class DirEntry {
   bool get isDirectory => kind == DirEntryKind.directory;
 }
 
-enum DiffLineKind { meta, hunk, added, removed, context }
+enum DiffLineKind { meta, hunk, added, removed, context, capped }
 
 class DiffLine {
   const DiffLine(this.kind, this.text, {this.oldLine, this.newLine});
@@ -430,7 +430,12 @@ List<DirEntry> parseListing(String output) {
 /// A unified diff, classified line by line. No syntax colouring and no
 /// language: an added line and a removed line are the only two things the
 /// screen paints differently, and everything else is the same grey.
-List<DiffLine> parseDiff(String output) {
+/// [complete] is false when the answer came back at the byte cap. The last
+/// line of it is then however much of a line `head` had room for, which is
+/// dropped rather than drawn — half a line of code is indistinguishable from a
+/// whole one — and the file says where it stops instead of ending as if the
+/// diff had.
+List<DiffLine> parseDiff(String output, {bool complete = true}) {
   final lines = <DiffLine>[];
   var started = false;
   var oldNo = 0;
@@ -470,7 +475,30 @@ List<DiffLine> parseDiff(String output) {
       );
     }
   }
+  if (!complete) _sayWhereItStops(lines, output);
   return lines;
+}
+
+/// The row a capped file ends on. Counts what the reader can actually scroll
+/// through — the lines of the file, not the `@@` headers standing over them —
+/// because the number is there to be compared with the count the change list
+/// showed, and that count is of lines too.
+void _sayWhereItStops(List<DiffLine> lines, String output) {
+  if (!output.endsWith('\n') && lines.isNotEmpty) lines.removeLast();
+  final kept = lines
+      .where(
+        (line) =>
+            line.kind == DiffLineKind.added ||
+            line.kind == DiffLineKind.removed ||
+            line.kind == DiffLineKind.context,
+      )
+      .length;
+  // Short enough to be read where it is. The body does not wrap, so a notice
+  // that runs past the right edge is one the reader has to drag the file
+  // sideways to finish — about the one row that is there to be read at once.
+  lines.add(
+    DiffLine(DiffLineKind.capped, 'kept $kept lines; the rest did not fit'),
+  );
 }
 
 /// Every file of one `diff` or `show`, split apart and parsed, keyed by the

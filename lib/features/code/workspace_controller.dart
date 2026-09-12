@@ -151,15 +151,7 @@ class WorkspaceController extends ChangeNotifier {
   Future<Map<String, List<DiffLine>>?> _diffs(String command) async {
     final reply = await _run(command);
     if (reply == null || !reply.ok) return null;
-    // What `head` measured is bytes, and only the encoded length can be
-    // compared with the cap it was given. A cut multibyte character decodes to
-    // a replacement that is no shorter than the bytes it stood for, so an
-    // answer at the cap still reads as one.
-    final bytes = utf8.encode(reply.stdout).length;
-    return parseDiffByFile(
-      reply.stdout,
-      complete: bytes < WorkspaceCommands.diffBytes,
-    );
+    return parseDiffByFile(reply.stdout, complete: _whole(reply.stdout));
   }
 
   /// One file's hunks. Null when the command failed, which the sheet words as
@@ -170,7 +162,7 @@ class WorkspaceController extends ChangeNotifier {
         : WorkspaceCommands.fileDiff(_directory, file.path);
     final reply = await _run(command);
     if (reply == null || !reply.ok) return null;
-    return parseDiff(reply.stdout);
+    return parseDiff(reply.stdout, complete: _whole(reply.stdout));
   }
 
   /// The history behind the directory, newest first. Read once per screen and
@@ -195,8 +187,16 @@ class WorkspaceController extends ChangeNotifier {
       WorkspaceCommands.commitDiff(_directory, sha, path),
     );
     if (reply == null || !reply.ok) return null;
-    return parseDiff(reply.stdout);
+    return parseDiff(reply.stdout, complete: _whole(reply.stdout));
   }
+
+  /// Whether an answer came back under the cap its command put on it. `head`
+  /// counted bytes, so only the encoded length can be compared with the number
+  /// it was given: a cut multibyte character decodes to a replacement no
+  /// shorter than the bytes it stood for, so an answer at the cap still reads
+  /// as one.
+  static bool _whole(String stdout) =>
+      utf8.encode(stdout).length < WorkspaceCommands.diffBytes;
 
   /// One directory's entries, [path] relative to [directory] and empty for the
   /// root itself.
