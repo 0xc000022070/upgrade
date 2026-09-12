@@ -1233,6 +1233,63 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('the row that ends a cut file is not a line to take', (
+      tester,
+    ) async {
+      final runner = FakeRunner();
+      runner.answers['HEAD | head -c'] = WorkspaceReply(
+        exitCode: 0,
+        stdout: cappedDiff(
+          'diff --git a/lib/main.dart b/lib/main.dart\n@@ -1,900 +1,900 @@\n',
+        ),
+        stderr: '',
+      );
+      runner.answers['HEAD -- '] = WorkspaceReply(
+        exitCode: 0,
+        stdout: cappedDiff('@@ -1,900 +1,900 @@\n'),
+        stderr: '',
+      );
+      await viewer(tester, runner: runner);
+
+      final body = tester.state<ScrollableState>(
+        onSheet(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
+          ),
+        ).last,
+      );
+      body.position.jumpTo(body.position.maxScrollExtent);
+      await ready(tester);
+
+      // Held from the left margin, because a row of this file is wider than
+      // the pane and the middle of it is off the screen.
+      Future<void> hold(Finder row) async {
+        await tester.longPressAt(tester.getTopLeft(row) + const Offset(4, 4));
+        await ready(tester);
+      }
+
+      await hold(onSheet(find.textContaining('kept ')));
+
+      // The hold is for carrying a line into the terminal, and the app's own
+      // sentence about the file is not one the reader can paste anywhere.
+      expect(
+        onSheet(find.byKey(const ValueKey('diff-copy-line'))),
+        findsNothing,
+      );
+
+      // The lines above it are still there to be taken. A few rows in, not
+      // the first one drawn: that one is the row the top edge is cutting.
+      await hold(onSheet(find.textContaining('xxxx')).at(3));
+      expect(
+        onSheet(find.byKey(const ValueKey('diff-copy-line'))),
+        findsOneWidget,
+      );
+
+      await unmount(tester);
+    });
+
     testWidgets('a file that fits on the screen gets no strip', (tester) async {
       await viewer(tester);
 
