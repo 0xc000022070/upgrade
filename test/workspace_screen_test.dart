@@ -1388,6 +1388,46 @@ void main() {
       expect(bigEnd, closeTo(end, 0.01));
     });
 
+    testWidgets(
+      'the rule down the gutter is broken only by the air between rows',
+      (tester) async {
+        /// Every hairline drawn between the numbers and the file, and how far
+        /// apart two lines sit.
+        Future<(double, double)> measure() async {
+          await open(tester, size: const Size(700, 1600));
+          await tapText(tester, 'MODIFIED');
+          final pitch =
+              tester.getTopLeft(onSheet(find.text('const port = 357;'))).dy -
+              tester.getTopLeft(onSheet(find.text('const port = 22;'))).dy;
+          final rule = tester.getSize(
+            onSheet(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is Container &&
+                    widget.constraints?.maxWidth == Borders.hairline,
+              ),
+            ).first,
+          );
+          await unmount(tester);
+          return (pitch, rule.height);
+        }
+
+        final (pitch, rule) = await measure();
+        // Two hairlines of air, which is the padding the row draws around its
+        // own line and nothing else.
+        expect(rule, closeTo(pitch - 2, 0.01));
+
+        tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final (bigPitch, bigRule) = await measure();
+
+        expect(bigPitch, greaterThan(pitch));
+        // Still the same two hairlines, rather than a tick a third of the way
+        // short of the row it is drawn in.
+        expect(bigRule, closeTo(bigPitch - 2, 0.01));
+      },
+    );
+
     testWidgets('another file opens back at the left margin', (tester) async {
       await viewer(tester);
       final home = tester.getTopLeft(onSheet(find.text(_wide))).dx;
