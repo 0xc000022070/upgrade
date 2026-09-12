@@ -24,6 +24,9 @@ const agentStatusMarkSize = 6.0;
 /// that belongs to the app rather than to a tab. A route pushed over the shell
 /// is outside this strip, and its reader is already inside what the count would
 /// have sent them to.
+///
+/// It is only as live as the feed behind it, and it goes away rather than
+/// standing there with a number nothing is refreshing.
 class AgentStatusBar extends ConsumerWidget {
   const AgentStatusBar({super.key});
 
@@ -32,6 +35,12 @@ class AgentStatusBar extends ConsumerWidget {
     // HOME has the panel, and the panel says all of this and the rows under it.
     // Two answers to one question on one screen is one of them too many.
     if (ref.watch(navIndexProvider) == 0) return const SizedBox.shrink();
+
+    // The feed keeps its last value after whatever was producing it stops, so
+    // a count is not on its own evidence that anything is still being counted.
+    // With the watcher off and HOME behind another tab nothing is dialling, and
+    // a line reading `3 WORKING` about an hour ago is worse than no line.
+    if (!ref.watch(agentsFeedLiveProvider)) return const SizedBox.shrink();
 
     final data = ref.watch(agentsFeedProvider).valueOrNull;
     if (data == null || data.noHost) return const SizedBox.shrink();

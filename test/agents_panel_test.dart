@@ -270,6 +270,65 @@ void main() {
     expect(addresses, hasLength(fetches));
   });
 
+  test('a feed that has stopped goes on handing out its last state', () async {
+    final hosts = InMemoryHostRepository();
+    await hosts.save(hostA);
+    await hosts.setIntegration(hostA.id, IntegrationKind.herdr, true);
+    final privateKeys = MemoryPrivateKeyStore();
+    await privateKeys.write('key-a', 'private-a');
+    var fetches = 0;
+    final container = ProviderContainer(
+      overrides: [
+        hostRepositoryProvider.overrideWithValue(hosts),
+        privateKeyStoreProvider.overrideWithValue(privateKeys),
+        herdrFetchProvider.overrideWithValue(({
+          required String address,
+          required int port,
+          required String user,
+          required String privateKey,
+          HostKeyVerifier? verifier,
+        }) async {
+          fetches++;
+          return [
+            agent(
+              pane: 'wQ:p1',
+              name: 'codex',
+              status: 'working',
+              work: 'host A',
+              sequence: 1,
+            ),
+          ];
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.read(homeAgentsVisibleProvider.notifier).state = true;
+    await container.read(herdrHostsProvider.future);
+    final subscription = container.listen(agentsFeedProvider, (_, _) {});
+    addTearDown(subscription.close);
+    await _waitFor(
+      () =>
+          container.read(agentsFeedProvider).valueOrNull?.agents.isNotEmpty ??
+          false,
+    );
+    expect(container.read(agentsFeedLiveProvider), isTrue);
+
+    container.read(homeAgentsVisibleProvider.notifier).state = false;
+    final dialled = fetches;
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+
+    // Closing the gate swaps the poll for a stream that says nothing, and the
+    // provider keeps the state it already had. So a surface cannot tell that
+    // the count went cold by asking for the count, and absence is something it
+    // has to decide rather than something that happens to it.
+    expect(fetches, dialled);
+    expect(
+      container.read(agentsFeedProvider).valueOrNull?.agents,
+      hasLength(1),
+    );
+    expect(container.read(agentsFeedLiveProvider), isFalse);
+  });
+
   test('a name that never resolved is its own outcome', () async {
     final hosts = InMemoryHostRepository();
     await hosts.save(hostA);

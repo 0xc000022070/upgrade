@@ -117,6 +117,9 @@ void main() {
       app(
         extra: [
           navIndexProvider.overrideWith((ref) => 1),
+          // The strip draws a count only while something is keeping the count
+          // current, and this test is about where the row sits.
+          agentsFeedLiveProvider.overrideWithValue(true),
           agentsFeedProvider.overrideWith(
             (ref) => Stream.value(
               AgentPanelState([

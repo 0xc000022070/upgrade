@@ -74,11 +74,6 @@ class HostOutcome {
 
   bool get ok => kind == AgentOutcomeKind.snapshot;
 
-  /// The words, exactly: `nyx unreachable`, `key rejected`, `protocol N`,
-  /// and `nyx unresolved`. The two host-shaped lines name their host
-  /// because that is how the spec writes them; [AgentsPanel] prefixes the
-  /// others when more than one host is failing and the line would otherwise not
-  /// say which.
   /// The sentence this kind is worded as, and the only place a kind is mapped
   /// to one. `protocolMismatch` is the line that carries a value, so its words
   /// are built by [protocolLine] rather than read off the enum.
@@ -92,6 +87,12 @@ class HostOutcome {
     AgentOutcomeKind.hostKeyChanged => ReasonLine.hostKeyChanged,
   };
 
+  /// The words, exactly: `nyx unreachable`, `key rejected`, `protocol N`, and
+  /// `nyx unresolved`. The two host-shaped lines write their host into the
+  /// words because that is how the spec writes them, and the rest are bare: a
+  /// surface that gives a failure a row of its own has already said which
+  /// machine the row is about. Where one does not, [namedReason] is the same
+  /// words with the host put back in front of them.
   String get reason {
     if (kind == AgentOutcomeKind.protocolMismatch) {
       return protocolLine(protocol);
@@ -282,6 +283,22 @@ final watcherFeedProvider = StreamProvider<AgentPanelState?>(
   (ref) => const Stream.empty(),
 );
 
+/// Whether anything is keeping [agentsFeedProvider] current.
+///
+/// The feed's last value outlives whatever produced it. Closing the gate swaps
+/// the stream for an empty one, and a provider whose new stream has said
+/// nothing keeps the state it already had, so a reader that asks only for a
+/// value is handed one for as long as the process lives. Every surface that
+/// draws the feed asks this first, and the feed's own gate is this and nothing
+/// else, so the two cannot drift into disagreeing about what is running.
+final agentsFeedLiveProvider = Provider<bool>((ref) {
+  // The watcher dials on its own schedule from a foreground service, so it
+  // keeps the feed current from any screen and with the app behind another app.
+  if (ref.watch(watcherFeedProvider).valueOrNull != null) return true;
+  return ref.watch(homeAgentsVisibleProvider) &&
+      ref.watch(appForegroundProvider);
+});
+
 final agentsFeedProvider = StreamProvider<AgentPanelState>((ref) {
   // "While the watcher runs, Home reads its snapshots and its own
   // 10 s poll pauses, so the host sees one connection per phone." Read before
@@ -289,12 +306,10 @@ final agentsFeedProvider = StreamProvider<AgentPanelState>((ref) {
   // while that poll would not be running at all.
   final watched = ref.watch(watcherFeedProvider).valueOrNull;
   if (watched != null) return Stream.value(watched);
-  final visible = ref.watch(homeAgentsVisibleProvider);
-  final foreground = ref.watch(appForegroundProvider);
   // Never in the background, and never while Home is off screen. The
   // guard is here rather than in the poll loop so a hidden panel holds no ssh
   // connection open at all.
-  if (!visible || !foreground) return const Stream.empty();
+  if (!ref.watch(agentsFeedLiveProvider)) return const Stream.empty();
   final hosts = ref.watch(herdrHostsProvider);
   // The three collaborators are read here rather than inside the generator:
   // the generator's body does not run until something listens, and the
