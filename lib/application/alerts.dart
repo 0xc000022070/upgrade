@@ -307,22 +307,54 @@ class WatcherReport {
   );
 }
 
-/// The persistent notification body: `WATCHING N HOSTS` while every host
-/// answers, and the first failing host's reason line with its backoff
-/// when one does not.
+/// The persistent notification body: what the agents are doing, the first
+/// failing host's reason line with its backoff when a host is down, and
+/// `WATCHING N HOSTS` when the hosts answer and none of their agents is up to
+/// anything.
+///
+/// A failure takes the line ahead of the tally, because a watcher that cannot
+/// see a host is not a watcher reporting that the host is quiet, and the tally
+/// it could draw would be the last one it was told rather than the one that is
+/// true.
 String watcherNotificationText(
   List<HostOutcome> outcomes, {
   Map<String, Duration> retries = const {},
 }) {
   final down = outcomes.where((outcome) => !outcome.ok).toList();
-  if (down.isEmpty) {
-    final count = outcomes.length;
-    return 'WATCHING $count HOST${count == 1 ? '' : 'S'}';
+  if (down.isNotEmpty) {
+    final first = down.first;
+    final retry = retries[first.host.id];
+    final line = first.reason.toUpperCase();
+    return retry == null ? line : '$line · RETRY ${retry.inSeconds}S';
   }
-  final first = down.first;
-  final retry = retries[first.host.id];
-  final line = first.reason.toUpperCase();
-  return retry == null ? line : '$line · RETRY ${retry.inSeconds}S';
+  final tally = _agentTally(outcomes);
+  if (tally.isNotEmpty) return tally;
+  final count = outcomes.length;
+  return 'WATCHING $count HOST${count == 1 ? '' : 'S'}';
+}
+
+/// `1 BLOCKED · 3 WORKING`, across every host, blocked first.
+///
+/// Only the states that earn a row on the panel are counted, and for the same
+/// reason: an agent at rest is the night going the way it was meant to, and a
+/// line that says so once a minute is a line that stops being read. Empty when
+/// nothing is active, which is what lets the host count have the line back.
+String _agentTally(List<HostOutcome> outcomes) {
+  var blocked = 0;
+  var working = 0;
+  for (final outcome in outcomes) {
+    for (final agent in outcome.agents) {
+      if (agent.state.blocked) {
+        blocked++;
+      } else if (agent.state.active) {
+        working++;
+      }
+    }
+  }
+  return [
+    if (blocked > 0) '$blocked BLOCKED',
+    if (working > 0) '$working WORKING',
+  ].join(' · ');
 }
 
 /// The `[ ALERTS ]` row, as one value rather than three booleans

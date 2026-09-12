@@ -59,6 +59,15 @@ const host = Host(
   keyId: 'k1',
 );
 
+const other = Host(
+  id: 'h2',
+  name: 'rose',
+  address: '100.64.0.2',
+  port: 22,
+  user: 'luisnquin',
+  keyId: 'k1',
+);
+
 void main() {
   group('the blocked edge', () {
     test('fires once per episode, and again after an unblock', () {
@@ -421,7 +430,7 @@ void main() {
     });
 
     test(
-      'the persistent line counts hosts, or names the first that is down',
+      'the persistent line counts hosts when nothing is happening on them',
       () {
         expect(
           watcherNotificationText([
@@ -445,6 +454,73 @@ void main() {
         );
       },
     );
+
+    test('the persistent line says what the agents are doing', () {
+      expect(
+        watcherNotificationText([
+          HostOutcome(
+            host: host,
+            kind: AgentOutcomeKind.snapshot,
+            agents: [
+              snapshot(pane: 'wQ:p1', status: 'working'),
+              snapshot(pane: 'wQ:p2', status: 'working'),
+              snapshot(pane: 'wQ:p3'),
+              snapshot(pane: 'wQ:p4', status: 'idle'),
+            ],
+          ),
+        ]),
+        '1 BLOCKED · 2 WORKING',
+      );
+    });
+
+    test('the tally counts across every host, and drops what is zero', () {
+      expect(
+        watcherNotificationText([
+          HostOutcome(
+            host: host,
+            kind: AgentOutcomeKind.snapshot,
+            agents: [snapshot(pane: 'wQ:p1', status: 'working')],
+          ),
+          HostOutcome(
+            host: other,
+            kind: AgentOutcomeKind.snapshot,
+            agents: [snapshot(pane: 'wR:p1', status: 'working')],
+          ),
+        ]),
+        '2 WORKING',
+      );
+    });
+
+    test('agents at rest leave the line to the host count', () {
+      expect(
+        watcherNotificationText([
+          HostOutcome(
+            host: host,
+            kind: AgentOutcomeKind.snapshot,
+            agents: [
+              snapshot(pane: 'wQ:p1', status: 'done'),
+              snapshot(pane: 'wQ:p2', status: 'idle'),
+              snapshot(pane: 'wQ:p3', status: 'compacting'),
+            ],
+          ),
+        ]),
+        'WATCHING 1 HOST',
+      );
+    });
+
+    test('a host that is down takes the line from the tally', () {
+      expect(
+        watcherNotificationText([
+          HostOutcome(
+            host: host,
+            kind: AgentOutcomeKind.snapshot,
+            agents: [snapshot(pane: 'wQ:p1', status: 'working')],
+          ),
+          const HostOutcome(host: other, kind: AgentOutcomeKind.unreachable),
+        ]),
+        'ROSE UNREACHABLE',
+      );
+    });
   });
 
   test('an alert target survives the trip through a notification payload', () {
