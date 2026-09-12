@@ -21,6 +21,7 @@ import '../../design/typography.dart';
 import '../../platform/workspace/workspace_model.dart';
 
 import 'diff_map.dart';
+import 'hunk_pin.dart';
 import 'intraline.dart';
 import 'syntax.dart';
 import 'workspace_controller.dart';
@@ -841,6 +842,9 @@ class _DiffBodyState extends State<_DiffBody> {
   /// with the rest of the file rather than on every frame the pane scrolls.
   List<DiffStreak> _streaks = const [];
 
+  /// Which rows carry a hunk header, for the one held at the top of the pane.
+  List<int> _hunks = const [];
+
   @override
   void initState() {
     super.initState();
@@ -871,6 +875,7 @@ class _DiffBodyState extends State<_DiffBody> {
     ];
     _changed = intralineChanges(_drawn);
     _streaks = diffStreaks(_drawn);
+    _hunks = hunkRows(_drawn);
   }
 
   @override
@@ -915,31 +920,58 @@ class _DiffBodyState extends State<_DiffBody> {
               child: Row(
                 children: [
                   Expanded(
-                    child: GestureDetector(
-                      // Horizontal against the list's vertical: the arena
-                      // hands the drag to whichever direction it started in,
-                      // so a diff is read down and across with the same thumb.
-                      onHorizontalDragUpdate: travel == 0
-                          ? null
-                          : (drag) =>
-                                _shift.value = (_shift.value - drag.delta.dx)
-                                    .clamp(0.0, travel),
-                      child: ListView.builder(
-                        controller: widget.scroll,
-                        padding: EdgeInsets.zero,
-                        itemExtent: _DiffBody.rowHeight,
-                        itemCount: _drawn.length,
-                        itemBuilder: (context, index) => _DiffRow(
-                          line: _drawn[index],
-                          gutter: gutter,
-                          language: widget.language,
-                          shift: _shift,
-                          travel: travel,
-                          changed: index < _changed.length
-                              ? _changed[index]
-                              : null,
+                    child: Stack(
+                      children: [
+                        GestureDetector(
+                          // Horizontal against the list's vertical: the arena
+                          // hands the drag to whichever direction it started
+                          // in, so a diff is read down and across with the
+                          // same thumb.
+                          onHorizontalDragUpdate: travel == 0
+                              ? null
+                              : (drag) => _shift.value =
+                                    (_shift.value - drag.delta.dx).clamp(
+                                      0.0,
+                                      travel,
+                                    ),
+                          child: ListView.builder(
+                            controller: widget.scroll,
+                            padding: EdgeInsets.zero,
+                            itemExtent: _DiffBody.rowHeight,
+                            itemCount: _drawn.length,
+                            itemBuilder: (context, index) => _DiffRow(
+                              line: _drawn[index],
+                              gutter: gutter,
+                              language: widget.language,
+                              shift: _shift,
+                              travel: travel,
+                              changed: index < _changed.length
+                                  ? _changed[index]
+                                  : null,
+                            ),
+                          ),
                         ),
-                      ),
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: HunkPin(
+                            rows: _hunks,
+                            scroll: widget.scroll,
+                            rowHeight: _DiffBody.rowHeight,
+                            // The same row the list would have drawn, so the
+                            // held header and the one it stands in for are
+                            // the one thing seen twice.
+                            rowAt: (row) => _DiffRow(
+                              line: _drawn[row],
+                              gutter: gutter,
+                              language: widget.language,
+                              shift: _shift,
+                              travel: travel,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   if (mapped)

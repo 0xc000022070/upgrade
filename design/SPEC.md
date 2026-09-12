@@ -1194,6 +1194,20 @@ A diff is mostly a file that did not change. The pane offered one way through th
 
 Struck: drawing the file's own lines into the strip, the way a desktop editor does. At this width a line of code is a smear a few pixels long and the colour of whatever the highlighter decided, which is noise laid over the one signal the strip is for. The strip says where, and the pane says what.
 
+### The hunk being read says so from the top of the pane
+
+Git writes the two ranges and the enclosing symbol into every hunk header, and the pane draws it as a row like any other. A hunk of sixty lines then means that row leaves the screen long before the hunk does, and forty lines in there is nothing left saying which hunk this is, which function it is inside, or that the reader has not already crossed into the next one.
+
+**The header of the hunk being read is held at the top of the pane.** It is the same row the pane would have drawn, on its own ground so the code passes underneath, and it is ruled off along its bottom edge. The rule is the difference between the two things the row can mean: inline it says a range begins here, held it says the reader is somewhere inside one that began above, and without it a hunk appears to start at whatever line happens to be under it. It appears the moment the top edge starts cutting the real row and not before: a header still on the screen has no need to be stood in for.
+
+**The next header pushes the held one off.** As the following hunk arrives it takes the top of the pane by driving the one above it out, so there is never a header sitting on a header, and the changeover is a thing the eye can see rather than a swap between frames.
+
+**The held header is the way back to where the hunk began.** A touch on it puts its own row back at the top, which is the reading the walk to the next hunk cannot offer: the walk only ever goes forward, and the question a reader forty lines deep actually has is what the lines above were.
+
+**It travels with the text.** Pushed sideways the held header moves with the lines under it, for the same reason the numbers and the marker do not: it is part of the text of the file and not a label on the pane.
+
+Struck: folding the context between hunks away behind a count. A diff arrives with three lines of context around each change, so there is nothing between hunks worth folding, and a fold would hide the one thing the reader came to the context for.
+
 ### A pasted link loses the campaign that was stamped on it
 
 A URL reaches the phone through a share sheet or a copy button, and both of them write on it first. `utm_source`, `utm_medium`, `utm_campaign`, a `gclid` or an `fbclid` sixty characters long, the mail platform's `mc_eid` — none of it means anything to the page being opened, all of it says which campaign produced the tap, and together it is why a pasted address fills three lines of a drop instead of one. The app cuts those fields out before the link is kept or handed over.
