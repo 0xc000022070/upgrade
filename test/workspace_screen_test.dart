@@ -11,6 +11,7 @@ import 'package:spectacle/data/repositories/path_repository.dart';
 import 'package:spectacle/design/components/action_block.dart';
 import 'package:spectacle/design/components/list_row.dart';
 import 'package:spectacle/design/components/panel.dart';
+import 'package:spectacle/design/colors.dart';
 import 'package:spectacle/design/layout.dart';
 import 'package:spectacle/design/spacing.dart';
 import 'package:spectacle/features/code/diff_map.dart';
@@ -276,11 +277,48 @@ void main() {
       await open(tester);
 
       expect(find.text('MODIFIED'), findsOneWidget);
-      expect(find.text('+3 -1'), findsOneWidget);
+      expect(find.text('+3 −1'), findsOneWidget);
       // numstat never mentions an untracked file, so it has no counts to show
       // and says the one thing that is true about it instead.
       expect(find.text('UNTRACKED'), findsOneWidget);
       expect(find.text('NEW'), findsOneWidget);
+
+      // Added and removed mean opposite things, so the row separates them by
+      // colour and not only by the sign in front of them.
+      final counted = tester
+          .widgetList<ListRow>(find.byType(ListRow))
+          .singleWhere((row) => row.title == 'lib/main.dart');
+      expect(counted.valueSpans!.map((span) => span.style?.color).toList(), [
+        SpectacleColors.accent,
+        null,
+        SpectacleColors.warning,
+      ]);
+      // A file git could not count has one word and no pair to tell apart.
+      final uncounted = tester
+          .widgetList<ListRow>(find.byType(ListRow))
+          .singleWhere((row) => row.title == 'scratch.txt');
+      expect(uncounted.valueSpans!.single.style, isNull);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a side nothing went is not lit', (tester) async {
+      await open(
+        tester,
+        runner: FakeRunner(
+          overview:
+              '$_status$workspaceRecord\n$_worktrees$workspaceRecord\n'
+              '7\t0\tlib/main.dart\n',
+        ),
+      );
+
+      // The colour reports how much of the file went that way, so a zero keeps
+      // the muted column it shares with a count git could not take.
+      final row = tester
+          .widgetList<ListRow>(find.byType(ListRow))
+          .singleWhere((row) => row.title == 'lib/main.dart');
+      expect(row.valueSpans!.first.style?.color, SpectacleColors.accent);
+      expect(row.valueSpans!.last.style, isNull);
 
       await unmount(tester);
     });

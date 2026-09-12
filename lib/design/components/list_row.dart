@@ -27,6 +27,7 @@ class ListRow extends StatelessWidget {
     this.leading,
     this.leadingWidth = IconSizes.glyph,
     this.value,
+    this.valueSpans,
     this.valueColor,
     this.valueStrong = false,
     this.progress,
@@ -39,7 +40,7 @@ class ListRow extends StatelessWidget {
     this.titleColor,
     this.subtitleColor,
     this.decode = false,
-  });
+  }) : assert(value == null || valueSpans == null, 'one value column');
 
   /// The uppercase line above the title — the project a row belongs to.
   final String? kicker;
@@ -68,6 +69,12 @@ class ListRow extends StatelessWidget {
 
   /// Percent, duration, time or count. One column, right-aligned.
   final String? value;
+
+  /// The same column when the value is two values — a diff count's added and
+  /// removed, which mean opposite things and are read at a glance rather than
+  /// parsed. A row sets this or [value], never both; the spans take the value
+  /// style and override only what makes them tell apart.
+  final List<TextSpan>? valueSpans;
   final Color? valueColor;
   final bool valueStrong;
 
@@ -203,10 +210,12 @@ class ListRow extends StatelessWidget {
                 child: ProgressBar(value: progress!),
               ),
             ],
-            if (value != null) ...[
+            if (value != null || valueSpans != null) ...[
               const SizedBox(width: Spacing.lg),
-              Text(
-                value!,
+              Text.rich(
+                valueSpans == null
+                    ? TextSpan(text: value)
+                    : TextSpan(children: valueSpans),
                 textAlign: TextAlign.right,
                 style:
                     (valueStrong

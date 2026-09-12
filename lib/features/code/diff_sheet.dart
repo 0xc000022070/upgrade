@@ -542,7 +542,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
                           titleColor: file.path == _file?.path
                               ? SpectacleColors.accent
                               : null,
-                          value: fileCountWord(file),
+                          valueSpans: fileCountSpans(file),
                           onTap: () => _pick(file),
                         ),
                     ],
@@ -851,17 +851,17 @@ class _Stat extends StatelessWidget {
           ),
           const SizedBox(width: Spacing.lg),
         ],
-        Text(
-          '+$added',
+        Text.rich(
+          _countSpan('+$added', SpectacleColors.accent, added),
           style: SpectacleText.panelHeader.copyWith(
-            color: SpectacleColors.accent,
+            color: SpectacleColors.textMuted,
           ),
         ),
         const SizedBox(width: Spacing.md),
-        Text(
-          '−$removed',
+        Text.rich(
+          _countSpan('−$removed', SpectacleColors.warning, removed),
           style: SpectacleText.panelHeader.copyWith(
-            color: SpectacleColors.danger,
+            color: SpectacleColors.textMuted,
           ),
         ),
       ],
@@ -1449,13 +1449,30 @@ class _DiffRow extends StatelessWidget {
   };
 }
 
-/// `+3 -1` on a row git could count, one word on a row it could not. Shared
+/// `+3 −1` on a row git could count, one word on a row it could not. Shared
 /// with the workspace's own change list: the rows are the same rows.
-String fileCountWord(WorkspaceFile file) {
-  if (file.untracked) return 'NEW';
-  if (file.binary) return 'BINARY';
-  return '+${file.added} -${file.removed}';
+///
+/// The two numbers mean opposite things and the row is read at a glance, so
+/// they are coloured rather than left to the sign in front of them — the same
+/// pair the panel's own total draws, and the same minus, because one screen
+/// that spells the sign two ways reads as two screens.
+List<TextSpan> fileCountSpans(WorkspaceFile file) {
+  if (file.untracked) return const [TextSpan(text: 'NEW')];
+  if (file.binary) return const [TextSpan(text: 'BINARY')];
+  return [
+    _countSpan('+${file.added}', SpectacleColors.accent, file.added),
+    const TextSpan(text: ' '),
+    _countSpan('−${file.removed}', SpectacleColors.warning, file.removed),
+  ];
 }
+
+/// The colour says how much of the file went this way, so a side nothing went
+/// is not lit: a `−0` in warning reads as loud across the room as a `−49`, and
+/// what it is reporting is that nothing happened.
+TextSpan _countSpan(String text, Color lit, int? count) => TextSpan(
+  text: text,
+  style: (count ?? 0) == 0 ? null : TextStyle(color: lit),
+);
 
 String fileKindWord(WorkspaceFile file) => switch (file.kind) {
   WorkspaceChangeKind.modified => 'MODIFIED',
