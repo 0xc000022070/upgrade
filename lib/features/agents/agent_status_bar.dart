@@ -49,12 +49,15 @@ class AgentStatusBar extends ConsumerWidget {
     // could draw came off the host that stopped answering; the count here is
     // taken over the hosts that did answer, so a machine that is down and a
     // machine that is working are two true things and there is room to say
-    // both.
+    // both. Named whatever the count beside it says, because one line out of
+    // several is the case the reader cannot resolve anywhere else on the
+    // screen.
     final line = [
       if (failures.isNotEmpty)
         failures.length == 1
-            ? failures.first.reason.toUpperCase()
-            : '${failures.first.reason.toUpperCase()} +${failures.length - 1}',
+            ? failures.first.namedReason.toUpperCase()
+            : '${failures.first.namedReason.toUpperCase()} '
+                  '+${failures.length - 1}',
       states.line,
     ].where((part) => part.isNotEmpty).join(' · ');
 

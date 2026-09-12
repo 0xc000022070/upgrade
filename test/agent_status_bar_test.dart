@@ -195,6 +195,18 @@ void main() {
       expect(line(tester), 'NYX UNREACHABLE');
     });
 
+    testWidgets('carries its host where its own words do not', (tester) async {
+      await pumpBar(tester, const [
+        HostOutcome(host: nyx, kind: AgentOutcomeKind.keyRejected),
+        HostOutcome(host: rose, kind: AgentOutcomeKind.unreachable),
+      ]);
+
+      // `KEY REJECTED +1` on a surface that shows one failure and counts the
+      // rest does not say which machine, and nothing else on this screen does
+      // either.
+      expect(line(tester), 'NYX · KEY REJECTED +1');
+    });
+
     testWidgets('one line names one of them and counts the rest', (
       tester,
     ) async {
