@@ -9,6 +9,7 @@ import 'app/boot.dart';
 import 'app/spectacle_app.dart';
 import 'application/agents.dart';
 import 'application/clips.dart';
+import 'application/pip.dart';
 import 'application/providers.dart';
 import 'data/database.dart';
 import 'data/repositories/activity_repository.dart';
@@ -89,6 +90,8 @@ Future<void> main() async {
     overrides: [
       ...databaseOverrides(db),
       ...alertOverrides(),
+      // The channel reaches the activity, which only a running app has.
+      pipSurfaceProvider.overrideWithValue(const PipSurface()),
       clipStoreProvider.overrideWithValue(clips),
     ],
   );

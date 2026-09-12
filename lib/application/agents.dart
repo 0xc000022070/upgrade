@@ -85,6 +85,9 @@ class AgentPanelState {
 
   static const blockedLine = 'NO HOST · SET IN SYS';
 
+  /// What the agents are, counted: see [agentTally].
+  String get tally => agentTally(outcomes);
+
   bool get noHost => outcomes.isEmpty;
 
   /// Merged across hosts. Two hosts running the same agent name are two agents:
@@ -346,4 +349,29 @@ Future<HostOutcome> _poll(
       HerdrHostKeyChanged() => failure(AgentOutcomeKind.hostKeyChanged),
     };
   }
+}
+
+/// `1 BLOCKED · 3 WORKING`, across every host, blocked first.
+///
+/// Only the states that earn a row on the AGENTS panel are counted, and for the
+/// same reason: an agent at rest is the night going the way it was meant to,
+/// and a surface that says so once a minute is a surface that stops being read.
+/// Empty when nothing is active, which is what lets each of the places this is
+/// drawn say the quieter thing it has instead.
+String agentTally(List<HostOutcome> outcomes) {
+  var blocked = 0;
+  var working = 0;
+  for (final outcome in outcomes) {
+    for (final agent in outcome.agents) {
+      if (agent.state.blocked) {
+        blocked++;
+      } else if (agent.state.active) {
+        working++;
+      }
+    }
+  }
+  return [
+    if (blocked > 0) '$blocked BLOCKED',
+    if (working > 0) '$working WORKING',
+  ].join(' · ');
 }
