@@ -9,6 +9,7 @@ import '../data/repositories/key_repository.dart';
 import '../platform/herdr_client.dart';
 import '../platform/host_key_dial.dart';
 import '../platform/host_keys.dart';
+import 'agent_state.dart';
 import 'reason_lines.dart';
 import '../platform/keys.dart';
 
@@ -374,6 +375,82 @@ Future<HostOutcome> _poll(
       HerdrHostKeyChanged() => failure(AgentOutcomeKind.hostKeyChanged),
     };
   }
+}
+
+/// Every state herdr classifies, counted across the hosts that answered.
+///
+/// [agentTally] is the same count with the resting states dropped, because the
+/// shade is answering whether anything is happening and an agent at rest is
+/// not. A bar inside the app is read by somebody already holding the phone and
+/// deciding whether to go and look, and `5 IDLE` beside `1 WORKING` is the
+/// difference between a busy machine and one nobody is using.
+///
+/// The hosts that failed are left out for the reason the tally leaves them out:
+/// a failure report carries the last agents its host was seen with so a blink
+/// does not empty the panel, and counting those is counting work the app has
+/// lost sight of.
+class AgentStates {
+  const AgentStates({
+    required this.blocked,
+    required this.working,
+    required this.done,
+    required this.idle,
+  });
+
+  factory AgentStates.of(List<HostOutcome> outcomes) {
+    var blocked = 0;
+    var working = 0;
+    var done = 0;
+    var idle = 0;
+    for (final outcome in outcomes) {
+      if (!outcome.ok) continue;
+      for (final agent in outcome.agents) {
+        // Switched on the state rather than asked its questions: `resting` is
+        // true of both of the quiet two and this is the one surface that has to
+        // tell them apart. Sealed, so a word a later herdr grows stops the
+        // build here instead of being silently counted as nothing.
+        switch (agent.state) {
+          case BlockedState():
+            blocked++;
+          case WorkingState():
+            working++;
+          case DoneState():
+            done++;
+          case IdleState():
+            idle++;
+          case UnknownState():
+            break;
+        }
+      }
+    }
+    return AgentStates(
+      blocked: blocked,
+      working: working,
+      done: done,
+      idle: idle,
+    );
+  }
+
+  final int blocked;
+  final int working;
+  final int done;
+  final int idle;
+
+  /// Whether any of it is worth standing a bar up for. Idle on its own is a
+  /// machine nobody is using, and a bar that says so on every screen all day is
+  /// a bar the reader learns to look past. Work that finished while nobody was
+  /// watching is on this side of the line: it is the thing the phone is picked
+  /// up to find out.
+  bool get news => blocked > 0 || working > 0 || done > 0;
+
+  /// Blocked first, because it is the count about to cost the user something,
+  /// and the states at zero left out rather than printed as zeroes.
+  String get line => [
+    if (blocked > 0) '$blocked BLOCKED',
+    if (working > 0) '$working WORKING',
+    if (done > 0) '$done DONE',
+    if (idle > 0) '$idle IDLE',
+  ].join(' · ');
 }
 
 /// `1 BLOCKED · 3 WORKING`, across every host, blocked first.

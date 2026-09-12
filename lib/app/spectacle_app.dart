@@ -9,6 +9,7 @@ import '../design/colors.dart';
 import '../design/effects/screen_entry.dart';
 import '../design/theme.dart';
 import '../design/typography.dart';
+import '../features/agents/agent_status_bar.dart';
 import '../features/home/home_screen.dart';
 import '../features/hosts/hosts_screen.dart';
 import '../features/projects/projects_screen.dart';
@@ -143,10 +144,14 @@ class _SpectacleShellState extends ConsumerState<SpectacleShell> {
             ),
             // The parked shell rides over the nav bar rather than in the body:
             // it belongs to the app and not to a tab, and the shell sheet comes
-            // down onto it from any of the four.
+            // down onto it from any of the four. The agent line is there for
+            // the same reason and sits above it, furthest from the thumb: the
+            // parked shell is tapped to get back into something, and the line
+            // is read.
             bottomNavigationBar: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                const AgentStatusBar(),
                 const ParkedShellBar(),
                 NavBar(
                   currentIndex: index,
