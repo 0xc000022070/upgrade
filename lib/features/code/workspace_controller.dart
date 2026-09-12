@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
@@ -126,6 +127,39 @@ class WorkspaceController extends ChangeNotifier {
     _overview = null;
     notifyListeners();
     await refresh();
+  }
+
+  /// Every changed file's hunks against `HEAD`, keyed by the path the change
+  /// list knows each one by.
+  ///
+  /// The viewer walks a list of files, and on a radio the cost of each step is
+  /// the round trip and not the bytes: a commit of twenty files read one file
+  /// at a time is twenty handshakes' worth of latency, paid by the user one tap
+  /// at a time. So the whole diff is asked for once and every tap after it is
+  /// already answered.
+  ///
+  /// A file the answer did not reach — it came back at the byte cap, or it is
+  /// untracked and `diff` never names it — is simply absent, and [diff] is
+  /// still there for it.
+  Future<Map<String, List<DiffLine>>?> sourceDiffs() =>
+      _diffs(WorkspaceCommands.sourceDiff(_directory));
+
+  /// The same, for one commit.
+  Future<Map<String, List<DiffLine>>?> commitDiffs(String sha) =>
+      _diffs(WorkspaceCommands.commitDiffAll(_directory, sha));
+
+  Future<Map<String, List<DiffLine>>?> _diffs(String command) async {
+    final reply = await _run(command);
+    if (reply == null || !reply.ok) return null;
+    // What `head` measured is bytes, and only the encoded length can be
+    // compared with the cap it was given. A cut multibyte character decodes to
+    // a replacement that is no shorter than the bytes it stood for, so an
+    // answer at the cap still reads as one.
+    final bytes = utf8.encode(reply.stdout).length;
+    return parseDiffByFile(
+      reply.stdout,
+      complete: bytes < WorkspaceCommands.diffBytes,
+    );
   }
 
   /// One file's hunks. Null when the command failed, which the sheet words as

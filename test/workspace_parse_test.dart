@@ -265,6 +265,75 @@ index 1a2b3c..4d5e6f 100644
     });
   });
 
+  group('a whole source, split apart', () {
+    const many = '''
+diff --git a/lib/main.dart b/lib/main.dart
+index 1a2b3c..4d5e6f 100644
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -1,2 +1,2 @@
+-const port = 22;
++const port = 357;
+diff --git a/lib/gone.dart b/lib/gone.dart
+deleted file mode 100644
+--- a/lib/gone.dart
++++ /dev/null
+@@ -1,1 +0,0 @@
+-const old = true;
+diff --git a/lib/new.dart b/lib/new.dart
+new file mode 100644
+--- /dev/null
++++ b/lib/new.dart
+@@ -0,0 +1,1 @@
++const fresh = true;
+''';
+
+    test('one answer becomes one entry per file, each parsed on its own', () {
+      final files = parseDiffByFile(many, complete: true);
+
+      expect(files.keys, ['lib/main.dart', 'lib/gone.dart', 'lib/new.dart']);
+      expect(files['lib/main.dart']![1].text, 'const port = 22;');
+      expect(files['lib/main.dart']![2].kind, DiffLineKind.added);
+      // Each file starts its own count: the numbers are the file's, not the
+      // answer's.
+      expect(files['lib/new.dart']![1].newLine, 1);
+    });
+
+    test('a file with nothing but one side is keyed by the side it has', () {
+      // `+++ /dev/null` on a deletion and `--- /dev/null` on an addition: the
+      // path is whichever of the two is a file, and the change list knows it
+      // by that name either way.
+      final files = parseDiffByFile(many, complete: true);
+      expect(files, contains('lib/gone.dart'));
+      expect(files, contains('lib/new.dart'));
+    });
+
+    test('the last file of a cut answer is dropped rather than half drawn', () {
+      final files = parseDiffByFile(many, complete: false);
+
+      expect(files.keys, ['lib/main.dart', 'lib/gone.dart']);
+      expect(files, isNot(contains('lib/new.dart')));
+    });
+
+    test('a path git had to quote is keyed the way the change list has it', () {
+      final files = parseDiffByFile('''
+diff --git "a/lib/a b.dart" "b/lib/a b.dart"
+--- "a/lib/a b.dart"
++++ "b/lib/a b.dart"
+@@ -1,1 +1,1 @@
+-one
++two
+''', complete: true);
+
+      expect(files.keys, ['"lib/a b.dart"']);
+    });
+
+    test('nothing at all is no files rather than one empty one', () {
+      expect(parseDiffByFile('', complete: true), isEmpty);
+      expect(parseDiffByFile('', complete: false), isEmpty);
+    });
+  });
+
   group('the history', () {
     test('a log line is split on the field mark, subject and all', () {
       const log =
@@ -335,6 +404,8 @@ index 1a2b3c..4d5e6f 100644
         WorkspaceCommands.commitFiles('~/src/spectacle', '1a2b3c'),
         WorkspaceCommands.commitDiff('~/src/spectacle', '1a2b3c', 'a.dart'),
         WorkspaceCommands.repository('~/src/spectacle'),
+        WorkspaceCommands.sourceDiff('~/src/spectacle'),
+        WorkspaceCommands.commitDiffAll('~/src/spectacle', '1a2b3c'),
       ];
       for (final command in commands) {
         expect(command, startsWith("sh -c '"));
@@ -365,6 +436,33 @@ index 1a2b3c..4d5e6f 100644
       expect(_script(command), contains("cd ~/'src/spectacle/lib'"));
       // And a directory inside no checkout says so by saying nothing.
       expect(command, contains('exit $workspaceNoRepository'));
+    });
+
+    test('the whole diff is one command and every diff is capped', () {
+      // The round trip is what a radio charges for, so the file list and the
+      // hunks behind all of it come back together rather than one file at a
+      // time. The cap is what stops a regenerated lockfile being the thing
+      // that comes over the radio.
+      expect(
+        _script(WorkspaceCommands.sourceDiff('/srv')),
+        contains('git --no-pager diff --no-color HEAD | head -c'),
+      );
+      expect(
+        _script(WorkspaceCommands.commitDiffAll('/srv', '1a2b3c')),
+        contains("--first-parent --format= '1a2b3c' | head -c"),
+      );
+      for (final command in [
+        WorkspaceCommands.sourceDiff('/srv'),
+        WorkspaceCommands.commitDiffAll('/srv', '1a2b3c'),
+        WorkspaceCommands.fileDiff('/srv', 'a.dart'),
+        WorkspaceCommands.newFileDiff('/srv', 'a.dart'),
+        WorkspaceCommands.commitDiff('/srv', '1a2b3c', 'a.dart'),
+      ]) {
+        expect(
+          _script(command),
+          contains('head -c ${WorkspaceCommands.diffBytes}'),
+        );
+      }
     });
 
     test('a quote in a path cannot end the command', () {

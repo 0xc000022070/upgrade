@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +8,7 @@ import '../../application/agents.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/path_repository.dart';
 import '../../design/colors.dart';
+import '../../design/components/action_block.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
@@ -114,6 +118,19 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   List<DiffLine>? _lines;
   bool _diffFailed = false;
 
+  /// Every file of the source, read in one command when the source is picked.
+  /// A tap on a row after that draws from here and asks the host nothing.
+  Map<String, List<DiffLine>>? _bundle;
+
+  /// The same answer while it is still in flight, so a tap that lands first
+  /// waits for it instead of asking for the same file a second time.
+  Future<Map<String, List<DiffLine>>?>? _bundling;
+
+  /// The hunks pane's own scroller, which is what the hunk walk moves. Every
+  /// row is one line tall and every line is the same height, so a hunk is at a
+  /// known offset and jumping to it is arithmetic rather than a search.
+  final ScrollController _hunkScroll = ScrollController();
+
   /// Bumped on every source change, so a slow answer that lands after the user
   /// has moved to another commit is dropped rather than drawn over it.
   int _walk = 0;
@@ -151,6 +168,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   @override
   void dispose() {
     _controller.removeListener(_onWorkspace);
+    _hunkScroll.dispose();
     // Only the connection this screen dialled is this screen's to drop.
     if (_owned) _controller.dispose();
     super.dispose();
@@ -166,9 +184,27 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
         _filesFailed = _controller.phase == WorkspacePhase.failed;
       }
     });
-    if (_commits == null && _controller.phase == WorkspacePhase.ready) {
-      _loadCommits();
+    if (_controller.phase != WorkspacePhase.ready) return;
+    if (_commits == null) _loadCommits();
+    if (_source == null && _bundling == null) {
+      _loadBundle(_walk, _controller.sourceDiffs());
     }
+  }
+
+  /// One command for the whole source, kept so the file list is walked without
+  /// asking the host again. A failure is not put on the screen: it costs the
+  /// viewer nothing but the per-file command it was replacing.
+  Future<void> _loadBundle(
+    int walk,
+    Future<Map<String, List<DiffLine>>?> answer,
+  ) async {
+    _bundling = answer;
+    final files = await answer;
+    if (!mounted || walk != _walk) return;
+    setState(() {
+      _bundle = files;
+      _bundling = null;
+    });
   }
 
   Future<void> _loadCommits() async {
@@ -186,11 +222,14 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       _filesFailed = false;
       _file = null;
       _lines = null;
+      _bundle = null;
+      _bundling = null;
     });
     if (commit == null) {
       _onWorkspace();
       return;
     }
+    unawaited(_loadBundle(walk, _controller.commitDiffs(commit.sha)));
     final files = await _controller.commitFiles(commit.sha);
     if (!mounted || walk != _walk) return;
     setState(() {
@@ -199,11 +238,14 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
     });
   }
 
-  Future<void> _pick(WorkspaceFile file) async {
-    final walk = _walk;
+  /// The answer is usually already here, so this is not a future: the lines go
+  /// up in the same frame the row was tapped in, and only a file the one
+  /// command did not carry costs a round trip.
+  void _pick(WorkspaceFile file) {
+    final cached = _bundle?[file.path];
     setState(() {
       _file = file;
-      _lines = null;
+      _lines = cached;
       _diffFailed = false;
       // The file is what the sheet is now for. On a phone the list it was
       // picked from is off screen anyway; folding it is what the sheet goes
@@ -211,8 +253,20 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       _changesOpen = false;
       _historyOpen = false;
     });
+    if (_hunkScroll.hasClients) _hunkScroll.jumpTo(0);
+    if (cached == null) unawaited(_read(file));
+  }
+
+  /// The fallback: a file the bundle does not carry because the answer was cut
+  /// at the byte cap, or because it is untracked and `diff` never names it.
+  Future<void> _read(WorkspaceFile file) async {
+    final walk = _walk;
     final source = _source;
-    final lines = source == null
+    // The one command may still be in flight, in which case it is the answer
+    // and asking for the file beside it would be the round trip this is for.
+    final bundle = await _bundling;
+    var lines = bundle?[file.path];
+    lines ??= source == null
         ? await _controller.diff(file)
         : await _controller.commitDiff(source.sha, file.path);
     if (!mounted || walk != _walk || _file?.path != file.path) return;
@@ -220,6 +274,44 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       _lines = lines;
       _diffFailed = lines == null;
     });
+  }
+
+  /// The file before or after the open one in the change list, which is the
+  /// order the list is drawn in and so the order the eye expects.
+  WorkspaceFile? _neighbour(int step) {
+    final files = _files;
+    final file = _file;
+    if (files == null || file == null) return null;
+    final at = files.indexWhere((row) => row.path == file.path);
+    final next = at + step;
+    if (at < 0 || next < 0 || next >= files.length) return null;
+    return files[next];
+  }
+
+  /// The next hunk header below the top of the view, wrapping to the first.
+  /// A diff is read hunk by hunk and a long file is mostly context between
+  /// them, so this is the scroll the thumb was going to make anyway.
+  void _walkHunk() {
+    final lines = _lines;
+    if (lines == null || !_hunkScroll.hasClients) return;
+    final at = (_hunkScroll.offset / _DiffBody.rowHeight).round();
+    var found = -1;
+    for (var i = at + 1; i < lines.length; i++) {
+      if (lines[i].kind == DiffLineKind.hunk) {
+        found = i;
+        break;
+      }
+    }
+    if (found < 0) {
+      found = lines.indexWhere((line) => line.kind == DiffLineKind.hunk);
+    }
+    if (found < 0) return;
+    _hunkScroll.jumpTo(
+      math.min(
+        found * _DiffBody.rowHeight,
+        _hunkScroll.position.maxScrollExtent,
+      ),
+    );
   }
 
   /// Out of the file first, then out of the sheet — the order the user walked
@@ -486,6 +578,71 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
           ? const Panel(title: 'DIFF', child: EmptyState('pick a file'))
           : const SizedBox.shrink();
     }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: _pane(file, wide: wide)),
+        const SizedBox(height: Spacing.panelGap),
+        _walkBar(file),
+      ],
+    );
+  }
+
+  /// The walk, under the lines rather than on the strip over them: the file is
+  /// read to its end and the way to the next one has to still be under the
+  /// thumb when it gets there. The strip scrolls out of reach on a phone; this
+  /// does not.
+  ///
+  /// It says where in the change list the open file is, because a diff of
+  /// twenty files is walked and a walk needs to know how much of it is left.
+  Widget _walkBar(WorkspaceFile file) {
+    final files = _files ?? const <WorkspaceFile>[];
+    final at = files.indexWhere((row) => row.path == file.path);
+    final before = _neighbour(-1);
+    final after = _neighbour(1);
+    final hunks = (_lines ?? const <DiffLine>[])
+        .where((line) => line.kind == DiffLineKind.hunk)
+        .length;
+    return Row(
+      children: [
+        ActionBlock(
+          key: const ValueKey('diff-prev-file'),
+          label: 'PREV',
+          onTap: before == null ? null : () => _pick(before),
+          tone: before == null
+              ? SpectacleColors.textDisabled
+              : SpectacleColors.textSecondary,
+        ),
+        const SizedBox(width: Spacing.md),
+        ActionBlock(
+          key: const ValueKey('diff-next-file'),
+          label: 'NEXT',
+          onTap: after == null ? null : () => _pick(after),
+          tone: after == null
+              ? SpectacleColors.textDisabled
+              : SpectacleColors.textSecondary,
+        ),
+        if (hunks > 1) ...[
+          const SizedBox(width: Spacing.md),
+          ActionBlock(
+            key: const ValueKey('diff-next-hunk'),
+            label: 'HUNK',
+            onTap: _walkHunk,
+          ),
+        ],
+        const Spacer(),
+        if (at >= 0)
+          Text(
+            '${at + 1} / ${files.length}',
+            style: SpectacleText.value.copyWith(
+              color: SpectacleColors.textMuted,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _pane(WorkspaceFile file, {required bool wide}) {
     return Panel(
       // The path and not its last segment: two files of the same name in two
       // directories are the ordinary case in a repository.
@@ -519,6 +676,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
         (final rows?, _) => _DiffBody(
           lines: rows,
           language: languageOf(file.path),
+          scroll: _hunkScroll,
         ),
       },
     );
@@ -575,41 +733,96 @@ class _Stat extends StatelessWidget {
 /// and the one thing worse than a gutter that moves is a gutter that disagrees
 /// with the line next to it.
 class _DiffBody extends StatelessWidget {
-  const _DiffBody({required this.lines, this.language});
+  const _DiffBody({required this.lines, required this.scroll, this.language});
 
   final List<DiffLine> lines;
+
+  /// The pane's scroller, held by the sheet so the hunk walk can move it.
+  final ScrollController scroll;
 
   /// Null for a file the app cannot place, which is drawn the way every file
   /// used to be.
   final SyntaxLanguage? language;
 
+  /// One line's box plus the hairline of air either side of it. Every row is
+  /// exactly this tall — the text never wraps — which is what lets the list
+  /// build only the rows on screen and still know where row ten thousand is.
+  static double get rowHeight =>
+      SpectacleText.noteBody.fontSize! * SpectacleText.noteBody.height! +
+      _linePadding * 2;
+
+  static const _linePadding = 1.0;
+
   @override
   Widget build(BuildContext context) {
     var highest = 0;
+    var widest = 0;
     for (final line in lines) {
       final old = line.oldLine ?? 0;
       final now = line.newLine ?? 0;
       if (old > highest) highest = old;
       if (now > highest) highest = now;
+      final columns = _columns(line.text);
+      if (columns > widest) widest = columns;
     }
     final gutter = _gutterWidth(highest);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: IntrinsicWidth(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final line in lines)
-                _DiffRow(line: line, gutter: gutter, language: language),
-            ],
+    final width =
+        _DiffRow.lead(gutter) + widest * _charAdvance() + Spacing.panelPadding;
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          // The ground behind a line is the statement that it was added or
+          // removed, so a file whose longest line is narrower than the pane
+          // still colours to the edge of it.
+          width: math.max(width, constraints.maxWidth),
+          child: ListView.builder(
+            controller: scroll,
+            padding: EdgeInsets.zero,
+            itemExtent: rowHeight,
+            itemCount: lines.length,
+            itemBuilder: (context, index) => _DiffRow(
+              line: lines[index],
+              gutter: gutter,
+              language: language,
+            ),
           ),
         ),
       ),
     );
   }
+
+  /// How wide a line is in characters. A tab is counted as eight, which is more
+  /// than it draws as: over-guessing costs empty scroll at the right edge, and
+  /// under-guessing cuts the end off a line that is in the file.
+  static int _columns(String text) {
+    var columns = 0;
+    for (final unit in text.codeUnits) {
+      columns += unit == 0x09 ? 8 : 1;
+    }
+    return columns;
+  }
 }
+
+/// The advance of one character in the body's face, measured once.
+///
+/// IBM Plex Mono is monospaced, so the width of a line is its length and the
+/// width of the whole diff is the longest line. That is arithmetic, where
+/// `IntrinsicWidth` was a second layout pass over every row in the file — and
+/// arithmetic is what lets the rows be built lazily, because a list cannot
+/// size itself to a child it has not built.
+double _charAdvance() {
+  final known = _advance;
+  if (known != null) return known;
+  final painter = TextPainter(
+    text: const TextSpan(text: _ruler, style: SpectacleText.noteBody),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  return _advance = painter.width / _ruler.length;
+}
+
+double? _advance;
+const _ruler = '0123456789';
 
 /// Wide enough for the highest number either side, with a floor of two digits
 /// so a short file's gutter is not a hairline.
@@ -627,6 +840,15 @@ class _DiffRow extends StatelessWidget {
   final DiffLine line;
   final double gutter;
   final SyntaxLanguage? language;
+
+  /// Everything left of the text: the two number columns, the rule between
+  /// them and the line's marker, with the air each of them sits in.
+  static double lead(double gutter) =>
+      gutter * 2 +
+      Spacing.md * 3 +
+      Borders.hairline +
+      _charAdvance() +
+      Spacing.sm;
 
   /// The accent and the danger red at the weight a whole line can carry — the
   /// hue says which side the line is on, and the text stays readable over it.
@@ -672,7 +894,7 @@ class _DiffRow extends StatelessWidget {
     );
     return Container(
       color: ground,
-      padding: const EdgeInsets.symmetric(vertical: 1),
+      padding: const EdgeInsets.symmetric(vertical: _DiffBody._linePadding),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
