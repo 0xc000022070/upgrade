@@ -102,6 +102,57 @@ void main() {
     });
   });
 
+  group('the one surface that shows a failure and counts the rest', () {
+    test('writes the host in once, whatever the line already carries', () {
+      for (final kind in AgentOutcomeKind.values) {
+        if (kind == AgentOutcomeKind.snapshot) continue;
+        final named = HostOutcome(
+          host: nyx,
+          kind: kind,
+          protocol: 3,
+        ).namedReason;
+        // Which lines name their host is the line's own fact. Listed a second
+        // time here, a line that grew one would read `nyx nyx unreachable`.
+        expect(
+          'nyx'.allMatches(named).length,
+          1,
+          reason: '$kind reads "$named"',
+        );
+      }
+    });
+
+    test('asks the line rather than the kind', () {
+      expect(
+        const HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable)
+            .namedReason,
+        'nyx unreachable',
+      );
+      expect(
+        const HostOutcome(host: nyx, kind: AgentOutcomeKind.keyRejected)
+            .namedReason,
+        'nyx · key rejected',
+      );
+      expect(
+        const HostOutcome(
+          host: nyx,
+          kind: AgentOutcomeKind.protocolMismatch,
+          protocol: 3,
+        ).namedReason,
+        'nyx · protocol 3',
+      );
+    });
+
+    test('a snapshot is no failure and is not prefixed into one', () {
+      expect(
+        const HostOutcome(
+          host: nyx,
+          kind: AgentOutcomeKind.snapshot,
+        ).namedReason,
+        '',
+      );
+    });
+  });
+
   group('every failure has a line', () {
     test('the shell names one per kind and the header word follows it', () {
       for (final kind in ShellFailureKind.values) {
