@@ -62,14 +62,19 @@ class FakePip implements PipSurface {
   Stream<bool> mode() => modes.stream;
 }
 
-Widget harness(FakePip pip, Stream<AgentPanelState> agents, Widget child) =>
-    ProviderScope(
-      overrides: [
-        pipSurfaceProvider.overrideWithValue(pip),
-        agentsFeedProvider.overrideWith((ref) => agents),
-      ],
-      child: Directionality(textDirection: TextDirection.ltr, child: child),
-    );
+Widget harness(
+  FakePip pip,
+  Stream<AgentPanelState> agents,
+  Widget child, {
+  bool live = true,
+}) => ProviderScope(
+  overrides: [
+    pipSurfaceProvider.overrideWithValue(pip),
+    agentsFeedProvider.overrideWith((ref) => agents),
+    agentsFeedLiveProvider.overrideWithValue(live),
+  ],
+  child: Directionality(textDirection: TextDirection.ltr, child: child),
+);
 
 void main() {
   group('the window is armed by what is happening', () {
@@ -155,6 +160,30 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(pip.armings.last, isTrue);
+    });
+
+    testWidgets('a count nothing is refreshing does not arm it', (
+      tester,
+    ) async {
+      final pip = FakePip();
+      await tester.pumpWidget(
+        harness(
+          pip,
+          Stream.value(panel([agent('claude', 'working')])),
+          const PipHost(child: SizedBox()),
+          live: false,
+        ),
+      );
+      // Settled, so the window has answered that it exists: the arming this
+      // asserts against is the one the same feed gets when something is
+      // dialling, which the test above it has already seen come out true.
+      await tester.pumpAndSettle();
+
+      // The feed goes on handing out the last state it held after the poll
+      // behind it stops, so the work is still there to be counted. With nothing
+      // dialling, the tile would park a number frozen at the moment the user
+      // left over whatever they left to do, and nothing could bring it down.
+      expect(pip.armings, everyElement(isFalse));
     });
 
     testWidgets('a device without the window is never armed', (tester) async {
