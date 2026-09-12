@@ -654,18 +654,25 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
               ? SpectacleColors.textDisabled
               : SpectacleColors.textSecondary,
         ),
-        if (hunks > 1) ...[
-          const SizedBox(width: Spacing.md),
-          ActionBlock(
-            key: const ValueKey('diff-next-hunk'),
-            label: 'HUNK',
-            onTap: _walkHunk,
-          ),
-        ],
+        // Wider than the gap between the two file steps, because it is the gap
+        // between two walks: the pair on the left leaves the file and the one
+        // on the right moves inside it.
+        const SizedBox(width: Spacing.xl),
+        ActionBlock(
+          key: const ValueKey('diff-next-hunk'),
+          label: 'HUNK',
+          onTap: hunks > 1 ? _walkHunk : null,
+          tone: hunks > 1
+              ? SpectacleColors.textSecondary
+              : SpectacleColors.textDisabled,
+        ),
         const Spacer(),
         if (at >= 0)
           Text(
-            '${at + 1} / ${files.length}',
+            // Named, the way the held line's number is: a bare pair of numbers
+            // under three verbs is a count of whichever of them the reader
+            // guesses it belongs to.
+            'FILE ${at + 1} / ${files.length}',
             style: SpectacleText.value.copyWith(
               color: SpectacleColors.textMuted,
             ),
