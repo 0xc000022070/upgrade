@@ -721,7 +721,12 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
         const Spacer(),
         if (number != null)
           Text(
-            'LINE $number',
+            // A removed line's number is in the file before the change, and the
+            // line that replaced it carries the same number in the file after.
+            // Held one after the other, the two rows would read the same.
+            line.kind == DiffLineKind.removed
+                ? 'WAS LINE $number'
+                : 'LINE $number',
             style: SpectacleText.value.copyWith(
               color: SpectacleColors.textMuted,
             ),
