@@ -106,8 +106,12 @@ class AgentPanelState {
 
   static const blockedLine = 'NO HOST · SET IN SYS';
 
-  /// What the agents are, counted: see [agentTally].
-  String get tally => agentTally(outcomes);
+  /// What the agents are, counted: see [agentTally]. Only the hosts that
+  /// answered this round. A failure report carries the last agents its host was
+  /// seen with, so that a blink does not empty the panel, and counting those
+  /// would be counting work the app has lost sight of.
+  String get tally =>
+      agentTally(outcomes.where((outcome) => outcome.ok).toList());
 
   bool get noHost => outcomes.isEmpty;
 
