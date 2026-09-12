@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectacle/app/spectacle_app.dart';
@@ -869,6 +870,93 @@ void main() {
 
       expect(tester.getTopLeft(marker), lead);
       expect(tester.getTopLeft(onSheet(find.text(_wide))).dx, line.dx - 120);
+
+      await unmount(tester);
+    });
+
+    /// Where the row carrying [text] can be pressed. A diff line is laid out
+    /// at its full width inside an overflow box, so the middle of a long one
+    /// is off the screen and the press lands on nothing.
+    Offset onRow(WidgetTester tester, String text) =>
+        tester.getTopLeft(onSheet(find.text(text))) + const Offset(4, 4);
+
+    const held = '        if (err != null) {';
+
+    testWidgets('a long press takes hold of a line', (tester) async {
+      await viewer(tester);
+
+      expect(find.byKey(const ValueKey('diff-prev-file')), findsOneWidget);
+      expect(find.byKey(const ValueKey('diff-copy-line')), findsNothing);
+
+      await tester.longPressAt(onRow(tester, held));
+      await ready(tester);
+
+      // The walk is put away: a line taken hold of is a thing to do something
+      // with, not a place in a list to move on from.
+      expect(find.byKey(const ValueKey('diff-copy-line')), findsOneWidget);
+      expect(find.byKey(const ValueKey('diff-prev-file')), findsNothing);
+      expect(onSheet(find.text('LINE 3')), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('the line copied is the line the file has', (tester) async {
+      final copied = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied.add((call.arguments as Map)['text'] as String);
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await viewer(tester);
+
+      await tester.longPressAt(onRow(tester, held));
+      await ready(tester);
+      await tester.tap(find.byKey(const ValueKey('diff-copy-line')));
+      await ready(tester);
+
+      // The pane drew the tab opened out to eight columns. The file has a tab,
+      // and the file is what leaves the pane.
+      expect(copied, [_tabbed]);
+      // The hold is spent by copying it, the way the terminal's selection is.
+      expect(find.byKey(const ValueKey('diff-copy-line')), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('letting go of a line puts the walk back', (tester) async {
+      await viewer(tester);
+
+      await tester.longPressAt(onRow(tester, held));
+      await ready(tester);
+      await tester.tap(find.byKey(const ValueKey('diff-drop-line')));
+      await ready(tester);
+
+      expect(find.byKey(const ValueKey('diff-copy-line')), findsNothing);
+      expect(find.byKey(const ValueKey('diff-prev-file')), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('putting the file down lets go of the line', (tester) async {
+      await viewer(tester);
+
+      await tester.longPressAt(onRow(tester, held));
+      await ready(tester);
+      await tapText(tester, 'CLOSE');
+      await unfold(tester, 'CHANGES');
+      await tapText(tester, 'lib/main.dart');
+
+      expect(find.byKey(const ValueKey('diff-copy-line')), findsNothing);
 
       await unmount(tester);
     });

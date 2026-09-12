@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/agents.dart';
@@ -257,6 +259,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       // back to when the file is closed.
       _changesOpen = false;
       _historyOpen = false;
+      _picked = null;
     });
     if (_hunkScroll.hasClients) _hunkScroll.jumpTo(0);
     if (cached == null) unawaited(_read(file));
@@ -280,6 +283,11 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       _diffFailed = lines == null;
     });
   }
+
+  /// The row the reader has taken hold of, for the one verb a diff pane has
+  /// that is not a movement. Held by the sheet and not the body: what it puts
+  /// under the thumb is the bar below the lines, which is the sheet's.
+  int? _picked;
 
   /// The file before or after the open one in the change list, which is the
   /// order the list is drawn in and so the order the eye expects.
@@ -327,6 +335,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       setState(() {
         _file = null;
         _lines = null;
+        _picked = null;
       });
       return;
     }
@@ -601,6 +610,11 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   /// It says where in the change list the open file is, because a diff of
   /// twenty files is walked and a walk needs to know how much of it is left.
   Widget _walkBar(WorkspaceFile file) {
+    final picked = _picked;
+    final lines = _lines;
+    if (picked != null && lines != null && picked < lines.length) {
+      return _pickedBar(lines[picked]);
+    }
     final files = _files ?? const <WorkspaceFile>[];
     final at = files.indexWhere((row) => row.path == file.path);
     final before = _neighbour(-1);
@@ -647,6 +661,44 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
     );
   }
 
+  /// What the bar says while a line is held: the walk is put away, because a
+  /// line taken hold of is a thing to do something with and not a place in a
+  /// list to move on from.
+  Widget _pickedBar(DiffLine line) {
+    final number = line.newLine ?? line.oldLine;
+    return Row(
+      children: [
+        ActionBlock(
+          key: const ValueKey('diff-copy-line'),
+          label: 'COPY',
+          filled: true,
+          tone: SpectacleColors.accent,
+          onTap: () async {
+            // The line as the file has it, not as the pane drew it: the tabs
+            // the pane opened out are the file's tabs, and a hunk header is
+            // git's words in git's order once it leaves the screen.
+            await Clipboard.setData(ClipboardData(text: line.text));
+            if (mounted) setState(() => _picked = null);
+          },
+        ),
+        const SizedBox(width: Spacing.md),
+        ActionBlock(
+          key: const ValueKey('diff-drop-line'),
+          label: 'LET GO',
+          onTap: () => setState(() => _picked = null),
+        ),
+        const Spacer(),
+        if (number != null)
+          Text(
+            'LINE $number',
+            style: SpectacleText.value.copyWith(
+              color: SpectacleColors.textMuted,
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _pane(WorkspaceFile file, {required bool wide}) {
     return Panel(
       // The path and not its last segment: two files of the same name in two
@@ -661,6 +713,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
               onTap: () => setState(() {
                 _file = null;
                 _lines = null;
+                _picked = null;
               }),
             ),
       bodyPadding: EdgeInsets.zero,
@@ -682,6 +735,8 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
           lines: rows,
           language: languageOf(file.path),
           scroll: _hunkScroll,
+          picked: _picked,
+          onPick: (row) => setState(() => _picked = row),
         ),
       },
     );
@@ -792,7 +847,13 @@ class _Stat extends StatelessWidget {
 /// and the one thing worse than a gutter that moves is a gutter that disagrees
 /// with the line next to it.
 class _DiffBody extends StatefulWidget {
-  const _DiffBody({required this.lines, required this.scroll, this.language});
+  const _DiffBody({
+    required this.lines,
+    required this.scroll,
+    required this.picked,
+    required this.onPick,
+    this.language,
+  });
 
   final List<DiffLine> lines;
 
@@ -802,6 +863,11 @@ class _DiffBody extends StatefulWidget {
   /// Null for a file the app cannot place, which is drawn the way every file
   /// used to be.
   final SyntaxLanguage? language;
+
+  /// The row held, or null while none is.
+  final int? picked;
+
+  final ValueChanged<int> onPick;
 
   /// One line's box plus the hairline of air either side of it. Every row is
   /// exactly this tall — the text never wraps — which is what lets the list
@@ -931,6 +997,13 @@ class _DiffBodyState extends State<_DiffBody> {
                           // hands the drag to whichever direction it started
                           // in, so a diff is read down and across with the
                           // same thumb.
+                          //
+                          // From the touch down and not from the win: the rows
+                          // hold a long press now, so the drag has to outrun
+                          // the slop before the arena gives it anything, and
+                          // the text would otherwise arrive at the finger
+                          // short by exactly that distance every time.
+                          dragStartBehavior: DragStartBehavior.down,
                           onHorizontalDragUpdate: travel == 0
                               ? null
                               : (drag) => _shift.value =
@@ -943,15 +1016,20 @@ class _DiffBodyState extends State<_DiffBody> {
                             padding: EdgeInsets.zero,
                             itemExtent: _DiffBody.rowHeight,
                             itemCount: _drawn.length,
-                            itemBuilder: (context, index) => _DiffRow(
-                              line: _drawn[index],
-                              gutter: gutter,
-                              language: widget.language,
-                              shift: _shift,
-                              travel: travel,
-                              changed: index < _changed.length
-                                  ? _changed[index]
-                                  : null,
+                            itemBuilder: (context, index) => GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onLongPress: () => widget.onPick(index),
+                              child: _DiffRow(
+                                line: _drawn[index],
+                                gutter: gutter,
+                                language: widget.language,
+                                shift: _shift,
+                                travel: travel,
+                                picked: widget.picked == index,
+                                changed: index < _changed.length
+                                    ? _changed[index]
+                                    : null,
+                              ),
                             ),
                           ),
                         ),
@@ -972,6 +1050,7 @@ class _DiffBodyState extends State<_DiffBody> {
                               language: widget.language,
                               shift: _shift,
                               travel: travel,
+                              picked: widget.picked == row,
                             ),
                           ),
                         ),
@@ -1075,6 +1154,7 @@ class _DiffRow extends StatelessWidget {
     required this.travel,
     this.language,
     this.changed,
+    this.picked = false,
   });
 
   final DiffLine line;
@@ -1093,6 +1173,9 @@ class _DiffRow extends StatelessWidget {
   /// The stretch of this line the line it replaced did not have. Null on a
   /// line that has no partner, and on a pair with nothing worth pointing at.
   final IntralineSpan? changed;
+
+  /// Whether this is the row being held.
+  final bool picked;
 
   /// Everything left of the text: the two number columns, the rule between
   /// them and the line's marker, with the air each of them sits in.
@@ -1151,7 +1234,7 @@ class _DiffRow extends StatelessWidget {
     final numbers = SpectacleText.noteBody.copyWith(
       color: SpectacleColors.textDisabled,
     );
-    return Container(
+    final row = Container(
       color: ground,
       padding: const EdgeInsets.symmetric(vertical: _DiffBody._linePadding),
       child: Row(
@@ -1220,6 +1303,22 @@ class _DiffRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+    if (!picked) return row;
+    // The accent, at the one width the palette allows it: a held line is drawn
+    // over four grounds, two of which are already the diff's own colours, so
+    // the mark is put beside the line rather than on it.
+    return Stack(
+      children: [
+        row,
+        Positioned(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: Spacing.xs,
+          child: const ColoredBox(color: SpectacleColors.accent),
+        ),
+      ],
     );
   }
 
