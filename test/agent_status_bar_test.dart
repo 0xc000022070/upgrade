@@ -63,12 +63,14 @@ Future<void> pumpBar(
   List<HostOutcome> outcomes, {
   int tab = 2,
   TextScaler? scaler,
+  bool live = true,
 }) async {
   const bar = AgentStatusBar();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         navIndexProvider.overrideWith((ref) => tab),
+        agentsFeedLiveProvider.overrideWithValue(live),
         agentsFeedProvider.overrideWith(
           (ref) => Stream.value(AgentPanelState(outcomes)),
         ),
@@ -155,6 +157,18 @@ void main() {
       // is disarmed. An agent that finished at three in the morning is still
       // the thing the phone is picked up to find out.
       expect(line(tester), '1 DONE');
+    });
+
+    testWidgets('a count nothing is refreshing is not a line', (tester) async {
+      await pumpBar(tester, [
+        answering([agent('claude', 'working')]),
+      ], live: false);
+
+      // The feed keeps its last value after the poll behind it stops, so the
+      // count is still there to be drawn. With the watcher off and HOME behind
+      // another tab nothing is dialling, and `1 WORKING` from an hour ago is
+      // worse than no line.
+      expect(find.byKey(const ValueKey('agent-status')), findsNothing);
     });
 
     testWidgets('no host registered is not a bar', (tester) async {
@@ -275,6 +289,7 @@ void main() {
       ProviderScope(
         overrides: [
           navIndexProvider.overrideWith((ref) => 3),
+          agentsFeedLiveProvider.overrideWithValue(true),
           agentsFeedProvider.overrideWith(
             (ref) => Stream.value(
               AgentPanelState([

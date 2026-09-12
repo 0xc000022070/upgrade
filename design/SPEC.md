@@ -1526,7 +1526,7 @@ The AGENTS panel answers this and answers it better: a row per agent, the work e
 
 **A tap goes to the panel.** The count is not an answer: a blocked agent is answered in the pane it is blocked in, and the panel is the door to that pane.
 
-**The feed is the panel's feed, which means the bar is only as live as the watcher.** With `[ ALERTS ]` on, the watcher is running and the bar is current on every screen. With alerts off, the feed runs while HOME is on screen and stops when it is not, so the bar is correctly absent rather than quietly stale — a line that says `3 WORKING` about an hour ago is worse than no line, and the app does not have a second source to keep it honest.
+**The feed is the panel's feed, which means the bar is only as live as the watcher.** With `[ ALERTS ]` on, the watcher is running and the bar is current on every screen. With alerts off, the feed runs while HOME is on screen and stops when it is not, so the bar is correctly absent rather than quietly stale — a line that says `3 WORKING` about an hour ago is worse than no line, and the app does not have a second source to keep it honest. Absent is a thing the bar has to do and not a thing that happens to it: a feed whose poll has stopped goes on handing out the last state it held, for as long as the app is open, so a count is never on its own evidence that anything is still counting. The bar asks whether something is dialling before it asks what the number is, and that question and the poll's own gate are one answer kept in one place rather than two readings of the same conditions.
 
 Struck: the bar on HOME. The panel is there, saying all of this and the rows under it, and two answers to one question on one screen is one of them too many.
 
