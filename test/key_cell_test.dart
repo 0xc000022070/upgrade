@@ -201,4 +201,43 @@ void main() {
       expect(record.taps, 0);
     });
   });
+
+  testWidgets('a cell with a floor of its own is as wide as its label', (
+    tester,
+  ) async {
+    /// A cell floated over something rather than sitting in a row: the align
+    /// hands it the whole width and nothing takes it back.
+    Future<double> width(double? floor) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: SizedBox(
+            width: 400,
+            height: 200,
+            child: Align(
+              alignment: Alignment.bottomRight,
+              child: KeyCell(
+                key: const ValueKey('floated'),
+                label: 'LIVE',
+                minWidth: floor,
+                onTap: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      return tester.getSize(find.byKey(const ValueKey('floated'))).width;
+    }
+
+    // The floor is a floor: the cell is the word plus its padding, and the
+    // floor only speaks when the word is shorter than it. Given the pane's
+    // whole width the cell took all of it, and the corner mark was drawn as a
+    // bar across the bottom of the screen it was floating over.
+    final loose = await width(40);
+    expect(loose, lessThan(200));
+    expect(loose, greaterThanOrEqualTo(40));
+
+    final floored = await width(300);
+    expect(floored, 300);
+  });
 }

@@ -153,31 +153,24 @@ class _DiffReturnState extends State<DiffReturn> {
       alignment: AlignmentDirectional.bottomStart,
       child: Padding(
         padding: const EdgeInsets.all(Spacing.md),
-        // A key cell centres its label in whatever width it is handed, and an
-        // align hands it the pane's. Taking the bound off the width leaves the
-        // cell as wide as the number it carries, which is what anything
-        // floating over the code has to be.
-        child: UnconstrainedBox(
-          constrainedAxis: Axis.vertical,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: SpectacleColors.surfacePrimary,
-              border: Border.all(color: SpectacleColors.borderSubtle),
-            ),
-            child: SizedBox(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: SpectacleColors.surfacePrimary,
+            border: Border.all(color: SpectacleColors.borderSubtle),
+          ),
+          child: SizedBox(
+            height: RowMetrics.minHeight,
+            child: KeyCell(
+              key: const ValueKey('diff-return'),
+              // The line and not an arrow, where the terminal's way back is an
+              // arrow: that one has a single destination and always the same
+              // one, and this one points at a different line every time it
+              // appears. Which way it goes is the number against the gutter.
+              label: 'LINE $line',
+              minWidth: RowMetrics.minHeight,
+              padding: RowMetrics.padding,
               height: RowMetrics.minHeight,
-              child: KeyCell(
-                key: const ValueKey('diff-return'),
-                // The line and not an arrow, where the terminal's way back is an
-                // arrow: that one has a single destination and always the same
-                // one, and this one points at a different line every time it
-                // appears. Which way it goes is the number against the gutter.
-                label: 'LINE $line',
-                minWidth: RowMetrics.minHeight,
-                padding: RowMetrics.padding,
-                height: RowMetrics.minHeight,
-                onTap: widget.jumps.back,
-              ),
+              onTap: widget.jumps.back,
             ),
           ),
         ),
