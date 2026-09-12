@@ -20,7 +20,7 @@ class ListRow extends StatelessWidget {
   const ListRow({
     super.key,
     required this.title,
-    this.pathTitle = false,
+    this.literalTitle = false,
     this.kicker,
     this.subtitle,
     this.caption,
@@ -42,15 +42,21 @@ class ListRow extends StatelessWidget {
     this.decode = false,
   }) : assert(value == null || valueSpans == null, 'one value column');
 
-  /// The uppercase line above the title — the project a row belongs to.
+  /// The line above the title — the project a row belongs to. Drawn as it is
+  /// handed over: a row whose kicker is a word the app chose says it in
+  /// capitals itself, and a row whose kicker is a sha says it the way the
+  /// repository does, because a reader who retypes it needs the string and
+  /// not a rendering of it.
   final String? kicker;
 
   final String title;
 
-  /// The title is a file path, which is identified by its end. Set here rather
-  /// than guessed from the string: a title with a slash in it is not
-  /// necessarily a path, and a path is not necessarily too long to matter.
-  final bool pathTitle;
+  /// The title is a name this app did not choose — a path, a sha — so it is
+  /// drawn in the case it has and given up from the left rather than from the
+  /// end, which is the half that identifies it. Set here rather than guessed
+  /// from the string: a title with a slash in it is not necessarily one of
+  /// these, and one of these is not necessarily too long to matter.
+  final bool literalTitle;
 
   /// Second line. On a blocked row this is the reason, in warning.
   final String? subtitle;
@@ -133,7 +139,7 @@ class ListRow extends StatelessWidget {
       if (kicker != null)
         indented(
           Text(
-            kicker!.toUpperCase(),
+            kicker!,
             style: SpectacleText.rowKicker,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -151,7 +157,7 @@ class ListRow extends StatelessWidget {
             const SizedBox(width: Spacing.lg),
           ],
           Expanded(
-            child: pathTitle
+            child: literalTitle
                 ? PathLine(title, style: titleStyle, decode: decode)
                 : SignalText(
                     title,
