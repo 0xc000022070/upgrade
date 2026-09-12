@@ -1162,6 +1162,8 @@ A phone is narrower than the lines people write, and the viewer answered that wi
 
 **A rail under the text admits the line goes on.** The scroller that used to say so is gone and a diff is one of the few places where how much is off the edge is worth knowing before deciding to go and read it. It is a hairline, it starts where the text starts rather than at the edge of the pane, and its thumb is as much of the rail as the pane is of the line. It is drawn only when there is somewhere to go.
 
+**A tab is drawn as wide as it is counted.** The face draws one for a single advance and the pane was counting it as eight, which left a file indented with tabs both mismeasured and flattened — the shape that says what sits inside what, gone. Every tab is opened out to the next eight-column stop before anything else looks at the line, so the width, the marked run and the reader are all counting the same characters. Eight is git's own stop, and the count the pane had already committed to.
+
 **Every file opens at the left margin.** Where a reader had got to in one file is not where the next one begins, and a file that opens in the middle of a line nobody has read is a worse offer than one that opens at its start.
 
 Struck: shrinking the face until the longest line fits. A diff read at six points is not read, and the face is the app's own decision rather than a slider.

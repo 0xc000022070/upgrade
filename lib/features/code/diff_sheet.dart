@@ -708,7 +708,9 @@ class _Rail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(left: lead),
+      // Air above and below, or the rail fuses to the last row on one side and
+      // to the walk on the other and reads as the pane's border.
+      padding: EdgeInsets.only(left: lead, top: Spacing.xs, bottom: Spacing.xs),
       child: SizedBox(
         height: Borders.hairline * 2,
         child: ValueListenableBuilder<double>(
@@ -720,14 +722,14 @@ class _Rail extends StatelessWidget {
             return Stack(
               children: [
                 Positioned.fill(
-                  child: ColoredBox(color: SpectacleColors.surfacePrimary),
+                  child: ColoredBox(color: SpectacleColors.borderSubtle),
                 ),
                 Positioned(
                   left: travelled * (room - thumb),
                   width: thumb,
                   top: 0,
                   bottom: 0,
-                  child: const ColoredBox(color: SpectacleColors.borderSubtle),
+                  child: const ColoredBox(color: SpectacleColors.textDisabled),
                 ),
               ],
             );
@@ -828,10 +830,16 @@ class _DiffBodyState extends State<_DiffBody> {
   /// it, which a row being built on its own cannot see.
   List<IntralineSpan?> _changed = const [];
 
+  /// The lines as they are drawn, which is the lines git sent with their tabs
+  /// opened out. Everything downstream — the width, the pairing, the offsets
+  /// the marked run is given in — is then counting the same characters the
+  /// reader is looking at.
+  List<DiffLine> _drawn = const [];
+
   @override
   void initState() {
     super.initState();
-    _changed = intralineChanges(widget.lines);
+    _read();
   }
 
   @override
@@ -842,8 +850,21 @@ class _DiffBodyState extends State<_DiffBody> {
     // line they have not read yet.
     if (!identical(old.lines, widget.lines)) {
       _shift.value = 0;
-      _changed = intralineChanges(widget.lines);
+      _read();
     }
+  }
+
+  void _read() {
+    _drawn = [
+      for (final line in widget.lines)
+        DiffLine(
+          line.kind,
+          _openTabs(line.text),
+          oldLine: line.oldLine,
+          newLine: line.newLine,
+        ),
+    ];
+    _changed = intralineChanges(_drawn);
   }
 
   @override
@@ -856,7 +877,7 @@ class _DiffBodyState extends State<_DiffBody> {
   Widget build(BuildContext context) {
     var highest = 0;
     var widest = 0;
-    for (final line in widget.lines) {
+    for (final line in _drawn) {
       final old = line.oldLine ?? 0;
       final now = line.newLine ?? 0;
       if (old > highest) highest = old;
@@ -887,9 +908,9 @@ class _DiffBodyState extends State<_DiffBody> {
                   controller: widget.scroll,
                   padding: EdgeInsets.zero,
                   itemExtent: _DiffBody.rowHeight,
-                  itemCount: widget.lines.length,
+                  itemCount: _drawn.length,
                   itemBuilder: (context, index) => _DiffRow(
-                    line: widget.lines[index],
+                    line: _drawn[index],
                     gutter: gutter,
                     language: widget.language,
                     shift: _shift,
@@ -909,17 +930,35 @@ class _DiffBodyState extends State<_DiffBody> {
     );
   }
 
-  /// How wide a line is in characters. A tab is counted as eight, which is more
-  /// than it draws as: over-guessing costs empty scroll at the right edge, and
-  /// under-guessing cuts the end off a line that is in the file.
-  int _columns(String text) {
-    var columns = 0;
-    for (final unit in text.codeUnits) {
-      columns += unit == 0x09 ? 8 : 1;
-    }
-    return columns;
-  }
+  /// How wide a line is in characters, which by the time a line is drawn is
+  /// its length: the face is monospaced and the tabs are already gone.
+  int _columns(String text) => text.length;
 }
+
+/// A tab opened out to the next eight-column stop.
+///
+/// The face draws a tab as one advance and the pane was measuring it as eight,
+/// so a file indented with tabs came out both mismeasured and flattened — a Go
+/// file lost the shape that says what is inside what. Eight is git's own stop
+/// and the one the width arithmetic already assumed.
+String _openTabs(String text) {
+  if (!text.contains('\t')) return text;
+  final open = StringBuffer();
+  var column = 0;
+  for (final unit in text.codeUnits) {
+    if (unit == 0x09) {
+      final stop = _tabStop - column % _tabStop;
+      open.write(' ' * stop);
+      column += stop;
+    } else {
+      open.writeCharCode(unit);
+      column++;
+    }
+  }
+  return open.toString();
+}
+
+const _tabStop = 8;
 
 /// The advance of one character in the body's face, measured once.
 ///

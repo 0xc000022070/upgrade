@@ -55,6 +55,10 @@ const _wide =
     "const banner = 'the line a terminal wraps and a phone cannot, which is "
     "what the rail under the pane is there to admit';";
 
+/// Indented the way a file that uses tabs is, which the pane measures as eight
+/// columns and the face draws as one.
+const _tabbed = '\tif (err != null) {';
+
 const _diff =
     '''
 diff --git a/lib/main.dart b/lib/main.dart
@@ -62,6 +66,7 @@ diff --git a/lib/main.dart b/lib/main.dart
 -const port = 22;
 +const port = 357;
  $_wide
+ $_tabbed
 ''';
 
 String get _log =>
@@ -816,6 +821,17 @@ void main() {
       await tapText(tester, 'scratch.txt');
 
       expect(runner.commands.last, contains('--no-index'));
+
+      await unmount(tester);
+    });
+
+    testWidgets('a tab is drawn as wide as it is measured', (tester) async {
+      await viewer(tester);
+
+      // Opened out to the next eight-column stop before anything sees it, so
+      // the line the reader is looking at is the line the pane measured.
+      expect(onSheet(find.text('        if (err != null) {')), findsOneWidget);
+      expect(onSheet(find.text(_tabbed)), findsNothing);
 
       await unmount(tester);
     });
