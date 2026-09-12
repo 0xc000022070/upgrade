@@ -9,6 +9,7 @@ import 'package:spectacle/application/agents.dart';
 import 'package:spectacle/application/navigation.dart';
 import 'package:spectacle/application/providers.dart';
 import 'package:spectacle/data/database.dart';
+import 'package:spectacle/design/spacing.dart';
 import 'package:spectacle/data/enums.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
 import 'package:spectacle/data/repositories/key_repository.dart';
@@ -176,6 +177,10 @@ void main() {
     await unmount(tester);
   });
 
+  /// The width `_MetaRow` gives the label column, which the screen keeps to
+  /// itself.
+  const labelColumn = 96.0;
+
   testWidgets('a metadata label is given the width its words take', (
     tester,
   ) async {
@@ -184,28 +189,30 @@ void main() {
     addTearDown(tester.view.reset);
     await seed();
 
-    /// The column the label sits in, and where the value beside it begins.
-    Future<(double, double)> measure() async {
+    /// How far the value sits from the start of the label beside it. Measured
+    /// from the two left edges, which are box positions rather than ink, so the
+    /// fallback font a test renders with cannot move them.
+    Future<double> reach() async {
       await tester.pumpWidget(app(const HostsScreen()));
       await ready(tester);
-      final column = tester.getRect(find.text('INTEGRATIONS').first).width;
+      final label = tester.getRect(find.text('INTEGRATIONS').first).left;
       final value = tester.getRect(find.text('HERDR')).left;
       await unmount(tester);
-      return (column, value);
+      return value - label;
     }
 
-    final (column, value) = await measure();
+    final reached = await reach();
 
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    final (bigColumn, bigValue) = await measure();
+    final bigReach = await reach();
 
-    // The column ends exactly where the value begins, so a column held at the
-    // width it was drawn at is a column the longest label runs out of and into
-    // its own value. It is given the same share of a raised text size as it
-    // had of the size it was drawn at.
-    expect(bigColumn, closeTo(column * 1.3, 0.01));
-    expect(bigValue, greaterThan(value));
+    // The column is the longest label and nothing else, so the value has to
+    // start a gutter past the end of it at every text size. Held at the width
+    // it was drawn at, the column was one the longest label ran out of and
+    // into its own value; given no gutter, the two still touched.
+    expect(reached, closeTo(labelColumn + Spacing.md, 0.01));
+    expect(bigReach, closeTo(labelColumn * 1.3 + Spacing.md, 0.01));
   });
 
   testWidgets('every host panel offers a shell and the row is the hit', (
