@@ -4,11 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectacle/app/nav_shell.dart';
 import 'package:spectacle/app/spectacle_app.dart';
+import 'package:spectacle/application/agent_state.dart';
+import 'package:spectacle/application/agents.dart';
+import 'package:spectacle/application/navigation.dart';
 import 'package:spectacle/application/providers.dart';
 import 'package:spectacle/data/database.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
+import 'package:spectacle/features/agents/agent_status_bar.dart';
 import 'package:spectacle/features/shell/parked_shell_bar.dart';
 import 'package:spectacle/features/shell/shell_sessions.dart';
+import 'package:spectacle/platform/herdr_client.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -43,10 +48,11 @@ void main() {
 
   tearDown(() => db.close());
 
-  Widget app() => ProviderScope(
+  Widget app({List<Override> extra = const []}) => ProviderScope(
     overrides: [
       databaseProvider.overrideWithValue(db),
       shellSessionsProvider.overrideWithValue(sessions),
+      ...extra,
     ],
     child: const MaterialApp(home: SpectacleShell()),
   );
@@ -90,6 +96,68 @@ void main() {
     expect(find.text('TAP TO RESUME'), findsOneWidget);
     // Over the nav bar and against it: the two are one block at the foot of
     // every tab.
+    expect(
+      tester.getBottomLeft(bar).dy,
+      moreOrLessEquals(tester.getTopLeft(find.byType(NavBar)).dy),
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('the agent line stacks on it without taking the window', (
+    tester,
+  ) async {
+    // Two bars and the nav bar are three rows at the foot of one window, and
+    // the reader's text size grows all three at once. A column that ran out of
+    // window would throw here rather than quietly take the bottom off the
+    // labels the way it did on the device.
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await tester.pumpWidget(
+      app(
+        extra: [
+          navIndexProvider.overrideWith((ref) => 1),
+          agentsFeedProvider.overrideWith(
+            (ref) => Stream.value(
+              AgentPanelState([
+                HostOutcome(
+                  host: _rose,
+                  kind: AgentOutcomeKind.snapshot,
+                  agents: [
+                    AgentSnapshot(
+                      session: 'default',
+                      paneId: 'wQ:p1',
+                      agent: 'claude',
+                      state: AgentState.of('blocked'),
+                      terminalTitleStripped: 'work',
+                      workspaceId: 'wQ',
+                      cwd: '/workspace/spectacle',
+                      stateChangeSeq: 1,
+                    ),
+                  ],
+                ),
+              ]),
+            ),
+          ),
+        ],
+      ),
+    );
+    await ready(tester);
+
+    sessions.open(_rose);
+    await ready(tester);
+
+    final line = find.byKey(const ValueKey('agent-status'));
+    expect(line, findsOneWidget);
+    expect(bar, findsOneWidget);
+
+    // Furthest from the thumb: the parked shell is tapped to get back into
+    // something, and the line is read.
+    expect(
+      tester.getBottomLeft(line).dy,
+      moreOrLessEquals(tester.getTopLeft(bar).dy),
+    );
     expect(
       tester.getBottomLeft(bar).dy,
       moreOrLessEquals(tester.getTopLeft(find.byType(NavBar)).dy),
