@@ -123,13 +123,17 @@ void main() {
 
     test('asks the line rather than the kind', () {
       expect(
-        const HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable)
-            .namedReason,
+        const HostOutcome(
+          host: nyx,
+          kind: AgentOutcomeKind.unreachable,
+        ).namedReason,
         'nyx unreachable',
       );
       expect(
-        const HostOutcome(host: nyx, kind: AgentOutcomeKind.keyRejected)
-            .namedReason,
+        const HostOutcome(
+          host: nyx,
+          kind: AgentOutcomeKind.keyRejected,
+        ).namedReason,
         'nyx · key rejected',
       );
       expect(
