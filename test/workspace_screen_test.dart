@@ -50,11 +50,18 @@ const _numstat = '3\t1\tlib/main.dart\n';
 String get _overview =>
     '$_status$workspaceRecord\n$_worktrees$workspaceRecord\n$_numstat';
 
-const _diff = '''
+/// A line wider than the pane, so the text has somewhere to go sideways.
+const _wide =
+    "const banner = 'the line a terminal wraps and a phone cannot, which is "
+    "what the rail under the pane is there to admit';";
+
+const _diff =
+    '''
 diff --git a/lib/main.dart b/lib/main.dart
-@@ -1,2 +1,2 @@
+@@ -1,3 +1,3 @@
 -const port = 22;
 +const port = 357;
++$_wide
 ''';
 
 String get _log =>
@@ -796,6 +803,68 @@ void main() {
       await tapText(tester, 'scratch.txt');
 
       expect(runner.commands.last, contains('--no-index'));
+
+      await unmount(tester);
+    });
+
+    testWidgets('the numbers hold while the line goes past the edge', (
+      tester,
+    ) async {
+      await viewer(tester);
+
+      // The marker and the line numbers are the lead; the text is what moves.
+      final marker = onSheet(find.text('+')).first;
+      final lead = tester.getTopLeft(marker);
+      final line = tester.getTopLeft(onSheet(find.text(_wide)));
+
+      // From the marker: the wide line's own centre is off the right edge of
+      // the pane, and a drag has to start somewhere the pane can be touched.
+      await tester.dragFrom(tester.getCenter(marker), const Offset(-120, 0));
+      await ready(tester);
+
+      expect(tester.getTopLeft(marker), lead);
+      expect(tester.getTopLeft(onSheet(find.text(_wide))).dx, line.dx - 120);
+
+      await unmount(tester);
+    });
+
+    testWidgets('the text stops where the longest line does', (tester) async {
+      await viewer(tester);
+
+      // Far past the end of the widest line in the file. The pane holds there
+      // rather than leaving the reader in empty space to their right.
+      final from = tester.getCenter(onSheet(find.text('+')).first);
+      await tester.dragFrom(from, const Offset(-9000, 0));
+      await ready(tester);
+      final end = tester.getTopRight(onSheet(find.text(_wide))).dx;
+
+      await tester.dragFrom(from, const Offset(-9000, 0));
+      await ready(tester);
+
+      expect(tester.getTopRight(onSheet(find.text(_wide))).dx, end);
+
+      await unmount(tester);
+    });
+
+    testWidgets('another file opens back at the left margin', (tester) async {
+      await viewer(tester);
+      final home = tester.getTopLeft(onSheet(find.text(_wide))).dx;
+
+      await tester.dragFrom(
+        tester.getCenter(onSheet(find.text('+')).first),
+        const Offset(-200, 0),
+      );
+      await ready(tester);
+      expect(tester.getTopLeft(onSheet(find.text(_wide))).dx, home - 200);
+
+      // Out to the next file and back, which is a different set of lines each
+      // time and so a fresh margin each time.
+      await tester.tap(onSheet(find.byKey(const ValueKey('diff-next-file'))));
+      await ready(tester);
+      await tester.tap(onSheet(find.byKey(const ValueKey('diff-prev-file'))));
+      await ready(tester);
+
+      expect(tester.getTopLeft(onSheet(find.text(_wide))).dx, home);
 
       await unmount(tester);
     });
