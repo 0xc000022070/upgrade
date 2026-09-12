@@ -344,6 +344,10 @@ class _MetaRow extends StatelessWidget {
             width: MediaQuery.textScalerOf(context).scale(_labelWidth),
             child: Text(label, style: SpectacleText.label),
           ),
+          // The column is the longest label and nothing more, so without a
+          // gutter that label ends exactly where its value starts and the two
+          // read as one run of letters.
+          const SizedBox(width: Spacing.md),
           Expanded(
             child: Meta(value, strong: strong, color: color),
           ),
