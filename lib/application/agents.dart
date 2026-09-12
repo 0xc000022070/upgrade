@@ -29,7 +29,28 @@ enum AgentOutcomeKind {
   hostKeyUnverified,
 
   /// The host answered with a key that is not the one pinned for it.
-  hostKeyChanged,
+  hostKeyChanged;
+
+  /// Whether a watcher that met this may knock again on a timer.
+  ///
+  /// The line is drawn at the credential. A host that refused the key refuses
+  /// it again every time it is asked, and asking is not free: sshd counts
+  /// failed authentications per source and answers what follows before it
+  /// reaches a key at all, for an hour under its own defaults and for a day if
+  /// the client keeps knocking. A watcher that retries one of these does not
+  /// recover the host, it loses it, and it loses the shell and the screen with
+  /// it. The app's own two refusals sit on this side of the line for a plainer
+  /// reason: an unpinned key and a changed one are both answered on HOSTS, by
+  /// the user, and a loop cannot be the one to answer them.
+  ///
+  /// Everything else costs the host nothing to be asked twice and can answer
+  /// differently without anybody touching the phone: a route that is not there
+  /// comes back, a name starts resolving, a herdr too old to understand is
+  /// upgraded on the far side.
+  bool get retryable => switch (this) {
+    keyRejected || hostKeyUnverified || hostKeyChanged => false,
+    _ => true,
+  };
 }
 
 class HostOutcome {

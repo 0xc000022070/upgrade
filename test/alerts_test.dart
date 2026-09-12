@@ -18,7 +18,14 @@ import 'package:spectacle/platform/keys.dart';
 /// with, and reports the host as down so the loop backs off instead of
 /// looping on it.
 class RecordingHerdrClient extends HerdrClient {
+  RecordingHerdrClient({this.failures = const {}});
+
+  /// What to throw for a given address, when the test wants a particular
+  /// refusal rather than a machine that is merely not there.
+  final Map<String, HerdrFailure> failures;
+
   final verifiers = <HostKeyVerifier?>[];
+  final dials = <String>[];
 
   @override
   Future<HerdrSession> connect({
@@ -29,7 +36,9 @@ class RecordingHerdrClient extends HerdrClient {
     HostKeyVerifier? verifier,
   }) async {
     verifiers.add(verifier);
-    throw const HerdrUnreachable('no machine behind a test');
+    dials.add(address);
+    throw failures[address] ??
+        const HerdrUnreachable('no machine behind a test');
   }
 }
 
@@ -285,6 +294,54 @@ void main() {
       expect(backoff.current, watcherMinBackoff);
       backoff.advance();
       expect(backoff.current, const Duration(seconds: 10));
+    });
+
+    test('a refused credential is not among the failures it knocks on', () {
+      // The two that are about reaching a machine: a route comes back and a
+      // name starts resolving without anybody touching the phone.
+      expect(AgentOutcomeKind.unreachable.retryable, isTrue);
+      expect(AgentOutcomeKind.unresolved.retryable, isTrue);
+      // Answered on the far side by an upgrade, and it costs the host an
+      // authenticated connection rather than a failed one.
+      expect(AgentOutcomeKind.protocolMismatch.retryable, isTrue);
+
+      // The host refuses this every time it is asked, and counts the asking.
+      expect(AgentOutcomeKind.keyRejected.retryable, isFalse);
+      // These two are answered by the user on HOSTS, never by a timer.
+      expect(AgentOutcomeKind.hostKeyUnverified.retryable, isFalse);
+      expect(AgentOutcomeKind.hostKeyChanged.retryable, isFalse);
+    });
+
+    test('the loop stands on a refusal and knocks on a bad route', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      final store = MemoryPrivateKeyStore();
+      await store.write('k1', 'PRIVATE KEY');
+      // One host that answers with a rejected key, one that is merely not
+      // there, watched together the way two rows on HOSTS are.
+      final client = RecordingHerdrClient(
+        failures: {host.address: const HerdrKeyRejected('key rejected')},
+      );
+      final handler = AgentWatcherHandler(
+        keys: Ed25519Keys(store),
+        client: client,
+      );
+
+      await handler.setHosts(const [host, other]);
+      // Past the first step of the backoff, so a loop that meant to knock
+      // again has had its chance to.
+      await Future<void>.delayed(
+        watcherMinBackoff + const Duration(seconds: 1),
+      );
+      await handler.onDestroy(DateTime.now(), false);
+
+      expect(
+        client.dials.where((address) => address == host.address),
+        hasLength(1),
+      );
+      expect(
+        client.dials.where((address) => address == other.address).length,
+        greaterThan(1),
+      );
     });
   });
 

@@ -1410,6 +1410,24 @@ Struck: experiments on messages. There is one reader, they know what the words m
 
 Struck: taking its SDK. It is Swift, for a target that does not exist here, and what it wraps is the registration and token handling of a push transport this does not use.
 
+### A watcher does not knock again on a credential the host has settled
+
+The reconnect schedule is one backoff per host: five seconds after an outage, doubling to a minute, back to five the moment a connection carries a snapshot. It was applied to every way a dial can fail, without distinction. A key the host rejected got the same timer as a route that was not there.
+
+**The line is drawn at the credential, and it is drawn because the knocking is not free.** The daemon on the far side counts failed authentications per source address, and under its own shipped defaults it answers everything from that address for the next hour before a key is looked at, for a day if the client keeps knocking. A watcher on a minute's timer is a client that keeps knocking. What it loses is not the watch: the shell and the screen dial the same daemon from the same phone, so a background loop nobody is looking at can lock the user out of the machine they were about to open a terminal on, and go on holding the lock open by retrying into it.
+
+**The app's own two refusals sit on the same side of that line for a plainer reason.** A host key that was never pinned and a host key that changed are both answered by a person standing in front of a fingerprint on HOSTS. A loop cannot be the one to answer them, so a loop that retries them is asking a question with nobody in the room, every minute, for as long as the phone is on.
+
+**Everything else costs the host nothing to be asked twice and can answer differently without anybody touching the phone.** A route that is not there comes back, a name starts resolving, a herdr too old to be understood is upgraded on the far side. Those keep the schedule they have.
+
+**A line nobody is coming back from carries no countdown.** The shade reads `KEY REJECTED`, not `KEY REJECTED · RETRY 60S`. A countdown under a refusal the app has decided not to retry is the app promising a knock it is not going to make, and the reason on its own is the whole of what is true about that host.
+
+**What starts the loop again is the user, and that is the right trigger.** The watcher rebuilds a host's loop when the row changes under it — a different address, user or key, a pin that appeared or changed — and when `[ ALERTS ]` goes off and on. Every one of those is the same act that could have fixed the credential, which is the only thing that makes another dial worth making.
+
+Struck: a longer timer for a refused key, an hour or a day instead of a minute. It is the same knock with a longer fuse, and the penalty it lands in is measured from the last attempt, so a loop on a slow timer keeps the lockout alive rather than letting it expire.
+
+Struck: a notification asking the user to go and fix the key. The ongoing line already names the host and says what it refused, HOSTS is where a credential is answered, and a second alert about a machine that is not going anywhere is a phone buzzing about the state it was in a minute ago.
+
 ## Plugins
 
 ### A plugin is a program on the machine, not code the phone runs
