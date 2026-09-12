@@ -171,7 +171,13 @@ class _HeaderStrip extends StatelessWidget {
               ),
             ),
           ),
-          ?affordance,
+          // The title is handed the strip's slack, so a strip shrunk to the
+          // width of its own words has none left to hold the affordance off
+          // the title. The gap is a sibling the title cannot take.
+          if (affordance != null) ...[
+            const SizedBox(width: Spacing.md),
+            affordance!,
+          ],
           const SizedBox(width: Spacing.panelPadding),
         ],
       ),
