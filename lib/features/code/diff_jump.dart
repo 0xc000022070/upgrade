@@ -20,6 +20,9 @@ class DiffJumps extends ChangeNotifier {
 
   double? _from;
 
+  /// Where the thumb went down, while it is still down.
+  double? _thumb;
+
   /// Where the pane was before its last jump, or null while there is nothing
   /// to come back to.
   double? get from => _from;
@@ -33,9 +36,20 @@ class DiffJumps extends ChangeNotifier {
     // place it already points at would lose it for nothing.
     if (want == was) return;
     scroll.jumpTo(want);
-    _from = was;
+    // Under a thumb every frame of the drag is a jump, and all but the first
+    // begin where the frame before them landed. The way back is owed to the
+    // place the reader was actually sitting when they reached for the strip.
+    _from = _thumb ?? was;
     notifyListeners();
   }
+
+  /// The reader has taken hold of something that jumps the pane and has not
+  /// let go of it. Until they do, the movement is one movement however many
+  /// jumps it arrives as.
+  void hold() => _thumb = scroll.hasClients ? scroll.position.pixels : null;
+
+  /// Let go. The next jump begins wherever the reader chose to leave the pane.
+  void release() => _thumb = null;
 
   /// Ride back to where the last jump began. Ridden and not jumped, where the
   /// jump itself was jumped: the reader asked for the jump and knows what it
