@@ -1137,3 +1137,15 @@ Struck: asking the user which directory a terminal is in. The terminal knows and
 **History is read, in one round trip each.** `git log` for the list, `git show --numstat` and `--name-status` composed into one command for a commit's files, `git show -- <path>` for one file's hunks — all `--no-color`, all under the same `sh -c` budget the workspace already keeps, all on the connection the screen already holds. Nothing here writes, and nothing here checks anything out: reading a commit does not move `HEAD`, and the verbs still live in the shell.
 
 Struck: a file tree in the viewer, and a way to open a commit's file at its full text. The explorer is one row away on the workspace screen and it already does both.
+
+### A pasted link loses the campaign that was stamped on it
+
+A URL reaches the phone through a share sheet or a copy button, and both of them write on it first. `utm_source`, `utm_medium`, `utm_campaign`, a `gclid` or an `fbclid` sixty characters long, the mail platform's `mc_eid` — none of it means anything to the page being opened, all of it says which campaign produced the tap, and together it is why a pasted address fills three lines of a drop instead of one. The app cuts those fields out before the link is kept or handed over.
+
+It happens where a URL is decided and nowhere else. Every address the app files or opens is read by one of two functions — the prose rule that promotes a bare host, and the explicit rule a terminal selection is tested against — and the second is the first's own parser, so the cut is written once, at the bottom of both. The capture bar's link line, the item sheet's, the clipboard the line is offered prefilled with, a URL painted inside a title, and the terminal's `OPEN` all get the same address.
+
+Families that number their fields are matched by their prefix, so `utm_` covers whichever one is invented next; the rest are named. Only the real query is read: a `?` after a `#` belongs to whatever routes on the fragment and is left alone. Everything that is not cut survives exactly as it was written — same order, same encoding, same empty values, and the `?` itself goes only when the last field in the query does. This removes fields; it does not rewrite a URL.
+
+Struck: cutting the fields a page is entitled to read. An affiliate `tag` and a `ref` are a shop's accounting and somebody is paid for them, a share id that a video site resolves is part of what was shared, and a link that stops working is worse than a long one. A field is in the list only when the site receiving it does nothing with it.
+
+Struck: a per-host rule table. It is how a link cleaner ends up needing releases of its own, and the flat list answers the links a phone actually meets.

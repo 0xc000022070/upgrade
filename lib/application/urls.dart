@@ -33,14 +33,93 @@ String? normalizeUrl(String raw) {
 /// `http://localhost:3000` and `http://100.118.60.77:8080/`, and a host with
 /// no dot in it is a real host there. The scheme carries the whole decision,
 /// so a path, a flag or a word that merely reads like a host stays what it is.
+///
+/// What comes back has had its tracking fields cut out by [withoutTracking].
+/// Every URL the app keeps or hands over is parsed here or by [normalizeUrl],
+/// which is this, so this is where that happens once.
 String? explicitUrl(String raw) {
   final value = raw.trim();
   if (value.isEmpty || value.contains(RegExp(r'\s'))) return null;
   final uri = Uri.tryParse(value);
   if (uri == null || !uri.hasAuthority) return null;
   if (uri.scheme != 'http' && uri.scheme != 'https') return null;
-  return value;
+  return withoutTracking(value);
 }
+
+/// The query fields a link carries for whoever sent it rather than for whoever
+/// opens it. A URL arrives on the phone through a share sheet or a copy button,
+/// and what those stamp on it says which campaign produced the tap — it is not
+/// part of the link the user meant to keep, and it is what makes a pasted
+/// address three lines long instead of one.
+///
+/// Families that number their fields are matched by their prefix; the rest are
+/// named outright. Everything else in the query survives exactly as it was
+/// written — same order, same encoding, same empty values. This cuts fields
+/// out; it does not rewrite a URL.
+///
+/// Only the query is read. A `?` inside a fragment belongs to whatever routes
+/// on the fragment, and is none of this function's business.
+String withoutTracking(String url) {
+  final hash = url.indexOf('#');
+  final head = hash < 0 ? url : url.substring(0, hash);
+  final tail = hash < 0 ? '' : url.substring(hash);
+  final mark = head.indexOf('?');
+  if (mark < 0) return url;
+  final kept = head
+      .substring(mark + 1)
+      .split('&')
+      .where((field) => !_tracks(field))
+      .join('&');
+  final path = head.substring(0, mark);
+  return kept.isEmpty ? '$path$tail' : '$path?$kept$tail';
+}
+
+bool _tracks(String field) {
+  final equals = field.indexOf('=');
+  final name = (equals < 0 ? field : field.substring(0, equals)).toLowerCase();
+  if (name.isEmpty) return false;
+  if (_trackingNames.contains(name)) return true;
+  return _trackingPrefixes.any(name.startsWith);
+}
+
+/// The field families that number their members, so the list cannot name them
+/// all: `utm_source` and `utm_content` and whatever the next one is called.
+const _trackingPrefixes = [
+  'utm_',
+  'pk_',
+  'mtm_',
+  'piwik_',
+  'matomo_',
+  'hsa_',
+  'fb_action_',
+  'ga_',
+  'vero_',
+  'oly_',
+  'stm_',
+];
+
+/// The fields that are only ever a campaign's bookkeeping. A name goes in here
+/// when it means nothing to the page that receives it, which is why an
+/// affiliate tag is not in the list: a shop reads `tag` and `ref` and pays
+/// somebody for them, and cutting one out changes what the link does.
+const _trackingNames = {
+  // Google, and everything that buys ads through it.
+  'gclid', 'gclsrc', 'dclid', 'gbraid', 'wbraid',
+  'gad_source', 'gad_campaignid', 'srsltid',
+  // Meta.
+  'fbclid', 'fb_source', 'fb_ref',
+  // The other networks that stamp a click id.
+  'msclkid', 'twclid', 'ttclid', 'li_fat_id', 'rdt_cid', 'sccid', 'epik',
+  'yclid', 'ysclid', '_openstat',
+  // Instagram's share sheet.
+  'igshid', 'igsh',
+  // Mail, and the platforms that send it.
+  'mc_cid', 'mc_eid', 'mkt_tok', '_kx', '__s', '_bta_c', '_bta_tid',
+  '_hsenc', '_hsmi', '__hssc', '__hstc', '__hsfp', 'hsctatracking',
+  // Ad platforms that write their own ids into the address.
+  's_kwcid', 'ef_id', 'cmpid', 'icid', 'mkwid', 'pcrid',
+  'tt_medium', 'tt_content', 'ref_src', 'ref_url',
+};
 
 /// What the link line opens prefilled with. The clipboard is the common case
 /// and typing a URL on a phone is not, so it is offered — and never taken: the
