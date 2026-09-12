@@ -94,7 +94,6 @@ class MainActivity : FlutterActivity() {
                         }
                         result.success(null)
                     }
-                    "enter" -> result.success(enterPip())
                     else -> result.notImplemented()
                 }
             }
