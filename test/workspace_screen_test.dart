@@ -7,6 +7,7 @@ import 'package:spectacle/app/spectacle_app.dart';
 import 'package:spectacle/application/agents.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
 import 'package:spectacle/data/repositories/path_repository.dart';
+import 'package:spectacle/design/components/action_block.dart';
 import 'package:spectacle/design/layout.dart';
 import 'package:spectacle/features/code/diff_sheet.dart';
 import 'package:spectacle/features/code/workspace_screen.dart';
@@ -65,8 +66,22 @@ String get _log =>
 /// What one commit touched: the counts, then the letters.
 String get _commitFiles =>
     '2\t0\tlib/shell/shell_header.dart\n'
+    '1\t1\tlib/shell/shell_tabs.dart\n'
     '$workspaceRecord\n'
-    'M\tlib/shell/shell_header.dart\n';
+    'M\tlib/shell/shell_header.dart\n'
+    'M\tlib/shell/shell_tabs.dart\n';
+
+/// One `show` carrying every file of the commit, which is how the viewer asks.
+const _commitDiff = '''
+diff --git a/lib/shell/shell_header.dart b/lib/shell/shell_header.dart
+@@ -1,2 +1,2 @@
+-const mark = false;
++const mark = true;
+diff --git a/lib/shell/shell_tabs.dart b/lib/shell/shell_tabs.dart
+@@ -9,2 +9,2 @@
+-const tabs = 4;
++const tabs = 8;
+''';
 
 /// A runner that answers from a table and keeps the tape.
 class FakeRunner implements WorkspaceRunner {
@@ -102,6 +117,12 @@ class FakeRunner implements WorkspaceRunner {
         stdout: overview ?? _overview,
         stderr: '',
       );
+    }
+    // The whole-source and whole-commit answers, which name no file and are
+    // what the viewer asks for first.
+    if (command.contains('--first-parent --format=') &&
+        !command.contains(' -- ')) {
+      return const WorkspaceReply(exitCode: 0, stdout: _commitDiff, stderr: '');
     }
     if (command.contains('diff') || command.contains('show')) {
       return const WorkspaceReply(exitCode: 0, stdout: _diff, stderr: '');
@@ -337,8 +358,11 @@ void main() {
 
       await tapText(tester, 'lib/main.dart');
 
-      expect(runner.commands.last, contains('diff'));
-      expect(runner.commands.last, contains('lib/main.dart'));
+      // One command, and it names no file: the hunks of everything that
+      // changed come back together and the row that was tapped is drawn out
+      // of them.
+      expect(runner.commands.last, contains('diff --no-color HEAD |'));
+      expect(runner.commands.last, isNot(contains('lib/main.dart')));
       // The marker is a column of its own, in the colour that says which side
       // the line is on, so the line itself is the line that is in the file.
       expect(find.text('const port = 22;'), findsOneWidget);
@@ -606,14 +630,13 @@ void main() {
             home: DiffSheet(
               host: host,
               directory: path.directory,
-              open:
-                  ({
-                    required address,
-                    required port,
-                    required user,
-                    required privateKey,
-                    verifier,
-                  }) => answering.future,
+              open: ({
+                required address,
+                required port,
+                required user,
+                required privateKey,
+                verifier,
+              }) => answering.future,
             ),
           ),
         ),
@@ -692,6 +715,87 @@ void main() {
       await ready(tester);
       expect(find.text('COMMITS'), findsNothing);
       expect(find.text('BROWSE'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    /// Every command that came back with hunks in it, which is what the viewer
+    /// is charged a round trip for.
+    int diffsAsked(FakeRunner runner) => runner.commands
+        .where(
+          (command) =>
+              command.contains('--no-color HEAD') ||
+              command.contains('--no-index') ||
+              command.contains('--first-parent --format='),
+        )
+        .length;
+
+    testWidgets('the whole source comes back on one command', (tester) async {
+      final runner = await viewer(tester);
+
+      // The file that was tapped is drawn, and the command behind it named no
+      // file: one answer carries the hunks of everything that changed.
+      expect(find.text('const port = 357;'), findsOneWidget);
+      expect(diffsAsked(runner), 1);
+      expect(
+        runner.commands.where((c) => c.contains('HEAD --')),
+        isEmpty,
+        reason: 'no file was asked for by name',
+      );
+
+      await unmount(tester);
+    });
+
+    testWidgets('walking a commit file by file spends no round trips', (
+      tester,
+    ) async {
+      final runner = await panes(tester);
+      await tapText(tester, 'fix(shell): the font');
+      final asked = diffsAsked(runner);
+
+      await tapText(tester, 'lib/shell/shell_header.dart');
+      expect(find.text('const mark = true;'), findsOneWidget);
+
+      await tester.tap(onSheet(find.byKey(const ValueKey('diff-next-file'))));
+      await ready(tester);
+
+      // The second file is on the screen and the host was not asked again.
+      expect(find.text('const tabs = 8;'), findsOneWidget);
+      expect(find.text('const mark = true;'), findsNothing);
+      expect(diffsAsked(runner), asked);
+
+      await unmount(tester);
+    });
+
+    testWidgets('the walk says where in the list the file is', (tester) async {
+      await panes(tester);
+      await tapText(tester, 'fix(shell): the font');
+      await tapText(tester, 'lib/shell/shell_tabs.dart');
+
+      expect(onSheet(find.text('2 / 2')), findsOneWidget);
+      // Nothing after it, so the way on is not offered.
+      expect(
+        tester
+            .widget<ActionBlock>(
+              onSheet(find.byKey(const ValueKey('diff-next-file'))),
+            )
+            .onTap,
+        isNull,
+      );
+
+      await unmount(tester);
+    });
+
+    testWidgets('a file the one answer did not carry is asked for by name', (
+      tester,
+    ) async {
+      final runner = await panes(tester);
+
+      // Untracked, so `git diff HEAD` never named it and the bundle has no
+      // entry for it. The fallback is the command the viewer always had.
+      await tapText(tester, 'scratch.txt');
+
+      expect(runner.commands.last, contains('--no-index'));
 
       await unmount(tester);
     });

@@ -473,6 +473,83 @@ List<DiffLine> parseDiff(String output) {
   return lines;
 }
 
+/// Every file of one `diff` or `show`, split apart and parsed, keyed by the
+/// path the change list knows each one by.
+///
+/// [complete] is false when the answer came back at the byte cap, which means
+/// the last file in it is however much of a file `head` had room for. That one
+/// is dropped: half a diff drawn as a whole one is worse than a file that costs
+/// a command of its own, and the caller asks for it by name instead.
+Map<String, List<DiffLine>> parseDiffByFile(
+  String output, {
+  required bool complete,
+}) {
+  final blocks = <_DiffBlock>[];
+  for (final line in _lines(output, keepEmpty: true)) {
+    if (line.startsWith('diff --git ')) {
+      blocks.add(_DiffBlock(_gitPath(line))..lines.add(line));
+      continue;
+    }
+    if (blocks.isEmpty) continue;
+    final block = blocks.last;
+    block.lines.add(line);
+    if (block.named) continue;
+    // The two header lines name one path each and are the only place a path
+    // with a space in it is unambiguous. `/dev/null` on either side is a file
+    // that was added or deleted, so the other side is the name.
+    if (line.startsWith('+++ ') && line != '+++ /dev/null') {
+      block.path = _side(line.substring(4), 'b/');
+      block.named = true;
+    } else if (line.startsWith('--- ') && line != '--- /dev/null') {
+      block.path = _side(line.substring(4), 'a/');
+    }
+  }
+  if (!complete && blocks.isNotEmpty) blocks.removeLast();
+  return {
+    for (final block in blocks)
+      if (block.path.isNotEmpty) block.path: parseDiff(block.lines.join('\n')),
+  };
+}
+
+/// One file's lines on the way through, before they are parsed. The path is
+/// mutable because the `diff --git` line is a guess and the `+++` header under
+/// it is the answer — and a file with no hunks at all, a mode change or a
+/// binary, never gets that header and keeps the guess.
+class _DiffBlock {
+  _DiffBlock(this.path);
+
+  String path;
+
+  /// Set once the `+++` line has spoken, which is the name the change list
+  /// uses: a rename is filed under where the file ended up.
+  bool named = false;
+
+  final lines = <String>[];
+}
+
+/// `diff --git a/lib/main.dart b/lib/main.dart` as `lib/main.dart`.
+///
+/// Both halves are on one line with a space between them, so a path containing
+/// ` b/` is read wrong here. It is read right a line later: this is only ever
+/// the name of a file git had nothing else to say about.
+String _gitPath(String line) {
+  final rest = line.substring('diff --git '.length);
+  final at = rest.lastIndexOf(' b/');
+  if (at >= 0) return _side(rest.substring(at + 1), 'b/');
+  final quoted = rest.lastIndexOf(' "');
+  return quoted < 0 ? '' : _side(rest.substring(quoted + 1), 'b/');
+}
+
+/// `a/lib/main.dart` as `lib/main.dart`. git quotes a path it had to escape;
+/// the change list quotes the same one the same way, so the two still meet.
+String _side(String value, String prefix) {
+  if (value.startsWith('"')) {
+    final inner = value.substring(1, value.length - 1);
+    return inner.startsWith(prefix) ? '"${inner.substring(2)}"' : '"$inner"';
+  }
+  return value.startsWith(prefix) ? value.substring(2) : value;
+}
+
 const _preamble = [
   'diff --git ',
   'index ',
@@ -493,9 +570,8 @@ const _preamble = [
 /// The first line number either side of `@@ -a,b +c,d @@`. A hunk git could
 /// not be read out of starts both sides at one, which is where a file starts.
 (int, int) _hunkStarts(String header) {
-  final match = RegExp(r'^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@').firstMatch(
-    header,
-  );
+  final match = RegExp(r'^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@')
+      .firstMatch(header);
   if (match == null) return (1, 1);
   return (int.parse(match.group(1)!), int.parse(match.group(2)!));
 }

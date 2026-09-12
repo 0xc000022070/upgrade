@@ -52,11 +52,40 @@ abstract final class WorkspaceCommands {
     'git diff --numstat HEAD\n',
   );
 
+  /// How much of a diff comes back on one command. A phone is not where a
+  /// regenerated lockfile is read line by line, and the cap is what stops a
+  /// tap on one from pulling it over the radio. `head` cuts bytes and will cut
+  /// a line in half; the reader is told what the cap was and drops the file it
+  /// landed in rather than drawing half of one.
+  static const diffBytes = 524288;
+
+  /// Every changed file's hunks against `HEAD`, in one command.
+  ///
+  /// The round trip is the cost, not the bytes: a commit of twenty files asked
+  /// for one file at a time is twenty handshakes' worth of latency on a radio,
+  /// and the user pays it walking the list. So the whole diff comes back with
+  /// the file list and a tap after that draws from what is already here.
+  static String sourceDiff(String directory) => underSh(
+    '${_enter(directory)}'
+    'git --no-pager diff --no-color HEAD | head -c $diffBytes\n',
+  );
+
+  /// The same, for one commit.
+  static String commitDiffAll(String directory, String sha) => underSh(
+    '${_enter(directory)}'
+    'git --no-pager show --no-color --first-parent --format= '
+    '${shellQuote(sha)} | head -c $diffBytes\n',
+  );
+
   /// One file's hunks. `HEAD` and not the index, so a file staged and then
   /// edited again reads as the one change the user made rather than as two.
+  ///
+  /// The fallback for a file the whole-diff answer was cut before reaching, and
+  /// the only command a file bigger than the cap is ever read by.
   static String fileDiff(String directory, String path) => underSh(
     '${_enter(directory)}'
-    'git --no-pager diff --no-color HEAD -- ${shellQuote(path)}\n',
+    'git --no-pager diff --no-color HEAD -- ${shellQuote(path)} '
+    '| head -c $diffBytes\n',
   );
 
   /// An untracked file's contents, worded as a diff so one parser reads both.
@@ -65,7 +94,7 @@ abstract final class WorkspaceCommands {
   static String newFileDiff(String directory, String path) => underSh(
     '${_enter(directory)}'
     'git --no-pager diff --no-color --no-index -- /dev/null '
-    '${shellQuote(path)}\n'
+    '${shellQuote(path)} | head -c $diffBytes\n'
     'exit 0\n',
   );
 
@@ -82,14 +111,11 @@ abstract final class WorkspaceCommands {
 
   /// One file's text, capped. A phone is not where a 200 MB log is read, and
   /// the cap is what keeps a mistaken tap from pulling one over the radio.
-  static String file(
-    String directory,
-    String path, {
-    int bytes = 262144,
-  }) => underSh(
-    '${shellCd(directory)} 2>/dev/null || exit $workspaceNoDirectory\n'
-    'head -c $bytes -- ${shellQuote(path)}\n',
-  );
+  static String file(String directory, String path, {int bytes = 262144}) =>
+      underSh(
+        '${shellCd(directory)} 2>/dev/null || exit $workspaceNoDirectory\n'
+        'head -c $bytes -- ${shellQuote(path)}\n',
+      );
 
   /// The history behind the directory, newest first and capped: a phone is not
   /// where a repository is read whole, and this list is a picker.
@@ -116,6 +142,6 @@ abstract final class WorkspaceCommands {
       underSh(
         '${_enter(directory)}'
         'git --no-pager show --no-color --first-parent --format= '
-        '${shellQuote(sha)} -- ${shellQuote(path)}\n',
+        '${shellQuote(sha)} -- ${shellQuote(path)} | head -c $diffBytes\n',
       );
 }
