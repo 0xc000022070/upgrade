@@ -314,7 +314,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   void _walkHunk() {
     final lines = _lines;
     if (lines == null || !_hunkScroll.hasClients) return;
-    final at = (_hunkScroll.offset / _DiffBody.rowHeight).round();
+    final at = (_hunkScroll.offset / _DiffBody.rowHeight(context)).round();
     var found = -1;
     for (var i = at + 1; i < lines.length; i++) {
       if (lines[i].kind == DiffLineKind.hunk) {
@@ -326,7 +326,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       found = lines.indexWhere((line) => line.kind == DiffLineKind.hunk);
     }
     if (found < 0) return;
-    _jumps.to(found * _DiffBody.rowHeight);
+    _jumps.to(found * _DiffBody.rowHeight(context));
   }
 
   /// Out of the file first, then out of the sheet — the order the user walked
@@ -910,8 +910,14 @@ class _DiffBody extends StatefulWidget {
   /// One line's box plus the hairline of air either side of it. Every row is
   /// exactly this tall — the text never wraps — which is what lets the list
   /// build only the rows on screen and still know where row ten thousand is.
-  static double get rowHeight =>
-      SpectacleText.noteBody.fontSize! * SpectacleText.noteBody.height! +
+  ///
+  /// Measured at the size the phone is going to paint it. A reader who turned
+  /// the system text size up did it because the small one is hard to read, and
+  /// a row sized for the small one would cut the top and bottom off every line
+  /// of the file and put every jump on the wrong row.
+  static double rowHeight(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(SpectacleText.noteBody.fontSize!) *
+          SpectacleText.noteBody.height! +
       _linePadding * 2;
 
   static const _linePadding = 1.0;
@@ -936,7 +942,7 @@ class _DiffBodyState extends State<_DiffBody> {
   /// on to the first line under it that has one.
   int? _lineAt(double offset) {
     for (
-      var row = (offset / _DiffBody.rowHeight).floor();
+      var row = (offset / _DiffBody.rowHeight(context)).floor();
       row < _drawn.length;
       row++
     ) {
@@ -1021,9 +1027,11 @@ class _DiffBodyState extends State<_DiffBody> {
       final columns = _columns(line.text);
       if (columns > widest) widest = columns;
     }
-    final gutter = _gutterWidth(highest);
-    final lead = _DiffRow.lead(gutter);
-    final text = widest * _charAdvance() + Spacing.panelPadding;
+    final advance = _charAdvance(context);
+    final row = _DiffBody.rowHeight(context);
+    final gutter = _gutterWidth(highest, advance);
+    final lead = _DiffRow.lead(gutter, advance);
+    final text = widest * advance + Spacing.panelPadding;
     return LayoutBuilder(
       builder: (context, constraints) {
         // A file that fits on the screen has nowhere to jump to, and one with
@@ -1031,8 +1039,7 @@ class _DiffBodyState extends State<_DiffBody> {
         // strip would only repeat what the reader can already see, so the pane
         // keeps the width instead.
         final mapped =
-            _streaks.isNotEmpty &&
-            _drawn.length * _DiffBody.rowHeight > constraints.maxHeight;
+            _streaks.isNotEmpty && _drawn.length * row > constraints.maxHeight;
         final room = math.max(
           0.0,
           constraints.maxWidth - lead - (mapped ? DiffMap.width : 0),
@@ -1069,7 +1076,7 @@ class _DiffBodyState extends State<_DiffBody> {
                           child: ListView.builder(
                             controller: widget.jumps.scroll,
                             padding: EdgeInsets.zero,
-                            itemExtent: _DiffBody.rowHeight,
+                            itemExtent: row,
                             itemCount: _drawn.length,
                             itemBuilder: (context, index) {
                               final line = _drawn[index];
@@ -1106,7 +1113,7 @@ class _DiffBodyState extends State<_DiffBody> {
                           child: HunkPin(
                             rows: _hunks,
                             jumps: widget.jumps,
-                            rowHeight: _DiffBody.rowHeight,
+                            rowHeight: row,
                             // The same row the list would have drawn, so the
                             // held header and the one it stands in for are
                             // the one thing seen twice.
@@ -1190,23 +1197,34 @@ const _tabStop = 8;
 /// `IntrinsicWidth` was a second layout pass over every row in the file — and
 /// arithmetic is what lets the rows be built lazily, because a list cannot
 /// size itself to a child it has not built.
-double _charAdvance() {
+double _charAdvance(BuildContext context) {
+  final scaler = MediaQuery.textScalerOf(context);
+  final size = scaler.scale(SpectacleText.noteBody.fontSize!);
   final known = _advance;
-  if (known != null) return known;
+  if (known != null && _advanceAt == size) return known;
   final painter = TextPainter(
     text: const TextSpan(text: _ruler, style: SpectacleText.noteBody),
     textDirection: TextDirection.ltr,
+    textScaler: scaler,
   )..layout();
-  return _advance = painter.width / _ruler.length;
+  final advance = painter.width / _ruler.length;
+  painter.dispose();
+  _advanceAt = size;
+  return _advance = advance;
 }
 
 double? _advance;
+
+/// The painted font size [_advance] was measured at. The system text size can
+/// move while the app is open, and a cache that outlived it would be the same
+/// mismeasurement it exists to avoid.
+double? _advanceAt;
 const _ruler = '0123456789';
 
 /// Wide enough for the highest number either side, with a floor of two digits
 /// so a short file's gutter is not a hairline.
-double _gutterWidth(int highest) =>
-    (highest < 100 ? 2 : highest.toString().length) * 7.0 + Spacing.md;
+double _gutterWidth(int highest, double advance) =>
+    (highest < 100 ? 2 : highest.toString().length) * advance + Spacing.md;
 
 /// One line: the two gutters, the glyph, and the text.
 ///
@@ -1246,12 +1264,8 @@ class _DiffRow extends StatelessWidget {
 
   /// Everything left of the text: the two number columns, the rule between
   /// them and the line's marker, with the air each of them sits in.
-  static double lead(double gutter) =>
-      gutter * 2 +
-      Spacing.md * 3 +
-      Borders.hairline +
-      _charAdvance() +
-      Spacing.sm;
+  static double lead(double gutter, double advance) =>
+      gutter * 2 + Spacing.md * 3 + Borders.hairline + advance + Spacing.sm;
 
   /// The accent and the danger red at the weight a whole line can carry — the
   /// hue says which side the line is on, and the text stays readable over it.

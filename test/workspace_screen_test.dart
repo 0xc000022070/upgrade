@@ -1341,6 +1341,53 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('the pane is measured at the size it is painted', (
+      tester,
+    ) async {
+      /// How far apart two drawn lines sit, how tall the words on one of them
+      /// are, and where the widest line ends once the pane has been pulled as
+      /// far left as it goes.
+      Future<(double, double, double)> measure() async {
+        // Wider than the phone the other tests use: the rows around the pane
+        // are not laid out for a raised text size, and their overflow is not
+        // what this one is about.
+        await open(tester, size: const Size(700, 1600));
+        // The row is opened by its kicker rather than its path: a path too
+        // wide for its row gives up its leading directories, and at a raised
+        // text size this one is.
+        await tapText(tester, 'MODIFIED');
+        final line = onSheet(find.text('const port = 22;'));
+        final pitch =
+            tester.getTopLeft(onSheet(find.text('const port = 357;'))).dy -
+            tester.getTopLeft(line).dy;
+        final height = tester.getRect(line).height;
+        await tester.dragFrom(
+          tester.getCenter(onSheet(find.text('+')).first),
+          const Offset(-9000, 0),
+        );
+        await ready(tester);
+        final end = tester.getTopRight(onSheet(find.text(_wide))).dx;
+        await unmount(tester);
+        return (pitch, height, end);
+      }
+
+      final (pitch, height, end) = await measure();
+
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final (bigPitch, bigHeight, bigEnd) = await measure();
+
+      // The words did grow: the reader turned the system size up because the
+      // small one was hard to read.
+      expect(bigHeight, greaterThan(height));
+      // The row grew with them, rather than cutting their top and bottom off
+      // and landing every jump a little further from the line it named.
+      expect(bigPitch, greaterThan(pitch));
+      // And the pane still stops exactly where the widest line ends, which is
+      // further from the margin than it was.
+      expect(bigEnd, closeTo(end, 0.01));
+    });
+
     testWidgets('another file opens back at the left margin', (tester) async {
       await viewer(tester);
       final home = tester.getTopLeft(onSheet(find.text(_wide))).dx;
