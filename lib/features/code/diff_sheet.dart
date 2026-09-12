@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -683,6 +684,58 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   }
 }
 
+/// How much line is off the right edge, and where in it the reader is.
+///
+/// The pane has no scrollbar left to say it: the list scrolls down and the
+/// text is moved by a transform, which is what keeps the numbers still. This
+/// is the one mark that admits the line goes on, and it sits under the text
+/// rather than under the whole row so its left edge is where the text's is.
+class _Rail extends StatelessWidget {
+  const _Rail({
+    required this.shift,
+    required this.travel,
+    required this.room,
+    required this.lead,
+  });
+
+  final ValueListenable<double> shift;
+  final double travel;
+  final double room;
+  final double lead;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(left: lead),
+      child: SizedBox(
+        height: Borders.hairline * 2,
+        child: ValueListenableBuilder<double>(
+          valueListenable: shift,
+          builder: (context, at, _) {
+            // The thumb is as much of the rail as the pane is of the line.
+            final thumb = math.max(room * room / (room + travel), Spacing.xl);
+            final travelled = math.min(at, travel) / travel;
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: ColoredBox(color: SpectacleColors.surfacePrimary),
+                ),
+                Positioned(
+                  left: travelled * (room - thumb),
+                  width: thumb,
+                  top: 0,
+                  bottom: 0,
+                  child: const ColoredBox(color: SpectacleColors.borderSubtle),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 /// `+n −n`, in the two colours that mean added and removed, with the file
 /// count in front when it is a whole source being counted.
 class _Stat extends StatelessWidget {
@@ -732,7 +785,7 @@ class _Stat extends StatelessWidget {
 /// scrollers kept in step is a second source of truth about where the view is,
 /// and the one thing worse than a gutter that moves is a gutter that disagrees
 /// with the line next to it.
-class _DiffBody extends StatelessWidget {
+class _DiffBody extends StatefulWidget {
   const _DiffBody({required this.lines, required this.scroll, this.language});
 
   final List<DiffLine> lines;
@@ -754,10 +807,40 @@ class _DiffBody extends StatelessWidget {
   static const _linePadding = 1.0;
 
   @override
+  State<_DiffBody> createState() => _DiffBodyState();
+}
+
+class _DiffBodyState extends State<_DiffBody> {
+  /// How far left the text is pushed, in pixels. The numbers and the marker
+  /// are not pushed with it: a phone is narrower than the lines in a source
+  /// file, so reading one to its end means going right, and the two things
+  /// that say which side of the change a line is on are exactly the two that
+  /// used to leave the screen when it did.
+  ///
+  /// A notifier and not `setState`: a drag repaints the text of the rows on
+  /// screen and nothing else — not the list, not the sheet around it.
+  final ValueNotifier<double> _shift = ValueNotifier(0);
+
+  @override
+  void didUpdateWidget(covariant _DiffBody old) {
+    super.didUpdateWidget(old);
+    // Another file is another set of lines and another width. The reader is
+    // put back at the left margin rather than dropped into the middle of a
+    // line they have not read yet.
+    if (!identical(old.lines, widget.lines)) _shift.value = 0;
+  }
+
+  @override
+  void dispose() {
+    _shift.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     var highest = 0;
     var widest = 0;
-    for (final line in lines) {
+    for (final line in widget.lines) {
       final old = line.oldLine ?? 0;
       final now = line.newLine ?? 0;
       if (old > highest) highest = old;
@@ -766,36 +849,53 @@ class _DiffBody extends StatelessWidget {
       if (columns > widest) widest = columns;
     }
     final gutter = _gutterWidth(highest);
-    final width =
-        _DiffRow.lead(gutter) + widest * _charAdvance() + Spacing.panelPadding;
+    final lead = _DiffRow.lead(gutter);
+    final text = widest * _charAdvance() + Spacing.panelPadding;
     return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          // The ground behind a line is the statement that it was added or
-          // removed, so a file whose longest line is narrower than the pane
-          // still colours to the edge of it.
-          width: math.max(width, constraints.maxWidth),
-          child: ListView.builder(
-            controller: scroll,
-            padding: EdgeInsets.zero,
-            itemExtent: rowHeight,
-            itemCount: lines.length,
-            itemBuilder: (context, index) => _DiffRow(
-              line: lines[index],
-              gutter: gutter,
-              language: language,
+      builder: (context, constraints) {
+        final room = math.max(0.0, constraints.maxWidth - lead);
+        final travel = math.max(0.0, text - room);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: GestureDetector(
+                // Horizontal against the list's vertical: the arena hands the
+                // drag to whichever direction it started in, so a diff is read
+                // down and across with the same thumb.
+                onHorizontalDragUpdate: travel == 0
+                    ? null
+                    : (drag) => _shift.value = (_shift.value - drag.delta.dx)
+                          .clamp(0.0, travel),
+                child: ListView.builder(
+                  controller: widget.scroll,
+                  padding: EdgeInsets.zero,
+                  itemExtent: _DiffBody.rowHeight,
+                  itemCount: widget.lines.length,
+                  itemBuilder: (context, index) => _DiffRow(
+                    line: widget.lines[index],
+                    gutter: gutter,
+                    language: widget.language,
+                    shift: _shift,
+                    travel: travel,
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
+            // Nothing else says how much line is off the right edge once the
+            // scroller that used to say it is gone.
+            if (travel > 0)
+              _Rail(shift: _shift, travel: travel, room: room, lead: lead),
+          ],
+        );
+      },
     );
   }
 
   /// How wide a line is in characters. A tab is counted as eight, which is more
   /// than it draws as: over-guessing costs empty scroll at the right edge, and
   /// under-guessing cuts the end off a line that is in the file.
-  static int _columns(String text) {
+  int _columns(String text) {
     var columns = 0;
     for (final unit in text.codeUnits) {
       columns += unit == 0x09 ? 8 : 1;
@@ -835,11 +935,26 @@ double _gutterWidth(int highest) =>
 /// of the change the line is on. Syntax colours only the text between them,
 /// which is why the two can share a row without arguing.
 class _DiffRow extends StatelessWidget {
-  const _DiffRow({required this.line, required this.gutter, this.language});
+  const _DiffRow({
+    required this.line,
+    required this.gutter,
+    required this.shift,
+    required this.travel,
+    this.language,
+  });
 
   final DiffLine line;
   final double gutter;
   final SyntaxLanguage? language;
+
+  /// The pane's one horizontal position, listened to by the text of every row
+  /// on screen and by nothing else.
+  final ValueListenable<double> shift;
+
+  /// How far the text can go before its longest line ends. Read here as well
+  /// as in the drag so a pane that just got narrower draws clamped instead of
+  /// writing to the notifier in the middle of a build.
+  final double travel;
 
   /// Everything left of the text: the two number columns, the rule between
   /// them and the line's marker, with the air each of them sits in.
@@ -933,13 +1048,30 @@ class _DiffRow extends StatelessWidget {
             maxLines: 1,
           ),
           const SizedBox(width: Spacing.sm),
-          Padding(
-            padding: const EdgeInsets.only(right: Spacing.panelPadding),
-            child: Text.rich(
-              _text(),
-              style: SpectacleText.noteBody.copyWith(color: text),
-              maxLines: 1,
-              softWrap: false,
+          Expanded(
+            child: ClipRect(
+              child: ValueListenableBuilder<double>(
+                valueListenable: shift,
+                builder: (context, at, painted) => Transform.translate(
+                  offset: Offset(-math.min(at, travel), 0),
+                  child: painted,
+                ),
+                // Laid out once at its full width and moved by the transform:
+                // a drag repaints the line, it does not lay it out again.
+                child: OverflowBox(
+                  alignment: Alignment.centerLeft,
+                  maxWidth: double.infinity,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: Spacing.panelPadding),
+                    child: Text.rich(
+                      _text(),
+                      style: SpectacleText.noteBody.copyWith(color: text),
+                      maxLines: 1,
+                      softWrap: false,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ],

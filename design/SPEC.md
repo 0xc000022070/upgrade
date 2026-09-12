@@ -1152,6 +1152,20 @@ So the hunks of everything that changed come back with the list. `git diff --no-
 
 Struck: staging, now that the diff is cheap enough to redraw after one. The round trip was never what stood in the way — a workspace is read from the phone and changed from the shell, and a `git add -p` whose hunks are tapped instead of typed is a second and worse porcelain sitting one row from the real one.
 
+### The numbers hold still while the line goes past the right edge
+
+A phone is narrower than the lines people write, and the viewer answered that with a scroller around the whole pane — the browser's answer, and the wrong one on a screen this size. What leaves the screen first when the pane is dragged left is the lead: the number the line had before, the number it has now, and the marker between them. A reader who follows a long line to its end arrives with nothing left on screen to say whether they are reading what was there or what replaced it, and the way back to that is to drag the whole file right again.
+
+**Only the text moves.** The lead is laid out where it always was and stays there; the text beside it is pushed left under a clip. The pane keeps one position, and the text of every row on screen reads it, so a drag repaints those lines and lays nothing out a second time — the same arithmetic that let the rows be built lazily in the first place. The ground behind an added or a removed line is painted across the row, lead included, so the colour that says which side the line is on never scrolls away either.
+
+**Across and down are the same thumb.** The drag across is offered beside the list's drag down and the two are told apart by the direction the gesture started in, which is what the list does already with every other scroller in the app. The text stops where the longest line in the file ends: a pane that keeps going into empty space says the file does, and this one does not.
+
+**A rail under the text admits the line goes on.** The scroller that used to say so is gone and a diff is one of the few places where how much is off the edge is worth knowing before deciding to go and read it. It is a hairline, it starts where the text starts rather than at the edge of the pane, and its thumb is as much of the rail as the pane is of the line. It is drawn only when there is somewhere to go.
+
+**Every file opens at the left margin.** Where a reader had got to in one file is not where the next one begins, and a file that opens in the middle of a line nobody has read is a worse offer than one that opens at its start.
+
+Struck: shrinking the face until the longest line fits. A diff read at six points is not read, and the face is the app's own decision rather than a slider.
+
 ### A pasted link loses the campaign that was stamped on it
 
 A URL reaches the phone through a share sheet or a copy button, and both of them write on it first. `utm_source`, `utm_medium`, `utm_campaign`, a `gclid` or an `fbclid` sixty characters long, the mail platform's `mc_eid` — none of it means anything to the page being opened, all of it says which campaign produced the tap, and together it is why a pasted address fills three lines of a drop instead of one. The app cuts those fields out before the link is kept or handed over.
