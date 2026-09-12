@@ -456,12 +456,13 @@ SyntaxLanguage? languageOf(String path) {
   final dot = name.lastIndexOf('.');
   // A dotfile is read by its own name — `.zshrc`, `.gitignore` — which is the
   // whole of it with the leading dot off, not an extension.
-  final extension = (dot > 0
-          ? name.substring(dot + 1)
-          : name.startsWith('.')
-          ? name.substring(1)
-          : name)
-      .toLowerCase();
+  final extension =
+      (dot > 0
+              ? name.substring(dot + 1)
+              : name.startsWith('.')
+              ? name.substring(1)
+              : name)
+          .toLowerCase();
   return switch (extension) {
     'dart' => _dart,
     'js' || 'jsx' || 'mjs' || 'cjs' || 'ts' || 'tsx' => _js,
