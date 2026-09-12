@@ -859,6 +859,13 @@ void main() {
       await tester.pump();
 
       expect(tail, findsOneWidget);
+      // A mark in the corner, not a bar across the bottom of the shell. The
+      // cell is its own label and the floor under it; a cell that takes the
+      // pane's width covers a whole row of output and every touch along it.
+      expect(
+        tester.getSize(tail).width,
+        lessThan(tester.getSize(find.byType(TerminalView)).width / 2),
+      );
 
       await tester.tap(tail);
       await tester.pump();

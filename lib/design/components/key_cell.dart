@@ -143,21 +143,30 @@ class _KeyCellState extends State<KeyCell> {
         padding: widget.minWidth == null
             ? null
             : EdgeInsets.symmetric(horizontal: widget.padding),
-        alignment: Alignment.center,
-        // The label is still the semantics: a glyph key reads as its name to a
-        // screen reader, which a bare picture would not.
-        child: Semantics(
-          label: widget.locked
-              ? '${widget.label} latched'
-              : widget.repeat > 1
-              ? '${widget.label} x${widget.repeat}'
-              : widget.label,
-          child: icon == null
-              ? _RollingLabel(
-                  text: label,
-                  style: SpectacleText.panelHeader.copyWith(color: tint),
-                )
-              : SpectacleIcon(icon, size: IconSizes.toolbar, color: tint),
+        // A container that centres its child fills whatever it is handed:
+        // a share of the row in the strip, and the whole pane under a cell
+        // floated over one. The align below does the centring instead, and a
+        // cell with a floor of its own takes its width from its label, which
+        // is what the floor is documented to be a floor of.
+        alignment: widget.minWidth == null ? Alignment.center : null,
+        child: Align(
+          widthFactor: widget.minWidth == null ? null : 1,
+          heightFactor: 1,
+          // The label is still the semantics: a glyph key reads as its name to
+          // a screen reader, which a bare picture would not.
+          child: Semantics(
+            label: widget.locked
+                ? '${widget.label} latched'
+                : widget.repeat > 1
+                ? '${widget.label} x${widget.repeat}'
+                : widget.label,
+            child: icon == null
+                ? _RollingLabel(
+                    text: label,
+                    style: SpectacleText.panelHeader.copyWith(color: tint),
+                  )
+                : SpectacleIcon(icon, size: IconSizes.toolbar, color: tint),
+          ),
         ),
       ),
     );
