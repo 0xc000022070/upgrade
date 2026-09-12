@@ -99,9 +99,14 @@ class _NavItem extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: SizedBox(
-        height: 52,
+      child: ConstrainedBox(
+        // As tall as the words the phone is painting, with the bar's own
+        // height as a floor. Fixed, it was the label's height at the text
+        // size the bar was drawn at and two pixels short of it at the
+        // largest, which took the bottom off every label in the bar.
+        constraints: const BoxConstraints(minHeight: 52),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             // A rule segment over the active tab. The mocks run
             // it the full width of the tab, sitting on the nav's own top rule,

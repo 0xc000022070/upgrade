@@ -160,6 +160,53 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the nav is as tall as the words in it', (tester) async {
+    resize(tester, 360);
+    final glitch = List.generate(
+      navDestinationCount,
+      (_) => GlitchController(),
+    );
+    addTearDown(() {
+      for (final controller in glitch) {
+        controller.dispose();
+      }
+    });
+
+    /// How tall the bar is, and how much of it is left under the word at the
+    /// bottom of the first tab.
+    Future<(double, double)> measure() async {
+      await tester.pumpWidget(
+        host(
+          Scaffold(
+            bottomNavigationBar: NavBar(
+              currentIndex: 0,
+              onSelected: (_) {},
+              glitch: glitch,
+            ),
+          ),
+        ),
+      );
+      await _ready(tester);
+      final bar = tester.getRect(find.byType(NavBar));
+      final label = tester.getRect(find.text('HOME'));
+      await unmount(tester);
+      return (bar.height, bar.bottom - label.bottom);
+    }
+
+    final (height, clearance) = await measure();
+    expect(clearance, greaterThanOrEqualTo(0));
+
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final (bigHeight, bigClearance) = await measure();
+
+    // The words grew, so the bar did. Held at the height it was drawn at, the
+    // bar had two pixels less than the tab needed and took them off the
+    // bottom of every label in it.
+    expect(bigHeight, greaterThan(height));
+    expect(bigClearance, greaterThanOrEqualTo(0));
+  });
+
   testWidgets('the selection bar takes the cap the capture bar takes', (
     tester,
   ) async {
