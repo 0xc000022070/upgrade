@@ -20,6 +20,7 @@ import 'autonomous_ticks.dart';
 import 'boot.dart';
 import 'keyboard_release.dart';
 import 'nav_shell.dart';
+import 'pip_host.dart';
 import 'splash_route.dart';
 import 'static_surface.dart';
 
@@ -59,7 +60,9 @@ class SpectacleApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: SpectacleTheme.build(),
       scrollBehavior: const SpectacleScrollBehavior(),
-      builder: houseText,
+      // The window the system parks in a corner is over every route rather
+      // than inside one: the app goes there from wherever the user was.
+      builder: (context, child) => houseText(context, PipHost(child: child!)),
       // The splash is the navigator's first route and hands the screen
       // to Home by replacing itself, so it is unreachable afterwards and a
       // resume never plays it. `AlertsHost` is inside the route it pushes

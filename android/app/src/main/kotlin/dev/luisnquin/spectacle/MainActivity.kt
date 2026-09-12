@@ -3,8 +3,12 @@ package dev.luisnquin.spectacle
 import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.util.Rational
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.Uri
@@ -28,6 +32,14 @@ class MainActivity : FlutterActivity() {
     // save, the bytes to write once the user has chosen where.
     private var pendingDocument: MethodChannel.Result? = null
     private var pendingBytes: ByteArray? = null
+
+    // Picture-in-picture. The window the system parks in the corner is this
+    // activity's own surface, so there is nothing to mirror and nothing to
+    // render twice: Dart is told the mode changed and draws a panel sized for
+    // it. Armed means the app goes there by itself when the user leaves, which
+    // it only is while something is worth watching.
+    private var pipEvents: EventChannel.EventSink? = null
+    private var pipArmed = false
 
     // The Android 12+ splash fades itself out over the app window it is already
     // covering. SPEC 16c.1 gives the whole boot log 600ms, and measurement put
@@ -64,11 +76,86 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
+        MethodChannel(messenger, "dev.luisnquin.spectacle/pip")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "available" -> result.success(pipAvailable())
+                    // Arming is the whole of the gesture on API 31 and up: the
+                    // system takes the app into the window on its own when the
+                    // user goes home, with no frame in between where the app is
+                    // gone and the window has not arrived. Below that there is
+                    // no such parameter and onUserLeaveHint is the only hook.
+                    "arm" -> {
+                        pipArmed = call.arguments as? Boolean ?: false
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                            pipAvailable()
+                        ) {
+                            setPictureInPictureParams(pipParams())
+                        }
+                        result.success(null)
+                    }
+                    "enter" -> result.success(enterPip())
+                    else -> result.notImplemented()
+                }
+            }
+
+        EventChannel(messenger, "dev.luisnquin.spectacle/pip/mode")
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
+                    pipEvents = sink
+                    // Replayed: a subscriber that arrives after the window did
+                    // would otherwise draw the whole app into a corner tile.
+                    sink.success(isInPictureInPictureMode)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    pipEvents = null
+                }
+            })
+
         EventChannel(messenger, "dev.luisnquin.spectacle/device/throttle")
             .setStreamHandler(ThrottleStreamHandler(this, power))
 
         EventChannel(messenger, "dev.luisnquin.spectacle/device/network")
             .setStreamHandler(NetworkStreamHandler(connectivity))
+    }
+
+    private fun pipAvailable() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+        packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+
+    // Wide and short, because what the window carries is lines of text and the
+    // system will not give it more height than the ratio asks for. The system
+    // clamps anything past 2.39:1, which this is well inside.
+    private fun pipParams(): PictureInPictureParams {
+        val builder = PictureInPictureParams.Builder()
+            .setAspectRatio(Rational(16, 9))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setAutoEnterEnabled(pipArmed)
+            builder.setSeamlessResizeEnabled(false)
+        }
+        return builder.build()
+    }
+
+    private fun enterPip(): Boolean {
+        if (!pipAvailable() || isInPictureInPictureMode) return false
+        return enterPictureInPictureMode(pipParams())
+    }
+
+    // The pre-31 path. `setAutoEnterEnabled` does the same thing a frame
+    // earlier and without the flicker, so this runs only where that parameter
+    // does not exist.
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (pipArmed && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) enterPip()
+    }
+
+    override fun onPictureInPictureModeChanged(
+        inPip: Boolean,
+        newConfig: Configuration,
+    ) {
+        super.onPictureInPictureModeChanged(inPip, newConfig)
+        pipEvents?.success(inPip)
     }
 
     private fun saveDocument(name: String, mime: String, bytes: ByteArray, result: MethodChannel.Result) {

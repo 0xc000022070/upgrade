@@ -1197,3 +1197,19 @@ Struck: an endpoint agents ping, and the pairing code and hosted key that go wit
 Struck: naming the agent in the tally. A blocked agent already raises the alert that names it and offers the answer; the ongoing line is the count, it is read at a glance from a lock screen, and a line that changes width every time an agent starts is a line that has to be read twice.
 
 Struck: a `DONE` that lingers on the line for a while after the work ends, the way the surveyed client holds one for a minute and a half. `done` here is not an event: it is where an agent rests once the tab it finished in went unwatched, which from a phone is every tab. Counting it would mean counting the whole night.
+
+### The app parks in a corner while there is something to watch
+
+A phone that is watching agents is a phone the user is holding for something else. They go to the browser, to the terminal on the other side of the app switcher, to a message — and the panel they were reading is gone, replaced by a shade line that is one row of text and only there because a service is running. Android's own answer to a window that has to survive leaving the app is picture-in-picture, and what it parks in the corner is this activity's own surface. There is no second renderer, nothing to mirror and nothing to keep in step: the app is told the mode changed, and it draws something else.
+
+**It is armed by what is happening, not by a switch in SYS.** A switch would be wrong in both positions. Off, the window is a feature the user has to remember they own on the night they needed it. On, every trip to the browser leaves a tile in the corner reporting that nothing is happening, which is how a window like this gets turned off once and never turned back on. What a switch would be asking is whether there is anything worth watching, and the panel already knows: the window is armed while an agent is working or blocked and disarmed the moment none is. On a system with the parameter for it the app goes there on its own as the user leaves, so there is no frame in which the app is gone and the window has not arrived; below that the only hook is the gesture itself and the window opens a frame later.
+
+**It says what the shade says.** The headline is the ongoing notification's own line, from the same function: the count of what is blocked and what is working, or the failing host's reason when a host is down, or the host count when the night is quiet. Under it are the active agents, blocked first, each with the machine it is on, and a count of the ones that did not fit. Three surfaces drawing one answer, because a second way of phrasing it is a second thing to keep true.
+
+**Nothing on the window is tappable.** A tap anywhere on a picture-in-picture window is the system's gesture for opening the app back up, and a target of the app's own underneath it takes that gesture away from the user. The window is read; the answer is given in the app, or on the alert that already carries it.
+
+Struck: a floating overlay drawn over other apps. It is the workaround for a platform with no such window, it costs a permission the user has to grant on a settings screen the app cannot open for them, and the system's window is better in every way that matters — it is placed and moved by the system, it survives the app switcher, and it asks for nothing.
+
+Struck: actions in the window, which the system will host beside it. The answer to a blocked agent is `YES`, `NO` or a sentence, and the first two are already on the alert with the agent named; the third was never going to be typed into a tile.
+
+Struck: the same window on iOS, where the system reserves it for video. There is no target here to build one in, and the question does not arise until there is.
