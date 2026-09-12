@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../design/colors.dart';
 import '../../design/spacing.dart';
 import '../../platform/workspace/workspace_model.dart';
+import 'diff_jump.dart';
 
 /// A run of neighbouring lines that all arrived, or all left, as a half-open
 /// range of row indices.
@@ -37,7 +38,7 @@ class DiffMap extends StatelessWidget {
     super.key,
     required this.streaks,
     required this.rows,
-    required this.scroll,
+    required this.jumps,
   });
 
   final List<DiffStreak> streaks;
@@ -45,21 +46,21 @@ class DiffMap extends StatelessWidget {
   /// How many rows the file has, which is what the strip's height stands for.
   final int rows;
 
-  /// The pane's scroller, read for the window and written by a touch.
-  final ScrollController scroll;
+  /// The pane's scroller, read for the window and jumped by a touch.
+  final DiffJumps jumps;
 
   /// Wide enough for a thumb to land on, most of it air around the marks.
   static const width = Spacing.xl;
 
   void _jump(double at, double height) {
-    if (!scroll.hasClients || height <= 0) return;
-    final position = scroll.position;
+    if (!jumps.scroll.hasClients || height <= 0) return;
+    final position = jumps.scroll.position;
     final content = position.maxScrollExtent + position.viewportDimension;
     // The touch names the middle of what the reader wants to see, not its top:
     // a mark tapped at the very bottom of the strip is still a place to read
     // around rather than a place to start.
     final want = at / height * content - position.viewportDimension / 2;
-    scroll.jumpTo(want.clamp(0.0, position.maxScrollExtent));
+    jumps.to(want);
   }
 
   @override
@@ -73,7 +74,11 @@ class DiffMap extends StatelessWidget {
             _jump(drag.localPosition.dy, constraints.maxHeight),
         child: CustomPaint(
           size: Size.infinite,
-          painter: _MapPainter(streaks: streaks, rows: rows, scroll: scroll),
+          painter: _MapPainter(
+            streaks: streaks,
+            rows: rows,
+            scroll: jumps.scroll,
+          ),
         ),
       ),
     ),

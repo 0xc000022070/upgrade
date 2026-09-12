@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../design/colors.dart';
 import '../../design/spacing.dart';
 import '../../platform/workspace/workspace_model.dart';
+import 'diff_jump.dart';
 
 /// A hunk header with the symbol git found at the front of it.
 ///
@@ -51,7 +52,7 @@ class HunkPin extends StatelessWidget {
   const HunkPin({
     super.key,
     required this.rows,
-    required this.scroll,
+    required this.jumps,
     required this.rowHeight,
     required this.rowAt,
   });
@@ -59,7 +60,7 @@ class HunkPin extends StatelessWidget {
   /// The rows carrying a header, from [hunkRows].
   final List<int> rows;
 
-  final ScrollController scroll;
+  final DiffJumps jumps;
 
   /// Every row is this tall, so where a row is, is arithmetic.
   final double rowHeight;
@@ -68,19 +69,16 @@ class HunkPin extends StatelessWidget {
   /// the same row again, so the two can never disagree about how one looks.
   final Widget Function(int row) rowAt;
 
-  void _toTop(int row) {
-    if (!scroll.hasClients) return;
-    scroll.jumpTo(
-      (row * rowHeight).clamp(0.0, scroll.position.maxScrollExtent),
-    );
-  }
+  void _toTop(int row) => jumps.to(row * rowHeight);
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: scroll,
+    animation: jumps.scroll,
     builder: (context, _) {
-      if (rows.isEmpty || !scroll.hasClients) return const SizedBox.shrink();
-      final pixels = scroll.position.pixels;
+      if (rows.isEmpty || !jumps.scroll.hasClients) {
+        return const SizedBox.shrink();
+      }
+      final pixels = jumps.scroll.position.pixels;
       final at = hunkAt(rows, (pixels / rowHeight).floor());
       // A header still on the screen speaks for itself. The pin stands in for
       // it only once the top edge has started cutting it.

@@ -22,6 +22,7 @@ import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/workspace/workspace_model.dart';
 
+import 'diff_jump.dart';
 import 'diff_map.dart';
 import 'hunk_pin.dart';
 import 'intraline.dart';
@@ -138,6 +139,10 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   /// known offset and jumping to it is arithmetic rather than a search.
   final ScrollController _hunkScroll = ScrollController();
 
+  /// Every movement of the pane the reader's thumb did not make, and the way
+  /// back from the last of them.
+  late final DiffJumps _jumps = DiffJumps(_hunkScroll);
+
   /// Bumped on every source change, so a slow answer that lands after the user
   /// has moved to another commit is dropped rather than drawn over it.
   int _walk = 0;
@@ -175,6 +180,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   @override
   void dispose() {
     _controller.removeListener(_onWorkspace);
+    _jumps.dispose();
     _hunkScroll.dispose();
     // Only the connection this screen dialled is this screen's to drop.
     if (_owned) _controller.dispose();
@@ -262,6 +268,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       _picked = null;
     });
     if (_hunkScroll.hasClients) _hunkScroll.jumpTo(0);
+    _jumps.forget();
     if (cached == null) unawaited(_read(file));
   }
 
@@ -319,12 +326,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       found = lines.indexWhere((line) => line.kind == DiffLineKind.hunk);
     }
     if (found < 0) return;
-    _hunkScroll.jumpTo(
-      math.min(
-        found * _DiffBody.rowHeight,
-        _hunkScroll.position.maxScrollExtent,
-      ),
-    );
+    _jumps.to(found * _DiffBody.rowHeight);
   }
 
   /// Out of the file first, then out of the sheet — the order the user walked
@@ -734,7 +736,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
         (final rows?, _) => _DiffBody(
           lines: rows,
           language: languageOf(file.path),
-          scroll: _hunkScroll,
+          jumps: _jumps,
           picked: _picked,
           onPick: (row) => setState(() => _picked = row),
         ),
@@ -849,7 +851,7 @@ class _Stat extends StatelessWidget {
 class _DiffBody extends StatefulWidget {
   const _DiffBody({
     required this.lines,
-    required this.scroll,
+    required this.jumps,
     required this.picked,
     required this.onPick,
     this.language,
@@ -857,8 +859,9 @@ class _DiffBody extends StatefulWidget {
 
   final List<DiffLine> lines;
 
-  /// The pane's scroller, held by the sheet so the hunk walk can move it.
-  final ScrollController scroll;
+  /// The pane's scroller and its way back, held by the sheet so the hunk
+  /// walk can move it.
+  final DiffJumps jumps;
 
   /// Null for a file the app cannot place, which is drawn the way every file
   /// used to be.
@@ -892,6 +895,23 @@ class _DiffBodyState extends State<_DiffBody> {
   /// A notifier and not `setState`: a drag repaints the text of the rows on
   /// screen and nothing else — not the list, not the sheet around it.
   final ValueNotifier<double> _shift = ValueNotifier(0);
+
+  /// The number the gutter carries at an offset, for the way back to name
+  /// where it goes. A hunk header has no number of its own, so the search runs
+  /// on to the first line under it that has one.
+  int? _lineAt(double offset) {
+    for (
+      var row = (offset / _DiffBody.rowHeight).floor();
+      row < _drawn.length;
+      row++
+    ) {
+      if (row < 0) continue;
+      final line = _drawn[row];
+      final number = line.newLine ?? line.oldLine;
+      if (number != null) return number;
+    }
+    return null;
+  }
 
   /// Where each line differs from the one it replaced, worked out once for the
   /// file rather than per row: the answer for a line lives in the line beside
@@ -1012,7 +1032,7 @@ class _DiffBodyState extends State<_DiffBody> {
                                       travel,
                                     ),
                           child: ListView.builder(
-                            controller: widget.scroll,
+                            controller: widget.jumps.scroll,
                             padding: EdgeInsets.zero,
                             itemExtent: _DiffBody.rowHeight,
                             itemCount: _drawn.length,
@@ -1039,7 +1059,7 @@ class _DiffBodyState extends State<_DiffBody> {
                           right: 0,
                           child: HunkPin(
                             rows: _hunks,
-                            scroll: widget.scroll,
+                            jumps: widget.jumps,
                             rowHeight: _DiffBody.rowHeight,
                             // The same row the list would have drawn, so the
                             // held header and the one it stands in for are
@@ -1054,6 +1074,7 @@ class _DiffBodyState extends State<_DiffBody> {
                             ),
                           ),
                         ),
+                        DiffReturn(jumps: widget.jumps, lineAt: _lineAt),
                       ],
                     ),
                   ),
@@ -1061,7 +1082,7 @@ class _DiffBodyState extends State<_DiffBody> {
                     DiffMap(
                       streaks: _streaks,
                       rows: _drawn.length,
-                      scroll: widget.scroll,
+                      jumps: widget.jumps,
                     ),
                 ],
               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectacle/features/code/diff_jump.dart';
 import 'package:spectacle/features/code/diff_map.dart';
 import 'package:spectacle/platform/workspace/workspace_model.dart';
 
@@ -29,7 +30,7 @@ Widget pane(ScrollController scroll, List<DiffStreak> streaks) =>
                   itemBuilder: (context, index) => const SizedBox(),
                 ),
               ),
-              DiffMap(streaks: streaks, rows: _rows, scroll: scroll),
+              DiffMap(streaks: streaks, rows: _rows, jumps: DiffJumps(scroll)),
             ],
           ),
         ),
