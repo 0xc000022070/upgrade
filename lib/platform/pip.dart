@@ -22,11 +22,6 @@ abstract final class Pip {
   static Future<void> arm(bool armed) =>
       _calls.invokeMethod<void>('arm', armed);
 
-  /// Go there now, for a device too old for the parameter that does it on the
-  /// way out. False when the system refused.
-  static Future<bool> enter() async =>
-      await _calls.invokeMethod<bool>('enter') ?? false;
-
   /// True while the window is up. Replayed on subscribe, because a listener
   /// that arrived late would otherwise draw the whole app into a corner tile.
   static Stream<bool> mode() =>
