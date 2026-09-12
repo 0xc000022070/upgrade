@@ -13,7 +13,11 @@ const _rows = 100;
 const _rowHeight = 10.0;
 const _paneHeight = 200.0;
 
-Widget pane(ScrollController scroll, List<DiffStreak> streaks) =>
+Widget pane(
+  ScrollController scroll,
+  List<DiffStreak> streaks, [
+  DiffJumps? jumps,
+]) =>
     Directionality(
       textDirection: TextDirection.ltr,
       child: Center(
@@ -30,7 +34,11 @@ Widget pane(ScrollController scroll, List<DiffStreak> streaks) =>
                   itemBuilder: (context, index) => const SizedBox(),
                 ),
               ),
-              DiffMap(streaks: streaks, rows: _rows, jumps: DiffJumps(scroll)),
+              DiffMap(
+                streaks: streaks,
+                rows: _rows,
+                jumps: jumps ?? DiffJumps(scroll),
+              ),
             ],
           ),
         ),
@@ -116,6 +124,35 @@ void main() {
       await tester.pump();
 
       expect(scroll.offset, scroll.position.maxScrollExtent);
+    });
+
+    testWidgets('a scrub begins where the finger landed', (tester) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      final jumps = DiffJumps(scroll);
+      addTearDown(jumps.dispose);
+      await tester.pumpWidget(pane(scroll, diffStreaks([added('one')]), jumps));
+      scroll.jumpTo(120);
+      await tester.pump();
+
+      final strip = tester.getRect(find.byType(DiffMap));
+      final touch = await tester.startGesture(
+        Offset(strip.center.dx, strip.bottom - 10),
+      );
+      // A thumb that rests before it moves has already jumped once by the time
+      // the drag is told apart from a tap, and taking the origin then would
+      // owe the way back to where that first jump landed.
+      await tester.pump(const Duration(milliseconds: 200));
+      // Two moves: the first is spent winning the drag, and the second is the
+      // first frame of the scrub that reports one.
+      await touch.moveBy(const Offset(0, -40));
+      await tester.pump();
+      await touch.moveBy(const Offset(0, -20));
+      await tester.pump();
+      await touch.up();
+      await tester.pump();
+
+      expect(jumps.from, 120);
     });
 
     testWidgets('dragging the strip scrubs the file', (tester) async {
