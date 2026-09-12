@@ -63,7 +63,7 @@ const _tabbed = '\tif (err != null) {';
 const _diff =
     '''
 diff --git a/lib/main.dart b/lib/main.dart
-@@ -1,3 +1,3 @@
+@@ -1,3 +1,3 @@ void main() {
 -const port = 22;
 +const port = 357;
  $_wide
@@ -870,6 +870,16 @@ void main() {
       expect(tester.getTopLeft(marker), lead);
       expect(tester.getTopLeft(onSheet(find.text(_wide))).dx, line.dx - 120);
 
+      await unmount(tester);
+    });
+
+    testWidgets('a hunk header leads with what the lines are inside', (
+      tester,
+    ) async {
+      await viewer(tester);
+      // Git writes the coordinates first and the symbol last, which on a phone
+      // puts the only half worth reading off the right edge.
+      expect(find.text('void main() {  @@ -1,3 +1,3 @@'), findsOneWidget);
       await unmount(tester);
     });
 

@@ -4,6 +4,20 @@ import '../../design/colors.dart';
 import '../../design/spacing.dart';
 import '../../platform/workspace/workspace_model.dart';
 
+/// A hunk header with the symbol git found at the front of it.
+///
+/// Git writes `@@ -a,b +c,d @@ void main()`, which on a phone is a header whose
+/// useful half is off the right edge behind coordinates the gutter is already
+/// carrying line by line. The two halves are swapped, and a header git found
+/// no symbol for is left exactly as it came.
+String hunkHeadline(String raw) {
+  final cut = raw.indexOf('@@', 2);
+  if (cut < 0) return raw;
+  final symbol = raw.substring(cut + 2).trim();
+  if (symbol.isEmpty) return raw;
+  return '$symbol  ${raw.substring(0, cut + 2)}';
+}
+
 /// The rows carrying a hunk header, in the order they are drawn.
 List<int> hunkRows(List<DiffLine> lines) => [
   for (var at = 0; at < lines.length; at++)

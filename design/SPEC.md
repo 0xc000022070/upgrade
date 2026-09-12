@@ -1208,6 +1208,28 @@ Git writes the two ranges and the enclosing symbol into every hunk header, and t
 
 Struck: folding the context between hunks away behind a count. A diff arrives with three lines of context around each change, so there is nothing between hunks worth folding, and a fold would hide the one thing the reader came to the context for.
 
+### A hunk header leads with what the lines are inside
+
+Git writes a hunk header coordinates first and symbol last, which is the right
+order for a terminal eighty columns wide and the wrong one for a phone. The
+half that says what the reader is looking at — the class or the function the
+hunk falls inside — is the half that goes off the right edge, and the half that
+survives is a pair of ranges the gutter is already carrying line by line.
+
+**The symbol comes first and the ranges follow it.** What is left on the screen
+when the header runs out of width is then the part worth reading, and the
+coordinates are a drag away for anyone who wants them. Nothing is dropped: a
+header is reordered, not rewritten, and the ranges keep their own marks so it
+is still visibly git's line and not the app's.
+
+**A header git found no symbol for is left exactly as it came.** Small files,
+and hunks at the top of a file, have nothing but their ranges, and a header of
+nothing but coordinates is already leading with the only thing it has.
+
+Struck: dropping the ranges once the symbol is there. They are how a diff is
+matched to a file that has moved on since it was read, and the pane is not
+entitled to decide that nobody will need them.
+
 ### A pasted link loses the campaign that was stamped on it
 
 A URL reaches the phone through a share sheet or a copy button, and both of them write on it first. `utm_source`, `utm_medium`, `utm_campaign`, a `gclid` or an `fbclid` sixty characters long, the mail platform's `mc_eid` — none of it means anything to the page being opened, all of it says which campaign produced the tap, and together it is why a pasted address fills three lines of a drop instead of one. The app cuts those fields out before the link is kept or handed over.

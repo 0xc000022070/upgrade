@@ -868,7 +868,11 @@ class _DiffBodyState extends State<_DiffBody> {
       for (final line in widget.lines)
         DiffLine(
           line.kind,
-          _openTabs(line.text),
+          _openTabs(
+            line.kind == DiffLineKind.hunk
+                ? hunkHeadline(line.text)
+                : line.text,
+          ),
           oldLine: line.oldLine,
           newLine: line.newLine,
         ),
