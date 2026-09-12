@@ -308,6 +308,10 @@ String _stateLine(HostOutcome? outcome) {
   return '${outcome.agents.length} agents · $blocked blocked';
 }
 
+/// Wide enough for the longest label a host panel puts in it, at the size the
+/// panel is drawn at.
+const _labelWidth = 96.0;
+
 class _MetaRow extends StatelessWidget {
   const _MetaRow(
     this.label,
@@ -327,11 +331,19 @@ class _MetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: RowMetrics.minHeight,
+    return ConstrainedBox(
+      // A minimum, which is what the metric is called: a row holding words the
+      // reader asked to be bigger is taller than one that is not.
+      constraints: const BoxConstraints(minHeight: RowMetrics.minHeight),
       child: Row(
         children: [
-          SizedBox(width: 96, child: Text(label, style: SpectacleText.label)),
+          SizedBox(
+            // The column holds a word, so it is measured at the size the word
+            // is painted. Fixed, the longest label ran into its own value at
+            // a raised text size and the pair read as one run of letters.
+            width: MediaQuery.textScalerOf(context).scale(_labelWidth),
+            child: Text(label, style: SpectacleText.label),
+          ),
           Expanded(
             child: Meta(value, strong: strong, color: color),
           ),

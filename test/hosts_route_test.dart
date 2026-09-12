@@ -176,6 +176,38 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a metadata label is given the width its words take', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+
+    /// The column the label sits in, and where the value beside it begins.
+    Future<(double, double)> measure() async {
+      await tester.pumpWidget(app(const HostsScreen()));
+      await ready(tester);
+      final column = tester.getRect(find.text('INTEGRATIONS').first).width;
+      final value = tester.getRect(find.text('HERDR')).left;
+      await unmount(tester);
+      return (column, value);
+    }
+
+    final (column, value) = await measure();
+
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final (bigColumn, bigValue) = await measure();
+
+    // The column ends exactly where the value begins, so a column held at the
+    // width it was drawn at is a column the longest label runs out of and into
+    // its own value. It is given the same share of a raised text size as it
+    // had of the size it was drawn at.
+    expect(bigColumn, closeTo(column * 1.3, 0.01));
+    expect(bigValue, greaterThan(value));
+  });
+
   testWidgets('every host panel offers a shell and the row is the hit', (
     tester,
   ) async {
