@@ -1292,6 +1292,15 @@ place behind the pane and not a trail of them: the jump that is worth
 undoing is the one just taken, and a history of jumps is a second thing to
 navigate inside the thing being navigated.
 
+**A scrub is one movement, however many jumps it arrives as, and it begins
+where the finger landed.** Every frame of a drag down the strip is another
+jump, and each one after the first begins where the frame before it left the
+pane; kept per frame, the way back would point at the last place the scrub
+passed through. It is owed to where the reader was sitting when they reached
+for the strip, which is the offset under the finger the moment it touched
+down and not the one the pane holds by the time a drag has been told apart
+from a tap.
+
 **The way back is offered as the line it goes to.** A cell in the corner of
 the pane carrying the number the gutter had there, so it says where it lands
 and not only that it lands somewhere. It is the number and not an arrow

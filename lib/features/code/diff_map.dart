@@ -70,7 +70,10 @@ class DiffMap extends StatelessWidget {
       builder: (context, constraints) => GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (tap) => _jump(tap.localPosition.dy, constraints.maxHeight),
-        onVerticalDragStart: (drag) => jumps.hold(),
+        // Taken at the touch and not at the start of the drag: a thumb that
+        // rests before it moves has already jumped once by then, and the way
+        // back would be owed to where that jump landed.
+        onVerticalDragDown: (drag) => jumps.hold(),
         onVerticalDragUpdate: (drag) =>
             _jump(drag.localPosition.dy, constraints.maxHeight),
         onVerticalDragEnd: (drag) => jumps.release(),
