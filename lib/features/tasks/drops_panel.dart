@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/drop_selection.dart';
 import '../../application/formatting.dart';
 import '../../application/fresh_drops.dart';
-import '../../application/providers.dart';
 import '../../data/database.dart';
 import '../../design/colors.dart';
 import '../../design/components/list_row.dart';
@@ -14,18 +13,17 @@ import '../../design/effects/glitch.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import 'item_sheet.dart';
-import 'link_mark.dart';
-import 'sent_tag.dart';
 import 'task_row.dart';
 
 /// The panel of goal-less rows, on HOME and inside a project. Holding one turns
 /// the panel's own header strip into a contextual action bar.
 ///
-/// Only HOME's rows are drops. A project's
-/// DROPS panel holds that project's tasks without a goal, so [stateful] gives
-/// them the same [TaskRow] the goal panels use — checkbox, dim, blocked line
-/// and the full quick view. The user's own device is full of pre-goal tasks
-/// with state; a panel that hid it was the bug.
+/// Only HOME's rows are drops. Both kinds are a [TaskRow]; [stateful] says
+/// which. A project's DROPS panel holds that project's tasks without a goal,
+/// so those rows carry the lot — checkbox, dim, blocked line, NEXT arrow and
+/// the full quick view. HOME's carry the checkbox and the dim and no more.
+/// The user's own device is full of pre-goal tasks with state; a panel that
+/// hid it was the bug.
 ///
 /// [scope] is what tells one DROPS panel from another. Only the panel that owns
 /// the mode draws checkboxes, so entering it on HOME leaves a project's panel
@@ -120,11 +118,6 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
     final freshNotifier = ref.read(freshDropsProvider.notifier);
     _fresh = freshNotifier;
     final fresh = ref.watch(freshDropsProvider).idsIn(widget.scope);
-    // One stream for the panel rather than a query per row: the tag is a fact
-    // about a handful of ids and the list can be long.
-    final sent = ref.watch(sentItemsProvider).valueOrNull ?? const <String>{};
-    final links =
-        ref.watch(linkCountsProvider).valueOrNull ?? const <String, int>{};
 
     // Rows that left the panel while the mode was on — moved from a sheet,
     // deleted elsewhere — must not stay in a set the batch will act on. The
@@ -177,49 +170,40 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
         builder: (items) => ListRowGroup(
           children: [
             for (final task in items)
-              // While the mode is on the box replaces the state glyph
-              // in the leading slot — a selection is not a state of the item —
-              // so both kinds of row look the same in it.
-              if (widget.stateful && !selecting)
+              // While the mode is on the box replaces the checkbox in the
+              // leading slot — a selection is not a state of the item — so
+              // both kinds of row look the same in it.
+              if (!selecting)
                 TaskRow(
                   key: ValueKey(task.id),
                   task: task,
+                  // HOME's rows are unfiled and show done and nothing else; a
+                  // project's own panel holds tasks and shows the lot.
+                  drop: !widget.stateful,
                   fresh: fresh.contains(task.id),
+                  onTap: widget.stateful ? null : () => _open(task.id),
                   onLongPress: () => _hold(task.id, fresh),
                 )
               else
                 ListRow(
                   title: task.title,
+                  titleColor: task.done ? SpectacleColors.textMuted : null,
                   value: relativeAge(task.createdAt),
                   // The whole highlight: the age in accent instead of the
                   // dim it has by default. Nothing else on the row moves.
                   valueColor: fresh.contains(task.id)
                       ? SpectacleColors.accent
                       : null,
-                  // No glyph and no dim outside the mode — a drop has
-                  // no state to show, and filing it is what gives it one.
-                  leading: !selecting
-                      ? null
-                      : _SelectionBox(checked: selection.holds(task.id)),
+                  leading: _SelectionBox(checked: selection.holds(task.id)),
                   leadingWidth: _SelectionBox.width,
                   // In the mode a tap is the toggle and nothing opens.
-                  onTap: selecting
-                      ? () => notifier.toggle(task.id)
-                      : () => _open(task.id),
+                  onTap: () => notifier.toggle(task.id),
                   // Long-press is the way in and nothing else: once the mode is
                   // on, holding a row is not a second gesture to learn.
-                  onLongPress: selecting ? null : () => _hold(task.id, fresh),
-                  // Not in the mode: the box is the row's leading edge there,
-                  // and a tag next to a checkbox reads as a second thing to
-                  // check.
-                  trailing: selecting
-                      ? null
-                      : trailingWithLinks(
-                          links: links[task.id] ?? 0,
-                          state: sent.contains(task.id)
-                              ? const SentTag()
-                              : null,
-                        ),
+                  onLongPress: null,
+                  // The box is the row's leading edge here, and a tag next to a
+                  // checkbox reads as a second thing to check.
+                  trailing: null,
                 ),
           ],
         ),
@@ -239,8 +223,8 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
   }
 }
 
-/// A mono checkbox rather than the row's own glyph: done is drawn
-/// with an icon, and a selection is not a state of the item.
+/// A mono box rather than the row's own checkbox: done is drawn with an icon,
+/// and a selection is not a state of the item.
 class _SelectionBox extends StatelessWidget {
   const _SelectionBox({required this.checked});
 

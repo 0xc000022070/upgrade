@@ -13,6 +13,9 @@ import 'package:spectacle/features/tasks/selection_bar.dart';
 import 'package:spectacle/features/home/home_screen.dart';
 
 import 'package:spectacle/design/colors.dart';
+import 'package:spectacle/design/components/list_row.dart';
+import 'package:spectacle/design/icons/spectacle_icon.dart';
+import 'package:spectacle/design/icons/spectacle_icons.dart';
 
 import 'support/platform_channels.dart';
 
@@ -20,6 +23,24 @@ import 'support/platform_channels.dart';
 /// of whether they are enabled.
 Color? _verbColor(WidgetTester tester, IconData icon) =>
     tester.widget<Icon>(find.byIcon(icon)).color;
+
+/// The checkbox is an SVG under a colour, so the asset it was handed is the
+/// only readable statement of which of the two it is drawing.
+Finder _box(String title, SpectacleIcons icon) => find.descendant(
+  of: find.ancestor(of: find.text(title), matching: find.byType(ListRow)),
+  matching: find.byWidgetPredicate(
+    (widget) => widget is SpectacleIcon && widget.icon == icon,
+  ),
+);
+
+/// The checkbox target is an overlay over the row's first 40px, not a wrapper
+/// around the glyph, so the corner is what a finger is aimed at.
+Future<void> _tapBox(WidgetTester tester, String title) => tester.tapAt(
+  tester.getTopLeft(
+        find.ancestor(of: find.text(title), matching: find.byType(ListRow)),
+      ) +
+      const Offset(12, 12),
+);
 
 /// The panels HOME does *not* show are as much of the change as
 /// the ones it does, so this asserts both directions.
@@ -153,6 +174,39 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a stray drop is finished from its own row and stays on it', (
+    tester,
+  ) async {
+    final drop = await tasks.capture('revisar pgbouncer');
+
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    expect(
+      _box('revisar pgbouncer', SpectacleIcons.checkboxEmpty),
+      findsOneWidget,
+    );
+    await _tapBox(tester, 'revisar pgbouncer');
+    await _ready(tester);
+
+    final rows = await tester.runAsync(() => db.select(db.tasks).get());
+    expect(rows!.firstWhere((task) => task.id == drop).done, isTrue);
+    // DROPS is the whole of the unfiled, finished or not: a row that vanished
+    // on the tap would take the undo with it.
+    expect(find.text('revisar pgbouncer'), findsOneWidget);
+    expect(
+      _box('revisar pgbouncer', SpectacleIcons.checkboxChecked),
+      findsOneWidget,
+    );
+
+    await _tapBox(tester, 'revisar pgbouncer');
+    await _ready(tester);
+    final again = await tester.runAsync(() => db.select(db.tasks).get());
+    expect(again!.firstWhere((task) => task.id == drop).done, isFalse);
+
+    await unmount(tester);
+  });
+
   testWidgets('holding a drop row enters selection mode with it checked', (
     tester,
   ) async {
@@ -205,7 +259,10 @@ void main() {
     expect(find.text('[ ]'), findsNWidgets(2));
     expect(find.text('[x]'), findsNothing);
     expect(find.text('SELECT'), findsNothing, reason: 'hidden in the mode');
-    expect(_verbColor(tester, Icons.arrow_forward), SpectacleColors.textDisabled);
+    expect(
+      _verbColor(tester, Icons.arrow_forward),
+      SpectacleColors.textDisabled,
+    );
     expect(
       _verbColor(tester, Icons.delete_outline),
       SpectacleColors.textDisabled,

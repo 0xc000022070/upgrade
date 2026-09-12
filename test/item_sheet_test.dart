@@ -161,44 +161,60 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a drop has no state, on the footer or on the strip', (
-    tester,
-  ) async {
-    // The item is text plus attachments until it is filed.
-    final task = await tasks.capture('revisar pgbouncer');
+  testWidgets(
+    'a drop is finished from its own sheet and holds no other state',
+    (tester) async {
+      // The item is text plus attachments until it is filed.
+      final task = await tasks.capture('revisar pgbouncer');
 
-    await tester.pumpWidget(host(task));
-    await _ready(tester);
+      await tester.pumpWidget(host(task));
+      await _ready(tester);
 
-    // A drop has no location above DROPS, and the strip says so rather than
-    // going blank.
-    expect(find.text('DROPS'), findsOneWidget);
-    expect(find.text('MOVE'), findsOneWidget);
-    for (final verb in ['DONE', 'NEXT', 'PAIR', 'BLOCK']) {
-      expect(find.text(verb), findsNothing, reason: '$verb is a state');
-    }
+      // A drop has no location above DROPS, and the strip says so rather than
+      // going blank.
+      expect(find.text('DROPS'), findsOneWidget);
+      expect(find.text('MOVE'), findsOneWidget);
+      for (final verb in ['NEXT', 'PAIR', 'BLOCK']) {
+        expect(find.text(verb), findsNothing, reason: '$verb is a state');
+      }
 
-    // One block is left on the footer, so DELETE moves to the strip.
-    expect(find.text('DELETE'), findsNothing);
-    await tester.longPress(find.text('DROPS'));
-    await _ready(tester);
-    expect(find.text('DELETE'), findsOneWidget);
+      // Finishing is not one of them: an item the user has dealt with says so
+      // wherever it sits.
+      expect(find.text('DONE'), findsOneWidget);
+      await tester.tap(find.text('DONE'));
+      await _ready(tester);
+      expect(find.text('UNDO'), findsOneWidget);
+      expect((await reload(tester, task)).done, isTrue);
 
-    await tester.tap(find.text('revisar pgbouncer'));
-    await _ready(tester);
-    await tester.tap(_glyph(ToolbarGlyph.more));
-    await _ready(tester);
+      await tester.tap(find.text('UNDO'));
+      await _ready(tester);
+      expect(find.text('DONE'), findsOneWidget);
+      expect((await reload(tester, task)).done, isFalse);
 
-    // The extras row behind `+` is the same story: one verb, the one that
-    // stops it being a drop.
-    expect(_glyph(ToolbarGlyph.move), findsOneWidget);
-    expect(_glyph(ToolbarGlyph.next), findsNothing);
-    expect(_glyph(ToolbarGlyph.block), findsNothing);
-    expect(_glyph(ToolbarGlyph.pair), findsNothing);
-    expect(_glyph(ToolbarGlyph.done), findsNothing);
+      // One block is left on the footer, so DELETE moves to the strip.
+      expect(find.text('DELETE'), findsNothing);
+      await tester.longPress(find.text('DROPS'));
+      await _ready(tester);
+      expect(find.text('DELETE'), findsOneWidget);
 
-    await unmount(tester);
-  });
+      await tester.tap(find.text('revisar pgbouncer'));
+      await _ready(tester);
+      await tester.tap(_glyph(ToolbarGlyph.more));
+      await _ready(tester);
+
+      // The extras row behind `+` is the same story: one verb, the one that
+      // stops it being a drop.
+      expect(_glyph(ToolbarGlyph.move), findsOneWidget);
+      expect(_glyph(ToolbarGlyph.next), findsNothing);
+      expect(_glyph(ToolbarGlyph.block), findsNothing);
+      expect(_glyph(ToolbarGlyph.pair), findsNothing);
+      // Not even the one it does have: the row behind `+` is for what cannot be
+      // reached with the keyboard down, and the footer already carries DONE.
+      expect(_glyph(ToolbarGlyph.done), findsNothing);
+
+      await unmount(tester);
+    },
+  );
 
   testWidgets('COPY takes the drop text and says it did', (tester) async {
     final written = recordClipboardWrites();
