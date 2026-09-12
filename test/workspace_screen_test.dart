@@ -847,7 +847,8 @@ void main() {
       await tapText(tester, 'fix(shell): the font');
       await tapText(tester, 'lib/shell/shell_tabs.dart');
 
-      expect(onSheet(find.text('2 / 2')), findsOneWidget);
+      // Named, so the count is not read as a place in the hunks.
+      expect(onSheet(find.text('FILE 2 / 2')), findsOneWidget);
       // Nothing after it, so the way on is not offered.
       expect(
         tester
@@ -857,6 +858,21 @@ void main() {
             .onTap,
         isNull,
       );
+
+      await unmount(tester);
+    });
+
+    testWidgets('a file with one hunk keeps the hunk step, dimmed', (
+      tester,
+    ) async {
+      await viewer(tester);
+
+      // A row of verbs that changes width as it is used has to be read again
+      // every time it is used, so a step with nowhere to go is drawn and not
+      // dropped.
+      final hunk = onSheet(find.byKey(const ValueKey('diff-next-hunk')));
+      expect(hunk, findsOneWidget);
+      expect(tester.widget<ActionBlock>(hunk).onTap, isNull);
 
       await unmount(tester);
     });
