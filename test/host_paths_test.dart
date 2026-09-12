@@ -94,9 +94,8 @@ void main() {
     () async {
       await seedHost();
       await seedDrop();
-      final path = await DriftPathRepository(
-        db,
-      ).add(hostId: 'host-1', directory: '~/src/spectacle');
+      final path = await DriftPathRepository(db)
+          .add(hostId: 'host-1', directory: '~/src/spectacle');
       await seedDispatch(path.id);
 
       await DriftHostRepository(db).delete('host-1');

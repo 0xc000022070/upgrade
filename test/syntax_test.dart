@@ -19,10 +19,10 @@ void main() {
     test('comes from the extension and from nothing else', () {
       // `func` is a keyword in one of these and a name in the other, and the
       // path is the only thing that says which.
-      expect(coloured('func main() {', 'cmd/herdr/main.go'), contains((
-        'func',
-        SyntaxToken.keyword,
-      )));
+      expect(
+        coloured('func main() {', 'cmd/herdr/main.go'),
+        contains(('func', SyntaxToken.keyword)),
+      );
       expect(
         coloured('func main() {', 'lib/main.dart'),
         isNot(contains(('func', SyntaxToken.keyword))),
@@ -30,10 +30,10 @@ void main() {
     });
 
     test('reads a dotfile as its own name', () {
-      expect(coloured('export PATH=/usr/bin', '.zshrc'), contains((
-        'export',
-        SyntaxToken.keyword,
-      )));
+      expect(
+        coloured('export PATH=/usr/bin', '.zshrc'),
+        contains(('export', SyntaxToken.keyword)),
+      );
     });
 
     test('leaves a file it does not know whole and plain', () {

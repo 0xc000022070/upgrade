@@ -105,9 +105,9 @@ void main() {
           .where((span) => span.$2)
           .map((span) => span.$1)
           .toList();
-      final opened = urlTokens(
-        line,
-      ).map((token) => line.substring(token.start, token.end)).toList();
+      final opened = urlTokens(line)
+          .map((token) => line.substring(token.start, token.end))
+          .toList();
       expect(painted, opened, reason: line);
     }
   });

@@ -30,7 +30,10 @@ Widget app(ShellSessions sessions, {Widget? home, AppDatabase? db}) =>
     ProviderScope(
       overrides: [
         shellSessionsProvider.overrideWithValue(sessions),
-        if (db != null) databaseProvider.overrideWithValue(db) else noWorkspaces,
+        if (db != null)
+          databaseProvider.overrideWithValue(db)
+        else
+          noWorkspaces,
       ],
       child: MaterialApp(home: home ?? const HostShellRoute(host: rose)),
     );

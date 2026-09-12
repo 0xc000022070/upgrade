@@ -19,9 +19,7 @@ void main() {
   /// this one and the last: `paused` arrives behind `inactive` and `hidden`,
   /// exactly as a screen going off delivers them.
   Future<void> lifecycle(WidgetTester tester, AppLifecycleState state) async {
-    await TestDefaultBinaryMessengerBinding
-        .instance
-        .defaultBinaryMessenger
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
           'flutter/lifecycle',
           const StringCodec().encodeMessage(state.toString()),
