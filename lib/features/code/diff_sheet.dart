@@ -20,6 +20,7 @@ import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/workspace/workspace_model.dart';
 
+import 'diff_map.dart';
 import 'intraline.dart';
 import 'syntax.dart';
 import 'workspace_controller.dart';
@@ -836,6 +837,10 @@ class _DiffBodyState extends State<_DiffBody> {
   /// reader is looking at.
   List<DiffLine> _drawn = const [];
 
+  /// Where the changes sit in the file, for the strip that says so. Worked out
+  /// with the rest of the file rather than on every frame the pane scrolls.
+  List<DiffStreak> _streaks = const [];
+
   @override
   void initState() {
     super.initState();
@@ -865,6 +870,7 @@ class _DiffBodyState extends State<_DiffBody> {
         ),
     ];
     _changed = intralineChanges(_drawn);
+    _streaks = diffStreaks(_drawn);
   }
 
   @override
@@ -890,40 +896,75 @@ class _DiffBodyState extends State<_DiffBody> {
     final text = widest * _charAdvance() + Spacing.panelPadding;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final room = math.max(0.0, constraints.maxWidth - lead);
+        // A file that fits on the screen has nowhere to jump to, and one with
+        // nothing added or removed has nothing to point at. Either way the
+        // strip would only repeat what the reader can already see, so the pane
+        // keeps the width instead.
+        final mapped =
+            _streaks.isNotEmpty &&
+            _drawn.length * _DiffBody.rowHeight > constraints.maxHeight;
+        final room = math.max(
+          0.0,
+          constraints.maxWidth - lead - (mapped ? DiffMap.width : 0),
+        );
         final travel = math.max(0.0, text - room);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: GestureDetector(
-                // Horizontal against the list's vertical: the arena hands the
-                // drag to whichever direction it started in, so a diff is read
-                // down and across with the same thumb.
-                onHorizontalDragUpdate: travel == 0
-                    ? null
-                    : (drag) => _shift.value = (_shift.value - drag.delta.dx)
-                          .clamp(0.0, travel),
-                child: ListView.builder(
-                  controller: widget.scroll,
-                  padding: EdgeInsets.zero,
-                  itemExtent: _DiffBody.rowHeight,
-                  itemCount: _drawn.length,
-                  itemBuilder: (context, index) => _DiffRow(
-                    line: _drawn[index],
-                    gutter: gutter,
-                    language: widget.language,
-                    shift: _shift,
-                    travel: travel,
-                    changed: index < _changed.length ? _changed[index] : null,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      // Horizontal against the list's vertical: the arena
+                      // hands the drag to whichever direction it started in,
+                      // so a diff is read down and across with the same thumb.
+                      onHorizontalDragUpdate: travel == 0
+                          ? null
+                          : (drag) =>
+                                _shift.value = (_shift.value - drag.delta.dx)
+                                    .clamp(0.0, travel),
+                      child: ListView.builder(
+                        controller: widget.scroll,
+                        padding: EdgeInsets.zero,
+                        itemExtent: _DiffBody.rowHeight,
+                        itemCount: _drawn.length,
+                        itemBuilder: (context, index) => _DiffRow(
+                          line: _drawn[index],
+                          gutter: gutter,
+                          language: widget.language,
+                          shift: _shift,
+                          travel: travel,
+                          changed: index < _changed.length
+                              ? _changed[index]
+                              : null,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  if (mapped)
+                    DiffMap(
+                      streaks: _streaks,
+                      rows: _drawn.length,
+                      scroll: widget.scroll,
+                    ),
+                ],
               ),
             ),
             // Nothing else says how much line is off the right edge once the
             // scroller that used to say it is gone.
             if (travel > 0)
-              _Rail(shift: _shift, travel: travel, room: room, lead: lead),
+              Padding(
+                // The rail measures the text, so it ends where the text ends
+                // rather than running on under the strip.
+                padding: EdgeInsets.only(right: mapped ? DiffMap.width : 0),
+                child: _Rail(
+                  shift: _shift,
+                  travel: travel,
+                  room: room,
+                  lead: lead,
+                ),
+              ),
           ],
         );
       },
