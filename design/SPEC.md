@@ -1180,6 +1180,20 @@ A row painted green says the line is in the file now and a row painted red says 
 
 Struck: pairing lines across a block by how alike they are. It finds the right partner more often than counting does and it is a guess either way; a rule the reader can hold — same many out, same many in — is worth more on a phone than a better average.
 
+### A file says where its changes are before the thumb goes looking
+
+A diff is mostly a file that did not change. The pane offered one way through that — the walk to the next hunk, which lands on a header and says nothing about how many headers there are, how far apart they sit, or whether the one being read is the first or the last. So a long file is a fling and a guess, and the guess is expensive: overshoot the hunk and the context that explained it is gone.
+
+**The strip stands for the file, not for the view.** Down the right edge of the pane, as tall as the pane and as long as the file: every added line is a mark in the accent and every removed one a mark in the red, each at the share of the file it sits at. Neighbours of one kind are one mark, because forty removed lines in a row are one place to go and not forty, and a mark is never thinner than a thumb can be aimed at — a single changed line in four thousand is the case the strip exists for.
+
+**What is on screen is a window on the strip.** The rows being drawn are lit across the strip's whole width, and that block moves as the pane moves. It is the only thing in the pane that says where in the file the reader is; the numbers say which lines, which is a different question once a file is long enough to need this.
+
+**A touch on the strip is a jump, and holding it is a scrub.** What is touched arrives in the middle of the pane rather than at its top, so a mark landed on comes with the lines that led to it. The walk to the next hunk stays: it is the same movement without having to aim, and the strip is what makes it legible.
+
+**A file with nowhere to go has no strip.** One that fits on the screen, and one with nothing added or removed, would both get a strip that only repeats what the eye already has, so the pane keeps the width for the text instead. The rail under the text stops where the text stops rather than running on beneath it.
+
+Struck: drawing the file's own lines into the strip, the way a desktop editor does. At this width a line of code is a smear a few pixels long and the colour of whatever the highlighter decided, which is noise laid over the one signal the strip is for. The strip says where, and the pane says what.
+
 ### A pasted link loses the campaign that was stamped on it
 
 A URL reaches the phone through a share sheet or a copy button, and both of them write on it first. `utm_source`, `utm_medium`, `utm_campaign`, a `gclid` or an `fbclid` sixty characters long, the mail platform's `mc_eid` — none of it means anything to the page being opened, all of it says which campaign produced the tap, and together it is why a pasted address fills three lines of a drop instead of one. The app cuts those fields out before the link is kept or handed over.

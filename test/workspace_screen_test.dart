@@ -9,6 +9,7 @@ import 'package:spectacle/data/repositories/host_repository.dart';
 import 'package:spectacle/data/repositories/path_repository.dart';
 import 'package:spectacle/design/components/action_block.dart';
 import 'package:spectacle/design/layout.dart';
+import 'package:spectacle/features/code/diff_map.dart';
 import 'package:spectacle/features/code/diff_sheet.dart';
 import 'package:spectacle/features/code/workspace_screen.dart';
 import 'package:spectacle/platform/herdr_client.dart';
@@ -868,6 +869,16 @@ void main() {
 
       expect(tester.getTopLeft(marker), lead);
       expect(tester.getTopLeft(onSheet(find.text(_wide))).dx, line.dx - 120);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a file that fits on the screen gets no strip', (tester) async {
+      await viewer(tester);
+
+      // Four lines and a header. There is nowhere to jump to, so the width
+      // stays with the text.
+      expect(find.byType(DiffMap), findsNothing);
 
       await unmount(tester);
     });
