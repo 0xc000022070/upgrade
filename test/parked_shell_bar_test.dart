@@ -10,7 +10,6 @@ import 'package:spectacle/application/navigation.dart';
 import 'package:spectacle/application/providers.dart';
 import 'package:spectacle/data/database.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/features/agents/agent_status_bar.dart';
 import 'package:spectacle/features/shell/parked_shell_bar.dart';
 import 'package:spectacle/features/shell/shell_sessions.dart';
 import 'package:spectacle/platform/herdr_client.dart';

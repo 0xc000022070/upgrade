@@ -143,14 +143,10 @@ class _AgentsBody extends StatelessWidget {
     );
   }
 
-  /// The unreachable line carries its host and the other three do not. With
-  /// one failing host the bare ones read fine; with two, `key rejected` twice
-  /// does not say which machine, so the host is put back in front.
-  String _failureLine(HostOutcome outcome, bool disambiguate) {
-    const named = {AgentOutcomeKind.unreachable, AgentOutcomeKind.unresolved};
-    if (!disambiguate || named.contains(outcome.kind)) return outcome.reason;
-    return '${outcome.host.name.toLowerCase()} · ${outcome.reason}';
-  }
+  /// With one failing host the bare lines read fine; with two, `key rejected`
+  /// twice does not say which machine, so the host goes back in front.
+  String _failureLine(HostOutcome outcome, bool disambiguate) =>
+      disambiguate ? outcome.namedReason : outcome.reason;
 }
 
 class _ColumnLabels extends StatelessWidget {
