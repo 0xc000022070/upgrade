@@ -130,12 +130,8 @@ class AgentPanelState {
 
   static const blockedLine = 'NO HOST · SET IN SYS';
 
-  /// What the agents are, counted: see [agentTally]. Only the hosts that
-  /// answered this round. A failure report carries the last agents its host was
-  /// seen with, so that a blink does not empty the panel, and counting those
-  /// would be counting work the app has lost sight of.
-  String get tally =>
-      agentTally(outcomes.where((outcome) => outcome.ok).toList());
+  /// What the agents are, counted: see [agentTally].
+  String get tally => agentTally(outcomes);
 
   bool get noHost => outcomes.isEmpty;
 
@@ -478,17 +474,23 @@ class AgentStates {
   ].join(' · ');
 }
 
-/// `1 BLOCKED · 3 WORKING`, across every host, blocked first.
+/// `1 BLOCKED · 3 WORKING`, across every host that answered, blocked first.
 ///
 /// Only the states that earn a row on the AGENTS panel are counted, and for the
 /// same reason: an agent at rest is the night going the way it was meant to,
 /// and a surface that says so once a minute is a surface that stops being read.
 /// Empty when nothing is active, which is what lets each of the places this is
 /// drawn say the quieter thing it has instead.
+///
+/// A host that failed is skipped here rather than by whoever calls: the shade
+/// only ever reaches this with none of them down, but the strip over the nav
+/// bar draws a tally beside a failure on purpose, and the rule that a failure
+/// report's ride-along agents are not counted holds for both.
 String agentTally(List<HostOutcome> outcomes) {
   var blocked = 0;
   var working = 0;
   for (final outcome in outcomes) {
+    if (!outcome.ok) continue;
     for (final agent in outcome.agents) {
       if (agent.state.blocked) {
         blocked++;
