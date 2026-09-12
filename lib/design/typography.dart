@@ -190,4 +190,63 @@ abstract final class SpectacleText {
     letterSpacing: 1.0,
     color: SpectacleColors.textMuted,
   );
+
+  /// The corner window's own scale, which is deliberately not the one above.
+  ///
+  /// Every style before this was sized off a 360dp screen held at reading
+  /// distance, where colour and column position carry the hierarchy and size
+  /// barely has to. A picture-in-picture tile is two hundred points wide at the
+  /// edge of the app the user actually went to, it has no columns to separate
+  /// anything with, and the system is free to draw it smaller still. So size is
+  /// the only channel left and the steps have to be ones the eye can resolve:
+  /// 9, 11 and 13, each a fifth larger than the one under it. What was there
+  /// before stepped twenty to ten in one jump, which reads as a banner over
+  /// fine print rather than as a heading over rows.
+  ///
+  /// All three are mono. The display face is condensed, and condensed
+  /// letterforms at this size, on a window the compositor is scaling down, lose
+  /// the strokes that tell them apart.
+  static const pipHeadline = TextStyle(
+    fontFamily: FontFamilies.mono,
+    fontSize: 13,
+    height: 1.2,
+    // Medium is the heaviest mono in the bundle: asking for anything over it
+    // resolves back to this and the line reads as claiming a weight it is not
+    // drawn in. The step down to the rows is carried by size and tracking.
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.4,
+    color: SpectacleColors.textPrimary,
+  );
+
+  /// The agent on a row of the corner window.
+  static const pipAgent = TextStyle(
+    fontFamily: FontFamilies.mono,
+    fontSize: 11,
+    height: 1.25,
+    fontWeight: FontWeight.w500,
+    color: SpectacleColors.textPrimary,
+  );
+
+  /// What that agent is doing, at the size of the name it belongs to so the two
+  /// read as one line. Weight and colour separate them, not size.
+  static const pipState = TextStyle(
+    fontFamily: FontFamilies.mono,
+    fontSize: 11,
+    height: 1.25,
+    fontWeight: FontWeight.w400,
+    color: SpectacleColors.textSecondary,
+  );
+
+  /// The machine a row is on, and the count of the rows that did not fit.
+  /// Secondary rather than muted: muted is a grey drawn for a screen in the
+  /// hand, and it falls under four to one against this background, which is
+  /// under the floor for text this small on a window across the room.
+  static const pipMeta = TextStyle(
+    fontFamily: FontFamilies.mono,
+    fontSize: 9,
+    height: 1.25,
+    fontWeight: FontWeight.w400,
+    letterSpacing: 0.6,
+    color: SpectacleColors.textSecondary,
+  );
 }

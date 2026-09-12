@@ -613,20 +613,67 @@ class _HostLoop {
   );
 
   Future<void> _watchFake() async {
-    const blocked = AgentSnapshot(
-      session: 'default',
-      paneId: 'wF:p1',
-      agent: 'claude',
-      state: BlockedState(),
-      terminalTitleStripped: 'RUN THE MIGRATION?',
-      workspaceId: 'wF',
-      cwd: '~/src/spectacle',
-      stateChangeSeq: 2,
-    );
+    // One blocked pane, which is the edge the alert is taken on, and enough
+    // else around it to draw the surfaces that list agents rather than count
+    // them: four names that have to be told apart, one of them resting so that
+    // the rule about which agents are listed has something to leave out, and
+    // more of them than the corner window has room for.
+    const agents = [
+      AgentSnapshot(
+        session: 'default',
+        paneId: 'wF:p1',
+        agent: 'claude',
+        state: BlockedState(),
+        terminalTitleStripped: 'RUN THE MIGRATION?',
+        workspaceId: 'wF',
+        cwd: '~/src/spectacle',
+        stateChangeSeq: 2,
+      ),
+      AgentSnapshot(
+        session: 'default',
+        paneId: 'wF:p2',
+        agent: 'codex',
+        state: WorkingState(),
+        terminalTitleStripped: 'wiring the diff viewer',
+        workspaceId: 'wF',
+        cwd: '~/src/spectacle',
+        stateChangeSeq: 7,
+      ),
+      AgentSnapshot(
+        session: 'default',
+        paneId: 'wF:p3',
+        agent: 'aider',
+        state: WorkingState(),
+        terminalTitleStripped: 'rewriting the migration',
+        workspaceId: 'wF',
+        cwd: '~/src/herdr',
+        stateChangeSeq: 4,
+      ),
+      AgentSnapshot(
+        session: 'default',
+        paneId: 'wF:p4',
+        agent: 'gemini',
+        state: WorkingState(),
+        terminalTitleStripped: 'reading the spec',
+        workspaceId: 'wG',
+        cwd: '~/src/spectacle',
+        stateChangeSeq: 3,
+      ),
+      AgentSnapshot(
+        session: 'default',
+        paneId: 'wF:p5',
+        agent: 'opencode',
+        state: IdleState(),
+        terminalTitleStripped: 'zsh',
+        workspaceId: 'wG',
+        cwd: '~/src/spectacle',
+        stateChangeSeq: 1,
+      ),
+    ];
     await _onSnapshot(const [], null);
     await _wait(const Duration(seconds: 5));
     if (_stopped) return;
-    await _onSnapshot(const [blocked], null);
+    await _onSnapshot(agents, null);
     while (!_stopped) {
       await _wait(const Duration(seconds: 30));
     }

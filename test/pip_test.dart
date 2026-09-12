@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectacle/application/agent_state.dart';
 import 'package:spectacle/application/agents.dart';
@@ -9,6 +10,7 @@ import 'package:spectacle/application/pip.dart';
 import 'package:spectacle/app/pip_host.dart';
 import 'package:spectacle/data/repositories/host_repository.dart';
 import 'package:spectacle/features/agents/pip_panel.dart';
+import 'package:spectacle/features/home/agent_mark.dart';
 import 'package:spectacle/platform/herdr_client.dart';
 
 const nyx = Host(
@@ -67,14 +69,43 @@ Widget harness(
   Stream<AgentPanelState> agents,
   Widget child, {
   bool live = true,
+  double textScale = 1.0,
 }) => ProviderScope(
   overrides: [
     pipSurfaceProvider.overrideWithValue(pip),
     agentsFeedProvider.overrideWith((ref) => agents),
     agentsFeedLiveProvider.overrideWithValue(live),
   ],
-  child: Directionality(textDirection: TextDirection.ltr, child: child),
+  child: Directionality(
+    textDirection: TextDirection.ltr,
+    // The window clamps the reader's text scale rather than ignoring it, and
+    // asking what the scale is means there has to be something to ask.
+    child: MediaQuery(
+      data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+      child: child,
+    ),
+  ),
 );
+
+/// The rows drawn on the window, in the order they were drawn, as the reader
+/// sees them. They are spans rather than whole strings, so the plain text of
+/// the paragraph is what there is to compare.
+List<String> drawnRows(WidgetTester tester) => tester
+    .widgetList<RichText>(find.byType(RichText))
+    .map((text) => text.text.toPlainText())
+    .toList();
+
+/// The mark files the window asked for, in row order. Read off the loaders
+/// rather than the raster: the point is which file each row named.
+List<String> markAssets(WidgetTester tester) => [
+  for (final picture in tester.widgetList<SvgPicture>(
+    find.descendant(
+      of: find.byType(AgentMark),
+      matching: find.byType(SvgPicture),
+    ),
+  ))
+    if (picture.bytesLoader case final SvgAssetLoader loader) loader.assetName,
+];
 
 void main() {
   group('the window is armed by what is happening', () {
@@ -89,7 +120,11 @@ void main() {
           const PipHost(child: SizedBox()),
         ),
       );
-      await tester.pump();
+      // Settled rather than pumped once: whether the device has the window at
+      // all is answered by a future, and a single frame leaves it unanswered —
+      // which is indistinguishable from an answer of no, and passes with every
+      // gate under it deleted.
+      await tester.pumpAndSettle();
 
       expect(pip.armings, [false]);
     });
@@ -195,7 +230,7 @@ void main() {
           const PipHost(child: SizedBox()),
         ),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(pip.armings, everyElement(isFalse));
     });
@@ -275,11 +310,7 @@ void main() {
       );
       await tester.pump();
 
-      final rows = tester
-          .widgetList<Text>(find.byType(Text))
-          .map((text) => text.data)
-          .whereType<String>()
-          .toList();
+      final rows = drawnRows(tester);
       expect(rows, contains('CLAUDE · nyx'));
       expect(rows, contains('AMP · nyx'));
       // Resting agents are not on the window at all.
@@ -322,6 +353,180 @@ void main() {
       await tester.pump();
 
       expect(find.text('NYX UNREACHABLE'), findsOneWidget);
+    });
+  });
+
+  group('an agent is told apart before its name is read', () {
+    test('a name the app cannot place keeps its own letter', () {
+      // herdr reports whatever it found in the pane, so the ones the app has
+      // no file for are the normal case rather than the edge. One box with a
+      // question mark for every one of them separates nothing.
+      expect(agentMarkLetter('gemini'), 'G');
+      expect(agentMarkLetter('aider'), 'A');
+      expect(agentMarkLetter('goose-cli'), 'G');
+      // The one case the question mark is honest in.
+      expect(agentMarkLetter(''), '?');
+    });
+
+    testWidgets('the agents the app ships a mark for are drawn with it', (
+      tester,
+    ) async {
+      final pip = FakePip();
+      await tester.pumpWidget(
+        harness(
+          pip,
+          Stream.value(
+            panel([agent('claude', 'blocked'), agent('codex', 'working')]),
+          ),
+          const PipPanel(),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(AgentMark), findsNWidgets(2));
+      expect(markAssets(tester), [
+        'assets/icons/agent-claude.svg',
+        'assets/icons/agent-codex.svg',
+      ]);
+    });
+
+    testWidgets('an agent with no mark file falls back to its letter', (
+      tester,
+    ) async {
+      final pip = FakePip();
+      await tester.pumpWidget(
+        harness(
+          pip,
+          Stream.value(
+            panel([agent('aider', 'working'), agent('gemini', 'working')]),
+          ),
+          const PipPanel(),
+        ),
+      );
+      await tester.pump();
+
+      expect(markAssets(tester), isEmpty);
+      expect(find.text('A'), findsOneWidget);
+      expect(find.text('G'), findsOneWidget);
+    });
+  });
+
+  group('the window is honest about its own age', () {
+    testWidgets('nothing dialling is said, not drawn as a count', (
+      tester,
+    ) async {
+      final pip = FakePip();
+      await tester.pumpWidget(
+        harness(
+          pip,
+          Stream.value(
+            panel([agent('claude', 'blocked'), agent('codex', 'working')]),
+          ),
+          const PipPanel(),
+          live: false,
+        ),
+      );
+      await tester.pump();
+
+      // The count is still there to be read off the feed, and it is not the
+      // headline: nothing can take this window down from inside the app, so the
+      // choice is between a stale tally and saying that it is one.
+      expect(find.text('NOT WATCHING'), findsOneWidget);
+      expect(find.text('1 BLOCKED · 1 WORKING'), findsNothing);
+      expect(find.text('LAST SEEN 1 BLOCKED · 1 WORKING'), findsOneWidget);
+      expect(drawnRows(tester).where((row) => row.contains(' · nyx')), isEmpty);
+    });
+
+    testWidgets('the whole window is one sentence to a reader', (tester) async {
+      final pip = FakePip();
+      await tester.pumpWidget(
+        harness(
+          pip,
+          Stream.value(
+            panel([agent('claude', 'blocked'), agent('codex', 'working')]),
+          ),
+          const PipPanel(),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        tester
+            .widgetList<Semantics>(find.byType(Semantics))
+            .map((node) => node.properties.label)
+            .whereType<String>(),
+        contains(
+          '1 BLOCKED, 1 WORKING. claude blocked on nyx. codex working on nyx',
+        ),
+      );
+    });
+  });
+
+  group('the window is the size the system made it', () {
+    testWidgets('rows come off rather than off the bottom', (tester) async {
+      final pip = FakePip();
+      Future<void> draw(double height) => tester.pumpWidget(
+        harness(
+          pip,
+          Stream.value(
+            panel([
+              for (final name in ['a', 'b', 'c', 'd', 'e'])
+                agent(name, 'working'),
+            ]),
+          ),
+          Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 300,
+              height: height,
+              child: const PipPanel(),
+            ),
+          ),
+        ),
+      );
+
+      await draw(300);
+      await tester.pump();
+      final tall = drawnRows(tester);
+      expect(tall.where((row) => row.contains(' · nyx')), hasLength(3));
+      expect(find.text('+2 MORE'), findsOneWidget);
+
+      await draw(72);
+      await tester.pump();
+      final short = drawnRows(tester);
+      final listed = short.where((row) => row.contains(' · nyx')).length;
+      // Fewer rows, and the ones that came off are counted rather than clipped:
+      // the window says five either way.
+      expect(listed, lessThan(3));
+      expect(find.text('+${5 - listed} MORE'), findsOneWidget);
+    });
+
+    testWidgets('the text size stops rising before the window does', (
+      tester,
+    ) async {
+      final pip = FakePip();
+      Future<void> draw(double scale) => tester.pumpWidget(
+        harness(
+          pip,
+          Stream.value(panel([agent('claude', 'working')])),
+          const PipPanel(),
+          textScale: scale,
+        ),
+      );
+
+      await draw(1.0);
+      await tester.pump();
+      final plain = tester.getSize(find.byType(AgentMark).first);
+
+      await draw(3.0);
+      await tester.pump();
+      final huge = tester.getSize(find.byType(AgentMark).first);
+
+      // It rises, because a window that ignores the setting is a window the
+      // reader it was set for cannot read. It stops, because the system decides
+      // how big this is and nothing here can ask for more room.
+      expect(huge.width, greaterThan(plain.width));
+      expect(huge.width, closeTo(plain.width * 1.3, 0.01));
     });
   });
 }
