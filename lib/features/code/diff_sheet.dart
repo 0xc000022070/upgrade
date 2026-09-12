@@ -1361,7 +1361,11 @@ class _DiffRow extends StatelessWidget {
           const SizedBox(width: Spacing.md),
           Container(
             width: Borders.hairline,
-            height: 14,
+            // The row's whole inside, so the only break in the rule down the
+            // pane is the air between one line and the next. A fixed height
+            // was the row's inside at one text size and a third of the way
+            // short of it at the largest, which turned the rule into ticks.
+            height: _DiffBody.rowHeight(context) - _DiffBody._linePadding * 2,
             color: SpectacleColors.borderSubtle,
           ),
           const SizedBox(width: Spacing.md),
