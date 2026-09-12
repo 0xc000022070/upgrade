@@ -90,9 +90,10 @@ class HostOutcome {
   };
 
   /// [reason] with the host in front of it where the words do not already
-  /// carry one. Two of the four name their host because that is how the spec
-  /// writes them; the rest are bare, and a bare `key rejected` on a surface
-  /// that shows one failure and counts the others does not say which machine.
+  /// carry one. Two of the six name their host because that is how the spec
+  /// writes them; the other four are bare, and a bare `key rejected` on a
+  /// surface that shows one failure and counts the others does not say which
+  /// machine.
   String get namedReason {
     const named = {AgentOutcomeKind.unreachable, AgentOutcomeKind.unresolved};
     if (named.contains(kind)) return reason;
