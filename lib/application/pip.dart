@@ -45,7 +45,8 @@ final pipModeProvider = StreamProvider<bool>(
 );
 
 /// Whether leaving the app should take it into the window rather than away from
-/// it: only while at least one agent is working or blocked.
+/// it: only while at least one agent is working or blocked, and only while
+/// something is keeping that answer current.
 ///
 /// The alternative was a switch in SYS, and a switch would be wrong in both
 /// positions. Off, the window is a feature the user has to remember they own
@@ -55,6 +56,14 @@ final pipModeProvider = StreamProvider<bool>(
 /// whether there is anything to watch, and the panel already knows.
 final pipArmedProvider = Provider<bool>((ref) {
   if (ref.watch(pipAvailableProvider).valueOrNull != true) return false;
+
+  // The feed keeps its last value after whatever was producing it stops, so a
+  // tally is not on its own evidence that anything is still being watched.
+  // Asked first, this leaves the window to the watcher: nothing else dials once
+  // the user has left, and a tile frozen at the moment they walked away has
+  // nothing that could take it back down.
+  if (!ref.watch(agentsFeedLiveProvider)) return false;
+
   final agents = ref.watch(agentsFeedProvider).valueOrNull;
   return agents != null && agents.tally.isNotEmpty;
 });
