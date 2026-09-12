@@ -495,21 +495,28 @@ class _HostLoop {
 
   Future<void> _run() async {
     while (!_stopped) {
+      var kind = AgentOutcomeKind.unreachable;
       try {
         await _connectAndWatch();
         // The stream ended without an error: the remote loop closed.
         throw const HerdrUnreachable('watch stream ended');
       } on HerdrFailure catch (error) {
+        kind = _kindOf(error);
         _log(error.detail ?? error);
-        _reportFailure(_kindOf(error), protocol: _protocolOf(error));
+        _reportFailure(kind, protocol: _protocolOf(error));
       } catch (error) {
         _log(error);
-        _reportFailure(AgentOutcomeKind.unreachable);
+        _reportFailure(kind);
       } finally {
         _session?.close();
         _session = null;
       }
       if (_stopped) return;
+      // An answer nothing is going to ask again is stood on rather than slept
+      // off. The report is already out, the panel and the shade are showing
+      // it, and the loop ends here until the host row or the setting changes
+      // under it, either of which builds this watcher again from the top.
+      if (!kind.retryable) return;
       await _wait(_backoff.current);
       _backoff.advance();
     }
@@ -520,7 +527,14 @@ class _HostLoop {
   /// host — a claim the panel would then hold for a host that never went down.
   void _reportFailure(AgentOutcomeKind kind, {int? protocol}) {
     if (_stopped) return;
-    _report(kind, protocol: protocol, retryIn: _backoff.current);
+    // A failure nobody is coming back from has no countdown to put on the
+    // line, and a `RETRY 60S` under one would be the app promising a knock it
+    // has decided not to make.
+    _report(
+      kind,
+      protocol: protocol,
+      retryIn: kind.retryable ? _backoff.current : null,
+    );
   }
 
   Future<void> _connectAndWatch() async {
