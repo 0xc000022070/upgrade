@@ -418,8 +418,10 @@ class AgentStates {
       for (final agent in outcome.agents) {
         // Switched on the state rather than asked its questions: `resting` is
         // true of both of the quiet two and this is the one surface that has to
-        // tell them apart. Sealed, so a word a later herdr grows stops the
-        // build here instead of being silently counted as nothing.
+        // tell them apart. Sealed, so a state this app grows has to be placed
+        // here rather than falling through. A word herdr grows that this app
+        // does not place arrives as `UnknownState` and is counted as nothing,
+        // which is the honest count: the bar cannot name it.
         switch (agent.state) {
           case BlockedState():
             blocked++;
