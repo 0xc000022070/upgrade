@@ -1230,6 +1230,46 @@ Struck: dropping the ranges once the symbol is there. They are how a diff is
 matched to a file that has moved on since it was read, and the pane is not
 entitled to decide that nobody will need them.
 
+### A line is taken out of the diff by holding it
+
+Everything the diff pane does is a movement. The walk goes to the next change,
+the strip goes to a place in the file, the drag goes sideways, the held header
+goes back to where the hunk began. What a reader wants a diff for and cannot
+get from any of them is the line itself: a path, a symbol, the string an error
+was raised with, on its way into the terminal in the panel behind the sheet.
+
+**A long press takes hold of the line under it.** The line is marked down its
+left edge and not across it: a diff row is drawn over four grounds, two of
+which are the added and removed colours, and a wash over the row would either
+lose to them or bury them. The mark is the accent at the one width the palette
+allows the accent — a rule beside the line, not a surface.
+
+**The bar under the pane becomes the verbs for the line held.** The walk gives
+its place up to COPY and LET GO, and says which line is held, because the pane
+is already full of the file and a bar that was showing movements has nothing to
+say while the reader has stopped moving. It is the terminal's idiom: something
+is taken hold of, a verb appears for it, and the verb spends the hold.
+
+**What is copied is the line the file has.** Not the line the pane drew: the
+tabs are the file's tabs and not the columns they were opened out into, and a
+hunk header goes to the clipboard in git's own order rather than the order the
+pane reads it in. A line pasted into a terminal has to be the line, or the
+copy was worse than no copy at all.
+
+**Putting the file down lets go of it.** Walking back to the changes, opening
+another file, closing the sheet — a hold belongs to the file it was taken in,
+and outliving it would leave a verb on screen for a line nobody can see.
+
+Struck: a confirmation that the copy happened. The hold ending is one answer
+and it is the one the terminal already gives, and the phone gives another of
+its own: the system draws a preview of what went to the clipboard. A third
+notice for one action would be the app talking over both of them.
+
+Struck: dragging the hold across several lines. Both axes of the pane are
+already spoken for — down the file and across it — and a third gesture on top
+of them would have to be disambiguated from both. The thing a reader reaches
+into a diff on a phone to take out is one line.
+
 ### A pasted link loses the campaign that was stamped on it
 
 A URL reaches the phone through a share sheet or a copy button, and both of them write on it first. `utm_source`, `utm_medium`, `utm_campaign`, a `gclid` or an `fbclid` sixty characters long, the mail platform's `mc_eid` — none of it means anything to the page being opened, all of it says which campaign produced the tap, and together it is why a pasted address fills three lines of a drop instead of one. The app cuts those fields out before the link is kept or handed over.
