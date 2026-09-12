@@ -17,33 +17,32 @@ Widget pane(
   ScrollController scroll,
   List<DiffStreak> streaks, [
   DiffJumps? jumps,
-]) =>
-    Directionality(
-      textDirection: TextDirection.ltr,
-      child: Center(
-        child: SizedBox(
-          height: _paneHeight,
-          width: 120,
-          child: Row(
-            children: [
-              Expanded(
-                child: ListView.builder(
-                  controller: scroll,
-                  itemExtent: _rowHeight,
-                  itemCount: _rows,
-                  itemBuilder: (context, index) => const SizedBox(),
-                ),
-              ),
-              DiffMap(
-                streaks: streaks,
-                rows: _rows,
-                jumps: jumps ?? DiffJumps(scroll),
-              ),
-            ],
+]) => Directionality(
+  textDirection: TextDirection.ltr,
+  child: Center(
+    child: SizedBox(
+      height: _paneHeight,
+      width: 120,
+      child: Row(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              controller: scroll,
+              itemExtent: _rowHeight,
+              itemCount: _rows,
+              itemBuilder: (context, index) => const SizedBox(),
+            ),
           ),
-        ),
+          DiffMap(
+            streaks: streaks,
+            rows: _rows,
+            jumps: jumps ?? DiffJumps(scroll),
+          ),
+        ],
       ),
-    );
+    ),
+  ),
+);
 
 void main() {
   group('where the changes are in the file', () {
