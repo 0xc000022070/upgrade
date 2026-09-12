@@ -19,6 +19,8 @@ import '../../design/layout.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/workspace/workspace_model.dart';
+
+import 'intraline.dart';
 import 'syntax.dart';
 import 'workspace_controller.dart';
 
@@ -821,13 +823,27 @@ class _DiffBodyState extends State<_DiffBody> {
   /// screen and nothing else — not the list, not the sheet around it.
   final ValueNotifier<double> _shift = ValueNotifier(0);
 
+  /// Where each line differs from the one it replaced, worked out once for the
+  /// file rather than per row: the answer for a line lives in the line beside
+  /// it, which a row being built on its own cannot see.
+  List<IntralineSpan?> _changed = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _changed = intralineChanges(widget.lines);
+  }
+
   @override
   void didUpdateWidget(covariant _DiffBody old) {
     super.didUpdateWidget(old);
     // Another file is another set of lines and another width. The reader is
     // put back at the left margin rather than dropped into the middle of a
     // line they have not read yet.
-    if (!identical(old.lines, widget.lines)) _shift.value = 0;
+    if (!identical(old.lines, widget.lines)) {
+      _shift.value = 0;
+      _changed = intralineChanges(widget.lines);
+    }
   }
 
   @override
@@ -878,6 +894,7 @@ class _DiffBodyState extends State<_DiffBody> {
                     language: widget.language,
                     shift: _shift,
                     travel: travel,
+                    changed: index < _changed.length ? _changed[index] : null,
                   ),
                 ),
               ),
@@ -941,6 +958,7 @@ class _DiffRow extends StatelessWidget {
     required this.shift,
     required this.travel,
     this.language,
+    this.changed,
   });
 
   final DiffLine line;
@@ -956,6 +974,10 @@ class _DiffRow extends StatelessWidget {
   /// writing to the notifier in the middle of a build.
   final double travel;
 
+  /// The stretch of this line the line it replaced did not have. Null on a
+  /// line that has no partner, and on a pair with nothing worth pointing at.
+  final IntralineSpan? changed;
+
   /// Everything left of the text: the two number columns, the rule between
   /// them and the line's marker, with the air each of them sits in.
   static double lead(double gutter) =>
@@ -969,6 +991,12 @@ class _DiffRow extends StatelessWidget {
   /// hue says which side the line is on, and the text stays readable over it.
   static const _addedGround = Color(0x1AB7FF2A);
   static const _removedGround = Color(0x1FB84A4A);
+
+  /// The same two hues again, over the run that actually changed. A whole-line
+  /// ground says the line is on one side of the change; this says which of its
+  /// words put it there, and it has to be readable over the ground it sits on.
+  static const _addedRun = Color(0x40B7FF2A);
+  static const _removedRun = Color(0x4DB84A4A);
 
   @override
   Widget build(BuildContext context) {
@@ -1085,17 +1113,61 @@ class _DiffRow extends StatelessWidget {
   /// were code.
   InlineSpan _text() {
     final language = this.language;
-    if (language == null ||
-        line.kind == DiffLineKind.hunk ||
-        line.kind == DiffLineKind.meta) {
-      return TextSpan(text: line.text);
+    final runs =
+        language == null ||
+            line.kind == DiffLineKind.hunk ||
+            line.kind == DiffLineKind.meta
+        ? [(text: line.text, token: SyntaxToken.plain)]
+        : highlight(line.text, language);
+    final run = changed;
+    final ground = switch (line.kind) {
+      DiffLineKind.added => _addedRun,
+      DiffLineKind.removed => _removedRun,
+      _ => null,
+    };
+    if (run == null || ground == null) {
+      return TextSpan(
+        children: [
+          for (final span in runs)
+            TextSpan(text: span.text, style: _style(span.token)),
+        ],
+      );
     }
-    return TextSpan(
-      children: [
-        for (final span in highlight(line.text, language))
-          TextSpan(text: span.text, style: _style(span.token)),
-      ],
-    );
+    // The colour runs and the changed run are two cuts of the same line made
+    // for different reasons, so the line is cut at both and each piece keeps
+    // the syntax colour it had.
+    final children = <TextSpan>[];
+    var at = 0;
+    for (final span in runs) {
+      final end = at + span.text.length;
+      final style = _style(span.token);
+      final from = math.max(at, run.start);
+      final to = math.min(end, run.end);
+      if (from >= to) {
+        children.add(TextSpan(text: span.text, style: style));
+      } else {
+        if (from > at) {
+          children.add(
+            TextSpan(text: line.text.substring(at, from), style: style),
+          );
+        }
+        children.add(
+          TextSpan(
+            text: line.text.substring(from, to),
+            style: (style ?? const TextStyle()).copyWith(
+              backgroundColor: ground,
+            ),
+          ),
+        );
+        if (to < end) {
+          children.add(
+            TextSpan(text: line.text.substring(to, end), style: style),
+          );
+        }
+      }
+      at = end;
+    }
+    return TextSpan(children: children);
   }
 
   static TextStyle? _style(SyntaxToken token) => switch (token) {
