@@ -565,6 +565,31 @@ void main() {
       );
     });
 
+    test('the count leaves out the agents a failed host left behind', () {
+      // The watcher sends the last agents a host was seen with so a blink does
+      // not empty the panel. The shade never reaches the tally with a host
+      // down, but the strip over the nav bar draws one beside a failure, so the
+      // rule lives in the count rather than in who calls it.
+      expect(
+        agentTally([
+          HostOutcome(
+            host: host,
+            kind: AgentOutcomeKind.unreachable,
+            agents: [
+              snapshot(pane: 'wQ:p1', status: 'working'),
+              snapshot(pane: 'wQ:p2'),
+            ],
+          ),
+          HostOutcome(
+            host: other,
+            kind: AgentOutcomeKind.snapshot,
+            agents: [snapshot(pane: 'wR:p1', status: 'working')],
+          ),
+        ]),
+        '1 WORKING',
+      );
+    });
+
     test('a host that is down takes the line from the tally', () {
       expect(
         watcherNotificationText([
