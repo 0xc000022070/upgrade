@@ -151,7 +151,12 @@ class ListRow extends StatelessWidget {
           if (leading != null) ...[
             SizedBox(
               width: leadingWidth,
-              height: titleStyle.fontSize! * titleStyle.height!,
+              // As tall as the title's line is drawn, not as tall as it was
+              // designed: held at the one, the glyph rose off the letters it
+              // marks the moment the reader asked for a larger text size.
+              height:
+                  MediaQuery.textScalerOf(context).scale(titleStyle.fontSize!) *
+                  titleStyle.height!,
               child: Center(child: leading),
             ),
             const SizedBox(width: Spacing.lg),
