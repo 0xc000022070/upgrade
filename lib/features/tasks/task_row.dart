@@ -17,23 +17,41 @@ import 'sent_tag.dart';
 /// The row opens the quick view, the left glyph is the toggle, and the glitch
 /// is bound to the state change rather than to the tap.
 ///
-/// This is the row of every task of a project, under a goal or in the project's
-/// own DROPS panel. Only an unfiled item — no project at all — is a drop, and a
-/// drop uses [ListRow] directly.
+/// This is the row of every item the app lists: a task under a goal, a task in
+/// a project's own DROPS panel, and an unfiled drop on HOME. They share the
+/// checkbox because they share the gesture — the column a finger lands on is
+/// the same column, and a drop that drew its own would be a second thing to
+/// learn for the same answer.
 class TaskRow extends ConsumerStatefulWidget {
   const TaskRow({
     super.key,
     required this.task,
+    this.drop = false,
     this.fresh = false,
+    this.onTap,
     this.onLongPress,
   });
 
   final Task task;
 
+  /// Unfiled: no project at all. Such a row shows whether it is done and
+  /// nothing else. `isNext` and `blockedReason` stay in the schema and an item
+  /// unfiled by MOVE carries whatever it had, so the suppression is here rather
+  /// than left to the columns being empty.
+  ///
+  /// It also carries its age in the value column at all times. A filed row has
+  /// a panel and a goal to say where it is; an unfiled one has only when it
+  /// was written down.
+  final bool drop;
+
   /// Captured on this screen and not left behind yet. A filed
   /// row carries no age column at all, so the age *is* the highlight here — it
   /// arrives in accent with the freshness and leaves with it.
   final bool fresh;
+
+  /// The panel may have something to do before the sheet: HOME's drops let go
+  /// of the fresh set, because a pushed route counts as leaving the screen.
+  final VoidCallback? onTap;
 
   /// The project's DROPS panel keeps its multi-select, so holding a row
   /// there begins the selection instead of opening the sheet.
@@ -68,18 +86,22 @@ class _TaskRowState extends ConsumerState<TaskRow> {
     final task = widget.task;
     return ListRow(
       leading: SpectacleIcon(
-        task.done ? SpectacleIcons.checkboxChecked : SpectacleIcons.checkboxEmpty,
+        task.done
+            ? SpectacleIcons.checkboxChecked
+            : SpectacleIcons.checkboxEmpty,
         size: IconSizes.check,
-        color: task.done ? SpectacleColors.textDisabled : SpectacleColors.accent,
+        color: task.done
+            ? SpectacleColors.textDisabled
+            : SpectacleColors.accent,
         glitch: _glitch,
       ),
       title: task.title,
       titleColor: task.done ? SpectacleColors.textMuted : null,
-      value: widget.fresh ? relativeAge(task.createdAt) : null,
+      value: widget.drop || widget.fresh ? relativeAge(task.createdAt) : null,
       valueColor: widget.fresh ? SpectacleColors.accent : null,
       // The blocked reason is the row's second line, in warning, so a held
       // task is legible without opening it.
-      subtitle: task.blockedReason == null
+      subtitle: widget.drop || task.blockedReason == null
           ? null
           : '[ BLOCKED BY ] ${task.blockedReason}',
       subtitleColor: SpectacleColors.warning,
@@ -93,7 +115,7 @@ class _TaskRowState extends ConsumerState<TaskRow> {
             (ref.watch(linkCountsProvider).valueOrNull ??
                 const <String, int>{})[task.id] ??
             0,
-        state: task.isNext
+        state: !widget.drop && task.isNext
             ? const SpectacleIcon(
                 SpectacleIcons.forward,
                 size: IconSizes.glyph,
@@ -107,7 +129,7 @@ class _TaskRowState extends ConsumerState<TaskRow> {
       // A filed task's verbs are the quick view's footer: more than two icons
       // can carry, so holding it opens the sheet unless the panel says
       // otherwise.
-      onTap: () => openItemSheet(context, task.id),
+      onTap: widget.onTap ?? () => openItemSheet(context, task.id),
       onLongPress: widget.onLongPress ?? () => openItemSheet(context, task.id),
       onLeadingTap: _toggle,
     );

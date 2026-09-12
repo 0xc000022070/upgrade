@@ -318,7 +318,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   /// optional grouping: a project task without one keeps every state block, so
   /// the pre-goal rows already on the user's device stay tasks. The state
   /// columns are still on the row, and this is the one place that decides
-  /// nothing may read them while the item is unfiled.
+  /// which of them may be read while the item is unfiled. `done` may; `isNext`,
+  /// `blockedReason` and `bundleId` may not.
   bool _isDrop(Task task) => task.projectId == null;
 
   List<Widget> _readout(Task task) {
@@ -466,7 +467,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           child: LinkText(
             task.title,
             style: SpectacleText.rowTitleLead.copyWith(
-              color: !_isDrop(task) && task.done
+              color: task.done
                   ? SpectacleColors.textMuted
                   : SpectacleColors.textPrimary,
             ),
@@ -601,25 +602,29 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   /// and a horizontally scrolling row hides the half of them a user is looking
   /// for.
   ///
-  /// A drop cuts that row down: COPY, which takes its text off the phone, and
-  /// MOVE, which is what turns it into a task.
-  /// SEND is on both — filing an item under a project does not stop an agent
-  /// picking it up. DELETE is not a state, but it is not on the row either —
-  /// a long press on the breadcrumb reveals it.
+  /// A drop cuts that row down to DONE, COPY, which takes its text off the
+  /// phone, and MOVE, which is what turns it into a task. DONE and SEND are on
+  /// both: finishing a thing is not a property of where it was put, and filing
+  /// it under a project does not stop an agent picking it up.
+  /// DELETE is not a state, but it is not on the row either — a long press on
+  /// the breadcrumb reveals it.
   Widget _footer(Task task) {
     final tasks = ref.read(taskRepositoryProvider);
     return Wrap(
       spacing: Spacing.md,
       runSpacing: Spacing.md,
       children: [
+        // On every item, filed or not. Finishing a thing is not a property of
+        // where it was put, and a drop the user has dealt with had nowhere to
+        // say so.
+        ActionBlock(
+          label: task.done ? 'UNDO' : 'DONE',
+          tone: SpectacleColors.accent,
+          // The one commit in the row takes the one accent surface.
+          filled: !task.done,
+          onTap: () => tasks.setDone(task.id, !task.done),
+        ),
         if (!_isDrop(task)) ...[
-          ActionBlock(
-            label: task.done ? 'UNDO' : 'DONE',
-            tone: SpectacleColors.accent,
-            // The one commit in the row takes the one accent surface.
-            filled: !task.done,
-            onTap: () => tasks.setDone(task.id, !task.done),
-          ),
           ActionBlock(
             label: task.isNext ? 'UNSET' : 'NEXT',
             tone: task.isNext
