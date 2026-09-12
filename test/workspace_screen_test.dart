@@ -1108,6 +1108,29 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('a removed line is held as the old file\'s', (tester) async {
+      await viewer(tester);
+
+      // The two rows of the only change in the fixture: one line replaced by
+      // another, so both sit at number one, on either side of the change.
+      await tester.longPressAt(onRow(tester, 'const port = 22;'));
+      await ready(tester);
+      expect(onSheet(find.text('WAS LINE 1')), findsOneWidget);
+      expect(onSheet(find.text('LINE 1')), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('diff-drop-line')));
+      await ready(tester);
+      await tester.longPressAt(onRow(tester, 'const port = 357;'));
+      await ready(tester);
+
+      // The line that replaced it, which is the one a reader can type into an
+      // editor and land on.
+      expect(onSheet(find.text('LINE 1')), findsOneWidget);
+      expect(onSheet(find.text('WAS LINE 1')), findsNothing);
+
+      await unmount(tester);
+    });
+
     testWidgets('the line copied is the line the file has', (tester) async {
       final copied = <String>[];
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(

@@ -1250,6 +1250,13 @@ is already full of the file and a bar that was showing movements has nothing to
 say while the reader has stopped moving. It is the terminal's idiom: something
 is taken hold of, a verb appears for it, and the verb spends the hold.
 
+**A line that was removed is named as the old file's.** Its number is where it
+sat before the change, and the line that replaced it carries that same number
+after, so a reader holding one and then the other would be shown the same
+number twice for two different lines. The removed one says `WAS LINE 1`. The
+tense is the whole of the difference and it is the only part a reader needs:
+one of those numbers can be typed into an editor and the other cannot.
+
 **What is copied is the line the file has.** Not the line the pane drew: the
 tabs are the file's tabs and not the columns they were opened out into, and a
 hunk header goes to the clipboard in git's own order rather than the order the
