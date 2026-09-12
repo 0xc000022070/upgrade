@@ -19,9 +19,11 @@ const agentStatusMarkSize = 6.0;
 ///
 /// The AGENTS panel answers this on HOME and answers it better — the rows, the
 /// work each agent is on, a tap into the pane. What it cannot do is answer it
-/// from PROJECTS, from HOSTS, or from a terminal, which is where the user is
-/// when they stop to wonder. This is that answer, in one line, on the one strip
-/// of the window that belongs to the app rather than to a tab.
+/// from the other three tabs, which is where the user is when they stop to
+/// wonder. This is that answer, in one line, on the one strip of the window
+/// that belongs to the app rather than to a tab. A route pushed over the shell
+/// is outside this strip, and its reader is already inside what the count would
+/// have sent them to.
 class AgentStatusBar extends ConsumerWidget {
   const AgentStatusBar({super.key});
 
@@ -37,9 +39,9 @@ class AgentStatusBar extends ConsumerWidget {
     final failures = data.failures;
     final states = AgentStates.of(data.outcomes);
     // Nothing live and nobody down: no bar at all. Height is the scarce thing
-    // on this window — a terminal is already giving up a row to the parked
-    // shell — and a bar that stands up to report that there is nothing to
-    // report is the one the reader stops seeing.
+    // on this window — a parked shell is already taking a row of it — and a
+    // bar that stands up to report that there is nothing to report is the one
+    // the reader stops seeing.
     if (failures.isEmpty && !states.news) return const SizedBox.shrink();
 
     // The failure leads and the counts follow it rather than being suppressed

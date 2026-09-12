@@ -1503,7 +1503,7 @@ Struck: arming a routine that has never been run once. The button that runs it n
 
 ### What the agents are, on the screens that are not HOME
 
-The AGENTS panel answers this and answers it better: a row per agent, the work each one is on, the pane a tap away. What it cannot do is answer it from PROJECTS, from HOSTS, or from inside a terminal, and those are the screens the user is on when they stop and wonder. The shade answers it too, and answering it from inside the app by pulling the shade down over the app is the app admitting it has nothing on screen. So one line, on the strip above the nav bar that belongs to the app rather than to a tab, over the parked shell and under nothing.
+The AGENTS panel answers this and answers it better: a row per agent, the work each one is on, the pane a tap away. What it cannot do is answer it from PROJECTS, from HOSTS or from SSH, which are the other three tabs and where the user is standing when they stop and wonder. The shade answers it too, and answering it from inside the app by pulling the shade down over the app is the app admitting it has nothing on screen. So one line, on the strip above the nav bar that belongs to the app rather than to a tab, over the parked shell and under nothing. A route pushed over the shell carries no strip and should not: an open terminal and an open diff are outside the shell's scaffold, and the reader of one of them is already inside the thing a count would have sent them to.
 
 `1 BLOCKED · 3 WORKING · 2 DONE · 5 IDLE`, in that order, blocked first for the reason the shade puts it first: it is the count about to cost the user something. The states at zero are left out rather than printed as zeroes. At the head of the line is a block in one colour, the colour of the state that most wants the user, and at the tail the word `AGENTS`, so that the line reads as a count of something and not as a sentence the app is saying about itself.
 
@@ -1513,7 +1513,7 @@ The AGENTS panel answers this and answers it better: a row per agent, the work e
 
 **Blocked outranks a host being down for the one colour.** A machine nobody can reach is the app failing to look. An agent stopped at a question is the user being waited on, and it is being waited on right now.
 
-**The bar is not there when there is nothing to stand it up for.** Height is the scarce thing on this window — a terminal is already giving a row to the parked shell — and a strip that stands up to report that there is nothing to report is the strip the reader stops seeing. Nothing blocked, nothing working, nothing finished and nobody down: no bar. Work that finished while nobody was watching is on the other side of that line, because it is the thing the phone is picked up to find out.
+**The bar is not there when there is nothing to stand it up for.** Height is the scarce thing on this window — a parked shell is already taking a row of it — and a strip that stands up to report that there is nothing to report is the strip the reader stops seeing. Nothing blocked, nothing working, nothing finished and nobody down: no bar. Work that finished while nobody was watching is on the other side of that line, because it is the thing the phone is picked up to find out.
 
 **A tap goes to the panel.** The count is not an answer: a blocked agent is answered in the pane it is blocked in, and the panel is the door to that pane.
 
