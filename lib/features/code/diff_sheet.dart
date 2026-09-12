@@ -1066,21 +1066,32 @@ class _DiffBodyState extends State<_DiffBody> {
                             padding: EdgeInsets.zero,
                             itemExtent: _DiffBody.rowHeight,
                             itemCount: _drawn.length,
-                            itemBuilder: (context, index) => GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onLongPress: () => widget.onPick(index),
-                              child: _DiffRow(
-                                line: _drawn[index],
-                                gutter: gutter,
-                                language: widget.language,
-                                shift: _shift,
-                                travel: travel,
-                                picked: widget.picked == index,
-                                changed: index < _changed.length
-                                    ? _changed[index]
-                                    : null,
-                              ),
-                            ),
+                            itemBuilder: (context, index) {
+                              final line = _drawn[index];
+                              return GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                // The hold takes a line out of the file and
+                                // into the terminal behind the sheet. The row
+                                // that says where a cut file stops is this
+                                // app's sentence about the file rather than
+                                // anything the file has, so there is nothing
+                                // in it to take.
+                                onLongPress: line.kind == DiffLineKind.capped
+                                    ? null
+                                    : () => widget.onPick(index),
+                                child: _DiffRow(
+                                  line: line,
+                                  gutter: gutter,
+                                  language: widget.language,
+                                  shift: _shift,
+                                  travel: travel,
+                                  picked: widget.picked == index,
+                                  changed: index < _changed.length
+                                      ? _changed[index]
+                                      : null,
+                                ),
+                              );
+                            },
                           ),
                         ),
                         Positioned(
