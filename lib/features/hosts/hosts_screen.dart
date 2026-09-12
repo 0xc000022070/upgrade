@@ -312,6 +312,12 @@ String _stateLine(HostOutcome? outcome) {
 /// panel is drawn at.
 const _labelWidth = 96.0;
 
+/// How much bigger the label is than the size it was drawn at.
+double _labelScale(BuildContext context) {
+  final size = SpectacleText.label.fontSize!;
+  return MediaQuery.textScalerOf(context).scale(size) / size;
+}
+
 class _MetaRow extends StatelessWidget {
   const _MetaRow(
     this.label,
@@ -338,10 +344,13 @@ class _MetaRow extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(
-            // The column holds a word, so it is measured at the size the word
-            // is painted. Fixed, the longest label ran into its own value at
-            // a raised text size and the pair read as one run of letters.
-            width: MediaQuery.textScalerOf(context).scale(_labelWidth),
+            // The column holds a word, so it grows by whatever the label's own
+            // size grew by. Handing the width to the scaler as if it were a
+            // font size is not the same number: the system curve gives a small
+            // size much more than a large one, so a 96px "font" barely moved
+            // while the 9px label it was holding nearly doubled and broke
+            // across two lines in the middle of a word.
+            width: _labelWidth * _labelScale(context),
             child: Text(label, style: SpectacleText.label),
           ),
           // The column is the longest label and nothing more, so without a

@@ -57,6 +57,26 @@ ManagedKey _key(String id, String name) => ManagedKey(
   createdAt: DateTime(2026),
 );
 
+/// What a phone hands over when the reader raises the text size: a curve, not
+/// a factor. A label's size doubles, a size the app never paints text at is
+/// left where it was.
+const _systemCurve = _SystemCurve();
+
+class _SystemCurve implements TextScaler {
+  const _SystemCurve();
+
+  @override
+  double scale(double fontSize) =>
+      fontSize <= 20 ? fontSize * 2 : fontSize * 1.05;
+
+  @override
+  double get textScaleFactor => 2;
+
+  @override
+  TextScaler clamp({double minScaleFactor = 0, double maxScaleFactor = 1}) =>
+      this;
+}
+
 void main() {
   late AppDatabase db;
   late InMemoryKeyRepository keys;
@@ -192,8 +212,19 @@ void main() {
     /// How far the value sits from the start of the label beside it. Measured
     /// from the two left edges, which are box positions rather than ink, so the
     /// fallback font a test renders with cannot move them.
-    Future<double> reach() async {
-      await tester.pumpWidget(app(const HostsScreen()));
+    Future<double> reach([TextScaler? scaler]) async {
+      await tester.pumpWidget(
+        app(
+          scaler == null
+              ? const HostsScreen()
+              : Builder(
+                  builder: (context) => MediaQuery(
+                    data: MediaQuery.of(context).copyWith(textScaler: scaler),
+                    child: const HostsScreen(),
+                  ),
+                ),
+        ),
+      );
       await ready(tester);
       final label = tester.getRect(find.text('INTEGRATIONS').first).left;
       final value = tester.getRect(find.text('HERDR')).left;
@@ -202,6 +233,12 @@ void main() {
     }
 
     final reached = await reach();
+    // A phone does not raise every size by the same factor: the curve gives a
+    // small one most of the rise and a large one almost none. A column derived
+    // from the label's own size follows the label; one derived from its width
+    // hardly moves, and the longest label broke across two lines in the middle
+    // of a word.
+    final curved = await reach(_systemCurve);
 
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
@@ -213,6 +250,7 @@ void main() {
     // into its own value; given no gutter, the two still touched.
     expect(reached, closeTo(labelColumn + Spacing.md, 0.01));
     expect(bigReach, closeTo(labelColumn * 1.3 + Spacing.md, 0.01));
+    expect(curved, closeTo(labelColumn * 2 + Spacing.md, 0.01));
   });
 
   testWidgets('every host panel offers a shell and the row is the hit', (
