@@ -247,9 +247,7 @@ void main() {
       await ready(tester);
       final session = sessions.activeFor(_rose.id)!;
 
-      transport.opened.single.emit(
-        'needle\r\n${'filler\r\n' * 300}',
-      );
+      transport.opened.single.emit('needle\r\n${'filler\r\n' * 300}');
       await ready(tester);
 
       // The view is on the last line, three hundred lines past the one word

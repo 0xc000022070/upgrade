@@ -35,7 +35,10 @@ class ActivityRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: Spacing.lg),
-          Text('${where.toUpperCase()}  $timeLabel', style: SpectacleText.label),
+          Text(
+            '${where.toUpperCase()}  $timeLabel',
+            style: SpectacleText.label,
+          ),
         ],
       ),
     );

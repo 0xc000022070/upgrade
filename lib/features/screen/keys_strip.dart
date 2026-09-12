@@ -53,8 +53,12 @@ const stripRows = <List<StripCell>>[
     StripCell.modifier(StickyModifier.superKey),
     StripCell.modifier(StickyModifier.ctrl),
     StripCell.modifier(StickyModifier.alt),
-    StripCell.key(StripKey('LEFT', Keysyms.left, icon: SpectacleIcons.arrowLeft)),
-    StripCell.key(StripKey('DOWN', Keysyms.down, icon: SpectacleIcons.arrowDown)),
+    StripCell.key(
+      StripKey('LEFT', Keysyms.left, icon: SpectacleIcons.arrowLeft),
+    ),
+    StripCell.key(
+      StripKey('DOWN', Keysyms.down, icon: SpectacleIcons.arrowDown),
+    ),
     StripCell.key(
       StripKey('RIGHT', Keysyms.right, icon: SpectacleIcons.arrowRight),
     ),

@@ -42,8 +42,10 @@ void main() {
       );
       expect(anchor.attached, isTrue);
       expect(anchor.offset, const CellOffset(0, 3));
-      expect(terminal.buffer.lines[anchor.offset.y].toString().trimRight(),
-          'row15');
+      expect(
+        terminal.buffer.lines[anchor.offset.y].toString().trimRight(),
+        'row15',
+      );
     });
 
     test('a scroll leaves the rows it moved in the buffer', () {
@@ -67,8 +69,10 @@ void main() {
       // line must not be taken out of the buffer it is still part of.
       expect(anchor.attached, isTrue);
       expect(anchor.offset, const CellOffset(0, 1));
-      expect(terminal.buffer.lines[anchor.offset.y].toString().trimRight(),
-          'alt2');
+      expect(
+        terminal.buffer.lines[anchor.offset.y].toString().trimRight(),
+        'alt2',
+      );
       indicesHold(terminal);
     });
 
@@ -86,8 +90,10 @@ void main() {
 
       expect(terminal.buffer.lines.length, 5);
       expect(anchor.attached, isTrue);
-      expect(terminal.buffer.lines[anchor.offset.y].toString().trimRight(),
-          'line18');
+      expect(
+        terminal.buffer.lines[anchor.offset.y].toString().trimRight(),
+        'line18',
+      );
       indicesHold(terminal);
     });
 

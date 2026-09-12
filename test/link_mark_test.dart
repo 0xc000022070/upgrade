@@ -146,10 +146,7 @@ void main() {
     expect(_mark, findsOneWidget);
     expect(_arrow, findsOneWidget);
     // The arrow is the trailing edge; the mark is the column before it.
-    expect(
-      tester.getCenter(_mark).dx,
-      lessThan(tester.getCenter(_arrow).dx),
-    );
+    expect(tester.getCenter(_mark).dx, lessThan(tester.getCenter(_arrow).dx));
 
     await unmount(tester);
   });

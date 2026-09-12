@@ -58,9 +58,7 @@ class _Segment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active
-        ? SpectacleColors.accent
-        : SpectacleColors.textMuted;
+    final color = active ? SpectacleColors.accent : SpectacleColors.textMuted;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,

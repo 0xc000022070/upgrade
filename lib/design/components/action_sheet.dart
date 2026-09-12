@@ -393,7 +393,9 @@ class _PlainRow extends StatelessWidget {
         child: Text(
           label,
           style: SpectacleText.rowTitle.copyWith(
-            color: danger ? SpectacleColors.danger : SpectacleColors.textPrimary,
+            color: danger
+                ? SpectacleColors.danger
+                : SpectacleColors.textPrimary,
           ),
         ),
       ),

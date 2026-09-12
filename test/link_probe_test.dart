@@ -102,7 +102,11 @@ void main() {
   });
 
   test('a name that does not resolve says so', () async {
-    final result = await probeLink('nyx.spectacle.invalid', 22, deadline: _short);
+    final result = await probeLink(
+      'nyx.spectacle.invalid',
+      22,
+      deadline: _short,
+    );
 
     expect(result.status, LinkStatus.unresolved);
     expect(linkWord(result), 'UNRESOLVED');

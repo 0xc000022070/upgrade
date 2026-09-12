@@ -707,7 +707,9 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
       message: widget.action.glyph.word,
       triggerMode: TooltipTriggerMode.longPress,
       preferBelow: false,
-      textStyle: SpectacleText.label.copyWith(color: SpectacleColors.textPrimary),
+      textStyle: SpectacleText.label.copyWith(
+        color: SpectacleColors.textPrimary,
+      ),
       decoration: const BoxDecoration(color: SpectacleColors.surfacePrimary),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

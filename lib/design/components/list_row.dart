@@ -200,7 +200,9 @@ class ListRow extends StatelessWidget {
                 value!,
                 textAlign: TextAlign.right,
                 style:
-                    (valueStrong ? SpectacleText.valueStrong : SpectacleText.value)
+                    (valueStrong
+                            ? SpectacleText.valueStrong
+                            : SpectacleText.value)
                         .copyWith(color: valueColor),
               ),
             ],

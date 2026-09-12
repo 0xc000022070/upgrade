@@ -48,7 +48,8 @@ bool _isBlock(WidgetTester tester, String label) {
     find.ancestor(of: _inStatic(label), matching: find.byType(Container)),
   );
   return container.any(
-    (box) => (box.decoration as BoxDecoration?)?.color == SpectacleColors.accent,
+    (box) =>
+        (box.decoration as BoxDecoration?)?.color == SpectacleColors.accent,
   );
 }
 

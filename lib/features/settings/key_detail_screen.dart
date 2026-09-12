@@ -136,7 +136,9 @@ class _DeleteBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = enabled ? SpectacleColors.warning : SpectacleColors.textDisabled;
+    final tone = enabled
+        ? SpectacleColors.warning
+        : SpectacleColors.textDisabled;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: enabled ? onTap : null,
