@@ -260,7 +260,8 @@ void main() {
 
       expect(await sessions.cwdFromHost(session), '/home/luis/src/dazzle');
       // Asked on a second channel, so the shell on the pty sees none of it.
-      expect(connection.directoryRequests, [session.remoteSession]);
+      expect(connection.execs.last.command, shellCwdProbe(session.mark));
+      expect(connection.directoryRequests, isEmpty);
       expect(connection.written, isNot(contains('/proc')));
       // And kept, so the tab knows where it is without asking twice.
       expect(session.cwd, '/home/luis/src/dazzle');
@@ -299,7 +300,7 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('a tab holding a session is asked for the pane it shows', (
+    testWidgets('an ordinary tab never asks a durable session for cwd', (
       tester,
     ) async {
       final transport = FakeShellTransport();
@@ -309,13 +310,14 @@ void main() {
 
       final session = sessions.forHost(rose.id).single;
       final connection = transport.opened.single;
-      // No pane: this tab owns a tmux session, whose foreground pane reports
-      // where it stands even when another multiplexer runs inside it.
       expect(session.pane, isNull);
-      connection.directory = '/home/luis/src/dazzle';
+      connection.directory = '/srv/stale-tmux-pane';
+      connection.answerWith('/home/luis/src/dazzle\n');
+      connection.directoryRequests.clear();
 
       expect(await sessions.cwdFromHost(session), '/home/luis/src/dazzle');
-      expect(connection.directoryRequests.last, session.remoteSession);
+      expect(connection.directoryRequests, isEmpty);
+      expect(connection.execs.last.command, shellCwdProbe(session.mark));
 
       await unmount(tester);
     });
