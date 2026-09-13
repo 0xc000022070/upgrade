@@ -1,3 +1,5 @@
+import 'support/native_plugins.dart';
+
 import 'dart:typed_data';
 
 import 'package:drift/native.dart';
@@ -6,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agents.dart';
 import 'package:dazzle/application/bundle.dart';
-import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/enums.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
@@ -66,7 +67,7 @@ void main() {
 
   Widget app() => ProviderScope(
     overrides: [
-      databaseProvider.overrideWithValue(db),
+      ...featureTestOverrides(db),
       keyRepositoryProvider.overrideWithValue(keys),
       hostRepositoryProvider.overrideWithValue(hosts),
       privateKeyStoreProvider.overrideWithValue(privateKeys),
@@ -157,7 +158,10 @@ void main() {
     await tapAction(tester, 'SEAL');
     await ready(tester);
     expect(find.text('EXPORT BUNDLE'), findsNothing);
-    expect(find.text('EXPORTED 1 HOST · 2 KEYS · 0 PATHS'), findsOneWidget);
+    expect(
+      find.text('EXPORTED 1 HOST · 2 KEYS · 0 PATHS · 1 ROW'),
+      findsOneWidget,
+    );
 
     final (name, bytes) = saved.single;
     expect(name, startsWith('dazzle-'));

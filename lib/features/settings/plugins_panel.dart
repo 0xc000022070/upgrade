@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/plugins.dart';
+import '../../application/native_plugins.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/dazzle_field.dart';
@@ -26,7 +27,7 @@ class PluginsPanel extends ConsumerWidget {
         children: [
           if (plugins.hasError)
             Text('${plugins.error}', style: DazzleText.rowSubtitle),
-          for (final plugin in plugins.valueOrNull ?? <InstalledPlugin>[])
+          for (final plugin in ref.watch(effectivePluginsProvider))
             PanelTextAction(
               label: '${plugin.manifest.name} ${plugin.enabled ? "ON" : "OFF"}',
               onTap: () => _open(context, plugin: plugin),
@@ -35,50 +36,23 @@ class PluginsPanel extends ConsumerWidget {
             label: 'ADD',
             onTap: plugins.hasValue ? () => _open(context) : null,
           ),
-          PanelTextAction(
-            label: 'EXAMPLE',
-            onTap: plugins.hasValue
-                ? () => _open(context, example: true)
-                : null,
-          ),
-          PanelTextAction(
-            label: 'DEPENDENT EXAMPLE',
-            onTap: plugins.hasValue
-                ? () => _open(context, example: true, dependent: true)
-                : null,
-          ),
         ],
       ),
     );
   }
 
-  void _open(
-    BuildContext context, {
-    InstalledPlugin? plugin,
-    bool example = false,
-    bool dependent = false,
-  }) {
+  void _open(BuildContext context, {InstalledPlugin? plugin}) {
     showPanelSheet<void>(
       context,
       title: 'PLUGIN',
-      builder: (_) => _PluginSheet(
-        installed: plugin,
-        example: example,
-        dependent: dependent,
-      ),
+      builder: (_) => _PluginSheet(installed: plugin),
     );
   }
 }
 
 class _PluginSheet extends ConsumerStatefulWidget {
-  const _PluginSheet({
-    this.installed,
-    required this.example,
-    required this.dependent,
-  });
+  const _PluginSheet({this.installed});
   final InstalledPlugin? installed;
-  final bool example;
-  final bool dependent;
   @override
   ConsumerState<_PluginSheet> createState() => _PluginSheetState();
 }
@@ -95,9 +69,6 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
   void initState() {
     super.initState();
     _repository.text = widget.installed?.package.origin ?? '';
-    if (widget.example) {
-      _prepare(() => examplePlugin(dependent: widget.dependent));
-    }
   }
 
   @override
@@ -147,7 +118,13 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
     final package = _candidate ?? (_updating ? null : installed?.package);
     final manifest = package?.manifest;
     final old = installed?.manifest.permissions ?? <PluginPermission>{};
-    final report = installed == null
+    final nativeReport = installed != null && installed.manifest.native
+        ? ref.watch(nativeDatasetReportProvider(installed.id))
+        : null;
+    final authority = installed != null && installed.manifest.native
+        ? ref.watch(pluginAuthorityProvider)
+        : null;
+    final report = installed == null || installed.manifest.native
         ? null
         : ref.watch(
             pluginDataReportProvider((
@@ -169,47 +146,43 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
           const SheetRule(),
         ],
         if (manifest == null) ...[
-          if (!widget.example) ...[
-            SheetField(
-              label: 'PUBLIC GITHUB REPOSITORY',
-              child: DazzleField(
-                controller: _repository,
-                suggest: false,
-                hint: 'https://github.com/owner/repository',
-                keyboardType: TextInputType.url,
-              ),
+          SheetField(
+            label: 'PUBLIC GITHUB REPOSITORY',
+            child: DazzleField(
+              controller: _repository,
+              suggest: false,
+              hint: 'https://github.com/owner/repository',
+              keyboardType: TextInputType.url,
             ),
-            const SheetRule(),
-            SheetField(
-              label: 'COMMIT SHA',
-              child: DazzleField(
-                controller: _revision,
-                suggest: false,
-                hint: '40 lowercase hex characters',
-              ),
+          ),
+          const SheetRule(),
+          SheetField(
+            label: 'COMMIT SHA',
+            child: DazzleField(
+              controller: _revision,
+              suggest: false,
+              hint: '40 lowercase hex characters',
             ),
-            const SheetRule(),
-            ActionBlock(
-              label: _busy ? 'FETCHING' : 'REVIEW',
-              onTap: _busy
-                  ? null
-                  : () {
-                      FocusScope.of(context).unfocus();
-                      _prepare(
-                        () => PluginFetcher().fetch(
-                          _repository.text,
-                          _revision.text.trim(),
-                        ),
-                      );
-                    },
-            ),
-          ] else
-            Text(
-              _busy ? 'LOADING' : 'Example unavailable',
-              style: DazzleText.rowSubtitle,
-            ),
+          ),
+          const SheetRule(),
+          ActionBlock(
+            label: _busy ? 'FETCHING' : 'REVIEW',
+            onTap: _busy
+                ? null
+                : () {
+                    FocusScope.of(context).unfocus();
+                    _prepare(
+                      () => PluginFetcher().fetch(
+                        _repository.text,
+                        _revision.text.trim(),
+                      ),
+                    );
+                  },
+          ),
         ] else ...[
           _fact('PLUGIN', '${manifest.id} ${manifest.version}'),
+          if (manifest.native)
+            _fact('DISTRIBUTION', 'Built-in · updated with Dazzle'),
           _fact('MANIFEST', '${manifest.formatVersion}'),
           _fact('DAZZLE API', '${manifest.api}'),
           if (!manifest.supported) _fact('DISABLED', manifest.incompatibility!),
@@ -227,6 +200,13 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
               'Schema ${dataset.schemaVersion} · ${dataset.quotaBytes} bytes · ${dataset.quotaRecords} records maximum\n'
                   '${dataset.exportContract == null ? "Private" : "Read export: ${dataset.exportContract}"}',
             ),
+          for (final dataset in manifest.hostDatasets.values)
+            _fact(
+              'DATASET ${dataset.name}',
+              'Schema ${dataset.schemaVersion} · API ${dataset.service}\nHost-managed storage · retained while disabled',
+            ),
+          for (final service in manifest.exports.entries)
+            _fact('EXPORTED API ${service.key}', service.value),
           SheetField(
             label: _candidate == null
                 ? 'GRANTED CAPABILITIES'
@@ -248,8 +228,43 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
               ],
             ),
           ),
-          _fact('ACTIONS', manifest.actions.map((a) => a.title).join('\n')),
-          if (installed != null && _candidate == null) ...[
+          if (manifest.actions.isNotEmpty)
+            _fact('ACTIONS', manifest.actions.map((a) => a.title).join('\n')),
+          if (manifest.surfaces.isNotEmpty)
+            _fact('FEATURES', manifest.surfaces.join('\n')),
+          if (installed != null && _candidate == null && manifest.native) ...[
+            _fact(
+              'RUNTIME',
+              'Native · no plugin VM or interpreter\nShared Flutter heap; per-plugin heap is not attributable',
+            ),
+            if (nativeReport!.isLoading) _fact('STORAGE', 'LOADING'),
+            if (nativeReport.hasError)
+              _fact('STORAGE', '${nativeReport.error}'),
+            for (final dataset in nativeReport.valueOrNull ?? [])
+              _fact(
+                'STORED ${dataset.name}',
+                '${dataset.records} records · ${dataset.fieldBytes} field bytes\n${dataset.fileBytes} attachment bytes · ${dataset.missingFiles} missing files',
+              ),
+            _fact(
+              'ISOLATION',
+              'API-owned datasets in host storage. Shared database pages and indexes are not charged twice.',
+            ),
+            for (final usage in authority!.usage(installed.id).entries)
+              _fact(
+                'API ${usage.key}',
+                '${usage.value.calls} calls/events · ${usage.value.rejected} rejected\n${usage.value.activeSubscriptions} active subscriptions · ${usage.value.elapsedMicros} µs awaited host time',
+              ),
+            if (authority.persistenceError != null)
+              _fact('COUNTER STORAGE ERROR', '${authority.persistenceError}'),
+            PanelTextAction(
+              label: 'REFRESH USAGE',
+              onTap: () {
+                ref.invalidate(nativeDatasetReportProvider(installed.id));
+                setState(() {});
+              },
+            ),
+          ],
+          if (installed != null && _candidate == null && !manifest.native) ...[
             if (report!.isLoading) _fact('USAGE', 'LOADING'),
             if (report.hasError) _fact('USAGE', '${report.error}'),
             if (report.valueOrNull case final data?) ...[
@@ -326,12 +341,13 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                         ? null
                         : () => setState(() => _updating = true),
                   ),
-                ActionBlock(
-                  label: 'REMOVE',
-                  onTap: _busy
-                      ? null
-                      : () => _change((p) => p.remove(installed.id)),
-                ),
+                if (!manifest.native)
+                  ActionBlock(
+                    label: 'REMOVE',
+                    onTap: _busy
+                        ? null
+                        : () => _change((p) => p.remove(installed.id)),
+                  ),
               ],
             ),
             const SizedBox(height: Spacing.md),

@@ -1,9 +1,10 @@
+import 'support/native_plugins.dart';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/app/static_surface.dart';
-import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/settings_repository.dart';
 import 'package:dazzle/design/colors.dart';
@@ -48,8 +49,7 @@ bool _isBlock(WidgetTester tester, String label) {
     find.ancestor(of: _inStatic(label), matching: find.byType(Container)),
   );
   return container.any(
-    (box) =>
-        (box.decoration as BoxDecoration?)?.color == DazzleColors.accent,
+    (box) => (box.decoration as BoxDecoration?)?.color == DazzleColors.accent,
   );
 }
 
@@ -76,7 +76,7 @@ void main() {
   }
 
   Widget host(Widget child) => ProviderScope(
-    overrides: [databaseProvider.overrideWithValue(db)],
+    overrides: [...featureTestOverrides(db)],
     child: MaterialApp(home: child),
   );
 
@@ -110,7 +110,12 @@ void main() {
     expect(_isBlock(tester, 'OFF'), isFalse);
     // Nothing is written until the user says so: the default is the absence of
     // a row, not a row holding the default.
-    expect(await db.select(db.settings).get(), isEmpty);
+    expect(
+      await (db.select(
+        db.settings,
+      )..where((s) => s.key.equals(SettingsRepository.staticEnabled))).get(),
+      isEmpty,
+    );
 
     await tester.tap(_inStatic('OFF'));
     await _ready(tester);
@@ -127,7 +132,9 @@ void main() {
 
     expect(_isBlock(tester, 'ON'), isTrue);
     expect(
-      await db.select(db.settings).get(),
+      await (db.select(
+        db.settings,
+      )..where((s) => s.key.equals(SettingsRepository.staticEnabled))).get(),
       hasLength(1),
       reason: 'the preference is one upserted row, not one row per tap',
     );

@@ -1,3 +1,5 @@
+import 'support/native_plugins.dart';
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -10,7 +12,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agent_kind.dart';
 import 'package:dazzle/application/agents.dart';
 import 'package:dazzle/application/path_scan.dart';
-import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/application/send.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/enums.dart';
@@ -550,7 +551,7 @@ void main() {
 
     Widget app(String taskId, {HerdrSend? send}) => ProviderScope(
       overrides: [
-        databaseProvider.overrideWithValue(db),
+        ...featureTestOverrides(db),
         privateKeyStoreProvider.overrideWithValue(privateKeys),
         if (send != null) herdrSendProvider.overrideWithValue(send),
         pathScannerProvider.overrideWithValue(
@@ -680,10 +681,7 @@ void main() {
       expect(find.text('SEND TO'), findsOneWidget);
       expect(find.text('LINKED'), findsNWidgets(2));
       final loose = tester.getTopLeft(find.text('NYX / GATE')).dy;
-      expect(
-        tester.getTopLeft(find.text('NYX / DAZZLE')).dy,
-        lessThan(loose),
-      );
+      expect(tester.getTopLeft(find.text('NYX / DAZZLE')).dy, lessThan(loose));
       expect(
         tester.getTopLeft(find.text('NYX / MONOLITH')).dy,
         lessThan(loose),

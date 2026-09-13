@@ -20,7 +20,7 @@ import '../../design/icons/dazzle_icons.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
-import '../tasks/image_input.dart';
+import '../../application/attachment_files.dart';
 import '../tasks/item_pickers.dart';
 import '../../application/urls.dart';
 import '../tasks/url_highlight_controller.dart';
@@ -167,7 +167,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
 
   /// The gallery, and nothing between it and the chip.
   Future<void> _image() async {
-    final path = await ImageAttachments.pick();
+    final path = await ref.read(attachmentFilesProvider).pick();
     if (!mounted || path == null) return;
     setState(() => _pending.add(NewAttachment.image(path)));
     // The picker was another activity; the keyboard and the strip have to come
@@ -202,14 +202,14 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   String _targetLabel() {
     if (_target.projectId == null) return 'DROPS';
     final projects =
-        ref.watch(projectsProvider).valueOrNull ?? const <Project>[];
+        ref.watch(captureProjectsProvider).valueOrNull ?? const <Project>[];
     final project = projects
         .where((p) => p.id == _target.projectId)
         .firstOrNull;
     final projectName = (project?.name ?? 'PROJECT').toUpperCase();
     if (_target.goalId == null) return projectName;
     final goals =
-        ref.watch(projectGoalsProvider(_target.projectId!)).valueOrNull ??
+        ref.watch(captureGoalsProvider(_target.projectId!)).valueOrNull ??
         const <GoalSummary>[];
     final goal = goals.where((g) => g.goalId == _target.goalId).firstOrNull;
     // The aimed chip reads `ROMMY / SHIP MVP`: a goal name on its own
@@ -264,7 +264,9 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                 if (attachment.kind == AttachmentKind.image)
                   ToolbarChip.image(
                     imagePath:
-                        ImageAttachments.absolute(attachment.value) ??
+                        ref
+                            .read(attachmentFilesProvider)
+                            .absolute(attachment.value) ??
                         attachment.value,
                     onRemove: () => setState(() => _pending.remove(attachment)),
                   )

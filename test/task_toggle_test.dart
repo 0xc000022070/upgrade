@@ -1,8 +1,9 @@
+import 'support/native_plugins.dart';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/activity_repository.dart';
 import 'package:dazzle/data/repositories/goal_repository.dart';
@@ -71,7 +72,7 @@ void main() {
   tearDown(() => db.close());
 
   Widget host({bool reduceMotion = false}) => ProviderScope(
-    overrides: [databaseProvider.overrideWithValue(db)],
+    overrides: [...featureTestOverrides(db)],
     child: MediaQuery(
       data: MediaQueryData(disableAnimations: reduceMotion),
       child: MaterialApp(home: ProjectDetailScreen(projectId: projectId)),

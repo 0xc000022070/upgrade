@@ -18,6 +18,19 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'plugins_test.dart' as fixtures;
 
+Future<PluginPackage> fixturePlugin({bool dependent = false}) async {
+  final name = dependent ? 'record-restore' : 'record-text';
+  return PluginPackage(
+    manifest: PluginManifest.parse(
+      await File('test/fixtures/plugins/$name/dazzle.plugin.toml')
+          .readAsString(),
+    ),
+    source: await File('test/fixtures/plugins/$name/main.luau').readAsString(),
+    origin: 'fixture:dazzle.$name',
+    revision: '2.0.0',
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late AppDatabase db;
@@ -179,8 +192,8 @@ void main() {
   );
 
   test('bundled provider and consumer retain snapshots across disable, update, remove and reinstall', () async {
-    final provider = await examplePlugin();
-    final consumer = await examplePlugin(dependent: true);
+    final provider = await fixturePlugin();
+    final consumer = await fixturePlugin(dependent: true);
     final notifier = container.read(pluginsProvider.notifier);
     final originalProjects = await db.select(db.projects).get();
     final attachments = await db.select(db.attachments).get();

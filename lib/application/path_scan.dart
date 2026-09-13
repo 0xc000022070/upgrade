@@ -8,6 +8,7 @@ import 'reason_lines.dart';
 import '../platform/keys.dart';
 import 'agent_kind.dart';
 import 'agents.dart';
+import 'providers.dart';
 
 /// The checkout scan, behind the same seam the send uses. What the picker
 /// consumes is a list of strings.
@@ -59,11 +60,13 @@ class PathScanner {
     required this.fetch,
     required this.fetchModels,
     required this.keys,
+    this.checkActive,
   });
 
   final HerdrPaths fetch;
   final HerdrModels fetchModels;
   final Ed25519Keys keys;
+  final void Function()? checkActive;
 
   Future<PathScan> call(Host host) => _ask(
     host,
@@ -94,12 +97,16 @@ class PathScanner {
     Host host,
     Future<List<String>> Function(String privateKey) run,
   ) async {
+    checkActive?.call();
     final privateKey = await keys.privateKey(host.keyId);
+    checkActive?.call();
     if (privateKey == null) {
       return PathScanFailed(ReasonLine.keyRejected.words);
     }
     try {
-      return PathScanFound(await run(privateKey));
+      final result = await run(privateKey);
+      checkActive?.call();
+      return PathScanFound(result);
     } on HerdrFailure catch (error) {
       debugPrint('dazzle.paths ${host.name}: ${error.detail ?? error}');
       return PathScanFailed(error.reason(host.name));
@@ -112,5 +119,10 @@ final pathScannerProvider = Provider(
     fetch: const HerdrClient().fetchPaths,
     fetchModels: const HerdrClient().fetchModels,
     keys: ref.watch(ed25519KeysProvider),
+    checkActive: ref
+        .watch(pluginDataGateProvider)
+        ?.lease('host.workspaces')
+        .check,
   ),
+  dependencies: [pluginDataGateProvider],
 );

@@ -1,0 +1,327 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/plugin_api.dart';
+import 'package:dazzle/data/plugin_inventory.dart';
+import 'package:dazzle/data/repositories/settings_repository.dart';
+import 'package:dazzle/data/repositories/note_repository.dart';
+import 'package:dazzle/data/repositories/activity_repository.dart';
+import 'package:dazzle/data/repositories/attachment_repository.dart';
+import 'package:dazzle/data/repositories/project_repository.dart';
+import 'package:dazzle/data/repositories/task_repository.dart';
+import 'package:dazzle/platform/plugins/access.dart';
+import 'package:dazzle/platform/plugins/manifest.dart';
+import 'package:dazzle/platform/plugins/store.dart';
+import 'package:dazzle/platform/plugins/usage.dart';
+import 'package:drift/native.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+PluginPackage builtinFixture(String name) => PluginPackage(
+  manifest: PluginManifest.parse(
+    File('lib/plugins/$name/dazzle.plugin.toml').readAsStringSync(),
+    allowNative: true,
+  ),
+  source: File('lib/plugins/$name/main.dart').readAsStringSync(),
+  origin: 'bundled:dazzle.$name',
+  revision: '1.0.0',
+);
+
+List<InstalledPlugin> enabledBuiltins() => [
+  for (final name in ['drops', 'projects'])
+    InstalledPlugin(
+      builtinFixture(name),
+      builtinFixture(name).manifest.permissions,
+    ),
+];
+
+void main() {
+  test(
+    'fresh defaults survive closing and reopening before catalog creation',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'dazzle-fresh-marker-',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final file = File('${root.path}/app.sqlite');
+      final fresh = AppDatabase(NativeDatabase(file));
+      expect(
+        await SettingsRepository(fresh)
+            .flag('builtin_auto_enable', orElse: true),
+        isFalse,
+      );
+      await fresh.close();
+      final reopened = AppDatabase(NativeDatabase(file));
+      addTearDown(reopened.close);
+      expect(
+        await SettingsRepository(reopened)
+            .flag('builtin_auto_enable', orElse: true),
+        isFalse,
+      );
+      await (reopened.delete(
+        reopened.settings,
+      )..where((s) => s.key.equals('builtin_auto_enable'))).go();
+      expect(
+        await SettingsRepository(reopened)
+            .flag('builtin_auto_enable', orElse: true),
+        isTrue,
+      );
+    },
+  );
+
+  test('native counters persist without resurrecting subscriptions', () async {
+    final root = await Directory.systemTemp.createTemp('dazzle-native-usage-');
+    addTearDown(() => root.delete(recursive: true));
+    final file = NativeUsageFile(File('${root.path}/usage.json'));
+    final authority = PluginAuthority(persistUsage: file.write);
+    authority.update(enabledBuiltins());
+    final lease = authority.acquire('dazzle.projects', 'items');
+    await lease.call(() async => 1);
+    expect(lease.read(() => 2), 2);
+    expect(
+      () => authority.acquire('dazzle.drops', 'projects'),
+      throwsA(isA<PluginException>()),
+    );
+    await authority.close();
+    final restored = PluginAuthority(usage: await file.read());
+    addTearDown(restored.close);
+    expect(restored.usage('dazzle.projects')['items']!.calls, 2);
+    expect(restored.usage('dazzle.projects')['items']!.activeSubscriptions, 0);
+    expect(restored.usage('dazzle.drops')['projects']!.rejected, 1);
+    await file.file.writeAsString('{"version": 99}');
+    await expectLater(file.read(), throwsA(isA<PluginException>()));
+    expect(await file.file.readAsString(), '{"version": 99}');
+  });
+
+  test(
+    'dataset inventory partitions notes and measures retained image bytes',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'dazzle-native-inventory-',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      await Directory('${root.path}/attachments').create();
+      final image = File('${root.path}/attachments/retained.png');
+      await image.writeAsBytes([1, 2, 3, 4, 5]);
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final activity = ActivityRepository(db);
+      final tasks = TaskRepository(db, activity);
+      final project = await ProjectRepository(
+        db,
+        activity,
+      ).create(name: 'Retain project');
+      final item = await tasks.capture(
+        'Retain drop',
+        attachments: const [NewAttachment.image('attachments/retained.png')],
+      );
+      final notes = NoteRepository(db, activity);
+      await notes.create(
+        content: 'Item note',
+        taskId: item,
+        projectId: project,
+      );
+      await notes.create(content: 'Project note', projectId: project);
+      await notes.create(content: 'Unfiled note');
+      final inspector = builtinDatasetInspector(db, attachmentDirectory: root);
+      final drops = await inspector.inspect(builtinFixture('drops').manifest);
+      final projects = await inspector.inspect(
+        builtinFixture('projects').manifest,
+      );
+      expect(drops.singleWhere((d) => d.name == 'items').records, 1);
+      expect(drops.singleWhere((d) => d.name == 'notes').records, 2);
+      expect(projects.singleWhere((d) => d.name == 'notes').records, 1);
+      expect(drops.singleWhere((d) => d.name == 'attachments').fileBytes, 5);
+      expect(drops.every((d) => d.fieldBytes > 0), isTrue);
+      expect(await image.readAsBytes(), [1, 2, 3, 4, 5]);
+    },
+  );
+
+  test('bundled features declare real datasets, APIs and dependency', () {
+    final plugins = enabledBuiltins();
+    expect(plugins.map((p) => p.manifest.name), ['Drops', 'Projects']);
+    expect(
+      plugins.every((p) => p.manifest.native && p.manifest.actions.isEmpty),
+      isTrue,
+    );
+    expect(plugins.every((p) => p.manifest.hostDatasets.length == 3), isTrue);
+    expect(resolvePlugins({for (final p in plugins) p.id: p.manifest}), [
+      'dazzle.drops',
+      'dazzle.projects',
+    ]);
+    expect(
+      () => PluginManifest.parse(plugins.first.manifest.source),
+      throwsA(isA<PluginException>()),
+    );
+  });
+
+  test(
+    'fresh installs stay disabled; adoption and later choices persist',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'dazzle-native-catalog-',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final packages = [builtinFixture('drops'), builtinFixture('projects')];
+      final fresh = PluginStore(Directory('${root.path}/fresh'));
+      expect(
+        (await fresh.synchronizeBuiltins(
+          packages,
+          adoptEnabled: false,
+        )).every((p) => !p.enabled),
+        isTrue,
+      );
+      expect(
+        (await fresh.synchronizeBuiltins(
+          packages,
+          adoptEnabled: true,
+        )).every((p) => !p.enabled),
+        isTrue,
+      );
+      final existing = PluginStore(Directory('${root.path}/existing'));
+      expect(
+        (await existing.synchronizeBuiltins(
+          packages,
+          adoptEnabled: true,
+        )).every((p) => p.enabled),
+        isTrue,
+      );
+      await expectLater(
+        existing.setEnabled('dazzle.drops', false),
+        throwsA(isA<PluginException>()),
+      );
+      await expectLater(
+        existing.remove('dazzle.projects'),
+        throwsA(isA<PluginException>()),
+      );
+      await existing.setEnabled('dazzle.projects', false);
+      await existing.setEnabled('dazzle.drops', false);
+      expect(
+        (await PluginStore(existing.directory).synchronizeBuiltins(
+          packages,
+          adoptEnabled: true,
+        )).every((p) => !p.enabled),
+        isTrue,
+      );
+    },
+  );
+
+  test('grants isolate datasets and stale handles never reactivate', () async {
+    final authority = PluginAuthority();
+    addTearDown(authority.close);
+    final entries = enabledBuiltins();
+    authority.update(entries);
+    expect(
+      () => authority.acquire('dazzle.drops', 'projects'),
+      throwsA(isA<PluginException>()),
+    );
+    final lease = authority.acquire('dazzle.projects', 'items');
+    expect(await lease.call(() async => 7), 7);
+    authority.update([entries.first, entries.last.withEnabled(false)]);
+    await expectLater(
+      lease.call(() async => 8),
+      throwsA(isA<PluginException>()),
+    );
+    authority.update(entries);
+    await expectLater(
+      lease.call(() async => 9),
+      throwsA(isA<PluginException>()),
+    );
+    expect(
+      await authority.acquire('dazzle.projects', 'items').call(() async => 10),
+      10,
+    );
+  });
+
+  test('disable cancels subscriptions and records rejection', () async {
+    final authority = PluginAuthority();
+    addTearDown(authority.close);
+    final entries = enabledBuiltins();
+    authority.update(entries);
+    final source = StreamController<int>();
+    addTearDown(source.close);
+    final lease = authority.acquire('dazzle.projects', 'items');
+    final done = Completer<void>();
+    final values = <int>[];
+    final errors = <Object>[];
+    lease
+        .watch(() => source.stream)
+        .listen(values.add, onError: errors.add, onDone: done.complete);
+    source.add(1);
+    await Future<void>.delayed(Duration.zero);
+    authority.update([entries.first, entries.last.withEnabled(false)]);
+    await done.future;
+    expect(values, [1]);
+    expect(errors.single, isA<PluginException>());
+    expect(source.hasListener, isFalse);
+    expect(lease.usage.activeSubscriptions, 0);
+  });
+
+  test(
+    'real APIs retain rows and attachments across both plugin lifecycles',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final activity = ActivityRepository(db);
+      final backend = TaskRepository(db, activity);
+      final id = await backend.capture(
+        'Existing drop',
+        attachments: const [NewAttachment.image('images/retained.png')],
+      );
+      final project = await ProjectRepository(
+        db,
+        activity,
+      ).create(name: 'Existing project');
+      final authority = PluginAuthority();
+      addTearDown(authority.close);
+      final entries = enabledBuiltins();
+      authority.update(entries);
+      final api = PluginTaskApi(
+        backend,
+        PluginDataGate(db, authority, 'dazzle.projects'),
+      );
+      expect((await api.watchById(id).first)!.title, 'Existing drop');
+      authority.update(entries.map((p) => p.withEnabled(false)));
+      expect(() => api.watchById(id), throwsA(isA<PluginException>()));
+      expect((await backend.watchById(id).first)!.title, 'Existing drop');
+      expect(
+        (await AttachmentRepository(db).forItem(id)).single.value,
+        'images/retained.png',
+      );
+      expect(
+        (await ProjectRepository(db, activity).watchById(project).first)!.name,
+        'Existing project',
+      );
+      authority.update(entries);
+      expect(() => api.watchById(id), throwsA(isA<PluginException>()));
+      final restored = PluginTaskApi(
+        backend,
+        PluginDataGate(db, authority, 'dazzle.drops'),
+      );
+      await restored.edit(id, title: 'Edited through API');
+      expect((await restored.watchById(id).first)!.title, 'Edited through API');
+    },
+  );
+
+  test(
+    'revocation before commit rolls the in-flight native write back',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final backend = TaskRepository(db, ActivityRepository(db));
+      final authority = PluginAuthority();
+      addTearDown(authority.close);
+      final entries = enabledBuiltins();
+      authority.update(entries);
+      final gate = PluginDataGate(db, authority, 'dazzle.drops');
+      await expectLater(
+        gate.call('items', () async {
+          await backend.capture('Must roll back');
+          authority.update(entries.map((p) => p.withEnabled(false)));
+        }),
+        throwsA(isA<PluginException>()),
+      );
+      expect(await backend.watchDrops().first, isEmpty);
+    },
+  );
+}

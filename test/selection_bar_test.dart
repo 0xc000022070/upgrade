@@ -1,3 +1,5 @@
+import 'support/native_plugins.dart';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/app/dazzle_app.dart';
 import 'package:dazzle/app/nav_shell.dart';
 import 'package:dazzle/application/drop_selection.dart';
-import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/enums.dart';
 import 'package:dazzle/data/repositories/activity_repository.dart';
@@ -68,14 +69,14 @@ void main() {
   tearDown(() => db.close());
 
   Widget host() => ProviderScope(
-    overrides: [databaseProvider.overrideWithValue(db)],
+    overrides: [...featureTestOverrides(db)],
     child: const MaterialApp(home: Scaffold(body: HomeScreen())),
   );
 
   /// The tab shell itself, for the claims that are about leaving one tab for
   /// the other. `BootGate` is the app's, not the shell's, so it is not here.
   Widget shell() => ProviderScope(
-    overrides: [databaseProvider.overrideWithValue(db)],
+    overrides: [...featureTestOverrides(db)],
     child: const MaterialApp(home: DazzleShell()),
   );
 

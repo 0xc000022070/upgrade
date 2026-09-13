@@ -84,7 +84,7 @@ void main() {
   test('a row comes back column for column', () async {
     await _seed(a);
     final dumped = await RawTables(a).dump();
-    expect(await RawTables(b).restore(dumped), 4);
+    expect(await RawTables(b).restore(dumped), 5);
 
     final task = await (b.select(b.tasks)).getSingle();
     expect(task.title, 'carry the phone');
@@ -99,7 +99,12 @@ void main() {
     final attachment = await (b.select(b.attachments)).getSingle();
     expect(attachment.kind, AttachmentKind.image);
     expect(attachment.value, 'attachments/a1.jpg');
-    expect((await b.select(b.settings).getSingle()).value, 'dusk');
+    expect(
+      (await (b.select(
+        b.settings,
+      )..where((s) => s.key.equals('theme'))).getSingle()).value,
+      'dusk',
+    );
   });
 
   test('a second restore is the same phone as the first', () async {
@@ -119,7 +124,7 @@ void main() {
       {'id': 'f1'},
     ];
     dumped['tasks']!.first['favouriteColour'] = 'green';
-    expect(await RawTables(b).restore(dumped), 4);
+    expect(await RawTables(b).restore(dumped), 5);
     expect((await b.select(b.tasks).getSingle()).title, 'carry the phone');
   });
 
@@ -132,7 +137,10 @@ void main() {
       bytes,
     ]);
     final dumped = await RawTables(a).dump();
-    expect(dumped['settings']!.single['value'], {'b64': base64Encode(bytes)});
+    expect(
+      dumped['settings']!.singleWhere((row) => row['key'] == 'k')['value'],
+      {'b64': base64Encode(bytes)},
+    );
     expect(() => jsonEncode(dumped), returnsNormally);
 
     await RawTables(b).restore(dumped);

@@ -446,4 +446,4 @@ final bundleTransferProvider = Provider<BundleTransfer>((ref) {
     attachments: const FileAttachmentBytes(),
     atomically: db.transaction,
   );
-});
+}, dependencies: [pathRepositoryProvider]);

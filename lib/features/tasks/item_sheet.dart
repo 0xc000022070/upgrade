@@ -27,12 +27,13 @@ import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/browser.dart';
 import '../home/agent_mark.dart';
-import 'image_input.dart';
+import '../../application/attachment_files.dart';
 import 'image_viewer.dart';
 import 'item_pickers.dart';
 import 'item_send.dart';
 import 'link_text.dart';
 import 'plugin_actions.dart';
+import '../../application/native_plugins.dart';
 
 /// The quick view. Row tap and long press both land here; there is no separate
 /// action sheet any more.
@@ -40,7 +41,11 @@ Future<void> openItemSheet(BuildContext context, String taskId) {
   return showPanelSheet<void>(
     context,
     title: 'ITEM',
-    builder: (_) => ItemSheet(taskId: taskId),
+    builder: (_) => inheritPluginScope(
+      context,
+      ItemSheet(taskId: taskId),
+      surface: 'item.detail',
+    ),
   );
 }
 
@@ -222,7 +227,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
 
   /// The gallery, and nothing between it and the chip.
   Future<void> _image() async {
-    final path = await ImageAttachments.pick();
+    final path = await ref.read(attachmentFilesProvider).pick();
     if (!mounted || path == null) return;
     setState(() => _pending.add(NewAttachment.image(path)));
     // The picker took the focus to another activity; without this the strip and
@@ -255,7 +260,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   Future<void> _detach(Attachment attachment) async {
     await ref.read(attachmentRepositoryProvider).delete(attachment.id);
     if (attachment.kind == AttachmentKind.image) {
-      await ImageAttachments.remove(attachment.value);
+      await ref.read(attachmentFilesProvider).remove(attachment.value);
     }
   }
 
@@ -353,9 +358,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           label: 'BLOCKED BY',
           child: Text(
             task.blockedReason!,
-            style: DazzleText.rowSubtitle.copyWith(
-              color: DazzleColors.warning,
-            ),
+            style: DazzleText.rowSubtitle.copyWith(color: DazzleColors.warning),
           ),
         ),
       ],
@@ -504,7 +507,9 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           if (attachment.kind == AttachmentKind.image)
             ToolbarChip.image(
               imagePath:
-                  ImageAttachments.absolute(attachment.value) ??
+                  ref
+                      .read(attachmentFilesProvider)
+                      .absolute(attachment.value) ??
                   attachment.value,
               onRemove: () => setState(() => _pending.remove(attachment)),
             )
@@ -681,7 +686,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
 }
 
 /// A 56px square in the readout.
-class _Square extends StatelessWidget {
+class _Square extends ConsumerWidget {
   const _Square({
     required this.attachment,
     required this.onTap,
@@ -693,8 +698,8 @@ class _Square extends StatelessWidget {
   final VoidCallback onLongPress;
 
   @override
-  Widget build(BuildContext context) {
-    final path = ImageAttachments.absolute(attachment.value);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final path = ref.read(attachmentFilesProvider).absolute(attachment.value);
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,

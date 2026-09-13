@@ -32,8 +32,12 @@ abstract final class ImageAttachments {
 
   /// Null before [init] has run — in a widget test, which has no platform
   /// channels and no images to show either.
-  static String? absolute(String relative) =>
-      _root == null ? null : p.join(_root!, relative);
+  static String? absolute(String relative) {
+    final root = _root;
+    if (root == null || p.isAbsolute(relative)) return null;
+    final resolved = p.normalize(p.join(root, relative));
+    return p.isWithin(p.join(root, _dir), resolved) ? resolved : null;
+  }
 
   /// Gallery only, no camera. Returns the relative path of the copy, or
   /// null when the picker was dismissed.

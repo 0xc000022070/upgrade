@@ -1,9 +1,7 @@
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:dazzle_luau/dazzle_luau.dart';
 import 'package:dazzle_luau/data_api.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -11,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../platform/plugins/bindings.dart';
 import '../platform/plugins/manifest.dart';
 import '../platform/plugins/store.dart';
+import 'native_plugins.dart';
 
 final pluginStoreProvider = FutureProvider<PluginStore>((ref) async {
   final directory = await getApplicationSupportDirectory();
@@ -94,6 +93,16 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
     for (final target in affected) {
       _generations[target] = (_generations[target] ?? 0) + 1;
     }
+    final authority = ref.read(pluginAuthorityProvider);
+    authority.update(state.requireValue);
+    for (final module in ref.read(nativeModulesProvider)) {
+      if (affected.contains(module.id)) module.deactivate?.call(ref);
+    }
+    ref.invalidate(nativeDatasetReportProvider);
+    await authority.flush();
+    if (!entries.any((p) => affected.contains(p.id) && !p.manifest.native)) {
+      return;
+    }
     final runtime = await ref.read(pluginRuntimeProvider.future);
     await runtime.invalidateOwners([
       for (final plugin in entries.where((p) => affected.contains(p.id)))
@@ -103,8 +112,11 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
   }
 
   @override
-  Future<List<InstalledPlugin>> build() async =>
-      (await ref.watch(pluginStoreProvider.future)).list();
+  Future<List<InstalledPlugin>> build() async {
+    final entries = await (await ref.watch(pluginStoreProvider.future)).list();
+    ref.read(pluginAuthorityProvider).update(entries);
+    return entries;
+  }
 
   Future<void> install(PluginPackage package) async {
     final store = await ref.read(pluginStoreProvider.future);
@@ -216,20 +228,4 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
       throw const PluginException('Record changed; run the action again');
     }
   }
-}
-
-Future<PluginPackage> examplePlugin({bool dependent = false}) async {
-  final name = dependent ? 'record-restore' : 'record-text';
-  final manifest = await rootBundle.loadString(
-    'plugins/$name/dazzle.plugin.toml',
-  );
-  final source = await rootBundle.loadString('plugins/$name/main.luau');
-  return Isolate.run(
-    () => PluginPackage(
-      manifest: PluginManifest.parse(manifest),
-      source: source,
-      origin: 'bundled:dazzle.$name',
-      revision: '2.0.0',
-    ),
-  );
 }

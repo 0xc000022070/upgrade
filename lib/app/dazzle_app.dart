@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/drop_selection.dart';
 import '../application/fresh_drops.dart';
 import '../application/navigation.dart';
+import '../application/native_plugins.dart';
 import '../design/colors.dart';
 import '../design/effects/screen_entry.dart';
 import '../design/theme.dart';
@@ -12,7 +13,6 @@ import '../design/typography.dart';
 import '../features/agents/agent_status_bar.dart';
 import '../features/home/home_screen.dart';
 import '../features/hosts/hosts_screen.dart';
-import '../features/projects/projects_screen.dart';
 import '../features/shell/parked_shell_bar.dart';
 import '../features/shell/shell_wake.dart';
 import '../features/ssh/ssh_screen.dart';
@@ -110,12 +110,22 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
   @override
   Widget build(BuildContext context) {
     ref.listen<int>(navIndexProvider, (_, next) => _onIndexChanged(next));
-    final index = ref.watch(navIndexProvider);
+    final selectedIndex = ref.watch(navIndexProvider);
+    final contribution = ref.watch(
+      nativeSurfaceOwnerProvider('navigation.page'),
+    );
+    final visibleIndices = [0, if (contribution != null) 1, 2, 3];
+    final index = visibleIndices.contains(selectedIndex) ? selectedIndex : 0;
+    if (index != selectedIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(navIndexProvider.notifier).state = 0;
+      });
+    }
     final glitch = ref.watch(navGlitchProvider);
 
     const screens = <Widget>[
       HomeScreen(),
-      ProjectsScreen(),
+      NativeSurface('navigation.page'),
       HostsScreen(),
       SshScreen(),
     ];
@@ -154,6 +164,8 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
                 const AgentStatusBar(),
                 const ParkedShellBar(),
                 NavBar(
+                  visibleIndices: visibleIndices,
+                  contributedLabel: contribution?.manifest.name.toUpperCase(),
                   currentIndex: index,
                   onSelected: (next) =>
                       ref.read(navIndexProvider.notifier).state = next,

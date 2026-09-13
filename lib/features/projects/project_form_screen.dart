@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/project_tree.dart';
 import '../../application/providers.dart';
+import '../../application/native_plugins.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
 import '../../design/colors.dart';
@@ -30,7 +31,11 @@ void openProjectForm(
 }) {
   Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute<void>(
-      builder: (_) => ProjectFormScreen(project: project, parentId: parentId),
+      builder: (_) => inheritPluginScope(
+        context,
+        ProjectFormScreen(project: project, parentId: parentId),
+        surface: 'project.detail',
+      ),
     ),
   );
 }
