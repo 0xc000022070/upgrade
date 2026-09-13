@@ -13,8 +13,8 @@ import '../host_keys.dart';
 abstract interface class ShellConnection {
   ShellTransport get transport;
 
-  /// Whether this channel started a durable remote shell, found one, or had
-  /// to fall back to a plain SSH shell because the host has no tmux client.
+  /// Whether this channel started or resumed an explicitly requested durable
+  /// target. Ordinary and Herdr sessions are plain at this boundary.
   ShellContinuity get continuity;
 
   /// What the shell prints, stdout and stderr in arrival order.
@@ -37,9 +37,8 @@ abstract interface class ShellConnection {
   /// has nothing to do here; Mosh rebinds its UDP socket.
   Future<void> rehome();
 
-  /// Ends this tab's marked Mosh server and, for an ordinary durable shell,
-  /// its Dazzle-owned tmux session. True means the pending cleanup may be
-  /// forgotten.
+  /// Ends this tab's marked Mosh server and, only when explicitly requested,
+  /// its durable shell. True means the pending cleanup may be forgotten.
   Future<bool> terminateRemote(String session, {required bool durableShell});
 
   /// The active pane's directory in one Dazzle-owned remote shell.

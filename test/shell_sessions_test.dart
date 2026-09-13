@@ -819,7 +819,7 @@ void main() {
     expect(session.state, isA<ShellLive>());
     expect(transport.opened, hasLength(2));
     // The scrollback the dead shell left, then the mark, then the new one.
-    expect(session.terminal.buffer.getText(), contains('-- reattached --'));
+    expect(session.terminal.buffer.getText(), contains('-- reconnected --'));
     // Nothing on a timer asks about a host key: the schedule runs with nobody
     // looking at the route.
     expect(transport.verifiers.last?.prompt, isNull);
@@ -1357,15 +1357,15 @@ void main() {
     test('a killed app comes back on the tabs it had', () async {
       final tabs = InMemoryShellTabRepository();
       final before = fakeShellSessions(FakeShellTransport(), tabs: tabs);
-      final beforeRose = [before.open(_rose)!, before.open(_rose)!];
-      final beforeNyx = before.open(_nyx)!;
+      before.open(_rose);
+      before.open(_rose);
+      before.open(_nyx);
       before.activate(_rose.id, before.forHost(_rose.id).first);
       await _settle();
 
       // A second store over the same table is what the next process is: the
       // connections are gone, the rows are not.
-      final transport = FakeShellTransport()
-        ..continuity = ShellContinuity.resumed;
+      final transport = FakeShellTransport();
       final after = fakeShellSessions(transport, tabs: tabs);
       expect(await after.restore(hosts), 3);
 
@@ -1373,13 +1373,10 @@ void main() {
       expect(after.forHost(_nyx.id).map((session) => session.number), [1]);
       await _settle();
       expect(transport.opened, hasLength(3));
-      expect(transport.persistentSessions, [
-        ...beforeRose.map((session) => session.remoteSession),
-        beforeNyx.remoteSession,
-      ]);
+      expect(transport.persistentSessions, [null, null, null]);
       expect(
         after.forHost(_rose.id).first.terminal.buffer.getText(),
-        contains('-- session restored --'),
+        contains('-- reconnected --'),
       );
       // And the tab the user left in front is the one that comes back in front.
       expect(after.activeFor(_rose.id)!.number, 1);
@@ -1532,7 +1529,7 @@ void main() {
       await sessions.close(_rose.id, session);
 
       expect(transport.opened.single.terminated, [
-        (session: session.remoteSession!, durableShell: true),
+        (session: session.remoteSession!, durableShell: false),
       ]);
       expect(await tabs.all(), isEmpty);
       expect(await tabs.retired(_rose.id), isEmpty);
@@ -1560,7 +1557,7 @@ void main() {
 
       expect(
         transport.opened.last.terminated,
-        contains((session: first.remoteSession!, durableShell: true)),
+        contains((session: first.remoteSession!, durableShell: false)),
       );
       expect(await tabs.retired(_rose.id), isEmpty);
 
