@@ -682,7 +682,9 @@ void main() {
 
       expect(await db.select(db.goals).get(), isEmpty);
       expect(await db.select(db.attachments).get(), isEmpty);
-      expect(await db.select(db.settings).get(), isEmpty);
+      expect(await db.select(db.settings).get(), [
+        const Setting(key: 'builtin_auto_enable', value: '0'),
+      ]);
       expect(await db.select(db.keys).get(), isEmpty);
       expect(await db.select(db.hosts).get(), isEmpty);
       expect(await db.select(db.paths).get(), isEmpty);

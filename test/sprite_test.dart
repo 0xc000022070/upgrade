@@ -1,3 +1,5 @@
+import 'support/native_plugins.dart';
+
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -10,7 +12,6 @@ import 'package:dazzle/app/alerts_boot.dart';
 import 'package:dazzle/app/splash_route.dart';
 import 'package:dazzle/application/agents.dart';
 import 'package:dazzle/application/alerts.dart';
-import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/activity_repository.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
@@ -236,7 +237,7 @@ void main() {
 
     Widget scope(Widget home) => ProviderScope(
       overrides: [
-        databaseProvider.overrideWithValue(db),
+        ...featureTestOverrides(db),
         agentsFeedProvider.overrideWith(
           (ref) => Stream.value(const AgentPanelState.noHost()),
         ),
@@ -318,7 +319,7 @@ void main() {
       final id = await projects.create(name: 'Drone FPV');
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [databaseProvider.overrideWithValue(db)],
+          overrides: [...featureTestOverrides(db)],
           child: MaterialApp(home: ProjectDetailScreen(projectId: id)),
         ),
       );
@@ -341,7 +342,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            databaseProvider.overrideWithValue(db),
+            ...featureTestOverrides(db),
             agentsFeedProvider.overrideWith(
               (ref) => Stream.value(const AgentPanelState.noHost()),
             ),
@@ -379,7 +380,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            databaseProvider.overrideWithValue(db),
+            ...featureTestOverrides(db),
             agentsFeedProvider.overrideWith(
               (ref) => Stream.value(
                 const AgentPanelState([
@@ -415,7 +416,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            databaseProvider.overrideWithValue(db),
+            ...featureTestOverrides(db),
             agentsFeedProvider.overrideWith(
               (ref) => Stream.value(
                 const AgentPanelState([

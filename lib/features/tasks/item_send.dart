@@ -21,7 +21,7 @@ import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../hosts/path_picker_sheet.dart';
 import '../home/agent_mark.dart';
-import 'image_input.dart';
+import '../../application/attachment_files.dart';
 
 /// Where the send is: choosing a workspace, or pointed at one.
 ///
@@ -200,7 +200,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
       imagePaths: [
         for (final attachment in attachments)
           if (attachment.kind == AttachmentKind.image)
-            ?ImageAttachments.absolute(attachment.value),
+            ?ref.read(attachmentFilesProvider).absolute(attachment.value),
       ],
     );
     if (!mounted) return;

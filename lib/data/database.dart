@@ -40,6 +40,12 @@ class AppDatabase extends _$AppDatabase {
   /// debug fixture, still recreates.
   @override
   MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) async {
+      await m.createAll();
+      await into(settings).insert(
+        SettingsCompanion.insert(key: 'builtin_auto_enable', value: '0'),
+      );
+    },
     onUpgrade: (m, from, to) async {
       if (from < 2) {
         for (final table in allTables) {

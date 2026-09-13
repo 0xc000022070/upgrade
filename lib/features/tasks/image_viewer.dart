@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'image_input.dart';
+import '../../application/attachment_files.dart';
+import '../../application/native_plugins.dart';
 
 /// Black, pinch to zoom, back to close. A route rather than a
 /// dialog — this is the one surface in the app that wants the whole screen,
@@ -12,19 +14,23 @@ Future<void> openImageViewer(BuildContext context, String relative) {
     PageRouteBuilder<void>(
       opaque: true,
       barrierColor: const Color(0xFF000000),
-      pageBuilder: (_, _, _) => _ImageViewer(relative: relative),
+      pageBuilder: (_, _, _) => inheritPluginScope(
+        context,
+        _ImageViewer(relative: relative),
+        surface: 'item.detail',
+      ),
     ),
   );
 }
 
-class _ImageViewer extends StatelessWidget {
+class _ImageViewer extends ConsumerWidget {
   const _ImageViewer({required this.relative});
 
   final String relative;
 
   @override
-  Widget build(BuildContext context) {
-    final path = ImageAttachments.absolute(relative);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final path = ref.read(attachmentFilesProvider).absolute(relative);
     return ColoredBox(
       color: const Color(0xFF000000),
       child: GestureDetector(

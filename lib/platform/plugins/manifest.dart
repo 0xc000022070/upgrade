@@ -57,6 +57,13 @@ class PluginDataset {
   );
 }
 
+class PluginHostDataset {
+  const PluginHostDataset(this.name, this.schemaVersion, this.service);
+  final String name;
+  final int schemaVersion;
+  final String service;
+}
+
 class PluginCapability {
   PluginCapability(
     this.alias,
@@ -90,10 +97,16 @@ class PluginManifest {
     required this.actions,
     required this.datasets,
     required this.capabilities,
+    this.runtimeKind = 'luau',
+    this.services = const {},
+    this.exports = const {},
+    this.surfaces = const {},
+    this.hostDatasets = const {},
     this.formatVersion = manifestVersion,
     this.incompatibility,
   });
   static const manifestVersion = 2;
+  static const nativeManifestVersion = 3;
   static const maxBytes = 16 * 1024;
   static final apiVersion = Version(2, 0, 0);
   final String source;
@@ -107,6 +120,12 @@ class PluginManifest {
   final List<PluginAction> actions;
   final Map<String, PluginDataset> datasets;
   final Map<String, PluginCapability> capabilities;
+  final String runtimeKind;
+  final Map<String, String> services;
+  final Map<String, String> exports;
+  final Set<String> surfaces;
+  final Map<String, PluginHostDataset> hostDatasets;
+  bool get native => runtimeKind == 'native';
   final int formatVersion;
   final String? incompatibility;
   bool get supported => incompatibility == null;
@@ -114,6 +133,7 @@ class PluginManifest {
   factory PluginManifest.parse(
     String source, {
     bool retainUnsupported = false,
+    bool allowNative = false,
   }) {
     if (utf8.encode(source).length > maxBytes) {
       throw const PluginException('Manifest exceeds 16 KiB');
@@ -132,11 +152,15 @@ class PluginManifest {
       );
       final runtime = _map(root['runtime'], 'runtime');
       final entry = _text(runtime['entry'], 'entry', 200);
-      final incompatible = format != manifestVersion
+      final native =
+          runtime['kind'] == 'native' && format == nativeManifestVersion;
+      final incompatible = format != manifestVersion && !native
           ? 'Unsupported manifest version $format'
           : !api.allows(apiVersion)
           ? 'Plugin requires Dazzle API $api'
-          : runtime['kind'] != 'luau'
+          : native && !allowNative
+          ? 'Native plugins must be bundled with Dazzle'
+          : runtime['kind'] != 'luau' && !native
           ? 'Unsupported plugin runtime'
           : null;
       if (incompatible != null) {
@@ -155,6 +179,119 @@ class PluginManifest {
           capabilities: const {},
           formatVersion: format,
           incompatibility: incompatible,
+        );
+      }
+      if (native) {
+        _keys(root, {
+          'manifest_version',
+          'id',
+          'name',
+          'version',
+          'dazzle_api',
+          'runtime',
+          'dependencies',
+          'services',
+          'exports',
+          'contributes',
+          'datasets',
+        });
+        _keys(runtime, {'kind', 'entry'});
+        if (!RegExp(r'^[a-z][a-z0-9_/-]*\.dart$').hasMatch(entry) ||
+            entry.split('/').contains('')) {
+          throw const PluginException(
+            'Native entry must be a relative .dart path',
+          );
+        }
+        final dependencies = <String, VersionConstraint>{};
+        final declared = _map(
+          root['dependencies'] ?? <String, Object?>{},
+          'dependencies',
+        );
+        if (declared.length > 16) {
+          throw const PluginException('Too many dependencies');
+        }
+        for (final dependency in declared.entries) {
+          final target = _identifier(dependency.key);
+          if (target == id) {
+            throw const PluginException('Plugin depends on itself');
+          }
+          dependencies[target] = VersionConstraint.parse(
+            _text(dependency.value, 'dependency version', 128),
+          );
+        }
+        Map<String, String> contracts(String field) {
+          final values = _map(root[field] ?? <String, Object?>{}, field);
+          if (values.length > 16) throw PluginException('Too many $field');
+          return {
+            for (final item in values.entries)
+              _identifier(item.key): _contract(item.value),
+          };
+        }
+
+        final services = contracts('services');
+        final exports = contracts('exports');
+        if (exports.keys.any((name) => name.startsWith('host.'))) {
+          throw const PluginException('Host service names are reserved');
+        }
+        final datasets = <String, PluginHostDataset>{};
+        final declaredDatasets = _map(root['datasets'], 'datasets');
+        if (declaredDatasets.isEmpty || declaredDatasets.length > 8) {
+          throw const PluginException('Declare between 1 and 8 owned datasets');
+        }
+        for (final dataset in declaredDatasets.entries) {
+          final fields = _map(dataset.value, 'dataset');
+          _keys(fields, {'schema_version', 'service'});
+          final name = _dataName(dataset.key);
+          final service = _identifier(fields['service']);
+          if (!exports.containsKey(service)) {
+            throw const PluginException(
+              'Owned dataset must name its exported API',
+            );
+          }
+          datasets[name] = PluginHostDataset(
+            name,
+            _integer(fields['schema_version'], 'schema version', 1000000),
+            service,
+          );
+        }
+        final contributes = _map(root['contributes'], 'contributes');
+        _keys(contributes, {'surfaces'});
+        final values = contributes['surfaces'];
+        if (values is! List<Object?> || values.isEmpty || values.length > 8) {
+          throw const PluginException(
+            'Declare between 1 and 8 native surfaces',
+          );
+        }
+        final surfaces = values.map(_identifier).toSet();
+        if (surfaces.length != values.length) {
+          throw const PluginException('Duplicate native surface');
+        }
+        return PluginManifest._(
+          source: source,
+          id: id,
+          name: name,
+          version: version,
+          api: api,
+          entry: entry,
+          runtimeKind: 'native',
+          formatVersion: format,
+          services: Map.unmodifiable(services),
+          exports: Map.unmodifiable(exports),
+          surfaces: Set.unmodifiable(surfaces),
+          hostDatasets: Map.unmodifiable(datasets),
+          dependencies: Map.unmodifiable(dependencies),
+          actions: const [],
+          datasets: const {},
+          capabilities: const {},
+          permissions: Set.unmodifiable({
+            for (final service in services.entries)
+              PluginPermission(
+                'service.${service.key}',
+                'Use ${service.key} (${service.value})',
+              ),
+            for (final surface in surfaces)
+              PluginPermission('ui.$surface', 'Contribute $surface'),
+          }),
         );
       }
       _keys(root, {
@@ -401,6 +538,14 @@ String _contract(Object? value) {
 }
 
 List<String> resolvePlugins(Map<String, PluginManifest> enabled) {
+  final exporters = <String>{};
+  for (final plugin in enabled.values) {
+    for (final service in plugin.exports.keys) {
+      if (!exporters.add(service)) {
+        throw PluginException('Multiple providers export $service');
+      }
+    }
+  }
   final visiting = <String>{};
   final done = <String>{};
   final order = <String>[];
@@ -427,6 +572,26 @@ List<String> resolvePlugins(Map<String, PluginManifest> enabled) {
       if (dataset == null || dataset.exportContract != capability.contract) {
         throw PluginException(
           '${manifest.name} needs exported ${capability.target} ${capability.contract}',
+        );
+      }
+    }
+    for (final service in manifest.services.entries) {
+      final providers = enabled.values.where(
+        (p) => p.exports[service.key] == service.value,
+      );
+      if (providers.length > 1) {
+        throw PluginException('Multiple providers export ${service.key}');
+      }
+      if (providers.isNotEmpty &&
+          providers.single.id != id &&
+          !manifest.dependencies.containsKey(providers.single.id)) {
+        throw PluginException(
+          '${manifest.name} must declare its ${service.key} provider',
+        );
+      }
+      if (providers.isEmpty && !service.key.startsWith('host.')) {
+        throw PluginException(
+          '${manifest.name} needs ${service.key} ${service.value}',
         );
       }
     }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/drop_selection.dart';
 import '../../application/formatting.dart';
 import '../../application/navigation.dart';
+import '../../application/native_plugins.dart';
 import '../../application/providers.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
@@ -43,7 +44,11 @@ void openProjectDetail(BuildContext context, String projectId) {
       // searched for that route — the alternative is counting pops, which is
       // wrong the moment anything else is pushed in between.
       settings: RouteSettings(name: projectRouteName(projectId)),
-      builder: (_) => ProjectDetailScreen(projectId: projectId),
+      builder: (_) => inheritPluginScope(
+        context,
+        ProjectDetailScreen(projectId: projectId),
+        surface: 'project.detail',
+      ),
     ),
   );
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../application/native_plugins.dart';
+
 import '../colors.dart';
 import '../layout.dart';
 import '../motion.dart';
@@ -23,16 +25,20 @@ Future<T?> showPanelSheet<T>(
   required WidgetBuilder builder,
   double maxHeightFraction = 0.86,
 }) {
+  final content = inheritPluginScope(
+    context,
+    _SheetFrame(
+      maxHeightFraction: maxHeightFraction,
+      child: Builder(builder: builder),
+    ),
+  );
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: true,
     barrierLabel: title,
     barrierColor: const Color(0xCC000000),
     transitionDuration: Motion.fast,
-    pageBuilder: (context, animation, secondary) => _SheetFrame(
-      maxHeightFraction: maxHeightFraction,
-      child: Builder(builder: builder),
-    ),
+    pageBuilder: (context, animation, secondary) => content,
     transitionBuilder: (context, animation, secondary, child) {
       return FadeTransition(
         opacity: animation,

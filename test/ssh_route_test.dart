@@ -1,9 +1,10 @@
+import 'support/native_plugins.dart';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/data/repositories/key_repository.dart';
@@ -52,7 +53,7 @@ void main() {
 
   Widget app() => ProviderScope(
     overrides: [
-      databaseProvider.overrideWithValue(db),
+      ...featureTestOverrides(db),
       keyRepositoryProvider.overrideWithValue(keys),
       hostRepositoryProvider.overrideWithValue(hosts),
       shellSessionsProvider.overrideWithValue(sessions),

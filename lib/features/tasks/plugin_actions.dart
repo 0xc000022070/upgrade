@@ -76,7 +76,9 @@ class _PluginDropActionsState extends ConsumerState<PluginDropActions> {
   @override
   Widget build(BuildContext context) {
     final plugins = ref.watch(pluginsProvider).valueOrNull ?? [];
-    final active = plugins.where((p) => p.enabled).toList();
+    final active = plugins
+        .where((p) => p.enabled && p.manifest.actions.isNotEmpty)
+        .toList();
     if (active.isEmpty) return const SizedBox.shrink();
     final proposal = _proposal;
     return Column(

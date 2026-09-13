@@ -126,12 +126,14 @@ class Sender {
     required this.keys,
     required this.dispatches,
     this.readImage = _readFile,
+    this.checkActive,
   });
 
   final HerdrSend send;
   final Ed25519Keys keys;
   final DispatchRepository dispatches;
   final ReadImage readImage;
+  final void Function()? checkActive;
 
   /// [kind] and [model] are the send's, not the path's: where the work goes is
   /// a property of the directory, what picks it up is a property of this send.
@@ -145,11 +147,12 @@ class Sender {
     List<String> imagePaths = const [],
     String? model,
   }) async {
+    checkActive?.call();
     final host = target.host;
-    void log(Object error) =>
-        debugPrint('dazzle.spawn ${host.name}: $error');
+    void log(Object error) => debugPrint('dazzle.spawn ${host.name}: $error');
 
     final privateKey = await keys.privateKey(host.keyId);
+    checkActive?.call();
     if (privateKey == null) {
       log('no private key stored for ${host.keyId}');
       return const SendFailed('key rejected');
@@ -169,6 +172,7 @@ class Sender {
     }
     final SpawnResult result;
     try {
+      checkActive?.call();
       result = await send(
         address: host.address,
         port: host.port,
@@ -185,6 +189,7 @@ class Sender {
       log(error.detail ?? error);
       return SendFailed(error.reason(host.name));
     }
+    checkActive?.call();
     switch (result) {
       // The row is written here and only here: a send that did not come back
       // with a pane never happened, and `[ SENT ]` must not carry a line the
@@ -211,5 +216,10 @@ final senderProvider = Provider(
     send: ref.watch(herdrSendProvider),
     keys: ref.watch(ed25519KeysProvider),
     dispatches: ref.watch(dispatchRepositoryProvider),
+    checkActive: ref
+        .watch(pluginDataGateProvider)
+        ?.lease('host.dispatch')
+        .check,
   ),
+  dependencies: [dispatchRepositoryProvider, pluginDataGateProvider],
 );

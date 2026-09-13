@@ -1,3 +1,5 @@
+import 'support/native_plugins.dart';
+
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -7,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/app/nav_shell.dart';
 import 'package:dazzle/application/navigation.dart';
-import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/design/components/panel.dart';
 import 'package:dazzle/design/components/panel_sheet.dart';
@@ -59,7 +60,7 @@ void main() {
   }
 
   Widget host(Widget child) => ProviderScope(
-    overrides: [databaseProvider.overrideWithValue(db)],
+    overrides: [...featureTestOverrides(db)],
     child: MaterialApp(home: child),
   );
 

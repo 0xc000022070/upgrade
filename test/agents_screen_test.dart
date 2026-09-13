@@ -1,3 +1,5 @@
+import 'support/native_plugins.dart';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,7 +7,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agent_state.dart';
 import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/design/colors.dart';
@@ -64,7 +65,7 @@ void main() {
   /// every screen sits under, so the database is not optional even here.
   Widget host(AgentPanelState state) => ProviderScope(
     overrides: [
-      databaseProvider.overrideWithValue(db),
+      ...featureTestOverrides(db),
       agentsFeedProvider.overrideWith((ref) => Stream.value(state)),
     ],
     child: const MaterialApp(home: AgentsScreen()),
@@ -100,7 +101,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          databaseProvider.overrideWithValue(db),
+          ...featureTestOverrides(db),
           agentsFeedProvider.overrideWith((ref) => Stream.value(state)),
         ],
         child: MaterialApp(

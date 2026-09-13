@@ -1,3 +1,5 @@
+import 'support/native_plugins.dart';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +8,6 @@ import 'package:dazzle/app/dazzle_app.dart';
 import 'package:dazzle/app/nav_shell.dart';
 import 'package:dazzle/application/drop_selection.dart';
 import 'package:dazzle/application/fresh_drops.dart';
-import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/activity_repository.dart';
 import 'package:dazzle/data/repositories/project_repository.dart';
@@ -69,14 +70,14 @@ void main() {
   tearDown(() => db.close());
 
   Widget host() => ProviderScope(
-    overrides: [databaseProvider.overrideWithValue(db)],
+    overrides: [...featureTestOverrides(db)],
     child: const MaterialApp(home: Scaffold(body: HomeScreen())),
   );
 
   /// The tab shell, for the door a tab switch opens: leaving HOME without
   /// leaving the route it lives on.
   Widget shell() => ProviderScope(
-    overrides: [databaseProvider.overrideWithValue(db)],
+    overrides: [...featureTestOverrides(db)],
     child: const MaterialApp(home: DazzleShell()),
   );
 
@@ -228,7 +229,7 @@ void main() {
     late ValueNotifier<AsyncValue<List<Task>>> feed;
 
     Widget panelHost() => ProviderScope(
-      overrides: [databaseProvider.overrideWithValue(db)],
+      overrides: [...featureTestOverrides(db)],
       child: MaterialApp(
         home: Scaffold(
           body: ValueListenableBuilder<AsyncValue<List<Task>>>(

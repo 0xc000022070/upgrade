@@ -218,11 +218,11 @@ end}
   test(
     'Lua allocation failure after a host reply does not unwind through Dart',
     () async {
-      final write = session(dataset());
       for (var i = 0; i < 4; i++) {
+        final write = session(dataset());
         write.call(DataOperation.put, 'local', key: '$i', value: '$i' * 16000);
+        write.finish();
       }
-      write.finish();
       var failedDuringReply = false;
       for (var pressure = 7600; pressure <= 8160; pressure += 16) {
         try {

@@ -22,6 +22,7 @@ class PluginPackage {
   final String source;
   final String origin;
   final String revision;
+  bool get packageOriginIsBuiltin => origin == 'bundled:${manifest.id}';
   late final String digest = sha256
       .convert(
         utf8.encode(jsonEncode([origin, revision, manifest.source, source])),
@@ -83,7 +84,11 @@ class InstalledPlugin {
       throw const PluginException('Invalid plugin record');
     }
     final package = PluginPackage(
-      manifest: PluginManifest.parse(manifest, retainUnsupported: true),
+      manifest: PluginManifest.parse(
+        manifest,
+        retainUnsupported: true,
+        allowNative: origin.startsWith('bundled:'),
+      ),
       source: source,
       origin: origin,
       revision: revision,
@@ -123,6 +128,87 @@ class PluginStore {
   Future<void> _tail = Future.value();
   static const maxInstalled = 32;
   File get _catalog => File('${directory.path}/catalog.json');
+
+  Future<List<InstalledPlugin>> synchronizeBuiltins(
+    List<PluginPackage> packages, {
+    required bool adoptEnabled,
+  }) => _change((entries) {
+    final ids = packages.map((p) => p.manifest.id).toSet();
+    if (ids.length != packages.length ||
+        packages.any((p) => !p.manifest.native || !p.packageOriginIsBuiltin)) {
+      throw const PluginException('Invalid built-in plugin registry');
+    }
+    final retained = {for (final entry in entries) entry.id: entry};
+    final unavailable = {
+      for (final entry in entries)
+        if (entry.package.packageOriginIsBuiltin && !ids.contains(entry.id))
+          entry.id,
+    };
+    var changed = true;
+    while (changed) {
+      changed = false;
+      for (final entry in entries) {
+        if (entry.manifest.dependencies.keys.any(unavailable.contains) &&
+            unavailable.add(entry.id)) {
+          changed = true;
+        }
+      }
+    }
+    var synchronized = [
+      for (final entry in entries)
+        if (!ids.contains(entry.id) && !entry.package.packageOriginIsBuiltin)
+          unavailable.contains(entry.id) ? entry.withEnabled(false) : entry,
+      for (final package in packages)
+        _adoptBuiltin(package, retained[package.manifest.id], adoptEnabled),
+    ];
+    var reduced = true;
+    while (reduced) {
+      reduced = false;
+      final available = {
+        for (final entry in synchronized)
+          if (entry.enabled) entry.id: entry.manifest,
+      };
+      synchronized = [
+        for (final entry in synchronized)
+          if (entry.enabled &&
+              entry.manifest.dependencies.entries.any(
+                (dependency) =>
+                    available[dependency.key] == null ||
+                    !dependency.value.allows(
+                      available[dependency.key]!.version,
+                    ),
+              ))
+            (() {
+              reduced = true;
+              return entry.withEnabled(false);
+            })()
+          else
+            entry,
+      ];
+    }
+    return synchronized;
+  });
+
+  static InstalledPlugin _adoptBuiltin(
+    PluginPackage package,
+    InstalledPlugin? old,
+    bool enabled,
+  ) {
+    if (old != null && old.package.origin != package.origin) {
+      throw const PluginException(
+        'Built-in plugin ID belongs to another source',
+      );
+    }
+    final previousPermissions = old?.grants;
+    final compatible =
+        previousPermissions == null ||
+        previousPermissions.containsAll(package.manifest.permissions);
+    return InstalledPlugin(
+      package,
+      package.manifest.permissions,
+      enabled: (old?.enabled ?? enabled) && compatible,
+    );
+  }
 
   Future<List<InstalledPlugin>> list() async {
     if (!await _catalog.exists()) return [];
@@ -177,6 +263,9 @@ class PluginStore {
     PluginPackage package,
     Set<PluginPermission> grants,
   ) => _change((entries) {
+    if (package.manifest.native || package.packageOriginIsBuiltin) {
+      throw const PluginException('Built-in plugins are updated with Dazzle');
+    }
     final previous = entries.where((p) => p.id == package.manifest.id);
     if (previous.isNotEmpty &&
         previous.first.package.origin != package.origin) {
@@ -198,18 +287,24 @@ class PluginStore {
     ],
   );
 
-  Future<List<InstalledPlugin>> remove(String id) => _change(
-    (entries) => [
+  Future<List<InstalledPlugin>> remove(String id) => _change((entries) {
+    if (entries.any((p) => p.id == id && p.manifest.native)) {
+      throw const PluginException(
+        'Built-in plugins can be disabled, not removed',
+      );
+    }
+    return [
       for (final plugin in entries)
         if (plugin.id != id) plugin,
-    ],
-  );
+    ];
+  });
 
   Future<List<InstalledPlugin>> _change(
     List<InstalledPlugin> Function(List<InstalledPlugin>) change,
   ) {
     final result = _tail.then((_) async {
-      final entries = change(await list());
+      final previous = await list();
+      final entries = change(previous);
       if (entries.length > maxInstalled) {
         throw const PluginException('At most 32 plugins may be installed');
       }
@@ -218,6 +313,13 @@ class PluginStore {
           if (p.enabled) p.id: p.manifest,
       });
       final encoded = await _encodeCatalog(entries);
+      if (jsonEncode({
+            'store_version': 1,
+            'plugins': previous.map((p) => p.encode()).toList(),
+          }) ==
+          encoded.catalog) {
+        return entries;
+      }
       await directory.create(recursive: true);
       for (final entry in encoded.revisions.entries) {
         final revision = File('${directory.path}/${entry.key}.json');

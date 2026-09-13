@@ -1,0 +1,37 @@
+manifest_version = 3
+id = "dazzle.drops"
+name = "Drops"
+version = "1.0.0"
+dazzle_api = "^2.0.0"
+
+[runtime]
+kind = "native"
+entry = "main.dart"
+
+[exports]
+items = "items@1"
+attachments = "attachments@1"
+item_notes = "item-notes@1"
+
+[services]
+items = "items@1"
+attachments = "attachments@1"
+item_notes = "item-notes@1"
+"host.capture_targets" = "capture-targets@1"
+"host.dispatch" = "dispatch@1"
+"host.workspaces" = "workspaces@1"
+
+[datasets.items]
+schema_version = 1
+service = "items"
+
+[datasets.attachments]
+schema_version = 1
+service = "attachments"
+
+[datasets.notes]
+schema_version = 1
+service = "item_notes"
+
+[contributes]
+surfaces = ["home.layout", "item.detail"]

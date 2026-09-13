@@ -34,10 +34,14 @@ class NavBar extends StatelessWidget {
     required this.currentIndex,
     required this.onSelected,
     required this.glitch,
+    this.visibleIndices = const [0, 1, 2, 3],
+    this.contributedLabel,
   });
 
   final int currentIndex;
   final ValueChanged<int> onSelected;
+  final List<int> visibleIndices;
+  final String? contributedLabel;
 
   /// One controller per destination: a tab becoming active, and the
   /// autonomous tick, glitch the icon that stands for that screen.
@@ -63,10 +67,15 @@ class NavBar extends StatelessWidget {
         child: ContentColumn(
           child: Row(
             children: [
-              for (var i = 0; i < navDestinations.length; i++)
+              for (final i in visibleIndices)
                 Expanded(
                   child: _NavItem(
-                    destination: navDestinations[i],
+                    destination: i == 1 && contributedLabel != null
+                        ? NavDestination(
+                            contributedLabel!,
+                            navDestinations[i].icon,
+                          )
+                        : navDestinations[i],
                     active: i == currentIndex,
                     onTap: () => onSelected(i),
                     glitch: glitch[i],

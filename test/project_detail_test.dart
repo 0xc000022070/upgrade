@@ -1,9 +1,10 @@
+import 'support/native_plugins.dart';
+
 import 'package:drift/drift.dart' show InsertMode, Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/application/navigation.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/enums.dart';
@@ -57,7 +58,7 @@ void main() {
   tearDown(() => db.close());
 
   Widget host(Widget screen) => ProviderScope(
-    overrides: [databaseProvider.overrideWithValue(db)],
+    overrides: [...featureTestOverrides(db)],
     child: MaterialApp(home: screen),
   );
 
