@@ -130,9 +130,13 @@ abstract final class HerdrCommands {
   /// Quoted for a shell all the same: sshd runs an exec request through the
   /// user's `$SHELL -c`, non-interactively, which is also why no rc of theirs
   /// is in front of it.
-  static String attach(PaneRef pane) {
+  static String attach(PaneRef pane, {bool takeover = false}) {
     _requirePane(pane.pane);
-    return _herdr(pane.session, 'agent attach ${shellQuote(pane.pane)}');
+    final takeoverFlag = takeover ? ' --takeover' : '';
+    return _herdr(
+      pane.session,
+      'agent attach ${shellQuote(pane.pane)}$takeoverFlag',
+    );
   }
 
   static String paths() => underSh(r'''
