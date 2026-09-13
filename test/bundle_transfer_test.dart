@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/bundle.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/enums.dart';
+import 'package:dazzle/data/raw_tables.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/data/repositories/key_repository.dart';
 import 'package:dazzle/data/repositories/path_repository.dart';
+import 'package:dazzle/platform/attachment_store.dart';
 import 'package:dazzle/platform/bundle_cipher.dart';
 import 'package:dazzle/platform/host_keys.dart';
 import 'package:dazzle/platform/keys.dart';
@@ -34,18 +36,38 @@ Host _rose({String name = 'rose', String keyId = 'k1'}) => Host(
   vncPassword: 'hunter2',
 );
 
-/// One phone: a database, its repositories and its keystore.
+/// The app support directory, without one. Counts its writes so a test can
+/// tell a file that was left alone from one that was written again.
+class _Pictures implements AttachmentBytes {
+  final files = <String, Uint8List>{};
+  final written = <String>[];
+
+  @override
+  Future<Uint8List?> read(String relative) async => files[relative];
+
+  @override
+  Future<void> write(String relative, Uint8List bytes) async {
+    if (files.containsKey(relative)) return;
+    files[relative] = bytes;
+    written.add(relative);
+  }
+}
+
+/// One phone: a database, its repositories, its keystore and its pictures.
 class _Phone {
   _Phone() : db = AppDatabase(NativeDatabase.memory()) {
     keys = DriftKeyRepository(db);
     hosts = DriftHostRepository(db);
     paths = DriftPathRepository(db);
     store = MemoryPrivateKeyStore();
+    pictures = _Pictures();
     transfer = BundleTransfer(
       keys: keys,
       hosts: hosts,
       paths: paths,
       store: store,
+      raw: RawTables(db),
+      attachments: pictures,
       atomically: db.transaction,
     );
   }
@@ -55,12 +77,14 @@ class _Phone {
   late final DriftHostRepository hosts;
   late final DriftPathRepository paths;
   late final MemoryPrivateKeyStore store;
+  late final _Pictures pictures;
   late final BundleTransfer transfer;
 
   Future<void> close() => db.close();
 
   /// Two keys, one host with a pin, a VNC password and herdr on, two paths,
-  /// one of them filed under a project.
+  /// one of them filed under a project, and that project with a task under it
+  /// wearing every column a repository would otherwise have opinions about.
   Future<void> seed() async {
     await keys.save(_key('k1'));
     await keys.save(_key('k2'));
@@ -83,6 +107,47 @@ class _Phone {
           ),
         );
     await paths.add(hostId: 'h1', directory: '~/src/dots', label: 'dots');
+    await db
+        .into(db.projects)
+        .insert(
+          ProjectsCompanion.insert(
+            id: 'proj-1',
+            name: 'dazzle',
+            description: 'the phone, on the phone',
+            objective: 'survive a rename',
+            status: ProjectStatus.active,
+            priority: Priority.high,
+            createdAt: DateTime.utc(2026, 9, 1),
+            updatedAt: DateTime.utc(2026, 9, 1),
+          ),
+        );
+    await db
+        .into(db.tasks)
+        .insert(
+          TasksCompanion.insert(
+            id: 't1',
+            title: 'carry the phone',
+            projectId: const Value('proj-1'),
+            bundleId: const Value('b7'),
+            blockedReason: const Value('waiting on the rename'),
+            isNext: const Value(true),
+            createdAt: DateTime.utc(2026, 9, 4),
+            updatedAt: DateTime.utc(2026, 9, 4),
+          ),
+        );
+    await db
+        .into(db.attachments)
+        .insert(
+          AttachmentsCompanion.insert(
+            id: 'a1',
+            itemId: 't1',
+            kind: AttachmentKind.image,
+            value: 'attachments/a1.jpg',
+            createdAt: DateTime.utc(2026, 9, 4),
+          ),
+        );
+    pictures.files['attachments/a1.jpg'] = Uint8List.fromList([1, 2, 3]);
+    pictures.written.clear();
   }
 }
 
@@ -115,13 +180,70 @@ void main() {
       '~/src/dazzle',
       '~/src/dots',
     ]);
-    expect(bundle.count.words, '1 HOST · 2 KEYS · 2 PATHS');
+    expect(bundle.count.words, startsWith('1 HOST · 2 KEYS · 2 PATHS · '));
 
-    // The project link is one phone's filing and stays home.
-    final json = bundle.toJson();
-    final paths = json['paths'] as List;
-    expect((paths.first as Map).containsKey('projectId'), isFalse);
-    expect(Bundle.decode(bundle.encode()).paths.length, 2);
+    // The project travels, so the link that points at it travels too.
+    expect(bundle.paths.first.projectId, 'proj-1');
+    expect(bundle.paths.last.projectId, isNull);
+    expect(Bundle.decode(bundle.encode()).paths.first.projectId, 'proj-1');
+  });
+
+  test('gather takes every table the four do not cover', () async {
+    await a.seed();
+    final bundle = await a.transfer.gather();
+
+    expect(bundle.rows.keys, isNot(contains('hosts')));
+    expect(bundle.rows['tasks']!.single['title'], 'carry the phone');
+    expect(bundle.rows['projects']!.single['name'], 'dazzle');
+    expect(bundle.files.keys, ['attachments/a1.jpg']);
+    expect(bundle.files['attachments/a1.jpg'], [1, 2, 3]);
+  });
+
+  test('a task keeps everything a repository would have ruled on', () async {
+    await a.seed();
+    final bundle = Bundle.decode((await a.transfer.gather()).encode());
+    await b.transfer.apply(bundle);
+
+    final task = await b.db.select(b.db.tasks).getSingle();
+    expect(task.title, 'carry the phone');
+    expect(task.isNext, isTrue);
+    expect(task.bundleId, 'b7');
+    expect(task.blockedReason, 'waiting on the rename');
+    expect(task.createdAt, DateTime.utc(2026, 9, 4));
+  });
+
+  test('an image lands under the path its row holds it by', () async {
+    await a.seed();
+    final bundle = Bundle.decode((await a.transfer.gather()).encode());
+    await b.transfer.apply(bundle);
+
+    expect(b.pictures.written, ['attachments/a1.jpg']);
+    expect(b.pictures.files['attachments/a1.jpg'], [1, 2, 3]);
+    final attachment = await b.db.select(b.db.attachments).getSingle();
+    expect(attachment.value, 'attachments/a1.jpg');
+    expect(attachment.kind, AttachmentKind.image);
+  });
+
+  test('an image already on the phone is left as it is', () async {
+    await a.seed();
+    final bundle = await a.transfer.gather();
+    b.pictures.files['attachments/a1.jpg'] = Uint8List.fromList([9, 9]);
+    await b.transfer.apply(bundle);
+    expect(b.pictures.written, isEmpty);
+    expect(b.pictures.files['attachments/a1.jpg'], [9, 9]);
+  });
+
+  test('the count names rows and images only when there are any', () {
+    const bare = BundleCount(hosts: 1, keys: 1, paths: 0);
+    expect(bare.words, '1 HOST · 1 KEY · 0 PATHS');
+    const full = BundleCount(
+      hosts: 2,
+      keys: 1,
+      paths: 5,
+      rows: 312,
+      images: 4,
+    );
+    expect(full.words, '2 HOSTS · 1 KEY · 5 PATHS · 312 ROWS · 4 IMAGES');
   });
 
   test('a key whose private half is gone is left out', () async {
@@ -135,7 +257,7 @@ void main() {
     await a.seed();
     final bundle = Bundle.decode((await a.transfer.gather()).encode());
     final count = await b.transfer.apply(bundle);
-    expect(count.words, '1 HOST · 2 KEYS · 2 PATHS');
+    expect(count.words, startsWith('1 HOST · 2 KEYS · 2 PATHS · '));
 
     expect((await b.keys.all()).map((k) => k.id), ['k1', 'k2']);
     expect(await b.store.read('k1'), 'PEM k1');
@@ -150,7 +272,7 @@ void main() {
     });
     final paths = await b.paths.listForHost('h1');
     expect(paths.map((p) => p.label), ['dazzle', 'dots']);
-    expect(paths.map((p) => p.projectId), [null, null]);
+    expect(paths.map((p) => p.projectId), ['proj-1', null]);
   });
 
   test('a second import changes nothing', () async {
@@ -161,6 +283,8 @@ void main() {
     expect((await b.keys.all()).length, 2);
     expect((await b.hosts.all()).length, 1);
     expect((await b.paths.listForHost('h1')).length, 2);
+    expect((await b.db.select(b.db.tasks).get()).length, 1);
+    expect((await b.db.select(b.db.attachments).get()).length, 1);
   });
 
   test('a path already on the phone keeps its project', () async {

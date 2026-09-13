@@ -140,6 +140,12 @@ class BundleCipher {
   }) : _random = random ?? Random.secure();
 
   static const marker = 'bundle';
+
+  /// The key the marker sits under. The app was called Spectacle when it wrote
+  /// the files its users are now importing into Dazzle, so both names open and
+  /// the current one is written.
+  static const markerKey = 'dazzle';
+  static const legacyMarkerKey = 'spectacle';
   static const version = 1;
   static const _saltLength = 16;
   static const _nonceLength = 24;
@@ -163,7 +169,7 @@ class BundleCipher {
     final nonce = _bytes(_nonceLength);
     final box = SecretBox(key).encrypt(payload, nonce: nonce).cipherText;
     final envelope = <String, Object>{
-      'dazzle': marker,
+      markerKey: marker,
       'version': version,
       'kdf': kdf.toJson(),
       'nonce': base64Encode(nonce),
@@ -179,7 +185,8 @@ class BundleCipher {
     } on FormatException {
       throw const BundleException(BundleFault.notABundle);
     }
-    if (json is! Map || json['dazzle'] != marker) {
+    if (json is! Map ||
+        (json[markerKey] != marker && json[legacyMarkerKey] != marker)) {
       throw const BundleException(BundleFault.notABundle);
     }
     final fileVersion = json['version'];

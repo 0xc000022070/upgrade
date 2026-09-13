@@ -184,8 +184,11 @@ void main() {
 
     // The write is real file IO started from dispose, so it needs both clocks:
     // the real one to deliver the completion and the test's own to let the
-    // continuation waiting on it through.
-    for (var i = 0; i < 50 && written.isEmpty; i++) {
+    // continuation waiting on it through. The cap is generous because it is a
+    // deadline on a loaded machine and not a measurement: the loop leaves the
+    // moment the write lands, so a suite that has the cores to spare pays none
+    // of it.
+    for (var i = 0; i < 400 && written.isEmpty; i++) {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 10)),
       );
