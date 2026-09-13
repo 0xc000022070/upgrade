@@ -38,8 +38,7 @@ const _agent = AgentSnapshot(
 
 const _pane = (session: 'lab', pane: 'w22:p1');
 
-const _attach =
-    "env HERDR_SESSION='lab' herdr agent attach 'w22:p1' --takeover";
+const _attach = "env HERDR_SESSION='lab' herdr agent attach 'w22:p1'";
 
 void main() {
   setUp(stubDeviceChannels);
@@ -49,7 +48,7 @@ void main() {
     expect(_attach, isNot(contains('hub')));
     expect(
       HerdrCommands.attach((session: 'default', pane: 'w22:p1')),
-      "env HERDR_SESSION='default' herdr agent attach 'w22:p1' --takeover",
+      "env HERDR_SESSION='default' herdr agent attach 'w22:p1'",
     );
   });
 
