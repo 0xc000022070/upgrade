@@ -56,13 +56,11 @@ rehomes after the phone changes networks. If the server is absent or UDP cannot
 connect, the same tab falls back to SSH. Open UDP ports `60000:61000` on hosts
 whose firewall does not already allow Mosh.
 
-Mosh does not depend on a multiplexer. Install `tmux` separately when ordinary
-shell processes must also survive Dazzle being killed. Dazzle discovers tmux
-through the host's login shell, uses its dedicated `dazzle` socket, and
-reattaches the tab's named session after a new transport is established. A host
-without tmux still gets Mosh roaming when `mosh-server` is available, but a
-process restart opens a fresh shell. Closing an ordinary tab kills only the
-tmux session and Mosh server that tab owns.
+Mosh does not depend on a multiplexer. Dazzle never inserts `tmux` around an
+ordinary shell: every new or restored tab enters through the host's normal
+login path, including any gateway or chooser configured there. Mosh keeps a
+live tab roaming between networks; an app process restart opens a fresh shell.
+Closing a tab kills only the Mosh server that tab owns.
 
 The AGENTS panel and SEND need `herdr` on the non-interactive SSH `PATH`. Every
 running herdr session is listed. An attached agent tab records the exact Herdr

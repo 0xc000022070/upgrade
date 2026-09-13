@@ -112,10 +112,6 @@ const shellReconnectMarker = '\r\n\x1b[2m-- reconnected --\x1b[0m\r\n';
 
 const shellReattachMarker = '\r\n\x1b[2m-- reattached --\x1b[0m\r\n';
 const shellRestoreMarker = '\r\n\x1b[2m-- session restored --\x1b[0m\r\n';
-const shellSessionLostMarker =
-    '\r\n\x1b[2m-- remote session gone; new shell --\x1b[0m\r\n';
-const shellContinuityUnavailableMarker =
-    '\r\n\x1b[2m-- tmux unavailable; shell is not durable --\x1b[0m\r\n';
 
 /// The one exit code that means the user is done: a tab that ends on it closes
 /// itself, and a tab that ends on anything else is put in front of the user.
@@ -321,9 +317,9 @@ class ShellSession extends ChangeNotifier {
   /// session and never reused: two tabs on the same host are two shells.
   final String mark;
 
-  /// Stable identity for this tab. It marks the Mosh server and names the tmux
-  /// session for an ordinary shell. Herdr tabs also carry it for transport
-  /// cleanup while their process identity stays in [pane].
+  /// Stable identity for this tab. It marks the Mosh server so reconnect and
+  /// cleanup affect only this tab. A Herdr tab's process identity stays in
+  /// [pane].
   final String? remoteSession;
 
   /// The herdr pane [command] attaches this tab to, so a tap on that agent
@@ -588,12 +584,10 @@ class ShellSessions extends ChangeNotifier {
   /// The answer is kept on the session, which is what makes the header's mark
   /// tapped again after a `cd` open somewhere else.
   ///
-  /// A tab holding the multiplexer is asked of the multiplexer instead. What
-  /// such a tab runs is a client, and a client stands in the directory it was
-  /// started from for as long as it lives; the shell that has walked anywhere
-  /// is the pane's, and it belongs to the herdr server rather than to this
-  /// connection's process tree. A tab attached to one pane is asked for that
-  /// pane, a tab holding a session for the pane that session has focused.
+  /// A tab attached to a Herdr pane is asked for that pane instead. The attach
+  /// client stands where it started; the shell that has walked elsewhere is
+  /// the pane's, and it belongs to the Herdr server rather than to this
+  /// connection's process tree.
   ///
   /// Null when there is no connection to ask on, or when the host has no
   /// `/proc` to answer from. The caller falls back; nothing here overwrites
@@ -602,17 +596,6 @@ class ShellSessions extends ChangeNotifier {
     final connection = session.connection;
     if (connection == null) return null;
     try {
-      final remoteSession = session.remoteSession;
-      if (remoteSession != null && session.pane == null) {
-        final answer = await connection.remoteDirectory(remoteSession);
-        if (answer != null) {
-          if (answer != session.cwd) {
-            session.cwd = answer;
-            session.changed();
-          }
-          return answer;
-        }
-      }
       final pane = session.pane;
       var herdrSession = pane?.session;
       String? answer;
@@ -879,7 +862,7 @@ class ShellSessions extends ChangeNotifier {
       terminated =
           await connection?.terminateRemote(
             remoteSession,
-            durableShell: session.pane == null,
+            durableShell: false,
           ) ??
           false;
     } catch (error) {
@@ -1097,7 +1080,7 @@ class ShellSessions extends ChangeNotifier {
         rows: rows,
         command: shellMarked(session.mark, command: session.command),
         tabSession: session.remoteSession ?? session.mark,
-        persistentSession: session.pane == null ? session.remoteSession : null,
+        persistentSession: null,
         verifier: HostKeyVerifier(
           pinned: _pinnedThisRun[host.id] ?? host.hostKey,
           // Null on a reconnect and on anything else that arrives without a
@@ -1115,7 +1098,7 @@ class ShellSessions extends ChangeNotifier {
           if (session._closed && session.remoteSession != null) {
             final terminated = await connection.terminateRemote(
               session.remoteSession!,
-              durableShell: session.pane == null,
+              durableShell: false,
             );
             if (terminated) {
               await tabs?.close(host.id, session.number);
@@ -1137,7 +1120,6 @@ class ShellSessions extends ChangeNotifier {
       session.state = ShellLive(connection.transport);
       final marker = _transitionMarker(
         session,
-        connection.continuity,
         reconnected: reconnected,
         restored: restored,
       );
@@ -1159,8 +1141,7 @@ class ShellSessions extends ChangeNotifier {
   }
 
   String? _transitionMarker(
-    ShellSession session,
-    ShellContinuity continuity, {
+    ShellSession session, {
     required bool reconnected,
     required bool restored,
   }) {
@@ -1169,23 +1150,7 @@ class ShellSessions extends ChangeNotifier {
       if (reconnected) return shellReattachMarker;
       return null;
     }
-    if (session.remoteSession == null) {
-      return reconnected ? shellReconnectMarker : null;
-    }
-    if (continuity == ShellContinuity.plain) {
-      return shellContinuityUnavailableMarker;
-    }
-    if (restored) {
-      return continuity == ShellContinuity.resumed
-          ? shellRestoreMarker
-          : shellSessionLostMarker;
-    }
-    if (reconnected) {
-      return continuity == ShellContinuity.resumed
-          ? shellReattachMarker
-          : shellSessionLostMarker;
-    }
-    return null;
+    return reconnected || restored ? shellReconnectMarker : null;
   }
 
   Future<void> _reap(String hostId, ShellConnection connection) async {
@@ -1197,7 +1162,7 @@ class ShellSessions extends ChangeNotifier {
         if (remoteSession == null ||
             await connection.terminateRemote(
               remoteSession,
-              durableShell: tab.herdrSession == null,
+              durableShell: false,
             )) {
           await store.close(tab.hostId, tab.number);
         }
