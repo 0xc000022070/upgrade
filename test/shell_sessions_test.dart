@@ -504,6 +504,10 @@ void main() {
 
       transport.opened.single.drop();
       await tester.pump();
+
+      expect(session.sticky, isEmpty);
+      expect(session.stickyLocked, isFalse);
+
       await tester.pump(shellReconnectDelays.first);
       await _pumpDial(tester);
 
@@ -1220,11 +1224,31 @@ void main() {
 
     transport.opened.single.drop();
     await tester.pump();
+    sessions.arm(session, {StickyModifier.ctrl}, locked: true);
     sessions.stopReconnect(session);
     await tester.pump(const Duration(minutes: 1));
 
     expect(session.state, isA<ShellFailed>());
+    expect(session.sticky, isEmpty);
+    expect(session.stickyLocked, isFalse);
     expect(transport.opened, hasLength(1));
+
+    await sessions.close(_rose.id, session);
+  });
+
+  testWidgets('a dead shell drops a latched modifier', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+    sessions.arm(session, {StickyModifier.alt}, locked: true);
+
+    transport.opened.single.exit(130);
+    await _pumpDial(tester);
+
+    expect(session.state, isA<ShellExited>());
+    expect(session.sticky, isEmpty);
+    expect(session.stickyLocked, isFalse);
 
     await sessions.close(_rose.id, session);
   });

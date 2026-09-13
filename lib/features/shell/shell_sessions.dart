@@ -609,9 +609,7 @@ class ShellSessions extends ChangeNotifier {
       }
       return answer;
     } on HerdrFailure catch (error) {
-      debugPrint(
-        'dazzle.shell ${session.host.name}: ${error.detail ?? error}',
-      );
+      debugPrint('dazzle.shell ${session.host.name}: ${error.detail ?? error}');
       return null;
     }
   }
@@ -963,6 +961,7 @@ class ShellSessions extends ChangeNotifier {
     if (privateKey == null) {
       // The host names a key whose secret is gone from the store. There is
       // nothing to offer the remote, so this never dials.
+      session.disarm();
       session.state = const ShellFailed(ShellFailureKind.keyRejected);
       session.changed();
       return;
@@ -1032,6 +1031,7 @@ class ShellSessions extends ChangeNotifier {
     try {
       final code = await connection.exitCode;
       if (!attempt.isCurrent) return;
+      session.disarm();
       session.state = ShellExited(code);
       session.pin = null;
       session.changed();
@@ -1049,6 +1049,7 @@ class ShellSessions extends ChangeNotifier {
   void _fail(ShellSession session, Object error, _Attempt attempt) {
     if (!attempt.isCurrent) return;
     session.pin = null;
+    session.disarm();
     final kind = error is ShellFailure
         ? error.kind
         : ShellFailureKind.streamClosed;
@@ -1128,6 +1129,7 @@ class ShellSessions extends ChangeNotifier {
     session._disown();
     session._reconnect?.cancel();
     session._reconnect = null;
+    session.disarm();
     session.state = ShellFailed(kind, detail: session._detail);
     session.changed();
   }
