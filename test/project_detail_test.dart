@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/application/navigation.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/enums.dart';
 import 'package:dazzle/data/repositories/activity_repository.dart';
@@ -413,6 +414,27 @@ void main() {
       // which machine holds the code is half of what a directory is.
       expect(find.text('…/src/dazzle'), findsOneWidget);
       expect(find.text('NYX'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('LINK sends an empty install to HOSTS', (tester) async {
+      final id = await projects.create(name: 'Infra personal');
+
+      await tester.pumpWidget(host(ProjectDetailScreen(projectId: id)));
+      await _ready(tester);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ProjectDetailScreen)),
+      );
+      await tapText(tester, 'LINK');
+
+      expect(find.text('NO WORKSPACES YET'), findsOneWidget);
+      expect(find.text('ADD A HOST'), findsOneWidget);
+      expect(find.text('EVERY DIRECTORY IS LINKED'), findsNothing);
+
+      await tapText(tester, 'ADD A HOST');
+      expect(container.read(navIndexProvider), 2);
+      expect(find.text('NO WORKSPACES YET'), findsNothing);
 
       await unmount(tester);
     });
