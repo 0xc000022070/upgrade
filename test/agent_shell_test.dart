@@ -39,12 +39,15 @@ const _agent = AgentSnapshot(
 const _pane = (session: 'lab', pane: 'w22:p1');
 
 const _attach = "env HERDR_SESSION='lab' herdr agent attach 'w22:p1'";
+const _takeoverAttach =
+    "env HERDR_SESSION='lab' herdr agent attach 'w22:p1' --takeover";
 
 void main() {
   setUp(stubDeviceChannels);
 
   test("the attach line is the pane under the agent's own session", () {
     expect(HerdrCommands.attach(_pane), _attach);
+    expect(HerdrCommands.attach(_pane, takeover: true), _takeoverAttach);
     expect(_attach, isNot(contains('hub')));
     expect(
       HerdrCommands.attach((session: 'default', pane: 'w22:p1')),
@@ -100,16 +103,28 @@ void main() {
     );
 
     await tester.tap(find.text('OPEN'));
+    await tester.pumpAndSettle();
+    expect(find.text('OPEN AGENT'), findsOneWidget);
+    expect(
+      find.text(
+        'Opening this pane here detaches its other terminal view. '
+        'The agent keeps running.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('OPEN HERE'));
     await ready(tester);
 
     expect(header, findsOneWidget);
     expect(container.read(navIndexProvider), SshScreen.navIndex);
     final session = sessions.forHost(_rose.id).single;
     expect(session.pane, _pane);
-    expect(session.command, _attach);
+    expect(session.command, _takeoverAttach);
     // The channel's own command, and nothing typed at a shell: a line written
     // at a login shell races whatever that shell reads before its prompt.
-    expect(transport.commands, [shellMarked(session.mark, command: _attach)]);
+    expect(transport.commands, [
+      shellMarked(session.mark, command: _takeoverAttach),
+    ]);
     expect(transport.opened.single.written, isEmpty);
     expect(
       transport.opened.single.execs.map((exec) => exec.command),
@@ -119,12 +134,35 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('cancel leaves the agent and navigation untouched', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    final container = ProviderScope.containerOf(
+      tester.element(find.text('OPEN')),
+    );
+    final before = container.read(navIndexProvider);
+
+    await tester.tap(find.text('OPEN'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(navIndexProvider), before);
+    expect(sessions.forHost(_rose.id), isEmpty);
+    expect(transport.opened, isEmpty);
+  });
+
   testWidgets('a second tap lands in the tab already attached', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
 
     await tester.tap(find.text('OPEN'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OPEN HERE'));
     await ready(tester);
     final first = sessions.forHost(_rose.id).single;
     // A second tab on the host, so the tap has something to choose against.
