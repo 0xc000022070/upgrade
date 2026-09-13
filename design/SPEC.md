@@ -1551,3 +1551,22 @@ Struck: the block at the head held at the size it was drawn. The phone's text sc
 Struck: a row per host. That is the panel, and the panel is one tap away.
 
 Struck: the same bar on iOS. There is no `ios/` directory in this repository to put it in, and the bar is Flutter widgets rather than a system surface, so the work is the target and not the feature.
+
+### A bundle that has to outlive the app's own name carries the whole phone (user, 2026-09-12: "let's rename ./spectacle to dazzle", "install it for me and manually migrate my data", "fix it then")
+
+The name changed, and with it the application id. Android does not rename an app: `dev.luisnquin.dazzle` is a second app beside `dev.luisnquin.spectacle`, with its own sandbox, its own database file and none of the rows. The old app cannot be read from outside either — a release build carries no debuggable flag, so `run-as` is refused, and the platform's own backup has been inert for four major versions. The only door out of an app nobody can open is the door the app itself offers, and that door is the bundle.
+
+**So the bundle stops being a curated set and becomes the phone.** 39.93 drew the line at hosts, keys and paths and called the rest "one phone's history and one phone's taste", which was right while both phones were running and wrong the moment the bundle became the only way a user's work survives a rename. Every table travels: projects, goals, tasks, links, attachments, notes, activity, settings, dispatches and shell tabs beside the four that already did. A path carries its project id now, because the project it points at is in the file with it and a link that was dangling by definition is a link that resolves.
+
+**The ten new tables travel as rows, not as domain objects.** The curated four are mapped by hand because they are assembled out of the keystore and three repositories and cannot be read off a table. The rest are read column for column and written back the same way, under the names sqlite knows them by. A migration that curates is a migration that loses: a repository would apply its own rules on the way in — the one `isNext` item, the reasons a delete is refused — and the phone that arrives would differ from the phone that left in ways nobody asked for. The dump is the whole row and the restore replaces by primary key, so running the same file in twice is still the same phone as running it once.
+
+**An image attachment is a file, and the file goes too.** A row of kind `image` holds a path relative to the app support directory, which is inside the sandbox the new app does not have. The bytes ride in the bundle under that same relative path and are written back before the rows, so an attachment is never a row pointing at nothing. An image already on the phone is left as it is: the bytes are content, and the same relative path is the same picture.
+
+**The envelope answers to both names.** A file sealed by the app under its old name opens under its new one: the marker key is read as either `spectacle` or `dazzle` and written as `dazzle`. This is the whole point — the file the user has to import was written by the app they are leaving. A bundle that only the new app could have written would not have reached them.
+
+**The panel counts what is in the file.** `2 HOSTS · 1 KEY · 5 PATHS` grows a tail for everything else — `· 312 ROWS`, and `· 4 IMAGES` when any ride along — on the outcome row and in the confirm before an import, so the user sees the size of what they are about to take.
+
+Struck: the bundle as one phone's set of machines. It was that while a rename was not a thing that happened to this app.
+
+- Regression tests: a dump carries every table the database has that the curated four do not, column for column; a restore writes them back and a second restore changes nothing; a task keeps its `isNext`, its bundle mates and its blocked reason through the round trip; a path keeps its project id; an image attachment's bytes travel and land under the same relative path, and one already on the phone is not rewritten; the count names rows and images only when there are any; an envelope written with the old marker key opens, one with the new marker key opens, and one with neither is still `NOT A BUNDLE`.
+- Ownership: one session; `design/SPEC.md`, `lib/data/raw_tables.dart`, `lib/application/bundle.dart`, `lib/platform/bundle_cipher.dart`, `lib/features/settings/bundle_panel.dart`, `test/bundle_transfer_test.dart`, `test/bundle_cipher_test.dart`, `test/raw_tables_test.dart`. Version 1.0.0+103.

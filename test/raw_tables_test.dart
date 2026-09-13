@@ -1,0 +1,144 @@
+import 'dart:convert';
+
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/enums.dart';
+import 'package:dazzle/data/raw_tables.dart';
+
+/// A task with every column carrying something, so a dump that drops one is a
+/// dump that fails here.
+Future<void> _seed(AppDatabase db) async {
+  await db
+      .into(db.projects)
+      .insert(
+        ProjectsCompanion.insert(
+          id: 'proj-1',
+          name: 'dazzle',
+          description: 'the phone, on the phone',
+          objective: 'survive a rename',
+          status: ProjectStatus.active,
+          priority: Priority.high,
+          createdAt: DateTime.utc(2026, 9, 1),
+          updatedAt: DateTime.utc(2026, 9, 1),
+        ),
+      );
+  await db
+      .into(db.tasks)
+      .insert(
+        TasksCompanion.insert(
+          id: 't1',
+          title: 'carry the phone',
+          projectId: const Value('proj-1'),
+          bundleId: const Value('b7'),
+          blockedReason: const Value('waiting on the rename'),
+          isNext: const Value(true),
+          effort: const Value(3),
+          createdAt: DateTime.utc(2026, 9, 2),
+          updatedAt: DateTime.utc(2026, 9, 3),
+        ),
+      );
+  await db
+      .into(db.attachments)
+      .insert(
+        AttachmentsCompanion.insert(
+          id: 'a1',
+          itemId: 't1',
+          kind: AttachmentKind.image,
+          value: 'attachments/a1.jpg',
+          createdAt: DateTime.utc(2026, 9, 3),
+        ),
+      );
+  await db
+      .into(db.settings)
+      .insert(SettingsCompanion.insert(key: 'theme', value: 'dusk'));
+}
+
+void main() {
+  late AppDatabase a;
+  late AppDatabase b;
+
+  setUp(() {
+    a = AppDatabase(NativeDatabase.memory());
+    b = AppDatabase(NativeDatabase.memory());
+  });
+
+  tearDown(() async {
+    await a.close();
+    await b.close();
+  });
+
+  test('the dump names every table the bundle does not map by hand', () async {
+    final dumped = await RawTables(a).dump();
+    final expected = {
+      for (final table in a.allTables)
+        if (!curatedTables.contains(table.actualTableName))
+          table.actualTableName,
+    };
+    expect(dumped.keys.toSet(), expected);
+    expect(dumped.keys, isNot(contains('hosts')));
+    expect(expected, contains('tasks'));
+  });
+
+  test('a row comes back column for column', () async {
+    await _seed(a);
+    final dumped = await RawTables(a).dump();
+    expect(await RawTables(b).restore(dumped), 4);
+
+    final task = await (b.select(b.tasks)).getSingle();
+    expect(task.title, 'carry the phone');
+    expect(task.projectId, 'proj-1');
+    expect(task.bundleId, 'b7');
+    expect(task.blockedReason, 'waiting on the rename');
+    expect(task.isNext, isTrue);
+    expect(task.effort, 3);
+    expect(task.createdAt, DateTime.utc(2026, 9, 2));
+    expect(task.updatedAt, DateTime.utc(2026, 9, 3));
+
+    final attachment = await (b.select(b.attachments)).getSingle();
+    expect(attachment.kind, AttachmentKind.image);
+    expect(attachment.value, 'attachments/a1.jpg');
+    expect((await b.select(b.settings).getSingle()).value, 'dusk');
+  });
+
+  test('a second restore is the same phone as the first', () async {
+    await _seed(a);
+    final dumped = await RawTables(a).dump();
+    await RawTables(b).restore(dumped);
+    await RawTables(b).restore(dumped);
+    expect((await b.select(b.tasks).get()).length, 1);
+    expect((await b.select(b.projects).get()).length, 1);
+    expect(await RawTables(b).dump(), dumped);
+  });
+
+  test('a table or column this build does not know is stepped over', () async {
+    await _seed(a);
+    final dumped = await RawTables(a).dump();
+    dumped['frames'] = [
+      {'id': 'f1'},
+    ];
+    dumped['tasks']!.first['favouriteColour'] = 'green';
+    expect(await RawTables(b).restore(dumped), 4);
+    expect((await b.select(b.tasks).getSingle()).title, 'carry the phone');
+  });
+
+  test('a blob travels as base64 and lands as bytes', () async {
+    // No column in this schema is declared a blob, but sqlite stores what it
+    // is given, so this is the shape the dump has to survive.
+    final bytes = Uint8List.fromList([0, 1, 250, 255]);
+    await a.customStatement('INSERT INTO settings (key, value) VALUES (?, ?)', [
+      'k',
+      bytes,
+    ]);
+    final dumped = await RawTables(a).dump();
+    expect(dumped['settings']!.single['value'], {'b64': base64Encode(bytes)});
+    expect(() => jsonEncode(dumped), returnsNormally);
+
+    await RawTables(b).restore(dumped);
+    final landed = await b
+        .customSelect("SELECT value FROM settings WHERE key = 'k'")
+        .getSingle();
+    expect(landed.data['value'], bytes);
+  });
+}

@@ -97,6 +97,21 @@ void main() {
     );
   });
 
+  test('a file sealed under the old name still opens', () async {
+    final cipher = _cipher();
+    final envelope = _envelope(await cipher.seal(_payload, 'p'));
+    envelope.remove('dazzle');
+    envelope['spectacle'] = 'bundle';
+    expect(await cipher.open(_bytes(envelope), 'p'), _payload);
+
+    envelope.remove('spectacle');
+    envelope['hotline'] = 'bundle';
+    expect(
+      await _faultOf(() => cipher.open(_bytes(envelope), 'p')),
+      BundleFault.notABundle,
+    );
+  });
+
   test('a version above the app is a newer bundle', () async {
     final cipher = _cipher();
     final envelope = _envelope(await cipher.seal(_payload, 'p'));

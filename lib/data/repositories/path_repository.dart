@@ -137,9 +137,10 @@ abstract interface class PathRepository {
     String? projectId,
   });
 
-  /// Writes [path] under its own id, replacing what is there. The project
-  /// link is not touched: a row that had one keeps it, a new row has none.
-  /// This is the bundle's write, which carries no projects.
+  /// Writes [path] under its own id, replacing what is there. This is the
+  /// bundle's write. A project link in the bundle lands; one the bundle does
+  /// not carry leaves the row's own alone, because an import merges and never
+  /// deletes.
   Future<void> put(AgentPath path);
 }
 
@@ -301,6 +302,7 @@ class DriftPathRepository implements PathRepository {
             directory: Value(path.directory),
             label: Value(path.label),
             createdAt: Value(path.createdAt),
+            projectId: Value.absentIfNull(path.projectId),
           ),
         );
   }

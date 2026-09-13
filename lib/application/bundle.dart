@@ -5,9 +5,11 @@ import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/enums.dart';
+import '../data/raw_tables.dart';
 import '../data/repositories/host_repository.dart';
 import '../data/repositories/key_repository.dart';
 import '../data/repositories/path_repository.dart';
+import '../platform/attachment_store.dart';
 import '../platform/bundle_cipher.dart';
 import '../platform/host_keys.dart';
 import '../platform/keys.dart';
@@ -15,19 +17,37 @@ import 'agents.dart';
 import 'providers.dart';
 import 'reason_lines.dart';
 
-/// What moves between phones: the keys with their private halves, the hosts
-/// with everything the phone knows about them, and the paths without their
-/// project links. Nothing else — projects, drops, dispatches, tabs, frames and
-/// settings are one phone's history and one phone's taste.
+/// What moves between phones: the whole phone. The keys with their private
+/// halves and the hosts with everything known about them, mapped by hand
+/// because they are assembled out of a keystore and three repositories; every
+/// other table as the rows sqlite holds; and the bytes behind each image
+/// attachment, which live in a sandbox the far phone does not have.
 class Bundle {
-  const Bundle({required this.keys, required this.hosts, required this.paths});
+  const Bundle({
+    required this.keys,
+    required this.hosts,
+    required this.paths,
+    this.rows = const {},
+    this.files = const {},
+  });
 
   final List<BundleKey> keys;
   final List<BundleHost> hosts;
   final List<BundlePath> paths;
 
-  BundleCount get count =>
-      BundleCount(hosts: hosts.length, keys: keys.length, paths: paths.length);
+  /// Table name to its rows, for everything outside [curatedTables].
+  final Map<String, List<Map<String, Object?>>> rows;
+
+  /// Attachment bytes, under the path the row holds them by.
+  final Map<String, Uint8List> files;
+
+  BundleCount get count => BundleCount(
+    hosts: hosts.length,
+    keys: keys.length,
+    paths: paths.length,
+    rows: rows.values.fold(0, (total, table) => total + table.length),
+    images: files.length,
+  );
 
   Uint8List encode() => Uint8List.fromList(utf8.encode(jsonEncode(toJson())));
 
@@ -35,6 +55,10 @@ class Bundle {
     'keys': [for (final key in keys) key.toJson()],
     'hosts': [for (final host in hosts) host.toJson()],
     'paths': [for (final path in paths) path.toJson()],
+    'rows': rows,
+    'files': {
+      for (final file in files.entries) file.key: base64Encode(file.value),
+    },
   };
 
   /// A payload that opened under the passphrase but does not read as a bundle
@@ -52,6 +76,8 @@ class Bundle {
         paths: [
           for (final path in _list(json['paths'])) BundlePath.fromJson(path),
         ],
+        rows: _rows(json['rows']),
+        files: _files(json['files']),
       );
     } on FormatException {
       throw const BundleException(BundleFault.notABundle);
@@ -63,6 +89,29 @@ class Bundle {
   static List<Map> _list(Object? value) {
     if (value is! List) throw const FormatException();
     return [for (final item in value) item as Map];
+  }
+
+  /// Absent in a bundle written before the file carried the whole phone, which
+  /// is the file this app was built to read.
+  static Map<String, List<Map<String, Object?>>> _rows(Object? value) {
+    if (value == null) return const {};
+    if (value is! Map) throw const FormatException();
+    return {
+      for (final table in value.entries)
+        table.key as String: [
+          for (final row in _list(table.value))
+            {for (final cell in row.entries) cell.key as String: cell.value},
+        ],
+    };
+  }
+
+  static Map<String, Uint8List> _files(Object? value) {
+    if (value == null) return const {};
+    if (value is! Map) throw const FormatException();
+    return {
+      for (final file in value.entries)
+        file.key as String: base64Decode(file.value as String),
+    };
   }
 }
 
@@ -157,6 +206,7 @@ class BundlePath {
     required this.directory,
     required this.label,
     required this.createdAt,
+    this.projectId,
   });
 
   final String id;
@@ -165,12 +215,17 @@ class BundlePath {
   final String label;
   final DateTime createdAt;
 
-  Map<String, Object> toJson() => {
+  /// Travels now that the projects travel with it: the link that used to be
+  /// dangling by definition is a link that resolves.
+  final String? projectId;
+
+  Map<String, Object?> toJson() => {
     'id': id,
     'hostId': hostId,
     'directory': directory,
     'label': label,
     'createdAt': createdAt.toUtc().toIso8601String(),
+    'projectId': projectId,
   };
 
   static BundlePath fromJson(Map json) => BundlePath(
@@ -179,26 +234,36 @@ class BundlePath {
     directory: json['directory'] as String,
     label: json['label'] as String,
     createdAt: _date(json['createdAt']),
+    projectId: json['projectId'] as String?,
   );
 }
 
 DateTime _date(Object? value) => DateTime.parse(value as String);
 
-/// What a bundle holds, as the panel says it: `2 HOSTS · 1 KEY · 5 PATHS`.
+/// What a bundle holds, as the panel says it: `2 HOSTS · 1 KEY · 5 PATHS`,
+/// with `· 312 ROWS` and `· 4 IMAGES` on the end when the file carries any.
 class BundleCount {
   const BundleCount({
     required this.hosts,
     required this.keys,
     required this.paths,
+    this.rows = 0,
+    this.images = 0,
   });
 
   final int hosts;
   final int keys;
   final int paths;
+  final int rows;
+  final int images;
 
-  String get words =>
-      '${_plural(hosts, 'HOST')} · ${_plural(keys, 'KEY')} · '
-      '${_plural(paths, 'PATH')}';
+  String get words => [
+    _plural(hosts, 'HOST'),
+    _plural(keys, 'KEY'),
+    _plural(paths, 'PATH'),
+    if (rows > 0) _plural(rows, 'ROW'),
+    if (images > 0) _plural(images, 'IMAGE'),
+  ].join(' · ');
 
   static String _plural(int n, String noun) =>
       n == 1 ? '1 $noun' : '$n ${noun}S';
@@ -217,6 +282,8 @@ class BundleTransfer {
     required this.hosts,
     required this.paths,
     required this.store,
+    required this.raw,
+    required this.attachments,
     this.atomically = _plain,
   });
 
@@ -224,11 +291,12 @@ class BundleTransfer {
   final HostRepository hosts;
   final PathRepository paths;
   final PrivateKeyStore store;
+  final RawTables raw;
+  final AttachmentBytes attachments;
   final Atomically atomically;
 
-  /// Everything that would let another phone dial these hosts. A key row whose
-  /// private half is gone from the keystore is skipped: it could not dial here
-  /// either.
+  /// Everything on this phone. A key row whose private half is gone from the
+  /// keystore is skipped: it could not dial here either.
   Future<Bundle> gather() async {
     final gathered = <BundleKey>[];
     for (final key in await keys.all()) {
@@ -253,19 +321,45 @@ class BundleTransfer {
             directory: path.directory,
             label: path.label,
             createdAt: path.createdAt,
+            projectId: path.projectId,
           ),
         );
       }
     }
-    return Bundle(keys: gathered, hosts: machines, paths: directories);
+    final rows = await raw.dump();
+    return Bundle(
+      keys: gathered,
+      hosts: machines,
+      paths: directories,
+      rows: rows,
+      files: await _pictures(rows),
+    );
+  }
+
+  /// The bytes behind every image attachment in the dump. A row whose file is
+  /// gone is left with nothing to carry: the row is the record, and the phone
+  /// it lands on shows the same gap this one does.
+  Future<Map<String, Uint8List>> _pictures(
+    Map<String, List<Map<String, Object?>>> rows,
+  ) async {
+    final pictures = <String, Uint8List>{};
+    for (final row in rows['attachments'] ?? const []) {
+      if (row['kind'] != AttachmentKind.image.name) continue;
+      final relative = row['value'];
+      if (relative is! String) continue;
+      final bytes = await attachments.read(relative);
+      if (bytes != null) pictures[relative] = bytes;
+    }
+    return pictures;
   }
 
   /// Merges by id and deletes nothing. Refused whole when a host names a key
   /// neither the bundle nor the phone has: that host could never dial.
   ///
-  /// Private keys go to the keystore before the rows go to the database. A
-  /// private key with no row is inert; a row with no private key is a host
-  /// that cannot dial.
+  /// Private keys and attachment bytes go down before the rows go to the
+  /// database. A private key with no row is inert and a file with no row is a
+  /// few kilobytes; a row with no private key is a host that cannot dial, and
+  /// a row with no file is a picture that is gone.
   Future<BundleCount> apply(Bundle bundle) async {
     final known = {
       for (final key in await keys.all()) key.id,
@@ -278,6 +372,9 @@ class BundleTransfer {
     }
     for (final key in bundle.keys) {
       await store.write(key.key.id, key.privateKey);
+    }
+    for (final picture in bundle.files.entries) {
+      await attachments.write(picture.key, picture.value);
     }
     await atomically(() async {
       for (final key in bundle.keys) {
@@ -304,9 +401,14 @@ class BundleTransfer {
             directory: path.directory,
             label: path.label,
             createdAt: path.createdAt,
+            projectId: path.projectId,
           ),
         );
       }
+      // After the curated four, because the tables that reference them —
+      // dispatches, shell tabs, attachments — outnumber the one column that
+      // points the other way.
+      await raw.restore(bundle.rows);
     });
     return bundle.count;
   }
@@ -340,6 +442,8 @@ final bundleTransferProvider = Provider<BundleTransfer>((ref) {
     hosts: ref.watch(hostRepositoryProvider),
     paths: ref.watch(pathRepositoryProvider),
     store: ref.watch(privateKeyStoreProvider),
+    raw: RawTables(db),
+    attachments: const FileAttachmentBytes(),
     atomically: db.transaction,
   );
 });
