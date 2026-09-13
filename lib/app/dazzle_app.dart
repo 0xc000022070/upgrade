@@ -13,6 +13,7 @@ import '../design/typography.dart';
 import '../features/agents/agent_status_bar.dart';
 import '../features/home/home_screen.dart';
 import '../features/hosts/hosts_screen.dart';
+import '../features/plugins/plugin_page.dart';
 import '../features/shell/parked_shell_bar.dart';
 import '../features/shell/shell_wake.dart';
 import '../features/ssh/ssh_screen.dart';
@@ -114,7 +115,16 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
     final contribution = ref.watch(
       nativeSurfaceOwnerProvider('navigation.page'),
     );
-    final visibleIndices = [0, if (contribution != null) 1, 2, 3];
+    final toolsVisible = ref
+        .watch(effectivePluginsProvider)
+        .any((plugin) => plugin.enabled && plugin.manifest.pages.isNotEmpty);
+    final visibleIndices = [
+      0,
+      if (contribution != null) 1,
+      2,
+      3,
+      if (toolsVisible) 4,
+    ];
     final index = visibleIndices.contains(selectedIndex) ? selectedIndex : 0;
     if (index != selectedIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -128,6 +138,7 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
       NativeSurface('navigation.page'),
       HostsScreen(),
       SshScreen(),
+      PluginLibraryScreen(),
     ];
 
     return AnnotatedRegion<SystemUiOverlayStyle>(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/plugins.dart';
+import '../../application/plugin_hosts.dart';
 import '../../application/native_plugins.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
@@ -13,12 +14,14 @@ import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/plugins/manifest.dart';
 import '../../platform/plugins/store.dart';
+import '../plugins/plugin_page.dart';
 
 class PluginsPanel extends ConsumerWidget {
   const PluginsPanel({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plugins = ref.watch(pluginsProvider);
+    final pauses = ref.watch(pendingHostPausesProvider);
     return Panel(
       title: '[ PLUGINS ]',
       bodyPadding: panelRowsPadding,
@@ -27,6 +30,30 @@ class PluginsPanel extends ConsumerWidget {
         children: [
           if (plugins.hasError)
             Text('${plugins.error}', style: DazzleText.rowSubtitle),
+          if (pauses.hasError)
+            Text('Host pause status unavailable: ${pauses.error}', style: DazzleText.rowSubtitle),
+          if ((pauses.valueOrNull ?? 0) > 0) ...[
+            Text(
+              '${pauses.valueOrNull} HOST PAUSES PENDING',
+              style: DazzleText.rowSubtitle,
+            ),
+            PanelTextAction(
+              label: 'RETRY HOST PAUSES',
+              onTap: () async {
+                try {
+                  await ref
+                      .read(pluginHostRegistryProvider)
+                      .retryPending
+                      ?.call();
+                } catch (error) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text('$error')));
+                  }
+                }
+              },
+            ),
+          ],
           for (final plugin in ref.watch(effectivePluginsProvider))
             PanelTextAction(
               label: '${plugin.manifest.name} ${plugin.enabled ? "ON" : "OFF"}',
@@ -135,6 +162,10 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
     final metrics = installed == null
         ? null
         : ref.read(pluginsProvider.notifier).lastResult(installed.id);
+    final pending =
+        installed == null || installed.manifest.hostCapabilities.isEmpty
+        ? null
+        : ref.watch(pluginHostPendingProvider(pluginHostOwner(installed)));
     return PanelSheetBody(
       title: manifest?.name ?? 'ADD PLUGIN',
       children: [
@@ -181,12 +212,15 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
           ),
         ] else ...[
           _fact('PLUGIN', '${manifest.id} ${manifest.version}'),
-          if (manifest.native)
+          if (package!.origin.startsWith('builtin:') ||
+              package.origin.startsWith('bundled:'))
             _fact('DISTRIBUTION', 'Built-in · updated with Dazzle'),
           _fact('MANIFEST', '${manifest.formatVersion}'),
           _fact('DAZZLE API', '${manifest.api}'),
+          if (manifest.uiVersion != null)
+            _fact('UI API', '${manifest.uiVersion}'),
           if (!manifest.supported) _fact('DISABLED', manifest.incompatibility!),
-          _fact('SOURCE', '${package!.origin}\n${package.revision}'),
+          _fact('SOURCE', '${package.origin}\n${package.revision}'),
           if (manifest.dependencies.isNotEmpty)
             _fact(
               'DEPENDENCIES',
@@ -265,6 +299,16 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
             ),
           ],
           if (installed != null && _candidate == null && !manifest.native) ...[
+            if (manifest.hostCapabilities.isNotEmpty)
+              for (final entry
+                  in ref
+                      .read(pluginHostRegistryProvider)
+                      .usage(installed)
+                      .entries)
+                _fact(
+                  'HOST API ${entry.key}',
+                  '${entry.value.calls} calls · ${entry.value.failed} failed\n${entry.value.sentBytes} request bytes · ${entry.value.receivedBytes} response bytes\n${entry.value.elapsedMicros} µs awaited · current app session',
+                ),
             if (report!.isLoading) _fact('USAGE', 'LOADING'),
             if (report.hasError) _fact('USAGE', '${report.error}'),
             if (report.valueOrNull case final data?) ...[
@@ -293,7 +337,8 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
               _fact(
                 'LAST RUN',
                 '${metrics.loadMicros} µs load · ${metrics.runMicros} µs script\n'
-                    '${metrics.dataWaitMicros} µs host · ${metrics.peakBytes} peak VM bytes',
+                    '${metrics.dataWaitMicros} µs host · ${metrics.peakBytes} peak VM bytes\n'
+                    '${metrics.responseBytes} response bytes',
               ),
             PanelTextAction(
               label: 'REFRESH USAGE',
@@ -313,6 +358,39 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
               onTap: _busy ? null : () => _change((p) => p.install(package)),
             ),
           if (_candidate == null && installed != null) ...[
+            if (pending?.hasError == true)
+              _fact('HOST PAUSE STATUS', '${pending!.error}'),
+            if ((pending?.valueOrNull ?? 0) > 0) ...[
+              _fact(
+                'HOST PAUSE PENDING',
+                '${pending!.valueOrNull} hosts have not acknowledged the pause. Future runs may still execute there.',
+              ),
+              PanelTextAction(
+                label: 'RETRY HOST PAUSE',
+                onTap: _busy
+                    ? null
+                    : () => _change(
+                        (_) => ref
+                            .read(pluginHostRegistryProvider)
+                            .deactivate(installed),
+                      ),
+              ),
+            ],
+            if (installed.enabled)
+              for (final page in manifest.pages)
+                PanelTextAction(
+                  label: 'OPEN ${page.title.toUpperCase()}',
+                  onTap: () {
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            PluginPage(plugin: installed, page: page),
+                      ),
+                    );
+                  },
+                ),
             if (_error != null) ...[
               Text(
                 _error!,
@@ -341,7 +419,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                         ? null
                         : () => setState(() => _updating = true),
                   ),
-                if (!manifest.native)
+                if (!installed.package.packageOriginIsBuiltin)
                   ActionBlock(
                     label: 'REMOVE',
                     onTap: _busy
@@ -351,9 +429,10 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
               ],
             ),
             const SizedBox(height: Spacing.md),
-            const Text(
-              'Disable unloads the plugin and invalidates old proposals. Stored data stays.\n'
-              'Remove keeps existing records, plugin datasets and source revisions.',
+            Text(
+              'Disable unloads the plugin and revokes its APIs. Stored data stays.\n'
+              '${manifest.hostCapabilities.isNotEmpty ? "Host pauses require acknowledgement; running agents are not killed.\n" : ""}'
+              '${installed.package.packageOriginIsBuiltin ? "Built-in plugins stay installed." : "Remove retains records, datasets and source revisions."}',
               style: DazzleText.rowSubtitle,
             ),
           ],

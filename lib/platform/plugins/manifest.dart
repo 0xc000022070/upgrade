@@ -34,6 +34,17 @@ class PluginAction {
   final String title;
 }
 
+class PluginHostCapability {
+  const PluginHostCapability(this.alias, this.service, this.operations);
+  final String alias;
+  final String service;
+  final Set<String> operations;
+  PluginPermission permission(String operation) => PluginPermission(
+    'host.$alias.$operation',
+    '$operation on $service; host API 1',
+  );
+}
+
 class PluginDataset {
   const PluginDataset(
     this.name,
@@ -104,11 +115,15 @@ class PluginManifest {
     this.hostDatasets = const {},
     this.formatVersion = manifestVersion,
     this.incompatibility,
+    this.pages = const [],
+    this.hostCapabilities = const {},
+    this.uiVersion,
   });
   static const manifestVersion = 2;
   static const nativeManifestVersion = 3;
+  static const uiManifestVersion = 4;
   static const maxBytes = 16 * 1024;
-  static final apiVersion = Version(2, 0, 0);
+  static final apiVersion = Version(2, 1, 0);
   final String source;
   final String id;
   final String name;
@@ -128,6 +143,9 @@ class PluginManifest {
   bool get native => runtimeKind == 'native';
   final int formatVersion;
   final String? incompatibility;
+  final List<PluginAction> pages;
+  final Map<String, PluginHostCapability> hostCapabilities;
+  final int? uiVersion;
   bool get supported => incompatibility == null;
 
   factory PluginManifest.parse(
@@ -154,7 +172,9 @@ class PluginManifest {
       final entry = _text(runtime['entry'], 'entry', 200);
       final native =
           runtime['kind'] == 'native' && format == nativeManifestVersion;
-      final incompatible = format != manifestVersion && !native
+      final uiRuntime =
+          format == uiManifestVersion && runtime['kind'] == 'luau';
+      final incompatible = format != manifestVersion && !native && !uiRuntime
           ? 'Unsupported manifest version $format'
           : !api.allows(apiVersion)
           ? 'Plugin requires Dazzle API $api'
@@ -306,7 +326,12 @@ class PluginManifest {
         'contributes',
         'datasets',
         'capabilities',
+        if (uiRuntime) 'ui_api',
+        if (uiRuntime) 'host_capabilities',
       });
+      if (uiRuntime && (root['ui_api'] is! int || root['ui_api'] != 1)) {
+        throw const PluginException('Unsupported UI API version');
+      }
       _keys(runtime, {'kind', 'entry'});
       if (!RegExp(r'^[A-Za-z0-9_/-]+\.luau$').hasMatch(entry) ||
           entry.startsWith('/') ||
@@ -436,22 +461,48 @@ class PluginManifest {
       _keys(groups, {'ui'});
       final ui = groups['ui'];
       if (ui is! List<Object?> ||
-          ui.length != 1 ||
-          ui.single != 'record_action') {
-        throw const PluginException('Actions require ui.record_action');
+          ui.isEmpty ||
+          ui.toSet().length != ui.length ||
+          ui.any(
+            (entry) =>
+                entry != 'record_action' &&
+                (!uiRuntime || !{'page', 'canvas'}.contains(entry)),
+          )) {
+        throw const PluginException('Unsupported UI permission');
       }
-      permissions.add(PluginPermission.recordAction);
+      if (ui.contains('record_action')) {
+        permissions.add(PluginPermission.recordAction);
+      }
+      if (ui.contains('page')) {
+        permissions.add(
+          const PluginPermission(
+            'ui.page',
+            'Create native plugin pages; UI API 1',
+          ),
+        );
+      }
+      if (ui.contains('canvas')) {
+        permissions.add(
+          const PluginPermission(
+            'ui.canvas',
+            'Draw bounded native canvas commands; UI API 1',
+          ),
+        );
+      }
       final contributions = _map(root['contributes'], 'contributes');
-      _keys(contributions, {'record_actions'});
-      final declaredActions = contributions['record_actions'];
+      _keys(contributions, {'record_actions', if (uiRuntime) 'pages'});
+      final declaredActions = contributions['record_actions'] ?? <Object?>[];
       if (declaredActions is! List<Object?> ||
-          declaredActions.isEmpty ||
+          !uiRuntime && declaredActions.isEmpty ||
           declaredActions.length > 16) {
         throw const PluginException('Declare between 1 and 16 record actions');
       }
       final actionIds = <String>{};
       final actions = <PluginAction>[];
       for (final value in declaredActions) {
+        if (!ui.contains('record_action')) {
+          throw const PluginException('Actions require ui.record_action');
+        }
         final action = _map(value, 'record action');
         _keys(action, {'id', 'title'});
         final actionId = _identifier(action['id']);
@@ -461,6 +512,61 @@ class PluginManifest {
         actions.add(
           PluginAction(actionId, _text(action['title'], 'action title', 48)),
         );
+      }
+      final pages = <PluginAction>[];
+      final declaredPages = contributions['pages'] ?? <Object?>[];
+      if (declaredPages is! List<Object?> || declaredPages.length > 8) {
+        throw const PluginException('At most 8 plugin pages');
+      }
+      final pageIds = <String>{};
+      for (final value in declaredPages) {
+        if (!ui.contains('page')) {
+          throw const PluginException('Pages require ui.page');
+        }
+        final page = _map(value, 'page');
+        _keys(page, {'id', 'title'});
+        final pageId = _identifier(page['id']);
+        if (!pageIds.add(pageId)) {
+          throw const PluginException('Duplicate page ID');
+        }
+        pages.add(PluginAction(pageId, _text(page['title'], 'page title', 48)));
+      }
+      if (actions.isEmpty && pages.isEmpty) {
+        throw const PluginException('Declare an action or page');
+      }
+      final hostCapabilities = <String, PluginHostCapability>{};
+      final hostFields = _map(
+        root['host_capabilities'] ?? <String, Object?>{},
+        'host capabilities',
+      );
+      if (hostFields.length > 8) {
+        throw const PluginException('At most 8 host capabilities');
+      }
+      for (final entry in hostFields.entries) {
+        final alias = _dataName(entry.key);
+        final fields = _map(entry.value, 'host capability');
+        _keys(fields, {'api_version', 'service', 'operations'});
+        if (fields['api_version'] is! int || fields['api_version'] != 1) {
+          throw const PluginException('Unsupported host API version');
+        }
+        final service = _identifier(fields['service']);
+        final declaredOps = fields['operations'];
+        if (declaredOps is! List<Object?> ||
+            declaredOps.isEmpty ||
+            declaredOps.length > 16) {
+          throw const PluginException('Declare host operations');
+        }
+        final operations = declaredOps.map(_identifier).toSet();
+        if (operations.length != declaredOps.length) {
+          throw const PluginException('Duplicate host operation');
+        }
+        final capability = PluginHostCapability(
+          alias,
+          service,
+          Set.unmodifiable(operations),
+        );
+        hostCapabilities[alias] = capability;
+        permissions.addAll(operations.map(capability.permission));
       }
       return PluginManifest._(
         source: source,
@@ -474,6 +580,10 @@ class PluginManifest {
         actions: List.unmodifiable(actions),
         datasets: Map.unmodifiable(datasets),
         capabilities: Map.unmodifiable(capabilities),
+        pages: List.unmodifiable(pages),
+        hostCapabilities: Map.unmodifiable(hostCapabilities),
+        uiVersion: uiRuntime ? 1 : null,
+        formatVersion: format,
       );
     } on PluginException {
       rethrow;

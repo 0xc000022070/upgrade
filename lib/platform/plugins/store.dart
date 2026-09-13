@@ -135,7 +135,7 @@ class PluginStore {
   }) => _change((entries) {
     final ids = packages.map((p) => p.manifest.id).toSet();
     if (ids.length != packages.length ||
-        packages.any((p) => !p.manifest.native || !p.packageOriginIsBuiltin)) {
+        packages.any((p) => !p.packageOriginIsBuiltin)) {
       throw const PluginException('Invalid built-in plugin registry');
     }
     final retained = {for (final entry in entries) entry.id: entry};
@@ -159,7 +159,11 @@ class PluginStore {
         if (!ids.contains(entry.id) && !entry.package.packageOriginIsBuiltin)
           unavailable.contains(entry.id) ? entry.withEnabled(false) : entry,
       for (final package in packages)
-        _adoptBuiltin(package, retained[package.manifest.id], adoptEnabled),
+        _adoptBuiltin(
+          package,
+          retained[package.manifest.id],
+          adoptEnabled && package.manifest.native,
+        ),
     ];
     var reduced = true;
     while (reduced) {
@@ -288,7 +292,7 @@ class PluginStore {
   );
 
   Future<List<InstalledPlugin>> remove(String id) => _change((entries) {
-    if (entries.any((p) => p.id == id && p.manifest.native)) {
+    if (entries.any((p) => p.id == id && p.package.packageOriginIsBuiltin)) {
       throw const PluginException(
         'Built-in plugins can be disabled, not removed',
       );

@@ -17,6 +17,7 @@ using Clock = std::chrono::steady_clock;
 constexpr size_t source_limit = 64 * 1024;
 constexpr size_t text_limit = 16 * 1024;
 constexpr size_t heap_limit = 8 * 1024 * 1024;
+constexpr size_t message_limit = 256 * 1024;
 
 struct Vm;
 using DataCall = void (*)(Vm*, int, const char*, size_t, const char*, size_t,
@@ -36,6 +37,9 @@ struct Vm {
     bool exhausted = false;
     int module = 0;
     int callable = 0;
+    int argument = 0;
+    std::vector<uint8_t> input;
+    std::vector<uint8_t> output;
     const char* action = nullptr;
     const std::string* bytecode = nullptr;
     Clock::time_point deadline;
@@ -53,6 +57,15 @@ struct Vm {
     char data_error[512] = {};
 };
 
+static size_t resident_bytes(Vm* vm) {
+    return vm->used + vm->input.capacity() + vm->output.capacity();
+}
+
+static void track_peak(Vm* vm) {
+    const size_t total = resident_bytes(vm);
+    if (total > vm->peak) vm->peak = total;
+}
+
 static void* allocate(void* ud, void* ptr, size_t old_size, size_t size) {
     auto* vm = static_cast<Vm*>(ud);
     if (!ptr) old_size = 0;
@@ -68,7 +81,7 @@ static void* allocate(void* ud, void* ptr, size_t old_size, size_t size) {
     void* result = std::realloc(ptr, size);
     if (result) {
         vm->used = vm->used - old_size + size;
-        if (vm->used > vm->peak) vm->peak = vm->used;
+        track_peak(vm);
     } else {
         vm->exhausted = true;
     }
@@ -216,6 +229,134 @@ static int retain_module(lua_State* state) {
     return 0;
 }
 
+static uint32_t word(lua_State* state, const std::vector<uint8_t>& bytes, size_t& at) {
+    if (at + 4 > bytes.size()) luaL_error(state, "truncated UI message");
+    uint32_t value = 0;
+    for (int i = 0; i < 4; ++i) value |= uint32_t(bytes[at++]) << (i * 8);
+    return value;
+}
+
+static void push_value(lua_State* state, size_t& at, unsigned depth) {
+    const auto& bytes = owner(state)->input;
+    if (depth > 32 || at >= bytes.size() || !lua_checkstack(state, 8))
+        luaL_error(state, "invalid UI message depth");
+    const uint8_t tag = bytes[at++];
+    switch (tag) {
+    case 0: lua_pushnil(state); break;
+    case 1: lua_pushboolean(state, false); break;
+    case 2: lua_pushboolean(state, true); break;
+    case 3: {
+        if (at + 8 > bytes.size()) luaL_error(state, "truncated UI number");
+        uint64_t bits = 0;
+        for (int i = 0; i < 8; ++i) bits |= uint64_t(bytes[at++]) << (i * 8);
+        double value;
+        std::memcpy(&value, &bits, 8);
+        if (!std::isfinite(value)) luaL_error(state, "non-finite UI number");
+        lua_pushnumber(state, value);
+        break;
+    }
+    case 4: {
+        const uint32_t length = word(state, bytes, at);
+        if (length > bytes.size() - at) luaL_error(state, "truncated UI string");
+        lua_pushlstring(state, reinterpret_cast<const char*>(bytes.data() + at), length);
+        at += length;
+        break;
+    }
+    case 5:
+    case 6: {
+        const uint32_t count = word(state, bytes, at);
+        if (count > 4096) luaL_error(state, "UI collection exceeds limit");
+        lua_createtable(state, tag == 5 ? int(count) : 0, tag == 6 ? int(count) : 0);
+        for (uint32_t i = 0; i < count; ++i) {
+            if (tag == 6) {
+                push_value(state, at, depth + 1);
+                if (lua_type(state, -1) != LUA_TSTRING) luaL_error(state, "UI map key must be a string");
+            }
+            push_value(state, at, depth + 1);
+            if (tag == 5) lua_rawseti(state, -2, int(i + 1));
+            else lua_rawset(state, -3);
+        }
+        break;
+    }
+    default: luaL_error(state, "unknown UI message type");
+    }
+}
+
+static void emit(lua_State* state, uint8_t byte) {
+    auto& bytes = owner(state)->output;
+    if (bytes.size() >= message_limit) luaL_error(state, "UI response exceeds 256 KiB");
+    bytes.push_back(byte);
+    track_peak(owner(state));
+}
+
+static void emit_word(lua_State* state, uint32_t value) {
+    for (int i = 0; i < 4; ++i) emit(state, uint8_t(value >> (i * 8)));
+}
+
+static void encode_value(lua_State* state, int index, unsigned depth) {
+    if (depth > 32 || !lua_checkstack(state, 8)) luaL_error(state, "UI response is cyclic or too deep");
+    index = lua_absindex(state, index);
+    switch (lua_type(state, index)) {
+    case LUA_TNIL: emit(state, 0); break;
+    case LUA_TBOOLEAN: emit(state, lua_toboolean(state, index) ? 2 : 1); break;
+    case LUA_TNUMBER: {
+        const double value = lua_tonumber(state, index);
+        if (!std::isfinite(value)) luaL_error(state, "non-finite UI number");
+        uint64_t bits;
+        std::memcpy(&bits, &value, 8);
+        emit(state, 3);
+        for (int i = 0; i < 8; ++i) emit(state, uint8_t(bits >> (i * 8)));
+        break;
+    }
+    case LUA_TSTRING: {
+        size_t length;
+        const char* value = lua_tolstring(state, index, &length);
+        if (length > message_limit) luaL_error(state, "UI string exceeds limit");
+        emit(state, 4);
+        emit_word(state, uint32_t(length));
+        for (size_t i = 0; i < length; ++i) emit(state, uint8_t(value[i]));
+        break;
+    }
+    case LUA_TTABLE: {
+        const int length = lua_objlen(state, index);
+        unsigned count = 0;
+        bool array = length > 0;
+        lua_pushnil(state);
+        while (lua_next(state, index)) {
+            if (++count > 4096) luaL_error(state, "UI collection exceeds limit");
+            if (lua_type(state, -2) != LUA_TNUMBER || lua_tonumber(state, -2) < 1 ||
+                lua_tonumber(state, -2) > length || std::floor(lua_tonumber(state, -2)) != lua_tonumber(state, -2)) array = false;
+            lua_pop(state, 1);
+        }
+        array = array && count == unsigned(length);
+        emit(state, array ? 5 : 6);
+        emit_word(state, count);
+        if (array) {
+            for (int i = 1; i <= length; ++i) {
+                lua_rawgeti(state, index, i);
+                encode_value(state, -1, depth + 1);
+                lua_pop(state, 1);
+            }
+        } else {
+            lua_pushnil(state);
+            while (lua_next(state, index)) {
+                if (lua_type(state, -2) != LUA_TSTRING) luaL_error(state, "UI map key must be a string");
+                encode_value(state, -2, depth + 1);
+                encode_value(state, -1, depth + 1);
+                lua_pop(state, 1);
+            }
+        }
+        break;
+    }
+    default: luaL_error(state, "UI messages contain only values, not functions or handles");
+    }
+}
+
+static int capture_result(lua_State* state) {
+    encode_value(state, lua_gettop(state) ? 1 : 0, 0);
+    return 0;
+}
+
 static int prepare_action(lua_State* state) {
     Vm* vm = owner(state);
     lua_getref(state, vm->module);
@@ -223,6 +364,12 @@ static int prepare_action(lua_State* state) {
     lua_rawget(state, -2);
     if (!lua_isfunction(state, -1)) luaL_error(state, "declared action is missing");
     vm->callable = lua_ref(state, -1);
+    if (!vm->input.empty()) {
+        size_t at = 0;
+        push_value(state, at, 0);
+        if (at != vm->input.size()) luaL_error(state, "trailing UI message bytes");
+        vm->argument = lua_ref(state, -1);
+    }
     return 0;
 }
 
@@ -240,7 +387,11 @@ static bool failed(Vm* vm, int status) {
 
 static int run(Vm* vm) {
     lua_getref(vm->state, vm->callable);
-    const int status = lua_resume(vm->state, nullptr, 0);
+    const int arguments = vm->argument ? 1 : 0;
+    if (arguments) lua_getref(vm->state, vm->argument);
+    const int status = lua_resume(vm->state, nullptr, arguments);
+    if (vm->argument) lua_unref(vm->state, vm->argument);
+    vm->argument = 0;
     lua_unref(vm->state, vm->callable);
     vm->callable = 0;
     return status;
@@ -287,12 +438,19 @@ DAZZLE_EXPORT int dazzle_vm_invoke(Vm* vm, const char* action) {
     vm->checkpoints = 0;
     vm->data_calls = 0;
     vm->data_wait_us = 0;
+    vm->output.clear();
     vm->deadline = start + std::chrono::milliseconds(50);
     int status = -1;
     try {
         lua_resetthread(vm->state);
         if (!failed(vm, lua_cpcall(vm->state, prepare_action, nullptr))) {
             status = failed(vm, run(vm)) ? -1 : 0;
+            if (status == 0 && !vm->input.empty()) {
+                if (!lua_gettop(vm->state)) lua_pushnil(vm->state);
+                lua_pushcfunction(vm->state, capture_result, "capture_result");
+                lua_insert(vm->state, 1);
+                status = failed(vm, lua_pcall(vm->state, lua_gettop(vm->state) - 1, 0, 0)) ? -1 : 0;
+            }
         }
     } catch (...) {
         std::strcpy(vm->error, "plugin runtime failed");
@@ -302,7 +460,18 @@ DAZZLE_EXPORT int dazzle_vm_invoke(Vm* vm, const char* action) {
 }
 
 DAZZLE_EXPORT const char* dazzle_vm_error(Vm* vm) { return vm->error; }
-DAZZLE_EXPORT size_t dazzle_vm_memory(Vm* vm) { return vm->used; }
+DAZZLE_EXPORT int dazzle_vm_input(Vm* vm, const uint8_t* bytes, size_t size) {
+    if (size > message_limit) return -1;
+    try {
+        if (size) vm->input.assign(bytes, bytes + size);
+        else vm->input.clear();
+        track_peak(vm);
+        return 0;
+    } catch (...) { return -1; }
+}
+DAZZLE_EXPORT const uint8_t* dazzle_vm_output(Vm* vm) { return vm->output.data(); }
+DAZZLE_EXPORT size_t dazzle_vm_output_size(Vm* vm) { return vm->output.size(); }
+DAZZLE_EXPORT size_t dazzle_vm_memory(Vm* vm) { return resident_bytes(vm); }
 DAZZLE_EXPORT size_t dazzle_vm_peak(Vm* vm) { return vm->peak; }
 DAZZLE_EXPORT long long dazzle_vm_load_us(Vm* vm) { return vm->load_us; }
 DAZZLE_EXPORT long long dazzle_vm_run_us(Vm* vm) { return vm->run_us; }

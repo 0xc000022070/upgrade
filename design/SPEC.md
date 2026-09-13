@@ -1524,7 +1524,17 @@ Dazzle caps source size, VM allocation, result size, pending requests and reside
 
 The dataset session's time budget starts at its first API call, not during compiler or FFI setup. It continues between calls and cannot be reset by catching an error. Call-count and elapsed-time failures are reported separately.
 
-Automatic events, background jobs, arbitrary plugin views, SSH capabilities and WebAssembly are deferred until the manual action contract and its performance are established on mobile. Repository plugins are an Android feature in this target; a future public iOS distribution needs its own distribution decision.
+Plugin pages use versioned native UI constructors and a lower-level node and drawing interface. Luau owns page structure, transient state and event handlers. Dazzle validates bounded descriptions, preserves keyed native controls and renders scrolling and animation without invoking Lua per frame. Plugins can compose layouts rather than selecting a fixed screen template. Host operations are asynchronous effects behind declared, versioned capabilities; scripts receive neither SSH credentials nor arbitrary shell access.
+
+### Agent schedules are managed from a Luau plugin
+
+Agent schedules is a standalone Luau package shipped with the app. It owns its interface and private preferences. A selected host owns schedules, execution and retained run history. Scheduling does not depend on the phone remaining online. The first host adapter uses Python and a systemd user timer on Linux; setup is explicit, checks host support and touches only its own namespaced files and units. Existing host jobs and other plugins' datasets are not modified. Unsupported hosts show the missing capability instead of a simulated schedule.
+
+The plugin manages one-shot and daily runs with an explicit timezone, repository directory, installed agent, prompt and timeout. It can inspect, pause and resume schedules, start a run on demand and read bounded run output. Occurrence identities prevent duplicate launches when a timer or connection retries. Failed and interrupted executions remain visible. The host uses the agent's existing authentication and permission configuration.
+
+Disabling the plugin preserves preferences, schedules and history. Host-owned future runs are paused through the host API. An unreachable host leaves a visible pending pause until the host acknowledges it; the app never claims offline cancellation has completed. Already-running agents are not silently killed.
+
+Repository plugins are an Android feature in this target; a future public iOS distribution needs its own distribution decision. WebAssembly and arbitrary background Lua execution on the phone remain deferred.
 
 ## Routines
 
