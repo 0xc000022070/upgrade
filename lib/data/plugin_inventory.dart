@@ -62,6 +62,7 @@ class NativeDatasetInspector {
             )
             .get();
         final root = path.normalize(attachmentDirectory!.absolute.path);
+        final resolvedRoot = await attachmentDirectory!.resolveSymbolicLinks();
         for (final row in paths) {
           final relative = row.read<String>('value');
           final target = path.normalize(path.join(root, relative));
@@ -74,7 +75,7 @@ class NativeDatasetInspector {
           }
           final file = File(target);
           final resolved = await file.resolveSymbolicLinks();
-          if (!path.isWithin(root, resolved)) {
+          if (!path.isWithin(resolvedRoot, resolved)) {
             missing++;
             continue;
           }
