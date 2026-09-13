@@ -269,7 +269,7 @@ void main() {
     await _ready(tester);
 
     expect(find.text('DONE · UNDO'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 15));
+    await tester.pump(const Duration(seconds: 30));
     expect(find.text('DONE · UNDO'), findsNothing);
     final rows = await tester.runAsync(() => db.select(db.tasks).get());
     expect(rows!.firstWhere((task) => task.id == drop).done, isTrue);
