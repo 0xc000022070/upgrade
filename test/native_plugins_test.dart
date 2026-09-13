@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:io' as io show Link;
 
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/plugin_api.dart';
@@ -134,6 +135,41 @@ void main() {
       expect(drops.singleWhere((d) => d.name == 'attachments').fileBytes, 5);
       expect(drops.every((d) => d.fieldBytes > 0), isTrue);
       expect(await image.readAsBytes(), [1, 2, 3, 4, 5]);
+    },
+  );
+
+  test(
+    'inventory resolves the support root without counting escaped files',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'dazzle-inventory-link-',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final support = await Directory('${root.path}/support').create();
+      await Directory('${support.path}/attachments').create();
+      await File('${support.path}/attachments/retained.png')
+          .writeAsBytes([1, 2, 3]);
+      final outside = await Directory('${root.path}/outside').create();
+      await File('${outside.path}/private.png').writeAsBytes([4, 5, 6, 7]);
+      await io.Link('${support.path}/attachments/escape').create(outside.path);
+      final alias = await io.Link('${root.path}/android-support')
+          .create(support.path);
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await TaskRepository(db, ActivityRepository(db)).capture(
+        'Retained through Android root alias',
+        attachments: const [
+          NewAttachment.image('attachments/retained.png'),
+          NewAttachment.image('attachments/escape/private.png'),
+        ],
+      );
+      final inventory = await builtinDatasetInspector(
+        db,
+        attachmentDirectory: Directory(alias.path),
+      ).inspect(builtinFixture('drops').manifest);
+      final attachments = inventory.singleWhere((d) => d.name == 'attachments');
+      expect(attachments.fileBytes, 3);
+      expect(attachments.missingFiles, 1);
     },
   );
 
