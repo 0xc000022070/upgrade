@@ -39,6 +39,9 @@ test *args:
 apk:
     flutter build apk --debug --target-platform android-arm64 --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}
 
+apk-fixtures:
+    flutter build apk --debug --target-platform android-arm64 --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev} --dart-define=DAZZLE_SEED_FIXTURES=true
+
 # Release APK, the artifact faraday is upgraded with. arm64 only: the emulator
 # on rose and faraday are both arm64, and the other two ABIs were 40 of the
 # 60 MB and two thirds of the AOT time. The build number is the one in pubspec;
