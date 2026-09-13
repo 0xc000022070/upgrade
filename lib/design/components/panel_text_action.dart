@@ -34,13 +34,17 @@ class PanelTextAction extends StatelessWidget {
               color: DazzleColors.textMuted,
             ),
             const SizedBox(width: Spacing.sm),
-            Text(
-              label,
-              style: onTap == null
-                  ? DazzleText.panelHeader.copyWith(
-                      color: DazzleColors.textDisabled,
-                    )
-                  : DazzleText.panelHeader,
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: onTap == null
+                    ? DazzleText.panelHeader.copyWith(
+                        color: DazzleColors.textDisabled,
+                      )
+                    : DazzleText.panelHeader,
+              ),
             ),
           ],
         ),

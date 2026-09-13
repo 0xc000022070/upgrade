@@ -32,6 +32,7 @@ import 'image_viewer.dart';
 import 'item_pickers.dart';
 import 'item_send.dart';
 import 'link_text.dart';
+import 'plugin_actions.dart';
 
 /// The quick view. Row tap and long press both land here; there is no separate
 /// action sheet any more.
@@ -345,6 +346,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
 
     return [
       _title(task),
+      if (drop) PluginDropActions(task: task),
       if (!drop && task.blockedReason != null) ...[
         const SheetRule(),
         SheetField(
