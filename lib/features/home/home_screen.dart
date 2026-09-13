@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +12,7 @@ import '../../data/views.dart';
 import '../../design/colors.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
+import '../../design/components/solid_action_bar.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
@@ -50,6 +53,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// same event, but the IME covers HOME's bottom edge at the moment
   /// the row arrives, so the strip is the half of it the user can see.
   final _landing = GlitchController();
+  Timer? _undoTimer;
+  String? _undoTaskId;
 
   @override
   void initState() {
@@ -65,6 +70,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void dispose() {
     _visible.state = false;
     _landing.dispose();
+    _undoTimer?.cancel();
     super.dispose();
   }
 
@@ -81,6 +87,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(dropSelectionProvider.notifier).clear();
     ref.read(freshDropsProvider.notifier).clear();
     go();
+  }
+
+  void _offerUndo(String taskId) {
+    _undoTimer?.cancel();
+    setState(() => _undoTaskId = taskId);
+    _undoTimer = Timer(const Duration(seconds: 15), () {
+      if (mounted) setState(() => _undoTaskId = null);
+    });
+  }
+
+  Future<void> _undoDone() async {
+    final taskId = _undoTaskId;
+    if (taskId == null) return;
+    _undoTimer?.cancel();
+    setState(() => _undoTaskId = null);
+    await ref.read(taskRepositoryProvider).setDone(taskId, false);
   }
 
   @override
@@ -133,6 +155,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     scope: DropSelection.homeScope,
                     drops: drops,
                     landing: _landing,
+                    onCompleted: _offerUndo,
                   ),
                 ],
               ),
@@ -144,6 +167,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // while it is up and comes back when the mode ends.
         if (selecting)
           const SelectionBar(scope: DropSelection.homeScope)
+        else if (_undoTaskId != null)
+          SolidActionBar(label: 'DONE · UNDO', onTap: _undoDone)
         else
           CaptureBar(scope: DropSelection.homeScope, landing: _landing),
       ],

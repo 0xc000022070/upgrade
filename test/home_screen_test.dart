@@ -198,7 +198,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a stray drop is finished from its own row and stays on it', (
+  testWidgets('a finished drop leaves the active list and can be undone', (
     tester,
   ) async {
     final drop = await tasks.capture('revisar pgbouncer');
@@ -215,8 +215,33 @@ void main() {
 
     final rows = await tester.runAsync(() => db.select(db.tasks).get());
     expect(rows!.firstWhere((task) => task.id == drop).done, isTrue);
-    // DROPS is the whole of the unfiled, finished or not: a row that vanished
-    // on the tap would take the undo with it.
+    expect(find.text('revisar pgbouncer'), findsNothing);
+    expect(find.text('DONE'), findsOneWidget);
+    expect(find.text('DONE · UNDO'), findsOneWidget);
+
+    await tester.tap(find.text('DONE · UNDO'));
+    await _ready(tester);
+    final again = await tester.runAsync(() => db.select(db.tasks).get());
+    expect(again!.firstWhere((task) => task.id == drop).done, isFalse);
+    expect(find.text('revisar pgbouncer'), findsOneWidget);
+    expect(find.text('DONE'), findsNothing);
+    expect(find.text('DONE · UNDO'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the DONE panel expands and reopening its row restores it', (
+    tester,
+  ) async {
+    final drop = await tasks.capture('revisar pgbouncer');
+    await tasks.setDone(drop, true);
+
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    expect(find.text('revisar pgbouncer'), findsNothing);
+    await tester.tap(find.text('DONE'));
+    await _ready(tester);
     expect(find.text('revisar pgbouncer'), findsOneWidget);
     expect(
       _box('revisar pgbouncer', DazzleIcons.checkboxChecked),
@@ -225,8 +250,29 @@ void main() {
 
     await _tapBox(tester, 'revisar pgbouncer');
     await _ready(tester);
-    final again = await tester.runAsync(() => db.select(db.tasks).get());
-    expect(again!.firstWhere((task) => task.id == drop).done, isFalse);
+    final rows = await tester.runAsync(() => db.select(db.tasks).get());
+    expect(rows!.firstWhere((task) => task.id == drop).done, isFalse);
+    expect(find.text('DONE'), findsNothing);
+    expect(find.text('revisar pgbouncer'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the completion undo expires without reopening the drop', (
+    tester,
+  ) async {
+    final drop = await tasks.capture('revisar pgbouncer');
+
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    await _tapBox(tester, 'revisar pgbouncer');
+    await _ready(tester);
+
+    expect(find.text('DONE · UNDO'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 15));
+    expect(find.text('DONE · UNDO'), findsNothing);
+    final rows = await tester.runAsync(() => db.select(db.tasks).get());
+    expect(rows!.firstWhere((task) => task.id == drop).done, isTrue);
 
     await unmount(tester);
   });
