@@ -80,9 +80,13 @@ class HostKeyVerifier {
       HostKeyVerifier(pinned: pinned);
 
   HostKeyRefusal? _refusal;
+  PinnedHostKey? _verified;
 
   /// Why the last call to [verify] said no, or null if it never did.
   HostKeyRefusal? get refusal => _refusal;
+
+  /// The key this handshake accepted, including a pin made during it.
+  PinnedHostKey? get verified => _verified;
 
   /// The callback dartssh2 calls with the key the server presented, before
   /// authentication and before any channel exists.
@@ -97,7 +101,10 @@ class HostKeyVerifier {
   Future<bool> verifyFingerprint(String type, String fingerprint) async {
     final known = pinned;
     if (known != null) {
-      if (known.matches(type, fingerprint)) return true;
+      if (known.matches(type, fingerprint)) {
+        _verified = known;
+        return true;
+      }
       // No override on the connect path. The only way past a changed key is
       // forgetting the pin on the host form, where the user is looking at what
       // they are dropping.
@@ -109,20 +116,20 @@ class HostKeyVerifier {
       _refusal = HostKeyRefusal.unverified;
       return false;
     }
-    final accepted = await ask(
+    final approved = await ask(
       HostKeyOffer(type: type, fingerprint: fingerprint),
     );
-    if (!accepted) {
+    if (!approved) {
       _refusal = HostKeyRefusal.unverified;
       return false;
     }
-    await pin?.call(
-      PinnedHostKey(
-        type: type,
-        fingerprint: fingerprint,
-        pinnedAt: DateTime.now(),
-      ),
+    final accepted = PinnedHostKey(
+      type: type,
+      fingerprint: fingerprint,
+      pinnedAt: DateTime.now(),
     );
+    await pin?.call(accepted);
+    _verified = accepted;
     return true;
   }
 }

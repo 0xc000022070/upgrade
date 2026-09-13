@@ -50,11 +50,29 @@ tunnel. Copy the public key shown by the app into `~/.ssh/authorized_keys`
 without a forced `command=`, `restrict`, or `permitopen` prefix. The key has the
 same access as an interactive login for that account.
 
+Install `mosh-server` for roaming shells. Dazzle uses SSH to authenticate and
+start Mosh, then moves terminal traffic to Mosh's UDP range. A live Mosh tab
+rehomes after the phone changes networks. If the server is absent or UDP cannot
+connect, the same tab falls back to SSH. Open UDP ports `60000:61000` on hosts
+whose firewall does not already allow Mosh.
+
+Mosh does not depend on a multiplexer. Install `tmux` separately when ordinary
+shell processes must also survive Dazzle being killed. Dazzle discovers tmux
+through the host's login shell, uses its dedicated `dazzle` socket, and
+reattaches the tab's named session after a new transport is established. A host
+without tmux still gets Mosh roaming when `mosh-server` is available, but a
+process restart opens a fresh shell. Closing an ordinary tab kills only the
+tmux session and Mosh server that tab owns.
+
 The AGENTS panel and SEND need `herdr` on the non-interactive SSH `PATH`. Every
-running herdr session is listed. SEND starts its agent in herdr's default
-session, or in the one session running when the default is not. Dazzle scans `~/Projects`, `~/.dotfiles`, and `~/src` for
-Git checkouts. Clipboard attachments need `wl-copy` and `wl-paste` on Wayland,
-`xclip` on X11, or `osascript` on macOS.
+running herdr session is listed. An attached agent tab records the exact Herdr
+session and pane, then attaches that pane again after a network change or app
+restart. Herdr owns that process identity; Dazzle does not put tmux around it.
+The pane still uses Mosh transport when the host has `mosh-server`, with SSH as
+fallback. SEND starts its agent in herdr's default session, or in the one
+session running when the default is not. Dazzle scans `~/Projects`,
+`~/.dotfiles`, and `~/src` for Git checkouts. Clipboard attachments need
+`wl-copy` and `wl-paste` on Wayland, `xclip` on X11, or `osascript` on macOS.
 
 A passphrase prompt for the SSH key held by gpg-agent is asked for in the app
 when the host runs `pinentry-gate` as its pinentry: each shell marks its pty

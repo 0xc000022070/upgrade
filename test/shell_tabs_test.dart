@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/features/shell/shell_header.dart';
 import 'package:dazzle/features/shell/shell_status.dart';
+import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:xterm/xterm.dart';
 
 import 'support/fake_shell.dart';
@@ -38,6 +39,19 @@ Color? dotOfTab(WidgetTester tester, int number) =>
 
 void main() {
   setUp(stubDeviceChannels);
+
+  testWidgets('a live Mosh tab names its transport in the header', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+
+    expect(find.text('MOSH'), findsOneWidget);
+
+    await unmount(tester);
+  });
 
   testWidgets('the plus opens a numbered tab and it becomes the active one', (
     tester,

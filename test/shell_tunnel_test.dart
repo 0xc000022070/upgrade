@@ -9,9 +9,12 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dart_mosh/dart_mosh.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/platform/shell/mosh_channel.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
+import 'package:dazzle/platform/shell/remote_shell.dart';
 import 'package:dazzle/platform/shell/shell_tunnel.dart';
 import 'package:dazzle/platform/host_keys.dart';
 import 'package:dazzle/platform/keys.dart';
@@ -105,19 +108,28 @@ class FakePty implements ShellPty {
 }
 
 class FakeExec implements ShellExec {
+  FakeExec({this.out = '', this.err = '', this.reported = 0});
+
   final _done = Completer<void>();
+  final String out;
+  final String err;
+  final int? reported;
 
   @override
-  Stream<Uint8List> get stdout => const Stream.empty();
+  Stream<Uint8List> get stdout => out.isEmpty
+      ? const Stream.empty()
+      : Stream.value(Uint8List.fromList(out.codeUnits));
 
   @override
-  Stream<Uint8List> get stderr => const Stream.empty();
+  Stream<Uint8List> get stderr => err.isEmpty
+      ? const Stream.empty()
+      : Stream.value(Uint8List.fromList(err.codeUnits));
 
   @override
   Future<void> get done => _done.future;
 
   @override
-  int? get exitCode => 0;
+  int? get exitCode => reported;
 
   @override
   void write(Uint8List bytes) {}
@@ -129,10 +141,21 @@ class FakeExec implements ShellExec {
 }
 
 class FakeHost implements ShellHost {
-  FakeHost({this.authError, this.shellError});
+  FakeHost({
+    this.authError,
+    this.shellError,
+    this.execOut = '',
+    this.execError = '',
+    this.execCode = 0,
+  });
 
   final Object? authError;
   final Object? shellError;
+  String execOut;
+  String execError;
+  int? execCode;
+  String Function(String command)? execAnswer;
+  int? Function(String command)? execCodeAnswer;
 
   final requests = <String>[];
   final pty = FakePty();
@@ -147,7 +170,11 @@ class FakeHost implements ShellHost {
   @override
   Future<ShellExec> execute(String command) async {
     requests.add('exec $command');
-    return FakeExec();
+    return FakeExec(
+      out: execAnswer?.call(command) ?? execOut,
+      err: execError,
+      reported: execCodeAnswer?.call(command) ?? execCode,
+    );
   }
 
   @override
@@ -172,6 +199,47 @@ class FakeHost implements ShellHost {
   Future<void> close() async => closed = true;
 }
 
+class FakeMoshChannel implements MoshChannel {
+  final _output = StreamController<Uint8List>.broadcast();
+  final _errors = StreamController<Object>.broadcast();
+  final _done = Completer<void>();
+
+  final sent = <Uint8List>[];
+  final sizes = <({int columns, int rows})>[];
+  var rehomes = 0;
+  var closed = false;
+
+  @override
+  Stream<Uint8List> get output => _output.stream;
+
+  @override
+  Stream<Object> get errors => _errors.stream;
+
+  @override
+  Future<void> get done => _done.future;
+
+  @override
+  void send(Uint8List bytes) => sent.add(bytes);
+
+  @override
+  void resize(int columns, int rows) =>
+      sizes.add((columns: columns, rows: rows));
+
+  @override
+  Future<void> rehome() async => rehomes++;
+
+  @override
+  Future<void> close() async {
+    if (closed) return;
+    closed = true;
+    if (!_done.isCompleted) _done.complete();
+    await _output.close();
+    await _errors.close();
+  }
+
+  void emit(String value) => _output.add(Uint8List.fromList(value.codeUnits));
+}
+
 ShellTunnel tunnelTo(FakeHost host, {Object? dialError}) => ShellTunnel(
   dial:
       ({
@@ -189,16 +257,49 @@ ShellTunnel tunnelTo(FakeHost host, {Object? dialError}) => ShellTunnel(
       },
 );
 
-Future<ShellConnection> openOn(ShellTunnel tunnel, {String? command}) =>
-    tunnel.open(
-      address: 'nyx',
-      port: 357,
-      user: 'luisnquin',
-      privateKey: 'pem',
-      columns: 100,
-      rows: 40,
-      command: command,
-    );
+ShellTunnel moshTunnelTo(
+  FakeHost host,
+  FakeMoshChannel channel, {
+  Duration timeout = const Duration(seconds: 10),
+  bool emitReady = true,
+}) => ShellTunnel(
+  timeout: timeout,
+  dial: ({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    HostKeyVerifier? verifier,
+    required Duration timeout,
+    required Duration keepAlive,
+  }) async => host,
+  moshDialer:
+      ({
+        required MoshServerConfig server,
+        required int columns,
+        required int rows,
+      }) async {
+        if (emitReady) Timer.run(() => channel.emit('\x1b[H\$ '));
+        return channel;
+      },
+);
+
+Future<ShellConnection> openOn(
+  ShellTunnel tunnel, {
+  String? command,
+  String? tabSession,
+  String? persistentSession,
+}) => tunnel.open(
+  address: 'nyx',
+  port: 357,
+  user: 'luisnquin',
+  privateKey: 'pem',
+  columns: 100,
+  rows: 40,
+  command: command,
+  tabSession: tabSession,
+  persistentSession: persistentSession,
+);
 
 Future<ShellFailureKind> kindOf(Future<void> Function() body) async {
   try {
@@ -207,6 +308,22 @@ Future<ShellFailureKind> kindOf(Future<void> Function() body) async {
     return failure.kind;
   }
   fail('the open was expected to fail');
+}
+
+const _tmuxPath = '/nix/store/tmux/bin/tmux';
+const _moshPath = '/nix/store/mosh/bin/mosh-server';
+
+String moshHostAnswer(String command, {bool tmux = true}) {
+  if (command == durableShellProbeCommand('dazzle123')) {
+    return tmux ? 'DAZZLE_TMUX=$_tmuxPath\nDAZZLE_RESUME=0\n' : '';
+  }
+  if (command == moshServerProbeCommand()) {
+    return 'profile noise\nDAZZLE_MOSH=$_moshPath\n';
+  }
+  if (command.contains('mosh-server') && command.contains(' new ')) {
+    return 'MOSH CONNECT 60001 AAECAwQFBgcICQoLDA0ODw\n';
+  }
+  return '';
 }
 
 void main() {
@@ -241,6 +358,240 @@ void main() {
         ]);
       },
     );
+
+    test('a durable tab starts inside its own tmux server', () async {
+      const tmux = '/nix/store/tmux/bin/tmux';
+      const session = 'dazzle123';
+      const command = 'export DAZZLE_TAB=dazzle123; exec \$SHELL -l';
+      final host = FakeHost(
+        execOut: 'noise\nDAZZLE_TMUX=$tmux\nDAZZLE_RESUME=0\n',
+      );
+
+      final connection = await openOn(
+        tunnelTo(host),
+        command: command,
+        persistentSession: session,
+      );
+      addTearDown(connection.close);
+
+      expect(connection.continuity, ShellContinuity.started);
+      expect(host.requests, [
+        'exec ${durableShellProbeCommand(session)}',
+        'run ${durableShellCommand(tmux, session, command)} '
+            'xterm-256color 100x40',
+      ]);
+    });
+
+    test('an existing durable tab is classified as resumed', () async {
+      const tmux = '/usr/bin/tmux';
+      const session = 'dazzle123';
+      final host = FakeHost(execOut: 'DAZZLE_TMUX=$tmux\nDAZZLE_RESUME=1\n');
+
+      final connection = await openOn(
+        tunnelTo(host),
+        command: 'exec \$SHELL -l',
+        persistentSession: session,
+      );
+      addTearDown(connection.close);
+
+      expect(connection.continuity, ShellContinuity.resumed);
+    });
+
+    test('a host without tmux keeps the plain SSH command', () async {
+      const session = 'dazzle123';
+      const command = 'exec \$SHELL -l';
+      final host = FakeHost(execCode: 127);
+
+      final connection = await openOn(
+        tunnelTo(host),
+        command: command,
+        persistentSession: session,
+      );
+      addTearDown(connection.close);
+
+      expect(connection.continuity, ShellContinuity.plain);
+      expect(host.requests, [
+        'exec ${durableShellProbeCommand(session)}',
+        'run $command xterm-256color 100x40',
+      ]);
+    });
+
+    test('Mosh carries a durable shell and rehomes its UDP socket', () async {
+      const session = 'dazzle123';
+      const command = 'export DAZZLE_TAB=dazzle123; exec \$SHELL -l';
+      final host = FakeHost()..execAnswer = moshHostAnswer;
+      final channel = FakeMoshChannel();
+      final connection = await openOn(
+        moshTunnelTo(host, channel),
+        command: command,
+        tabSession: session,
+        persistentSession: session,
+      );
+
+      expect(connection, isA<MoshShellConnection>());
+      expect(connection.continuity, ShellContinuity.started);
+      expect(host.requests, contains('exec ${moshServerProbeCommand()}'));
+      expect(
+        host.requests,
+        contains('exec ${moshServerCleanupCommand(session)}'),
+      );
+      expect(
+        host.requests.where((request) => request.startsWith('run ')),
+        isEmpty,
+      );
+      final launch = host.requests.singleWhere(
+        (request) =>
+            request.contains('mosh-server') && request.contains(' new '),
+      );
+      expect(launch, contains("$moshTabVariable='dazzle123'"));
+      expect(launch, contains("-- sh -c 'exec '\\''$_tmuxPath'"));
+
+      connection.write(Uint8List.fromList([0x6c, 0x73, 0x0d]));
+      connection.resize(91, 37);
+      await connection.rehome();
+      expect(channel.sent.single, [0x6c, 0x73, 0x0d]);
+      expect(channel.sizes.single, (columns: 91, rows: 37));
+      expect(channel.rehomes, 1);
+      await connection.close();
+    });
+
+    test('Mosh redials its SSH control path after a rehome', () async {
+      const session = 'dazzle123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      var dials = 0;
+      final channel = FakeMoshChannel();
+      final tunnel = ShellTunnel(
+        dial: ({
+          required String address,
+          required int port,
+          required String user,
+          required String privateKey,
+          HostKeyVerifier? verifier,
+          required Duration timeout,
+          required Duration keepAlive,
+        }) async => hosts[dials++],
+        moshDialer:
+            ({
+              required MoshServerConfig server,
+              required int columns,
+              required int rows,
+            }) async {
+              Timer.run(() => channel.emit('\$ '));
+              return channel;
+            },
+      );
+      final connection = await openOn(
+        tunnel,
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+
+      await connection.rehome();
+      final result = await connection.exec('pwd');
+
+      expect(result.ok, isTrue);
+      expect(dials, 2);
+      expect(hosts.first.closed, isTrue);
+      expect(hosts.last.requests.last, 'exec pwd');
+      await connection.close();
+    });
+
+    test('an unreachable Mosh UDP port falls back to SSH', () async {
+      const session = 'dazzle123';
+      const command = 'exec \$SHELL -l';
+      final host = FakeHost()..execAnswer = moshHostAnswer;
+      final channel = FakeMoshChannel();
+      final connection = await openOn(
+        moshTunnelTo(
+          host,
+          channel,
+          timeout: const Duration(milliseconds: 5),
+          emitReady: false,
+        ),
+        command: command,
+        tabSession: session,
+        persistentSession: session,
+      );
+
+      expect(connection, isA<SshShellConnection>());
+      expect(channel.closed, isTrue);
+      expect(
+        host.requests.where(
+          (request) => request == 'exec ${moshServerCleanupCommand(session)}',
+        ),
+        hasLength(2),
+      );
+      expect(
+        host.requests.last,
+        'run ${durableShellCommand(_tmuxPath, session, command)} '
+        'xterm-256color 100x40',
+      );
+      await connection.close();
+    });
+
+    test('a failed Mosh bootstrap is cleaned before SSH fallback', () async {
+      const session = 'dazzle123';
+      const command = 'exec \$SHELL -l';
+      final host = FakeHost()
+        ..execAnswer = moshHostAnswer
+        ..execCodeAnswer = (request) =>
+            request.contains('mosh-server') && request.contains(' new ')
+            ? 1
+            : 0;
+      final connection = await openOn(
+        moshTunnelTo(host, FakeMoshChannel()),
+        command: command,
+        tabSession: session,
+        persistentSession: session,
+      );
+
+      expect(connection, isA<SshShellConnection>());
+      expect(
+        host.requests.where(
+          (request) => request == 'exec ${moshServerCleanupCommand(session)}',
+        ),
+        hasLength(2),
+      );
+      expect(
+        host.requests.last,
+        'run ${durableShellCommand(_tmuxPath, session, command)} '
+        'xterm-256color 100x40',
+      );
+      await connection.close();
+    });
+
+    test('a Herdr pane uses Mosh without nesting tmux', () async {
+      const session = 'dazzle123';
+      const command = "env HERDR_SESSION='work' herdr agent attach 'w2a:p3'";
+      final host = FakeHost()..execAnswer = moshHostAnswer;
+      final channel = FakeMoshChannel();
+      final connection = await openOn(
+        moshTunnelTo(host, channel),
+        command: command,
+        tabSession: session,
+      );
+
+      expect(connection, isA<MoshShellConnection>());
+      expect(
+        host.requests,
+        isNot(contains('exec ${durableShellProbeCommand(session)}')),
+      );
+      final launch = host.requests.singleWhere(
+        (request) =>
+            request.contains('mosh-server') && request.contains(' new '),
+      );
+      expect(launch, contains(shellQuote(command)));
+      expect(
+        await connection.terminateRemote(session, durableShell: false),
+        isTrue,
+      );
+      expect(host.requests.last, 'exec ${moshServerCleanupCommand(session)}');
+      await connection.close();
+    });
   });
 
   group('the live session', () {
@@ -351,6 +702,50 @@ void main() {
       expect(host.pty.closed, isTrue);
       expect(host.closed, isTrue);
       expect(await connection.exitCode, isNull);
+    });
+
+    test('ending a durable shell kills only its named tmux session', () async {
+      const tmux = '/usr/bin/tmux';
+      const session = 'dazzle123';
+      final host = FakeHost(execOut: 'DAZZLE_TMUX=$tmux\nDAZZLE_RESUME=1\n');
+      final connection = await openOn(
+        tunnelTo(host),
+        command: 'exec \$SHELL -l',
+        persistentSession: session,
+      );
+
+      host
+        ..execOut = ''
+        ..execCode = 0;
+      expect(
+        await connection.terminateRemote(session, durableShell: true),
+        isTrue,
+      );
+
+      expect(
+        host.requests.last,
+        'exec ${durableShellTerminateCommand(tmux, session)}',
+      );
+      await connection.close();
+    });
+
+    test('a durable shell reports the active pane directory', () async {
+      const tmux = '/usr/bin/tmux';
+      const session = 'dazzle123';
+      final host = FakeHost(execOut: 'DAZZLE_TMUX=$tmux\nDAZZLE_RESUME=1\n');
+      final connection = await openOn(
+        tunnelTo(host),
+        command: 'exec \$SHELL -l',
+        persistentSession: session,
+      );
+
+      host.execOut = '/srv/dazzle\n';
+      expect(await connection.remoteDirectory(session), '/srv/dazzle');
+      expect(
+        host.requests.last,
+        'exec ${durableShellDirectoryCommand(tmux, session)}',
+      );
+      await connection.close();
     });
   });
 

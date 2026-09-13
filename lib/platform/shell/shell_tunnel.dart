@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dart_mosh/dart_mosh.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 
 import '../herdr_client.dart';
 import '../host_keys.dart';
+import 'mosh_channel.dart';
+import 'remote_shell.dart';
 import 'shell_connection.dart';
 
 /// The slice of [SSHClient] this file uses, named so a test can stand in for
@@ -68,9 +71,8 @@ typedef ShellDialer = Future<ShellHost> Function({
 /// The transport: the host's own ssh connection with a pty inside it, carrying
 /// either the remote's login shell or one command.
 ///
-/// A tab with no command is the user's rule and the whole of it: a shell
-/// request on a session channel with a pty. No `exec`, no environment, no rc
-/// of our own and no multiplexer — what sshd starts for the user is what runs.
+/// A tab with no persistent session is the user's rule and the whole of it: a
+/// shell request or one command on a session channel with a pty.
 ///
 /// A tab with one is an exec request on the same kind of channel, which is
 /// what `ssh -t` is. It exists because typing a line at a login shell is a
@@ -82,6 +84,7 @@ class ShellTunnel {
     this.timeout = const Duration(seconds: 10),
     this.keepAlive = const Duration(seconds: 15),
     this.dial = dialSsh,
+    this.moshDialer = dialMosh,
   });
 
   /// What the remote is told the terminal is. The view is an xterm emulator
@@ -91,6 +94,7 @@ class ShellTunnel {
   final Duration timeout;
   final Duration keepAlive;
   final ShellDialer dial;
+  final MoshDialer moshDialer;
 
   /// Opens the connection, authenticates, and asks for the shell.
   ///
@@ -107,6 +111,8 @@ class ShellTunnel {
     required int columns,
     required int rows,
     String? command,
+    String? tabSession,
+    String? persistentSession,
     HostKeyVerifier? verifier,
   }) async {
     final host = await _guard(
@@ -133,17 +139,194 @@ class ShellTunnel {
         width: columns,
         height: rows,
       );
+      final requestedSession = persistentSession;
+      final durable = requestedSession == null
+          ? null
+          : await _durableTarget(host, requestedSession);
+      final run = durable == null
+          ? command
+          : durableShellCommand(
+              durable.tmux,
+              durable.session,
+              command ?? 'exec \$SHELL -l',
+            );
+      final tab = tabSession;
+      if (tab != null && durableShellSession.hasMatch(tab)) {
+        final mosh = await _openMosh(
+          host: host,
+          address: address,
+          port: port,
+          user: user,
+          privateKey: privateKey,
+          columns: columns,
+          rows: rows,
+          command: run ?? 'exec \$SHELL -l',
+          tabSession: tab,
+          continuity: durable?.continuity ?? ShellContinuity.plain,
+          tmux: durable?.tmux,
+          verifier: verifier,
+        );
+        if (mosh != null) return mosh;
+      }
       final pty = await _guard(
         address,
-        () => command == null ? host.shell(config) : host.run(command, config),
+        () => run == null ? host.shell(config) : host.run(run, config),
         verifier,
       );
-      _log(address, '${command ?? 'shell'} on $terminalType ${columns}x$rows');
-      return SshShellConnection(host, pty);
+      _log(address, '${run ?? 'shell'} on $terminalType ${columns}x$rows');
+      return SshShellConnection(
+        host,
+        pty,
+        continuity: durable?.continuity ?? ShellContinuity.plain,
+        tmux: durable?.tmux,
+      );
     } catch (_) {
       // Half-open is worse than none: an ssh connection left behind counts
       // against the host until its own timeout, and there is no reconnect
       // loop to come back and reuse it.
+      await host.close();
+      rethrow;
+    }
+  }
+
+  Future<_DurableTarget?> _durableTarget(ShellHost host, String session) async {
+    if (!durableShellSession.hasMatch(session)) return null;
+    try {
+      final result = await _exec(host, durableShellProbeCommand(session));
+      if (!result.ok) return null;
+      String? tmux;
+      var resumed = false;
+      for (final line in result.out.split('\n')) {
+        if (line.startsWith('DAZZLE_TMUX=/')) {
+          tmux = line.substring('DAZZLE_TMUX='.length).trim();
+        } else if (line.trim() == 'DAZZLE_RESUME=1') {
+          resumed = true;
+        }
+      }
+      if (tmux == null || tmux.contains(RegExp(r'[\r\n]'))) return null;
+      return _DurableTarget(
+        session,
+        tmux,
+        resumed ? ShellContinuity.resumed : ShellContinuity.started,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<MoshShellConnection?> _openMosh({
+    required ShellHost host,
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    required int columns,
+    required int rows,
+    required String command,
+    required String tabSession,
+    required ShellContinuity continuity,
+    required String? tmux,
+    required HostKeyVerifier? verifier,
+  }) async {
+    String? serverPath;
+    MoshShellConnection? connection;
+    try {
+      serverPath = await _moshServer(host);
+      if (serverPath == null) return null;
+      final cleanup = await _exec(host, moshServerCleanupCommand(tabSession));
+      if (!cleanup.ok) return null;
+      final launch = MoshSshBootstrap(
+        serverBinary: serverPath,
+        locale: 'C.UTF-8',
+        term: terminalType,
+      ).command();
+      final bootstrap = await _exec(
+        host,
+        '$moshTabVariable=${shellQuote(tabSession)} $launch -- '
+        'sh -c ${shellQuote(command)}',
+      );
+      if (!bootstrap.ok) {
+        await _exec(host, moshServerCleanupCommand(tabSession));
+        return null;
+      }
+      final server = MoshServerConfig.parse(
+        '${bootstrap.out}\n${bootstrap.err}',
+        host: address,
+      );
+      final channel = await moshDialer(
+        server: server,
+        columns: columns,
+        rows: rows,
+      );
+      final trusted = verifier?.verified ?? verifier?.pinned;
+      connection = MoshShellConnection(
+        host,
+        channel,
+        address: address,
+        continuity: continuity,
+        tmux: tmux,
+        redial: () => _redial(
+          address: address,
+          port: port,
+          user: user,
+          privateKey: privateKey,
+          verifier: trusted == null
+              ? null
+              : HostKeyVerifier.pinnedOnly(trusted),
+        ),
+      );
+      await connection.ready.timeout(timeout);
+      _log(address, 'mosh ${server.port} on ${columns}x$rows');
+      return connection;
+    } catch (error) {
+      _log(address, 'mosh fallback: $error');
+      await connection?.abandon();
+      if (serverPath != null) {
+        try {
+          await _exec(host, moshServerCleanupCommand(tabSession));
+        } catch (_) {}
+      }
+      return null;
+    }
+  }
+
+  Future<String?> _moshServer(ShellHost host) async {
+    try {
+      final result = await _exec(host, moshServerProbeCommand());
+      if (!result.ok) return null;
+      for (final line in result.out.split('\n')) {
+        if (!line.startsWith('DAZZLE_MOSH=/')) continue;
+        final path = line.substring('DAZZLE_MOSH='.length).trim();
+        if (!path.contains(RegExp(r'[\r\n]'))) return path;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<ShellHost> _redial({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    required HostKeyVerifier? verifier,
+  }) async {
+    final host = await _guard(
+      address,
+      () => dial(
+        address: address,
+        port: port,
+        user: user,
+        privateKey: privateKey,
+        timeout: timeout,
+        keepAlive: keepAlive,
+        verifier: verifier,
+      ),
+      verifier,
+    );
+    try {
+      await _guard(address, () => host.authenticated, verifier);
+      return host;
+    } catch (_) {
       await host.close();
       rethrow;
     }
@@ -166,6 +349,14 @@ class ShellTunnel {
       throw failure ?? error;
     }
   }
+}
+
+class _DurableTarget {
+  const _DurableTarget(this.session, this.tmux, this.continuity);
+
+  final String session;
+  final String tmux;
+  final ShellContinuity continuity;
 }
 
 void _log(String address, Object message) =>
@@ -387,10 +578,203 @@ class _SshPty implements ShellPty {
   void close() => _session.close();
 }
 
+/// A Mosh UDP session plus an SSH control connection for file, clipboard,
+/// directory, and cleanup commands. The control connection is discarded on a
+/// network handover and redialled on demand; the terminal never waits for it.
+class MoshShellConnection implements ShellConnection {
+  MoshShellConnection(
+    ShellHost host,
+    this._mosh, {
+    required this.address,
+    required this.continuity,
+    required this.tmux,
+    required this.redial,
+  }) : _host = host {
+    _reading.add(_mosh.output.listen(_emit));
+    _reading.add(_mosh.errors.listen((error) => _log(address, 'mosh: $error')));
+    _mosh.done.then(
+      (_) => _finish(0),
+      onError: (Object error) {
+        _log(address, 'mosh: $error');
+        _finish(null);
+      },
+    );
+  }
+
+  final String address;
+  final MoshChannel _mosh;
+  final Future<ShellHost> Function() redial;
+  ShellHost? _host;
+  Future<ShellHost>? _openingHost;
+  final String? tmux;
+
+  @override
+  final ShellContinuity continuity;
+
+  @override
+  ShellTransport get transport => ShellTransport.mosh;
+
+  final _reading = <StreamSubscription<Object>>[];
+  final _pending = <Uint8List>[];
+  final _exit = Completer<int?>();
+  final _ready = Completer<void>();
+  var _closed = false;
+
+  late final StreamController<Uint8List> _out =
+      StreamController<Uint8List>.broadcast(
+        onListen: () => scheduleMicrotask(_drain),
+      );
+
+  Future<void> get ready => _ready.future;
+
+  @override
+  Stream<Uint8List> get output => _out.stream;
+
+  @override
+  Future<int?> get exitCode => _exit.future;
+
+  @override
+  void write(Uint8List bytes) {
+    if (_closed) return;
+    _mosh.send(bytes);
+  }
+
+  @override
+  void resize(int columns, int rows) {
+    if (_closed) return;
+    _mosh.resize(columns, rows);
+  }
+
+  @override
+  Future<ExecResult> exec(String command, {Uint8List? stdin}) =>
+      _withHost((host) => _exec(host, command, stdin: stdin));
+
+  @override
+  Future<bool> terminateRemote(
+    String session, {
+    required bool durableShell,
+  }) async {
+    if (!durableShellSession.hasMatch(session)) return false;
+    final mosh = await exec(moshServerCleanupCommand(session));
+    if (!mosh.ok) return false;
+    final path = tmux;
+    if (!durableShell || path == null) return true;
+    return (await exec(durableShellTerminateCommand(path, session))).ok;
+  }
+
+  @override
+  Future<String?> remoteDirectory(String session) async {
+    final path = tmux;
+    if (path == null || !durableShellSession.hasMatch(session)) return null;
+    final result = await exec(durableShellDirectoryCommand(path, session));
+    if (!result.ok) return null;
+    final directory = result.out.trim();
+    return directory.startsWith('/') ? directory : null;
+  }
+
+  @override
+  Future<void> rehome() async {
+    if (_closed) return;
+    await _mosh.rehome();
+    await _dropHost(_host);
+  }
+
+  @override
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    for (final subscription in _reading) {
+      await subscription.cancel();
+    }
+    await _mosh.close();
+    await _dropHost(_host);
+    _finish(null);
+    if (!_ready.isCompleted) _ready.complete();
+    await _out.close();
+  }
+
+  /// Drops a Mosh attempt that never became a shell while leaving its SSH
+  /// connection available for the plain fallback in the same dial.
+  Future<void> abandon() async {
+    if (_closed) return;
+    _closed = true;
+    for (final subscription in _reading) {
+      await subscription.cancel();
+    }
+    await _mosh.close();
+    _finish(null);
+    if (!_ready.isCompleted) _ready.complete();
+    await _out.close();
+  }
+
+  Future<T> _withHost<T>(Future<T> Function(ShellHost host) body) async {
+    var host = await _currentHost();
+    try {
+      return await body(host);
+    } catch (_) {
+      await _dropHost(host);
+      host = await _currentHost();
+      return body(host);
+    }
+  }
+
+  Future<ShellHost> _currentHost() async {
+    final current = _host;
+    if (current != null) return current;
+    final opening = _openingHost;
+    if (opening != null) return opening;
+    final next = redial();
+    _openingHost = next;
+    try {
+      final host = await next;
+      if (_closed) {
+        await host.close();
+        throw StateError('Mosh connection is closed.');
+      }
+      _host = host;
+      return host;
+    } finally {
+      _openingHost = null;
+    }
+  }
+
+  Future<void> _dropHost(ShellHost? host) async {
+    if (host == null) return;
+    if (identical(_host, host)) _host = null;
+    try {
+      await host.close();
+    } catch (_) {}
+  }
+
+  void _emit(Uint8List bytes) {
+    if (_closed || bytes.isEmpty) return;
+    if (!_ready.isCompleted) _ready.complete();
+    _pending.add(bytes);
+    _drain();
+  }
+
+  void _drain() {
+    if (_out.isClosed || !_out.hasListener) return;
+    for (final bytes in _pending) {
+      _out.add(bytes);
+    }
+    _pending.clear();
+  }
+
+  void _finish(int? code) {
+    if (!_exit.isCompleted) _exit.complete(code);
+  }
+}
+
 /// One live shell: the two output streams merged, stdin, the window size, and
 /// the three things that close together.
 class SshShellConnection implements ShellConnection {
-  SshShellConnection(this._host, this._pty) {
+  SshShellConnection(
+    this._host,
+    this._pty, {
+    required this.continuity,
+    this.tmux,
+  }) {
     _reading.add(_pty.stdout.listen(_emit, onError: _onStreamError));
     _reading.add(_pty.stderr.listen(_emit, onError: _onStreamError));
     _pty.done.then(
@@ -401,6 +785,12 @@ class SshShellConnection implements ShellConnection {
 
   final ShellHost _host;
   final ShellPty _pty;
+  @override
+  final ShellContinuity continuity;
+
+  @override
+  ShellTransport get transport => ShellTransport.ssh;
+  final String? tmux;
   final _reading = <StreamSubscription<Uint8List>>[];
   final _exit = Completer<int?>();
 
@@ -429,24 +819,35 @@ class SshShellConnection implements ShellConnection {
 
   @override
   Future<ExecResult> exec(String command, {Uint8List? stdin}) async {
-    final channel = await _host.execute(command);
-    final out = BytesBuilder(copy: false);
-    final err = BytesBuilder(copy: false);
-    // Subscribed before stdin goes out: a command that answers at once would
-    // otherwise print into a stream nobody is reading yet.
-    final drained = Future.wait([
-      channel.stdout.forEach(out.add),
-      channel.stderr.forEach(err.add),
-    ]);
-    if (stdin != null) channel.write(stdin);
-    await channel.closeStdin();
-    await channel.done;
-    await drained;
-    return ExecResult(
-      exitCode: channel.exitCode,
-      stdout: out.takeBytes(),
-      stderr: err.takeBytes(),
+    return _exec(_host, command, stdin: stdin);
+  }
+
+  @override
+  Future<bool> terminateRemote(
+    String session, {
+    required bool durableShell,
+  }) async {
+    if (!durableShell) return true;
+    final path = tmux;
+    if (path == null) return true;
+    if (!durableShellSession.hasMatch(session)) return false;
+    return (await _exec(_host, durableShellTerminateCommand(path, session))).ok;
+  }
+
+  @override
+  Future<void> rehome() async {}
+
+  @override
+  Future<String?> remoteDirectory(String session) async {
+    final path = tmux;
+    if (path == null || !durableShellSession.hasMatch(session)) return null;
+    final result = await _exec(
+      _host,
+      durableShellDirectoryCommand(path, session),
     );
+    if (!result.ok) return null;
+    final directory = result.out.trim();
+    return directory.startsWith('/') ? directory : null;
   }
 
   @override
@@ -488,4 +889,27 @@ class SshShellConnection implements ShellConnection {
   void _finish(int? code) {
     if (!_exit.isCompleted) _exit.complete(code);
   }
+}
+
+Future<ExecResult> _exec(
+  ShellHost host,
+  String command, {
+  Uint8List? stdin,
+}) async {
+  final channel = await host.execute(command);
+  final out = BytesBuilder(copy: false);
+  final err = BytesBuilder(copy: false);
+  final drained = Future.wait([
+    channel.stdout.forEach(out.add),
+    channel.stderr.forEach(err.add),
+  ]);
+  if (stdin != null) channel.write(stdin);
+  await channel.closeStdin();
+  await channel.done;
+  await drained;
+  return ExecResult(
+    exitCode: channel.exitCode,
+    stdout: out.takeBytes(),
+    stderr: err.takeBytes(),
+  );
 }

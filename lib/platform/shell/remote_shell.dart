@@ -50,6 +50,71 @@ String shellMarked(String mark, {String? command}) {
   return 'export $shellMarkVariable=$mark; ${command ?? 'exec \$SHELL -l'}';
 }
 
+const durableShellSocket = 'dazzle';
+
+final durableShellSession = shellMark;
+
+const moshTabVariable = 'DAZZLE_MOSH_TAB';
+
+String durableShellProbeCommand(String session) {
+  assert(durableShellSession.hasMatch(session));
+  final target = shellQuote(session);
+  final script =
+      'p=\$(command -v tmux) || exit 127; '
+      'printf "DAZZLE_TMUX=%s\\n" "\$p"; '
+      'if "\$p" -L $durableShellSocket has-session -t $target 2>/dev/null; '
+      'then printf "DAZZLE_RESUME=1\\n"; '
+      'else printf "DAZZLE_RESUME=0\\n"; fi';
+  return 'exec "\$SHELL" -lc ${shellQuote(script)}';
+}
+
+String durableShellCommand(String tmux, String session, String command) {
+  assert(tmux.startsWith('/'));
+  assert(durableShellSession.hasMatch(session));
+  return 'exec ${shellQuote(tmux)} -L $durableShellSocket '
+      'new-session -A -s ${shellQuote(session)} ${shellQuote(command)}';
+}
+
+String durableShellTerminateCommand(String tmux, String session) {
+  assert(tmux.startsWith('/'));
+  assert(durableShellSession.hasMatch(session));
+  final client = '${shellQuote(tmux)} -L $durableShellSocket';
+  return underSh(
+    'if $client has-session -t ${shellQuote(session)} 2>/dev/null; '
+    'then $client kill-session -t ${shellQuote(session)}; fi',
+  );
+}
+
+String durableShellDirectoryCommand(String tmux, String session) {
+  assert(tmux.startsWith('/'));
+  assert(durableShellSession.hasMatch(session));
+  return '${shellQuote(tmux)} -L $durableShellSocket display-message -p '
+      '-t ${shellQuote('$session:')} ${shellQuote('#{pane_current_path}')}';
+}
+
+String moshServerProbeCommand() {
+  const script =
+      'p=\$(command -v mosh-server) || exit 127; '
+      'printf "DAZZLE_MOSH=%s\\n" "\$p"';
+  return 'exec "\$SHELL" -lc ${shellQuote(script)}';
+}
+
+String moshServerCleanupCommand(String session) {
+  assert(durableShellSession.hasMatch(session));
+  const marked =
+      'tr "\\000" "\\n" < "\$p/environ" | grep -qx "'
+      '$moshTabVariable=';
+  return underSh(
+    'exec 2>/dev/null; ok=1; '
+    'for p in /proc/[0-9]*; do '
+    '$marked$session" 2>/dev/null || continue; '
+    'a=\$(tr "\\000" " " < "\$p/cmdline" 2>/dev/null); '
+    'case "\${a%% *}" in mosh-server|*/mosh-server) '
+    'kill "\${p##*/}" 2>/dev/null || ok=0;; esac; '
+    'done; [ "\$ok" -eq 1 ]',
+  );
+}
+
 /// Where the shell marked [mark] is standing, read off the host's own process
 /// table rather than waited for from the shell.
 ///

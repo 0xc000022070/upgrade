@@ -38,7 +38,9 @@ final class ShellConnecting extends ShellState {
 }
 
 final class ShellLive extends ShellState {
-  const ShellLive();
+  const ShellLive([this.transport = ShellTransport.ssh]);
+
+  final ShellTransport transport;
 }
 
 final class ShellExited extends ShellState {
@@ -107,6 +109,13 @@ const shellReconnectDelays = <Duration>[
 /// dead shell's output with no mark between them is a lie about what happened,
 /// and the dim SGR is what every other tool marks its own lines with.
 const shellReconnectMarker = '\r\n\x1b[2m-- reconnected --\x1b[0m\r\n';
+
+const shellReattachMarker = '\r\n\x1b[2m-- reattached --\x1b[0m\r\n';
+const shellRestoreMarker = '\r\n\x1b[2m-- session restored --\x1b[0m\r\n';
+const shellSessionLostMarker =
+    '\r\n\x1b[2m-- remote session gone; new shell --\x1b[0m\r\n';
+const shellContinuityUnavailableMarker =
+    '\r\n\x1b[2m-- tmux unavailable; shell is not durable --\x1b[0m\r\n';
 
 /// The one exit code that means the user is done: a tab that ends on it closes
 /// itself, and a tab that ends on anything else is put in front of the user.
@@ -233,7 +242,9 @@ class ShellSession extends ChangeNotifier {
     required this.number,
     required this.terminal,
     required this.host,
-  });
+    this.remoteSession,
+    String? mark,
+  }) : mark = mark ?? _newMark();
 
   /// The machine this tab is on. Mutable because the store is handed a fresh
   /// [Host] on every open and retry, and a reconnect fired by a timer has
@@ -308,11 +319,16 @@ class ShellSession extends ChangeNotifier {
   /// What this tab's shell is marked with, so the host can be asked which of
   /// its processes is this tab and where that process is standing. One per
   /// session and never reused: two tabs on the same host are two shells.
-  final String mark = _newMark();
+  final String mark;
+
+  /// Stable identity for this tab. It marks the Mosh server and names the tmux
+  /// session for an ordinary shell. Herdr tabs also carry it for transport
+  /// cleanup while their process identity stays in [pane].
+  final String? remoteSession;
 
   /// The herdr pane [command] attaches this tab to, so a tap on that agent
-  /// finds this tab rather than opening another. In memory only: a restored
-  /// tab is a bare shell, and its pane is not restored with it.
+  /// finds this tab rather than opening another. Persisted beside the tab so
+  /// a killed app attaches the same pane rather than opening a bare shell.
   PaneRef? pane;
 
   /// What the bar has armed, waiting for the next key or character. It lives
@@ -586,6 +602,17 @@ class ShellSessions extends ChangeNotifier {
     final connection = session.connection;
     if (connection == null) return null;
     try {
+      final remoteSession = session.remoteSession;
+      if (remoteSession != null && session.pane == null) {
+        final answer = await connection.remoteDirectory(remoteSession);
+        if (answer != null) {
+          if (answer != session.cwd) {
+            session.cwd = answer;
+            session.changed();
+          }
+          return answer;
+        }
+      }
       final pane = session.pane;
       var herdrSession = pane?.session;
       String? answer;
@@ -664,16 +691,24 @@ class ShellSessions extends ChangeNotifier {
     if (!canOpen(host.id)) return null;
     final number = _nextNumber[host.id] ?? 1;
     _nextNumber[host.id] = number + 1;
-    final session = _start(
+    final remoteSession = _newMark();
+    final persisted = tabs?.open(
+      host.id,
+      number,
+      remoteSession: remoteSession,
+      herdrSession: pane?.session,
+      herdrPane: pane?.pane,
+    );
+    return _start(
       host,
       number,
       prompt: prompt,
       command: command,
       directory: directory,
       pane: pane,
+      remoteSession: remoteSession,
+      beforeConnect: persisted,
     );
-    unawaited(tabs?.open(host.id, number));
-    return session;
   }
 
   /// A tab on a number that has already been decided: by [open], which takes
@@ -686,12 +721,17 @@ class ShellSessions extends ChangeNotifier {
     String? command,
     String? directory,
     PaneRef? pane,
+    String? remoteSession,
+    bool restored = false,
+    Future<void>? beforeConnect,
   }) {
     final session =
         ShellSession(
             number: number,
             terminal: Terminal(maxLines: shellScrollback),
             host: host,
+            remoteSession: remoteSession,
+            mark: remoteSession,
           )
           ..command = command
           ..cwd = directory
@@ -701,17 +741,52 @@ class ShellSessions extends ChangeNotifier {
     _parkedHostId = host.id;
     _wireTerminal(session);
     notifyListeners();
-    unawaited(_connect(host, session, prompt: prompt));
+    unawaited(
+      _connectAfterPersistence(
+        host,
+        session,
+        prompt: prompt,
+        restored: restored,
+        persistence: beforeConnect,
+      ),
+    );
     return session;
+  }
+
+  Future<void> _connectAfterPersistence(
+    Host host,
+    ShellSession session, {
+    required bool restored,
+    HostKeyPrompt? prompt,
+    Future<void>? persistence,
+  }) async {
+    try {
+      await persistence;
+    } catch (error) {
+      debugPrint('dazzle.shell ${host.name}: tab save failed: $error');
+      if (!session._closed) {
+        session.state = ShellFailed(
+          ShellFailureKind.streamClosed,
+          detail: 'tab save failed: $error',
+        );
+        session.changed();
+      }
+      return;
+    }
+    if (session._closed) {
+      await tabs?.close(host.id, session.number);
+      return;
+    }
+    await _connect(host, session, prompt: prompt, restored: restored);
   }
 
   /// Reopens the tabs the last run left behind and dials each one.
   ///
-  /// The shells themselves are gone — their channels died with the process that
-  /// held them — so what comes back is a fresh shell per tab, on the same host
-  /// and under the same number. Unattended, so a host whose key was never
-  /// pinned is refused here rather than asking a user who is still looking at
-  /// the boot log.
+  /// A tab with a remote session attaches to it. An agent tab reconstructs the
+  /// attach command from its validated Herdr session and pane. Older rows open
+  /// a fresh shell because they recorded neither identity.
+  /// Unattended, so a host whose key was never pinned is refused here rather
+  /// than asking a user who is still looking at the boot log.
   ///
   /// Runs once, and answers with how many tabs it brought back. A second call
   /// over live tabs would dial a second shell into every one of them.
@@ -731,9 +806,28 @@ class ShellSessions extends ChangeNotifier {
         unawaited(store.close(row.hostId, row.number));
         continue;
       }
+      final remoteSession = row.remoteSession;
+      final hasHerdrIdentity =
+          row.herdrSession != null || row.herdrPane != null;
+      final pane = row.herdrSession != null && row.herdrPane != null
+          ? (session: row.herdrSession!, pane: row.herdrPane!)
+          : null;
+      if ((remoteSession != null &&
+              !durableShellSession.hasMatch(remoteSession)) ||
+          (hasHerdrIdentity && (pane == null || !HerdrCommands.isPane(pane)))) {
+        await store.close(row.hostId, row.number);
+        continue;
+      }
       final next = _nextNumber[host.id] ?? 1;
       if (row.number >= next) _nextNumber[host.id] = row.number + 1;
-      _start(host, row.number);
+      _start(
+        host,
+        row.number,
+        command: pane == null ? null : HerdrCommands.attach(pane),
+        pane: pane,
+        remoteSession: remoteSession,
+        restored: true,
+      );
       restored++;
     }
     // [_start] leaves the last tab opened active, which is the right answer
@@ -767,14 +861,33 @@ class ShellSessions extends ChangeNotifier {
       }
     }
     notifyListeners();
-    unawaited(tabs?.close(hostId, session.number));
     unawaited(session._output?.cancel());
     session._output = null;
     session._decoder = null;
     _retire(session);
     final connection = session.connection;
     session.connection = null;
-    await connection?.close();
+    final remoteSession = session.remoteSession;
+    if (remoteSession == null) {
+      await tabs?.close(hostId, session.number);
+      await connection?.close();
+      return;
+    }
+    await tabs?.retire(hostId, session.number);
+    var terminated = false;
+    try {
+      terminated =
+          await connection?.terminateRemote(
+            remoteSession,
+            durableShell: session.pane == null,
+          ) ??
+          false;
+    } catch (error) {
+      debugPrint('dazzle.shell ${session.host.name}: cleanup failed: $error');
+    } finally {
+      await connection?.close();
+    }
+    if (terminated) await tabs?.close(hostId, session.number);
   }
 
   /// Drops the session's controllers once the frame that removed its view has
@@ -953,6 +1066,7 @@ class ShellSessions extends ChangeNotifier {
     ShellSession session, {
     HostKeyPrompt? prompt,
     bool reconnected = false,
+    bool restored = false,
   }) async {
     final attempt = session._claim();
     if (!attempt.isCurrent) return;
@@ -982,6 +1096,8 @@ class ShellSessions extends ChangeNotifier {
         columns: columns,
         rows: rows,
         command: shellMarked(session.mark, command: session.command),
+        tabSession: session.remoteSession ?? session.mark,
+        persistentSession: session.pane == null ? session.remoteSession : null,
         verifier: HostKeyVerifier(
           pinned: _pinnedThisRun[host.id] ?? host.hostKey,
           // Null on a reconnect and on anything else that arrives without a
@@ -995,7 +1111,21 @@ class ShellSessions extends ChangeNotifier {
         ),
       );
       if (!attempt.isCurrent) {
-        await connection.close();
+        try {
+          if (session._closed && session.remoteSession != null) {
+            final terminated = await connection.terminateRemote(
+              session.remoteSession!,
+              durableShell: session.pane == null,
+            );
+            if (terminated) {
+              await tabs?.close(host.id, session.number);
+            }
+          }
+        } catch (error) {
+          debugPrint('dazzle.shell ${host.name}: cleanup failed: $error');
+        } finally {
+          await connection.close();
+        }
         return;
       }
       session.connection = connection;
@@ -1004,10 +1134,14 @@ class ShellSessions extends ChangeNotifier {
       session._probing = null;
       session._columns = columns;
       session._rows = rows;
-      session.state = const ShellLive();
-      // Before the decoder is wired, so the marker is above the new shell's
-      // first byte however fast the remote prints its prompt.
-      if (reconnected) session.terminal.write(shellReconnectMarker);
+      session.state = ShellLive(connection.transport);
+      final marker = _transitionMarker(
+        session,
+        connection.continuity,
+        reconnected: reconnected,
+        restored: restored,
+      );
+      if (marker != null) session.terminal.write(marker);
       session._decoder = utf8.decoder.startChunkedConversion(
         _TerminalSink(session.terminal),
       );
@@ -1017,9 +1151,59 @@ class ShellSessions extends ChangeNotifier {
       );
       unawaited(_awaitExit(session, connection, attempt));
       unawaited(_mark(connection));
+      unawaited(_reap(host.id, connection));
       session.changed();
     } catch (error) {
       _fail(session, error, attempt);
+    }
+  }
+
+  String? _transitionMarker(
+    ShellSession session,
+    ShellContinuity continuity, {
+    required bool reconnected,
+    required bool restored,
+  }) {
+    if (session.pane != null) {
+      if (restored) return shellRestoreMarker;
+      if (reconnected) return shellReattachMarker;
+      return null;
+    }
+    if (session.remoteSession == null) {
+      return reconnected ? shellReconnectMarker : null;
+    }
+    if (continuity == ShellContinuity.plain) {
+      return shellContinuityUnavailableMarker;
+    }
+    if (restored) {
+      return continuity == ShellContinuity.resumed
+          ? shellRestoreMarker
+          : shellSessionLostMarker;
+    }
+    if (reconnected) {
+      return continuity == ShellContinuity.resumed
+          ? shellReattachMarker
+          : shellSessionLostMarker;
+    }
+    return null;
+  }
+
+  Future<void> _reap(String hostId, ShellConnection connection) async {
+    final store = tabs;
+    if (store == null) return;
+    try {
+      for (final tab in await store.retired(hostId)) {
+        final remoteSession = tab.remoteSession;
+        if (remoteSession == null ||
+            await connection.terminateRemote(
+              remoteSession,
+              durableShell: tab.herdrSession == null,
+            )) {
+          await store.close(tab.hostId, tab.number);
+        }
+      }
+    } catch (error) {
+      debugPrint('dazzle.shell $hostId: cleanup failed: $error');
     }
   }
 
@@ -1098,6 +1282,17 @@ class ShellSessions extends ChangeNotifier {
   void wakeAll() {
     for (final sessions in _byHost.values) {
       for (final session in List.of(sessions)) {
+        final connection = session.connection;
+        if (session.state is ShellLive && connection != null) {
+          unawaited(
+            connection.rehome().catchError((Object error) {
+              debugPrint(
+                'dazzle.shell ${session.host.name}: rehome failed: $error',
+              );
+            }),
+          );
+          continue;
+        }
         wake(session);
       }
     }
