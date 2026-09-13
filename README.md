@@ -31,6 +31,81 @@ Run `just gen` after touching a drift schema; generated Dart is gitignored.
 `phone.toml` declares the target handset. `phone up` builds, installs and
 launches; `phone shot --settle` reads the screen back.
 
+## Mobile plugins
+
+SYS → PLUGINS → EXAMPLE reviews and installs Record text. Open an unfiled Drop,
+run TRIM WHITESPACE, then APPLY or DISCARD its proposed title. SAVE SNAPSHOT
+writes the selected text into the plugin's isolated dataset. Install DEPENDENT
+EXAMPLE to add Record restore, which reads that exported dataset and proposes
+RESTORE SNAPSHOT. Only APPLY changes the selected built-in record; it rejects
+stale proposals. Existing tables and attachments are not migrated.
+
+Each installed plugin has ENABLE, DISABLE, REMOVE and REFRESH USAGE controls.
+Disable frees its cached VMs and invalidates queued work and old proposals.
+Disable and removal retain datasets, usage and immutable source revisions.
+Already committed private writes are not rolled back when a script fails or is
+disabled. Disable dependents first before disabling their required provider.
+
+ADD accepts a public GitHub repository and a full commit SHA. Put
+`dazzle.plugin.toml` at the repository root; the bundled examples under
+`plugins/record-text` and `plugins/record-restore` are complete templates.
+Review shows the source revision, declared capabilities and dependencies before
+granting installation. Updates
+require another review, with added or retargeted capabilities marked NEW.
+Unsupported retained revisions stay disabled with their original source and
+grants, instead of resetting the catalog.
+
+Version fields have different jobs: `manifest_version` versions the TOML schema,
+`version` versions the plugin, and `dazzle_api` constrains the host API.
+`[dependencies]` maps plugin IDs to semantic-version constraints. Dependencies
+must be installed, enabled and compatible; cycles and changes that break enabled
+dependents are rejected. A dependency grants no extra permissions and does not
+share a VM. Dataset schema versions, capability API versions and exported
+contracts are separate fields. Extracting built-in features is not part of this MVP.
+
+Manifest format 2 uses named data bindings: `selection`, `self:name`, or
+`plugin.id:name`. The runtime only exposes `dazzle.data.get/query/put/delete/propose`.
+Foreign reads require a declared dependency, matching export contract and an
+explicit grant; foreign writes are unavailable. Dependencies alone grant no
+data access. Every dataset has a separate host-owned SQLite database, scoped
+to plugin ID, source identity and dataset name. Plugins get no SQL or file paths.
+Writes require the expected record revision, and quota failures leave existing
+records intact. Schema mismatches stop access without resetting storage.
+
+The plugin detail sheet reports logical bytes, records, physical database and
+journal bytes, API calls and rejections, transferred bytes, writes, deletes,
+proposals, host API time and current VM allocation. Last-run timings are
+in-memory; dataset counters persist. Shared runtime/registry overhead is not
+charged to an individual dataset. Script time is wall time excluding host
+callbacks, not a CPU-time or battery measurement.
+
+The embedded interpreter is Luau 0.738, pinned by revision and archive digest in
+`packages/dazzle_luau/hook/build.dart`. First native build downloads its source;
+the phone downloads only plugin source, never native code or bytecode. Luau's
+license is included in the package and Flutter's license bundle. No JIT is built.
+
+Actions run on a lazy worker isolate, with at most two resident VMs and eight
+pending calls. Each VM has an 8 MiB allocator budget; execution checks a 50 ms
+deadline and a 100,000-safe-point ceiling. These are cooperative VM limits, not
+an OS security boundary or hard real-time guarantees. Compilation runs off the
+UI isolate with a 64 KiB source limit; compiler allocations are outside the VM
+heap budget. The worker releases VMs on backgrounding or after 30 seconds idle.
+Data calls are capped at 64 per invocation, with 16 KiB values, 64 KiB pages,
+256 KiB transferred payload and a 500 ms host-session budget starting at the
+first API call and checked between operations. Each plugin reserves at most
+32 MiB across eight datasets; each dataset permits at most 8 MiB and 10,000
+records. Logical quotas do not include
+SQLite journal/index overhead. No filesystem, network, SSH, background
+execution or WASM API yet.
+
+Run `dart run tool/plugin_benchmark.dart` for selected-record roundtrips, or
+`dart run tool/plugin_dataset_benchmark.dart` for durable read/write/query
+roundtrips and VM memory measurements on the host. Host numbers are not handset
+performance evidence.
+The same entry point runs under Android AOT with
+`flutter build apk --profile --target-platform android-arm64 --target tool/plugin_benchmark.dart`.
+That APK runs the benchmark instead of the app UI and prints its JSON to logcat.
+
 ## Second phone
 
 The BUNDLE panel on SYS moves the hosts and keys to another phone without a

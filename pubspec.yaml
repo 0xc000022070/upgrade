@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+107
+version: 1.0.0+108
 
 environment:
   sdk: ^3.13.0
@@ -28,6 +28,11 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  dazzle_luau:
+    path: packages/dazzle_luau
+  crypto: ^3.0.7
+  pub_semver: ^2.2.1
+  toml: ^0.18.0
   dart_mosh: 0.0.4
   flutter:
     sdk: flutter
@@ -92,6 +97,10 @@ flutter:
   uses-material-design: true
 
   assets:
+    - plugins/record-text/dazzle.plugin.toml
+    - plugins/record-text/main.luau
+    - plugins/record-restore/dazzle.plugin.toml
+    - plugins/record-restore/main.luau
     - assets/icons/
     - assets/icons/signal/
     - assets/sprites/

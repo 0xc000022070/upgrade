@@ -11,6 +11,7 @@ import '../../platform/device.dart';
 import '../screen_scaffold.dart';
 import 'alerts_block.dart';
 import 'bundle_panel.dart';
+import 'plugins_panel.dart';
 
 /// Settings is a route pushed from HOME's `SYS` crumb action, on the root
 /// navigator so the nav bar is not part of it.
@@ -78,6 +79,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 // system act, not a row on the tab that lists them.
                 const AlertsSettingsBlock(),
                 const BundlePanel(),
+                const PluginsPanel(),
                 Panel(
                   title: '[ BUILD ]',
                   child: FutureBuilder<BuildInfo?>(

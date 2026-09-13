@@ -338,6 +338,21 @@ class TaskRepository {
         return null;
       });
 
+  Future<bool> applyDropTitle(Task expected, String title) =>
+      _db.transaction(() async {
+        final current = await (_db.select(
+          _db.tasks,
+        )..where((t) => t.id.equals(expected.id))).getSingleOrNull();
+        if (current == null ||
+            current.projectId != null ||
+            current != expected ||
+            title.trim().isEmpty) {
+          return false;
+        }
+        await edit(expected.id, title: title);
+        return true;
+      });
+
   /// Deleting drops the task's notes and links with it: neither has a screen
   /// that can reach it once the item is gone, and the foreign keys would refuse
   /// the delete. A bundled item is deleted alone — a bundle moves whole, it
