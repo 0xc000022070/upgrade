@@ -53,6 +53,11 @@ void main() {
   });
 
   test('a pane or a session that is not one is refused before a line', () {
+    expect(HerdrCommands.isPane(_pane), isTrue);
+    expect(
+      HerdrCommands.isPane((session: 'lab', pane: 'w22:p1; reboot')),
+      isFalse,
+    );
     expect(
       () => HerdrCommands.attach((session: 'lab', pane: 'w22:p1; reboot')),
       throwsA(isA<HerdrProtocolMismatch>()),

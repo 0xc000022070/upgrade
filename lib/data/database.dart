@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'dazzle'));
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   /// From v2 on there is real data on the user's handset, so the
   /// upgrade is additive — two new tables and two nullable columns, nothing
@@ -162,6 +162,16 @@ SELECT id, task_id, 'url', url, created_at FROM links
       // same definition again — both already carry the column.
       if (from >= 12 && from < 14) {
         await m.addColumn(paths, paths.projectId);
+      }
+      // Existing tabs are not claimed as durable after the fact. Their remote
+      // process was never put in a Dazzle-owned tmux session, and no older row
+      // records which Herdr pane it held. All four columns stay null, so those
+      // rows keep the fresh-shell restore older builds used.
+      if (from >= 11 && from < 15) {
+        await m.addColumn(shellTabs, shellTabs.remoteSession);
+        await m.addColumn(shellTabs, shellTabs.herdrSession);
+        await m.addColumn(shellTabs, shellTabs.herdrPane);
+        await m.addColumn(shellTabs, shellTabs.retiredAt);
       }
     },
   );

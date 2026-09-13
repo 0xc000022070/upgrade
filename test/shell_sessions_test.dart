@@ -10,6 +10,7 @@ import 'package:dazzle/data/repositories/shell_tab_repository.dart';
 import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_card.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
+import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/shell/remote_shell.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:dazzle/platform/vnc/keysyms.dart';
@@ -39,6 +40,32 @@ const _nyx = Host(
 /// The store dials on a microtask, so every assertion about a connection has
 /// to let those run first.
 Future<void> _settle() => Future<void>.delayed(Duration.zero);
+
+class _DelayedShellTabs extends InMemoryShellTabRepository {
+  final release = Completer<void>();
+  var started = false;
+
+  @override
+  Future<void> open(
+    String hostId,
+    int number, {
+    String? remoteSession,
+    String? herdrSession,
+    String? herdrPane,
+    DateTime? openedAt,
+  }) async {
+    started = true;
+    await release.future;
+    await super.open(
+      hostId,
+      number,
+      remoteSession: remoteSession,
+      herdrSession: herdrSession,
+      herdrPane: herdrPane,
+      openedAt: openedAt,
+    );
+  }
+}
 
 /// The store's own clock is the test binding's inside [testWidgets], so a
 /// reconnect's wait is advanced by pumping rather than waited out.
@@ -792,7 +819,7 @@ void main() {
     expect(session.state, isA<ShellLive>());
     expect(transport.opened, hasLength(2));
     // The scrollback the dead shell left, then the mark, then the new one.
-    expect(session.terminal.buffer.getText(), contains('-- reconnected --'));
+    expect(session.terminal.buffer.getText(), contains('-- reattached --'));
     // Nothing on a timer asks about a host key: the schedule runs with nobody
     // looking at the route.
     expect(transport.verifiers.last?.prompt, isNull);
@@ -868,8 +895,25 @@ void main() {
     expect(session.state, isA<ShellLive>());
     expect(transport.commands.last, shellMarked(session.mark, command: attach));
     expect(session.pane, pane);
-    expect(session.terminal.buffer.getText(), contains('-- reconnected --'));
+    expect(session.terminal.buffer.getText(), contains('-- reattached --'));
 
+    await sessions.close(_rose.id, session);
+  });
+
+  testWidgets('a wake rehomes a live transport without redialling', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+
+    sessions.wakeAll();
+    await _pumpDial(tester);
+
+    expect(transport.opened, hasLength(1));
+    expect(transport.opened.single.rehomes, 1);
+    expect(session.state, isA<ShellLive>());
     await sessions.close(_rose.id, session);
   });
 
@@ -1313,23 +1357,30 @@ void main() {
     test('a killed app comes back on the tabs it had', () async {
       final tabs = InMemoryShellTabRepository();
       final before = fakeShellSessions(FakeShellTransport(), tabs: tabs);
-      before.open(_rose);
-      before.open(_rose);
-      before.open(_nyx);
+      final beforeRose = [before.open(_rose)!, before.open(_rose)!];
+      final beforeNyx = before.open(_nyx)!;
       before.activate(_rose.id, before.forHost(_rose.id).first);
       await _settle();
 
       // A second store over the same table is what the next process is: the
       // connections are gone, the rows are not.
-      final transport = FakeShellTransport();
+      final transport = FakeShellTransport()
+        ..continuity = ShellContinuity.resumed;
       final after = fakeShellSessions(transport, tabs: tabs);
       expect(await after.restore(hosts), 3);
 
       expect(after.forHost(_rose.id).map((session) => session.number), [1, 2]);
       expect(after.forHost(_nyx.id).map((session) => session.number), [1]);
-      // Each restored tab is a fresh shell on the host it was on.
       await _settle();
       expect(transport.opened, hasLength(3));
+      expect(transport.persistentSessions, [
+        ...beforeRose.map((session) => session.remoteSession),
+        beforeNyx.remoteSession,
+      ]);
+      expect(
+        after.forHost(_rose.id).first.terminal.buffer.getText(),
+        contains('-- session restored --'),
+      );
       // And the tab the user left in front is the one that comes back in front.
       expect(after.activeFor(_rose.id)!.number, 1);
     });
@@ -1392,6 +1443,128 @@ void main() {
       // No prompt, so a host whose key was never pinned is refused here rather
       // than asking a user who is still on the boot log.
       expect(transport.verifiers.single!.prompt, isNull);
+    });
+
+    test('agent panes do not claim a second remote multiplexer', () async {
+      const pane = (session: 'work', pane: '%3');
+      final tabs = InMemoryShellTabRepository();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, tabs: tabs);
+
+      final session = sessions.open(
+        _rose,
+        command: 'herdr agent attach work %3',
+        pane: pane,
+      )!;
+      await _settle();
+
+      expect(session.remoteSession, isNotNull);
+      expect(transport.tabSessions.single, session.remoteSession);
+      expect(transport.persistentSessions.single, isNull);
+      final row = (await tabs.all()).single;
+      expect(row.remoteSession, session.remoteSession);
+      expect(row.herdrSession, pane.session);
+      expect(row.herdrPane, pane.pane);
+    });
+
+    test('a remote identity is stored before its first dial', () async {
+      final tabs = _DelayedShellTabs();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, tabs: tabs);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      expect(tabs.started, isTrue);
+      expect(transport.opened, isEmpty);
+
+      tabs.release.complete();
+      await _settle();
+      await _settle();
+
+      expect(transport.opened, hasLength(1));
+      expect((await tabs.all()).single.remoteSession, session.remoteSession);
+    });
+
+    test('a killed app reattaches the exact Herdr pane', () async {
+      const pane = (session: 'work', pane: 'w2a:p3');
+      final tabs = InMemoryShellTabRepository();
+      final before = fakeShellSessions(FakeShellTransport(), tabs: tabs);
+      before.open(_rose, command: HerdrCommands.attach(pane), pane: pane);
+      await _settle();
+
+      final transport = FakeShellTransport();
+      final after = fakeShellSessions(transport, tabs: tabs);
+      expect(await after.restore(hosts), 1);
+      await _settle();
+
+      final restored = after.forHost(_rose.id).single;
+      expect(restored.pane, pane);
+      expect(restored.command, HerdrCommands.attach(pane));
+      expect(after.holding(_rose.id, pane), same(restored));
+      expect(
+        transport.commands.single,
+        shellMarked(restored.mark, command: HerdrCommands.attach(pane)),
+      );
+      expect(transport.persistentSessions.single, isNull);
+      expect(
+        restored.terminal.buffer.getText(),
+        contains('-- session restored --'),
+      );
+    });
+
+    test('a tab cannot partially name a Herdr pane', () async {
+      final tabs = InMemoryShellTabRepository();
+
+      await expectLater(
+        tabs.open(_rose.id, 1, herdrSession: 'work'),
+        throwsArgumentError,
+      );
+    });
+
+    test('a close kills its remote shell before forgetting the row', () async {
+      final tabs = InMemoryShellTabRepository();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, tabs: tabs);
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      await sessions.close(_rose.id, session);
+
+      expect(transport.opened.single.terminated, [
+        (session: session.remoteSession!, durableShell: true),
+      ]);
+      expect(await tabs.all(), isEmpty);
+      expect(await tabs.retired(_rose.id), isEmpty);
+    });
+
+    test('a failed close is reaped through the next host connection', () async {
+      final tabs = InMemoryShellTabRepository();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, tabs: tabs);
+      final first = sessions.open(_rose)!;
+      await _settle();
+      transport.opened.single.terminateRemoteResult = false;
+
+      await sessions.close(_rose.id, first);
+
+      expect(await tabs.all(), isEmpty);
+      expect(
+        (await tabs.retired(_rose.id)).single.remoteSession,
+        first.remoteSession,
+      );
+
+      final second = sessions.open(_rose)!;
+      await _settle();
+      await _settle();
+
+      expect(
+        transport.opened.last.terminated,
+        contains((session: first.remoteSession!, durableShell: true)),
+      );
+      expect(await tabs.retired(_rose.id), isEmpty);
+
+      await sessions.close(_rose.id, second);
     });
   });
 

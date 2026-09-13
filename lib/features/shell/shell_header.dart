@@ -314,9 +314,8 @@ class _HostCell extends StatelessWidget {
   }
 }
 
-/// Where the session is when it is not live. Nothing at all while it is: what
-/// the shell calls itself is already the tab's word, and the pane under the row
-/// says the rest.
+/// Where the session is when it is not live, plus MOSH while that is the live
+/// transport. SSH needs no word because it is the host's baseline.
 class _Middle extends StatelessWidget {
   const _Middle({required this.state, required this.onStop});
 
@@ -327,7 +326,8 @@ class _Middle extends StatelessWidget {
   Widget build(BuildContext context) {
     final word = switch (state) {
       null => null,
-      ShellLive() => null,
+      ShellLive(:final transport) =>
+        transport == ShellTransport.mosh ? 'MOSH' : null,
       ShellConnecting() => 'CONNECTING',
       ShellDropped(:final attempt) =>
         'RECONNECTING $attempt/${shellReconnectDelays.length}',

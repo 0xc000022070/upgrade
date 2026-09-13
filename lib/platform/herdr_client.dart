@@ -91,6 +91,9 @@ abstract final class HerdrCommands {
 
   static bool isSessionName(String name) => _session.hasMatch(name);
 
+  static bool isPane(PaneRef pane) =>
+      isSessionName(pane.session) && _pane.hasMatch(pane.pane);
+
   /// A name is checked against the shape a session name has before it is
   /// quoted into a line, the way a pane id is. Never a name of the app's own:
   /// every one here was read off the host.

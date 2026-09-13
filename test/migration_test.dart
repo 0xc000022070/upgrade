@@ -239,7 +239,12 @@ CREATE TABLE shell_tabs (
   active INTEGER NOT NULL,
   opened_at TEXT NOT NULL,
   PRIMARY KEY (host_id, number)
-)''',
+  )''',
+];
+
+const _v14Schema = [
+  ..._v13Schema,
+  'ALTER TABLE paths ADD COLUMN project_id TEXT REFERENCES projects (id)',
 ];
 
 /// Drives [QueryExecutor.ensureOpen] to stamp `user_version = 2` and lay down
@@ -898,6 +903,43 @@ void main() {
     expect(path.directory, '~/src/dazzle');
     expect(path.projectId, isNull);
     expect(await DriftPathRepository(db).watchUnlinked().first, hasLength(1));
+  });
+
+  test('a v14 shell tab gains explicit durable identities', () async {
+    final executor = NativeDatabase(file);
+    await executor.ensureOpen(_V2Database(14, _v14Schema));
+    await executor.runInsert(
+      'INSERT INTO keys (id, name, public_key, fingerprint, created_at) '
+      'VALUES (?, ?, ?, ?, ?)',
+      ['k1', 'nyx', 'ssh-ed25519 AAAA nyx', 'SHA256:k1', stamp(20)],
+    );
+    await executor.runInsert(
+      'INSERT INTO hosts (id, name, address, port, user, key_id) '
+      'VALUES (?, ?, ?, ?, ?, ?)',
+      ['h1', 'nyx', '100.118.60.77', 357, 'luisnquin', 'k1'],
+    );
+    await executor.runInsert(
+      'INSERT INTO shell_tabs (host_id, number, active, opened_at) '
+      'VALUES (?, ?, ?, ?)',
+      ['h1', 1, 1, stamp(20)],
+    );
+    await executor.close();
+
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+    final old = (await db.select(db.shellTabs).get()).single;
+    expect(old.remoteSession, isNull);
+    expect(old.herdrSession, isNull);
+    expect(old.herdrPane, isNull);
+    expect(old.retiredAt, isNull);
+
+    final tabs = DriftShellTabRepository(db);
+    await tabs.open('h1', 2, remoteSession: 's12345');
+    await tabs.open('h1', 3, herdrSession: 'work', herdrPane: 'w2a:p3');
+    final rows = await tabs.all();
+    expect(rows[1].remoteSession, 's12345');
+    expect(rows[2].herdrSession, 'work');
+    expect(rows[2].herdrPane, 'w2a:p3');
   });
 
   test('an upgraded database gains shell tabs, empty and writable', () async {

@@ -40,6 +40,7 @@ void main() {
     expect(asked.single.fingerprint, _fingerprint);
     expect(written.single.fingerprint, _fingerprint);
     expect(written.single.type, _type);
+    expect(verifier.verified?.fingerprint, _fingerprint);
     expect(verifier.refusal, isNull);
   });
 
@@ -52,6 +53,7 @@ void main() {
 
     expect(await verifier.verify(_type, _bytes(_fingerprint)), isFalse);
     expect(verifier.refusal, HostKeyRefusal.unverified);
+    expect(verifier.verified, isNull);
     expect(written, isEmpty);
   });
 
@@ -67,6 +69,7 @@ void main() {
 
     expect(await verifier.verify(_type, _bytes(_fingerprint)), isTrue);
     expect(asked, isFalse);
+    expect(verifier.verified, same(verifier.pinned));
     expect(verifier.refusal, isNull);
   });
 

@@ -325,6 +325,20 @@ class ShellTabs extends Table {
   BoolColumn get active => boolean()();
   DateTimeColumn get openedAt => dateTime()();
 
+  /// Stable identity for this tab. It marks the tab's Mosh server and also
+  /// names the Dazzle-owned tmux session behind an ordinary shell. Null only
+  /// on tabs opened before remote identities existed.
+  TextColumn get remoteSession => text().nullable()();
+
+  /// The exact Herdr pane an agent tab attaches to. Both are null on an
+  /// ordinary shell and both are set on an agent tab.
+  TextColumn get herdrSession => text().nullable()();
+  TextColumn get herdrPane => text().nullable()();
+
+  /// Set when the tab left the phone before its remote session could be
+  /// killed. A later connection to the same host finishes that cleanup.
+  DateTimeColumn get retiredAt => dateTime().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {hostId, number};
 }

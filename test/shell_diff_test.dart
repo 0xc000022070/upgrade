@@ -44,10 +44,7 @@ ExecResult _says(String stdout, {int exitCode = 0}) => ExecResult(
 
 /// The version-control mark as it is drawn on the row.
 DazzleIcon _mark(WidgetTester tester) => tester.widget<DazzleIcon>(
-  find.descendant(
-    of: find.byKey(_diffCell),
-    matching: find.byType(DazzleIcon),
-  ),
+  find.descendant(of: find.byKey(_diffCell), matching: find.byType(DazzleIcon)),
 );
 
 void main() {
@@ -103,6 +100,17 @@ void main() {
       // A tab's directory is read and nothing on the host is touched.
       expect(probe, isNot(contains('kill')));
       expect(probe, isNot(contains('rm ')));
+    });
+
+    test('Mosh cleanup is exact and silent across protected processes', () {
+      final cleanup = moshServerCleanupCommand('s1a2b3c');
+
+      expect(cleanup, contains('exec 2>/dev/null'));
+      expect(cleanup, contains('DAZZLE_MOSH_TAB=s1a2b3c'));
+      expect(cleanup, contains('mosh-server|*/mosh-server'));
+      expect(cleanup, contains(r'kill "${p##*/}"'));
+      expect(cleanup, isNot(contains('pkill')));
+      expect(cleanup, isNot(contains('killall')));
     });
 
     testWidgets('every tab dials with a mark of its own', (tester) async {
@@ -248,10 +256,11 @@ void main() {
       final session = sessions.forHost(rose.id).single;
       final connection = transport.opened.single;
       connection.answerWith('/home/luis/src/dazzle\n');
+      connection.directoryRequests.clear();
 
       expect(await sessions.cwdFromHost(session), '/home/luis/src/dazzle');
       // Asked on a second channel, so the shell on the pty sees none of it.
-      expect(connection.execs.last.command, shellCwdProbe(session.mark));
+      expect(connection.directoryRequests, [session.remoteSession]);
       expect(connection.written, isNot(contains('/proc')));
       // And kept, so the tab knows where it is without asking twice.
       expect(session.cwd, '/home/luis/src/dazzle');
@@ -268,8 +277,9 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      final session = sessions.forHost(rose.id).single..pane = pane;
-      final connection = transport.opened.single;
+      final session = sessions.open(rose, pane: pane)!;
+      await ready(tester);
+      final connection = transport.opened.last;
       // The pane the tab is on has been walked into a repository; the pane
       // beside it has not, and the attach itself is standing in `$HOME`.
       connection.answerWith(
@@ -299,23 +309,13 @@ void main() {
 
       final session = sessions.forHost(rose.id).single;
       final connection = transport.opened.single;
-      // No pane: this tab is holding the whole multiplexer, and the walk
-      // finds the client standing where it was started, in `$HOME`.
+      // No pane: this tab owns a tmux session, whose foreground pane reports
+      // where it stands even when another multiplexer runs inside it.
       expect(session.pane, isNull);
-      connection.answer = (command, _) => _says(
-        command.contains('/proc')
-            ? '/home/luis\nhub\n'
-            : '{"result":{"type":"pane_list","panes":['
-                  '{"pane_id":"w22:p1","cwd":"/srv/gate","focused":false},'
-                  '{"pane_id":"w2C:p2","cwd":"/home/luis/src/dazzle",'
-                  '"focused":true}'
-                  ']}}',
-      );
+      connection.directory = '/home/luis/src/dazzle';
 
-      // The pane the user is looking at, not the one the client is standing
-      // in and not the first one the multiplexer lists.
       expect(await sessions.cwdFromHost(session), '/home/luis/src/dazzle');
-      expect(connection.execs.last.command, HerdrCommands.panes('hub'));
+      expect(connection.directoryRequests.last, session.remoteSession);
 
       await unmount(tester);
     });

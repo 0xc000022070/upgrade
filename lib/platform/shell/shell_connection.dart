@@ -8,10 +8,15 @@ import '../host_keys.dart';
 ///
 /// The seam between the transport (builder A, `shell_tunnel.dart`) and the
 /// route and store (builder B, `lib/features/shell/`). A test drives the
-/// store and the view through its own implementation of this; the real one
-/// is an ssh channel with a pty and the remote's login shell on it, and
-/// nothing else.
+/// store and the view through its own implementation of this; real sessions
+/// are either a Mosh UDP channel or an SSH channel with a pty.
 abstract interface class ShellConnection {
+  ShellTransport get transport;
+
+  /// Whether this channel started a durable remote shell, found one, or had
+  /// to fall back to a plain SSH shell because the host has no tmux client.
+  ShellContinuity get continuity;
+
   /// What the shell prints, stdout and stderr in arrival order.
   Stream<Uint8List> get output;
 
@@ -28,6 +33,18 @@ abstract interface class ShellConnection {
   /// Closes the channel and the connection under it.
   Future<void> close();
 
+  /// Moves a roaming transport onto the phone's current network. Plain SSH
+  /// has nothing to do here; Mosh rebinds its UDP socket.
+  Future<void> rehome();
+
+  /// Ends this tab's marked Mosh server and, for an ordinary durable shell,
+  /// its Dazzle-owned tmux session. True means the pending cleanup may be
+  /// forgotten.
+  Future<bool> terminateRemote(String session, {required bool durableShell});
+
+  /// The active pane's directory in one Dazzle-owned remote shell.
+  Future<String?> remoteDirectory(String session);
+
   /// Runs one command on a second channel of the same connection, with
   /// [stdin] written to it and closed, and answers once it has exited. The
   /// shell on the pty never sees any of it: what lands a clip on the host and
@@ -35,6 +52,10 @@ abstract interface class ShellConnection {
   /// the user's own prompt is disturbed.
   Future<ExecResult> exec(String command, {Uint8List? stdin});
 }
+
+enum ShellContinuity { plain, started, resumed }
+
+enum ShellTransport { ssh, mosh }
 
 /// What a command on an exec channel came back with.
 class ExecResult {
@@ -66,6 +87,8 @@ typedef ShellOpener = Future<ShellConnection> Function({
   required int columns,
   required int rows,
   String? command,
+  String? tabSession,
+  String? persistentSession,
   HostKeyVerifier? verifier,
 });
 
