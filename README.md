@@ -68,11 +68,9 @@ The AGENTS panel and SEND need `herdr` on the non-interactive SSH `PATH`. Every
 running herdr session is listed. An attached agent tab records the exact Herdr
 session and pane, then attaches that pane again after a network change or app
 restart. Herdr owns that process identity; Dazzle does not put tmux around it.
-Opening an agent explicitly takes terminal ownership from another attached
-Herdr client without stopping the agent. The pane still uses Mosh transport
-when the host has `mosh-server`, with SSH as fallback. SEND starts its agent in
-herdr's default session, or in the one session running when the default is not.
-Dazzle scans `~/Projects`,
+The pane still uses Mosh transport when the host has `mosh-server`, with SSH as
+fallback. SEND starts its agent in herdr's default session, or in the one
+session running when the default is not. Dazzle scans `~/Projects`,
 `~/.dotfiles`, and `~/src` for Git checkouts. Clipboard attachments need
 `wl-copy` and `wl-paste` on Wayland, `xclip` on X11, or `osascript` on macOS.
 
