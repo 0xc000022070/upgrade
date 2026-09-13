@@ -4,14 +4,14 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agent_state.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/application/pip.dart';
-import 'package:spectacle/app/pip_host.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/features/agents/pip_panel.dart';
-import 'package:spectacle/features/home/agent_mark.dart';
-import 'package:spectacle/platform/herdr_client.dart';
+import 'package:dazzle/application/agent_state.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/pip.dart';
+import 'package:dazzle/app/pip_host.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/features/agents/pip_panel.dart';
+import 'package:dazzle/features/home/agent_mark.dart';
+import 'package:dazzle/platform/herdr_client.dart';
 
 const nyx = Host(
   id: 'a',
@@ -37,7 +37,7 @@ AgentSnapshot agent(String name, String status) => AgentSnapshot(
   state: AgentState.of(status),
   terminalTitleStripped: 'work',
   workspaceId: 'wQ',
-  cwd: '/workspace/spectacle',
+  cwd: '/workspace/dazzle',
   stateChangeSeq: 1,
 );
 

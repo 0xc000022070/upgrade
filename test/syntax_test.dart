@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/features/code/syntax.dart';
+import 'package:dazzle/features/code/syntax.dart';
 
 /// The colouring under the diff's own two colours.
 ///

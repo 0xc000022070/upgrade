@@ -30,15 +30,15 @@ class ShellStateDot extends StatelessWidget {
     // A session on its way up is not lit yet: the accent means there is a shell
     // on the other end, and until it answers there is not.
     final color = switch (state) {
-      ShellLive() => SpectacleColors.accent,
-      ShellFailed() => SpectacleColors.warning,
+      ShellLive() => DazzleColors.accent,
+      ShellFailed() => DazzleColors.warning,
       // A dropped session is neither: there is no shell on the other end and
       // the store has not given up on getting one. Nor has it for one waiting,
       // which is the same tab with its schedule spent.
       ShellConnecting() ||
       ShellDropped() ||
       ShellWaiting() ||
-      ShellExited() => SpectacleColors.textMuted,
+      ShellExited() => DazzleColors.textMuted,
     };
     return Container(
       width: shellDotSize,

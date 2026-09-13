@@ -8,7 +8,7 @@ import '../../data/enums.dart';
 import '../../data/views.dart';
 import '../../design/components/picker_row.dart';
 import '../../design/components/panel_sheet.dart';
-import '../../design/components/spectacle_field.dart';
+import '../../design/components/dazzle_field.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 
@@ -156,7 +156,7 @@ class _PairPickerBodyState extends ConsumerState<PairPickerBody> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        SpectacleField(
+        DazzleField(
           controller: _search,
           autofocus: true,
           hint: 'search',
@@ -170,7 +170,7 @@ class _PairPickerBodyState extends ConsumerState<PairPickerBody> {
             padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
             child: Text(
               query.isEmpty ? 'nothing to pair with' : 'no match',
-              style: SpectacleText.rowSubtitle,
+              style: DazzleText.rowSubtitle,
             ),
           )
         else

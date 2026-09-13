@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agent_state.dart';
+import 'package:dazzle/application/agent_state.dart';
 
 /// What herdr reports a pane's agent to be, and what the screens ask of it.
 void main() {

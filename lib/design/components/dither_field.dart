@@ -51,7 +51,7 @@ class _DitherPainter extends CustomPainter {
       PointMode.points,
       points,
       Paint()
-        ..color = SpectacleColors.textMuted.withValues(alpha: 0.25)
+        ..color = DazzleColors.textMuted.withValues(alpha: 0.25)
         ..strokeWidth = _dot
         ..strokeCap = StrokeCap.square,
     );

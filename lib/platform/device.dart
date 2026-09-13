@@ -7,12 +7,12 @@ import 'package:flutter/services.dart';
 /// prints. All fail soft — on desktop and in tests the
 /// channels are simply absent.
 abstract final class Device {
-  static const _channel = MethodChannel('dev.luisnquin.spectacle/device');
+  static const _channel = MethodChannel('dev.luisnquin.dazzle/device');
   static const _throttleEvents = EventChannel(
-    'dev.luisnquin.spectacle/device/throttle',
+    'dev.luisnquin.dazzle/device/throttle',
   );
   static const _networkEvents = EventChannel(
-    'dev.luisnquin.spectacle/device/network',
+    'dev.luisnquin.dazzle/device/network',
   );
 
   /// True while the OS is asking the app to spend less: battery saver on, or a
@@ -79,7 +79,7 @@ class BuildInfo {
   /// `dev` when absent, which is every `flutter run` started by hand — and
   /// saying so is more honest than printing a sha that describes nothing.
   static const revision = String.fromEnvironment(
-    'SPECTACLE_BUILD',
+    'DAZZLE_BUILD',
     defaultValue: 'dev',
   );
 

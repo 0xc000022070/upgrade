@@ -24,7 +24,7 @@ abstract final class FontFamilies {
 /// Sized off the 360dp mocks in design/explorations/screens.
 /// The scale is mono-dominant and small: size carries almost no hierarchy, so
 /// colour, column position and the 9/10/12 step do the separating.
-abstract final class SpectacleText {
+abstract final class DazzleText {
   /// The screen title. The trailing `_` cursor is appended by the
   /// scaffold, not baked in, so a title can still be decoded glyph by glyph.
   static const screenTitle = TextStyle(
@@ -33,7 +33,7 @@ abstract final class SpectacleText {
     height: 1.0,
     fontWeight: FontWeight.w700,
     letterSpacing: 1.0,
-    color: SpectacleColors.textPrimary,
+    color: DazzleColors.textPrimary,
   );
 
   /// `/ PERSONAL CONTROL PLANE` above every title.
@@ -43,7 +43,7 @@ abstract final class SpectacleText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.5,
-    color: SpectacleColors.textMuted,
+    color: DazzleColors.textMuted,
   );
 
   /// The header strip inside a panel, and its right affordance.
@@ -53,7 +53,7 @@ abstract final class SpectacleText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 1.5,
-    color: SpectacleColors.textMuted,
+    color: DazzleColors.textMuted,
   );
 
   /// The small uppercase line above a row title — the project a row belongs to.
@@ -63,7 +63,7 @@ abstract final class SpectacleText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.8,
-    color: SpectacleColors.textSecondary,
+    color: DazzleColors.textSecondary,
   );
 
   /// Row anatomy: title over subtitle over caption, all mono.
@@ -72,7 +72,7 @@ abstract final class SpectacleText {
     fontSize: 12,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: SpectacleColors.textPrimary,
+    color: DazzleColors.textPrimary,
   );
 
   /// The single row on a screen that is the screen's whole point — HOME's next
@@ -82,7 +82,7 @@ abstract final class SpectacleText {
     fontSize: 13,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: SpectacleColors.textPrimary,
+    color: DazzleColors.textPrimary,
   );
 
   static const rowSubtitle = TextStyle(
@@ -90,7 +90,7 @@ abstract final class SpectacleText {
     fontSize: 10,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: SpectacleColors.textMuted,
+    color: DazzleColors.textMuted,
   );
 
   /// The single right-hand column — percent, duration, time, count.
@@ -99,7 +99,7 @@ abstract final class SpectacleText {
     fontSize: 10,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: SpectacleColors.textMuted,
+    color: DazzleColors.textMuted,
   );
 
   static const valueStrong = TextStyle(
@@ -107,7 +107,7 @@ abstract final class SpectacleText {
     fontSize: 10,
     height: 1.3,
     fontWeight: FontWeight.w500,
-    color: SpectacleColors.textPrimary,
+    color: DazzleColors.textPrimary,
   );
 
   /// The smallest tracked line. Tags, field names, `n OF m TASKS`.
@@ -117,7 +117,7 @@ abstract final class SpectacleText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.8,
-    color: SpectacleColors.textMuted,
+    color: DazzleColors.textMuted,
   );
 
   /// The project name in the hero card.
@@ -127,7 +127,7 @@ abstract final class SpectacleText {
     height: 1.1,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.4,
-    color: SpectacleColors.textPrimary,
+    color: DazzleColors.textPrimary,
   );
 
   /// The one big number on the screen.
@@ -137,7 +137,7 @@ abstract final class SpectacleText {
     height: 1.0,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.2,
-    color: SpectacleColors.accent,
+    color: DazzleColors.accent,
   );
 
   /// A note body is read, not scanned, so it keeps a taller line box than a row
@@ -147,7 +147,7 @@ abstract final class SpectacleText {
     fontSize: 11,
     height: 1.45,
     fontWeight: FontWeight.w400,
-    color: SpectacleColors.textPrimary,
+    color: DazzleColors.textPrimary,
   );
 
   /// The settings build line: one step above [value] because it is meant to be
@@ -159,7 +159,7 @@ abstract final class SpectacleText {
     fontSize: 11,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: SpectacleColors.textMuted,
+    color: DazzleColors.textMuted,
   );
 
   /// The capture field's placeholder, one step above a row title so the
@@ -169,7 +169,7 @@ abstract final class SpectacleText {
     fontSize: 14,
     height: 1.2,
     fontWeight: FontWeight.w400,
-    color: SpectacleColors.textMuted,
+    color: DazzleColors.textMuted,
   );
 
   /// The remaining Sans: the action sheet's explanatory copy.
@@ -178,7 +178,7 @@ abstract final class SpectacleText {
     fontSize: 12,
     height: 1.45,
     fontWeight: FontWeight.w400,
-    color: SpectacleColors.textSecondary,
+    color: DazzleColors.textSecondary,
   );
 
   /// Glyph over a tracked mono label.
@@ -188,7 +188,7 @@ abstract final class SpectacleText {
     height: 1.2,
     fontWeight: FontWeight.w400,
     letterSpacing: 1.0,
-    color: SpectacleColors.textMuted,
+    color: DazzleColors.textMuted,
   );
 
   /// The corner window's own scale, which is deliberately not the one above.
@@ -215,7 +215,7 @@ abstract final class SpectacleText {
     // drawn in. The step down to the rows is carried by size and tracking.
     fontWeight: FontWeight.w500,
     letterSpacing: 0.4,
-    color: SpectacleColors.textPrimary,
+    color: DazzleColors.textPrimary,
   );
 
   /// The agent on a row of the corner window.
@@ -224,7 +224,7 @@ abstract final class SpectacleText {
     fontSize: 11,
     height: 1.25,
     fontWeight: FontWeight.w500,
-    color: SpectacleColors.textPrimary,
+    color: DazzleColors.textPrimary,
   );
 
   /// What that agent is doing, at the size of the name it belongs to so the two
@@ -234,7 +234,7 @@ abstract final class SpectacleText {
     fontSize: 11,
     height: 1.25,
     fontWeight: FontWeight.w400,
-    color: SpectacleColors.textSecondary,
+    color: DazzleColors.textSecondary,
   );
 
   /// The machine a row is on, and the count of the rows that did not fit.
@@ -247,6 +247,6 @@ abstract final class SpectacleText {
     height: 1.25,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.6,
-    color: SpectacleColors.textSecondary,
+    color: DazzleColors.textSecondary,
   );
 }

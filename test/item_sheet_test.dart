@@ -2,20 +2,20 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/application/urls.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/activity_repository.dart';
-import 'package:spectacle/data/repositories/goal_repository.dart';
-import 'package:spectacle/data/enums.dart';
-import 'package:spectacle/data/repositories/attachment_repository.dart';
-import 'package:spectacle/data/repositories/project_repository.dart';
-import 'package:spectacle/data/repositories/task_repository.dart';
-import 'package:spectacle/data/views.dart';
-import 'package:spectacle/design/components/keyboard_toolbar.dart';
-import 'package:spectacle/design/components/spectacle_field.dart';
-import 'package:spectacle/features/tasks/item_sheet.dart';
-import 'package:spectacle/features/tasks/link_text.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/application/urls.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/activity_repository.dart';
+import 'package:dazzle/data/repositories/goal_repository.dart';
+import 'package:dazzle/data/enums.dart';
+import 'package:dazzle/data/repositories/attachment_repository.dart';
+import 'package:dazzle/data/repositories/project_repository.dart';
+import 'package:dazzle/data/repositories/task_repository.dart';
+import 'package:dazzle/data/views.dart';
+import 'package:dazzle/design/components/keyboard_toolbar.dart';
+import 'package:dazzle/design/components/dazzle_field.dart';
+import 'package:dazzle/features/tasks/item_sheet.dart';
+import 'package:dazzle/features/tasks/link_text.dart';
 
 import 'support/platform_channels.dart';
 
@@ -514,7 +514,7 @@ void main() {
     // The editor used to be unbounded, which is what let a long item carry the
     // sheet it was typed in off the screen.
     final field = tester.widget<TextField>(find.byType(TextField));
-    expect(field.maxLines, SpectacleField.bodyLines);
+    expect(field.maxLines, DazzleField.bodyLines);
     expect(field.keyboardType, TextInputType.text);
     expect(field.textInputAction, TextInputAction.done);
 

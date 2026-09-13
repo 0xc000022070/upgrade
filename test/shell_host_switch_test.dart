@@ -2,12 +2,12 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/app/spectacle_app.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/features/shell/shell_sessions.dart';
+import 'package:dazzle/app/dazzle_app.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -50,7 +50,7 @@ void main() {
       hostRepositoryProvider.overrideWithValue(hosts),
       shellSessionsProvider.overrideWithValue(sessions),
     ],
-    child: const MaterialApp(home: SpectacleShell()),
+    child: const MaterialApp(home: DazzleShell()),
   );
 
   Future<void> ready(WidgetTester tester) async {

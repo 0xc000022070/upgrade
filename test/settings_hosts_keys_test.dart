@@ -3,15 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/data/repositories/key_repository.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/features/settings/host_form_screen.dart';
-import 'package:spectacle/features/settings/key_detail_screen.dart';
-import 'package:spectacle/platform/keys.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/data/repositories/key_repository.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/features/settings/host_form_screen.dart';
+import 'package:dazzle/features/settings/key_detail_screen.dart';
+import 'package:dazzle/platform/keys.dart';
 
 import 'support/platform_channels.dart';
 
@@ -103,7 +103,7 @@ void main() {
     // state and the `[ USED BY ]` list above it say the same thing.
     expect(find.text('DELETE'), findsNothing);
     final delete = tester.widget<Text>(find.text('USED BY 1 HOST'));
-    expect(delete.style?.color, SpectacleColors.textDisabled);
+    expect(delete.style?.color, DazzleColors.textDisabled);
     await tester.tap(find.text('USED BY 1 HOST'));
     await tester.pump();
     expect(find.text('DELETE KEY?'), findsNothing);

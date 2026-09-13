@@ -36,7 +36,7 @@ String shellIn(String directory) => '${shellCd(directory)} && exec \$SHELL -l';
 /// The variable every tab's shell carries, so a host can be asked which of its
 /// processes is that tab. Exported before the `exec`, which is what carries it
 /// into the login shell that replaces it.
-const shellMarkVariable = 'SPECTACLE_TAB';
+const shellMarkVariable = 'DAZZLE_TAB';
 
 /// What a mark may be, which is the one thing here that reaches a command the
 /// host runs: letters and digits, and nothing a shell or a `grep` reads as
@@ -114,7 +114,7 @@ ShellPlace parseShellPlace(String source) {
 /// the host's own reboot, which is the right lifetime for a file nothing ever
 /// comes back for. Shared by the shell's paste and by a send's images, so the
 /// directory and the command that fills it are written once.
-const remoteUploadDirectory = '/tmp/spectacle';
+const remoteUploadDirectory = '/tmp/dazzle';
 
 String remotePathFor(String fileName) => '$remoteUploadDirectory/$fileName';
 

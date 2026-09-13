@@ -50,7 +50,7 @@ class _TerminalScrollGestureHandlerState
   /// Used to calculate the cell offset of the terminal mouse event. Local to
   /// this widget: [getCellOffset] subtracts the view's padding and nothing
   /// else, so a global offset would report a row shifted by everything drawn
-  /// above the terminal. Spectacle patch.
+  /// above the terminal. Dazzle patch.
   var lastPointerPosition = Offset.zero;
 
   @override

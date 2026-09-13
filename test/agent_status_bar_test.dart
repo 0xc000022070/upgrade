@@ -1,13 +1,13 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agent_state.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/application/navigation.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/features/agents/agent_status_bar.dart';
-import 'package:spectacle/platform/herdr_client.dart';
+import 'package:dazzle/application/agent_state.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/navigation.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/features/agents/agent_status_bar.dart';
+import 'package:dazzle/platform/herdr_client.dart';
 
 const nyx = Host(
   id: 'a',
@@ -33,7 +33,7 @@ AgentSnapshot agent(String name, String status) => AgentSnapshot(
   state: AgentState.of(status),
   terminalTitleStripped: 'work',
   workspaceId: 'wQ',
-  cwd: '/workspace/spectacle',
+  cwd: '/workspace/dazzle',
   stateChangeSeq: 1,
 );
 
@@ -241,7 +241,7 @@ void main() {
         answering([agent('claude', 'working')]),
       ]);
 
-      expect(mark(tester), SpectacleColors.textPrimary);
+      expect(mark(tester), DazzleColors.textPrimary);
     });
 
     testWidgets('warns when a host has stopped answering', (tester) async {
@@ -250,7 +250,7 @@ void main() {
         answering([agent('claude', 'working')], on: rose),
       ]);
 
-      expect(mark(tester), SpectacleColors.warning);
+      expect(mark(tester), DazzleColors.warning);
     });
 
     testWidgets('goes to blocked over a host being down', (tester) async {
@@ -261,7 +261,7 @@ void main() {
 
       // A machine nobody can reach is the app failing to look, and an agent
       // stopped at a question is the user being waited on.
-      expect(mark(tester), SpectacleColors.accent);
+      expect(mark(tester), DazzleColors.accent);
     });
 
     testWidgets('grows by what the line beside it grew by', (tester) async {

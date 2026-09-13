@@ -35,7 +35,7 @@ class AgentsScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'AGENTS',
-          breadcrumb: '/ SPECTACLE / AGENTS',
+          breadcrumb: '/ DAZZLE / AGENTS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             // Same reload blink as the panel: `waiting for host` would
@@ -90,7 +90,7 @@ class _Feed extends StatelessWidget {
             child: feed.noHost
                 ? const Text(
                     AgentPanelState.blockedLine,
-                    style: SpectacleText.value,
+                    style: DazzleText.value,
                   )
                 : const EmptyState('no agents'),
           ),
@@ -185,7 +185,7 @@ class _MascotEmpty extends StatelessWidget {
         children: [
           Sprite(state: 'idle', scale: 4),
           SizedBox(height: Spacing.lg),
-          Text('SPECTACLE_', style: SpectacleText.screenTitle),
+          Text('DAZZLE_', style: DazzleText.screenTitle),
         ],
       ),
     );
@@ -205,11 +205,11 @@ class _FailureLine extends StatelessWidget {
       title: named ? outcome.host.name.toUpperCase() : 'AGENTS',
       child: Row(
         children: [
-          Expanded(child: Text(outcome.reason, style: SpectacleText.value)),
+          Expanded(child: Text(outcome.reason, style: DazzleText.value)),
           if (timestamp != null)
             Text(
               agentSnapshotAge(DateTime.now(), timestamp),
-              style: SpectacleText.value,
+              style: DazzleText.value,
             ),
         ],
       ),

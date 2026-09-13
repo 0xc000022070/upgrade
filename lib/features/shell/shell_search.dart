@@ -6,8 +6,8 @@ import 'package:xterm/xterm.dart';
 import '../../design/colors.dart';
 import '../../design/components/cell_divider.dart';
 import '../../design/components/key_cell.dart';
-import '../../design/components/spectacle_field.dart';
-import '../../design/icons/spectacle_icons.dart';
+import '../../design/components/dazzle_field.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
@@ -208,8 +208,8 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: SpectacleColors.surfacePrimary,
-        border: Border(top: BorderSide(color: SpectacleColors.borderSubtle)),
+        color: DazzleColors.surfacePrimary,
+        border: Border(top: BorderSide(color: DazzleColors.borderSubtle)),
       ),
       child: SizedBox(
         height: RowMetrics.minHeight,
@@ -222,7 +222,7 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
                   horizontal: RowMetrics.padding,
                 ),
                 child: Center(
-                  child: SpectacleField(
+                  child: DazzleField(
                     key: const ValueKey('shell-find-field'),
                     controller: _query,
                     autofocus: true,
@@ -243,7 +243,7 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
                 child: Text(
                   key: const ValueKey('shell-find-count'),
                   '${_hits.isEmpty ? 0 : _index + 1}/${_hits.length}',
-                  style: SpectacleText.value,
+                  style: DazzleText.value,
                 ),
               ),
             ),
@@ -251,7 +251,7 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
             KeyCell(
               key: const ValueKey('shell-find-prev'),
               label: 'PREV',
-              icon: SpectacleIcons.arrowUp,
+              icon: DazzleIcons.arrowUp,
               inert: _hits.isEmpty,
               minWidth: RowMetrics.minHeight,
               padding: RowMetrics.padding,
@@ -260,7 +260,7 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
             KeyCell(
               key: const ValueKey('shell-find-next'),
               label: 'NEXT',
-              icon: SpectacleIcons.arrowDown,
+              icon: DazzleIcons.arrowDown,
               inert: _hits.isEmpty,
               minWidth: RowMetrics.minHeight,
               padding: RowMetrics.padding,

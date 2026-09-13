@@ -1,12 +1,12 @@
 default = "pixel_7-api36"
 
 [build.android]
-app = "dev.luisnquin.spectacle"
+app = "dev.luisnquin.dazzle"
 stale = "find lib assets android/app/src pubspec.lock -type f | sort | xargs cksum | cksum"
-# Single-quoted so SPECTACLE_BUILD is expanded inside the dev shell, where the
+# Single-quoted so DAZZLE_BUILD is expanded inside the dev shell, where the
 # flake has just computed it (SPEC.md §39.16), and not out here where it is unset.
 run = """
-nix develop -c bash -c 'flutter build apk --debug --target-platform android-arm64 --dart-define=SPECTACLE_BUILD=$SPECTACLE_BUILD'
+nix develop -c bash -c 'flutter build apk --debug --target-platform android-arm64 --dart-define=DAZZLE_BUILD=$DAZZLE_BUILD'
 phone app install -t "$PHONE_DEVICE" build/app/outputs/flutter-apk/app-debug.apk
 """
 

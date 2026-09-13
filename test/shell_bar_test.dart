@@ -6,10 +6,10 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/design/icons/spectacle_icon.dart';
-import 'package:spectacle/features/shell/shell_bar.dart';
-import 'package:spectacle/platform/vnc/keysyms.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/icons/dazzle_icon.dart';
+import 'package:dazzle/features/shell/shell_bar.dart';
+import 'package:dazzle/platform/vnc/keysyms.dart';
 
 typedef Arming = ({Set<StickyModifier> keys, int repeat, bool locked});
 
@@ -107,10 +107,10 @@ Color? tintOf(WidgetTester tester, String label) => tester
 
 /// The tint of a cell drawn as an icon rather than a word.
 Color iconTintOf(WidgetTester tester, String label) => tester
-    .widget<SpectacleIcon>(
+    .widget<DazzleIcon>(
       find.descendant(
         of: find.byKey(ValueKey('bar-$label')),
-        matching: find.byType(SpectacleIcon),
+        matching: find.byType(DazzleIcon),
       ),
     )
     .color;
@@ -161,11 +161,11 @@ void main() {
       tester,
     ) async {
       await pumpBar(tester);
-      expect(tintOf(tester, 'CTRL'), SpectacleColors.textSecondary);
+      expect(tintOf(tester, 'CTRL'), DazzleColors.textSecondary);
 
       await pumpBar(tester, sticky: {StickyModifier.ctrl});
-      expect(tintOf(tester, 'CTRL'), SpectacleColors.accent);
-      expect(tintOf(tester, 'ALT'), SpectacleColors.textSecondary);
+      expect(tintOf(tester, 'CTRL'), DazzleColors.accent);
+      expect(tintOf(tester, 'ALT'), DazzleColors.textSecondary);
     });
 
     testWidgets('tapping one asks for it, tapping it again asks it back', (
@@ -213,7 +213,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('CTRL'), findsNothing);
       expect(find.text('CTRL(x2)'), findsOneWidget);
-      expect(tintOf(tester, 'CTRL'), SpectacleColors.accent);
+      expect(tintOf(tester, 'CTRL'), DazzleColors.accent);
     });
 
     testWidgets('another drag down takes it to three and no further', (
@@ -338,7 +338,7 @@ void main() {
 
       expect(find.text('CTRL(∞)'), findsOneWidget);
       expect(find.text('CTRL'), findsNothing);
-      expect(tintOf(tester, 'CTRL'), SpectacleColors.accent);
+      expect(tintOf(tester, 'CTRL'), DazzleColors.accent);
     });
 
     testWidgets('a press over a counted cell drops the count', (tester) async {
@@ -535,10 +535,10 @@ void main() {
 
     testWidgets('FIND reads accent while the line is open', (tester) async {
       await pumpBar(tester);
-      expect(iconTintOf(tester, 'find'), SpectacleColors.textSecondary);
+      expect(iconTintOf(tester, 'find'), DazzleColors.textSecondary);
 
       await pumpBar(tester, searching: true);
-      expect(iconTintOf(tester, 'find'), SpectacleColors.accent);
+      expect(iconTintOf(tester, 'find'), DazzleColors.accent);
     });
   });
 

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/platform/shell/remote_shell.dart';
-import 'package:spectacle/platform/workspace/workspace_commands.dart';
-import 'package:spectacle/platform/workspace/workspace_model.dart';
+import 'package:dazzle/platform/shell/remote_shell.dart';
+import 'package:dazzle/platform/workspace/workspace_commands.dart';
+import 'package:dazzle/platform/workspace/workspace_model.dart';
 
 /// What git says, and what the screens read out of it.
 ///
@@ -22,11 +22,11 @@ u UU N... 100644 100644 100644 100644 fff ggg hhh pubspec.yaml
 ''';
 
 const _worktrees = '''
-worktree /home/luis/src/spectacle
+worktree /home/luis/src/dazzle
 HEAD 1a2b3c4d
 branch refs/heads/main
 
-worktree /home/luis/src/spectacle-fix
+worktree /home/luis/src/dazzle-fix
 HEAD 5e6f7a8b
 branch refs/heads/fix/paths
 
@@ -86,11 +86,11 @@ void main() {
     test('each record becomes a row with a short branch', () {
       final rows = parseWorktrees(_worktrees);
       expect(rows.map((w) => w.directory), [
-        '/home/luis/src/spectacle',
-        '/home/luis/src/spectacle-fix',
+        '/home/luis/src/dazzle',
+        '/home/luis/src/dazzle-fix',
       ]);
       expect(rows.map((w) => w.branch), ['main', 'fix/paths']);
-      expect(rows.map((w) => w.label), ['spectacle', 'spectacle-fix']);
+      expect(rows.map((w) => w.label), ['dazzle', 'dazzle-fix']);
     });
 
     test('the last record needs no trailing blank line', () {
@@ -437,17 +437,17 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
   group('the commands', () {
     test('every one is a single sh -c', () {
       final commands = [
-        WorkspaceCommands.overview('~/src/spectacle'),
-        WorkspaceCommands.fileDiff('~/src/spectacle', 'lib/main.dart'),
-        WorkspaceCommands.newFileDiff('~/src/spectacle', 'scratch.txt'),
-        WorkspaceCommands.listing('~/src/spectacle', 'lib'),
-        WorkspaceCommands.file('~/src/spectacle', 'lib/main.dart'),
-        WorkspaceCommands.commits('~/src/spectacle'),
-        WorkspaceCommands.commitFiles('~/src/spectacle', '1a2b3c'),
-        WorkspaceCommands.commitDiff('~/src/spectacle', '1a2b3c', 'a.dart'),
-        WorkspaceCommands.repository('~/src/spectacle'),
-        WorkspaceCommands.sourceDiff('~/src/spectacle'),
-        WorkspaceCommands.commitDiffAll('~/src/spectacle', '1a2b3c'),
+        WorkspaceCommands.overview('~/src/dazzle'),
+        WorkspaceCommands.fileDiff('~/src/dazzle', 'lib/main.dart'),
+        WorkspaceCommands.newFileDiff('~/src/dazzle', 'scratch.txt'),
+        WorkspaceCommands.listing('~/src/dazzle', 'lib'),
+        WorkspaceCommands.file('~/src/dazzle', 'lib/main.dart'),
+        WorkspaceCommands.commits('~/src/dazzle'),
+        WorkspaceCommands.commitFiles('~/src/dazzle', '1a2b3c'),
+        WorkspaceCommands.commitDiff('~/src/dazzle', '1a2b3c', 'a.dart'),
+        WorkspaceCommands.repository('~/src/dazzle'),
+        WorkspaceCommands.sourceDiff('~/src/dazzle'),
+        WorkspaceCommands.commitDiffAll('~/src/dazzle', '1a2b3c'),
       ];
       for (final command in commands) {
         expect(command, startsWith("sh -c '"));
@@ -456,7 +456,7 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
     });
 
     test('the overview asks three questions and marks the joins', () {
-      final command = WorkspaceCommands.overview('~/src/spectacle');
+      final command = WorkspaceCommands.overview('~/src/dazzle');
       expect(command, contains('git status --porcelain=v2 --branch'));
       expect(command, contains('git worktree list --porcelain'));
       expect(command, contains('git diff --numstat HEAD'));
@@ -464,18 +464,18 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
     });
 
     test('a missing directory and a plain directory get their own codes', () {
-      final command = WorkspaceCommands.overview('~/src/spectacle');
+      final command = WorkspaceCommands.overview('~/src/dazzle');
       expect(command, contains('exit $workspaceNoDirectory'));
       expect(command, contains('exit $workspaceNoRepository'));
       expect(workspaceNoDirectory, isNot(workspaceNoRepository));
     });
 
     test('the checkout a directory is inside is what is asked for', () {
-      final command = WorkspaceCommands.repository('~/src/spectacle/lib');
+      final command = WorkspaceCommands.repository('~/src/dazzle/lib');
       // The top level, not the directory: a shell three directories deep
       // opens the whole repository rather than a corner of it.
       expect(_script(command), contains('git rev-parse --show-toplevel'));
-      expect(_script(command), contains("cd ~/'src/spectacle/lib'"));
+      expect(_script(command), contains("cd ~/'src/dazzle/lib'"));
       // And a directory inside no checkout says so by saying nothing.
       expect(command, contains('exit $workspaceNoRepository'));
     });
@@ -532,16 +532,16 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
       // Quoted whole it is a directory nobody has, and the screen words that
       // as `directory gone`.
       expect(
-        _script(WorkspaceCommands.overview('~/src/spectacle')),
-        contains("cd ~/'src/spectacle'"),
+        _script(WorkspaceCommands.overview('~/src/dazzle')),
+        contains("cd ~/'src/dazzle'"),
       );
       expect(
-        _script(WorkspaceCommands.listing('~/src/spectacle', 'lib')),
-        contains("cd ~/'src/spectacle/lib'"),
+        _script(WorkspaceCommands.listing('~/src/dazzle', 'lib')),
+        contains("cd ~/'src/dazzle/lib'"),
       );
       expect(
-        _script(WorkspaceCommands.file('~/src/spectacle', 'a.txt')),
-        contains("cd ~/'src/spectacle'"),
+        _script(WorkspaceCommands.file('~/src/dazzle', 'a.txt')),
+        contains("cd ~/'src/dazzle'"),
       );
     });
 

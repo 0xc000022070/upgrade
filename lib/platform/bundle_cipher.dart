@@ -163,7 +163,7 @@ class BundleCipher {
     final nonce = _bytes(_nonceLength);
     final box = SecretBox(key).encrypt(payload, nonce: nonce).cipherText;
     final envelope = <String, Object>{
-      'spectacle': marker,
+      'dazzle': marker,
       'version': version,
       'kdf': kdf.toJson(),
       'nonce': base64Encode(nonce),
@@ -179,7 +179,7 @@ class BundleCipher {
     } on FormatException {
       throw const BundleException(BundleFault.notABundle);
     }
-    if (json is! Map || json['spectacle'] != marker) {
+    if (json is! Map || json['dazzle'] != marker) {
       throw const BundleException(BundleFault.notABundle);
     }
     final fileVersion = json['version'];

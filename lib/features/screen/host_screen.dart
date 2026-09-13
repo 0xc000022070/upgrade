@@ -115,7 +115,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
       _previews = previews;
       _previewTimer = Timer.periodic(previewInterval, (_) => _writePreview());
     } catch (error) {
-      debugPrint('spectacle.vnc ${widget.host.name}: no preview store: $error');
+      debugPrint('dazzle.vnc ${widget.host.name}: no preview store: $error');
     }
   }
 
@@ -170,7 +170,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
         case CropTarget.save:
           await widget.save(
             png,
-            'spectacle-${DateTime.now().toIso8601String()}',
+            'dazzle-${DateTime.now().toIso8601String()}',
           );
           _say(savedNotice(rect.width, rect.height));
       }
@@ -298,7 +298,7 @@ class _Crumb extends StatelessWidget {
               onTap: onBack,
               child: Text(
                 '/ ${host.name.toUpperCase()} SCREEN',
-                style: SpectacleText.breadcrumb,
+                style: DazzleText.breadcrumb,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -315,7 +315,7 @@ class _Crumb extends StatelessWidget {
             Text(
               notice!,
               key: const ValueKey('crop-notice'),
-              style: SpectacleText.panelHeader,
+              style: DazzleText.panelHeader,
             ),
           ],
         ],
@@ -335,7 +335,7 @@ class _State extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (controller.phase) {
       case ScreenConnecting():
-        return const Text('CONNECTING', style: SpectacleText.panelHeader);
+        return const Text('CONNECTING', style: DazzleText.panelHeader);
       case ScreenLive():
         // Unreachable from [_Crumb], which does not build this while live.
         return const SizedBox.shrink();
@@ -345,8 +345,8 @@ class _State extends StatelessWidget {
           children: [
             Text(
               reason,
-              style: SpectacleText.panelHeader.copyWith(
-                color: SpectacleColors.warning,
+              style: DazzleText.panelHeader.copyWith(
+                color: DazzleColors.warning,
               ),
             ),
             const SizedBox(width: Spacing.lg),
@@ -379,7 +379,7 @@ class _Body extends StatelessWidget {
           // A live connection with nothing decoded yet is still waiting on its
           // first update, which reads the same as dialling.
           ScreenConnecting() || ScreenLive() => 'CONNECTING',
-        }, style: SpectacleText.panelHeader),
+        }, style: DazzleText.panelHeader),
       );
     }
     return FramebufferView(

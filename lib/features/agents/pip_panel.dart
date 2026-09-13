@@ -62,7 +62,7 @@ class PipPanel extends ConsumerWidget {
         label: window.spoken,
         excludeSemantics: true,
         child: ColoredBox(
-          color: SpectacleColors.backgroundPrimary,
+          color: DazzleColors.backgroundPrimary,
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: Spacing.lg,
@@ -86,7 +86,7 @@ class PipPanel extends ConsumerWidget {
       final last = agents == null || agents.noHost ? '' : agents.tally;
       return _Window(
         headline: 'NOT WATCHING',
-        tint: SpectacleColors.textSecondary,
+        tint: DazzleColors.textSecondary,
         note: last.isEmpty ? null : 'LAST SEEN $last',
       );
     }
@@ -94,7 +94,7 @@ class PipPanel extends ConsumerWidget {
     if (agents == null || agents.noHost) {
       return const _Window(
         headline: AgentPanelState.blockedLine,
-        tint: SpectacleColors.textSecondary,
+        tint: DazzleColors.textSecondary,
       );
     }
     // The same sentence the shade's ongoing line carries, from the same
@@ -112,11 +112,11 @@ class PipPanel extends ConsumerWidget {
   /// watcher cannot reach, because the line is then about the app and not the
   /// work. Otherwise the colour of a line that is merely true.
   Color _headlineTint(List<HostOutcome> outcomes) {
-    if (outcomes.any((outcome) => !outcome.ok)) return SpectacleColors.danger;
+    if (outcomes.any((outcome) => !outcome.ok)) return DazzleColors.danger;
     final blocked = outcomes.any(
       (outcome) => outcome.agents.any((agent) => agent.state.blocked),
     );
-    return blocked ? SpectacleColors.accent : SpectacleColors.textPrimary;
+    return blocked ? DazzleColors.accent : DazzleColors.textPrimary;
   }
 
   /// The active agents, blocked first, each with the host it is on. Two hosts
@@ -173,10 +173,10 @@ class _Body extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
-    final headline = scaler.scale(SpectacleText.pipHeadline.fontSize!) * 1.2;
-    final meta = scaler.scale(SpectacleText.pipMeta.fontSize!) * 1.25;
+    final headline = scaler.scale(DazzleText.pipHeadline.fontSize!) * 1.2;
+    final meta = scaler.scale(DazzleText.pipMeta.fontSize!) * 1.25;
     final row =
-        scaler.scale(SpectacleText.pipAgent.fontSize!) * pipMarkRatio +
+        scaler.scale(DazzleText.pipAgent.fontSize!) * pipMarkRatio +
         Spacing.sm;
 
     return LayoutBuilder(
@@ -199,7 +199,7 @@ class _Body extends StatelessWidget {
               // something rather than as the first of several sizes of text.
               const SizedBox(
                 height: Borders.hairline,
-                child: ColoredBox(color: SpectacleColors.borderSubtle),
+                child: ColoredBox(color: DazzleColors.borderSubtle),
               ),
               const SizedBox(height: Spacing.xs),
             ],
@@ -210,14 +210,14 @@ class _Body extends StatelessWidget {
                   window.note!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: SpectacleText.pipMeta,
+                  style: DazzleText.pipMeta,
                 ),
               ),
             for (final row in window.rows.take(shown)) _AgentLine(row: row),
             if (hidden > 0)
               Padding(
                 padding: const EdgeInsets.only(top: Spacing.sm),
-                child: Text('+$hidden MORE', style: SpectacleText.pipMeta),
+                child: Text('+$hidden MORE', style: DazzleText.pipMeta),
               ),
           ],
         );
@@ -257,7 +257,7 @@ class _Headline extends StatelessWidget {
     // at: the phone's scale is a curve and gives a small size most of the rise,
     // so a block fixed at six points shrinks against its own text until it
     // reads as a speck of dust.
-    final base = SpectacleText.pipHeadline.fontSize!;
+    final base = DazzleText.pipHeadline.fontSize!;
     final scale = MediaQuery.textScalerOf(context).scale(base) / base;
     final side = pipHeadlineMarkSize * scale;
     return Row(
@@ -274,7 +274,7 @@ class _Headline extends StatelessWidget {
             window.headline,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: SpectacleText.pipHeadline.copyWith(color: window.tint),
+            style: DazzleText.pipHeadline.copyWith(color: window.tint),
           ),
         ),
       ],
@@ -298,7 +298,7 @@ class _AgentLine extends StatelessWidget {
   /// a glyph — so the line's scale is measured once and handed to it, and the
   /// mark rises with the name beside it instead of shrinking against it.
   double _markSize(BuildContext context) {
-    final base = SpectacleText.pipAgent.fontSize!;
+    final base = DazzleText.pipAgent.fontSize!;
     return MediaQuery.textScalerOf(context).scale(base) * pipMarkRatio;
   }
 
@@ -318,20 +318,20 @@ class _AgentLine extends StatelessWidget {
                   TextSpan(text: row.agent.agent.toUpperCase()),
                   TextSpan(
                     text: ' · ${row.host}',
-                    style: SpectacleText.pipMeta,
+                    style: DazzleText.pipMeta,
                   ),
                 ],
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: SpectacleText.pipAgent,
+              style: DazzleText.pipAgent,
             ),
           ),
           const SizedBox(width: Spacing.md),
           Text(
             row.agent.state.label,
-            style: SpectacleText.pipState.copyWith(
-              color: blocked ? SpectacleColors.accent : null,
+            style: DazzleText.pipState.copyWith(
+              color: blocked ? DazzleColors.accent : null,
               fontWeight: blocked ? FontWeight.w500 : null,
             ),
           ),

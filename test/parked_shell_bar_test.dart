@@ -2,17 +2,17 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/app/nav_shell.dart';
-import 'package:spectacle/app/spectacle_app.dart';
-import 'package:spectacle/application/agent_state.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/application/navigation.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/features/shell/parked_shell_bar.dart';
-import 'package:spectacle/features/shell/shell_sessions.dart';
-import 'package:spectacle/platform/herdr_client.dart';
+import 'package:dazzle/app/nav_shell.dart';
+import 'package:dazzle/app/dazzle_app.dart';
+import 'package:dazzle/application/agent_state.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/navigation.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/features/shell/parked_shell_bar.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
+import 'package:dazzle/platform/herdr_client.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -53,7 +53,7 @@ void main() {
       shellSessionsProvider.overrideWithValue(sessions),
       ...extra,
     ],
-    child: const MaterialApp(home: SpectacleShell()),
+    child: const MaterialApp(home: DazzleShell()),
   );
 
   Future<void> ready(WidgetTester tester) async {
@@ -134,7 +134,7 @@ void main() {
                       state: AgentState.of('blocked'),
                       terminalTitleStripped: 'work',
                       workspaceId: 'wQ',
-                      cwd: '/workspace/spectacle',
+                      cwd: '/workspace/dazzle',
                       stateChangeSeq: 1,
                     ),
                   ],

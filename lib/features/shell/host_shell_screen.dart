@@ -321,7 +321,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
               Expanded(
                 child: ActionBlock(
                   label: 'KEEP',
-                  tone: SpectacleColors.accent,
+                  tone: DazzleColors.accent,
                   filled: true,
                   onTap: () => Navigator.of(context).pop(false),
                 ),
@@ -366,7 +366,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           ),
           if (idle.isNotEmpty) ...[
             const SheetRule(),
-            const Text('TAKE OVER', style: SpectacleText.panelHeader),
+            const Text('TAKE OVER', style: DazzleText.panelHeader),
             const SizedBox(height: Spacing.sm),
             ListRowGroup(
               children: [
@@ -825,16 +825,16 @@ class _PinSheetState extends State<_PinSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('SHELL ${widget.number}', style: SpectacleText.label),
+        Text('SHELL ${widget.number}', style: DazzleText.label),
         if (request.desc.isNotEmpty) ...[
           const SizedBox(height: Spacing.sm),
-          Text(request.desc, style: SpectacleText.prose),
+          Text(request.desc, style: DazzleText.prose),
         ],
         if (request.error.isNotEmpty) ...[
           const SizedBox(height: Spacing.sm),
           Text(
             request.error,
-            style: SpectacleText.prose.copyWith(color: SpectacleColors.danger),
+            style: DazzleText.prose.copyWith(color: DazzleColors.danger),
           ),
         ],
         const SizedBox(height: Spacing.md),
@@ -863,7 +863,7 @@ class _PinSheetState extends State<_PinSheet> {
             Expanded(
               child: ActionBlock(
                 label: request.okLabel,
-                tone: SpectacleColors.accent,
+                tone: DazzleColors.accent,
                 filled: true,
                 onTap: () => _decide(wantsPin ? _field.text : 'ok'),
               ),

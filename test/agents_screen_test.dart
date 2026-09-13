@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agent_state.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/design/components/list_row.dart';
-import 'package:spectacle/features/agents/agents_screen.dart';
-import 'package:spectacle/features/home/agent_mark.dart';
-import 'package:spectacle/platform/herdr_client.dart';
+import 'package:dazzle/application/agent_state.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/list_row.dart';
+import 'package:dazzle/features/agents/agents_screen.dart';
+import 'package:dazzle/features/home/agent_mark.dart';
+import 'package:dazzle/platform/herdr_client.dart';
 
 import 'support/platform_channels.dart';
 
@@ -45,7 +45,7 @@ AgentSnapshot agent(
   state: AgentState.of(status),
   terminalTitleStripped: 'work',
   workspaceId: workspace,
-  cwd: '/workspace/spectacle',
+  cwd: '/workspace/dazzle',
   stateChangeSeq: 1,
 );
 
@@ -301,9 +301,9 @@ void main() {
     };
     // Work waiting to be read is brighter than work that was already seen,
     // and a word the app cannot place is drawn as itself rather than dropped.
-    expect(rows['DONE'], SpectacleColors.textPrimary);
-    expect(rows['IDLE'], SpectacleColors.textMuted);
-    expect(rows['COMPACTING'], SpectacleColors.textMuted);
+    expect(rows['DONE'], DazzleColors.textPrimary);
+    expect(rows['IDLE'], DazzleColors.textMuted);
+    expect(rows['COMPACTING'], DazzleColors.textMuted);
     await unmount(tester);
   });
 

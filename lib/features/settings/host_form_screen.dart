@@ -272,7 +272,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         ),
       );
     } catch (error) {
-      debugPrint('spectacle.verify ${host.name}: $error');
+      debugPrint('dazzle.verify ${host.name}: $error');
     }
     if (mounted) setState(() => _verifying = false);
   }
@@ -304,7 +304,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       final previews = await ref.read(screenPreviewsProvider.future);
       await previews.delete(hostId);
     } catch (error) {
-      debugPrint('spectacle.vnc $hostId: preview not removed: $error');
+      debugPrint('dazzle.vnc $hostId: preview not removed: $error');
     }
   }
 
@@ -327,7 +327,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         body: StaticSurface(
           child: ScreenScaffold(
             title: widget.host == null ? 'NEW HOST' : 'HOST',
-            breadcrumb: '/ SPECTACLE / HOSTS',
+            breadcrumb: '/ DAZZLE / HOSTS',
             onBack: _handleBack,
             children: [
               PanelStack(
@@ -428,7 +428,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                 const SizedBox(height: Spacing.md),
                 SolidActionBar(
                   label: 'DELETE HOST',
-                  tone: SpectacleColors.warning,
+                  tone: DazzleColors.warning,
                   onTap: _delete,
                 ),
               ],
@@ -458,7 +458,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
               alignment: Alignment.centerLeft,
               child: ActionBlock(
                 label: 'FORGET KEY',
-                tone: SpectacleColors.warning,
+                tone: DazzleColors.warning,
                 onTap: _forgetHostKey,
               ),
             ),
@@ -504,7 +504,7 @@ class _KeyMetaRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 108, child: Text(label, style: SpectacleText.label)),
+          SizedBox(width: 108, child: Text(label, style: DazzleText.label)),
           Expanded(child: Meta(value, maxLines: maxLines)),
         ],
       ),

@@ -124,7 +124,7 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
         if (!didPop) _back();
       },
       child: ColoredBox(
-        color: SpectacleColors.backgroundPrimary,
+        color: DazzleColors.backgroundPrimary,
         child: SafeArea(
           bottom: false,
           child: Padding(
@@ -173,7 +173,7 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
                 onTap: _back,
                 child: const Padding(
                   padding: EdgeInsets.only(left: Spacing.md),
-                  child: Text('BACK', style: SpectacleText.panelHeader),
+                  child: Text('BACK', style: DazzleText.panelHeader),
                 ),
               ),
             ],
@@ -182,7 +182,7 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
         const SizedBox(height: Spacing.md),
         Container(
           height: Borders.hairline,
-          color: SpectacleColors.borderNormal,
+          color: DazzleColors.borderNormal,
         ),
       ],
     );
@@ -251,7 +251,7 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
                     node: entry.isDirectory,
                     value: entry.isDirectory ? null : _sizeWord(entry.size),
                     titleColor: _join(entry.name) == _file
-                        ? SpectacleColors.accent
+                        ? DazzleColors.accent
                         : null,
                     onTap: entry.isDirectory
                         ? () => _open(_join(entry.name))
@@ -329,7 +329,7 @@ class _FileBody extends StatelessWidget {
               for (final line in lines)
                 Text(
                   line,
-                  style: SpectacleText.noteBody,
+                  style: DazzleText.noteBody,
                   maxLines: 1,
                   softWrap: false,
                 ),
@@ -358,13 +358,13 @@ class _SegmentedPath extends StatelessWidget {
       reverse: true,
       child: Row(
         children: [
-          const Text('/ ', style: SpectacleText.breadcrumb),
+          const Text('/ ', style: DazzleText.breadcrumb),
           for (var i = 0; i < segments.length; i++) ...[
-            if (i > 0) const Text(' / ', style: SpectacleText.breadcrumb),
+            if (i > 0) const Text(' / ', style: DazzleText.breadcrumb),
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: segments[i].onTap,
-              child: Text(segments[i].label, style: SpectacleText.breadcrumb),
+              child: Text(segments[i].label, style: DazzleText.breadcrumb),
             ),
           ],
         ],

@@ -74,7 +74,7 @@ Future<bool> confirmSheet(
             Expanded(
               child: ActionBlock(
                 label: confirmLabel,
-                tone: SpectacleColors.accent,
+                tone: DazzleColors.accent,
                 filled: true,
                 onTap: () => Navigator.of(context).pop(true),
               ),
@@ -176,7 +176,7 @@ class SheetRule extends StatelessWidget {
     return Container(
       height: Borders.hairline,
       margin: const EdgeInsets.symmetric(vertical: Spacing.md),
-      color: SpectacleColors.borderSubtle,
+      color: DazzleColors.borderSubtle,
     );
   }
 }

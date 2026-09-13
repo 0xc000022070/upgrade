@@ -2,8 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../colors.dart';
-import '../icons/spectacle_icon.dart';
-import '../icons/spectacle_icons.dart';
+import '../icons/dazzle_icon.dart';
+import '../icons/dazzle_icons.dart';
 import '../motion.dart';
 import '../spacing.dart';
 import '../typography.dart';
@@ -37,7 +37,7 @@ class KeyCell extends StatefulWidget {
   });
 
   final String label;
-  final SpectacleIcons? icon;
+  final DazzleIcons? icon;
   final VoidCallback onTap;
   final bool armed;
 
@@ -88,10 +88,10 @@ class _KeyCellState extends State<KeyCell> {
     // mean "this key is what the next thing you do goes through". An inert key
     // has neither and is dimmer at rest than one that works.
     final tint = widget.inert
-        ? SpectacleColors.textMuted
+        ? DazzleColors.textMuted
         : _down || widget.armed
-        ? SpectacleColors.accent
-        : SpectacleColors.textSecondary;
+        ? DazzleColors.accent
+        : DazzleColors.textSecondary;
     final icon = widget.icon;
     final flick = widget.inert ? null : widget.onFlick;
     final hold = widget.inert ? null : widget.onLongPress;
@@ -163,9 +163,9 @@ class _KeyCellState extends State<KeyCell> {
             child: icon == null
                 ? _RollingLabel(
                     text: label,
-                    style: SpectacleText.panelHeader.copyWith(color: tint),
+                    style: DazzleText.panelHeader.copyWith(color: tint),
                   )
-                : SpectacleIcon(icon, size: IconSizes.toolbar, color: tint),
+                : DazzleIcon(icon, size: IconSizes.toolbar, color: tint),
           ),
         ),
       ),

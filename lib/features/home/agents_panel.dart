@@ -155,9 +155,9 @@ class _ColumnLabels extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const Row(
     children: [
-      Expanded(flex: 4, child: Text('AGENT', style: SpectacleText.label)),
-      Expanded(flex: 3, child: Text('STATUS', style: SpectacleText.label)),
-      Expanded(flex: 4, child: Text('WORK', style: SpectacleText.label)),
+      Expanded(flex: 4, child: Text('AGENT', style: DazzleText.label)),
+      Expanded(flex: 3, child: Text('STATUS', style: DazzleText.label)),
+      Expanded(flex: 4, child: Text('WORK', style: DazzleText.label)),
     ],
   );
 }
@@ -187,7 +187,7 @@ class _AgentRow extends StatelessWidget {
                   Expanded(
                     child: Text(
                       agentMarkName(agent.agent),
-                      style: SpectacleText.rowTitle,
+                      style: DazzleText.rowTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -211,7 +211,7 @@ class _AgentRow extends StatelessWidget {
                   Flexible(
                     child: Text(
                       agent.state.label,
-                      style: SpectacleText.value.copyWith(color: statusColor),
+                      style: DazzleText.value.copyWith(color: statusColor),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -223,7 +223,7 @@ class _AgentRow extends StatelessWidget {
               flex: 4,
               child: Text(
                 agent.terminalTitleStripped,
-                style: SpectacleText.rowSubtitle,
+                style: DazzleText.rowSubtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -245,13 +245,13 @@ class _Footer extends StatelessWidget {
   Widget build(BuildContext context) => Text.rich(
     TextSpan(
       children: [
-        TextSpan(text: '$idle idle · ', style: SpectacleText.value),
+        TextSpan(text: '$idle idle · ', style: DazzleText.value),
         TextSpan(
           text: '$blocked blocked',
-          style: SpectacleText.value.copyWith(
+          style: DazzleText.value.copyWith(
             color: blocked == 0
-                ? SpectacleColors.textMuted
-                : SpectacleColors.warning,
+                ? DazzleColors.textMuted
+                : DazzleColors.warning,
           ),
         ),
       ],
@@ -273,7 +273,7 @@ class _ErrorLine extends StatelessWidget {
       children: [
         Expanded(child: _DimLine(text)),
         if (timestamp != null)
-          Text(agentSnapshotAge(now, timestamp), style: SpectacleText.value),
+          Text(agentSnapshotAge(now, timestamp), style: DazzleText.value),
       ],
     );
   }
@@ -285,5 +285,5 @@ class _DimLine extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Text(text, style: SpectacleText.value);
+  Widget build(BuildContext context) => Text(text, style: DazzleText.value);
 }

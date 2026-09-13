@@ -9,8 +9,8 @@ import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
-import '../../design/icons/spectacle_icon.dart';
-import '../../design/icons/spectacle_icons.dart';
+import '../../design/icons/dazzle_icon.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import 'clip_paste.dart';
@@ -136,7 +136,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                 '?',
                 key: const ValueKey('attach-help'),
                 showIcon: false,
-                color: _help ? SpectacleColors.accent : null,
+                color: _help ? DazzleColors.accent : null,
                 onTap: () => setState(() => _help = !_help),
               ),
               const SizedBox(width: Spacing.lg),
@@ -155,12 +155,12 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
               onTap: _attachPhotos,
             ),
             const SheetRule(),
-            const Text('HELD', style: SpectacleText.label),
+            const Text('HELD', style: DazzleText.label),
             const SizedBox(height: Spacing.sm),
             if (held.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: Spacing.md),
-                child: Text('NOTHING HELD', style: SpectacleText.label),
+                child: Text('NOTHING HELD', style: DazzleText.label),
               )
             else
               Wrap(
@@ -181,7 +181,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
               Text(
                 _status!,
                 key: const ValueKey('attach-status'),
-                style: SpectacleText.label,
+                style: DazzleText.label,
               ),
             ],
           ],
@@ -219,7 +219,7 @@ class _AttachHelp extends StatelessWidget {
       children: [
         for (var i = 0; i < _lines.length; i++) ...[
           if (i > 0) const SizedBox(height: Spacing.md),
-          Text(_lines[i], style: SpectacleText.prose),
+          Text(_lines[i], style: DazzleText.prose),
         ],
       ],
     );
@@ -261,7 +261,7 @@ class _ClipTile extends StatelessWidget {
                   height: _height,
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color: SpectacleColors.borderNormal,
+                      color: DazzleColors.borderNormal,
                       width: Borders.hairline,
                     ),
                   ),
@@ -284,11 +284,11 @@ class _ClipTile extends StatelessWidget {
                   onTap: onRemove,
                   child: Container(
                     padding: const EdgeInsets.all(Spacing.sm),
-                    color: SpectacleColors.surfacePrimary,
-                    child: const SpectacleIcon(
-                      SpectacleIcons.close,
+                    color: DazzleColors.surfacePrimary,
+                    child: const DazzleIcon(
+                      DazzleIcons.close,
                       size: IconSizes.affordance,
-                      color: SpectacleColors.textSecondary,
+                      color: DazzleColors.textSecondary,
                     ),
                   ),
                 ),
@@ -300,7 +300,7 @@ class _ClipTile extends StatelessWidget {
             clip.sizeLabel.isEmpty
                 ? clip.source.name.toUpperCase()
                 : clip.sizeLabel,
-            style: SpectacleText.label,
+            style: DazzleText.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

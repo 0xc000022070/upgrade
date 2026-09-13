@@ -5,7 +5,7 @@ import '../motion.dart';
 import '../spacing.dart';
 import '../typography.dart';
 import 'solid_action_bar.dart';
-import 'spectacle_field.dart';
+import 'dazzle_field.dart';
 
 class SheetAction {
   const SheetAction(
@@ -91,11 +91,11 @@ Future<bool> confirmAction(
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-                child: Text(message, style: SpectacleText.prose),
+                child: Text(message, style: DazzleText.prose),
               ),
               SolidActionBar(
                 label: confirmLabel,
-                tone: SpectacleColors.danger,
+                tone: DazzleColors.danger,
                 onTap: () => Navigator.of(context).pop(true),
               ),
               _PlainRow(
@@ -183,7 +183,7 @@ class _PromptState extends State<_Prompt> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-            child: SpectacleField(
+            child: DazzleField(
               controller: _controller,
               autofocus: true,
               hint: widget.hint,
@@ -270,13 +270,13 @@ class _Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: SpectacleColors.surfacePrimary,
+      color: DazzleColors.surfacePrimary,
       child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
           border: Border(
             top: BorderSide(
-              color: SpectacleColors.borderNormal,
+              color: DazzleColors.borderNormal,
               width: Borders.hairline,
             ),
           ),
@@ -298,7 +298,7 @@ class _Panel extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: Spacing.md),
                   child: Text(
                     title.toUpperCase(),
-                    style: SpectacleText.panelHeader,
+                    style: DazzleText.panelHeader,
                   ),
                 ),
                 child,
@@ -331,22 +331,22 @@ class _BlockRow extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
         padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
         decoration: BoxDecoration(
-          color: SpectacleColors.accent,
+          color: DazzleColors.accent,
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
         child: Row(
           children: [
             Text(
               '// ',
-              style: SpectacleText.valueStrong.copyWith(
-                color: SpectacleColors.backgroundPrimary,
+              style: DazzleText.valueStrong.copyWith(
+                color: DazzleColors.backgroundPrimary,
               ),
             ),
             Expanded(
               child: Text(
                 action.label,
-                style: SpectacleText.rowTitle.copyWith(
-                  color: SpectacleColors.backgroundPrimary,
+                style: DazzleText.rowTitle.copyWith(
+                  color: DazzleColors.backgroundPrimary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -384,7 +384,7 @@ class _PlainRow extends StatelessWidget {
           border: Border(
             bottom: BorderSide(
               color: divider
-                  ? SpectacleColors.borderSubtle
+                  ? DazzleColors.borderSubtle
                   : const Color(0x00000000),
               width: Borders.hairline,
             ),
@@ -392,10 +392,10 @@ class _PlainRow extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: SpectacleText.rowTitle.copyWith(
+          style: DazzleText.rowTitle.copyWith(
             color: danger
-                ? SpectacleColors.danger
-                : SpectacleColors.textPrimary,
+                ? DazzleColors.danger
+                : DazzleColors.textPrimary,
           ),
         ),
       ),

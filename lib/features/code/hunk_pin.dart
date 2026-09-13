@@ -115,7 +115,7 @@ class HunkPin extends StatelessWidget {
                     bottom: 0,
                     child: Container(
                       height: Borders.hairline,
-                      color: SpectacleColors.textDisabled,
+                      color: DazzleColors.textDisabled,
                     ),
                   ),
                 ],

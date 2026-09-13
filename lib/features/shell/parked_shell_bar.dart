@@ -64,10 +64,10 @@ class _Bar extends StatelessWidget {
       onTap: () => openHostShell(context, session.host, session: session),
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: SpectacleColors.surfacePrimary,
+          color: DazzleColors.surfacePrimary,
           border: Border(
             top: BorderSide(
-              color: SpectacleColors.borderNormal,
+              color: DazzleColors.borderNormal,
               width: Borders.hairline,
             ),
           ),
@@ -85,20 +85,20 @@ class _Bar extends StatelessWidget {
                   const SizedBox(width: Spacing.md),
                   Text(
                     '${session.host.name.toUpperCase()} ${session.number}',
-                    style: SpectacleText.panelHeader.copyWith(
-                      color: SpectacleColors.textPrimary,
+                    style: DazzleText.panelHeader.copyWith(
+                      color: DazzleColors.textPrimary,
                     ),
                   ),
                   if (others > 0) ...[
                     const SizedBox(width: Spacing.md),
-                    Text('+$others', style: SpectacleText.panelHeader),
+                    Text('+$others', style: DazzleText.panelHeader),
                   ],
                   if (title != null) ...[
                     const SizedBox(width: Spacing.md),
                     Expanded(
                       child: Text(
                         title,
-                        style: SpectacleText.rowKicker,
+                        style: DazzleText.rowKicker,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -108,8 +108,8 @@ class _Bar extends StatelessWidget {
                   const SizedBox(width: Spacing.md),
                   Text(
                     'TAP TO RESUME',
-                    style: SpectacleText.panelHeader.copyWith(
-                      color: SpectacleColors.accent,
+                    style: DazzleText.panelHeader.copyWith(
+                      color: DazzleColors.accent,
                     ),
                   ),
                 ],

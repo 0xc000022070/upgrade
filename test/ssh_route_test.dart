@@ -2,14 +2,14 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/data/repositories/key_repository.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/features/shell/shell_sessions.dart';
-import 'package:spectacle/features/ssh/ssh_screen.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/data/repositories/key_repository.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
+import 'package:dazzle/features/ssh/ssh_screen.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -167,11 +167,11 @@ void main() {
                 as BoxDecoration)
             .color!;
 
-    expect(dot(), SpectacleColors.accent);
+    expect(dot(), DazzleColors.accent);
 
     shells.opened.single.exit(1);
     await ready(tester);
-    expect(dot(), SpectacleColors.textMuted);
+    expect(dot(), DazzleColors.textMuted);
 
     await unmount(tester);
   });

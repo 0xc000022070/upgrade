@@ -256,7 +256,7 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
 
   /// Select the token under [from], extended to the token under [to]. A point
   /// with no token under it stands for its own cell, so a press on a gap still
-  /// selects and a drag across one still follows the finger. Spectacle patch.
+  /// selects and a drag across one still follows the finger. Dazzle patch.
   void selectWord(Offset from, [Offset? to]) {
     selectWordAt(getCellOffset(from), to == null ? null : getCellOffset(to));
   }
@@ -264,7 +264,7 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   /// [selectWord] in the buffer's own coordinates, for a caller holding a cell
   /// it resolved earlier: a pixel is only worth what the scroll offset was
   /// when the finger landed on it, and a shell that is printing moves the line
-  /// under a held finger before the long press is reported. Spectacle patch.
+  /// under a held finger before the long press is reported. Dazzle patch.
   void selectWordAt(CellOffset from, [CellOffset? to]) {
     var range = _tokenOrCell(from);
     if (to != null) {
@@ -289,7 +289,7 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     );
   }
 
-  /// [selectCharacters] in the buffer's own coordinates. Spectacle patch.
+  /// [selectCharacters] in the buffer's own coordinates. Dazzle patch.
   void selectCharactersAt(CellOffset fromPosition, [CellOffset? to]) {
     if (to == null) {
       _controller.setSelection(

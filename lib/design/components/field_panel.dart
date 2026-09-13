@@ -4,7 +4,7 @@ import '../colors.dart';
 import '../spacing.dart';
 import '../typography.dart';
 import 'panel.dart';
-import 'spectacle_field.dart';
+import 'dazzle_field.dart';
 
 /// A form is not an exception to the skin. Every field is a
 /// panel whose header strip is the field's name, so a form reads as the same
@@ -55,7 +55,7 @@ class FieldPanel extends StatelessWidget {
         Spacing.panelPadding,
         Spacing.sm,
       ),
-      child: SpectacleField(
+      child: DazzleField(
         controller: controller,
         autofocus: autofocus,
         maxLines: maxLines,
@@ -137,21 +137,21 @@ class _Choice extends StatelessWidget {
         height: TapTargets.minHeight - Spacing.md,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? SpectacleColors.accent : null,
+          color: selected ? DazzleColors.accent : null,
           border: Border.all(
             color: selected
-                ? SpectacleColors.accent
-                : SpectacleColors.borderNormal,
+                ? DazzleColors.accent
+                : DazzleColors.borderNormal,
             width: Borders.hairline,
           ),
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
         child: Text(
           label.toUpperCase(),
-          style: SpectacleText.label.copyWith(
+          style: DazzleText.label.copyWith(
             color: selected
-                ? SpectacleColors.backgroundPrimary
-                : SpectacleColors.textSecondary,
+                ? DazzleColors.backgroundPrimary
+                : DazzleColors.textSecondary,
           ),
         ),
       ),

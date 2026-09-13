@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/features/shell/shell_header.dart';
-import 'package:spectacle/features/shell/shell_status.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/features/shell/shell_header.dart';
+import 'package:dazzle/features/shell/shell_status.dart';
 import 'package:xterm/xterm.dart';
 
 import 'support/fake_shell.dart';
@@ -71,9 +71,9 @@ void main() {
     });
 
     test('a login shell reads where it is, not who it is', () {
-      expect(shellTabLabel('luis@nyx: ~/Projects/spectacle', 1), 'spectacle');
+      expect(shellTabLabel('luis@nyx: ~/Projects/dazzle', 1), 'dazzle');
       expect(shellTabLabel('luis@nyx: ~', 1), '~');
-      expect(shellTabLabel('~/Projects/spectacle', 1), 'spectacle');
+      expect(shellTabLabel('~/Projects/dazzle', 1), 'dazzle');
     });
 
     test('a title with a space in it is a sentence and is kept whole', () {
@@ -88,10 +88,10 @@ void main() {
       await ready(tester);
       expect(labelOfTab(tester, 1), '1');
 
-      transport.opened.first.emit('\x1b]0;luis@rose: ~/Projects/spectacle\x07');
+      transport.opened.first.emit('\x1b]0;luis@rose: ~/Projects/dazzle\x07');
       await ready(tester);
 
-      expect(labelOfTab(tester, 1), 'spectacle');
+      expect(labelOfTab(tester, 1), 'dazzle');
 
       await unmount(tester);
     });
@@ -125,12 +125,12 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      expect(dotOfTab(tester, 1), SpectacleColors.accent);
+      expect(dotOfTab(tester, 1), DazzleColors.accent);
 
       transport.opened.first.drop();
       await ready(tester);
 
-      expect(dotOfTab(tester, 1), isNot(SpectacleColors.accent));
+      expect(dotOfTab(tester, 1), isNot(DazzleColors.accent));
 
       await tester.tap(find.text('STOP'));
       await ready(tester);

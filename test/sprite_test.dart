@@ -6,20 +6,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/app/alerts_boot.dart';
-import 'package:spectacle/app/splash_route.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/application/alerts.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/activity_repository.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/data/repositories/project_repository.dart';
-import 'package:spectacle/design/sprite.dart';
-import 'package:spectacle/features/agents/agents_screen.dart';
-import 'package:spectacle/features/projects/project_detail_screen.dart';
-import 'package:spectacle/platform/alert_actions.dart';
-import 'package:spectacle/platform/alert_notifications.dart';
+import 'package:dazzle/app/alerts_boot.dart';
+import 'package:dazzle/app/splash_route.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/alerts.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/activity_repository.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/data/repositories/project_repository.dart';
+import 'package:dazzle/design/sprite.dart';
+import 'package:dazzle/features/agents/agents_screen.dart';
+import 'package:dazzle/features/projects/project_detail_screen.dart';
+import 'package:dazzle/platform/alert_actions.dart';
+import 'package:dazzle/platform/alert_notifications.dart';
 
 import 'support/platform_channels.dart';
 
@@ -355,7 +355,7 @@ void main() {
       expect(sprite.state, 'idle');
       expect(sprite.scale, 4);
       expect(sprite.frame, isNull);
-      expect(find.text('SPECTACLE_'), findsOneWidget);
+      expect(find.text('DAZZLE_'), findsOneWidget);
       // The blocked line is not replaced by the mascot, only joined by it.
       expect(find.text(AgentPanelState.blockedLine), findsOneWidget);
 

@@ -1,15 +1,15 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/bundle.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/enums.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/data/repositories/key_repository.dart';
-import 'package:spectacle/data/repositories/path_repository.dart';
-import 'package:spectacle/platform/bundle_cipher.dart';
-import 'package:spectacle/platform/host_keys.dart';
-import 'package:spectacle/platform/keys.dart';
+import 'package:dazzle/application/bundle.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/enums.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/data/repositories/key_repository.dart';
+import 'package:dazzle/data/repositories/path_repository.dart';
+import 'package:dazzle/platform/bundle_cipher.dart';
+import 'package:dazzle/platform/host_keys.dart';
+import 'package:dazzle/platform/keys.dart';
 
 ManagedKey _key(String id) => ManagedKey(
   id: id,
@@ -76,8 +76,8 @@ class _Phone {
           PathsCompanion.insert(
             id: 'p1',
             hostId: 'h1',
-            directory: '~/src/spectacle',
-            label: 'spectacle',
+            directory: '~/src/dazzle',
+            label: 'dazzle',
             createdAt: DateTime.utc(2026, 9, 3),
             projectId: const Value('proj-1'),
           ),
@@ -112,7 +112,7 @@ void main() {
     expect(host.host.vncPassword, 'hunter2');
     expect(host.integrations, {IntegrationKind.herdr});
     expect(bundle.paths.map((p) => p.directory), [
-      '~/src/spectacle',
+      '~/src/dazzle',
       '~/src/dots',
     ]);
     expect(bundle.count.words, '1 HOST · 2 KEYS · 2 PATHS');
@@ -149,7 +149,7 @@ void main() {
       IntegrationKind.herdr,
     });
     final paths = await b.paths.listForHost('h1');
-    expect(paths.map((p) => p.label), ['spectacle', 'dots']);
+    expect(paths.map((p) => p.label), ['dazzle', 'dots']);
     expect(paths.map((p) => p.projectId), [null, null]);
   });
 
@@ -171,7 +171,7 @@ void main() {
     final paths = await b.paths.listForHost('h1');
     final kept = paths.singleWhere((p) => p.id == 'p1');
     expect(kept.projectId, 'proj-1');
-    expect(kept.label, 'spectacle');
+    expect(kept.label, 'dazzle');
   });
 
   test('a host row is replaced by the bundle under the same id', () async {
@@ -238,7 +238,7 @@ void main() {
   test('the file is named for the day', () {
     expect(
       bundleFileName(DateTime(2026, 9, 8, 15)),
-      'spectacle-2026-09-08.bundle',
+      'dazzle-2026-09-08.bundle',
     );
   });
 }

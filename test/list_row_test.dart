@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/design/components/list_row.dart';
-import 'package:spectacle/design/icons/spectacle_icon.dart';
-import 'package:spectacle/design/icons/spectacle_icons.dart';
-import 'package:spectacle/design/spacing.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/list_row.dart';
+import 'package:dazzle/design/icons/dazzle_icon.dart';
+import 'package:dazzle/design/icons/dazzle_icons.dart';
+import 'package:dazzle/design/spacing.dart';
 
 void main() {
   testWidgets('the glyph on a row sits on the line it marks', (tester) async {
@@ -16,10 +16,10 @@ void main() {
         const MaterialApp(
           home: Scaffold(
             body: ListRow(
-              leading: SpectacleIcon(
-                SpectacleIcons.progressMarker,
+              leading: DazzleIcon(
+                DazzleIcons.progressMarker,
                 size: IconSizes.glyph,
-                color: SpectacleColors.textDisabled,
+                color: DazzleColors.textDisabled,
               ),
               title: 'lib/main.dart',
               subtitle: 'modified',
@@ -27,7 +27,7 @@ void main() {
           ),
         ),
       );
-      final glyph = tester.getRect(find.byType(SpectacleIcon));
+      final glyph = tester.getRect(find.byType(DazzleIcon));
       final title = tester.getRect(find.text('lib/main.dart'));
       return glyph.center.dy - title.center.dy;
     }

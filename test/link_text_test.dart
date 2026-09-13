@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/features/tasks/link_text.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/features/tasks/link_text.dart';
 
 import 'support/platform_channels.dart';
 
@@ -25,7 +25,7 @@ void main() {
                   text,
                   style: const TextStyle(
                     fontSize: 14,
-                    color: SpectacleColors.textPrimary,
+                    color: DazzleColors.textPrimary,
                   ),
                 ),
               ),

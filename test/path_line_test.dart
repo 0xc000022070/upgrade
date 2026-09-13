@@ -4,9 +4,9 @@ library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/design/components/path_line.dart';
-import 'package:spectacle/design/components/signal_text.dart';
-import 'package:spectacle/design/typography.dart';
+import 'package:dazzle/design/components/path_line.dart';
+import 'package:dazzle/design/components/signal_text.dart';
+import 'package:dazzle/design/typography.dart';
 
 Future<String> pumpPath(
   WidgetTester tester,
@@ -20,7 +20,7 @@ Future<String> pumpPath(
         alignment: Alignment.topLeft,
         child: SizedBox(
           width: width,
-          child: PathLine(path, style: SpectacleText.rowTitle),
+          child: PathLine(path, style: DazzleText.rowTitle),
         ),
       ),
     ),

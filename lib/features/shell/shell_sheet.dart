@@ -231,7 +231,7 @@ class _SheetFrame extends StatelessWidget {
                 position: DecorationPosition.foreground,
                 decoration: const BoxDecoration(
                   border: Border(
-                    top: BorderSide(color: SpectacleColors.borderNormal),
+                    top: BorderSide(color: DazzleColors.borderNormal),
                   ),
                 ),
                 child: child,
@@ -266,7 +266,7 @@ class _SheetRule extends StatelessWidget {
           key: ValueKey('shell-grip-rule'),
           width: _gripWidth,
           height: _gripHeight,
-          child: ColoredBox(color: SpectacleColors.textDisabled),
+          child: ColoredBox(color: DazzleColors.textDisabled),
         ),
       ),
     );

@@ -16,7 +16,7 @@ import '../../design/components/dot_spinner.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
-import '../../design/icons/spectacle_icons.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../hosts/path_picker_sheet.dart';
@@ -215,7 +215,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           title: 'SEND TO',
           affordance: PanelAffordance(
             'BACK',
-            icon: SpectacleIcons.back,
+            icon: DazzleIcons.back,
             onTap: widget.onExit,
           ),
           children: [_picker()],
@@ -225,7 +225,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           title: dispatch.target.title,
           affordance: PanelAffordance(
             'BACK',
-            icon: SpectacleIcons.back,
+            icon: DazzleIcons.back,
             // Back out of the picker while nothing has gone out; back out of
             // the send once something has, because the picker would offer to
             // send the same item a second time.
@@ -278,7 +278,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
         // directory that is not registered yet gets to register it here.
         ListRow(
           title: 'REGISTER A PATH',
-          titleColor: SpectacleColors.textSecondary,
+          titleColor: DazzleColors.textSecondary,
           onTap: _registerPath,
         ),
       ],
@@ -298,7 +298,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
     }
     _ensureModels(dispatch.target);
     return [
-      Text('AGENT', style: SpectacleText.panelHeader),
+      Text('AGENT', style: DazzleText.panelHeader),
       const SizedBox(height: Spacing.sm),
       Row(
         children: [
@@ -309,8 +309,8 @@ class _SendFlowState extends ConsumerState<SendFlow> {
                 label: agentMarkName(kind.name),
                 filled: kind == _kind,
                 tone: kind == _kind
-                    ? SpectacleColors.accent
-                    : SpectacleColors.textSecondary,
+                    ? DazzleColors.accent
+                    : DazzleColors.textSecondary,
                 onTap: () {
                   if (kind == _kind) return;
                   setState(() {
@@ -324,7 +324,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
         ],
       ),
       const SheetRule(),
-      Text('MODEL', style: SpectacleText.panelHeader),
+      Text('MODEL', style: DazzleText.panelHeader),
       const SizedBox(height: Spacing.sm),
       _modelChoices(),
       const SheetRule(),
@@ -333,7 +333,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
         child: ActionBlock(
           label: 'SEND',
           filled: true,
-          tone: SpectacleColors.accent,
+          tone: DazzleColors.accent,
           onTap: () => _send(dispatch.target),
         ),
       ),
@@ -355,8 +355,8 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           label: 'DEFAULT',
           filled: _model == null,
           tone: _model == null
-              ? SpectacleColors.accent
-              : SpectacleColors.textSecondary,
+              ? DazzleColors.accent
+              : DazzleColors.textSecondary,
           onTap: () => setState(() => _model = null),
         ),
         if (_models is PathScanLoading)
@@ -369,8 +369,8 @@ class _SendFlowState extends ConsumerState<SendFlow> {
             label: slug.toUpperCase(),
             filled: slug == _model,
             tone: slug == _model
-                ? SpectacleColors.accent
-                : SpectacleColors.textSecondary,
+                ? DazzleColors.accent
+                : DazzleColors.textSecondary,
             onTap: () => setState(() => _model = slug),
           ),
       ],
@@ -385,7 +385,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
       children: [
         SheetField(
           label: 'TO',
-          child: Text(target.title, style: SpectacleText.value),
+          child: Text(target.title, style: DazzleText.value),
         ),
         const SizedBox(height: Spacing.lg),
         Text(
@@ -394,11 +394,11 @@ class _SendFlowState extends ConsumerState<SendFlow> {
             SendSent(:final paneId) => 'SENT · $paneId',
             SendFailed(:final reason) => reason,
           },
-          style: SpectacleText.rowTitle.copyWith(
+          style: DazzleText.rowTitle.copyWith(
             color: switch (state) {
-              SendSending() => SpectacleColors.textMuted,
-              SendSent() => SpectacleColors.accent,
-              SendFailed() => SpectacleColors.warning,
+              SendSending() => DazzleColors.textMuted,
+              SendSent() => DazzleColors.accent,
+              SendFailed() => DazzleColors.warning,
             },
           ),
         ),

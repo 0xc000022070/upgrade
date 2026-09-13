@@ -101,7 +101,7 @@ class PathScanner {
     try {
       return PathScanFound(await run(privateKey));
     } on HerdrFailure catch (error) {
-      debugPrint('spectacle.paths ${host.name}: ${error.detail ?? error}');
+      debugPrint('dazzle.paths ${host.name}: ${error.detail ?? error}');
       return PathScanFailed(error.reason(host.name));
     }
   }

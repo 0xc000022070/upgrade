@@ -36,11 +36,11 @@ String agentMarkLetter(String agent) {
 /// two cannot disagree about what `done` looks like — and exhaustive, so a
 /// state added to the sealed type is named here by the analyser.
 Color agentStateColor(AgentState state) => switch (state) {
-  WorkingState() => SpectacleColors.accent,
-  BlockedState() => SpectacleColors.warning,
+  WorkingState() => DazzleColors.accent,
+  BlockedState() => DazzleColors.warning,
   // Work that finished and has not been read yet, against work that was.
-  DoneState() => SpectacleColors.textPrimary,
-  IdleState() || UnknownState() => SpectacleColors.textMuted,
+  DoneState() => DazzleColors.textPrimary,
+  IdleState() || UnknownState() => DazzleColors.textMuted,
 };
 
 /// The glyph box: the agent's own mark where the bundle has one, and the
@@ -76,10 +76,10 @@ class AgentMark extends StatelessWidget {
         // the size the mark asks for. Painted over the child it costs nothing —
         // the mark never reaches the edge it is drawn on.
         foregroundDecoration: BoxDecoration(
-          border: Border.all(color: SpectacleColors.borderNormal),
+          border: Border.all(color: DazzleColors.borderNormal),
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
-        // The same tint path the `hl-*` glyphs take through [SpectacleIcon]: the
+        // The same tint path the `hl-*` glyphs take through [DazzleIcon]: the
         // file is `currentColor` throughout and the colour is decided here.
         //
         // Drawn at the full side of the box rather than inset. The mark files
@@ -101,7 +101,7 @@ class AgentMark extends StatelessWidget {
                   // Dimmer than the marks the app does have, which is the
                   // difference: this one is the app admitting it does not know
                   // the agent, not a drawing of it.
-                  color: SpectacleColors.textSecondary,
+                  color: DazzleColors.textSecondary,
                 ),
               )
             : SvgPicture.asset(
@@ -109,7 +109,7 @@ class AgentMark extends StatelessWidget {
                 width: size,
                 height: size,
                 theme: const SvgTheme(
-                  currentColor: SpectacleColors.textPrimary,
+                  currentColor: DazzleColors.textPrimary,
                 ),
               ),
       ),

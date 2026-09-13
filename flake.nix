@@ -1,5 +1,5 @@
 {
-  description = "Spectacle — local-first personal control plane (Flutter)";
+  description = "Dazzle — local-first personal control plane (Flutter)";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -75,7 +75,7 @@
         in
         {
           default = pkgs.mkShell {
-            name = "spectacle";
+            name = "dazzle";
 
             packages = [
               pkgs.flutter
@@ -122,7 +122,7 @@
               # the sha a binary is stamped with is the sha it was built from.
               # `dev` outside a checkout, which is what an unstamped build should
               # admit to being.
-              export SPECTACLE_BUILD="$(${pkgs.git}/bin/git rev-parse --short HEAD 2>/dev/null || echo dev)"
+              export DAZZLE_BUILD="$(${pkgs.git}/bin/git rev-parse --short HEAD 2>/dev/null || echo dev)"
 
               # The SDK stays off PATH on purpose: the host adb owns the server,
               # flutter and gradle reach the SDK through ANDROID_HOME instead.

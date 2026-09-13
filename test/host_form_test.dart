@@ -4,21 +4,21 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/enums.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/data/repositories/key_repository.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/design/components/picker_row.dart';
-import 'package:spectacle/design/components/solid_action_bar.dart';
-import 'package:spectacle/features/settings/host_form_screen.dart';
-import 'package:spectacle/features/hosts/hosts_screen.dart';
-import 'package:spectacle/features/screen/screen_preview.dart';
-import 'package:spectacle/platform/host_key_dial.dart';
-import 'package:spectacle/platform/keys.dart';
-import 'package:spectacle/platform/vnc/framebuffer.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/enums.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/data/repositories/key_repository.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/picker_row.dart';
+import 'package:dazzle/design/components/solid_action_bar.dart';
+import 'package:dazzle/features/settings/host_form_screen.dart';
+import 'package:dazzle/features/hosts/hosts_screen.dart';
+import 'package:dazzle/features/screen/screen_preview.dart';
+import 'package:dazzle/platform/host_key_dial.dart';
+import 'package:dazzle/platform/keys.dart';
+import 'package:dazzle/platform/vnc/framebuffer.dart';
 
 import 'support/platform_channels.dart';
 
@@ -54,7 +54,7 @@ void main() {
     keys = InMemoryKeyRepository();
     hosts = InMemoryHostRepository();
     privateKeys = MemoryPrivateKeyStore();
-    root = Directory.systemTemp.createTempSync('spectacle-host-form');
+    root = Directory.systemTemp.createTempSync('dazzle-host-form');
     previews = ScreenPreviews(Directory('${root.path}/screens'));
     // A save now dials the machine it just registered, and no test here has
     // one to dial.
@@ -144,10 +144,10 @@ void main() {
     // its label on the background colour, behind the `// ` marker.
     expect(find.text('// '), findsOneWidget);
     final row = tester.widget<Text>(find.text('FARADAY'));
-    expect(row.style?.color, SpectacleColors.backgroundPrimary);
+    expect(row.style?.color, DazzleColors.backgroundPrimary);
 
     expect(label(tester), 'NAME MISSING');
-    expect(fill(tester), SpectacleColors.textDisabled);
+    expect(fill(tester), DazzleColors.textDisabled);
 
     // The bar is there and a tap on it writes nothing.
     await tester.tap(find.byType(SolidActionBar));
@@ -175,7 +175,7 @@ void main() {
     await tester.enterText(field(_Fields.user), 'luis');
     await tester.pump();
     expect(label(tester), 'CREATE HOST');
-    expect(fill(tester), SpectacleColors.accent);
+    expect(fill(tester), DazzleColors.accent);
 
     await unmount(tester);
   });
@@ -340,7 +340,7 @@ void main() {
     await tester.pump();
 
     // The back arrow is the crumb line, and it asks.
-    await tester.tap(find.text('/ SPECTACLE / HOSTS'));
+    await tester.tap(find.text('/ DAZZLE / HOSTS'));
     await _sheet(tester);
     expect(find.text('DISCARD HOST?'), findsOneWidget);
 
@@ -404,7 +404,7 @@ void main() {
       await tester.enterText(field(_Fields.port), typed);
       await tester.pump();
       expect(label(tester), 'PORT MISSING', reason: 'port `$typed`');
-      expect(fill(tester), SpectacleColors.textDisabled);
+      expect(fill(tester), DazzleColors.textDisabled);
     }
 
     // And the bar stays inert while it says so.
@@ -415,7 +415,7 @@ void main() {
     await tester.enterText(field(_Fields.port), '357');
     await tester.pump();
     expect(label(tester), 'CREATE HOST');
-    expect(fill(tester), SpectacleColors.accent);
+    expect(fill(tester), DazzleColors.accent);
 
     await unmount(tester);
   });

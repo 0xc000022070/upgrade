@@ -1,16 +1,16 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/design/effects/glitch.dart';
-import 'package:spectacle/design/icons/spectacle_icon.dart';
-import 'package:spectacle/design/icons/spectacle_icons.dart';
-import 'package:spectacle/design/motion.dart';
+import 'package:dazzle/design/effects/glitch.dart';
+import 'package:dazzle/design/icons/dazzle_icon.dart';
+import 'package:dazzle/design/icons/dazzle_icons.dart';
+import 'package:dazzle/design/motion.dart';
 
 Widget _host(GlitchController controller, {required bool reduceMotion}) {
   return MediaQuery(
     data: MediaQueryData(disableAnimations: reduceMotion),
     child: Directionality(
       textDirection: TextDirection.ltr,
-      child: SpectacleIcon(SpectacleIcons.task, glitch: controller),
+      child: DazzleIcon(DazzleIcons.task, glitch: controller),
     ),
   );
 }

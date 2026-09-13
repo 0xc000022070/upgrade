@@ -21,8 +21,8 @@ import '../../design/components/keyboard_toolbar.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
-import '../../design/components/spectacle_field.dart';
-import '../../design/icons/spectacle_icons.dart';
+import '../../design/components/dazzle_field.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/browser.dart';
@@ -274,7 +274,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           title: 'MOVE TO',
           affordance: PanelAffordance(
             'BACK',
-            icon: SpectacleIcons.back,
+            icon: DazzleIcons.back,
             onTap: () => setState(() => _mode = const _Item()),
           ),
           children: [
@@ -289,7 +289,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           title: 'PAIR WITH',
           affordance: PanelAffordance(
             'BACK',
-            icon: SpectacleIcons.back,
+            icon: DazzleIcons.back,
             onTap: () => setState(() => _mode = const _Item()),
           ),
           children: [PairPickerBody(taskId: widget.taskId, onPicked: _pair)],
@@ -351,8 +351,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           label: 'BLOCKED BY',
           child: Text(
             task.blockedReason!,
-            style: SpectacleText.rowSubtitle.copyWith(
-              color: SpectacleColors.warning,
+            style: DazzleText.rowSubtitle.copyWith(
+              color: DazzleColors.warning,
             ),
           ),
         ),
@@ -361,7 +361,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         const SheetRule(),
         SheetField(
           label: 'EFFORT',
-          child: Text('${task.effort}', style: SpectacleText.value),
+          child: Text('${task.effort}', style: DazzleText.value),
         ),
       ],
       if (mates.isNotEmpty) ...[
@@ -375,7 +375,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
               for (final mate in mates)
                 Padding(
                   padding: const EdgeInsets.only(bottom: Spacing.sm),
-                  child: Text(mate.title, style: SpectacleText.rowSubtitle),
+                  child: Text(mate.title, style: DazzleText.rowSubtitle),
                 ),
             ],
           ),
@@ -420,7 +420,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                     '${dispatch.model == null ? '' : ' ${dispatch.model}'} · '
                     '${dispatch.paneId} · '
                     '${timeOfDay(dispatch.sentAt)}',
-                    style: SpectacleText.value,
+                    style: DazzleText.value,
                   ),
                 ),
             ],
@@ -466,10 +466,10 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           // text opens the editor.
           child: LinkText(
             task.title,
-            style: SpectacleText.rowTitleLead.copyWith(
+            style: DazzleText.rowTitleLead.copyWith(
               color: task.done
-                  ? SpectacleColors.textMuted
-                  : SpectacleColors.textPrimary,
+                  ? DazzleColors.textMuted
+                  : DazzleColors.textPrimary,
             ),
           ),
         ),
@@ -562,11 +562,11 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                 onTap: () => tasks.setDone(task.id, !task.done),
               ),
             ],
-      child: SpectacleField(
+      child: DazzleField(
         controller: _field,
         focusNode: _focus,
-        style: SpectacleText.rowTitleLead,
-        maxLines: SpectacleField.bodyLines,
+        style: DazzleText.rowTitleLead,
+        maxLines: DazzleField.bodyLines,
         contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
         onSubmitted: (_) => _submit(),
       ),
@@ -619,7 +619,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         // say so.
         ActionBlock(
           label: task.done ? 'UNDO' : 'DONE',
-          tone: SpectacleColors.accent,
+          tone: DazzleColors.accent,
           // The one commit in the row takes the one accent surface.
           filled: !task.done,
           onTap: () => tasks.setDone(task.id, !task.done),
@@ -628,8 +628,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ActionBlock(
             label: task.isNext ? 'UNSET' : 'NEXT',
             tone: task.isNext
-                ? SpectacleColors.accentMuted
-                : SpectacleColors.textSecondary,
+                ? DazzleColors.accentMuted
+                : DazzleColors.textSecondary,
             onTap: () =>
                 task.isNext ? tasks.unsetNext(task.id) : tasks.setNext(task.id),
           ),
@@ -657,7 +657,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ),
           ActionBlock(
             label: task.blockedReason == null ? 'BLOCK' : 'UNBLOCK',
-            tone: SpectacleColors.warning,
+            tone: DazzleColors.warning,
             // With the keyboard down there is nowhere to type a reason, so
             // BLOCK raises the field in reason mode rather than opening an
             // editor of its own in the body.
@@ -701,17 +701,17 @@ class _Square extends StatelessWidget {
         height: _ItemSheetState._imageSquare,
         decoration: BoxDecoration(
           border: Border.all(
-            color: SpectacleColors.borderNormal,
+            color: DazzleColors.borderNormal,
             width: Borders.hairline,
           ),
         ),
         child: path == null
-            ? const ColoredBox(color: SpectacleColors.surfaceSecondary)
+            ? const ColoredBox(color: DazzleColors.surfaceSecondary)
             : Image.file(
                 File(path),
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) =>
-                    const ColoredBox(color: SpectacleColors.surfaceSecondary),
+                    const ColoredBox(color: DazzleColors.surfaceSecondary),
               ),
       ),
     );

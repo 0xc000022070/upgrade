@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/features/code/diff_jump.dart';
-import 'package:spectacle/features/code/diff_map.dart';
-import 'package:spectacle/platform/workspace/workspace_model.dart';
+import 'package:dazzle/features/code/diff_jump.dart';
+import 'package:dazzle/features/code/diff_map.dart';
+import 'package:dazzle/platform/workspace/workspace_model.dart';
 
 DiffLine added(String text) => DiffLine(DiffLineKind.added, text);
 DiffLine removed(String text) => DiffLine(DiffLineKind.removed, text);

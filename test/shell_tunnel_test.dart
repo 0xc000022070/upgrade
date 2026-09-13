@@ -11,10 +11,10 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/platform/shell/shell_connection.dart';
-import 'package:spectacle/platform/shell/shell_tunnel.dart';
-import 'package:spectacle/platform/host_keys.dart';
-import 'package:spectacle/platform/keys.dart';
+import 'package:dazzle/platform/shell/shell_connection.dart';
+import 'package:dazzle/platform/shell/shell_tunnel.dart';
+import 'package:dazzle/platform/host_keys.dart';
+import 'package:dazzle/platform/keys.dart';
 
 /// A socket that answers a dial and then goes away mid-handshake, which is
 /// what a host that resets the connection looks like from here. `dart:io`
@@ -492,7 +492,7 @@ void main() {
 
   test('a dial that fails leaves no unhandled error behind', () async {
     final keys = Ed25519Keys(MemoryPrivateKeyStore());
-    await keys.generate(id: 'key-1', name: 'spectacle');
+    await keys.generate(id: 'key-1', name: 'dazzle');
     final privateKey = (await keys.privateKey('key-1'))!;
 
     final loose = <Object>[];

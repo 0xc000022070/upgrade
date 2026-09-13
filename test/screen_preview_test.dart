@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/features/screen/screen_preview.dart';
-import 'package:spectacle/platform/vnc/framebuffer.dart';
+import 'package:dazzle/features/screen/screen_preview.dart';
+import 'package:dazzle/platform/vnc/framebuffer.dart';
 
 Framebuffer _split(int width, int height) {
   final framebuffer = Framebuffer(width, height);
@@ -19,7 +19,7 @@ void main() {
   late ScreenPreviews previews;
 
   setUp(() {
-    root = Directory.systemTemp.createTempSync('spectacle-previews');
+    root = Directory.systemTemp.createTempSync('dazzle-previews');
     previews = ScreenPreviews(Directory('${root.path}/screens'));
     addTearDown(previews.dispose);
   });

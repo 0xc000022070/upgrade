@@ -19,7 +19,7 @@ sealed class VncFailure implements Exception {
 
   /// What the transport actually said. Carried out of here so
   /// the caller, which is the half that knows the host's name, writes the
-  /// `spectacle.vnc <host>: …` debug line.
+  /// `dazzle.vnc <host>: …` debug line.
   final String? detail;
 
   /// Which of the app's reason lines this failure is.

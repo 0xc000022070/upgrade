@@ -8,13 +8,13 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/platform/vnc/framebuffer.dart';
-import 'package:spectacle/platform/vnc/keysyms.dart';
-import 'package:spectacle/platform/vnc/rect_encoding.dart';
-import 'package:spectacle/platform/vnc/rfb_client.dart';
-import 'package:spectacle/platform/vnc/rfb_messages.dart';
-import 'package:spectacle/platform/vnc/vnc_auth.dart';
-import 'package:spectacle/platform/vnc/vnc_failure.dart';
+import 'package:dazzle/platform/vnc/framebuffer.dart';
+import 'package:dazzle/platform/vnc/keysyms.dart';
+import 'package:dazzle/platform/vnc/rect_encoding.dart';
+import 'package:dazzle/platform/vnc/rfb_client.dart';
+import 'package:dazzle/platform/vnc/rfb_messages.dart';
+import 'package:dazzle/platform/vnc/vnc_auth.dart';
+import 'package:dazzle/platform/vnc/vnc_failure.dart';
 
 import 'support/vnc_channel.dart';
 

@@ -2,20 +2,20 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/enums.dart';
-import 'package:spectacle/data/repositories/activity_repository.dart';
-import 'package:spectacle/data/repositories/attachment_repository.dart';
-import 'package:spectacle/data/repositories/task_repository.dart';
-import 'package:spectacle/design/components/keyboard_toolbar.dart';
-import 'package:spectacle/design/components/list_row.dart';
-import 'package:spectacle/design/icons/spectacle_icon.dart';
-import 'package:spectacle/design/icons/spectacle_icons.dart';
-import 'package:spectacle/features/home/home_screen.dart';
-import 'package:spectacle/features/tasks/link_mark.dart';
-import 'package:spectacle/features/tasks/sent_tag.dart';
-import 'package:spectacle/features/tasks/task_row.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/enums.dart';
+import 'package:dazzle/data/repositories/activity_repository.dart';
+import 'package:dazzle/data/repositories/attachment_repository.dart';
+import 'package:dazzle/data/repositories/task_repository.dart';
+import 'package:dazzle/design/components/keyboard_toolbar.dart';
+import 'package:dazzle/design/components/list_row.dart';
+import 'package:dazzle/design/icons/dazzle_icon.dart';
+import 'package:dazzle/design/icons/dazzle_icons.dart';
+import 'package:dazzle/features/home/home_screen.dart';
+import 'package:dazzle/features/tasks/link_mark.dart';
+import 'package:dazzle/features/tasks/sent_tag.dart';
+import 'package:dazzle/features/tasks/task_row.dart';
 
 import 'support/platform_channels.dart';
 
@@ -33,10 +33,10 @@ Future<void> _ready(WidgetTester tester) async {
 
 final _mark = find.byIcon(ToolbarGlyph.link.icon);
 
-/// Every asset icon reaches the tree through [SpectacleIcon], which names the
+/// Every asset icon reaches the tree through [DazzleIcon], which names the
 /// glyph rather than carrying font data to match on.
 final _arrow = find.byWidgetPredicate(
-  (widget) => widget is SpectacleIcon && widget.icon == SpectacleIcons.forward,
+  (widget) => widget is DazzleIcon && widget.icon == DazzleIcons.forward,
 );
 
 void main() {

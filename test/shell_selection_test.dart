@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/features/shell/shell_selection.dart';
-import 'package:spectacle/features/shell/shell_sessions.dart';
-import 'package:spectacle/features/shell/shell_surface.dart';
-import 'package:spectacle/features/shell/shell_terminal.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/features/shell/shell_selection.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
+import 'package:dazzle/features/shell/shell_surface.dart';
+import 'package:dazzle/features/shell/shell_terminal.dart';
 import 'package:xterm/xterm.dart';
 
 import 'support/platform_channels.dart';

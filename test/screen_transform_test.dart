@@ -5,7 +5,7 @@ library;
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/features/screen/screen_transform.dart';
+import 'package:dazzle/features/screen/screen_transform.dart';
 
 /// nyx's desktop on a phone held upright: 1920 by 1080 fitted to 400 logical
 /// pixels of width.

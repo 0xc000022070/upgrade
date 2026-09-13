@@ -6,8 +6,8 @@ import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/components/panel.dart';
-import '../../design/icons/spectacle_icon.dart';
-import '../../design/icons/spectacle_icons.dart';
+import '../../design/icons/dazzle_icon.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
@@ -110,7 +110,7 @@ const _statusShare = 0.4;
 /// The word one tab is drawn with: what its shell calls itself, cut down to
 /// what a cell holds, and its number until it calls itself anything.
 ///
-/// A login shell's title is who and where — `luis@nyx: ~/Projects/spectacle` —
+/// A login shell's title is who and where — `luis@nyx: ~/Projects/dazzle` —
 /// and the where is the half that tells two tabs apart. A title with a space in
 /// it is a sentence the program wrote and is kept as it stands, slashes
 /// included: `vim design/SPEC.md` is not a path.
@@ -210,7 +210,7 @@ class _ShellHeaderState extends State<ShellHeader> {
       key: const ValueKey('shell-header'),
       height: _headerHeight,
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: SpectacleColors.borderSubtle)),
+        border: Border(bottom: BorderSide(color: DazzleColors.borderSubtle)),
       ),
       child: LayoutBuilder(
         builder: (context, box) => Row(
@@ -251,7 +251,7 @@ class _ShellHeaderState extends State<ShellHeader> {
             if (onDiff != null)
               _TabCell(
                 key: const ValueKey('shell-tab-diff'),
-                icon: SpectacleIcons.branch,
+                icon: DazzleIcons.branch,
                 dimmed: !widget.diffReady,
                 onTap: widget.diffReady ? onDiff : null,
               ),
@@ -289,8 +289,8 @@ class _HostCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = Text(
       name.toUpperCase(),
-      style: SpectacleText.panelHeader.copyWith(
-        color: SpectacleColors.textPrimary,
+      style: DazzleText.panelHeader.copyWith(
+        color: DazzleColors.textPrimary,
       ),
     );
     if (onTap == null) return label;
@@ -303,10 +303,10 @@ class _HostCell extends StatelessWidget {
         children: [
           label,
           const SizedBox(width: Spacing.sm),
-          const SpectacleIcon(
-            SpectacleIcons.expand,
+          const DazzleIcon(
+            DazzleIcons.expand,
             size: IconSizes.affordance,
-            color: SpectacleColors.textDisabled,
+            color: DazzleColors.textDisabled,
           ),
         ],
       ),
@@ -342,8 +342,8 @@ class _Middle extends StatelessWidget {
     final label = Text(
       word,
       style: between
-          ? SpectacleText.panelHeader.copyWith(color: SpectacleColors.textMuted)
-          : SpectacleText.panelHeader,
+          ? DazzleText.panelHeader.copyWith(color: DazzleColors.textMuted)
+          : DazzleText.panelHeader,
       textAlign: TextAlign.right,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
@@ -425,18 +425,18 @@ class _ShellReasonRowState extends State<ShellReasonRow> {
                   Expanded(
                     child: Text(
                       widget.kind.line.on(widget.host.name),
-                      style: SpectacleText.panelHeader.copyWith(
-                        color: SpectacleColors.warning,
+                      style: DazzleText.panelHeader.copyWith(
+                        color: DazzleColors.warning,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (detail != null)
-                    SpectacleIcon(
-                      _open ? SpectacleIcons.collapse : SpectacleIcons.expand,
+                    DazzleIcon(
+                      _open ? DazzleIcons.collapse : DazzleIcons.expand,
                       size: 12,
-                      color: SpectacleColors.textMuted,
+                      color: DazzleColors.textMuted,
                     ),
                 ],
               ),
@@ -461,8 +461,8 @@ class _ReasonDetail extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: SpectacleColors.surfacePrimary,
-        border: Border(top: BorderSide(color: SpectacleColors.borderSubtle)),
+        color: DazzleColors.surfacePrimary,
+        border: Border(top: BorderSide(color: DazzleColors.borderSubtle)),
       ),
       padding: const EdgeInsets.fromLTRB(
         Spacing.screenEdge,
@@ -477,7 +477,7 @@ class _ReasonDetail extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: _detailHeight),
               child: SingleChildScrollView(
-                child: Text(detail, style: SpectacleText.rowSubtitle),
+                child: Text(detail, style: DazzleText.rowSubtitle),
               ),
             ),
           ),
@@ -512,7 +512,7 @@ class _TabCell extends StatelessWidget {
   /// Drawn in place of the word. The row holds nine tabs before it holds
   /// anything else, and a mark costs a mark's width where a word costs four
   /// letters of one.
-  final SpectacleIcons? icon;
+  final DazzleIcons? icon;
 
   /// Drawn, and not tappable. What it means is the cell's own: the diff mark
   /// dims where the tab is standing in no checkout.
@@ -528,9 +528,9 @@ class _TabCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tint = switch ((active, dimmed)) {
-      (true, _) => SpectacleColors.accent,
-      (false, true) => SpectacleColors.textDisabled,
-      (false, false) => SpectacleColors.textMuted,
+      (true, _) => DazzleColors.accent,
+      (false, true) => DazzleColors.textDisabled,
+      (false, false) => DazzleColors.textMuted,
     };
     final label = this.label;
     return GestureDetector(
@@ -549,7 +549,7 @@ class _TabCell extends StatelessWidget {
           // ink: a filled cell would read as a button, and these are tabs.
           border: Border(
             bottom: BorderSide(
-              color: active ? SpectacleColors.accent : const Color(0x00000000),
+              color: active ? DazzleColors.accent : const Color(0x00000000),
               width: Borders.hairline * 2,
             ),
           ),
@@ -566,13 +566,13 @@ class _TabCell extends StatelessWidget {
             // cell capped at [_tabMaxWidth] is that wide even when it says `1`,
             // and the row has nothing left for what the shell is doing.
             if (icon case final icon?)
-              SpectacleIcon(icon, size: IconSizes.sm, color: tint)
+              DazzleIcon(icon, size: IconSizes.sm, color: tint)
             else
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: _tabMaxWidth),
                 child: Text(
                   label!,
-                  style: SpectacleText.panelHeader.copyWith(color: tint),
+                  style: DazzleText.panelHeader.copyWith(color: tint),
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.ellipsis,

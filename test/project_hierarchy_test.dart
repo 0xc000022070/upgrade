@@ -1,12 +1,12 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/project_tree.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/enums.dart';
-import 'package:spectacle/data/repositories/activity_repository.dart';
-import 'package:spectacle/data/repositories/note_repository.dart';
-import 'package:spectacle/data/repositories/project_repository.dart';
-import 'package:spectacle/data/repositories/task_repository.dart';
+import 'package:dazzle/application/project_tree.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/enums.dart';
+import 'package:dazzle/data/repositories/activity_repository.dart';
+import 'package:dazzle/data/repositories/note_repository.dart';
+import 'package:dazzle/data/repositories/project_repository.dart';
+import 'package:dazzle/data/repositories/task_repository.dart';
 
 /// A subproject is a project with a parent, so nothing here
 /// tests a new entity: it tests that the same rows read differently once one of

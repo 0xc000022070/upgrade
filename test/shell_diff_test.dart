@@ -3,18 +3,18 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/data/repositories/key_repository.dart';
-import 'package:spectacle/data/repositories/path_repository.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/design/icons/spectacle_icon.dart';
-import 'package:spectacle/design/icons/spectacle_icons.dart';
-import 'package:spectacle/design/spacing.dart';
-import 'package:spectacle/features/shell/host_shell_screen.dart';
-import 'package:spectacle/features/shell/shell_sessions.dart';
-import 'package:spectacle/platform/herdr_client.dart';
-import 'package:spectacle/platform/shell/remote_shell.dart';
-import 'package:spectacle/platform/shell/shell_connection.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/data/repositories/key_repository.dart';
+import 'package:dazzle/data/repositories/path_repository.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/icons/dazzle_icon.dart';
+import 'package:dazzle/design/icons/dazzle_icons.dart';
+import 'package:dazzle/design/spacing.dart';
+import 'package:dazzle/features/shell/host_shell_screen.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
+import 'package:dazzle/platform/herdr_client.dart';
+import 'package:dazzle/platform/shell/remote_shell.dart';
+import 'package:dazzle/platform/shell/shell_connection.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -43,10 +43,10 @@ ExecResult _says(String stdout, {int exitCode = 0}) => ExecResult(
 );
 
 /// The version-control mark as it is drawn on the row.
-SpectacleIcon _mark(WidgetTester tester) => tester.widget<SpectacleIcon>(
+DazzleIcon _mark(WidgetTester tester) => tester.widget<DazzleIcon>(
   find.descendant(
     of: find.byKey(_diffCell),
-    matching: find.byType(SpectacleIcon),
+    matching: find.byType(DazzleIcon),
   ),
 );
 
@@ -56,8 +56,8 @@ void main() {
   group('a shell says where it is', () {
     test('the path is taken and the host in the url is not', () {
       expect(
-        cwdFromOsc('file://rose/home/luis/src/spectacle'),
-        '/home/luis/src/spectacle',
+        cwdFromOsc('file://rose/home/luis/src/dazzle'),
+        '/home/luis/src/dazzle',
       );
       // A hook writes the path escaped, and a space is the escape that
       // happens.
@@ -74,11 +74,11 @@ void main() {
 
   group('a tab is marked so the host can be asked', () {
     test('the mark goes into the shell it is asked about', () {
-      const command = 'export SPECTACLE_TAB=s1a2b3c; exec \$SHELL -l';
+      const command = 'export DAZZLE_TAB=s1a2b3c; exec \$SHELL -l';
       expect(shellMarked('s1a2b3c'), command);
       expect(
         shellMarked('s1a2b3c', command: 'cd /srv && exec \$SHELL -l'),
-        'export SPECTACLE_TAB=s1a2b3c; cd /srv && exec \$SHELL -l',
+        'export DAZZLE_TAB=s1a2b3c; cd /srv && exec \$SHELL -l',
       );
     });
 
@@ -87,7 +87,7 @@ void main() {
 
       expect(probe, startsWith('sh -c '));
       expect(probe, contains('/proc/[0-9]*'));
-      expect(probe, contains('SPECTACLE_TAB='));
+      expect(probe, contains('DAZZLE_TAB='));
       expect(probe, contains('s1a2b3c'));
       // The parent is looked at, which is what leaves a `vim` out of the
       // answer and the shell that started it in.
@@ -129,9 +129,9 @@ void main() {
 
   group('what the probe came back with', () {
     test('a plain shell is a directory and no session', () {
-      final place = parseShellPlace('/home/luis/src/spectacle\n\n');
+      final place = parseShellPlace('/home/luis/src/dazzle\n\n');
 
-      expect(place.cwd, '/home/luis/src/spectacle');
+      expect(place.cwd, '/home/luis/src/dazzle');
       expect(place.herdrSession, isNull);
     });
 
@@ -184,7 +184,7 @@ void main() {
       // A row that already holds nine tabs cannot spend four letters on a
       // word.
       expect(find.text('DIFF'), findsNothing);
-      expect(_mark(tester).icon, SpectacleIcons.branch);
+      expect(_mark(tester).icon, DazzleIcons.branch);
 
       await unmount(tester);
     });
@@ -205,7 +205,7 @@ void main() {
       await ready(tester);
 
       expect(sessions.forHost(rose.id).single.repository, isNull);
-      expect(_mark(tester).color, SpectacleColors.textDisabled);
+      expect(_mark(tester).color, DazzleColors.textDisabled);
 
       // And it answers nothing: a phone that says `NOT A CHECKOUT` after a tap
       // has spent the tap saying what it already knew.
@@ -222,17 +222,17 @@ void main() {
       transport.opening = (connection) => connection.answer = (command, _) =>
           _says(
             command.contains('rev-parse')
-                ? '/home/luis/src/spectacle\n'
-                : '/home/luis/src/spectacle/lib/features\n\n',
+                ? '/home/luis/src/dazzle\n'
+                : '/home/luis/src/dazzle/lib/features\n\n',
           );
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
       final session = sessions.forHost(rose.id).single;
       // Three directories deep is still the whole repository.
-      expect(session.cwd, '/home/luis/src/spectacle/lib/features');
-      expect(session.repository, '/home/luis/src/spectacle');
-      expect(_mark(tester).color, isNot(SpectacleColors.textDisabled));
+      expect(session.cwd, '/home/luis/src/dazzle/lib/features');
+      expect(session.repository, '/home/luis/src/dazzle');
+      expect(_mark(tester).color, isNot(DazzleColors.textDisabled));
 
       await unmount(tester);
     });
@@ -247,14 +247,14 @@ void main() {
 
       final session = sessions.forHost(rose.id).single;
       final connection = transport.opened.single;
-      connection.answerWith('/home/luis/src/spectacle\n');
+      connection.answerWith('/home/luis/src/dazzle\n');
 
-      expect(await sessions.cwdFromHost(session), '/home/luis/src/spectacle');
+      expect(await sessions.cwdFromHost(session), '/home/luis/src/dazzle');
       // Asked on a second channel, so the shell on the pty sees none of it.
       expect(connection.execs.last.command, shellCwdProbe(session.mark));
       expect(connection.written, isNot(contains('/proc')));
       // And kept, so the tab knows where it is without asking twice.
-      expect(session.cwd, '/home/luis/src/spectacle');
+      expect(session.cwd, '/home/luis/src/dazzle');
 
       await unmount(tester);
     });
@@ -275,12 +275,12 @@ void main() {
       connection.answerWith(
         '{"result":{"type":"pane_list","panes":['
         '{"pane_id":"w2C:p2","cwd":"/home/luis"},'
-        '{"pane_id":"w22:p1","cwd":"/home/luis/src/spectacle",'
-        '"foreground_cwd":"/home/luis/src/spectacle/lib"}'
+        '{"pane_id":"w22:p1","cwd":"/home/luis/src/dazzle",'
+        '"foreground_cwd":"/home/luis/src/dazzle/lib"}'
         ']}}',
       );
 
-      expect(await sessions.cwdFromHost(session), '/home/luis/src/spectacle');
+      expect(await sessions.cwdFromHost(session), '/home/luis/src/dazzle');
       // The multiplexer, not the process tree: nothing this connection
       // started is standing where that shell is.
       expect(connection.execs.last.command, HerdrCommands.panes('hub'));
@@ -307,14 +307,14 @@ void main() {
             ? '/home/luis\nhub\n'
             : '{"result":{"type":"pane_list","panes":['
                   '{"pane_id":"w22:p1","cwd":"/srv/gate","focused":false},'
-                  '{"pane_id":"w2C:p2","cwd":"/home/luis/src/spectacle",'
+                  '{"pane_id":"w2C:p2","cwd":"/home/luis/src/dazzle",'
                   '"focused":true}'
                   ']}}',
       );
 
       // The pane the user is looking at, not the one the client is standing
       // in and not the first one the multiplexer lists.
-      expect(await sessions.cwdFromHost(session), '/home/luis/src/spectacle');
+      expect(await sessions.cwdFromHost(session), '/home/luis/src/dazzle');
       expect(connection.execs.last.command, HerdrCommands.panes('hub'));
 
       await unmount(tester);
@@ -409,7 +409,7 @@ void main() {
       await DriftKeyRepository(db).save(_key);
       await DriftHostRepository(db).save(rose);
       await DriftPathRepository(db)
-          .add(hostId: rose.id, directory: '~/src/spectacle');
+          .add(hostId: rose.id, directory: '~/src/dazzle');
 
       final sessions = fakeShellSessions(FakeShellTransport());
       await tester.pumpWidget(app(sessions, db: db));
@@ -425,7 +425,7 @@ void main() {
       await DriftKeyRepository(db).save(_key);
       await DriftHostRepository(db).save(rose);
       final paths = DriftPathRepository(db);
-      await paths.add(hostId: rose.id, directory: '~/src/spectacle');
+      await paths.add(hostId: rose.id, directory: '~/src/dazzle');
       await paths.add(hostId: rose.id, directory: '/srv/gate');
 
       final sessions = fakeShellSessions(FakeShellTransport());
@@ -437,7 +437,7 @@ void main() {
 
       // Nothing is chosen for the user: two directories on one machine are
       // two repositories.
-      expect(find.text('SPECTACLE'), findsOneWidget);
+      expect(find.text('DAZZLE'), findsOneWidget);
       expect(find.text('GATE'), findsOneWidget);
 
       await unmount(tester);

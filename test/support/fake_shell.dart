@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:spectacle/data/repositories/shell_tab_repository.dart';
-import 'package:spectacle/features/shell/shell_sessions.dart';
-import 'package:spectacle/platform/shell/shell_connection.dart';
-import 'package:spectacle/platform/host_keys.dart';
+import 'package:dazzle/data/repositories/shell_tab_repository.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
+import 'package:dazzle/platform/shell/shell_connection.dart';
+import 'package:dazzle/platform/host_keys.dart';
 
 /// A connection with no host behind it: what went out, what came in, and an
 /// exit the test decides the moment of.

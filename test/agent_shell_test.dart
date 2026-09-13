@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agent_state.dart';
-import 'package:spectacle/application/navigation.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/features/agents/agent_shell.dart';
-import 'package:spectacle/features/shell/shell_sessions.dart';
-import 'package:spectacle/features/ssh/ssh_screen.dart';
-import 'package:spectacle/platform/herdr_client.dart';
-import 'package:spectacle/platform/shell/remote_shell.dart';
+import 'package:dazzle/application/agent_state.dart';
+import 'package:dazzle/application/navigation.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/features/agents/agent_shell.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
+import 'package:dazzle/features/ssh/ssh_screen.dart';
+import 'package:dazzle/platform/herdr_client.dart';
+import 'package:dazzle/platform/shell/remote_shell.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -32,7 +32,7 @@ const _agent = AgentSnapshot(
   state: WorkingState(),
   terminalTitleStripped: 'refactor',
   workspaceId: 'w22',
-  cwd: '/home/luis/spectacle',
+  cwd: '/home/luis/dazzle',
   stateChangeSeq: 4,
 );
 

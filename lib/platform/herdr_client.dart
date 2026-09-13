@@ -197,7 +197,7 @@ done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
   }) => underSh(
     'dir=${shellQuote(directory)}; '
     r'''case "$dir" in '~') dir="$HOME";; '~/'*) dir="$HOME/${dir#'~/'}";; esac; '''
-    r'''[ -d "$dir" ] || { printf '%s\n' 'spectacle: no directory' >&2; exit 20; }; '''
+    r'''[ -d "$dir" ] || { printf '%s\n' 'dazzle: no directory' >&2; exit 20; }; '''
     '${_herdr(session, 'workspace create --cwd "\$dir" '
     '--label ${shellQuote(label)} $_withoutHistory --no-focus')}',
   );

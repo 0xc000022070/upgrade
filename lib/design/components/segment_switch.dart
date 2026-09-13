@@ -58,7 +58,7 @@ class _Segment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? SpectacleColors.accent : SpectacleColors.textMuted;
+    final color = active ? DazzleColors.accent : DazzleColors.textMuted;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -72,13 +72,13 @@ class _Segment extends StatelessWidget {
             child: Center(
               child: Text(
                 label,
-                style: SpectacleText.rowKicker.copyWith(color: color),
+                style: DazzleText.rowKicker.copyWith(color: color),
               ),
             ),
           ),
           Container(
             height: BarSizes.inlineThickness,
-            color: active ? SpectacleColors.accent : const Color(0x00000000),
+            color: active ? DazzleColors.accent : const Color(0x00000000),
           ),
         ],
       ),

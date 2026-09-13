@@ -5,7 +5,7 @@ library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/features/screen/framebuffer_view.dart';
+import 'package:dazzle/features/screen/framebuffer_view.dart';
 
 /// nyx's desktop in a 400 by 800 window: 400 by 225 letterboxed, so the
 /// vertical offset is part of every expectation below.

@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/features/code/diff_jump.dart';
-import 'package:spectacle/features/code/hunk_pin.dart';
-import 'package:spectacle/platform/workspace/workspace_model.dart';
+import 'package:dazzle/features/code/diff_jump.dart';
+import 'package:dazzle/features/code/hunk_pin.dart';
+import 'package:dazzle/platform/workspace/workspace_model.dart';
 
 DiffLine hunk(String text) => DiffLine(DiffLineKind.hunk, text);
 DiffLine context(String text) => DiffLine(DiffLineKind.context, text);

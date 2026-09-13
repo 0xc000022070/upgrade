@@ -60,7 +60,7 @@ class KeyDetailScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'KEY',
-          breadcrumb: '/ SPECTACLE / HOSTS',
+          breadcrumb: '/ DAZZLE / HOSTS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(
@@ -78,7 +78,7 @@ class KeyDetailScreen extends ConsumerWidget {
                   ),
                   child: SelectableText(
                     keyRecord.publicKey,
-                    style: SpectacleText.rowTitle,
+                    style: DazzleText.rowTitle,
                   ),
                 ),
                 Panel(
@@ -89,7 +89,7 @@ class KeyDetailScreen extends ConsumerWidget {
                           height: RowMetrics.minHeight,
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: Text('NO HOSTS', style: SpectacleText.label),
+                            child: Text('NO HOSTS', style: DazzleText.label),
                           ),
                         )
                       : ListRowGroup(
@@ -137,8 +137,8 @@ class _DeleteBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = enabled
-        ? SpectacleColors.warning
-        : SpectacleColors.textDisabled;
+        ? DazzleColors.warning
+        : DazzleColors.textDisabled;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: enabled ? onTap : null,
@@ -151,7 +151,7 @@ class _DeleteBar extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: SpectacleText.valueStrong.copyWith(color: tone),
+          style: DazzleText.valueStrong.copyWith(color: tone),
         ),
       ),
     );

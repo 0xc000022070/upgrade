@@ -86,7 +86,7 @@ class ScreenScaffold extends StatelessWidget {
     Widget crumb = segments == null
         ? Text(
             crumbFor(breadcrumb, hasTrailing: trailing != null),
-            style: SpectacleText.breadcrumb,
+            style: DazzleText.breadcrumb,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           )
@@ -164,14 +164,14 @@ class ScreenScaffold extends StatelessWidget {
                         Flexible(
                           child: SignalText(
                             title!,
-                            style: SpectacleText.screenTitle,
+                            style: DazzleText.screenTitle,
                             decodeOnEntry: true,
                             smearOnEntry: true,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const Text('_', style: SpectacleText.screenTitle),
+                        const Text('_', style: DazzleText.screenTitle),
                       ],
                     ),
                   ),
@@ -181,7 +181,7 @@ class ScreenScaffold extends StatelessWidget {
             const SizedBox(height: Spacing.md),
             Container(
               height: Borders.hairline,
-              color: SpectacleColors.borderNormal,
+              color: DazzleColors.borderNormal,
             ),
             const SizedBox(height: Spacing.lg),
             ?header,
@@ -214,7 +214,7 @@ class _SegmentedCrumb extends StatelessWidget {
 
   final List<CrumbSegment> segments;
 
-  static const _style = SpectacleText.breadcrumb;
+  static const _style = DazzleText.breadcrumb;
   static const _separator = ' / ';
   static const _elision = '…';
 
@@ -320,7 +320,7 @@ class _SegmentState extends State<_Segment> {
     // last segment is the screen the user is on and has no [onTap]: it is the
     // end of a path, not a control, and it is not painted as one.
     final style = _down
-        ? _SegmentedCrumb._style.copyWith(color: SpectacleColors.accent)
+        ? _SegmentedCrumb._style.copyWith(color: DazzleColors.accent)
         : _SegmentedCrumb._style;
     final text = Text(
       widget.segment.label,

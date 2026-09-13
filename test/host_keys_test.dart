@@ -3,11 +3,11 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/platform/herdr_client.dart';
-import 'package:spectacle/platform/host_keys.dart';
-import 'package:spectacle/platform/shell/shell_connection.dart';
-import 'package:spectacle/platform/shell/shell_tunnel.dart';
-import 'package:spectacle/platform/vnc/vnc_failure.dart';
+import 'package:dazzle/platform/herdr_client.dart';
+import 'package:dazzle/platform/host_keys.dart';
+import 'package:dazzle/platform/shell/shell_connection.dart';
+import 'package:dazzle/platform/shell/shell_tunnel.dart';
+import 'package:dazzle/platform/vnc/vnc_failure.dart';
 
 const _type = 'ssh-ed25519';
 const _fingerprint = 'SHA256:1qF0mVZjnJ4tvJq2VbT8Kk9Yo0oRr3Q5nWZs1eJqk2A';

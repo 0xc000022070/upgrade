@@ -13,7 +13,7 @@ Everything runs through the flake: `nix develop -c <cmd>` or `just`.
 - `just run` hot reload against the emulator on rose, forwarding rose's adb server to `127.0.0.1:5038` over ssh. `kill -USR1 $(cat build/run.pid)` reloads, `-USR2` restarts. This is the inner loop; apks are for shipping.
 - `phone` CLI for screenshots, taps, waits and recordings on the emulator. `phone shot --settle` after an action, never a sleep. `phone --help` and `phone help <verb>` carry the rest.
 - Fold is simulated with `adb shell wm size 2232x2310`, reset with `wm size reset` when done.
-- The emulator also hosts another app. A stray back key can foreground it; relaunch Spectacle with `am start`, touch nothing else.
+- The emulator also hosts another app. A stray back key can foreground it; relaunch Dazzle with `am start`, touch nothing else.
 - The emulator reaches nyx through the NAT. `100.64.0.253` is an unassigned CGNAT address, the unreachable probe.
 - Keys for the app's hosts are installed by the user by hand.
 - Herdr answers on the unix socket `~/.config/herdr/sessions/hub/herdr.sock`; `herdr agent list` is the shape the app parses: `id` `cli:agent:list`, `result.type` `agent_list`, `result.agents[]`.

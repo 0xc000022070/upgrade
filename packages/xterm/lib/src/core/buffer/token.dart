@@ -1,4 +1,4 @@
-/// What a long press takes out of a line of terminal text. Spectacle patch.
+/// What a long press takes out of a line of terminal text. Dazzle patch.
 ///
 /// `Buffer.getWordBoundary` answers with a word, and a word is the wrong unit
 /// for a terminal: its separator set breaks on `.`, `:`, `-` and `/`, which

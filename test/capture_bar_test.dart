@@ -2,17 +2,17 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/drop_selection.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/activity_repository.dart';
-import 'package:spectacle/data/repositories/goal_repository.dart';
-import 'package:spectacle/data/repositories/project_repository.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/design/components/action_block.dart';
-import 'package:spectacle/design/components/keyboard_toolbar.dart';
-import 'package:spectacle/design/components/spectacle_field.dart';
-import 'package:spectacle/features/home/capture_bar.dart';
+import 'package:dazzle/application/drop_selection.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/activity_repository.dart';
+import 'package:dazzle/data/repositories/goal_repository.dart';
+import 'package:dazzle/data/repositories/project_repository.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/action_block.dart';
+import 'package:dazzle/design/components/keyboard_toolbar.dart';
+import 'package:dazzle/design/components/dazzle_field.dart';
+import 'package:dazzle/features/home/capture_bar.dart';
 
 import 'support/platform_channels.dart';
 
@@ -357,7 +357,7 @@ void main() {
     await _ready(tester);
 
     final field = tester.widget<TextField>(_capture);
-    expect(field.maxLines, SpectacleField.bodyLines);
+    expect(field.maxLines, DazzleField.bodyLines);
     expect(field.textInputAction, TextInputAction.done);
 
     await tester.enterText(_capture, 'revisar pgbouncer');
@@ -471,7 +471,7 @@ void main() {
 
     final blocked = tester.widget<ActionBlock>(find.byType(ActionBlock));
     expect(blocked.onTap, isNull);
-    expect(blocked.tone, SpectacleColors.textDisabled);
+    expect(blocked.tone, DazzleColors.textDisabled);
 
     // The tap lands and nothing happens: the line stays up with the text in
     // it rather than swallowing it.
@@ -487,7 +487,7 @@ void main() {
     await _ready(tester);
     expect(
       tester.widget<ActionBlock>(find.byType(ActionBlock)).tone,
-      SpectacleColors.accent,
+      DazzleColors.accent,
     );
 
     await unmount(tester);

@@ -3,14 +3,14 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agent_state.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/application/alerts.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/platform/agent_watcher.dart';
-import 'package:spectacle/platform/herdr_client.dart';
-import 'package:spectacle/platform/host_keys.dart';
-import 'package:spectacle/platform/keys.dart';
+import 'package:dazzle/application/agent_state.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/alerts.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/platform/agent_watcher.dart';
+import 'package:dazzle/platform/herdr_client.dart';
+import 'package:dazzle/platform/host_keys.dart';
+import 'package:dazzle/platform/keys.dart';
 
 /// The alerts regression list.
 
@@ -431,7 +431,7 @@ void main() {
             'cwd': '/home/luisnquin/src',
             'pane_id': 'wQ:p1',
             'state_change_seq': seq,
-            'terminal_title_stripped': 'spectacle',
+            'terminal_title_stripped': 'dazzle',
             'workspace_id': 'wQ',
           },
         ],

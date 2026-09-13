@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/features/shell/shell_sessions.dart';
-import 'package:spectacle/platform/shell/shell_connection.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
+import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:xterm/xterm.dart';
 
 import 'support/fake_shell.dart';

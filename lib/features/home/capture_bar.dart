@@ -13,10 +13,10 @@ import '../../design/components/keyboard_toolbar.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/solid_action_bar.dart';
-import '../../design/components/spectacle_field.dart';
+import '../../design/components/dazzle_field.dart';
 import '../../design/effects/glitch.dart';
-import '../../design/icons/spectacle_icon.dart';
-import '../../design/icons/spectacle_icons.dart';
+import '../../design/icons/dazzle_icon.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
@@ -256,7 +256,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
               if (widget.fixedTarget == null && _target.projectId != null)
                 ToolbarChip(
                   label: _targetLabel(),
-                  tone: SpectacleColors.accent,
+                  tone: DazzleColors.accent,
                   onRemove: () =>
                       setState(() => _target = const ItemTarget.drops()),
                 ),
@@ -309,15 +309,15 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: SpectacleField(
+                        child: DazzleField(
                           controller: _controller,
                           focusNode: _focus,
-                          style: SpectacleText.capture.copyWith(
-                            color: SpectacleColors.textPrimary,
+                          style: DazzleText.capture.copyWith(
+                            color: DazzleColors.textPrimary,
                           ),
-                          maxLines: SpectacleField.bodyLines,
+                          maxLines: DazzleField.bodyLines,
                           hint: 'Capture',
-                          hintStyle: SpectacleText.capture,
+                          hintStyle: DazzleText.capture,
                           onSubmitted: (_) => _submit(),
                         ),
                       ),
@@ -336,12 +336,12 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                           width: TapTargets.minHeight,
                           height: RowMetrics.minHeight,
                           child: Center(
-                            child: SpectacleIcon(
-                              SpectacleIcons.submit,
+                            child: DazzleIcon(
+                              DazzleIcons.submit,
                               size: IconSizes.md,
                               color: pending
-                                  ? SpectacleColors.textSecondary
-                                  : SpectacleColors.accent,
+                                  ? DazzleColors.textSecondary
+                                  : DazzleColors.accent,
                               glitch: _glitch,
                             ),
                           ),

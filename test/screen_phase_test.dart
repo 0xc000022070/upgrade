@@ -3,8 +3,8 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/features/screen/screen_controller.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/features/screen/screen_controller.dart';
 
 const _nyx = Host(
   id: 'nyx',

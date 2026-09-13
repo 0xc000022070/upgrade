@@ -1,4 +1,4 @@
-package dev.luisnquin.spectacle
+package dev.luisnquin.dazzle
 
 import android.app.Activity
 import android.content.BroadcastReceiver
@@ -57,7 +57,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
 
-        MethodChannel(messenger, "dev.luisnquin.spectacle/device")
+        MethodChannel(messenger, "dev.luisnquin.dazzle/device")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "model" -> result.success(Build.MODEL)
@@ -67,7 +67,7 @@ class MainActivity : FlutterActivity() {
                     "build" -> result.success(buildInfo())
                     // SPEC 39.93's bundle goes through the system picker, so
                     // the app never decides where the file lives.
-                    "saveDocument" -> saveDocument(call.argument<String>("name") ?: "spectacle.bundle",
+                    "saveDocument" -> saveDocument(call.argument<String>("name") ?: "dazzle.bundle",
                         call.argument<String>("mime") ?: "application/octet-stream",
                         call.argument<ByteArray>("bytes") ?: ByteArray(0),
                         result)
@@ -76,7 +76,7 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
-        MethodChannel(messenger, "dev.luisnquin.spectacle/pip")
+        MethodChannel(messenger, "dev.luisnquin.dazzle/pip")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "available" -> result.success(pipAvailable())
@@ -98,7 +98,7 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
-        EventChannel(messenger, "dev.luisnquin.spectacle/pip/mode")
+        EventChannel(messenger, "dev.luisnquin.dazzle/pip/mode")
             .setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
                     pipEvents = sink
@@ -112,10 +112,10 @@ class MainActivity : FlutterActivity() {
                 }
             })
 
-        EventChannel(messenger, "dev.luisnquin.spectacle/device/throttle")
+        EventChannel(messenger, "dev.luisnquin.dazzle/device/throttle")
             .setStreamHandler(ThrottleStreamHandler(this, power))
 
-        EventChannel(messenger, "dev.luisnquin.spectacle/device/network")
+        EventChannel(messenger, "dev.luisnquin.dazzle/device/network")
             .setStreamHandler(NetworkStreamHandler(connectivity))
     }
 
