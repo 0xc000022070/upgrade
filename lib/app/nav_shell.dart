@@ -23,6 +23,7 @@ const navDestinations = [
   NavDestination('PROJECTS', DazzleIcons.projects),
   NavDestination('HOSTS', DazzleIcons.hosts),
   NavDestination('SSH', DazzleIcons.connection),
+  NavDestination('TOOLS', DazzleIcons.more),
 ];
 
 /// Built from tokens rather than BottomNavigationBar: Material's version brings

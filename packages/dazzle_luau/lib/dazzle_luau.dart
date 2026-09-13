@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 
 import 'data_api.dart';
 import 'src/dataset_store.dart';
 import 'src/native_data.dart';
+import 'src/value_codec.dart';
 
 const _asset = 'package:dazzle_luau/dazzle_luau.dart';
 
@@ -22,6 +24,21 @@ external Pointer<Void> _load(Pointer<Utf8> source, int size);
   symbol: 'dazzle_vm_invoke',
 )
 external int _invoke(Pointer<Void> vm, Pointer<Utf8> action);
+@Native<Int32 Function(Pointer<Void>, Pointer<Uint8>, Size)>(
+  assetId: _asset,
+  symbol: 'dazzle_vm_input',
+)
+external int _input(Pointer<Void> vm, Pointer<Uint8> bytes, int size);
+@Native<Pointer<Uint8> Function(Pointer<Void>)>(
+  assetId: _asset,
+  symbol: 'dazzle_vm_output',
+)
+external Pointer<Uint8> _output(Pointer<Void> vm);
+@Native<Size Function(Pointer<Void>)>(
+  assetId: _asset,
+  symbol: 'dazzle_vm_output_size',
+)
+external int _outputSize(Pointer<Void> vm);
 @Native<Pointer<Utf8> Function(Pointer<Void>)>(
   assetId: _asset,
   symbol: 'dazzle_vm_error',
@@ -69,6 +86,8 @@ class LuauResult {
     this.dataUsage = const [],
     this.dataCalls = 0,
     this.dataWaitMicros = 0,
+    this.value,
+    this.responseBytes = 0,
   });
   final int loadMicros;
   final int runMicros;
@@ -79,6 +98,8 @@ class LuauResult {
   final List<DataUsage> dataUsage;
   final int dataCalls;
   final int dataWaitMicros;
+  final Object? value;
+  final int responseBytes;
 }
 
 class LuauWorker {
@@ -103,7 +124,14 @@ class LuauWorker {
     required String action,
     DataContext? data,
     String? ownerIdentity,
+    Object? input,
   }) {
+    final Uint8List? encoded;
+    try {
+      encoded = input == null ? null : encodeValue(input);
+    } on FormatException catch (error) {
+      return Future.error(LuauException(error.message));
+    }
     final owner = data?.owner.identity ?? ownerIdentity ?? key;
     final cacheKey = '$owner:$key:${data?.permissionKey ?? ""}';
     final generation = _generation;
@@ -155,6 +183,7 @@ class LuauWorker {
                 action,
                 data,
                 owner,
+                encoded,
               ),
             );
             final response = await reply.first as _Response;
@@ -341,6 +370,7 @@ class _Request {
     this.action,
     this.data,
     this.owner,
+    this.input,
   );
   final SendPort reply;
   final String key;
@@ -348,6 +378,7 @@ class _Request {
   final String action;
   final DataContext? data;
   final String owner;
+  final Uint8List? input;
 }
 
 class _Response {
@@ -448,13 +479,17 @@ void _serve(_Start start) async {
       }
     }
 
-    LuauResult metrics({DataRecord? proposal}) => LuauResult(
+    LuauResult metrics({DataRecord? proposal, Object? value}) => LuauResult(
       cold: cold,
       loadMicros: vm == null || vm == nullptr || !cold ? 0 : _loadUs(vm),
       runMicros: vm == null || vm == nullptr || !invoked ? 0 : _runUs(vm),
       memoryBytes: vm == null || vm == nullptr ? 0 : _memory(vm),
       peakBytes: vm == null || vm == nullptr ? 0 : _peak(vm),
       dataProposal: proposal,
+      value: value,
+      responseBytes: vm == null || vm == nullptr || !invoked
+          ? 0
+          : _outputSize(vm),
       dataUsage: usage,
       dataCalls: vm == null || vm == nullptr || !cold && !invoked
           ? 0
@@ -490,17 +525,28 @@ void _serve(_Start start) async {
       final int status;
       try {
         invoked = true;
-        status = using(
-          (arena) =>
-              _invoke(state, request.action.toNativeUtf8(allocator: arena)),
-        );
+        status = using((arena) {
+          final input = request.input;
+          final buffer = input == null
+              ? nullptr.cast<Uint8>()
+              : arena<Uint8>(input.length);
+          if (input != null) buffer.asTypedList(input.length).setAll(0, input);
+          if (_input(state, buffer, input?.length ?? 0) != 0) {
+            throw const LuauException('Cannot allocate plugin message');
+          }
+          return _invoke(state, request.action.toNativeUtf8(allocator: arena));
+        });
       } finally {
         binding?.close();
       }
       final proposal = data?.proposal;
       finishData();
       if (status < 0) throw LuauException(_error(state).toDartString());
-      final result = metrics(proposal: proposal);
+      final outputSize = _outputSize(state);
+      final value = outputSize == 0
+          ? null
+          : decodeValue(_output(state).asTypedList(outputSize));
+      final result = metrics(proposal: proposal, value: value);
       cache[request.key] = state;
       owners[request.key] = request.owner;
       request.reply.send(_Response(result, null, cache.keys.toList()));

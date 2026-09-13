@@ -2,9 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/effects/glitch.dart';
 
-/// HOME, PROJECTS, HOSTS and SSH. Declared here rather than read from the nav
+/// HOME, PROJECTS, HOSTS, SSH and TOOLS. Declared here rather than read from the nav
 /// bar so the glitch controllers do not depend on the widget that draws them.
-const navDestinationCount = 4;
+const navDestinationCount = 5;
 
 /// The selected tab lives outside the shell so a screen can move the user
 /// without owning the shell's state — HOME's "+N more" jumps to PROJECTS.

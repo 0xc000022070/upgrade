@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dazzle_luau/dazzle_luau.dart';
 import 'package:dazzle_luau/data_api.dart';
+import 'package:dazzle_luau/ui_sdk.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,6 +12,7 @@ import '../platform/plugins/bindings.dart';
 import '../platform/plugins/manifest.dart';
 import '../platform/plugins/store.dart';
 import 'native_plugins.dart';
+import 'plugin_hosts.dart';
 
 final pluginStoreProvider = FutureProvider<PluginStore>((ref) async {
   final directory = await getApplicationSupportDirectory();
@@ -77,6 +80,7 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
   final _generations = <String, int>{};
   final _lastResults = <String, LuauResult>{};
   LuauResult? lastResult(String id) => _lastResults[id];
+  int activation(String id) => _generations[id] ?? 0;
 
   Future<void> _invalidate(String id, List<InstalledPlugin> entries) async {
     final affected = {id};
@@ -115,6 +119,18 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
   Future<List<InstalledPlugin>> build() async {
     final entries = await (await ref.watch(pluginStoreProvider.future)).list();
     ref.read(pluginAuthorityProvider).update(entries);
+    unawaited(
+      ref
+          .read(pluginHostRegistryProvider)
+          .reconcile
+          ?.call({
+            for (final plugin in entries.where((plugin) => plugin.enabled))
+              pluginHostOwner(plugin),
+          })
+          .catchError((Object error, StackTrace stack) {
+            ref.invalidate(pendingHostPausesProvider);
+          }),
+    );
     return entries;
   }
 
@@ -126,16 +142,28 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
   }
 
   Future<void> setEnabled(String id, bool enabled) async {
+    final previous = state.requireValue.singleWhere(
+      (plugin) => plugin.id == id,
+    );
     final store = await ref.read(pluginStoreProvider.future);
     state = AsyncData(await store.setEnabled(id, enabled));
-    await _invalidate(id, state.requireValue);
+    await Future.wait([
+      _invalidate(id, state.requireValue),
+      if (!enabled && previous.manifest.hostCapabilities.isNotEmpty)
+        ref.read(pluginHostRegistryProvider).deactivate(previous),
+    ]);
   }
 
   Future<void> remove(String id) async {
     final store = await ref.read(pluginStoreProvider.future);
     final previous = state.requireValue;
     state = AsyncData(await store.remove(id));
-    await _invalidate(id, previous);
+    final removed = previous.singleWhere((plugin) => plugin.id == id);
+    await Future.wait([
+      _invalidate(id, previous),
+      if (removed.manifest.hostCapabilities.isNotEmpty)
+        ref.read(pluginHostRegistryProvider).deactivate(removed),
+    ]);
   }
 
   InstalledPlugin _enabled(String id) {
@@ -151,6 +179,36 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
       if (plugin.id == id && plugin.enabled) return plugin;
     }
     throw const PluginException('Plugin is disabled or removed');
+  }
+
+  Future<LuauResult> frame(String id, Map<String, Object?> input) async {
+    final plugin = _enabled(id);
+    final generation = activation(id);
+    if (plugin.manifest.uiVersion != 1 ||
+        !plugin.grants.any((permission) => permission.id == 'ui.page')) {
+      throw const PluginException('Plugin pages are not supported or granted');
+    }
+    final data = bindPluginData(id, state.requireValue);
+    final worker = await ref.read(pluginRuntimeProvider.future);
+    void check() {
+      if (activation(id) != generation ||
+          _enabled(id).package.digest != plugin.package.digest) {
+        throw const PluginException('Plugin activation changed');
+      }
+    }
+
+    check();
+    final result = await worker.invoke(
+      key: 'ui1:${plugin.package.digest}',
+      source: '$luauUiSdk\n${plugin.package.source}',
+      action: 'frame',
+      input: input,
+      data: data,
+    );
+    check();
+    _lastResults[id] = result;
+    ref.invalidate(pluginDataReportProvider);
+    return result;
   }
 
   Future<RecordProposal?> run(
