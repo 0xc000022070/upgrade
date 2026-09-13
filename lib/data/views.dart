@@ -8,6 +8,7 @@ class NextAction {
     required this.taskId,
     required this.title,
     required this.projectName,
+    required this.blockedReason,
   });
 
   final String taskId;
@@ -15,6 +16,8 @@ class NextAction {
 
   /// Null when the item is a drop.
   final String? projectName;
+
+  final String? blockedReason;
 }
 
 class BlockedTask {

@@ -130,6 +130,19 @@ void main() {
       expect(next.taskId, flagged);
       expect(next.title, 'Flakes');
       expect(next.projectName, 'Dotfiles');
+      expect(next.blockedReason, isNull);
+    });
+
+    test('blocking the flagged item keeps it as the next action', () async {
+      final project = await projects.create(name: 'Infra personal');
+      final task = await tasks.create(projectId: project, title: 'Postgres');
+      await tasks.setNext(task);
+
+      await tasks.block(task, 'Waiting for credentials');
+
+      final next = (await db.watchNextAction().first)!;
+      expect(next.taskId, task);
+      expect(next.blockedReason, 'Waiting for credentials');
     });
 
     // The suggestion fallback was removed: an open, high-priority
@@ -150,13 +163,13 @@ void main() {
       expect(await db.watchNextAction().first, isNull);
     });
 
-    test('a flagged item that gets blocked or done stops being next', () async {
+    test('blocking preserves the next flag while done retires it', () async {
       final project = await projects.create(name: 'Infra personal');
       final blocked = await tasks.create(projectId: project, title: 'Storage');
       await tasks.setNext(blocked);
       await tasks.block(blocked, 'Esperando proveedor S3');
 
-      expect(await db.watchNextAction().first, isNull);
+      expect((await db.watchNextAction().first)!.taskId, blocked);
 
       final finished = await tasks.create(projectId: project, title: 'Redis');
       await tasks.setNext(finished);
