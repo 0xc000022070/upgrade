@@ -30,6 +30,7 @@ class TaskRow extends ConsumerStatefulWidget {
     this.fresh = false,
     this.onTap,
     this.onLongPress,
+    this.onDoneChanged,
   });
 
   final Task task;
@@ -57,6 +58,8 @@ class TaskRow extends ConsumerStatefulWidget {
   /// there begins the selection instead of opening the sheet.
   final VoidCallback? onLongPress;
 
+  final ValueChanged<bool>? onDoneChanged;
+
   @override
   ConsumerState<TaskRow> createState() => _TaskRowState();
 }
@@ -76,9 +79,9 @@ class _TaskRowState extends ConsumerState<TaskRow> {
     if (!MediaQuery.disableAnimationsOf(context)) {
       _glitch.fire(seed: widget.task.id.hashCode);
     }
-    await ref
-        .read(taskRepositoryProvider)
-        .setDone(widget.task.id, !widget.task.done);
+    final done = !widget.task.done;
+    await ref.read(taskRepositoryProvider).setDone(widget.task.id, done);
+    widget.onDoneChanged?.call(done);
   }
 
   @override
@@ -86,13 +89,9 @@ class _TaskRowState extends ConsumerState<TaskRow> {
     final task = widget.task;
     return ListRow(
       leading: DazzleIcon(
-        task.done
-            ? DazzleIcons.checkboxChecked
-            : DazzleIcons.checkboxEmpty,
+        task.done ? DazzleIcons.checkboxChecked : DazzleIcons.checkboxEmpty,
         size: IconSizes.check,
-        color: task.done
-            ? DazzleColors.textDisabled
-            : DazzleColors.accent,
+        color: task.done ? DazzleColors.textDisabled : DazzleColors.accent,
         glitch: _glitch,
       ),
       title: task.title,

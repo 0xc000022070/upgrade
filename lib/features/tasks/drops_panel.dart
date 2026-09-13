@@ -10,6 +10,7 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/effects/glitch.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import 'item_sheet.dart';
@@ -48,6 +49,7 @@ class DropsPanel extends ConsumerStatefulWidget {
     this.empty = 'nothing unfiled',
     this.stateful = false,
     this.landing,
+    this.onCompleted,
   });
 
   final String scope;
@@ -62,6 +64,8 @@ class DropsPanel extends ConsumerStatefulWidget {
   /// icon that normally takes the landing is not on screen.
   final GlitchController? landing;
 
+  final ValueChanged<String>? onCompleted;
+
   @override
   ConsumerState<DropsPanel> createState() => _DropsPanelState();
 }
@@ -75,6 +79,7 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
   /// bar marks a row fresh when the write returns, and the stream delivers it
   /// a frame or more later.
   final _rendered = <String>{};
+  bool _showDone = false;
 
   @override
   void dispose() {
@@ -112,7 +117,18 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
   Widget build(BuildContext context) {
     final selection = ref.watch(dropSelectionProvider);
     final selecting = selection.ownedBy(widget.scope);
-    final rows = widget.drops.valueOrNull ?? const <Task>[];
+    final allRows = widget.drops.valueOrNull ?? const <Task>[];
+    final rows = widget.stateful
+        ? allRows
+        : allRows.where((task) => !task.done).toList();
+    final doneRows = widget.stateful
+        ? const <Task>[]
+        : allRows.where((task) => task.done).toList();
+    final visibleDrops = widget.stateful
+        ? widget.drops
+        : widget.drops.whenData(
+            (items) => items.where((task) => !task.done).toList(),
+          );
     final notifier = ref.read(dropSelectionProvider.notifier);
     _selection = notifier;
     final freshNotifier = ref.read(freshDropsProvider.notifier);
@@ -165,7 +181,7 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
       bodyPadding: panelRowsPadding,
       headerGlitch: widget.landing,
       child: AsyncSection(
-        value: widget.drops,
+        value: visibleDrops,
         empty: widget.empty,
         builder: (items) => ListRowGroup(
           children: [
@@ -183,6 +199,11 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
                   fresh: fresh.contains(task.id),
                   onTap: widget.stateful ? null : () => _open(task.id),
                   onLongPress: () => _hold(task.id, fresh),
+                  onDoneChanged: (done) {
+                    if (!done) return;
+                    freshNotifier.forget(widget.scope, {task.id});
+                    widget.onCompleted?.call(task.id);
+                  },
                 )
               else
                 ListRow(
@@ -210,7 +231,36 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
       ),
     );
 
-    if (!selecting) return panel;
+    final panels = PanelStack(
+      children: [
+        panel,
+        if (doneRows.isNotEmpty)
+          Panel(
+            title: 'DONE',
+            affordance: PanelAffordance(
+              '${doneRows.length}',
+              icon: _showDone ? DazzleIcons.collapse : DazzleIcons.expand,
+            ),
+            onHeaderTap: () => setState(() => _showDone = !_showDone),
+            bodyPadding: panelRowsPadding,
+            child: !_showDone
+                ? null
+                : ListRowGroup(
+                    children: [
+                      for (final task in doneRows)
+                        TaskRow(
+                          key: ValueKey('done-${task.id}'),
+                          task: task,
+                          drop: true,
+                          onTap: () => _open(task.id),
+                        ),
+                    ],
+                  ),
+          ),
+      ],
+    );
+
+    if (!selecting) return panels;
     // The back gesture leaves the mode with nothing changed. The scope
     // is the panel's, so the handler is too.
     return PopScope(
@@ -218,7 +268,7 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) notifier.clear();
       },
-      child: panel,
+      child: panels,
     );
   }
 }
