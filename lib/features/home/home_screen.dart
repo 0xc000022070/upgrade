@@ -164,6 +164,12 @@ class _NextActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final blocked = task.blockedReason != null;
+    final contextLine = [
+      if (task.projectName != null) task.projectName!,
+      if (blocked) '[ BLOCKED BY ] ${task.blockedReason}',
+    ].join(' · ');
+
     return ListRow(
       leading: const DazzleIcon(
         DazzleIcons.forward,
@@ -171,7 +177,8 @@ class _NextActionRow extends StatelessWidget {
         color: DazzleColors.accent,
       ),
       title: task.title,
-      subtitle: task.projectName,
+      subtitle: contextLine.isEmpty ? null : contextLine,
+      subtitleColor: blocked ? DazzleColors.warning : null,
       lead: true,
       decode: true,
       // Every row opens the quick view, and this one most of all — a

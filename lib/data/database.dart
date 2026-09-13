@@ -186,10 +186,11 @@ SELECT id, task_id, 'url', url, created_at FROM links
     return customSelect(
       '''
 $_withVisibility
-SELECT t.id AS task_id, t.title AS title, p.name AS project_name
+SELECT t.id AS task_id, t.title AS title, p.name AS project_name,
+       t.blocked_reason AS blocked_reason
 FROM tasks t
 LEFT JOIN projects p ON p.id = t.project_id
-WHERE t.done = 0 AND t.blocked_reason IS NULL AND t.is_next = 1
+WHERE t.done = 0 AND t.is_next = 1
   AND (p.id IS NULL OR ${_visible('p.id')})
 LIMIT 1
 ''',
@@ -201,6 +202,7 @@ LIMIT 1
         taskId: row.read<String>('task_id'),
         title: row.read<String>('title'),
         projectName: row.read<String?>('project_name'),
+        blockedReason: row.read<String?>('blocked_reason'),
       );
     });
   }

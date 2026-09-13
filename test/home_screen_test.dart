@@ -126,6 +126,30 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('blocking the flagged item leaves it visible with its reason', (
+    tester,
+  ) async {
+    final project = await projects.create(name: 'Infra personal');
+    final task = await tasks.create(
+      projectId: project,
+      title: 'Object storage',
+    );
+    await tasks.setNext(task);
+    await tasks.block(task, 'Waiting for credentials');
+
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    expect(find.text('NEXT ACTION'), findsOneWidget);
+    expect(find.text('Object storage'), findsWidgets);
+    expect(
+      find.text('Infra personal · [ BLOCKED BY ] Waiting for credentials'),
+      findsOneWidget,
+    );
+
+    await unmount(tester);
+  });
+
   testWidgets('the NEXT ACTION row opens the quick view like any other', (
     tester,
   ) async {
@@ -259,23 +283,14 @@ void main() {
     expect(find.text('[ ]'), findsNWidgets(2));
     expect(find.text('[x]'), findsNothing);
     expect(find.text('SELECT'), findsNothing, reason: 'hidden in the mode');
-    expect(
-      _verbColor(tester, Icons.arrow_forward),
-      DazzleColors.textDisabled,
-    );
-    expect(
-      _verbColor(tester, Icons.delete_outline),
-      DazzleColors.textDisabled,
-    );
+    expect(_verbColor(tester, Icons.arrow_forward), DazzleColors.textDisabled);
+    expect(_verbColor(tester, Icons.delete_outline), DazzleColors.textDisabled);
 
     // The first check is what lights them.
     await tester.tap(find.text('primero'));
     await _ready(tester);
     expect(find.text('1 SELECTED'), findsOneWidget);
-    expect(
-      _verbColor(tester, Icons.arrow_forward),
-      DazzleColors.textSecondary,
-    );
+    expect(_verbColor(tester, Icons.arrow_forward), DazzleColors.textSecondary);
 
     await unmount(tester);
   });
