@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../../data/repositories/host_repository.dart';
@@ -7,6 +9,8 @@ import '../../platform/herdr_client.dart';
 import 'host_shell_screen.dart';
 import 'shell_header.dart';
 import 'shell_sessions.dart';
+
+final _openShellRoutes = Expando<ShellSheetRoute>();
 
 /// The way in: a host panel's `SHELL >` row on HOSTS, a host row on SSH, or one
 /// of that tab's session cards, which names the session it wants on screen.
@@ -21,14 +25,23 @@ void openHostShell(
   String? directory,
   PaneRef? pane,
 }) {
-  Navigator.of(context, rootNavigator: true).push(
-    ShellSheetRoute(
-      host: host,
-      session: session,
-      command: command,
-      directory: directory,
-      pane: pane,
-    ),
+  final navigator = Navigator.of(context, rootNavigator: true);
+  if (_openShellRoutes[navigator]?.isActive ?? false) return;
+
+  final route = ShellSheetRoute(
+    host: host,
+    session: session,
+    command: command,
+    directory: directory,
+    pane: pane,
+  );
+  _openShellRoutes[navigator] = route;
+  unawaited(
+    navigator.push(route).whenComplete(() {
+      if (identical(_openShellRoutes[navigator], route)) {
+        _openShellRoutes[navigator] = null;
+      }
+    }),
   );
 }
 

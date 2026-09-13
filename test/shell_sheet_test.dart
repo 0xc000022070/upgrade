@@ -87,6 +87,25 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('repeated opens keep one shell sheet', (tester) async {
+    tester.view.padding = FakeViewPadding(
+      top: _statusBar * tester.view.devicePixelRatio,
+    );
+    addTearDown(tester.view.reset);
+    final sessions = fakeShellSessions(FakeShellTransport());
+    await tester.pumpWidget(app(sessions));
+    final context = tester.element(find.text('OPEN'));
+
+    openHostShell(context, _rose);
+    openHostShell(context, _rose);
+    await ready(tester);
+
+    expect(header, findsOneWidget);
+    expect(sheet, findsOneWidget);
+
+    await unmount(tester);
+  });
+
   testWidgets('a rule on the top edge says the shell is a sheet', (
     tester,
   ) async {
