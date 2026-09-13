@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/urls.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/features/tasks/url_highlight_controller.dart';
+import 'package:dazzle/application/urls.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/features/tasks/url_highlight_controller.dart';
 
 /// The highlight is a promise about what a tap will open, so the assertion
 /// that matters is that the painted ranges and [urlTokens] never disagree:
@@ -13,7 +13,7 @@ void main() {
     final controller = UrlHighlightController(text: text);
     final span = controller.buildTextSpan(
       context: _FakeContext(),
-      style: const TextStyle(color: SpectacleColors.textPrimary),
+      style: const TextStyle(color: DazzleColors.textPrimary),
       withComposing: false,
     );
     final out = <(String, bool)>[];
@@ -83,12 +83,12 @@ void main() {
     final controller = UrlHighlightController(text: 'a https://min.io b');
     final span = controller.buildTextSpan(
       context: _FakeContext(),
-      style: const TextStyle(color: SpectacleColors.textPrimary),
+      style: const TextStyle(color: DazzleColors.textPrimary),
       withComposing: false,
     );
     final marked = (span.children!.whereType<TextSpan>().toList())[1];
-    expect(marked.style!.color, SpectacleColors.textMuted);
-    expect(marked.style!.backgroundColor, SpectacleColors.surfaceSecondary);
+    expect(marked.style!.color, DazzleColors.textMuted);
+    expect(marked.style!.backgroundColor, DazzleColors.surfaceSecondary);
     expect(marked.style!.decoration, TextDecoration.none);
   });
 

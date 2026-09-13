@@ -12,7 +12,7 @@ class SolidActionBar extends StatelessWidget {
     super.key,
     required this.label,
     required this.onTap,
-    this.tone = SpectacleColors.accent,
+    this.tone = DazzleColors.accent,
     this.enabled = true,
   });
 
@@ -37,13 +37,13 @@ class SolidActionBar extends StatelessWidget {
         height: TapTargets.minHeight,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: enabled ? tone : SpectacleColors.textDisabled,
+          color: enabled ? tone : DazzleColors.textDisabled,
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
         child: Text(
           label.toUpperCase(),
-          style: SpectacleText.valueStrong.copyWith(
-            color: SpectacleColors.backgroundPrimary,
+          style: DazzleText.valueStrong.copyWith(
+            color: DazzleColors.backgroundPrimary,
             letterSpacing: 1.4,
             fontSize: 13,
           ),

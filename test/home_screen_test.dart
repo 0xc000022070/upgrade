@@ -2,20 +2,20 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/activity_repository.dart';
-import 'package:spectacle/data/repositories/project_repository.dart';
-import 'package:spectacle/data/repositories/task_repository.dart';
-import 'package:spectacle/features/home/capture_bar.dart';
-import 'package:spectacle/features/tasks/item_pickers.dart';
-import 'package:spectacle/features/tasks/selection_bar.dart';
-import 'package:spectacle/features/home/home_screen.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/activity_repository.dart';
+import 'package:dazzle/data/repositories/project_repository.dart';
+import 'package:dazzle/data/repositories/task_repository.dart';
+import 'package:dazzle/features/home/capture_bar.dart';
+import 'package:dazzle/features/tasks/item_pickers.dart';
+import 'package:dazzle/features/tasks/selection_bar.dart';
+import 'package:dazzle/features/home/home_screen.dart';
 
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/design/components/list_row.dart';
-import 'package:spectacle/design/icons/spectacle_icon.dart';
-import 'package:spectacle/design/icons/spectacle_icons.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/list_row.dart';
+import 'package:dazzle/design/icons/dazzle_icon.dart';
+import 'package:dazzle/design/icons/dazzle_icons.dart';
 
 import 'support/platform_channels.dart';
 
@@ -26,10 +26,10 @@ Color? _verbColor(WidgetTester tester, IconData icon) =>
 
 /// The checkbox is an SVG under a colour, so the asset it was handed is the
 /// only readable statement of which of the two it is drawing.
-Finder _box(String title, SpectacleIcons icon) => find.descendant(
+Finder _box(String title, DazzleIcons icon) => find.descendant(
   of: find.ancestor(of: find.text(title), matching: find.byType(ListRow)),
   matching: find.byWidgetPredicate(
-    (widget) => widget is SpectacleIcon && widget.icon == icon,
+    (widget) => widget is DazzleIcon && widget.icon == icon,
   ),
 );
 
@@ -183,7 +183,7 @@ void main() {
     await _ready(tester);
 
     expect(
-      _box('revisar pgbouncer', SpectacleIcons.checkboxEmpty),
+      _box('revisar pgbouncer', DazzleIcons.checkboxEmpty),
       findsOneWidget,
     );
     await _tapBox(tester, 'revisar pgbouncer');
@@ -195,7 +195,7 @@ void main() {
     // on the tap would take the undo with it.
     expect(find.text('revisar pgbouncer'), findsOneWidget);
     expect(
-      _box('revisar pgbouncer', SpectacleIcons.checkboxChecked),
+      _box('revisar pgbouncer', DazzleIcons.checkboxChecked),
       findsOneWidget,
     );
 
@@ -261,11 +261,11 @@ void main() {
     expect(find.text('SELECT'), findsNothing, reason: 'hidden in the mode');
     expect(
       _verbColor(tester, Icons.arrow_forward),
-      SpectacleColors.textDisabled,
+      DazzleColors.textDisabled,
     );
     expect(
       _verbColor(tester, Icons.delete_outline),
-      SpectacleColors.textDisabled,
+      DazzleColors.textDisabled,
     );
 
     // The first check is what lights them.
@@ -274,7 +274,7 @@ void main() {
     expect(find.text('1 SELECTED'), findsOneWidget);
     expect(
       _verbColor(tester, Icons.arrow_forward),
-      SpectacleColors.textSecondary,
+      DazzleColors.textSecondary,
     );
 
     await unmount(tester);

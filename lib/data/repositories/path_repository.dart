@@ -47,8 +47,8 @@ class AgentPath {
 }
 
 /// The last segment of [directory], which is what a path is called when the
-/// user names none. Trailing slashes are dropped first, so `~/src/spectacle/`
-/// reads `spectacle` and not the empty string; a directory that is nothing but
+/// user names none. Trailing slashes are dropped first, so `~/src/dazzle/`
+/// reads `dazzle` and not the empty string; a directory that is nothing but
 /// slashes falls back to itself, because a blank label would leave the picker
 /// row with no word on it.
 String defaultPathLabel(String directory) {

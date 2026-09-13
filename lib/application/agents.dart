@@ -365,7 +365,7 @@ Future<HostOutcome> _poll(
   // what the transport said, so a report from a handset can be read without
   // guessing which of the four the dim line came from. debugPrint rather than
   // dart:developer: only the former reaches logcat on a handset.
-  void log(Object error) => debugPrint('spectacle.herdr ${host.name}: $error');
+  void log(Object error) => debugPrint('dazzle.herdr ${host.name}: $error');
 
   final privateKey = await keys.privateKey(host.keyId);
   // The key row survives but its secret does not: the host names a key the

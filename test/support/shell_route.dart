@@ -2,13 +2,13 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/data/repositories/path_repository.dart';
-import 'package:spectacle/features/shell/host_shell_screen.dart';
-import 'package:spectacle/features/shell/shell_sheet.dart';
-import 'package:spectacle/features/shell/shell_sessions.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/data/repositories/path_repository.dart';
+import 'package:dazzle/features/shell/host_shell_screen.dart';
+import 'package:dazzle/features/shell/shell_sheet.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
 
 /// What every shell route test starts from. The route's tests are split by
 /// what they are about — the header, the tabs, the keys, the terminal — and

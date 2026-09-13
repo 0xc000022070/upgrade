@@ -30,14 +30,14 @@ const watcherLivenessPeriod = Duration(seconds: 10);
 /// at the bottom of the shade.
 const watcherChannelId = 'watcher';
 const watcherChannelName = 'Agent watcher';
-const watcherNotificationTitle = 'SPECTACLE';
+const watcherNotificationTitle = 'DAZZLE';
 
-const _hostsKey = 'spectacle.watcher.hosts';
+const _hostsKey = 'dazzle.watcher.hosts';
 
-/// The evidence seam. With `--dart-define=SPECTACLE_FAKE_WATCH=true` the watcher
+/// The evidence seam. With `--dart-define=DAZZLE_FAKE_WATCH=true` the watcher
 /// never dials: each host's stream is a canned pair of snapshots, which is what
 /// produces the alert on an emulator that has no key on the host.
-const _fakeWatch = bool.fromEnvironment('SPECTACLE_FAKE_WATCH');
+const _fakeWatch = bool.fromEnvironment('DAZZLE_FAKE_WATCH');
 
 String encodeWatcherHosts(List<Host> hosts) => jsonEncode([
   for (final host in hosts)
@@ -164,7 +164,7 @@ class AgentWatcher {
       callback: agentWatcherEntry,
     );
     if (result is ServiceRequestFailure) {
-      debugPrint('spectacle.herdr watcher: ${result.error}');
+      debugPrint('dazzle.herdr watcher: ${result.error}');
     }
   }
 
@@ -479,7 +479,7 @@ class _HostLoop {
   }
 
   // One line per failure, naming the host and what the transport said.
-  void _log(Object error) => debugPrint('spectacle.herdr ${host.name}: $error');
+  void _log(Object error) => debugPrint('dazzle.herdr ${host.name}: $error');
 
   /// A sleep [stop] can cut short. Every wait this loop takes goes through it:
   /// the service is torn down by Android's `onDestroy`, which is on a clock,
@@ -626,7 +626,7 @@ class _HostLoop {
         state: BlockedState(),
         terminalTitleStripped: 'RUN THE MIGRATION?',
         workspaceId: 'wF',
-        cwd: '~/src/spectacle',
+        cwd: '~/src/dazzle',
         stateChangeSeq: 2,
       ),
       AgentSnapshot(
@@ -636,7 +636,7 @@ class _HostLoop {
         state: WorkingState(),
         terminalTitleStripped: 'wiring the diff viewer',
         workspaceId: 'wF',
-        cwd: '~/src/spectacle',
+        cwd: '~/src/dazzle',
         stateChangeSeq: 7,
       ),
       AgentSnapshot(
@@ -656,7 +656,7 @@ class _HostLoop {
         state: WorkingState(),
         terminalTitleStripped: 'reading the spec',
         workspaceId: 'wG',
-        cwd: '~/src/spectacle',
+        cwd: '~/src/dazzle',
         stateChangeSeq: 3,
       ),
       AgentSnapshot(
@@ -666,7 +666,7 @@ class _HostLoop {
         state: IdleState(),
         terminalTitleStripped: 'zsh',
         workspaceId: 'wG',
-        cwd: '~/src/spectacle',
+        cwd: '~/src/dazzle',
         stateChangeSeq: 1,
       ),
     ];

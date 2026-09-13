@@ -106,7 +106,7 @@ class WorkspaceController extends ChangeNotifier {
       _runner = runner;
       await _load(attempt);
     } on HerdrFailure catch (error) {
-      debugPrint('spectacle.workspace ${host.name}: ${error.detail ?? error}');
+      debugPrint('dazzle.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed || attempt != _attempt) return;
       _fail(error.reason(host.name));
     }
@@ -244,7 +244,7 @@ class WorkspaceController extends ChangeNotifier {
     try {
       return await runner.run(command);
     } on HerdrFailure catch (error) {
-      debugPrint('spectacle.workspace ${host.name}: ${error.detail ?? error}');
+      debugPrint('dazzle.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed) return null;
       _fail(error.reason(host.name));
       return null;

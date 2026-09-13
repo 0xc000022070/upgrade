@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/platform/bundle_cipher.dart';
+import 'package:dazzle/platform/bundle_cipher.dart';
 
 // Small enough to run in a test, well below what the app seals under; the
 // envelope carries the numbers, so the opener does not care which.
@@ -36,7 +36,7 @@ void main() {
     expect(await cipher.open(file, 'correct horse'), _payload);
 
     final envelope = _envelope(file);
-    expect(envelope['spectacle'], 'bundle');
+    expect(envelope['dazzle'], 'bundle');
     expect(envelope['version'], 1);
     final kdf = envelope['kdf'] as Map;
     expect(kdf['name'], 'argon2id');
@@ -85,7 +85,7 @@ void main() {
     );
     expect(
       await _faultOf(
-        () => cipher.open(_bytes({'spectacle': 'note', 'version': 1}), 'p'),
+        () => cipher.open(_bytes({'dazzle': 'note', 'version': 1}), 'p'),
       ),
       BundleFault.notABundle,
     );

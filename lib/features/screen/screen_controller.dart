@@ -309,7 +309,7 @@ class HostScreenController extends ChangeNotifier {
 
   /// One debug line per host, named after this feature.
   void _log(Object message) =>
-      debugPrint('spectacle.vnc ${host.name}: $message');
+      debugPrint('dazzle.vnc ${host.name}: $message');
 
   @override
   void dispose() {

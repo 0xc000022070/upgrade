@@ -6,8 +6,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/platform/shell/host_clipboard.dart';
-import 'package:spectacle/platform/shell/shell_connection.dart';
+import 'package:dazzle/platform/shell/host_clipboard.dart';
+import 'package:dazzle/platform/shell/shell_connection.dart';
 
 ExecResult printed(String stdout, {int exitCode = 0}) => ExecResult(
   exitCode: exitCode,
@@ -135,7 +135,7 @@ void main() {
         clipboardCommand(clipboard, 'a.png'),
         "sh -c 'XDG_RUNTIME_DIR='\\''/run/user/1000'\\'' "
         "WAYLAND_DISPLAY='\\''wayland-1'\\'' wl-copy --type image/png "
-        "< '\\''/tmp/spectacle/a.png'\\'' >/dev/null 2>&1'",
+        "< '\\''/tmp/dazzle/a.png'\\'' >/dev/null 2>&1'",
       );
     });
 
@@ -155,15 +155,15 @@ void main() {
     test('macos reads the file as PNGf', () {
       expect(
         clipboardCommand(const HostClipboard(ClipboardBackend.macos), 'a.png'),
-        contains('POSIX file \\"/tmp/spectacle/a.png\\"'),
+        contains('POSIX file \\"/tmp/dazzle/a.png\\"'),
       );
     });
 
     test('the upload makes the directory and writes stdin under it', () {
       expect(
         uploadCommand('a.png'),
-        "sh -c 'mkdir -p '\\''/tmp/spectacle'\\'' && cat > "
-        "'\\''/tmp/spectacle/a.png'\\'''",
+        "sh -c 'mkdir -p '\\''/tmp/dazzle'\\'' && cat > "
+        "'\\''/tmp/dazzle/a.png'\\'''",
       );
     });
 

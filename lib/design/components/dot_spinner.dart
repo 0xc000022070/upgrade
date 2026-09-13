@@ -54,8 +54,8 @@ class _DotSpinnerState extends State<DotSpinner> {
               height: DotSpinner._dot,
               child: ColoredBox(
                 color: i == lit
-                    ? SpectacleColors.accent
-                    : SpectacleColors.textDisabled,
+                    ? DazzleColors.accent
+                    : DazzleColors.textDisabled,
               ),
             ),
         ],

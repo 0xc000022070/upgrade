@@ -19,8 +19,8 @@ class UrlHighlightController extends TextEditingController {
   /// The treatment: `--fg-dim` ink on a `--panel-strip` ground,
   /// mono, spanning exactly the token, and no underline — the field's own type
   /// is already mono, so the style only overrides colour.
-  static const ink = SpectacleColors.textMuted;
-  static const ground = SpectacleColors.surfaceSecondary;
+  static const ink = DazzleColors.textMuted;
+  static const ground = DazzleColors.surfaceSecondary;
 
   @override
   TextSpan buildTextSpan({

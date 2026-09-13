@@ -26,15 +26,15 @@ Future<bool> askHostKey(
     builder: (context) => PanelSheetBody(
       title: 'NEW HOST KEY',
       children: [
-        Text(host.name.toUpperCase(), style: SpectacleText.panelHeader),
+        Text(host.name.toUpperCase(), style: DazzleText.panelHeader),
         const SizedBox(height: Spacing.sm),
         Meta('${host.address}:${host.port}'),
         const SheetRule(),
-        Text('KEY TYPE', style: SpectacleText.label),
+        Text('KEY TYPE', style: DazzleText.label),
         const SizedBox(height: Spacing.sm),
         Meta(offer.type.toUpperCase()),
         const SizedBox(height: Spacing.md),
-        Text('FINGERPRINT', style: SpectacleText.label),
+        Text('FINGERPRINT', style: DazzleText.label),
         const SizedBox(height: Spacing.sm),
         // Three lines rather than one: a fingerprint is fifty characters and
         // the half an ellipsis would drop is the half that tells one machine
@@ -53,7 +53,7 @@ Future<bool> askHostKey(
             Expanded(
               child: ActionBlock(
                 label: 'TRUST',
-                tone: SpectacleColors.accent,
+                tone: DazzleColors.accent,
                 filled: true,
                 onTap: () => Navigator.of(context).pop(true),
               ),

@@ -79,10 +79,10 @@ class AgentStatusBar extends ConsumerWidget {
       onTap: () => ref.read(navIndexProvider.notifier).state = 0,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: SpectacleColors.surfacePrimary,
+          color: DazzleColors.surfacePrimary,
           border: Border(
             top: BorderSide(
-              color: SpectacleColors.borderNormal,
+              color: DazzleColors.borderNormal,
               width: Borders.hairline,
             ),
           ),
@@ -104,15 +104,15 @@ class AgentStatusBar extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       line,
-                      style: SpectacleText.panelHeader.copyWith(
-                        color: SpectacleColors.textPrimary,
+                      style: DazzleText.panelHeader.copyWith(
+                        color: DazzleColors.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: Spacing.md),
-                  const Text('AGENTS', style: SpectacleText.panelHeader),
+                  const Text('AGENTS', style: DazzleText.panelHeader),
                 ],
               ),
             ),
@@ -127,10 +127,10 @@ class AgentStatusBar extends ConsumerWidget {
   /// failing to look, and an agent stopped at a question is the user being
   /// waited on.
   Color _tint(AgentStates states, {required bool down}) {
-    if (states.blocked > 0) return SpectacleColors.accent;
-    if (down) return SpectacleColors.warning;
-    if (states.working > 0) return SpectacleColors.textPrimary;
-    return SpectacleColors.textMuted;
+    if (states.blocked > 0) return DazzleColors.accent;
+    if (down) return DazzleColors.warning;
+    if (states.working > 0) return DazzleColors.textPrimary;
+    return DazzleColors.textMuted;
   }
 }
 
@@ -145,7 +145,7 @@ class _Mark extends StatelessWidget {
     // at: the phone's scale is a curve and gives a small size most of the rise,
     // so a block fixed at six pixels shrinks against its own text until it
     // reads as a speck of dust on the bar.
-    final size = SpectacleText.panelHeader.fontSize!;
+    final size = DazzleText.panelHeader.fontSize!;
     final scale = MediaQuery.textScalerOf(context).scale(size) / size;
     return SizedBox(
       key: const ValueKey('agent-status-mark'),

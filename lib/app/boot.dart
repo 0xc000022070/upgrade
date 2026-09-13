@@ -156,7 +156,7 @@ class _BootScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: SpectacleColors.backgroundPrimary,
+      color: DazzleColors.backgroundPrimary,
       child: DitherField(
         child: SafeArea(
           child: Padding(
@@ -167,7 +167,7 @@ class _BootScreen extends StatelessWidget {
             // against the accent column. The lines carry their own style and
             // only ever inherited that decoration.
             child: DefaultTextStyle(
-              style: SpectacleText.value,
+              style: DazzleText.value,
               // Bottom-aligned by [Align] rather than by the column, so the
               // column is only as tall as the log. The glitch blocks are
               // fractions of the box they are given: over a full-height column
@@ -190,7 +190,7 @@ class _BootScreen extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   step.label,
-                                  style: SpectacleText.value,
+                                  style: DazzleText.value,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -198,8 +198,8 @@ class _BootScreen extends StatelessWidget {
                               const SizedBox(width: Spacing.md),
                               Text(
                                 step.status,
-                                style: SpectacleText.value.copyWith(
-                                  color: SpectacleColors.accent,
+                                style: DazzleText.value.copyWith(
+                                  color: DazzleColors.accent,
                                 ),
                               ),
                             ],

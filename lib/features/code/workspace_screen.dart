@@ -8,7 +8,7 @@ import '../../design/colors.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
-import '../../design/icons/spectacle_icons.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../platform/shell/remote_shell.dart';
 import '../../platform/workspace/workspace_model.dart';
@@ -84,7 +84,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           ],
           breadcrumbTrailing: PanelAffordance(
             'REFRESH',
-            icon: SpectacleIcons.sync,
+            icon: DazzleIcons.sync,
             onTap: _controller.refresh,
           ),
           title: _controller.label.toUpperCase(),
@@ -115,7 +115,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           : PanelAffordance(
               status.clean ? 'CLEAN' : '${status.changes.length} CHANGED',
               showIcon: false,
-              color: status.clean ? null : SpectacleColors.warning,
+              color: status.clean ? null : DazzleColors.warning,
             ),
       bodyPadding: panelRowsPadding,
       child: ListRowGroup(
@@ -123,7 +123,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           if (failed)
             ListRow(
               title: _controller.reason ?? 'failed',
-              titleColor: SpectacleColors.warning,
+              titleColor: DazzleColors.warning,
               value: 'RETRY',
               onTap: _controller.connect,
             )
@@ -176,7 +176,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
               value: worktree.directory == _controller.directory
                   ? 'ON SCREEN'
                   : null,
-              valueColor: SpectacleColors.accent,
+              valueColor: DazzleColors.accent,
               onTap: worktree.directory == _controller.directory
                   ? null
                   : () => _controller.openWorktree(worktree.directory),

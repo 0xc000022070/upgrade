@@ -82,7 +82,7 @@ class _SplashRouteState extends State<SplashRoute> {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: SpectacleColors.backgroundPrimary,
+      color: DazzleColors.backgroundPrimary,
       child: Center(
         child: Sprite(state: 'splash', scale: 4, onDone: _played),
       ),

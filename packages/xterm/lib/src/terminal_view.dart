@@ -138,7 +138,7 @@ class TerminalView extends StatefulWidget {
 
   /// True if a tap on the view asks for the on-screen keyboard. With it false
   /// a tap only clears the selection, and the keyboard comes up through
-  /// [requestKeyboard] or the focus node alone. Spectacle patch.
+  /// [requestKeyboard] or the focus node alone. Dazzle patch.
   final bool keyboardOnTap;
 
   /// If true, when the terminal is in alternate buffer (for example running

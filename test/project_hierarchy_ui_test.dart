@@ -2,16 +2,16 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/navigation.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/activity_repository.dart';
-import 'package:spectacle/data/repositories/project_repository.dart';
-import 'package:spectacle/data/repositories/task_repository.dart';
-import 'package:spectacle/features/projects/project_detail_screen.dart';
-import 'package:spectacle/features/projects/project_form_screen.dart';
-import 'package:spectacle/features/projects/project_row.dart';
-import 'package:spectacle/features/projects/projects_screen.dart';
+import 'package:dazzle/application/navigation.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/activity_repository.dart';
+import 'package:dazzle/data/repositories/project_repository.dart';
+import 'package:dazzle/data/repositories/task_repository.dart';
+import 'package:dazzle/features/projects/project_detail_screen.dart';
+import 'package:dazzle/features/projects/project_form_screen.dart';
+import 'package:dazzle/features/projects/project_row.dart';
+import 'package:dazzle/features/projects/projects_screen.dart';
 
 import 'support/platform_channels.dart';
 

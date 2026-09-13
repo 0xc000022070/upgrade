@@ -1,6 +1,6 @@
-# Spectacle production icon reference
+# Dazzle production icon reference
 
-This directory contains 43 Spectacle-owned SVG icons. All files use a 24×24 viewBox, a 1.75 px stroke, butt caps, miter joins, and `currentColor`. Routes stay unfilled. Nodes carry the fill.
+This directory contains 43 Dazzle-owned SVG icons. All files use a 24×24 viewBox, a 1.75 px stroke, butt caps, miter joins, and `currentColor`. Routes stay unfilled. Nodes carry the fill.
 
 "Diamond" means endpoint, entity, or target. "Square" means system, container, device, or junction. A mixed icon uses each node for its assigned role. Circles are forbidden. Search alone owns the opposing-corner modifier. Add alone owns the bare `+`.
 

@@ -13,7 +13,7 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/components/solid_action_bar.dart';
-import '../../design/icons/spectacle_icons.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/bundle_cipher.dart';
@@ -50,13 +50,13 @@ class _BundlePanelState extends ConsumerState<BundlePanel> {
                 children: [
                   const SizedBox(
                     width: 96,
-                    child: Text('LAST', style: SpectacleText.label),
+                    child: Text('LAST', style: DazzleText.label),
                   ),
                   Expanded(
                     child: Meta(
                       last.words,
                       strong: !last.failed,
-                      color: last.failed ? SpectacleColors.danger : null,
+                      color: last.failed ? DazzleColors.danger : null,
                     ),
                   ),
                 ],
@@ -64,12 +64,12 @@ class _BundlePanelState extends ConsumerState<BundlePanel> {
             ),
           PanelTextAction(
             label: 'EXPORT',
-            icon: SpectacleIcons.arrowUp,
+            icon: DazzleIcons.arrowUp,
             onTap: _busy ? null : _export,
           ),
           PanelTextAction(
             label: 'IMPORT',
-            icon: SpectacleIcons.arrowDown,
+            icon: DazzleIcons.arrowDown,
             onTap: _busy ? null : _import,
           ),
         ],
@@ -178,7 +178,7 @@ class _BundlePanelState extends ConsumerState<BundlePanel> {
       builder: (context) => PanelSheetBody(
         title: title,
         children: [
-          Text(count, style: SpectacleText.valueStrong),
+          Text(count, style: DazzleText.valueStrong),
           const SizedBox(height: Spacing.md),
           Row(
             children: [
@@ -192,7 +192,7 @@ class _BundlePanelState extends ConsumerState<BundlePanel> {
               Expanded(
                 child: ActionBlock(
                   label: 'IMPORT',
-                  tone: SpectacleColors.accent,
+                  tone: DazzleColors.accent,
                   filled: true,
                   onTap: () => Navigator.of(context).pop(true),
                 ),

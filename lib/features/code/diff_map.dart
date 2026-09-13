@@ -114,14 +114,14 @@ class _MapPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (rows == 0 || size.height <= 0) return;
-    final edge = Paint()..color = SpectacleColors.borderSubtle;
+    final edge = Paint()..color = DazzleColors.borderSubtle;
     canvas.drawRect(Rect.fromLTWH(0, 0, Borders.hairline, size.height), edge);
 
     final mark = Paint();
     for (final streak in streaks) {
       mark.color = streak.kind == DiffLineKind.added
-          ? SpectacleColors.accent
-          : SpectacleColors.danger;
+          ? DazzleColors.accent
+          : DazzleColors.danger;
       final top = streak.start / rows * size.height;
       final height = math.max(
         (streak.end - streak.start) / rows * size.height,
@@ -159,7 +159,7 @@ class _MapPainter extends CustomPainter {
     canvas.drawRect(window, Paint()..color = _window);
     // A fill alone is legible against the ground and not against a run of
     // marks, which is exactly where knowing what is on screen matters most.
-    final bracket = Paint()..color = SpectacleColors.textDisabled;
+    final bracket = Paint()..color = DazzleColors.textDisabled;
     canvas.drawRect(
       Rect.fromLTWH(window.left, window.top, window.width, Borders.hairline),
       bracket,

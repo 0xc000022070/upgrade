@@ -20,7 +20,7 @@ void stubDeviceChannels({
   const codec = StandardMethodCodec();
 
   messenger.setMockMethodCallHandler(
-    const MethodChannel('dev.luisnquin.spectacle/device'),
+    const MethodChannel('dev.luisnquin.dazzle/device'),
     (call) async {
       switch (call.method) {
         case 'model':
@@ -40,7 +40,7 @@ void stubDeviceChannels({
   );
 
   messenger.setMockMessageHandler(
-    'dev.luisnquin.spectacle/device/throttle',
+    'dev.luisnquin.dazzle/device/throttle',
     (message) async => codec.encodeSuccessEnvelope(null),
   );
 
@@ -48,7 +48,7 @@ void stubDeviceChannels({
   // nothing is replayed on subscribe. What a test wants to say afterwards goes
   // through [pushNetwork].
   messenger.setMockMessageHandler(
-    'dev.luisnquin.spectacle/device/network',
+    'dev.luisnquin.dazzle/device/network',
     (message) async => codec.encodeSuccessEnvelope(null),
   );
 }
@@ -60,7 +60,7 @@ Future<void> pushNetwork(bool up) => TestDefaultBinaryMessengerBinding
     .instance
     .defaultBinaryMessenger
     .handlePlatformMessage(
-      'dev.luisnquin.spectacle/device/network',
+      'dev.luisnquin.dazzle/device/network',
       const StandardMethodCodec().encodeSuccessEnvelope(up),
       (_) {},
     );

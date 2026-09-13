@@ -3,13 +3,13 @@ import 'dart:io';
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/enums.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/data/repositories/key_repository.dart';
-import 'package:spectacle/data/repositories/path_repository.dart';
-import 'package:spectacle/data/repositories/shell_tab_repository.dart';
-import 'package:spectacle/data/repositories/settings_repository.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/enums.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/data/repositories/key_repository.dart';
+import 'package:dazzle/data/repositories/path_repository.dart';
+import 'package:dazzle/data/repositories/shell_tab_repository.dart';
+import 'package:dazzle/data/repositories/settings_repository.dart';
 
 /// The v2 schema exactly as it shipped, written out by hand: the point of the
 /// test is that the v3 migration meets a database it did not create, so the
@@ -273,8 +273,8 @@ void main() {
   late File file;
 
   setUp(() async {
-    dir = await Directory.systemTemp.createTemp('spectacle-migration');
-    file = File('${dir.path}/spectacle.sqlite');
+    dir = await Directory.systemTemp.createTemp('dazzle-migration');
+    file = File('${dir.path}/dazzle.sqlite');
   });
 
   tearDown(() => dir.delete(recursive: true));
@@ -614,8 +614,8 @@ void main() {
     await keys.save(
       ManagedKey(
         id: 'k1',
-        name: 'spectacle',
-        publicKey: 'ssh-ed25519 AAAA spectacle',
+        name: 'dazzle',
+        publicKey: 'ssh-ed25519 AAAA dazzle',
         fingerprint: 'SHA256:abc',
         createdAt: DateTime.parse(stamp(22)),
       ),
@@ -787,7 +787,7 @@ void main() {
 
     // And both take writes on a database the migration upgraded.
     final paths = DriftPathRepository(db);
-    final path = await paths.add(hostId: 'h1', directory: '~/src/spectacle');
+    final path = await paths.add(hostId: 'h1', directory: '~/src/dazzle');
     await db
         .into(db.tasks)
         .insert(
@@ -809,7 +809,7 @@ void main() {
             sentAt: DateTime.parse(stamp(22)),
           ),
         );
-    expect((await paths.listForHost('h1')).single.label, 'spectacle');
+    expect((await paths.listForHost('h1')).single.label, 'dazzle');
     expect((await db.select(db.dispatches).get()).single.paneId, 'wQ:pH');
   });
 
@@ -829,7 +829,7 @@ void main() {
     await executor.runInsert(
       'INSERT INTO paths (id, host_id, directory, label, agent, created_at) '
       'VALUES (?, ?, ?, ?, ?, ?)',
-      ['p1', 'h1', '~/src/spectacle', 'spectacle', 'codex', stamp(20)],
+      ['p1', 'h1', '~/src/dazzle', 'dazzle', 'codex', stamp(20)],
     );
     await executor.runInsert(
       'INSERT INTO tasks (id, title, done, created_at, updated_at) '
@@ -864,7 +864,7 @@ void main() {
     expect((await db.select(db.paths).get()).single.projectId, isNull);
     expect(
       (await DriftPathRepository(db).listForHost('h1')).single.label,
-      'spectacle',
+      'dazzle',
     );
   });
 
@@ -884,7 +884,7 @@ void main() {
     await executor.runInsert(
       'INSERT INTO paths (id, host_id, directory, label, created_at) '
       'VALUES (?, ?, ?, ?, ?)',
-      ['p1', 'h1', '~/src/spectacle', 'spectacle', stamp(20)],
+      ['p1', 'h1', '~/src/dazzle', 'dazzle', stamp(20)],
     );
     await executor.close();
 
@@ -895,7 +895,7 @@ void main() {
     // predates the link is exactly what an unlinked one is, so there is
     // nothing to backfill and nothing was.
     final path = (await DriftPathRepository(db).listForHost('h1')).single;
-    expect(path.directory, '~/src/spectacle');
+    expect(path.directory, '~/src/dazzle');
     expect(path.projectId, isNull);
     expect(await DriftPathRepository(db).watchUnlinked().first, hasLength(1));
   });

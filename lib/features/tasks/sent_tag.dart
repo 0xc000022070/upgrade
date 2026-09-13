@@ -12,5 +12,5 @@ class SentTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const Text('SENT', style: SpectacleText.label);
+      const Text('SENT', style: DazzleText.label);
 }

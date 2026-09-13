@@ -46,10 +46,10 @@ const _systemBars = SystemUiOverlayStyle(
 /// answer of its own, and this is where it is given — over the navigator, so
 /// every route is under it.
 Widget houseText(BuildContext context, Widget? child) =>
-    DefaultTextStyle(style: SpectacleText.prose, child: child!);
+    DefaultTextStyle(style: DazzleText.prose, child: child!);
 
-class SpectacleApp extends StatelessWidget {
-  const SpectacleApp({super.key, this.boot = const []});
+class DazzleApp extends StatelessWidget {
+  const DazzleApp({super.key, this.boot = const []});
 
   /// Steps recorded by `main()`, replayed by the boot log.
   final List<BootStep> boot;
@@ -57,10 +57,10 @@ class SpectacleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Spectacle',
+      title: 'Dazzle',
       debugShowCheckedModeBanner: false,
-      theme: SpectacleTheme.build(),
-      scrollBehavior: const SpectacleScrollBehavior(),
+      theme: DazzleTheme.build(),
+      scrollBehavior: const DazzleScrollBehavior(),
       // The window the system parks in a corner is over every route rather
       // than inside one: the app goes there from wherever the user was.
       builder: (context, child) => houseText(context, PipHost(child: child!)),
@@ -73,7 +73,7 @@ class SpectacleApp extends StatelessWidget {
       home: SplashRoute(
         next: (context) => AlertsHost(
           child: ShellWakeHost(
-            child: BootGate(steps: boot, child: const SpectacleShell()),
+            child: BootGate(steps: boot, child: const DazzleShell()),
           ),
         ),
       ),
@@ -84,14 +84,14 @@ class SpectacleApp extends StatelessWidget {
 /// HOME, PROJECTS, HOSTS and SSH are the tabs, all kept mounted in an
 /// [IndexedStack], so a tab is never rebuilt from nothing and the screen the
 /// user comes back to is the screen they left.
-class SpectacleShell extends ConsumerStatefulWidget {
-  const SpectacleShell({super.key});
+class DazzleShell extends ConsumerStatefulWidget {
+  const DazzleShell({super.key});
 
   @override
-  ConsumerState<SpectacleShell> createState() => _SpectacleShellState();
+  ConsumerState<DazzleShell> createState() => _DazzleShellState();
 }
 
-class _SpectacleShellState extends ConsumerState<SpectacleShell> {
+class _DazzleShellState extends ConsumerState<DazzleShell> {
   /// Bumped per tab when it is brought forward, which is what [ScreenEntry]
   /// turns into "this screen entered" for the decode and smear effects.
   final _entries = List.filled(navDestinations.length, 0);
@@ -131,7 +131,7 @@ class _SpectacleShellState extends ConsumerState<SpectacleShell> {
           // screen in front of the user, never on a background tab.
           onTick: () => glitch.fire(ref.read(navIndexProvider)),
           child: Scaffold(
-            backgroundColor: SpectacleColors.backgroundPrimary,
+            backgroundColor: DazzleColors.backgroundPrimary,
             resizeToAvoidBottomInset: true,
             body: StaticSurface(
               child: IndexedStack(

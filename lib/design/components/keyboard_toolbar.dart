@@ -8,7 +8,7 @@ import '../motion.dart';
 import '../spacing.dart';
 import '../typography.dart';
 import 'action_block.dart';
-import 'spectacle_field.dart';
+import 'dazzle_field.dart';
 
 /// The toolbar's glyphs are named one by one, one glyph per verb and
 /// none reused. Naming them as an enum rather than passing [IconData] around is
@@ -61,12 +61,12 @@ class ToolbarChip {
   const ToolbarChip({
     required this.label,
     this.onRemove,
-    this.tone = SpectacleColors.textSecondary,
+    this.tone = DazzleColors.textSecondary,
   }) : imagePath = null;
 
   const ToolbarChip.image({required String this.imagePath, this.onRemove})
     : label = '',
-      tone = SpectacleColors.textSecondary;
+      tone = DazzleColors.textSecondary;
 
   final String label;
 
@@ -559,7 +559,7 @@ class KeyboardToolbar extends StatelessWidget {
         if (chips.isNotEmpty)
           Container(
             height: chipHeight + Spacing.md,
-            color: SpectacleColors.surfacePrimary,
+            color: DazzleColors.surfacePrimary,
             padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
             alignment: Alignment.centerLeft,
             child: ListView.separated(
@@ -572,10 +572,10 @@ class KeyboardToolbar extends StatelessWidget {
         Container(
           height: height,
           decoration: const BoxDecoration(
-            color: SpectacleColors.surfaceSecondary,
+            color: DazzleColors.surfaceSecondary,
             border: Border(
               top: BorderSide(
-                color: SpectacleColors.borderNormal,
+                color: DazzleColors.borderNormal,
                 width: Borders.hairline,
               ),
             ),
@@ -620,27 +620,27 @@ class _FieldLine extends StatelessWidget {
         height: KeyboardToolbar.fieldHeight,
         padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
         decoration: const BoxDecoration(
-          color: SpectacleColors.surfacePrimary,
+          color: DazzleColors.surfacePrimary,
           border: Border(
             top: BorderSide(
-              color: SpectacleColors.borderNormal,
+              color: DazzleColors.borderNormal,
               width: Borders.hairline,
             ),
           ),
         ),
         child: Row(
           children: [
-            Text(field.label, style: SpectacleText.panelHeader),
+            Text(field.label, style: DazzleText.panelHeader),
             const SizedBox(width: Spacing.lg),
             Expanded(
-              child: SpectacleField(
+              child: DazzleField(
                 controller: field.controller,
                 focusNode: focus,
-                style: SpectacleText.capture.copyWith(
-                  color: SpectacleColors.textPrimary,
+                style: DazzleText.capture.copyWith(
+                  color: DazzleColors.textPrimary,
                 ),
                 hint: field.hint,
-                hintStyle: SpectacleText.capture,
+                hintStyle: DazzleText.capture,
                 keyboardType: field.keyboardType,
                 onSubmitted: (value) {
                   if (_accepts(value)) field.onSubmit(value);
@@ -658,8 +658,8 @@ class _FieldLine extends StatelessWidget {
                 return ActionBlock(
                   label: field.action,
                   tone: ready
-                      ? SpectacleColors.accent
-                      : SpectacleColors.textDisabled,
+                      ? DazzleColors.accent
+                      : DazzleColors.textDisabled,
                   onTap: ready ? () => field.onSubmit(value.text) : null,
                 );
               },
@@ -674,7 +674,7 @@ class _FieldLine extends StatelessWidget {
                 child: Icon(
                   Icons.close,
                   size: IconSizes.sm,
-                  color: SpectacleColors.textMuted,
+                  color: DazzleColors.textMuted,
                 ),
               ),
             ),
@@ -707,10 +707,10 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
       message: widget.action.glyph.word,
       triggerMode: TooltipTriggerMode.longPress,
       preferBelow: false,
-      textStyle: SpectacleText.label.copyWith(
-        color: SpectacleColors.textPrimary,
+      textStyle: DazzleText.label.copyWith(
+        color: DazzleColors.textPrimary,
       ),
-      decoration: const BoxDecoration(color: SpectacleColors.surfacePrimary),
+      decoration: const BoxDecoration(color: DazzleColors.surfacePrimary),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (_) => setState(() => _down = true),
@@ -724,7 +724,7 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
             child: Icon(
               widget.action.glyph.icon,
               size: IconSizes.toolbar,
-              color: lit ? SpectacleColors.accent : SpectacleColors.textMuted,
+              color: lit ? DazzleColors.accent : DazzleColors.textMuted,
             ),
           ),
         ),
@@ -759,7 +759,7 @@ class _Chip extends StatelessWidget {
                 children: [
                   Text(
                     '[ ${chip.label} ]',
-                    style: SpectacleText.value.copyWith(color: chip.tone),
+                    style: DazzleText.value.copyWith(color: chip.tone),
                   ),
                   if (chip.onRemove != null) ...[
                     const SizedBox(width: Spacing.md),
@@ -796,7 +796,7 @@ class _ImageChip extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               border: Border.all(
-                color: SpectacleColors.borderNormal,
+                color: DazzleColors.borderNormal,
                 width: Borders.hairline,
               ),
             ),
@@ -807,18 +807,18 @@ class _ImageChip extends StatelessWidget {
               // gallery item was deleted, the copy failed. The frame is still
               // an attachment the user can remove.
               errorBuilder: (_, _, _) =>
-                  const ColoredBox(color: SpectacleColors.surfaceSecondary),
+                  const ColoredBox(color: DazzleColors.surfaceSecondary),
             ),
           ),
           if (removable)
             const Align(
               alignment: Alignment.topRight,
               child: ColoredBox(
-                color: SpectacleColors.backgroundPrimary,
+                color: DazzleColors.backgroundPrimary,
                 child: Icon(
                   Icons.close,
                   size: IconSizes.affordance,
-                  color: SpectacleColors.textSecondary,
+                  color: DazzleColors.textSecondary,
                 ),
               ),
             ),

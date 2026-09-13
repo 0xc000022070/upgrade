@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/data/bundles.dart';
-import 'package:spectacle/data/database.dart';
+import 'package:dazzle/data/bundles.dart';
+import 'package:dazzle/data/database.dart';
 
 /// The ordering rule is pure, so it is tested without a database: what matters
 /// is that a bundle is pulled to the position of its first member and that

@@ -2,15 +2,15 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/application/path_scan.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/data/repositories/key_repository.dart';
-import 'package:spectacle/data/repositories/path_repository.dart';
-import 'package:spectacle/features/projects/projects_screen.dart';
-import 'package:spectacle/platform/keys.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/path_scan.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/data/repositories/key_repository.dart';
+import 'package:dazzle/data/repositories/path_repository.dart';
+import 'package:dazzle/features/projects/projects_screen.dart';
+import 'package:dazzle/platform/keys.dart';
 
 import 'support/platform_channels.dart';
 
@@ -21,7 +21,7 @@ import 'support/platform_channels.dart';
 /// is tested here, through the segment the user actually reaches it by.
 
 /// What a host answers `agent paths` with. The picker offers these.
-const _scanned = ['~/src/spectacle', '/srv/gate', '~/src/monolith'];
+const _scanned = ['~/src/dazzle', '/srv/gate', '~/src/monolith'];
 
 ManagedKey _key(String id) => ManagedKey(
   id: id,
@@ -169,13 +169,13 @@ void main() {
     expect(find.text('ROSE'), findsOneWidget);
     await tapText(tester, 'NYX');
 
-    await tapText(tester, shortPathLabel('~/src/spectacle'));
+    await tapText(tester, shortPathLabel('~/src/dazzle'));
     await tapText(tester, shortPathLabel('/srv/gate'));
     await tapText(tester, 'ADD 2');
 
     final registered = await paths.listForHost('1');
     expect(registered.map((path) => path.directory), [
-      '~/src/spectacle',
+      '~/src/dazzle',
       '/srv/gate',
     ]);
     // Both rows carry the host they are on, since the list spans machines.
@@ -192,7 +192,7 @@ void main() {
     await toCode(tester);
 
     await tapText(tester, 'ADD');
-    expect(find.text(shortPathLabel('~/src/spectacle')), findsOneWidget);
+    expect(find.text(shortPathLabel('~/src/dazzle')), findsOneWidget);
 
     await unmount(tester);
   });
@@ -201,13 +201,13 @@ void main() {
     tester,
   ) async {
     await hosts.save(_host('1', 'nyx'));
-    await paths.add(hostId: '1', directory: '~/src/spectacle');
+    await paths.add(hostId: '1', directory: '~/src/dazzle');
     await open(tester);
     await toCode(tester);
 
     await tapText(tester, 'ADD');
     // The row on the list behind is the only one left saying it.
-    expect(find.text(shortPathLabel('~/src/spectacle')), findsOneWidget);
+    expect(find.text(shortPathLabel('~/src/dazzle')), findsOneWidget);
     expect(find.text(shortPathLabel('/srv/gate')), findsOneWidget);
 
     await unmount(tester);
@@ -215,11 +215,11 @@ void main() {
 
   testWidgets('a long press re-points a row', (tester) async {
     await hosts.save(_host('1', 'nyx'));
-    final path = await paths.add(hostId: '1', directory: '~/src/spectacle');
+    final path = await paths.add(hostId: '1', directory: '~/src/dazzle');
     await open(tester);
     await toCode(tester);
 
-    await tester.longPress(find.text(shortPathLabel('~/src/spectacle')));
+    await tester.longPress(find.text(shortPathLabel('~/src/dazzle')));
     await ready(tester);
     await tapText(tester, 'RE-POINT');
     await tapText(tester, shortPathLabel('~/src/monolith'));
@@ -234,19 +234,19 @@ void main() {
 
   testWidgets('a long press removes a row', (tester) async {
     await hosts.save(_host('1', 'nyx'));
-    await paths.add(hostId: '1', directory: '~/src/spectacle');
+    await paths.add(hostId: '1', directory: '~/src/dazzle');
     await paths.add(hostId: '1', directory: '/srv/gate');
     await open(tester);
     await toCode(tester);
 
-    await tester.longPress(find.text(shortPathLabel('~/src/spectacle')));
+    await tester.longPress(find.text(shortPathLabel('~/src/dazzle')));
     await ready(tester);
     await tapText(tester, 'REMOVE');
 
     expect((await paths.listForHost('1')).map((p) => p.directory), [
       '/srv/gate',
     ]);
-    expect(find.text(shortPathLabel('~/src/spectacle')), findsNothing);
+    expect(find.text(shortPathLabel('~/src/dazzle')), findsNothing);
 
     await unmount(tester);
   });
@@ -272,14 +272,14 @@ void main() {
   testWidgets('rows are grouped by the host that holds them', (tester) async {
     await hosts.save(_host('1', 'nyx'));
     await hosts.save(_host('2', 'rose'));
-    await paths.add(hostId: '1', directory: '~/src/spectacle');
+    await paths.add(hostId: '1', directory: '~/src/dazzle');
     await paths.add(hostId: '2', directory: '/srv/gate');
     await open(tester);
     await toCode(tester);
 
     expect(find.text('NYX'), findsOneWidget);
     expect(find.text('ROSE'), findsOneWidget);
-    expect(find.text(shortPathLabel('~/src/spectacle')), findsOneWidget);
+    expect(find.text(shortPathLabel('~/src/dazzle')), findsOneWidget);
     expect(find.text(shortPathLabel('/srv/gate')), findsOneWidget);
 
     await unmount(tester);

@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../colors.dart';
-import '../icons/spectacle_icon.dart';
-import '../icons/spectacle_icons.dart';
+import '../icons/dazzle_icon.dart';
+import '../icons/dazzle_icons.dart';
 import '../spacing.dart';
 import '../typography.dart';
 
@@ -12,12 +12,12 @@ class PanelTextAction extends StatelessWidget {
     super.key,
     required this.label,
     required this.onTap,
-    this.icon = SpectacleIcons.add,
+    this.icon = DazzleIcons.add,
   });
 
   final String label;
   final VoidCallback? onTap;
-  final SpectacleIcons icon;
+  final DazzleIcons icon;
 
   @override
   Widget build(BuildContext context) {
@@ -28,19 +28,19 @@ class PanelTextAction extends StatelessWidget {
         height: TapTargets.minHeight,
         child: Row(
           children: [
-            SpectacleIcon(
+            DazzleIcon(
               icon,
               size: IconSizes.affordance,
-              color: SpectacleColors.textMuted,
+              color: DazzleColors.textMuted,
             ),
             const SizedBox(width: Spacing.sm),
             Text(
               label,
               style: onTap == null
-                  ? SpectacleText.panelHeader.copyWith(
-                      color: SpectacleColors.textDisabled,
+                  ? DazzleText.panelHeader.copyWith(
+                      color: DazzleColors.textDisabled,
                     )
-                  : SpectacleText.panelHeader,
+                  : DazzleText.panelHeader,
             ),
           ],
         ),

@@ -32,7 +32,7 @@ class PickerRow extends StatelessWidget {
   final bool selected;
 
   /// A row whose condition is not met is drawn dim and does
-  /// nothing. Dim rows elsewhere use [SpectacleColors.textMuted], so this is
+  /// nothing. Dim rows elsewhere use [DazzleColors.textMuted], so this is
   /// the same reading and not a second one.
   final bool dim;
 
@@ -46,8 +46,8 @@ class PickerRow extends StatelessWidget {
             title: label,
             subtitle: subtitle,
             value: value,
-            titleColor: dim ? SpectacleColors.textMuted : null,
-            valueColor: dim ? SpectacleColors.textMuted : null,
+            titleColor: dim ? DazzleColors.textMuted : null,
+            valueColor: dim ? DazzleColors.textMuted : null,
             onTap: onTap,
           );
     if (!indent) return row;
@@ -75,22 +75,22 @@ class _SelectedRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
         alignment: Alignment.centerLeft,
         decoration: BoxDecoration(
-          color: SpectacleColors.accent,
+          color: DazzleColors.accent,
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
         child: Row(
           children: [
             Text(
               '// ',
-              style: SpectacleText.valueStrong.copyWith(
-                color: SpectacleColors.backgroundPrimary,
+              style: DazzleText.valueStrong.copyWith(
+                color: DazzleColors.backgroundPrimary,
               ),
             ),
             Expanded(
               child: Text(
                 label,
-                style: SpectacleText.rowTitle.copyWith(
-                  color: SpectacleColors.backgroundPrimary,
+                style: DazzleText.rowTitle.copyWith(
+                  color: DazzleColors.backgroundPrimary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

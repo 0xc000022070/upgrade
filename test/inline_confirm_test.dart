@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/design/components/inline_confirm.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/inline_confirm.dart';
 
 /// Delete confirms in place. What matters is that a single tap
 /// never commits and that the armed window closes on its own — the block is the
@@ -38,7 +38,7 @@ void main() {
     await pump(tester, () => confirmed++);
 
     expect(find.text('DELETE PROJECT'), findsOneWidget);
-    expect(toneOf(tester), SpectacleColors.warning);
+    expect(toneOf(tester), DazzleColors.warning);
 
     await tester.tap(find.byType(InlineConfirmBlock));
     await tester.pump();
@@ -47,7 +47,7 @@ void main() {
     expect(find.text('CONFIRM DELETE'), findsOneWidget);
     expect(find.text('DELETE PROJECT'), findsNothing);
     // The commit is the only thing that wears danger.
-    expect(toneOf(tester), SpectacleColors.danger);
+    expect(toneOf(tester), DazzleColors.danger);
   });
 
   testWidgets('the second tap inside the window commits once', (tester) async {
@@ -77,7 +77,7 @@ void main() {
     await tester.pump(const Duration(seconds: 3, milliseconds: 1));
 
     expect(find.text('DELETE PROJECT'), findsOneWidget);
-    expect(toneOf(tester), SpectacleColors.warning);
+    expect(toneOf(tester), DazzleColors.warning);
 
     await tester.tap(find.byType(InlineConfirmBlock));
     await tester.pump();

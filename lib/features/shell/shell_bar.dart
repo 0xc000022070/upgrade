@@ -5,14 +5,14 @@ import 'package:flutter/widgets.dart';
 import '../../design/colors.dart';
 import '../../design/components/cell_divider.dart';
 import '../../design/components/key_cell.dart';
-import '../../design/icons/spectacle_icons.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../platform/shell/strip_bytes.dart';
 import '../../platform/vnc/keysyms.dart';
 
 /// One cell of the bar: what it is called, what it sends, and the mark it is
 /// drawn as when a word is not what it is.
-typedef _BarKey = ({String label, int keysym, SpectacleIcons? icon});
+typedef _BarKey = ({String label, int keysym, DazzleIcons? icon});
 
 /// The bar's keys, in the order the two apps the user lives in put them: the
 /// modifiers first, then what a shell needs to get out of something, then the
@@ -20,10 +20,10 @@ typedef _BarKey = ({String label, int keysym, SpectacleIcons? icon});
 const _barKeys = <_BarKey>[
   (label: 'ESC', keysym: Keysyms.escape, icon: null),
   (label: 'TAB', keysym: Keysyms.tab, icon: null),
-  (label: 'LEFT', keysym: Keysyms.left, icon: SpectacleIcons.arrowLeft),
-  (label: 'UP', keysym: Keysyms.up, icon: SpectacleIcons.arrowUp),
-  (label: 'DOWN', keysym: Keysyms.down, icon: SpectacleIcons.arrowDown),
-  (label: 'RIGHT', keysym: Keysyms.right, icon: SpectacleIcons.arrowRight),
+  (label: 'LEFT', keysym: Keysyms.left, icon: DazzleIcons.arrowLeft),
+  (label: 'UP', keysym: Keysyms.up, icon: DazzleIcons.arrowUp),
+  (label: 'DOWN', keysym: Keysyms.down, icon: DazzleIcons.arrowDown),
+  (label: 'RIGHT', keysym: Keysyms.right, icon: DazzleIcons.arrowRight),
   (label: 'END', keysym: Keysyms.end, icon: null),
 ];
 
@@ -115,8 +115,8 @@ class ShellBar extends StatelessWidget {
     return Container(
       height: _barHeight,
       decoration: const BoxDecoration(
-        color: SpectacleColors.surfacePrimary,
-        border: Border(top: BorderSide(color: SpectacleColors.borderSubtle)),
+        color: DazzleColors.surfacePrimary,
+        border: Border(top: BorderSide(color: DazzleColors.borderSubtle)),
       ),
       child: Row(
         // The cells take the row's height rather than setting one, so the hit
@@ -134,7 +134,7 @@ class ShellBar extends StatelessWidget {
                 KeyCell(
                   key: const ValueKey('bar-find'),
                   label: 'FIND',
-                  icon: SpectacleIcons.search,
+                  icon: DazzleIcons.search,
                   armed: searching,
                   minWidth: _barHeight,
                   padding: _cellPadding,
@@ -178,7 +178,7 @@ class ShellBar extends StatelessWidget {
           KeyCell(
             key: const ValueKey('bar-keyboard'),
             label: 'KEYBOARD',
-            icon: SpectacleIcons.keyboard,
+            icon: DazzleIcons.keyboard,
             armed: keyboardOpen,
             minWidth: _barHeight,
             padding: _cellPadding,
@@ -329,8 +329,8 @@ class _Fade extends StatelessWidget {
             // The same colour twice, one of them invisible: a fade to a
             // transparent black would grey the cell under it on the way out.
             colors: [
-              SpectacleColors.surfacePrimary,
-              SpectacleColors.surfacePrimary.withValues(alpha: 0),
+              DazzleColors.surfacePrimary,
+              DazzleColors.surfacePrimary.withValues(alpha: 0),
             ],
             stops: const [_fadeSolid, 1],
           ),

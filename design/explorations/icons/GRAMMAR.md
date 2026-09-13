@@ -1,4 +1,4 @@
-# Spectacle icon grammar candidates
+# Dazzle icon grammar candidates
 
 This sheet tests structure, not a finished family. The labels identify the intended reading. They do not approve the symbol.
 
@@ -60,7 +60,7 @@ Strength: strong family recognition in navigation. Weakness: repeated frames fla
 
 Choose B, Signal nodes.
 
-It best fits Spectacle's routing, status, acknowledgement, relay, and connection language. Filled nodes create a clear signature in monochrome and provide a controlled active-state accent later. The grammar also survives at 16 px when each icon keeps one route and no more than two nodes. A is useful but less ownable. C is distinctive as a set, yet too heavy for dense mobile navigation and metadata rows.
+It best fits Dazzle's routing, status, acknowledgement, relay, and connection language. Filled nodes create a clear signature in monochrome and provide a controlled active-state accent later. The grammar also survives at 16 px when each icon keeps one route and no more than two nodes. A is useful but less ownable. C is distinctive as a set, yet too heavy for dense mobile navigation and metadata rows.
 
 ## Decision
 

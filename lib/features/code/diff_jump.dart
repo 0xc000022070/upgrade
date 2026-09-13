@@ -155,8 +155,8 @@ class _DiffReturnState extends State<DiffReturn> {
         padding: const EdgeInsets.all(Spacing.md),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: SpectacleColors.surfacePrimary,
-            border: Border.all(color: SpectacleColors.borderSubtle),
+            color: DazzleColors.surfacePrimary,
+            border: Border.all(color: DazzleColors.borderSubtle),
           ),
           child: SizedBox(
             height: RowMetrics.minHeight,

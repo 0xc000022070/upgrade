@@ -104,7 +104,7 @@ class _ShellThumbnailState extends State<ShellThumbnail> {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFF000000),
-        border: Border.all(color: SpectacleColors.borderSubtle),
+        border: Border.all(color: DazzleColors.borderSubtle),
       ),
       child: ClipRect(
         child: CustomPaint(
@@ -140,7 +140,7 @@ class ShellThumbnailPainter extends CustomPainter {
         text: TextSpan(
           text: line,
           style: const TextStyle(
-            color: SpectacleColors.textPrimary,
+            color: DazzleColors.textPrimary,
             fontFamily: FontFamilies.mono,
             fontFamilyFallback: [FontFamilies.monoSymbols],
             fontSize: thumbnailFontSize,

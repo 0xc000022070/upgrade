@@ -11,5 +11,5 @@ class CellDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Container(width: Borders.hairline, color: SpectacleColors.borderSubtle);
+      Container(width: Borders.hairline, color: DazzleColors.borderSubtle);
 }

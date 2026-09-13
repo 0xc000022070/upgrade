@@ -56,7 +56,7 @@
   </defs>
 
   <rect width="1450" height="1050" fill="#08090B"/>
-  <text x="40" y="52" class="label" font-size="24" font-weight="700" letter-spacing="1">SPECTACLE / APP ICON EXPLORATION 01</text>
+  <text x="40" y="52" class="label" font-size="24" font-weight="700" letter-spacing="1">DAZZLE / APP ICON EXPLORATION 01</text>
   <text x="40" y="82" class="muted" font-size="12">108dp adaptive canvas · 66dp safe circle + squircle · text.primary #E8E8E3 · accent #B7FF2A</text>
   <line x1="40" y1="108" x2="1410" y2="108" class="hairline"/>
 

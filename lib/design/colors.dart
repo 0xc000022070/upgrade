@@ -2,7 +2,7 @@ import 'dart:ui';
 
 /// The palette. The accent is reserved for active / progress /
 /// selection / important status; it never covers a large surface.
-abstract final class SpectacleColors {
+abstract final class DazzleColors {
   static const backgroundPrimary = Color(0xFF08090B);
   static const backgroundSecondary = Color(0xFF0B0D10);
 
@@ -28,9 +28,9 @@ abstract final class SpectacleColors {
 /// diff line is given, once the ground and the glyph have said which side of
 /// the change that line is on.
 ///
-/// None of them is [SpectacleColors.accent] or [SpectacleColors.danger], which
+/// None of them is [DazzleColors.accent] or [DazzleColors.danger], which
 /// already mean added and removed here, and none is brighter than
-/// [SpectacleColors.textPrimary], which is what an uncoloured line is. Syntax
+/// [DazzleColors.textPrimary], which is what an uncoloured line is. Syntax
 /// is the quieter of the two things a diff says.
 abstract final class SyntaxColors {
   static const keyword = Color(0xFF9E8CD0);

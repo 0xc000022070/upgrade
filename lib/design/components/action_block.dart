@@ -16,7 +16,7 @@ class ActionBlock extends StatelessWidget {
     super.key,
     required this.label,
     required this.onTap,
-    this.tone = SpectacleColors.textSecondary,
+    this.tone = DazzleColors.textSecondary,
     this.filled = false,
   });
 
@@ -48,8 +48,8 @@ class ActionBlock extends StatelessWidget {
           heightFactor: 1,
           child: Text(
             label.toUpperCase(),
-            style: SpectacleText.value.copyWith(
-              color: filled ? SpectacleColors.backgroundPrimary : tone,
+            style: DazzleText.value.copyWith(
+              color: filled ? DazzleColors.backgroundPrimary : tone,
               letterSpacing: 1.2,
             ),
           ),

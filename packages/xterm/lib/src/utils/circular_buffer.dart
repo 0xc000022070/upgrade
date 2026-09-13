@@ -36,7 +36,7 @@ class IndexAwareCircularBuffer<T extends IndexedItem> {
 
   /// Detaches whatever is about to be overwritten in [cyclicIndex], unless it
   /// is [incoming] or has already been re-adopted at another index and so is
-  /// still in the list. Spectacle patch.
+  /// still in the list. Dazzle patch.
   ///
   /// A shift writes each slot in turn, and a slot's old occupant is usually
   /// the item the previous write moved one place along: `scrollUp` runs
@@ -250,7 +250,7 @@ class IndexAwareCircularBuffer<T extends IndexedItem> {
     if (count > _length) count = _length;
 
     // The dropped items leave the list, and everything behind them moves down
-    // by [count]: the absolute start has to move with them. Spectacle patch.
+    // by [count]: the absolute start has to move with them. Dazzle patch.
     //
     // Without it every surviving item kept reporting the index it had before
     // the trim, which is [count] rows below where it now sits. An anchor made
@@ -280,7 +280,7 @@ class IndexAwareCircularBuffer<T extends IndexedItem> {
 
     // The list starts over at slot zero, and the replacement has to be written
     // through that start rather than the one the old contents ended on.
-    // Spectacle patch.
+    // Dazzle patch.
     //
     // The adoption ran first and placed every item at `_startIndex + i`, and
     // only then was the start moved to zero: once the scrollback had wrapped

@@ -22,7 +22,7 @@ class EmptyState extends StatelessWidget {
       child: DitherField(
         child: Align(
           alignment: Alignment.centerLeft,
-          child: Text(label.toUpperCase(), style: SpectacleText.label),
+          child: Text(label.toUpperCase(), style: DazzleText.label),
         ),
       ),
     );
@@ -51,7 +51,7 @@ class AsyncSection<T> extends StatelessWidget {
       loading: () => const DelayedSpinner(),
       error: (error, _) => Text(
         'error: $error',
-        style: SpectacleText.value.copyWith(color: SpectacleColors.danger),
+        style: DazzleText.value.copyWith(color: DazzleColors.danger),
       ),
       data: (data) {
         final blank = isEmpty?.call(data) ?? (data is List && data.isEmpty);

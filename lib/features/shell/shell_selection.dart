@@ -194,8 +194,8 @@ class _SelectionActionsState extends State<ShellSelectionActions> {
           id: _SelectionPart.actions,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: SpectacleColors.surfacePrimary,
-              border: Border.all(color: SpectacleColors.borderSubtle),
+              color: DazzleColors.surfacePrimary,
+              border: Border.all(color: DazzleColors.borderSubtle),
             ),
             child: SizedBox(
               height: RowMetrics.minHeight,
@@ -293,9 +293,9 @@ class ShellSelectionGrip extends StatelessWidget {
             Container(
               width: bar,
               height: lineHeight,
-              color: SpectacleColors.accent,
+              color: DazzleColors.accent,
             ),
-            Container(width: knob, height: knob, color: SpectacleColors.accent),
+            Container(width: knob, height: knob, color: DazzleColors.accent),
           ],
         ),
       ),

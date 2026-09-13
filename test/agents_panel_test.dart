@@ -5,16 +5,16 @@ import 'dart:async';
 
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agent_state.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/data/enums.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/design/components/dot_spinner.dart';
-import 'package:spectacle/features/home/agent_mark.dart';
-import 'package:spectacle/features/home/agents_panel.dart';
-import 'package:spectacle/platform/herdr_client.dart';
-import 'package:spectacle/platform/keys.dart';
-import 'package:spectacle/platform/host_keys.dart';
+import 'package:dazzle/application/agent_state.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/data/enums.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/design/components/dot_spinner.dart';
+import 'package:dazzle/features/home/agent_mark.dart';
+import 'package:dazzle/features/home/agents_panel.dart';
+import 'package:dazzle/platform/herdr_client.dart';
+import 'package:dazzle/platform/keys.dart';
+import 'package:dazzle/platform/host_keys.dart';
 
 const hostA = Host(
   id: 'a',
@@ -46,7 +46,7 @@ AgentSnapshot agent({
   state: AgentState.of(status),
   terminalTitleStripped: work,
   workspaceId: 'wQ',
-  cwd: '/workspace/spectacle',
+  cwd: '/workspace/dazzle',
   stateChangeSeq: sequence,
 );
 

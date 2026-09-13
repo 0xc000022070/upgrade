@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/features/shell/shell_bar.dart';
-import 'package:spectacle/platform/shell/remote_shell.dart';
+import 'package:dazzle/features/shell/shell_bar.dart';
+import 'package:dazzle/platform/shell/remote_shell.dart';
 import 'package:xterm/xterm.dart';
 
 import 'support/fake_shell.dart';

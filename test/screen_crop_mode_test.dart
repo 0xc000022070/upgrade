@@ -5,8 +5,8 @@ library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/features/screen/framebuffer_view.dart';
-import 'package:spectacle/features/screen/screen_transform.dart';
+import 'package:dazzle/features/screen/framebuffer_view.dart';
+import 'package:dazzle/features/screen/screen_transform.dart';
 
 const _framebuffer = Size(1920, 1080);
 const _viewport = Size(400, 800);

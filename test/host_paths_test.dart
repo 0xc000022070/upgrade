@@ -1,9 +1,9 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/data/repositories/path_repository.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/data/repositories/path_repository.dart';
 
 /// What a registered directory is, and what it takes with it when it goes.
 ///
@@ -57,17 +57,17 @@ void main() {
 
   test('a row shows the last two segments of a long directory', () {
     expect(
-      shortPathLabel('~/Projects/github.com/luisnquin/spectacle'),
-      '…/luisnquin/spectacle',
+      shortPathLabel('~/Projects/github.com/luisnquin/dazzle'),
+      '…/luisnquin/dazzle',
     );
     expect(shortPathLabel('/srv/gate'), '/srv/gate');
-    expect(shortPathLabel('spectacle'), 'spectacle');
+    expect(shortPathLabel('dazzle'), 'dazzle');
   });
 
   test('the last segment is what an unnamed path is called', () {
-    expect(defaultPathLabel('~/src/spectacle'), 'spectacle');
+    expect(defaultPathLabel('~/src/dazzle'), 'dazzle');
     expect(defaultPathLabel('/srv/herdr/'), 'herdr');
-    expect(defaultPathLabel('spectacle'), 'spectacle');
+    expect(defaultPathLabel('dazzle'), 'dazzle');
     expect(defaultPathLabel('~'), '~');
     expect(defaultPathLabel('/'), '/');
   });
@@ -79,13 +79,13 @@ void main() {
     await seedDrop();
     await seedDispatch(path.id);
 
-    await paths.repoint(path.id, '~/src/spectacle/');
+    await paths.repoint(path.id, '~/src/dazzle/');
 
     // The id survives, which is what keeps the sends already made readable.
     final row = (await paths.listForHost('host-1')).single;
     expect(row.id, path.id);
-    expect(row.directory, '~/src/spectacle/');
-    expect(row.label, 'spectacle');
+    expect(row.directory, '~/src/dazzle/');
+    expect(row.label, 'dazzle');
     expect((await db.select(db.dispatches).get()).single.pathId, path.id);
   });
 
@@ -95,7 +95,7 @@ void main() {
       await seedHost();
       await seedDrop();
       final path = await DriftPathRepository(db)
-          .add(hostId: 'host-1', directory: '~/src/spectacle');
+          .add(hostId: 'host-1', directory: '~/src/dazzle');
       await seedDispatch(path.id);
 
       await DriftHostRepository(db).delete('host-1');
@@ -112,7 +112,7 @@ void main() {
     final paths = DriftPathRepository(db);
     final path = await paths.add(
       hostId: 'host-1',
-      directory: '~/src/spectacle',
+      directory: '~/src/dazzle',
     );
     await seedDispatch(path.id);
 

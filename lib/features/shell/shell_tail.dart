@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../design/colors.dart';
 import '../../design/components/key_cell.dart';
-import '../../design/icons/spectacle_icons.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import 'shell_sessions.dart';
@@ -99,15 +99,15 @@ class _ShellTailCellState extends State<ShellTailCell> {
         padding: const EdgeInsets.all(Spacing.md),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: SpectacleColors.surfacePrimary,
-            border: Border.all(color: SpectacleColors.borderSubtle),
+            color: DazzleColors.surfacePrimary,
+            border: Border.all(color: DazzleColors.borderSubtle),
           ),
           child: SizedBox(
             height: RowMetrics.minHeight,
             child: KeyCell(
               key: const ValueKey('shell-tail'),
               label: 'LIVE',
-              icon: SpectacleIcons.arrowDown,
+              icon: DazzleIcons.arrowDown,
               minWidth: RowMetrics.minHeight,
               padding: RowMetrics.padding,
               height: RowMetrics.minHeight,

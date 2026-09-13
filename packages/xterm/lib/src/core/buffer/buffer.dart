@@ -515,7 +515,7 @@ class Buffer {
   /// The token under [position]: the run of non-blank cells around it, taken
   /// across a soft wrap and less the punctuation the run only happens to end
   /// in. Null when the cell under [position] is blank, which is the caller's
-  /// to answer. See token.dart for the rule. Spectacle patch.
+  /// to answer. See token.dart for the rule. Dazzle patch.
   BufferRangeLine? getTokenBoundary(CellOffset position) {
     final width = viewWidth;
     if (width <= 0 || position.y < 0 || position.y >= lines.length) return null;

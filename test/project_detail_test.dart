@@ -3,19 +3,19 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/enums.dart';
-import 'package:spectacle/data/repositories/activity_repository.dart';
-import 'package:spectacle/data/repositories/attachment_repository.dart';
-import 'package:spectacle/data/repositories/goal_repository.dart';
-import 'package:spectacle/data/repositories/project_repository.dart';
-import 'package:spectacle/data/repositories/task_repository.dart';
-import 'package:spectacle/design/components/panel.dart';
-import 'package:spectacle/features/projects/project_detail_screen.dart';
-import 'package:spectacle/features/projects/project_form_screen.dart';
-import 'package:spectacle/features/projects/projects_screen.dart';
-import 'package:spectacle/features/tasks/selection_bar.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/enums.dart';
+import 'package:dazzle/data/repositories/activity_repository.dart';
+import 'package:dazzle/data/repositories/attachment_repository.dart';
+import 'package:dazzle/data/repositories/goal_repository.dart';
+import 'package:dazzle/data/repositories/project_repository.dart';
+import 'package:dazzle/data/repositories/task_repository.dart';
+import 'package:dazzle/design/components/panel.dart';
+import 'package:dazzle/features/projects/project_detail_screen.dart';
+import 'package:dazzle/features/projects/project_form_screen.dart';
+import 'package:dazzle/features/projects/projects_screen.dart';
+import 'package:dazzle/features/tasks/selection_bar.dart';
 
 import 'support/platform_channels.dart';
 
@@ -388,8 +388,8 @@ void main() {
             PathsCompanion.insert(
               id: id,
               hostId: 'host-1',
-              directory: '~/src/spectacle',
-              label: 'spectacle',
+              directory: '~/src/dazzle',
+              label: 'dazzle',
               createdAt: DateTime.utc(2026, 9, 3),
               projectId: Value(projectId),
             ),
@@ -407,11 +407,11 @@ void main() {
       expect(find.text('NO DIRECTORIES LINKED'), findsOneWidget);
 
       await tapText(tester, 'LINK');
-      await tapText(tester, '…/src/spectacle');
+      await tapText(tester, '…/src/dazzle');
 
       // The row is now the panel's, and the host it lives on is the value:
       // which machine holds the code is half of what a directory is.
-      expect(find.text('…/src/spectacle'), findsOneWidget);
+      expect(find.text('…/src/dazzle'), findsOneWidget);
       expect(find.text('NYX'), findsOneWidget);
 
       await unmount(tester);
@@ -420,7 +420,7 @@ void main() {
     testWidgets('a directory already filed elsewhere is not offered', (
       tester,
     ) async {
-      final other = await projects.create(name: 'Spectacle');
+      final other = await projects.create(name: 'Dazzle');
       final id = await projects.create(name: 'Infra personal');
       await seedPath(projectId: other);
 
@@ -429,7 +429,7 @@ void main() {
       await tapText(tester, 'LINK');
 
       expect(find.text('EVERY DIRECTORY IS LINKED'), findsOneWidget);
-      expect(find.text('…/src/spectacle'), findsNothing);
+      expect(find.text('…/src/dazzle'), findsNothing);
 
       await unmount(tester);
     });
@@ -442,9 +442,9 @@ void main() {
 
       await tester.pumpWidget(host(ProjectDetailScreen(projectId: id)));
       await _ready(tester);
-      expect(find.text('…/src/spectacle'), findsOneWidget);
+      expect(find.text('…/src/dazzle'), findsOneWidget);
 
-      await tester.longPress(find.text('…/src/spectacle'));
+      await tester.longPress(find.text('…/src/dazzle'));
       await _ready(tester);
       await tapText(tester, 'UNLINK');
 
@@ -464,7 +464,7 @@ void main() {
       await tester.runAsync(() => projects.delete(id));
       final rows = await tester.runAsync(() => db.select(db.paths).get());
       expect(rows!.single.projectId, isNull);
-      expect(rows.single.directory, '~/src/spectacle');
+      expect(rows.single.directory, '~/src/dazzle');
     });
   });
 }

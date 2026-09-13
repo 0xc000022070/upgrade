@@ -4,8 +4,8 @@ library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/design/components/key_cell.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/key_cell.dart';
 
 class CellRecord {
   int taps = 0;
@@ -89,14 +89,14 @@ void main() {
       await pumpCell(tester);
       expect(
         tester.widget<Text>(find.text('CTRL')).style?.color,
-        SpectacleColors.textSecondary,
+        DazzleColors.textSecondary,
       );
 
       await pumpCell(tester, armed: true, repeat: 2);
       await tester.pumpAndSettle();
       expect(
         tester.widget<Text>(find.text('CTRL(x2)')).style?.color,
-        SpectacleColors.accent,
+        DazzleColors.accent,
       );
     });
   });

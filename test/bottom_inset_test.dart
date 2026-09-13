@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/features/home/capture_bar.dart';
+import 'package:dazzle/features/home/capture_bar.dart';
 
 import 'support/platform_channels.dart';
 

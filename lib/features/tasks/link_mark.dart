@@ -27,11 +27,11 @@ class LinkMark extends StatelessWidget {
         Icon(
           ToolbarGlyph.link.icon,
           size: IconSizes.sm,
-          color: SpectacleColors.textMuted,
+          color: DazzleColors.textMuted,
         ),
         if (count > 1) ...[
           const SizedBox(width: Spacing.xs),
-          Text('$count', style: SpectacleText.label),
+          Text('$count', style: DazzleText.label),
         ],
       ],
     );

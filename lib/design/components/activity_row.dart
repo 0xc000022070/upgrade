@@ -27,8 +27,8 @@ class ActivityRow extends StatelessWidget {
               entry.detail == null
                   ? entry.title
                   : '${entry.title}   ${entry.detail}',
-              style: SpectacleText.value.copyWith(
-                color: SpectacleText.rowTitle.color,
+              style: DazzleText.value.copyWith(
+                color: DazzleText.rowTitle.color,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -37,7 +37,7 @@ class ActivityRow extends StatelessWidget {
           const SizedBox(width: Spacing.lg),
           Text(
             '${where.toUpperCase()}  $timeLabel',
-            style: SpectacleText.label,
+            style: DazzleText.label,
           ),
         ],
       ),

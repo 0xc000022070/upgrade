@@ -82,7 +82,7 @@ class _SelectionBarState extends ConsumerState<SelectionBar> {
                 _copied == null
                     ? '${selection.count} SELECTED'
                     : '$_copied COPIED',
-                style: SpectacleText.panelHeader,
+                style: DazzleText.panelHeader,
               ),
             ),
             _BarAction(
@@ -140,10 +140,10 @@ class _BarActionState extends State<_BarAction> {
   Widget build(BuildContext context) {
     final enabled = widget.onTap != null;
     final color = !enabled
-        ? SpectacleColors.textDisabled
+        ? DazzleColors.textDisabled
         : _down
-        ? SpectacleColors.accent
-        : SpectacleColors.textSecondary;
+        ? DazzleColors.accent
+        : DazzleColors.textSecondary;
     return Semantics(
       button: true,
       label: widget.tooltip,

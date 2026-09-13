@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/urls.dart';
+import 'package:dazzle/application/urls.dart';
 
 /// Two rules and one grammar. A title is prose and has to be read as prose; a
 /// terminal selection is whatever the user dragged a grip across, and the

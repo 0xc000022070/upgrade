@@ -4,24 +4,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/app/spectacle_app.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/data/repositories/path_repository.dart';
-import 'package:spectacle/design/components/action_block.dart';
-import 'package:spectacle/design/components/list_row.dart';
-import 'package:spectacle/design/components/panel.dart';
-import 'package:spectacle/design/components/path_line.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/design/layout.dart';
-import 'package:spectacle/design/spacing.dart';
-import 'package:spectacle/features/code/diff_map.dart';
-import 'package:spectacle/features/code/diff_sheet.dart';
-import 'package:spectacle/features/code/workspace_screen.dart';
-import 'package:spectacle/platform/herdr_client.dart';
-import 'package:spectacle/platform/keys.dart';
-import 'package:spectacle/platform/workspace/workspace_client.dart';
-import 'package:spectacle/platform/workspace/workspace_commands.dart';
+import 'package:dazzle/app/dazzle_app.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/data/repositories/path_repository.dart';
+import 'package:dazzle/design/components/action_block.dart';
+import 'package:dazzle/design/components/list_row.dart';
+import 'package:dazzle/design/components/panel.dart';
+import 'package:dazzle/design/components/path_line.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/layout.dart';
+import 'package:dazzle/design/spacing.dart';
+import 'package:dazzle/features/code/diff_map.dart';
+import 'package:dazzle/features/code/diff_sheet.dart';
+import 'package:dazzle/features/code/workspace_screen.dart';
+import 'package:dazzle/platform/herdr_client.dart';
+import 'package:dazzle/platform/keys.dart';
+import 'package:dazzle/platform/workspace/workspace_client.dart';
+import 'package:dazzle/platform/workspace/workspace_commands.dart';
 
 import 'support/platform_channels.dart';
 
@@ -42,11 +42,11 @@ const _status = '''
 ''';
 
 const _worktrees = '''
-worktree /home/luis/src/spectacle
+worktree /home/luis/src/dazzle
 HEAD 1a2b
 branch refs/heads/main
 
-worktree /home/luis/src/spectacle-fix
+worktree /home/luis/src/dazzle-fix
 HEAD 5e6f
 branch refs/heads/fix/paths
 
@@ -207,8 +207,8 @@ void main() {
   final path = AgentPath(
     id: 'path-1',
     hostId: 'host-1',
-    directory: '/home/luis/src/spectacle',
-    label: 'spectacle',
+    directory: '/home/luis/src/dazzle',
+    label: 'dazzle',
     createdAt: DateTime(2026, 9, 3),
   );
 
@@ -280,7 +280,7 @@ void main() {
       expect(find.text('+1 -0'), findsOneWidget);
       expect(find.text('lib/main.dart'), findsOneWidget);
       expect(find.text('scratch.txt'), findsOneWidget);
-      expect(find.text('spectacle-fix'), findsOneWidget);
+      expect(find.text('dazzle-fix'), findsOneWidget);
 
       await unmount(tester);
     });
@@ -303,9 +303,9 @@ void main() {
           .widgetList<ListRow>(find.byType(ListRow))
           .singleWhere((row) => row.title == 'lib/main.dart');
       expect(counted.valueSpans!.map((span) => span.style?.color).toList(), [
-        SpectacleColors.accent,
+        DazzleColors.accent,
         null,
-        SpectacleColors.warning,
+        DazzleColors.warning,
       ]);
       // A file git could not count has one word and no pair to tell apart.
       final uncounted = tester
@@ -331,7 +331,7 @@ void main() {
       final row = tester
           .widgetList<ListRow>(find.byType(ListRow))
           .singleWhere((row) => row.title == 'lib/main.dart');
-      expect(row.valueSpans!.first.style?.color, SpectacleColors.accent);
+      expect(row.valueSpans!.first.style?.color, DazzleColors.accent);
       expect(row.valueSpans!.last.style, isNull);
 
       await unmount(tester);
@@ -416,12 +416,12 @@ void main() {
     ) async {
       final runner = await open(tester);
 
-      await tapText(tester, 'spectacle-fix');
+      await tapText(tester, 'dazzle-fix');
 
       // One more command, not one more connection, and no route pushed: the
       // screen is a view of a directory and the directory changed.
       expect(runner.commands, hasLength(2));
-      expect(runner.commands.last, contains('spectacle-fix'));
+      expect(runner.commands.last, contains('dazzle-fix'));
       expect(runner.closed, isFalse);
 
       await unmount(tester);
@@ -488,7 +488,7 @@ void main() {
       );
 
       await tapText(tester, 'lib');
-      expect(runner.commands.last, contains('/home/luis/src/spectacle/lib'));
+      expect(runner.commands.last, contains('/home/luis/src/dazzle/lib'));
 
       await unmount(tester);
     });
@@ -687,7 +687,7 @@ void main() {
             .widgetList<Panel>(find.byType(Panel))
             .where((panel) => panel.literalTitle)
             .map((panel) => panel.title),
-        contains('SPECTACLE / 1a2b3c'),
+        contains('DAZZLE / 1a2b3c'),
       );
       // The history is one command, and the working tree is not asked for
       // again: it is the answer the screen underneath already has.

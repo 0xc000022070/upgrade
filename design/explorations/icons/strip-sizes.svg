@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="360" height="788" viewBox="0 0 360 788">
-  <title>Spectacle icon size strip</title>
+  <title>Dazzle icon size strip</title>
   <desc>Navigation, state, and action icons at 16, 20, and 24 pixels using a 1.75 pixel family stroke.</desc>
   <style>
     .title { fill: #E8E8E3; font: 600 10px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1px; }
@@ -42,7 +42,7 @@
   </defs>
 
   <rect width="360" height="788" fill="#08090B"/>
-  <text class="title" x="16" y="25">SPECTACLE / ICON SIZE STRIP</text>
+  <text class="title" x="16" y="25">DAZZLE / ICON SIZE STRIP</text>
   <text class="meta" x="344" y="25" text-anchor="end">STROKE 1.75 / PNG 3×</text>
   <path class="rule" d="M16 46H344"/>
 

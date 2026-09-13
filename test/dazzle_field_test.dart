@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/design/components/spectacle_field.dart';
+import 'package:dazzle/design/components/dazzle_field.dart';
 
 void main() {
   test('a break lands where the caret is', () {
@@ -40,9 +40,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: SpectacleField(
+          body: DazzleField(
             controller: controller,
-            maxLines: SpectacleField.bodyLines,
+            maxLines: DazzleField.bodyLines,
           ),
         ),
       ),

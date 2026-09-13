@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/design/spacing.dart';
-import 'package:spectacle/features/code/diff_jump.dart';
+import 'package:dazzle/design/spacing.dart';
+import 'package:dazzle/features/code/diff_jump.dart';
 
 const _rows = 100;
 const _rowHeight = 10.0;

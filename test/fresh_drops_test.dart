@@ -2,21 +2,21 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/app/spectacle_app.dart';
-import 'package:spectacle/app/nav_shell.dart';
-import 'package:spectacle/application/drop_selection.dart';
-import 'package:spectacle/application/fresh_drops.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/activity_repository.dart';
-import 'package:spectacle/data/repositories/project_repository.dart';
-import 'package:spectacle/data/repositories/task_repository.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/features/home/home_screen.dart';
-import 'package:spectacle/features/projects/projects_screen.dart';
-import 'package:spectacle/features/settings/settings_screen.dart';
-import 'package:spectacle/features/tasks/drops_panel.dart';
-import 'package:spectacle/features/tasks/selection_bar.dart';
+import 'package:dazzle/app/dazzle_app.dart';
+import 'package:dazzle/app/nav_shell.dart';
+import 'package:dazzle/application/drop_selection.dart';
+import 'package:dazzle/application/fresh_drops.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/activity_repository.dart';
+import 'package:dazzle/data/repositories/project_repository.dart';
+import 'package:dazzle/data/repositories/task_repository.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/features/home/home_screen.dart';
+import 'package:dazzle/features/projects/projects_screen.dart';
+import 'package:dazzle/features/settings/settings_screen.dart';
+import 'package:dazzle/features/tasks/drops_panel.dart';
+import 'package:dazzle/features/tasks/selection_bar.dart';
 
 import 'support/platform_channels.dart';
 
@@ -43,7 +43,7 @@ Future<void> _ready(WidgetTester tester) =>
 /// fresh one from an old one is the accent.
 int _accentAges(WidgetTester tester) => tester
     .widgetList<Text>(find.text('now'))
-    .where((text) => text.style?.color == SpectacleColors.accent)
+    .where((text) => text.style?.color == DazzleColors.accent)
     .length;
 
 FreshDrops _fresh(WidgetTester tester) =>
@@ -77,7 +77,7 @@ void main() {
   /// leaving the route it lives on.
   Widget shell() => ProviderScope(
     overrides: [databaseProvider.overrideWithValue(db)],
-    child: const MaterialApp(home: SpectacleShell()),
+    child: const MaterialApp(home: DazzleShell()),
   );
 
   Future<void> unmount(WidgetTester tester) async {

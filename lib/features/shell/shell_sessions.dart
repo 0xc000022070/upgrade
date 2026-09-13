@@ -610,7 +610,7 @@ class ShellSessions extends ChangeNotifier {
       return answer;
     } on HerdrFailure catch (error) {
       debugPrint(
-        'spectacle.shell ${session.host.name}: ${error.detail ?? error}',
+        'dazzle.shell ${session.host.name}: ${error.detail ?? error}',
       );
       return null;
     }

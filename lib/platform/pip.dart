@@ -7,8 +7,8 @@ import 'package:flutter/services.dart';
 /// told the mode changed and draws something else, and the something else is
 /// the only part of this that is the app's problem.
 abstract final class Pip {
-  static const _calls = MethodChannel('dev.luisnquin.spectacle/pip');
-  static const _mode = EventChannel('dev.luisnquin.spectacle/pip/mode');
+  static const _calls = MethodChannel('dev.luisnquin.dazzle/pip');
+  static const _mode = EventChannel('dev.luisnquin.dazzle/pip/mode');
 
   /// False on a platform with no such window and on an Android device whose
   /// maker left the feature out, which is a real configuration on the cheap end

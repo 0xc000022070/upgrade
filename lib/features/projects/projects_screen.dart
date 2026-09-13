@@ -7,7 +7,7 @@ import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/components/segment_switch.dart';
 import '../../design/spacing.dart';
-import '../../design/icons/spectacle_icons.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../screen_scaffold.dart';
 import 'code_list.dart';
 import 'project_detail_screen.dart';
@@ -70,7 +70,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
               const SizedBox(width: Spacing.lg),
               PanelAffordance(
                 'NEW',
-                icon: SpectacleIcons.add,
+                icon: DazzleIcons.add,
                 onTap: () => openProjectForm(context),
               ),
             ],
@@ -99,8 +99,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             affordance: PanelAffordance(
               '${archived.length}',
               icon: _showArchived
-                  ? SpectacleIcons.collapse
-                  : SpectacleIcons.expand,
+                  ? DazzleIcons.collapse
+                  : DazzleIcons.expand,
             ),
             onHeaderTap: () => setState(() => _showArchived = !_showArchived),
             bodyPadding: panelRowsPadding,

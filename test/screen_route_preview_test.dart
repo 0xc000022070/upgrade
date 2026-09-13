@@ -8,16 +8,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/features/screen/host_screen.dart';
-import 'package:spectacle/features/screen/screen_controller.dart';
-import 'package:spectacle/features/screen/screen_preview.dart';
-import 'package:spectacle/platform/keys.dart';
-import 'package:spectacle/platform/vnc/rfb_client.dart';
-import 'package:spectacle/platform/vnc/rfb_messages.dart';
-import 'package:spectacle/platform/vnc/vnc_tunnel.dart';
-import 'package:spectacle/platform/host_keys.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/features/screen/host_screen.dart';
+import 'package:dazzle/features/screen/screen_controller.dart';
+import 'package:dazzle/features/screen/screen_preview.dart';
+import 'package:dazzle/platform/keys.dart';
+import 'package:dazzle/platform/vnc/rfb_client.dart';
+import 'package:dazzle/platform/vnc/rfb_messages.dart';
+import 'package:dazzle/platform/vnc/vnc_tunnel.dart';
+import 'package:dazzle/platform/host_keys.dart';
 
 import 'support/vnc_channel.dart';
 
@@ -135,7 +135,7 @@ void main() {
   testWidgets('leaving the route stores a frame under the host id', (
     tester,
   ) async {
-    final root = Directory.systemTemp.createTempSync('spectacle-screen');
+    final root = Directory.systemTemp.createTempSync('dazzle-screen');
     addTearDown(() => root.deleteSync(recursive: true));
     final previews = ScreenPreviews(Directory('${root.path}/screens'));
     addTearDown(previews.dispose);

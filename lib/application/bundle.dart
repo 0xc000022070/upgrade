@@ -312,10 +312,10 @@ class BundleTransfer {
   }
 }
 
-/// `spectacle-2026-09-08.bundle`: the picker's suggested name.
+/// `dazzle-2026-09-08.bundle`: the picker's suggested name.
 String bundleFileName(DateTime now) {
   final day = now.toIso8601String().substring(0, 10);
-  return 'spectacle-$day.bundle';
+  return 'dazzle-$day.bundle';
 }
 
 /// The panel's word for each way a bundle did not move.

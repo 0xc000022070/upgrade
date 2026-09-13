@@ -7,8 +7,8 @@ import '../../data/database.dart';
 import '../../design/colors.dart';
 import '../../design/components/list_row.dart';
 import '../../design/effects/glitch.dart';
-import '../../design/icons/spectacle_icon.dart';
-import '../../design/icons/spectacle_icons.dart';
+import '../../design/icons/dazzle_icon.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import 'item_sheet.dart';
 import 'link_mark.dart';
@@ -71,7 +71,7 @@ class _TaskRowState extends ConsumerState<TaskRow> {
   }
 
   Future<void> _toggle() async {
-    // Reduce-motion drops the glitch in [SpectacleIcon], so there is nothing to
+    // Reduce-motion drops the glitch in [DazzleIcon], so there is nothing to
     // fire and the row simply changes weight.
     if (!MediaQuery.disableAnimationsOf(context)) {
       _glitch.fire(seed: widget.task.id.hashCode);
@@ -85,26 +85,26 @@ class _TaskRowState extends ConsumerState<TaskRow> {
   Widget build(BuildContext context) {
     final task = widget.task;
     return ListRow(
-      leading: SpectacleIcon(
+      leading: DazzleIcon(
         task.done
-            ? SpectacleIcons.checkboxChecked
-            : SpectacleIcons.checkboxEmpty,
+            ? DazzleIcons.checkboxChecked
+            : DazzleIcons.checkboxEmpty,
         size: IconSizes.check,
         color: task.done
-            ? SpectacleColors.textDisabled
-            : SpectacleColors.accent,
+            ? DazzleColors.textDisabled
+            : DazzleColors.accent,
         glitch: _glitch,
       ),
       title: task.title,
-      titleColor: task.done ? SpectacleColors.textMuted : null,
+      titleColor: task.done ? DazzleColors.textMuted : null,
       value: widget.drop || widget.fresh ? relativeAge(task.createdAt) : null,
-      valueColor: widget.fresh ? SpectacleColors.accent : null,
+      valueColor: widget.fresh ? DazzleColors.accent : null,
       // The blocked reason is the row's second line, in warning, so a held
       // task is legible without opening it.
       subtitle: widget.drop || task.blockedReason == null
           ? null
           : '[ BLOCKED BY ] ${task.blockedReason}',
-      subtitleColor: SpectacleColors.warning,
+      subtitleColor: DazzleColors.warning,
       // The accent forward arrow is the only mark on the flagged row, and it is
       // the same glyph HOME's NEXT ACTION carries.
       // A row that was sent and then filed keeps the tag, in the same slot.
@@ -116,10 +116,10 @@ class _TaskRowState extends ConsumerState<TaskRow> {
                 const <String, int>{})[task.id] ??
             0,
         state: !widget.drop && task.isNext
-            ? const SpectacleIcon(
-                SpectacleIcons.forward,
+            ? const DazzleIcon(
+                DazzleIcons.forward,
                 size: IconSizes.glyph,
-                color: SpectacleColors.accent,
+                color: DazzleColors.accent,
               )
             : (ref.watch(sentItemsProvider).valueOrNull ?? const <String>{})
                   .contains(task.id)

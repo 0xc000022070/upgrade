@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agent_kind.dart';
-import 'package:spectacle/platform/herdr_client.dart';
+import 'package:dazzle/application/agent_kind.dart';
+import 'package:dazzle/platform/herdr_client.dart';
 
 void main() {
   test('parses a local herdr agent list fixture', () {
@@ -34,7 +34,7 @@ void main() {
           'cwd': '/home/luisnquin/src',
           'pane_id': pane,
           'state_change_seq': 1,
-          'terminal_title_stripped': 'spectacle',
+          'terminal_title_stripped': 'dazzle',
           'workspace_id': pane.split(':').first,
         },
       ],
@@ -310,7 +310,7 @@ void main() {
   test('agent startup carries the unattended flags and optional model', () {
     final claude = HerdrCommands.agentStart(
       pane: (session: 'lab', pane: 'wH:p4'),
-      name: 'spectacle-wh',
+      name: 'dazzle-wh',
       kind: const ClaudeKind(),
       model: 'sonnet',
     );
@@ -322,7 +322,7 @@ void main() {
 
     final codex = HerdrCommands.agentStart(
       pane: (session: 'lab', pane: 'wH:p4'),
-      name: 'spectacle-wh',
+      name: 'dazzle-wh',
       kind: const CodexKind(),
     );
     expect(codex, contains('--yolo'));
@@ -394,7 +394,7 @@ void main() {
   });
 
   test('workspace command preserves quoted paths and session names', () async {
-    final temp = Directory.systemTemp.createTempSync('spectacle-herdr-command');
+    final temp = Directory.systemTemp.createTempSync('dazzle-herdr-command');
     addTearDown(() => temp.deleteSync(recursive: true));
     final bin = Directory('${temp.path}/bin')..createSync();
     final herdr = File('${bin.path}/herdr')

@@ -1,4 +1,4 @@
-# Spectacle icon family index
+# Dazzle icon family index
 
 All files use a 24×24 viewBox. "Diamond" means endpoint, entity, or target. "Square" means system, container, device, or junction. A mixed icon uses each node for its assigned role.
 

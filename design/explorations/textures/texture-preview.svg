@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="650" viewBox="0 0 1080 650">
-  <title>Spectacle texture readability preview</title>
+  <title>Dazzle texture readability preview</title>
   <desc>Fine noise, eight pixel grid, and three pixel scanline textures behind real UI text.</desc>
   <style>
     .title { fill: #E8E8E3; font: 600 20px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1.6px; }
@@ -44,7 +44,7 @@
   </defs>
 
   <rect width="1080" height="650" fill="#08090B"/>
-  <text class="title" x="24" y="36">SPECTACLE / TEXTURE READABILITY</text>
+  <text class="title" x="24" y="36">DAZZLE / TEXTURE READABILITY</text>
   <text class="meta" x="1056" y="36" text-anchor="end">BODY TEXT = 14 PX</text>
   <path class="rule" d="M24 62H1056"/>
 

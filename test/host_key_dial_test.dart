@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/platform/host_key_dial.dart';
-import 'package:spectacle/platform/host_keys.dart';
-import 'package:spectacle/platform/keys.dart';
+import 'package:dazzle/platform/host_key_dial.dart';
+import 'package:dazzle/platform/host_keys.dart';
+import 'package:dazzle/platform/keys.dart';
 
 void main() {
   test('a socket that opens and stays silent is told from a machine that answered', () async {

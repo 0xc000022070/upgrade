@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1180" height="430" viewBox="0 0 1180 430">
-  <title>Spectacle icon glitch and text decode storyboard</title>
+  <title>Dazzle icon glitch and text decode storyboard</title>
   <desc>Five deterministic frames over 230 milliseconds using the done icon and Today screen title.</desc>
   <style>
     .title { fill: #E8E8E3; font: 600 19px "IBM Plex Mono", "DejaVu Sans Mono", monospace; letter-spacing: 1.5px; }
@@ -25,7 +25,7 @@
   </defs>
 
   <rect width="1180" height="430" fill="#08090B"/>
-  <text class="title" x="24" y="34">SPECTACLE / GLITCH EVENT STORYBOARD</text>
+  <text class="title" x="24" y="34">DAZZLE / GLITCH EVENT STORYBOARD</text>
   <text class="meta" x="1156" y="34" text-anchor="end">SEE SPEC 16B · 230 MS · SEEDED</text>
   <path d="M24 62H1156" stroke="#252A31"/>
   <path d="M130 82H1050" stroke="#2E343C"/>

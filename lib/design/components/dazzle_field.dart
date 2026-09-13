@@ -12,8 +12,8 @@ import '../typography.dart';
 ///
 /// [bodyLines] is the answer to both. A field grows to that many lines and
 /// scrolls inside itself after.
-class SpectacleField extends StatelessWidget {
-  const SpectacleField({
+class DazzleField extends StatelessWidget {
+  const DazzleField({
     super.key,
     required this.controller,
     this.focusNode,
@@ -75,8 +75,8 @@ class SpectacleField extends StatelessWidget {
       autofocus: autofocus,
       minLines: minLines,
       maxLines: maxLines,
-      style: style ?? SpectacleText.rowTitle,
-      cursorColor: SpectacleColors.accent,
+      style: style ?? DazzleText.rowTitle,
+      cursorColor: DazzleColors.accent,
       cursorWidth: 2,
       cursorRadius: Radius.zero,
       keyboardType: keyboardType ?? TextInputType.text,
@@ -91,7 +91,7 @@ class SpectacleField extends StatelessWidget {
         border: InputBorder.none,
         contentPadding: contentPadding,
         hintText: hint,
-        hintStyle: hintStyle ?? SpectacleText.rowSubtitle,
+        hintStyle: hintStyle ?? DazzleText.rowSubtitle,
       ),
     );
   }

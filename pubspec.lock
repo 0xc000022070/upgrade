@@ -1235,7 +1235,7 @@ packages:
       path: "packages/xterm"
       relative: true
     source: path
-    version: "4.0.0+spectacle.5"
+    version: "4.0.0+dazzle.5"
   yaml:
     dependency: transitive
     description:

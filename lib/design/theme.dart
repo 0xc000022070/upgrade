@@ -9,20 +9,20 @@ import 'typography.dart';
 /// Material is used as a substrate only. Everything that would leak a Material
 /// look — ripples, elevation tints, drop shadows, rounded defaults, overscroll
 /// glow, the zoom page transition — is neutralized here so components can be
-/// built from the Spectacle tokens alone.
-abstract final class SpectacleTheme {
+/// built from the Dazzle tokens alone.
+abstract final class DazzleTheme {
   static ThemeData build() {
     const colorScheme = ColorScheme.dark(
-      primary: SpectacleColors.accent,
-      onPrimary: SpectacleColors.backgroundPrimary,
-      secondary: SpectacleColors.accentMuted,
-      onSecondary: SpectacleColors.backgroundPrimary,
-      surface: SpectacleColors.surfacePrimary,
-      onSurface: SpectacleColors.textPrimary,
-      error: SpectacleColors.danger,
-      onError: SpectacleColors.textPrimary,
-      outline: SpectacleColors.borderNormal,
-      outlineVariant: SpectacleColors.borderSubtle,
+      primary: DazzleColors.accent,
+      onPrimary: DazzleColors.backgroundPrimary,
+      secondary: DazzleColors.accentMuted,
+      onSecondary: DazzleColors.backgroundPrimary,
+      surface: DazzleColors.surfacePrimary,
+      onSurface: DazzleColors.textPrimary,
+      error: DazzleColors.danger,
+      onError: DazzleColors.textPrimary,
+      outline: DazzleColors.borderNormal,
+      outlineVariant: DazzleColors.borderSubtle,
       surfaceTint: Colors.transparent,
       shadow: Colors.transparent,
     );
@@ -31,8 +31,8 @@ abstract final class SpectacleTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: SpectacleColors.backgroundPrimary,
-      canvasColor: SpectacleColors.backgroundPrimary,
+      scaffoldBackgroundColor: DazzleColors.backgroundPrimary,
+      canvasColor: DazzleColors.backgroundPrimary,
       shadowColor: Colors.transparent,
       visualDensity: VisualDensity.compact,
 
@@ -46,27 +46,27 @@ abstract final class SpectacleTheme {
       fontFamily: FontFamilies.ui,
       textTheme: _textTheme,
       iconTheme: const IconThemeData(
-        color: SpectacleColors.textSecondary,
+        color: DazzleColors.textSecondary,
         size: IconSizes.lg,
       ),
       dividerTheme: const DividerThemeData(
-        color: SpectacleColors.borderSubtle,
+        color: DazzleColors.borderSubtle,
         thickness: Borders.hairline,
         space: Borders.hairline,
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: SpectacleColors.backgroundPrimary,
+        backgroundColor: DazzleColors.backgroundPrimary,
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: SpectacleText.screenTitle,
+        titleTextStyle: DazzleText.screenTitle,
       ),
       textSelectionTheme: const TextSelectionThemeData(
-        cursorColor: SpectacleColors.accent,
+        cursorColor: DazzleColors.accent,
         selectionColor: Color(0x33B7FF2A),
-        selectionHandleColor: SpectacleColors.accent,
+        selectionHandleColor: DazzleColors.accent,
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
@@ -78,21 +78,21 @@ abstract final class SpectacleTheme {
   }
 
   static const _textTheme = TextTheme(
-    headlineLarge: SpectacleText.screenTitle,
-    headlineMedium: SpectacleText.heroName,
-    titleMedium: SpectacleText.rowTitle,
-    titleSmall: SpectacleText.panelHeader,
-    bodyMedium: SpectacleText.prose,
-    bodySmall: SpectacleText.rowSubtitle,
-    labelLarge: SpectacleText.value,
-    labelMedium: SpectacleText.navLabel,
-    labelSmall: SpectacleText.label,
+    headlineLarge: DazzleText.screenTitle,
+    headlineMedium: DazzleText.heroName,
+    titleMedium: DazzleText.rowTitle,
+    titleSmall: DazzleText.panelHeader,
+    bodyMedium: DazzleText.prose,
+    bodySmall: DazzleText.rowSubtitle,
+    labelLarge: DazzleText.value,
+    labelMedium: DazzleText.navLabel,
+    labelSmall: DazzleText.label,
   );
 }
 
 /// Overscroll glow is a Material tell; a hard stop reads as a real instrument.
-final class SpectacleScrollBehavior extends MaterialScrollBehavior {
-  const SpectacleScrollBehavior();
+final class DazzleScrollBehavior extends MaterialScrollBehavior {
+  const DazzleScrollBehavior();
 
   @override
   Widget buildOverscrollIndicator(

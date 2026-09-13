@@ -8,7 +8,7 @@ import 'bundle_cipher.dart';
 /// loop, the test harness — is a [BundleException] of [BundleFault.noPicker],
 /// which the panel reads as `NO PICKER`.
 abstract final class Documents {
-  static const _channel = MethodChannel('dev.luisnquin.spectacle/device');
+  static const _channel = MethodChannel('dev.luisnquin.dazzle/device');
 
   /// True once the bytes are under the name the user chose, false when the
   /// picker was dismissed.

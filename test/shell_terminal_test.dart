@@ -3,11 +3,11 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/shell_font.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/repositories/settings_repository.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/features/shell/shell_sessions.dart';
+import 'package:dazzle/application/shell_font.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/settings_repository.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:xterm/xterm.dart';
 
 import 'support/fake_shell.dart';
@@ -768,7 +768,7 @@ void main() {
           .theme;
       // xterm paints the selection over the glyphs; a solid one hides them.
       expect(theme.selection.a, lessThan(0.5));
-      expect(theme.selection.withValues(alpha: 1), SpectacleColors.accent);
+      expect(theme.selection.withValues(alpha: 1), DazzleColors.accent);
 
       await unmount(tester);
     });

@@ -4,17 +4,17 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/application/bundle.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/enums.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/data/repositories/key_repository.dart';
-import 'package:spectacle/design/components/action_block.dart';
-import 'package:spectacle/features/settings/settings_screen.dart';
-import 'package:spectacle/platform/bundle_cipher.dart';
-import 'package:spectacle/platform/keys.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/bundle.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/enums.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/data/repositories/key_repository.dart';
+import 'package:dazzle/design/components/action_block.dart';
+import 'package:dazzle/features/settings/settings_screen.dart';
+import 'package:dazzle/platform/bundle_cipher.dart';
+import 'package:dazzle/platform/keys.dart';
 
 import 'support/platform_channels.dart';
 
@@ -160,7 +160,7 @@ void main() {
     expect(find.text('EXPORTED 1 HOST · 2 KEYS · 0 PATHS'), findsOneWidget);
 
     final (name, bytes) = saved.single;
-    expect(name, startsWith('spectacle-'));
+    expect(name, startsWith('dazzle-'));
     expect(name, endsWith('.bundle'));
     final bundle = Bundle.decode(await cipher.open(bytes, 'correct horse'));
     expect(bundle.hosts.single.host.name, 'rose');

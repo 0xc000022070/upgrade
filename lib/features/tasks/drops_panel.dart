@@ -187,12 +187,12 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
               else
                 ListRow(
                   title: task.title,
-                  titleColor: task.done ? SpectacleColors.textMuted : null,
+                  titleColor: task.done ? DazzleColors.textMuted : null,
                   value: relativeAge(task.createdAt),
                   // The whole highlight: the age in accent instead of the
                   // dim it has by default. Nothing else on the row moves.
                   valueColor: fresh.contains(task.id)
-                      ? SpectacleColors.accent
+                      ? DazzleColors.accent
                       : null,
                   leading: _SelectionBox(checked: selection.holds(task.id)),
                   leadingWidth: _SelectionBox.width,
@@ -239,8 +239,8 @@ class _SelectionBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       checked ? '[x]' : '[ ]',
-      style: SpectacleText.rowTitle.copyWith(
-        color: checked ? SpectacleColors.accent : SpectacleColors.textDisabled,
+      style: DazzleText.rowTitle.copyWith(
+        color: checked ? DazzleColors.accent : DazzleColors.textDisabled,
       ),
     );
   }

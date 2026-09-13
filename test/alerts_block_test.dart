@@ -2,14 +2,14 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/application/agents.dart';
-import 'package:spectacle/application/providers.dart';
-import 'package:spectacle/data/database.dart';
-import 'package:spectacle/data/enums.dart';
-import 'package:spectacle/data/repositories/host_repository.dart';
-import 'package:spectacle/data/repositories/settings_repository.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/features/settings/alerts_block.dart';
+import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/enums.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/data/repositories/settings_repository.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/features/settings/alerts_block.dart';
 
 import 'support/platform_channels.dart';
 
@@ -77,7 +77,7 @@ void main() {
     // "the row is dim".
     expect(
       tester.widget<Text>(find.text('BLOCKED AGENTS')).style?.color,
-      SpectacleColors.textMuted,
+      DazzleColors.textMuted,
     );
     await tester.tap(find.text('BLOCKED AGENTS'));
     await settle(tester);
@@ -94,7 +94,7 @@ void main() {
     expect(find.text('NO HOST'), findsNothing);
     expect(
       tester.widget<Text>(find.text('BLOCKED AGENTS')).style?.color,
-      isNot(SpectacleColors.textMuted),
+      isNot(DazzleColors.textMuted),
     );
     await tester.tap(find.text('BLOCKED AGENTS'));
     await settle(tester);

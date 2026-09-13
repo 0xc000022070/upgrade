@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectacle/design/colors.dart';
-import 'package:spectacle/design/components/panel.dart';
-import 'package:spectacle/design/spacing.dart';
-import 'package:spectacle/features/screen_scaffold.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/panel.dart';
+import 'package:dazzle/design/spacing.dart';
+import 'package:dazzle/features/screen_scaffold.dart';
 
 /// A text-only action is small to read and big to hit. The
 /// header strip is a row tall, the label stays where it always was, and the
@@ -245,7 +245,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 150));
       expect(
         tester.widget<Text>(find.text('4')).style?.color,
-        SpectacleColors.textMuted,
+        DazzleColors.textMuted,
       );
       await gesture.up();
 
@@ -265,17 +265,17 @@ void main() {
       await _settle(tester);
 
       Color? ink() => tester.widget<Text>(find.text('NEW')).style?.color;
-      expect(ink(), SpectacleColors.textMuted);
+      expect(ink(), DazzleColors.textMuted);
 
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(PanelAffordance)),
       );
       await tester.pump(const Duration(milliseconds: 150));
-      expect(ink(), SpectacleColors.accent);
+      expect(ink(), DazzleColors.accent);
 
       await gesture.up();
       await tester.pump();
-      expect(ink(), SpectacleColors.textMuted);
+      expect(ink(), DazzleColors.textMuted);
 
       await _drain(tester);
     });
