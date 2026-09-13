@@ -16,10 +16,12 @@ typedef AgentOpen = void Function(Host host, AgentSnapshot agent);
 ///
 /// The tab is found before it is made. One already attached to the pane is
 /// activated; otherwise a fresh tab runs the attach as the channel's own
-/// command — `ssh -t host herdr agent attach` and nothing else — and remembers
-/// the pane so the next tap on the same agent lands in it. The tab is the
-/// pane: a detach ends the command, and the tab closes on the clean exit the
-/// way a shell the user typed `exit` into does.
+/// command — `ssh -t host herdr agent attach --takeover` and nothing else —
+/// and remembers the pane so the next tap on the same agent lands in it. The
+/// explicit tap transfers terminal ownership from another client when needed;
+/// it does not replace or stop the Herdr agent. The tab is the pane: a detach
+/// ends the command, and the tab closes on the clean exit the way a shell the
+/// user typed `exit` into does.
 ///
 /// Not typed at a login shell. A line written at a shell races everything that
 /// shell reads before its prompt, and a host whose rc asks which session to

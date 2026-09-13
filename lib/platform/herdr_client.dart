@@ -132,7 +132,10 @@ abstract final class HerdrCommands {
   /// is in front of it.
   static String attach(PaneRef pane) {
     _requirePane(pane.pane);
-    return _herdr(pane.session, 'agent attach ${shellQuote(pane.pane)}');
+    return _herdr(
+      pane.session,
+      'agent attach ${shellQuote(pane.pane)} --takeover',
+    );
   }
 
   static String paths() => underSh(r'''
