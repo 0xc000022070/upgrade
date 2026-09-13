@@ -92,7 +92,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _offerUndo(String taskId) {
     _undoTimer?.cancel();
     setState(() => _undoTaskId = taskId);
-    _undoTimer = Timer(const Duration(seconds: 15), () {
+    _undoTimer = Timer(const Duration(seconds: 30), () {
       if (mounted) setState(() => _undoTaskId = null);
     });
   }
