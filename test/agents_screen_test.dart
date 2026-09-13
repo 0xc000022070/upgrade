@@ -123,7 +123,7 @@ void main() {
     await tester.pumpWidget(host(const AgentPanelState.noHost()));
     await ready(tester);
 
-    expect(find.text('NO HOST · SET IN SYS'), findsOneWidget);
+    expect(find.text('TURN HERDR ON IN A HOST'), findsOneWidget);
     expect(find.text('WORKSPACES'), findsNothing);
     // Torn down between the two states: swapping the scope's overrides in place
     // leaves the provider holding the value it already had.
