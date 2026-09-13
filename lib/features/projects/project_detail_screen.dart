@@ -26,6 +26,7 @@ import '../../design/sprite.dart';
 import '../../design/typography.dart';
 import '../code/workspace_screen.dart';
 import '../home/capture_bar.dart';
+import '../hosts/hosts_screen.dart';
 import '../screen_scaffold.dart';
 import '../tasks/drops_panel.dart';
 import '../tasks/selection_bar.dart';
@@ -520,7 +521,9 @@ class _CodePanel extends ConsumerWidget {
     // Only the unlinked ones are offered. A directory already filed elsewhere
     // is not a candidate here, and stealing it silently would leave the other
     // project's section shorter with nothing said about it.
-    final free = await ref.read(pathRepositoryProvider).watchUnlinked().first;
+    final repository = ref.read(pathRepositoryProvider);
+    final all = await repository.watchTargets().first;
+    final free = await repository.watchUnlinked().first;
     if (!context.mounted) return;
     final picked = await showPanelSheet<PathTarget>(
       context,
@@ -528,7 +531,21 @@ class _CodePanel extends ConsumerWidget {
       builder: (context) => PanelSheetBody(
         title: 'LINK',
         children: [
-          if (free.isEmpty) const EmptyState('every directory is linked'),
+          if (all.isEmpty)
+            PickerRow(
+              label: 'ADD A HOST',
+              subtitle: 'NO WORKSPACES YET',
+              onTap: () {
+                Navigator.of(
+                  context,
+                  rootNavigator: true,
+                ).popUntil((route) => route.isFirst);
+                ref.read(navIndexProvider.notifier).state =
+                    HostsScreen.navIndex;
+              },
+            )
+          else if (free.isEmpty)
+            const EmptyState('every directory is linked'),
           for (final target in free)
             PickerRow(
               label: shortPathLabel(target.path.directory),
