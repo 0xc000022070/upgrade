@@ -6,10 +6,10 @@ import 'repositories/note_repository.dart';
 import 'repositories/project_repository.dart';
 import 'repositories/task_repository.dart';
 
-/// Debug-only fixture so the screens have something real to render. It runs the
-/// same repository calls the UI does, which means the activity stream it
-/// produces is genuine — the `completed` and `blocked` events below are emitted
-/// by the transitions, not hand-written.
+/// Explicitly enabled debug fixture so the screens have something real to
+/// render. It runs the same repository calls the UI does, which means the
+/// activity stream it produces is genuine — the `completed` and `blocked`
+/// events below are emitted by the transitions, not hand-written.
 ///
 /// `Infra personal > Homelab > Networking` is the two-deep tree
 /// the hierarchy is exercised on. Every level carries tasks of its own, so a
@@ -20,7 +20,8 @@ Future<void> seedDevData(
   required TaskRepository tasks,
   required NoteRepository notes,
 }) async {
-  if (!kDebugMode) return;
+  const fixturesEnabled = bool.fromEnvironment('DAZZLE_SEED_FIXTURES');
+  if (!kDebugMode || !fixturesEnabled) return;
   final existing = await db.select(db.projects).get();
   if (existing.isNotEmpty) return;
 
