@@ -7,11 +7,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agent_state.dart';
 import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/navigation.dart';
 import 'package:dazzle/data/enums.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/design/components/dot_spinner.dart';
 import 'package:dazzle/features/home/agent_mark.dart';
 import 'package:dazzle/features/home/agents_panel.dart';
+import 'package:dazzle/features/hosts/hosts_screen.dart';
 import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/keys.dart';
 import 'package:dazzle/platform/host_keys.dart';
@@ -614,17 +616,27 @@ void main() {
     expect(find.text('b · protocol 9'), findsOneWidget);
   });
 
-  testWidgets('no host is a blocked panel state without rows or footer', (
+  testWidgets('no host points to the host that must enable herdr', (
     tester,
   ) async {
     await tester.pumpWidget(host(const AgentPanelState.noHost()));
 
-    expect(find.text('NO HOST · SET IN SYS'), findsOneWidget);
+    final action = find.text('TURN HERDR ON IN A HOST');
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AgentsPanel)),
+    );
+
+    expect(action, findsOneWidget);
     expect(find.text('AGENT'), findsNothing);
     expect(find.textContaining('idle'), findsNothing);
     expect(find.textContaining('blocked'), findsNothing);
     expect(find.text('0'), findsNothing);
     expect(find.text('VIEW ALL'), findsNothing);
+
+    await tester.tap(action);
+    await tester.pump();
+
+    expect(container.read(navIndexProvider), HostsScreen.navIndex);
   });
 
   testWidgets('a claude row renders the claude mark and no C', (tester) async {

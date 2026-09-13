@@ -598,7 +598,7 @@ void main() {
     );
 
     // Nothing is assumed. No key, no host, and no integration switched on,
-    // which is the state the AGENTS panel renders as NO HOST · SET IN SYS.
+    // which is the state the AGENTS panel renders as a link to HOSTS.
     expect(await db.select(db.keys).get(), isEmpty);
     expect(await db.select(db.hosts).get(), isEmpty);
     expect(await db.select(db.hostIntegrations).get(), isEmpty);

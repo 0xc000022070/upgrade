@@ -129,7 +129,7 @@ class AgentPanelState {
 
   final List<HostOutcome> outcomes;
 
-  static const blockedLine = 'NO HOST · SET IN SYS';
+  static const blockedLine = 'TURN HERDR ON IN A HOST';
 
   /// What the agents are, counted: see [agentTally].
   String get tally => agentTally(outcomes);

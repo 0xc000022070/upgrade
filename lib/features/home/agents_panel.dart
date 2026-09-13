@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/agents.dart';
+import '../../application/navigation.dart';
 import '../../design/colors.dart';
 import '../../design/components/dot_spinner.dart';
 import '../../design/components/panel.dart';
@@ -10,6 +11,7 @@ import '../../design/typography.dart';
 import '../../platform/herdr_client.dart';
 import '../agents/agent_shell.dart';
 import '../agents/agents_screen.dart';
+import '../hosts/hosts_screen.dart';
 import 'agent_mark.dart';
 
 class AgentsPanel extends ConsumerWidget {
@@ -75,6 +77,8 @@ class AgentsPanel extends ConsumerWidget {
         data: (data) => _AgentsBody(
           data: data,
           now: now ?? DateTime.now(),
+          onConfigureHosts: () =>
+              ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex,
           onOpen:
               onOpen ??
               (host, agent) => openAgentShell(context, ref, host, agent),
@@ -88,17 +92,18 @@ class _AgentsBody extends StatelessWidget {
   const _AgentsBody({
     required this.data,
     required this.now,
+    required this.onConfigureHosts,
     required this.onOpen,
   });
 
   final AgentPanelState data;
   final DateTime now;
+  final VoidCallback onConfigureHosts;
   final AgentOpen onOpen;
 
   @override
   Widget build(BuildContext context) {
-    // Blocked is one dim line and nothing else — no rows, no footer.
-    if (data.noHost) return const _DimLine(AgentPanelState.blockedLine);
+    if (data.noHost) return _SetupLine(onTap: onConfigureHosts);
 
     final failures = data.failures;
     // Rows keep their host: a tap needs the machine the agent was read from,
@@ -147,6 +152,28 @@ class _AgentsBody extends StatelessWidget {
   /// twice does not say which machine, so the host goes back in front.
   String _failureLine(HostOutcome outcome, bool disambiguate) =>
       disambiguate ? outcome.namedReason : outcome.reason;
+}
+
+class _SetupLine extends StatelessWidget {
+  const _SetupLine({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onTap: onTap,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          AgentPanelState.blockedLine,
+          style: DazzleText.value.copyWith(color: DazzleColors.accent),
+        ),
+      ),
+    ),
+  );
 }
 
 class _ColumnLabels extends StatelessWidget {
@@ -249,9 +276,7 @@ class _Footer extends StatelessWidget {
         TextSpan(
           text: '$blocked blocked',
           style: DazzleText.value.copyWith(
-            color: blocked == 0
-                ? DazzleColors.textMuted
-                : DazzleColors.warning,
+            color: blocked == 0 ? DazzleColors.textMuted : DazzleColors.warning,
           ),
         ),
       ],
