@@ -11,6 +11,7 @@ import 'package:dazzle/app/pip_host.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/features/agents/pip_panel.dart';
 import 'package:dazzle/features/home/agent_mark.dart';
+import 'package:dazzle/features/home/agents_panel.dart';
 import 'package:dazzle/platform/herdr_client.dart';
 
 const nyx = Host(
@@ -51,14 +52,17 @@ class FakePip implements PipSurface {
   FakePip({this.here = true});
 
   final bool here;
-  final armings = <bool>[];
+  var entries = 0;
   final modes = StreamController<bool>.broadcast();
 
   @override
   Future<bool> available() async => here;
 
   @override
-  Future<void> arm(bool armed) async => armings.add(armed);
+  Future<bool> enter() async {
+    entries++;
+    return here;
+  }
 
   @override
   Stream<bool> mode() => modes.stream;
@@ -108,131 +112,64 @@ List<String> markAssets(WidgetTester tester) => [
 ];
 
 void main() {
-  group('the window is armed by what is happening', () {
-    testWidgets('nothing active leaves it disarmed', (tester) async {
-      final pip = FakePip();
-      await tester.pumpWidget(
-        harness(
-          pip,
-          Stream.value(
-            panel([agent('claude', 'done'), agent('codex', 'idle')]),
-          ),
-          const PipHost(child: SizedBox()),
-        ),
-      );
-      // Settled rather than pumped once: whether the device has the window at
-      // all is answered by a future, and a single frame leaves it unanswered —
-      // which is indistinguishable from an answer of no, and passes with every
-      // gate under it deleted.
-      await tester.pumpAndSettle();
-
-      expect(pip.armings, [false]);
-    });
-
-    testWidgets('an agent at work arms it', (tester) async {
-      final pip = FakePip();
-      final feed = StreamController<AgentPanelState>();
-      await tester.pumpWidget(
-        harness(pip, feed.stream, const PipHost(child: SizedBox())),
-      );
-      feed.add(panel([agent('claude', 'working')]));
-      await tester.pumpAndSettle();
-
-      expect(pip.armings.last, isTrue);
-
-      // And it is disarmed again the moment the work is over, so a trip to the
-      // browser on a quiet night leaves nothing in the corner.
-      feed.add(panel([agent('claude', 'done')]));
-      await tester.pumpAndSettle();
-
-      expect(pip.armings.last, isFalse);
-    });
-
-    testWidgets('a host the app has lost does not keep it armed', (
-      tester,
-    ) async {
-      final pip = FakePip();
-      final feed = StreamController<AgentPanelState>();
-      await tester.pumpWidget(
-        harness(pip, feed.stream, const PipHost(child: SizedBox())),
-      );
-      feed.add(panel([agent('claude', 'working')]));
-      await tester.pumpAndSettle();
-
-      expect(pip.armings.last, isTrue);
-
-      // A failure carries the last agents its host was seen with, so that a
-      // blink does not empty the panel. Armed off those, the window stayed up
-      // over a machine that had simply been switched off for the night, and
-      // nothing could bring it back down: the count only empties on a snapshot,
-      // and the host that would send one is gone.
-      feed.add(
-        AgentPanelState([
-          HostOutcome(
-            host: nyx,
-            kind: AgentOutcomeKind.unreachable,
-            agents: [agent('claude', 'working')],
-          ),
-        ]),
-      );
-      await tester.pumpAndSettle();
-
-      expect(pip.armings.last, isFalse);
-
-      // What is asked is which agents the app can see, not whether anything
-      // failed: another host still answering with work on it arms the window
-      // while the first one is still down.
-      feed.add(
-        AgentPanelState([
-          const HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
-          HostOutcome(
-            host: rose,
-            kind: AgentOutcomeKind.snapshot,
-            agents: [agent('amp', 'working')],
-          ),
-        ]),
-      );
-      await tester.pumpAndSettle();
-
-      expect(pip.armings.last, isTrue);
-    });
-
-    testWidgets('a count nothing is refreshing does not arm it', (
-      tester,
-    ) async {
+  group('the picture-in-picture action', () {
+    testWidgets('live work gets a separate button', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 800);
+      addTearDown(tester.view.reset);
       final pip = FakePip();
       await tester.pumpWidget(
         harness(
           pip,
           Stream.value(panel([agent('claude', 'working')])),
-          const PipHost(child: SizedBox()),
-          live: false,
+          const AgentsPanel(),
         ),
       );
-      // Settled, so the window has answered that it exists: the arming this
-      // asserts against is the one the same feed gets when something is
-      // dialling, which the test above it has already seen come out true.
       await tester.pumpAndSettle();
 
-      // The feed goes on handing out the last state it held after the poll
-      // behind it stops, so the work is still there to be counted. With nothing
-      // dialling, the tile would park a number frozen at the moment the user
-      // left over whatever they left to do, and nothing could bring it down.
-      expect(pip.armings, everyElement(isFalse));
+      expect(find.text('PIP'), findsOneWidget);
+      expect(pip.entries, 0);
+
+      await tester.tap(find.text('PIP'));
+      await tester.pump();
+
+      expect(pip.entries, 1);
     });
 
-    testWidgets('a device without the window is never armed', (tester) async {
-      final pip = FakePip(here: false);
+    testWidgets('quiet, stale, and unsupported feeds have no button', (
+      tester,
+    ) async {
+      final pip = FakePip();
       await tester.pumpWidget(
         harness(
           pip,
-          Stream.value(panel([agent('claude', 'blocked')])),
-          const PipHost(child: SizedBox()),
+          Stream.value(panel([agent('claude', 'idle')])),
+          const AgentsPanel(),
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.text('PIP'), findsNothing);
 
-      expect(pip.armings, everyElement(isFalse));
+      await tester.pumpWidget(
+        harness(
+          pip,
+          Stream.value(panel([agent('claude', 'working')])),
+          const AgentsPanel(),
+          live: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('PIP'), findsNothing);
+
+      await tester.pumpWidget(
+        harness(
+          FakePip(here: false),
+          Stream.value(panel([agent('claude', 'working')])),
+          const AgentsPanel(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('PIP'), findsNothing);
     });
   });
 

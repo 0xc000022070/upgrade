@@ -16,11 +16,9 @@ abstract final class Pip {
   static Future<bool> available() async =>
       await _calls.invokeMethod<bool>('available') ?? false;
 
-  /// Whether leaving the app should take it into the window instead of away
-  /// from it. The gesture is the user's own — home, or a swipe up — and arming
-  /// is the app saying it has something to show if they make it.
-  static Future<void> arm(bool armed) =>
-      _calls.invokeMethod<void>('arm', armed);
+  /// Moves the activity into the system's picture-in-picture window.
+  static Future<bool> enter() async =>
+      await _calls.invokeMethod<bool>('enter') ?? false;
 
   /// True while the window is up. Replayed on subscribe, because a listener
   /// that arrived late would otherwise draw the whole app into a corner tile.
