@@ -385,6 +385,52 @@ void main() {
       ]);
     });
 
+    test('plain Mosh shells may disable mouse reporting', () async {
+      final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      final connection = transport.opened.single;
+      connection.emit('\x1b[?1002h\x1b[?1002l\x1b[?1006h');
+      await _settle();
+
+      expect(
+        session.terminal.mouseInput(
+          TerminalMouseButton.left,
+          TerminalMouseButtonState.down,
+          const CellOffset(3, 2),
+        ),
+        isFalse,
+      );
+      expect(connection.writes, isEmpty);
+    });
+
+    test('Herdr over SSH may disable mouse reporting', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(
+        _rose,
+        command: 'attach',
+        pane: const (session: 'default', pane: 'w1:p1'),
+      )!;
+      await _settle();
+
+      final connection = transport.opened.single;
+      connection.emit('\x1b[?1002h\x1b[?1002l\x1b[?1006h');
+      await _settle();
+
+      expect(
+        session.terminal.mouseInput(
+          TerminalMouseButton.left,
+          TerminalMouseButtonState.down,
+          const CellOffset(3, 2),
+        ),
+        isFalse,
+      );
+      expect(connection.writes, isEmpty);
+    });
+
     test('a paste is one key, however long it is', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);

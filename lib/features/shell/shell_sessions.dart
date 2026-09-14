@@ -1125,7 +1125,12 @@ class ShellSessions extends ChangeNotifier {
       );
       if (marker != null) session.terminal.write(marker);
       session._decoder = utf8.decoder.startChunkedConversion(
-        _TerminalSink(session.terminal),
+        _TerminalSink(
+          session.terminal,
+          preserveMouseReporting:
+              connection.transport == ShellTransport.mosh &&
+              session.pane != null,
+        ),
       );
       session._output = connection.output.listen(
         (bytes) => session._decoder?.add(bytes),
@@ -1342,12 +1347,19 @@ class ShellSessions extends ChangeNotifier {
 
 /// The chunked decoder's other end: decoded text straight into the terminal.
 class _TerminalSink implements Sink<String> {
-  _TerminalSink(this.terminal);
+  _TerminalSink(this.terminal, {required this.preserveMouseReporting});
 
   final Terminal terminal;
+  final bool preserveMouseReporting;
 
   @override
-  void add(String data) => terminal.write(data);
+  void add(String data) {
+    terminal.write(data);
+    if (!preserveMouseReporting) return;
+    terminal
+      ..setMouseMode(MouseMode.upDownScrollDrag)
+      ..setMouseReportMode(MouseReportMode.sgr);
+  }
 
   @override
   void close() {}
