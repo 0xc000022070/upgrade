@@ -19,41 +19,60 @@ Future<bool> askHostKey(
   BuildContext context, {
   required Host host,
   required HostKeyOffer offer,
+  PinnedHostKey? pinned,
 }) async {
+  final changed = pinned != null;
+  final title = changed ? 'HOST KEY CHANGED' : 'NEW HOST KEY';
   final answer = await showPanelSheet<bool>(
     context,
-    title: 'NEW HOST KEY',
+    title: title,
     builder: (context) => PanelSheetBody(
-      title: 'NEW HOST KEY',
+      title: title,
       children: [
         Text(host.name.toUpperCase(), style: DazzleText.panelHeader),
         const SizedBox(height: Spacing.sm),
         Meta('${host.address}:${host.port}'),
         const SheetRule(),
-        Text('KEY TYPE', style: DazzleText.label),
-        const SizedBox(height: Spacing.sm),
-        Meta(offer.type.toUpperCase()),
-        const SizedBox(height: Spacing.md),
-        Text('FINGERPRINT', style: DazzleText.label),
-        const SizedBox(height: Spacing.sm),
-        // Three lines rather than one: a fingerprint is fifty characters and
-        // the half an ellipsis would drop is the half that tells one machine
-        // from another.
-        Meta(offer.fingerprint, strong: true, maxLines: 3),
+        if (changed) ...[
+          Text('STORED KEY', style: DazzleText.label),
+          const SizedBox(height: Spacing.sm),
+          Meta(pinned.type.toUpperCase()),
+          const SizedBox(height: Spacing.sm),
+          Meta(pinned.fingerprint, maxLines: 3),
+          const SizedBox(height: Spacing.md),
+          Text('OFFERED KEY', style: DazzleText.label),
+          const SizedBox(height: Spacing.sm),
+          Meta(offer.type.toUpperCase()),
+          const SizedBox(height: Spacing.sm),
+          Meta(offer.fingerprint, strong: true, maxLines: 3),
+          const SizedBox(height: Spacing.md),
+          Text(
+            'VERIFY THE OFFERED FINGERPRINT OUTSIDE DAZZLE BEFORE REPLACING.',
+            style: DazzleText.prose,
+          ),
+        ] else ...[
+          Text('KEY TYPE', style: DazzleText.label),
+          const SizedBox(height: Spacing.sm),
+          Meta(offer.type.toUpperCase()),
+          const SizedBox(height: Spacing.md),
+          Text('FINGERPRINT', style: DazzleText.label),
+          const SizedBox(height: Spacing.sm),
+          Meta(offer.fingerprint, strong: true, maxLines: 3),
+        ],
         const SheetRule(),
         Row(
           children: [
             Expanded(
               child: ActionBlock(
-                label: 'REJECT',
+                label: changed ? 'KEEP OLD' : 'REJECT',
                 onTap: () => Navigator.of(context).pop(false),
               ),
             ),
             const SizedBox(width: Spacing.md),
             Expanded(
               child: ActionBlock(
-                label: 'TRUST',
-                tone: DazzleColors.accent,
+                label: changed ? 'REPLACE' : 'TRUST',
+                tone: changed ? DazzleColors.warning : DazzleColors.accent,
                 filled: true,
                 onTap: () => Navigator.of(context).pop(true),
               ),

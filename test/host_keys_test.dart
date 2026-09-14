@@ -2,7 +2,12 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/action_block.dart';
+import 'package:dazzle/features/hosts/host_key_sheet.dart';
 import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/host_keys.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
@@ -27,7 +32,7 @@ void main() {
     final asked = <HostKeyOffer>[];
     final written = <PinnedHostKey>[];
     final verifier = HostKeyVerifier(
-      prompt: (offer) async {
+      prompt: (offer, _) async {
         asked.add(offer);
         return true;
       },
@@ -47,7 +52,7 @@ void main() {
   test('REJECT fails the dial as unverified and writes nothing', () async {
     final written = <PinnedHostKey>[];
     final verifier = HostKeyVerifier(
-      prompt: (_) async => false,
+      prompt: (_, _) async => false,
       pin: (key) async => written.add(key),
     );
 
@@ -61,7 +66,7 @@ void main() {
     var asked = false;
     final verifier = HostKeyVerifier(
       pinned: _pin(_fingerprint),
-      prompt: (_) async {
+      prompt: (_, _) async {
         asked = true;
         return true;
       },
@@ -73,23 +78,52 @@ void main() {
     expect(verifier.refusal, isNull);
   });
 
-  test(
-    'a fingerprint that differs from the pin is refused, never asked about',
-    () async {
-      var asked = false;
-      final verifier = HostKeyVerifier(
-        pinned: _pin(_fingerprint),
-        prompt: (_) async {
-          asked = true;
-          return true;
-        },
-      );
+  test('an unattended changed key is refused', () async {
+    final verifier = HostKeyVerifier.pinnedOnly(_pin(_fingerprint));
 
-      expect(await verifier.verify(_type, _bytes(_other)), isFalse);
-      expect(asked, isFalse);
-      expect(verifier.refusal, HostKeyRefusal.changed);
-    },
-  );
+    expect(await verifier.verify(_type, _bytes(_other)), isFalse);
+    expect(verifier.refusal, HostKeyRefusal.changed);
+  });
+
+  test('REPLACE accepts and pins the offered key', () async {
+    final known = _pin(_fingerprint);
+    final asked = <(HostKeyOffer, PinnedHostKey?)>[];
+    final written = <PinnedHostKey>[];
+    final verifier = HostKeyVerifier(
+      pinned: known,
+      prompt: (offer, pinned) async {
+        asked.add((offer, pinned));
+        return true;
+      },
+      pin: (key) async => written.add(key),
+    );
+
+    expect(await verifier.verify(_type, _bytes(_other)), isTrue);
+    expect(asked.single.$1.fingerprint, _other);
+    expect(asked.single.$2, same(known));
+    expect(written.single.fingerprint, _other);
+    expect(verifier.verified?.fingerprint, _other);
+    expect(verifier.refusal, isNull);
+  });
+
+  test('KEEP OLD refuses the offered key and preserves the pin', () async {
+    final known = _pin(_fingerprint);
+    final written = <PinnedHostKey>[];
+    final verifier = HostKeyVerifier(
+      pinned: known,
+      prompt: (offer, pinned) async {
+        expect(offer.fingerprint, _other);
+        expect(pinned, same(known));
+        return false;
+      },
+      pin: (key) async => written.add(key),
+    );
+
+    expect(await verifier.verify(_type, _bytes(_other)), isFalse);
+    expect(written, isEmpty);
+    expect(verifier.verified, isNull);
+    expect(verifier.refusal, HostKeyRefusal.changed);
+  });
 
   test(
     'a key type that differs is a changed key, fingerprint or not',
@@ -161,5 +195,60 @@ void main() {
       VncHostKeyUnverified('x').reason('nyx'),
       HostKeyRefusal.unverified.line.words,
     );
+  });
+
+  testWidgets('a changed key sheet compares both keys before replacement', (
+    tester,
+  ) async {
+    bool? answer;
+    const host = Host(
+      id: 'rose',
+      name: 'rose',
+      address: '100.64.94.121',
+      port: 22,
+      user: 'luis',
+      keyId: 'faraday',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              answer = await askHostKey(
+                context,
+                host: host,
+                offer: const HostKeyOffer(type: _type, fingerprint: _other),
+                pinned: _pin(_fingerprint),
+              );
+            },
+            child: const Text('OPEN'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('OPEN'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(find.text('HOST KEY CHANGED'), findsOneWidget);
+    expect(find.text('STORED KEY'), findsOneWidget);
+    expect(find.text(_fingerprint), findsOneWidget);
+    expect(find.text('OFFERED KEY'), findsOneWidget);
+    expect(find.text(_other), findsOneWidget);
+    expect(find.text('KEEP OLD'), findsOneWidget);
+    expect(find.text('REPLACE'), findsOneWidget);
+    final replace = tester.widget<ActionBlock>(
+      find.widgetWithText(ActionBlock, 'REPLACE'),
+    );
+    expect(replace.tone, DazzleColors.warning);
+    expect(replace.filled, isTrue);
+
+    await tester.tap(find.text('KEEP OLD'));
+    for (var i = 0; i < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(answer, isFalse);
   });
 }

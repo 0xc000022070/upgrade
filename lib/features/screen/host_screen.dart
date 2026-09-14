@@ -101,9 +101,9 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
 
   /// The screen is a route the user is looking at, so an unknown key is a
   /// question rather than a refusal.
-  Future<bool> _askHostKey(HostKeyOffer offer) async {
+  Future<bool> _askHostKey(HostKeyOffer offer, PinnedHostKey? pinned) async {
     if (!mounted) return false;
-    return askHostKey(context, host: widget.host, offer: offer);
+    return askHostKey(context, host: widget.host, offer: offer, pinned: pinned);
   }
 
   /// A store that will not open costs the host its tile and nothing else — the

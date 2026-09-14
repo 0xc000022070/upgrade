@@ -52,7 +52,10 @@ class HostKeyOffer {
 /// Asks the user whether this is the machine. Null everywhere the question
 /// cannot be put on screen — the agent poll, the alert watcher, a reconnect —
 /// and those refuse an unpinned host instead of asking.
-typedef HostKeyPrompt = Future<bool> Function(HostKeyOffer offer);
+typedef HostKeyPrompt = Future<bool> Function(
+  HostKeyOffer offer,
+  PinnedHostKey? pinned,
+);
 
 /// Writes the pin once the user has said yes. Separate from the prompt because
 /// the sheet knows nothing about the database and the repository knows nothing
@@ -105,11 +108,16 @@ class HostKeyVerifier {
         _verified = known;
         return true;
       }
-      // No override on the connect path. The only way past a changed key is
-      // forgetting the pin on the host form, where the user is looking at what
-      // they are dropping.
-      _refusal = HostKeyRefusal.changed;
-      return false;
+      final ask = prompt;
+      if (ask == null ||
+          !await ask(
+            HostKeyOffer(type: type, fingerprint: fingerprint),
+            known,
+          )) {
+        _refusal = HostKeyRefusal.changed;
+        return false;
+      }
+      return _accept(type, fingerprint);
     }
     final ask = prompt;
     if (ask == null) {
@@ -118,11 +126,16 @@ class HostKeyVerifier {
     }
     final approved = await ask(
       HostKeyOffer(type: type, fingerprint: fingerprint),
+      null,
     );
     if (!approved) {
       _refusal = HostKeyRefusal.unverified;
       return false;
     }
+    return _accept(type, fingerprint);
+  }
+
+  Future<bool> _accept(String type, String fingerprint) async {
     final accepted = PinnedHostKey(
       type: type,
       fingerprint: fingerprint,
