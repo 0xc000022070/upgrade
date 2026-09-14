@@ -4,9 +4,13 @@ import 'package:path/path.dart' as path;
 
 import '../../app/static_surface.dart';
 import '../../application/agents.dart';
+import '../../data/repositories/host_repository.dart';
 import '../../design/components/list_row.dart';
+import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
+import '../../design/components/panel_text_action.dart';
 import '../../design/components/section.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/sprite.dart';
 import '../../design/typography.dart';
@@ -192,27 +196,124 @@ class _MascotEmpty extends StatelessWidget {
   }
 }
 
-class _FailureLine extends StatelessWidget {
+class _FailureLine extends ConsumerStatefulWidget {
   const _FailureLine({required this.outcome, required this.named});
 
   final HostOutcome outcome;
   final bool named;
 
   @override
+  ConsumerState<_FailureLine> createState() => _FailureLineState();
+}
+
+class _FailureLineState extends ConsumerState<_FailureLine> {
+  HostOutcome? _retried;
+  bool _retrying = false;
+  bool _retryFailed = false;
+
+  @override
+  void didUpdateWidget(_FailureLine oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.outcome != widget.outcome ||
+        oldWidget.outcome.host.id != widget.outcome.host.id) {
+      _retried = null;
+      _retryFailed = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final outcome = _retried ?? widget.outcome;
     final timestamp = outcome.lastGoodAt;
     return Panel(
-      title: named ? outcome.host.name.toUpperCase() : 'AGENTS',
-      child: Row(
+      title: widget.named ? outcome.host.name.toUpperCase() : 'AGENTS',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(child: Text(outcome.reason, style: DazzleText.value)),
-          if (timestamp != null)
-            Text(
-              agentSnapshotAge(DateTime.now(), timestamp),
-              style: DazzleText.value,
+          _DiagnosticRow(
+            label: 'HERDR',
+            value: outcome.ok ? 'connected' : outcome.reason,
+          ),
+          _DiagnosticRow(
+            label: 'DETAIL',
+            value: _retryFailed ? 'retry request failed' : outcome.diagnostic,
+            maxLines: 2,
+          ),
+          _DiagnosticRow(
+            label: 'TARGET',
+            value: _agentTarget(outcome.host),
+            maxLines: 2,
+          ),
+          _DiagnosticRow(
+            label: 'LAST UPDATE',
+            value: timestamp == null
+                ? 'never connected'
+                : agentSnapshotAge(DateTime.now(), timestamp),
+          ),
+          if (!outcome.ok && outcome.kind.retryable)
+            PanelTextAction(
+              label: _retrying ? 'RETRYING' : 'RETRY',
+              onTap: _retrying ? null : _retry,
+              icon: DazzleIcons.sync,
             ),
         ],
       ),
     );
   }
+
+  Future<void> _retry() async {
+    setState(() {
+      _retrying = true;
+      _retryFailed = false;
+    });
+    try {
+      final host = widget.outcome.host;
+      final outcome = await ref.read(agentRetryProvider)(host);
+      if (!mounted || widget.outcome.host.id != host.id) return;
+      setState(() => _retried = outcome);
+    } catch (_) {
+      if (mounted) setState(() => _retryFailed = true);
+    } finally {
+      if (mounted) setState(() => _retrying = false);
+    }
+  }
+}
+
+class _DiagnosticRow extends StatelessWidget {
+  const _DiagnosticRow({
+    required this.label,
+    required this.value,
+    this.maxLines = 1,
+  });
+
+  final String label;
+  final String value;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelSize = DazzleText.label.fontSize!;
+    final labelScale =
+        MediaQuery.textScalerOf(context).scale(labelSize) / labelSize;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 32),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 80 * labelScale,
+            child: Text(label, style: DazzleText.label),
+          ),
+          const SizedBox(width: Spacing.md),
+          Expanded(child: Meta(value, maxLines: maxLines)),
+        ],
+      ),
+    );
+  }
+}
+
+String _agentTarget(Host host) {
+  final address = host.address.contains(':')
+      ? '[${host.address}]'
+      : host.address;
+  return '${host.user}@$address:${host.port}';
 }

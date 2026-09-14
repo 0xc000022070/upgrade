@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'support/native_plugins.dart';
 
 import 'package:drift/native.dart';
@@ -63,10 +65,11 @@ void main() {
   /// The background grain is read out of the settings table by [StaticSurface],
   /// which
   /// every screen sits under, so the database is not optional even here.
-  Widget host(AgentPanelState state) => ProviderScope(
+  Widget host(AgentPanelState state, {AgentRetry? retry}) => ProviderScope(
     overrides: [
       ...featureTestOverrides(db),
       agentsFeedProvider.overrideWith((ref) => Stream.value(state)),
+      if (retry != null) agentRetryProvider.overrideWithValue(retry),
     ],
     child: const MaterialApp(home: AgentsScreen()),
   );
@@ -140,7 +143,73 @@ void main() {
     await ready(tester);
 
     expect(find.text('nyx unreachable'), findsOneWidget);
+    expect(find.text('HERDR check could not reach host'), findsOneWidget);
+    expect(find.text('luisnquin@100.118.60.77:22'), findsOneWidget);
+    expect(find.text('never connected'), findsOneWidget);
+    expect(find.text('RETRY'), findsOneWidget);
     expect(find.text('WORKSPACES'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('a failed host retries and keeps raw errors off screen', (
+    tester,
+  ) async {
+    final retried = Completer<HostOutcome>();
+    Host? requested;
+    await tester.pumpWidget(
+      host(
+        const AgentPanelState([
+          HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
+        ]),
+        retry: (host) {
+          requested = host;
+          return retried.future;
+        },
+      ),
+    );
+    await ready(tester);
+
+    await tester.tap(find.text('RETRY'));
+    await tester.pump();
+
+    expect(requested, nyx);
+    expect(find.text('RETRYING'), findsOneWidget);
+
+    retried.complete(
+      const HostOutcome(host: nyx, kind: AgentOutcomeKind.keyRejected),
+    );
+    await ready(tester);
+
+    expect(find.text('key rejected'), findsOneWidget);
+    expect(find.text('check SSH key in HOSTS'), findsOneWidget);
+    expect(find.text('RETRY'), findsNothing);
+    expect(find.textContaining('private'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('an unexpected retry error is reduced to a safe diagnostic', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        const AgentPanelState([
+          HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
+        ]),
+        retry: (_) => Future.error(
+          StateError('private key material must not reach the screen'),
+        ),
+      ),
+    );
+    await ready(tester);
+
+    await tester.tap(find.text('RETRY'));
+    await ready(tester);
+
+    expect(find.text('retry request failed'), findsOneWidget);
+    expect(find.textContaining('private key material'), findsNothing);
+    expect(find.text('RETRY'), findsOneWidget);
+
     await unmount(tester);
   });
 

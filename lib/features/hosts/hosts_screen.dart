@@ -173,13 +173,7 @@ class _HostPanel extends ConsumerWidget {
             strong: on.isNotEmpty,
           ),
           if (integrations.contains(IntegrationKind.herdr))
-            _MetaRow(
-              'STATE',
-              _stateLine(outcome),
-              color: outcome != null && !outcome!.ok
-                  ? DazzleColors.warning
-                  : null,
-            ),
+            _HerdrStateRow(host: host, outcome: outcome),
           _ShellRow(host: host),
           _ClipboardRow(host: host),
           if (integrations.contains(IntegrationKind.vnc)) ...[
@@ -190,6 +184,67 @@ class _HostPanel extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+class _HerdrStateRow extends ConsumerStatefulWidget {
+  const _HerdrStateRow({required this.host, required this.outcome});
+
+  final Host host;
+  final HostOutcome? outcome;
+
+  @override
+  ConsumerState<_HerdrStateRow> createState() => _HerdrStateRowState();
+}
+
+class _HerdrStateRowState extends ConsumerState<_HerdrStateRow> {
+  HostOutcome? _retried;
+  bool _retrying = false;
+  bool _retryFailed = false;
+
+  @override
+  void didUpdateWidget(_HerdrStateRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.outcome != widget.outcome ||
+        oldWidget.host.id != widget.host.id) {
+      _retried = null;
+      _retryFailed = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final outcome = _retried ?? widget.outcome;
+    final failed = outcome != null && !outcome.ok;
+    return _MetaRow(
+      'HERDR STATUS',
+      _retryFailed ? 'retry failed' : _stateLine(outcome),
+      color: failed ? DazzleColors.warning : null,
+      trailing: failed && outcome.kind.retryable
+          ? PanelAffordance(
+              _retrying ? 'RETRYING' : 'RETRY',
+              showIcon: false,
+              onTap: _retrying ? null : _retry,
+            )
+          : null,
+    );
+  }
+
+  Future<void> _retry() async {
+    setState(() {
+      _retrying = true;
+      _retryFailed = false;
+    });
+    try {
+      final host = widget.host;
+      final outcome = await ref.read(agentRetryProvider)(host);
+      if (!mounted || widget.host.id != host.id) return;
+      setState(() => _retried = outcome);
+    } catch (_) {
+      if (mounted) setState(() => _retryFailed = true);
+    } finally {
+      if (mounted) setState(() => _retrying = false);
+    }
   }
 }
 

@@ -178,6 +178,28 @@ class AgentWatcher {
     }
   }
 
+  static Future<HostOutcome> retry(Host host) async {
+    final requestId =
+        '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}-'
+        '${(_retryRequests++).toRadixString(36)}';
+    final response = taskData()
+        .map(_decodeReport)
+        .where((report) => report != null)
+        .cast<WatcherReport>()
+        .firstWhere(
+          (report) => report.hostId == host.id && report.requestId == requestId,
+        )
+        .timeout(const Duration(seconds: 20));
+    FlutterForegroundTask.sendDataToTask(
+      jsonEncode({
+        'command': _retryHost,
+        'host_id': host.id,
+        'request_id': requestId,
+      }),
+    );
+    return (await response).toOutcome(host);
+  }
+
   static Future<void> stop() async {
     if (await FlutterForegroundTask.isRunningService) {
       await FlutterForegroundTask.stopService();
@@ -304,6 +326,8 @@ class AgentWatcher {
 }
 
 const _reloadHosts = 'reload-hosts';
+const _retryHost = 'retry-host';
+var _retryRequests = 0;
 
 WatcherReport? _decodeReport(Object data) {
   if (data is! String) return null;
@@ -347,7 +371,24 @@ class AgentWatcherHandler extends TaskHandler {
 
   @override
   void onReceiveData(Object data) {
-    if (data == _reloadHosts) unawaited(_reloadFromStore());
+    if (data == _reloadHosts) {
+      unawaited(_reloadFromStore());
+      return;
+    }
+    if (data is! String) return;
+    try {
+      final message = jsonDecode(data);
+      if (message is! Map<String, Object?> ||
+          message['command'] != _retryHost ||
+          message['host_id'] is! String ||
+          message['request_id'] is! String) {
+        return;
+      }
+      retryHost(
+        message['host_id']! as String,
+        message['request_id']! as String,
+      );
+    } catch (_) {}
   }
 
   @override
@@ -388,6 +429,11 @@ class AgentWatcherHandler extends TaskHandler {
       )..start();
     }
     _redrawPersistent();
+  }
+
+  @visibleForTesting
+  void retryHost(String hostId, String requestId) {
+    _loops[hostId]?.retry(requestId);
   }
 
   void _publish(WatcherReport report) {
@@ -444,6 +490,8 @@ class _HostLoop {
   Future<void>? _running;
   HerdrSession? _session;
   bool _stopped = false;
+  bool _interrupting = false;
+  String? _requestId;
   Completer<void>? _waiting;
   List<AgentSnapshot> _lastAgents = const [];
   DateTime? _lastGoodAt;
@@ -458,7 +506,33 @@ class _HostLoop {
       other.hostKey?.type == host.hostKey?.type &&
       other.hostKey?.fingerprint == host.hostKey?.fingerprint;
 
-  void start() => _running = _run();
+  void start() {
+    if (_running != null) return;
+    final running = _run();
+    _running = running;
+    unawaited(
+      running.whenComplete(() {
+        if (identical(_running, running)) _running = null;
+      }),
+    );
+  }
+
+  void retry(String requestId) {
+    if (_stopped) return;
+    _requestId = requestId;
+    _backoff.reset();
+    if (_waiting case final waiting? when !waiting.isCompleted) {
+      waiting.complete();
+      return;
+    }
+    final session = _session;
+    if (session != null) {
+      _interrupting = true;
+      session.close();
+      return;
+    }
+    if (_running == null) start();
+  }
 
   Future<void> stop() async {
     _stopped = true;
@@ -496,22 +570,32 @@ class _HostLoop {
   Future<void> _run() async {
     while (!_stopped) {
       var kind = AgentOutcomeKind.unreachable;
+      var interrupted = false;
       try {
         await _connectAndWatch();
         // The stream ended without an error: the remote loop closed.
         throw const HerdrUnreachable('watch stream ended');
       } on HerdrFailure catch (error) {
         kind = _kindOf(error);
-        _log(error.detail ?? error);
-        _reportFailure(kind, protocol: _protocolOf(error));
+        interrupted = _interrupting;
+        _interrupting = false;
+        if (!interrupted) {
+          _log(error.detail ?? error);
+          _reportFailure(kind, protocol: _protocolOf(error));
+        }
       } catch (error) {
-        _log(error);
-        _reportFailure(kind);
+        interrupted = _interrupting;
+        _interrupting = false;
+        if (!interrupted) {
+          _log(error);
+          _reportFailure(kind);
+        }
       } finally {
         _session?.close();
         _session = null;
       }
       if (_stopped) return;
+      if (interrupted) continue;
       // An answer nothing is going to ask again is stood on rather than slept
       // off. The report is already out, the panel and the shade are showing
       // it, and the loop ends here until the host row or the setting changes
@@ -595,22 +679,23 @@ class _HostLoop {
     _report(AgentOutcomeKind.snapshot);
   }
 
-  void _report(
-    AgentOutcomeKind kind, {
-    int? protocol,
-    Duration? retryIn,
-  }) => onReport(
-    WatcherReport(
-      hostId: host.id,
-      kind: kind,
-      // The agent poll's rule, kept here too: a host that blinks does not empty
-      // the panel, so the last good agents ride along with the failure.
-      agents: _lastAgents,
-      lastGoodAt: _lastGoodAt,
-      protocol: protocol,
-      retryIn: retryIn,
-    ),
-  );
+  void _report(AgentOutcomeKind kind, {int? protocol, Duration? retryIn}) {
+    final requestId = _requestId;
+    _requestId = null;
+    onReport(
+      WatcherReport(
+        hostId: host.id,
+        kind: kind,
+        // The agent poll's rule, kept here too: a host that blinks does not empty
+        // the panel, so the last good agents ride along with the failure.
+        agents: _lastAgents,
+        lastGoodAt: _lastGoodAt,
+        protocol: protocol,
+        retryIn: retryIn,
+        requestId: requestId,
+      ),
+    );
+  }
 
   Future<void> _watchFake() async {
     // One blocked pane, which is the edge the alert is taken on, and enough

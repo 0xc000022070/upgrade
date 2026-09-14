@@ -252,6 +252,7 @@ class WatcherReport {
     this.lastGoodAt,
     this.protocol,
     this.retryIn,
+    this.requestId,
   });
 
   final String hostId;
@@ -263,6 +264,7 @@ class WatcherReport {
   /// The persistent line, `nyx unreachable · retry 30s`: the backoff the
   /// watcher is currently sitting out.
   final Duration? retryIn;
+  final String? requestId;
 
   Map<String, Object?> toJson() => {
     'host_id': hostId,
@@ -271,6 +273,7 @@ class WatcherReport {
     'last_good_at': lastGoodAt?.millisecondsSinceEpoch,
     'protocol': protocol,
     'retry_ms': retryIn?.inMilliseconds,
+    if (requestId != null) 'request_id': requestId,
   };
 
   static WatcherReport? fromJson(Map<String, Object?> json) {
@@ -295,6 +298,9 @@ class WatcherReport {
           : null,
       protocol: json['protocol'] is int ? json['protocol']! as int : null,
       retryIn: retry is int ? Duration(milliseconds: retry) : null,
+      requestId: json['request_id'] is String
+          ? json['request_id']! as String
+          : null,
     );
   }
 
