@@ -13,6 +13,11 @@ import '../host_keys.dart';
 abstract interface class ShellConnection {
   ShellTransport get transport;
 
+  /// Transport reachability after the shell opened. SSH ends its channel when
+  /// reachability is lost. Mosh stays open while roaming, so it reports the
+  /// difference between an existing session and recent server contact here.
+  Stream<ShellConnectionHealth> get health;
+
   /// Whether this channel started or resumed an explicitly requested durable
   /// target. Ordinary and Herdr sessions are plain at this boundary.
   ShellContinuity get continuity;
@@ -55,6 +60,8 @@ abstract interface class ShellConnection {
 enum ShellContinuity { plain, started, resumed }
 
 enum ShellTransport { ssh, mosh }
+
+enum ShellConnectionHealth { connected, reconnecting, disconnected }
 
 /// What a command on an exec channel came back with.
 class ExecResult {

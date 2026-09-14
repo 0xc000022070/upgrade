@@ -873,6 +873,30 @@ void main() {
     await sessions.close(_rose.id, session);
   });
 
+  testWidgets(
+    'a roaming shell reports stalled and recovered transport health',
+    (tester) async {
+      final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _pumpDial(tester);
+
+      transport.opened.single.setHealth(ShellConnectionHealth.reconnecting);
+      await tester.pump();
+      expect(session.state, isA<ShellReconnecting>());
+
+      transport.opened.single.setHealth(ShellConnectionHealth.disconnected);
+      await tester.pump();
+      expect(session.state, isA<ShellDisconnected>());
+
+      transport.opened.single.setHealth(ShellConnectionHealth.connected);
+      await tester.pump();
+      expect(session.state, isA<ShellLive>());
+
+      await sessions.close(_rose.id, session);
+    },
+  );
+
   testWidgets('a first dial that never lands is waited out too', (
     tester,
   ) async {

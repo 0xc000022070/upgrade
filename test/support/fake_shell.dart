@@ -16,6 +16,7 @@ class FakeShellConnection implements ShellConnection {
   });
 
   final _output = StreamController<Uint8List>.broadcast();
+  final _health = StreamController<ShellConnectionHealth>.broadcast();
   final _exit = Completer<int?>();
 
   final writes = <Uint8List>[];
@@ -49,6 +50,9 @@ class FakeShellConnection implements ShellConnection {
   Stream<Uint8List> get output => _output.stream;
 
   @override
+  Stream<ShellConnectionHealth> get health => _health.stream;
+
+  @override
   void write(Uint8List bytes) => writes.add(bytes);
 
   @override
@@ -62,6 +66,7 @@ class FakeShellConnection implements ShellConnection {
     await hold?.future;
     closed = true;
     if (!_exit.isCompleted) _exit.complete(null);
+    await _health.close();
   }
 
   @override
@@ -109,6 +114,8 @@ class FakeShellConnection implements ShellConnection {
   /// The link going away under a live shell: the stream errors and the
   /// connection is never told, which is what a phone leaving wifi looks like.
   void drop([Object error = 'link lost']) => _output.addError(error);
+
+  void setHealth(ShellConnectionHealth health) => _health.add(health);
 
   void exit(int code) {
     if (!_exit.isCompleted) _exit.complete(code);

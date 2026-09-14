@@ -31,11 +31,12 @@ class ShellStateDot extends StatelessWidget {
     // on the other end, and until it answers there is not.
     final color = switch (state) {
       ShellLive() => DazzleColors.accent,
-      ShellFailed() => DazzleColors.warning,
+      ShellFailed() || ShellDisconnected() => DazzleColors.warning,
       // A dropped session is neither: there is no shell on the other end and
       // the store has not given up on getting one. Nor has it for one waiting,
       // which is the same tab with its schedule spent.
       ShellConnecting() ||
+      ShellReconnecting() ||
       ShellDropped() ||
       ShellWaiting() ||
       ShellExited() => DazzleColors.textMuted,

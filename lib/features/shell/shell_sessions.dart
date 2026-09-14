@@ -43,6 +43,22 @@ final class ShellLive extends ShellState {
   final ShellTransport transport;
 }
 
+/// The transport still owns the remote session but has not received a current
+/// acknowledgement. Mosh keeps probing and can recover without a new shell.
+final class ShellReconnecting extends ShellState {
+  const ShellReconnecting(this.transport);
+
+  final ShellTransport transport;
+}
+
+/// The remote session may still exist, but the transport has missed enough
+/// acknowledgements that Dazzle has no evidence of a usable connection.
+final class ShellDisconnected extends ShellState {
+  const ShellDisconnected(this.transport);
+
+  final ShellTransport transport;
+}
+
 final class ShellExited extends ShellState {
   const ShellExited(this.code);
 
@@ -371,6 +387,7 @@ class ShellSession extends ChangeNotifier {
   /// Cancelled and dropped on every close and every retry: a stale listener
   /// would write a dead connection's bytes into a live terminal.
   StreamSubscription<Uint8List>? _output;
+  StreamSubscription<ShellConnectionHealth>? _health;
 
   /// Decodes the channel across chunk boundaries. A plain [utf8.decode] per
   /// chunk would mangle any character whose bytes land either side of one,
@@ -846,6 +863,8 @@ class ShellSessions extends ChangeNotifier {
     notifyListeners();
     unawaited(session._output?.cancel());
     session._output = null;
+    unawaited(session._health?.cancel());
+    session._health = null;
     session._decoder = null;
     _retire(session);
     final connection = session.connection;
@@ -1118,6 +1137,9 @@ class ShellSessions extends ChangeNotifier {
       session._columns = columns;
       session._rows = rows;
       session.state = ShellLive(connection.transport);
+      session._health = connection.health.listen(
+        (health) => _onHealth(session, connection, attempt, health),
+      );
       final marker = _transitionMarker(
         session,
         reconnected: reconnected,
@@ -1185,6 +1207,8 @@ class ShellSessions extends ChangeNotifier {
     try {
       final code = await connection.exitCode;
       if (!attempt.isCurrent) return;
+      unawaited(session._health?.cancel());
+      session._health = null;
       session.disarm();
       session.state = ShellExited(code);
       session.pin = null;
@@ -1198,10 +1222,36 @@ class ShellSessions extends ChangeNotifier {
     }
   }
 
+  void _onHealth(
+    ShellSession session,
+    ShellConnection connection,
+    _Attempt attempt,
+    ShellConnectionHealth health,
+  ) {
+    if (!attempt.isCurrent || !identical(session.connection, connection)) {
+      return;
+    }
+    final next = switch (health) {
+      ShellConnectionHealth.connected => ShellLive(connection.transport),
+      ShellConnectionHealth.reconnecting => ShellReconnecting(
+        connection.transport,
+      ),
+      ShellConnectionHealth.disconnected => ShellDisconnected(
+        connection.transport,
+      ),
+    };
+    final current = session.state;
+    if (current.runtimeType == next.runtimeType) return;
+    session.state = next;
+    session.changed();
+  }
+
   /// Anything the transport throws that is not a [ShellFailure] is the
   /// connection going away without a word for it.
   void _fail(ShellSession session, Object error, _Attempt attempt) {
     if (!attempt.isCurrent) return;
+    unawaited(session._health?.cancel());
+    session._health = null;
     session.pin = null;
     session.disarm();
     final kind = error is ShellFailure
@@ -1253,7 +1303,10 @@ class ShellSessions extends ChangeNotifier {
     for (final sessions in _byHost.values) {
       for (final session in List.of(sessions)) {
         final connection = session.connection;
-        if (session.state is ShellLive && connection != null) {
+        if (connection != null &&
+            (session.state is ShellLive ||
+                session.state is ShellReconnecting ||
+                session.state is ShellDisconnected)) {
           unawaited(
             connection.rehome().catchError((Object error) {
               debugPrint(
@@ -1325,6 +1378,8 @@ class ShellSessions extends ChangeNotifier {
     // caller's is running.
     unawaited(session._output?.cancel());
     session._output = null;
+    unawaited(session._health?.cancel());
+    session._health = null;
     session._decoder = null;
     final previous = session.connection;
     session.connection = null;

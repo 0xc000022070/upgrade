@@ -202,6 +202,7 @@ class FakeHost implements ShellHost {
 class FakeMoshChannel implements MoshChannel {
   final _output = StreamController<Uint8List>.broadcast();
   final _errors = StreamController<Object>.broadcast();
+  final _echoAcks = StreamController<int>.broadcast();
   final _done = Completer<void>();
 
   final sent = <Uint8List>[];
@@ -216,14 +217,22 @@ class FakeMoshChannel implements MoshChannel {
   Stream<Object> get errors => _errors.stream;
 
   @override
+  Stream<int> get echoAcks => _echoAcks.stream;
+
+  @override
   Future<void> get done => _done.future;
 
   @override
-  void send(Uint8List bytes) => sent.add(bytes);
+  int send(Uint8List bytes) {
+    sent.add(bytes);
+    return sent.length + sizes.length;
+  }
 
   @override
-  void resize(int columns, int rows) =>
-      sizes.add((columns: columns, rows: rows));
+  int resize(int columns, int rows) {
+    sizes.add((columns: columns, rows: rows));
+    return sent.length + sizes.length;
+  }
 
   @override
   Future<void> rehome() async => rehomes++;
@@ -235,9 +244,12 @@ class FakeMoshChannel implements MoshChannel {
     if (!_done.isCompleted) _done.complete();
     await _output.close();
     await _errors.close();
+    await _echoAcks.close();
   }
 
   void emit(String value) => _output.add(Uint8List.fromList(value.codeUnits));
+
+  void acknowledge(int state) => _echoAcks.add(state);
 }
 
 ShellTunnel tunnelTo(FakeHost host, {Object? dialError}) => ShellTunnel(
@@ -262,8 +274,10 @@ ShellTunnel moshTunnelTo(
   FakeMoshChannel channel, {
   Duration timeout = const Duration(seconds: 10),
   bool emitReady = true,
+  Duration healthInterval = const Duration(seconds: 3),
 }) => ShellTunnel(
   timeout: timeout,
+  moshHealthInterval: healthInterval,
   dial: ({
     required String address,
     required int port,
@@ -450,10 +464,61 @@ void main() {
       connection.resize(91, 37);
       await connection.rehome();
       expect(channel.sent.single, [0x6c, 0x73, 0x0d]);
-      expect(channel.sizes.single, (columns: 91, rows: 37));
+      expect(channel.sizes, [(columns: 91, rows: 37), (columns: 91, rows: 37)]);
       expect(channel.rehomes, 1);
       await connection.close();
     });
+
+    test('Mosh sends a resize while an earlier probe is pending', () async {
+      const session = 'dazzle123';
+      final host = FakeHost()..execAnswer = moshHostAnswer;
+      final channel = FakeMoshChannel();
+      final connection = await openOn(
+        moshTunnelTo(host, channel),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      );
+      addTearDown(connection.close);
+
+      connection.resize(91, 37);
+      connection.resize(120, 45);
+
+      expect(channel.sizes, [
+        (columns: 91, rows: 37),
+        (columns: 120, rows: 45),
+      ]);
+    });
+
+    test(
+      'Mosh health follows acknowledged contact, not session existence',
+      () async {
+        const session = 'dazzle123';
+        final host = FakeHost()..execAnswer = moshHostAnswer;
+        final channel = FakeMoshChannel();
+        final connection = await openOn(
+          moshTunnelTo(
+            host,
+            channel,
+            healthInterval: const Duration(milliseconds: 5),
+          ),
+          command: 'exec \$SHELL -l',
+          tabSession: session,
+        );
+        addTearDown(connection.close);
+        final health = <ShellConnectionHealth>[];
+        connection.health.listen(health.add);
+
+        await Future<void>.delayed(const Duration(milliseconds: 14));
+        expect(health, contains(ShellConnectionHealth.reconnecting));
+
+        await Future<void>.delayed(const Duration(milliseconds: 12));
+        expect(health.last, ShellConnectionHealth.disconnected);
+
+        channel.acknowledge(channel.sizes.length);
+        await pumpEventQueue();
+        expect(health.last, ShellConnectionHealth.connected);
+      },
+    );
 
     test('Mosh redials its SSH control path after a rehome', () async {
       const session = 'dazzle123';

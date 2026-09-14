@@ -48,7 +48,7 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    expect(find.text('MOSH'), findsOneWidget);
+    expect(find.text('CONNECTED · MOSH'), findsOneWidget);
 
     await unmount(tester);
   });

@@ -34,6 +34,7 @@ void main() {
     await ready(tester);
 
     expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('CONNECTED · SSH'), findsOneWidget);
     expect(find.textContaining('/'), findsNothing);
     expect(find.text('CONNECTING'), findsNothing);
     expect(find.text('RETRY'), findsNothing);
@@ -83,7 +84,7 @@ void main() {
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
-    expect(find.text('SHELL REFUSED'), findsOneWidget);
+    expect(find.text('DISCONNECTED'), findsOneWidget);
     expect(find.text('shell refused'), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
     // The host answered and said no. Dialling again would get the same answer,
@@ -181,7 +182,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a spent schedule reads WAITING with STOP and a reason', (
+  testWidgets('a spent schedule reads DISCONNECTED with STOP and a reason', (
     tester,
   ) async {
     final transport = FakeShellTransport();
@@ -200,7 +201,7 @@ void main() {
     // One word, muted, where the count was, and no spinner: the app is not
     // working, it is waiting. The row underneath says what the last dial hit,
     // and `STOP` is the same way out it offers mid-schedule.
-    expect(find.text('WAITING'), findsOneWidget);
+    expect(find.text('DISCONNECTED'), findsOneWidget);
     expect(find.textContaining('RECONNECTING'), findsNothing);
     expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
     expect(find.text('STOP'), findsOneWidget);
@@ -208,7 +209,7 @@ void main() {
     await tester.tap(find.text('STOP'));
     await ready(tester);
 
-    expect(find.text('WAITING'), findsNothing);
+    expect(find.text('DISCONNECTED'), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
 
     await unmount(tester);

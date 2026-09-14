@@ -83,6 +83,7 @@ class ShellTunnel {
   const ShellTunnel({
     this.timeout = const Duration(seconds: 10),
     this.keepAlive = const Duration(seconds: 15),
+    this.moshHealthInterval = const Duration(seconds: 3),
     this.dial = dialSsh,
     this.moshDialer = dialMosh,
   });
@@ -93,6 +94,7 @@ class ShellTunnel {
 
   final Duration timeout;
   final Duration keepAlive;
+  final Duration moshHealthInterval;
   final ShellDialer dial;
   final MoshDialer moshDialer;
 
@@ -263,6 +265,8 @@ class ShellTunnel {
         host,
         channel,
         address: address,
+        columns: columns,
+        rows: rows,
         continuity: continuity,
         tmux: tmux,
         redial: () => _redial(
@@ -274,6 +278,7 @@ class ShellTunnel {
               ? null
               : HostKeyVerifier.pinnedOnly(trusted),
         ),
+        healthInterval: moshHealthInterval,
       );
       await connection.ready.timeout(timeout);
       _log(address, 'mosh ${server.port} on ${columns}x$rows');
@@ -586,12 +591,16 @@ class MoshShellConnection implements ShellConnection {
     ShellHost host,
     this._mosh, {
     required this.address,
+    required this.columns,
+    required this.rows,
     required this.continuity,
     required this.tmux,
     required this.redial,
+    this.healthInterval = const Duration(seconds: 3),
   }) : _host = host {
     _reading.add(_mosh.output.listen(_emit));
     _reading.add(_mosh.errors.listen((error) => _log(address, 'mosh: $error')));
+    _reading.add(_mosh.echoAcks.listen(_acknowledge));
     _mosh.done.then(
       (_) => _finish(0),
       onError: (Object error) {
@@ -604,6 +613,7 @@ class MoshShellConnection implements ShellConnection {
   final String address;
   final MoshChannel _mosh;
   final Future<ShellHost> Function() redial;
+  final Duration healthInterval;
   ShellHost? _host;
   Future<ShellHost>? _openingHost;
   final String? tmux;
@@ -618,7 +628,20 @@ class MoshShellConnection implements ShellConnection {
   final _pending = <Uint8List>[];
   final _exit = Completer<int?>();
   final _ready = Completer<void>();
+  Timer? _healthTimer;
+  int? _probeState;
+  var _missedProbes = 0;
+  int columns;
+  int rows;
+  var _health = ShellConnectionHealth.connected;
   var _closed = false;
+
+  late final StreamController<ShellConnectionHealth> _healthEvents =
+      StreamController<ShellConnectionHealth>.broadcast(
+        onListen: () => scheduleMicrotask(() {
+          if (!_healthEvents.isClosed) _healthEvents.add(_health);
+        }),
+      );
 
   late final StreamController<Uint8List> _out =
       StreamController<Uint8List>.broadcast(
@@ -629,6 +652,9 @@ class MoshShellConnection implements ShellConnection {
 
   @override
   Stream<Uint8List> get output => _out.stream;
+
+  @override
+  Stream<ShellConnectionHealth> get health => _healthEvents.stream;
 
   @override
   Future<int?> get exitCode => _exit.future;
@@ -642,7 +668,9 @@ class MoshShellConnection implements ShellConnection {
   @override
   void resize(int columns, int rows) {
     if (_closed) return;
-    _mosh.resize(columns, rows);
+    this.columns = columns;
+    this.rows = rows;
+    _probeState = _mosh.resize(columns, rows);
   }
 
   @override
@@ -675,7 +703,9 @@ class MoshShellConnection implements ShellConnection {
   @override
   Future<void> rehome() async {
     if (_closed) return;
+    _setHealth(ShellConnectionHealth.reconnecting);
     await _mosh.rehome();
+    _probeState = _mosh.resize(columns, rows);
     await _dropHost(_host);
   }
 
@@ -683,6 +713,8 @@ class MoshShellConnection implements ShellConnection {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
+    _healthTimer?.cancel();
+    _setHealth(ShellConnectionHealth.disconnected);
     for (final subscription in _reading) {
       await subscription.cancel();
     }
@@ -691,6 +723,7 @@ class MoshShellConnection implements ShellConnection {
     _finish(null);
     if (!_ready.isCompleted) _ready.complete();
     await _out.close();
+    await _healthEvents.close();
   }
 
   /// Drops a Mosh attempt that never became a shell while leaving its SSH
@@ -698,6 +731,7 @@ class MoshShellConnection implements ShellConnection {
   Future<void> abandon() async {
     if (_closed) return;
     _closed = true;
+    _healthTimer?.cancel();
     for (final subscription in _reading) {
       await subscription.cancel();
     }
@@ -705,6 +739,7 @@ class MoshShellConnection implements ShellConnection {
     _finish(null);
     if (!_ready.isCompleted) _ready.complete();
     await _out.close();
+    await _healthEvents.close();
   }
 
   Future<T> _withHost<T>(Future<T> Function(ShellHost host) body) async {
@@ -748,7 +783,11 @@ class MoshShellConnection implements ShellConnection {
 
   void _emit(Uint8List bytes) {
     if (_closed || bytes.isEmpty) return;
-    if (!_ready.isCompleted) _ready.complete();
+    _contact();
+    if (!_ready.isCompleted) {
+      _ready.complete();
+      _healthTimer = Timer.periodic(healthInterval, (_) => _checkHealth());
+    }
     _pending.add(bytes);
     _drain();
   }
@@ -762,7 +801,40 @@ class MoshShellConnection implements ShellConnection {
   }
 
   void _finish(int? code) {
+    if (!_closed) _setHealth(ShellConnectionHealth.disconnected);
     if (!_exit.isCompleted) _exit.complete(code);
+  }
+
+  void _acknowledge(int state) {
+    final probe = _probeState;
+    if (probe == null || state < probe) return;
+    _contact();
+  }
+
+  void _contact() {
+    _probeState = null;
+    _missedProbes = 0;
+    _setHealth(ShellConnectionHealth.connected);
+  }
+
+  void _checkHealth() {
+    if (_closed) return;
+    if (_probeState == null) {
+      _probeState = _mosh.resize(columns, rows);
+      return;
+    }
+    _missedProbes++;
+    _setHealth(
+      _missedProbes >= 3
+          ? ShellConnectionHealth.disconnected
+          : ShellConnectionHealth.reconnecting,
+    );
+  }
+
+  void _setHealth(ShellConnectionHealth health) {
+    if (_health == health) return;
+    _health = health;
+    if (!_healthEvents.isClosed) _healthEvents.add(health);
   }
 }
 
@@ -790,6 +862,9 @@ class SshShellConnection implements ShellConnection {
 
   @override
   ShellTransport get transport => ShellTransport.ssh;
+
+  @override
+  Stream<ShellConnectionHealth> get health => const Stream.empty();
   final String? tmux;
   final _reading = <StreamSubscription<Uint8List>>[];
   final _exit = Completer<int?>();

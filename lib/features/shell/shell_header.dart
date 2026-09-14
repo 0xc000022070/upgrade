@@ -389,8 +389,8 @@ class _HostCell extends StatelessWidget {
   }
 }
 
-/// Where the session is when it is not live, plus MOSH while that is the live
-/// transport. SSH needs no word because it is the host's baseline.
+/// Transport health for the session on screen. The terminal buffer can outlive
+/// its connection, so an existing tab is never used as evidence of reachability.
 class _Middle extends StatelessWidget {
   const _Middle({required this.state, required this.onStop});
 
@@ -402,23 +402,32 @@ class _Middle extends StatelessWidget {
     final word = switch (state) {
       null => null,
       ShellLive(:final transport) =>
-        transport == ShellTransport.mosh ? 'MOSH' : null,
+        'CONNECTED · ${transport.name.toUpperCase()}',
       ShellConnecting() => 'CONNECTING',
+      ShellReconnecting(:final transport) =>
+        'RECONNECTING · ${transport.name.toUpperCase()}',
+      ShellDisconnected(:final transport) =>
+        'DISCONNECTED · ${transport.name.toUpperCase()}',
       ShellDropped(:final attempt) =>
         'RECONNECTING $attempt/${shellReconnectDelays.length}',
       ShellExited(:final code) => 'EXITED ${code ?? '—'}',
-      // Not the failure's words: the schedule is spent but the tab is not
-      // over, and the row underneath is already saying what it hit.
-      ShellWaiting() => 'WAITING',
-      ShellFailed(:final kind) => kind.line.short,
+      ShellWaiting() || ShellFailed() => 'DISCONNECTED',
     };
     if (word == null) return const SizedBox.shrink();
-    final between = state is ShellDropped || state is ShellWaiting;
+    final between =
+        state is ShellDropped ||
+        state is ShellReconnecting ||
+        state is ShellWaiting;
+    final disconnected = state is ShellDisconnected || state is ShellFailed;
     final label = Text(
       word,
-      style: between
-          ? DazzleText.panelHeader.copyWith(color: DazzleColors.textMuted)
-          : DazzleText.panelHeader,
+      style: DazzleText.panelHeader.copyWith(
+        color: disconnected
+            ? DazzleColors.warning
+            : between
+            ? DazzleColors.textMuted
+            : null,
+      ),
       textAlign: TextAlign.right,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
@@ -430,7 +439,7 @@ class _Middle extends StatelessWidget {
     // there is nothing here at all, and the strip has the row to itself.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-      child: !between || onStop == null
+      child: state is! ShellDropped && state is! ShellWaiting || onStop == null
           ? label
           : Row(
               mainAxisSize: MainAxisSize.min,
