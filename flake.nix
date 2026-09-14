@@ -32,13 +32,53 @@
         modules = [ ./nix/host-vm.nix ];
       };
 
-      packages.x86_64-linux.host-vm =
-        self.nixosConfigurations.dazzle-host.config.system.build.vm;
+      packages.x86_64-linux.host-vm = self.nixosConfigurations.dazzle-host.config.system.build.vm;
+
+      packages.x86_64-linux.host-ssh =
+        let
+          pkgs = import nixpkgs { system = "x86_64-linux"; };
+        in
+        pkgs.writeShellApplication {
+          name = "dazzle-host-ssh";
+          runtimeInputs = [
+            pkgs.openssh
+            pkgs.sshpass
+          ];
+          text = ''
+            exec sshpass -p dev ssh \
+              -p 2222 \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              dev@127.0.0.1 "$@"
+          '';
+        };
+
+      packages.x86_64-linux.host-vm-runner =
+        let
+          pkgs = import nixpkgs { system = "x86_64-linux"; };
+          vm = self.packages.x86_64-linux.host-vm;
+        in
+        pkgs.writeShellApplication {
+          name = "dazzle-host-vm";
+          runtimeInputs = [ pkgs.coreutils ];
+          text = ''
+            state_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/dazzle"
+            mkdir -p "$state_dir"
+            export NIX_DISK_IMAGE="$state_dir/host-vm.qcow2"
+            exec ${vm}/bin/run-${self.nixosConfigurations.dazzle-host.config.system.name}-vm "$@"
+          '';
+        };
 
       apps.x86_64-linux.host-vm = {
         type = "app";
-        program = "${self.packages.x86_64-linux.host-vm}/bin/run-${self.nixosConfigurations.dazzle-host.config.system.name}-vm";
+        program = "${self.packages.x86_64-linux.host-vm-runner}/bin/dazzle-host-vm";
         meta.description = "Run a remote host fixture for Dazzle";
+      };
+
+      apps.x86_64-linux.host-ssh = {
+        type = "app";
+        program = "${self.packages.x86_64-linux.host-ssh}/bin/dazzle-host-ssh";
+        meta.description = "Run a command on the Dazzle remote host fixture";
       };
 
       devShells = forAllSystems (
