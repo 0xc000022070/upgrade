@@ -63,6 +63,9 @@ in
     initialPassword = "dev";
     extraGroups = [ "wheel" ];
     shell = pkgs.zsh;
+    openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA7Fr1T+6b4F464Ii+inLkt3asc9p6gBPrHRpTiyJLRL test-key"
+    ];
   };
 
   security.sudo.wheelNeedsPassword = false;
@@ -127,16 +130,15 @@ in
     useHostCerts = false;
     restrictNetwork = false;
     sharedDirectories = lib.mkForce { };
-    forwardPorts =
-      [
-        {
-          from = "host";
-          host.address = "0.0.0.0";
-          host.port = 2222;
-          guest.port = 22;
-        }
-      ]
-      ++ moshForwards;
+    forwardPorts = [
+      {
+        from = "host";
+        host.address = "0.0.0.0";
+        host.port = 2222;
+        guest.port = 22;
+      }
+    ]
+    ++ moshForwards;
   };
 
   system.stateVersion = "25.11";
