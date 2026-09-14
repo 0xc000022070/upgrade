@@ -53,7 +53,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the plus opens a numbered tab and it becomes the active one', (
+  testWidgets('the plus menu opens a numbered tab on the selected host', (
     tester,
   ) async {
     final transport = FakeShellTransport();
@@ -65,6 +65,12 @@ void main() {
     expect(find.byKey(const ValueKey('shell-tab-2')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+    await ready(tester);
+
+    expect(find.byKey(const ValueKey('shell-new-host-h1')), findsOneWidget);
+    expect(find.text('CURRENT'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('shell-new-host-h1')));
     await ready(tester);
 
     expect(find.byKey(const ValueKey('shell-tab-2')), findsOneWidget);
@@ -231,8 +237,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
-    await ready(tester);
+    await openNewShell(tester);
 
     await tester.tap(find.byKey(const ValueKey('shell-tab-close')));
     await ready(tester);
@@ -256,8 +261,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
-    await ready(tester);
+    await openNewShell(tester);
 
     transport.opened.last.exit(1);
     await ready(tester);
@@ -320,8 +324,7 @@ void main() {
       await type(tester, 'a');
       expect(transport.opened[0].written, 'a');
 
-      await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
-      await ready(tester);
+      await openNewShell(tester);
       expect(sessions.activeFor(rose.id)?.number, 2);
       expect(connected(tester), isTrue);
       await type(tester, 'b');
@@ -347,8 +350,7 @@ void main() {
       await ready(tester);
       expect(connected(tester), isFalse);
 
-      await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
-      await ready(tester);
+      await openNewShell(tester);
 
       expect(connected(tester), isFalse);
       expect(
@@ -368,8 +370,7 @@ void main() {
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions));
       await ready(tester);
-      await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
-      await ready(tester);
+      await openNewShell(tester);
       await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
       await ready(tester);
       expect(connected(tester), isTrue);
@@ -402,8 +403,7 @@ void main() {
           .widget<TerminalView>(find.byType(TerminalView))
           .focusNode;
 
-      await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
-      await ready(tester);
+      await openNewShell(tester);
       final second = tester
           .widget<TerminalView>(find.byType(TerminalView))
           .focusNode;

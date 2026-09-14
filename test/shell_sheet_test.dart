@@ -7,7 +7,7 @@ import 'package:dazzle/features/shell/shell_sessions.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
-import 'support/shell_route.dart' show noWorkspaces;
+import 'support/shell_route.dart' show noWorkspaces, openNewShell;
 
 const _rose = Host(
   id: 'h1',
@@ -185,13 +185,10 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the header still takes its taps: a new tab opens', (
-    tester,
-  ) async {
+  testWidgets('the header plus menu opens a new tab', (tester) async {
     await open(tester);
 
-    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
-    await ready(tester);
+    await openNewShell(tester);
 
     expect(find.byKey(const ValueKey('shell-tab-2')), findsOneWidget);
     expect(find.text('ROSE'), findsOneWidget);

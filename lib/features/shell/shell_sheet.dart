@@ -315,12 +315,23 @@ class _SheetContents extends StatefulWidget {
 class _SheetContentsState extends State<_SheetContents> {
   late Host _host = widget.host;
   late ShellSession? _session = widget.session;
+  var _openNew = false;
 
   void _switchTo(Host host, ShellSession? session) {
     if (host.id == _host.id) return;
     setState(() {
       _host = host;
       _session = session;
+      _openNew = false;
+    });
+  }
+
+  void _openOn(Host host) {
+    if (host.id == _host.id) return;
+    setState(() {
+      _host = host;
+      _session = null;
+      _openNew = true;
     });
   }
 
@@ -330,6 +341,7 @@ class _SheetContentsState extends State<_SheetContents> {
       key: ValueKey(_host.id),
       host: _host,
       session: _session,
+      openNew: _openNew,
       // Only the host the sheet opened on is the one they were meant for:
       // switching hosts carries nothing of the directory or the agent it came
       // from.
@@ -337,6 +349,7 @@ class _SheetContentsState extends State<_SheetContents> {
       directory: _host.id == widget.host.id ? widget.directory : null,
       pane: _host.id == widget.host.id ? widget.pane : null,
       onSwitchHost: _switchTo,
+      onOpenHost: _openOn,
     );
   }
 }
