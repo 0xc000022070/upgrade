@@ -36,10 +36,8 @@ class MainActivity : FlutterActivity() {
     // Picture-in-picture. The window the system parks in the corner is this
     // activity's own surface, so there is nothing to mirror and nothing to
     // render twice: Dart is told the mode changed and draws a panel sized for
-    // it. Armed means the app goes there by itself when the user leaves, which
-    // it only is while something is worth watching.
+    // it.
     private var pipEvents: EventChannel.EventSink? = null
-    private var pipArmed = false
 
     // The Android 12+ splash fades itself out over the app window it is already
     // covering. SPEC 16c.1 gives the whole boot log 600ms, and measurement put
@@ -80,20 +78,7 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "available" -> result.success(pipAvailable())
-                    // Arming is the whole of the gesture on API 31 and up: the
-                    // system takes the app into the window on its own when the
-                    // user goes home, with no frame in between where the app is
-                    // gone and the window has not arrived. Below that there is
-                    // no such parameter and onUserLeaveHint is the only hook.
-                    "arm" -> {
-                        pipArmed = call.arguments as? Boolean ?: false
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                            pipAvailable()
-                        ) {
-                            setPictureInPictureParams(pipParams())
-                        }
-                        result.success(null)
-                    }
+                    "enter" -> result.success(enterPip())
                     else -> result.notImplemented()
                 }
             }
@@ -129,7 +114,7 @@ class MainActivity : FlutterActivity() {
         val builder = PictureInPictureParams.Builder()
             .setAspectRatio(Rational(16, 9))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setAutoEnterEnabled(pipArmed)
+            builder.setAutoEnterEnabled(false)
             builder.setSeamlessResizeEnabled(false)
         }
         return builder.build()
@@ -138,15 +123,6 @@ class MainActivity : FlutterActivity() {
     private fun enterPip(): Boolean {
         if (!pipAvailable() || isInPictureInPictureMode) return false
         return enterPictureInPictureMode(pipParams())
-    }
-
-    // The pre-31 path. `setAutoEnterEnabled` does the same thing a frame
-    // earlier and without the flicker, so this runs only where that parameter
-    // does not exist.
-    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        if (pipArmed && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) enterPip()
     }
 
     override fun onPictureInPictureModeChanged(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/agents.dart';
 import '../../application/navigation.dart';
+import '../../application/pip.dart';
 import '../../design/colors.dart';
 import '../../design/components/dot_spinner.dart';
 import '../../design/components/panel.dart';
@@ -41,6 +42,11 @@ class AgentsPanel extends ConsumerWidget {
     final header = <Widget>[
       if (agents)
         PanelAffordance('${current?.agents.length ?? 0}', showIcon: false),
+      if (ref.watch(pipActionAvailableProvider))
+        PanelAffordance(
+          'PIP',
+          onTap: () => ref.read(pipSurfaceProvider).enter(),
+        ),
       if (agents)
         PanelAffordance(
           'VIEW ALL',
