@@ -265,8 +265,14 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         user: host.user,
         privateKey: privateKey,
         verifier: HostKeyVerifier(
-          prompt: (offer) async =>
-              mounted && await askHostKey(context, host: host, offer: offer),
+          prompt: (offer, pinned) async =>
+              mounted &&
+              await askHostKey(
+                context,
+                host: host,
+                offer: offer,
+                pinned: pinned,
+              ),
           pin: (key) =>
               ref.read(hostRepositoryProvider).pinHostKey(host.id, key),
         ),

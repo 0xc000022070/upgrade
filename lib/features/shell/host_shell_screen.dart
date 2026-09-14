@@ -629,11 +629,16 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   /// The route is in front of the user, so a machine that has never been
   /// connected to is asked about rather than refused. The dial is waiting on
   /// this future inside the handshake.
-  Future<bool> _askHostKey(HostKeyOffer offer) async {
+  Future<bool> _askHostKey(HostKeyOffer offer, PinnedHostKey? pinned) async {
     if (!mounted) return false;
     final release = _store.hold();
     try {
-      return await askHostKey(context, host: widget.host, offer: offer);
+      return await askHostKey(
+        context,
+        host: widget.host,
+        offer: offer,
+        pinned: pinned,
+      );
     } finally {
       release();
     }

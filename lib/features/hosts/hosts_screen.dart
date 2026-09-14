@@ -466,8 +466,14 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
       } else {
         final verifier = HostKeyVerifier(
           pinned: host.hostKey,
-          prompt: (offer) async =>
-              mounted && await askHostKey(context, host: host, offer: offer),
+          prompt: (offer, pinned) async =>
+              mounted &&
+              await askHostKey(
+                context,
+                host: host,
+                offer: offer,
+                pinned: pinned,
+              ),
           pin: (key) =>
               ref.read(hostRepositoryProvider).pinHostKey(host.id, key),
         );
