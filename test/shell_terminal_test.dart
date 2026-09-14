@@ -8,6 +8,7 @@ import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/settings_repository.dart';
 import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
+import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:xterm/xterm.dart';
 
 import 'support/fake_shell.dart';
@@ -805,6 +806,37 @@ void main() {
       expect(copied, isNull);
       expect(session.controller.selection, isNull);
       expect(find.byKey(const ValueKey('shell-copy')), findsNothing);
+
+      await unmount(tester);
+    });
+  });
+
+  group('a Herdr pane over Mosh', () {
+    testWidgets('keeps taps and scrolls as remote mouse input', (tester) async {
+      final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+      final sessions = fakeShellSessions(transport);
+      const pane = (session: 'default', pane: 'w1:p1');
+      sessions.open(rose, command: 'attach', pane: pane);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      final connection = transport.opened.single;
+
+      // Mosh rejects mode 1003 after a TUI first enables mode 1002. Its
+      // fallback disables 1002, leaving the outer terminal with no mouse mode.
+      connection.emit('\x1b[?1049h\x1b[?1002h\x1b[?1002l\x1b[?1006hHerdr');
+      await ready(tester);
+
+      final view = find.byType(TerminalView);
+      await tester.tapAt(tester.getCenter(view));
+      await ready(tester);
+      expect(connection.written, contains(RegExp(r'\x1b\[<0;\d+;\d+M')));
+      expect(connection.written, contains(RegExp(r'\x1b\[<0;\d+;\d+m')));
+
+      connection.writes.clear();
+      await tester.drag(view, const Offset(0, -120));
+      await ready(tester);
+      expect(connection.written, contains(RegExp(r'\x1b\[<65;\d+;\d+M')));
+      expect(connection.written, isNot(contains('\x1b[B')));
 
       await unmount(tester);
     });
