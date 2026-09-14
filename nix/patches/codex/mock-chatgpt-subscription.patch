@@ -1,0 +1,51 @@
+diff --git a/login/src/auth/manager.rs b/login/src/auth/manager.rs
+index 1824f23..94137cc 100644
+--- a/login/src/auth/manager.rs
++++ b/login/src/auth/manager.rs
+@@ -757,10 +757,17 @@ impl CodexAuth {
+             auth_mode: Some(AuthMode::Chatgpt),
+             openai_api_key: None,
+             tokens: Some(TokenData {
+-                id_token: Default::default(),
+-                access_token: "Access Token".to_string(),
+-                refresh_token: "test".to_string(),
+-                account_id: Some("account_id".to_string()),
++                id_token: crate::token_data::IdTokenInfo {
++                    email: Some("fixture@localhost".to_string()),
++                    chatgpt_plan_type: Some(InternalPlanType::from_raw_value("pro")),
++                    chatgpt_user_id: Some("fixture-user".to_string()),
++                    chatgpt_account_id: Some("fixture-account".to_string()),
++                    chatgpt_account_is_fedramp: false,
++                    raw_jwt: "fixture.jwt.unsigned".to_string(),
++                },
++                access_token: "fixture-access-token".to_string(),
++                refresh_token: "fixture-refresh-token".to_string(),
++                account_id: Some("fixture-account".to_string()),
+             }),
+             last_refresh: Some(Utc::now()),
+             agent_identity: None,
+@@ -2113,9 +2120,5 @@ impl AuthManager {
+     async fn new_from_auth_config(auth_config: AuthConfig, enable_codex_api_key_env: bool) -> Self {
+-        let managed_auth = auth_config
+-            .load_auth(enable_codex_api_key_env)
+-            .await
+-            .ok()
+-            .flatten();
++        let managed_auth = Some(CodexAuth::create_dummy_chatgpt_auth_for_testing());
+         let AuthConfig {
+             codex_home,
+             auth_credentials_store_mode,
+diff --git a/cli/src/login.rs b/cli/src/login.rs
+index 946890a..812bcfd 100644
+--- a/cli/src/login.rs
++++ b/cli/src/login.rs
+@@ -457,6 +457,9 @@ pub async fn run_login_status(cli_config_overrides: CliConfigOverrides) -> ! {
++    eprintln!("Logged in using ChatGPT (fixture subscription: Pro)");
++    std::process::exit(0);
++
+     let auth_config = config.auth_config();
+     match auth_config
+         .load_auth(/*enable_codex_api_key_env*/ false)
+         .await
+     {
+         Ok(Some(auth)) => match auth.auth_mode() {

@@ -27,6 +27,20 @@
         );
     in
     {
+      nixosConfigurations.dazzle-host = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [ ./nix/host-vm.nix ];
+      };
+
+      packages.x86_64-linux.host-vm =
+        self.nixosConfigurations.dazzle-host.config.system.build.vm;
+
+      apps.x86_64-linux.host-vm = {
+        type = "app";
+        program = "${self.packages.x86_64-linux.host-vm}/bin/run-${self.nixosConfigurations.dazzle-host.config.system.name}-vm";
+        meta.description = "Run a remote host fixture for Dazzle";
+      };
+
       devShells = forAllSystems (
         pkgs:
         let
