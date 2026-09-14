@@ -352,6 +352,58 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('HERDR failure retries without changing shell state', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+    final retried = Completer<HostOutcome>();
+    Host? requested;
+    final failed = AgentPanelState([
+      const HostOutcome(host: _rose, kind: AgentOutcomeKind.unreachable),
+    ]);
+
+    await tester.pumpWidget(
+      app(
+        const HostsScreen(),
+        index: HostsScreen.navIndex,
+        extra: [
+          agentsFeedProvider.overrideWith((ref) => Stream.value(failed)),
+          agentRetryProvider.overrideWithValue((host) {
+            requested = host;
+            return retried.future;
+          }),
+        ],
+      ),
+    );
+    await ready(tester);
+
+    expect(find.text('HERDR STATUS'), findsNWidgets(2));
+    expect(find.text('rose unreachable'), findsOneWidget);
+    expect(find.text('RETRY'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-row-dot-h1')), findsNothing);
+
+    await tester.tap(find.text('RETRY'));
+    await tester.pump();
+
+    expect(requested, _rose);
+    expect(find.text('RETRYING'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-row-dot-h1')), findsNothing);
+
+    retried.complete(
+      const HostOutcome(host: _rose, kind: AgentOutcomeKind.snapshot),
+    );
+    await ready(tester);
+
+    expect(find.text('0 agents · 0 blocked'), findsOneWidget);
+    expect(find.text('RETRY'), findsNothing);
+    expect(find.byKey(const ValueKey('shell-row-dot-h1')), findsNothing);
+
+    await unmount(tester);
+  });
+
   testWidgets('VERIFY stands on the hosts with no key pinned to them', (
     tester,
   ) async {

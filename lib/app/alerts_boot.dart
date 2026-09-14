@@ -45,6 +45,13 @@ Future<void> initAlerts() async {
 }
 
 List<Override> alertOverrides() => [
+  agentRetryProvider.overrideWith((ref) {
+    final foreground = foregroundAgentRetry(ref);
+    return (host) async {
+      if (!await AgentWatcher.running) return foreground(host);
+      return AgentWatcher.retry(host);
+    };
+  }),
   watcherFeedProvider.overrideWith(
     (ref) => AgentWatcher.feed(
       ref

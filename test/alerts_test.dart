@@ -632,6 +632,7 @@ void main() {
       agents: [snapshot()],
       lastGoodAt: DateTime.fromMillisecondsSinceEpoch(1750000000000),
       retryIn: const Duration(seconds: 20),
+      requestId: 'request-1',
     );
     final decoded = WatcherReport.fromJson(
       jsonDecode(jsonEncode(report.toJson())) as Map<String, Object?>,
@@ -641,6 +642,7 @@ void main() {
     expect(decoded.agents.single.paneId, 'wQ:p1');
     expect(decoded.lastGoodAt, report.lastGoodAt);
     expect(decoded.retryIn, const Duration(seconds: 20));
+    expect(decoded.requestId, 'request-1');
     expect(decoded.toOutcome(host).reason, 'nyx unreachable');
   });
 
@@ -677,6 +679,31 @@ void main() {
       expect(verifier.refusal, HostKeyRefusal.unverified);
     },
   );
+
+  test('a host retry interrupts its backoff', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final store = MemoryPrivateKeyStore();
+    await store.write('k1', 'PRIVATE KEY');
+    final client = RecordingHerdrClient();
+    final handler = AgentWatcherHandler(
+      keys: Ed25519Keys(store),
+      client: client,
+    );
+    await handler.setHosts(const [host]);
+    final first = DateTime.now().add(const Duration(seconds: 2));
+    while (client.dials.isEmpty && DateTime.now().isBefore(first)) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+
+    handler.retryHost(host.id, 'request-1');
+    final second = DateTime.now().add(const Duration(seconds: 2));
+    while (client.dials.length < 2 && DateTime.now().isBefore(second)) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    await handler.onDestroy(DateTime.now(), false);
+
+    expect(client.dials, hasLength(2));
+  });
 
   test('a pinned host key survives the trip into the service', () {
     final pinned = Host(

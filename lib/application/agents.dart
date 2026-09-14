@@ -112,6 +112,16 @@ class HostOutcome {
     if (line.names) return line.on(host.name);
     return '${host.name.toLowerCase()} · $reason';
   }
+
+  String get diagnostic => switch (kind) {
+    AgentOutcomeKind.snapshot => 'agent integration available',
+    AgentOutcomeKind.unreachable => 'HERDR check could not reach host',
+    AgentOutcomeKind.unresolved => 'HERDR host name did not resolve',
+    AgentOutcomeKind.keyRejected => 'check SSH key in HOSTS',
+    AgentOutcomeKind.protocolMismatch => 'HERDR protocol is not supported',
+    AgentOutcomeKind.hostKeyUnverified => 'verify host key in HOSTS',
+    AgentOutcomeKind.hostKeyChanged => 'host key changed; verify in HOSTS',
+  };
 }
 
 /// The panel's whole answer: one outcome per host with `HERDR` on.
@@ -266,6 +276,17 @@ class _CachedSnapshot {
 }
 
 final _agentSnapshotCacheProvider = Provider((ref) => _AgentSnapshotCache());
+
+typedef AgentRetry = Future<HostOutcome> Function(Host host);
+
+AgentRetry foregroundAgentRetry(Ref ref) {
+  final fetch = ref.read(herdrFetchProvider);
+  final keys = ref.read(ed25519KeysProvider);
+  final cache = ref.read(_agentSnapshotCacheProvider);
+  return (host) => _poll(fetch, keys, cache.forHost(host.id), host);
+}
+
+final agentRetryProvider = Provider<AgentRetry>(foregroundAgentRetry);
 
 /// The watcher's own view of the hosts, or null while no
 /// foreground service is running.
