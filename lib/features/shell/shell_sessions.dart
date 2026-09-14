@@ -1146,13 +1146,13 @@ class ShellSessions extends ChangeNotifier {
         restored: restored,
       );
       if (marker != null) session.terminal.write(marker);
+      final moshPane =
+          connection.transport == ShellTransport.mosh && session.pane != null;
+      // A Mosh attach repaints the current screen without replaying the TUI's
+      // earlier alternate-buffer transition. Herdr panes are full-screen.
+      if (moshPane) session.terminal.write('\x1b[?1049h');
       session._decoder = utf8.decoder.startChunkedConversion(
-        _TerminalSink(
-          session.terminal,
-          preserveMouseReporting:
-              connection.transport == ShellTransport.mosh &&
-              session.pane != null,
-        ),
+        _TerminalSink(session.terminal, preserveMouseReporting: moshPane),
       );
       session._output = connection.output.listen(
         (bytes) => session._decoder?.add(bytes),

@@ -404,6 +404,20 @@ void main() {
         isFalse,
       );
       expect(connection.writes, isEmpty);
+      expect(session.terminal.isUsingAltBuffer, isFalse);
+    });
+
+    test('a Herdr pane over Mosh starts in the alternate buffer', () async {
+      final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(
+        _rose,
+        command: 'attach',
+        pane: const (session: 'default', pane: 'w1:p1'),
+      )!;
+      await _settle();
+
+      expect(session.terminal.isUsingAltBuffer, isTrue);
     });
 
     test('Herdr over SSH may disable mouse reporting', () async {
@@ -429,6 +443,7 @@ void main() {
         isFalse,
       );
       expect(connection.writes, isEmpty);
+      expect(session.terminal.isUsingAltBuffer, isFalse);
     });
 
     test('a paste is one key, however long it is', () async {
