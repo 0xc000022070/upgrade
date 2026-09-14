@@ -5,10 +5,11 @@ import 'package:dart_mosh/dart_mosh.dart';
 abstract interface class MoshChannel {
   Stream<Uint8List> get output;
   Stream<Object> get errors;
+  Stream<int> get echoAcks;
   Future<void> get done;
 
-  void send(Uint8List bytes);
-  void resize(int columns, int rows);
+  int send(Uint8List bytes);
+  int resize(int columns, int rows);
   Future<void> rehome();
   Future<void> close();
 }
@@ -44,13 +45,16 @@ class _DartMoshChannel implements MoshChannel {
   Stream<Object> get errors => _session.errors;
 
   @override
+  Stream<int> get echoAcks => _session.echoAcks;
+
+  @override
   Future<void> get done => _session.done;
 
   @override
-  void send(Uint8List bytes) => _session.send(bytes);
+  int send(Uint8List bytes) => _session.send(bytes);
 
   @override
-  void resize(int columns, int rows) => _session.resize(columns, rows);
+  int resize(int columns, int rows) => _session.resize(columns, rows);
 
   @override
   Future<void> rehome() => _session.rehome();
