@@ -48,6 +48,8 @@ class HostShellRoute extends ConsumerStatefulWidget {
     this.directory,
     this.pane,
     this.onSwitchHost,
+    this.onOpenHost,
+    this.openNew = false,
   });
 
   final Host host;
@@ -57,6 +59,14 @@ class HostShellRoute extends ConsumerStatefulWidget {
   /// one where it arrives. Null where the shell is not in a sheet, which
   /// leaves the header's host name a label.
   final void Function(Host host, ShellSession? session)? onSwitchHost;
+
+  /// Hands the sheet a registered host and asks it to open a fresh tab there.
+  /// Null when this route is not inside the shell sheet.
+  final ValueChanged<Host>? onOpenHost;
+
+  /// Opens a fresh tab during this route's first frame even when the host
+  /// already has sessions. Used after the sheet changes host through `+`.
+  final bool openNew;
 
   /// The tab to land on, when the way in named one. Null opens the host's last
   /// active tab, or its first shell when there is none.
@@ -145,6 +155,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           directory: widget.directory,
           pane: widget.pane,
         );
+      } else if (widget.openNew && sessions.canOpen(widget.host.id)) {
+        sessions.open(widget.host, prompt: _askHostKey);
       } else if (sessions.forHost(widget.host.id).isEmpty) {
         // A first visit opens one shell; a return finds the ones already
         // running and opens nothing.
@@ -480,8 +492,12 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     });
   }
 
-  void _onNew() {
-    _store.open(widget.host, prompt: _askHostKey);
+  void _onNew(Host host) {
+    if (host.id == widget.host.id) {
+      _store.open(widget.host, prompt: _askHostKey);
+      return;
+    }
+    widget.onOpenHost?.call(host);
   }
 
   /// What the header's mark falls back to when the host cannot be asked where
@@ -665,6 +681,18 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           builder: (context) {
             final sessions = store.forHost(widget.host.id);
             final active = store.activeFor(widget.host.id);
+            final registered =
+                ref.watch(hostsProvider).valueOrNull ?? const <Host>[];
+            final known = {
+              for (final host in registered) host.id: host,
+              widget.host.id: widget.host,
+            };
+            final newHosts = [
+              for (final host in known.values)
+                if (store.canOpen(host.id) &&
+                    (host.id == widget.host.id || widget.onOpenHost != null))
+                  host,
+            ];
             _follow(active);
             final state = active?.state;
             final diffTargets = _diffTargets();
@@ -682,7 +710,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                         host: widget.host,
                         sessions: sessions,
                         active: active,
-                        canOpen: store.canOpen(widget.host.id),
+                        newHosts: newHosts,
                         // A host to go to, and a sheet that can hold it: with
                         // either missing the name is just the name. A host
                         // counts whether it has a shell or not — taking one

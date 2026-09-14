@@ -67,6 +67,14 @@ Future<void> ready(WidgetTester tester) async {
   }
 }
 
+/// Opens the `+` menu and picks one registered host.
+Future<void> openNewShell(WidgetTester tester, {String hostId = 'h1'}) async {
+  await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+  await ready(tester);
+  await tester.tap(find.byKey(ValueKey('shell-new-host-$hostId')));
+  await ready(tester);
+}
+
 /// The route holds a terminal that never settles on its own, so the tree is
 /// taken down by hand rather than left mounted at the end of a test.
 Future<void> unmount(WidgetTester tester) async {

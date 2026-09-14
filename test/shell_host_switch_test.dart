@@ -173,6 +173,37 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the plus menu opens a fresh shell on the selected host', (
+    tester,
+  ) async {
+    await hosts.save(_rose);
+    await hosts.save(_nyx);
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    sessions.open(_nyx);
+    sessions.open(_rose);
+    await ready(tester);
+    await raise(tester);
+    final route = ModalRoute.of(tester.element(header));
+
+    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+    await ready(tester);
+
+    expect(find.byKey(const ValueKey('shell-new-host-h1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-new-host-h2')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('shell-new-host-h2')));
+    await ready(tester);
+
+    expect(sessions.forHost(_nyx.id), hasLength(2));
+    expect(sessions.activeFor(_nyx.id)!.number, 2);
+    expect(find.text('NYX'), findsOneWidget);
+    expect(ModalRoute.of(tester.element(header)), same(route));
+
+    await unmount(tester);
+  });
+
   group('a host with no shell yet', () {
     testWidgets('a second host on the list makes the name a cell and is '
         'offered under TAKE OVER', (tester) async {

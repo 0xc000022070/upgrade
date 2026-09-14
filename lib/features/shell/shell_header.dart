@@ -1,6 +1,6 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 
 import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
@@ -136,7 +136,7 @@ class ShellHeader extends StatefulWidget {
     required this.host,
     required this.sessions,
     required this.active,
-    required this.canOpen,
+    required this.newHosts,
     required this.onSwitchHost,
     required this.onSelect,
     required this.onNew,
@@ -149,13 +149,13 @@ class ShellHeader extends StatefulWidget {
   final Host host;
   final List<ShellSession> sessions;
   final ShellSession? active;
-  final bool canOpen;
+  final List<Host> newHosts;
 
   /// Opens the list of every shell on every host, or null when this is the
   /// only host with one.
   final VoidCallback? onSwitchHost;
   final void Function(ShellSession session) onSelect;
-  final VoidCallback onNew;
+  final ValueChanged<Host> onNew;
   final VoidCallback? onClose;
   final VoidCallback? onStop;
 
@@ -238,11 +238,88 @@ class _ShellHeaderState extends State<ShellHeader> {
                           onTap: () => widget.onSelect(session),
                         ),
                       ),
-                    if (widget.canOpen)
-                      _TabCell(
-                        key: const ValueKey('shell-tab-new'),
-                        label: '+',
-                        onTap: widget.onNew,
+                    if (widget.newHosts.isNotEmpty)
+                      MenuAnchor(
+                        style: const MenuStyle(
+                          backgroundColor: WidgetStatePropertyAll(
+                            DazzleColors.surfaceSecondary,
+                          ),
+                          surfaceTintColor: WidgetStatePropertyAll(
+                            Color(0x00000000),
+                          ),
+                          shadowColor: WidgetStatePropertyAll(
+                            Color(0x00000000),
+                          ),
+                          elevation: WidgetStatePropertyAll(0),
+                          padding: WidgetStatePropertyAll(
+                            EdgeInsets.all(Spacing.sm),
+                          ),
+                          minimumSize: WidgetStatePropertyAll(Size(200, 0)),
+                          maximumSize: WidgetStatePropertyAll(Size(280, 360)),
+                          shape: WidgetStatePropertyAll(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(Radii.sharp),
+                              ),
+                              side: BorderSide(
+                                color: DazzleColors.borderNormal,
+                              ),
+                            ),
+                          ),
+                        ),
+                        alignmentOffset: const Offset(0, Spacing.sm),
+                        menuChildren: [
+                          for (final host in widget.newHosts)
+                            MenuItemButton(
+                              key: ValueKey('shell-new-host-${host.id}'),
+                              onPressed: () => widget.onNew(host),
+                              style: const ButtonStyle(
+                                minimumSize: WidgetStatePropertyAll(
+                                  Size(192, TapTargets.minHeight),
+                                ),
+                                padding: WidgetStatePropertyAll(
+                                  EdgeInsets.symmetric(horizontal: Spacing.md),
+                                ),
+                                shape: WidgetStatePropertyAll(
+                                  RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(Radii.sharp),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const DazzleIcon(
+                                    DazzleIcons.hosts,
+                                    size: IconSizes.glyph,
+                                    color: DazzleColors.textMuted,
+                                  ),
+                                  const SizedBox(width: Spacing.md),
+                                  Expanded(
+                                    child: Text(
+                                      host.name.toUpperCase(),
+                                      style: DazzleText.rowTitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (host.id == widget.host.id)
+                                    const Text(
+                                      'CURRENT',
+                                      style: DazzleText.label,
+                                    ),
+                                ],
+                              ),
+                            ),
+                        ],
+                        builder: (context, controller, child) => _TabCell(
+                          key: const ValueKey('shell-tab-new'),
+                          label: '+',
+                          onTap: controller.isOpen
+                              ? controller.close
+                              : controller.open,
+                        ),
                       ),
                   ],
                 ),
@@ -289,9 +366,7 @@ class _HostCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = Text(
       name.toUpperCase(),
-      style: DazzleText.panelHeader.copyWith(
-        color: DazzleColors.textPrimary,
-      ),
+      style: DazzleText.panelHeader.copyWith(color: DazzleColors.textPrimary),
     );
     if (onTap == null) return label;
     return GestureDetector(

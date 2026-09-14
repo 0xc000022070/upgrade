@@ -219,8 +219,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
-    await ready(tester);
+    await openNewShell(tester);
     expect(sessions.forHost(rose.id), hasLength(2));
 
     transport.opened.last.exit(0);
@@ -285,8 +284,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
-    await ready(tester);
+    await openNewShell(tester);
 
     transport.opened.last.exit(3);
     await ready(tester);
@@ -330,8 +328,7 @@ void main() {
     await tester.tap(find.text('KEEP'));
     await ready(tester);
 
-    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
-    await ready(tester);
+    await openNewShell(tester);
 
     expect(find.text('SHELL 1 EXITED 3'), findsNothing);
 
