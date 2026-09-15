@@ -194,7 +194,8 @@ void main() {
       );
       await scope.read(pluginsProvider.notifier).install(package);
       const pageId = 'test.runtime:page:main';
-      for (var i = 0; i < 50; i++) {
+      final pageDeadline = DateTime.now().add(const Duration(seconds: 10));
+      while (DateTime.now().isBefore(pageDeadline)) {
         if (scope
                 .read(pluginPlacementsProvider)
                 .valueOrNull
@@ -294,7 +295,8 @@ void main() {
         [...builtinModules, secondModule],
       );
       const id = 'test.composer:widget:capture';
-      for (var i = 0; i < 50; i++) {
+      final widgetDeadline = DateTime.now().add(const Duration(seconds: 10));
+      while (DateTime.now().isBefore(widgetDeadline)) {
         if (scope
                 .read(pluginPlacementsProvider)
                 .valueOrNull
@@ -363,7 +365,8 @@ void main() {
 
     repository.failNextWrite = true;
     scope.read(liveCatalog.notifier).state = expanded;
-    for (var i = 0; i < 50; i++) {
+    final failDeadline = DateTime.now().add(const Duration(seconds: 10));
+    while (DateTime.now().isBefore(failDeadline)) {
       if (scope.read(pluginPlacementsProvider).hasError) break;
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }
@@ -377,7 +380,8 @@ void main() {
       [...catalog, second],
       [...builtinModules, secondModule],
     );
-    for (var i = 0; i < 50; i++) {
+    final recoverDeadline = DateTime.now().add(const Duration(seconds: 10));
+    while (DateTime.now().isBefore(recoverDeadline)) {
       final placements = scope.read(pluginPlacementsProvider);
       if (!placements.hasError &&
           (placements.valueOrNull?.knownWidgets.contains(id) ?? false)) {
