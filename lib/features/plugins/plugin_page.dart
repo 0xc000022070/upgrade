@@ -8,6 +8,7 @@ import '../../application/plugins.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/panel.dart';
+import '../../design/components/panel_sheet.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/typography.dart';
 import '../../platform/plugins/manifest.dart';
@@ -76,29 +77,15 @@ class _PluginPageState extends ConsumerState<PluginPage> {
     Set<String> operations,
   ) async {
     _check();
-    final allowed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('ALLOW ${widget.plugin.manifest.name.toUpperCase()}?'),
-        content: SingleChildScrollView(
-          child: Text(
-            '${host.name}\n${host.user}@${host.address}:${host.port}\n\n$service API 1\n${operations.join(', ')}\n\nScheduling setup installs a namespaced host runner and user timer. Existing host jobs remain untouched.\n\nAgent runs use this host account’s CLI permissions. They may read or modify files outside plugin storage.',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ALLOW'),
-          ),
-        ],
-      ),
+    final allowed = await confirmSheet(
+      context,
+      title: 'ALLOW ${widget.plugin.manifest.name.toUpperCase()}?',
+      confirmLabel: 'ALLOW',
+      message:
+          '${host.name}\n${host.user}@${host.address}:${host.port}\n\n$service API 1\n${operations.join(', ')}\n\nScheduling setup installs a namespaced host runner and user timer. Existing host jobs remain untouched.\n\nAgent runs use this host account’s CLI permissions. They may read or modify files outside plugin storage.',
     );
     _check();
-    return allowed == true;
+    return allowed;
   }
 
   Future<void> _frame(Map<String, Object?> event, int depth) async {
@@ -260,10 +247,10 @@ class _PluginPageState extends ConsumerState<PluginPage> {
                 ),
               ),
             if (_view == null && !_busy)
-              TextButton(
-                onPressed: () =>
+              PanelTextAction(
+                label: 'RETRY',
+                onTap: () =>
                     _dispatch({'type': 'mount', 'page': widget.page.id}),
-                child: const Text('RETRY'),
               ),
           ],
         ),
