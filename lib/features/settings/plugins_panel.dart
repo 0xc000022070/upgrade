@@ -6,7 +6,6 @@ import '../../application/plugin_hosts.dart';
 import '../../application/native_plugins.dart';
 import '../../application/plugin_placements.dart';
 import '../../data/repositories/plugin_placement_repository.dart';
-import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/dazzle_field.dart';
 import '../../design/components/list_row.dart';
@@ -14,7 +13,7 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
+import '../../design/tokens.dart';
 import '../../platform/plugins/manifest.dart';
 import '../../platform/plugins/contributions.dart';
 import '../../platform/plugins/index.dart';
@@ -41,16 +40,16 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (plugins.hasError)
-            Text('${plugins.error}', style: DazzleText.rowSubtitle),
+            Text('${plugins.error}', style: context.tokens.rowSubtitle),
           if (pauses.hasError)
             Text(
               'Host pause status unavailable: ${pauses.error}',
-              style: DazzleText.rowSubtitle,
+              style: context.tokens.rowSubtitle,
             ),
           if ((pauses.valueOrNull ?? 0) > 0) ...[
             Text(
               '${pauses.valueOrNull} HOST PAUSES PENDING',
-              style: DazzleText.rowSubtitle,
+              style: context.tokens.rowSubtitle,
             ),
             PanelTextAction(
               label: 'RETRY HOST PAUSES',
@@ -69,8 +68,8 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
             if (_pauseError != null)
               Text(
                 _pauseError!,
-                style: DazzleText.rowSubtitle.copyWith(
-                  color: DazzleColors.danger,
+                style: context.tokens.rowSubtitle.copyWith(
+                  color: context.tokens.danger,
                 ),
               ),
           ],
@@ -80,8 +79,8 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
               subtitle: plugin.manifest.purpose,
               value: plugin.enabled ? 'ON' : 'OFF',
               valueColor: plugin.enabled
-                  ? DazzleColors.accent
-                  : DazzleColors.textMuted,
+                  ? context.tokens.accent
+                  : context.tokens.textMuted,
               node: true,
               onTap: () => _open(context, plugin: plugin),
             ),
@@ -246,7 +245,9 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
         if (_error != null && (manifest == null || _candidate != null)) ...[
           Text(
             _error!,
-            style: DazzleText.rowSubtitle.copyWith(color: DazzleColors.danger),
+            style: context.tokens.rowSubtitle.copyWith(
+              color: context.tokens.danger,
+            ),
           ),
           const SheetRule(),
         ],
@@ -302,7 +303,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
             ),
           ],
         ] else ...[
-          Text(manifest.purpose, style: DazzleText.prose),
+          Text(manifest.purpose, style: context.tokens.prose),
           const SizedBox(height: Spacing.lg),
           if (manifest.summary != null) _fact('SUMMARY', manifest.summary!),
           if (manifest.author != null) _fact('AUTHOR', manifest.author!),
@@ -335,13 +336,13 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (manifest.permissions.isEmpty)
-                    const Text('NONE', style: DazzleText.rowSubtitle),
+                    Text('NONE', style: context.tokens.rowSubtitle),
                   for (final permission in manifest.permissions)
                     Padding(
                       padding: const EdgeInsets.only(bottom: Spacing.md),
                       child: Text(
                         '${permission.id}\n${permission.description}',
-                        style: DazzleText.rowSubtitle,
+                        style: context.tokens.rowSubtitle,
                       ),
                     ),
                 ],
@@ -355,7 +356,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                   : installed.enabled
                   ? 'DISABLE'
                   : 'ENABLE',
-              tone: DazzleColors.accent,
+              tone: context.tokens.accent,
               filled: !installed.enabled,
               onTap: _busy || !manifest.supported
                   ? null
@@ -368,8 +369,8 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
             const SizedBox(height: Spacing.md),
             Text(
               _error!,
-              style: DazzleText.rowSubtitle.copyWith(
-                color: DazzleColors.danger,
+              style: context.tokens.rowSubtitle.copyWith(
+                color: context.tokens.danger,
               ),
             ),
             const SizedBox(height: Spacing.md),
@@ -423,7 +424,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                       padding: const EdgeInsets.only(bottom: Spacing.md),
                       child: Text(
                         '${_candidate != null && installed != null && !old.contains(permission) ? "NEW: " : ""}${permission.id}\n${permission.description}',
-                        style: DazzleText.rowSubtitle,
+                        style: context.tokens.rowSubtitle,
                       ),
                     ),
                 ],
@@ -523,7 +524,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
           if (_candidate != null)
             ActionBlock(
               label: _busy ? 'INSTALLING' : 'INSTALL',
-              tone: DazzleColors.accent,
+              tone: context.tokens.accent,
               filled: true,
               onTap: _busy ? null : () => _change((p) => p.install(package!)),
             ),
@@ -586,7 +587,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
               'Disable unloads the plugin and revokes its APIs. Stored data stays.\n'
               '${manifest.hostCapabilities.isNotEmpty ? "Host pauses require acknowledgement; running agents are not killed.\n" : ""}'
               '${installed.package.packageOriginIsBuiltin ? "Built-in plugins stay installed." : "Remove retains records, datasets and source revisions."}',
-              style: DazzleText.rowSubtitle,
+              style: context.tokens.rowSubtitle,
             ),
           ],
         ],
@@ -598,7 +599,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
     padding: const EdgeInsets.only(bottom: Spacing.md),
     child: SheetField(
       label: name,
-      child: Text(value, style: DazzleText.rowSubtitle),
+      child: Text(value, style: context.tokens.rowSubtitle),
     ),
   );
 }
@@ -669,7 +670,9 @@ class _SourcesSheetState extends ConsumerState<_SourcesSheet> {
         if (_error != null) ...[
           Text(
             _error!,
-            style: DazzleText.rowSubtitle.copyWith(color: DazzleColors.danger),
+            style: context.tokens.rowSubtitle.copyWith(
+              color: context.tokens.danger,
+            ),
           ),
           const SheetRule(),
         ],
@@ -703,10 +706,11 @@ class _SourcesSheetState extends ConsumerState<_SourcesSheet> {
         ),
         const SheetRule(),
         sources.when(
-          loading: () => const Text('LOADING', style: DazzleText.rowSubtitle),
-          error: (error, _) => Text('$error', style: DazzleText.rowSubtitle),
+          loading: () => Text('LOADING', style: context.tokens.rowSubtitle),
+          error: (error, _) =>
+              Text('$error', style: context.tokens.rowSubtitle),
           data: (list) => list.isEmpty
-              ? const Text('NO SOURCES ADDED', style: DazzleText.rowSubtitle)
+              ? Text('NO SOURCES ADDED', style: context.tokens.rowSubtitle)
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -715,7 +719,7 @@ class _SourcesSheetState extends ConsumerState<_SourcesSheet> {
                         title: source.repository,
                         subtitle: source.ref,
                         value: 'REMOVE',
-                        valueColor: DazzleColors.danger,
+                        valueColor: context.tokens.danger,
                         node: false,
                         onTap: () => _remove(source),
                       ),
@@ -739,8 +743,9 @@ class _BrowseSheet extends ConsumerWidget {
       title: 'BROWSE',
       children: [
         browse.when(
-          loading: () => const Text('LOADING', style: DazzleText.rowSubtitle),
-          error: (error, _) => Text('$error', style: DazzleText.rowSubtitle),
+          loading: () => Text('LOADING', style: context.tokens.rowSubtitle),
+          error: (error, _) =>
+              Text('$error', style: context.tokens.rowSubtitle),
           data: (data) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -749,15 +754,15 @@ class _BrowseSheet extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: Spacing.md),
                   child: Text(
                     'Cannot read ${failed.repository} @ ${failed.ref}',
-                    style: DazzleText.rowSubtitle.copyWith(
-                      color: DazzleColors.danger,
+                    style: context.tokens.rowSubtitle.copyWith(
+                      color: context.tokens.danger,
                     ),
                   ),
                 ),
               if (data.entries.isEmpty && data.failedSources.isEmpty)
-                const Text(
+                Text(
                   'NO ENTRIES. ADD A SOURCE UNDER SOURCES.',
-                  style: DazzleText.rowSubtitle,
+                  style: context.tokens.rowSubtitle,
                 ),
               for (final browseEntry in data.entries)
                 ListRow(
@@ -881,13 +886,13 @@ class _PluginLayoutControlsState extends ConsumerState<_PluginLayoutControls> {
     return SheetField(
       label: 'YOUR LAYOUT',
       child: placements.when(
-        loading: () => const Text('LOADING', style: DazzleText.rowSubtitle),
-        error: (error, _) => Text('$error', style: DazzleText.rowSubtitle),
+        loading: () => Text('LOADING', style: context.tokens.rowSubtitle),
+        error: (error, _) => Text('$error', style: context.tokens.rowSubtitle),
         data: (state) {
           if (owner == null || (owner.widgets.isEmpty && owner.pages.isEmpty)) {
-            return const Text(
+            return Text(
               'THIS PLUGIN HAS NO PLACEABLE UI.',
-              style: DazzleText.rowSubtitle,
+              style: context.tokens.rowSubtitle,
             );
           }
           final controller = ref.read(pluginPlacementsProvider.notifier);
@@ -897,8 +902,8 @@ class _PluginLayoutControlsState extends ConsumerState<_PluginLayoutControls> {
               if (_error != null) ...[
                 Text(
                   _error!,
-                  style: DazzleText.rowSubtitle.copyWith(
-                    color: DazzleColors.danger,
+                  style: context.tokens.rowSubtitle.copyWith(
+                    color: context.tokens.danger,
                   ),
                 ),
                 const SizedBox(height: Spacing.md),
@@ -924,7 +929,7 @@ class _PluginLayoutControlsState extends ConsumerState<_PluginLayoutControls> {
                         else
                           Text(
                             '${location == PluginPlacementLocation.homeCard ? "HOME CARD" : "INPUT BAR"} · NOT SUPPORTED BY THIS PLUGIN',
-                            style: DazzleText.rowSubtitle,
+                            style: context.tokens.rowSubtitle,
                           ),
                       if (state.placements[widget.stableId] ==
                           PluginPlacementLocation.homeCard) ...[
@@ -1048,9 +1053,9 @@ class _PluginLayoutControlsState extends ConsumerState<_PluginLayoutControls> {
                         )
                       : _pin(page, state),
                 ),
-              const Text(
+              Text(
                 'DONE · CHANGES SAVE IMMEDIATELY',
-                style: DazzleText.rowSubtitle,
+                style: context.tokens.rowSubtitle,
               ),
             ],
           );
@@ -1086,11 +1091,11 @@ class _PlacementPreview extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: Spacing.md),
       padding: const EdgeInsets.all(Spacing.md),
       decoration: BoxDecoration(
-        border: Border.all(color: DazzleColors.borderNormal),
+        border: Border.all(color: context.tokens.borderNormal),
       ),
       child: Text(
         '${contribution.title.toUpperCase()} · $shape · $dimensions',
-        style: DazzleText.rowSubtitle,
+        style: context.tokens.rowSubtitle,
       ),
     );
   }
