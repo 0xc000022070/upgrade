@@ -1504,6 +1504,12 @@ The `ADD` and `UPDATE` ref field takes a full commit SHA, a tag or a branch name
 
 A manifest can declare an author, a homepage, a license and a short summary, each optional and bounded. Dazzle shows every declared one in the review sheet before `INSTALL` and in the installed plugin's detail view; an undeclared one is omitted rather than shown empty. None of the four carries runtime meaning: they do not affect a plugin's capabilities, dependencies, compatibility or execution, and a manifest lacking all four remains as valid as one declaring all of them.
 
+### A marketplace index lists installable plugins
+
+An index is a `dazzle.index.toml` at the root of a public GitHub repository, fetched at a ref exactly like a plugin: a full commit SHA, a tag or a branch name, resolved through the same unauthenticated GitHub REST API before the index file itself is downloaded and size-bounded. The index root carries its own format version, separate from a manifest's; an index declaring anything but the version Dazzle understands rejects with a version mismatch instead of an unknown-field error. Its `[[plugins]]` entries each declare an id, a repository, a ref, and the same optional author and summary a manifest can declare; an unknown field or a duplicate id rejects the whole index. An entry is a pointer, not a package: none of its fields is trusted beyond shape until the plugin it names is itself fetched and reviewed through the existing install flow.
+
+Settings PLUGINS gains SOURCES and BROWSE. SOURCES adds and removes an index by repository and ref; Dazzle ships no default source. BROWSE lists every entry across every added source, naming a source that failed to load separately from the entries that did. Selecting an entry opens the same review sheet `ADD` uses, with its repository and ref already filled in; an entry whose id matches an installed plugin opens that plugin's installed detail instead, offering `UPDATE`.
+
 ### Manifests and dependencies have separate versions
 
 `manifest_version` is the manifest format's integer version. `version` is the plugin's semantic release version. `dazzle_api` is its required API version range. Dazzle rejects unsupported manifest versions, unknown fields, unsupported capabilities and incompatible API ranges before running code. Retained incompatible revisions stay listed, disabled, with their original source and grants; they cannot execute until a compatible update is reviewed. The manifest's release version cannot change the meaning of its format.

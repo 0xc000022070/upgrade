@@ -12,6 +12,7 @@ import 'package:dazzle/design/components/action_block.dart';
 import 'package:dazzle/design/components/list_row.dart';
 import 'package:dazzle/features/plugins/plugin_management_screen.dart';
 import 'package:dazzle/features/plugins/plugin_page.dart';
+import 'package:dazzle/platform/plugins/index.dart';
 import 'package:dazzle/platform/plugins/manifest.dart';
 import 'package:dazzle/platform/plugins/store.dart';
 import 'package:drift/native.dart';
@@ -80,6 +81,30 @@ List<Override> _catalogOverrides(
   pluginPlacementRepositoryProvider.overrideWith(
     (ref) async => PluginPlacementRepository.memory(),
   ),
+];
+
+class _FixtureSources extends PluginSources {
+  _FixtureSources(this.initial);
+  final List<PluginSource> initial;
+  @override
+  Future<List<PluginSource>> build() async => initial;
+  @override
+  Future<void> add(PluginSource source) async {
+    state = AsyncData([...state.requireValue, source]);
+  }
+
+  @override
+  Future<void> remove(PluginSource source) async {
+    state = AsyncData(state.requireValue.where((s) => s != source).toList());
+  }
+}
+
+List<Override> _marketplaceOverrides({
+  List<PluginSource> sources = const [],
+  PluginBrowse browse = const PluginBrowse(entries: [], failedSources: []),
+}) => [
+  pluginSourcesProvider.overrideWith(() => _FixtureSources(sources)),
+  pluginBrowseProvider.overrideWith((ref) async => browse),
 ];
 
 void main() {
@@ -217,6 +242,156 @@ void main() {
     expect(
       tester.getTopLeft(failure).dy,
       lessThan(tester.getTopLeft(find.text('SHOW TECHNICAL DIAGNOSTICS')).dy),
+    );
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('sources are added and removed under SOURCES', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final existing = PluginSource(
+      repository: 'https://github.com/x/existing',
+      ref: 'main',
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._catalogOverrides(db, const []),
+          ..._marketplaceOverrides(sources: [existing]),
+        ],
+        child: const MaterialApp(home: PluginManagementScreen()),
+      ),
+    );
+    await _drain(tester);
+
+    await tester.tap(find.text('SOURCES'));
+    await _drain(tester);
+    expect(find.text('https://github.com/x/existing'), findsOneWidget);
+
+    await tester.enterText(
+      find.byType(TextField).first,
+      'https://github.com/x/added',
+    );
+    await tester.enterText(find.byType(TextField).at(1), 'v1.0.0');
+    await tester.tap(find.text('ADD SOURCE'));
+    await _drain(tester);
+    expect(find.text('https://github.com/x/added'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('https://github.com/x/added'));
+    await _drain(tester);
+    expect(find.text('REMOVE SOURCE?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ActionBlock, 'REMOVE'));
+    await _drain(tester);
+    expect(find.text('https://github.com/x/added'), findsNothing);
+    expect(find.text('https://github.com/x/existing'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  test(
+    'adding the first source of a session does not throw before BROWSE is ever watched',
+    () async {
+      final directory = Directory.systemTemp.createTempSync('plugin-sources');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final container = ProviderContainer(
+        overrides: [
+          pluginSourceStoreProvider.overrideWith(
+            (ref) async => PluginSourceStore(directory),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final source = PluginSource(
+        repository: 'https://github.com/x/added',
+        ref: 'main',
+      );
+      await container.read(pluginSourcesProvider.notifier).add(source);
+      expect(
+        container.read(pluginSourcesProvider).requireValue,
+        contains(source),
+      );
+
+      await container.read(pluginSourcesProvider.notifier).remove(source);
+      expect(container.read(pluginSourcesProvider).requireValue, isEmpty);
+    },
+  );
+
+  testWidgets('browse pre-fills the review sheet and flags installed entries', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final projects = builtinFixture('projects');
+    final marketplacePackage = PluginPackage(
+      manifest: projects.manifest,
+      source: projects.source,
+      origin: 'https://github.com/x/installed',
+      revision: 'v1.0.0',
+    );
+    final catalog = [
+      InstalledPlugin(
+        marketplacePackage,
+        marketplacePackage.manifest.permissions,
+        enabled: true,
+      ),
+    ];
+    final source = PluginSource(
+      repository: 'https://github.com/x/index',
+      ref: 'main',
+    );
+    final newEntry = const PluginIndexEntry(
+      id: 'test.new',
+      repository: 'https://github.com/x/new',
+      ref: 'v2.0.0',
+      summary: 'A brand new plugin',
+    );
+    final installedEntry = PluginIndexEntry(
+      id: marketplacePackage.manifest.id,
+      repository: 'https://github.com/x/installed',
+      ref: 'v1.0.0',
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._catalogOverrides(db, catalog),
+          ..._marketplaceOverrides(
+            sources: [source],
+            browse: PluginBrowse(
+              entries: [
+                PluginBrowseEntry(source, newEntry),
+                PluginBrowseEntry(source, installedEntry),
+              ],
+              failedSources: const [],
+            ),
+          ),
+        ],
+        child: const MaterialApp(home: PluginManagementScreen()),
+      ),
+    );
+    await _drain(tester);
+
+    await tester.tap(find.text('BROWSE'));
+    await _drain(tester);
+    expect(find.text('test.new'), findsOneWidget);
+    expect(find.text('A brand new plugin'), findsOneWidget);
+    expect(find.widgetWithText(ListRow, 'INSTALLED'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('test.new'));
+    await _drain(tester);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+      'https://github.com/x/new',
+    );
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(1)).controller!.text,
+      'v2.0.0',
     );
     expect(tester.takeException(), isNull);
 
