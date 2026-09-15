@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/key_cell.dart';
-import '../../design/components/panel.dart';
+import '../../design/components/list_row.dart';
+import '../../design/components/panel_sheet.dart';
+import '../../design/components/panel_text_action.dart';
 import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/motion.dart';
@@ -103,16 +105,12 @@ const _detailHeight = 56.0;
 const _tabMaxWidth = 88.0;
 
 /// How wide the host's name may grow before it is cut off. Everything else on
-/// the row is fixed — the two edges, the gap after the name, the diff mark and
-/// the close — and on a 411 px phone what is left over holds two tab cells and
-/// the plus only while the name stops here. A name is the host's, not the
-/// row's: past this it is read from the switcher, not from the header.
-const _hostMaxWidth = 112.0;
-
-/// How much of the header the word between the cells may take. The tabs are
-/// what gives way on a narrow row, but not all of it: a long state word is
-/// still cut before it leaves the strip nothing to scroll.
-const _statusShare = 0.4;
+/// the row is fixed — the two edges, the gap after the name, the diff mark,
+/// the info mark and the close — and on a 411 px phone what is left over holds
+/// two tab cells and the plus only while the name stops here. A name is the
+/// host's, not the row's: past this it is read from the switcher, not from the
+/// header.
+const _hostMaxWidth = 96.0;
 
 /// The word one tab is drawn with: what its shell calls itself, cut down to
 /// what a cell holds, and its number until it calls itself anything.
@@ -233,141 +231,130 @@ class _ShellHeaderState extends State<ShellHeader> {
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: DazzleColors.borderSubtle)),
       ),
-      child: LayoutBuilder(
-        builder: (context, box) => Row(
-          children: [
-            const SizedBox(width: Spacing.screenEdge),
-            _HostCell(name: host.name, onTap: widget.onSwitchHost),
-            const SizedBox(width: Spacing.lg),
-            // The strip is the one part of the row that gives way: the cells
-            // beside it keep the size of what they hold, and nine shells open
-            // scroll inside whatever is left rather than overflowing the row.
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final session in sessions)
-                      KeyedSubtree(
-                        key: session == active ? _activeTab : null,
-                        child: _TabCell(
-                          key: ValueKey('shell-tab-${session.number}'),
-                          label: shellTabLabel(session.title, session.number),
-                          state: session.state,
-                          active: session == active,
-                          onTap: () => widget.onSelect(session),
+      child: Row(
+        children: [
+          const SizedBox(width: Spacing.screenEdge),
+          _HostCell(name: host.name, onTap: widget.onSwitchHost),
+          const SizedBox(width: Spacing.lg),
+          // The strip is the one part of the row that gives way: the cells
+          // beside it keep the size of what they hold, and nine shells open
+          // scroll inside whatever is left rather than overflowing the row.
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final session in sessions)
+                    KeyedSubtree(
+                      key: session == active ? _activeTab : null,
+                      child: _TabCell(
+                        key: ValueKey('shell-tab-${session.number}'),
+                        label: shellTabLabel(session.title, session.number),
+                        state: session.state,
+                        active: session == active,
+                        onTap: () => widget.onSelect(session),
+                      ),
+                    ),
+                  if (widget.newHosts.isNotEmpty)
+                    MenuAnchor(
+                      style: const MenuStyle(
+                        backgroundColor: WidgetStatePropertyAll(
+                          DazzleColors.surfaceSecondary,
+                        ),
+                        surfaceTintColor: WidgetStatePropertyAll(
+                          Color(0x00000000),
+                        ),
+                        shadowColor: WidgetStatePropertyAll(Color(0x00000000)),
+                        elevation: WidgetStatePropertyAll(0),
+                        padding: WidgetStatePropertyAll(
+                          EdgeInsets.all(Spacing.sm),
+                        ),
+                        minimumSize: WidgetStatePropertyAll(Size(200, 0)),
+                        maximumSize: WidgetStatePropertyAll(Size(280, 360)),
+                        shape: WidgetStatePropertyAll(
+                          RoundedRectangleBorder(
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(Radii.sharp),
+                            ),
+                            side: BorderSide(color: DazzleColors.borderNormal),
+                          ),
                         ),
                       ),
-                    if (widget.newHosts.isNotEmpty)
-                      MenuAnchor(
-                        style: const MenuStyle(
-                          backgroundColor: WidgetStatePropertyAll(
-                            DazzleColors.surfaceSecondary,
-                          ),
-                          surfaceTintColor: WidgetStatePropertyAll(
-                            Color(0x00000000),
-                          ),
-                          shadowColor: WidgetStatePropertyAll(
-                            Color(0x00000000),
-                          ),
-                          elevation: WidgetStatePropertyAll(0),
-                          padding: WidgetStatePropertyAll(
-                            EdgeInsets.all(Spacing.sm),
-                          ),
-                          minimumSize: WidgetStatePropertyAll(Size(200, 0)),
-                          maximumSize: WidgetStatePropertyAll(Size(280, 360)),
-                          shape: WidgetStatePropertyAll(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(Radii.sharp),
+                      alignmentOffset: const Offset(0, Spacing.sm),
+                      menuChildren: [
+                        for (final host in widget.newHosts)
+                          MenuItemButton(
+                            key: ValueKey('shell-new-host-${host.id}'),
+                            onPressed: () => widget.onNew(host),
+                            style: const ButtonStyle(
+                              minimumSize: WidgetStatePropertyAll(
+                                Size(192, TapTargets.minHeight),
                               ),
-                              side: BorderSide(
-                                color: DazzleColors.borderNormal,
+                              padding: WidgetStatePropertyAll(
+                                EdgeInsets.symmetric(horizontal: Spacing.md),
+                              ),
+                              shape: WidgetStatePropertyAll(
+                                RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(Radii.sharp),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                        alignmentOffset: const Offset(0, Spacing.sm),
-                        menuChildren: [
-                          for (final host in widget.newHosts)
-                            MenuItemButton(
-                              key: ValueKey('shell-new-host-${host.id}'),
-                              onPressed: () => widget.onNew(host),
-                              style: const ButtonStyle(
-                                minimumSize: WidgetStatePropertyAll(
-                                  Size(192, TapTargets.minHeight),
+                            child: Row(
+                              children: [
+                                const DazzleIcon(
+                                  DazzleIcons.hosts,
+                                  size: IconSizes.glyph,
+                                  color: DazzleColors.textMuted,
                                 ),
-                                padding: WidgetStatePropertyAll(
-                                  EdgeInsets.symmetric(horizontal: Spacing.md),
-                                ),
-                                shape: WidgetStatePropertyAll(
-                                  RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(Radii.sharp),
-                                    ),
+                                const SizedBox(width: Spacing.md),
+                                Expanded(
+                                  child: Text(
+                                    host.name.toUpperCase(),
+                                    style: DazzleText.rowTitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  const DazzleIcon(
-                                    DazzleIcons.hosts,
-                                    size: IconSizes.glyph,
-                                    color: DazzleColors.textMuted,
+                                if (host.id == widget.host.id)
+                                  const Text(
+                                    'CURRENT',
+                                    style: DazzleText.label,
                                   ),
-                                  const SizedBox(width: Spacing.md),
-                                  Expanded(
-                                    child: Text(
-                                      host.name.toUpperCase(),
-                                      style: DazzleText.rowTitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  if (host.id == widget.host.id)
-                                    const Text(
-                                      'CURRENT',
-                                      style: DazzleText.label,
-                                    ),
-                                ],
-                              ),
+                              ],
                             ),
-                        ],
-                        builder: (context, controller, child) => _TabCell(
-                          key: const ValueKey('shell-tab-new'),
-                          label: '+',
-                          onTap: controller.isOpen
-                              ? controller.close
-                              : controller.open,
-                        ),
+                          ),
+                      ],
+                      builder: (context, controller, child) => _TabCell(
+                        key: const ValueKey('shell-tab-new'),
+                        label: '+',
+                        onTap: controller.isOpen
+                            ? controller.close
+                            : controller.open,
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
-            if (onDiff != null)
-              _TabCell(
-                key: const ValueKey('shell-tab-diff'),
-                icon: DazzleIcons.branch,
-                dimmed: !widget.diffReady,
-                onTap: widget.diffReady ? onDiff : null,
-              ),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: box.maxWidth * _statusShare,
-              ),
-              child: _Middle(state: active?.state, onStop: widget.onStop),
+          ),
+          if (onDiff != null)
+            _TabCell(
+              key: const ValueKey('shell-tab-diff'),
+              icon: DazzleIcons.branch,
+              dimmed: !widget.diffReady,
+              onTap: widget.diffReady ? onDiff : null,
             ),
-            if (onClose != null)
-              _TabCell(
-                key: const ValueKey('shell-tab-close'),
-                label: '×',
-                onTap: onClose,
-              ),
-            const SizedBox(width: Spacing.screenEdge),
-          ],
-        ),
+          _Middle(host: host.name, session: active, onStop: widget.onStop),
+          if (onClose != null)
+            _TabCell(
+              key: const ValueKey('shell-tab-close'),
+              label: '×',
+              onTap: onClose,
+            ),
+          const SizedBox(width: Spacing.screenEdge),
+        ],
       ),
     );
   }
@@ -419,68 +406,116 @@ class _HostCell extends StatelessWidget {
   }
 }
 
-/// Where the session is when it is not live, plus MOSH while that is the live
-/// transport. SSH needs no word because it is the host's baseline, and the row
-/// it would take is the strip's.
+/// The one mark in the middle of the row, and everything the row used to
+/// spell out behind it. State words and a transport name cost the strip more
+/// room than they were worth; a mark costs one cell, and the sheet it opens
+/// has the room to say all of it at once.
 class _Middle extends StatelessWidget {
-  const _Middle({required this.state, required this.onStop});
+  const _Middle({
+    required this.host,
+    required this.session,
+    required this.onStop,
+  });
 
-  final ShellState? state;
+  final String host;
+  final ShellSession? session;
   final VoidCallback? onStop;
 
   @override
   Widget build(BuildContext context) {
-    final word = switch (state) {
-      null => null,
-      ShellLive(:final transport) =>
-        transport == ShellTransport.mosh ? 'MOSH' : null,
-      ShellConnecting() => 'CONNECTING',
-      ShellReconnecting(:final transport) =>
-        'RECONNECTING · ${transport.name.toUpperCase()}',
-      ShellDisconnected(:final transport) =>
-        'DISCONNECTED · ${transport.name.toUpperCase()}',
-      ShellDropped(:final attempt) =>
-        'RECONNECTING $attempt/${shellReconnectDelays.length}',
-      ShellExited(:final code) => 'EXITED ${code ?? '—'}',
-      ShellWaiting() || ShellFailed() => 'DISCONNECTED',
-    };
-    if (word == null) return const SizedBox.shrink();
-    final between =
-        state is ShellDropped ||
-        state is ShellReconnecting ||
-        state is ShellWaiting;
-    final disconnected = state is ShellDisconnected || state is ShellFailed;
-    final label = Text(
-      word,
-      style: DazzleText.panelHeader.copyWith(
-        color: disconnected
-            ? DazzleColors.warning
-            : between
-            ? DazzleColors.textMuted
-            : null,
-      ),
-      textAlign: TextAlign.right,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+    final session = this.session;
+    if (session == null) return const SizedBox.shrink();
+    // The mark's ink is the whole of what the row says about the session now:
+    // dim while the shell is up, warning the moment it is not, so a tab that
+    // lost its link is read from the row and explained in the sheet.
+    return _TabCell(
+      key: const ValueKey('shell-tab-info'),
+      label: '(i)',
+      tint: session.state is ShellLive
+          ? DazzleColors.textMuted
+          : DazzleColors.warning,
+      onTap: () => _open(context, session),
     );
-    // The only hit target the row carries. Dialling again is the app's job, so
-    // there is nothing to press while it works — stopping it is the one part
-    // of a reconnect that is a decision, and only the user can make it.
-    // The word takes the room it needs and no more: while a shell is live
-    // there is nothing here at all, and the strip has the row to itself.
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-      child: state is! ShellDropped && state is! ShellWaiting || onStop == null
-          ? label
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(child: label),
-                const SizedBox(width: Spacing.lg),
-                PanelAffordance('STOP', showIcon: false, onTap: onStop!),
+  }
+
+  Future<void> _open(BuildContext context, ShellSession session) {
+    final title = '${host.toUpperCase()} ${session.number}';
+    return showPanelSheet<void>(
+      context,
+      title: title,
+      // The session is read again on every notify: a tab that reconnects
+      // under the open sheet takes its `STOP` away with it, rather than
+      // leaving a control that would answer nothing.
+      builder: (context) => ListenableBuilder(
+        listenable: session,
+        builder: (context, _) {
+          final state = session.state;
+          // Giving up on a reconnect is the one decision here, and it is one
+          // only while something is on a clock or parked off one.
+          final stop = state is ShellDropped || state is ShellWaiting
+              ? onStop
+              : null;
+          return PanelSheetBody(
+            title: title,
+            children: [
+              ListRowGroup(
+                children: [
+                  ListRow(
+                    key: const ValueKey('shell-info-state'),
+                    title: 'STATE',
+                    subtitle: _stateWord(state),
+                    subtitleColor: state is ShellLive
+                        ? null
+                        : DazzleColors.warning,
+                  ),
+                  ListRow(
+                    key: const ValueKey('shell-info-transport'),
+                    title: 'TRANSPORT',
+                    subtitle: _transportWord(session),
+                  ),
+                ],
+              ),
+              if (stop != null) ...[
+                const SheetRule(),
+                PanelTextAction(
+                  key: const ValueKey('shell-info-stop'),
+                  label: 'STOP',
+                  icon: DazzleIcons.close,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    stop();
+                  },
+                ),
               ],
-            ),
+            ],
+          );
+        },
+      ),
     );
+  }
+
+  String _stateWord(ShellState state) => switch (state) {
+    ShellLive() => 'LIVE',
+    ShellConnecting() => 'CONNECTING',
+    ShellReconnecting() => 'RECONNECTING',
+    ShellDisconnected() => 'DISCONNECTED',
+    ShellDropped(:final attempt) =>
+      'RECONNECTING $attempt/${shellReconnectDelays.length}',
+    ShellExited(:final code) => 'EXITED ${code ?? '—'}',
+    ShellWaiting() || ShellFailed() => 'DISCONNECTED',
+  };
+
+  /// What the tab is talking over: the state's own transport while it carries
+  /// one, and the connection's while it does not. A dash once there is no
+  /// connection left to ask.
+  String _transportWord(ShellSession session) {
+    final carried = switch (session.state) {
+      ShellLive(:final transport) ||
+      ShellReconnecting(:final transport) ||
+      ShellDisconnected(:final transport) => transport,
+      _ => session.connection?.transport,
+    };
+    return carried?.name.toUpperCase() ?? '—';
   }
 }
 
@@ -620,6 +655,7 @@ class _TabCell extends StatelessWidget {
     this.state,
     this.active = false,
     this.dimmed = false,
+    this.tint,
   }) : assert(label != null || icon != null, 'a word or a mark, not neither');
 
   final String? label;
@@ -640,13 +676,20 @@ class _TabCell extends StatelessWidget {
   final bool active;
   final VoidCallback? onTap;
 
+  /// What the cell is drawn in, when what it is drawn in is not the cell's own
+  /// business: the info mark takes its ink from the session, not from whether
+  /// it is the tab on screen.
+  final Color? tint;
+
   @override
   Widget build(BuildContext context) {
-    final tint = switch ((active, dimmed)) {
-      (true, _) => DazzleColors.accent,
-      (false, true) => DazzleColors.textDisabled,
-      (false, false) => DazzleColors.textMuted,
-    };
+    final tint =
+        this.tint ??
+        switch ((active, dimmed)) {
+          (true, _) => DazzleColors.accent,
+          (false, true) => DazzleColors.textDisabled,
+          (false, false) => DazzleColors.textMuted,
+        };
     final label = this.label;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
