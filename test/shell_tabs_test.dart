@@ -73,28 +73,23 @@ List<String?> headerWords(WidgetTester tester) => tester
 void main() {
   setUp(stubDeviceChannels);
 
-  testWidgets('a live Mosh tab names its transport in the sheet, not the '
-      'header', (tester) async {
+  testWidgets('a live Mosh tab says nothing about its transport on the row', (
+    tester,
+  ) async {
     final transport = FakeShellTransport()..transport = ShellTransport.mosh;
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    // The row costs the strip nothing to say what is carrying the shell.
+    // What is carrying a shell that is up costs the row nothing at all: no
+    // word, and no mark to open for one either.
     expect(find.text('MOSH'), findsNothing);
-    expect(inkOfInfoMark(tester), DazzleColors.textMuted);
-
-    await openInfo(tester);
-
-    expect(find.text('ROSE 1'), findsWidgets);
-    expect(find.text('TRANSPORT'), findsOneWidget);
-    expect(find.text('MOSH'), findsOneWidget);
-    expect(find.text('LIVE'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-tab-info')), findsNothing);
 
     await unmount(tester);
   });
 
-  testWidgets('a live SSH tab puts one mark in the middle of the header', (
+  testWidgets('a live SSH tab puts no word in the middle of the header', (
     tester,
   ) async {
     final transport = FakeShellTransport();
@@ -102,12 +97,9 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    // The host, the one tab, the plus, the mark and the close: no word about
-    // the link stands on the row, whatever the link is doing.
-    expect(headerWords(tester), ['ROSE', '1', '+', '(i)', '×']);
-
-    await openInfo(tester);
-    expect(find.text('SSH'), findsOneWidget);
+    // The host, the one tab, the plus and the close. A shell that is up takes
+    // no word and no cell of the row to say so.
+    expect(headerWords(tester), ['ROSE', '1', '+', '×']);
 
     await unmount(tester);
   });
@@ -132,6 +124,8 @@ void main() {
 
     expect(find.text('STATE'), findsOneWidget);
     expect(find.text('EXITED 1'), findsOneWidget);
+    expect(find.text('TRANSPORT'), findsOneWidget);
+    expect(find.text('SSH'), findsOneWidget);
 
     await unmount(tester);
   });
