@@ -1,9 +1,9 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-import 'colors.dart';
 import 'motion.dart';
 import 'spacing.dart';
+import 'tokens.dart';
 import 'typography.dart';
 
 /// Material is used as a substrate only. Everything that would leak a Material
@@ -11,30 +11,38 @@ import 'typography.dart';
 /// glow, the zoom page transition — is neutralized here so components can be
 /// built from the Dazzle tokens alone.
 abstract final class DazzleTheme {
-  static ThemeData build() {
-    const colorScheme = ColorScheme.dark(
-      primary: DazzleColors.accent,
-      onPrimary: DazzleColors.backgroundPrimary,
-      secondary: DazzleColors.accentMuted,
-      onSecondary: DazzleColors.backgroundPrimary,
-      surface: DazzleColors.surfacePrimary,
-      onSurface: DazzleColors.textPrimary,
-      error: DazzleColors.danger,
-      onError: DazzleColors.textPrimary,
-      outline: DazzleColors.borderNormal,
-      outlineVariant: DazzleColors.borderSubtle,
+  /// [tokens] is the whole visual contract; every colour and text role below
+  /// is read from it rather than from the constants directly, so a caller
+  /// that passes something other than [DazzleTokens.house] gets a real
+  /// theme change and not just a registered, unused extension.
+  static ThemeData build([DazzleTokens tokens = DazzleTokens.house]) {
+    final schemeBuilder = tokens.brightness == Brightness.dark
+        ? ColorScheme.dark
+        : ColorScheme.light;
+    final colorScheme = schemeBuilder(
+      primary: tokens.accent,
+      onPrimary: tokens.backgroundPrimary,
+      secondary: tokens.accentMuted,
+      onSecondary: tokens.backgroundPrimary,
+      surface: tokens.surfacePrimary,
+      onSurface: tokens.textPrimary,
+      error: tokens.danger,
+      onError: tokens.textPrimary,
+      outline: tokens.borderNormal,
+      outlineVariant: tokens.borderSubtle,
       surfaceTint: Colors.transparent,
       shadow: Colors.transparent,
     );
 
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: tokens.brightness,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: DazzleColors.backgroundPrimary,
-      canvasColor: DazzleColors.backgroundPrimary,
+      scaffoldBackgroundColor: tokens.backgroundPrimary,
+      canvasColor: tokens.backgroundPrimary,
       shadowColor: Colors.transparent,
       visualDensity: VisualDensity.compact,
+      extensions: [tokens],
 
       // No ripple, no highlight bloom, no hover wash.
       splashFactory: NoSplash.splashFactory,
@@ -44,29 +52,26 @@ abstract final class DazzleTheme {
       focusColor: Colors.transparent,
 
       fontFamily: FontFamilies.ui,
-      textTheme: _textTheme,
-      iconTheme: const IconThemeData(
-        color: DazzleColors.textSecondary,
-        size: IconSizes.lg,
-      ),
-      dividerTheme: const DividerThemeData(
-        color: DazzleColors.borderSubtle,
+      textTheme: _textTheme(tokens),
+      iconTheme: IconThemeData(color: tokens.textSecondary, size: IconSizes.lg),
+      dividerTheme: DividerThemeData(
+        color: tokens.borderSubtle,
         thickness: Borders.hairline,
         space: Borders.hairline,
       ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: DazzleColors.backgroundPrimary,
+      appBarTheme: AppBarTheme(
+        backgroundColor: tokens.backgroundPrimary,
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: DazzleText.screenTitle,
+        titleTextStyle: tokens.screenTitle,
       ),
-      textSelectionTheme: const TextSelectionThemeData(
-        cursorColor: DazzleColors.accent,
-        selectionColor: Color(0x33B7FF2A),
-        selectionHandleColor: DazzleColors.accent,
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: tokens.accent,
+        selectionColor: tokens.selectionWash,
+        selectionHandleColor: tokens.accent,
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
@@ -77,16 +82,16 @@ abstract final class DazzleTheme {
     );
   }
 
-  static const _textTheme = TextTheme(
-    headlineLarge: DazzleText.screenTitle,
-    headlineMedium: DazzleText.heroName,
-    titleMedium: DazzleText.rowTitle,
-    titleSmall: DazzleText.panelHeader,
-    bodyMedium: DazzleText.prose,
-    bodySmall: DazzleText.rowSubtitle,
-    labelLarge: DazzleText.value,
-    labelMedium: DazzleText.navLabel,
-    labelSmall: DazzleText.label,
+  static TextTheme _textTheme(DazzleTokens tokens) => TextTheme(
+    headlineLarge: tokens.screenTitle,
+    headlineMedium: tokens.heroName,
+    titleMedium: tokens.rowTitle,
+    titleSmall: tokens.panelHeader,
+    bodyMedium: tokens.prose,
+    bodySmall: tokens.rowSubtitle,
+    labelLarge: tokens.value,
+    labelMedium: tokens.navLabel,
+    labelSmall: tokens.label,
   );
 }
 

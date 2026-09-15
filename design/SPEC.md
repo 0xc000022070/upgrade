@@ -1482,6 +1482,14 @@ Struck: a longer timer for a refused key, an hour or a day instead of a minute. 
 
 Struck: a notification asking the user to go and fix the key. The ongoing line already names the host and says what it refused, HOSTS is where a credential is answered, and a second alert about a machine that is not going anywhere is a phone buzzing about the state it was in a minute ago.
 
+## Theme
+
+### One token read path carries every colour and text role
+
+`DazzleTokens` is a theme extension holding every colour the app draws with — the palette, the syntax palette, the terminal palette, and the washes, grounds and scrims a screen used to reach for as a literal — and every text role. A component reaches it through its `BuildContext`, never through a constant directly. Geometry — spacing, radii, icon sizes, tap targets, bar sizes — is not a token: it does not move with the theme and stays the plain constants it always was.
+
+`DazzleTokens.house` is the default, built from the same values the app has always shipped, so registering it changes nothing on screen. A different `DazzleTokens` instance is what makes a theme; nothing else does.
+
 ## Plugins
 
 ### Plugins run on the phone through declared capabilities
