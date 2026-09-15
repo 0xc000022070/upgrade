@@ -173,8 +173,10 @@ class _HostPanel extends ConsumerWidget {
           ),
           if (integrations.contains(IntegrationKind.herdr))
             _HerdrStateRow(host: host, outcome: outcome),
-          _ShellRow(host: host),
           _ClipboardRow(host: host),
+          // Last of the rows: everything above it is a fact about the machine
+          // and this is the way in, so it does not sit between two readouts.
+          _ShellRow(host: host),
           if (integrations.contains(IntegrationKind.vnc)) ...[
             const SizedBox(height: Spacing.sm),
             ScreenPreviewTile(host: host),
