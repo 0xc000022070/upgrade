@@ -70,7 +70,9 @@ void main() {
     expect(find.textContaining('/'), findsNothing);
     expect(find.text('CONNECTING'), findsNothing);
     expect(find.text('RETRY'), findsNothing);
-    expect(inkOfInfoMark(tester), DazzleColors.textMuted);
+    // Nothing stands in the middle either: the mark is the cost of what it
+    // has to say, and a shell that is up has nothing.
+    expect(find.byKey(const ValueKey('shell-tab-info')), findsNothing);
     expect(
       tester.getSize(find.byKey(const ValueKey('shell-header'))).height,
       44,

@@ -105,12 +105,11 @@ const _detailHeight = 56.0;
 const _tabMaxWidth = 88.0;
 
 /// How wide the host's name may grow before it is cut off. Everything else on
-/// the row is fixed — the two edges, the gap after the name, the diff mark,
-/// the info mark and the close — and on a 411 px phone what is left over holds
-/// two tab cells and the plus only while the name stops here. A name is the
-/// host's, not the row's: past this it is read from the switcher, not from the
-/// header.
-const _hostMaxWidth = 96.0;
+/// the row is fixed — the two edges, the gap after the name, the diff mark and
+/// the close — and on a 411 px phone what is left over holds two tab cells and
+/// the plus only while the name stops here. A name is the host's, not the
+/// row's: past this it is read from the switcher, not from the header.
+const _hostMaxWidth = 112.0;
 
 /// The word one tab is drawn with: what its shell calls itself, cut down to
 /// what a cell holds, and its number until it calls itself anything.
@@ -424,16 +423,16 @@ class _Middle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final session = this.session;
-    if (session == null) return const SizedBox.shrink();
-    // The mark's ink is the whole of what the row says about the session now:
-    // dim while the shell is up, warning the moment it is not, so a tab that
-    // lost its link is read from the row and explained in the sheet.
+    // A shell that is up has nothing to report, and a cell costs the name it
+    // stands next to: the middle is empty while the tab is live, and the mark
+    // comes out in warning only once there is something behind it to read.
+    if (session == null || session.state is ShellLive) {
+      return const SizedBox.shrink();
+    }
     return _TabCell(
       key: const ValueKey('shell-tab-info'),
       label: '(i)',
-      tint: session.state is ShellLive
-          ? DazzleColors.textMuted
-          : DazzleColors.warning,
+      tint: DazzleColors.warning,
       onTap: () => _open(context, session),
     );
   }
@@ -677,8 +676,8 @@ class _TabCell extends StatelessWidget {
   final VoidCallback? onTap;
 
   /// What the cell is drawn in, when what it is drawn in is not the cell's own
-  /// business: the info mark takes its ink from the session, not from whether
-  /// it is the tab on screen.
+  /// business: the info mark stands in warning for as long as it stands at all,
+  /// rather than in the ink of whether it is the tab on screen.
   final Color? tint;
 
   @override
