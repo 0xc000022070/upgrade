@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/design/components/panel.dart';
+import 'package:dazzle/design/components/signal_text.dart';
+import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/design/typography.dart';
 import 'package:dazzle/features/screen_scaffold.dart';
 
@@ -209,6 +212,60 @@ void main() {
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
+    });
+  });
+
+  group('header parity', () {
+    Widget host({Widget? trailing, VoidCallback? onBack}) => ProviderScope(
+      child: MaterialApp(
+        home: Scaffold(
+          body: ScreenScaffold(
+            title: 'HOSTS',
+            breadcrumb: '/ PERSONAL CONTROL PLANE / HOSTS',
+            breadcrumbTrailing: trailing,
+            onBack: onBack,
+            children: const [],
+          ),
+        ),
+      ),
+    );
+
+    /// The [SignalText] itself rather than its glyphs: the title decodes on
+    /// entry, so the characters on screen at any pump are not the title's.
+    Future<(double, double)> header(WidgetTester tester, Widget widget) async {
+      await tester.pumpWidget(widget);
+      await tester.pump(const Duration(milliseconds: 100));
+      final title = tester.getTopLeft(find.byType(SignalText)).dy;
+      final row = tester
+          .getRect(
+            find
+                .ancestor(
+                  of: find.byType(SignalText),
+                  matching: find.byType(Row),
+                )
+                .first,
+          )
+          .top;
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+      return (title, row);
+    }
+
+    testWidgets('the title sits at one offset on every kind of header', (
+      tester,
+    ) async {
+      final withTrailing = await header(
+        tester,
+        host(trailing: const PanelAffordance('SYS', showIcon: false)),
+      );
+      final withBack = await header(tester, host(onBack: () {}));
+      final bare = await header(tester, host());
+
+      // A crumb line is the height of a tap target on all three, so the title
+      // under it does not move when the user changes tab.
+      expect(withTrailing.$1, TapTargets.minHeight + Spacing.lg);
+      expect(withBack, withTrailing);
+      expect(bare, withTrailing);
     });
   });
 }

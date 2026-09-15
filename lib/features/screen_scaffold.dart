@@ -91,14 +91,12 @@ class ScreenScaffold extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           )
         : _SegmentedCrumb(segments: segments);
-    // A crumb line that carries a tap target is at least a row tall,
-    // and the back tap takes that whole height rather than the 13px the path
-    // paints. A line with nothing to hit on it keeps the compact spacing —
-    // there is nothing on it to miss.
-    final interactive = onBack != null || segments != null || trailing != null;
-    final crumbHeight = trailing == null
-        ? RowMetrics.minHeight
-        : TapTargets.minHeight;
+    // One height on every screen, whether or not the line carries a verb or a
+    // back tap: the title under it is at the same offset on all of them, so it
+    // does not move when the user changes tab. A tap target's height, because
+    // that is the height a crumb action's hit needs and the action does not
+    // give any of it back on the screens that have one.
+    const crumbHeight = TapTargets.minHeight;
     // Tight from the [Expanded] down through the [Align], so the back tap is
     // the whole cell rather than the width and height of the path's glyphs.
     Widget crumbCell = Align(alignment: Alignment.centerLeft, child: crumb);
@@ -131,26 +129,22 @@ class ScreenScaffold extends StatelessWidget {
                 horizontal: Layout.gutterFor(constraints.maxWidth),
               ),
           children: [
-            if (!interactive) ...[
-              crumb,
-              const SizedBox(height: Spacing.sm),
-            ] else
-              // The row takes a tap target's height so the trailing verb is
-              // hittable without a 13px control floating in the margin; the
-              // gap under it is given back, so the header keeps its rhythm.
-              SizedBox(
-                height: crumbHeight,
-                child: Row(
-                  children: [
-                    // Expanded and not Flexible-plus-Spacer: the collapse
-                    // rule is about the width left beside the verbs, and two
-                    // flex children would have split that width in half before
-                    // the path was ever measured against it.
-                    Expanded(child: crumbCell),
-                    ?trailing,
-                  ],
-                ),
+            // The row takes a tap target's height so the trailing verb is
+            // hittable without a 13px control floating in the margin; the
+            // gap under it is given back, so the header keeps its rhythm.
+            SizedBox(
+              height: crumbHeight,
+              child: Row(
+                children: [
+                  // Expanded and not Flexible-plus-Spacer: the collapse
+                  // rule is about the width left beside the verbs, and two
+                  // flex children would have split that width in half before
+                  // the path was ever measured against it.
+                  Expanded(child: crumbCell),
+                  ?trailing,
+                ],
               ),
+            ),
             if (title != null)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
