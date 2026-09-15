@@ -243,7 +243,7 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
   Future<LuauResult> frame(String id, Map<String, Object?> input) async {
     final plugin = _enabled(id);
     final generation = activation(id);
-    if (plugin.manifest.uiVersion != 1 ||
+    if (plugin.manifest.uiVersion != 1 && plugin.manifest.uiVersion != 2 ||
         !plugin.grants.any((permission) => permission.id == 'ui.page')) {
       throw const PluginException('Plugin pages are not supported or granted');
     }

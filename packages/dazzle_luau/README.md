@@ -4,7 +4,9 @@ Luau plugins own their screen composition and event handling. Dazzle supplies na
 
 ## Versions and entry point
 
-A UI plugin keeps `dazzle.plugin.toml` at its repository root. Declare `manifest_version = 4`, a semantic plugin `version`, `dazzle_api = "^2.1.0"`, and `ui_api = 1`. Runtime kind is `luau`; entry is a relative `.luau` path. Add `page` to `permissions.ui` and declare one or more `contributes.pages` entries with unique `id` and `title`. Add `canvas` only when drawing is used.
+A UI plugin keeps `dazzle.plugin.toml` at its repository root. Declare `manifest_version = 4`, a semantic plugin `version`, `dazzle_api = "^2.1.0"`, and `ui_api = 1` or `ui_api = 2`. Runtime kind is `luau`; entry is a relative `.luau` path. Add `page` to `permissions.ui` and declare one or more `contributes.pages` entries with unique `id` and `title`. Add `canvas` only when drawing is used.
+
+`ui_api = 2` adds the house component constructors below and a `theme` table on the `mount` event; it is otherwise identical to `ui_api = 1`, and existing API 1 plugins keep working unmodified.
 
 Manifest format, plugin release, Dazzle API range, UI API, host API, and dataset schema versions are independent. Format 2 record-action plugins and format 3 built-in native modules remain supported. Unsupported versions stay inert; catalogs and datasets are not reset.
 
@@ -16,7 +18,7 @@ For lower-level use, return `{frame = function(input) ... end}` directly. Its in
 
 `ui.Row {key = "actions", gap = 8, children = {...}}` and `ui.node("row", {key = "actions", gap = 8}, {...})` have identical output. Constructors only build values. Authors can write their own constructors and composition functions without changing Dazzle.
 
-Available constructors: `Screen`, `Column`, `Row`, `Stack`, `Box`, `Text`, `Button`, `Input`, `Select`, `Toggle`, `List`, `Canvas`, `Spacer`, `Divider`, `DateTime`. Raw node kinds are their lowercase names.
+Available constructors: `Screen`, `Column`, `Row`, `Stack`, `Box`, `Text`, `Button`, `Input`, `Select`, `Toggle`, `List`, `Canvas`, `Spacer`, `Divider`, `DateTime`, and, from `ui_api = 2`, `Panel`, `Section`, `ListRow`, `StatusTag`, `BracketLabel`. Raw node kinds are their lowercase names (`panel`, `section`, `list_row`, `status_tag`, `bracket_label`).
 
 - Every node needs a stable, globally unique `key`. Keyed native elements retain editing state; do not generate new keys on every event.
 - `Screen` is the page body, with safe-area handling and vertical layout. `Column` and `Row` accept `gap` and `align` (`start`, `center`, `end`, `stretch`). Child `flex` fills available bounded space. Give a page's scrolling `List` `flex = 1`.
@@ -28,10 +30,13 @@ Available constructors: `Screen`, `Column`, `Row`, `Stack`, `Box`, `Text`, `Butt
 - `Select` accepts string `value`, `options = {{value, label}, ...}`, and optional `onChange`. `Toggle` uses a boolean `value`. `DateTime` uses `HH:mm` with `mode = "time"`, or `YYYY-MM-DDTHH:mm` for a date and time. The plugin chooses timezone semantics.
 - `List` creates children lazily and retains field values while they scroll offscreen. It does not call Luau while scrolling.
 - `Canvas` accepts `width`, `height`, and drawing `commands`. Operations are `rect` (`x`, `y`, `width`, `height`), `line` (`x`, `y`, `x2`, `y2`, `stroke`), `circle` (`x`, `y`, `radius`), and `text` (`x`, `y`, `text`, `size`), each with `color`. Drawing is clipped. Optional `onPress` receives local `position = {x, y}`. Unchanged commands do not repaint.
+- `Panel` and `Section` group children under an optional `title`. `Panel` is the bordered, header-stripped house panel; `Section` is a lighter grouping with no border. `ListRow` renders a house list row: `title`, `subtitle`, `caption`, `value`, boolean `node`, and optional `onPress`. `StatusTag` renders a bordered pill from `label` and semantic or hex `color`. `BracketLabel` renders a `[ LABEL ]  value` mono readout from `label`, `value`, and optional `color`. These render with native house styling and take part in theming; they are not drawn with `Canvas`.
 
 ## Events and effects
 
 The host sends `mount` with a page ID. Actions contain `type = "action"`, `id`, current native `fields`, optional node `args`, and optional changed `value` or canvas `position`. User events also carry a host-generated UUID `token` and local ISO `now`. Field values are included in button events even if their inputs are offscreen. Returning a changed field `value` updates that native control; unchanged defaults do not overwrite local edits.
+
+From `ui_api = 2`, `mount` also carries a `theme` table: `brightness` (`"dark"` or `"light"`), and `background`, `surface`, `border`, `text`, `muted`, `accent`, `danger` as `#RRGGBB` strings — the device's active look, resolved fresh on every mount. A plugin that does not read it keeps the house colors it already draws with.
 
 `ui.effect(alias, operation, args, id)` requests a declared host capability. Effects run outside the Luau VM and return `{type = "result", id, ok, value}` or `{type = "result", id, ok = false, error}`. Handle failures in `update`; keep drafts until a successful save. Calls are bounded and sequential. Dazzle generates request IDs and rechecks activation around asynchronous boundaries.
 

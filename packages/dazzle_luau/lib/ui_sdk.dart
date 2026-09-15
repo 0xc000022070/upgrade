@@ -8,6 +8,8 @@ for name, kind in pairs({
     Box = "box", Text = "text", Button = "button", Input = "input",
     Select = "select", Toggle = "toggle", List = "list", Canvas = "canvas",
     Spacer = "spacer", Divider = "divider", DateTime = "datetime",
+    Panel = "panel", Section = "section", ListRow = "list_row",
+    StatusTag = "status_tag", BracketLabel = "bracket_label",
 }) do
     ui[name] = function(props)
         props = props or {}

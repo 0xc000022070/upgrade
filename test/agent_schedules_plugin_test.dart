@@ -108,20 +108,26 @@ void main() {
     () async {
       final package = app.package;
       expect(package.manifest.formatVersion, 4);
-      expect(package.manifest.uiVersion, 1);
+      expect(package.manifest.uiVersion, 2);
       expect(package.manifest.datasets['preferences']!.schemaVersion, 1);
       expect(
         package.manifest.hostCapabilities['scheduler']!.operations,
         contains('setup'),
       );
-      for (final replacement in ['ui_api = 2', 'ui_api = 1.0']) {
+      for (final replacement in ['ui_api = 3', 'ui_api = 1.0']) {
         expect(
           () => PluginManifest.parse(
-            package.manifest.source.replaceFirst('ui_api = 1', replacement),
+            package.manifest.source.replaceFirst('ui_api = 2', replacement),
           ),
           throwsA(isA<PluginException>()),
         );
       }
+      expect(
+        PluginManifest.parse(
+          package.manifest.source.replaceFirst('ui_api = 2', 'ui_api = 1'),
+        ).uiVersion,
+        1,
+      );
       final store = PluginStore(root);
       expect(
         (await store.synchronizeBuiltins([
