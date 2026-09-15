@@ -5,10 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 /// The Theme section's rule: colour and text style come from context.tokens,
 /// not from the constant classes or a raw literal, anywhere outside the
 /// design layer that defines them.
-///
-/// lib/features/settings/plugins_panel.dart is a second agent's work in
-/// flight on the plugin marketplace, on a parallel branch, and stays out of
-/// this migration's reach.
 const _roots = [
   'lib/features',
   'lib/app',
@@ -16,8 +12,6 @@ const _roots = [
   'lib/plugins',
   'lib/platform',
 ];
-
-const _excluded = {'lib/features/settings/plugins_panel.dart'};
 
 final _banned = RegExp(
   r'DazzleColors\.|DazzleText\.|SyntaxColors\.|Color\(0x[0-9A-Fa-f]{6,8}\)',
@@ -33,8 +27,6 @@ void main() {
       for (final entity in dir.listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
         final path = entity.path.replaceAll('\\', '/');
-        if (_excluded.contains(path)) continue;
-
         final lines = entity.readAsLinesSync();
         for (var i = 0; i < lines.length; i++) {
           if (_banned.hasMatch(lines[i])) {
