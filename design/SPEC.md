@@ -1562,6 +1562,12 @@ The dataset session's time budget starts at its first API call, not during compi
 
 Plugin pages use versioned native UI constructors and a lower-level node and drawing interface. Luau owns page structure, transient state and event handlers. Dazzle validates bounded descriptions, preserves keyed native controls and renders scrolling and animation without invoking Lua per frame. Plugins can compose layouts rather than selecting a fixed screen template. Host operations are asynchronous effects behind declared, versioned capabilities; scripts receive neither SSH credentials nor arbitrary shell access.
 
+### Plugin colour and layout follow the phone's active theme
+
+A plugin's semantic colours — `accent`, `muted`, `background`, `surface`, `border`, `danger` — resolve against the same `DazzleTokens` a native screen reads, not a fixed palette, so a plugin page matches whatever look the phone is showing rather than the house look alone. A manifest opting into the newer UI API receives a `theme` table on its `mount` event, naming that same instance's brightness and colours as hex strings, for a script that wants to draw canvas content in step with it. A manifest that keeps the original UI API sees no `theme` table and no behaviour change.
+
+The newer UI API adds house layout to the raw node vocabulary: a bordered panel with a header strip, a lighter grouping with no border, a three-column list row, a bordered status pill, and a bracketed label-and-value readout. Dazzle renders each with the same native widget a built-in screen uses, so a plugin page composes from the app's own look rather than approximating it node by node. Older manifests keep the constructors they already had; nothing already shipped is renamed or removed.
+
 ### Agent schedules are managed from a Luau plugin
 
 Agent schedules is a standalone Luau package shipped with the app. It owns its interface and private preferences. A selected host owns schedules, execution and retained run history. Scheduling does not depend on the phone remaining online. The first host adapter uses Python and a systemd user timer on Linux; setup is explicit, checks host support and touches only its own namespaced files and units. Existing host jobs and other plugins' datasets are not modified. Unsupported hosts show the missing capability instead of a simulated schedule.

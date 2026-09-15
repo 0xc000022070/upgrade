@@ -2,8 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-import '../../design/colors.dart';
-import '../../design/typography.dart';
+import '../../design/components/bracket_label.dart';
+import '../../design/components/list_row.dart';
+import '../../design/components/panel.dart';
+import '../../design/components/status_tag.dart';
+import '../../design/spacing.dart';
+import '../../design/tokens.dart';
 import 'manifest.dart';
 
 class PluginUiNode {
@@ -40,6 +44,11 @@ class PluginUiNode {
             'spacer',
             'divider',
             'datetime',
+            'panel',
+            'section',
+            'list_row',
+            'status_tag',
+            'bracket_label',
           }.contains(kind) ||
           props is! Map<String, Object?>) {
         throw const PluginException(
@@ -60,6 +69,9 @@ class PluginUiNode {
         'color',
         'background',
         'border',
+        'title',
+        'subtitle',
+        'caption',
       ]) {
         if (props[field] != null && props[field] is! String) {
           throw PluginException('Invalid UI $field');
@@ -209,18 +221,18 @@ void synchronizePluginFields(
   }
 }
 
-Color pluginColor(Object? value, [Color fallback = DazzleColors.textPrimary]) {
+Color pluginColor(DazzleTokens tokens, Object? value, [Color? fallback]) {
   return switch (value) {
-    'accent' => DazzleColors.accent,
-    'muted' => DazzleColors.textMuted,
-    'background' => DazzleColors.backgroundPrimary,
-    'surface' => DazzleColors.backgroundSecondary,
-    'border' => DazzleColors.borderNormal,
-    'danger' => const Color(0xFFE06C5C),
+    'accent' => tokens.accent,
+    'muted' => tokens.textMuted,
+    'background' => tokens.backgroundPrimary,
+    'surface' => tokens.backgroundSecondary,
+    'border' => tokens.borderNormal,
+    'danger' => tokens.danger,
     String() when RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(value) => Color(
       0xFF000000 | int.parse(value.substring(1), radix: 16),
     ),
-    _ => fallback,
+    _ => fallback ?? tokens.textPrimary,
   };
 }
 
@@ -330,9 +342,17 @@ class PluginUi extends StatelessWidget {
       'box' => Container(
         padding: EdgeInsets.all(number('padding', 12).clamp(0, 64)),
         decoration: BoxDecoration(
-          color: pluginColor(p['background'], DazzleColors.backgroundSecondary),
+          color: pluginColor(
+            context.tokens,
+            p['background'],
+            context.tokens.backgroundSecondary,
+          ),
           border: Border.all(
-            color: pluginColor(p['border'], DazzleColors.borderNormal),
+            color: pluginColor(
+              context.tokens,
+              p['border'],
+              context.tokens.borderNormal,
+            ),
           ),
         ),
         child: Column(
@@ -345,10 +365,10 @@ class PluginUi extends StatelessWidget {
         p['text'] as String? ?? '',
         style:
             (p['style'] == 'heading'
-                    ? DazzleText.screenTitle
-                    : DazzleText.rowTitle)
+                    ? context.tokens.screenTitle
+                    : context.tokens.rowTitle)
                 .copyWith(
-                  color: pluginColor(p['color']),
+                  color: pluginColor(context.tokens, p['color']),
                   fontSize: number('fontSize', 13).clamp(10, 48),
                   fontWeight: p['bold'] == true
                       ? FontWeight.w600
@@ -358,16 +378,16 @@ class PluginUi extends StatelessWidget {
       'button' => OutlinedButton(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(44, 44),
-          foregroundColor: pluginColor(p['color']),
+          foregroundColor: pluginColor(context.tokens, p['color']),
           backgroundColor: p['background'] == null
               ? null
-              : pluginColor(p['background']),
+              : pluginColor(context.tokens, p['background']),
           shape: const RoundedRectangleBorder(),
         ),
         onPressed: busy || p['disabled'] == true || p['enabled'] == false
             ? null
             : () => action(p['onPress'] as String?),
-        child: Text(p['text'] as String? ?? '', style: DazzleText.rowTitle),
+        child: Text(p['text'] as String? ?? '', style: context.tokens.rowTitle),
       ),
       'input' || 'select' || 'toggle' || 'datetime' => _PluginField(
         key: ValueKey(node.key),
@@ -394,7 +414,9 @@ class PluginUi extends StatelessWidget {
           child: SizedBox(
             height: number('height', 96).clamp(0, 4096),
             width: number('width', 240).clamp(0, 4096),
-            child: CustomPaint(painter: _PluginCanvas(uiList(p['commands']))),
+            child: CustomPaint(
+              painter: _PluginCanvas(uiList(p['commands']), context.tokens),
+            ),
           ),
         ),
       ),
@@ -402,7 +424,56 @@ class PluginUi extends StatelessWidget {
         height: number('height', 8),
         width: number('width', 8),
       ),
-      'divider' => const Divider(color: DazzleColors.borderNormal),
+      'divider' => Divider(color: context.tokens.borderNormal),
+      'panel' => Panel(
+        title: p['title'] as String?,
+        child: node.children.isEmpty
+            ? null
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children(),
+              ),
+      ),
+      'section' => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (p['title'] != null) ...[
+            Text(
+              (p['title']! as String).toUpperCase(),
+              style: context.tokens.rowKicker,
+            ),
+            const SizedBox(height: Spacing.sm),
+          ],
+          ...children(),
+        ],
+      ),
+      'list_row' => ListRow(
+        title: p['title'] as String? ?? '',
+        subtitle: p['subtitle'] as String?,
+        caption: p['caption'] as String?,
+        value: p['value'] as String?,
+        node: p['node'] == true,
+        onTap: p['onPress'] == null
+            ? null
+            : () => action(p['onPress'] as String?),
+      ),
+      'status_tag' => StatusTag(
+        p['label'] as String? ?? '',
+        color: pluginColor(
+          context.tokens,
+          p['color'],
+          context.tokens.textSecondary,
+        ),
+      ),
+      'bracket_label' => BracketLabel(
+        p['label'] as String? ?? '',
+        value: p['value'] as String? ?? '',
+        color: p['color'] == null
+            ? null
+            : pluginColor(context.tokens, p['color']),
+      ),
       _ => const SizedBox.shrink(),
     };
     if (node.kind != 'canvas' && (p['height'] != null || p['width'] != null)) {
@@ -552,7 +623,7 @@ class _PluginFieldState extends State<_PluginField> {
         return TextField(
           controller: text,
           enabled: !widget.busy,
-          style: DazzleText.prose,
+          style: context.tokens.prose,
           minLines: (p['lines'] as num?)?.toInt().clamp(1, 8) ?? 1,
           maxLines: (p['lines'] as num?)?.toInt().clamp(1, 8) ?? 1,
           maxLength: 16000,
@@ -565,8 +636,9 @@ class _PluginFieldState extends State<_PluginField> {
 }
 
 class _PluginCanvas extends CustomPainter {
-  _PluginCanvas(this.commands) : signature = jsonEncode(commands);
+  _PluginCanvas(this.commands, this.tokens) : signature = jsonEncode(commands);
   final List<Object?> commands;
+  final DazzleTokens tokens;
   final String signature;
   @override
   void paint(Canvas canvas, Size size) {
@@ -576,7 +648,7 @@ class _PluginCanvas extends CustomPainter {
       double number(String key, [double fallback = 0]) =>
           (command[key] as num?)?.toDouble() ?? fallback;
       final paint = Paint()
-        ..color = pluginColor(command['color'])
+        ..color = pluginColor(tokens, command['color'])
         ..strokeWidth = number('stroke', 1).clamp(0, 64);
       switch (command['op']) {
         case 'rect':
@@ -607,7 +679,7 @@ class _PluginCanvas extends CustomPainter {
             maxLines: 8,
             text: TextSpan(
               text: command['text'] as String? ?? '',
-              style: DazzleText.rowTitle.copyWith(
+              style: tokens.rowTitle.copyWith(
                 color: paint.color,
                 fontSize: number('size', 12).clamp(8, 64),
               ),
@@ -623,5 +695,5 @@ class _PluginCanvas extends CustomPainter {
 
   @override
   bool shouldRepaint(_PluginCanvas oldDelegate) =>
-      signature != oldDelegate.signature;
+      signature != oldDelegate.signature || tokens != oldDelegate.tokens;
 }

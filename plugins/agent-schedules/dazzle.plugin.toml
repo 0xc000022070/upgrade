@@ -4,7 +4,7 @@ name = "Agent schedules"
 purpose = "Create and inspect scheduled agent runs on registered hosts."
 version = "1.0.0"
 dazzle_api = "^2.1.0"
-ui_api = 1
+ui_api = 2
 
 [runtime]
 kind = "luau"

@@ -334,7 +334,7 @@ void main() {
     test(
       'format 4 with a wrong ui_api value is rejected fresh, retained as unsupported',
       () {
-        final bad = uiManifest(uiApiValue: 2);
+        final bad = uiManifest(uiApiValue: 3);
         expect(
           () => PluginManifest.parse(bad),
           throwsA(isA<PluginException>()),

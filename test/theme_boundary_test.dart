@@ -9,10 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 /// lib/features/settings/plugins_panel.dart is a second agent's work in
 /// flight on the plugin marketplace, on a parallel branch, and stays out of
 /// this migration's reach.
-///
-/// lib/platform/plugins/ui.dart resolves plugin colour through pluginColor,
-/// which still falls back to the constant classes; that lands with the
-/// plugin bridge, not here.
 const _roots = [
   'lib/features',
   'lib/app',
@@ -21,10 +17,7 @@ const _roots = [
   'lib/platform',
 ];
 
-const _excluded = {
-  'lib/features/settings/plugins_panel.dart',
-  'lib/platform/plugins/ui.dart',
-};
+const _excluded = {'lib/features/settings/plugins_panel.dart'};
 
 final _banned = RegExp(
   r'DazzleColors\.|DazzleText\.|SyntaxColors\.|Color\(0x[0-9A-Fa-f]{6,8}\)',

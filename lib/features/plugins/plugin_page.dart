@@ -17,6 +17,22 @@ import '../../platform/plugins/ui.dart';
 import '../screen_scaffold.dart';
 import 'plugin_management_screen.dart';
 
+String _hex(Color color) =>
+    '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
+
+/// The theme table an API-2 plugin's `mount` event carries, so a page can
+/// read the device's active look instead of guessing at the house palette.
+Map<String, Object?> pluginThemeTable(DazzleTokens tokens) => {
+  'brightness': tokens.brightness == Brightness.dark ? 'dark' : 'light',
+  'background': _hex(tokens.backgroundPrimary),
+  'surface': _hex(tokens.surfacePrimary),
+  'border': _hex(tokens.borderNormal),
+  'text': _hex(tokens.textPrimary),
+  'muted': _hex(tokens.textMuted),
+  'accent': _hex(tokens.accent),
+  'danger': _hex(tokens.danger),
+};
+
 String _pageLabel(PluginPageRegistration page) {
   final title = page.contribution.title.trim();
   final plugin = page.owner.manifest.name.trim();
@@ -57,10 +73,15 @@ class _PluginPageState extends ConsumerState<PluginPage> {
     _activation = ref
         .read(pluginsProvider.notifier)
         .activation(widget.plugin.id);
-    Future.microtask(
-      () => _dispatch({'type': 'mount', 'page': widget.page.id}),
-    );
+    Future.microtask(() => _dispatch(_mountEvent()));
   }
+
+  Map<String, Object?> _mountEvent() => {
+    'type': 'mount',
+    'page': widget.page.id,
+    if (widget.plugin.manifest.uiVersion == 2)
+      'theme': pluginThemeTable(context.tokens),
+  };
 
   void _check() {
     if (!mounted ||
@@ -256,8 +277,7 @@ class _PluginPageState extends ConsumerState<PluginPage> {
             if (_view == null && !_busy)
               PanelTextAction(
                 label: 'RETRY',
-                onTap: () =>
-                    _dispatch({'type': 'mount', 'page': widget.page.id}),
+                onTap: () => _dispatch(_mountEvent()),
               ),
           ],
         ),

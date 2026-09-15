@@ -197,7 +197,9 @@ class PluginManifest {
       final invalidUiApi =
           (uiRuntime || filesRuntime) &&
           (uiRuntime && !uiApiDeclared ||
-              uiApiDeclared && (root['ui_api'] is! int || root['ui_api'] != 1));
+              uiApiDeclared &&
+                  (root['ui_api'] is! int ||
+                      root['ui_api'] != 1 && root['ui_api'] != 2));
       final incompatible =
           format != manifestVersion && !native && !uiRuntime && !filesRuntime
           ? 'Unsupported manifest version $format'
@@ -637,7 +639,7 @@ class PluginManifest {
         capabilities: Map.unmodifiable(capabilities),
         pages: List.unmodifiable(pages),
         hostCapabilities: Map.unmodifiable(hostCapabilities),
-        uiVersion: hasUi ? 1 : null,
+        uiVersion: hasUi ? root['ui_api']! as int : null,
         formatVersion: format,
         files: List.unmodifiable(declaredFiles),
         author: author,
