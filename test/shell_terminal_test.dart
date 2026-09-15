@@ -842,6 +842,44 @@ void main() {
     });
   });
 
+  group('a normal-buffer application with mouse reporting', () {
+    testWidgets('a drag sends wheel input instead of opening redraw history', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      final connection = transport.opened.single;
+      final session = sessions.activeFor(rose.id)!;
+
+      connection.emit('line\r\n' * 200);
+      await ready(tester);
+      connection.emit('\x1b[?1002h\x1b[?1006h');
+      await ready(tester);
+      expect(session.terminal.isUsingAltBuffer, isFalse);
+      expect(session.terminal.mouseMode.reportScroll, isTrue);
+
+      final before = session.scrollController.position.pixels;
+      await tester.drag(find.byType(TerminalView), const Offset(0, 120));
+      await ready(tester);
+
+      expect(connection.written, contains(RegExp(r'\x1b\[<64;\d+;\d+M')));
+      expect(session.scrollController.position.pixels, before);
+
+      connection.writes.clear();
+      connection.emit('\x1b[?1002l');
+      await ready(tester);
+      await tester.drag(find.byType(TerminalView), const Offset(0, 120));
+      await ready(tester);
+
+      expect(connection.written, isEmpty);
+      expect(session.scrollController.position.pixels, lessThan(before));
+
+      await unmount(tester);
+    });
+  });
+
   group('the way back to the live line', () {
     /// A screenful of output and then some, so there is something behind the
     /// bottom of the view to scroll into.
