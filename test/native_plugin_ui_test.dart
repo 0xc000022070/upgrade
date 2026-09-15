@@ -40,6 +40,18 @@ Future<void> drain(WidgetTester tester) async {
   }
 }
 
+Future<void> drainUntil(
+  WidgetTester tester,
+  bool Function() condition, {
+  int max = 100,
+}) async {
+  var i = 0;
+  do {
+    await drain(tester);
+    i++;
+  } while (i < max && !condition());
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory root;
@@ -120,7 +132,10 @@ void main() {
           matching: find.text('AGENT SCHEDULES'),
         ),
       );
-      await drain(tester);
+      await drainUntil(
+        tester,
+        () => find.text('AGENT SCHEDULES_').evaluate().isNotEmpty,
+      );
       expect(find.text('AGENT SCHEDULES_'), findsOneWidget);
       expect(find.text('NO HOSTS REGISTERED'), findsOneWidget);
       for (
@@ -263,9 +278,16 @@ void main() {
             find.ancestor(of: enable, matching: find.byType(ActionBlock)),
           )
           .onTap!();
-      await Future<void>.delayed(const Duration(milliseconds: 100));
     });
-    await drain(tester);
+    await drainUntil(
+      tester,
+      () =>
+          find.text('UPDATING').evaluate().isEmpty ||
+          find
+              .descendant(of: dropsRow, matching: find.text('ON'))
+              .evaluate()
+              .isNotEmpty,
+    );
     expect(
       find.descendant(
         of: find.ancestor(
