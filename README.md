@@ -76,12 +76,12 @@ The input bar uses the exclusive `home.composer` location. Widget and page IDs
 remain stable across renames because saved layouts refer to plugin ID plus
 contribution ID, not the displayed title.
 
-The source examples under `plugins/record-text` and `plugins/record-restore`
-demonstrate selected-record actions and shared read-only datasets. Record text
-proposes TRIM WHITESPACE or stores SAVE SNAPSHOT. Record restore reads the
-exported snapshot and proposes RESTORE SNAPSHOT. Only APPLY changes the selected
-built-in record; it rejects stale proposals. Existing tables and attachments are
-not migrated.
+The source examples under `test/fixtures/plugins/record-text` and
+`test/fixtures/plugins/record-restore` demonstrate selected-record actions and
+shared read-only datasets. Record text proposes TRIM WHITESPACE or stores SAVE
+SNAPSHOT. Record restore reads the exported snapshot and proposes RESTORE
+SNAPSHOT. Only APPLY changes the selected built-in record; it rejects stale
+proposals. Existing tables and attachments are not migrated.
 
 Installed plugins expose ENABLE, DISABLE and REFRESH USAGE controls. Downloaded
 plugins can also be removed; bundled native plugins stay installed.
@@ -90,14 +90,57 @@ Disable and removal retain datasets, usage and immutable source revisions.
 Already committed private writes are not rolled back when a script fails or is
 disabled. Disable dependents first before disabling their required provider.
 
-ADD accepts a public GitHub repository and a full commit SHA. Put
-`dazzle.plugin.toml` at the repository root; the bundled examples under
-`plugins/record-text` and `plugins/record-restore` are complete templates.
-Review shows the source revision, declared capabilities and dependencies before
-granting installation. Updates
-require another review, with added or retargeted capabilities marked NEW.
-Unsupported retained revisions stay disabled with their original source and
-grants, instead of resetting the catalog.
+ADD accepts a public GitHub repository and a ref: a branch, a tag or a full
+commit SHA. Put `dazzle.plugin.toml` at the repository root; `plugins/example`
+in this repository is a complete template a third party can copy, covering a
+multi-file package and the listing fields. Review shows the resolved source
+revision, declared capabilities and dependencies before granting installation.
+Updates require another review, with added or retargeted capabilities marked
+NEW. Unsupported retained revisions stay disabled with their original source
+and grants, instead of resetting the catalog.
+
+A plugin can span several files: `files` in the manifest lists paths beside
+`dazzle.plugin.toml`, and Luau code loads them with
+`require("path/without/extension")`. `require` only resolves files declared
+in `files`; nothing else on the source repository is fetched. `author`,
+`homepage`, `license` and `summary` are optional listing fields shown before
+install and in the plugin detail sheet; they carry no capability or trust
+meaning.
+
+An index is a `dazzle.index.toml` at the repository root of a GitHub
+repository at a ref, listing plugins with `[[plugins]]` entries:
+
+```toml
+index_version = 1
+
+[[plugins]]
+id = "dazzle.example"
+repository = "https://github.com/x/example"
+ref = "v2.0.0"
+summary = "Minimal template a third-party author can copy"
+author = "Dazzle"
+```
+
+Settings PLUGINS has SOURCES, where an index is added or removed by repository
+and ref; no default source ships. BROWSE lists entries across added sources;
+tapping one opens the same review flow with the entry's repository and ref
+pre-filled. An entry already installed says so and offers UPDATE instead of
+ADD. Index fetches are bounded and validated the same way plugin manifests
+are; an index with unknown fields is rejected.
+
+A dev-only override lets an author serve a plugin or index from a local
+directory over HTTP while developing it, instead of GitHub:
+
+```sh
+flutter run --dart-define=DAZZLE_PLUGIN_ORIGIN=http://host:port
+```
+
+The override replaces the fetch base for both plugin and index requests and
+only takes effect in debug builds; a release build ignores it. Serve the
+override origin with the same layout GitHub raw content uses,
+`<origin>/<owner>/<repo>/<ref>/<path>`, so ADD and BROWSE resolve `ref`
+literally against whatever the local server has at that path, with no GitHub
+ref lookup.
 
 Version fields have different jobs: `manifest_version` versions the TOML schema,
 `version` versions the plugin, and `dazzle_api` constrains the host API.

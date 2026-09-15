@@ -459,6 +459,48 @@ class PluginFetcher {
     : _httpClientFactory = httpClientFactory ?? HttpClient.new;
   final HttpClient Function() _httpClientFactory;
 
+  static const _releaseMode = bool.fromEnvironment('dart.vm.product');
+  static const _profileMode = bool.fromEnvironment('dart.vm.profile');
+  static const _debugMode = !_releaseMode && !_profileMode;
+  static const _originEnv = String.fromEnvironment('DAZZLE_PLUGIN_ORIGIN');
+
+  /// A dev-only override for the plugin/index fetch base, read from
+  /// `--dart-define=DAZZLE_PLUGIN_ORIGIN=http://host:port`. Lets an author
+  /// serve a plugin or index from a local directory over HTTP instead of
+  /// GitHub. Ignored outside debug builds.
+  String? get _devOrigin {
+    if (!_debugMode || _originEnv.isEmpty) return null;
+    final uri = Uri.tryParse(_originEnv);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
+    return _originEnv.endsWith('/')
+        ? _originEnv.substring(0, _originEnv.length - 1)
+        : _originEnv;
+  }
+
+  /// The revision to fetch at. Under [_devOrigin] the ref is served as-is
+  /// by the local origin, with no GitHub ref resolution.
+  Future<String> _revisionFor(
+    ({String owner, String repo, String origin}) target,
+    String ref,
+    String? devOrigin,
+  ) async {
+    if (devOrigin != null) {
+      _validateRef(ref);
+      return ref;
+    }
+    return _resolveRef(target, ref);
+  }
+
+  Uri _base(
+    ({String owner, String repo, String origin}) target,
+    String revision,
+    String? devOrigin,
+  ) => devOrigin != null
+      ? Uri.parse('$devOrigin/${target.owner}/${target.repo}/$revision/')
+      : Uri.parse(
+          'https://raw.githubusercontent.com/${target.owner}/${target.repo}/$revision/',
+        );
+
   ({String owner, String repo, String origin}) _repository(String repository) {
     final uri = Uri.tryParse(repository.trim());
     final parts = uri?.pathSegments.where((s) => s.isNotEmpty).toList();
@@ -573,6 +615,12 @@ class PluginFetcher {
   /// The tag of the repository's latest published release, or its default
   /// branch when it has no releases.
   Future<String> latestRef(String repository) async {
+    if (_devOrigin != null) {
+      throw const PluginException(
+        'USE LATEST needs a GitHub release or default branch; not '
+        'available under a local plugin origin',
+      );
+    }
     final target = _repository(repository);
     final client = _httpClientFactory()
       ..connectionTimeout = const Duration(seconds: 15);
@@ -630,10 +678,9 @@ class PluginFetcher {
 
   Future<PluginPackage> fetch(String repository, String ref) async {
     final target = _repository(repository);
-    final revision = await _resolveRef(target, ref);
-    final base = Uri.parse(
-      'https://raw.githubusercontent.com/${target.owner}/${target.repo}/$revision/',
-    );
+    final devOrigin = _devOrigin;
+    final revision = await _revisionFor(target, ref, devOrigin);
+    final base = _base(target, revision, devOrigin);
     final client = _httpClientFactory()
       ..connectionTimeout = const Duration(seconds: 15);
     try {
@@ -678,10 +725,9 @@ class PluginFetcher {
 
   Future<PluginIndex> fetchIndex(String repository, String ref) async {
     final target = _repository(repository);
-    final revision = await _resolveRef(target, ref);
-    final base = Uri.parse(
-      'https://raw.githubusercontent.com/${target.owner}/${target.repo}/$revision/',
-    );
+    final devOrigin = _devOrigin;
+    final revision = await _revisionFor(target, ref, devOrigin);
+    final base = _base(target, revision, devOrigin);
     final client = _httpClientFactory()
       ..connectionTimeout = const Duration(seconds: 15);
     try {
