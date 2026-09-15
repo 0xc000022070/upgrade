@@ -298,34 +298,31 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  test(
-    'adding the first source of a session does not throw before BROWSE is ever watched',
-    () async {
-      final directory = Directory.systemTemp.createTempSync('plugin-sources');
-      addTearDown(() => directory.deleteSync(recursive: true));
-      final container = ProviderContainer(
-        overrides: [
-          pluginSourceStoreProvider.overrideWith(
-            (ref) async => PluginSourceStore(directory),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+  test('adding the first source of a session does not throw before BROWSE is ever watched', () async {
+    final directory = Directory.systemTemp.createTempSync('plugin-sources');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final container = ProviderContainer(
+      overrides: [
+        pluginSourceStoreProvider.overrideWith(
+          (ref) async => PluginSourceStore(directory),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
 
-      final source = PluginSource(
-        repository: 'https://github.com/x/added',
-        ref: 'main',
-      );
-      await container.read(pluginSourcesProvider.notifier).add(source);
-      expect(
-        container.read(pluginSourcesProvider).requireValue,
-        contains(source),
-      );
+    final source = PluginSource(
+      repository: 'https://github.com/x/added',
+      ref: 'main',
+    );
+    await container.read(pluginSourcesProvider.notifier).add(source);
+    expect(
+      container.read(pluginSourcesProvider).requireValue,
+      contains(source),
+    );
 
-      await container.read(pluginSourcesProvider.notifier).remove(source);
-      expect(container.read(pluginSourcesProvider).requireValue, isEmpty);
-    },
-  );
+    await container.read(pluginSourcesProvider.notifier).remove(source);
+    expect(container.read(pluginSourcesProvider).requireValue, isEmpty);
+  });
 
   testWidgets('browse pre-fills the review sheet and flags installed entries', (
     tester,
