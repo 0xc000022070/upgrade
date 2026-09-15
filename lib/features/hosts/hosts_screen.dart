@@ -10,11 +10,10 @@ import '../../data/enums.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../design/colors.dart';
-import '../../design/components/list_row.dart';
 import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_text_action.dart';
-import '../../design/components/section.dart';
+import '../../design/components/toolbar_icon_action.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
@@ -23,19 +22,16 @@ import '../../platform/host_keys.dart';
 import '../../platform/link_probe.dart';
 import '../screen_scaffold.dart';
 import '../settings/host_form_screen.dart';
-import '../settings/key_detail_screen.dart';
-import '../settings/key_form_screen.dart';
 import '../shell/shell_sheet.dart';
 import '../shell/shell_sessions.dart';
 import '../shell/shell_status.dart';
 import '../shell/shell_watcher.dart';
 import 'host_key_sheet.dart';
+import 'keys_screen.dart';
 import 'link_probes.dart';
 import 'preview_tile.dart';
 
-/// The machines and what gets into them: every registered host with its
-/// metadata and its screen, then the ssh keys. Nothing edits in place — the
-/// forms are the only editors, and this is the only way to a host's screen.
+/// Registered hosts with their metadata and screen previews.
 class HostsScreen extends ConsumerStatefulWidget {
   const HostsScreen({super.key});
 
@@ -104,6 +100,11 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
 
     return ScreenScaffold(
       title: 'HOSTS',
+      breadcrumbTrailing: ToolbarIconAction(
+        label: 'MANAGE SSH KEYS',
+        icon: DazzleIcons.sshKey,
+        onTap: () => openKeys(context),
+      ),
       children: [
         // No empty state under the hosts: with none registered the screen is
         // `ADD HOST` alone, which says the same thing and does something.
@@ -118,8 +119,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
           ],
         ),
         PanelTextAction(label: 'ADD HOST', onTap: () => openHostForm(context)),
-        const SizedBox(height: Spacing.xl),
-        _KeysPanel(keys: keys),
       ],
     );
   }
@@ -569,46 +568,3 @@ String _failureWord(Object error) => switch (error) {
   TimeoutException() => 'NO ANSWER',
   _ => 'FAILED',
 };
-
-class _KeysPanel extends StatelessWidget {
-  const _KeysPanel({required this.keys});
-
-  final AsyncValue<List<ManagedKey>> keys;
-
-  @override
-  Widget build(BuildContext context) {
-    return Panel(
-      title: 'KEYS',
-      bodyPadding: panelRowsPadding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AsyncSection(
-            value: keys,
-            empty: 'no keys',
-            builder: (items) => ListRowGroup(
-              children: [
-                for (final key in items)
-                  ListRow(
-                    title: key.name,
-                    subtitle: shortFingerprint(key.fingerprint),
-                    node: true,
-                    onTap: () => openKeyDetail(context, key),
-                  ),
-              ],
-            ),
-          ),
-          PanelTextAction(label: 'ADD KEY', onTap: () => openNewKey(context)),
-        ],
-      ),
-    );
-  }
-}
-
-/// A fingerprint is longer than any phone is wide, and the head of it is the
-/// part a reader compares.
-String shortFingerprint(String fingerprint) {
-  const limit = 28;
-  if (fingerprint.length <= limit) return fingerprint;
-  return '${fingerprint.substring(0, limit)}…';
-}

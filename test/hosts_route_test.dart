@@ -189,8 +189,7 @@ void main() {
     expect(find.text('100.64.0.1:22'), findsOneWidget);
     expect(find.text('100.64.0.2:357'), findsOneWidget);
     expect(find.text('luis'), findsNWidgets(2));
-    // Once as each host's KEY, and once as its own row in the KEYS panel.
-    expect(find.text('faraday'), findsNWidgets(3));
+    expect(find.text('faraday'), findsNWidgets(2));
     expect(find.text('HERDR'), findsOneWidget);
     expect(find.text('HERDR  VNC'), findsOneWidget);
     expect(find.text('ADD HOST'), findsOneWidget);
@@ -654,9 +653,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the keys come after the hosts, each with its name', (
-    tester,
-  ) async {
+  testWidgets('the hosts toolbar opens SSH key management', (tester) async {
     tester.view.physicalSize = const Size(400, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -664,15 +661,28 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    expect(find.text('KEYS'), findsOneWidget);
+    expect(find.text('KEYS'), findsNothing);
+    expect(find.text('ADD KEY'), findsNothing);
+    await tester.tap(find.byTooltip('MANAGE SSH KEYS'));
+    await ready(tester);
+
+    expect(find.text('SSH KEYS'), findsOneWidget);
     expect(find.text('workstation'), findsOneWidget);
-    // The fingerprint is cut to the 28 characters a reader compares.
     expect(find.text('SHA256:key-1-${'a' * 15}…'), findsOneWidget);
     expect(find.text('ADD KEY'), findsOneWidget);
+
     expect(
-      tester.getCenter(find.text('ADD HOST')).dy,
-      lessThan(tester.getCenter(find.text('ADD KEY')).dy),
+      Navigator.of(tester.element(find.text('SSH KEYS'))).canPop(),
+      isTrue,
     );
+    await tester.tap(find.text('/ PERSONAL CONTROL PLANE / HOSTS'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await ready(tester);
+    expect(
+      Navigator.of(tester.element(find.text('SSH KEYS'))).canPop(),
+      isFalse,
+    );
+    expect(find.text('ADD HOST'), findsOneWidget);
 
     await unmount(tester);
   });
