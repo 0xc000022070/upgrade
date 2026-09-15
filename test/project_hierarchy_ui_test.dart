@@ -15,6 +15,7 @@ import 'package:dazzle/features/projects/project_row.dart';
 import 'package:dazzle/features/projects/projects_screen.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// The hierarchy on screen: the `PROJECTS N` panel, the breadcrumb, the
 /// subtree number under the title and the `[ PARENT ]` picker's exclusions.
@@ -51,7 +52,7 @@ void main() {
 
   Widget host(Widget screen) => ProviderScope(
     overrides: [...featureTestOverrides(db)],
-    child: MaterialApp(home: screen),
+    child: MaterialApp(theme: testTheme, home: screen),
   );
 
   /// The form is one long scroll and its ListView only builds what fits, so

@@ -11,13 +11,12 @@ import '../../application/shell_font.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/path_repository.dart';
 import '../../data/repositories/settings_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/field_panel.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/vnc/keysyms.dart';
@@ -333,7 +332,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
               Expanded(
                 child: ActionBlock(
                   label: 'KEEP',
-                  tone: DazzleColors.accent,
+                  tone: context.tokens.accent,
                   filled: true,
                   onTap: () => Navigator.of(context).pop(false),
                 ),
@@ -378,7 +377,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           ),
           if (idle.isNotEmpty) ...[
             const SheetRule(),
-            const Text('TAKE OVER', style: DazzleText.panelHeader),
+            Text('TAKE OVER', style: context.tokens.panelHeader),
             const SizedBox(height: Spacing.sm),
             ListRowGroup(
               children: [
@@ -676,7 +675,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     });
     final fontSize = _pinched ?? persisted;
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: context.tokens.mediaBackdrop,
       // The bar rides up with the keyboard rather than being covered by it.
       resizeToAvoidBottomInset: true,
       body: SafeArea(
@@ -858,16 +857,16 @@ class _PinSheetState extends State<_PinSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('SHELL ${widget.number}', style: DazzleText.label),
+        Text('SHELL ${widget.number}', style: context.tokens.label),
         if (request.desc.isNotEmpty) ...[
           const SizedBox(height: Spacing.sm),
-          Text(request.desc, style: DazzleText.prose),
+          Text(request.desc, style: context.tokens.prose),
         ],
         if (request.error.isNotEmpty) ...[
           const SizedBox(height: Spacing.sm),
           Text(
             request.error,
-            style: DazzleText.prose.copyWith(color: DazzleColors.danger),
+            style: context.tokens.prose.copyWith(color: context.tokens.danger),
           ),
         ],
         const SizedBox(height: Spacing.md),
@@ -896,7 +895,7 @@ class _PinSheetState extends State<_PinSheet> {
             Expanded(
               child: ActionBlock(
                 label: request.okLabel,
-                tone: DazzleColors.accent,
+                tone: context.tokens.accent,
                 filled: true,
                 onTap: () => _decide(wantsPin ? _field.text : 'ok'),
               ),

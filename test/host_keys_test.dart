@@ -14,6 +14,8 @@ import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:dazzle/platform/shell/shell_tunnel.dart';
 import 'package:dazzle/platform/vnc/vnc_failure.dart';
 
+import 'support/themed_app.dart';
+
 const _type = 'ssh-ed25519';
 const _fingerprint = 'SHA256:1qF0mVZjnJ4tvJq2VbT8Kk9Yo0oRr3Q5nWZs1eJqk2A';
 const _other = 'SHA256:0000000000000000000000000000000000000000000';
@@ -211,6 +213,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        theme: testTheme,
         home: Builder(
           builder: (context) => TextButton(
             onPressed: () async {

@@ -20,6 +20,7 @@ import 'package:dazzle/features/settings/settings_screen.dart';
 import 'package:dazzle/features/tasks/selection_bar.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// The selection verbs left the panel's header strip for the
 /// slot the capture bar was holding. The two tabs are back and HOME's
@@ -70,14 +71,17 @@ void main() {
 
   Widget host() => ProviderScope(
     overrides: [...featureTestOverrides(db)],
-    child: const MaterialApp(home: Scaffold(body: HomeScreen())),
+    child: MaterialApp(
+      theme: testTheme,
+      home: Scaffold(body: HomeScreen()),
+    ),
   );
 
   /// The tab shell itself, for the claims that are about leaving one tab for
   /// the other. `BootGate` is the app's, not the shell's, so it is not here.
   Widget shell() => ProviderScope(
     overrides: [...featureTestOverrides(db)],
-    child: const MaterialApp(home: DazzleShell()),
+    child: MaterialApp(theme: testTheme, home: DazzleShell()),
   );
 
   Future<void> unmount(WidgetTester tester) async {

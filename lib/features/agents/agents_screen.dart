@@ -13,7 +13,7 @@ import '../../design/components/section.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/sprite.dart';
-import '../../design/typography.dart';
+import '../../design/tokens.dart';
 import '../../platform/herdr_client.dart';
 import '../home/agent_mark.dart';
 import '../screen_scaffold.dart';
@@ -94,10 +94,7 @@ class _Feed extends StatelessWidget {
           Panel(
             title: 'AGENTS',
             child: feed.noHost
-                ? const Text(
-                    AgentPanelState.blockedLine,
-                    style: DazzleText.value,
-                  )
+                ? Text(AgentPanelState.blockedLine, style: context.tokens.value)
                 : const EmptyState('no agents'),
           ),
         ],
@@ -113,7 +110,7 @@ class _Feed extends StatelessWidget {
           if (!outcome.ok)
             _FailureLine(outcome: outcome, named: !single)
           else
-            ..._workspacePanels(outcome, named: !single),
+            ..._workspacePanels(context, outcome, named: !single),
       ],
     );
   }
@@ -121,7 +118,11 @@ class _Feed extends StatelessWidget {
   /// A host's agents by session, then workspace. The session goes in the
   /// title on the same rule as the host's name: only when there is more than
   /// one to tell apart.
-  List<Widget> _workspacePanels(HostOutcome outcome, {required bool named}) {
+  List<Widget> _workspacePanels(
+    BuildContext context,
+    HostOutcome outcome, {
+    required bool named,
+  }) {
     final groups =
         <({String session, String workspace}), List<AgentSnapshot>>{};
     for (final agent in outcome.agents) {
@@ -167,7 +168,7 @@ class _Feed extends StatelessWidget {
                   title: agentMarkName(agent.agent),
                   subtitle: '${agent.paneId} · ${path.basename(agent.cwd)}',
                   value: agent.state.label,
-                  valueColor: agentStateColor(agent.state),
+                  valueColor: agentStateColor(context, agent.state),
                   onTap: () => onOpen(outcome.host, agent),
                 ),
             ],
@@ -185,13 +186,13 @@ class _MascotEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: Spacing.xl),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Spacing.xl),
       child: Column(
         children: [
-          Sprite(state: 'idle', scale: 4),
-          SizedBox(height: Spacing.lg),
-          Text('DAZZLE_', style: DazzleText.screenTitle),
+          const Sprite(state: 'idle', scale: 4),
+          const SizedBox(height: Spacing.lg),
+          Text('DAZZLE_', style: context.tokens.screenTitle),
         ],
       ),
     );
@@ -294,7 +295,7 @@ class _DiagnosticRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelSize = DazzleText.label.fontSize!;
+    final labelSize = context.tokens.label.fontSize!;
     final labelScale =
         MediaQuery.textScalerOf(context).scale(labelSize) / labelSize;
     return ConstrainedBox(
@@ -303,7 +304,7 @@ class _DiagnosticRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 80 * labelScale,
-            child: Text(label, style: DazzleText.label),
+            child: Text(label, style: context.tokens.label),
           ),
           const SizedBox(width: Spacing.md),
           Expanded(child: Meta(value, maxLines: maxLines)),

@@ -17,6 +17,7 @@ import 'package:dazzle/platform/shell/remote_shell.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 const _nyx = Host(
   id: 'h2',
@@ -64,6 +65,7 @@ void main() {
           clipStoreProvider.overrideWithValue(clips),
         ],
         child: MaterialApp(
+          theme: testTheme,
           home: Builder(
             builder: (context) => GestureDetector(
               onTap: () => showAttachSheet(

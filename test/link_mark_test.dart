@@ -19,6 +19,7 @@ import 'package:dazzle/features/tasks/sent_tag.dart';
 import 'package:dazzle/features/tasks/task_row.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// A row says it has links; it does not say what they are. The mark is for
 /// attachments only — a URL written into the title is already on the row in
@@ -65,6 +66,7 @@ void main() {
   Widget host(Task task) => ProviderScope(
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(
+      theme: testTheme,
       home: Scaffold(body: TaskRow(task: task)),
     ),
   );
@@ -157,6 +159,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        theme: testTheme,
         home: Scaffold(
           body: ListRow(
             title: 'revisar pgbouncer',
@@ -187,7 +190,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [...featureTestOverrides(db)],
-        child: const MaterialApp(home: Scaffold(body: HomeScreen())),
+        child: MaterialApp(
+          theme: testTheme,
+          home: Scaffold(body: HomeScreen()),
+        ),
       ),
     );
     await _ready(tester);

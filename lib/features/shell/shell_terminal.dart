@@ -2,43 +2,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:xterm/xterm.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/typography.dart';
 import 'shell_sessions.dart';
 import 'shell_surface.dart';
-
-/// The palette, from the tokens where the tokens have a word for the colour and
-/// from the standard hues where they do not. Green is the accent: it is the one
-/// ANSI colour the app already has an opinion about, and a shell that prints a
-/// prompt in green should print it in the app's green.
-///
-/// The selection is a wash, not a block: xterm paints it over the glyphs, so an
-/// opaque colour hides the very text the finger picked.
-const _shellTheme = TerminalTheme(
-  cursor: DazzleColors.accent,
-  selection: Color(0x55B7FF2A),
-  foreground: DazzleColors.textPrimary,
-  background: Color(0xFF000000),
-  black: DazzleColors.backgroundPrimary,
-  red: Color(0xFFCD3131),
-  green: DazzleColors.accent,
-  yellow: Color(0xFFE5E510),
-  blue: Color(0xFF2472C8),
-  magenta: Color(0xFFBC3FBC),
-  cyan: Color(0xFF11A8CD),
-  white: DazzleColors.textPrimary,
-  brightBlack: DazzleColors.textDisabled,
-  brightRed: Color(0xFFF14C4C),
-  brightGreen: DazzleColors.accentMuted,
-  brightYellow: Color(0xFFF5F543),
-  brightBlue: Color(0xFF3B8EEA),
-  brightMagenta: Color(0xFFD670D6),
-  brightCyan: Color(0xFF29B8DB),
-  brightWhite: Color(0xFFFFFFFF),
-  searchHitBackground: DazzleColors.accent,
-  searchHitBackgroundCurrent: DazzleColors.accentMuted,
-  searchHitForeground: DazzleColors.backgroundPrimary,
-);
 
 /// One style per size, kept. The view compares styles by identity and lays
 /// the whole buffer out again on a new one, and the route rebuilds far more
@@ -79,7 +46,7 @@ class ShellTerminalView extends StatelessWidget {
       controller: session.controller,
       focusNode: session.focusNode,
       scrollController: session.scrollController,
-      theme: _shellTheme,
+      theme: context.tokens.terminal,
       textStyle: _shellTextStyle(fontSize),
       cursorType: TerminalCursorType.block,
       // Plain text: the view turns autocorrect and suggestions off itself, and

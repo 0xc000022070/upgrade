@@ -6,7 +6,7 @@ import '../../application/providers.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/picker_row.dart';
-import '../../design/typography.dart';
+import '../../design/tokens.dart';
 import '../../platform/device.dart';
 import '../screen_scaffold.dart';
 import 'alerts_block.dart';
@@ -86,7 +86,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       // Nothing is invented while the answer is in flight: the
                       // revision is compiled in and is true on its own.
                       snapshot.data?.stamp ?? BuildInfo.revision,
-                      style: DazzleText.buildStamp,
+                      style: context.tokens.buildStamp,
                     ),
                   ),
                 ),

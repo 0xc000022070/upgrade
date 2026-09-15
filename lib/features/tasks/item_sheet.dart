@@ -13,7 +13,7 @@ import '../../data/enums.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/repositories/dispatch_repository.dart';
 import '../../data/views.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/flash_block.dart';
 import '../../design/components/inline_confirm.dart';
@@ -24,7 +24,6 @@ import '../../design/components/panel_sheet.dart';
 import '../../design/components/dazzle_field.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../../platform/browser.dart';
 import '../home/agent_mark.dart';
 import '../../application/attachment_files.dart';
@@ -358,7 +357,9 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           label: 'BLOCKED BY',
           child: Text(
             task.blockedReason!,
-            style: DazzleText.rowSubtitle.copyWith(color: DazzleColors.warning),
+            style: context.tokens.rowSubtitle.copyWith(
+              color: context.tokens.warning,
+            ),
           ),
         ),
       ],
@@ -366,7 +367,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         const SheetRule(),
         SheetField(
           label: 'EFFORT',
-          child: Text('${task.effort}', style: DazzleText.value),
+          child: Text('${task.effort}', style: context.tokens.value),
         ),
       ],
       if (mates.isNotEmpty) ...[
@@ -380,7 +381,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
               for (final mate in mates)
                 Padding(
                   padding: const EdgeInsets.only(bottom: Spacing.sm),
-                  child: Text(mate.title, style: DazzleText.rowSubtitle),
+                  child: Text(mate.title, style: context.tokens.rowSubtitle),
                 ),
             ],
           ),
@@ -425,7 +426,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                     '${dispatch.model == null ? '' : ' ${dispatch.model}'} · '
                     '${dispatch.paneId} · '
                     '${timeOfDay(dispatch.sentAt)}',
-                    style: DazzleText.value,
+                    style: context.tokens.value,
                   ),
                 ),
             ],
@@ -471,10 +472,10 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           // text opens the editor.
           child: LinkText(
             task.title,
-            style: DazzleText.rowTitleLead.copyWith(
+            style: context.tokens.rowTitleLead.copyWith(
               color: task.done
-                  ? DazzleColors.textMuted
-                  : DazzleColors.textPrimary,
+                  ? context.tokens.textMuted
+                  : context.tokens.textPrimary,
             ),
           ),
         ),
@@ -572,7 +573,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
       child: DazzleField(
         controller: _field,
         focusNode: _focus,
-        style: DazzleText.rowTitleLead,
+        style: context.tokens.rowTitleLead,
         maxLines: DazzleField.bodyLines,
         contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
         onSubmitted: (_) => _submit(),
@@ -626,7 +627,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         // say so.
         ActionBlock(
           label: task.done ? 'UNDO' : 'DONE',
-          tone: DazzleColors.accent,
+          tone: context.tokens.accent,
           // The one commit in the row takes the one accent surface.
           filled: !task.done,
           onTap: () => tasks.setDone(task.id, !task.done),
@@ -635,8 +636,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ActionBlock(
             label: task.isNext ? 'CLEAR NEXT' : 'MARK NEXT',
             tone: task.isNext
-                ? DazzleColors.accentMuted
-                : DazzleColors.textSecondary,
+                ? context.tokens.accentMuted
+                : context.tokens.textSecondary,
             onTap: () =>
                 task.isNext ? tasks.unsetNext(task.id) : tasks.setNext(task.id),
           ),
@@ -660,7 +661,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ),
           ActionBlock(
             label: task.blockedReason == null ? 'BLOCK' : 'UNBLOCK',
-            tone: DazzleColors.warning,
+            tone: context.tokens.warning,
             // With the keyboard down there is nowhere to type a reason, so
             // BLOCK raises the field in reason mode rather than opening an
             // editor of its own in the body.
@@ -704,17 +705,17 @@ class _Square extends ConsumerWidget {
         height: _ItemSheetState._imageSquare,
         decoration: BoxDecoration(
           border: Border.all(
-            color: DazzleColors.borderNormal,
+            color: context.tokens.borderNormal,
             width: Borders.hairline,
           ),
         ),
         child: path == null
-            ? const ColoredBox(color: DazzleColors.surfaceSecondary)
+            ? ColoredBox(color: context.tokens.surfaceSecondary)
             : Image.file(
                 File(path),
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) =>
-                    const ColoredBox(color: DazzleColors.surfaceSecondary),
+                    ColoredBox(color: context.tokens.surfaceSecondary),
               ),
       ),
     );

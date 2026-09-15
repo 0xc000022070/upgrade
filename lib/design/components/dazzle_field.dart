@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../colors.dart';
-import '../typography.dart';
+import '../tokens.dart';
 
 /// Every field in the app draws the same way — a 2px accent block for a caret,
 /// no underline, a dense box and a hint in the row subtitle's ink — and that
@@ -75,8 +74,8 @@ class DazzleField extends StatelessWidget {
       autofocus: autofocus,
       minLines: minLines,
       maxLines: maxLines,
-      style: style ?? DazzleText.rowTitle,
-      cursorColor: DazzleColors.accent,
+      style: style ?? context.tokens.rowTitle,
+      cursorColor: context.tokens.accent,
       cursorWidth: 2,
       cursorRadius: Radius.zero,
       keyboardType: keyboardType ?? TextInputType.text,
@@ -91,7 +90,7 @@ class DazzleField extends StatelessWidget {
         border: InputBorder.none,
         contentPadding: contentPadding,
         hintText: hint,
-        hintStyle: hintStyle ?? DazzleText.rowSubtitle,
+        hintStyle: hintStyle ?? context.tokens.rowSubtitle,
       ),
     );
   }

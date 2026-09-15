@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/spacing.dart';
 import '../../platform/workspace/workspace_model.dart';
 import 'diff_jump.dart';
@@ -115,7 +115,7 @@ class HunkPin extends StatelessWidget {
                     bottom: 0,
                     child: Container(
                       height: Borders.hairline,
-                      color: DazzleColors.textDisabled,
+                      color: context.tokens.textDisabled,
                     ),
                   ),
                 ],

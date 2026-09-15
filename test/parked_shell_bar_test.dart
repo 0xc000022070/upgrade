@@ -17,6 +17,7 @@ import 'package:dazzle/platform/herdr_client.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 const _rose = Host(
   id: 'h1',
@@ -54,7 +55,7 @@ void main() {
       shellSessionsProvider.overrideWithValue(sessions),
       ...extra,
     ],
-    child: const MaterialApp(home: DazzleShell()),
+    child: MaterialApp(theme: testTheme, home: DazzleShell()),
   );
 
   Future<void> ready(WidgetTester tester) async {
@@ -153,9 +154,8 @@ void main() {
 
     final line = find.byKey(const ValueKey('agent-status'));
     expect(
-      ProviderScope.containerOf(
-        tester.element(find.byType(DazzleShell)),
-      ).read(navIndexProvider),
+      ProviderScope.containerOf(tester.element(find.byType(DazzleShell)))
+          .read(navIndexProvider),
       1,
       reason: 'Loading plugin placements must not reset the selected page',
     );

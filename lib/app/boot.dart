@@ -3,12 +3,11 @@ import 'dart:async';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
-import '../design/colors.dart';
+import '../design/tokens.dart';
 import '../design/components/dither_field.dart';
 import '../design/effects/glitch.dart';
 import '../design/motion.dart';
 import '../design/spacing.dart';
-import '../design/typography.dart';
 
 /// One line of the boot log. The steps are recorded by `main()` as it
 /// actually performs them, so the log is a report and not a decoration: if a
@@ -156,7 +155,7 @@ class _BootScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: DazzleColors.backgroundPrimary,
+      color: context.tokens.backgroundPrimary,
       child: DitherField(
         child: SafeArea(
           child: Padding(
@@ -167,7 +166,7 @@ class _BootScreen extends StatelessWidget {
             // against the accent column. The lines carry their own style and
             // only ever inherited that decoration.
             child: DefaultTextStyle(
-              style: DazzleText.value,
+              style: context.tokens.value,
               // Bottom-aligned by [Align] rather than by the column, so the
               // column is only as tall as the log. The glitch blocks are
               // fractions of the box they are given: over a full-height column
@@ -190,7 +189,7 @@ class _BootScreen extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   step.label,
-                                  style: DazzleText.value,
+                                  style: context.tokens.value,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -198,8 +197,8 @@ class _BootScreen extends StatelessWidget {
                               const SizedBox(width: Spacing.md),
                               Text(
                                 step.status,
-                                style: DazzleText.value.copyWith(
-                                  color: DazzleColors.accent,
+                                style: context.tokens.value.copyWith(
+                                  color: context.tokens.accent,
                                 ),
                               ),
                             ],

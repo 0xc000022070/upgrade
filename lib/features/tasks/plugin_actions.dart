@@ -4,11 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/plugins.dart';
 import '../../application/providers.dart';
 import '../../data/database.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import 'plugin_adapter.dart';
 
 class PluginDropActions extends ConsumerStatefulWidget {
@@ -91,7 +90,7 @@ class _PluginDropActionsState extends ConsumerState<PluginDropActions> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final plugin in active) ...[
-                Text(plugin.manifest.name, style: DazzleText.rowSubtitle),
+                Text(plugin.manifest.name, style: context.tokens.rowSubtitle),
                 const SizedBox(height: Spacing.sm),
                 Wrap(
                   spacing: Spacing.sm,
@@ -106,15 +105,15 @@ class _PluginDropActionsState extends ConsumerState<PluginDropActions> {
                 ),
                 const SizedBox(height: Spacing.md),
               ],
-              if (_busy) const Text('RUNNING', style: DazzleText.rowSubtitle),
+              if (_busy) Text('RUNNING', style: context.tokens.rowSubtitle),
               if (_message != null)
-                Text(_message!, style: DazzleText.rowSubtitle),
+                Text(_message!, style: context.tokens.rowSubtitle),
               if (proposal != null) ...[
                 SheetField(
                   label: 'PROPOSED TITLE',
                   child: Text(
                     proposal.record.value,
-                    style: DazzleText.rowTitle,
+                    style: context.tokens.rowTitle,
                   ),
                 ),
                 const SizedBox(height: Spacing.md),
@@ -125,7 +124,7 @@ class _PluginDropActionsState extends ConsumerState<PluginDropActions> {
                     ActionBlock(
                       label: 'APPLY',
                       filled: true,
-                      tone: DazzleColors.accent,
+                      tone: context.tokens.accent,
                       onTap: _busy ? null : _apply,
                     ),
                     ActionBlock(

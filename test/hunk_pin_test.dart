@@ -1,8 +1,10 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/features/code/diff_jump.dart';
 import 'package:dazzle/features/code/hunk_pin.dart';
 import 'package:dazzle/platform/workspace/workspace_model.dart';
+
+import 'support/themed_app.dart';
 
 DiffLine hunk(String text) => DiffLine(DiffLineKind.hunk, text);
 DiffLine context(String text) => DiffLine(DiffLineKind.context, text);
@@ -24,32 +26,35 @@ class _Held extends StatelessWidget {
       Container(height: _rowHeight, color: const Color(0xFF000000));
 }
 
-Widget pane(ScrollController scroll, List<int> rows) => Directionality(
-  textDirection: TextDirection.ltr,
-  child: Center(
-    child: SizedBox(
-      height: _paneHeight,
-      width: 120,
-      child: Stack(
-        children: [
-          ListView.builder(
-            controller: scroll,
-            itemExtent: _rowHeight,
-            itemCount: _rows,
-            itemBuilder: (context, index) => const SizedBox(),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: HunkPin(
-              rows: rows,
-              jumps: DiffJumps(scroll),
-              rowHeight: _rowHeight,
-              rowAt: _Held.new,
+Widget pane(ScrollController scroll, List<int> rows) => Theme(
+  data: testTheme,
+  child: Directionality(
+    textDirection: TextDirection.ltr,
+    child: Center(
+      child: SizedBox(
+        height: _paneHeight,
+        width: 120,
+        child: Stack(
+          children: [
+            ListView.builder(
+              controller: scroll,
+              itemExtent: _rowHeight,
+              itemCount: _rows,
+              itemBuilder: (context, index) => const SizedBox(),
             ),
-          ),
-        ],
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: HunkPin(
+                rows: rows,
+                jumps: DiffJumps(scroll),
+                rowHeight: _rowHeight,
+                rowAt: _Held.new,
+              ),
+            ),
+          ],
+        ),
       ),
     ),
   ),

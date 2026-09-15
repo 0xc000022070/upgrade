@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../spacing.dart';
 
 /// The rule between two cells of a bar. One widget rather than one per bar:
@@ -11,5 +11,5 @@ class CellDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Container(width: Borders.hairline, color: DazzleColors.borderSubtle);
+      Container(width: Borders.hairline, color: context.tokens.borderSubtle);
 }

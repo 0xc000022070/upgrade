@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../design/typography.dart';
+import '../../design/tokens.dart';
 
 /// The mark on a row that has been handed to an agent.
 ///
@@ -12,5 +12,5 @@ class SentTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const Text('SENT', style: DazzleText.label);
+      Text('SENT', style: context.tokens.label);
 }

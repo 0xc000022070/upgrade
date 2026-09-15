@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../application/urls.dart';
 
 /// The capture field paints every token [urlTokens] recognises, so a link is
@@ -15,12 +15,6 @@ import '../../application/urls.dart';
 /// selection, the IME and `_submit()` see exactly what they saw before.
 class UrlHighlightController extends TextEditingController {
   UrlHighlightController({super.text});
-
-  /// The treatment: `--fg-dim` ink on a `--panel-strip` ground,
-  /// mono, spanning exactly the token, and no underline — the field's own type
-  /// is already mono, so the style only overrides colour.
-  static const ink = DazzleColors.textMuted;
-  static const ground = DazzleColors.surfaceSecondary;
 
   @override
   TextSpan buildTextSpan({
@@ -37,8 +31,8 @@ class UrlHighlightController extends TextEditingController {
     // URL is exactly the moment the highlight has something to say.
     final base = style ?? const TextStyle();
     final marked = base.copyWith(
-      color: ink,
-      backgroundColor: ground,
+      color: context.tokens.textMuted,
+      backgroundColor: context.tokens.surfaceSecondary,
       decoration: TextDecoration.none,
     );
 

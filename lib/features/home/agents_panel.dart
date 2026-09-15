@@ -4,11 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/agents.dart';
 import '../../application/navigation.dart';
 import '../../application/pip.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/dot_spinner.dart';
 import '../../design/components/panel.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../../platform/herdr_client.dart';
 import '../agents/agent_shell.dart';
 import '../agents/agents_screen.dart';
@@ -173,7 +172,7 @@ class _SetupLine extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: Text(
           AgentPanelState.blockedLine,
-          style: DazzleText.value.copyWith(color: DazzleColors.accent),
+          style: context.tokens.value.copyWith(color: context.tokens.accent),
         ),
       ),
     ),
@@ -184,11 +183,11 @@ class _ColumnLabels extends StatelessWidget {
   const _ColumnLabels();
 
   @override
-  Widget build(BuildContext context) => const Row(
+  Widget build(BuildContext context) => Row(
     children: [
-      Expanded(flex: 4, child: Text('AGENT', style: DazzleText.label)),
-      Expanded(flex: 3, child: Text('STATUS', style: DazzleText.label)),
-      Expanded(flex: 4, child: Text('WORK', style: DazzleText.label)),
+      Expanded(flex: 4, child: Text('AGENT', style: context.tokens.label)),
+      Expanded(flex: 3, child: Text('STATUS', style: context.tokens.label)),
+      Expanded(flex: 4, child: Text('WORK', style: context.tokens.label)),
     ],
   );
 }
@@ -201,7 +200,7 @@ class _AgentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = agentStateColor(agent.state);
+    final statusColor = agentStateColor(context, agent.state);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -218,7 +217,7 @@ class _AgentRow extends StatelessWidget {
                   Expanded(
                     child: Text(
                       agentMarkName(agent.agent),
-                      style: DazzleText.rowTitle,
+                      style: context.tokens.rowTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -242,7 +241,7 @@ class _AgentRow extends StatelessWidget {
                   Flexible(
                     child: Text(
                       agent.state.label,
-                      style: DazzleText.value.copyWith(color: statusColor),
+                      style: context.tokens.value.copyWith(color: statusColor),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -254,7 +253,7 @@ class _AgentRow extends StatelessWidget {
               flex: 4,
               child: Text(
                 agent.terminalTitleStripped,
-                style: DazzleText.rowSubtitle,
+                style: context.tokens.rowSubtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -276,11 +275,13 @@ class _Footer extends StatelessWidget {
   Widget build(BuildContext context) => Text.rich(
     TextSpan(
       children: [
-        TextSpan(text: '$idle idle · ', style: DazzleText.value),
+        TextSpan(text: '$idle idle · ', style: context.tokens.value),
         TextSpan(
           text: '$blocked blocked',
-          style: DazzleText.value.copyWith(
-            color: blocked == 0 ? DazzleColors.textMuted : DazzleColors.warning,
+          style: context.tokens.value.copyWith(
+            color: blocked == 0
+                ? context.tokens.textMuted
+                : context.tokens.warning,
           ),
         ),
       ],
@@ -302,7 +303,7 @@ class _ErrorLine extends StatelessWidget {
       children: [
         Expanded(child: _DimLine(text)),
         if (timestamp != null)
-          Text(agentSnapshotAge(now, timestamp), style: DazzleText.value),
+          Text(agentSnapshotAge(now, timestamp), style: context.tokens.value),
       ],
     );
   }
@@ -314,5 +315,5 @@ class _DimLine extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Text(text, style: DazzleText.value);
+  Widget build(BuildContext context) => Text(text, style: context.tokens.value);
 }

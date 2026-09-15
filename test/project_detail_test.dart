@@ -20,6 +20,7 @@ import 'package:dazzle/features/projects/projects_screen.dart';
 import 'package:dazzle/features/tasks/selection_bar.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// Goal CRUD, the optional objective, archive and unarchive. The background
 /// ticker never settles, so nothing here may use
@@ -59,7 +60,7 @@ void main() {
 
   Widget host(Widget screen) => ProviderScope(
     overrides: [...featureTestOverrides(db)],
-    child: MaterialApp(home: screen),
+    child: MaterialApp(theme: testTheme, home: screen),
   );
 
   Future<Project> reload(WidgetTester tester, String id) async {

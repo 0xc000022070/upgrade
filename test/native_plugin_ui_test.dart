@@ -30,6 +30,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/native_plugins.dart';
 import 'support/platform_channels.dart';
 import 'agent_schedules_plugin_test.dart' show schedulePackage;
+import 'support/themed_app.dart';
 
 Future<void> drain(WidgetTester tester) async {
   for (var i = 0; i < 8; i++) {
@@ -106,7 +107,7 @@ void main() {
 
   Widget host(Widget child) => UncontrolledProviderScope(
     container: container,
-    child: MaterialApp(home: child),
+    child: MaterialApp(theme: testTheme, home: child),
   );
 
   testWidgets(

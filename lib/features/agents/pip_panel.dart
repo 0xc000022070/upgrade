@@ -3,9 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/agents.dart';
 import '../../application/alerts.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../../platform/herdr_client.dart';
 import '../home/agent_mark.dart';
 
@@ -50,7 +49,11 @@ class PipPanel extends ConsumerWidget {
     // park a frozen tally over whatever the user left to do and stay there
     // until they came back for it.
     final live = ref.watch(agentsFeedLiveProvider);
-    final window = _read(live, ref.watch(agentsFeedProvider).valueOrNull);
+    final window = _read(
+      context,
+      live,
+      ref.watch(agentsFeedProvider).valueOrNull,
+    );
 
     return MediaQuery.withClampedTextScaling(
       maxScaleFactor: _maxTextScale,
@@ -62,7 +65,7 @@ class PipPanel extends ConsumerWidget {
         label: window.spoken,
         excludeSemantics: true,
         child: ColoredBox(
-          color: DazzleColors.backgroundPrimary,
+          color: context.tokens.backgroundPrimary,
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: Spacing.lg,
@@ -76,7 +79,7 @@ class PipPanel extends ConsumerWidget {
   }
 
   /// What the window says, given what the app can currently see.
-  _Window _read(bool live, AgentPanelState? agents) {
+  _Window _read(BuildContext context, bool live, AgentPanelState? agents) {
     if (!live) {
       // The window cannot be absent the way the strip over the nav bar is:
       // nothing on this side closes it, so the choice is between a stale count
@@ -86,15 +89,15 @@ class PipPanel extends ConsumerWidget {
       final last = agents == null || agents.noHost ? '' : agents.tally;
       return _Window(
         headline: 'NOT WATCHING',
-        tint: DazzleColors.textSecondary,
+        tint: context.tokens.textSecondary,
         note: last.isEmpty ? null : 'LAST SEEN $last',
       );
     }
     final outcomes = agents?.outcomes ?? const <HostOutcome>[];
     if (agents == null || agents.noHost) {
-      return const _Window(
+      return _Window(
         headline: AgentPanelState.blockedLine,
-        tint: DazzleColors.textSecondary,
+        tint: context.tokens.textSecondary,
       );
     }
     // The same sentence the shade's ongoing line carries, from the same
@@ -102,7 +105,7 @@ class PipPanel extends ConsumerWidget {
     // and a second way of saying it would be a second thing to keep true.
     return _Window(
       headline: watcherNotificationText(outcomes),
-      tint: _headlineTint(outcomes),
+      tint: _headlineTint(context, outcomes),
       rows: _listed(outcomes),
     );
   }
@@ -111,12 +114,12 @@ class PipPanel extends ConsumerWidget {
   /// window that is about to cost the user something; danger for a host the
   /// watcher cannot reach, because the line is then about the app and not the
   /// work. Otherwise the colour of a line that is merely true.
-  Color _headlineTint(List<HostOutcome> outcomes) {
-    if (outcomes.any((outcome) => !outcome.ok)) return DazzleColors.danger;
+  Color _headlineTint(BuildContext context, List<HostOutcome> outcomes) {
+    if (outcomes.any((outcome) => !outcome.ok)) return context.tokens.danger;
     final blocked = outcomes.any(
       (outcome) => outcome.agents.any((agent) => agent.state.blocked),
     );
-    return blocked ? DazzleColors.accent : DazzleColors.textPrimary;
+    return blocked ? context.tokens.accent : context.tokens.textPrimary;
   }
 
   /// The active agents, blocked first, each with the host it is on. Two hosts
@@ -173,10 +176,10 @@ class _Body extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
-    final headline = scaler.scale(DazzleText.pipHeadline.fontSize!) * 1.2;
-    final meta = scaler.scale(DazzleText.pipMeta.fontSize!) * 1.25;
+    final headline = scaler.scale(context.tokens.pipHeadline.fontSize!) * 1.2;
+    final meta = scaler.scale(context.tokens.pipMeta.fontSize!) * 1.25;
     final row =
-        scaler.scale(DazzleText.pipAgent.fontSize!) * pipMarkRatio +
+        scaler.scale(context.tokens.pipAgent.fontSize!) * pipMarkRatio +
         Spacing.sm;
 
     return LayoutBuilder(
@@ -197,9 +200,9 @@ class _Body extends StatelessWidget {
               const SizedBox(height: Spacing.sm),
               // A rule under the line, so the headline reads as the head of
               // something rather than as the first of several sizes of text.
-              const SizedBox(
+              SizedBox(
                 height: Borders.hairline,
-                child: ColoredBox(color: DazzleColors.borderSubtle),
+                child: ColoredBox(color: context.tokens.borderSubtle),
               ),
               const SizedBox(height: Spacing.xs),
             ],
@@ -210,14 +213,14 @@ class _Body extends StatelessWidget {
                   window.note!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: DazzleText.pipMeta,
+                  style: context.tokens.pipMeta,
                 ),
               ),
             for (final row in window.rows.take(shown)) _AgentLine(row: row),
             if (hidden > 0)
               Padding(
                 padding: const EdgeInsets.only(top: Spacing.sm),
-                child: Text('+$hidden MORE', style: DazzleText.pipMeta),
+                child: Text('+$hidden MORE', style: context.tokens.pipMeta),
               ),
           ],
         );
@@ -257,7 +260,7 @@ class _Headline extends StatelessWidget {
     // at: the phone's scale is a curve and gives a small size most of the rise,
     // so a block fixed at six points shrinks against its own text until it
     // reads as a speck of dust.
-    final base = DazzleText.pipHeadline.fontSize!;
+    final base = context.tokens.pipHeadline.fontSize!;
     final scale = MediaQuery.textScalerOf(context).scale(base) / base;
     final side = pipHeadlineMarkSize * scale;
     return Row(
@@ -274,7 +277,7 @@ class _Headline extends StatelessWidget {
             window.headline,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: DazzleText.pipHeadline.copyWith(color: window.tint),
+            style: context.tokens.pipHeadline.copyWith(color: window.tint),
           ),
         ),
       ],
@@ -298,7 +301,7 @@ class _AgentLine extends StatelessWidget {
   /// a glyph — so the line's scale is measured once and handed to it, and the
   /// mark rises with the name beside it instead of shrinking against it.
   double _markSize(BuildContext context) {
-    final base = DazzleText.pipAgent.fontSize!;
+    final base = context.tokens.pipAgent.fontSize!;
     return MediaQuery.textScalerOf(context).scale(base) * pipMarkRatio;
   }
 
@@ -318,20 +321,20 @@ class _AgentLine extends StatelessWidget {
                   TextSpan(text: row.agent.agent.toUpperCase()),
                   TextSpan(
                     text: ' · ${row.host}',
-                    style: DazzleText.pipMeta,
+                    style: context.tokens.pipMeta,
                   ),
                 ],
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: DazzleText.pipAgent,
+              style: context.tokens.pipAgent,
             ),
           ),
           const SizedBox(width: Spacing.md),
           Text(
             row.agent.state.label,
-            style: DazzleText.pipState.copyWith(
-              color: blocked ? DazzleColors.accent : null,
+            style: context.tokens.pipState.copyWith(
+              color: blocked ? context.tokens.accent : null,
               fontWeight: blocked ? FontWeight.w500 : null,
             ),
           ),

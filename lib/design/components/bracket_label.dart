@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../spacing.dart';
 import 'meta.dart';
 
@@ -21,7 +21,7 @@ class BracketLabel extends StatelessWidget {
         Meta('[ ${label.toUpperCase()} ]', color: color),
         const SizedBox(width: Spacing.md),
         Expanded(
-          child: Meta(value, color: color ?? DazzleColors.textSecondary),
+          child: Meta(value, color: color ?? context.tokens.textSecondary),
         ),
       ],
     );

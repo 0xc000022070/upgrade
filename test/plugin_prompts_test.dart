@@ -23,6 +23,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/native_plugins.dart';
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 Future<void> _drain(WidgetTester tester) async {
   for (var i = 0; i < 8; i++) {
@@ -127,7 +128,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: overrides,
-        child: const MaterialApp(home: PluginManagementScreen()),
+        child: MaterialApp(theme: testTheme, home: PluginManagementScreen()),
       ),
     );
     await _drain(tester);
@@ -304,6 +305,7 @@ void main() {
             ),
           ],
           child: MaterialApp(
+            theme: testTheme,
             home: PluginPage(plugin: plugin, page: plugin.manifest.pages.first),
           ),
         ),

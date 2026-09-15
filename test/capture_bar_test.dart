@@ -16,6 +16,7 @@ import 'package:dazzle/design/components/dazzle_field.dart';
 import 'package:dazzle/features/home/capture_bar.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// The bar has no toolbar row
 /// of its own any more, so everything under test here only exists while the
@@ -69,7 +70,8 @@ void main() {
 
   Widget host() => ProviderScope(
     overrides: [...featureTestOverrides(db)],
-    child: const MaterialApp(
+    child: MaterialApp(
+      theme: testTheme,
       home: Scaffold(body: CaptureBar(scope: DropSelection.homeScope)),
     ),
   );

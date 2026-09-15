@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../icons/dazzle_icon.dart';
 import '../icons/dazzle_icons.dart';
 import '../spacing.dart';
@@ -26,7 +26,7 @@ class _ToolbarIconActionState extends State<ToolbarIconAction> {
 
   @override
   Widget build(BuildContext context) {
-    final color = _down ? DazzleColors.accent : DazzleColors.textSecondary;
+    final color = _down ? context.tokens.accent : context.tokens.textSecondary;
     return Tooltip(
       message: widget.label,
       child: Semantics(

@@ -18,6 +18,7 @@ import 'package:xterm/xterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/shell_route.dart' show noWorkspaces;
+import 'support/themed_app.dart';
 
 const _rose = Host(
   id: 'h1',
@@ -843,7 +844,10 @@ void main() {
           shellSessionsProvider.overrideWithValue(sessions),
           noWorkspaces,
         ],
-        child: const MaterialApp(home: HostShellRoute(host: _rose)),
+        child: MaterialApp(
+          theme: testTheme,
+          home: HostShellRoute(host: _rose),
+        ),
       ),
     );
     await tester.pump();
@@ -1733,7 +1737,10 @@ void main() {
             shellSessionsProvider.overrideWithValue(sessions),
             noWorkspaces,
           ],
-          child: const MaterialApp(home: HostShellRoute(host: _rose)),
+          child: MaterialApp(
+            theme: testTheme,
+            home: HostShellRoute(host: _rose),
+          ),
         ),
       );
       await tester.pump();
@@ -1947,6 +1954,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          theme: testTheme,
           home: Row(
             children: [
               ShellCard(host: _rose, session: first),

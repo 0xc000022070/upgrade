@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/panel.dart';
 import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
@@ -143,9 +143,9 @@ class _ScreenRailState extends State<ScreenRail> {
               width: _handleWidth,
               height: TapTargets.minHeight,
               decoration: BoxDecoration(
-                color: DazzleColors.textMuted,
+                color: context.tokens.textMuted,
                 border: Border.all(
-                  color: DazzleColors.surfacePrimary,
+                  color: context.tokens.surfacePrimary,
                   width: Borders.hairline,
                 ),
                 borderRadius: const BorderRadius.horizontal(
@@ -233,7 +233,7 @@ class _RailToggle extends StatelessWidget {
     // Dim at rest, accent while the thing it toggles is up. A toggle needs no
     // press tint on top of that — the state it switches to is the feedback, and
     // it lands on the same frame.
-    final tint = active ? DazzleColors.accent : DazzleColors.textMuted;
+    final tint = active ? context.tokens.accent : context.tokens.textMuted;
     return Semantics(
       label: label,
       toggled: active,

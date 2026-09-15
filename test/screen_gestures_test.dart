@@ -3,9 +3,11 @@
 /// two-finger drag at fit is the wheel.
 library;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/features/screen/framebuffer_view.dart';
+
+import 'support/themed_app.dart';
 
 /// nyx's desktop in a 400 by 800 window: 400 by 225 letterboxed, so the
 /// vertical offset is part of every expectation below.
@@ -23,21 +25,24 @@ class Recorder {
 Future<Recorder> pumpView(WidgetTester tester) async {
   final recorder = Recorder();
   await tester.pumpWidget(
-    Directionality(
-      textDirection: TextDirection.ltr,
-      child: Center(
-        child: SizedBox(
-          width: _viewport.width,
-          height: _viewport.height,
-          child: FramebufferView(
-            // No image: the gestures do not depend on one, and a real
-            // [ui.Image] in a widget test needs the engine's decoder.
-            image: null,
-            framebufferSize: _framebuffer,
-            onClick: recorder.clicks.add,
-            onRightClick: recorder.rightClicks.add,
-            onDrag: (at, {required down}) => recorder.drags.add((at, down)),
-            onWheel: (at, {required up}) => recorder.wheels.add((at, up)),
+    Theme(
+      data: testTheme,
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: SizedBox(
+            width: _viewport.width,
+            height: _viewport.height,
+            child: FramebufferView(
+              // No image: the gestures do not depend on one, and a real
+              // [ui.Image] in a widget test needs the engine's decoder.
+              image: null,
+              framebufferSize: _framebuffer,
+              onClick: recorder.clicks.add,
+              onRightClick: recorder.rightClicks.add,
+              onDrag: (at, {required down}) => recorder.drags.add((at, down)),
+              onWheel: (at, {required up}) => recorder.wheels.add((at, up)),
+            ),
           ),
         ),
       ),

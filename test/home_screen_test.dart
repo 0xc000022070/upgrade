@@ -19,6 +19,7 @@ import 'package:dazzle/design/icons/dazzle_icon.dart';
 import 'package:dazzle/design/icons/dazzle_icons.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// The selection verbs are private, so the ink is the only readable statement
 /// of whether they are enabled.
@@ -77,7 +78,10 @@ void main() {
 
   Widget host() => ProviderScope(
     overrides: [...featureTestOverrides(db)],
-    child: const MaterialApp(home: Scaffold(body: HomeScreen())),
+    child: MaterialApp(
+      theme: testTheme,
+      home: Scaffold(body: HomeScreen()),
+    ),
   );
 
   Future<void> unmount(WidgetTester tester) async {

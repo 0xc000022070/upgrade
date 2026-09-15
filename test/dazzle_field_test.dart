@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/design/components/dazzle_field.dart';
 
+import 'support/themed_app.dart';
+
 void main() {
   test('a break lands where the caret is', () {
     final controller = TextEditingController(text: 'abcd');
@@ -39,6 +41,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: testTheme,
         home: Scaffold(
           body: DazzleField(
             controller: controller,

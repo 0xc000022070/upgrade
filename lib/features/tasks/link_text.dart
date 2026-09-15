@@ -2,8 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../application/urls.dart';
+import '../../design/tokens.dart';
 import '../../platform/browser.dart';
-import 'url_highlight_controller.dart';
 
 /// A title, with the links inside it painted and openable where they stand.
 ///
@@ -53,8 +53,8 @@ class _LinkTextState extends State<LinkText> {
     if (tokens.isEmpty) return Text(text, style: widget.style);
 
     final marked = widget.style.copyWith(
-      color: UrlHighlightController.ink,
-      backgroundColor: UrlHighlightController.ground,
+      color: context.tokens.textMuted,
+      backgroundColor: context.tokens.surfaceSecondary,
     );
 
     final spans = <InlineSpan>[];

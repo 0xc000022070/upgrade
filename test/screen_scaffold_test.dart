@@ -9,6 +9,7 @@ import 'package:dazzle/design/typography.dart';
 import 'package:dazzle/features/screen_scaffold.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// Orchestrator ruling, 2026-09-02: the crumb never wraps, and a screen that
 /// carries a verb on the crumb line gives up the root segment to fit.
@@ -46,6 +47,7 @@ void main() {
   ) async {
     Widget host({Widget? trailing}) => ProviderScope(
       child: MaterialApp(
+        theme: testTheme,
         home: ScreenScaffold(
           title: 'INFRA PERSONAL',
           breadcrumb: '/ PERSONAL CONTROL PLANE / PROJECTS',
@@ -92,6 +94,7 @@ void main() {
     // verb eats the width the collapse is supposed to be measured against.
     Widget host(List<String> path, {Widget? trailing}) => ProviderScope(
       child: MaterialApp(
+        theme: testTheme,
         home: Scaffold(
           body: ScreenScaffold(
             title: 'NETWORKING',
@@ -218,6 +221,7 @@ void main() {
   group('header parity', () {
     Widget host({Widget? trailing, VoidCallback? onBack}) => ProviderScope(
       child: MaterialApp(
+        theme: testTheme,
         home: Scaffold(
           body: ScreenScaffold(
             title: 'HOSTS',

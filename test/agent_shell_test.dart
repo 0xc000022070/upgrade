@@ -14,6 +14,7 @@ import 'package:dazzle/platform/shell/remote_shell.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// A tap on an agent row: the shell sheet on the agent's host, in the tab
 /// attached to its pane, made once and found after that.
@@ -75,7 +76,7 @@ void main() {
 
   Widget app(ShellSessions sessions) => ProviderScope(
     overrides: [shellSessionsProvider.overrideWithValue(sessions)],
-    child: const MaterialApp(home: _Launcher()),
+    child: MaterialApp(theme: testTheme, home: _Launcher()),
   );
 
   Future<void> ready(WidgetTester tester) async {

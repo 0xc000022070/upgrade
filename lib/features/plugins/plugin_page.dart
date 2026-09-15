@@ -6,11 +6,10 @@ import '../../application/native_plugins.dart';
 import '../../application/plugin_hosts.dart';
 import '../../application/plugins.dart';
 import '../../data/repositories/host_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/panel_text_action.dart';
-import '../../design/typography.dart';
 import '../../platform/plugins/manifest.dart';
 import '../../platform/plugins/contributions.dart';
 import '../../platform/plugins/store.dart';
@@ -206,7 +205,7 @@ class _PluginPageState extends ConsumerState<PluginPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: DazzleColors.backgroundPrimary,
+        backgroundColor: context.tokens.backgroundPrimary,
         appBar: AppBar(
           toolbarHeight: 44,
           leading: BackButton(
@@ -224,7 +223,7 @@ class _PluginPageState extends ConsumerState<PluginPage> {
           ),
           title: Text(
             widget.plugin.manifest.name.toUpperCase(),
-            style: DazzleText.breadcrumb,
+            style: context.tokens.breadcrumb,
           ),
           bottom: _busy
               ? const PreferredSize(
@@ -240,8 +239,8 @@ class _PluginPageState extends ConsumerState<PluginPage> {
                 padding: const EdgeInsets.all(16),
                 child: Text(
                   _error!,
-                  style: DazzleText.prose.copyWith(
-                    color: const Color(0xFFE06C5C),
+                  style: context.tokens.prose.copyWith(
+                    color: context.tokens.danger,
                   ),
                 ),
               ),
@@ -284,11 +283,11 @@ class PluginLibraryScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (pages.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Text(
                         'NO PLUGIN PAGES ENABLED\nMANAGE PLUGINS TO ADD TOOLS AND HOME CONTROLS.',
-                        style: DazzleText.rowSubtitle,
+                        style: context.tokens.rowSubtitle,
                       ),
                     ),
                   for (final page in pages)
@@ -330,7 +329,7 @@ class _NativePluginRoute extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     return Scaffold(
-      backgroundColor: DazzleColors.backgroundPrimary,
+      backgroundColor: context.tokens.backgroundPrimary,
       body: Column(
         children: [
           SafeArea(

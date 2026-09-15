@@ -20,6 +20,7 @@ import 'package:dazzle/platform/herdr_client.dart';
 
 import 'support/fake_pip.dart';
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 const nyx = Host(
   id: 'nyx',
@@ -78,7 +79,7 @@ void main() {
             agentsFeedLiveProvider.overrideWithValue(true),
           ],
         ],
-        child: const MaterialApp(home: AgentsScreen()),
+        child: MaterialApp(theme: testTheme, home: AgentsScreen()),
       );
 
   /// Panel titles render through [SignalText], which holds a scrambled string
@@ -115,6 +116,7 @@ void main() {
           agentsFeedProvider.overrideWith((ref) => Stream.value(state)),
         ],
         child: MaterialApp(
+          theme: testTheme,
           home: AgentsScreen(
             onOpen: (host, agent) => opened.add((host, agent)),
           ),

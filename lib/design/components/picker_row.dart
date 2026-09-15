@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../spacing.dart';
-import '../typography.dart';
 import 'list_row.dart';
 
 /// One row of a picker: the current value is the solid accent
@@ -32,7 +31,7 @@ class PickerRow extends StatelessWidget {
   final bool selected;
 
   /// A row whose condition is not met is drawn dim and does
-  /// nothing. Dim rows elsewhere use [DazzleColors.textMuted], so this is
+  /// nothing. Dim rows elsewhere use [context.tokens.textMuted], so this is
   /// the same reading and not a second one.
   final bool dim;
 
@@ -46,8 +45,8 @@ class PickerRow extends StatelessWidget {
             title: label,
             subtitle: subtitle,
             value: value,
-            titleColor: dim ? DazzleColors.textMuted : null,
-            valueColor: dim ? DazzleColors.textMuted : null,
+            titleColor: dim ? context.tokens.textMuted : null,
+            valueColor: dim ? context.tokens.textMuted : null,
             onTap: onTap,
           );
     if (!indent) return row;
@@ -75,22 +74,22 @@ class _SelectedRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
         alignment: Alignment.centerLeft,
         decoration: BoxDecoration(
-          color: DazzleColors.accent,
+          color: context.tokens.accent,
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
         child: Row(
           children: [
             Text(
               '// ',
-              style: DazzleText.valueStrong.copyWith(
-                color: DazzleColors.backgroundPrimary,
+              style: context.tokens.valueStrong.copyWith(
+                color: context.tokens.backgroundPrimary,
               ),
             ),
             Expanded(
               child: Text(
                 label,
-                style: DazzleText.rowTitle.copyWith(
-                  color: DazzleColors.backgroundPrimary,
+                style: context.tokens.rowTitle.copyWith(
+                  color: context.tokens.backgroundPrimary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import 'action_block.dart';
 import 'solid_action_bar.dart';
 
@@ -19,8 +19,8 @@ class InlineConfirmBlock extends StatefulWidget {
     required this.label,
     required this.confirmLabel,
     required this.onConfirmed,
-    this.tone = DazzleColors.warning,
-    this.armedTone = DazzleColors.danger,
+    this.tone,
+    this.armedTone,
     this.window = const Duration(seconds: 3),
     this.compact = false,
   });
@@ -31,8 +31,9 @@ class InlineConfirmBlock extends StatefulWidget {
 
   /// A solid warning block, and danger is kept for the commit
   /// itself, so arming is a colour step and not only a word change.
-  final Color tone;
-  final Color armedTone;
+  /// Null falls back to the house warning/danger tokens in [build].
+  final Color? tone;
+  final Color? armedTone;
   final Duration window;
 
   /// The quick view's footer puts DELETE in a row of sized blocks, not
@@ -72,7 +73,9 @@ class _InlineConfirmBlockState extends State<InlineConfirmBlock> {
   @override
   Widget build(BuildContext context) {
     final label = _armed ? widget.confirmLabel : widget.label;
-    final tone = _armed ? widget.armedTone : widget.tone;
+    final tone =
+        (_armed ? widget.armedTone : widget.tone) ??
+        (_armed ? context.tokens.danger : context.tokens.warning);
     if (widget.compact) {
       return ActionBlock(label: label, tone: tone, filled: _armed, onTap: _tap);
     }

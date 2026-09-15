@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/design/tokens.dart';
 import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_search.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
@@ -86,6 +87,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
+            theme: ThemeData(extensions: const [DazzleTokens.house]),
             home: Scaffold(
               body: ShellSearchRow(session: session, onClose: () {}),
             ),
@@ -145,21 +147,16 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
 
       final marks = session.controller.highlights;
+      final currentWash = DazzleTokens.house.selectionWashCurrent;
+      final wash = DazzleTokens.house.selectionWash;
       expect(marks, hasLength(2));
-      expect(
-        marks.where((mark) => mark.color == shellHitCurrentWash),
-        hasLength(1),
-      );
-      expect(marks.where((mark) => mark.color == shellHitWash), hasLength(1));
+      expect(marks.where((mark) => mark.color == currentWash), hasLength(1));
+      expect(marks.where((mark) => mark.color == wash), hasLength(1));
       // The newest hit is the one being read.
       expect(
-        marks
-            .firstWhere((mark) => mark.color == shellHitCurrentWash)
-            .range!
-            .begin
-            .y,
+        marks.firstWhere((mark) => mark.color == currentWash).range!.begin.y,
         greaterThan(
-          marks.firstWhere((mark) => mark.color == shellHitWash).range!.begin.y,
+          marks.firstWhere((mark) => mark.color == wash).range!.begin.y,
         ),
       );
 
@@ -195,6 +192,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
+            theme: ThemeData(extensions: const [DazzleTokens.house]),
             home: Scaffold(
               body: ShellSearchRow(
                 session: session,
@@ -226,7 +224,10 @@ void main() {
         shellSessionsProvider.overrideWithValue(sessions),
         noWorkspaces,
       ],
-      child: const MaterialApp(home: HostShellRoute(host: _rose)),
+      child: MaterialApp(
+        theme: ThemeData(extensions: const [DazzleTokens.house]),
+        home: const HostShellRoute(host: _rose),
+      ),
     );
 
     Future<void> ready(WidgetTester tester) async {

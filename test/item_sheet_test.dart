@@ -20,6 +20,7 @@ import 'package:dazzle/features/tasks/item_pickers.dart';
 import 'package:dazzle/features/tasks/link_text.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// The sheet is mounted directly rather than opened from a
 /// row: what is under test is its body and its footer, and a route on top of a
@@ -74,6 +75,7 @@ void main() {
   Widget host(String taskId) => ProviderScope(
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(
+      theme: testTheme,
       home: Scaffold(body: ItemSheet(taskId: taskId)),
     ),
   );
@@ -97,6 +99,7 @@ void main() {
           key: ValueKey(enabled),
           overrides: featureTestOverrides(db, enabled: enabled),
           child: MaterialApp(
+            theme: testTheme,
             home: Scaffold(
               body: TargetPickerBody(
                 current: const ItemTarget.drops(),

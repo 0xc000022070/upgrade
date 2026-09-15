@@ -20,6 +20,7 @@ import 'package:dazzle/features/tasks/drops_panel.dart';
 import 'package:dazzle/features/tasks/selection_bar.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// A drop typed on this screen stays marked until the user leaves, and the
 /// panel forgets what it stopped drawing, never what it has not drawn yet. The
@@ -71,14 +72,17 @@ void main() {
 
   Widget host() => ProviderScope(
     overrides: [...featureTestOverrides(db)],
-    child: const MaterialApp(home: Scaffold(body: HomeScreen())),
+    child: MaterialApp(
+      theme: testTheme,
+      home: Scaffold(body: HomeScreen()),
+    ),
   );
 
   /// The tab shell, for the door a tab switch opens: leaving HOME without
   /// leaving the route it lives on.
   Widget shell() => ProviderScope(
     overrides: [...featureTestOverrides(db)],
-    child: const MaterialApp(home: DazzleShell()),
+    child: MaterialApp(theme: testTheme, home: DazzleShell()),
   );
 
   Future<void> unmount(WidgetTester tester) async {
@@ -231,6 +235,7 @@ void main() {
     Widget panelHost() => ProviderScope(
       overrides: [...featureTestOverrides(db)],
       child: MaterialApp(
+        theme: testTheme,
         home: Scaffold(
           body: ValueListenableBuilder<AsyncValue<List<Task>>>(
             valueListenable: feed,

@@ -12,6 +12,7 @@ import 'package:dazzle/features/shell/shell_sessions.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 const _rose = Host(
   id: 'h1',
@@ -51,7 +52,7 @@ void main() {
       hostRepositoryProvider.overrideWithValue(hosts),
       shellSessionsProvider.overrideWithValue(sessions),
     ],
-    child: const MaterialApp(home: DazzleShell()),
+    child: MaterialApp(theme: testTheme, home: DazzleShell()),
   );
 
   Future<void> ready(WidgetTester tester) async {

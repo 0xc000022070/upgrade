@@ -14,6 +14,7 @@ import 'package:dazzle/features/ssh/ssh_screen.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 const _rose = Host(
   id: 'h1',
@@ -58,7 +59,7 @@ void main() {
       hostRepositoryProvider.overrideWithValue(hosts),
       shellSessionsProvider.overrideWithValue(sessions),
     ],
-    child: const MaterialApp(home: SshScreen()),
+    child: MaterialApp(theme: testTheme, home: SshScreen()),
   );
 
   /// The background grain runs off a ticker that never settles, so a test that

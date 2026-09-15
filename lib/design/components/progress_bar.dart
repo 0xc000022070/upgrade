@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../motion.dart';
 
 /// A 2px rule that fills. No rounded caps, no gradient, no percentage baked in
@@ -44,12 +44,12 @@ class ProgressBar extends StatelessWidget {
                 children: [
                   Container(
                     height: thickness,
-                    color: DazzleColors.borderNormal,
+                    color: context.tokens.borderNormal,
                   ),
                   Container(
                     height: thickness,
                     width: width,
-                    color: DazzleColors.accent,
+                    color: context.tokens.accent,
                   ),
                   if (head != null)
                     Positioned(

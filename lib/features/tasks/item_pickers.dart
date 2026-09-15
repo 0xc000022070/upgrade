@@ -11,7 +11,7 @@ import '../../design/components/picker_row.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/dazzle_field.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
+import '../../design/tokens.dart';
 
 /// Both pickers are bodies rather than routes: the quick view
 /// swaps its own contents for one of them instead of opening a sheet over a
@@ -63,7 +63,7 @@ class TargetPickerBody extends ConsumerWidget {
               ref.watch(nativeSurfaceOwnerProvider('capture.targets')) == null
                   ? 'Enable Projects in Plugins to file this item into a project.'
                   : 'Create a project in Projects to add a filing destination.',
-              style: DazzleText.rowSubtitle,
+              style: context.tokens.rowSubtitle,
             ),
           ),
         for (final project in [...active, ...paused])
@@ -181,7 +181,7 @@ class _PairPickerBodyState extends ConsumerState<PairPickerBody> {
             padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
             child: Text(
               query.isEmpty ? 'nothing to group with' : 'no match',
-              style: DazzleText.rowSubtitle,
+              style: context.tokens.rowSubtitle,
             ),
           )
         else

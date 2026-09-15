@@ -10,7 +10,7 @@ import '../../data/database.dart';
 import '../../data/enums.dart';
 import '../../data/repositories/path_repository.dart';
 import '../../data/views.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/action_sheet.dart';
 import '../../design/components/list_row.dart';
@@ -24,7 +24,6 @@ import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/sprite.dart';
-import '../../design/typography.dart';
 import '../code/workspace_screen.dart';
 import '../home/capture_bar.dart';
 import '../hosts/hosts_screen.dart';
@@ -184,7 +183,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               Expanded(
                 child: ActionBlock(
                   label: 'DELETE',
-                  tone: DazzleColors.warning,
+                  tone: context.tokens.warning,
                   onTap: () => Navigator.of(context).pop(_GoalAction.delete),
                 ),
               ),
@@ -335,7 +334,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       affordance: PanelAffordance(
                         project.status.name.toUpperCase(),
                         showIcon: false,
-                        color: DazzleColors.warning,
+                        color: context.tokens.warning,
                       ),
                     ),
                   // An objective is optional, and an OBJECTIVE panel
@@ -346,7 +345,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       title: 'OBJECTIVE',
                       child: Text(
                         project.objective,
-                        style: DazzleText.rowTitle,
+                        style: context.tokens.rowTitle,
                         maxLines: 3,
                       ),
                     ),
@@ -676,7 +675,7 @@ class _GoalEditorState extends State<_GoalEditor> {
       child: DazzleField(
         controller: _field,
         autofocus: true,
-        style: DazzleText.rowTitleLead,
+        style: context.tokens.rowTitleLead,
         hint: widget.hint,
         contentPadding: const EdgeInsets.symmetric(vertical: Spacing.sm),
         onSubmitted: (_) => _submit(),
@@ -725,8 +724,8 @@ class _HeroCard extends StatelessWidget {
                     project.description,
                     // With the name gone the description is the whole card, so
                     // it takes the lead row size rather than the subtitle's.
-                    style: DazzleText.rowTitleLead.copyWith(
-                      color: DazzleColors.textSecondary,
+                    style: context.tokens.rowTitleLead.copyWith(
+                      color: context.tokens.textSecondary,
                     ),
                     maxLines: 3,
                   ),
@@ -734,13 +733,13 @@ class _HeroCard extends StatelessWidget {
                 ],
                 Text(
                   '$doneCount OF $totalCount TASKS',
-                  style: DazzleText.label,
+                  style: context.tokens.label,
                 ),
               ],
             ),
           ),
           const SizedBox(width: Spacing.lg),
-          Text('${(ratio * 100).round()}%', style: DazzleText.heroPercent),
+          Text('${(ratio * 100).round()}%', style: context.tokens.heroPercent),
         ],
       ),
     );
@@ -759,18 +758,18 @@ class _NoteRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 2),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
             child: DazzleIcon(
               DazzleIcons.note,
               size: IconSizes.glyph,
-              color: DazzleColors.textDisabled,
+              color: context.tokens.textDisabled,
             ),
           ),
           const SizedBox(width: Spacing.lg),
-          Expanded(child: Text(note.content, style: DazzleText.noteBody)),
+          Expanded(child: Text(note.content, style: context.tokens.noteBody)),
           const SizedBox(width: Spacing.lg),
-          Text(relativeAge(note.createdAt), style: DazzleText.label),
+          Text(relativeAge(note.createdAt), style: context.tokens.label),
         ],
       ),
     );

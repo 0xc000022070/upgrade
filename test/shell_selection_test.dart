@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/features/shell/shell_selection.dart';
@@ -8,6 +8,7 @@ import 'package:dazzle/features/shell/shell_terminal.dart';
 import 'package:xterm/xterm.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// A terminal's geometry with no terminal behind it: square-ish cells on a
 /// grid, and the inset a real surface carries already carried.
@@ -66,18 +67,21 @@ Future<void> _pump(
   required ShellSurface? Function(ShellSession session) surfaceOf,
 }) async {
   await tester.pumpWidget(
-    Directionality(
-      textDirection: TextDirection.ltr,
-      child: MediaQuery(
-        data: const MediaQueryData(size: _screen),
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: _screen.width,
-            height: _screen.height,
-            child: ShellSelectionActions(
-              session: session,
-              surfaceOf: surfaceOf,
+    Theme(
+      data: testTheme,
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: MediaQuery(
+          data: const MediaQueryData(size: _screen),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: _screen.width,
+              height: _screen.height,
+              child: ShellSelectionActions(
+                session: session,
+                surfaceOf: surfaceOf,
+              ),
             ),
           ),
         ),
@@ -155,16 +159,19 @@ void main() {
     final session = _session();
     addTearDown(session.dispose);
     await tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: MediaQuery(
-          data: const MediaQueryData(size: _screen),
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: SizedBox(
-              width: _screen.width,
-              height: _screen.height,
-              child: ShellTerminalView(session: session, fontSize: 12),
+      Theme(
+        data: testTheme,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: MediaQuery(
+            data: const MediaQueryData(size: _screen),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: _screen.width,
+                height: _screen.height,
+                child: ShellTerminalView(session: session, fontSize: 12),
+              ),
             ),
           ),
         ),

@@ -17,6 +17,7 @@ import 'package:dazzle/features/projects/project_detail_screen.dart';
 import 'package:dazzle/features/tasks/drops_panel.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 Future<void> _ready(WidgetTester tester) async {
   for (var i = 0; i < 6; i++) {
@@ -46,7 +47,10 @@ void main() {
 
   Widget host(String projectId) => ProviderScope(
     overrides: [...featureTestOverrides(db)],
-    child: MaterialApp(home: ProjectDetailScreen(projectId: projectId)),
+    child: MaterialApp(
+      theme: testTheme,
+      home: ProjectDetailScreen(projectId: projectId),
+    ),
   );
 
   Future<void> unmount(WidgetTester tester) async {

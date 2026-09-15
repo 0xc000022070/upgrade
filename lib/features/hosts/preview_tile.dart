@@ -4,10 +4,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/host_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/panel.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../screen/host_screen.dart';
 import '../screen/screen_preview.dart';
 
@@ -28,7 +27,7 @@ class ScreenPreviewTile extends ConsumerWidget {
       child: AspectRatio(
         aspectRatio: preview?.aspect ?? 16 / 9,
         child: ColoredBox(
-          color: DazzleColors.backgroundPrimary,
+          color: context.tokens.backgroundPrimary,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -52,7 +51,7 @@ class ScreenPreviewTile extends ConsumerWidget {
                 Center(
                   child: Text(
                     'NO FRAME YET',
-                    style: DazzleText.value.copyWith(fontSize: 11),
+                    style: context.tokens.value.copyWith(fontSize: 11),
                   ),
                 ),
               Positioned(
@@ -61,7 +60,7 @@ class ScreenPreviewTile extends ConsumerWidget {
                 // On its own ground: the label sits over whatever the frame
                 // happens to be, and a light frame swallows muted ink.
                 child: ColoredBox(
-                  color: DazzleColors.backgroundPrimary,
+                  color: context.tokens.backgroundPrimary,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: Spacing.sm,

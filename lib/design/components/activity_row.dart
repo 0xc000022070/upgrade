@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../data/views.dart';
 import '../spacing.dart';
-import '../typography.dart';
+import '../tokens.dart';
 
 /// One line of the audit stream. The mocks set RECENT tighter
 /// than a list: no glyph, no rule, no tap — what changed on the left, where it
@@ -27,8 +27,8 @@ class ActivityRow extends StatelessWidget {
               entry.detail == null
                   ? entry.title
                   : '${entry.title}   ${entry.detail}',
-              style: DazzleText.value.copyWith(
-                color: DazzleText.rowTitle.color,
+              style: context.tokens.value.copyWith(
+                color: context.tokens.rowTitle.color,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -37,7 +37,7 @@ class ActivityRow extends StatelessWidget {
           const SizedBox(width: Spacing.lg),
           Text(
             '${where.toUpperCase()}  $timeLabel',
-            style: DazzleText.label,
+            style: context.tokens.label,
           ),
         ],
       ),

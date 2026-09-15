@@ -1,37 +1,45 @@
 import 'package:flutter/widgets.dart';
 
 import '../../data/enums.dart';
-import '../colors.dart';
+import '../tokens.dart';
 import '../spacing.dart';
-import '../typography.dart';
 
 /// Bordered, never filled: status is information, not a coloured surface
 /// (accent stays sparse).
 class StatusTag extends StatelessWidget {
-  const StatusTag(this.label, {super.key, required this.color});
+  const StatusTag(this.label, {super.key, required Color this.color})
+    : projectStatus = null;
 
-  StatusTag.project(ProjectStatus status, {super.key})
-    : label = status.name.toUpperCase(),
-      color = _projectColors[status]!;
+  const StatusTag.project(ProjectStatus status, {super.key})
+    : label = null,
+      color = null,
+      projectStatus = status;
 
-  final String label;
-  final Color color;
+  /// Set directly, or null when built from [projectStatus] — resolved
+  /// against the live tokens in [build].
+  final String? label;
+  final Color? color;
+  final ProjectStatus? projectStatus;
 
-  static const _projectColors = {
-    ProjectStatus.active: DazzleColors.accent,
-    ProjectStatus.paused: DazzleColors.textSecondary,
-    ProjectStatus.archived: DazzleColors.textDisabled,
-  };
+  static Color _projectColor(DazzleTokens tokens, ProjectStatus status) =>
+      switch (status) {
+        ProjectStatus.active => tokens.accent,
+        ProjectStatus.paused => tokens.textSecondary,
+        ProjectStatus.archived => tokens.textDisabled,
+      };
 
   @override
   Widget build(BuildContext context) {
+    final status = projectStatus;
+    final label = this.label ?? status!.name.toUpperCase();
+    final color = this.color ?? _projectColor(context.tokens, status!);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: 1),
       decoration: BoxDecoration(
         border: Border.all(color: color, width: Borders.hairline),
         borderRadius: BorderRadius.circular(Radii.sharp),
       ),
-      child: Text(label, style: DazzleText.label.copyWith(color: color)),
+      child: Text(label, style: context.tokens.label.copyWith(color: color)),
     );
   }
 }

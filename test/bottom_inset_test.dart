@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/features/home/capture_bar.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// The capture and selection bars are the last thing above the system gesture
 /// area on a screen that pins nothing under them, and on device the pill was
@@ -26,6 +27,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        theme: testTheme,
         home: Builder(
           builder: (context) => MediaQuery(
             data: MediaQuery.of(context)

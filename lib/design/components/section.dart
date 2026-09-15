@@ -1,9 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../spacing.dart';
-import '../typography.dart';
 import 'dither_field.dart';
 import 'dot_spinner.dart';
 
@@ -22,7 +21,7 @@ class EmptyState extends StatelessWidget {
       child: DitherField(
         child: Align(
           alignment: Alignment.centerLeft,
-          child: Text(label.toUpperCase(), style: DazzleText.label),
+          child: Text(label.toUpperCase(), style: context.tokens.label),
         ),
       ),
     );
@@ -51,7 +50,7 @@ class AsyncSection<T> extends StatelessWidget {
       loading: () => const DelayedSpinner(),
       error: (error, _) => Text(
         'error: $error',
-        style: DazzleText.value.copyWith(color: DazzleColors.danger),
+        style: context.tokens.value.copyWith(color: context.tokens.danger),
       ),
       data: (data) {
         final blank = isEmpty?.call(data) ?? (data is List && data.isEmpty);

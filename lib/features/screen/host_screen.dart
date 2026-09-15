@@ -7,10 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/agents.dart';
 import '../../application/clips.dart';
 import '../../data/repositories/host_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/panel.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../../platform/gallery.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/vnc/vnc_tunnel.dart';
@@ -168,10 +167,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
               .add(png, source: ClipSource.screen, hostName: widget.host.name);
           _say(heldNotice(clip));
         case CropTarget.save:
-          await widget.save(
-            png,
-            'dazzle-${DateTime.now().toIso8601String()}',
-          );
+          await widget.save(png, 'dazzle-${DateTime.now().toIso8601String()}');
           _say(savedNotice(rect.width, rect.height));
       }
     } catch (error) {
@@ -191,7 +187,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: context.tokens.mediaBackdrop,
       // The strip rides up with the keyboard rather than being covered by it.
       resizeToAvoidBottomInset: true,
       body: SafeArea(
@@ -298,7 +294,7 @@ class _Crumb extends StatelessWidget {
               onTap: onBack,
               child: Text(
                 '/ ${host.name.toUpperCase()} SCREEN',
-                style: DazzleText.breadcrumb,
+                style: context.tokens.breadcrumb,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -315,7 +311,7 @@ class _Crumb extends StatelessWidget {
             Text(
               notice!,
               key: const ValueKey('crop-notice'),
-              style: DazzleText.panelHeader,
+              style: context.tokens.panelHeader,
             ),
           ],
         ],
@@ -335,7 +331,7 @@ class _State extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (controller.phase) {
       case ScreenConnecting():
-        return const Text('CONNECTING', style: DazzleText.panelHeader);
+        return Text('CONNECTING', style: context.tokens.panelHeader);
       case ScreenLive():
         // Unreachable from [_Crumb], which does not build this while live.
         return const SizedBox.shrink();
@@ -345,8 +341,8 @@ class _State extends StatelessWidget {
           children: [
             Text(
               reason,
-              style: DazzleText.panelHeader.copyWith(
-                color: DazzleColors.warning,
+              style: context.tokens.panelHeader.copyWith(
+                color: context.tokens.warning,
               ),
             ),
             const SizedBox(width: Spacing.lg),
@@ -379,7 +375,7 @@ class _Body extends StatelessWidget {
           // A live connection with nothing decoded yet is still waiting on its
           // first update, which reads the same as dialling.
           ScreenConnecting() || ScreenLive() => 'CONNECTING',
-        }, style: DazzleText.panelHeader),
+        }, style: context.tokens.panelHeader),
       );
     }
     return FramebufferView(

@@ -2,7 +2,7 @@ import 'dart:ui' show PointMode;
 
 import 'package:flutter/widgets.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 
 /// Empty space is filled with an ordered-dither dot field, not
 /// left blank. Bayer thresholds give a fixed, non-random pattern, which is what
@@ -16,14 +16,18 @@ class DitherField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(painter: _DitherPainter(level), child: child);
+    return CustomPaint(
+      painter: _DitherPainter(level, context.tokens.textMuted),
+      child: child,
+    );
   }
 }
 
 class _DitherPainter extends CustomPainter {
-  const _DitherPainter(this.level);
+  const _DitherPainter(this.level, this.dotColor);
 
   final int level;
+  final Color dotColor;
 
   static const _bayer = [
     [0, 8, 2, 10],
@@ -51,12 +55,13 @@ class _DitherPainter extends CustomPainter {
       PointMode.points,
       points,
       Paint()
-        ..color = DazzleColors.textMuted.withValues(alpha: 0.25)
+        ..color = dotColor.withValues(alpha: 0.25)
         ..strokeWidth = _dot
         ..strokeCap = StrokeCap.square,
     );
   }
 
   @override
-  bool shouldRepaint(_DitherPainter oldDelegate) => oldDelegate.level != level;
+  bool shouldRepaint(_DitherPainter oldDelegate) =>
+      oldDelegate.level != level || oldDelegate.dotColor != dotColor;
 }

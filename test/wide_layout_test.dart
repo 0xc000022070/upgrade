@@ -21,6 +21,7 @@ import 'package:dazzle/features/home/home_screen.dart';
 import 'package:dazzle/features/screen_scaffold.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// faraday folds mid-session, and the two halves of the requirement pull in
 /// opposite directions: the layout has to change with the width, and nothing
@@ -61,7 +62,7 @@ void main() {
 
   Widget host(Widget child) => ProviderScope(
     overrides: [...featureTestOverrides(db)],
-    child: MaterialApp(home: child),
+    child: MaterialApp(theme: testTheme, home: child),
   );
 
   Future<void> unmount(WidgetTester tester) async {

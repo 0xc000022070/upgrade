@@ -7,10 +7,9 @@ import '../application/fresh_drops.dart';
 import '../application/navigation.dart';
 import '../application/native_plugins.dart';
 import '../application/plugin_placements.dart';
-import '../design/colors.dart';
+import '../design/tokens.dart';
 import '../design/effects/screen_entry.dart';
 import '../design/theme.dart';
-import '../design/typography.dart';
 import '../features/agents/agent_status_bar.dart';
 import '../features/home/home_screen.dart';
 import '../features/hosts/hosts_screen.dart';
@@ -35,12 +34,12 @@ Widget _pluginPage(PluginPageRegistration page) => page.native
 /// the window is edge-to-edge, so the scaffold behind them is what the user
 /// sees and only the icon brightness has to be declared.
 const _systemBars = SystemUiOverlayStyle(
-  statusBarColor: Color(0x00000000),
+  statusBarColor: Colors.transparent,
   statusBarIconBrightness: Brightness.light,
   statusBarBrightness: Brightness.dark,
-  systemNavigationBarColor: Color(0x00000000),
+  systemNavigationBarColor: Colors.transparent,
   systemNavigationBarIconBrightness: Brightness.light,
-  systemNavigationBarDividerColor: Color(0x00000000),
+  systemNavigationBarDividerColor: Colors.transparent,
 );
 
 /// What text is drawn with where nothing above it has said.
@@ -52,7 +51,7 @@ const _systemBars = SystemUiOverlayStyle(
 /// answer of its own, and this is where it is given — over the navigator, so
 /// every route is under it.
 Widget houseText(BuildContext context, Widget? child) =>
-    DefaultTextStyle(style: DazzleText.prose, child: child!);
+    DefaultTextStyle(style: context.tokens.prose, child: child!);
 
 class DazzleApp extends StatelessWidget {
   const DazzleApp({super.key, this.boot = const []});
@@ -154,7 +153,7 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
           // screen in front of the user, never on a background tab.
           onTick: () => glitch.fire(ref.read(navIndexProvider)),
           child: Scaffold(
-            backgroundColor: DazzleColors.backgroundPrimary,
+            backgroundColor: context.tokens.backgroundPrimary,
             resizeToAvoidBottomInset: true,
             body: StaticSurface(
               child: IndexedStack(

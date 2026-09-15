@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/repositories/host_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel_sheet.dart';
@@ -12,7 +12,6 @@ import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/motion.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../../platform/shell/shell_connection.dart';
 import 'shell_sessions.dart';
 import 'shell_status.dart';
@@ -227,8 +226,8 @@ class _ShellHeaderState extends State<ShellHeader> {
     return Container(
       key: const ValueKey('shell-header'),
       height: _headerHeight,
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: DazzleColors.borderSubtle)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: context.tokens.borderSubtle)),
       ),
       child: Row(
         children: [
@@ -257,26 +256,32 @@ class _ShellHeaderState extends State<ShellHeader> {
                     ),
                   if (widget.newHosts.isNotEmpty)
                     MenuAnchor(
-                      style: const MenuStyle(
+                      style: MenuStyle(
                         backgroundColor: WidgetStatePropertyAll(
-                          DazzleColors.surfaceSecondary,
+                          context.tokens.surfaceSecondary,
                         ),
-                        surfaceTintColor: WidgetStatePropertyAll(
-                          Color(0x00000000),
+                        surfaceTintColor: const WidgetStatePropertyAll(
+                          Colors.transparent,
                         ),
-                        shadowColor: WidgetStatePropertyAll(Color(0x00000000)),
-                        elevation: WidgetStatePropertyAll(0),
-                        padding: WidgetStatePropertyAll(
+                        shadowColor: const WidgetStatePropertyAll(
+                          Colors.transparent,
+                        ),
+                        elevation: const WidgetStatePropertyAll(0),
+                        padding: const WidgetStatePropertyAll(
                           EdgeInsets.all(Spacing.sm),
                         ),
-                        minimumSize: WidgetStatePropertyAll(Size(200, 0)),
-                        maximumSize: WidgetStatePropertyAll(Size(280, 360)),
+                        minimumSize: const WidgetStatePropertyAll(Size(200, 0)),
+                        maximumSize: const WidgetStatePropertyAll(
+                          Size(280, 360),
+                        ),
                         shape: WidgetStatePropertyAll(
                           RoundedRectangleBorder(
-                            borderRadius: BorderRadius.all(
+                            borderRadius: const BorderRadius.all(
                               Radius.circular(Radii.sharp),
                             ),
-                            side: BorderSide(color: DazzleColors.borderNormal),
+                            side: BorderSide(
+                              color: context.tokens.borderNormal,
+                            ),
                           ),
                         ),
                       ),
@@ -303,25 +308,22 @@ class _ShellHeaderState extends State<ShellHeader> {
                             ),
                             child: Row(
                               children: [
-                                const DazzleIcon(
+                                DazzleIcon(
                                   DazzleIcons.hosts,
                                   size: IconSizes.glyph,
-                                  color: DazzleColors.textMuted,
+                                  color: context.tokens.textMuted,
                                 ),
                                 const SizedBox(width: Spacing.md),
                                 Expanded(
                                   child: Text(
                                     host.name.toUpperCase(),
-                                    style: DazzleText.rowTitle,
+                                    style: context.tokens.rowTitle,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 if (host.id == widget.host.id)
-                                  const Text(
-                                    'CURRENT',
-                                    style: DazzleText.label,
-                                  ),
+                                  Text('CURRENT', style: context.tokens.label),
                               ],
                             ),
                           ),
@@ -378,7 +380,9 @@ class _HostCell extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: _hostMaxWidth),
       child: Text(
         name.toUpperCase(),
-        style: DazzleText.panelHeader.copyWith(color: DazzleColors.textPrimary),
+        style: context.tokens.panelHeader.copyWith(
+          color: context.tokens.textPrimary,
+        ),
         maxLines: 1,
         softWrap: false,
         overflow: TextOverflow.ellipsis,
@@ -394,10 +398,10 @@ class _HostCell extends StatelessWidget {
         children: [
           label,
           const SizedBox(width: Spacing.sm),
-          const DazzleIcon(
+          DazzleIcon(
             DazzleIcons.expand,
             size: IconSizes.affordance,
-            color: DazzleColors.textDisabled,
+            color: context.tokens.textDisabled,
           ),
         ],
       ),
@@ -432,7 +436,7 @@ class _Middle extends StatelessWidget {
     return _TabCell(
       key: const ValueKey('shell-tab-info'),
       label: '(i)',
-      tint: DazzleColors.warning,
+      tint: context.tokens.warning,
       onTap: () => _open(context, session),
     );
   }
@@ -465,7 +469,7 @@ class _Middle extends StatelessWidget {
                     subtitle: _stateWord(state),
                     subtitleColor: state is ShellLive
                         ? null
-                        : DazzleColors.warning,
+                        : context.tokens.warning,
                   ),
                   ListRow(
                     key: const ValueKey('shell-info-transport'),
@@ -574,8 +578,8 @@ class _ShellReasonRowState extends State<ShellReasonRow> {
                   Expanded(
                     child: Text(
                       widget.kind.line.on(widget.host.name),
-                      style: DazzleText.panelHeader.copyWith(
-                        color: DazzleColors.warning,
+                      style: context.tokens.panelHeader.copyWith(
+                        color: context.tokens.warning,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -585,7 +589,7 @@ class _ShellReasonRowState extends State<ShellReasonRow> {
                     DazzleIcon(
                       _open ? DazzleIcons.collapse : DazzleIcons.expand,
                       size: 12,
-                      color: DazzleColors.textMuted,
+                      color: context.tokens.textMuted,
                     ),
                 ],
               ),
@@ -609,9 +613,9 @@ class _ReasonDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: DazzleColors.surfacePrimary,
-        border: Border(top: BorderSide(color: DazzleColors.borderSubtle)),
+      decoration: BoxDecoration(
+        color: context.tokens.surfacePrimary,
+        border: Border(top: BorderSide(color: context.tokens.borderSubtle)),
       ),
       padding: const EdgeInsets.fromLTRB(
         Spacing.screenEdge,
@@ -626,7 +630,7 @@ class _ReasonDetail extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: _detailHeight),
               child: SingleChildScrollView(
-                child: Text(detail, style: DazzleText.rowSubtitle),
+                child: Text(detail, style: context.tokens.rowSubtitle),
               ),
             ),
           ),
@@ -685,9 +689,9 @@ class _TabCell extends StatelessWidget {
     final tint =
         this.tint ??
         switch ((active, dimmed)) {
-          (true, _) => DazzleColors.accent,
-          (false, true) => DazzleColors.textDisabled,
-          (false, false) => DazzleColors.textMuted,
+          (true, _) => context.tokens.accent,
+          (false, true) => context.tokens.textDisabled,
+          (false, false) => context.tokens.textMuted,
         };
     final label = this.label;
     return GestureDetector(
@@ -705,10 +709,12 @@ class _TabCell extends StatelessWidget {
           // The underline is the whole of what marks the active tab beyond its
           // ink: a filled cell would read as a button, and these are tabs.
           border: Border(
-            bottom: BorderSide(
-              color: active ? DazzleColors.accent : const Color(0x00000000),
-              width: Borders.hairline * 2,
-            ),
+            bottom: active
+                ? BorderSide(
+                    color: context.tokens.accent,
+                    width: Borders.hairline * 2,
+                  )
+                : BorderSide.none,
           ),
         ),
         child: Row(
@@ -729,7 +735,7 @@ class _TabCell extends StatelessWidget {
                 constraints: const BoxConstraints(maxWidth: _tabMaxWidth),
                 child: Text(
                   label!,
-                  style: DazzleText.panelHeader.copyWith(color: tint),
+                  style: context.tokens.panelHeader.copyWith(color: tint),
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.ellipsis,

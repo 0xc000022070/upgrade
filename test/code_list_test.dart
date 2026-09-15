@@ -14,6 +14,7 @@ import 'package:dazzle/features/projects/projects_screen.dart';
 import 'package:dazzle/platform/keys.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// CODE: the registered directories as a primitive of their own.
 ///
@@ -91,7 +92,7 @@ void main() {
         ),
       ),
     ],
-    child: const MaterialApp(home: ProjectsScreen()),
+    child: MaterialApp(theme: testTheme, home: ProjectsScreen()),
   );
 
   Future<void> ready(WidgetTester tester) async {

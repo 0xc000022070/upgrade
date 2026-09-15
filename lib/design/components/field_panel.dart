@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../spacing.dart';
-import '../typography.dart';
 import 'panel.dart';
 import 'dazzle_field.dart';
 
@@ -137,21 +136,21 @@ class _Choice extends StatelessWidget {
         height: TapTargets.minHeight - Spacing.md,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? DazzleColors.accent : null,
+          color: selected ? context.tokens.accent : null,
           border: Border.all(
             color: selected
-                ? DazzleColors.accent
-                : DazzleColors.borderNormal,
+                ? context.tokens.accent
+                : context.tokens.borderNormal,
             width: Borders.hairline,
           ),
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
         child: Text(
           label.toUpperCase(),
-          style: DazzleText.label.copyWith(
+          style: context.tokens.label.copyWith(
             color: selected
-                ? DazzleColors.backgroundPrimary
-                : DazzleColors.textSecondary,
+                ? context.tokens.backgroundPrimary
+                : context.tokens.textSecondary,
           ),
         ),
       ),

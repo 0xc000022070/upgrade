@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agent_state.dart';
@@ -8,6 +8,8 @@ import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/features/agents/agent_status_bar.dart';
 import 'package:dazzle/platform/herdr_client.dart';
+
+import 'support/themed_app.dart';
 
 const nyx = Host(
   id: 'a',
@@ -75,17 +77,21 @@ Future<void> pumpBar(
           (ref) => Stream.value(AgentPanelState(outcomes)),
         ),
       ],
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: scaler == null
-            ? bar
-            : Builder(
-                builder: (context) => MediaQuery(
-                  data: MediaQuery.of(context)
-                      .copyWith(textScaler: scaler, size: const Size(400, 800)),
-                  child: bar,
+      child: Theme(
+        data: testTheme,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: scaler == null
+              ? bar
+              : Builder(
+                  builder: (context) => MediaQuery(
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(textScaler: scaler, size: const Size(400, 800)),
+                    child: bar,
+                  ),
                 ),
-              ),
+        ),
       ),
     ),
   );
@@ -298,13 +304,16 @@ void main() {
             ),
           ),
         ],
-        child: Directionality(
-          textDirection: TextDirection.ltr,
-          child: Consumer(
-            builder: (context, ref, _) {
-              container = ProviderScope.containerOf(context);
-              return const AgentStatusBar();
-            },
+        child: Theme(
+          data: testTheme,
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: Consumer(
+              builder: (context, ref, _) {
+                container = ProviderScope.containerOf(context);
+                return const AgentStatusBar();
+              },
+            ),
           ),
         ),
       ),

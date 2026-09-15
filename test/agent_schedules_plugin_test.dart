@@ -9,6 +9,8 @@ import 'package:dazzle_luau/ui_sdk.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/themed_app.dart';
+
 PluginPackage schedulePackage() => PluginPackage(
   manifest: PluginManifest.parse(
     File('plugins/agent-schedules/dazzle.plugin.toml').readAsStringSync(),
@@ -261,6 +263,7 @@ void main() {
       final values = <String, Object?>{};
       final events = <Map<String, Object?>>[];
       Widget screen() => MaterialApp(
+        theme: testTheme,
         home: Scaffold(
           body: PluginUi(node: app.view, values: values, onEvent: events.add),
         ),

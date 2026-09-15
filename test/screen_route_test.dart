@@ -25,6 +25,7 @@ import 'package:dazzle/platform/vnc/vnc_tunnel.dart';
 import 'package:dazzle/platform/host_keys.dart';
 
 import 'support/vnc_channel.dart';
+import 'support/themed_app.dart';
 
 const _nyx = Host(
   id: 'h1',
@@ -105,6 +106,7 @@ Future<void> pumpRoute(
     ProviderScope(
       overrides: [privateKeyStoreProvider.overrideWithValue(store)],
       child: MaterialApp(
+        theme: testTheme,
         home: Builder(
           builder: (context) => MediaQuery(
             data: MediaQuery.of(context).copyWith(
@@ -641,6 +643,7 @@ void main() {
       ProviderScope(
         overrides: [privateKeyStoreProvider.overrideWithValue(store)],
         child: MaterialApp(
+          theme: testTheme,
           home: Builder(
             builder: (context) => TextButton(
               onPressed: () => Navigator.of(context).push(

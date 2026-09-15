@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/attachment_files.dart';
 import '../../application/native_plugins.dart';
+import '../../design/tokens.dart';
 
 /// Black, pinch to zoom, back to close. A route rather than a
 /// dialog — this is the one surface in the app that wants the whole screen,
@@ -13,7 +14,7 @@ Future<void> openImageViewer(BuildContext context, String relative) {
   return Navigator.of(context, rootNavigator: true).push(
     PageRouteBuilder<void>(
       opaque: true,
-      barrierColor: const Color(0xFF000000),
+      barrierColor: context.tokens.mediaBackdrop,
       pageBuilder: (_, _, _) => inheritPluginScope(
         context,
         _ImageViewer(relative: relative),
@@ -32,7 +33,7 @@ class _ImageViewer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final path = ref.read(attachmentFilesProvider).absolute(relative);
     return ColoredBox(
-      color: const Color(0xFF000000),
+      color: context.tokens.mediaBackdrop,
       child: GestureDetector(
         // Tap closes as well as back: a viewer with no chrome has to say yes to
         // the gesture a user will try first.

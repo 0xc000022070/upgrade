@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:xterm/xterm.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/typography.dart';
 
 /// How often the miniature is allowed to catch up with the terminal under it.
@@ -103,12 +103,15 @@ class _ShellThumbnailState extends State<ShellThumbnail> {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF000000),
-        border: Border.all(color: DazzleColors.borderSubtle),
+        color: context.tokens.mediaBackdrop,
+        border: Border.all(color: context.tokens.borderSubtle),
       ),
       child: ClipRect(
         child: CustomPaint(
-          painter: ShellThumbnailPainter(lines: _lines),
+          painter: ShellThumbnailPainter(
+            lines: _lines,
+            textColor: context.tokens.textPrimary,
+          ),
           size: Size.infinite,
         ),
       ),
@@ -123,9 +126,10 @@ class _ShellThumbnailState extends State<ShellThumbnail> {
 /// Nothing is scaled to make a full line fit: the size is what makes the text
 /// readable, so a line wider than the card is cut by its edge instead.
 class ShellThumbnailPainter extends CustomPainter {
-  const ShellThumbnailPainter({required this.lines});
+  const ShellThumbnailPainter({required this.lines, required this.textColor});
 
   final List<String> lines;
+  final Color textColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -139,10 +143,10 @@ class ShellThumbnailPainter extends CustomPainter {
       final painter = TextPainter(
         text: TextSpan(
           text: line,
-          style: const TextStyle(
-            color: DazzleColors.textPrimary,
+          style: TextStyle(
+            color: textColor,
             fontFamily: FontFamilies.mono,
-            fontFamilyFallback: [FontFamilies.monoSymbols],
+            fontFamilyFallback: const [FontFamilies.monoSymbols],
             fontSize: thumbnailFontSize,
             height: 1,
           ),
@@ -156,5 +160,5 @@ class ShellThumbnailPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(ShellThumbnailPainter old) =>
-      !listEquals(old.lines, lines);
+      !listEquals(old.lines, lines) || old.textColor != textColor;
 }

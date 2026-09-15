@@ -4,10 +4,12 @@ library;
 
 import 'dart:ui' as ui;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/features/shell/shell_thumbnail.dart';
 import 'package:xterm/xterm.dart';
+
+import 'support/themed_app.dart';
 
 Terminal terminalShowing(List<String> lines, {int rows = 4, int columns = 20}) {
   final terminal = Terminal(maxLines: 100);
@@ -30,13 +32,16 @@ ShellThumbnailPainter painterOf(WidgetTester tester) =>
 
 Future<void> pumpThumbnail(WidgetTester tester, Terminal terminal) =>
     tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: Center(
-          child: SizedBox(
-            width: 160,
-            height: 110,
-            child: ShellThumbnail(terminal: terminal),
+      Theme(
+        data: testTheme,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: SizedBox(
+              width: 160,
+              height: 110,
+              child: ShellThumbnail(terminal: terminal),
+            ),
           ),
         ),
       ),
@@ -160,14 +165,36 @@ void main() {
 
   group('the painter', () {
     test('repaints for new lines, nothing else', () {
-      const painter = ShellThumbnailPainter(lines: ['one']);
+      const painter = ShellThumbnailPainter(
+        lines: ['one'],
+        textColor: Color(0xFFFFFFFF),
+      );
 
       expect(
-        painter.shouldRepaint(const ShellThumbnailPainter(lines: ['one'])),
+        painter.shouldRepaint(
+          const ShellThumbnailPainter(
+            lines: ['one'],
+            textColor: Color(0xFFFFFFFF),
+          ),
+        ),
         isFalse,
       );
       expect(
-        painter.shouldRepaint(const ShellThumbnailPainter(lines: ['two'])),
+        painter.shouldRepaint(
+          const ShellThumbnailPainter(
+            lines: ['two'],
+            textColor: Color(0xFFFFFFFF),
+          ),
+        ),
+        isTrue,
+      );
+      expect(
+        painter.shouldRepaint(
+          const ShellThumbnailPainter(
+            lines: ['one'],
+            textColor: Color(0xFF000000),
+          ),
+        ),
         isTrue,
       );
     });
@@ -177,9 +204,15 @@ void main() {
     ) async {
       const card = Size(160, 110);
       final recorder = ui.PictureRecorder();
-      const ShellThumbnailPainter(lines: ['x']).paint(Canvas(recorder), card);
+      const ShellThumbnailPainter(
+        lines: ['x'],
+        textColor: Color(0xFFFFFFFF),
+      ).paint(Canvas(recorder), card);
       final wide = ui.PictureRecorder();
-      ShellThumbnailPainter(lines: ['x' * 400]).paint(Canvas(wide), card);
+      ShellThumbnailPainter(
+        lines: ['x' * 400],
+        textColor: const Color(0xFFFFFFFF),
+      ).paint(Canvas(wide), card);
 
       final picture = wide.endRecording();
       final image = picture.toImageSync(300, card.height.round());

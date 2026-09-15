@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../application/native_plugins.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../layout.dart';
 import '../motion.dart';
 import '../spacing.dart';
-import '../typography.dart';
 import 'action_block.dart';
 import 'keyboard_toolbar.dart';
 import 'meta.dart';
@@ -75,7 +74,7 @@ Future<bool> confirmSheet(
       title: title,
       children: [
         if (message != null) ...[
-          Text(message, style: DazzleText.prose),
+          Text(message, style: context.tokens.prose),
           const SizedBox(height: Spacing.md),
         ],
         Row(
@@ -90,7 +89,7 @@ Future<bool> confirmSheet(
             Expanded(
               child: ActionBlock(
                 label: confirmLabel,
-                tone: DazzleColors.accent,
+                tone: context.tokens.accent,
                 filled: true,
                 onTap: () => Navigator.of(context).pop(true),
               ),
@@ -192,7 +191,7 @@ class SheetRule extends StatelessWidget {
     return Container(
       height: Borders.hairline,
       margin: const EdgeInsets.symmetric(vertical: Spacing.md),
-      color: DazzleColors.borderSubtle,
+      color: context.tokens.borderSubtle,
     );
   }
 }

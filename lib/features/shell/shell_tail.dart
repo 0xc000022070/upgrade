@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/motion.dart';
@@ -99,8 +99,8 @@ class _ShellTailCellState extends State<ShellTailCell> {
         padding: const EdgeInsets.all(Spacing.md),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: DazzleColors.surfacePrimary,
-            border: Border.all(color: DazzleColors.borderSubtle),
+            color: context.tokens.surfacePrimary,
+            border: Border.all(color: context.tokens.borderSubtle),
           ),
           child: SizedBox(
             height: RowMetrics.minHeight,

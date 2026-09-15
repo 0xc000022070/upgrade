@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/agents.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/path_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
@@ -19,7 +19,6 @@ import '../../design/components/section.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../../platform/workspace/workspace_model.dart';
 
 import 'diff_jump.dart';
@@ -418,14 +417,14 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
         children: [
           Text(
             loading ? 'loading…' : source?.subject ?? 'uncommitted changes',
-            style: DazzleText.rowTitleLead,
+            style: context.tokens.rowTitleLead,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: Spacing.sm),
           Text(
             under.join('  ·  '),
-            style: DazzleText.rowSubtitle,
+            style: context.tokens.rowSubtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -541,9 +540,9 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
                           literalTitle: true,
                           subtitle: file.origin,
                           titleColor: file.path == _file?.path
-                              ? DazzleColors.accent
+                              ? context.tokens.accent
                               : null,
-                          valueSpans: fileCountSpans(file),
+                          valueSpans: fileCountSpans(context, file),
                           onTap: () => _pick(file),
                         ),
                     ],
@@ -577,7 +576,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
                       key: const ValueKey('diff-source-tree'),
                       title: 'WORKING TREE',
                       titleColor: _source == null
-                          ? DazzleColors.accent
+                          ? context.tokens.accent
                           : null,
                       value: _dirtyWord(),
                       onTap: () => _select(null),
@@ -592,7 +591,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
                           title: commit.subject,
                           subtitle: '${commit.author} · ${commit.age}',
                           titleColor: commit.sha == _source?.sha
-                              ? DazzleColors.accent
+                              ? context.tokens.accent
                               : null,
                           onTap: () => _select(commit),
                         ),
@@ -653,8 +652,8 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
           label: 'PREV',
           onTap: before == null ? null : () => _pick(before),
           tone: before == null
-              ? DazzleColors.textDisabled
-              : DazzleColors.textSecondary,
+              ? context.tokens.textDisabled
+              : context.tokens.textSecondary,
         ),
         const SizedBox(width: Spacing.md),
         ActionBlock(
@@ -662,8 +661,8 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
           label: 'NEXT',
           onTap: after == null ? null : () => _pick(after),
           tone: after == null
-              ? DazzleColors.textDisabled
-              : DazzleColors.textSecondary,
+              ? context.tokens.textDisabled
+              : context.tokens.textSecondary,
         ),
         // Wider than the gap between the two file steps, because it is the gap
         // between two walks: the pair on the left leaves the file and the one
@@ -674,8 +673,8 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
           label: 'HUNK',
           onTap: hunks > 1 ? _walkHunk : null,
           tone: hunks > 1
-              ? DazzleColors.textSecondary
-              : DazzleColors.textDisabled,
+              ? context.tokens.textSecondary
+              : context.tokens.textDisabled,
         ),
         const Spacer(),
         if (at >= 0)
@@ -684,8 +683,8 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
             // under three verbs is a count of whichever of them the reader
             // guesses it belongs to.
             'FILE ${at + 1} / ${files.length}',
-            style: DazzleText.value.copyWith(
-              color: DazzleColors.textMuted,
+            style: context.tokens.value.copyWith(
+              color: context.tokens.textMuted,
             ),
           ),
       ],
@@ -703,7 +702,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
           key: const ValueKey('diff-copy-line'),
           label: 'COPY',
           filled: true,
-          tone: DazzleColors.accent,
+          tone: context.tokens.accent,
           onTap: () async {
             // The line as the file has it, not as the pane drew it: the tabs
             // the pane opened out are the file's tabs, and a hunk header is
@@ -727,8 +726,8 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
             line.kind == DiffLineKind.removed
                 ? 'WAS LINE $number'
                 : 'LINE $number',
-            style: DazzleText.value.copyWith(
-              color: DazzleColors.textMuted,
+            style: context.tokens.value.copyWith(
+              color: context.tokens.textMuted,
             ),
           ),
       ],
@@ -816,14 +815,14 @@ class _Rail extends StatelessWidget {
             return Stack(
               children: [
                 Positioned.fill(
-                  child: ColoredBox(color: DazzleColors.borderSubtle),
+                  child: ColoredBox(color: context.tokens.borderSubtle),
                 ),
                 Positioned(
                   left: travelled * (room - thumb),
                   width: thumb,
                   top: 0,
                   bottom: 0,
-                  child: const ColoredBox(color: DazzleColors.textDisabled),
+                  child: ColoredBox(color: context.tokens.textDisabled),
                 ),
               ],
             );
@@ -851,23 +850,23 @@ class _Stat extends StatelessWidget {
         if (files case final count?) ...[
           Text(
             '$count ${count == 1 ? 'FILE' : 'FILES'}',
-            style: DazzleText.panelHeader.copyWith(
-              color: DazzleColors.textMuted,
+            style: context.tokens.panelHeader.copyWith(
+              color: context.tokens.textMuted,
             ),
           ),
           const SizedBox(width: Spacing.lg),
         ],
         Text.rich(
-          _countSpan('+$added', DazzleColors.accent, added),
-          style: DazzleText.panelHeader.copyWith(
-            color: DazzleColors.textMuted,
+          _countSpan('+$added', context.tokens.accent, added),
+          style: context.tokens.panelHeader.copyWith(
+            color: context.tokens.textMuted,
           ),
         ),
         const SizedBox(width: Spacing.md),
         Text.rich(
-          _countSpan('−$removed', DazzleColors.warning, removed),
-          style: DazzleText.panelHeader.copyWith(
-            color: DazzleColors.textMuted,
+          _countSpan('−$removed', context.tokens.warning, removed),
+          style: context.tokens.panelHeader.copyWith(
+            color: context.tokens.textMuted,
           ),
         ),
       ],
@@ -916,8 +915,9 @@ class _DiffBody extends StatefulWidget {
   /// a row sized for the small one would cut the top and bottom off every line
   /// of the file and put every jump on the wrong row.
   static double rowHeight(BuildContext context) =>
-      MediaQuery.textScalerOf(context).scale(DazzleText.noteBody.fontSize!) *
-          DazzleText.noteBody.height! +
+      MediaQuery.textScalerOf(context)
+              .scale(context.tokens.noteBody.fontSize!) *
+          context.tokens.noteBody.height! +
       _linePadding * 2;
 
   static const _linePadding = 1.0;
@@ -1199,11 +1199,11 @@ const _tabStop = 8;
 /// size itself to a child it has not built.
 double _charAdvance(BuildContext context) {
   final scaler = MediaQuery.textScalerOf(context);
-  final size = scaler.scale(DazzleText.noteBody.fontSize!);
+  final size = scaler.scale(context.tokens.noteBody.fontSize!);
   final known = _advance;
   if (known != null && _advanceAt == size) return known;
   final painter = TextPainter(
-    text: const TextSpan(text: _ruler, style: DazzleText.noteBody),
+    text: TextSpan(text: _ruler, style: context.tokens.noteBody),
     textDirection: TextDirection.ltr,
     textScaler: scaler,
   )..layout();
@@ -1267,53 +1267,37 @@ class _DiffRow extends StatelessWidget {
   static double lead(double gutter, double advance) =>
       gutter * 2 + Spacing.md * 3 + Borders.hairline + advance + Spacing.sm;
 
-  /// The accent and the danger red at the weight a whole line can carry — the
-  /// hue says which side the line is on, and the text stays readable over it.
-  static const _addedGround = Color(0x1AB7FF2A);
-  static const _removedGround = Color(0x1FB84A4A);
-
-  /// The same two hues again, over the run that actually changed. A whole-line
-  /// ground says the line is on one side of the change; this says which of its
-  /// words put it there, and it has to be readable over the ground it sits on.
-  /// The warning amber at the weight the two sides carry theirs, so the row
-  /// that ends a cut file reads as one of this body's own rows and not as a
-  /// banner dropped on top of it.
-  static const _cappedGround = Color(0x1FD6A34B);
-
-  static const _addedRun = Color(0x40B7FF2A);
-  static const _removedRun = Color(0x4DB84A4A);
-
   @override
   Widget build(BuildContext context) {
     final (marker, text, mark, ground) = switch (line.kind) {
       DiffLineKind.added => (
         '+',
-        DazzleColors.textPrimary,
-        DazzleColors.accent,
-        _addedGround,
+        context.tokens.textPrimary,
+        context.tokens.accent,
+        context.tokens.diffAddedGround,
       ),
       DiffLineKind.removed => (
         '−',
-        DazzleColors.textSecondary,
-        DazzleColors.danger,
-        _removedGround,
+        context.tokens.textSecondary,
+        context.tokens.danger,
+        context.tokens.diffRemovedGround,
       ),
       DiffLineKind.hunk => (
         ' ',
-        DazzleColors.textMuted,
-        DazzleColors.textDisabled,
-        DazzleColors.surfacePrimary,
+        context.tokens.textMuted,
+        context.tokens.textDisabled,
+        context.tokens.surfacePrimary,
       ),
       DiffLineKind.meta => (
         ' ',
-        DazzleColors.textDisabled,
-        DazzleColors.textDisabled,
+        context.tokens.textDisabled,
+        context.tokens.textDisabled,
         null,
       ),
       DiffLineKind.context => (
         ' ',
-        DazzleColors.textSecondary,
-        DazzleColors.textDisabled,
+        context.tokens.textSecondary,
+        context.tokens.textDisabled,
         null,
       ),
       // The one row that is not the file. It says the reading stopped short,
@@ -1322,13 +1306,13 @@ class _DiffRow extends StatelessWidget {
       // arrives at the bottom cannot take it for the last line of the diff.
       DiffLineKind.capped => (
         '…',
-        DazzleColors.warning,
-        DazzleColors.warning,
-        _cappedGround,
+        context.tokens.warning,
+        context.tokens.warning,
+        context.tokens.diffCappedGround,
       ),
     };
-    final numbers = DazzleText.noteBody.copyWith(
-      color: DazzleColors.textDisabled,
+    final numbers = context.tokens.noteBody.copyWith(
+      color: context.tokens.textDisabled,
     );
     final row = Container(
       color: ground,
@@ -1366,12 +1350,12 @@ class _DiffRow extends StatelessWidget {
             // was the row's inside at one text size and a third of the way
             // short of it at the largest, which turned the rule into ticks.
             height: _DiffBody.rowHeight(context) - _DiffBody._linePadding * 2,
-            color: DazzleColors.borderSubtle,
+            color: context.tokens.borderSubtle,
           ),
           const SizedBox(width: Spacing.md),
           Text(
             marker,
-            style: DazzleText.noteBody.copyWith(color: mark),
+            style: context.tokens.noteBody.copyWith(color: mark),
             maxLines: 1,
           ),
           const SizedBox(width: Spacing.sm),
@@ -1391,8 +1375,8 @@ class _DiffRow extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.only(right: Spacing.panelPadding),
                     child: Text.rich(
-                      _text(),
-                      style: DazzleText.noteBody.copyWith(color: text),
+                      _text(context),
+                      style: context.tokens.noteBody.copyWith(color: text),
                       maxLines: 1,
                       softWrap: false,
                     ),
@@ -1416,7 +1400,7 @@ class _DiffRow extends StatelessWidget {
           top: 0,
           bottom: 0,
           width: Spacing.xs,
-          child: const ColoredBox(color: DazzleColors.accent),
+          child: ColoredBox(color: context.tokens.accent),
         ),
       ],
     );
@@ -1427,7 +1411,7 @@ class _DiffRow extends StatelessWidget {
   /// file rather than lines of it, so they are left the colour they already
   /// have — colouring them would say they were code, and a sentence read
   /// through a Dart lexer picks out its keywords.
-  InlineSpan _text() {
+  InlineSpan _text(BuildContext context) {
     final language = this.language;
     final runs =
         language == null ||
@@ -1438,15 +1422,15 @@ class _DiffRow extends StatelessWidget {
         : highlight(line.text, language);
     final run = changed;
     final ground = switch (line.kind) {
-      DiffLineKind.added => _addedRun,
-      DiffLineKind.removed => _removedRun,
+      DiffLineKind.added => context.tokens.diffAddedRun,
+      DiffLineKind.removed => context.tokens.diffRemovedRun,
       _ => null,
     };
     if (run == null || ground == null) {
       return TextSpan(
         children: [
           for (final span in runs)
-            TextSpan(text: span.text, style: _style(span.token)),
+            TextSpan(text: span.text, style: _style(context, span.token)),
         ],
       );
     }
@@ -1457,7 +1441,7 @@ class _DiffRow extends StatelessWidget {
     var at = 0;
     for (final span in runs) {
       final end = at + span.text.length;
-      final style = _style(span.token);
+      final style = _style(context, span.token);
       final from = math.max(at, run.start);
       final to = math.min(end, run.end);
       if (from >= to) {
@@ -1487,18 +1471,19 @@ class _DiffRow extends StatelessWidget {
     return TextSpan(children: children);
   }
 
-  static TextStyle? _style(SyntaxToken token) => switch (token) {
-    SyntaxToken.plain => null,
-    SyntaxToken.punctuation => const TextStyle(
-      color: DazzleColors.textMuted,
-    ),
-    SyntaxToken.keyword => const TextStyle(color: SyntaxColors.keyword),
-    SyntaxToken.type => const TextStyle(color: SyntaxColors.type),
-    SyntaxToken.string => const TextStyle(color: SyntaxColors.string),
-    SyntaxToken.number => const TextStyle(color: SyntaxColors.number),
-    SyntaxToken.comment => const TextStyle(color: SyntaxColors.comment),
-    SyntaxToken.annotation => const TextStyle(color: SyntaxColors.annotation),
-  };
+  static TextStyle? _style(BuildContext context, SyntaxToken token) =>
+      switch (token) {
+        SyntaxToken.plain => null,
+        SyntaxToken.punctuation => TextStyle(color: context.tokens.textMuted),
+        SyntaxToken.keyword => TextStyle(color: context.tokens.syntax.keyword),
+        SyntaxToken.type => TextStyle(color: context.tokens.syntax.type),
+        SyntaxToken.string => TextStyle(color: context.tokens.syntax.string),
+        SyntaxToken.number => TextStyle(color: context.tokens.syntax.number),
+        SyntaxToken.comment => TextStyle(color: context.tokens.syntax.comment),
+        SyntaxToken.annotation => TextStyle(
+          color: context.tokens.syntax.annotation,
+        ),
+      };
 }
 
 /// `+3 −1` on a row git could count, one word on a row it could not. Shared
@@ -1508,13 +1493,13 @@ class _DiffRow extends StatelessWidget {
 /// they are coloured rather than left to the sign in front of them — the same
 /// pair the panel's own total draws, and the same minus, because one screen
 /// that spells the sign two ways reads as two screens.
-List<TextSpan> fileCountSpans(WorkspaceFile file) {
+List<TextSpan> fileCountSpans(BuildContext context, WorkspaceFile file) {
   if (file.untracked) return const [TextSpan(text: 'NEW')];
   if (file.binary) return const [TextSpan(text: 'BINARY')];
   return [
-    _countSpan('+${file.added}', DazzleColors.accent, file.added),
+    _countSpan('+${file.added}', context.tokens.accent, file.added),
     const TextSpan(text: ' '),
-    _countSpan('−${file.removed}', DazzleColors.warning, file.removed),
+    _countSpan('−${file.removed}', context.tokens.warning, file.removed),
   ];
 }
 

@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/spacing.dart';
 import '../../platform/workspace/workspace_model.dart';
 import 'diff_jump.dart';
@@ -84,6 +84,7 @@ class DiffMap extends StatelessWidget {
             streaks: streaks,
             rows: rows,
             scroll: jumps.scroll,
+            tokens: context.tokens,
           ),
         ),
       ),
@@ -92,12 +93,17 @@ class DiffMap extends StatelessWidget {
 }
 
 class _MapPainter extends CustomPainter {
-  _MapPainter({required this.streaks, required this.rows, required this.scroll})
-    : super(repaint: scroll);
+  _MapPainter({
+    required this.streaks,
+    required this.rows,
+    required this.scroll,
+    required this.tokens,
+  }) : super(repaint: scroll);
 
   final List<DiffStreak> streaks;
   final int rows;
   final ScrollController scroll;
+  final DazzleTokens tokens;
 
   /// A single changed line in a file of thousands is a fraction of a pixel
   /// tall. It is drawn at the smallest height a thumb can be aimed at instead,
@@ -109,19 +115,17 @@ class _MapPainter extends CustomPainter {
   /// would be the loudest thing on a screen it is only annotating.
   static const _markInset = Spacing.md;
 
-  static const _window = Color(0x1FE8E8E3);
-
   @override
   void paint(Canvas canvas, Size size) {
     if (rows == 0 || size.height <= 0) return;
-    final edge = Paint()..color = DazzleColors.borderSubtle;
+    final edge = Paint()..color = tokens.borderSubtle;
     canvas.drawRect(Rect.fromLTWH(0, 0, Borders.hairline, size.height), edge);
 
     final mark = Paint();
     for (final streak in streaks) {
       mark.color = streak.kind == DiffLineKind.added
-          ? DazzleColors.accent
-          : DazzleColors.danger;
+          ? tokens.accent
+          : tokens.danger;
       final top = streak.start / rows * size.height;
       final height = math.max(
         (streak.end - streak.start) / rows * size.height,
@@ -156,10 +160,10 @@ class _MapPainter extends CustomPainter {
       size.width - Borders.hairline,
       height,
     );
-    canvas.drawRect(window, Paint()..color = _window);
+    canvas.drawRect(window, Paint()..color = tokens.diffMapWindow);
     // A fill alone is legible against the ground and not against a run of
     // marks, which is exactly where knowing what is on screen matters most.
-    final bracket = Paint()..color = DazzleColors.textDisabled;
+    final bracket = Paint()..color = tokens.textDisabled;
     canvas.drawRect(
       Rect.fromLTWH(window.left, window.top, window.width, Borders.hairline),
       bracket,
@@ -179,5 +183,6 @@ class _MapPainter extends CustomPainter {
   bool shouldRepaint(_MapPainter old) =>
       !identical(old.streaks, streaks) ||
       old.rows != rows ||
-      !identical(old.scroll, scroll);
+      !identical(old.scroll, scroll) ||
+      old.tokens != tokens;
 }

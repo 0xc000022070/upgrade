@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/agents.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/path_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
@@ -115,7 +115,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           : PanelAffordance(
               status.clean ? 'CLEAN' : '${status.changes.length} CHANGED',
               showIcon: false,
-              color: status.clean ? null : DazzleColors.warning,
+              color: status.clean ? null : context.tokens.warning,
             ),
       bodyPadding: panelRowsPadding,
       child: ListRowGroup(
@@ -123,7 +123,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           if (failed)
             ListRow(
               title: _controller.reason ?? 'failed',
-              titleColor: DazzleColors.warning,
+              titleColor: context.tokens.warning,
               value: 'RETRY',
               onTap: _controller.connect,
             )
@@ -176,7 +176,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
               value: worktree.directory == _controller.directory
                   ? 'ON SCREEN'
                   : null,
-              valueColor: DazzleColors.accent,
+              valueColor: context.tokens.accent,
               onTap: worktree.directory == _controller.directory
                   ? null
                   : () => _controller.openWorktree(worktree.directory),
@@ -204,7 +204,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                     title: file.path,
                     literalTitle: true,
                     subtitle: file.origin,
-                    valueSpans: fileCountSpans(file),
+                    valueSpans: fileCountSpans(context, file),
                     onTap: () =>
                         showDiffSheet(context, _controller, file: file),
                   ),

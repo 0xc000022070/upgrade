@@ -2,10 +2,12 @@
 /// and the vertical drag that counts an arming up and down.
 library;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/design/components/key_cell.dart';
+
+import 'support/themed_app.dart';
 
 class CellRecord {
   int taps = 0;
@@ -23,27 +25,30 @@ Future<CellRecord> pumpCell(
 }) async {
   final kept = record ?? CellRecord();
   await tester.pumpWidget(
-    Directionality(
-      textDirection: TextDirection.ltr,
-      child: Align(
-        alignment: Alignment.topLeft,
-        // A row, as the bar's is: it hands the cell an unbounded width, which
-        // is what leaves the cell as wide as the word it carries.
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            KeyCell(
-              key: const ValueKey('cell'),
-              label: label,
-              repeat: repeat,
-              armed: armed,
-              inert: inert,
-              minWidth: 36,
-              padding: 8,
-              onTap: () => kept.taps++,
-              onFlick: flickable ? kept.flicks.add : null,
-            ),
-          ],
+    Theme(
+      data: testTheme,
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Align(
+          alignment: Alignment.topLeft,
+          // A row, as the bar's is: it hands the cell an unbounded width, which
+          // is what leaves the cell as wide as the word it carries.
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              KeyCell(
+                key: const ValueKey('cell'),
+                label: label,
+                repeat: repeat,
+                armed: armed,
+                inert: inert,
+                minWidth: 36,
+                padding: 8,
+                onTap: () => kept.taps++,
+                onFlick: flickable ? kept.flicks.add : null,
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -209,18 +214,21 @@ void main() {
     /// hands it the whole width and nothing takes it back.
     Future<double> width(double? floor) async {
       await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: SizedBox(
-            width: 400,
-            height: 200,
-            child: Align(
-              alignment: Alignment.bottomRight,
-              child: KeyCell(
-                key: const ValueKey('floated'),
-                label: 'LIVE',
-                minWidth: floor,
-                onTap: () {},
+        Theme(
+          data: testTheme,
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: SizedBox(
+              width: 400,
+              height: 200,
+              child: Align(
+                alignment: Alignment.bottomRight,
+                child: KeyCell(
+                  key: const ValueKey('floated'),
+                  label: 'LIVE',
+                  minWidth: floor,
+                  onTap: () {},
+                ),
               ),
             ),
           ),

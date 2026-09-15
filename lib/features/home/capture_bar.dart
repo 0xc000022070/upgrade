@@ -8,7 +8,7 @@ import '../../data/database.dart';
 import '../../data/enums.dart';
 import '../../data/repositories/attachment_repository.dart';
 import '../../data/views.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/keyboard_toolbar.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
@@ -19,7 +19,6 @@ import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../../application/attachment_files.dart';
 import '../tasks/item_pickers.dart';
 import '../../application/urls.dart';
@@ -256,7 +255,7 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
               if (widget.fixedTarget == null && _target.projectId != null)
                 ToolbarChip(
                   label: _targetLabel(),
-                  tone: DazzleColors.accent,
+                  tone: context.tokens.accent,
                   onRemove: () =>
                       setState(() => _target = const ItemTarget.drops()),
                 ),
@@ -314,12 +313,12 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                         child: DazzleField(
                           controller: _controller,
                           focusNode: _focus,
-                          style: DazzleText.capture.copyWith(
-                            color: DazzleColors.textPrimary,
+                          style: context.tokens.capture.copyWith(
+                            color: context.tokens.textPrimary,
                           ),
                           maxLines: DazzleField.bodyLines,
                           hint: 'Capture',
-                          hintStyle: DazzleText.capture,
+                          hintStyle: context.tokens.capture,
                           onSubmitted: (_) => _submit(),
                         ),
                       ),
@@ -342,8 +341,8 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                               DazzleIcons.submit,
                               size: IconSizes.md,
                               color: pending
-                                  ? DazzleColors.textSecondary
-                                  : DazzleColors.accent,
+                                  ? context.tokens.textSecondary
+                                  : context.tokens.accent,
                               glitch: _glitch,
                             ),
                           ),

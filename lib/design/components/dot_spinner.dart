@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../motion.dart';
 
 /// The only loading indicator in the app. A 3x3 grid of 2px
@@ -54,8 +54,8 @@ class _DotSpinnerState extends State<DotSpinner> {
               height: DotSpinner._dot,
               child: ColoredBox(
                 color: i == lit
-                    ? DazzleColors.accent
-                    : DazzleColors.textDisabled,
+                    ? context.tokens.accent
+                    : context.tokens.textDisabled,
               ),
             ),
         ],

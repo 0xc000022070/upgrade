@@ -1,12 +1,11 @@
 import 'package:flutter/widgets.dart';
 
-import '../design/colors.dart';
+import '../design/tokens.dart';
 import '../design/components/panel.dart';
 import '../design/components/path_line.dart';
 import '../design/components/signal_text.dart';
 import '../design/layout.dart';
 import '../design/spacing.dart';
-import '../design/typography.dart';
 
 /// Geometry from the mocks: a breadcrumb line, the title with
 /// its `_` cursor, a rule across the content width, then the panel stack.
@@ -86,7 +85,7 @@ class ScreenScaffold extends StatelessWidget {
     Widget crumb = segments == null
         ? Text(
             crumbFor(breadcrumb, hasTrailing: trailing != null),
-            style: DazzleText.breadcrumb,
+            style: context.tokens.breadcrumb,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           )
@@ -158,14 +157,14 @@ class ScreenScaffold extends StatelessWidget {
                         Flexible(
                           child: SignalText(
                             title!,
-                            style: DazzleText.screenTitle,
+                            style: context.tokens.screenTitle,
                             decodeOnEntry: true,
                             smearOnEntry: true,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const Text('_', style: DazzleText.screenTitle),
+                        Text('_', style: context.tokens.screenTitle),
                       ],
                     ),
                   ),
@@ -175,7 +174,7 @@ class ScreenScaffold extends StatelessWidget {
             const SizedBox(height: Spacing.md),
             Container(
               height: Borders.hairline,
-              color: DazzleColors.borderNormal,
+              color: context.tokens.borderNormal,
             ),
             const SizedBox(height: Spacing.lg),
             ?header,
@@ -208,16 +207,17 @@ class _SegmentedCrumb extends StatelessWidget {
 
   final List<CrumbSegment> segments;
 
-  static const _style = DazzleText.breadcrumb;
+  static TextStyle _styleOf(BuildContext context) => context.tokens.breadcrumb;
   static const _separator = ' / ';
   static const _elision = '…';
 
   @override
   Widget build(BuildContext context) {
     if (segments.isEmpty) return const SizedBox.shrink();
+    final style = _styleOf(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        double widthOf(String text) => lineWidth(context, text, _style);
+        double widthOf(String text) => lineWidth(context, text, style);
 
         var dropped = 0;
         // Never past the immediate parent: `/ … / HOMELAB` is the floor, and a
@@ -233,7 +233,7 @@ class _SegmentedCrumb extends StatelessWidget {
         if (widthOf(_textFor(dropped)) > constraints.maxWidth) {
           return Text(
             _textFor(dropped),
-            style: _style,
+            style: style,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           );
@@ -259,14 +259,13 @@ class _SegmentedCrumb extends StatelessWidget {
               // The punctuation is decoration and a [Text] answers a
               // hit, so a separator left pointing would swallow the tap a
               // segment's box reaches into it for.
-              const IgnorePointer(child: Text('/ ', style: _style)),
+              IgnorePointer(child: Text('/ ', style: style)),
               if (dropped > 0)
-                const IgnorePointer(
-                  child: Text('$_elision$_separator', style: _style),
+                IgnorePointer(
+                  child: Text('$_elision$_separator', style: style),
                 ),
               for (var i = 0; i < kept.length; i++) ...[
-                if (i > 0)
-                  const IgnorePointer(child: Text(_separator, style: _style)),
+                if (i > 0) IgnorePointer(child: Text(_separator, style: style)),
                 // Only the last segment flexes. A Flexible child is capped at its
                 // equal share of the free space, so making every segment one gave
                 // `INFRA PERSONAL` a third of a row it fitted in whole and
@@ -313,9 +312,10 @@ class _SegmentState extends State<_Segment> {
     // The press, the same one the verbs and the affordances paint. The
     // last segment is the screen the user is on and has no [onTap]: it is the
     // end of a path, not a control, and it is not painted as one.
+    final baseStyle = _SegmentedCrumb._styleOf(context);
     final style = _down
-        ? _SegmentedCrumb._style.copyWith(color: DazzleColors.accent)
-        : _SegmentedCrumb._style;
+        ? baseStyle.copyWith(color: context.tokens.accent)
+        : baseStyle;
     final text = Text(
       widget.segment.label,
       style: style,

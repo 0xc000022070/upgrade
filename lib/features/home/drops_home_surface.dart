@@ -7,7 +7,7 @@ import '../../application/drop_selection.dart';
 import '../../application/fresh_drops.dart';
 import '../../application/providers.dart';
 import '../../data/views.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/solid_action_bar.dart';
@@ -163,14 +163,14 @@ class _NextActionRow extends StatelessWidget {
     ].join(' · ');
 
     return ListRow(
-      leading: const DazzleIcon(
+      leading: DazzleIcon(
         DazzleIcons.forward,
         size: IconSizes.glyph,
-        color: DazzleColors.accent,
+        color: context.tokens.accent,
       ),
       title: task.title,
       subtitle: contextLine.isEmpty ? null : contextLine,
-      subtitleColor: blocked ? DazzleColors.warning : null,
+      subtitleColor: blocked ? context.tokens.warning : null,
       lead: true,
       decode: true,
       // Every row opens the quick view, and this one most of all — a

@@ -2,7 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/panel.dart';
 import '../../design/spacing.dart';
 import 'screen_transform.dart';
@@ -236,7 +236,7 @@ class _FramebufferViewState extends State<FramebufferView> {
           final picture = ColoredBox(
             // Black ground, not the app's near-black. The host's own
             // desktop is the only thing lit on this route.
-            color: const Color(0xFF000000),
+            color: context.tokens.mediaBackdrop,
             child: CustomPaint(
               painter: _FramebufferPainter(
                 image: widget.image,
@@ -266,7 +266,13 @@ class _FramebufferViewState extends State<FramebufferView> {
                   Positioned.fill(child: picture),
                   if (box != null)
                     Positioned.fill(
-                      child: CustomPaint(painter: _CropPainter(box: box)),
+                      child: CustomPaint(
+                        painter: _CropPainter(
+                          box: box,
+                          scrim: context.tokens.scrim,
+                          accent: context.tokens.accent,
+                        ),
+                      ),
                     ),
                   if (box != null && _cropDrawn)
                     _CropVerbs(
@@ -316,9 +322,15 @@ enum _TwoFinger { undecided, zooming, dragging }
 /// accent around it. The pixels inside are left exactly as they are, because
 /// they are what is about to be kept.
 class _CropPainter extends CustomPainter {
-  const _CropPainter({required this.box});
+  const _CropPainter({
+    required this.box,
+    required this.scrim,
+    required this.accent,
+  });
 
   final Rect box;
+  final Color scrim;
+  final Color accent;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -326,18 +338,19 @@ class _CropPainter extends CustomPainter {
       ..addRect(Offset.zero & size)
       ..addRect(box)
       ..fillType = PathFillType.evenOdd;
-    canvas.drawPath(outside, Paint()..color = const Color(0x99000000));
+    canvas.drawPath(outside, Paint()..color = scrim);
     canvas.drawRect(
       box,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = Borders.hairline
-        ..color = DazzleColors.accent,
+        ..color = accent,
     );
   }
 
   @override
-  bool shouldRepaint(_CropPainter old) => old.box != box;
+  bool shouldRepaint(_CropPainter old) =>
+      old.box != box || old.scrim != scrim || old.accent != accent;
 }
 
 /// `SAVE` and `HOLD` under the box, or over it when the box runs to the
@@ -381,7 +394,7 @@ class _CropVerbs extends StatelessWidget {
             'SAVE',
             key: const ValueKey('crop-save'),
             showIcon: false,
-            color: DazzleColors.accent,
+            color: context.tokens.accent,
             onTap: onSave,
           ),
           const SizedBox(width: Spacing.lg),
@@ -389,7 +402,7 @@ class _CropVerbs extends StatelessWidget {
             'HOLD',
             key: const ValueKey('crop-hold'),
             showIcon: false,
-            color: DazzleColors.accent,
+            color: context.tokens.accent,
             onTap: onHold,
           ),
         ],
@@ -438,10 +451,10 @@ class ScreenGround extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ColoredBox(
-    color: const Color(0xFF000000),
+    color: context.tokens.mediaBackdrop,
     child: Center(
       child: DefaultTextStyle.merge(
-        style: const TextStyle(color: DazzleColors.textMuted),
+        style: TextStyle(color: context.tokens.textMuted),
         child: child ?? const SizedBox.shrink(),
       ),
     ),

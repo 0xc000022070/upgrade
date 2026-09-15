@@ -13,6 +13,7 @@ import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/features/settings/alerts_block.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// The `[ ALERTS ]` row.
 
@@ -48,6 +49,7 @@ void main() {
       hostRepositoryProvider.overrideWithValue(hosts),
     ],
     child: MaterialApp(
+      theme: testTheme,
       home: Material(child: AlertsSettingsBlock(requestPermission: permission)),
     ),
   );

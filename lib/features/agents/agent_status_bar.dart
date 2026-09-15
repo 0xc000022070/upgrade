@@ -3,10 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/agents.dart';
 import '../../application/navigation.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 
 /// One row over the nav bar, the height the parked shell takes, so the two
 /// stack without either looking like the taller kind of thing.
@@ -78,11 +77,11 @@ class AgentStatusBar extends ConsumerWidget {
       // is the door to it.
       onTap: () => ref.read(navIndexProvider.notifier).state = 0,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: DazzleColors.surfacePrimary,
+        decoration: BoxDecoration(
+          color: context.tokens.surfacePrimary,
           border: Border(
             top: BorderSide(
-              color: DazzleColors.borderNormal,
+              color: context.tokens.borderNormal,
               width: Borders.hairline,
             ),
           ),
@@ -99,20 +98,20 @@ class AgentStatusBar extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  _Mark(_tint(states, down: failures.isNotEmpty)),
+                  _Mark(_tint(context, states, down: failures.isNotEmpty)),
                   const SizedBox(width: Spacing.md),
                   Expanded(
                     child: Text(
                       line,
-                      style: DazzleText.panelHeader.copyWith(
-                        color: DazzleColors.textPrimary,
+                      style: context.tokens.panelHeader.copyWith(
+                        color: context.tokens.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: Spacing.md),
-                  const Text('AGENTS', style: DazzleText.panelHeader),
+                  Text('AGENTS', style: context.tokens.panelHeader),
                 ],
               ),
             ),
@@ -126,11 +125,11 @@ class AgentStatusBar extends ConsumerWidget {
   /// Blocked outranks a host being down: a machine nobody can reach is the app
   /// failing to look, and an agent stopped at a question is the user being
   /// waited on.
-  Color _tint(AgentStates states, {required bool down}) {
-    if (states.blocked > 0) return DazzleColors.accent;
-    if (down) return DazzleColors.warning;
-    if (states.working > 0) return DazzleColors.textPrimary;
-    return DazzleColors.textMuted;
+  Color _tint(BuildContext context, AgentStates states, {required bool down}) {
+    if (states.blocked > 0) return context.tokens.accent;
+    if (down) return context.tokens.warning;
+    if (states.working > 0) return context.tokens.textPrimary;
+    return context.tokens.textMuted;
   }
 }
 
@@ -145,7 +144,7 @@ class _Mark extends StatelessWidget {
     // at: the phone's scale is a curve and gives a small size most of the rise,
     // so a block fixed at six pixels shrinks against its own text until it
     // reads as a speck of dust on the bar.
-    final size = DazzleText.panelHeader.fontSize!;
+    final size = context.tokens.panelHeader.fontSize!;
     final scale = MediaQuery.textScalerOf(context).scale(size) / size;
     return SizedBox(
       key: const ValueKey('agent-status-mark'),

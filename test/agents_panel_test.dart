@@ -18,6 +18,8 @@ import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/keys.dart';
 import 'package:dazzle/platform/host_keys.dart';
 
+import 'support/themed_app.dart';
+
 const hostA = Host(
   id: 'a',
   name: 'A',
@@ -67,6 +69,7 @@ AgentPanelState snapshotOf(
 
 Widget host(AgentPanelState state, {DateTime? now}) => ProviderScope(
   child: MaterialApp(
+    theme: testTheme,
     home: Scaffold(
       body: AgentsPanel(state: state, now: now),
     ),
@@ -106,6 +109,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
+          theme: testTheme,
           home: Scaffold(
             body: AgentsPanel(
               state: state,
@@ -757,7 +761,10 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: Scaffold(body: AgentsPanel())),
+        child: MaterialApp(
+          theme: testTheme,
+          home: Scaffold(body: AgentsPanel()),
+        ),
       ),
     );
     feed.add(

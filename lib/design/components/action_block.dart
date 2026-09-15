@@ -1,8 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../spacing.dart';
-import '../typography.dart';
 
 /// A confirm block at footer scale. [SolidActionBar] is the full-width commit;
 /// this is the same block sized to its label, so a row of them reads as a
@@ -16,17 +15,18 @@ class ActionBlock extends StatelessWidget {
     super.key,
     required this.label,
     required this.onTap,
-    this.tone = DazzleColors.textSecondary,
+    this.tone,
     this.filled = false,
   });
 
   final String label;
   final VoidCallback? onTap;
-  final Color tone;
+  final Color? tone;
   final bool filled;
 
   @override
   Widget build(BuildContext context) {
+    final tone = this.tone ?? context.tokens.textSecondary;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -48,8 +48,8 @@ class ActionBlock extends StatelessWidget {
           heightFactor: 1,
           child: Text(
             label.toUpperCase(),
-            style: DazzleText.value.copyWith(
-              color: filled ? DazzleColors.backgroundPrimary : tone,
+            style: context.tokens.value.copyWith(
+              color: filled ? context.tokens.backgroundPrimary : tone,
               letterSpacing: 1.2,
             ),
           ),

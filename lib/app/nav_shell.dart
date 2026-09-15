@@ -1,12 +1,11 @@
 import 'package:flutter/widgets.dart';
 
-import '../design/colors.dart';
+import '../design/tokens.dart';
 import '../design/effects/glitch.dart';
 import '../design/icons/dazzle_icon.dart';
 import '../design/icons/dazzle_icons.dart';
 import '../design/layout.dart';
 import '../design/spacing.dart';
-import '../design/typography.dart';
 
 class NavDestination {
   const NavDestination(this.label, this.icon);
@@ -51,11 +50,11 @@ class NavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: DazzleColors.backgroundSecondary,
+      decoration: BoxDecoration(
+        color: context.tokens.backgroundSecondary,
         border: Border(
           top: BorderSide(
-            color: DazzleColors.borderNormal,
+            color: context.tokens.borderNormal,
             width: Borders.hairline,
           ),
         ),
@@ -105,7 +104,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? DazzleColors.accent : DazzleColors.textMuted;
+    final color = active ? context.tokens.accent : context.tokens.textMuted;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -123,7 +122,7 @@ class _NavItem extends StatelessWidget {
             // so activating a tab moves the segment rather than resizing it.
             Container(
               height: BarSizes.inlineThickness,
-              color: active ? DazzleColors.accent : const Color(0x00000000),
+              color: active ? context.tokens.accent : null,
             ),
             const SizedBox(height: Spacing.lg),
             DazzleIcon(
@@ -135,7 +134,7 @@ class _NavItem extends StatelessWidget {
             const SizedBox(height: Spacing.sm),
             Text(
               destination.label,
-              style: DazzleText.navLabel.copyWith(color: color),
+              style: context.tokens.navLabel.copyWith(color: color),
             ),
           ],
         ),

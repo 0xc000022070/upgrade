@@ -18,6 +18,7 @@ import 'package:dazzle/platform/bundle_cipher.dart';
 import 'package:dazzle/platform/keys.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 ManagedKey _key(String id, String name) => ManagedKey(
   id: id,
@@ -73,7 +74,7 @@ void main() {
       privateKeyStoreProvider.overrideWithValue(privateKeys),
       bundleCipherProvider.overrideWithValue(cipher),
     ],
-    child: const MaterialApp(home: SettingsScreen()),
+    child: MaterialApp(theme: testTheme, home: SettingsScreen()),
   );
 
   Future<void> unmount(WidgetTester tester) async {

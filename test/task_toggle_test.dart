@@ -17,6 +17,7 @@ import 'package:dazzle/features/projects/project_detail_screen.dart';
 import 'package:dazzle/features/tasks/item_sheet.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// The screen mounts a 10fps ticker for the background static, so nothing here
 /// can use `pumpAndSettle`. Drift needs real time to run its query and fake
@@ -75,7 +76,10 @@ void main() {
     overrides: [...featureTestOverrides(db)],
     child: MediaQuery(
       data: MediaQueryData(disableAnimations: reduceMotion),
-      child: MaterialApp(home: ProjectDetailScreen(projectId: projectId)),
+      child: MaterialApp(
+        theme: testTheme,
+        home: ProjectDetailScreen(projectId: projectId),
+      ),
     ),
   );
 
