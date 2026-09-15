@@ -17,6 +17,7 @@ import 'package:dazzle/features/home/capture_bar.dart';
 import 'package:dazzle/design/components/action_block.dart';
 import 'package:dazzle/design/components/list_row.dart';
 import 'package:dazzle/features/tasks/item_sheet.dart';
+import 'package:dazzle/features/plugins/plugin_page.dart';
 import 'package:dazzle/features/settings/plugins_panel.dart';
 import 'package:dazzle/platform/plugins/manifest.dart';
 import 'package:dazzle/platform/plugins/store.dart';
@@ -113,7 +114,12 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('TOOLS'));
       await drain(tester);
-      await tester.tap(find.text('AGENT SCHEDULES · AGENT SCHEDULES'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(PluginLibraryScreen),
+          matching: find.text('AGENT SCHEDULES'),
+        ),
+      );
       await drain(tester);
       expect(find.text('AGENT SCHEDULES_'), findsOneWidget);
       expect(find.text('NO HOSTS REGISTERED'), findsOneWidget);
