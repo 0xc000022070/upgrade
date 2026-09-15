@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agent_state.dart';
 import 'package:dazzle/application/navigation.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/action_block.dart';
 import 'package:dazzle/features/agents/agent_shell.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/features/ssh/ssh_screen.dart';
@@ -112,6 +114,15 @@ void main() {
       ),
       findsOneWidget,
     );
+    // The app's confirm shape: CANCEL beside the commit, the commit filled
+    // accent. Opening a pane here takes over its terminal view and stops
+    // nothing, so it is never drawn in the destructive ink.
+    final commit = tester.widget<ActionBlock>(
+      find.widgetWithText(ActionBlock, 'OPEN HERE'),
+    );
+    expect(commit.tone, DazzleColors.accent);
+    expect(commit.filled, isTrue);
+    expect(find.widgetWithText(ActionBlock, 'CANCEL'), findsOneWidget);
     await tester.tap(find.text('OPEN HERE'));
     await ready(tester);
 
@@ -147,7 +158,7 @@ void main() {
 
     await tester.tap(find.text('OPEN'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cancel'));
+    await tester.tap(find.text('CANCEL'));
     await tester.pumpAndSettle();
 
     expect(container.read(navIndexProvider), before);

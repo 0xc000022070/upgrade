@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/navigation.dart';
 import '../../data/repositories/host_repository.dart';
-import '../../design/components/action_sheet.dart';
+import '../../design/components/panel_sheet.dart';
 import '../../platform/herdr_client.dart';
 import '../shell/shell_sessions.dart';
 import '../shell/shell_sheet.dart';
@@ -50,7 +50,7 @@ Future<void> _confirmAndOpenAgentShell(
   Host host,
   AgentSnapshot agent,
 ) async {
-  final confirmed = await confirmAction(
+  final confirmed = await confirmSheet(
     context,
     title: 'OPEN AGENT',
     message:
