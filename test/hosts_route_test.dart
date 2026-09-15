@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agents.dart';
 import 'package:dazzle/application/navigation.dart';
 import 'package:dazzle/data/database.dart';
+import 'package:dazzle/design/components/panel.dart';
 import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/data/enums.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
@@ -563,6 +564,49 @@ void main() {
     // The host with nothing open is not counted at zero: it reads as the way
     // in, which is what it is.
     expect(find.text('SHELL'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the shell row is the last one, under every readout', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+    shells.stall = false;
+    sessions.open(_rose);
+
+    await tester.pumpWidget(app(const HostsScreen()));
+    await ready(tester);
+
+    // Only the host with a live session draws one, so it names the panel.
+    final panel = find
+        .ancestor(of: find.text('CLIPBOARD'), matching: find.byType(Panel))
+        .first;
+    final shell = tester.getTopLeft(find.text('SHELL · 1 OPEN')).dy;
+
+    // What the host answered about its clipboard is a fact about the machine
+    // like the rows above it, so it joins them rather than splitting the way
+    // in off the list it belongs to.
+    for (final label in const [
+      'ADDRESS',
+      'USER',
+      'KEY',
+      'LINK',
+      'INTEGRATIONS',
+      'HERDR STATUS',
+      'CLIPBOARD',
+    ]) {
+      expect(
+        tester
+            .getTopLeft(find.descendant(of: panel, matching: find.text(label)))
+            .dy,
+        lessThan(shell),
+        reason: label,
+      );
+    }
 
     await unmount(tester);
   });
