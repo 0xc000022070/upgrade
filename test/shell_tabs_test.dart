@@ -39,6 +39,26 @@ Color? dotOfTab(WidgetTester tester, int number) =>
             as BoxDecoration)
         .color;
 
+/// What the info mark in the middle of the header is drawn in.
+Color? inkOfInfoMark(WidgetTester tester) => tester
+    .widget<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey('shell-tab-info')),
+        matching: find.byType(Text),
+      ),
+    )
+    .style
+    ?.color;
+
+/// Opens the readout behind the info mark. The sheet's own transition and no
+/// more: a tab on a reconnect schedule moves on under a longer pump, and the
+/// sheet follows the session rather than the tap that opened it.
+Future<void> openInfo(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('shell-tab-info')));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 200));
+}
+
 /// Every word the header is drawn with, left to right.
 List<String?> headerWords(WidgetTester tester) => tester
     .widgetList<Text>(
@@ -53,20 +73,28 @@ List<String?> headerWords(WidgetTester tester) => tester
 void main() {
   setUp(stubDeviceChannels);
 
-  testWidgets('a live Mosh tab names its transport in the header', (
-    tester,
-  ) async {
+  testWidgets('a live Mosh tab names its transport in the sheet, not the '
+      'header', (tester) async {
     final transport = FakeShellTransport()..transport = ShellTransport.mosh;
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
+    // The row costs the strip nothing to say what is carrying the shell.
+    expect(find.text('MOSH'), findsNothing);
+    expect(inkOfInfoMark(tester), DazzleColors.textMuted);
+
+    await openInfo(tester);
+
+    expect(find.text('ROSE 1'), findsWidgets);
+    expect(find.text('TRANSPORT'), findsOneWidget);
     expect(find.text('MOSH'), findsOneWidget);
+    expect(find.text('LIVE'), findsOneWidget);
 
     await unmount(tester);
   });
 
-  testWidgets('a live SSH tab puts no word in the middle of the header', (
+  testWidgets('a live SSH tab puts one mark in the middle of the header', (
     tester,
   ) async {
     final transport = FakeShellTransport();
@@ -74,9 +102,36 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    // The host, the one tab, the plus and the close, and nothing between them:
-    // ssh is what a host answers on, so there is nothing to say about it.
-    expect(headerWords(tester), ['ROSE', '1', '+', '×']);
+    // The host, the one tab, the plus, the mark and the close: no word about
+    // the link stands on the row, whatever the link is doing.
+    expect(headerWords(tester), ['ROSE', '1', '+', '(i)', '×']);
+
+    await openInfo(tester);
+    expect(find.text('SSH'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a tab off the air marks the row and names its state in the '
+      'sheet', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+
+    transport.opened.single.exit(1);
+    await ready(tester);
+    await tester.tap(find.text('KEEP'));
+    await ready(tester);
+
+    expect(headerWords(tester), contains('(i)'));
+    expect(find.text('EXITED 1'), findsNothing);
+    expect(inkOfInfoMark(tester), DazzleColors.warning);
+
+    await openInfo(tester);
+
+    expect(find.text('STATE'), findsOneWidget);
+    expect(find.text('EXITED 1'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -180,7 +235,11 @@ void main() {
 
       expect(dotOfTab(tester, 1), isNot(DazzleColors.accent));
 
-      await tester.tap(find.text('STOP'));
+      // Giving up on the schedule is a decision, and it is made in the sheet
+      // the mark opens rather than from the row.
+      expect(find.text('STOP'), findsNothing);
+      await openInfo(tester);
+      await tester.tap(find.byKey(const ValueKey('shell-info-stop')));
       await ready(tester);
 
       await unmount(tester);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:xterm/xterm.dart';
@@ -9,21 +10,50 @@ import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
 import 'support/shell_route.dart';
 
+/// What the info mark in the middle of the header is drawn in.
+Color? inkOfInfoMark(WidgetTester tester) => tester
+    .widget<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey('shell-tab-info')),
+        matching: find.byType(Text),
+      ),
+    )
+    .style
+    ?.color;
+
+/// Opens the readout behind the info mark. The sheet's own transition and no
+/// more: a tab on a reconnect schedule moves on under a longer pump, and the
+/// sheet follows the session rather than the tap that opened it.
+Future<void> openInfo(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('shell-tab-info')));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 200));
+}
+
 void main() {
   setUp(stubDeviceChannels);
 
-  testWidgets('the header says CONNECTING until the shell answers', (
-    tester,
-  ) async {
+  testWidgets('a shell that has not answered is marked, and the mark says '
+      'CONNECTING', (tester) async {
     final transport = FakeShellTransport()..stall = true;
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
     expect(find.text('ROSE'), findsOneWidget);
-    expect(find.text('CONNECTING'), findsOneWidget);
+    // The word costs the row nothing now: the mark carries it, and the row
+    // reads the same whatever the link is doing.
+    expect(find.text('CONNECTING'), findsNothing);
+    expect(inkOfInfoMark(tester), DazzleColors.warning);
     // Nothing has gone wrong yet, so nothing is taken from the terminal.
     expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
     expect(find.text('RETRY'), findsNothing);
+
+    await openInfo(tester);
+
+    expect(find.text('CONNECTING'), findsOneWidget);
+    // No connection yet, so there is no transport to name.
+    expect(find.text('—'), findsOneWidget);
+    expect(find.text('STOP'), findsNothing);
 
     await unmount(tester);
   });
@@ -40,6 +70,7 @@ void main() {
     expect(find.textContaining('/'), findsNothing);
     expect(find.text('CONNECTING'), findsNothing);
     expect(find.text('RETRY'), findsNothing);
+    expect(inkOfInfoMark(tester), DazzleColors.textMuted);
     expect(
       tester.getSize(find.byKey(const ValueKey('shell-header'))).height,
       44,
@@ -49,7 +80,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('an exit becomes EXITED in the header and nothing else', (
+  testWidgets('an exit becomes EXITED in the sheet and nothing else', (
     tester,
   ) async {
     final transport = FakeShellTransport();
@@ -59,7 +90,13 @@ void main() {
 
     transport.opened.single.exit(130);
     await ready(tester);
+    await tester.tap(find.text('KEEP'));
+    await ready(tester);
 
+    expect(find.text('EXITED 130'), findsNothing);
+    expect(inkOfInfoMark(tester), DazzleColors.warning);
+
+    await openInfo(tester);
     expect(find.text('EXITED 130'), findsOneWidget);
     // A shell the user walked out of is not a link that broke, so it is not
     // dialled again and there is nothing to press: another shell is another
@@ -67,6 +104,9 @@ void main() {
     expect(find.text('RETRY'), findsNothing);
     expect(find.text('STOP'), findsNothing);
     expect(transport.opened, hasLength(1));
+
+    await tester.tapAt(Offset.zero);
+    await ready(tester);
     // A shell that ran and stopped is not a failure, so it costs the terminal
     // no row.
     expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
@@ -86,13 +126,17 @@ void main() {
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
-    expect(find.text('DISCONNECTED'), findsOneWidget);
+    expect(find.text('DISCONNECTED'), findsNothing);
     expect(find.text('shell refused'), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
     // The host answered and said no. Dialling again would get the same answer,
     // so the row is a sentence and nothing more.
     expect(find.text('RETRY'), findsNothing);
     expect(transport.opened, isEmpty);
+
+    await openInfo(tester);
+    expect(find.text('DISCONNECTED'), findsOneWidget);
+    expect(find.text('STOP'), findsNothing);
 
     await unmount(tester);
   });
@@ -157,9 +201,8 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a lost link reads RECONNECTING with STOP beside it', (
-    tester,
-  ) async {
+  testWidgets('a lost link reads RECONNECTING in the sheet, with STOP under '
+      'it', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
@@ -168,13 +211,18 @@ void main() {
     transport.opened.single.drop();
     await ready(tester);
 
+    expect(find.textContaining('RECONNECTING'), findsNothing);
+    expect(inkOfInfoMark(tester), DazzleColors.warning);
+    expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
+
+    await openInfo(tester);
+
     // The count, so a wait that is getting long says so, and the one control:
     // the dialling is the app's, the giving up is the user's.
     expect(find.text('RECONNECTING 1/6'), findsOneWidget);
     expect(find.text('RETRY'), findsNothing);
-    expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
 
-    await tester.tap(find.text('STOP'));
+    await tester.tap(find.byKey(const ValueKey('shell-info-stop')));
     await ready(tester);
 
     expect(find.textContaining('RECONNECTING'), findsNothing);
@@ -184,9 +232,8 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a spent schedule reads DISCONNECTED with STOP and a reason', (
-    tester,
-  ) async {
+  testWidgets('a spent schedule reads DISCONNECTED with STOP in the sheet '
+      'and a reason under the header', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
@@ -200,17 +247,20 @@ void main() {
       await ready(tester);
     }
 
-    // One word, muted, where the count was, and no spinner: the app is not
-    // working, it is waiting. The row underneath says what the last dial hit,
-    // and `STOP` is the same way out it offers mid-schedule.
+    // One word where the count was, and no spinner: the app is not working,
+    // it is waiting. The row underneath says what the last dial hit, and
+    // `STOP` is the same way out the sheet offers mid-schedule.
+    expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
+
+    await openInfo(tester);
     expect(find.text('DISCONNECTED'), findsOneWidget);
     expect(find.textContaining('RECONNECTING'), findsNothing);
-    expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
-    expect(find.text('STOP'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-info-stop')), findsOneWidget);
 
-    await tester.tap(find.text('STOP'));
+    await tester.tap(find.byKey(const ValueKey('shell-info-stop')));
     await ready(tester);
 
+    await openInfo(tester);
     expect(find.text('DISCONNECTED'), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
 
@@ -275,6 +325,9 @@ void main() {
     // tab staying exactly as the shell left it.
     expect(find.text('SHELL 1 EXITED 3'), findsNothing);
     expect(sessions.forHost(rose.id), hasLength(1));
+    expect(find.text('EXITED 3'), findsNothing);
+
+    await openInfo(tester);
     expect(find.text('EXITED 3'), findsOneWidget);
 
     await unmount(tester);
@@ -351,10 +404,16 @@ void main() {
     expect(find.text('~'), findsOneWidget);
     expect(find.text('luis@nyx: ~'), findsNothing);
 
-    // Once the shell is gone the state is what the row is for.
+    // Once the shell is gone the mark is what the row is for, and the word is
+    // behind it.
     transport.opened.single.exit(1);
     await ready(tester);
+    await tester.tap(find.text('KEEP'));
+    await ready(tester);
 
+    expect(find.text('EXITED 1'), findsNothing);
+
+    await openInfo(tester);
     expect(find.text('EXITED 1'), findsOneWidget);
 
     await unmount(tester);
