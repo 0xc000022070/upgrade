@@ -102,6 +102,13 @@ const _detailHeight = 56.0;
 /// word is what is cut to it; the cell is as wide as what it holds.
 const _tabMaxWidth = 88.0;
 
+/// How wide the host's name may grow before it is cut off. Everything else on
+/// the row is fixed — the two edges, the gap after the name, the diff mark and
+/// the close — and on a 411 px phone what is left over holds two tab cells and
+/// the plus only while the name stops here. A name is the host's, not the
+/// row's: past this it is read from the switcher, not from the header.
+const _hostMaxWidth = 112.0;
+
 /// How much of the header the word between the cells may take. The tabs are
 /// what gives way on a narrow row, but not all of it: a long state word is
 /// still cut before it leaves the strip nothing to scroll.
@@ -179,21 +186,35 @@ class _ShellHeaderState extends State<ShellHeader> {
   final _activeTab = GlobalKey();
 
   @override
+  void initState() {
+    super.initState();
+    // Restored tabs are in the store before the header is ever built, so the
+    // active one is already past the edge on the first layout with nothing
+    // having moved it. Placed rather than scrolled to: there was no earlier
+    // position for the strip to travel from.
+    _revealActive(Duration.zero);
+  }
+
+  @override
   void didUpdateWidget(ShellHeader old) {
     super.didUpdateWidget(old);
     if (old.active == widget.active &&
         old.sessions.length == widget.sessions.length) {
       return;
     }
-    // After the frame that lays the new strip out: a tab opened this build has
-    // no box to bring into view until it has been through a layout.
+    _revealActive(Motion.fast);
+  }
+
+  /// After the frame that lays the strip out: a tab the build put there has no
+  /// box to bring into view until it has been through a layout.
+  void _revealActive(Duration duration) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final tab = _activeTab.currentContext;
       if (!mounted || tab == null) return;
       Scrollable.ensureVisible(
         tab,
         alignment: 0.5,
-        duration: Motion.fast,
+        duration: duration,
         curve: Motion.transition,
       );
     });
@@ -364,9 +385,18 @@ class _HostCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = Text(
-      name.toUpperCase(),
-      style: DazzleText.panelHeader.copyWith(color: DazzleColors.textPrimary),
+    // The cap is on the name and not on the cell, as the tabs cap their word:
+    // the cell is as wide as what it holds, and a short name costs the strip
+    // nothing.
+    final label = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: _hostMaxWidth),
+      child: Text(
+        name.toUpperCase(),
+        style: DazzleText.panelHeader.copyWith(color: DazzleColors.textPrimary),
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
     if (onTap == null) return label;
     return GestureDetector(
@@ -389,8 +419,9 @@ class _HostCell extends StatelessWidget {
   }
 }
 
-/// Transport health for the session on screen. The terminal buffer can outlive
-/// its connection, so an existing tab is never used as evidence of reachability.
+/// Where the session is when it is not live, plus MOSH while that is the live
+/// transport. SSH needs no word because it is the host's baseline, and the row
+/// it would take is the strip's.
 class _Middle extends StatelessWidget {
   const _Middle({required this.state, required this.onStop});
 
@@ -402,7 +433,7 @@ class _Middle extends StatelessWidget {
     final word = switch (state) {
       null => null,
       ShellLive(:final transport) =>
-        'CONNECTED · ${transport.name.toUpperCase()}',
+        transport == ShellTransport.mosh ? 'MOSH' : null,
       ShellConnecting() => 'CONNECTING',
       ShellReconnecting(:final transport) =>
         'RECONNECTING · ${transport.name.toUpperCase()}',
