@@ -18,6 +18,14 @@ import '../../platform/plugins/ui.dart';
 import '../screen_scaffold.dart';
 import 'plugin_management_screen.dart';
 
+String _pageLabel(PluginPageRegistration page) {
+  final title = page.contribution.title.trim();
+  final plugin = page.owner.manifest.name.trim();
+  return title.toLowerCase() == plugin.toLowerCase()
+      ? title.toUpperCase()
+      : '${title.toUpperCase()} · ${plugin.toUpperCase()}';
+}
+
 void _openPage(BuildContext context, PluginPageRegistration page) {
   Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -285,8 +293,7 @@ class PluginLibraryScreen extends ConsumerWidget {
                     ),
                   for (final page in pages)
                     PanelTextAction(
-                      label:
-                          '${page.contribution.title.toUpperCase()} · ${page.owner.manifest.name.toUpperCase()}',
+                      label: _pageLabel(page),
                       onTap: () => _openPage(context, page),
                     ),
                   PanelTextAction(

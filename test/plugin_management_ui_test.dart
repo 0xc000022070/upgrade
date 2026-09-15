@@ -1,6 +1,19 @@
+import 'dart:io';
+
+import 'package:dazzle/app/builtin_plugins.dart';
+import 'package:dazzle/application/native_plugins.dart';
+import 'package:dazzle/application/plugin_placements.dart';
+import 'package:dazzle/application/plugins.dart';
+import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/plugin_placement_repository.dart';
+import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/action_block.dart';
 import 'package:dazzle/design/components/list_row.dart';
 import 'package:dazzle/features/plugins/plugin_management_screen.dart';
+import 'package:dazzle/features/plugins/plugin_page.dart';
+import 'package:dazzle/platform/plugins/manifest.dart';
+import 'package:dazzle/platform/plugins/store.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +30,57 @@ Future<void> _drain(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 100));
   }
 }
+
+PluginPackage _schedules() => PluginPackage(
+  manifest: PluginManifest.parse(
+    File('plugins/agent-schedules/dazzle.plugin.toml').readAsStringSync(),
+  ),
+  source: File('plugins/agent-schedules/main.luau').readAsStringSync(),
+  origin: 'bundled:dazzle.agent-schedules',
+  revision: '1.0.0',
+);
+
+/// Every builtin page is named after its plugin, so a retitled one is what
+/// makes the disambiguating suffix reachable.
+PluginPackage _projectsPageTitled(String title) {
+  final toml = File('lib/plugins/projects/dazzle.plugin.toml')
+      .readAsStringSync()
+      .replaceFirst('title = "Projects"', 'title = "$title"');
+  return PluginPackage(
+    manifest: PluginManifest.parse(toml, allowNative: true),
+    source: File('lib/plugins/projects/main.dart').readAsStringSync(),
+    origin: 'bundled:dazzle.projects',
+    revision: '1.0.0',
+  );
+}
+
+class _FixturePlugins extends Plugins {
+  _FixturePlugins(this.catalog);
+  final List<InstalledPlugin> catalog;
+  @override
+  Future<List<InstalledPlugin>> build() async => catalog;
+}
+
+class _RefusingPlugins extends _FixturePlugins {
+  _RefusingPlugins(super.catalog);
+  @override
+  Future<void> setEnabled(String id, bool enabled) async =>
+      throw const PluginException('Projects needs dazzle.drops ^1.0.0');
+}
+
+List<Override> _catalogOverrides(
+  AppDatabase db,
+  List<InstalledPlugin> catalog, {
+  Plugins Function()? plugins,
+}) => [
+  databaseProvider.overrideWithValue(db),
+  nativeModulesProvider.overrideWithValue(builtinModules),
+  pluginBootCatalogProvider.overrideWithValue(catalog),
+  pluginsProvider.overrideWith(plugins ?? () => _FixturePlugins(catalog)),
+  pluginPlacementRepositoryProvider.overrideWith(
+    (ref) async => PluginPlacementRepository.memory(),
+  ),
+];
 
 void main() {
   late AppDatabase db;
@@ -76,6 +140,85 @@ void main() {
     await tester.tap(remove);
     await _drain(tester);
     expect(find.textContaining('CAPTURE · NOT PLACED'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('a page named after its plugin drops the redundant suffix', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final schedules = _schedules();
+    final projects = _projectsPageTitled('Archive');
+    final catalog = [
+      InstalledPlugin(schedules, schedules.manifest.permissions, enabled: true),
+      InstalledPlugin(projects, projects.manifest.permissions, enabled: true),
+    ];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _catalogOverrides(db, catalog),
+        child: const MaterialApp(home: PluginLibraryScreen()),
+      ),
+    );
+    await _drain(tester);
+
+    expect(find.text('AGENT SCHEDULES'), findsOneWidget);
+    expect(find.text('AGENT SCHEDULES · AGENT SCHEDULES'), findsNothing);
+    expect(find.text('ARCHIVE · PROJECTS'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('a refused enable reports under the enable affordance', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final projects = builtinFixture('projects');
+    final catalog = [
+      InstalledPlugin(projects, projects.manifest.permissions, enabled: false),
+    ];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _catalogOverrides(
+          db,
+          catalog,
+          plugins: () => _RefusingPlugins(catalog),
+        ),
+        child: const MaterialApp(home: PluginManagementScreen()),
+      ),
+    );
+    await _drain(tester);
+
+    await tester.tap(find.text('Projects'));
+    await _drain(tester);
+
+    final enable = find.widgetWithText(ActionBlock, 'ENABLE');
+    await tester.ensureVisible(enable);
+    await tester.pump();
+    await tester.tap(enable);
+    await _drain(tester);
+
+    final failure = find.text('Projects needs dazzle.drops ^1.0.0');
+    expect(failure, findsOneWidget);
+    expect(tester.widget<Text>(failure).style?.color, DazzleColors.danger);
+    expect(
+      tester.getTopLeft(failure).dy,
+      greaterThanOrEqualTo(tester.getBottomLeft(enable).dy),
+    );
+    expect(
+      tester.getTopLeft(failure).dy,
+      lessThan(tester.getTopLeft(find.text('[ YOUR LAYOUT ]')).dy),
+    );
+    expect(
+      tester.getTopLeft(failure).dy,
+      lessThan(tester.getTopLeft(find.text('SHOW TECHNICAL DIAGNOSTICS')).dy),
+    );
+    expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));

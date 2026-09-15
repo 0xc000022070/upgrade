@@ -322,6 +322,16 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                           plugins.setEnabled(installed.id, !installed.enabled),
                     ),
             ),
+          if (_error != null && _candidate == null && installed != null) ...[
+            const SizedBox(height: Spacing.md),
+            Text(
+              _error!,
+              style: DazzleText.rowSubtitle.copyWith(
+                color: DazzleColors.danger,
+              ),
+            ),
+            const SizedBox(height: Spacing.md),
+          ],
           if (_candidate == null && installed != null)
             _PluginLayoutControls(plugin: installed),
           const SheetRule(),
@@ -509,15 +519,6 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                     );
                   },
                 ),
-            if (_error != null) ...[
-              Text(
-                _error!,
-                style: DazzleText.rowSubtitle.copyWith(
-                  color: DazzleColors.danger,
-                ),
-              ),
-              const SizedBox(height: Spacing.md),
-            ],
             Wrap(
               spacing: Spacing.md,
               runSpacing: Spacing.md,
