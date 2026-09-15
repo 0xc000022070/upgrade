@@ -18,6 +18,7 @@ import '../../platform/herdr_client.dart';
 import '../home/agent_mark.dart';
 import '../screen_scaffold.dart';
 import 'agent_shell.dart';
+import 'pip_action.dart';
 
 void openAgents(BuildContext context) {
   Navigator.of(
@@ -40,6 +41,7 @@ class AgentsScreen extends ConsumerWidget {
         child: ScreenScaffold(
           title: 'AGENTS',
           breadcrumb: '/ DAZZLE / AGENTS',
+          titleTrailing: const PipAffordance(),
           onBack: () => Navigator.of(context).pop(),
           children: [
             // Same reload blink as the panel: `waiting for host` would

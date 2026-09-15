@@ -12,6 +12,7 @@ import '../../design/typography.dart';
 import '../../platform/herdr_client.dart';
 import '../agents/agent_shell.dart';
 import '../agents/agents_screen.dart';
+import '../agents/pip_action.dart';
 import '../hosts/hosts_screen.dart';
 import 'agent_mark.dart';
 
@@ -42,11 +43,8 @@ class AgentsPanel extends ConsumerWidget {
     final header = <Widget>[
       if (agents)
         PanelAffordance('${current?.agents.length ?? 0}', showIcon: false),
-      if (ref.watch(pipActionAvailableProvider))
-        PanelAffordance(
-          'PIP',
-          onTap: () => ref.read(pipSurfaceProvider).enter(),
-        ),
+      if (ref.watch(pipActionProvider) != PipAction.absent)
+        const PipAffordance(),
       if (agents)
         PanelAffordance(
           'VIEW ALL',

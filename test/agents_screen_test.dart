@@ -9,6 +9,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agent_state.dart';
 import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/pip.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/design/colors.dart';
@@ -17,6 +18,7 @@ import 'package:dazzle/features/agents/agents_screen.dart';
 import 'package:dazzle/features/home/agent_mark.dart';
 import 'package:dazzle/platform/herdr_client.dart';
 
+import 'support/fake_pip.dart';
 import 'support/platform_channels.dart';
 
 const nyx = Host(
@@ -65,14 +67,19 @@ void main() {
   /// The background grain is read out of the settings table by [StaticSurface],
   /// which
   /// every screen sits under, so the database is not optional even here.
-  Widget host(AgentPanelState state, {AgentRetry? retry}) => ProviderScope(
-    overrides: [
-      ...featureTestOverrides(db),
-      agentsFeedProvider.overrideWith((ref) => Stream.value(state)),
-      if (retry != null) agentRetryProvider.overrideWithValue(retry),
-    ],
-    child: const MaterialApp(home: AgentsScreen()),
-  );
+  Widget host(AgentPanelState state, {AgentRetry? retry, FakePip? pip}) =>
+      ProviderScope(
+        overrides: [
+          ...featureTestOverrides(db),
+          agentsFeedProvider.overrideWith((ref) => Stream.value(state)),
+          if (retry != null) agentRetryProvider.overrideWithValue(retry),
+          if (pip != null) ...[
+            pipSurfaceProvider.overrideWithValue(pip),
+            agentsFeedLiveProvider.overrideWithValue(true),
+          ],
+        ],
+        child: const MaterialApp(home: AgentsScreen()),
+      );
 
   /// Panel titles render through [SignalText], which holds a scrambled string
   /// for the decode: a single pump reads a title mid-flipbook.
@@ -398,6 +405,33 @@ void main() {
       find.descendant(of: find.byType(AgentMark), matching: find.text('?')),
       findsOneWidget,
     );
+    await unmount(tester);
+  });
+
+  testWidgets('the route carries the same PIP action as the panel', (
+    tester,
+  ) async {
+    final pip = FakePip();
+    await tester.pumpWidget(
+      host(
+        AgentPanelState([
+          HostOutcome(
+            host: nyx,
+            kind: AgentOutcomeKind.snapshot,
+            agents: [agent('claude', workspace: 'wQ', status: 'working')],
+          ),
+        ]),
+        pip: pip,
+      ),
+    );
+    await ready(tester);
+
+    // VIEW ALL is the panel at full height, and the one action the panel had
+    // beside VIEW ALL would otherwise be the one thing the route lost.
+    expect(find.text('PIP'), findsOneWidget);
+    await tester.tap(find.text('PIP'));
+    await tester.pump();
+    expect(pip.entries, 1);
     await unmount(tester);
   });
 }

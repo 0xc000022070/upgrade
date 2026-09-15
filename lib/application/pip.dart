@@ -44,11 +44,33 @@ final pipModeProvider = StreamProvider<bool>(
   (ref) => ref.watch(pipSurfaceProvider).mode(),
 );
 
-/// Whether the AGENTS panel has live work worth opening in the corner window.
-final pipActionAvailableProvider = Provider<bool>((ref) {
-  if (ref.watch(pipAvailableProvider).valueOrNull != true) return false;
-  if (!ref.watch(agentsFeedLiveProvider)) return false;
+/// What `PIP` is on the surfaces that carry it.
+enum PipAction {
+  /// Not drawn. The device has no window to open, or AGENTS has no host and
+  /// there is nothing a window could count.
+  absent,
 
+  /// Drawn dim and doing nothing: there is a window, and nothing is being
+  /// watched right now, either because no agent is working or blocked or
+  /// because nothing is dialling. Drawn at all so the action is learnt where
+  /// it lives rather than found the first time it happens to be lit.
+  quiet,
+
+  /// Lit, and a tap opens the window.
+  live,
+}
+
+final pipActionProvider = Provider<PipAction>((ref) {
+  if (ref.watch(pipAvailableProvider).valueOrNull != true) {
+    return PipAction.absent;
+  }
   final agents = ref.watch(agentsFeedProvider).valueOrNull;
-  return agents != null && agents.tally.isNotEmpty;
+  if (agents == null || agents.noHost) return PipAction.absent;
+  // Live before the count: the feed hands out its last state after the poll
+  // behind it stops, so a tally on its own is not evidence anything is being
+  // watched.
+  if (!ref.watch(agentsFeedLiveProvider) || agents.tally.isEmpty) {
+    return PipAction.quiet;
+  }
+  return PipAction.live;
 });
