@@ -5,6 +5,7 @@ import 'dart:math' show min;
 
 import 'package:crypto/crypto.dart';
 
+import 'index.dart';
 import 'manifest.dart';
 
 class PluginPackage {
@@ -450,6 +451,9 @@ Future<({String catalog, Map<String, String> revisions})> _encodeCatalog(
 Future<PluginManifest> _parseManifest(String text) =>
     Isolate.run(() => PluginManifest.parse(text));
 
+Future<PluginIndex> _parseIndex(String text) =>
+    Isolate.run(() => PluginIndex.parse(text));
+
 class PluginFetcher {
   PluginFetcher({HttpClient Function()? httpClientFactory})
     : _httpClientFactory = httpClientFactory ?? HttpClient.new;
@@ -599,6 +603,31 @@ class PluginFetcher {
     }
   }
 
+  Future<String> _read(
+    HttpClient client,
+    Uri url,
+    String label,
+    int limit,
+  ) async {
+    final request = await client.getUrl(url);
+    request.followRedirects = false;
+    final response = await request.close();
+    if (response.statusCode != 200) {
+      throw PluginException('Cannot fetch $label: HTTP ${response.statusCode}');
+    }
+    if (response.contentLength > limit) {
+      throw PluginException('$label exceeds its size limit');
+    }
+    final bytes = <int>[];
+    await for (final chunk in response) {
+      if (bytes.length + chunk.length > limit) {
+        throw PluginException('$label exceeds its size limit');
+      }
+      bytes.addAll(chunk);
+    }
+    return utf8.decode(bytes);
+  }
+
   Future<PluginPackage> fetch(String repository, String ref) async {
     final target = _repository(repository);
     final revision = await _resolveRef(target, ref);
@@ -608,47 +637,26 @@ class PluginFetcher {
     final client = _httpClientFactory()
       ..connectionTimeout = const Duration(seconds: 15);
     try {
-      Future<String> read(String path, int limit) async {
-        final request = await client.getUrl(base.resolve(path));
-        request.followRedirects = false;
-        final response = await request.close();
-        if (response.statusCode != 200) {
-          throw PluginException(
-            'Cannot fetch $path: HTTP ${response.statusCode}',
-          );
-        }
-        if (response.contentLength > limit) {
-          throw PluginException('$path exceeds its size limit');
-        }
-        final bytes = <int>[];
-        await for (final chunk in response) {
-          if (bytes.length + chunk.length > limit) {
-            throw PluginException('$path exceeds its size limit');
-          }
-          bytes.addAll(chunk);
-        }
-        return utf8.decode(bytes);
-      }
+      Future<String> read(String path, int limit) => _read(
+        client,
+        base.resolve(path),
+        path,
+        limit,
+      ).timeout(const Duration(seconds: 20));
 
       final manifestText = await read(
         'dazzle.plugin.toml',
         PluginManifest.maxBytes,
-      ).timeout(const Duration(seconds: 20));
+      );
       final manifest = await _parseManifest(manifestText);
-      final source = await read(
-        manifest.entry,
-        64 * 1024,
-      ).timeout(const Duration(seconds: 20));
+      final source = await read(manifest.entry, 64 * 1024);
       final files = <String, String>{};
       var budget = PluginPackage.maxTotalBytes - utf8.encode(source).length;
       for (final path in manifest.files) {
         if (budget <= 0) {
           throw const PluginException('Plugin package exceeds its size limit');
         }
-        final content = await read(
-          path,
-          min(64 * 1024, budget),
-        ).timeout(const Duration(seconds: 20));
+        final content = await read(path, min(64 * 1024, budget));
         budget -= utf8.encode(content).length;
         files[path] = content;
       }
@@ -663,6 +671,31 @@ class PluginFetcher {
       rethrow;
     } catch (_) {
       throw const PluginException('Cannot download plugin revision');
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  Future<PluginIndex> fetchIndex(String repository, String ref) async {
+    final target = _repository(repository);
+    final revision = await _resolveRef(target, ref);
+    final base = Uri.parse(
+      'https://raw.githubusercontent.com/${target.owner}/${target.repo}/$revision/',
+    );
+    final client = _httpClientFactory()
+      ..connectionTimeout = const Duration(seconds: 15);
+    try {
+      final text = await _read(
+        client,
+        base.resolve('dazzle.index.toml'),
+        'dazzle.index.toml',
+        PluginIndex.maxBytes,
+      ).timeout(const Duration(seconds: 20));
+      return await _parseIndex(text);
+    } on PluginException {
+      rethrow;
+    } catch (_) {
+      throw const PluginException('Cannot download plugin index');
     } finally {
       client.close(force: true);
     }

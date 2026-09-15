@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:dazzle/platform/plugins/index.dart';
 import 'package:dazzle/platform/plugins/manifest.dart';
 import 'package:dazzle/platform/plugins/store.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -104,6 +105,22 @@ String listingManifest({
       '${summary == null ? '' : 'summary = "$summary"\n'}'
       '[runtime]',
 );
+
+String pluginIndex({
+  String id = 'test.one',
+  String repository = 'https://github.com/x/y',
+  String ref = 'main',
+  String? summary = 'Short blurb',
+  String? author = 'Ada Lovelace',
+}) =>
+    '[[plugins]]\n'
+    'id = "$id"\n'
+    'repository = "$repository"\n'
+    'ref = "$ref"\n'
+    '${summary == null ? '' : 'summary = "$summary"\n'}'
+    '${author == null ? '' : 'author = "$author"\n'}';
+
+String pluginIndexDocument(String entries) => 'index_version = 1\n$entries';
 
 class _FakeResponse {
   const _FakeResponse(this.statusCode, this.body);
@@ -359,6 +376,208 @@ void main() {
         );
       },
     );
+  });
+
+  group('index', () {
+    test('parses entries with and without optional fields', () {
+      final parsed = PluginIndex.parse(pluginIndexDocument(pluginIndex()));
+      expect(parsed.entries.single.id, 'test.one');
+      expect(parsed.entries.single.repository, 'https://github.com/x/y');
+      expect(parsed.entries.single.ref, 'main');
+      expect(parsed.entries.single.summary, 'Short blurb');
+      expect(parsed.entries.single.author, 'Ada Lovelace');
+
+      final bare = PluginIndex.parse(
+        pluginIndexDocument(pluginIndex(summary: null, author: null)),
+      );
+      expect(bare.entries.single.summary, isNull);
+      expect(bare.entries.single.author, isNull);
+    });
+
+    test('an index may declare several entries', () {
+      final parsed = PluginIndex.parse(
+        pluginIndexDocument(
+          '${pluginIndex(id: 'test.one')}\n${pluginIndex(id: 'test.two')}',
+        ),
+      );
+      expect(parsed.entries.map((e) => e.id), ['test.one', 'test.two']);
+    });
+
+    test('requires index_version at the root', () {
+      expect(
+        () => PluginIndex.parse(pluginIndex()),
+        throwsA(isA<PluginException>()),
+      );
+    });
+
+    test('rejects an unsupported index_version', () {
+      expect(
+        () => PluginIndex.parse('index_version = 2\n${pluginIndex()}'),
+        throwsA(isA<PluginException>()),
+      );
+    });
+
+    final malformed = <String, String>{
+      'unknown top-level field': pluginIndexDocument(
+        'unknown = true\n${pluginIndex()}',
+      ),
+      'unknown entry field': pluginIndexDocument(
+        pluginIndex().replaceFirst(
+          'ref = "main"',
+          'ref = "main"\nextra = "x"',
+        ),
+      ),
+      'duplicate id': pluginIndexDocument('${pluginIndex()}\n${pluginIndex()}'),
+      'invalid identifier': pluginIndexDocument(pluginIndex(id: 'Test.One')),
+      'blank repository': pluginIndexDocument(
+        pluginIndex(repository: '   '),
+      ),
+      'blank ref': pluginIndexDocument(pluginIndex(ref: '   ')),
+      'oversized summary': pluginIndexDocument(
+        pluginIndex(summary: 'A' * 141),
+      ),
+      'oversized author': pluginIndexDocument(pluginIndex(author: 'A' * 81)),
+      'non-list plugins': pluginIndexDocument('plugins = "x"'),
+      'too many entries': pluginIndexDocument(
+        List.generate(101, (i) => pluginIndex(id: 'test.n$i')).join('\n'),
+      ),
+    };
+    for (final entry in malformed.entries) {
+      test('rejects ${entry.key}', () {
+        expect(
+          () => PluginIndex.parse(entry.value),
+          throwsA(isA<PluginException>()),
+        );
+      });
+    }
+
+    test('rejects an index over 16 KiB before parsing', () {
+      expect(
+        () => PluginIndex.parse('x' * (16 * 1024 + 1)),
+        throwsA(isA<PluginException>()),
+      );
+    });
+  });
+
+  group('source store', () {
+    late Directory directory;
+    late PluginSourceStore store;
+    setUp(() async {
+      directory = await Directory.systemTemp.createTemp('dazzle-sources-test-');
+      store = PluginSourceStore(directory);
+    });
+    tearDown(() => directory.delete(recursive: true));
+
+    test('add and remove round-trip through the source list', () async {
+      final source = PluginSource(
+        repository: 'https://github.com/x/y',
+        ref: 'main',
+      );
+      expect(await store.add(source), [source]);
+      expect(await store.list(), [source]);
+      expect(await store.remove(source), isEmpty);
+      expect(await store.list(), isEmpty);
+    });
+
+    test('a duplicate source is refused', () async {
+      final source = PluginSource(
+        repository: 'https://github.com/x/y',
+        ref: 'main',
+      );
+      await store.add(source);
+      await expectLater(store.add(source), throwsA(isA<PluginException>()));
+      expect(await store.list(), [source]);
+    });
+
+    test('at most 16 sources may be added', () async {
+      for (var i = 0; i < 16; i++) {
+        await store.add(
+          PluginSource(repository: 'https://github.com/x/s$i', ref: 'main'),
+        );
+      }
+      await expectLater(
+        store.add(
+          PluginSource(repository: 'https://github.com/x/s16', ref: 'main'),
+        ),
+        throwsA(isA<PluginException>()),
+      );
+      expect((await store.list()).length, 16);
+    });
+
+    test('a corrupted source file is refused, not silently reset', () async {
+      final file = File('${directory.path}/sources.json');
+      await file.create(recursive: true);
+      await file.writeAsString('not json');
+      await expectLater(store.list(), throwsA(isA<PluginException>()));
+    });
+
+    test('serialized changes do not overwrite each other', () async {
+      await Future.wait([
+        store.add(
+          PluginSource(repository: 'https://github.com/x/one', ref: 'main'),
+        ),
+        store.add(
+          PluginSource(repository: 'https://github.com/x/two', ref: 'main'),
+        ),
+      ]);
+      expect((await store.list()).map((s) => s.repository), [
+        'https://github.com/x/one',
+        'https://github.com/x/two',
+      ]);
+    });
+  });
+
+  group('fetch index with a fake HttpClient', () {
+    final revision = 'a' * 40;
+    String path(String suffix) => '/x/y/$revision/$suffix';
+
+    test('resolves the ref, then downloads and parses the index', () async {
+      final fetcher = PluginFetcher(
+        httpClientFactory: () => _FakeHttpClient({
+          '/repos/x/y/commits/main': _FakeResponse(
+            200,
+            jsonEncode({'sha': revision}),
+          ),
+          path('dazzle.index.toml'): _FakeResponse(
+            200,
+            pluginIndexDocument(pluginIndex()),
+          ),
+        }),
+      );
+      final index = await fetcher.fetchIndex('https://github.com/x/y', 'main');
+      expect(index.entries.single.id, 'test.one');
+    });
+
+    test('fails when the index file is missing on the origin', () async {
+      final fetcher = PluginFetcher(
+        httpClientFactory: () => _FakeHttpClient({
+          '/repos/x/y/commits/main': _FakeResponse(
+            200,
+            jsonEncode({'sha': revision}),
+          ),
+        }),
+      );
+      await expectLater(
+        fetcher.fetchIndex('https://github.com/x/y', 'main'),
+        throwsA(isA<PluginException>()),
+      );
+    });
+
+    test('rejects an oversized index before it is parsed', () async {
+      final fetcher = PluginFetcher(
+        httpClientFactory: () => _FakeHttpClient({
+          '/repos/x/y/commits/main': _FakeResponse(
+            200,
+            jsonEncode({'sha': revision}),
+          ),
+          path('dazzle.index.toml'): _FakeResponse(200, 'x' * (16 * 1024 + 1)),
+        }),
+      );
+      await expectLater(
+        fetcher.fetchIndex('https://github.com/x/y', 'main'),
+        throwsA(isA<PluginException>()),
+      );
+    });
   });
 
   group('store', () {

@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../platform/plugins/bindings.dart';
+import '../platform/plugins/index.dart';
 import '../platform/plugins/manifest.dart';
 import '../platform/plugins/store.dart';
 import 'native_plugins.dart';
@@ -17,6 +18,64 @@ import 'plugin_hosts.dart';
 final pluginStoreProvider = FutureProvider<PluginStore>((ref) async {
   final directory = await getApplicationSupportDirectory();
   return PluginStore(Directory('${directory.path}/plugins'));
+});
+
+final pluginSourceStoreProvider = FutureProvider<PluginSourceStore>((
+  ref,
+) async {
+  final directory = await getApplicationSupportDirectory();
+  return PluginSourceStore(Directory('${directory.path}/plugins'));
+});
+
+final pluginSourcesProvider =
+    AsyncNotifierProvider<PluginSources, List<PluginSource>>(PluginSources.new);
+
+class PluginSources extends AsyncNotifier<List<PluginSource>> {
+  @override
+  Future<List<PluginSource>> build() async =>
+      (await ref.watch(pluginSourceStoreProvider.future)).list();
+
+  Future<void> add(PluginSource source) async {
+    final store = await ref.read(pluginSourceStoreProvider.future);
+    state = AsyncData(await store.add(source));
+  }
+
+  Future<void> remove(PluginSource source) async {
+    final store = await ref.read(pluginSourceStoreProvider.future);
+    state = AsyncData(await store.remove(source));
+  }
+}
+
+class PluginBrowseEntry {
+  const PluginBrowseEntry(this.source, this.entry);
+  final PluginSource source;
+  final PluginIndexEntry entry;
+}
+
+class PluginBrowse {
+  const PluginBrowse({required this.entries, required this.failedSources});
+  final List<PluginBrowseEntry> entries;
+  final List<PluginSource> failedSources;
+}
+
+final pluginBrowseProvider = FutureProvider.autoDispose<PluginBrowse>((
+  ref,
+) async {
+  final sources = await ref.watch(pluginSourcesProvider.future);
+  final fetcher = PluginFetcher();
+  final entries = <PluginBrowseEntry>[];
+  final failed = <PluginSource>[];
+  for (final source in sources) {
+    try {
+      final index = await fetcher.fetchIndex(source.repository, source.ref);
+      entries.addAll(
+        index.entries.map((entry) => PluginBrowseEntry(source, entry)),
+      );
+    } on PluginException {
+      failed.add(source);
+    }
+  }
+  return PluginBrowse(entries: entries, failedSources: failed);
 });
 
 final pluginRuntimeProvider = FutureProvider<LuauWorker>((ref) async {

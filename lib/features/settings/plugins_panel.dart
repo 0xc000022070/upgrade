@@ -17,6 +17,7 @@ import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/plugins/manifest.dart';
 import '../../platform/plugins/contributions.dart';
+import '../../platform/plugins/index.dart';
 import '../../platform/plugins/store.dart';
 import '../plugins/plugin_page.dart';
 
@@ -88,6 +89,22 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
             label: 'ADD',
             onTap: plugins.hasValue ? () => _open(context) : null,
           ),
+          PanelTextAction(
+            label: 'BROWSE',
+            onTap: () => showPanelSheet<void>(
+              context,
+              title: 'BROWSE',
+              builder: (_) => const _BrowseSheet(),
+            ),
+          ),
+          PanelTextAction(
+            label: 'SOURCES',
+            onTap: () => showPanelSheet<void>(
+              context,
+              title: 'SOURCES',
+              builder: (_) => const _SourcesSheet(),
+            ),
+          ),
         ],
       ),
     );
@@ -103,8 +120,10 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
 }
 
 class _PluginSheet extends ConsumerStatefulWidget {
-  const _PluginSheet({this.installed});
+  const _PluginSheet({this.installed, this.initialRepository, this.initialRef});
   final InstalledPlugin? installed;
+  final String? initialRepository;
+  final String? initialRef;
   @override
   ConsumerState<_PluginSheet> createState() => _PluginSheetState();
 }
@@ -121,7 +140,9 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
   @override
   void initState() {
     super.initState();
-    _repository.text = widget.installed?.package.origin ?? '';
+    _repository.text =
+        widget.initialRepository ?? widget.installed?.package.origin ?? '';
+    _revision.text = widget.initialRef ?? '';
   }
 
   @override
@@ -580,6 +601,193 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
       child: Text(value, style: DazzleText.rowSubtitle),
     ),
   );
+}
+
+class _SourcesSheet extends ConsumerStatefulWidget {
+  const _SourcesSheet();
+  @override
+  ConsumerState<_SourcesSheet> createState() => _SourcesSheetState();
+}
+
+class _SourcesSheetState extends ConsumerState<_SourcesSheet> {
+  final _repository = TextEditingController();
+  final _ref = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _repository.dispose();
+    _ref.dispose();
+    super.dispose();
+  }
+
+  Future<void> _add() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final source = PluginSource(
+        repository: _repository.text.trim(),
+        ref: _ref.text.trim(),
+      );
+      await ref.read(pluginSourcesProvider.notifier).add(source);
+      if (mounted) {
+        _repository.clear();
+        _ref.clear();
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _remove(PluginSource source) async {
+    final confirmed = await confirmSheet(
+      context,
+      title: 'REMOVE SOURCE?',
+      confirmLabel: 'REMOVE',
+      message:
+          '${source.repository} @ ${source.ref} will no longer appear in BROWSE.',
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await ref.read(pluginSourcesProvider.notifier).remove(source);
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sources = ref.watch(pluginSourcesProvider);
+    return PanelSheetBody(
+      title: 'SOURCES',
+      children: [
+        if (_error != null) ...[
+          Text(
+            _error!,
+            style: DazzleText.rowSubtitle.copyWith(color: DazzleColors.danger),
+          ),
+          const SheetRule(),
+        ],
+        SheetField(
+          label: 'INDEX REPOSITORY',
+          child: DazzleField(
+            controller: _repository,
+            suggest: false,
+            hint: 'https://github.com/owner/repository',
+            keyboardType: TextInputType.url,
+          ),
+        ),
+        const SheetRule(),
+        SheetField(
+          label: 'REF',
+          child: DazzleField(
+            controller: _ref,
+            suggest: false,
+            hint: 'full commit SHA, tag or branch name',
+          ),
+        ),
+        const SheetRule(),
+        ActionBlock(
+          label: _busy ? 'ADDING' : 'ADD SOURCE',
+          onTap: _busy
+              ? null
+              : () {
+                  FocusScope.of(context).unfocus();
+                  _add();
+                },
+        ),
+        const SheetRule(),
+        sources.when(
+          loading: () => const Text('LOADING', style: DazzleText.rowSubtitle),
+          error: (error, _) => Text('$error', style: DazzleText.rowSubtitle),
+          data: (list) => list.isEmpty
+              ? const Text('NO SOURCES ADDED', style: DazzleText.rowSubtitle)
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final source in list)
+                      ListRow(
+                        title: source.repository,
+                        subtitle: source.ref,
+                        value: 'REMOVE',
+                        valueColor: DazzleColors.danger,
+                        node: false,
+                        onTap: () => _remove(source),
+                      ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BrowseSheet extends ConsumerWidget {
+  const _BrowseSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final browse = ref.watch(pluginBrowseProvider);
+    final installed =
+        ref.watch(pluginsProvider).valueOrNull ?? const <InstalledPlugin>[];
+    return PanelSheetBody(
+      title: 'BROWSE',
+      children: [
+        browse.when(
+          loading: () => const Text('LOADING', style: DazzleText.rowSubtitle),
+          error: (error, _) => Text('$error', style: DazzleText.rowSubtitle),
+          data: (data) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final failed in data.failedSources)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Spacing.md),
+                  child: Text(
+                    'Cannot read ${failed.repository} @ ${failed.ref}',
+                    style: DazzleText.rowSubtitle.copyWith(
+                      color: DazzleColors.danger,
+                    ),
+                  ),
+                ),
+              if (data.entries.isEmpty && data.failedSources.isEmpty)
+                const Text(
+                  'NO ENTRIES. ADD A SOURCE UNDER SOURCES.',
+                  style: DazzleText.rowSubtitle,
+                ),
+              for (final browseEntry in data.entries)
+                ListRow(
+                  title: browseEntry.entry.id,
+                  subtitle:
+                      browseEntry.entry.summary ??
+                      browseEntry.entry.author ??
+                      browseEntry.entry.repository,
+                  value: installed.any((p) => p.id == browseEntry.entry.id)
+                      ? 'INSTALLED'
+                      : '',
+                  node: true,
+                  onTap: () => showPanelSheet<void>(
+                    context,
+                    title: 'PLUGIN',
+                    builder: (_) => _PluginSheet(
+                      installed: installed
+                          .where((p) => p.id == browseEntry.entry.id)
+                          .firstOrNull,
+                      initialRepository: browseEntry.entry.repository,
+                      initialRef: browseEntry.entry.ref,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _PluginLayoutControls extends ConsumerStatefulWidget {
