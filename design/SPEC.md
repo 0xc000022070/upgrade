@@ -1500,6 +1500,10 @@ A repository plugin's manifest can declare extra Luau files alongside its entry,
 
 The `ADD` and `UPDATE` ref field takes a full commit SHA, a tag or a branch name. Dazzle resolves a tag or branch name to its commit SHA through the public GitHub REST API before fetching anything, unauthenticated; a full SHA needs no resolution. The manifest and every declared file are then fetched and retained by that resolved SHA, never by the ref that named it, so a moving branch or a retagged release cannot change what an installed revision contains. `UPDATE` additionally offers the repository's latest revision with one tap: the tag of its latest published release, or its default branch when it has no releases. The offered revision is fetched and reviewed exactly like a manually entered one before `INSTALL` replaces the running revision.
 
+### A manifest can list itself for the person installing it
+
+A manifest can declare an author, a homepage, a license and a short summary, each optional and bounded. Dazzle shows every declared one in the review sheet before `INSTALL` and in the installed plugin's detail view; an undeclared one is omitted rather than shown empty. None of the four carries runtime meaning: they do not affect a plugin's capabilities, dependencies, compatibility or execution, and a manifest lacking all four remains as valid as one declaring all of them.
+
 ### Manifests and dependencies have separate versions
 
 `manifest_version` is the manifest format's integer version. `version` is the plugin's semantic release version. `dazzle_api` is its required API version range. Dazzle rejects unsupported manifest versions, unknown fields, unsupported capabilities and incompatible API ranges before running code. Retained incompatible revisions stay listed, disabled, with their original source and grants; they cannot execute until a compatible update is reviewed. The manifest's release version cannot change the meaning of its format.

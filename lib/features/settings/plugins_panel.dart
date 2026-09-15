@@ -283,6 +283,10 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
         ] else ...[
           Text(manifest.purpose, style: DazzleText.prose),
           const SizedBox(height: Spacing.lg),
+          if (manifest.summary != null) _fact('SUMMARY', manifest.summary!),
+          if (manifest.author != null) _fact('AUTHOR', manifest.author!),
+          if (manifest.homepage != null) _fact('HOMEPAGE', manifest.homepage!),
+          if (manifest.license != null) _fact('LICENSE', manifest.license!),
           _fact(
             'STATUS',
             installed == null
