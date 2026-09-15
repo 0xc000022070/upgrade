@@ -20,10 +20,17 @@ import '../../platform/plugins/contributions.dart';
 import '../../platform/plugins/store.dart';
 import '../plugins/plugin_page.dart';
 
-class PluginsPanel extends ConsumerWidget {
+class PluginsPanel extends ConsumerStatefulWidget {
   const PluginsPanel({super.key});
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PluginsPanel> createState() => _PluginsPanelState();
+}
+
+class _PluginsPanelState extends ConsumerState<PluginsPanel> {
+  String? _pauseError;
+
+  @override
+  Widget build(BuildContext context) {
     final plugins = ref.watch(pluginsProvider);
     final pauses = ref.watch(pendingHostPausesProvider);
     return Panel(
@@ -52,14 +59,19 @@ class PluginsPanel extends ConsumerWidget {
                       .read(pluginHostRegistryProvider)
                       .retryPending
                       ?.call();
+                  if (mounted) setState(() => _pauseError = null);
                 } catch (error) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(SnackBar(content: Text('$error')));
-                  }
+                  if (mounted) setState(() => _pauseError = '$error');
                 }
               },
             ),
+            if (_pauseError != null)
+              Text(
+                _pauseError!,
+                style: DazzleText.rowSubtitle.copyWith(
+                  color: DazzleColors.danger,
+                ),
+              ),
           ],
           for (final plugin in ref.watch(effectivePluginsProvider))
             ListRow(
@@ -548,28 +560,29 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
   );
 }
 
-class _PluginLayoutControls extends ConsumerWidget {
+class _PluginLayoutControls extends ConsumerStatefulWidget {
   const _PluginLayoutControls({required this.plugin});
 
   final InstalledPlugin plugin;
 
-  Future<void> _run(
-    BuildContext context,
-    Future<void> Function() action,
-  ) async {
+  @override
+  ConsumerState<_PluginLayoutControls> createState() =>
+      _PluginLayoutControlsState();
+}
+
+class _PluginLayoutControlsState extends ConsumerState<_PluginLayoutControls> {
+  String? _error;
+
+  Future<void> _run(Future<void> Function() action) async {
     try {
       await action();
+      if (mounted) setState(() => _error = null);
     } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$error')));
-      }
+      if (mounted) setState(() => _error = '$error');
     }
   }
 
   Future<void> _place(
-    BuildContext context,
-    WidgetRef ref,
     PluginWidgetRegistration widget,
     PluginPlacementLocation location,
     PluginPlacementState state,
@@ -583,32 +596,17 @@ class _PluginLayoutControls extends ConsumerWidget {
     if (occupied != null && location.exclusive) {
       final catalog = ref.read(pluginContributionCatalogProvider);
       final other = catalog.widget(occupied.key);
-      replace =
-          await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('REPLACE INPUT BAR?'),
-              content: Text(
-                '${other?.contribution.title ?? occupied.key} will leave the input bar. Its layout and data remain saved.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('CANCEL'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('REPLACE'),
-                ),
-              ],
-            ),
-          ) ==
-          true;
+      replace = await confirmSheet(
+        context,
+        title: 'REPLACE INPUT BAR?',
+        confirmLabel: 'REPLACE',
+        message:
+            '${other?.contribution.title ?? occupied.key} will leave the input bar. Its layout and data remain saved.',
+      );
       if (!replace) return;
     }
-    if (!context.mounted) return;
+    if (!mounted) return;
     await _run(
-      context,
       () => ref
           .read(pluginPlacementsProvider.notifier)
           .placeWidget(widget.stableId, location, replaceExisting: replace),
@@ -616,8 +614,6 @@ class _PluginLayoutControls extends ConsumerWidget {
   }
 
   Future<void> _pin(
-    BuildContext context,
-    WidgetRef ref,
     PluginPageRegistration page,
     PluginPlacementState state,
   ) async {
@@ -627,32 +623,17 @@ class _PluginLayoutControls extends ConsumerWidget {
     var replace = false;
     if (occupied != null) {
       final other = ref.read(pluginContributionCatalogProvider).page(occupied);
-      replace =
-          await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('REPLACE NAVIGATION PAGE?'),
-              content: Text(
-                '${other?.contribution.title ?? occupied} stays available in Tools.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('CANCEL'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('REPLACE'),
-                ),
-              ],
-            ),
-          ) ==
-          true;
+      replace = await confirmSheet(
+        context,
+        title: 'REPLACE NAVIGATION PAGE?',
+        confirmLabel: 'REPLACE',
+        message:
+            '${other?.contribution.title ?? occupied} stays available in Tools.',
+      );
       if (!replace) return;
     }
-    if (!context.mounted) return;
+    if (!mounted) return;
     await _run(
-      context,
       () => ref
           .read(pluginPlacementsProvider.notifier)
           .setPagePinned(page.stableId, true, replaceExisting: replace),
@@ -660,12 +641,12 @@ class _PluginLayoutControls extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final placements = ref.watch(pluginPlacementsProvider);
     final owner = ref
         .watch(pluginContributionCatalogProvider)
         .owners
-        .where((owner) => owner.plugin.id == plugin.id)
+        .where((owner) => owner.plugin.id == widget.plugin.id)
         .firstOrNull;
     return SheetField(
       label: 'YOUR LAYOUT',
@@ -683,6 +664,15 @@ class _PluginLayoutControls extends ConsumerWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (_error != null) ...[
+                Text(
+                  _error!,
+                  style: DazzleText.rowSubtitle.copyWith(
+                    color: DazzleColors.danger,
+                  ),
+                ),
+                const SizedBox(height: Spacing.md),
+              ],
               for (final widget in owner.widgets)
                 Material(
                   type: MaterialType.transparency,
@@ -699,13 +689,7 @@ class _PluginLayoutControls extends ConsumerWidget {
                                 '${state.placements[widget.stableId] == location ? "[ SET ] " : ""}${location == PluginPlacementLocation.homeCard ? "HOME CARD" : "INPUT BAR"}',
                             onTap: state.placements[widget.stableId] == location
                                 ? null
-                                : () => _place(
-                                    context,
-                                    ref,
-                                    widget,
-                                    location,
-                                    state,
-                                  ),
+                                : () => _place(widget, location, state),
                           )
                         else
                           Text(
@@ -719,7 +703,6 @@ class _PluginLayoutControls extends ConsumerWidget {
                               ? 'SHOW ON HOME'
                               : 'HIDE ON HOME',
                           onTap: () => _run(
-                            context,
                             () => controller.setHomeHidden(
                               widget.stableId,
                               !state.hiddenHome.contains(widget.stableId),
@@ -730,7 +713,6 @@ class _PluginLayoutControls extends ConsumerWidget {
                           PanelTextAction(
                             label: 'MOVE UP',
                             onTap: () => _run(
-                              context,
                               () => controller.reorderHome(
                                 widget.stableId,
                                 state.homeOrder.indexOf(widget.stableId) - 1,
@@ -743,7 +725,6 @@ class _PluginLayoutControls extends ConsumerWidget {
                           PanelTextAction(
                             label: 'MOVE DOWN',
                             onTap: () => _run(
-                              context,
                               () => controller.reorderHome(
                                 widget.stableId,
                                 state.homeOrder.indexOf(widget.stableId) + 1,
@@ -756,7 +737,6 @@ class _PluginLayoutControls extends ConsumerWidget {
                         PanelTextAction(
                           label: 'REMOVE FROM INPUT BAR',
                           onTap: () => _run(
-                            context,
                             () => controller.setWidgetPlaced(
                               widget.stableId,
                               false,
@@ -768,7 +748,6 @@ class _PluginLayoutControls extends ConsumerWidget {
                           label:
                               '${state.selectedSizes[widget.stableId] == size.id ? "[ SET ] " : ""}SIZE · ${size.title.toUpperCase()}',
                           onTap: () => _run(
-                            context,
                             () => controller.setWidgetSize(
                               widget.stableId,
                               size.id,
@@ -786,7 +765,6 @@ class _PluginLayoutControls extends ConsumerWidget {
                           label:
                               '${state.selectedWidths.containsKey(widget.stableId) ? "" : "[ SET ] "}AUTO WIDTH',
                           onTap: () => _run(
-                            context,
                             () => controller.setWidgetWidth(
                               widget.stableId,
                               null,
@@ -802,7 +780,6 @@ class _PluginLayoutControls extends ConsumerWidget {
                                   widget.contribution.defaultSize,
                             );
                             _run(
-                              context,
                               () => controller.setWidgetWidth(
                                 widget.stableId,
                                 size.minWidth,
@@ -819,7 +796,6 @@ class _PluginLayoutControls extends ConsumerWidget {
                                   widget.contribution.defaultSize,
                             );
                             _run(
-                              context,
                               () => controller.setWidgetWidth(
                                 widget.stableId,
                                 size.maxWidth,
@@ -838,10 +814,9 @@ class _PluginLayoutControls extends ConsumerWidget {
                       : 'PIN ${page.contribution.title.toUpperCase()} TO NAV',
                   onTap: () => state.pinnedPages.contains(page.stableId)
                       ? _run(
-                          context,
                           () => controller.setPagePinned(page.stableId, false),
                         )
-                      : _pin(context, ref, page, state),
+                      : _pin(page, state),
                 ),
               const Text(
                 'DONE · CHANGES SAVE IMMEDIATELY',
