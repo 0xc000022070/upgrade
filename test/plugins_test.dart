@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:dazzle/platform/plugins/manifest.dart';
 import 'package:dazzle/platform/plugins/store.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,6 +39,7 @@ PluginPackage package({
   String version = '1.2.0',
   String dependencies = '',
   String origin = 'bundled:test',
+  Map<String, String> files = const {},
 }) => PluginPackage(
   manifest: PluginManifest.parse(
     manifest(id: id, version: version, dependencies: dependencies),
@@ -44,7 +47,109 @@ PluginPackage package({
   source: 'return {run = function() end}',
   origin: origin,
   revision: version,
+  files: files,
 );
+
+String filesManifest({List<String> files = const ['lib/util.luau']}) =>
+    manifest()
+        .replaceFirst('manifest_version = 2', 'manifest_version = 5')
+        .replaceFirst(
+          '[runtime]',
+          'files = [${files.map((f) => '"$f"').join(', ')}]\n'
+              '[runtime]',
+        );
+
+String filesUiManifest({bool declareUiApi = true}) => '''
+manifest_version = 5
+id = "test.filesui"
+name = "Test files ui"
+version = "1.0.0"
+dazzle_api = "^2.0.0"
+${declareUiApi ? 'ui_api = 1\n' : ''}files = ["lib/util.luau"]
+[runtime]
+kind = "luau"
+entry = "main.luau"
+${declareUiApi ? '[host_capabilities.status]\napi_version = 1\nservice = "status"\noperations = ["get"]\n' : ''}[permissions]
+ui = [${declareUiApi ? '"page"' : '"record_action"'}]
+[contributes]
+${declareUiApi ? '[[contributes.pages]]\nid = "main"\ntitle = "Main"\n' : '[[contributes.record_actions]]\nid = "run"\ntitle = "RUN"\n'}''';
+
+String uiManifest({bool declareUiApi = true, int uiApiValue = 1}) => '''
+manifest_version = 4
+id = "test.ui"
+name = "Test ui"
+version = "1.0.0"
+dazzle_api = "^2.0.0"
+${declareUiApi ? 'ui_api = $uiApiValue\n' : ''}[runtime]
+kind = "luau"
+entry = "main.luau"
+[permissions]
+ui = ["page"]
+[contributes]
+[[contributes.pages]]
+id = "main"
+title = "Main"
+''';
+
+class _FakeResponse {
+  const _FakeResponse(this.statusCode, this.body);
+  final int statusCode;
+  final String body;
+}
+
+class _FakeHttpClient implements HttpClient {
+  _FakeHttpClient(this.responses);
+  final Map<String, _FakeResponse> responses;
+  @override
+  Duration? connectionTimeout;
+  @override
+  Future<HttpClientRequest> getUrl(Uri url) async => _FakeHttpClientRequest(
+    responses[url.path] ?? const _FakeResponse(404, ''),
+  );
+  @override
+  void close({bool force = false}) {}
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} is not faked');
+}
+
+class _FakeHttpClientRequest implements HttpClientRequest {
+  _FakeHttpClientRequest(this._response);
+  final _FakeResponse _response;
+  @override
+  bool followRedirects = true;
+  @override
+  Future<HttpClientResponse> close() async =>
+      _FakeHttpClientResponse(_response);
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} is not faked');
+}
+
+class _FakeHttpClientResponse extends Stream<List<int>>
+    implements HttpClientResponse {
+  _FakeHttpClientResponse(this._response);
+  final _FakeResponse _response;
+  @override
+  int get statusCode => _response.statusCode;
+  @override
+  int get contentLength => utf8.encode(_response.body).length;
+  @override
+  StreamSubscription<List<int>> listen(
+    void Function(List<int> event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => Stream.value(utf8.encode(_response.body)).listen(
+    onData,
+    onError: onError,
+    onDone: onDone,
+    cancelOnError: cancelOnError,
+  );
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} is not faked');
+}
 
 void main() {
   group('manifest', () {
@@ -112,6 +217,15 @@ void main() {
       'duplicate permission': manifest().replaceFirst('"get"', '"get", "get"'),
       'ungranted UI': manifest().replaceFirst('["record_action"]', '[]'),
       'self dependency': manifest(dependencies: '"test.provider" = "^1.0.0"'),
+      'file path traversal': filesManifest(files: ['../lib/util.luau']),
+      'absolute file path': filesManifest(files: ['/lib/util.luau']),
+      'file shadows entry': filesManifest(files: ['main.luau']),
+      'duplicate file path': filesManifest(
+        files: ['lib/util.luau', 'lib/util.luau'],
+      ),
+      'too many files': filesManifest(
+        files: List.generate(32, (i) => 'lib/f$i.luau'),
+      ),
     };
     for (final entry in malformed.entries) {
       test('rejects ${entry.key}', () {
@@ -121,6 +235,72 @@ void main() {
         );
       });
     }
+
+    test('format 5 declares additional relative Luau files', () {
+      final parsed = PluginManifest.parse(
+        filesManifest(files: ['lib/util.luau', 'lib/other.luau']),
+      );
+      expect(parsed.files, ['lib/util.luau', 'lib/other.luau']);
+      expect(PluginManifest.parse(manifest()).files, isEmpty);
+    });
+
+    test('format 5 with ui_api carries pages and host capabilities', () {
+      final parsed = PluginManifest.parse(filesUiManifest());
+      expect(parsed.uiVersion, 1);
+      expect(parsed.files, ['lib/util.luau']);
+      expect(parsed.pages.map((p) => p.id), ['main']);
+      expect(parsed.hostCapabilities.keys, ['status']);
+    });
+
+    test('format 5 without ui_api still parses, with no UI version', () {
+      final parsed = PluginManifest.parse(
+        filesUiManifest(declareUiApi: false),
+      );
+      expect(parsed.uiVersion, isNull);
+      expect(parsed.files, ['lib/util.luau']);
+    });
+
+    test(
+      'format 4 without ui_api is rejected fresh, retained as unsupported',
+      () {
+        final bad = uiManifest(declareUiApi: false);
+        expect(
+          () => PluginManifest.parse(bad),
+          throwsA(isA<PluginException>()),
+        );
+        final retained = PluginManifest.parse(bad, retainUnsupported: true);
+        expect(retained.supported, isFalse);
+        expect(retained.incompatibility, 'Unsupported UI API version');
+      },
+    );
+
+    test(
+      'format 4 with a wrong ui_api value is rejected fresh, retained as unsupported',
+      () {
+        final bad = uiManifest(uiApiValue: 2);
+        expect(
+          () => PluginManifest.parse(bad),
+          throwsA(isA<PluginException>()),
+        );
+        final retained = PluginManifest.parse(bad, retainUnsupported: true);
+        expect(retained.supported, isFalse);
+        expect(retained.incompatibility, 'Unsupported UI API version');
+      },
+    );
+
+    test('listing fields are optional and absent by default', () {
+      final bare = PluginManifest.parse(manifest());
+      expect(bare.author, isNull);
+      expect(bare.homepage, isNull);
+      expect(bare.license, isNull);
+      expect(bare.summary, isNull);
+
+      final listed = PluginManifest.parse(listingManifest());
+      expect(listed.author, 'Ada Lovelace');
+      expect(listed.homepage, 'https://example.com');
+      expect(listed.license, 'MIT');
+      expect(listed.summary, 'Short blurb');
+    });
 
     test(
       'topological order, missing dependency, cycles, incompatible version',
@@ -283,4 +463,91 @@ void main() {
       );
     },
   );
+
+  group('digest', () {
+    test('covers every declared file, not only the entry', () {
+      final withFile = package(files: {'lib/util.luau': 'return 1'});
+      final withOtherFile = package(files: {'lib/util.luau': 'return 2'});
+      final withoutFiles = package();
+      expect(withFile.digest, isNot(withoutFiles.digest));
+      expect(withFile.digest, isNot(withOtherFile.digest));
+    });
+
+    test('is independent of the files map insertion order', () {
+      final ordered = <String, String>{'a.luau': '1', 'b.luau': '2'};
+      final reversed = <String, String>{'b.luau': '2', 'a.luau': '1'};
+      expect(package(files: ordered).digest, package(files: reversed).digest);
+    });
+
+    test('linkedSource equals source when there are no extra files', () {
+      expect(package().linkedSource, package().source);
+    });
+
+    test('decodes a pre-branch record hashed over the four-element list', () {
+      final p = package();
+      final legacyDigest = sha256
+          .convert(
+            utf8.encode(
+              jsonEncode([p.origin, p.revision, p.manifest.source, p.source]),
+            ),
+          )
+          .toString();
+      final record = <String, Object?>{
+        'manifest': p.manifest.source,
+        'source': p.source,
+        'origin': p.origin,
+        'revision': p.revision,
+        'digest': legacyDigest,
+        'enabled': true,
+        'grants': p.manifest.permissions.map((perm) => perm.id).toList(),
+      };
+      final decoded = InstalledPlugin.decode(record);
+      expect(decoded.package.digest, legacyDigest);
+      expect(decoded.encode()['digest'], legacyDigest);
+      expect(decoded.encode()['files'], isEmpty);
+    });
+  });
+
+  group('fetch with a fake HttpClient', () {
+    final revision = 'a' * 40;
+    String path(String suffix) => '/x/y/$revision/$suffix';
+
+    test('downloads the manifest, the entry and every declared file', () async {
+      final fetcher = PluginFetcher(
+        httpClientFactory: () => _FakeHttpClient({
+          path('dazzle.plugin.toml'): _FakeResponse(
+            200,
+            filesManifest(files: ['lib/util.luau']),
+          ),
+          path('main.luau'): const _FakeResponse(
+            200,
+            'return {run = function() end}',
+          ),
+          path('lib/util.luau'): const _FakeResponse(200, 'return 1'),
+        }),
+      );
+      final result = await fetcher.fetch('https://github.com/x/y', revision);
+      expect(result.files, {'lib/util.luau': 'return 1'});
+      expect(result.manifest.files, ['lib/util.luau']);
+    });
+
+    test('fails when a declared file is missing on the origin', () async {
+      final fetcher = PluginFetcher(
+        httpClientFactory: () => _FakeHttpClient({
+          path('dazzle.plugin.toml'): _FakeResponse(
+            200,
+            filesManifest(files: ['lib/util.luau']),
+          ),
+          path('main.luau'): const _FakeResponse(
+            200,
+            'return {run = function() end}',
+          ),
+        }),
+      );
+      await expectLater(
+        fetcher.fetch('https://github.com/x/y', revision),
+        throwsA(isA<PluginException>()),
+      );
+    });
+  });
 }

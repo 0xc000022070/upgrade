@@ -200,7 +200,7 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
     check();
     final result = await worker.invoke(
       key: 'ui1:${plugin.package.digest}',
-      source: '$luauUiSdk\n${plugin.package.source}',
+      source: '$luauUiSdk\n${plugin.package.linkedSource}',
       action: 'frame',
       input: input,
       data: data,
@@ -240,7 +240,7 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
     try {
       result = await worker.invoke(
         key: plugin.package.digest,
-        source: plugin.package.source,
+        source: plugin.package.linkedSource,
         action: actionId,
         data: data,
       );
