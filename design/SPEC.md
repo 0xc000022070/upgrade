@@ -1510,6 +1510,10 @@ An index is a `dazzle.index.toml` at the root of a public GitHub repository, fet
 
 Settings PLUGINS gains SOURCES and BROWSE. SOURCES adds and removes an index by repository and ref; Dazzle ships no default source. BROWSE lists every entry across every added source, naming a source that failed to load separately from the entries that did. Selecting an entry opens the same review sheet `ADD` uses, with its repository and ref already filled in; an entry whose id matches an installed plugin opens that plugin's installed detail instead, offering `UPDATE`.
 
+### A debug build can point plugin and index fetches at a local origin
+
+A build define replaces the GitHub raw-content base for both plugin and index fetches with an arbitrary HTTP origin, letting an author serve a package from a local directory while developing it instead of publishing to GitHub first. The override reads only in a debug build; a release or profile build ignores it and always fetches from GitHub. Under the override a ref is used exactly as given, with no GitHub ref-to-commit resolution, since a local origin has no such API to resolve against; the served layout mirrors GitHub raw content's own, owner then repository then ref then path. `UPDATE`'s `USE LATEST` also has no such API to resolve a release or default branch against, so it refuses under the override instead of reaching GitHub.
+
 ### Manifests and dependencies have separate versions
 
 `manifest_version` is the manifest format's integer version. `version` is the plugin's semantic release version. `dazzle_api` is its required API version range. Dazzle rejects unsupported manifest versions, unknown fields, unsupported capabilities and incompatible API ranges before running code. Retained incompatible revisions stay listed, disabled, with their original source and grants; they cannot execute until a compatible update is reviewed. The manifest's release version cannot change the meaning of its format.
