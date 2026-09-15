@@ -241,11 +241,11 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
           ),
           const SheetRule(),
           SheetField(
-            label: 'COMMIT SHA',
+            label: 'REF',
             child: DazzleField(
               controller: _revision,
               suggest: false,
-              hint: '40 lowercase hex characters',
+              hint: 'full commit SHA, tag or branch name',
             ),
           ),
           const SheetRule(),
@@ -263,6 +263,23 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                     );
                   },
           ),
+          if (widget.installed != null) ...[
+            const SizedBox(height: Spacing.md),
+            ActionBlock(
+              label: _busy ? 'FETCHING' : 'USE LATEST',
+              onTap: _busy
+                  ? null
+                  : () {
+                      FocusScope.of(context).unfocus();
+                      final fetcher = PluginFetcher();
+                      _prepare(() async {
+                        final ref = await fetcher.latestRef(_repository.text);
+                        _revision.text = ref;
+                        return fetcher.fetch(_repository.text, ref);
+                      });
+                    },
+            ),
+          ],
         ] else ...[
           Text(manifest.purpose, style: DazzleText.prose),
           const SizedBox(height: Spacing.lg),
