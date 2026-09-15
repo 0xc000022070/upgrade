@@ -317,7 +317,7 @@ void main() {
       await _drain(tester);
     });
 
-    testWidgets('a path that pops is a row tall', (tester) async {
+    testWidgets('a path that pops is the same row tall', (tester) async {
       var backs = 0;
       await tester.pumpWidget(
         MaterialApp(
@@ -333,8 +333,10 @@ void main() {
       );
       await _settle(tester);
 
+      // The line is the height it is beside a verb, so the title under it does
+      // not sit lower on the screens that carry one.
       final row = tester.getRect(_rowAround(find.text('/ PROJECTS')));
-      expect(row.height, RowMetrics.minHeight);
+      expect(row.height, TapTargets.minHeight);
 
       await tester.tapAt(Offset(row.left + 4, row.top + 0.5));
       await tester.pump();
