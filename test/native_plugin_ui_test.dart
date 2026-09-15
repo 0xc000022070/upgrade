@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dazzle/app/builtin_plugins.dart';
 import 'package:dazzle/app/dazzle_app.dart';
+import 'package:dazzle/app/nav_shell.dart';
 import 'package:dazzle/application/native_plugins.dart';
 import 'package:dazzle/application/navigation.dart';
 import 'package:dazzle/application/plugins.dart';
@@ -14,6 +15,7 @@ import 'package:dazzle/data/repositories/project_repository.dart';
 import 'package:dazzle/data/repositories/task_repository.dart';
 import 'package:dazzle/features/home/capture_bar.dart';
 import 'package:dazzle/design/components/action_block.dart';
+import 'package:dazzle/design/components/list_row.dart';
 import 'package:dazzle/features/tasks/item_sheet.dart';
 import 'package:dazzle/features/settings/plugins_panel.dart';
 import 'package:dazzle/platform/plugins/manifest.dart';
@@ -95,11 +97,14 @@ void main() {
   );
 
   testWidgets(
-    'enabling a Luau page adds TOOLS and disabling closes its route',
+    'TOOLS stays available and disabling a Luau page closes its route',
     (tester) async {
       await tester.pumpWidget(host(const DazzleShell()));
       await drain(tester);
-      expect(find.text('TOOLS'), findsNothing);
+      expect(
+        find.descendant(of: find.byType(NavBar), matching: find.text('TOOLS')),
+        findsOneWidget,
+      );
       final controller = container.read(pluginsProvider.notifier);
       await tester.runAsync(
         () => controller.setEnabled('dazzle.agent-schedules', true),
@@ -108,7 +113,7 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('TOOLS'));
       await drain(tester);
-      await tester.tap(find.text('Agent schedules'));
+      await tester.tap(find.text('AGENT SCHEDULES · AGENT SCHEDULES'));
       await drain(tester);
       expect(find.text('AGENT SCHEDULES_'), findsOneWidget);
       expect(find.text('NO HOSTS REGISTERED'), findsOneWidget);
@@ -141,7 +146,10 @@ void main() {
       expect(disabled, isTrue);
       await drain(tester);
       expect(find.text('AGENT SCHEDULES_'), findsNothing);
-      expect(find.text('TOOLS'), findsNothing);
+      expect(
+        find.descendant(of: find.byType(NavBar), matching: find.text('TOOLS')),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.runAsync(closeContainer);
@@ -222,10 +230,23 @@ void main() {
       host(const Scaffold(body: SingleChildScrollView(child: PluginsPanel()))),
     );
     await drain(tester);
-    expect(find.text('Drops OFF'), findsOneWidget);
-    expect(find.text('Projects OFF'), findsOneWidget);
+    expect(find.text('Drops'), findsOneWidget);
+    expect(find.text('Projects'), findsOneWidget);
+    final dropsRow = find.ancestor(
+      of: find.text('Drops'),
+      matching: find.byType(ListRow),
+    );
+    final projectsRow = find.ancestor(
+      of: find.text('Projects'),
+      matching: find.byType(ListRow),
+    );
+    expect(find.descendant(of: dropsRow, matching: find.text('OFF')), findsOne);
+    expect(
+      find.descendant(of: projectsRow, matching: find.text('OFF')),
+      findsOne,
+    );
     expect(find.textContaining('EXAMPLE'), findsNothing);
-    await tester.tap(find.text('Drops OFF'));
+    await tester.tap(find.text('Drops'));
     await drain(tester);
     final enable = find.text('ENABLE');
     await tester.ensureVisible(enable);
@@ -240,7 +261,13 @@ void main() {
     });
     await drain(tester);
     expect(
-      find.text('Drops ON'),
+      find.descendant(
+        of: find.ancestor(
+          of: find.text('Drops'),
+          matching: find.byType(ListRow),
+        ),
+        matching: find.text('ON'),
+      ),
       findsOneWidget,
       reason: tester
           .widgetList<Text>(find.byType(Text))

@@ -161,7 +161,7 @@ void main() {
     await capture(tester, 'recien escrito');
     expect(_fresh(tester).idsIn('home'), hasLength(1));
 
-    await tester.tap(find.text('SYS'));
+    await tester.tap(find.bySemanticsLabel('SETTINGS'));
     await _ready(tester);
 
     expect(find.byType(SettingsScreen), findsOneWidget);

@@ -4,6 +4,8 @@ import 'package:dazzle_luau/data_api.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:toml/toml.dart';
 
+import 'contributions.dart';
+
 class PluginException implements Exception {
   const PluginException(this.message);
   final String message;
@@ -26,12 +28,6 @@ class PluginPermission {
       other.description == description;
   @override
   int get hashCode => Object.hash(id, description);
-}
-
-class PluginAction {
-  const PluginAction(this.id, this.title);
-  final String id;
-  final String title;
 }
 
 class PluginHostCapability {
@@ -100,6 +96,7 @@ class PluginManifest {
     required this.source,
     required this.id,
     required this.name,
+    required this.purpose,
     required this.version,
     required this.api,
     required this.entry,
@@ -116,6 +113,7 @@ class PluginManifest {
     this.formatVersion = manifestVersion,
     this.incompatibility,
     this.pages = const [],
+    this.widgets = const [],
     this.hostCapabilities = const {},
     this.uiVersion,
   });
@@ -127,6 +125,7 @@ class PluginManifest {
   final String source;
   final String id;
   final String name;
+  final String purpose;
   final Version version;
   final VersionConstraint api;
   final String entry;
@@ -143,7 +142,8 @@ class PluginManifest {
   bool get native => runtimeKind == 'native';
   final int formatVersion;
   final String? incompatibility;
-  final List<PluginAction> pages;
+  final List<PluginPageContribution> pages;
+  final List<PluginWidgetContribution> widgets;
   final Map<String, PluginHostCapability> hostCapabilities;
   final int? uiVersion;
   bool get supported => incompatibility == null;
@@ -164,6 +164,7 @@ class PluginManifest {
       }
       final id = _identifier(root['id']);
       final name = _text(root['name'], 'name', 80);
+      final purpose = _text(root['purpose'] ?? name, 'purpose', 160);
       final version = Version.parse(_text(root['version'], 'version', 64));
       final api = VersionConstraint.parse(
         _text(root['dazzle_api'], 'dazzle_api', 128),
@@ -189,6 +190,7 @@ class PluginManifest {
           source: source,
           id: id,
           name: name,
+          purpose: purpose,
           version: version,
           api: api,
           entry: entry,
@@ -206,6 +208,7 @@ class PluginManifest {
           'manifest_version',
           'id',
           'name',
+          'purpose',
           'version',
           'dazzle_api',
           'runtime',
@@ -275,21 +278,30 @@ class PluginManifest {
           );
         }
         final contributes = _map(root['contributes'], 'contributes');
-        _keys(contributes, {'surfaces'});
-        final values = contributes['surfaces'];
-        if (values is! List<Object?> || values.isEmpty || values.length > 8) {
-          throw const PluginException(
-            'Declare between 1 and 8 native surfaces',
-          );
+        _keys(contributes, {'surfaces', 'widgets', 'pages'});
+        final values = contributes['surfaces'] ?? <Object?>[];
+        if (values is! List<Object?> || values.length > 8) {
+          throw const PluginException('Declare at most 8 native surfaces');
         }
-        final surfaces = values.map(_identifier).toSet();
-        if (surfaces.length != values.length) {
+        final declaredSurfaces = values.map(_identifier).toSet();
+        if (declaredSurfaces.length != values.length) {
           throw const PluginException('Duplicate native surface');
+        }
+        final widgets = _widgetContributions(contributes['widgets']);
+        final pages = _pageContributions(contributes['pages'], native: true);
+        final surfaces = {
+          ...declaredSurfaces,
+          ...widgets.map((widget) => widget.surface),
+          ...pages.map((page) => page.surface!),
+        };
+        if (surfaces.isEmpty) {
+          throw const PluginException('Declare a native contribution');
         }
         return PluginManifest._(
           source: source,
           id: id,
           name: name,
+          purpose: purpose,
           version: version,
           api: api,
           entry: entry,
@@ -298,6 +310,8 @@ class PluginManifest {
           services: Map.unmodifiable(services),
           exports: Map.unmodifiable(exports),
           surfaces: Set.unmodifiable(surfaces),
+          widgets: List.unmodifiable(widgets),
+          pages: List.unmodifiable(pages),
           hostDatasets: Map.unmodifiable(datasets),
           dependencies: Map.unmodifiable(dependencies),
           actions: const [],
@@ -318,6 +332,7 @@ class PluginManifest {
         'manifest_version',
         'id',
         'name',
+        'purpose',
         'version',
         'dazzle_api',
         'runtime',
@@ -513,23 +528,9 @@ class PluginManifest {
           PluginAction(actionId, _text(action['title'], 'action title', 48)),
         );
       }
-      final pages = <PluginAction>[];
-      final declaredPages = contributions['pages'] ?? <Object?>[];
-      if (declaredPages is! List<Object?> || declaredPages.length > 8) {
-        throw const PluginException('At most 8 plugin pages');
-      }
-      final pageIds = <String>{};
-      for (final value in declaredPages) {
-        if (!ui.contains('page')) {
-          throw const PluginException('Pages require ui.page');
-        }
-        final page = _map(value, 'page');
-        _keys(page, {'id', 'title'});
-        final pageId = _identifier(page['id']);
-        if (!pageIds.add(pageId)) {
-          throw const PluginException('Duplicate page ID');
-        }
-        pages.add(PluginAction(pageId, _text(page['title'], 'page title', 48)));
+      final pages = _pageContributions(contributions['pages'], native: false);
+      if (pages.isNotEmpty && !ui.contains('page')) {
+        throw const PluginException('Pages require ui.page');
       }
       if (actions.isEmpty && pages.isEmpty) {
         throw const PluginException('Declare an action or page');
@@ -572,6 +573,7 @@ class PluginManifest {
         source: source,
         id: id,
         name: name,
+        purpose: purpose,
         version: version,
         api: api,
         entry: entry,
@@ -645,6 +647,174 @@ String _contract(Object? value) {
     throw const PluginException('Contract must be name@version');
   }
   return contract;
+}
+
+List<PluginWidgetContribution> _widgetContributions(Object? value) {
+  final declared = value ?? <Object?>[];
+  if (declared is! List<Object?> || declared.length > 16) {
+    throw const PluginException('At most 16 plugin widgets');
+  }
+  final ids = <String>{};
+  final surfaces = <String>{};
+  return [
+    for (final raw in declared)
+      (() {
+        final widget = _map(raw, 'widget');
+        _keys(widget, {
+          'id',
+          'title',
+          'surface',
+          'locations',
+          'default_location',
+          'sizes',
+          'default_size',
+        });
+        final id = _identifier(widget['id']);
+        final surface = _identifier(widget['surface']);
+        if (!ids.add(id)) throw const PluginException('Duplicate widget ID');
+        if (!surfaces.add(surface)) {
+          throw const PluginException('Duplicate widget surface');
+        }
+        final rawLocations = widget['locations'];
+        if (rawLocations is! List<Object?> ||
+            rawLocations.isEmpty ||
+            rawLocations.length > PluginPlacementLocation.values.length) {
+          throw const PluginException('Declare widget locations');
+        }
+        final locations = <PluginPlacementLocation>{};
+        for (final rawLocation in rawLocations) {
+          final location = rawLocation is String
+              ? PluginPlacementLocation.fromId(rawLocation)
+              : null;
+          if (location == null || !locations.add(location)) {
+            throw const PluginException(
+              'Unsupported or duplicate widget location',
+            );
+          }
+        }
+        final defaultLocationValue = widget['default_location'];
+        final defaultLocation = defaultLocationValue is String
+            ? PluginPlacementLocation.fromId(defaultLocationValue)
+            : null;
+        if (defaultLocation == null || !locations.contains(defaultLocation)) {
+          throw const PluginException('Invalid default widget location');
+        }
+        final rawSizes = widget['sizes'];
+        if (rawSizes is! List<Object?> ||
+            rawSizes.isEmpty ||
+            rawSizes.length > 8) {
+          throw const PluginException('Declare between 1 and 8 widget sizes');
+        }
+        final sizeIds = <String>{};
+        final sizes = <PluginWidgetSize>[];
+        for (final rawSize in rawSizes) {
+          final size = _map(rawSize, 'widget size');
+          _keys(size, {
+            'id',
+            'title',
+            'width',
+            'min_width',
+            'max_width',
+            'height',
+          });
+          final sizeId = _dataName(size['id']);
+          if (!sizeIds.add(sizeId)) {
+            throw const PluginException('Duplicate widget size ID');
+          }
+          final title = _text(size['title'], 'widget size title', 48);
+          final width = _dimension(size['width'], 'widget width');
+          final minWidth = _dimension(size['min_width'], 'minimum width');
+          final maxWidth = _dimension(size['max_width'], 'maximum width');
+          final height = _dimension(size['height'], 'widget height');
+          if (width != null && (minWidth != null || maxWidth != null) ||
+              width == null &&
+                  (minWidth == null ||
+                      maxWidth == null ||
+                      minWidth > maxWidth)) {
+            throw const PluginException(
+              'Widget size needs an exact width or a valid width range',
+            );
+          }
+          sizes.add(
+            width != null
+                ? PluginWidgetSize.fixed(
+                    id: sizeId,
+                    title: title,
+                    width: width,
+                    height: height,
+                  )
+                : PluginWidgetSize.range(
+                    id: sizeId,
+                    title: title,
+                    minWidth: minWidth!,
+                    maxWidth: maxWidth!,
+                    height: height,
+                  ),
+          );
+        }
+        final defaultSize = _dataName(widget['default_size']);
+        if (!sizeIds.contains(defaultSize)) {
+          throw const PluginException('Invalid default widget size');
+        }
+        return PluginWidgetContribution(
+          id: id,
+          title: _text(widget['title'], 'widget title', 48),
+          surface: surface,
+          locations: Set.unmodifiable(locations),
+          defaultLocation: defaultLocation,
+          sizes: List.unmodifiable(sizes),
+          defaultSize: defaultSize,
+        );
+      })(),
+  ];
+}
+
+List<PluginPageContribution> _pageContributions(
+  Object? value, {
+  required bool native,
+}) {
+  final declared = value ?? <Object?>[];
+  if (declared is! List<Object?> || declared.length > 8) {
+    throw const PluginException('At most 8 plugin pages');
+  }
+  final ids = <String>{};
+  final surfaces = <String>{};
+  return [
+    for (final raw in declared)
+      (() {
+        final page = _map(raw, 'page');
+        _keys(page, {
+          'id',
+          'title',
+          'pinned_by_default',
+          if (native) 'surface',
+        });
+        final id = _identifier(page['id']);
+        if (!ids.add(id)) throw const PluginException('Duplicate page ID');
+        final surface = native ? _identifier(page['surface']) : null;
+        if (surface != null && !surfaces.add(surface)) {
+          throw const PluginException('Duplicate page surface');
+        }
+        final pinned = page['pinned_by_default'] ?? false;
+        if (pinned is! bool) {
+          throw const PluginException('Invalid default page pin');
+        }
+        return PluginPageContribution(
+          id: id,
+          title: _text(page['title'], 'page title', 48),
+          surface: surface,
+          defaultPinned: pinned,
+        );
+      })(),
+  ];
+}
+
+double? _dimension(Object? value, String field) {
+  if (value == null) return null;
+  if (value is! num || !value.isFinite || value <= 0 || value > 4096) {
+    throw PluginException('Invalid $field');
+  }
+  return value.toDouble();
 }
 
 List<String> resolvePlugins(Map<String, PluginManifest> enabled) {

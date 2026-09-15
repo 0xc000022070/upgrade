@@ -7,15 +7,30 @@ import '../../application/plugin_hosts.dart';
 import '../../application/plugins.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/colors.dart';
+import '../../design/components/panel.dart';
+import '../../design/components/panel_text_action.dart';
 import '../../design/typography.dart';
 import '../../platform/plugins/manifest.dart';
+import '../../platform/plugins/contributions.dart';
 import '../../platform/plugins/store.dart';
 import '../../platform/plugins/ui.dart';
+import '../screen_scaffold.dart';
+import 'plugin_management_screen.dart';
+
+void _openPage(BuildContext context, PluginPageRegistration page) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => page.native
+          ? _NativePluginRoute(page: page)
+          : PluginPage(plugin: page.owner, page: page.contribution),
+    ),
+  );
+}
 
 class PluginPage extends ConsumerStatefulWidget {
   const PluginPage({super.key, required this.plugin, required this.page});
   final InstalledPlugin plugin;
-  final PluginAction page;
+  final PluginPageContribution page;
   @override
   ConsumerState<PluginPage> createState() => _PluginPageState();
 }
@@ -261,47 +276,84 @@ class PluginLibraryScreen extends ConsumerWidget {
   const PluginLibraryScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final plugins = ref
-        .watch(effectivePluginsProvider)
-        .where((plugin) => plugin.enabled && plugin.manifest.pages.isNotEmpty);
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    final pages = ref.watch(pluginContributionCatalogProvider).enabledPages;
+    return ScreenScaffold(
+      title: 'TOOLS',
+      children: [
+        PanelStack(
           children: [
-            const Text(
-              '/ PERSONAL CONTROL PLANE',
-              style: DazzleText.breadcrumb,
-            ),
-            const SizedBox(height: 12),
-            const Text('TOOLS_', style: DazzleText.screenTitle),
-            const SizedBox(height: 24),
-            Expanded(
-              child: ListView(
+            Panel(
+              title: '[ PLUGINS ]',
+              bodyPadding: panelRowsPadding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final plugin in plugins)
-                    for (final page in plugin.manifest.pages)
-                      ListTile(
-                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                        title: Text(page.title, style: DazzleText.rowTitleLead),
-                        subtitle: Text(
-                          '${plugin.manifest.name} · ${plugin.manifest.version} · Luau',
-                          style: DazzleText.rowSubtitle,
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) =>
-                                PluginPage(plugin: plugin, page: page),
-                          ),
-                        ),
+                  if (pages.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        'NO PLUGIN PAGES ENABLED\nMANAGE PLUGINS TO ADD TOOLS AND HOME CONTROLS.',
+                        style: DazzleText.rowSubtitle,
                       ),
+                    ),
+                  for (final page in pages)
+                    PanelTextAction(
+                      label:
+                          '${page.contribution.title.toUpperCase()} · ${page.owner.manifest.name.toUpperCase()}',
+                      onTap: () => _openPage(context, page),
+                    ),
+                  PanelTextAction(
+                    label: 'MANAGE PLUGINS',
+                    onTap: () => openPluginManagement(context),
+                  ),
                 ],
               ),
             ),
           ],
         ),
+      ],
+    );
+  }
+}
+
+class _NativePluginRoute extends ConsumerWidget {
+  const _NativePluginRoute({required this.page});
+
+  final PluginPageRegistration page;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref
+        .watch(pluginContributionCatalogProvider)
+        .page(page.stableId);
+    if (current?.enabled != true ||
+        current!.owner.package.digest != page.owner.package.digest) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      });
+      return const SizedBox.shrink();
+    }
+    return Scaffold(
+      backgroundColor: DazzleColors.backgroundPrimary,
+      body: Column(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: SizedBox(
+              height: 48,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: PanelTextAction(
+                  label: 'BACK · TOOLS',
+                  onTap: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ),
+          ),
+          Expanded(child: NativeContributionSurface.page(page)),
+        ],
       ),
     );
   }

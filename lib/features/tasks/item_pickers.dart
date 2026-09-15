@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/project_tree.dart';
+import '../../application/native_plugins.dart';
 import '../../application/providers.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
@@ -55,6 +56,16 @@ class TargetPickerBody extends ConsumerWidget {
           selected: current?.isDrops ?? false,
           onTap: () => onPicked(const ItemTarget.drops()),
         ),
+        if (projects.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
+            child: Text(
+              ref.watch(nativeSurfaceOwnerProvider('capture.targets')) == null
+                  ? 'Enable Projects in Plugins to file this item into a project.'
+                  : 'Create a project in Projects to add a filing destination.',
+              style: DazzleText.rowSubtitle,
+            ),
+          ),
         for (final project in [...active, ...paused])
           _ProjectTarget(
             project: project,
@@ -169,7 +180,7 @@ class _PairPickerBodyState extends ConsumerState<PairPickerBody> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
             child: Text(
-              query.isEmpty ? 'nothing to pair with' : 'no match',
+              query.isEmpty ? 'nothing to group with' : 'no match',
               style: DazzleText.rowSubtitle,
             ),
           )

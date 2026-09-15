@@ -16,12 +16,12 @@ import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../screen_scaffold.dart';
-import '../settings/settings_screen.dart';
 import '../tasks/drops_panel.dart';
 import '../tasks/item_sheet.dart';
 import '../tasks/selection_bar.dart';
 import 'agents_panel.dart';
 import 'capture_bar.dart';
+import 'home_actions.dart';
 
 /// What is flagged, what is
 /// moving, what has not been filed yet. BLOCKED and RECENT are gone — a blocked
@@ -97,16 +97,7 @@ class _DropsHomeSurfaceState extends ConsumerState<DropsHomeSurface> {
       children: [
         Expanded(
           child: ScreenScaffold(
-            // `TODAY_` is gone. The breadcrumb and its SYS door stay.
-
-            // The door to settings. Text only, in the slot a project's EDIT
-            // uses: a glyph for it would be a new icon, and icons are not this
-            // side's to invent.
-            breadcrumbTrailing: PanelAffordance(
-              'SYS',
-              showIcon: false,
-              onTap: () => _leaving(() => openSettings(context)),
-            ),
+            breadcrumbTrailing: HomeActions(beforeOpen: () => _leaving(() {})),
             children: [
               PanelStack(
                 children: [

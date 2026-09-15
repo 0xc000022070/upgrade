@@ -28,19 +28,63 @@ Run `just gen` after touching a drift schema; generated Dart is gitignored.
 
 ## Device loop
 
-`phone.toml` declares the target handset. `phone up` builds, installs and
-launches; `phone shot --settle` reads the screen back.
+`phone.toml` declares both development and review devices. For a single-device
+review, build with `just apk`, then explicitly target the install and launch:
+
+```sh
+phone -t <device-id> app install build/app/outputs/flutter-apk/app-debug.apk
+phone -t <device-id> app launch dev.luisnquin.dazzle
+phone -t <device-id> shot --settle
+```
+
+`phone up` converges the project's declared devices, not just the handset being
+reviewed. Use explicit installs when another device must remain undisturbed.
 
 ## Mobile plugins
 
-SYS → PLUGINS → EXAMPLE reviews and installs Record text. Open an unfiled Drop,
-run TRIM WHITESPACE, then APPLY or DISCARD its proposed title. SAVE SNAPSHOT
-writes the selected text into the plugin's isolated dataset. Install DEPENDENT
-EXAMPLE to add Record restore, which reads that exported dataset and proposes
-RESTORE SNAPSHOT. Only APPLY changes the selected built-in record; it rejects
-stale proposals. Existing tables and attachments are not migrated.
+The Plugins button beside Settings opens plugin management. Drops and Projects
+are bundled native plugins; Agent schedules is a bundled Luau page. Home, Hosts,
+SSH and Tools remain available without plugins. Tools lists enabled plugin pages,
+including pages not pinned to navigation.
 
-Each installed plugin has ENABLE, DISABLE, REMOVE and REFRESH USAGE controls.
+Native widgets declare compatible Home card or input-bar locations and size
+constraints. Users can hide and reorder cards, choose a supported width, select
+the input bar and pin a page. A fixed-size widget keeps its dimensions; an
+incompatible placement reports why it cannot fit. Layout preferences survive
+restart and disabling a plugin. This is a bounded layout prototype, not a
+freeform canvas or support for embedding arbitrary Luau pages as widgets.
+
+A bundled native module registers its builder under the declared `surface`:
+
+```toml
+[[contributes.widgets]]
+id = "status"
+title = "Host status"
+surface = "example.status"
+locations = ["home.card"]
+default_location = "home.card"
+default_size = "adaptive"
+sizes = [
+  { id = "compact", title = "Compact", width = 280, height = 160 },
+  { id = "adaptive", title = "Adaptive", min_width = 280, max_width = 720 },
+]
+```
+
+Dimensions use Flutter logical pixels. Exact `width` and a `min_width` / `max_width`
+range are alternatives; omitted `height` lets content determine its height.
+The input bar uses the exclusive `home.composer` location. Widget and page IDs
+remain stable across renames because saved layouts refer to plugin ID plus
+contribution ID, not the displayed title.
+
+The source examples under `plugins/record-text` and `plugins/record-restore`
+demonstrate selected-record actions and shared read-only datasets. Record text
+proposes TRIM WHITESPACE or stores SAVE SNAPSHOT. Record restore reads the
+exported snapshot and proposes RESTORE SNAPSHOT. Only APPLY changes the selected
+built-in record; it rejects stale proposals. Existing tables and attachments are
+not migrated.
+
+Installed plugins expose ENABLE, DISABLE and REFRESH USAGE controls. Downloaded
+plugins can also be removed; bundled native plugins stay installed.
 Disable frees its cached VMs and invalidates queued work and old proposals.
 Disable and removal retain datasets, usage and immutable source revisions.
 Already committed private writes are not rolled back when a script fails or is
@@ -61,10 +105,11 @@ Version fields have different jobs: `manifest_version` versions the TOML schema,
 must be installed, enabled and compatible; cycles and changes that break enabled
 dependents are rejected. A dependency grants no extra permissions and does not
 share a VM. Dataset schema versions, capability API versions and exported
-contracts are separate fields. Extracting built-in features is not part of this MVP.
+contracts are separate fields. Bundled native features use host-owned services
+and surface builders; downloaded plugins use the Luau runtime.
 
 Manifest format 2 uses named data bindings: `selection`, `self:name`, or
-`plugin.id:name`. The runtime only exposes `dazzle.data.get/query/put/delete/propose`.
+`plugin.id:name`. Data access uses `dazzle.data.get/query/put/delete/propose`.
 Foreign reads require a declared dependency, matching export contract and an
 explicit grant; foreign writes are unavailable. Dependencies alone grant no
 data access. Every dataset has a separate host-owned SQLite database, scoped
@@ -95,8 +140,12 @@ Data calls are capped at 64 per invocation, with 16 KiB values, 64 KiB pages,
 first API call and checked between operations. Each plugin reserves at most
 32 MiB across eight datasets; each dataset permits at most 8 MiB and 10,000
 records. Logical quotas do not include
-SQLite journal/index overhead. No filesystem, network, SSH, background
-execution or WASM API yet.
+SQLite journal/index overhead. Plugins have no arbitrary filesystem, socket,
+shell or WASM API. Declared host capabilities can list hosts and invoke the
+host-owned scheduler over SSH, with plugin/host permission checks. Agent
+schedules uses this API; remote jobs are distinct from an on-phone background
+Luau runtime. Disabling a scheduler plugin requests that its remote schedules
+pause; re-enabling does not automatically resume them.
 
 Run `dart run tool/plugin_benchmark.dart` for selected-record roundtrips, or
 `dart run tool/plugin_dataset_benchmark.dart` for durable read/write/query

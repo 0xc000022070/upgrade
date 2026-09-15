@@ -552,6 +552,7 @@ void main() {
     Widget app(String taskId, {HerdrSend? send}) => ProviderScope(
       overrides: [
         ...featureTestOverrides(db),
+        hostRepositoryProvider.overrideWithValue(DriftHostRepository(db)),
         privateKeyStoreProvider.overrideWithValue(privateKeys),
         if (send != null) herdrSendProvider.overrideWithValue(send),
         pathScannerProvider.overrideWithValue(
@@ -580,18 +581,46 @@ void main() {
       ),
     );
 
-    testWidgets('SEND is absent until a host has a path', (tester) async {
+    testWidgets('SEND explains prerequisites before a host has a path', (
+      tester,
+    ) async {
       final activity = ActivityRepository(db);
       final id = await TaskRepository(db, activity).create(title: 'a drop');
 
       await tester.pumpWidget(app(id));
       await _drain(tester);
-      expect(find.text('SEND'), findsNothing);
+      expect(find.text('SEND'), findsOneWidget);
       expect(find.text('MOVE'), findsOneWidget);
+
+      await tester.tap(find.text('SEND'));
+      await _drain(tester);
+      expect(find.text('REGISTER A PATH FIRST'), findsOneWidget);
+      expect(find.text('REGISTER A PATH'), findsOneWidget);
+
+      await tester.tap(find.text('BACK'));
+      await _drain(tester);
 
       await tester.runAsync(addPath);
       await _drain(tester);
       expect(find.text('SEND'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    });
+
+    testWidgets('SEND explains missing host without a no-op path action', (
+      tester,
+    ) async {
+      await db.delete(db.hosts).go();
+      final activity = ActivityRepository(db);
+      final id = await TaskRepository(db, activity).create(title: 'a drop');
+      await tester.pumpWidget(app(id));
+      await _drain(tester);
+
+      await tester.tap(find.text('SEND'));
+      await _drain(tester);
+      expect(find.text('ADD A HOST FIRST'), findsOneWidget);
+      expect(find.text('REGISTER A PATH'), findsNothing);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
