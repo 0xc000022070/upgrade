@@ -1494,6 +1494,12 @@ Struck: a notification asking the user to go and fix the key. The ongoing line a
 
 A feature reaches `context.tokens` for every colour and text role it draws with; it never reaches for the palette or text-role constants directly, and never writes a colour as a literal. A painter or a route with no `BuildContext` of its own takes the colour resolved by the widget that owns it, carried in as a plain field. Where nothing is meant to be painted, the app says so directly — a null colour, a `BorderSide.none` — rather than reaching for a transparent one.
 
+### `[ THEME ]` lets the phone's own colour scheme replace the house palette
+
+SETTINGS carries a `[ THEME ]` row with two states, HOUSE and SYSTEM. HOUSE is the default and is the fixed palette every other ruling in this document assumes. SYSTEM resolves a `DazzleTokens` instance from the platform's own colour scheme: Material You's tonal palette where the device offers one, a scheme seeded from the house accent and the platform's own light or dark brightness otherwise. Choosing SYSTEM never touches the syntax palette, the terminal's ANSI table or the diff grounds — those read code and diffs, not chrome, and stay the house's regardless of the row.
+
+The running app rebuilds its theme the moment the row is written, on the same screen and on every other, the way `[ STATIC ]` already does. The status and navigation bar icon brightness follows the resolved theme's own brightness rather than a value fixed at house-dark.
+
 ## Plugins
 
 ### Plugins run on the phone through declared capabilities

@@ -27,6 +27,11 @@ class SettingsRepository {
   /// since it is the user's reading distance and not a property of a shell.
   static const shellFontSize = 'shell_font_size';
 
+  /// The `[ THEME ]` row. Default off (HOUSE): the fixed palette is what
+  /// every spec ruling and screenshot assumes, so a device opts into tracking
+  /// the phone's own theme rather than the app defaulting to it.
+  static const themeSystem = 'theme_system';
+
   Stream<bool> watchFlag(String key, {required bool orElse}) {
     return (_db.select(_db.settings)..where((s) => s.key.equals(key)))
         .watchSingleOrNull()

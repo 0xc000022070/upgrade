@@ -363,3 +363,14 @@ final shellFontSizeProvider = StreamProvider<double>(
         orElse: shellFontSizeDefault,
       ),
 );
+
+/// The `[ THEME ]` setting: whether the app tracks the phone's own theme
+/// (Material You where the platform offers it, light/dark otherwise) instead
+/// of the fixed house palette. A stream for the same reason as
+/// [staticEnabledProvider]: the row is written on SETTINGS and obeyed by the
+/// running [MaterialApp] on every other screen.
+final themeSystemProvider = StreamProvider<bool>(
+  (ref) => ref
+      .watch(settingsRepositoryProvider)
+      .watchFlag(SettingsRepository.themeSystem, orElse: false),
+);
