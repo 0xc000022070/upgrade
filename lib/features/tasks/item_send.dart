@@ -10,7 +10,7 @@ import '../../data/database.dart';
 import '../../data/enums.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/path_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/dot_spinner.dart';
 import '../../design/components/list_row.dart';
@@ -18,7 +18,6 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../hosts/path_picker_sheet.dart';
 import '../home/agent_mark.dart';
 import '../../application/attachment_files.dart';
@@ -301,7 +300,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
         if (availableHosts.isNotEmpty)
           ListRow(
             title: 'REGISTER A PATH',
-            titleColor: DazzleColors.textSecondary,
+            titleColor: context.tokens.textSecondary,
             onTap: _registerPath,
           ),
       ],
@@ -321,7 +320,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
     }
     _ensureModels(dispatch.target);
     return [
-      Text('AGENT', style: DazzleText.panelHeader),
+      Text('AGENT', style: context.tokens.panelHeader),
       const SizedBox(height: Spacing.sm),
       Row(
         children: [
@@ -332,8 +331,8 @@ class _SendFlowState extends ConsumerState<SendFlow> {
                 label: agentMarkName(kind.name),
                 filled: kind == _kind,
                 tone: kind == _kind
-                    ? DazzleColors.accent
-                    : DazzleColors.textSecondary,
+                    ? context.tokens.accent
+                    : context.tokens.textSecondary,
                 onTap: () {
                   if (kind == _kind) return;
                   setState(() {
@@ -347,7 +346,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
         ],
       ),
       const SheetRule(),
-      Text('MODEL', style: DazzleText.panelHeader),
+      Text('MODEL', style: context.tokens.panelHeader),
       const SizedBox(height: Spacing.sm),
       _modelChoices(),
       const SheetRule(),
@@ -356,7 +355,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
         child: ActionBlock(
           label: 'SEND',
           filled: true,
-          tone: DazzleColors.accent,
+          tone: context.tokens.accent,
           onTap: () => _send(dispatch.target),
         ),
       ),
@@ -378,8 +377,8 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           label: 'DEFAULT',
           filled: _model == null,
           tone: _model == null
-              ? DazzleColors.accent
-              : DazzleColors.textSecondary,
+              ? context.tokens.accent
+              : context.tokens.textSecondary,
           onTap: () => setState(() => _model = null),
         ),
         if (_models is PathScanLoading)
@@ -392,8 +391,8 @@ class _SendFlowState extends ConsumerState<SendFlow> {
             label: slug.toUpperCase(),
             filled: slug == _model,
             tone: slug == _model
-                ? DazzleColors.accent
-                : DazzleColors.textSecondary,
+                ? context.tokens.accent
+                : context.tokens.textSecondary,
             onTap: () => setState(() => _model = slug),
           ),
       ],
@@ -408,7 +407,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
       children: [
         SheetField(
           label: 'TO',
-          child: Text(target.title, style: DazzleText.value),
+          child: Text(target.title, style: context.tokens.value),
         ),
         const SizedBox(height: Spacing.lg),
         Text(
@@ -417,11 +416,11 @@ class _SendFlowState extends ConsumerState<SendFlow> {
             SendSent(:final paneId) => 'SENT · $paneId',
             SendFailed(:final reason) => reason,
           },
-          style: DazzleText.rowTitle.copyWith(
+          style: context.tokens.rowTitle.copyWith(
             color: switch (state) {
-              SendSending() => DazzleColors.textMuted,
-              SendSent() => DazzleColors.accent,
-              SendFailed() => DazzleColors.warning,
+              SendSending() => context.tokens.textMuted,
+              SendSent() => context.tokens.accent,
+              SendFailed() => context.tokens.warning,
             },
           ),
         ),

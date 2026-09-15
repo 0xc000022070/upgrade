@@ -5,14 +5,13 @@ import '../../application/drop_selection.dart';
 import '../../application/formatting.dart';
 import '../../application/fresh_drops.dart';
 import '../../data/database.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import 'item_sheet.dart';
 import 'task_row.dart';
 
@@ -208,12 +207,12 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
               else
                 ListRow(
                   title: task.title,
-                  titleColor: task.done ? DazzleColors.textMuted : null,
+                  titleColor: task.done ? context.tokens.textMuted : null,
                   value: relativeAge(task.createdAt),
                   // The whole highlight: the age in accent instead of the
                   // dim it has by default. Nothing else on the row moves.
                   valueColor: fresh.contains(task.id)
-                      ? DazzleColors.accent
+                      ? context.tokens.accent
                       : null,
                   leading: _SelectionBox(checked: selection.holds(task.id)),
                   leadingWidth: _SelectionBox.width,
@@ -289,8 +288,8 @@ class _SelectionBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       checked ? '[x]' : '[ ]',
-      style: DazzleText.rowTitle.copyWith(
-        color: checked ? DazzleColors.accent : DazzleColors.textDisabled,
+      style: context.tokens.rowTitle.copyWith(
+        color: checked ? context.tokens.accent : context.tokens.textDisabled,
       ),
     );
   }

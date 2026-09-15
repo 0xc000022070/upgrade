@@ -23,6 +23,7 @@ import 'package:dazzle/platform/alert_actions.dart';
 import 'package:dazzle/platform/alert_notifications.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// The sheets are read off disk rather than through the bundle:
 /// the manifest is the artist's contract with the widget, and a test that went
@@ -152,6 +153,7 @@ void main() {
       await tester.runAsync(() => MascotManifest.load());
       await tester.pumpWidget(
         MaterialApp(
+          theme: testTheme,
           home: SplashRoute(next: (_) => const Text('HOME', key: Key('home'))),
         ),
       );
@@ -242,7 +244,7 @@ void main() {
           (ref) => Stream.value(const AgentPanelState.noHost()),
         ),
       ],
-      child: MaterialApp(home: home),
+      child: MaterialApp(theme: testTheme, home: home),
     );
 
     Widget host() => const AlertsHost(child: Text('HOME', key: Key('home')));
@@ -320,7 +322,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [...featureTestOverrides(db)],
-          child: MaterialApp(home: ProjectDetailScreen(projectId: id)),
+          child: MaterialApp(
+            theme: testTheme,
+            home: ProjectDetailScreen(projectId: id),
+          ),
         ),
       );
       await drain(tester, step: const Duration(milliseconds: 100));
@@ -347,7 +352,7 @@ void main() {
               (ref) => Stream.value(const AgentPanelState.noHost()),
             ),
           ],
-          child: const MaterialApp(home: AgentsScreen()),
+          child: MaterialApp(theme: testTheme, home: AgentsScreen()),
         ),
       );
       await drain(tester);
@@ -389,7 +394,7 @@ void main() {
               ),
             ),
           ],
-          child: const MaterialApp(home: AgentsScreen()),
+          child: MaterialApp(theme: testTheme, home: AgentsScreen()),
         ),
       );
       await drain(tester);
@@ -425,7 +430,7 @@ void main() {
               ),
             ),
           ],
-          child: const MaterialApp(home: AgentsScreen()),
+          child: MaterialApp(theme: testTheme, home: AgentsScreen()),
         ),
       );
       await drain(tester);

@@ -14,7 +14,7 @@ import '../../data/repositories/plugin_placement_repository.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/components/solid_action_bar.dart';
-import '../../design/typography.dart';
+import '../../design/tokens.dart';
 import '../../platform/plugins/contributions.dart';
 import '../screen_scaffold.dart';
 import '../tasks/selection_bar.dart';
@@ -131,11 +131,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   const AgentsPanel(),
                   if (placementState.isLoading && catalog.widgets.isNotEmpty)
-                    const Panel(
+                    Panel(
                       title: '[ PLUGINS ]',
                       child: Text(
                         'LOADING HOME LAYOUT',
-                        style: DazzleText.rowSubtitle,
+                        style: context.tokens.rowSubtitle,
                       ),
                     ),
                   if (placementState.hasError)
@@ -147,7 +147,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         children: [
                           Text(
                             _placementErrorMessage(placementState.error),
-                            style: DazzleText.rowSubtitle,
+                            style: context.tokens.rowSubtitle,
                           ),
                           PanelTextAction(
                             label: 'RETRY',
@@ -169,9 +169,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text(
+                          Text(
                             'ADD HOME CARDS, AN INPUT BAR, AND TOOL PAGES.',
-                            style: DazzleText.rowSubtitle,
+                            style: context.tokens.rowSubtitle,
                           ),
                           PanelTextAction(
                             label: 'MANAGE PLUGINS',
@@ -252,7 +252,7 @@ class _PlacedPluginBounds extends StatelessWidget {
               : size.unsupportedWidthMessage(available);
           return Panel(
             title: contribution.title.toUpperCase(),
-            child: Text(reason, style: DazzleText.rowSubtitle),
+            child: Text(reason, style: context.tokens.rowSubtitle),
           );
         }
         return Align(

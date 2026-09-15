@@ -6,6 +6,8 @@ import 'package:dazzle/features/home/home_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/themed_app.dart';
+
 void main() {
   testWidgets('plugin and settings icons expose accessible tap targets', (
     tester,
@@ -13,7 +15,10 @@ void main() {
     final semantics = tester.ensureSemantics();
     try {
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: HomeActions())),
+        MaterialApp(
+          theme: testTheme,
+          home: Scaffold(body: HomeActions()),
+        ),
       );
       await tester.pumpAndSettle();
 

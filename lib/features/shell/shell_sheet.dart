@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../../data/repositories/host_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/motion.dart';
 import '../../platform/herdr_client.dart';
 import 'host_shell_screen.dart';
@@ -97,7 +97,7 @@ class ShellSheetRoute extends PopupRoute<void> implements SheetDrag {
   bool _dragging = false;
 
   @override
-  Color get barrierColor => const Color(0x99000000);
+  Color get barrierColor => navigator!.context.tokens.scrim;
 
   @override
   bool get barrierDismissible => true;
@@ -242,9 +242,9 @@ class _SheetFrame extends StatelessWidget {
                 // In front of the child: the route paints its own ground over
                 // the whole box, and a rule behind it would be painted out.
                 position: DecorationPosition.foreground,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(
-                    top: BorderSide(color: DazzleColors.borderNormal),
+                    top: BorderSide(color: context.tokens.borderNormal),
                   ),
                 ),
                 child: child,
@@ -271,15 +271,15 @@ class _SheetRule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
+    return SizedBox(
       height: _gripInset + _gripHeight,
       child: Align(
         alignment: Alignment.bottomCenter,
         child: SizedBox(
-          key: ValueKey('shell-grip-rule'),
+          key: const ValueKey('shell-grip-rule'),
           width: _gripWidth,
           height: _gripHeight,
-          child: ColoredBox(color: DazzleColors.textDisabled),
+          child: ColoredBox(color: context.tokens.textDisabled),
         ),
       ),
     );

@@ -1,7 +1,9 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/features/code/diff_jump.dart';
+
+import 'support/themed_app.dart';
 
 const _rows = 100;
 const _rowHeight = 10.0;
@@ -9,25 +11,28 @@ const _paneHeight = 50.0;
 
 /// The pane the way back floats over: a hundred rows of one height, so an
 /// offset and a line number are the same number read two ways.
-Widget pane(DiffJumps jumps) => Directionality(
-  textDirection: TextDirection.ltr,
-  child: Center(
-    child: SizedBox(
-      height: _paneHeight,
-      width: 200,
-      child: Stack(
-        children: [
-          ListView.builder(
-            controller: jumps.scroll,
-            itemExtent: _rowHeight,
-            itemCount: _rows,
-            itemBuilder: (context, index) => const SizedBox(),
-          ),
-          DiffReturn(
-            jumps: jumps,
-            lineAt: (offset) => (offset / _rowHeight).floor() + 1,
-          ),
-        ],
+Widget pane(DiffJumps jumps) => Theme(
+  data: testTheme,
+  child: Directionality(
+    textDirection: TextDirection.ltr,
+    child: Center(
+      child: SizedBox(
+        height: _paneHeight,
+        width: 200,
+        child: Stack(
+          children: [
+            ListView.builder(
+              controller: jumps.scroll,
+              itemExtent: _rowHeight,
+              itemCount: _rows,
+              itemBuilder: (context, index) => const SizedBox(),
+            ),
+            DiffReturn(
+              jumps: jumps,
+              lineAt: (offset) => (offset / _rowHeight).floor() + 1,
+            ),
+          ],
+        ),
       ),
     ),
   ),

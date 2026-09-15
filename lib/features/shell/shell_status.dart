@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import 'shell_sessions.dart';
 
 /// The state light, small enough to be a mark on a card or a row rather than a
@@ -30,8 +30,8 @@ class ShellStateDot extends StatelessWidget {
     // A session on its way up is not lit yet: the accent means there is a shell
     // on the other end, and until it answers there is not.
     final color = switch (state) {
-      ShellLive() => DazzleColors.accent,
-      ShellFailed() || ShellDisconnected() => DazzleColors.warning,
+      ShellLive() => context.tokens.accent,
+      ShellFailed() || ShellDisconnected() => context.tokens.warning,
       // A dropped session is neither: there is no shell on the other end and
       // the store has not given up on getting one. Nor has it for one waiting,
       // which is the same tab with its schedule spent.
@@ -39,7 +39,7 @@ class ShellStateDot extends StatelessWidget {
       ShellReconnecting() ||
       ShellDropped() ||
       ShellWaiting() ||
-      ShellExited() => DazzleColors.textMuted,
+      ShellExited() => context.tokens.textMuted,
     };
     return Container(
       width: shellDotSize,

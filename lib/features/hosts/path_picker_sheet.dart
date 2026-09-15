@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/path_scan.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/path_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/dot_spinner.dart';
 import '../../design/components/field_panel.dart';
@@ -12,7 +12,6 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 
 /// Picks working directories on [host], from the host's own answer.
 ///
@@ -118,7 +117,7 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
         ),
       ],
       PathScanFailed(:final reason) => [
-        Text(reason.toUpperCase(), style: DazzleText.panelHeader),
+        Text(reason.toUpperCase(), style: context.tokens.panelHeader),
         const SizedBox(height: Spacing.lg),
         Row(
           children: [
@@ -136,7 +135,7 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
       // whose every checkout is already registered is not this case: that one
       // keeps the list so the filter and the escape hatch stay reachable.
       PathScanFound(:final directories) when directories.isEmpty => [
-        Text('NO CHECKOUTS REPORTED', style: DazzleText.panelHeader),
+        Text('NO CHECKOUTS REPORTED', style: context.tokens.panelHeader),
         const SizedBox(height: Spacing.lg),
         Row(
           children: [
@@ -171,7 +170,7 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
           padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
           child: Text(
             _filter.text.trim().isEmpty ? 'ALL REGISTERED' : 'NO MATCH',
-            style: DazzleText.panelHeader,
+            style: context.tokens.panelHeader,
           ),
         )
       else
@@ -184,14 +183,14 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
                 leading: widget.multiple
                     ? Text(
                         _chosen.contains(directory) ? '[x]' : '[ ]',
-                        style: DazzleText.rowTitle,
+                        style: context.tokens.rowTitle,
                       )
                     : null,
                 leadingWidth: _checkbox,
                 title: shortPathLabel(directory),
                 titleColor: !widget.multiple || _chosen.contains(directory)
                     ? null
-                    : DazzleColors.textSecondary,
+                    : context.tokens.textSecondary,
                 onTap: () => _take(directory),
               ),
           ],
@@ -201,7 +200,7 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
         children: [
           ActionBlock(
             label: 'TYPE A PATH',
-            tone: DazzleColors.textSecondary,
+            tone: context.tokens.textSecondary,
             onTap: () => setState(() => _manual = true),
           ),
           if (widget.multiple) ...[
@@ -210,8 +209,8 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
               label: 'ADD ${_chosen.length}',
               filled: _chosen.isNotEmpty,
               tone: _chosen.isEmpty
-                  ? DazzleColors.textSecondary
-                  : DazzleColors.accent,
+                  ? context.tokens.textSecondary
+                  : context.tokens.accent,
               onTap: () {
                 if (_chosen.isEmpty) return;
                 Navigator.pop(context, _chosen.toList());
@@ -257,7 +256,7 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
           ActionBlock(
             label: 'USE',
             filled: true,
-            tone: DazzleColors.accent,
+            tone: context.tokens.accent,
             onTap: () => _commitManual(controller.text),
           ),
         ],

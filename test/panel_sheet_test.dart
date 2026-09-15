@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/design/components/action_block.dart';
 import 'package:dazzle/design/components/panel_sheet.dart';
 
+import 'support/themed_app.dart';
+
 /// The confirm sheet carries body copy when the question cannot say it all in
 /// a header, and carries none when it can.
 
@@ -12,6 +14,7 @@ void main() {
   Future<void> raise(WidgetTester tester, {String? body}) async {
     await tester.pumpWidget(
       MaterialApp(
+        theme: testTheme,
         home: Scaffold(
           body: Builder(
             builder: (context) => Center(

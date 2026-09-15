@@ -6,7 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:xterm/xterm.dart';
 
 import '../../application/urls.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/cell_divider.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/spacing.dart';
@@ -194,8 +194,8 @@ class _SelectionActionsState extends State<ShellSelectionActions> {
           id: _SelectionPart.actions,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: DazzleColors.surfacePrimary,
-              border: Border.all(color: DazzleColors.borderSubtle),
+              color: context.tokens.surfacePrimary,
+              border: Border.all(color: context.tokens.borderSubtle),
             ),
             child: SizedBox(
               height: RowMetrics.minHeight,
@@ -293,9 +293,9 @@ class ShellSelectionGrip extends StatelessWidget {
             Container(
               width: bar,
               height: lineHeight,
-              color: DazzleColors.accent,
+              color: context.tokens.accent,
             ),
-            Container(width: knob, height: knob, color: DazzleColors.accent),
+            Container(width: knob, height: knob, color: context.tokens.accent),
           ],
         ),
       ),

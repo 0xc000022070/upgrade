@@ -3,7 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../application/agent_kind.dart';
 import '../../application/agent_state.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 
@@ -35,13 +35,14 @@ String agentMarkLetter(String agent) {
 /// switch, shared by the Home panel row and the `VIEW ALL` route row, so the
 /// two cannot disagree about what `done` looks like — and exhaustive, so a
 /// state added to the sealed type is named here by the analyser.
-Color agentStateColor(AgentState state) => switch (state) {
-  WorkingState() => DazzleColors.accent,
-  BlockedState() => DazzleColors.warning,
-  // Work that finished and has not been read yet, against work that was.
-  DoneState() => DazzleColors.textPrimary,
-  IdleState() || UnknownState() => DazzleColors.textMuted,
-};
+Color agentStateColor(BuildContext context, AgentState state) =>
+    switch (state) {
+      WorkingState() => context.tokens.accent,
+      BlockedState() => context.tokens.warning,
+      // Work that finished and has not been read yet, against work that was.
+      DoneState() => context.tokens.textPrimary,
+      IdleState() || UnknownState() => context.tokens.textMuted,
+    };
 
 /// The glyph box: the agent's own mark where the bundle has one, and the
 /// agent's initial where it does not. Shared by the Home panel row, the
@@ -76,7 +77,7 @@ class AgentMark extends StatelessWidget {
         // the size the mark asks for. Painted over the child it costs nothing —
         // the mark never reaches the edge it is drawn on.
         foregroundDecoration: BoxDecoration(
-          border: Border.all(color: DazzleColors.borderNormal),
+          border: Border.all(color: context.tokens.borderNormal),
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
         // The same tint path the `hl-*` glyphs take through [DazzleIcon]: the
@@ -101,16 +102,14 @@ class AgentMark extends StatelessWidget {
                   // Dimmer than the marks the app does have, which is the
                   // difference: this one is the app admitting it does not know
                   // the agent, not a drawing of it.
-                  color: DazzleColors.textSecondary,
+                  color: context.tokens.textSecondary,
                 ),
               )
             : SvgPicture.asset(
                 asset,
                 width: size,
                 height: size,
-                theme: const SvgTheme(
-                  currentColor: DazzleColors.textPrimary,
-                ),
+                theme: SvgTheme(currentColor: context.tokens.textPrimary),
               ),
       ),
     );

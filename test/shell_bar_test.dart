@@ -11,6 +11,8 @@ import 'package:dazzle/design/icons/dazzle_icon.dart';
 import 'package:dazzle/features/shell/shell_bar.dart';
 import 'package:dazzle/platform/vnc/keysyms.dart';
 
+import 'support/themed_app.dart';
+
 typedef Arming = ({Set<StickyModifier> keys, int repeat, bool locked});
 
 class BarRecord {
@@ -46,6 +48,7 @@ Future<BarRecord> pumpBar(
   final record = BarRecord();
   await tester.pumpWidget(
     MaterialApp(
+      theme: testTheme,
       home: Scaffold(
         body: Align(
           alignment: Alignment.bottomCenter,

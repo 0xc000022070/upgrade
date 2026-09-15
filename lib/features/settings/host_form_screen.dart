@@ -11,7 +11,7 @@ import '../../application/formatting.dart';
 import '../../data/enums.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/key_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/field_panel.dart';
 import '../../design/components/meta.dart';
@@ -21,7 +21,6 @@ import '../../design/components/picker_row.dart';
 import '../../design/components/section.dart';
 import '../../design/components/solid_action_bar.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../../platform/host_keys.dart';
 import '../hosts/host_key_sheet.dart';
 import '../screen/screen_preview.dart';
@@ -434,7 +433,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                 const SizedBox(height: Spacing.md),
                 SolidActionBar(
                   label: 'DELETE HOST',
-                  tone: DazzleColors.warning,
+                  tone: context.tokens.warning,
                   onTap: _delete,
                 ),
               ],
@@ -464,7 +463,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
               alignment: Alignment.centerLeft,
               child: ActionBlock(
                 label: 'FORGET KEY',
-                tone: DazzleColors.warning,
+                tone: context.tokens.warning,
                 onTap: _forgetHostKey,
               ),
             ),
@@ -510,7 +509,7 @@ class _KeyMetaRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 108, child: Text(label, style: DazzleText.label)),
+          SizedBox(width: 108, child: Text(label, style: context.tokens.label)),
           Expanded(child: Meta(value, maxLines: maxLines)),
         ],
       ),

@@ -1,10 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../icons/dazzle_icon.dart';
 import '../icons/dazzle_icons.dart';
 import '../spacing.dart';
-import '../typography.dart';
 
 /// A verb drawn as a row: an icon and a word, tall enough to tap.
 class PanelTextAction extends StatelessWidget {
@@ -31,7 +30,7 @@ class PanelTextAction extends StatelessWidget {
             DazzleIcon(
               icon,
               size: IconSizes.affordance,
-              color: DazzleColors.textMuted,
+              color: context.tokens.textMuted,
             ),
             const SizedBox(width: Spacing.sm),
             Expanded(
@@ -40,10 +39,10 @@ class PanelTextAction extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: onTap == null
-                    ? DazzleText.panelHeader.copyWith(
-                        color: DazzleColors.textDisabled,
+                    ? context.tokens.panelHeader.copyWith(
+                        color: context.tokens.textDisabled,
                       )
-                    : DazzleText.panelHeader,
+                    : context.tokens.panelHeader,
               ),
             ),
           ],

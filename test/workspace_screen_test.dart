@@ -24,6 +24,7 @@ import 'package:dazzle/platform/workspace/workspace_client.dart';
 import 'package:dazzle/platform/workspace/workspace_commands.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// The workspace detail and the explorer, over a runner that never opens a
 /// socket.
@@ -215,6 +216,7 @@ void main() {
   Widget app(FakeRunner runner) => ProviderScope(
     overrides: [privateKeyStoreProvider.overrideWithValue(privateKeys)],
     child: MaterialApp(
+      theme: testTheme,
       builder: houseText,
       home: WorkspaceScreen(
         path: path,
@@ -745,6 +747,7 @@ void main() {
         ProviderScope(
           overrides: [privateKeyStoreProvider.overrideWithValue(privateKeys)],
           child: MaterialApp(
+            theme: testTheme,
             builder: houseText,
             home: DiffSheet(
               host: host,

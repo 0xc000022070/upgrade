@@ -1,9 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/keyboard_toolbar.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 
 /// The mark on a row whose item holds link attachments — the glyph, and the
 /// count once there is more than one.
@@ -27,11 +26,11 @@ class LinkMark extends StatelessWidget {
         Icon(
           ToolbarGlyph.link.icon,
           size: IconSizes.sm,
-          color: DazzleColors.textMuted,
+          color: context.tokens.textMuted,
         ),
         if (count > 1) ...[
           const SizedBox(width: Spacing.xs),
-          Text('$count', style: DazzleText.label),
+          Text('$count', style: context.tokens.label),
         ],
       ],
     );

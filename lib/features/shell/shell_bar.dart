@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/cell_divider.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/icons/dazzle_icons.dart';
@@ -114,9 +114,9 @@ class ShellBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: _barHeight,
-      decoration: const BoxDecoration(
-        color: DazzleColors.surfacePrimary,
-        border: Border(top: BorderSide(color: DazzleColors.borderSubtle)),
+      decoration: BoxDecoration(
+        color: context.tokens.surfacePrimary,
+        border: Border(top: BorderSide(color: context.tokens.borderSubtle)),
       ),
       child: Row(
         // The cells take the row's height rather than setting one, so the hit
@@ -329,8 +329,8 @@ class _Fade extends StatelessWidget {
             // The same colour twice, one of them invisible: a fade to a
             // transparent black would grey the cell under it on the way out.
             colors: [
-              DazzleColors.surfacePrimary,
-              DazzleColors.surfacePrimary.withValues(alpha: 0),
+              context.tokens.surfacePrimary,
+              context.tokens.surfacePrimary.withValues(alpha: 0),
             ],
             stops: const [_fadeSolid, 1],
           ),

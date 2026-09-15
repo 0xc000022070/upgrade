@@ -10,6 +10,8 @@ import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_sheet.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 
+import 'themed_app.dart';
+
 /// What every shell route test starts from. The route's tests are split by
 /// what they are about — the header, the tabs, the keys, the terminal — and
 /// each of those files pumps this same route.
@@ -35,7 +37,10 @@ Widget app(ShellSessions sessions, {Widget? home, AppDatabase? db}) =>
         else
           noWorkspaces,
       ],
-      child: MaterialApp(home: home ?? const HostShellRoute(host: rose)),
+      child: MaterialApp(
+        theme: testTheme,
+        home: home ?? const HostShellRoute(host: rose),
+      ),
     );
 
 /// A host with nothing registered on it, which is what every test that is

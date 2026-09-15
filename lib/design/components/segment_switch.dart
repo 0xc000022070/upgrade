@@ -1,8 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../spacing.dart';
-import '../typography.dart';
 
 /// Two or more cells that pick which of a screen's lists is drawn, sitting
 /// under the screen title and over the panel stack.
@@ -58,7 +57,7 @@ class _Segment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? DazzleColors.accent : DazzleColors.textMuted;
+    final color = active ? context.tokens.accent : context.tokens.textMuted;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -72,13 +71,13 @@ class _Segment extends StatelessWidget {
             child: Center(
               child: Text(
                 label,
-                style: DazzleText.rowKicker.copyWith(color: color),
+                style: context.tokens.rowKicker.copyWith(color: color),
               ),
             ),
           ),
           Container(
             height: BarSizes.inlineThickness,
-            color: active ? DazzleColors.accent : const Color(0x00000000),
+            color: active ? context.tokens.accent : const Color(0x00000000),
           ),
         ],
       ),

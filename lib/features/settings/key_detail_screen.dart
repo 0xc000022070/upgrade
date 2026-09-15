@@ -5,12 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/static_surface.dart';
 import '../../application/agents.dart';
 import '../../data/repositories/key_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../screen_scaffold.dart';
 
 void openKeyDetail(BuildContext context, ManagedKey key) {
@@ -78,18 +77,21 @@ class KeyDetailScreen extends ConsumerWidget {
                   ),
                   child: SelectableText(
                     keyRecord.publicKey,
-                    style: DazzleText.rowTitle,
+                    style: context.tokens.rowTitle,
                   ),
                 ),
                 Panel(
                   title: '[ USED BY ]',
                   bodyPadding: panelRowsPadding,
                   child: users.isEmpty
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: RowMetrics.minHeight,
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: Text('NO HOSTS', style: DazzleText.label),
+                            child: Text(
+                              'NO HOSTS',
+                              style: context.tokens.label,
+                            ),
                           ),
                         )
                       : ListRowGroup(
@@ -136,7 +138,7 @@ class _DeleteBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = enabled ? DazzleColors.warning : DazzleColors.textDisabled;
+    final tone = enabled ? context.tokens.warning : context.tokens.textDisabled;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: enabled ? onTap : null,
@@ -147,7 +149,10 @@ class _DeleteBar extends StatelessWidget {
           border: Border.all(color: tone),
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
-        child: Text(label, style: DazzleText.valueStrong.copyWith(color: tone)),
+        child: Text(
+          label,
+          style: context.tokens.valueStrong.copyWith(color: tone),
+        ),
       ),
     );
   }

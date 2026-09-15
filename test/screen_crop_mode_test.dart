@@ -3,10 +3,12 @@
 /// which of the two it was.
 library;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/features/screen/framebuffer_view.dart';
 import 'package:dazzle/features/screen/screen_transform.dart';
+
+import 'support/themed_app.dart';
 
 const _framebuffer = Size(1920, 1080);
 const _viewport = Size(400, 800);
@@ -20,21 +22,24 @@ class Recorder {
 Future<Recorder> pumpView(WidgetTester tester, {required bool cropping}) async {
   final recorder = Recorder();
   await tester.pumpWidget(
-    Directionality(
-      textDirection: TextDirection.ltr,
-      child: Center(
-        child: SizedBox(
-          width: _viewport.width,
-          height: _viewport.height,
-          child: FramebufferView(
-            image: null,
-            framebufferSize: _framebuffer,
-            onClick: recorder.clicks.add,
-            onRightClick: (_) {},
-            onDrag: (_, {required down}) {},
-            onWheel: (_, {required up}) {},
-            cropping: cropping,
-            onCrop: (rect, target) => recorder.crops.add((rect, target)),
+    Theme(
+      data: testTheme,
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: SizedBox(
+            width: _viewport.width,
+            height: _viewport.height,
+            child: FramebufferView(
+              image: null,
+              framebufferSize: _framebuffer,
+              onClick: recorder.clicks.add,
+              onRightClick: (_) {},
+              onDrag: (_, {required down}) {},
+              onWheel: (_, {required up}) {},
+              cropping: cropping,
+              onCrop: (rect, target) => recorder.crops.add((rect, target)),
+            ),
           ),
         ),
       ),

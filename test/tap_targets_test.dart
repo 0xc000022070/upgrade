@@ -7,14 +7,19 @@ import 'package:dazzle/design/components/panel.dart';
 import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/features/screen_scaffold.dart';
 
+import 'support/themed_app.dart';
+
 /// A text-only action is small to read and big to hit. The
 /// header strip is a row tall, the label stays where it always was, and the
 /// box that answers a finger is the row's height by at least 44.
-Widget _host(Widget child) => Directionality(
-  textDirection: TextDirection.ltr,
-  child: Align(
-    alignment: Alignment.topLeft,
-    child: SizedBox(width: 320, child: child),
+Widget _host(Widget child) => Theme(
+  data: testTheme,
+  child: Directionality(
+    textDirection: TextDirection.ltr,
+    child: Align(
+      alignment: Alignment.topLeft,
+      child: SizedBox(width: 320, child: child),
+    ),
   ),
 );
 
@@ -286,6 +291,7 @@ void main() {
       var taps = 0;
       await tester.pumpWidget(
         MaterialApp(
+          theme: testTheme,
           home: Scaffold(
             body: ScreenScaffold(
               title: 'INFRA',
@@ -321,6 +327,7 @@ void main() {
       var backs = 0;
       await tester.pumpWidget(
         MaterialApp(
+          theme: testTheme,
           home: Scaffold(
             body: ScreenScaffold(
               title: 'INFRA',
@@ -355,6 +362,7 @@ void main() {
       var opens = 0;
       await tester.pumpWidget(
         MaterialApp(
+          theme: testTheme,
           home: Scaffold(
             body: ScreenScaffold(
               title: 'DNS',

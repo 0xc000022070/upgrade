@@ -15,6 +15,7 @@ import 'package:dazzle/features/settings/key_detail_screen.dart';
 import 'package:dazzle/platform/keys.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 final managedKey = ManagedKey(
   id: 'key-1',
@@ -52,7 +53,7 @@ void main() {
       hostRepositoryProvider.overrideWithValue(hosts),
       privateKeyStoreProvider.overrideWithValue(privateKeys),
     ],
-    child: MaterialApp(home: child),
+    child: MaterialApp(theme: testTheme, home: child),
   );
 
   /// The background grain runs off a ticker that never settles, so a test that

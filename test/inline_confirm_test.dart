@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/design/components/inline_confirm.dart';
 
+import 'support/themed_app.dart';
+
 /// Delete confirms in place. What matters is that a single tap
 /// never commits and that the armed window closes on its own — the block is the
 /// only guard between a stray tap and a deleted project.
@@ -10,6 +12,7 @@ void main() {
   Future<void> pump(WidgetTester tester, VoidCallback onConfirmed) {
     return tester.pumpWidget(
       MaterialApp(
+        theme: testTheme,
         home: Scaffold(
           body: InlineConfirmBlock(
             label: 'DELETE PROJECT',

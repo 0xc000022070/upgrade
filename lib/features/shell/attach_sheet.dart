@@ -5,14 +5,13 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/clips.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import 'clip_paste.dart';
 import 'photo_attach.dart';
 import 'shell_sessions.dart';
@@ -136,7 +135,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                 '?',
                 key: const ValueKey('attach-help'),
                 showIcon: false,
-                color: _help ? DazzleColors.accent : null,
+                color: _help ? context.tokens.accent : null,
                 onTap: () => setState(() => _help = !_help),
               ),
               const SizedBox(width: Spacing.lg),
@@ -155,12 +154,12 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
               onTap: _attachPhotos,
             ),
             const SheetRule(),
-            const Text('HELD', style: DazzleText.label),
+            Text('HELD', style: context.tokens.label),
             const SizedBox(height: Spacing.sm),
             if (held.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: Spacing.md),
-                child: Text('NOTHING HELD', style: DazzleText.label),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: Spacing.md),
+                child: Text('NOTHING HELD', style: context.tokens.label),
               )
             else
               Wrap(
@@ -181,7 +180,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
               Text(
                 _status!,
                 key: const ValueKey('attach-status'),
-                style: DazzleText.label,
+                style: context.tokens.label,
               ),
             ],
           ],
@@ -219,7 +218,7 @@ class _AttachHelp extends StatelessWidget {
       children: [
         for (var i = 0; i < _lines.length; i++) ...[
           if (i > 0) const SizedBox(height: Spacing.md),
-          Text(_lines[i], style: DazzleText.prose),
+          Text(_lines[i], style: context.tokens.prose),
         ],
       ],
     );
@@ -261,7 +260,7 @@ class _ClipTile extends StatelessWidget {
                   height: _height,
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color: DazzleColors.borderNormal,
+                      color: context.tokens.borderNormal,
                       width: Borders.hairline,
                     ),
                   ),
@@ -284,11 +283,11 @@ class _ClipTile extends StatelessWidget {
                   onTap: onRemove,
                   child: Container(
                     padding: const EdgeInsets.all(Spacing.sm),
-                    color: DazzleColors.surfacePrimary,
-                    child: const DazzleIcon(
+                    color: context.tokens.surfacePrimary,
+                    child: DazzleIcon(
                       DazzleIcons.close,
                       size: IconSizes.affordance,
-                      color: DazzleColors.textSecondary,
+                      color: context.tokens.textSecondary,
                     ),
                   ),
                 ),
@@ -300,7 +299,7 @@ class _ClipTile extends StatelessWidget {
             clip.sizeLabel.isEmpty
                 ? clip.source.name.toUpperCase()
                 : clip.sizeLabel,
-            style: DazzleText.label,
+            style: context.tokens.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

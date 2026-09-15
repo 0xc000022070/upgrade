@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/drop_selection.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/flash_block.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../home/capture_bar.dart';
 import 'drop_actions.dart';
 
@@ -82,7 +81,7 @@ class _SelectionBarState extends ConsumerState<SelectionBar> {
                 _copied == null
                     ? '${selection.count} SELECTED'
                     : '$_copied COPIED',
-                style: DazzleText.panelHeader,
+                style: context.tokens.panelHeader,
               ),
             ),
             _BarAction(
@@ -140,10 +139,10 @@ class _BarActionState extends State<_BarAction> {
   Widget build(BuildContext context) {
     final enabled = widget.onTap != null;
     final color = !enabled
-        ? DazzleColors.textDisabled
+        ? context.tokens.textDisabled
         : _down
-        ? DazzleColors.accent
-        : DazzleColors.textSecondary;
+        ? context.tokens.accent
+        : context.tokens.textSecondary;
     return Semantics(
       button: true,
       label: widget.tooltip,

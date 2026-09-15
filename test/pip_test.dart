@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +14,7 @@ import 'package:dazzle/features/home/agents_panel.dart';
 import 'package:dazzle/platform/herdr_client.dart';
 
 import 'support/fake_pip.dart';
+import 'support/themed_app.dart';
 
 const nyx = Host(
   id: 'a',
@@ -60,13 +61,16 @@ Widget harness(
     agentsFeedProvider.overrideWith((ref) => agents),
     agentsFeedLiveProvider.overrideWithValue(live),
   ],
-  child: Directionality(
-    textDirection: TextDirection.ltr,
-    // The window clamps the reader's text scale rather than ignoring it, and
-    // asking what the scale is means there has to be something to ask.
-    child: MediaQuery(
-      data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
-      child: child,
+  child: Theme(
+    data: testTheme,
+    child: Directionality(
+      textDirection: TextDirection.ltr,
+      // The window clamps the reader's text scale rather than ignoring it, and
+      // asking what the scale is means there has to be something to ask.
+      child: MediaQuery(
+        data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+        child: child,
+      ),
     ),
   ),
 );

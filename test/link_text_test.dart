@@ -4,6 +4,7 @@ import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/features/tasks/link_text.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// A URL inside a title is text and stays text: it is never cut out into an
 /// attachment. What it does get is the mark the field paints while it is typed
@@ -17,6 +18,7 @@ void main() {
   Future<void> mount(WidgetTester tester, String text, VoidCallback onTap) =>
       tester.pumpWidget(
         MaterialApp(
+          theme: testTheme,
           home: Scaffold(
             body: Center(
               child: GestureDetector(

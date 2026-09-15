@@ -1,10 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import 'shell_sheet.dart';
 import 'shell_sessions.dart';
 import 'shell_watcher.dart';
@@ -63,11 +62,11 @@ class _Bar extends StatelessWidget {
       // it names.
       onTap: () => openHostShell(context, session.host, session: session),
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: DazzleColors.surfacePrimary,
+        decoration: BoxDecoration(
+          color: context.tokens.surfacePrimary,
           border: Border(
             top: BorderSide(
-              color: DazzleColors.borderNormal,
+              color: context.tokens.borderNormal,
               width: Borders.hairline,
             ),
           ),
@@ -85,20 +84,20 @@ class _Bar extends StatelessWidget {
                   const SizedBox(width: Spacing.md),
                   Text(
                     '${session.host.name.toUpperCase()} ${session.number}',
-                    style: DazzleText.panelHeader.copyWith(
-                      color: DazzleColors.textPrimary,
+                    style: context.tokens.panelHeader.copyWith(
+                      color: context.tokens.textPrimary,
                     ),
                   ),
                   if (others > 0) ...[
                     const SizedBox(width: Spacing.md),
-                    Text('+$others', style: DazzleText.panelHeader),
+                    Text('+$others', style: context.tokens.panelHeader),
                   ],
                   if (title != null) ...[
                     const SizedBox(width: Spacing.md),
                     Expanded(
                       child: Text(
                         title,
-                        style: DazzleText.rowKicker,
+                        style: context.tokens.rowKicker,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -108,8 +107,8 @@ class _Bar extends StatelessWidget {
                   const SizedBox(width: Spacing.md),
                   Text(
                     'TAP TO RESUME',
-                    style: DazzleText.panelHeader.copyWith(
-                      color: DazzleColors.accent,
+                    style: context.tokens.panelHeader.copyWith(
+                      color: context.tokens.accent,
                     ),
                   ),
                 ],

@@ -8,6 +8,7 @@ import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
 import 'support/shell_route.dart' show noWorkspaces, openNewShell;
+import 'support/themed_app.dart';
 
 const _rose = Host(
   id: 'h1',
@@ -34,7 +35,7 @@ void main() {
       shellSessionsProvider.overrideWithValue(sessions),
       noWorkspaces,
     ],
-    child: const MaterialApp(home: _Launcher()),
+    child: MaterialApp(theme: testTheme, home: _Launcher()),
   );
 
   Future<void> ready(WidgetTester tester) async {

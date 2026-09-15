@@ -1,8 +1,10 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/features/code/diff_jump.dart';
 import 'package:dazzle/features/code/diff_map.dart';
 import 'package:dazzle/platform/workspace/workspace_model.dart';
+
+import 'support/themed_app.dart';
 
 DiffLine added(String text) => DiffLine(DiffLineKind.added, text);
 DiffLine removed(String text) => DiffLine(DiffLineKind.removed, text);
@@ -17,28 +19,31 @@ Widget pane(
   ScrollController scroll,
   List<DiffStreak> streaks, [
   DiffJumps? jumps,
-]) => Directionality(
-  textDirection: TextDirection.ltr,
-  child: Center(
-    child: SizedBox(
-      height: _paneHeight,
-      width: 120,
-      child: Row(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: scroll,
-              itemExtent: _rowHeight,
-              itemCount: _rows,
-              itemBuilder: (context, index) => const SizedBox(),
+]) => Theme(
+  data: testTheme,
+  child: Directionality(
+    textDirection: TextDirection.ltr,
+    child: Center(
+      child: SizedBox(
+        height: _paneHeight,
+        width: 120,
+        child: Row(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                controller: scroll,
+                itemExtent: _rowHeight,
+                itemCount: _rows,
+                itemBuilder: (context, index) => const SizedBox(),
+              ),
             ),
-          ),
-          DiffMap(
-            streaks: streaks,
-            rows: _rows,
-            jumps: jumps ?? DiffJumps(scroll),
-          ),
-        ],
+            DiffMap(
+              streaks: streaks,
+              rows: _rows,
+              jumps: jumps ?? DiffJumps(scroll),
+            ),
+          ],
+        ),
       ),
     ),
   ),

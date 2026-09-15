@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../../platform/workspace/workspace_model.dart';
 import '../screen_scaffold.dart';
 import 'workspace_controller.dart';
@@ -124,7 +123,7 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
         if (!didPop) _back();
       },
       child: ColoredBox(
-        color: DazzleColors.backgroundPrimary,
+        color: context.tokens.backgroundPrimary,
         child: SafeArea(
           bottom: false,
           child: Padding(
@@ -171,19 +170,16 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: _back,
-                child: const Padding(
-                  padding: EdgeInsets.only(left: Spacing.md),
-                  child: Text('BACK', style: DazzleText.panelHeader),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: Spacing.md),
+                  child: Text('BACK', style: context.tokens.panelHeader),
                 ),
               ),
             ],
           ),
         ),
         const SizedBox(height: Spacing.md),
-        Container(
-          height: Borders.hairline,
-          color: DazzleColors.borderNormal,
-        ),
+        Container(height: Borders.hairline, color: context.tokens.borderNormal),
       ],
     );
   }
@@ -251,7 +247,7 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
                     node: entry.isDirectory,
                     value: entry.isDirectory ? null : _sizeWord(entry.size),
                     titleColor: _join(entry.name) == _file
-                        ? DazzleColors.accent
+                        ? context.tokens.accent
                         : null,
                     onTap: entry.isDirectory
                         ? () => _open(_join(entry.name))
@@ -329,7 +325,7 @@ class _FileBody extends StatelessWidget {
               for (final line in lines)
                 Text(
                   line,
-                  style: DazzleText.noteBody,
+                  style: context.tokens.noteBody,
                   maxLines: 1,
                   softWrap: false,
                 ),
@@ -358,13 +354,13 @@ class _SegmentedPath extends StatelessWidget {
       reverse: true,
       child: Row(
         children: [
-          const Text('/ ', style: DazzleText.breadcrumb),
+          Text('/ ', style: context.tokens.breadcrumb),
           for (var i = 0; i < segments.length; i++) ...[
-            if (i > 0) const Text(' / ', style: DazzleText.breadcrumb),
+            if (i > 0) Text(' / ', style: context.tokens.breadcrumb),
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: segments[i].onTap,
-              child: Text(segments[i].label, style: DazzleText.breadcrumb),
+              child: Text(segments[i].label, style: context.tokens.breadcrumb),
             ),
           ],
         ],

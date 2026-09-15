@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/formatting.dart';
 import '../../application/providers.dart';
 import '../../data/database.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/dazzle_icon.dart';
@@ -91,19 +91,19 @@ class _TaskRowState extends ConsumerState<TaskRow> {
       leading: DazzleIcon(
         task.done ? DazzleIcons.checkboxChecked : DazzleIcons.checkboxEmpty,
         size: IconSizes.check,
-        color: task.done ? DazzleColors.textDisabled : DazzleColors.accent,
+        color: task.done ? context.tokens.textDisabled : context.tokens.accent,
         glitch: _glitch,
       ),
       title: task.title,
-      titleColor: task.done ? DazzleColors.textMuted : null,
+      titleColor: task.done ? context.tokens.textMuted : null,
       value: widget.drop || widget.fresh ? relativeAge(task.createdAt) : null,
-      valueColor: widget.fresh ? DazzleColors.accent : null,
+      valueColor: widget.fresh ? context.tokens.accent : null,
       // The blocked reason is the row's second line, in warning, so a held
       // task is legible without opening it.
       subtitle: widget.drop || task.blockedReason == null
           ? null
           : '[ BLOCKED BY ] ${task.blockedReason}',
-      subtitleColor: DazzleColors.warning,
+      subtitleColor: context.tokens.warning,
       // The accent forward arrow is the only mark on the flagged row, and it is
       // the same glyph HOME's NEXT ACTION carries.
       // A row that was sent and then filed keeps the tag, in the same slot.
@@ -115,10 +115,10 @@ class _TaskRowState extends ConsumerState<TaskRow> {
                 const <String, int>{})[task.id] ??
             0,
         state: !widget.drop && task.isNext
-            ? const DazzleIcon(
+            ? DazzleIcon(
                 DazzleIcons.forward,
                 size: IconSizes.glyph,
-                color: DazzleColors.accent,
+                color: context.tokens.accent,
               )
             : (ref.watch(sentItemsProvider).valueOrNull ?? const <String>{})
                   .contains(task.id)

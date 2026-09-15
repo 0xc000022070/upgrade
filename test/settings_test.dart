@@ -15,6 +15,7 @@ import 'package:dazzle/features/home/home_screen.dart';
 import 'package:dazzle/features/settings/settings_screen.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 Future<void> _drain(
   WidgetTester tester, {
@@ -77,7 +78,7 @@ void main() {
 
   Widget host(Widget child) => ProviderScope(
     overrides: [...featureTestOverrides(db)],
-    child: MaterialApp(home: child),
+    child: MaterialApp(theme: testTheme, home: child),
   );
 
   testWidgets('HOME carries the SETTINGS action and it opens SETTINGS', (

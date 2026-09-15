@@ -9,14 +9,13 @@ import '../../application/navigation.dart';
 import '../../data/enums.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/key_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/components/toolbar_icon_action.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../../platform/host_key_dial.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/link_probe.dart';
@@ -220,7 +219,7 @@ class _HerdrStateRowState extends ConsumerState<_HerdrStateRow> {
     return _MetaRow(
       'HERDR STATUS',
       _retryFailed ? 'retry failed' : _stateLine(outcome),
-      color: failed ? DazzleColors.warning : null,
+      color: failed ? context.tokens.warning : null,
       trailing: failed && outcome.kind.retryable
           ? PanelAffordance(
               _retrying ? 'RETRYING' : 'RETRY',
@@ -299,7 +298,7 @@ class _ShellRowState extends ConsumerState<_ShellRow> {
                   sessions.isEmpty
                       ? 'SHELL'
                       : 'SHELL · ${sessions.length} OPEN',
-                  color: _down ? DazzleColors.accent : null,
+                  color: _down ? context.tokens.accent : null,
                 ),
               ],
             );
@@ -348,7 +347,7 @@ class _ClipboardRow extends ConsumerWidget {
           'CLIPBOARD',
           clipboard.line,
           strong: clipboard.usable,
-          color: clipboard.usable ? null : DazzleColors.textMuted,
+          color: clipboard.usable ? null : context.tokens.textMuted,
         );
       },
     );
@@ -370,7 +369,7 @@ const _labelWidth = 96.0;
 
 /// How much bigger the label is than the size it was drawn at.
 double _labelScale(BuildContext context) {
-  final size = DazzleText.label.fontSize!;
+  final size = context.tokens.label.fontSize!;
   return MediaQuery.textScalerOf(context).scale(size) / size;
 }
 
@@ -407,7 +406,7 @@ class _MetaRow extends StatelessWidget {
             // while the 9px label it was holding nearly doubled and broke
             // across two lines in the middle of a word.
             width: _labelWidth * _labelScale(context),
-            child: Text(label, style: DazzleText.label),
+            child: Text(label, style: context.tokens.label),
           ),
           // The column is the longest label and nothing more, so without a
           // gutter that label ends exactly where its value starts and the two
@@ -475,7 +474,7 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
           child: _MetaRow(
             'LINK',
             linkWord(result),
-            color: linkFailed(result) ? DazzleColors.warning : null,
+            color: linkFailed(result) ? context.tokens.warning : null,
             trailing: _trailing(),
           ),
         );
@@ -495,7 +494,7 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
     return PanelAffordance(
       failure ?? 'VERIFY',
       showIcon: false,
-      color: failure == null ? null : DazzleColors.warning,
+      color: failure == null ? null : context.tokens.warning,
       onTap: () => unawaited(_verify()),
     );
   }

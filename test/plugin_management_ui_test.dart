@@ -22,6 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/native_plugins.dart';
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 Future<void> _drain(WidgetTester tester) async {
   for (var i = 0; i < 8; i++) {
@@ -126,6 +127,7 @@ void main() {
       ProviderScope(
         overrides: featureTestOverrides(db),
         child: MaterialApp(
+          theme: testTheme,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(textScaler: const TextScaler.linear(1.6)),
@@ -184,7 +186,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: _catalogOverrides(db, catalog),
-        child: const MaterialApp(home: PluginLibraryScreen()),
+        child: MaterialApp(theme: testTheme, home: PluginLibraryScreen()),
       ),
     );
     await _drain(tester);
@@ -214,7 +216,7 @@ void main() {
           catalog,
           plugins: () => _RefusingPlugins(catalog),
         ),
-        child: const MaterialApp(home: PluginManagementScreen()),
+        child: MaterialApp(theme: testTheme, home: PluginManagementScreen()),
       ),
     );
     await _drain(tester);
@@ -262,7 +264,10 @@ void main() {
           ..._catalogOverrides(db, const []),
           ..._marketplaceOverrides(sources: [existing]),
         ],
-        child: const MaterialApp(home: PluginManagementScreen()),
+        child: MaterialApp(
+          theme: testTheme,
+          home: const PluginManagementScreen(),
+        ),
       ),
     );
     await _drain(tester);
@@ -371,7 +376,10 @@ void main() {
             ),
           ),
         ],
-        child: const MaterialApp(home: PluginManagementScreen()),
+        child: MaterialApp(
+          theme: testTheme,
+          home: const PluginManagementScreen(),
+        ),
       ),
     );
     await _drain(tester);

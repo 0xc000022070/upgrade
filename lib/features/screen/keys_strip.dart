@@ -1,11 +1,10 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../../platform/vnc/keysyms.dart';
 
 /// One key on the strip: what it sends, and whether it is drawn as a tracked
@@ -53,12 +52,8 @@ const stripRows = <List<StripCell>>[
     StripCell.modifier(StickyModifier.superKey),
     StripCell.modifier(StickyModifier.ctrl),
     StripCell.modifier(StickyModifier.alt),
-    StripCell.key(
-      StripKey('LEFT', Keysyms.left, icon: DazzleIcons.arrowLeft),
-    ),
-    StripCell.key(
-      StripKey('DOWN', Keysyms.down, icon: DazzleIcons.arrowDown),
-    ),
+    StripCell.key(StripKey('LEFT', Keysyms.left, icon: DazzleIcons.arrowLeft)),
+    StripCell.key(StripKey('DOWN', Keysyms.down, icon: DazzleIcons.arrowDown)),
     StripCell.key(
       StripKey('RIGHT', Keysyms.right, icon: DazzleIcons.arrowRight),
     ),
@@ -206,9 +201,9 @@ class _KeysLayerState extends State<KeysLayer> {
     child: EditableText(
       controller: _text,
       focusNode: _focus,
-      style: DazzleText.label,
-      cursorColor: DazzleColors.accent,
-      backgroundCursorColor: DazzleColors.borderSubtle,
+      style: context.tokens.label,
+      cursorColor: context.tokens.accent,
+      backgroundCursorColor: context.tokens.borderSubtle,
       onChanged: _onChanged,
       autocorrect: false,
       enableSuggestions: false,
@@ -245,9 +240,9 @@ class _KeysLayerState extends State<KeysLayer> {
 
   Widget _strip() {
     return Container(
-      decoration: const BoxDecoration(
-        color: DazzleColors.surfacePrimary,
-        border: Border(top: BorderSide(color: DazzleColors.borderSubtle)),
+      decoration: BoxDecoration(
+        color: context.tokens.surfacePrimary,
+        border: Border(top: BorderSide(color: context.tokens.borderSubtle)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

@@ -1,10 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../icons/dazzle_icon.dart';
 import '../icons/dazzle_icons.dart';
 import '../spacing.dart';
-import '../typography.dart';
 import 'path_line.dart';
 import 'progress_bar.dart';
 import 'signal_text.dart';
@@ -120,7 +119,7 @@ class ListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = lead ? DazzleText.rowTitleLead : DazzleText.rowTitle;
+    final base = lead ? context.tokens.rowTitleLead : context.tokens.rowTitle;
     final titleStyle = titleColor == null
         ? base
         : base.copyWith(color: titleColor);
@@ -140,7 +139,7 @@ class ListRow extends StatelessWidget {
         indented(
           Text(
             kicker!,
-            style: DazzleText.rowKicker,
+            style: context.tokens.rowKicker,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -179,8 +178,8 @@ class ListRow extends StatelessWidget {
           Text(
             subtitle!,
             style: subtitleColor == null
-                ? DazzleText.rowSubtitle
-                : DazzleText.rowSubtitle.copyWith(color: subtitleColor),
+                ? context.tokens.rowSubtitle
+                : context.tokens.rowSubtitle.copyWith(color: subtitleColor),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -189,7 +188,7 @@ class ListRow extends StatelessWidget {
         indented(
           Text(
             caption!,
-            style: DazzleText.label,
+            style: context.tokens.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -230,17 +229,17 @@ class ListRow extends StatelessWidget {
                 textAlign: TextAlign.right,
                 style:
                     (valueStrong
-                            ? DazzleText.valueStrong
-                            : DazzleText.value)
+                            ? context.tokens.valueStrong
+                            : context.tokens.value)
                         .copyWith(color: valueColor),
               ),
             ],
             if (node) ...[
               const SizedBox(width: Spacing.md),
-              const DazzleIcon(
+              DazzleIcon(
                 DazzleIcons.progressMarker,
                 size: IconSizes.glyph,
-                color: DazzleColors.textDisabled,
+                color: context.tokens.textDisabled,
               ),
             ],
             if (trailing != null) ...[
@@ -304,7 +303,7 @@ class ListRowGroup extends StatelessWidget {
           if (i > 0 && ruled)
             Container(
               height: Borders.hairline,
-              color: DazzleColors.borderSubtle,
+              color: context.tokens.borderSubtle,
             ),
           children[i],
         ],

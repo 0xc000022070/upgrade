@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../typography.dart';
+import '../tokens.dart';
 import 'signal_text.dart';
 
 /// The mono value column — counts, percentages, timestamps.
@@ -22,7 +22,7 @@ class Meta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = strong ? DazzleText.valueStrong : DazzleText.value;
+    final base = strong ? context.tokens.valueStrong : context.tokens.value;
     return SignalText(
       text,
       style: color == null ? base : base.copyWith(color: color),

@@ -1490,6 +1490,10 @@ Struck: a notification asking the user to go and fix the key. The ongoing line a
 
 `DazzleTokens.house` is the default, built from the same values the app has always shipped, so registering it changes nothing on screen. A different `DazzleTokens` instance is what makes a theme; nothing else does.
 
+### No colour or text style lives outside the design layer
+
+A feature reaches `context.tokens` for every colour and text role it draws with; it never reaches for the palette or text-role constants directly, and never writes a colour as a literal. A painter or a route with no `BuildContext` of its own takes the colour resolved by the widget that owns it, carried in as a plain field. Where nothing is meant to be painted, the app says so directly — a null colour, a `BorderSide.none` — rather than reaching for a transparent one.
+
 ## Plugins
 
 ### Plugins run on the phone through declared capabilities

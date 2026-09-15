@@ -5,7 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/bundle.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/field_panel.dart';
 import '../../design/components/meta.dart';
@@ -15,7 +15,6 @@ import '../../design/components/panel_text_action.dart';
 import '../../design/components/solid_action_bar.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../../platform/bundle_cipher.dart';
 import '../../platform/documents.dart';
 
@@ -48,15 +47,15 @@ class _BundlePanelState extends ConsumerState<BundlePanel> {
               height: RowMetrics.minHeight,
               child: Row(
                 children: [
-                  const SizedBox(
+                  SizedBox(
                     width: 96,
-                    child: Text('LAST', style: DazzleText.label),
+                    child: Text('LAST', style: context.tokens.label),
                   ),
                   Expanded(
                     child: Meta(
                       last.words,
                       strong: !last.failed,
-                      color: last.failed ? DazzleColors.danger : null,
+                      color: last.failed ? context.tokens.danger : null,
                     ),
                   ),
                 ],
@@ -178,7 +177,7 @@ class _BundlePanelState extends ConsumerState<BundlePanel> {
       builder: (context) => PanelSheetBody(
         title: title,
         children: [
-          Text(count, style: DazzleText.valueStrong),
+          Text(count, style: context.tokens.valueStrong),
           const SizedBox(height: Spacing.md),
           Row(
             children: [
@@ -192,7 +191,7 @@ class _BundlePanelState extends ConsumerState<BundlePanel> {
               Expanded(
                 child: ActionBlock(
                   label: 'IMPORT',
-                  tone: DazzleColors.accent,
+                  tone: context.tokens.accent,
                   filled: true,
                   onTap: () => Navigator.of(context).pop(true),
                 ),

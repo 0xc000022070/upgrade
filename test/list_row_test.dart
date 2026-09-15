@@ -6,6 +6,8 @@ import 'package:dazzle/design/icons/dazzle_icon.dart';
 import 'package:dazzle/design/icons/dazzle_icons.dart';
 import 'package:dazzle/design/spacing.dart';
 
+import 'support/themed_app.dart';
+
 void main() {
   testWidgets('the glyph on a row sits on the line it marks', (tester) async {
     /// How far the glyph's centre is from the centre of the title beside it.
@@ -13,7 +15,8 @@ void main() {
     /// renders with cannot move them.
     Future<double> drift() async {
       await tester.pumpWidget(
-        const MaterialApp(
+        MaterialApp(
+          theme: testTheme,
           home: Scaffold(
             body: ListRow(
               leading: DazzleIcon(

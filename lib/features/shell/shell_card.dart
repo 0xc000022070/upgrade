@@ -1,9 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../../data/repositories/host_repository.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import 'shell_sheet.dart';
 import 'shell_sessions.dart';
 import 'shell_status.dart';
@@ -59,9 +58,9 @@ class ShellCard extends StatelessWidget {
               width: shellCardWidth,
               height: shellCardHeight,
               decoration: BoxDecoration(
-                color: const Color(0xFF000000),
+                color: context.tokens.mediaBackdrop,
                 border: Border.all(
-                  color: DazzleColors.borderSubtle,
+                  color: context.tokens.borderSubtle,
                   width: Borders.hairline,
                 ),
               ),
@@ -86,14 +85,14 @@ class ShellCard extends StatelessWidget {
             const SizedBox(height: Spacing.md),
             Text(
               '${host.name.toUpperCase()} ${session.number}',
-              style: DazzleText.panelHeader,
+              style: context.tokens.panelHeader,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             if (title != null)
               Text(
                 title,
-                style: DazzleText.rowKicker,
+                style: context.tokens.rowKicker,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

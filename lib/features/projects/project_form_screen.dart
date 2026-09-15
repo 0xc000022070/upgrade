@@ -6,7 +6,7 @@ import '../../application/providers.dart';
 import '../../application/native_plugins.dart';
 import '../../data/database.dart';
 import '../../data/enums.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/field_panel.dart';
 import '../../design/components/inline_confirm.dart';
 import '../../design/components/panel.dart';
@@ -14,7 +14,6 @@ import '../../design/components/panel_sheet.dart';
 import '../../design/components/picker_row.dart';
 import '../../design/components/solid_action_bar.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import '../screen_scaffold.dart';
 import '../../app/static_surface.dart';
 
@@ -244,7 +243,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
               else
                 SolidActionBar(
                   label: 'DELETE PROJECT',
-                  tone: DazzleColors.warning,
+                  tone: context.tokens.warning,
                   onTap: _confirmCascade,
                 ),
               const SizedBox(height: Spacing.md),
@@ -254,7 +253,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                           'NOTHING IS DELETED WITH IT.'
                     : 'THE $_below PROJECTS BELOW GO WITH IT. '
                           'THEIR ITEMS BECOME DROPS.',
-                style: DazzleText.label,
+                style: context.tokens.label,
               ),
             ],
           ],

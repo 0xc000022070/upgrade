@@ -3,14 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
 
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/cell_divider.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/components/dazzle_field.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/motion.dart';
 import '../../design/spacing.dart';
-import '../../design/typography.dart';
 import 'shell_sessions.dart';
 import 'shell_surface.dart';
 
@@ -21,11 +20,6 @@ typedef ShellHit = ({int line, int start, int end});
 /// How many hits a query gets. Past this the query is not a search, and a mark
 /// on every line of a buffer is paid for by the frame that draws it.
 const shellHitCap = 500;
-
-/// The marks, washes rather than blocks: xterm paints a highlight over the
-/// glyphs, and the point of finding a word is reading it.
-const shellHitWash = Color(0x33B7FF2A);
-const shellHitCurrentWash = Color(0x88B7FF2A);
 
 /// How long after the last keystroke the buffer is read. A phone types faster
 /// than ten thousand lines are scanned.
@@ -166,7 +160,9 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
         controller.highlight(
           p1: p1,
           p2: p2,
-          color: i == _index ? shellHitCurrentWash : shellHitWash,
+          color: i == _index
+              ? context.tokens.selectionWashCurrent
+              : context.tokens.selectionWash,
         ),
       );
     }
@@ -207,9 +203,9 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: DazzleColors.surfacePrimary,
-        border: Border(top: BorderSide(color: DazzleColors.borderSubtle)),
+      decoration: BoxDecoration(
+        color: context.tokens.surfacePrimary,
+        border: Border(top: BorderSide(color: context.tokens.borderSubtle)),
       ),
       child: SizedBox(
         height: RowMetrics.minHeight,
@@ -243,7 +239,7 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
                 child: Text(
                   key: const ValueKey('shell-find-count'),
                   '${_hits.isEmpty ? 0 : _index + 1}/${_hits.length}',
-                  style: DazzleText.value,
+                  style: context.tokens.value,
                 ),
               ),
             ),

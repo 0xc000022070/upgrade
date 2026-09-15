@@ -1,8 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../spacing.dart';
-import '../typography.dart';
 
 /// The primary action is a full-width flat block, not a border.
 /// It is the only place accent covers a surface, which is why it is reserved for
@@ -12,15 +11,16 @@ class SolidActionBar extends StatelessWidget {
     super.key,
     required this.label,
     required this.onTap,
-    this.tone = DazzleColors.accent,
+    this.tone,
     this.enabled = true,
   });
 
   final String label;
   final VoidCallback onTap;
 
-  /// Destructive confirms swap the fill for a state colour.
-  final Color tone;
+  /// Destructive confirms swap the fill for a state colour. Null falls back
+  /// to the house accent in [build].
+  final Color? tone;
 
   /// A form whose last requirement is a tap on a picker row
   /// cannot hide the bar until that requirement is met, because hiding the bar
@@ -30,6 +30,7 @@ class SolidActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = this.tone ?? context.tokens.accent;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: enabled ? onTap : null,
@@ -37,13 +38,13 @@ class SolidActionBar extends StatelessWidget {
         height: TapTargets.minHeight,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: enabled ? tone : DazzleColors.textDisabled,
+          color: enabled ? tone : context.tokens.textDisabled,
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
         child: Text(
           label.toUpperCase(),
-          style: DazzleText.valueStrong.copyWith(
-            color: DazzleColors.backgroundPrimary,
+          style: context.tokens.valueStrong.copyWith(
+            color: context.tokens.backgroundPrimary,
             letterSpacing: 1.4,
             fontSize: 13,
           ),

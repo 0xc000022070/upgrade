@@ -12,11 +12,15 @@ import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
 import 'support/shell_route.dart';
+import 'support/themed_app.dart';
 
 Widget _host(ShellSessions sessions) => ProviderScope(
   overrides: [shellSessionsProvider.overrideWithValue(sessions)],
-  child: const ShellWakeHost(
-    child: MaterialApp(home: Scaffold(body: SizedBox.shrink())),
+  child: ShellWakeHost(
+    child: MaterialApp(
+      theme: testTheme,
+      home: Scaffold(body: SizedBox.shrink()),
+    ),
   ),
 );
 

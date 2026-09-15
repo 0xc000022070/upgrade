@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/app/keyboard_release.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// The bug this is here for: the screen goes off with the keyboard up, and the
 /// window comes back with the keyboard's inset still standing and no keyboard
@@ -33,6 +34,7 @@ void main() {
     addTearDown(node.dispose);
     await tester.pumpWidget(
       MaterialApp(
+        theme: testTheme,
         home: KeyboardRelease(
           child: Scaffold(body: TextField(focusNode: node)),
         ),

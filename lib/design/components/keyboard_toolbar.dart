@@ -3,10 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../motion.dart';
 import '../spacing.dart';
-import '../typography.dart';
 import 'action_block.dart';
 import 'dazzle_field.dart';
 
@@ -57,15 +56,12 @@ class ToolbarAction {
 /// `[ host ] x` for a URL, a 28px thumbnail with the same `x` for an
 /// image. Either way these are the field's attachments and not the body's.
 class ToolbarChip {
-  const ToolbarChip({
-    required this.label,
-    this.onRemove,
-    this.tone = DazzleColors.textSecondary,
-  }) : imagePath = null;
+  const ToolbarChip({required this.label, this.onRemove, this.tone})
+    : imagePath = null;
 
   const ToolbarChip.image({required String this.imagePath, this.onRemove})
     : label = '',
-      tone = DazzleColors.textSecondary;
+      tone = null;
 
   final String label;
 
@@ -76,7 +72,9 @@ class ToolbarChip {
   /// Null for a chip that is a mode rather than an attachment — the capture
   /// target, which is always set and only ever changes.
   final VoidCallback? onRemove;
-  final Color tone;
+
+  /// Null falls back to the house secondary text tone where the chip renders.
+  final Color? tone;
 }
 
 /// One labelled line raised on the strip, above the chips and the glyphs, for
@@ -558,7 +556,7 @@ class KeyboardToolbar extends StatelessWidget {
         if (chips.isNotEmpty)
           Container(
             height: chipHeight + Spacing.md,
-            color: DazzleColors.surfacePrimary,
+            color: context.tokens.surfacePrimary,
             padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
             alignment: Alignment.centerLeft,
             child: ListView.separated(
@@ -570,11 +568,11 @@ class KeyboardToolbar extends StatelessWidget {
           ),
         Container(
           height: height,
-          decoration: const BoxDecoration(
-            color: DazzleColors.surfaceSecondary,
+          decoration: BoxDecoration(
+            color: context.tokens.surfaceSecondary,
             border: Border(
               top: BorderSide(
-                color: DazzleColors.borderNormal,
+                color: context.tokens.borderNormal,
                 width: Borders.hairline,
               ),
             ),
@@ -618,28 +616,28 @@ class _FieldLine extends StatelessWidget {
       child: Container(
         height: KeyboardToolbar.fieldHeight,
         padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-        decoration: const BoxDecoration(
-          color: DazzleColors.surfacePrimary,
+        decoration: BoxDecoration(
+          color: context.tokens.surfacePrimary,
           border: Border(
             top: BorderSide(
-              color: DazzleColors.borderNormal,
+              color: context.tokens.borderNormal,
               width: Borders.hairline,
             ),
           ),
         ),
         child: Row(
           children: [
-            Text(field.label, style: DazzleText.panelHeader),
+            Text(field.label, style: context.tokens.panelHeader),
             const SizedBox(width: Spacing.lg),
             Expanded(
               child: DazzleField(
                 controller: field.controller,
                 focusNode: focus,
-                style: DazzleText.capture.copyWith(
-                  color: DazzleColors.textPrimary,
+                style: context.tokens.capture.copyWith(
+                  color: context.tokens.textPrimary,
                 ),
                 hint: field.hint,
-                hintStyle: DazzleText.capture,
+                hintStyle: context.tokens.capture,
                 keyboardType: field.keyboardType,
                 onSubmitted: (value) {
                   if (_accepts(value)) field.onSubmit(value);
@@ -656,7 +654,9 @@ class _FieldLine extends StatelessWidget {
                 // answered where it was typed.
                 return ActionBlock(
                   label: field.action,
-                  tone: ready ? DazzleColors.accent : DazzleColors.textDisabled,
+                  tone: ready
+                      ? context.tokens.accent
+                      : context.tokens.textDisabled,
                   onTap: ready ? () => field.onSubmit(value.text) : null,
                 );
               },
@@ -665,13 +665,13 @@ class _FieldLine extends StatelessWidget {
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: field.onCancel,
-              child: const SizedBox(
+              child: SizedBox(
                 width: TapTargets.minHeight,
                 height: KeyboardToolbar.fieldHeight,
                 child: Icon(
                   Icons.close,
                   size: IconSizes.sm,
-                  color: DazzleColors.textMuted,
+                  color: context.tokens.textMuted,
                 ),
               ),
             ),
@@ -704,8 +704,10 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
       message: widget.action.glyph.word,
       triggerMode: TooltipTriggerMode.longPress,
       preferBelow: false,
-      textStyle: DazzleText.label.copyWith(color: DazzleColors.textPrimary),
-      decoration: const BoxDecoration(color: DazzleColors.surfacePrimary),
+      textStyle: context.tokens.label.copyWith(
+        color: context.tokens.textPrimary,
+      ),
+      decoration: BoxDecoration(color: context.tokens.surfacePrimary),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (_) => setState(() => _down = true),
@@ -719,7 +721,7 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
             child: Icon(
               widget.action.glyph.icon,
               size: IconSizes.toolbar,
-              color: lit ? DazzleColors.accent : DazzleColors.textMuted,
+              color: lit ? context.tokens.accent : context.tokens.textMuted,
             ),
           ),
         ),
@@ -736,6 +738,7 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final path = chip.imagePath;
+    final tone = chip.tone ?? context.tokens.textSecondary;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: chip.onRemove,
@@ -746,7 +749,7 @@ class _Chip extends StatelessWidget {
               alignment: Alignment.center,
               padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
               decoration: BoxDecoration(
-                border: Border.all(color: chip.tone, width: Borders.hairline),
+                border: Border.all(color: tone, width: Borders.hairline),
                 borderRadius: BorderRadius.circular(Radii.sharp),
               ),
               child: Row(
@@ -754,15 +757,11 @@ class _Chip extends StatelessWidget {
                 children: [
                   Text(
                     '[ ${chip.label} ]',
-                    style: DazzleText.value.copyWith(color: chip.tone),
+                    style: context.tokens.value.copyWith(color: tone),
                   ),
                   if (chip.onRemove != null) ...[
                     const SizedBox(width: Spacing.md),
-                    Icon(
-                      Icons.close,
-                      size: IconSizes.affordance,
-                      color: chip.tone,
-                    ),
+                    Icon(Icons.close, size: IconSizes.affordance, color: tone),
                   ],
                 ],
               ),
@@ -791,7 +790,7 @@ class _ImageChip extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               border: Border.all(
-                color: DazzleColors.borderNormal,
+                color: context.tokens.borderNormal,
                 width: Borders.hairline,
               ),
             ),
@@ -802,18 +801,18 @@ class _ImageChip extends StatelessWidget {
               // gallery item was deleted, the copy failed. The frame is still
               // an attachment the user can remove.
               errorBuilder: (_, _, _) =>
-                  const ColoredBox(color: DazzleColors.surfaceSecondary),
+                  ColoredBox(color: context.tokens.surfaceSecondary),
             ),
           ),
           if (removable)
-            const Align(
+            Align(
               alignment: Alignment.topRight,
               child: ColoredBox(
-                color: DazzleColors.backgroundPrimary,
+                color: context.tokens.backgroundPrimary,
                 child: Icon(
                   Icons.close,
                   size: IconSizes.affordance,
-                  color: DazzleColors.textSecondary,
+                  color: context.tokens.textSecondary,
                 ),
               ),
             ),

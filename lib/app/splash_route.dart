@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import '../design/colors.dart';
+import '../design/tokens.dart';
 import '../design/sprite.dart';
 import '../platform/alert_actions.dart';
 import 'alerts_boot.dart';
@@ -82,7 +82,7 @@ class _SplashRouteState extends State<SplashRoute> {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: DazzleColors.backgroundPrimary,
+      color: context.tokens.backgroundPrimary,
       child: Center(
         child: Sprite(state: 'splash', scale: 4, onDone: _played),
       ),

@@ -1,12 +1,11 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../icons/dazzle_icon.dart';
 import '../icons/dazzle_icons.dart';
 import '../motion.dart';
 import '../spacing.dart';
-import '../typography.dart';
 
 /// How far a vertical drag has to travel, once it has taken the pointer off
 /// the tap, before it counts as a flick in that direction.
@@ -88,10 +87,10 @@ class _KeyCellState extends State<KeyCell> {
     // mean "this key is what the next thing you do goes through". An inert key
     // has neither and is dimmer at rest than one that works.
     final tint = widget.inert
-        ? DazzleColors.textMuted
+        ? context.tokens.textMuted
         : _down || widget.armed
-        ? DazzleColors.accent
-        : DazzleColors.textSecondary;
+        ? context.tokens.accent
+        : context.tokens.textSecondary;
     final icon = widget.icon;
     final flick = widget.inert ? null : widget.onFlick;
     final hold = widget.inert ? null : widget.onLongPress;
@@ -163,7 +162,7 @@ class _KeyCellState extends State<KeyCell> {
             child: icon == null
                 ? _RollingLabel(
                     text: label,
-                    style: DazzleText.panelHeader.copyWith(color: tint),
+                    style: context.tokens.panelHeader.copyWith(color: tint),
                   )
                 : DazzleIcon(icon, size: IconSizes.toolbar, color: tint),
           ),

@@ -30,6 +30,7 @@ import 'package:dazzle/platform/host_keys.dart';
 import 'package:dazzle/platform/shell/remote_shell.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// Handing a drop to an agent: the remote transaction, its four failures, and
 /// the row that is written for exactly one successful send.
@@ -577,6 +578,7 @@ void main() {
         ),
       ],
       child: MaterialApp(
+        theme: testTheme,
         home: Scaffold(body: ItemSheet(taskId: taskId)),
       ),
     );
@@ -865,7 +867,10 @@ void main() {
 
     testWidgets('the tag is a word at the trailing edge', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: SentTag())),
+        MaterialApp(
+          theme: testTheme,
+          home: Scaffold(body: SentTag()),
+        ),
       );
       expect(find.text('SENT'), findsOneWidget);
     });

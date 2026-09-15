@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../motion.dart';
 import '../spacing.dart';
-import '../typography.dart';
 import 'solid_action_bar.dart';
 import 'dazzle_field.dart';
 
@@ -221,13 +220,13 @@ class _Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: DazzleColors.surfacePrimary,
+      color: context.tokens.surfacePrimary,
       child: Container(
         width: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(
             top: BorderSide(
-              color: DazzleColors.borderNormal,
+              color: context.tokens.borderNormal,
               width: Borders.hairline,
             ),
           ),
@@ -249,7 +248,7 @@ class _Panel extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: Spacing.md),
                   child: Text(
                     title.toUpperCase(),
-                    style: DazzleText.panelHeader,
+                    style: context.tokens.panelHeader,
                   ),
                 ),
                 child,
@@ -282,22 +281,22 @@ class _BlockRow extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
         padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
         decoration: BoxDecoration(
-          color: DazzleColors.accent,
+          color: context.tokens.accent,
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
         child: Row(
           children: [
             Text(
               '// ',
-              style: DazzleText.valueStrong.copyWith(
-                color: DazzleColors.backgroundPrimary,
+              style: context.tokens.valueStrong.copyWith(
+                color: context.tokens.backgroundPrimary,
               ),
             ),
             Expanded(
               child: Text(
                 action.label,
-                style: DazzleText.rowTitle.copyWith(
-                  color: DazzleColors.backgroundPrimary,
+                style: context.tokens.rowTitle.copyWith(
+                  color: context.tokens.backgroundPrimary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -335,7 +334,7 @@ class _PlainRow extends StatelessWidget {
           border: Border(
             bottom: BorderSide(
               color: divider
-                  ? DazzleColors.borderSubtle
+                  ? context.tokens.borderSubtle
                   : const Color(0x00000000),
               width: Borders.hairline,
             ),
@@ -343,10 +342,8 @@ class _PlainRow extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: DazzleText.rowTitle.copyWith(
-            color: danger
-                ? DazzleColors.danger
-                : DazzleColors.textPrimary,
+          style: context.tokens.rowTitle.copyWith(
+            color: danger ? context.tokens.danger : context.tokens.textPrimary,
           ),
         ),
       ),

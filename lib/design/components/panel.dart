@@ -3,12 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
-import '../colors.dart';
+import '../tokens.dart';
 import '../effects/glitch.dart';
 import '../icons/dazzle_icon.dart';
 import '../icons/dazzle_icons.dart';
 import '../spacing.dart';
-import '../typography.dart';
 import 'path_line.dart';
 import 'signal_text.dart';
 
@@ -31,7 +30,7 @@ class Panel extends StatelessWidget {
     this.onHeaderLongPress,
     this.bodyPadding = const EdgeInsets.all(Spacing.panelPadding),
     this.bodyFlexible = false,
-    this.border = DazzleColors.borderNormal,
+    this.border,
     this.headerGlitch,
   });
 
@@ -75,7 +74,8 @@ class Panel extends StatelessWidget {
   /// sheet needs this — every panel on a screen is as tall as its rows.
   final bool bodyFlexible;
 
-  final Color border;
+  /// Null falls back to the house border in [build].
+  final Color? border;
 
   /// A capture filed from a pushed route has no nav icon to
   /// land on, so the panel it lands in says so itself. A header strip carries
@@ -86,9 +86,10 @@ class Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final glitch = headerGlitch;
+    final border = this.border ?? context.tokens.borderNormal;
     return Container(
       decoration: BoxDecoration(
-        color: DazzleColors.surfacePrimary,
+        color: context.tokens.surfacePrimary,
         border: Border.all(color: border, width: Borders.hairline),
         borderRadius: BorderRadius.circular(Radii.sharp),
       ),
@@ -178,12 +179,12 @@ class _HeaderStrip extends StatelessWidget {
               child: literalTitle
                   ? PathLine(
                       title,
-                      style: DazzleText.panelHeader,
+                      style: context.tokens.panelHeader,
                       decode: true,
                     )
                   : SignalText(
                       title.toUpperCase(),
-                      style: DazzleText.panelHeader,
+                      style: context.tokens.panelHeader,
                       decodeOnEntry: true,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -203,7 +204,7 @@ class _HeaderStrip extends StatelessWidget {
     );
 
     return Container(
-      color: DazzleColors.surfaceSecondary,
+      color: context.tokens.surfaceSecondary,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -222,7 +223,7 @@ class _HeaderStrip extends StatelessWidget {
           if (ruled)
             Container(
               height: Borders.hairline,
-              color: DazzleColors.borderNormal,
+              color: context.tokens.borderNormal,
             ),
         ],
       ),
@@ -266,14 +267,14 @@ class _PanelAffordanceState extends State<PanelAffordance> {
     // The press is the one the verbs paint: accent for as long as the
     // finger is down, and the resting ink back the moment it lifts.
     final tint = _down
-        ? DazzleColors.accent
-        : widget.color ?? DazzleColors.textMuted;
+        ? context.tokens.accent
+        : widget.color ?? context.tokens.textMuted;
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           widget.label,
-          style: DazzleText.panelHeader.copyWith(color: tint),
+          style: context.tokens.panelHeader.copyWith(color: tint),
         ),
         if (widget.showIcon) ...[
           const SizedBox(width: Spacing.sm),

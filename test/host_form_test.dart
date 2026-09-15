@@ -22,6 +22,7 @@ import 'package:dazzle/platform/keys.dart';
 import 'package:dazzle/platform/vnc/framebuffer.dart';
 
 import 'support/platform_channels.dart';
+import 'support/themed_app.dart';
 
 /// The host form never hides its way out: a bar that is always drawn and says
 /// what it is waiting for, a single key that is preselected, and a back that
@@ -83,7 +84,7 @@ void main() {
       screenPreviewsProvider.overrideWith((ref) async => previews),
       hostKeyDialProvider.overrideWith((ref) => dial),
     ],
-    child: MaterialApp(home: home),
+    child: MaterialApp(theme: testTheme, home: home),
   );
 
   /// The default 800x600 test surface puts the action bar under the fold, and

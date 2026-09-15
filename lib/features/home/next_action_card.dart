@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/providers.dart';
 import '../../data/views.dart';
-import '../../design/colors.dart';
+import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/icons/dazzle_icon.dart';
@@ -47,11 +47,11 @@ class _NextActionRow extends StatelessWidget {
       leading: DazzleIcon(
         DazzleIcons.forward,
         size: IconSizes.glyph,
-        color: DazzleColors.accent,
+        color: context.tokens.accent,
       ),
       title: task.title,
       subtitle: contextLine.isEmpty ? null : contextLine,
-      subtitleColor: blocked ? DazzleColors.warning : null,
+      subtitleColor: blocked ? context.tokens.warning : null,
       lead: true,
       decode: true,
       onTap: onOpen,
