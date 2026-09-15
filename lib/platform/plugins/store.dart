@@ -455,7 +455,7 @@ class PluginFetcher {
     : _httpClientFactory = httpClientFactory ?? HttpClient.new;
   final HttpClient Function() _httpClientFactory;
 
-  Future<PluginPackage> fetch(String repository, String revision) async {
+  ({String owner, String repo, String origin}) _repository(String repository) {
     final uri = Uri.tryParse(repository.trim());
     final parts = uri?.pathSegments.where((s) => s.isNotEmpty).toList();
     if (uri == null ||
@@ -469,16 +469,141 @@ class PluginFetcher {
         parts.length != 2 ||
         !parts.every(
           (p) => RegExp(r'^[A-Za-z0-9_-][A-Za-z0-9_.-]*$').hasMatch(p),
-        ) ||
-        !RegExp(r'^[0-9a-f]{40}$').hasMatch(revision)) {
-      throw const PluginException(
-        'Use a public GitHub HTTPS URL and a full lowercase commit SHA',
-      );
+        )) {
+      throw const PluginException('Use a public GitHub HTTPS URL');
     }
     final repo = parts[1].replaceFirst(RegExp(r'\.git$'), '');
-    final origin = 'https://github.com/${parts[0]}/$repo'.toLowerCase();
+    return (
+      owner: parts[0],
+      repo: repo,
+      origin: 'https://github.com/${parts[0]}/$repo'.toLowerCase(),
+    );
+  }
+
+  Future<Map<String, Object?>?> _api(
+    HttpClient client,
+    String path, {
+    int limit = 64 * 1024,
+  }) async {
+    final request = await client.getUrl(Uri.https('api.github.com', path));
+    request.followRedirects = false;
+    request.headers.set(
+      HttpHeaders.acceptHeader,
+      'application/vnd.github+json',
+    );
+    request.headers.set(HttpHeaders.userAgentHeader, 'dazzle-plugin-fetcher');
+    final response = await request.close();
+    if (response.statusCode == 404) {
+      await response.drain<void>();
+      return null;
+    }
+    if (response.statusCode != 200) {
+      throw PluginException(
+        'GitHub API error for $path: HTTP ${response.statusCode}',
+      );
+    }
+    if (response.contentLength > limit) {
+      throw PluginException('GitHub API response for $path is too large');
+    }
+    final bytes = <int>[];
+    await for (final chunk in response) {
+      if (bytes.length + chunk.length > limit) {
+        throw PluginException('GitHub API response for $path is too large');
+      }
+      bytes.addAll(chunk);
+    }
+    final decoded = jsonDecode(utf8.decode(bytes));
+    if (decoded is! Map<String, Object?>) {
+      throw PluginException('Unexpected GitHub API response for $path');
+    }
+    return decoded;
+  }
+
+  void _validateRef(String ref) {
+    if (ref.isEmpty ||
+        ref.length > 200 ||
+        ref.startsWith('-') ||
+        ref.startsWith('/') ||
+        ref.endsWith('/') ||
+        ref.endsWith('.lock') ||
+        ref.contains('..') ||
+        ref.contains('//') ||
+        ref.contains('@{') ||
+        !RegExp(r'^[A-Za-z0-9._/-]+$').hasMatch(ref)) {
+      throw const PluginException(
+        'Use a full commit SHA, a tag or a branch name',
+      );
+    }
+  }
+
+  /// Resolves [ref] (a full commit SHA, a tag or a branch name) to the
+  /// commit SHA it names. A full SHA is returned as-is without a network
+  /// call; anything else is resolved through the GitHub REST API.
+  Future<String> _resolveRef(
+    ({String owner, String repo, String origin}) target,
+    String ref,
+  ) async {
+    if (RegExp(r'^[0-9a-f]{40}$').hasMatch(ref)) return ref;
+    _validateRef(ref);
+    final client = _httpClientFactory()
+      ..connectionTimeout = const Duration(seconds: 15);
+    try {
+      final commit = await _api(
+        client,
+        '/repos/${target.owner}/${target.repo}/commits/$ref',
+      ).timeout(const Duration(seconds: 20));
+      final sha = commit?['sha'];
+      if (sha is! String || !RegExp(r'^[0-9a-f]{40}$').hasMatch(sha)) {
+        throw const PluginException('Cannot resolve that ref on GitHub');
+      }
+      return sha;
+    } on PluginException {
+      rethrow;
+    } catch (_) {
+      throw const PluginException('Cannot resolve that ref on GitHub');
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  /// The tag of the repository's latest published release, or its default
+  /// branch when it has no releases.
+  Future<String> latestRef(String repository) async {
+    final target = _repository(repository);
+    final client = _httpClientFactory()
+      ..connectionTimeout = const Duration(seconds: 15);
+    try {
+      final release = await _api(
+        client,
+        '/repos/${target.owner}/${target.repo}/releases/latest',
+      ).timeout(const Duration(seconds: 20));
+      final tag = release?['tag_name'];
+      if (tag is String && tag.isNotEmpty) return tag;
+      final info = await _api(
+        client,
+        '/repos/${target.owner}/${target.repo}',
+      ).timeout(const Duration(seconds: 20));
+      final branch = info?['default_branch'];
+      if (branch is! String || branch.isEmpty) {
+        throw const PluginException(
+          'Cannot determine the repository default branch',
+        );
+      }
+      return branch;
+    } on PluginException {
+      rethrow;
+    } catch (_) {
+      throw const PluginException('Cannot determine the latest revision');
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  Future<PluginPackage> fetch(String repository, String ref) async {
+    final target = _repository(repository);
+    final revision = await _resolveRef(target, ref);
     final base = Uri.parse(
-      'https://raw.githubusercontent.com/${parts[0]}/$repo/$revision/',
+      'https://raw.githubusercontent.com/${target.owner}/${target.repo}/$revision/',
     );
     final client = _httpClientFactory()
       ..connectionTimeout = const Duration(seconds: 15);
@@ -530,7 +655,7 @@ class PluginFetcher {
       return PluginPackage(
         manifest: manifest,
         source: source,
-        origin: origin,
+        origin: target.origin,
         revision: revision,
         files: files,
       );

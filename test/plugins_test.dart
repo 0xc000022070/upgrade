@@ -119,8 +119,18 @@ class _FakeHttpClientRequest implements HttpClientRequest {
   @override
   bool followRedirects = true;
   @override
+  final HttpHeaders headers = _FakeHttpHeaders();
+  @override
   Future<HttpClientResponse> close() async =>
       _FakeHttpClientResponse(_response);
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} is not faked');
+}
+
+class _FakeHttpHeaders implements HttpHeaders {
+  @override
+  void set(String name, Object value, {bool preserveHeaderCase = false}) {}
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName} is not faked');
@@ -443,26 +453,35 @@ void main() {
     });
   });
 
-  test(
-    'fetch rejects unpinned and non-GitHub sources before networking',
-    () async {
-      for (final url in [
-        'file:///tmp/plugin',
-        'https://example.com/x/y',
-        'https://github.com/x/..',
-        'https://github.com/x/.git',
-      ]) {
-        await expectLater(
-          PluginFetcher().fetch(url, 'a' * 40),
-          throwsA(isA<PluginException>()),
-        );
-      }
+  test('fetch rejects non-GitHub sources before networking', () async {
+    for (final url in [
+      'file:///tmp/plugin',
+      'https://example.com/x/y',
+      'https://github.com/x/..',
+      'https://github.com/x/.git',
+    ]) {
       await expectLater(
-        PluginFetcher().fetch('https://github.com/x/y', 'main'),
+        PluginFetcher().fetch(url, 'a' * 40),
         throwsA(isA<PluginException>()),
       );
-    },
-  );
+    }
+  });
+
+  test('fetch rejects a malformed ref before networking', () async {
+    for (final ref in [
+      '',
+      '-oops',
+      'a/../b',
+      'has space',
+      'a@{up}',
+      'trailing/',
+    ]) {
+      await expectLater(
+        PluginFetcher().fetch('https://github.com/x/y', ref),
+        throwsA(isA<PluginException>()),
+      );
+    }
+  });
 
   group('digest', () {
     test('covers every declared file, not only the entry', () {
@@ -548,6 +567,61 @@ void main() {
         fetcher.fetch('https://github.com/x/y', revision),
         throwsA(isA<PluginException>()),
       );
+    });
+  });
+
+  group('ref resolution with a fake HttpClient', () {
+    final revision = 'a' * 40;
+    String path(String suffix) => '/x/y/$revision/$suffix';
+
+    test('resolves a branch name to its commit SHA before fetching', () async {
+      final fetcher = PluginFetcher(
+        httpClientFactory: () => _FakeHttpClient({
+          '/repos/x/y/commits/main': _FakeResponse(
+            200,
+            jsonEncode({'sha': revision}),
+          ),
+          path('dazzle.plugin.toml'): _FakeResponse(200, manifest()),
+          path('main.luau'): const _FakeResponse(
+            200,
+            'return {run = function() end}',
+          ),
+        }),
+      );
+      final result = await fetcher.fetch('https://github.com/x/y', 'main');
+      expect(result.revision, revision);
+    });
+
+    test('rejects a ref GitHub does not recognize', () async {
+      final fetcher = PluginFetcher(
+        httpClientFactory: () => _FakeHttpClient({}),
+      );
+      await expectLater(
+        fetcher.fetch('https://github.com/x/y', 'missing-branch'),
+        throwsA(isA<PluginException>()),
+      );
+    });
+
+    test('latestRef offers the latest release tag, falling back to the default branch', () async {
+      final withRelease = PluginFetcher(
+        httpClientFactory: () => _FakeHttpClient({
+          '/repos/x/y/releases/latest': _FakeResponse(
+            200,
+            jsonEncode({'tag_name': 'v2.0.0'}),
+          ),
+        }),
+      );
+      expect(await withRelease.latestRef('https://github.com/x/y'), 'v2.0.0');
+
+      final withoutRelease = PluginFetcher(
+        httpClientFactory: () => _FakeHttpClient({
+          '/repos/x/y': _FakeResponse(
+            200,
+            jsonEncode({'default_branch': 'trunk'}),
+          ),
+        }),
+      );
+      expect(await withoutRelease.latestRef('https://github.com/x/y'), 'trunk');
     });
   });
 }
