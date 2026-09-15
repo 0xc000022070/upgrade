@@ -38,9 +38,11 @@ class TerminalScrollGestureHandler extends StatefulWidget {
 
 class _TerminalScrollGestureHandlerState
     extends State<TerminalScrollGestureHandler> {
-  /// Whether the application is in alternate screen buffer. If false, then this
-  /// widget does nothing.
-  var isAltBuffer = false;
+  bool _forwardScroll = false;
+
+  bool get _shouldForwardScroll =>
+      widget.terminal.isUsingAltBuffer ||
+      widget.terminal.mouseMode.reportScroll;
 
   /// The variable that tracks the line offset in last scroll event. Used to
   /// determine how many the scroll events should be sent to the terminal.
@@ -56,7 +58,7 @@ class _TerminalScrollGestureHandlerState
   @override
   void initState() {
     widget.terminal.addListener(_onTerminalUpdated);
-    isAltBuffer = widget.terminal.isUsingAltBuffer;
+    _forwardScroll = _shouldForwardScroll;
     super.initState();
   }
 
@@ -71,14 +73,16 @@ class _TerminalScrollGestureHandlerState
     if (oldWidget.terminal != widget.terminal) {
       oldWidget.terminal.removeListener(_onTerminalUpdated);
       widget.terminal.addListener(_onTerminalUpdated);
-      isAltBuffer = widget.terminal.isUsingAltBuffer;
+      _forwardScroll = _shouldForwardScroll;
+      lastLineOffset = 0;
     }
     super.didUpdateWidget(oldWidget);
   }
 
   void _onTerminalUpdated() {
-    if (isAltBuffer != widget.terminal.isUsingAltBuffer) {
-      isAltBuffer = widget.terminal.isUsingAltBuffer;
+    if (_forwardScroll != _shouldForwardScroll) {
+      _forwardScroll = _shouldForwardScroll;
+      lastLineOffset = 0;
       setState(() {});
     }
   }
@@ -116,7 +120,7 @@ class _TerminalScrollGestureHandlerState
 
   @override
   Widget build(BuildContext context) {
-    if (!isAltBuffer) {
+    if (!_forwardScroll) {
       return widget.child;
     }
 
@@ -129,8 +133,19 @@ class _TerminalScrollGestureHandlerState
       },
       child: InfiniteScrollView(
         onScroll: _onScroll,
-        child: widget.child,
+        child: ScrollConfiguration(
+          behavior: const _RemoteScrollBehavior(),
+          child: widget.child,
+        ),
       ),
     );
   }
+}
+
+class _RemoteScrollBehavior extends ScrollBehavior {
+  const _RemoteScrollBehavior();
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) =>
+      const NeverScrollableScrollPhysics();
 }
