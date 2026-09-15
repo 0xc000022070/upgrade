@@ -6,6 +6,7 @@ import '../colors.dart';
 import '../layout.dart';
 import '../motion.dart';
 import '../spacing.dart';
+import '../typography.dart';
 import 'action_block.dart';
 import 'keyboard_toolbar.dart';
 import 'meta.dart';
@@ -57,10 +58,15 @@ Future<T?> showPanelSheet<T>(
 /// The app's confirmation modal — a [Panel] with the
 /// question as its header and two blocks, the affirmative one filled accent.
 /// Everything that asks before acting asks in this shape.
+///
+/// [message] is what the question cannot say in a header: what the commit
+/// costs, or what it leaves alone. It sits over the blocks, the way every
+/// other sheet lays its body under the header.
 Future<bool> confirmSheet(
   BuildContext context, {
   required String title,
   required String confirmLabel,
+  String? message,
 }) async {
   final answer = await showPanelSheet<bool>(
     context,
@@ -68,6 +74,10 @@ Future<bool> confirmSheet(
     builder: (context) => PanelSheetBody(
       title: title,
       children: [
+        if (message != null) ...[
+          Text(message, style: DazzleText.prose),
+          const SizedBox(height: Spacing.md),
+        ],
         Row(
           children: [
             Expanded(

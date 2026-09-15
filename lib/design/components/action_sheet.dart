@@ -65,55 +65,6 @@ Future<void> showActionSheet(
   );
 }
 
-/// A destructive action is confirmed on its own surface with a
-/// solid state-coloured bar, so the commit is a deliberate second tap and never
-/// the same gesture that opened the list.
-Future<bool> confirmAction(
-  BuildContext context, {
-  required String title,
-  required String message,
-  required String confirmLabel,
-}) async {
-  final confirmed = await showGeneralDialog<bool>(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: title,
-    barrierColor: const Color(0xCC000000),
-    transitionDuration: Motion.fast,
-    pageBuilder: (context, animation, secondary) {
-      return Align(
-        alignment: Alignment.bottomCenter,
-        child: _Panel(
-          title: title,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-                child: Text(message, style: DazzleText.prose),
-              ),
-              SolidActionBar(
-                label: confirmLabel,
-                tone: DazzleColors.danger,
-                onTap: () => Navigator.of(context).pop(true),
-              ),
-              _PlainRow(
-                label: 'Cancel',
-                onTap: () => Navigator.of(context).pop(false),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-    transitionBuilder: (context, animation, secondary, child) {
-      return FadeTransition(opacity: animation, child: child);
-    },
-  );
-  return confirmed ?? false;
-}
-
 /// A blocked task always carries a reason, so the reason is
 /// collected on the same surface as the action rather than left to a later edit.
 /// Whitespace is refused here, which is why the caller never has to check.
