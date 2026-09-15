@@ -45,14 +45,22 @@ Finder _inStatic(String label) => find.descendant(
   matching: find.text(label),
 );
 
-bool _isBlock(WidgetTester tester, String label) {
+Finder _inTheme(String label) => find.descendant(
+  of: find.ancestor(of: find.text('[ THEME ]'), matching: find.byType(Panel)),
+  matching: find.text(label),
+);
+
+bool _isBlockIn(WidgetTester tester, Finder target) {
   final container = tester.widgetList<Container>(
-    find.ancestor(of: _inStatic(label), matching: find.byType(Container)),
+    find.ancestor(of: target, matching: find.byType(Container)),
   );
   return container.any(
     (box) => (box.decoration as BoxDecoration?)?.color == DazzleColors.accent,
   );
 }
+
+bool _isBlock(WidgetTester tester, String label) =>
+    _isBlockIn(tester, _inStatic(label));
 
 void main() {
   late AppDatabase db;
@@ -95,6 +103,7 @@ void main() {
     expect(find.text('SETTINGS'), findsOneWidget);
     expect(find.text('/ DAZZLE / SYS'), findsOneWidget);
     expect(find.text('[ STATIC ]'), findsOneWidget);
+    expect(find.text('[ THEME ]'), findsOneWidget);
     expect(find.text('[ BUILD ]'), findsOneWidget);
     // The route has no nav bar of its own; the two tabs stay where they are.
     expect(find.text('PROJECTS'), findsNothing);
@@ -138,6 +147,43 @@ void main() {
       )..where((s) => s.key.equals(SettingsRepository.staticEnabled))).get(),
       hasLength(1),
       reason: 'the preference is one upserted row, not one row per tap',
+    );
+    await unmount(tester);
+  });
+
+  testWidgets('theme defaults to HOUSE and the picker writes the row', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(const SettingsScreen()));
+    await _ready(tester);
+
+    expect(_isBlockIn(tester, _inTheme('HOUSE')), isTrue);
+    expect(_isBlockIn(tester, _inTheme('SYSTEM')), isFalse);
+    // Nothing is written until the user says so, the same as [ STATIC ].
+    expect(
+      await (db.select(
+        db.settings,
+      )..where((s) => s.key.equals(SettingsRepository.themeSystem))).get(),
+      isEmpty,
+    );
+
+    await tester.tap(_inTheme('SYSTEM'));
+    await _ready(tester);
+
+    expect(_isBlockIn(tester, _inTheme('SYSTEM')), isTrue);
+    expect(_isBlockIn(tester, _inTheme('HOUSE')), isFalse);
+    expect(
+      await settings.flag(SettingsRepository.themeSystem, orElse: false),
+      isTrue,
+    );
+
+    await tester.tap(_inTheme('HOUSE'));
+    await _ready(tester);
+
+    expect(_isBlockIn(tester, _inTheme('HOUSE')), isTrue);
+    expect(
+      await settings.flag(SettingsRepository.themeSystem, orElse: false),
+      isFalse,
     );
     await unmount(tester);
   });

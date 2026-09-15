@@ -1,3 +1,4 @@
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +8,9 @@ import '../application/fresh_drops.dart';
 import '../application/navigation.dart';
 import '../application/native_plugins.dart';
 import '../application/plugin_placements.dart';
+import '../application/providers.dart';
 import '../design/tokens.dart';
+import '../design/dynamic_tokens.dart';
 import '../design/effects/screen_entry.dart';
 import '../design/theme.dart';
 import '../features/agents/agent_status_bar.dart';
@@ -32,15 +35,22 @@ Widget _pluginPage(PluginPageRegistration page) => page.native
 
 /// The system bars carry the app background rather than a scrim: on Android 15+
 /// the window is edge-to-edge, so the scaffold behind them is what the user
-/// sees and only the icon brightness has to be declared.
-const _systemBars = SystemUiOverlayStyle(
-  statusBarColor: Colors.transparent,
-  statusBarIconBrightness: Brightness.light,
-  statusBarBrightness: Brightness.dark,
-  systemNavigationBarColor: Colors.transparent,
-  systemNavigationBarIconBrightness: Brightness.light,
-  systemNavigationBarDividerColor: Colors.transparent,
-);
+/// sees and only the icon brightness has to be declared. [background] is the
+/// active tokens' own brightness; the icons take the opposite of it so they
+/// stay legible whichever theme is running.
+SystemUiOverlayStyle _systemBars(Brightness background) {
+  final icons = background == Brightness.dark
+      ? Brightness.light
+      : Brightness.dark;
+  return SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: icons,
+    statusBarBrightness: background,
+    systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarIconBrightness: icons,
+    systemNavigationBarDividerColor: Colors.transparent,
+  );
+}
 
 /// What text is drawn with where nothing above it has said.
 ///
@@ -53,35 +63,50 @@ const _systemBars = SystemUiOverlayStyle(
 Widget houseText(BuildContext context, Widget? child) =>
     DefaultTextStyle(style: context.tokens.prose, child: child!);
 
-class DazzleApp extends StatelessWidget {
+class DazzleApp extends ConsumerWidget {
   const DazzleApp({super.key, this.boot = const []});
 
   /// Steps recorded by `main()`, replayed by the boot log.
   final List<BootStep> boot;
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Dazzle',
-      debugShowCheckedModeBanner: false,
-      theme: DazzleTheme.build(),
-      scrollBehavior: const DazzleScrollBehavior(),
-      // The window the system parks in a corner is over every route rather
-      // than inside one: the app goes there from wherever the user was.
-      builder: (context, child) => houseText(context, PipHost(child: child!)),
-      // The splash is the navigator's first route and hands the screen
-      // to Home by replacing itself, so it is unreachable afterwards and a
-      // resume never plays it. `AlertsHost` is inside the route it pushes
-      // rather than around this one — a wrapper here would be part of the route
-      // being replaced, and the watcher reconciliation and the alert `OPEN`
-      // handler would be disposed at the moment Home appears.
-      home: SplashRoute(
-        next: (context) => AlertsHost(
-          child: ShellWakeHost(
-            child: BootGate(steps: boot, child: const DazzleShell()),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final useSystem = ref.watch(themeSystemProvider).value ?? false;
+    return DynamicColorBuilder(
+      builder: (lightDynamic, darkDynamic) {
+        final tokens = useSystem
+            ? dazzleTokensForSystem(
+                platformBrightness: MediaQuery.platformBrightnessOf(context),
+                lightDynamic: lightDynamic,
+                darkDynamic: darkDynamic,
+              )
+            : DazzleTokens.house;
+        return MaterialApp(
+          title: 'Dazzle',
+          debugShowCheckedModeBanner: false,
+          theme: DazzleTheme.build(tokens),
+          scrollBehavior: const DazzleScrollBehavior(),
+          // The window the system parks in a corner is over every route
+          // rather than inside one: the app goes there from wherever the
+          // user was.
+          builder: (context, child) =>
+              houseText(context, PipHost(child: child!)),
+          // The splash is the navigator's first route and hands the screen
+          // to Home by replacing itself, so it is unreachable afterwards and
+          // a resume never plays it. `AlertsHost` is inside the route it
+          // pushes rather than around this one — a wrapper here would be
+          // part of the route being replaced, and the watcher reconciliation
+          // and the alert `OPEN` handler would be disposed at the moment
+          // Home appears.
+          home: SplashRoute(
+            next: (context) => AlertsHost(
+              child: ShellWakeHost(
+                child: BootGate(steps: boot, child: const DazzleShell()),
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -143,7 +168,7 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
     ];
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: _systemBars,
+      value: _systemBars(context.tokens.brightness),
       // Outside the tabs and every route pushed over them: the keyboard is the
       // window's, not a screen's, and the screen that had it up when the window
       // stopped is not always the one that comes back.

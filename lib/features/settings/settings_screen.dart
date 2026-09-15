@@ -39,9 +39,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         .setFlag(SettingsRepository.staticEnabled, value);
   }
 
+  Future<void> _setThemeSystem(bool value) async {
+    await ref
+        .read(settingsRepositoryProvider)
+        .setFlag(SettingsRepository.themeSystem, value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final enabled = ref.watch(staticEnabledProvider).value ?? true;
+    final themeSystem = ref.watch(themeSystemProvider).value ?? false;
 
     return Scaffold(
       body: StaticSurface(
@@ -67,6 +74,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         label: 'OFF',
                         selected: !enabled,
                         onTap: () => _setStatic(false),
+                      ),
+                    ],
+                  ),
+                ),
+                Panel(
+                  title: '[ THEME ]',
+                  bodyPadding: panelRowsPadding,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      PickerRow(
+                        label: 'HOUSE',
+                        selected: !themeSystem,
+                        onTap: () => _setThemeSystem(false),
+                      ),
+                      PickerRow(
+                        label: 'SYSTEM',
+                        selected: themeSystem,
+                        onTap: () => _setThemeSystem(true),
                       ),
                     ],
                   ),
