@@ -34,7 +34,9 @@ void main() {
     await ready(tester);
 
     expect(find.text('ROSE'), findsOneWidget);
-    expect(find.text('CONNECTED · SSH'), findsOneWidget);
+    // SSH is the host's baseline and goes unsaid, so the middle of the row is
+    // empty while the shell is up.
+    expect(find.textContaining('SSH'), findsNothing);
     expect(find.textContaining('/'), findsNothing);
     expect(find.text('CONNECTING'), findsNothing);
     expect(find.text('RETRY'), findsNothing);

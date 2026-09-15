@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_header.dart';
 import 'package:dazzle/features/shell/shell_status.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
@@ -37,6 +39,17 @@ Color? dotOfTab(WidgetTester tester, int number) =>
             as BoxDecoration)
         .color;
 
+/// Every word the header is drawn with, left to right.
+List<String?> headerWords(WidgetTester tester) => tester
+    .widgetList<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey('shell-header')),
+        matching: find.byType(Text),
+      ),
+    )
+    .map((text) => text.data)
+    .toList();
+
 void main() {
   setUp(stubDeviceChannels);
 
@@ -48,7 +61,22 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    expect(find.text('CONNECTED · MOSH'), findsOneWidget);
+    expect(find.text('MOSH'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a live SSH tab puts no word in the middle of the header', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+
+    // The host, the one tab, the plus and the close, and nothing between them:
+    // ssh is what a host answers on, so there is nothing to say about it.
+    expect(headerWords(tester), ['ROSE', '1', '+', '×']);
 
     await unmount(tester);
   });
@@ -172,6 +200,51 @@ void main() {
         tester.getSize(find.byKey(const ValueKey('shell-tab-1'))).width,
         lessThan(60),
       );
+
+      await unmount(tester);
+    });
+
+    testWidgets('a long host name leaves the strip its cells', (tester) async {
+      tester.view.physicalSize = const Size(411, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const named = Host(
+        id: 'h1',
+        name: 'DAZZLE HOST VM',
+        address: '100.64.0.1',
+        port: 22,
+        user: 'luis',
+        keyId: 'key-1',
+      );
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      sessions.open(named);
+      sessions.open(named);
+      await tester.pumpWidget(
+        app(sessions, home: const HostShellRoute(host: named)),
+      );
+      await ready(tester);
+
+      // Both tabs and the plus stand on the row at once: the name gives way
+      // before the strip does, and nothing is behind a scroll nobody is told
+      // about. Against the strip's own viewport and not the screen — a cell
+      // the strip has clipped is still inside the phone.
+      final strip = tester.getRect(
+        find.descendant(
+          of: find.byKey(const ValueKey('shell-header')),
+          matching: find.byType(SingleChildScrollView),
+        ),
+      );
+      expect(strip.right, lessThanOrEqualTo(411.0));
+      for (final cell in const [
+        'shell-tab-1',
+        'shell-tab-2',
+        'shell-tab-new',
+      ]) {
+        final rect = tester.getRect(find.byKey(ValueKey(cell)));
+        expect(rect.left, greaterThanOrEqualTo(strip.left), reason: cell);
+        expect(rect.right, lessThanOrEqualTo(strip.right), reason: cell);
+      }
 
       await unmount(tester);
     });
