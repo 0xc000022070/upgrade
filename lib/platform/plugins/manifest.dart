@@ -116,10 +116,13 @@ class PluginManifest {
     this.widgets = const [],
     this.hostCapabilities = const {},
     this.uiVersion,
+    this.files = const [],
   });
   static const manifestVersion = 2;
   static const nativeManifestVersion = 3;
   static const uiManifestVersion = 4;
+  static const filesManifestVersion = 5;
+  static const maxDeclaredFiles = 31;
   static const maxBytes = 16 * 1024;
   static final apiVersion = Version(2, 1, 0);
   final String source;
@@ -146,6 +149,7 @@ class PluginManifest {
   final List<PluginWidgetContribution> widgets;
   final Map<String, PluginHostCapability> hostCapabilities;
   final int? uiVersion;
+  final List<String> files;
   bool get supported => incompatibility == null;
 
   factory PluginManifest.parse(
@@ -175,7 +179,15 @@ class PluginManifest {
           runtime['kind'] == 'native' && format == nativeManifestVersion;
       final uiRuntime =
           format == uiManifestVersion && runtime['kind'] == 'luau';
-      final incompatible = format != manifestVersion && !native && !uiRuntime
+      final filesRuntime =
+          format == filesManifestVersion && runtime['kind'] == 'luau';
+      final uiApiDeclared = root.containsKey('ui_api');
+      final invalidUiApi =
+          (uiRuntime || filesRuntime) &&
+          (uiRuntime && !uiApiDeclared ||
+              uiApiDeclared && (root['ui_api'] is! int || root['ui_api'] != 1));
+      final incompatible =
+          format != manifestVersion && !native && !uiRuntime && !filesRuntime
           ? 'Unsupported manifest version $format'
           : !api.allows(apiVersion)
           ? 'Plugin requires Dazzle API $api'
@@ -183,6 +195,8 @@ class PluginManifest {
           ? 'Native plugins must be bundled with Dazzle'
           : runtime['kind'] != 'luau' && !native
           ? 'Unsupported plugin runtime'
+          : invalidUiApi
+          ? 'Unsupported UI API version'
           : null;
       if (incompatible != null) {
         if (!retainUnsupported) throw PluginException(incompatible);
@@ -341,17 +355,28 @@ class PluginManifest {
         'contributes',
         'datasets',
         'capabilities',
-        if (uiRuntime) 'ui_api',
-        if (uiRuntime) 'host_capabilities',
+        if (uiRuntime || filesRuntime) 'ui_api',
+        if (uiRuntime || filesRuntime) 'host_capabilities',
+        if (filesRuntime) 'files',
       });
-      if (uiRuntime && (root['ui_api'] is! int || root['ui_api'] != 1)) {
-        throw const PluginException('Unsupported UI API version');
-      }
+      final hasUi = uiRuntime || (filesRuntime && uiApiDeclared);
       _keys(runtime, {'kind', 'entry'});
-      if (!RegExp(r'^[A-Za-z0-9_/-]+\.luau$').hasMatch(entry) ||
-          entry.startsWith('/') ||
-          entry.split('/').contains('')) {
-        throw const PluginException('Entry must be a relative .luau path');
+      _luauPath(entry, 'entry');
+      final declaredFiles = <String>[];
+      if (filesRuntime) {
+        final rawFiles = root['files'] ?? const <Object?>[];
+        if (rawFiles is! List<Object?> || rawFiles.length > maxDeclaredFiles) {
+          throw const PluginException('Declare at most 31 additional files');
+        }
+        final seen = <String>{};
+        for (final raw in rawFiles) {
+          final path = _text(raw, 'file path', 200);
+          _luauPath(path, 'file path');
+          if (path == entry || !seen.add(path)) {
+            throw const PluginException('Duplicate or entry-shadowing file');
+          }
+          declaredFiles.add(path);
+        }
       }
       final dependencies = <String, VersionConstraint>{};
       final declared = _map(
@@ -481,7 +506,7 @@ class PluginManifest {
           ui.any(
             (entry) =>
                 entry != 'record_action' &&
-                (!uiRuntime || !{'page', 'canvas'}.contains(entry)),
+                (!hasUi || !{'page', 'canvas'}.contains(entry)),
           )) {
         throw const PluginException('Unsupported UI permission');
       }
@@ -505,10 +530,10 @@ class PluginManifest {
         );
       }
       final contributions = _map(root['contributes'], 'contributes');
-      _keys(contributions, {'record_actions', if (uiRuntime) 'pages'});
+      _keys(contributions, {'record_actions', if (hasUi) 'pages'});
       final declaredActions = contributions['record_actions'] ?? <Object?>[];
       if (declaredActions is! List<Object?> ||
-          !uiRuntime && declaredActions.isEmpty ||
+          !hasUi && declaredActions.isEmpty ||
           declaredActions.length > 16) {
         throw const PluginException('Declare between 1 and 16 record actions');
       }
@@ -584,8 +609,9 @@ class PluginManifest {
         capabilities: Map.unmodifiable(capabilities),
         pages: List.unmodifiable(pages),
         hostCapabilities: Map.unmodifiable(hostCapabilities),
-        uiVersion: uiRuntime ? 1 : null,
+        uiVersion: hasUi ? 1 : null,
         formatVersion: format,
+        files: List.unmodifiable(declaredFiles),
       );
     } on PluginException {
       rethrow;
@@ -616,6 +642,14 @@ String _text(Object? value, String field, int limit) {
     throw PluginException('Invalid $field');
   }
   return value;
+}
+
+void _luauPath(String path, String field) {
+  if (!RegExp(r'^[A-Za-z0-9_/-]+\.luau$').hasMatch(path) ||
+      path.startsWith('/') ||
+      path.split('/').contains('')) {
+    throw PluginException('$field must be a relative .luau path');
+  }
 }
 
 String _identifier(Object? value) {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math' show min;
 
 import 'package:crypto/crypto.dart';
 
@@ -12,22 +13,103 @@ class PluginPackage {
     required this.source,
     required this.origin,
     required this.revision,
+    this.files = const {},
   }) {
     final bytes = utf8.encode(source);
     if (bytes.length > 64 * 1024 || source.contains('\x00')) {
       throw const PluginException('Plugin source exceeds its limits');
     }
+    var total = bytes.length;
+    for (final content in files.values) {
+      final fileBytes = utf8.encode(content);
+      if (fileBytes.length > 64 * 1024 || content.contains('\x00')) {
+        throw const PluginException('Plugin file exceeds its limits');
+      }
+      total += fileBytes.length;
+    }
+    if (total > maxTotalBytes) {
+      throw const PluginException('Plugin package exceeds its size limit');
+    }
   }
+  static const maxTotalBytes = 512 * 1024;
   final PluginManifest manifest;
   final String source;
   final String origin;
   final String revision;
+  final Map<String, String> files;
   bool get packageOriginIsBuiltin => origin == 'bundled:${manifest.id}';
   late final String digest = sha256
       .convert(
-        utf8.encode(jsonEncode([origin, revision, manifest.source, source])),
+        utf8.encode(
+          jsonEncode(
+            files.isEmpty
+                ? [origin, revision, manifest.source, source]
+                : [
+                    origin,
+                    revision,
+                    manifest.source,
+                    source,
+                    [
+                      for (final path in files.keys.toList()..sort())
+                        [path, files[path]],
+                    ],
+                  ],
+          ),
+        ),
       )
       .toString();
+
+  /// The entry source with every declared file linked in as a `require`-able
+  /// module. Identical to [source] for single-file packages.
+  late final String linkedSource = _link();
+
+  String _link() {
+    if (files.isEmpty) return source;
+    final buffer = StringBuffer()
+      ..writeln('local __dazzle_modules = {}')
+      ..writeln('local __dazzle_cache = {}')
+      ..writeln('local __dazzle_done = {}')
+      ..writeln('local __dazzle_loading = {}')
+      ..writeln('local __dazzle_depth = 0')
+      ..writeln('local function require(path)')
+      ..writeln('  if __dazzle_done[path] then')
+      ..writeln('    return __dazzle_cache[path]')
+      ..writeln('  end')
+      ..writeln('  local factory = __dazzle_modules[path]')
+      ..writeln('  if factory == nil then')
+      ..writeln('    error("plugin module not found: " .. tostring(path), 0)')
+      ..writeln('  end')
+      ..writeln('  if __dazzle_loading[path] then')
+      ..writeln(
+        '    error("plugin module require cycle: " .. tostring(path), 0)',
+      )
+      ..writeln('  end')
+      ..writeln('  __dazzle_depth = __dazzle_depth + 1')
+      ..writeln('  if __dazzle_depth > 32 then')
+      ..writeln('    __dazzle_depth = __dazzle_depth - 1')
+      ..writeln('    error("plugin module require depth exceeded", 0)')
+      ..writeln('  end')
+      ..writeln('  __dazzle_loading[path] = true')
+      ..writeln('  local ok, result = pcall(factory)')
+      ..writeln('  __dazzle_loading[path] = nil')
+      ..writeln('  __dazzle_depth = __dazzle_depth - 1')
+      ..writeln('  if not ok then')
+      ..writeln('    error(result, 0)')
+      ..writeln('  end')
+      ..writeln('  __dazzle_done[path] = true')
+      ..writeln('  __dazzle_cache[path] = result')
+      ..writeln('  return result')
+      ..writeln('end');
+    for (final path in files.keys.toList()..sort()) {
+      final module = path.substring(0, path.length - '.luau'.length);
+      buffer
+        ..writeln('__dazzle_modules["$module"] = function()')
+        ..writeln(files[path])
+        ..writeln('end');
+    }
+    buffer.writeln(source);
+    return buffer.toString();
+  }
 }
 
 class InstalledPlugin {
@@ -63,6 +145,7 @@ class InstalledPlugin {
     'digest': package.digest,
     'enabled': enabled,
     'grants': grants.map((p) => p.id).toList(),
+    'files': package.files,
   };
 
   static InstalledPlugin decode(Object? value) {
@@ -75,12 +158,15 @@ class InstalledPlugin {
     final revision = value['revision'];
     final enabled = value['enabled'];
     final grants = value['grants'];
+    final rawFiles = value['files'] ?? const <String, Object?>{};
     if (manifest is! String ||
         source is! String ||
         origin is! String ||
         revision is! String ||
         enabled is! bool ||
-        grants is! List<Object?>) {
+        grants is! List<Object?> ||
+        rawFiles is! Map<String, Object?> ||
+        rawFiles.values.any((v) => v is! String)) {
       throw const PluginException('Invalid plugin record');
     }
     final package = PluginPackage(
@@ -92,6 +178,7 @@ class InstalledPlugin {
       source: source,
       origin: origin,
       revision: revision,
+      files: rawFiles.map((k, v) => MapEntry(k, v! as String)),
     );
     if (package.digest != value['digest']) {
       throw const PluginException('Plugin content digest mismatch');
@@ -364,6 +451,10 @@ Future<PluginManifest> _parseManifest(String text) =>
     Isolate.run(() => PluginManifest.parse(text));
 
 class PluginFetcher {
+  PluginFetcher({HttpClient Function()? httpClientFactory})
+    : _httpClientFactory = httpClientFactory ?? HttpClient.new;
+  final HttpClient Function() _httpClientFactory;
+
   Future<PluginPackage> fetch(String repository, String revision) async {
     final uri = Uri.tryParse(repository.trim());
     final parts = uri?.pathSegments.where((s) => s.isNotEmpty).toList();
@@ -389,7 +480,7 @@ class PluginFetcher {
     final base = Uri.parse(
       'https://raw.githubusercontent.com/${parts[0]}/$repo/$revision/',
     );
-    final client = HttpClient()
+    final client = _httpClientFactory()
       ..connectionTimeout = const Duration(seconds: 15);
     try {
       Future<String> read(String path, int limit) async {
@@ -423,11 +514,25 @@ class PluginFetcher {
         manifest.entry,
         64 * 1024,
       ).timeout(const Duration(seconds: 20));
+      final files = <String, String>{};
+      var budget = PluginPackage.maxTotalBytes - utf8.encode(source).length;
+      for (final path in manifest.files) {
+        if (budget <= 0) {
+          throw const PluginException('Plugin package exceeds its size limit');
+        }
+        final content = await read(
+          path,
+          min(64 * 1024, budget),
+        ).timeout(const Duration(seconds: 20));
+        budget -= utf8.encode(content).length;
+        files[path] = content;
+      }
       return PluginPackage(
         manifest: manifest,
         source: source,
         origin: origin,
         revision: revision,
+        files: files,
       );
     } on PluginException {
       rethrow;
