@@ -63,6 +63,34 @@ void main() {
         'ui.record_action',
       });
       expect(parsed.dependencies.keys, ['test.provider']);
+      expect(parsed.purpose, 'Test plugin');
+    });
+
+    test('native widgets require bounded exact or ranged sizes', () {
+      final source = File('lib/plugins/drops/dazzle.plugin.toml')
+          .readAsStringSync();
+      final parsed = PluginManifest.parse(source, allowNative: true);
+      expect(parsed.purpose, contains('Capture'));
+      expect(parsed.widgets.map((widget) => widget.id), ['drops', 'capture']);
+      expect(parsed.widgets.first.size('auto').supportsWidth(420), isTrue);
+      expect(parsed.widgets.first.size('auto').supportsWidth(900), isFalse);
+      expect(
+        () => PluginManifest.parse(
+          source.replaceFirst('max_width = 720', 'max_width = 200'),
+          allowNative: true,
+        ),
+        throwsA(isA<PluginException>()),
+      );
+      expect(
+        () => PluginManifest.parse(
+          source.replaceFirst(
+            'min_width = 280, max_width = 720',
+            'width = 320, min_width = 280, max_width = 720',
+          ),
+          allowNative: true,
+        ),
+        throwsA(isA<PluginException>()),
+      );
     });
 
     final malformed = <String, String>{

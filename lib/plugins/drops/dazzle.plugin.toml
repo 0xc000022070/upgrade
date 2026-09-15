@@ -1,6 +1,7 @@
 manifest_version = 3
 id = "dazzle.drops"
 name = "Drops"
+purpose = "Capture, review, and file unstructured work."
 version = "1.0.0"
 dazzle_api = "^2.0.0"
 
@@ -35,3 +36,21 @@ service = "item_notes"
 
 [contributes]
 surfaces = ["home.layout", "item.detail"]
+
+[[contributes.widgets]]
+id = "drops"
+title = "Drops"
+surface = "home.drops"
+locations = ["home.card"]
+default_location = "home.card"
+default_size = "auto"
+sizes = [{ id = "auto", title = "Automatic", min_width = 280, max_width = 720 }]
+
+[[contributes.widgets]]
+id = "capture"
+title = "Capture"
+surface = "home.capture"
+locations = ["home.composer"]
+default_location = "home.composer"
+default_size = "auto"
+sizes = [{ id = "auto", title = "Automatic", min_width = 280, max_width = 720 }]

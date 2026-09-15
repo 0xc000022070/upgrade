@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import '../platform/plugins/access.dart';
+import '../platform/plugins/contributions.dart';
 import '../platform/plugins/manifest.dart';
 import '../platform/plugins/module.dart';
 import '../platform/plugins/store.dart';
@@ -50,6 +51,120 @@ final effectivePluginsProvider = Provider<List<InstalledPlugin>>(
   (ref) =>
       ref.watch(pluginsProvider).valueOrNull ??
       ref.watch(pluginBootCatalogProvider),
+);
+
+class PluginContributionOwner {
+  const PluginContributionOwner({
+    required this.plugin,
+    required this.widgets,
+    required this.pages,
+  });
+
+  final InstalledPlugin plugin;
+  final List<PluginWidgetRegistration> widgets;
+  final List<PluginPageRegistration> pages;
+  bool get enabled => plugin.enabled;
+  bool get supported => plugin.manifest.supported;
+}
+
+class PluginWidgetRegistration {
+  const PluginWidgetRegistration({
+    required this.owner,
+    required this.contribution,
+    required this.builder,
+  });
+
+  final InstalledPlugin owner;
+  final PluginWidgetContribution contribution;
+  final WidgetBuilder? builder;
+  String get stableId => contribution.stableId(owner.id);
+  bool get enabled =>
+      owner.enabled && owner.manifest.supported && builder != null;
+}
+
+class PluginPageRegistration {
+  const PluginPageRegistration({
+    required this.owner,
+    required this.contribution,
+    required this.builder,
+  });
+
+  final InstalledPlugin owner;
+  final PluginPageContribution contribution;
+  final WidgetBuilder? builder;
+  String get stableId => contribution.stableId(owner.id);
+  bool get native => contribution.surface != null;
+  bool get luau => contribution.surface == null;
+  bool get enabled =>
+      owner.enabled && owner.manifest.supported && (!native || builder != null);
+}
+
+class PluginContributionCatalog {
+  PluginContributionCatalog(
+    List<InstalledPlugin> plugins,
+    List<NativePluginModule> modules,
+  ) : owners = List.unmodifiable([
+        for (final plugin in plugins)
+          (() {
+            final module = modules
+                .where((module) => module.id == plugin.id)
+                .firstOrNull;
+            final widgets = [
+              for (final contribution in plugin.manifest.widgets)
+                PluginWidgetRegistration(
+                  owner: plugin,
+                  contribution: contribution,
+                  builder: module?.surfaces[contribution.surface],
+                ),
+            ];
+            final pages = [
+              for (final contribution in plugin.manifest.pages)
+                PluginPageRegistration(
+                  owner: plugin,
+                  contribution: contribution,
+                  builder: contribution.surface == null
+                      ? null
+                      : module?.surfaces[contribution.surface],
+                ),
+            ];
+            return PluginContributionOwner(
+              plugin: plugin,
+              widgets: List.unmodifiable(widgets),
+              pages: List.unmodifiable(pages),
+            );
+          })(),
+      ]);
+
+  final List<PluginContributionOwner> owners;
+  late final List<PluginWidgetRegistration> widgets = List.unmodifiable([
+    for (final owner in owners) ...owner.widgets,
+  ]);
+  late final List<PluginPageRegistration> pages = List.unmodifiable([
+    for (final owner in owners) ...owner.pages,
+  ]);
+
+  PluginWidgetRegistration? widget(String stableId) =>
+      widgets.where((entry) => entry.stableId == stableId).firstOrNull;
+  PluginPageRegistration? page(String stableId) =>
+      pages.where((entry) => entry.stableId == stableId).firstOrNull;
+  List<PluginWidgetRegistration> enabledWidgets(
+    PluginPlacementLocation location,
+  ) => [
+    for (final entry in widgets)
+      if (entry.enabled && entry.contribution.locations.contains(location))
+        entry,
+  ];
+  List<PluginPageRegistration> get enabledPages => [
+    for (final entry in pages)
+      if (entry.enabled) entry,
+  ];
+}
+
+final pluginContributionCatalogProvider = Provider<PluginContributionCatalog>(
+  (ref) => PluginContributionCatalog(
+    ref.watch(effectivePluginsProvider),
+    ref.watch(nativeModulesProvider),
+  ),
 );
 
 final pluginAuthorityProvider = Provider<PluginAuthority>((ref) {
@@ -123,12 +238,93 @@ class NativeSurface extends ConsumerWidget {
     final module = ref
         .watch(nativeModulesProvider)
         .singleWhere((m) => m.id == plugin.id);
+    return NativeContributionSurface(
+      owner: plugin,
+      stableId: '${plugin.id}:legacy:$surface',
+      builder: module.surfaces[surface]!,
+    );
+  }
+}
+
+class NativeContributionSurface extends ConsumerWidget {
+  const NativeContributionSurface({
+    super.key,
+    required this.owner,
+    required this.stableId,
+    required this.builder,
+    this.fallback = const SizedBox.shrink(),
+  });
+
+  factory NativeContributionSurface.widget(
+    PluginWidgetRegistration registration, {
+    Key? key,
+    Widget fallback = const SizedBox.shrink(),
+  }) {
+    final builder = registration.builder;
+    if (builder == null) {
+      return NativeContributionSurface(
+        key: key,
+        owner: registration.owner,
+        stableId: registration.stableId,
+        builder: (_) => fallback,
+        fallback: fallback,
+      );
+    }
+    return NativeContributionSurface(
+      key: key,
+      owner: registration.owner,
+      stableId: registration.stableId,
+      builder: builder,
+      fallback: fallback,
+    );
+  }
+
+  factory NativeContributionSurface.page(
+    PluginPageRegistration registration, {
+    Key? key,
+    Widget fallback = const SizedBox.shrink(),
+  }) {
+    final builder = registration.builder;
+    if (builder == null) {
+      return NativeContributionSurface(
+        key: key,
+        owner: registration.owner,
+        stableId: registration.stableId,
+        builder: (_) => fallback,
+        fallback: fallback,
+      );
+    }
+    return NativeContributionSurface(
+      key: key,
+      owner: registration.owner,
+      stableId: registration.stableId,
+      builder: builder,
+      fallback: fallback,
+    );
+  }
+
+  final InstalledPlugin owner;
+  final String stableId;
+  final WidgetBuilder builder;
+  final Widget fallback;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref
+        .watch(effectivePluginsProvider)
+        .where(
+          (plugin) =>
+              plugin.id == owner.id &&
+              plugin.enabled &&
+              plugin.package.digest == owner.package.digest,
+        );
+    if (current.isEmpty) return fallback;
     return ProviderScope(
       key: ValueKey(
-        '${plugin.id}:${plugin.package.digest}:${ref.read(pluginAuthorityProvider).activation(plugin.id)}',
+        '$stableId:${owner.package.digest}:${ref.read(pluginAuthorityProvider).activation(owner.id)}',
       ),
-      overrides: [currentPluginProvider.overrideWithValue(plugin.id)],
-      child: Builder(builder: module.surfaces[surface]!),
+      overrides: [currentPluginProvider.overrideWithValue(owner.id)],
+      child: Builder(builder: builder),
     );
   }
 }

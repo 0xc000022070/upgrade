@@ -292,7 +292,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         );
       case _Pair():
         return PanelSheetBody(
-          title: 'PAIR WITH',
+          title: 'GROUP WITH',
           affordance: PanelAffordance(
             'BACK',
             icon: DazzleIcons.back,
@@ -633,7 +633,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         ),
         if (!_isDrop(task)) ...[
           ActionBlock(
-            label: task.isNext ? 'UNSET' : 'NEXT',
+            label: task.isNext ? 'CLEAR NEXT' : 'MARK NEXT',
             tone: task.isNext
                 ? DazzleColors.accentMuted
                 : DazzleColors.textSecondary,
@@ -650,14 +650,10 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
             onTap: () => _copyText(task),
           ),
         ActionBlock(label: 'MOVE', onTap: () => _toPicker(const _Move())),
-        // Filed or not: what is sent is the text, and a project says nothing
-        // about whether an agent can pick it up. Only a host with no path at
-        // all takes the verb away — a block that answers with an empty list.
-        if ((ref.watch(pathTargetsProvider).valueOrNull ?? const []).isNotEmpty)
-          ActionBlock(label: 'SEND', onTap: () => _toPicker(const _Send())),
+        ActionBlock(label: 'SEND', onTap: () => _toPicker(const _Send())),
         if (!_isDrop(task)) ...[
           ActionBlock(
-            label: task.bundleId == null ? 'PAIR' : 'UNPAIR',
+            label: task.bundleId == null ? 'GROUP WITH' : 'LEAVE GROUP',
             onTap: () => task.bundleId == null
                 ? _toPicker(const _Pair())
                 : tasks.unpair(task.id),

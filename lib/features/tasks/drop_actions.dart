@@ -59,10 +59,10 @@ Future<void> moveDrops(
 /// Answers how many drops went, which is what the bar says back.
 Future<int> copyDrops(WidgetRef ref, String scope, Set<String> ids) async {
   final panel = scope == DropSelection.homeScope
-      ? ref.read(dropsProvider).valueOrNull
-      : ref.read(projectDropsProvider(scope)).valueOrNull;
+      ? await ref.read(dropsProvider.future)
+      : await ref.read(projectDropsProvider(scope).future);
   final drops = [
-    for (final task in panel ?? const <Task>[])
+    for (final task in panel)
       if (ids.contains(task.id)) task,
   ];
   if (drops.isEmpty) return 0;

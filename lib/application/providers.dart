@@ -164,8 +164,7 @@ final dropsProvider = StreamProvider<List<Task>>(
   dependencies: [taskRepositoryProvider],
 );
 
-/// The send picker's rows. Empty is the answer that hides SEND altogether, so
-/// this is watched by the quick view and not only by the picker.
+/// The registered destinations offered by the send picker.
 final pathTargetsProvider = StreamProvider<List<PathTarget>>(
   (ref) => ref.watch(pathRepositoryProvider).watchTargets(),
   dependencies: [pathRepositoryProvider],

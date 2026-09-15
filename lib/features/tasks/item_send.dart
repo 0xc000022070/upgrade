@@ -245,9 +245,11 @@ class _SendFlowState extends ConsumerState<SendFlow> {
   /// directories that project is worked in, then the rest of their hosts,
   /// then everywhere else.
   Widget _picker() {
-    final all =
-        ref.watch(pathTargetsProvider).valueOrNull ?? const <PathTarget>[];
+    final pathState = ref.watch(pathTargetsProvider);
+    final hostState = ref.watch(hostsProvider);
+    final all = pathState.valueOrNull ?? const <PathTarget>[];
     final linked = _linked();
+    final availableHosts = hostState.valueOrNull ?? const <Host>[];
     final ids = {for (final target in linked) target.path.id};
     final hosts = {for (final target in linked) target.host.id};
     // Partitioned and not sorted: a sort is not stable in Dart, and the order
@@ -268,6 +270,26 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           ];
     return ListRowGroup(
       children: [
+        if (pathState.hasError || hostState.hasError)
+          ListRow(
+            title: 'DESTINATIONS UNAVAILABLE',
+            subtitle: 'Could not load hosts and paths. Tap to retry.',
+            onTap: () {
+              ref.invalidate(pathTargetsProvider);
+              ref.invalidate(hostsProvider);
+            },
+          )
+        else if (pathState.isLoading || hostState.isLoading)
+          const ListRow(title: 'LOADING DESTINATIONS')
+        else if (targets.isEmpty)
+          ListRow(
+            title: availableHosts.isEmpty
+                ? 'ADD A HOST FIRST'
+                : 'REGISTER A PATH FIRST',
+            subtitle: availableHosts.isEmpty
+                ? 'Add an SSH host in Hosts, then choose a working directory here.'
+                : 'Choose a working directory on your host before sending to an agent.',
+          ),
         for (final target in targets)
           ListRow(
             title: target.title,
@@ -276,11 +298,12 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           ),
         // The paths screen is in settings, two tabs away; a drop that needs a
         // directory that is not registered yet gets to register it here.
-        ListRow(
-          title: 'REGISTER A PATH',
-          titleColor: DazzleColors.textSecondary,
-          onTap: _registerPath,
-        ),
+        if (availableHosts.isNotEmpty)
+          ListRow(
+            title: 'REGISTER A PATH',
+            titleColor: DazzleColors.textSecondary,
+            onTap: _registerPath,
+          ),
       ],
     );
   }

@@ -364,7 +364,7 @@ void main() {
 
     // HOME is never disposed under a pushed route, so nothing else would have
     // put the mode down on the way out: the door itself has to.
-    await tester.tap(find.text('SYS'));
+    await tester.tap(find.bySemanticsLabel('SETTINGS'));
     await _ready(tester);
     expect(find.byType(SettingsScreen), findsOneWidget);
     expect(_selection(tester).ids, isEmpty);

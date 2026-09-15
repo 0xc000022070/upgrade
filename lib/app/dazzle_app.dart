@@ -6,6 +6,7 @@ import '../application/drop_selection.dart';
 import '../application/fresh_drops.dart';
 import '../application/navigation.dart';
 import '../application/native_plugins.dart';
+import '../application/plugin_placements.dart';
 import '../design/colors.dart';
 import '../design/effects/screen_entry.dart';
 import '../design/theme.dart';
@@ -25,6 +26,10 @@ import 'nav_shell.dart';
 import 'pip_host.dart';
 import 'splash_route.dart';
 import 'static_surface.dart';
+
+Widget _pluginPage(PluginPageRegistration page) => page.native
+    ? NativeContributionSurface.page(page)
+    : PluginPage(plugin: page.owner, page: page.contribution);
 
 /// The system bars carry the app background rather than a scrim: on Android 15+
 /// the window is edge-to-edge, so the scaffold behind them is what the user
@@ -82,7 +87,8 @@ class DazzleApp extends StatelessWidget {
   }
 }
 
-/// HOME, PROJECTS, HOSTS and SSH are the tabs, all kept mounted in an
+/// HOME, HOSTS, SSH and TOOLS are the stable tabs. A plugin may contribute one
+/// additional navigation page. All are kept mounted in an
 /// [IndexedStack], so a tab is never rebuilt from nothing and the screen the
 /// user comes back to is the screen they left.
 class DazzleShell extends ConsumerStatefulWidget {
@@ -112,33 +118,29 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
   Widget build(BuildContext context) {
     ref.listen<int>(navIndexProvider, (_, next) => _onIndexChanged(next));
     final selectedIndex = ref.watch(navIndexProvider);
-    final contribution = ref.watch(
-      nativeSurfaceOwnerProvider('navigation.page'),
-    );
-    final toolsVisible = ref
-        .watch(effectivePluginsProvider)
-        .any((plugin) => plugin.enabled && plugin.manifest.pages.isNotEmpty);
-    final visibleIndices = [
-      0,
-      if (contribution != null) 1,
-      2,
-      3,
-      if (toolsVisible) 4,
-    ];
+    final catalog = ref.watch(pluginContributionCatalogProvider);
+    final placementState = ref.watch(pluginPlacementsProvider);
+    final placements = placementState.valueOrNull;
+    final pinnedId = placements?.pinnedPages.firstOrNull;
+    final contribution = pinnedId == null ? null : catalog.page(pinnedId);
+    final pinned = contribution?.enabled == true ? contribution : null;
+    final visibleIndices = [0, if (pinned != null) 1, 2, 3, 4];
     final index = visibleIndices.contains(selectedIndex) ? selectedIndex : 0;
-    if (index != selectedIndex) {
+    if (index != selectedIndex && !placementState.isLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) ref.read(navIndexProvider.notifier).state = 0;
+        if (mounted && ref.read(navIndexProvider) == selectedIndex) {
+          ref.read(navIndexProvider.notifier).state = 0;
+        }
       });
     }
     final glitch = ref.watch(navGlitchProvider);
 
-    const screens = <Widget>[
-      HomeScreen(),
-      NativeSurface('navigation.page'),
-      HostsScreen(),
-      SshScreen(),
-      PluginLibraryScreen(),
+    final screens = <Widget>[
+      const HomeScreen(),
+      pinned == null ? const SizedBox.shrink() : _pluginPage(pinned),
+      const HostsScreen(),
+      const SshScreen(),
+      const PluginLibraryScreen(),
     ];
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -176,7 +178,7 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
                 const ParkedShellBar(),
                 NavBar(
                   visibleIndices: visibleIndices,
-                  contributedLabel: contribution?.manifest.name.toUpperCase(),
+                  contributedLabel: pinned?.contribution.title.toUpperCase(),
                   currentIndex: index,
                   onSelected: (next) =>
                       ref.read(navIndexProvider.notifier).state = next,

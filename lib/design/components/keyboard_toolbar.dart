@@ -22,9 +22,9 @@ enum ToolbarGlyph {
   more(Icons.add, 'MORE'),
   back(Icons.arrow_back, 'BACK'),
   target(Icons.folder_open, 'TARGET'),
-  next(Icons.bolt, 'NEXT'),
+  next(Icons.bolt, 'TOGGLE NEXT'),
   block(Icons.block, 'BLOCK'),
-  pair(Icons.call_merge, 'PAIR'),
+  pair(Icons.call_merge, 'GROUP WITH'),
   move(Icons.drive_file_move_outlined, 'MOVE'),
   done(Icons.check, 'DONE');
 
@@ -32,8 +32,7 @@ enum ToolbarGlyph {
 
   final IconData icon;
 
-  /// The long-press tooltip. One word: the strip is icons only, and a sentence
-  /// under a 22px glyph is a caption the user did not ask for.
+  /// The long-press tooltip for the icon-only strip.
   final String word;
 }
 
@@ -657,9 +656,7 @@ class _FieldLine extends StatelessWidget {
                 // answered where it was typed.
                 return ActionBlock(
                   label: field.action,
-                  tone: ready
-                      ? DazzleColors.accent
-                      : DazzleColors.textDisabled,
+                  tone: ready ? DazzleColors.accent : DazzleColors.textDisabled,
                   onTap: ready ? () => field.onSubmit(value.text) : null,
                 );
               },
@@ -707,9 +704,7 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
       message: widget.action.glyph.word,
       triggerMode: TooltipTriggerMode.longPress,
       preferBelow: false,
-      textStyle: DazzleText.label.copyWith(
-        color: DazzleColors.textPrimary,
-      ),
+      textStyle: DazzleText.label.copyWith(color: DazzleColors.textPrimary),
       decoration: const BoxDecoration(color: DazzleColors.surfacePrimary),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

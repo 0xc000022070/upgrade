@@ -4,15 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/plugins.dart';
 import '../../application/plugin_hosts.dart';
 import '../../application/native_plugins.dart';
+import '../../application/plugin_placements.dart';
+import '../../data/repositories/plugin_placement_repository.dart';
 import '../../design/colors.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/dazzle_field.dart';
+import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/spacing.dart';
 import '../../design/typography.dart';
 import '../../platform/plugins/manifest.dart';
+import '../../platform/plugins/contributions.dart';
 import '../../platform/plugins/store.dart';
 import '../plugins/plugin_page.dart';
 
@@ -23,7 +27,7 @@ class PluginsPanel extends ConsumerWidget {
     final plugins = ref.watch(pluginsProvider);
     final pauses = ref.watch(pendingHostPausesProvider);
     return Panel(
-      title: '[ PLUGINS ]',
+      title: '[ INSTALLED ]',
       bodyPadding: panelRowsPadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -31,7 +35,10 @@ class PluginsPanel extends ConsumerWidget {
           if (plugins.hasError)
             Text('${plugins.error}', style: DazzleText.rowSubtitle),
           if (pauses.hasError)
-            Text('Host pause status unavailable: ${pauses.error}', style: DazzleText.rowSubtitle),
+            Text(
+              'Host pause status unavailable: ${pauses.error}',
+              style: DazzleText.rowSubtitle,
+            ),
           if ((pauses.valueOrNull ?? 0) > 0) ...[
             Text(
               '${pauses.valueOrNull} HOST PAUSES PENDING',
@@ -55,8 +62,14 @@ class PluginsPanel extends ConsumerWidget {
             ),
           ],
           for (final plugin in ref.watch(effectivePluginsProvider))
-            PanelTextAction(
-              label: '${plugin.manifest.name} ${plugin.enabled ? "ON" : "OFF"}',
+            ListRow(
+              title: plugin.manifest.name,
+              subtitle: plugin.manifest.purpose,
+              value: plugin.enabled ? 'ON' : 'OFF',
+              valueColor: plugin.enabled
+                  ? DazzleColors.accent
+                  : DazzleColors.textMuted,
+              node: true,
               onTap: () => _open(context, plugin: plugin),
             ),
           PanelTextAction(
@@ -90,6 +103,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
   PluginPackage? _candidate;
   bool _busy = false;
   bool _updating = false;
+  bool _diagnostics = false;
   String? _error;
 
   @override
@@ -166,6 +180,33 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
         installed == null || installed.manifest.hostCapabilities.isEmpty
         ? null
         : ref.watch(pluginHostPendingProvider(pluginHostOwner(installed)));
+    final catalog = ref.watch(effectivePluginsProvider);
+    final dependencies = manifest == null || manifest.dependencies.isEmpty
+        ? 'NONE'
+        : manifest.dependencies.entries
+              .map((entry) {
+                final target = catalog
+                    .where((plugin) => plugin.id == entry.key)
+                    .firstOrNull;
+                if (target == null) return '${entry.key} · MISSING';
+                final compatible = entry.value.allows(target.manifest.version);
+                final status = !compatible
+                    ? 'NEEDS ${entry.value}'
+                    : target.enabled
+                    ? 'ENABLED'
+                    : 'DISABLED';
+                return '${target.manifest.name} ${target.manifest.version} · $status';
+              })
+              .join('\n');
+    final usedBy = installed == null
+        ? const <InstalledPlugin>[]
+        : catalog
+              .where(
+                (plugin) =>
+                    plugin.id != installed.id &&
+                    plugin.manifest.dependencies.containsKey(installed.id),
+              )
+              .toList();
     return PanelSheetBody(
       title: manifest?.name ?? 'ADD PLUGIN',
       children: [
@@ -211,151 +252,216 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                   },
           ),
         ] else ...[
-          _fact('PLUGIN', '${manifest.id} ${manifest.version}'),
-          if (package!.origin.startsWith('builtin:') ||
-              package.origin.startsWith('bundled:'))
-            _fact('DISTRIBUTION', 'Built-in · updated with Dazzle'),
-          _fact('MANIFEST', '${manifest.formatVersion}'),
-          _fact('DAZZLE API', '${manifest.api}'),
-          if (manifest.uiVersion != null)
-            _fact('UI API', '${manifest.uiVersion}'),
-          if (!manifest.supported) _fact('DISABLED', manifest.incompatibility!),
-          _fact('SOURCE', '${package.origin}\n${package.revision}'),
-          if (manifest.dependencies.isNotEmpty)
+          Text(manifest.purpose, style: DazzleText.prose),
+          const SizedBox(height: Spacing.lg),
+          _fact(
+            'STATUS',
+            installed == null
+                ? 'READY TO INSTALL'
+                : installed.enabled
+                ? 'ENABLED'
+                : 'DISABLED · LAYOUT AND DATA RETAINED',
+          ),
+          _fact('DEPENDENCIES', dependencies),
+          if (usedBy.isNotEmpty)
             _fact(
-              'DEPENDENCIES',
-              manifest.dependencies.entries
-                  .map((e) => '${e.key} ${e.value}')
+              'USED BY',
+              usedBy
+                  .map(
+                    (plugin) =>
+                        '${plugin.manifest.name} · ${plugin.enabled ? "ENABLED" : "DISABLED"}',
+                  )
                   .join('\n'),
             ),
-          for (final dataset in manifest.datasets.values)
-            _fact(
-              'DATASET ${dataset.name}',
-              'Schema ${dataset.schemaVersion} · ${dataset.quotaBytes} bytes · ${dataset.quotaRecords} records maximum\n'
-                  '${dataset.exportContract == null ? "Private" : "Read export: ${dataset.exportContract}"}',
-            ),
-          for (final dataset in manifest.hostDatasets.values)
-            _fact(
-              'DATASET ${dataset.name}',
-              'Schema ${dataset.schemaVersion} · API ${dataset.service}\nHost-managed storage · retained while disabled',
-            ),
-          for (final service in manifest.exports.entries)
-            _fact('EXPORTED API ${service.key}', service.value),
-          SheetField(
-            label: _candidate == null
-                ? 'GRANTED CAPABILITIES'
-                : 'REQUESTED CAPABILITIES',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final permission
-                    in _candidate != null
-                        ? manifest.permissions
-                        : installed!.grants)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: Spacing.md),
-                    child: Text(
-                      '${_candidate != null && installed != null && !old.contains(permission) ? "NEW: " : ""}${permission.id}\n${permission.description}',
-                      style: DazzleText.rowSubtitle,
+          if (_candidate != null) ...[
+            _fact('SOURCE REVISION', '${package!.origin}\n${package.revision}'),
+            SheetField(
+              label: 'REQUESTED CAPABILITIES',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (manifest.permissions.isEmpty)
+                    const Text('NONE', style: DazzleText.rowSubtitle),
+                  for (final permission in manifest.permissions)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Spacing.md),
+                      child: Text(
+                        '${permission.id}\n${permission.description}',
+                        style: DazzleText.rowSubtitle,
+                      ),
                     ),
-                  ),
-              ],
-            ),
-          ),
-          if (manifest.actions.isNotEmpty)
-            _fact('ACTIONS', manifest.actions.map((a) => a.title).join('\n')),
-          if (manifest.surfaces.isNotEmpty)
-            _fact('FEATURES', manifest.surfaces.join('\n')),
-          if (installed != null && _candidate == null && manifest.native) ...[
-            _fact(
-              'RUNTIME',
-              'Native · no plugin VM or interpreter\nShared Flutter heap; per-plugin heap is not attributable',
-            ),
-            if (nativeReport!.isLoading) _fact('STORAGE', 'LOADING'),
-            if (nativeReport.hasError)
-              _fact('STORAGE', '${nativeReport.error}'),
-            for (final dataset in nativeReport.valueOrNull ?? [])
-              _fact(
-                'STORED ${dataset.name}',
-                '${dataset.records} records · ${dataset.fieldBytes} field bytes\n${dataset.fileBytes} attachment bytes · ${dataset.missingFiles} missing files',
+                ],
               ),
-            _fact(
-              'ISOLATION',
-              'API-owned datasets in host storage. Shared database pages and indexes are not charged twice.',
-            ),
-            for (final usage in authority!.usage(installed.id).entries)
-              _fact(
-                'API ${usage.key}',
-                '${usage.value.calls} calls/events · ${usage.value.rejected} rejected\n${usage.value.activeSubscriptions} active subscriptions · ${usage.value.elapsedMicros} µs awaited host time',
-              ),
-            if (authority.persistenceError != null)
-              _fact('COUNTER STORAGE ERROR', '${authority.persistenceError}'),
-            PanelTextAction(
-              label: 'REFRESH USAGE',
-              onTap: () {
-                ref.invalidate(nativeDatasetReportProvider(installed.id));
-                setState(() {});
-              },
             ),
           ],
-          if (installed != null && _candidate == null && !manifest.native) ...[
-            if (manifest.hostCapabilities.isNotEmpty)
-              for (final entry
-                  in ref
-                      .read(pluginHostRegistryProvider)
-                      .usage(installed)
-                      .entries)
-                _fact(
-                  'HOST API ${entry.key}',
-                  '${entry.value.calls} calls · ${entry.value.failed} failed\n${entry.value.sentBytes} request bytes · ${entry.value.receivedBytes} response bytes\n${entry.value.elapsedMicros} µs awaited · current app session',
-                ),
-            if (report!.isLoading) _fact('USAGE', 'LOADING'),
-            if (report.hasError) _fact('USAGE', '${report.error}'),
-            if (report.valueOrNull case final data?) ...[
+          if (_candidate == null && installed != null)
+            ActionBlock(
+              label: _busy
+                  ? 'UPDATING'
+                  : installed.enabled
+                  ? 'DISABLE'
+                  : 'ENABLE',
+              tone: DazzleColors.accent,
+              filled: !installed.enabled,
+              onTap: _busy || !manifest.supported
+                  ? null
+                  : () => _change(
+                      (plugins) =>
+                          plugins.setEnabled(installed.id, !installed.enabled),
+                    ),
+            ),
+          if (_candidate == null && installed != null)
+            _PluginLayoutControls(plugin: installed),
+          const SheetRule(),
+          PanelTextAction(
+            label: _diagnostics
+                ? 'HIDE TECHNICAL DIAGNOSTICS'
+                : 'SHOW TECHNICAL DIAGNOSTICS',
+            onTap: () => setState(() => _diagnostics = !_diagnostics),
+          ),
+          if (_diagnostics) ...[
+            _fact('PLUGIN', '${manifest.id} ${manifest.version}'),
+            if (package!.origin.startsWith('builtin:') ||
+                package.origin.startsWith('bundled:'))
+              _fact('DISTRIBUTION', 'Built-in · updated with Dazzle'),
+            _fact('MANIFEST', '${manifest.formatVersion}'),
+            _fact('DAZZLE API', '${manifest.api}'),
+            if (manifest.uiVersion != null)
+              _fact('UI API', '${manifest.uiVersion}'),
+            if (!manifest.supported)
+              _fact('DISABLED', manifest.incompatibility!),
+            _fact('SOURCE', '${package.origin}\n${package.revision}'),
+            for (final dataset in manifest.datasets.values)
               _fact(
-                'RUNTIME',
-                '${data.residentVms} resident VMs · ${data.vmBytes} VM bytes',
+                'DATASET ${dataset.name}',
+                'Schema ${dataset.schemaVersion} · ${dataset.quotaBytes} bytes · ${dataset.quotaRecords} records maximum\n'
+                    '${dataset.exportContract == null ? "Private" : "Read export: ${dataset.exportContract}"}',
               ),
-              for (final inventory in data.inventory)
-                _fact(
-                  'STORED ${inventory.dataset.name}',
-                  '${inventory.records} records · ${inventory.logicalBytes} logical bytes\n'
-                      '${inventory.fileBytes} bytes on disk, including journal',
-                ),
-              if (data.inventory.isEmpty)
-                _fact('STORAGE', 'No datasets created yet'),
-              for (final usage in data.usage)
-                _fact(
-                  'API ${data.inventory.where((i) => i.dataset.identity == usage.dataset).firstOrNull?.dataset.name ?? usage.dataset}',
-                  '${usage.calls} calls · ${usage.denied} rejected\n'
-                      '${usage.readBytes} bytes read · ${usage.writtenBytes} bytes written\n'
-                      '${usage.puts} puts · ${usage.deletes} deletes · ${usage.proposals} proposals\n'
-                      '${usage.elapsedMicros} µs host total',
-                ),
-            ],
-            if (metrics != null)
+            for (final dataset in manifest.hostDatasets.values)
               _fact(
-                'LAST RUN',
-                '${metrics.loadMicros} µs load · ${metrics.runMicros} µs script\n'
-                    '${metrics.dataWaitMicros} µs host · ${metrics.peakBytes} peak VM bytes\n'
-                    '${metrics.responseBytes} response bytes',
+                'DATASET ${dataset.name}',
+                'Schema ${dataset.schemaVersion} · API ${dataset.service}\nHost-managed storage · retained while disabled',
               ),
-            PanelTextAction(
-              label: 'REFRESH USAGE',
-              onTap: () => ref.invalidate(
-                pluginDataReportProvider((
-                  id: installed.id,
-                  origin: installed.package.origin,
-                )),
+            for (final service in manifest.exports.entries)
+              _fact('EXPORTED API ${service.key}', service.value),
+            SheetField(
+              label: _candidate == null
+                  ? 'GRANTED CAPABILITIES'
+                  : 'REQUESTED CAPABILITIES',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final permission
+                      in _candidate != null
+                          ? manifest.permissions
+                          : installed!.grants)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Spacing.md),
+                      child: Text(
+                        '${_candidate != null && installed != null && !old.contains(permission) ? "NEW: " : ""}${permission.id}\n${permission.description}',
+                        style: DazzleText.rowSubtitle,
+                      ),
+                    ),
+                ],
               ),
             ),
+            if (manifest.actions.isNotEmpty)
+              _fact('ACTIONS', manifest.actions.map((a) => a.title).join('\n')),
+            if (manifest.surfaces.isNotEmpty)
+              _fact('FEATURES', manifest.surfaces.join('\n')),
+            if (installed != null && _candidate == null && manifest.native) ...[
+              _fact(
+                'RUNTIME',
+                'Native · no plugin VM or interpreter\nShared Flutter heap; per-plugin heap is not attributable',
+              ),
+              if (nativeReport!.isLoading) _fact('STORAGE', 'LOADING'),
+              if (nativeReport.hasError)
+                _fact('STORAGE', '${nativeReport.error}'),
+              for (final dataset in nativeReport.valueOrNull ?? [])
+                _fact(
+                  'STORED ${dataset.name}',
+                  '${dataset.records} records · ${dataset.fieldBytes} field bytes\n${dataset.fileBytes} attachment bytes · ${dataset.missingFiles} missing files',
+                ),
+              _fact(
+                'ISOLATION',
+                'API-owned datasets in host storage. Shared database pages and indexes are not charged twice.',
+              ),
+              for (final usage in authority!.usage(installed.id).entries)
+                _fact(
+                  'API ${usage.key}',
+                  '${usage.value.calls} calls/events · ${usage.value.rejected} rejected\n${usage.value.activeSubscriptions} active subscriptions · ${usage.value.elapsedMicros} µs awaited host time',
+                ),
+              if (authority.persistenceError != null)
+                _fact('COUNTER STORAGE ERROR', '${authority.persistenceError}'),
+              PanelTextAction(
+                label: 'REFRESH USAGE',
+                onTap: () {
+                  ref.invalidate(nativeDatasetReportProvider(installed.id));
+                  setState(() {});
+                },
+              ),
+            ],
+            if (installed != null &&
+                _candidate == null &&
+                !manifest.native) ...[
+              if (manifest.hostCapabilities.isNotEmpty)
+                for (final entry
+                    in ref
+                        .read(pluginHostRegistryProvider)
+                        .usage(installed)
+                        .entries)
+                  _fact(
+                    'HOST API ${entry.key}',
+                    '${entry.value.calls} calls · ${entry.value.failed} failed\n${entry.value.sentBytes} request bytes · ${entry.value.receivedBytes} response bytes\n${entry.value.elapsedMicros} µs awaited · current app session',
+                  ),
+              if (report!.isLoading) _fact('USAGE', 'LOADING'),
+              if (report.hasError) _fact('USAGE', '${report.error}'),
+              if (report.valueOrNull case final data?) ...[
+                _fact(
+                  'RUNTIME',
+                  '${data.residentVms} resident VMs · ${data.vmBytes} VM bytes',
+                ),
+                for (final inventory in data.inventory)
+                  _fact(
+                    'STORED ${inventory.dataset.name}',
+                    '${inventory.records} records · ${inventory.logicalBytes} logical bytes\n'
+                        '${inventory.fileBytes} bytes on disk, including journal',
+                  ),
+                if (data.inventory.isEmpty)
+                  _fact('STORAGE', 'No datasets created yet'),
+                for (final usage in data.usage)
+                  _fact(
+                    'API ${data.inventory.where((i) => i.dataset.identity == usage.dataset).firstOrNull?.dataset.name ?? usage.dataset}',
+                    '${usage.calls} calls · ${usage.denied} rejected\n'
+                        '${usage.readBytes} bytes read · ${usage.writtenBytes} bytes written\n'
+                        '${usage.puts} puts · ${usage.deletes} deletes · ${usage.proposals} proposals\n'
+                        '${usage.elapsedMicros} µs host total',
+                  ),
+              ],
+              if (metrics != null)
+                _fact(
+                  'LAST RUN',
+                  '${metrics.loadMicros} µs load · ${metrics.runMicros} µs script\n'
+                      '${metrics.dataWaitMicros} µs host · ${metrics.peakBytes} peak VM bytes\n'
+                      '${metrics.responseBytes} response bytes',
+                ),
+              PanelTextAction(
+                label: 'REFRESH USAGE',
+                onTap: () => ref.invalidate(
+                  pluginDataReportProvider((
+                    id: installed.id,
+                    origin: installed.package.origin,
+                  )),
+                ),
+              ),
+            ],
           ],
           if (_candidate != null)
             ActionBlock(
               label: _busy ? 'INSTALLING' : 'INSTALL',
               tone: DazzleColors.accent,
               filled: true,
-              onTap: _busy ? null : () => _change((p) => p.install(package)),
+              onTap: _busy ? null : () => _change((p) => p.install(package!)),
             ),
           if (_candidate == null && installed != null) ...[
             if (pending?.hasError == true)
@@ -404,15 +510,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
               spacing: Spacing.md,
               runSpacing: Spacing.md,
               children: [
-                ActionBlock(
-                  label: installed.enabled ? 'DISABLE' : 'ENABLE',
-                  onTap: _busy || !manifest.supported
-                      ? null
-                      : () => _change(
-                          (p) => p.setEnabled(installed.id, !installed.enabled),
-                        ),
-                ),
-                if (package.origin.startsWith('https:'))
+                if (package!.origin.startsWith('https:'))
                   ActionBlock(
                     label: 'UPDATE',
                     onTap: _busy
@@ -448,4 +546,347 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
       child: Text(value, style: DazzleText.rowSubtitle),
     ),
   );
+}
+
+class _PluginLayoutControls extends ConsumerWidget {
+  const _PluginLayoutControls({required this.plugin});
+
+  final InstalledPlugin plugin;
+
+  Future<void> _run(
+    BuildContext context,
+    Future<void> Function() action,
+  ) async {
+    try {
+      await action();
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$error')));
+      }
+    }
+  }
+
+  Future<void> _place(
+    BuildContext context,
+    WidgetRef ref,
+    PluginWidgetRegistration widget,
+    PluginPlacementLocation location,
+    PluginPlacementState state,
+  ) async {
+    final occupied = state.placements.entries
+        .where(
+          (entry) => entry.key != widget.stableId && entry.value == location,
+        )
+        .firstOrNull;
+    var replace = false;
+    if (occupied != null && location.exclusive) {
+      final catalog = ref.read(pluginContributionCatalogProvider);
+      final other = catalog.widget(occupied.key);
+      replace =
+          await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('REPLACE INPUT BAR?'),
+              content: Text(
+                '${other?.contribution.title ?? occupied.key} will leave the input bar. Its layout and data remain saved.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('CANCEL'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('REPLACE'),
+                ),
+              ],
+            ),
+          ) ==
+          true;
+      if (!replace) return;
+    }
+    if (!context.mounted) return;
+    await _run(
+      context,
+      () => ref
+          .read(pluginPlacementsProvider.notifier)
+          .placeWidget(widget.stableId, location, replaceExisting: replace),
+    );
+  }
+
+  Future<void> _pin(
+    BuildContext context,
+    WidgetRef ref,
+    PluginPageRegistration page,
+    PluginPlacementState state,
+  ) async {
+    final occupied = state.pinnedPages
+        .where((id) => id != page.stableId)
+        .firstOrNull;
+    var replace = false;
+    if (occupied != null) {
+      final other = ref.read(pluginContributionCatalogProvider).page(occupied);
+      replace =
+          await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('REPLACE NAVIGATION PAGE?'),
+              content: Text(
+                '${other?.contribution.title ?? occupied} stays available in Tools.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('CANCEL'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('REPLACE'),
+                ),
+              ],
+            ),
+          ) ==
+          true;
+      if (!replace) return;
+    }
+    if (!context.mounted) return;
+    await _run(
+      context,
+      () => ref
+          .read(pluginPlacementsProvider.notifier)
+          .setPagePinned(page.stableId, true, replaceExisting: replace),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final placements = ref.watch(pluginPlacementsProvider);
+    final owner = ref
+        .watch(pluginContributionCatalogProvider)
+        .owners
+        .where((owner) => owner.plugin.id == plugin.id)
+        .firstOrNull;
+    return SheetField(
+      label: 'YOUR LAYOUT',
+      child: placements.when(
+        loading: () => const Text('LOADING', style: DazzleText.rowSubtitle),
+        error: (error, _) => Text('$error', style: DazzleText.rowSubtitle),
+        data: (state) {
+          if (owner == null || (owner.widgets.isEmpty && owner.pages.isEmpty)) {
+            return const Text(
+              'THIS PLUGIN HAS NO PLACEABLE UI.',
+              style: DazzleText.rowSubtitle,
+            );
+          }
+          final controller = ref.read(pluginPlacementsProvider.notifier);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final widget in owner.widgets)
+                Material(
+                  type: MaterialType.transparency,
+                  child: ExpansionTile(
+                    key: ValueKey('layout-${widget.stableId}'),
+                    tilePadding: EdgeInsets.zero,
+                    childrenPadding: const EdgeInsets.only(bottom: Spacing.md),
+                    title: _PlacementPreview(widget: widget, state: state),
+                    children: [
+                      for (final location in PluginPlacementLocation.values)
+                        if (widget.contribution.locations.contains(location))
+                          PanelTextAction(
+                            label:
+                                '${state.placements[widget.stableId] == location ? "[ SET ] " : ""}${location == PluginPlacementLocation.homeCard ? "HOME CARD" : "INPUT BAR"}',
+                            onTap: state.placements[widget.stableId] == location
+                                ? null
+                                : () => _place(
+                                    context,
+                                    ref,
+                                    widget,
+                                    location,
+                                    state,
+                                  ),
+                          )
+                        else
+                          Text(
+                            '${location == PluginPlacementLocation.homeCard ? "HOME CARD" : "INPUT BAR"} · NOT SUPPORTED BY THIS PLUGIN',
+                            style: DazzleText.rowSubtitle,
+                          ),
+                      if (state.placements[widget.stableId] ==
+                          PluginPlacementLocation.homeCard) ...[
+                        PanelTextAction(
+                          label: state.hiddenHome.contains(widget.stableId)
+                              ? 'SHOW ON HOME'
+                              : 'HIDE ON HOME',
+                          onTap: () => _run(
+                            context,
+                            () => controller.setHomeHidden(
+                              widget.stableId,
+                              !state.hiddenHome.contains(widget.stableId),
+                            ),
+                          ),
+                        ),
+                        if (state.homeOrder.indexOf(widget.stableId) > 0)
+                          PanelTextAction(
+                            label: 'MOVE UP',
+                            onTap: () => _run(
+                              context,
+                              () => controller.reorderHome(
+                                widget.stableId,
+                                state.homeOrder.indexOf(widget.stableId) - 1,
+                              ),
+                            ),
+                          ),
+                        if (state.homeOrder.contains(widget.stableId) &&
+                            state.homeOrder.indexOf(widget.stableId) <
+                                state.homeOrder.length - 1)
+                          PanelTextAction(
+                            label: 'MOVE DOWN',
+                            onTap: () => _run(
+                              context,
+                              () => controller.reorderHome(
+                                widget.stableId,
+                                state.homeOrder.indexOf(widget.stableId) + 1,
+                              ),
+                            ),
+                          ),
+                      ],
+                      if (state.placements[widget.stableId] ==
+                          PluginPlacementLocation.homeComposer)
+                        PanelTextAction(
+                          label: 'REMOVE FROM INPUT BAR',
+                          onTap: () => _run(
+                            context,
+                            () => controller.setWidgetPlaced(
+                              widget.stableId,
+                              false,
+                            ),
+                          ),
+                        ),
+                      for (final size in widget.contribution.sizes)
+                        PanelTextAction(
+                          label:
+                              '${state.selectedSizes[widget.stableId] == size.id ? "[ SET ] " : ""}SIZE · ${size.title.toUpperCase()}',
+                          onTap: () => _run(
+                            context,
+                            () => controller.setWidgetSize(
+                              widget.stableId,
+                              size.id,
+                            ),
+                          ),
+                        ),
+                      if (widget.contribution
+                              .size(
+                                state.selectedSizes[widget.stableId] ??
+                                    widget.contribution.defaultSize,
+                              )
+                              .fixedWidth ==
+                          null) ...[
+                        PanelTextAction(
+                          label:
+                              '${state.selectedWidths.containsKey(widget.stableId) ? "" : "[ SET ] "}AUTO WIDTH',
+                          onTap: () => _run(
+                            context,
+                            () => controller.setWidgetWidth(
+                              widget.stableId,
+                              null,
+                            ),
+                          ),
+                        ),
+                        PanelTextAction(
+                          label:
+                              '${state.selectedWidths[widget.stableId] == widget.contribution.size(state.selectedSizes[widget.stableId] ?? widget.contribution.defaultSize).minWidth ? "[ SET ] " : ""}NARROW WIDTH',
+                          onTap: () {
+                            final size = widget.contribution.size(
+                              state.selectedSizes[widget.stableId] ??
+                                  widget.contribution.defaultSize,
+                            );
+                            _run(
+                              context,
+                              () => controller.setWidgetWidth(
+                                widget.stableId,
+                                size.minWidth,
+                              ),
+                            );
+                          },
+                        ),
+                        PanelTextAction(
+                          label:
+                              '${state.selectedWidths[widget.stableId] == widget.contribution.size(state.selectedSizes[widget.stableId] ?? widget.contribution.defaultSize).maxWidth ? "[ SET ] " : ""}WIDE WIDTH',
+                          onTap: () {
+                            final size = widget.contribution.size(
+                              state.selectedSizes[widget.stableId] ??
+                                  widget.contribution.defaultSize,
+                            );
+                            _run(
+                              context,
+                              () => controller.setWidgetWidth(
+                                widget.stableId,
+                                size.maxWidth,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              for (final page in owner.pages)
+                PanelTextAction(
+                  label: state.pinnedPages.contains(page.stableId)
+                      ? 'UNPIN ${page.contribution.title.toUpperCase()}'
+                      : 'PIN ${page.contribution.title.toUpperCase()} TO NAV',
+                  onTap: () => state.pinnedPages.contains(page.stableId)
+                      ? _run(
+                          context,
+                          () => controller.setPagePinned(page.stableId, false),
+                        )
+                      : _pin(context, ref, page, state),
+                ),
+              const Text(
+                'DONE · CHANGES SAVE IMMEDIATELY',
+                style: DazzleText.rowSubtitle,
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PlacementPreview extends StatelessWidget {
+  const _PlacementPreview({required this.widget, required this.state});
+
+  final PluginWidgetRegistration widget;
+  final PluginPlacementState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final contribution = widget.contribution;
+    final location = state.placements[widget.stableId];
+    final size = contribution.size(
+      state.selectedSizes[widget.stableId] ?? contribution.defaultSize,
+    );
+    final width = size.fixedWidth ?? state.selectedWidths[widget.stableId];
+    final shape = switch (location) {
+      PluginPlacementLocation.homeComposer => 'INPUT BAR',
+      PluginPlacementLocation.homeCard => 'HOME CARD',
+      null => 'NOT PLACED',
+    };
+    final dimensions = width == null
+        ? 'AUTO WIDTH'
+        : '${width.toStringAsFixed(0)} WIDE';
+    return Container(
+      margin: const EdgeInsets.only(bottom: Spacing.md),
+      padding: const EdgeInsets.all(Spacing.md),
+      decoration: BoxDecoration(
+        border: Border.all(color: DazzleColors.borderNormal),
+      ),
+      child: Text(
+        '${contribution.title.toUpperCase()} · $shape · $dimensions',
+        style: DazzleText.rowSubtitle,
+      ),
+    );
+  }
 }

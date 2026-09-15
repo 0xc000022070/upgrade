@@ -80,15 +80,15 @@ void main() {
     child: MaterialApp(home: child),
   );
 
-  testWidgets('HOME carries the SYS door and it opens SETTINGS', (
+  testWidgets('HOME carries the SETTINGS action and it opens SETTINGS', (
     tester,
   ) async {
     await tester.pumpWidget(host(const Scaffold(body: HomeScreen())));
     await _ready(tester);
 
-    expect(find.text('SYS'), findsOneWidget);
+    expect(find.bySemanticsLabel('SETTINGS'), findsOneWidget);
 
-    await tester.tap(find.text('SYS'));
+    await tester.tap(find.bySemanticsLabel('SETTINGS'));
     await _ready(tester);
 
     expect(find.text('SETTINGS'), findsOneWidget);

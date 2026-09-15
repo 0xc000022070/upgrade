@@ -63,7 +63,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
 
   @override
   void dispose() {
-    _visible.state = false;
+    if (_visible.mounted) _visible.state = false;
     super.dispose();
   }
 

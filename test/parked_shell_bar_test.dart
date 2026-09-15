@@ -152,6 +152,13 @@ void main() {
     await ready(tester);
 
     final line = find.byKey(const ValueKey('agent-status'));
+    expect(
+      ProviderScope.containerOf(
+        tester.element(find.byType(DazzleShell)),
+      ).read(navIndexProvider),
+      1,
+      reason: 'Loading plugin placements must not reset the selected page',
+    );
     expect(line, findsOneWidget);
     expect(bar, findsOneWidget);
 

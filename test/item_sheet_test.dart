@@ -16,6 +16,7 @@ import 'package:dazzle/data/views.dart';
 import 'package:dazzle/design/components/keyboard_toolbar.dart';
 import 'package:dazzle/design/components/dazzle_field.dart';
 import 'package:dazzle/features/tasks/item_sheet.dart';
+import 'package:dazzle/features/tasks/item_pickers.dart';
 import 'package:dazzle/features/tasks/link_text.dart';
 
 import 'support/platform_channels.dart';
@@ -87,6 +88,37 @@ void main() {
     return rows!.firstWhere((task) => task.id == id);
   }
 
+  testWidgets('empty filing choices explain plugin and project prerequisites', (
+    tester,
+  ) async {
+    for (final enabled in [false, true]) {
+      await tester.pumpWidget(
+        ProviderScope(
+          key: ValueKey(enabled),
+          overrides: featureTestOverrides(db, enabled: enabled),
+          child: MaterialApp(
+            home: Scaffold(
+              body: TargetPickerBody(
+                current: const ItemTarget.drops(),
+                onPicked: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await _ready(tester);
+      expect(
+        find.text(
+          enabled
+              ? 'Create a project in Projects to add a filing destination.'
+              : 'Enable Projects in Plugins to file this item into a project.',
+        ),
+        findsOneWidget,
+      );
+    }
+    await unmount(tester);
+  });
+
   testWidgets('the body carries location, links, mates and the block reason', (
     tester,
   ) async {
@@ -144,21 +176,53 @@ void main() {
     await _ready(tester);
 
     expect(find.text('DONE'), findsOneWidget);
-    expect(find.text('NEXT'), findsOneWidget);
-    expect(find.text('PAIR'), findsOneWidget);
+    expect(find.text('MARK NEXT'), findsOneWidget);
+    expect(find.text('GROUP WITH'), findsOneWidget);
     expect(find.text('BLOCK'), findsOneWidget);
     expect(find.text('DELETE'), findsOneWidget);
 
-    await tester.tap(find.text('NEXT'));
+    await tester.tap(find.text('MARK NEXT'));
     await _ready(tester);
-    expect(find.text('UNSET'), findsOneWidget);
+    expect(find.text('CLEAR NEXT'), findsOneWidget);
     expect((await reload(tester, task)).isNext, isTrue);
+
+    await tester.tap(find.text('CLEAR NEXT'));
+    await _ready(tester);
+    expect(find.text('MARK NEXT'), findsOneWidget);
+    expect((await reload(tester, task)).isNext, isFalse);
 
     await tester.tap(find.text('DONE'));
     await _ready(tester);
     expect(find.text('UNDO'), findsOneWidget);
     expect((await reload(tester, task)).done, isTrue);
 
+    await unmount(tester);
+  });
+
+  testWidgets('group actions name the relationship they change', (
+    tester,
+  ) async {
+    final project = await projects.create(name: 'Infra');
+    final task = await tasks.create(projectId: project, title: 'First task');
+    final mate = await tasks.create(projectId: project, title: 'Second task');
+    await tester.pumpWidget(host(task));
+    await _ready(tester);
+
+    await tester.tap(find.text('GROUP WITH'));
+    await _ready(tester);
+    expect(find.text('GROUP WITH'), findsOneWidget);
+    await tester.tap(find.text('Second task'));
+    await _ready(tester);
+    expect(find.text('LEAVE GROUP'), findsOneWidget);
+    expect(
+      (await reload(tester, task)).bundleId,
+      (await reload(tester, mate)).bundleId,
+    );
+
+    await tester.tap(find.text('LEAVE GROUP'));
+    await _ready(tester);
+    expect((await reload(tester, task)).bundleId, isNull);
+    expect(find.text('GROUP WITH'), findsOneWidget);
     await unmount(tester);
   });
 
@@ -175,7 +239,7 @@ void main() {
       // going blank.
       expect(find.text('DROPS'), findsOneWidget);
       expect(find.text('MOVE'), findsOneWidget);
-      for (final verb in ['NEXT', 'PAIR', 'BLOCK']) {
+      for (final verb in ['MARK NEXT', 'GROUP WITH', 'BLOCK']) {
         expect(find.text(verb), findsNothing, reason: '$verb is a state');
       }
 
@@ -263,7 +327,7 @@ void main() {
     await _ready(tester);
 
     expect(find.text('INFRA PERSONAL / DROPS'), findsOneWidget);
-    for (final verb in ['DONE', 'NEXT', 'MOVE', 'PAIR', 'BLOCK']) {
+    for (final verb in ['DONE', 'MARK NEXT', 'MOVE', 'GROUP WITH', 'BLOCK']) {
       expect(find.text(verb), findsOneWidget, reason: '$verb is a task verb');
     }
 

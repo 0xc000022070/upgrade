@@ -2,9 +2,11 @@ import 'dart:io';
 
 import 'package:dazzle/app/builtin_plugins.dart';
 import 'package:dazzle/application/native_plugins.dart';
+import 'package:dazzle/application/plugin_placements.dart';
 import 'package:dazzle/application/plugins.dart';
 import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/plugin_placement_repository.dart';
 import 'package:dazzle/platform/plugins/manifest.dart';
 import 'package:dazzle/platform/plugins/store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,6 +37,9 @@ List<Override> featureTestOverrides(AppDatabase db, {bool enabled = true}) {
     nativeModulesProvider.overrideWithValue(builtinModules),
     pluginBootCatalogProvider.overrideWithValue(catalog),
     pluginsProvider.overrideWith(() => _FixturePlugins(catalog)),
+    pluginPlacementRepositoryProvider.overrideWith(
+      (ref) async => PluginPlacementRepository.memory(),
+    ),
   ];
 }
 
