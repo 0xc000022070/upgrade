@@ -117,6 +117,10 @@ class PluginManifest {
     this.hostCapabilities = const {},
     this.uiVersion,
     this.files = const [],
+    this.author,
+    this.homepage,
+    this.license,
+    this.summary,
   });
   static const manifestVersion = 2;
   static const nativeManifestVersion = 3;
@@ -150,6 +154,10 @@ class PluginManifest {
   final Map<String, PluginHostCapability> hostCapabilities;
   final int? uiVersion;
   final List<String> files;
+  final String? author;
+  final String? homepage;
+  final String? license;
+  final String? summary;
   bool get supported => incompatibility == null;
 
   factory PluginManifest.parse(
@@ -169,6 +177,10 @@ class PluginManifest {
       final id = _identifier(root['id']);
       final name = _text(root['name'], 'name', 80);
       final purpose = _text(root['purpose'] ?? name, 'purpose', 160);
+      final author = _optionalText(root['author'], 'author', 80);
+      final homepage = _optionalText(root['homepage'], 'homepage', 200);
+      final license = _optionalText(root['license'], 'license', 64);
+      final summary = _optionalText(root['summary'], 'summary', 140);
       final version = Version.parse(_text(root['version'], 'version', 64));
       final api = VersionConstraint.parse(
         _text(root['dazzle_api'], 'dazzle_api', 128),
@@ -215,6 +227,10 @@ class PluginManifest {
           capabilities: const {},
           formatVersion: format,
           incompatibility: incompatible,
+          author: author,
+          homepage: homepage,
+          license: license,
+          summary: summary,
         );
       }
       if (native) {
@@ -231,6 +247,10 @@ class PluginManifest {
           'exports',
           'contributes',
           'datasets',
+          'author',
+          'homepage',
+          'license',
+          'summary',
         });
         _keys(runtime, {'kind', 'entry'});
         if (!RegExp(r'^[a-z][a-z0-9_/-]*\.dart$').hasMatch(entry) ||
@@ -340,6 +360,10 @@ class PluginManifest {
             for (final surface in surfaces)
               PluginPermission('ui.$surface', 'Contribute $surface'),
           }),
+          author: author,
+          homepage: homepage,
+          license: license,
+          summary: summary,
         );
       }
       _keys(root, {
@@ -355,6 +379,10 @@ class PluginManifest {
         'contributes',
         'datasets',
         'capabilities',
+        'author',
+        'homepage',
+        'license',
+        'summary',
         if (uiRuntime || filesRuntime) 'ui_api',
         if (uiRuntime || filesRuntime) 'host_capabilities',
         if (filesRuntime) 'files',
@@ -612,6 +640,10 @@ class PluginManifest {
         uiVersion: hasUi ? 1 : null,
         formatVersion: format,
         files: List.unmodifiable(declaredFiles),
+        author: author,
+        homepage: homepage,
+        license: license,
+        summary: summary,
       );
     } on PluginException {
       rethrow;
@@ -643,6 +675,9 @@ String _text(Object? value, String field, int limit) {
   }
   return value;
 }
+
+String? _optionalText(Object? value, String field, int limit) =>
+    value == null ? null : _text(value, field, limit);
 
 void _luauPath(String path, String field) {
   if (!RegExp(r'^[A-Za-z0-9_/-]+\.luau$').hasMatch(path) ||

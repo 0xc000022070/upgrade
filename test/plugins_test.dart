@@ -91,6 +91,20 @@ id = "main"
 title = "Main"
 ''';
 
+String listingManifest({
+  String? author = 'Ada Lovelace',
+  String? homepage = 'https://example.com',
+  String? license = 'MIT',
+  String? summary = 'Short blurb',
+}) => manifest().replaceFirst(
+  '[runtime]',
+  '${author == null ? '' : 'author = "$author"\n'}'
+      '${homepage == null ? '' : 'homepage = "$homepage"\n'}'
+      '${license == null ? '' : 'license = "$license"\n'}'
+      '${summary == null ? '' : 'summary = "$summary"\n'}'
+      '[runtime]',
+);
+
 class _FakeResponse {
   const _FakeResponse(this.statusCode, this.body);
   final int statusCode;
@@ -236,6 +250,8 @@ void main() {
       'too many files': filesManifest(
         files: List.generate(32, (i) => 'lib/f$i.luau'),
       ),
+      'oversized author': listingManifest(author: 'A' * 81),
+      'blank license': listingManifest(license: '   '),
     };
     for (final entry in malformed.entries) {
       test('rejects ${entry.key}', () {
@@ -270,6 +286,20 @@ void main() {
       expect(parsed.files, ['lib/util.luau']);
     });
 
+    test('listing fields are optional and absent by default', () {
+      final bare = PluginManifest.parse(manifest());
+      expect(bare.author, isNull);
+      expect(bare.homepage, isNull);
+      expect(bare.license, isNull);
+      expect(bare.summary, isNull);
+
+      final listed = PluginManifest.parse(listingManifest());
+      expect(listed.author, 'Ada Lovelace');
+      expect(listed.homepage, 'https://example.com');
+      expect(listed.license, 'MIT');
+      expect(listed.summary, 'Short blurb');
+    });
+
     test(
       'format 4 without ui_api is rejected fresh, retained as unsupported',
       () {
@@ -297,20 +327,6 @@ void main() {
         expect(retained.incompatibility, 'Unsupported UI API version');
       },
     );
-
-    test('listing fields are optional and absent by default', () {
-      final bare = PluginManifest.parse(manifest());
-      expect(bare.author, isNull);
-      expect(bare.homepage, isNull);
-      expect(bare.license, isNull);
-      expect(bare.summary, isNull);
-
-      final listed = PluginManifest.parse(listingManifest());
-      expect(listed.author, 'Ada Lovelace');
-      expect(listed.homepage, 'https://example.com');
-      expect(listed.license, 'MIT');
-      expect(listed.summary, 'Short blurb');
-    });
 
     test(
       'topological order, missing dependency, cycles, incompatible version',
