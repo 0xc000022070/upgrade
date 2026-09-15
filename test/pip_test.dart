@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,10 +7,13 @@ import 'package:dazzle/application/agents.dart';
 import 'package:dazzle/application/pip.dart';
 import 'package:dazzle/app/pip_host.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/features/agents/pip_panel.dart';
 import 'package:dazzle/features/home/agent_mark.dart';
 import 'package:dazzle/features/home/agents_panel.dart';
 import 'package:dazzle/platform/herdr_client.dart';
+
+import 'support/fake_pip.dart';
 
 const nyx = Host(
   id: 'a',
@@ -47,27 +48,6 @@ AgentPanelState panel(List<AgentSnapshot> agents, {Host on = nyx}) =>
       HostOutcome(host: on, kind: AgentOutcomeKind.snapshot, agents: agents),
     ]);
 
-/// A window that records what it was told rather than asking an activity.
-class FakePip implements PipSurface {
-  FakePip({this.here = true});
-
-  final bool here;
-  var entries = 0;
-  final modes = StreamController<bool>.broadcast();
-
-  @override
-  Future<bool> available() async => here;
-
-  @override
-  Future<bool> enter() async {
-    entries++;
-    return here;
-  }
-
-  @override
-  Stream<bool> mode() => modes.stream;
-}
-
 Widget harness(
   FakePip pip,
   Stream<AgentPanelState> agents,
@@ -90,6 +70,17 @@ Widget harness(
     ),
   ),
 );
+
+/// A second harness pumped under the same scope keeps the first one's feed: a
+/// stream override is read once. Each case gets a scope of its own.
+Future<void> clear(WidgetTester tester) =>
+    tester.pumpWidget(const SizedBox.shrink());
+
+/// Whether `PIP` is drawn in the disabled grey rather than the resting ink.
+bool dimmed(WidgetTester tester) {
+  final text = tester.widget<Text>(find.text('PIP'));
+  return text.style?.color == DazzleColors.textDisabled;
+}
 
 /// The rows drawn on the window, in the order they were drawn, as the reader
 /// sees them. They are spans rather than whole strings, so the plain text of
@@ -136,7 +127,7 @@ void main() {
       expect(pip.entries, 1);
     });
 
-    testWidgets('quiet, stale, and unsupported feeds have no button', (
+    testWidgets('quiet and stale feeds keep a dim word that does nothing', (
       tester,
     ) async {
       final pip = FakePip();
@@ -148,8 +139,17 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('PIP'), findsNothing);
 
+      // Drawn, so the action is learnt where it lives; dim, so it is not read
+      // as an offer; and inert, because a window over nothing is a tile the
+      // user then has to go and close.
+      expect(find.text('PIP'), findsOneWidget);
+      expect(dimmed(tester), isTrue);
+      await tester.tap(find.text('PIP'), warnIfMissed: false);
+      await tester.pump();
+      expect(pip.entries, 0);
+
+      await clear(tester);
       await tester.pumpWidget(
         harness(
           pip,
@@ -159,8 +159,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('PIP'), findsNothing);
 
+      expect(find.text('PIP'), findsOneWidget);
+      expect(dimmed(tester), isTrue);
+      await tester.tap(find.text('PIP'), warnIfMissed: false);
+      await tester.pump();
+      expect(pip.entries, 0);
+    });
+
+    testWidgets('no window and no host leave nothing to draw', (tester) async {
       await tester.pumpWidget(
         harness(
           FakePip(here: false),
@@ -170,6 +177,49 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('PIP'), findsNothing);
+
+      await clear(tester);
+      await tester.pumpWidget(
+        harness(
+          FakePip(),
+          Stream.value(const AgentPanelState.noHost()),
+          const AgentsPanel(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('PIP'), findsNothing);
+    });
+
+    testWidgets('the corner window keeps the feed live', (tester) async {
+      final container = ProviderContainer(
+        overrides: [homeAgentsVisibleProvider.overrideWith((ref) => true)],
+      );
+      addTearDown(container.dispose);
+      final live = container.listen(agentsFeedLiveProvider, (_, _) {});
+      addTearDown(live.close);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump(Duration.zero);
+      expect(container.read(agentsFeedLiveProvider), isTrue);
+
+      // Entering picture-in-picture pauses the activity, which the framework
+      // reports as inactive. The app is still on the screen, so the poll behind
+      // the window keeps going; the shell's wake and the drops read the
+      // stricter answer.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump(Duration.zero);
+      expect(container.read(agentsFeedLiveProvider), isTrue);
+      expect(container.read(appForegroundProvider), isFalse);
+
+      // Behind another app, or swiped away: nobody to count for.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump(Duration.zero);
+      expect(container.read(agentsFeedLiveProvider), isFalse);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump(Duration.zero);
+      expect(container.read(agentsFeedLiveProvider), isTrue);
+      expect(container.read(appForegroundProvider), isTrue);
     });
   });
 

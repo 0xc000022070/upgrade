@@ -42,6 +42,7 @@ enum DazzleIcons {
   note('note'),
   pending('pending'),
   pin('pin'),
+  pip('pip'),
   plugins('plugins'),
   priority('priority'),
   progressMarker('progress-marker'),

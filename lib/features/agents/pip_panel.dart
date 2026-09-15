@@ -44,11 +44,11 @@ class PipPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // The feed keeps handing out its last state after the poll behind it stops,
     // so a count read straight off it is not evidence that anything is counting.
-    // It matters more here than anywhere else in the app: entering the window
-    // pauses the activity, which is itself enough to drop the watcher's own
-    // gate, and there is no way back out of picture-in-picture from this side.
-    // A window that trusted the value would park a frozen tally over whatever
-    // the user left to do and stay there until they came back for it.
+    // It matters more here than anywhere else in the app: the watcher can stop
+    // while the window is up, and there is no way back out of
+    // picture-in-picture from this side. A window that trusted the value would
+    // park a frozen tally over whatever the user left to do and stay there
+    // until they came back for it.
     final live = ref.watch(agentsFeedLiveProvider);
     final window = _read(live, ref.watch(agentsFeedProvider).valueOrNull);
 

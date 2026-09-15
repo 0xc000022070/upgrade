@@ -215,19 +215,23 @@ final hostIntegrationsProvider =
 
 final homeAgentsVisibleProvider = StateProvider<bool>((ref) => false);
 
-class AppForegroundNotifier extends StateNotifier<bool>
+/// One yes-or-no reading of the activity's lifecycle, kept current by the
+/// framework. A notifier rather than a provider derived from the state, so
+/// that a listener hears the change in the same call the framework makes.
+class AppLifecycleReading extends StateNotifier<bool>
     with WidgetsBindingObserver {
-  AppForegroundNotifier()
-    : super(
-        WidgetsBinding.instance.lifecycleState == null ||
-            WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
-      ) {
+  AppLifecycleReading(this.reads)
+    : super(reads(WidgetsBinding.instance.lifecycleState ?? _resumed)) {
     WidgetsBinding.instance.addObserver(this);
   }
 
+  static const _resumed = AppLifecycleState.resumed;
+
+  final bool Function(AppLifecycleState state) reads;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    this.state = state == AppLifecycleState.resumed;
+    this.state = reads(state);
   }
 
   @override
@@ -237,10 +241,23 @@ class AppForegroundNotifier extends StateNotifier<bool>
   }
 }
 
-final appForegroundProvider =
-    StateNotifierProvider<AppForegroundNotifier, bool>(
-      (ref) => AppForegroundNotifier(),
-    );
+/// In front and taking input. The shell wakes on this and the drops clear on
+/// it, and neither wants the corner window counted as the user coming back.
+final appForegroundProvider = StateNotifierProvider<AppLifecycleReading, bool>(
+  (ref) => AppLifecycleReading((state) => state == AppLifecycleState.resumed),
+);
+
+/// On the screen, in front or not. Picture-in-picture pauses the activity
+/// into `inactive`, and the window in the corner is the app still being looked
+/// at; `paused` is the app behind another app or swiped away, which is when
+/// there is nobody to count for.
+final appVisibleProvider = StateNotifierProvider<AppLifecycleReading, bool>(
+  (ref) => AppLifecycleReading(
+    (state) =>
+        state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive,
+  ),
+);
 
 /// Nothing outside this typedef's implementation names a transport.
 /// Today it is ssh; a backend proxying herdr replaces [HerdrClient] and no host,
@@ -316,8 +333,7 @@ final agentsFeedLiveProvider = Provider<bool>((ref) {
   // The watcher dials on its own schedule from a foreground service, so it
   // keeps the feed current from any screen and with the app behind another app.
   if (ref.watch(watcherFeedProvider).valueOrNull != null) return true;
-  return ref.watch(homeAgentsVisibleProvider) &&
-      ref.watch(appForegroundProvider);
+  return ref.watch(homeAgentsVisibleProvider) && ref.watch(appVisibleProvider);
 });
 
 final agentsFeedProvider = StreamProvider<AgentPanelState>((ref) {
