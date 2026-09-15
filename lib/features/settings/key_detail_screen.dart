@@ -60,7 +60,7 @@ class KeyDetailScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'KEY',
-          breadcrumb: '/ DAZZLE / HOSTS',
+          breadcrumb: '/ PERSONAL CONTROL PLANE / HOSTS / KEYS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(
@@ -136,9 +136,7 @@ class _DeleteBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = enabled
-        ? DazzleColors.warning
-        : DazzleColors.textDisabled;
+    final tone = enabled ? DazzleColors.warning : DazzleColors.textDisabled;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: enabled ? onTap : null,
@@ -149,10 +147,7 @@ class _DeleteBar extends StatelessWidget {
           border: Border.all(color: tone),
           borderRadius: BorderRadius.circular(Radii.sharp),
         ),
-        child: Text(
-          label,
-          style: DazzleText.valueStrong.copyWith(color: tone),
-        ),
+        child: Text(label, style: DazzleText.valueStrong.copyWith(color: tone)),
       ),
     );
   }

@@ -63,7 +63,7 @@ class _NewKeyScreenState extends ConsumerState<NewKeyScreen> {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'NEW KEY',
-          breadcrumb: '/ DAZZLE / HOSTS',
+          breadcrumb: '/ PERSONAL CONTROL PLANE / HOSTS / KEYS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             FieldPanel(

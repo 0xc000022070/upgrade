@@ -51,6 +51,7 @@ enum DazzleIcons {
   search('search'),
   settings('settings'),
   submit('submit'),
+  sshKey('ssh-key'),
   superKey('super'),
   sync('sync'),
   task('task'),
