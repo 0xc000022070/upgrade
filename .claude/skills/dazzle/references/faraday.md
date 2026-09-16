@@ -12,6 +12,6 @@ Faraday is the user's Pixel 10 Pro Fold. It holds real data. Review surface only
     `d6b7cdfb8d0a5c0017e317b7db27f3fb3ce0b3f650f28ca6b989c4582f5d7e5e`.
 - Drive the device with the `phone` CLI, never raw adb. `phone device list` must show faraday `attached/tcp`; if it is `known` or `offline`, `phone device connect faraday`.
 - Install in place only: `phone app install -t faraday <apk>`. Never `phone up` against faraday: it launches the app, and the user opens it themselves.
-- Confirm (the one thing `phone` has no verb for): `adb -s faraday:5555 shell dumpsys package dev.luisnquin.dazzle` shows the new `versionCode`, `firstInstallTime=2026-09-01 15:08:22` unchanged, `signatures:[90230224]`.
+- Confirm (the one thing `phone` has no verb for): `adb -s <serial> shell dumpsys package dev.luisnquin.dazzle` (serial from `phone device list --json`; `faraday:5555` only when the transport is wireless) shows the new `versionCode`, `firstInstallTime=2026-09-12 20:41:45` unchanged, `signatures:[90230224]`.
 - Never tap, type, `uninstall`, `pm clear`, or install a differently signed apk on it.
 - Record the push in memory with the lastUpdateTime.
