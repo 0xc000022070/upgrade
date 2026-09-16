@@ -1251,10 +1251,139 @@ void main() {
       await _settle();
 
       final marks = transport.opened.single.execs;
-      expect(marks.map((exec) => exec.command), [pinentryMarkCommand]);
+      expect(marks.map((exec) => exec.command), [
+        pinentryMarkCommand(session.tab),
+      ]);
       expect(marks.single.stdin, isNull);
 
       await sessions.close(_rose.id, session);
+    });
+
+    test('a bell asks the host what is open and takes the answer', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+      final payload = base64Encode(
+        utf8.encode(jsonEncode({'mode': 'pin', 'desc': 'the key'})),
+      );
+      connection.answerWith('../x $payload\n$id $payload\n');
+
+      connection.emit('\x07');
+      await _settle();
+      await _settle();
+
+      expect(connection.execs.last.command, pinentryOpenCommand());
+      expect(connection.execs.last.stdin, isNull);
+      expect(session.pin?.id, id);
+      expect(session.pin?.desc, 'the key');
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test('a bell with nothing open withdraws the request', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      connection.emit(osc({'mode': 'pin'}));
+      await _settle();
+      expect(session.pin, isNotNull);
+
+      connection.emit('\x07');
+      await _settle();
+      await _settle();
+      expect(session.pin, isNull);
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test(
+      'bells that land while the host is asked fold into one more',
+      () async {
+        final transport = FakeShellTransport();
+        final sessions = fakeShellSessions(transport);
+        final session = sessions.open(_rose)!;
+        await _settle();
+        final connection = transport.opened.single;
+
+        connection.emit('\x07\x07\x07\x07');
+        await _settle();
+        await _settle();
+        await _settle();
+
+        final asks = connection.execs
+            .where((exec) => exec.command == pinentryOpenCommand())
+            .length;
+        expect(asks, 2);
+
+        await sessions.close(_rose.id, session);
+      },
+    );
+
+    test('a tab holding a request asks again until it is gone', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(
+        transport,
+        pinRecheck: const Duration(milliseconds: 10),
+      );
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+      final payload = base64Encode(
+        utf8.encode(jsonEncode({'mode': 'pin', 'desc': 'the key'})),
+      );
+      int asks() => connection.execs
+          .where((exec) => exec.command == pinentryOpenCommand())
+          .length;
+
+      connection.answerWith('$id $payload\n');
+      connection.emit('\x07');
+      await _settle();
+      await _settle();
+      expect(session.pin?.id, id);
+      expect(asks(), 1);
+
+      await Future<void>.delayed(const Duration(milliseconds: 35));
+      expect(asks(), greaterThan(1));
+      expect(session.pin?.id, id);
+
+      connection.answerWith('');
+      await Future<void>.delayed(const Duration(milliseconds: 35));
+      expect(session.pin, isNull);
+      final settled = asks();
+      await Future<void>.delayed(const Duration(milliseconds: 35));
+      expect(asks(), settled);
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test('an answer settles the request on every tab of the host', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final first = sessions.open(_rose)!;
+      final second = sessions.open(_rose)!;
+      await _settle();
+      final connections = transport.opened;
+      connections[0].emit(osc({'mode': 'pin'}));
+      connections[1].emit(osc({'mode': 'pin'}));
+      await _settle();
+      expect(first.pin?.id, id);
+      expect(second.pin?.id, id);
+
+      await sessions.answerPin(first, 'hunter2');
+      expect(first.pin, isNull);
+      expect(second.pin, isNull);
+      expect(
+        connections[1].execs.map((exec) => exec.command),
+        isNot(contains(pinentryAnswerCommand(id))),
+      );
+
+      await sessions.close(_rose.id, first);
+      await sessions.close(_rose.id, second);
     });
 
     test('an answer goes down the fifo on stdin, never on the line', () async {
@@ -1313,7 +1442,7 @@ void main() {
 
         await sessions.answerPin(session, 'hunter2');
         expect(connection.execs.map((exec) => exec.command), [
-          pinentryMarkCommand,
+          pinentryMarkCommand(session.tab),
         ]);
 
         await sessions.close(_rose.id, session);
@@ -1340,7 +1469,7 @@ void main() {
       expect(session.state, isA<ShellLive>());
       expect(transport.opened, hasLength(2));
       expect(transport.opened.last.execs.map((exec) => exec.command), [
-        pinentryMarkCommand,
+        pinentryMarkCommand(session.tab),
       ]);
 
       await sessions.close(_rose.id, session);

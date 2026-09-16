@@ -220,16 +220,53 @@ class RemoteFile {
 const pinentryGateDirectory =
     r'${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pinentry-gate';
 
-/// Marks this connection's shell as a place to ask. Run on an exec channel of
-/// the same connection: the channel's parent is the sshd session that also
-/// holds the shell, so `$PPID` names it, and the pty under that session is
-/// the shell's. The mark is the pid, which is what lets the pinentry tell a
-/// live mark from one whose session ended.
-final pinentryMarkCommand = underSh(
-  'd="$pinentryGateDirectory" && mkdir -p "\$d/tty" && chmod 700 "\$d" && '
-  't=\$(ps -eo ppid=,tty= | awk -v p="\$PPID" '
-  "'\$1 == p && \$2 ~ /^pts\\// { print \$2; exit }') && "
-  '[ -n "\$t" ] && printf %s "\$PPID" > "\$d/tty/pts-\${t#pts/}"',
+/// Marks this tab's pty as a place to ask. Run on an exec channel of the
+/// tab's connection.
+///
+/// The pty is the one the tab's shell sits on, and what holds it is either
+/// this connection's own sshd session, which is the channel's parent, or the
+/// Mosh server the tab was started under, found by the tab's mark in its
+/// environment: a Mosh shell hangs off a server that let go of the ssh
+/// session that started it the moment it came up, so the channel's parent
+/// owns no pty then. The mark is the holder's pid, which is what lets the
+/// pinentry tell a live mark from one whose holder ended.
+String pinentryMarkCommand(String tab) {
+  assert(durableShellSession.hasMatch(tab));
+  return underSh(
+    'exec 2>/dev/null; '
+    'd="$pinentryGateDirectory" && mkdir -p "\$d/tty" && chmod 700 "\$d" '
+    '|| exit 1; '
+    'h=\$PPID; '
+    'for p in /proc/[0-9]*; do '
+    'tr "\\000" "\\n" < "\$p/environ" | grep -qx "$moshTabVariable=$tab" '
+    '|| continue; '
+    'a=\$(tr "\\000" " " < "\$p/cmdline"); '
+    'case "\${a%% *}" in mosh-server|*/mosh-server) h="\$h \${p##*/}";; esac; '
+    'done; '
+    'ps -eo ppid=,tty= | awk -v h="\$h" '
+    "'BEGIN { n = split(h, k, \" \"); for (i = 1; i <= n; i++) w[k[i]] = 1 } "
+    "(\$1 in w) && \$2 ~ /^pts\\// { print \$1, \$2 }' | "
+    'while read -r q t; do printf %s "\$q" > "\$d/tty/pts-\${t#pts/}"; done',
+  );
+}
+
+/// Lists what the host's pinentry holds open, one request per line: the id, a
+/// space, the payload its OSC carries. Run on the tab's connection when the
+/// tab hears the bell.
+///
+/// The OSC reaches a tab whole over ssh, but a Mosh shell's pty ends at a
+/// server that ships a screen and not a byte stream, and an OSC it does not
+/// know never leaves the host — the bell the pinentry rings after it does. So
+/// the bell is the signal and the host is the source, on both transports. A
+/// request is open while its fifo stands; the json beside it is what the OSC
+/// would have said. A host without the pinentry answers nothing, and exits 0
+/// doing it.
+String pinentryOpenCommand() => underSh(
+  'exec 2>/dev/null; d="$pinentryGateDirectory"; '
+  'for f in "\$d"/*.json; do '
+  'i=\${f##*/}; i=\${i%.json}; [ -p "\$d/\$i" ] || continue; '
+  'printf "%s %s\\n" "\$i" "\$(base64 < "\$f" | tr -d "\\n")"; '
+  'done; exit 0',
 );
 
 /// What a request's id looks like; anything else is not one and is never put

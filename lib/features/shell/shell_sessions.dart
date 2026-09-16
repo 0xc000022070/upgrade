@@ -208,6 +208,24 @@ class PinRequest {
     }
   }
 
+  /// What the host answered about its open requests: one per line, the id
+  /// and the payload with a space between, in the order the host listed them.
+  /// A line that is not a request is skipped rather than fatal, because the
+  /// list is read off a directory a user's processes share.
+  static List<PinRequest> decodeOpen(String listing) {
+    final requests = <PinRequest>[];
+    for (final line in listing.split('\n')) {
+      final space = line.indexOf(' ');
+      if (space <= 0) continue;
+      final request = decode(
+        line.substring(0, space),
+        line.substring(space + 1).trim(),
+      );
+      if (request != null) requests.add(request);
+    }
+    return requests;
+  }
+
   final String id;
   final String mode;
   final String desc;
@@ -338,6 +356,11 @@ class ShellSession extends ChangeNotifier {
   /// [pane].
   final String? remoteSession;
 
+  /// What the host knows this tab by: [remoteSession] when the tab has one,
+  /// the shell's own [mark] otherwise. The Mosh server is marked with it and
+  /// a pinentry mark is looked up by it.
+  String get tab => remoteSession ?? mark;
+
   /// The herdr pane [command] attaches this tab to, so a tap on that agent
   /// finds this tab rather than opening another. Persisted beside the tab so
   /// a killed app attaches the same pane rather than opening a bare shell.
@@ -377,6 +400,14 @@ class ShellSession extends ChangeNotifier {
   /// the OSC, cleared by the answer, by `done`, and by the link going: a
   /// request outlives none of the connection it arrived on.
   PinRequest? pin;
+  var _asking = false;
+  var _askAgain = false;
+  Timer? _reask;
+
+  void _stopAsking() {
+    _reask?.cancel();
+    _reask = null;
+  }
 
   /// What the host answered about its clipboard on this connection. Null
   /// until asked, and dropped with the connection: the answer is about the
@@ -494,7 +525,12 @@ class ShellSessions extends ChangeNotifier {
     required this.pinHostKey,
     this.tabs,
     ShellOpener? open,
+    this.pinRecheck = const Duration(seconds: 5),
   }) : _open = open ?? const ShellTunnel().open;
+
+  /// How long a tab holding a request waits before asking the host again
+  /// whether it still stands. Short only in a test.
+  final Duration pinRecheck;
 
   final Future<String?> Function(String keyId) readPrivateKey;
 
@@ -851,6 +887,7 @@ class ShellSessions extends ChangeNotifier {
     session._disown();
     session._reconnect?.cancel();
     session._reconnect = null;
+    session._stopAsking();
     session.disarm();
     _byHost[hostId]?.remove(session);
     if (_active[hostId] == session.number) {
@@ -931,6 +968,7 @@ class ShellSessions extends ChangeNotifier {
       session.title = title;
       session.changed();
     };
+    session.terminal.onBell = () => unawaited(_askHost(session));
     session.terminal.onPrivateOSC = (code, args) {
       if (code == cwdOsc) {
         final cwd = args.isEmpty ? null : cwdFromOsc(args.first);
@@ -951,6 +989,7 @@ class ShellSessions extends ChangeNotifier {
         case 'done':
           if (session.pin?.id != args[1]) return;
           session.pin = null;
+          session._stopAsking();
           session.changed();
       }
     };
@@ -1033,15 +1072,67 @@ class ShellSessions extends ChangeNotifier {
     session.changed();
   }
 
-  /// Tells the host's pinentry that this shell's pty is a place to ask. On
-  /// the shell's own connection, so the channel's parent is the sshd session
-  /// the shell hangs off and the mark names it. A host without the pinentry
-  /// gets a directory nobody reads, and a host whose `ps` disagrees gets
-  /// nothing; neither is worth a word in the terminal.
-  Future<void> _mark(ShellConnection connection) async {
+  /// Tells the host's pinentry that this tab's pty is a place to ask. On the
+  /// tab's own connection, so the channel's parent is the sshd session an ssh
+  /// shell hangs off, and with the tab's mark, which is how a Mosh shell's
+  /// server is found. A host without the pinentry gets a directory nobody
+  /// reads, and a host whose process table disagrees gets nothing; neither is
+  /// worth a word in the terminal.
+  Future<void> _mark(ShellSession session, ShellConnection connection) async {
     try {
-      await connection.exec(pinentryMarkCommand);
+      await connection.exec(pinentryMarkCommand(session.tab));
     } catch (_) {}
+  }
+
+  /// What a bell means to a tab: the host's pinentry may have rung it, so the
+  /// tab asks the host what it holds open and takes the answer as its request
+  /// or as the request's withdrawal. The OSC says the same thing sooner over
+  /// ssh; under Mosh only the bell gets through, so the bell is the signal on
+  /// both and the host is the source. A request the tab already holds is not
+  /// replaced by itself. Bells that land while the host is being asked fold
+  /// into one more ask: a program that beeps ten times costs one exec, not
+  /// ten, and a bell that is nobody's costs one that answers nothing. The
+  /// answer is dropped when the connection it was asked on is no longer the
+  /// tab's — what came back is about a link that is gone.
+  ///
+  /// A tab holding a request asks again after [pinRecheck], for as long as it
+  /// holds one. Mosh rings once per frame it ships, so a request and its
+  /// `done` inside one frame ring once, and a tab whose only ask landed while
+  /// the request stood would keep it after the computer answered. The extra
+  /// asks last exactly as long as the request does.
+  Future<void> _askHost(ShellSession session) async {
+    if (session._asking) {
+      session._askAgain = true;
+      return;
+    }
+    session._asking = true;
+    session._stopAsking();
+    try {
+      do {
+        session._askAgain = false;
+        final connection = session.connection;
+        if (connection == null) return;
+        final ExecResult result;
+        try {
+          result = await connection.exec(pinentryOpenCommand());
+        } catch (_) {
+          return;
+        }
+        if (!result.ok || !identical(session.connection, connection)) return;
+        final open = PinRequest.decodeOpen(result.out);
+        final next = open.isEmpty ? null : open.first;
+        if (next?.id != session.pin?.id) {
+          session.pin = next;
+          session.changed();
+        }
+      } while (session._askAgain);
+    } finally {
+      session._asking = false;
+      session._askAgain = false;
+      if (session.pin != null && session.connection != null) {
+        session._reask = Timer(pinRecheck, () => unawaited(_askHost(session)));
+      }
+    }
   }
 
   /// Answers the request the tab is holding. Null is the cancel, which is a
@@ -1053,7 +1144,16 @@ class ShellSessions extends ChangeNotifier {
     final connection = session.connection;
     if (request == null) return;
     session.pin = null;
+    session._stopAsking();
     session.changed();
+    // One request, one fifo: the answer settles it on every tab of the host
+    // that heard the same bell, before any of them can ask for it again.
+    for (final other in forHost(session.host.id)) {
+      if (identical(other, session) || other.pin?.id != request.id) continue;
+      other.pin = null;
+      other._stopAsking();
+      other.changed();
+    }
     if (connection == null) return;
     try {
       await connection.exec(
@@ -1098,7 +1198,7 @@ class ShellSessions extends ChangeNotifier {
         columns: columns,
         rows: rows,
         command: shellMarked(session.mark, command: session.command),
-        tabSession: session.remoteSession ?? session.mark,
+        tabSession: session.tab,
         persistentSession: null,
         verifier: HostKeyVerifier(
           pinned: _pinnedThisRun[host.id] ?? host.hostKey,
@@ -1159,7 +1259,7 @@ class ShellSessions extends ChangeNotifier {
         onError: (Object error) => _fail(session, error, attempt),
       );
       unawaited(_awaitExit(session, connection, attempt));
-      unawaited(_mark(connection));
+      unawaited(_mark(session, connection));
       unawaited(_reap(host.id, connection));
       session.changed();
     } catch (error) {
@@ -1212,6 +1312,7 @@ class ShellSessions extends ChangeNotifier {
       session.disarm();
       session.state = ShellExited(code);
       session.pin = null;
+      session._stopAsking();
       session.changed();
       // A shell the user typed `exit` into is finished, and its tab holds
       // nothing they asked to keep. Every other code is the shell saying
@@ -1253,6 +1354,7 @@ class ShellSessions extends ChangeNotifier {
     unawaited(session._health?.cancel());
     session._health = null;
     session.pin = null;
+    session._stopAsking();
     session.disarm();
     final kind = error is ShellFailure
         ? error.kind
@@ -1356,6 +1458,7 @@ class ShellSessions extends ChangeNotifier {
     session._disown();
     session._reconnect?.cancel();
     session._reconnect = null;
+    session._stopAsking();
     session.disarm();
     session.state = ShellFailed(kind, detail: session._detail);
     session.changed();

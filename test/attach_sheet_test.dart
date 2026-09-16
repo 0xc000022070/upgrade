@@ -172,7 +172,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // The one exec a live shell runs on its own is the pinentry mark.
-    expect(connection.execs.map((exec) => exec.command), [pinentryMarkCommand]);
+    expect(connection.execs.map((exec) => exec.command), [
+      pinentryMarkCommand(sessions.forHost(_nyx.id).single.tab),
+    ]);
     expect(connection.writes, isEmpty);
     expect(clips.count, 0);
   });
