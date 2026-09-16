@@ -209,6 +209,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.0.0"
+  dazzle_highlight:
+    dependency: "direct main"
+    description:
+      path: "packages/dazzle_highlight"
+      relative: true
+    source: path
+    version: "0.0.3+dazzle.1"
   dazzle_luau:
     dependency: "direct main"
     description:

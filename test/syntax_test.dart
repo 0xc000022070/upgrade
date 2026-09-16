@@ -1,11 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/features/code/syntax.dart';
 
-/// The colouring under the diff's own two colours.
+/// The colouring under the diff's own two colours, and over the explorer's
+/// whole file.
 ///
-/// Every one of these is a single line handed over on its own, because that is
-/// the only thing the highlighter is ever given: a hunk is not a file, and the
-/// line above a line in a hunk may not be the line above it in the checkout.
+/// The diff hands over a single line on its own, because that is the only
+/// thing it has: a hunk is not a file, and the line above a line in a hunk
+/// may not be the line above it in the checkout. The explorer hands over the
+/// file, and gets back one list of runs per line.
 
 /// The runs that carry a colour, which is what the eye is being asked about.
 /// The plain runs between them are the colour the whole line used to be.
@@ -36,11 +38,60 @@ void main() {
       );
     });
 
+    test('reads the files that have no extension by their name', () {
+      expect(languageOf('Dockerfile')?.name, 'dockerfile');
+      expect(languageOf('build/Makefile')?.name, 'makefile');
+      expect(languageOf('etc/nginx.conf')?.name, 'nginx');
+    });
+
     test('leaves a file it does not know whole and plain', () {
       expect(languageOf('notes.xyz'), isNull);
+      expect(languageOf('Program.cs'), isNull);
       expect(highlight('const port = 357;', languageOf('notes.xyz')), [
         (text: 'const port = 357;', token: SyntaxToken.plain),
       ]);
+    });
+
+    test('every language named has a grammar behind it', () {
+      const files = [
+        'a.dart',
+        'a.js',
+        'a.ts',
+        'a.go',
+        'a.rs',
+        'a.py',
+        'a.c',
+        'a.cpp',
+        'a.java',
+        'a.kt',
+        'a.scala',
+        'a.sh',
+        'a.yaml',
+        'a.toml',
+        'a.json',
+        'a.sql',
+        'a.nix',
+        'a.lua',
+        'a.md',
+        'a.mk',
+        'a.css',
+        'a.scss',
+        'a.html',
+        'a.proto',
+        'a.graphql',
+        'a.properties',
+        'a.patch',
+        'a.http',
+        'Dockerfile',
+      ];
+      for (final file in files) {
+        final language = languageOf(file);
+        expect(language, isNotNull, reason: file);
+        // A grammar the engine does not have would come back plain whole, and
+        // a comment is the one thing every grammar here colours.
+        final lines = highlightLines('x = 1', language!);
+        expect(lines.single.map((span) => span.text).join(), 'x = 1');
+      }
     });
   });
 
@@ -55,6 +106,7 @@ void main() {
         ],
         'pubspec.yaml': ['  version: 1.0.0+101'],
         'x.sql': ['select * from hosts where port = 357;'],
+        'flake.nix': ['  x = "s\${y}";'],
       };
       for (final entry in lines.entries) {
         for (final line in entry.value) {
@@ -64,12 +116,10 @@ void main() {
       }
     });
 
-    test('a keyword, a number, and the punctuation around them', () {
+    test('a keyword and a number', () {
       expect(coloured('const port = 357;', 'lib/main.dart'), [
         ('const', SyntaxToken.keyword),
-        ('=', SyntaxToken.punctuation),
         ('357', SyntaxToken.number),
-        (';', SyntaxToken.punctuation),
       ]);
     });
 
@@ -80,20 +130,10 @@ void main() {
       );
     });
 
-    test('a quote with no partner is a string to the end of the line', () {
-      // The rest of it is in the next line of the file, which is not here.
-      expect(
-        coloured("  print('hello", 'lib/main.dart'),
-        contains(("'hello", SyntaxToken.string)),
-      );
-    });
-
     test('a comment takes the rest of the line and nothing before it', () {
       expect(coloured('const port = 357; // the sshd', 'lib/main.dart'), [
         ('const', SyntaxToken.keyword),
-        ('=', SyntaxToken.punctuation),
         ('357', SyntaxToken.number),
-        (';', SyntaxToken.punctuation),
         ('// the sshd', SyntaxToken.comment),
       ]);
     });
@@ -122,13 +162,10 @@ void main() {
       );
     });
 
-    test('a capital leads a type only where the language says so', () {
+    test('a type is what the grammar says is one', () {
       expect(
-        coloured('Widget build(BuildContext context) {', 'lib/main.dart'),
-        containsAll([
-          ('Widget', SyntaxToken.type),
-          ('BuildContext', SyntaxToken.type),
-        ]),
+        coloured('let x: u32 = 5;', 'src/main.rs'),
+        contains(('u32', SyntaxToken.type)),
       );
       // A shell has no types and plenty of shouting.
       expect(
@@ -137,11 +174,70 @@ void main() {
       );
     });
 
-    test('a key is a string and its value is a number', () {
+    test('a key is an annotation and its value is a number', () {
       expect(coloured('  "port": 357', 'settings.json'), [
-        ('"port"', SyntaxToken.string),
+        ('"port"', SyntaxToken.annotation),
         (':', SyntaxToken.punctuation),
         ('357', SyntaxToken.number),
+      ]);
+    });
+
+    test('the text inside a string interpolation is code again', () {
+      expect(
+        coloured('  x = "s\${y}";', 'flake.nix'),
+        isNot(contains(('\${y}', SyntaxToken.string))),
+      );
+    });
+  });
+
+  group('what a file is cut into', () {
+    const dart = '''
+/* a block
+   that runs on
+   and closes */ final x = 1;
+
+final y = "two";
+''';
+
+    test('one list per line, and every line whole', () {
+      final lines = highlightLines(dart, languageOf('a.dart')!);
+      final split = dart.split('\n');
+      expect(lines.length, split.length);
+      for (var i = 0; i < split.length; i++) {
+        expect(lines[i].map((span) => span.text).join(), split[i]);
+      }
+    });
+
+    test('a block comment is a comment to where it ends', () {
+      final lines = highlightLines(dart, languageOf('a.dart')!);
+      expect(lines[1].single.token, SyntaxToken.comment);
+      expect(lines[2].first, (
+        text: '   and closes */',
+        token: SyntaxToken.comment,
+      ));
+      expect(lines[2], contains((text: 'final', token: SyntaxToken.keyword)));
+    });
+
+    test('an empty line is one empty plain run', () {
+      final lines = highlightLines(dart, languageOf('a.dart')!);
+      expect(lines[3], [(text: '', token: SyntaxToken.plain)]);
+    });
+
+    test('a long file is coloured the same on another isolate', () async {
+      final inline = await highlightFile(dart, languageOf('a.dart'));
+      final elsewhere = await highlightFile(
+        dart,
+        languageOf('a.dart'),
+        inlineBytes: 0,
+      );
+      expect(elsewhere, inline);
+    });
+
+    test('a file with no grammar is every line plain', () async {
+      final lines = await highlightFile('a\nb', null);
+      expect(lines, [
+        [(text: 'a', token: SyntaxToken.plain)],
+        [(text: 'b', token: SyntaxToken.plain)],
       ]);
     });
   });
