@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../application/alerts.dart';
+import '../application/pin_alerts.dart';
 import 'alert_notifications.dart';
 import 'herdr_client.dart';
 import 'keys.dart';
@@ -27,7 +28,17 @@ void alertActionBackground(NotificationResponse response) {
 /// on screen.
 void Function()? alertOpenHandler;
 
+/// The same for a tap on `AUTHORIZATION REQUIRED`, which names the host whose
+/// shell the sheet is on. There is nothing to answer in the background: a
+/// passphrase is typed, never tapped.
+void Function(String hostId)? pinOpenHandler;
+
 Future<void> handleAlertAction(NotificationResponse response) async {
+  final pinHost = pinPayloadHost(response.payload);
+  if (pinHost != null) {
+    pinOpenHandler?.call(pinHost);
+    return;
+  }
   final target = AlertTarget.decode(response.payload);
   if (target == null) return;
   switch (response.actionId) {

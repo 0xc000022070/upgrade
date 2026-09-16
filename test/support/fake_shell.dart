@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dazzle/data/repositories/shell_tab_repository.dart';
+import 'package:dazzle/application/pin_alerts.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:dazzle/platform/host_keys.dart';
@@ -222,10 +223,12 @@ ShellSessions fakeShellSessions(
   Future<void> Function(String hostId, PinnedHostKey key)? pinHostKey,
   ShellTabRepository? tabs,
   Duration pinRecheck = const Duration(seconds: 5),
+  PinNotifier? notifier,
 }) => ShellSessions(
   readPrivateKey: (_) async => privateKey,
   pinHostKey: pinHostKey ?? (_, _) async {},
   tabs: tabs,
   open: transport.open,
   pinRecheck: pinRecheck,
+  notifier: notifier,
 );

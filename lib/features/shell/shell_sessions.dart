@@ -7,11 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
 import '../../application/agents.dart';
+import '../../application/pin_alerts.dart';
 import '../../application/providers.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/shell_tab_repository.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
+import '../../platform/pin_notifications.dart';
 import '../../platform/shell/host_clipboard.dart';
 import '../../platform/shell/remote_shell.dart';
 import '../../platform/shell/shell_connection.dart';
@@ -526,7 +528,17 @@ class ShellSessions extends ChangeNotifier {
     this.tabs,
     ShellOpener? open,
     this.pinRecheck = const Duration(seconds: 5),
+    this.notifier,
   }) : _open = open ?? const ShellTunnel().open;
+
+  /// The shade, told once per request a host has up and once when it is gone.
+  /// Null in a test that is not about the notification.
+  final PinNotifier? notifier;
+
+  /// The request id each host's notification is up for, so a second tab
+  /// hearing the same request raises nothing and a settled one is withdrawn
+  /// exactly once.
+  final _notified = <String, String>{};
 
   /// How long a tab holding a request waits before asking the host again
   /// whether it still stands. Short only in a test.
@@ -890,6 +902,7 @@ class ShellSessions extends ChangeNotifier {
     session._stopAsking();
     session.disarm();
     _byHost[hostId]?.remove(session);
+    _tellShade(session.host);
     if (_active[hostId] == session.number) {
       final rest = _byHost[hostId];
       if (rest != null && rest.isNotEmpty) {
@@ -984,13 +997,10 @@ class ShellSessions extends ChangeNotifier {
           // would be answered on is gone with the request that made it.
           final request = PinRequest.decode(args[1], args[2]);
           if (request == null) return;
-          session.pin = request;
-          session.changed();
+          _setPin(session, request);
         case 'done':
           if (session.pin?.id != args[1]) return;
-          session.pin = null;
-          session._stopAsking();
-          session.changed();
+          _setPin(session, null);
       }
     };
     session.terminal.onResize = (columns, rows, _, _) {
@@ -1084,6 +1094,46 @@ class ShellSessions extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// Every change to what a tab holds goes through here, so the shade is told
+  /// after each one and never told twice.
+  void _setPin(ShellSession session, PinRequest? request) {
+    session.pin = request;
+    if (request == null) session._stopAsking();
+    session.changed();
+    _tellShade(session.host);
+  }
+
+  /// One notification per host: up while any of its tabs holds a request,
+  /// replaced when the request is another, down when none does.
+  void _tellShade(Host host) {
+    final notifier = this.notifier;
+    if (notifier == null) return;
+    PinRequest? held;
+    for (final session in forHost(host.id)) {
+      held = session.pin;
+      if (held != null) break;
+    }
+    final shown = _notified[host.id];
+    if (held == null) {
+      if (shown == null) return;
+      _notified.remove(host.id);
+      unawaited(notifier.withdraw(host.id));
+      return;
+    }
+    if (shown == held.id) return;
+    _notified[host.id] = held.id;
+    unawaited(
+      notifier.raise(
+        hostId: host.id,
+        text: pinNotificationText(
+          host: host.name,
+          desc: held.desc,
+          prompt: held.prompt,
+        ),
+      ),
+    );
+  }
+
   /// What a bell means to a tab: the host's pinentry may have rung it, so the
   /// tab asks the host what it holds open and takes the answer as its request
   /// or as the request's withdrawal. The OSC says the same thing sooner over
@@ -1121,10 +1171,7 @@ class ShellSessions extends ChangeNotifier {
         if (!result.ok || !identical(session.connection, connection)) return;
         final open = PinRequest.decodeOpen(result.out);
         final next = open.isEmpty ? null : open.first;
-        if (next?.id != session.pin?.id) {
-          session.pin = next;
-          session.changed();
-        }
+        if (next?.id != session.pin?.id) _setPin(session, next);
       } while (session._askAgain);
     } finally {
       session._asking = false;
@@ -1143,16 +1190,12 @@ class ShellSessions extends ChangeNotifier {
     final request = session.pin;
     final connection = session.connection;
     if (request == null) return;
-    session.pin = null;
-    session._stopAsking();
-    session.changed();
+    _setPin(session, null);
     // One request, one fifo: the answer settles it on every tab of the host
     // that heard the same bell, before any of them can ask for it again.
     for (final other in forHost(session.host.id)) {
       if (identical(other, session) || other.pin?.id != request.id) continue;
-      other.pin = null;
-      other._stopAsking();
-      other.changed();
+      _setPin(other, null);
     }
     if (connection == null) return;
     try {
@@ -1311,9 +1354,7 @@ class ShellSessions extends ChangeNotifier {
       session._health = null;
       session.disarm();
       session.state = ShellExited(code);
-      session.pin = null;
-      session._stopAsking();
-      session.changed();
+      _setPin(session, null);
       // A shell the user typed `exit` into is finished, and its tab holds
       // nothing they asked to keep. Every other code is the shell saying
       // something went wrong, so that tab stays for its output to be read.
@@ -1355,6 +1396,7 @@ class ShellSessions extends ChangeNotifier {
     session._health = null;
     session.pin = null;
     session._stopAsking();
+    _tellShade(session.host);
     session.disarm();
     final kind = error is ShellFailure
         ? error.kind
@@ -1501,6 +1543,8 @@ class ShellSessions extends ChangeNotifier {
     // comes back to the same agent.
     session.title = null;
     session.pin = null;
+    session._stopAsking();
+    _tellShade(session.host);
     session.disarm();
     session.changed();
     await previous?.close();
@@ -1541,5 +1585,6 @@ final shellSessionsProvider = Provider<ShellSessions>((ref) {
     readPrivateKey: ref.watch(ed25519KeysProvider).privateKey,
     pinHostKey: ref.watch(hostRepositoryProvider).pinHostKey,
     tabs: ref.watch(shellTabRepositoryProvider),
+    notifier: const PinNotifications(),
   );
 });

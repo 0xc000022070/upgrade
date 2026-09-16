@@ -46,6 +46,7 @@ class _SplashRouteState extends State<SplashRoute> {
     // already uses is what keeps the tap from being dropped; `AlertsHost` takes
     // the handler back when it mounts and replays the flag on its first frame.
     alertOpenHandler = deferAlertOpen;
+    pinOpenHandler = deferPinOpen;
   }
 
   /// The sprite holds its last frame from here on, so `onDone` arrives exactly
@@ -76,6 +77,7 @@ class _SplashRouteState extends State<SplashRoute> {
     // Only if `AlertsHost` has not already claimed it: the replacement route is
     // built before this one is disposed, so by here the handler is usually its.
     if (identical(alertOpenHandler, deferAlertOpen)) alertOpenHandler = null;
+    if (identical(pinOpenHandler, deferPinOpen)) pinOpenHandler = null;
     super.dispose();
   }
 
