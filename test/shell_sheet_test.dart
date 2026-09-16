@@ -19,6 +19,15 @@ const _rose = Host(
   keyId: 'key-1',
 );
 
+const _nyx = Host(
+  id: 'h2',
+  name: 'nyx',
+  address: '100.64.0.2',
+  port: 22,
+  user: 'luis',
+  keyId: 'key-1',
+);
+
 /// The screen's height in the default test surface: the drag's share of the
 /// rise is measured against it.
 const _height = 600.0;
@@ -103,6 +112,31 @@ void main() {
 
     expect(header, findsOneWidget);
     expect(sheet, findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a shell asked for on another host takes the sheet over', (
+    tester,
+  ) async {
+    tester.view.padding = FakeViewPadding(
+      top: _statusBar * tester.view.devicePixelRatio,
+    );
+    addTearDown(tester.view.reset);
+    final sessions = fakeShellSessions(FakeShellTransport());
+    await tester.pumpWidget(app(sessions));
+    final context = tester.element(find.text('OPEN'));
+
+    openHostShell(context, _rose);
+    await ready(tester);
+    expect(find.text('ROSE'), findsOneWidget);
+
+    openHostShell(context, _nyx);
+    await ready(tester);
+
+    expect(sheet, findsOneWidget);
+    expect(find.text('NYX'), findsOneWidget);
+    expect(find.text('ROSE'), findsNothing);
 
     await unmount(tester);
   });

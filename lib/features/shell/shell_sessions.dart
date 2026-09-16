@@ -1303,6 +1303,9 @@ class ShellSessions extends ChangeNotifier {
       );
       unawaited(_awaitExit(session, connection, attempt));
       unawaited(_mark(session, connection));
+      // A request made while this tab had no link, before it opened or across
+      // a redial, rang no bell it could hear: the tab asks once as it comes up.
+      unawaited(_askHost(session));
       unawaited(_reap(host.id, connection));
       session.changed();
     } catch (error) {

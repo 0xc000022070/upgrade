@@ -1245,17 +1245,39 @@ void main() {
       await sessions.close(_rose.id, session);
     });
 
-    test('a shell that comes up marks its pty first', () async {
+    test(
+      'a shell that comes up marks its pty, then asks what is open',
+      () async {
+        final transport = FakeShellTransport();
+        final sessions = fakeShellSessions(transport);
+        final session = sessions.open(_rose)!;
+        await _settle();
+
+        final execs = transport.opened.single.execs;
+        expect(execs.map((exec) => exec.command), [
+          pinentryMarkCommand(session.tab),
+          pinentryOpenCommand(),
+        ]);
+        expect(execs.map((exec) => exec.stdin), everyElement(isNull));
+
+        await sessions.close(_rose.id, session);
+      },
+    );
+
+    test('a request already open is found as the tab comes up', () async {
       final transport = FakeShellTransport();
+      final payload = base64Encode(
+        utf8.encode(jsonEncode({'mode': 'pin', 'desc': 'the key'})),
+      );
+      transport.opening = (connection) =>
+          connection.answerWith('$id $payload\n');
       final sessions = fakeShellSessions(transport);
       final session = sessions.open(_rose)!;
       await _settle();
+      await _settle();
 
-      final marks = transport.opened.single.execs;
-      expect(marks.map((exec) => exec.command), [
-        pinentryMarkCommand(session.tab),
-      ]);
-      expect(marks.single.stdin, isNull);
+      expect(session.pin?.id, id);
+      expect(session.pin?.desc, 'the key');
 
       await sessions.close(_rose.id, session);
     });
@@ -1310,6 +1332,9 @@ void main() {
         final session = sessions.open(_rose)!;
         await _settle();
         final connection = transport.opened.single;
+        final quiet = connection.execs
+            .where((exec) => exec.command == pinentryOpenCommand())
+            .length;
 
         connection.emit('\x07\x07\x07\x07');
         await _settle();
@@ -1319,7 +1344,7 @@ void main() {
         final asks = connection.execs
             .where((exec) => exec.command == pinentryOpenCommand())
             .length;
-        expect(asks, 2);
+        expect(asks - quiet, 2);
 
         await sessions.close(_rose.id, session);
       },
@@ -1341,12 +1366,13 @@ void main() {
           .where((exec) => exec.command == pinentryOpenCommand())
           .length;
 
+      final quiet = asks();
       connection.answerWith('$id $payload\n');
       connection.emit('\x07');
       await _settle();
       await _settle();
       expect(session.pin?.id, id);
-      expect(asks(), 1);
+      expect(asks(), quiet + 1);
 
       await Future<void>.delayed(const Duration(milliseconds: 35));
       expect(asks(), greaterThan(1));
@@ -1444,6 +1470,7 @@ void main() {
         await sessions.answerPin(session, 'hunter2');
         expect(connection.execs.map((exec) => exec.command), [
           pinentryMarkCommand(session.tab),
+          pinentryOpenCommand(),
         ]);
 
         await sessions.close(_rose.id, session);
@@ -1471,6 +1498,7 @@ void main() {
       expect(transport.opened, hasLength(2));
       expect(transport.opened.last.execs.map((exec) => exec.command), [
         pinentryMarkCommand(session.tab),
+        pinentryOpenCommand(),
       ]);
 
       await sessions.close(_rose.id, session);

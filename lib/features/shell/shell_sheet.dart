@@ -26,7 +26,14 @@ void openHostShell(
   PaneRef? pane,
 }) {
   final navigator = Navigator.of(context, rootNavigator: true);
-  if (_openShellRoutes[navigator]?.isActive ?? false) return;
+  final up = _openShellRoutes[navigator];
+  if (up != null && up.isActive) {
+    if (up.host.id == host.id) return;
+    // Asked for another host while this one's shell is up, which is what a
+    // tap on a passphrase notification does: the sheet goes to the host that
+    // was asked for.
+    navigator.removeRoute(up);
+  }
 
   final route = ShellSheetRoute(
     host: host,
