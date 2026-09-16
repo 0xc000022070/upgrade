@@ -19,10 +19,14 @@ import 'package:dazzle/data/repositories/project_repository.dart';
 import 'package:dazzle/design/sprite.dart';
 import 'package:dazzle/features/agents/agents_screen.dart';
 import 'package:dazzle/features/projects/project_detail_screen.dart';
+import 'package:dazzle/features/shell/host_shell_screen.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/platform/alert_actions.dart';
 import 'package:dazzle/platform/alert_notifications.dart';
 
+import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/shell_route.dart' show noWorkspaces;
 import 'support/themed_app.dart';
 
 /// The sheets are read off disk rather than through the bundle:
@@ -280,6 +284,50 @@ void main() {
       await settle(tester);
 
       expect(find.byType(AgentsScreen), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testWidgets('an AUTHORIZATION REQUIRED tap lands on the host shell', (
+      tester,
+    ) async {
+      final hosts = InMemoryHostRepository();
+      await hosts.save(
+        const Host(
+          id: 'h1',
+          name: 'rose',
+          address: '100.64.0.1',
+          port: 22,
+          user: 'luis',
+          keyId: 'k1',
+        ),
+      );
+      deferPinOpen('h1');
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ...featureTestOverrides(db),
+            agentsFeedProvider.overrideWith(
+              (ref) => Stream.value(const AgentPanelState.noHost()),
+            ),
+            hostRepositoryProvider.overrideWithValue(hosts),
+            shellSessionsProvider.overrideWithValue(
+              fakeShellSessions(FakeShellTransport()),
+            ),
+            noWorkspaces,
+          ],
+          child: MaterialApp(theme: testTheme, home: host()),
+        ),
+      );
+      await settle(tester);
+      expect(find.byType(HostShellRoute), findsOneWidget);
+      expect(find.byType(AgentsScreen), findsNothing);
+      await unmount(tester);
+
+      // A host that is gone opens nothing, and the flag is spent either way.
+      deferPinOpen('h9');
+      await tester.pumpWidget(scope(host()));
+      await settle(tester);
+      expect(find.byType(HostShellRoute), findsNothing);
       await unmount(tester);
     });
 

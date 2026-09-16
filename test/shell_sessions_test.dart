@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/application/pin_alerts.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/data/repositories/shell_tab_repository.dart';
 import 'package:dazzle/features/shell/host_shell_screen.dart';
@@ -2139,4 +2140,138 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
     });
   });
+  group('the shade is told', () {
+    const id = '0123456789abcdef';
+    String request({
+      String requestId = id,
+      String desc = 'the key',
+      String prompt = '',
+    }) {
+      final payload = base64Encode(
+        utf8.encode(
+          jsonEncode({'mode': 'pin', 'desc': desc, 'prompt': prompt}),
+        ),
+      );
+      return '\x1b]7771;pin;$requestId;$payload\x07';
+    }
+
+    test('once per host, naming the host and the key', () async {
+      final shade = _Shade();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, notifier: shade);
+      final first = sessions.open(_rose)!;
+      final second = sessions.open(_rose)!;
+      await _settle();
+      transport.opened[0].emit(request());
+      transport.opened[1].emit(request());
+      await _settle();
+
+      expect(shade.events, ['up h1 ROSE · the key']);
+
+      await sessions.close(_rose.id, first);
+      await sessions.close(_rose.id, second);
+    });
+
+    test('down once the last tab of the host lets go', () async {
+      final shade = _Shade();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, notifier: shade);
+      final first = sessions.open(_rose)!;
+      final second = sessions.open(_rose)!;
+      await _settle();
+      transport.opened[0].emit(request());
+      transport.opened[1].emit(request());
+      await _settle();
+
+      transport.opened[0].emit('\x1b]7771;done;$id\x07');
+      await _settle();
+      expect(shade.events, hasLength(1));
+
+      transport.opened[1].emit('\x1b]7771;done;$id\x07');
+      await _settle();
+      expect(shade.events, ['up h1 ROSE · the key', 'down h1']);
+
+      await sessions.close(_rose.id, first);
+      await sessions.close(_rose.id, second);
+    });
+
+    test('down on the answer, whichever tab gives it', () async {
+      final shade = _Shade();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, notifier: shade);
+      final first = sessions.open(_rose)!;
+      final second = sessions.open(_rose)!;
+      await _settle();
+      transport.opened[0].emit(request());
+      transport.opened[1].emit(request());
+      await _settle();
+
+      await sessions.answerPin(second, 'hunter2');
+      expect(shade.events, ['up h1 ROSE · the key', 'down h1']);
+
+      await sessions.close(_rose.id, first);
+      await sessions.close(_rose.id, second);
+    });
+
+    test('down when the tab holding it closes', () async {
+      final shade = _Shade();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, notifier: shade);
+      final session = sessions.open(_rose)!;
+      await _settle();
+      transport.opened.single.emit(request());
+      await _settle();
+
+      await sessions.close(_rose.id, session);
+      expect(shade.events, ['up h1 ROSE · the key', 'down h1']);
+    });
+
+    test('another request replaces it in place', () async {
+      final shade = _Shade();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, notifier: shade);
+      final session = sessions.open(_rose)!;
+      await _settle();
+      transport.opened.single.emit(request());
+      transport.opened.single.emit(
+        request(requestId: 'fedcba9876543210', desc: 'the other key'),
+      );
+      await _settle();
+
+      expect(shade.events, [
+        'up h1 ROSE · the key',
+        'up h1 ROSE · the other key',
+      ]);
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test('the prompt stands in when the agent described nothing', () async {
+      final shade = _Shade();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, notifier: shade);
+      final session = sessions.open(_rose)!;
+      await _settle();
+      transport.opened.single.emit(request(desc: '', prompt: 'Passphrase:'));
+      await _settle();
+
+      expect(shade.events, ['up h1 ROSE · Passphrase:']);
+
+      await sessions.close(_rose.id, session);
+    });
+  });
+}
+
+class _Shade implements PinNotifier {
+  final events = <String>[];
+
+  @override
+  Future<void> raise({required String hostId, required String text}) async {
+    events.add('up $hostId $text');
+  }
+
+  @override
+  Future<void> withdraw(String hostId) async {
+    events.add('down $hostId');
+  }
 }
