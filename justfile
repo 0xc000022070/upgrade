@@ -89,7 +89,10 @@ faraday:
     attached() { phone device list | grep -qE '^android[[:space:]]+faraday[[:space:]].*(attached|online)'; }
     attached || phone device connect faraday
     attached || { echo "faraday: no transport after connect" >&2; exit 1; }
-    serial=$(phone device list | grep -E '^android[[:space:]]+faraday[[:space:]]' | grep -oE '[^[:space:]]+:[0-9]+' | head -1)
+    # The table's last column is the pinned endpoint, not the live transport: a
+    # USB session there still reads faraday:5555. The JSON row carries the serial.
+    serial=$(phone device list --json | tr -d '\n' | grep -oE '"label": "faraday"[^}]*"serial": "[^"]+"' | sed 's/.*"serial": "//; s/"$//')
+    [[ -n $serial ]] || { echo "faraday: no serial in phone device list --json" >&2; exit 1; }
 
     export DAZZLE_BUILD="${DAZZLE_BUILD:-$(git rev-parse --short HEAD)}"
     git diff --quiet HEAD || echo "faraday: tree is dirty, the build line still stamps $DAZZLE_BUILD" >&2
