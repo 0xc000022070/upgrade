@@ -1466,4 +1466,233 @@ void main() {
       await unmount(tester);
     });
   });
+  group('the tracker', () {
+    // The default fake lists the same two entries wherever it is asked, which
+    // is no way to tell a letter on a file from a count on a directory. So the
+    // root is listed with the untracked file on it and lib with the changed
+    // file in it, the deeper listing first since a match is the first found.
+    FakeRunner tracked({String? overview}) => FakeRunner(overview: overview)
+      ..answers['src/dazzle/lib'] = const WorkspaceReply(
+        exitCode: 0,
+        stdout: 'f\t200\tmain.dart\n',
+        stderr: '',
+      )
+      ..answers['find'] = const WorkspaceReply(
+        exitCode: 0,
+        stdout: 'd\t4096\tlib\nf\t120\tREADME.md\nf\t5\tscratch.txt\n',
+        stderr: '',
+      );
+
+    Future<FakeRunner> browse(
+      WidgetTester tester, {
+      FakeRunner? runner,
+      Size size = const Size(400, 1600),
+    }) async {
+      final fake = await open(tester, runner: runner ?? tracked(), size: size);
+      await tapText(tester, 'BROWSE');
+      return fake;
+    }
+
+    ListRow row(WidgetTester tester, String title) =>
+        tester.widget<ListRow>(find.widgetWithText(ListRow, title));
+
+    /// A word the checkout has for a deleted file, which the listing cannot
+    /// carry since the file is not there to list.
+    final gone =
+        '# branch.head main\n'
+        '1 .D N... 100644 100644 000000 aaa bbb lib/gone.dart\n'
+        '$workspaceRecord\n$_worktrees$workspaceRecord\n'
+        '0\t9\tlib/gone.dart\n';
+
+    /// A file long enough to scroll, with a change near each end.
+    final long = List.generate(60, (i) => 'line ${i + 1}').join('\n');
+    const twoHunks =
+        'diff --git a/lib/main.dart b/lib/main.dart\n'
+        '@@ -2,1 +2,1 @@\n'
+        '-line 2\n'
+        '+LINE 2\n'
+        '@@ -54,0 +55,1 @@\n'
+        '+line 55\n';
+
+    /// Everything a checkout can be asked that changes it. The tape is held
+    /// against this after every walk, since the feature is read-only by ruling
+    /// and a command that writes is the failure mode this guards.
+    final writes = RegExp(
+      r'\bgit\s+(add|commit|checkout|switch|restore|reset|stash|rm|mv|push|'
+      r'pull|fetch|merge|rebase|apply|clean|branch|tag|worktree\s+(add|remove))\b'
+      r'|\b(rm|mv|touch|tee|truncate)\s|\bsed\s+-i|>\s*(?!/dev/null|&)[^\s>&]',
+    );
+
+    testWidgets('the tree carries the checkout\'s word on every row', (
+      tester,
+    ) async {
+      final runner = await browse(tester);
+
+      // A directory with a change under it counts; a clean file keeps its
+      // size; an untracked file says it is one.
+      expect(row(tester, 'lib').value, '1');
+      expect(row(tester, 'lib').valueColor, DazzleColors.warning);
+      expect(row(tester, 'README.md').value, isNot('?'));
+      expect(row(tester, 'scratch.txt').value, '?');
+      expect(row(tester, 'scratch.txt').valueColor, DazzleColors.accent);
+
+      await tapText(tester, 'lib');
+      expect(row(tester, 'main.dart').value, 'M');
+      expect(row(tester, 'main.dart').valueColor, DazzleColors.warning);
+
+      // The badges cost nothing: the status the screen behind read is what
+      // they are drawn from, and walking in is one listing as before.
+      expect(
+        runner.commands.where((c) => c.contains('git status')),
+        hasLength(1),
+      );
+      expect(runner.commands.any(writes.hasMatch), isFalse);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a file that is gone is a row still, and opens its hunks', (
+      tester,
+    ) async {
+      final runner = await browse(tester, runner: tracked(overview: gone));
+      await tapText(tester, 'lib');
+
+      expect(row(tester, 'gone.dart').value, 'D');
+      expect(row(tester, 'gone.dart').valueColor, DazzleColors.danger);
+
+      await tapText(tester, 'gone.dart');
+      expect(find.byType(DiffSheet), findsOneWidget);
+      // Its hunks are against HEAD, which is the only place it still is.
+      expect(runner.commands.last, contains('diff --no-color HEAD'));
+      expect(runner.commands.any(writes.hasMatch), isFalse);
+
+      await unmount(tester);
+    });
+
+    testWidgets('CHANGED is the flat list and opens what it names', (
+      tester,
+    ) async {
+      final runner = await browse(tester);
+      await tapText(tester, 'CHANGED 2');
+
+      expect(find.text('lib/main.dart'), findsOneWidget);
+      expect(find.text('+3 −1'), findsOneWidget);
+      expect(find.text('scratch.txt'), findsOneWidget);
+      expect(find.text('README.md'), findsNothing);
+
+      await tapText(tester, 'lib/main.dart');
+      expect(find.text('file body'), findsOneWidget);
+      // The file and its hunks, one command each, and nothing that writes.
+      expect(
+        runner.commands.where((c) => c.contains('lib/main.dart')),
+        hasLength(2),
+      );
+      expect(runner.commands.any(writes.hasMatch), isFalse);
+
+      await unmount(tester);
+    });
+
+    testWidgets('an open changed file carries its count and its marks', (
+      tester,
+    ) async {
+      await browse(tester);
+      await tapText(tester, 'CHANGED 2');
+      await tapText(tester, 'lib/main.dart');
+
+      expect(find.text('1 CHANGE'), findsOneWidget);
+      expect(find.text('PREV'), findsOneWidget);
+      expect(find.text('NEXT'), findsOneWidget);
+      expect(find.text('DIFF'), findsOneWidget);
+      // The one replaced line wears the warning down its gutter.
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is ColoredBox && w.color == DazzleColors.warning,
+        ),
+        findsOneWidget,
+      );
+
+      await unmount(tester);
+    });
+
+    testWidgets('NEXT and PREV walk the marks and wrap', (tester) async {
+      final runner = tracked()
+        ..answers['head -c 262144'] = WorkspaceReply(
+          exitCode: 0,
+          stdout: long,
+          stderr: '',
+        )
+        ..answers['HEAD -- '] = const WorkspaceReply(
+          exitCode: 0,
+          stdout: twoHunks,
+          stderr: '',
+        );
+      await browse(tester, runner: runner, size: const Size(400, 700));
+      await tapText(tester, 'CHANGED 2');
+      await tapText(tester, 'lib/main.dart');
+
+      expect(find.text('2 CHANGES'), findsOneWidget);
+      expect(find.text('55').hitTestable(), findsNothing);
+
+      await tapText(tester, 'NEXT');
+      expect(find.text('2').hitTestable(), findsOneWidget);
+      await tapText(tester, 'NEXT');
+      expect(find.text('55').hitTestable(), findsOneWidget);
+      // Past the last mark is the first again.
+      await tapText(tester, 'NEXT');
+      expect(find.text('2').hitTestable(), findsOneWidget);
+      expect(find.text('55').hitTestable(), findsNothing);
+      // And before the first is the last.
+      await tapText(tester, 'PREV');
+      expect(find.text('55').hitTestable(), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('DIFF opens the sheet on the file', (tester) async {
+      await browse(tester);
+      await tapText(tester, 'CHANGED 2');
+      await tapText(tester, 'lib/main.dart');
+      await tapText(tester, 'DIFF');
+
+      expect(find.byType(DiffSheet), findsOneWidget);
+      expect(find.text('const port = 22;'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('an untracked file says so and is not diffed', (tester) async {
+      final runner = await browse(tester);
+      await tapText(tester, 'CHANGED 2');
+      await tapText(tester, 'scratch.txt');
+
+      expect(find.text('UNTRACKED'), findsOneWidget);
+      expect(find.text('NEXT'), findsNothing);
+      expect(find.text('DIFF'), findsOneWidget);
+      // All of it is new, so there is no hunk worth a round trip.
+      expect(runner.commands.any((c) => c.contains('--no-index')), isFalse);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a clean file has numbers and no marks', (tester) async {
+      await browse(tester);
+      await tapText(tester, 'README.md');
+
+      expect(find.text('1'), findsWidgets);
+      expect(find.text('DIFF'), findsNothing);
+      // The mark column is there, three wide, and nothing is drawn in it.
+      expect(
+        find.byWidgetPredicate((w) => w is SizedBox && w.width == 3),
+        findsWidgets,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is SizedBox && w.width == 3 && w.child != null,
+        ),
+        findsNothing,
+      );
+
+      await unmount(tester);
+    });
+  });
 }
