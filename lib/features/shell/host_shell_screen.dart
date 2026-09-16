@@ -238,7 +238,12 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     final shown = _pinShown;
     if (shown == null || shown.session.pin?.id == shown.id) return;
     final sheet = _pinSheet;
-    if (sheet != null && sheet.mounted) Navigator.of(sheet).pop();
+    if (sheet == null || !sheet.mounted) return;
+    // A sheet that popped itself is still mounted for its way out, and the
+    // request it answered is gone by then: a second pop would take the route
+    // under it.
+    if (ModalRoute.of(sheet)?.isActive != true) return;
+    Navigator.of(sheet).pop();
   }
 
   /// A request on any of this host's tabs, one sheet at a time as the exit

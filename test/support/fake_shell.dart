@@ -221,9 +221,11 @@ ShellSessions fakeShellSessions(
   String? privateKey = 'PRIVATE KEY',
   Future<void> Function(String hostId, PinnedHostKey key)? pinHostKey,
   ShellTabRepository? tabs,
+  Duration pinRecheck = const Duration(seconds: 5),
 }) => ShellSessions(
   readPrivateKey: (_) async => privateKey,
   pinHostKey: pinHostKey ?? (_, _) async {},
   tabs: tabs,
   open: transport.open,
+  pinRecheck: pinRecheck,
 );

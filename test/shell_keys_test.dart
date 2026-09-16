@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_bar.dart';
 import 'package:dazzle/platform/shell/remote_shell.dart';
 import 'package:xterm/xterm.dart';
@@ -184,7 +185,10 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
       final connection = transport.opened.single;
-      expect(connection.execs.first.command, pinentryMarkCommand);
+      expect(
+        connection.execs.first.command,
+        pinentryMarkCommand(sessions.forHost(rose.id).single.tab),
+      );
 
       connection.emit(request(error: 'Bad Passphrase (try 2 of 3)'));
       await ready(tester);
@@ -207,6 +211,43 @@ void main() {
       expect(answer.command, pinentryAnswerCommand(id));
       expect(answer.command, isNot(contains('hunter2')));
       expect(utf8.decode(answer.stdin!), 'hunter2\n');
+
+      await unmount(tester);
+    });
+
+    testWidgets('UNLOCK takes down the sheet and nothing under it', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(
+        app(
+          sessions,
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const HostShellRoute(host: rose),
+                ),
+              ),
+              child: const Text('GO'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('GO'));
+      await ready(tester);
+      final connection = transport.opened.single;
+
+      connection.emit(request());
+      await ready(tester);
+      await tester.enterText(find.byType(TextField), 'hunter2');
+      await tester.tap(find.text('UNLOCK'));
+      await ready(tester);
+
+      expect(find.text('AUTHORIZATION REQUIRED'), findsNothing);
+      expect(find.byType(HostShellRoute), findsOneWidget);
+      expect(find.text('GO'), findsNothing);
 
       await unmount(tester);
     });

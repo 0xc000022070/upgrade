@@ -241,9 +241,11 @@ session running when the default is not. Dazzle scans `~/Projects`,
 
 A passphrase prompt for the SSH key held by gpg-agent is asked for in the app
 when the host runs `pinentry-gate` as its pinentry: each shell marks its pty
-under `$XDG_RUNTIME_DIR/pinentry-gate/tty`, and the pinentry writes the request
-into every marked terminal while also asking on the computer. The first answer
-wins.
+under `$XDG_RUNTIME_DIR/pinentry-gate/tty` with the pid of the ssh session or
+Mosh server holding it, and the pinentry writes the request into every marked
+terminal and rings its bell, while also asking on the computer. A Mosh tab
+never sees the request itself, only the bell, and asks the host what is open.
+The first answer wins.
 
 An SSH login on Linux does not inherit the desktop display. Put this in the
 login shell setup when agents started from Dazzle must read image attachments:
