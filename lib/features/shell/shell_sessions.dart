@@ -1257,9 +1257,7 @@ class ShellSessions extends ChangeNotifier {
     final kind = error is ShellFailure
         ? error.kind
         : ShellFailureKind.streamClosed;
-    // A throw the transport has no reason for is worth its own words: the
-    // line reads `stream closed`, which on its own says nothing at all.
-    session._detail = error is ShellFailure ? error.detail : '$error';
+    session._detail = _detailOf(session.host, error);
     final was = session.state;
     final dropped = was is ShellDropped ? was.attempt : 0;
     // Every dial the link itself lost, the first one included: there is no
@@ -1279,6 +1277,17 @@ class ShellSessions extends ChangeNotifier {
     }
     session.state = ShellFailed(kind, detail: session._detail);
     session.changed();
+  }
+
+  /// The words under the reason line. A failure about reaching a machine
+  /// names the dial the way the host row has it, so the reader is sent to the
+  /// port that was dialled. A throw the transport has no reason for keeps its
+  /// own words: the line reads `stream closed`, which on its own says nothing.
+  static String? _detailOf(Host host, Object error) {
+    if (error is! ShellFailure) return '$error';
+    final detail = error.detail;
+    if (detail == null || !error.kind.line.names) return detail;
+    return '${host.user}@${host.address}:${host.port} · $detail';
   }
 
   /// Holds every wake until the returned callback is called. Raised with the

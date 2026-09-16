@@ -6,6 +6,8 @@ import '../../application/navigation.dart';
 import '../../design/tokens.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
+import '../home/home_screen.dart';
+import '../hosts/hosts_screen.dart';
 
 /// One row over the nav bar, the height the parked shell takes, so the two
 /// stack without either looking like the taller kind of thing.
@@ -18,11 +20,12 @@ const agentStatusMarkSize = 6.0;
 ///
 /// The AGENTS panel answers this on HOME and answers it better — the rows, the
 /// work each agent is on, a tap into the pane. What it cannot do is answer it
-/// from the other three tabs, which is where the user is when they stop to
-/// wonder. This is that answer, in one line, on the one strip of the window
-/// that belongs to the app rather than to a tab. A route pushed over the shell
-/// is outside this strip, and its reader is already inside what the count would
-/// have sent them to.
+/// from the other tabs, which is where the user is when they stop to wonder.
+/// HOSTS is not one of them either: its host card carries the same reason line
+/// with a retry beside it. This is that answer, in one line, on the one strip
+/// of the window that belongs to the app rather than to a tab. A route pushed
+/// over the shell is outside this strip, and its reader is already inside what
+/// the count would have sent them to.
 ///
 /// It is only as live as the feed behind it, and it goes away rather than
 /// standing there with a number nothing is refreshing.
@@ -32,8 +35,12 @@ class AgentStatusBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // HOME has the panel, and the panel says all of this and the rows under it.
-    // Two answers to one question on one screen is one of them too many.
-    if (ref.watch(navIndexProvider) == 0) return const SizedBox.shrink();
+    // HOSTS has the host card, with the reason line and RETRY on it. Two
+    // answers to one question on one screen is one of them too many.
+    final tab = ref.watch(navIndexProvider);
+    if (tab == HomeScreen.navIndex || tab == HostsScreen.navIndex) {
+      return const SizedBox.shrink();
+    }
 
     // The feed keeps its last value after whatever was producing it stops, so
     // a count is not on its own evidence that anything is still being counted.

@@ -63,7 +63,7 @@ class _SystemCurve implements TextScaler {
 Future<void> pumpBar(
   WidgetTester tester,
   List<HostOutcome> outcomes, {
-  int tab = 2,
+  int tab = 3,
   TextScaler? scaler,
   bool live = true,
 }) async {
@@ -140,6 +140,19 @@ void main() {
       await pumpBar(tester, [
         answering([agent('claude', 'working')]),
       ], tab: 0);
+
+      expect(find.byKey(const ValueKey('agent-status')), findsNothing);
+    });
+
+    testWidgets('HOSTS has the host card, so it has no bar', (tester) async {
+      await pumpBar(tester, [
+        HostOutcome(
+          host: nyx,
+          kind: AgentOutcomeKind.unreachable,
+          agents: const [],
+        ),
+        answering([agent('claude', 'blocked')], on: rose),
+      ], tab: 2);
 
       expect(find.byKey(const ValueKey('agent-status')), findsNothing);
     });

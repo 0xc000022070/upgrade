@@ -11,6 +11,7 @@ import '../../application/native_plugins.dart';
 import '../../application/plugin_placements.dart';
 import '../../application/providers.dart';
 import '../../data/repositories/plugin_placement_repository.dart';
+import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/components/solid_action_bar.dart';
@@ -163,23 +164,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       placements: placements!,
                     ),
                   if (placements != null && cards.isEmpty && composer == null)
-                    Panel(
-                      title: '[ PLUGINS ]',
-                      bodyPadding: panelRowsPadding,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'ADD HOME CARDS, AN INPUT BAR, AND TOOL PAGES.',
-                            style: context.tokens.rowSubtitle,
-                          ),
-                          PanelTextAction(
-                            label: 'MANAGE PLUGINS',
-                            onTap: () => openPluginManagement(context),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _PluginsOffPanel(catalog: catalog),
                 ],
               ),
             ],
@@ -260,6 +245,67 @@ class _PlacedPluginBounds extends StatelessWidget {
           child: SizedBox(width: candidate, height: size.height, child: child),
         );
       },
+    );
+  }
+}
+
+/// Home with nothing on it: a row per installed plugin that is off, naming
+/// what turning it on puts on the phone. The promise is read off the plugin's
+/// own contributions, never written per plugin, so a plugin the app has never
+/// heard of is described the same way as the bundled two.
+class _PluginsOffPanel extends StatelessWidget {
+  const _PluginsOffPanel({required this.catalog});
+
+  final PluginContributionCatalog catalog;
+
+  static String promise(PluginContributionOwner owner) => [
+    for (final page in owner.pages)
+      '${page.contribution.title.toUpperCase()} '
+          '${page.contribution.defaultPinned ? 'TAB' : 'PAGE'}',
+    for (final widget in owner.widgets)
+      if (widget.contribution.locations.contains(
+        PluginPlacementLocation.homeCard,
+      ))
+        '${widget.contribution.title.toUpperCase()} CARD'
+      else if (widget.contribution.locations.contains(
+        PluginPlacementLocation.homeComposer,
+      ))
+        '${widget.contribution.title.toUpperCase()} BAR',
+  ].join(' · ');
+
+  @override
+  Widget build(BuildContext context) {
+    final off = [
+      for (final owner in catalog.owners)
+        if (!owner.plugin.enabled)
+          if (promise(owner) case final words when words.isNotEmpty)
+            (owner.plugin.manifest.name, words),
+    ];
+    return Panel(
+      title: '[ PLUGINS ]',
+      bodyPadding: panelRowsPadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (off.isEmpty)
+            Text(
+              'ADD HOME CARDS, AN INPUT BAR, AND TOOL PAGES.',
+              style: context.tokens.rowSubtitle,
+            ),
+          for (final (name, words) in off)
+            ListRow(
+              title: name,
+              subtitle: words,
+              value: 'OFF',
+              valueColor: context.tokens.textMuted,
+              onTap: () => openPluginManagement(context),
+            ),
+          PanelTextAction(
+            label: 'MANAGE PLUGINS',
+            onTap: () => openPluginManagement(context),
+          ),
+        ],
+      ),
     );
   }
 }

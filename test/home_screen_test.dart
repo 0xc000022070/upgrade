@@ -76,8 +76,8 @@ void main() {
 
   tearDown(() => db.close());
 
-  Widget host() => ProviderScope(
-    overrides: [...featureTestOverrides(db)],
+  Widget host({bool enabled = true}) => ProviderScope(
+    overrides: [...featureTestOverrides(db, enabled: enabled)],
     child: MaterialApp(
       theme: testTheme,
       home: Scaffold(body: HomeScreen()),
@@ -88,6 +88,33 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   }
+
+  testWidgets('with every plugin off HOME names what each one gives', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(enabled: false));
+    await _ready(tester);
+
+    expect(find.text('[ PLUGINS ]'), findsOneWidget);
+    // Read off each plugin's declared contributions, pages first, so the
+    // fresh phone is told what a tab, a card and a bar it does not have yet
+    // would be.
+    expect(find.text('Drops'), findsOneWidget);
+    expect(find.text('DROPS CARD · CAPTURE BAR'), findsOneWidget);
+    expect(find.text('Projects'), findsOneWidget);
+    expect(find.text('PROJECTS TAB · NEXT ACTION CARD'), findsOneWidget);
+    expect(find.text('OFF'), findsNWidgets(2));
+    expect(find.text('MANAGE PLUGINS'), findsOneWidget);
+    expect(find.textContaining('ADD HOME CARDS'), findsNothing);
+    expect(find.text('DROPS'), findsNothing);
+
+    await tester.tap(find.text('Drops'));
+    await _ready(tester);
+
+    expect(find.text('/ DAZZLE / PLUGINS'), findsOneWidget);
+
+    await unmount(tester);
+  });
 
   testWidgets('with nothing flagged there is no NEXT ACTION panel', (
     tester,
