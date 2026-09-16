@@ -1,11 +1,16 @@
 import 'dart:async';
 
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/app/dazzle_app.dart';
 import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/pane_share.dart';
+import 'package:dazzle/application/providers.dart';
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/repositories/settings_repository.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/data/repositories/path_repository.dart';
 import 'package:dazzle/design/components/action_block.dart';
@@ -189,12 +194,21 @@ List<String> litRuns(WidgetTester tester, Finder line) {
 
 void main() {
   late MemoryPrivateKeyStore privateKeys;
+  // The explorer's seams are a preference, so the screen reads a real
+  // preferences table rather than a stub that would answer the default for
+  // every test alike.
+  late AppDatabase db;
+  late SettingsRepository settings;
 
   setUp(() async {
     stubDeviceChannels();
     privateKeys = MemoryPrivateKeyStore();
     await privateKeys.write('key-1', 'PEM');
+    db = AppDatabase(NativeDatabase.memory());
+    settings = SettingsRepository(db);
   });
+
+  tearDown(() => db.close());
 
   const host = Host(
     id: 'host-1',
@@ -214,7 +228,10 @@ void main() {
   );
 
   Widget app(FakeRunner runner) => ProviderScope(
-    overrides: [privateKeyStoreProvider.overrideWithValue(privateKeys)],
+    overrides: [
+      privateKeyStoreProvider.overrideWithValue(privateKeys),
+      databaseProvider.overrideWithValue(db),
+    ],
     child: MaterialApp(
       theme: testTheme,
       builder: houseText,
@@ -478,7 +495,23 @@ void main() {
       return runner;
     }
 
-    testWidgets('opens on the root and walks into a directory', (tester) async {
+    /// The tab row's cross, one per open file, which is how many tabs there
+    /// are without reading the row.
+    Finder crosses() => find.text('×');
+
+    /// The tree's rows by name, apart from the tab and the title that say the
+    /// same name once a file is open. The first is the deepest drawn.
+    Finder treeRow(String name) =>
+        find.descendant(of: find.byType(ListRow), matching: find.text(name));
+
+    /// Whether the editor is titled by this path, which is the tab on screen.
+    bool editing(WidgetTester tester, String path) => tester
+        .widgetList<Panel>(find.byType(Panel))
+        .any((panel) => panel.literalTitle && panel.title == path);
+
+    testWidgets('opens on the root and a directory opens in place', (
+      tester,
+    ) async {
       final runner = await browse(tester);
 
       expect(find.text('lib'), findsOneWidget);
@@ -491,75 +524,173 @@ void main() {
 
       await tapText(tester, 'lib');
       expect(runner.commands.last, contains('/home/luis/src/dazzle/lib'));
+      // The fake lists the same two names everywhere, so lib holds a lib and
+      // a README.md of its own, drawn under it and a step further in.
+      expect(find.text('lib'), findsNWidgets(2));
+      expect(find.text('README.md'), findsNWidgets(2));
+      expect(
+        tester.getTopLeft(find.text('README.md').first).dx,
+        greaterThan(tester.getTopLeft(find.text('README.md').last).dx),
+      );
+
+      // A second tap closes it, and a third reopens it on the listing it
+      // already has.
+      final asked = runner.commands.length;
+      await tester.tap(find.text('lib').first);
+      await ready(tester);
+      expect(find.text('README.md'), findsOneWidget);
+      await tester.tap(find.text('lib').first);
+      await ready(tester);
+      expect(find.text('README.md'), findsNWidgets(2));
+      expect(runner.commands, hasLength(asked));
 
       await unmount(tester);
     });
 
-    testWidgets('BACK walks out of a file, then up, then off', (tester) async {
+    testWidgets('folded, a file opens in a tab and the drawer closes over it', (
+      tester,
+    ) async {
       await browse(tester);
-      await tapText(tester, 'lib');
+      // Nothing to read yet, so the tree is what is on screen.
+      expect(find.text('OPEN A FILE'), findsOneWidget);
+      expect(find.text('lib'), findsOneWidget);
+
       await tapText(tester, 'README.md');
+
+      expect(find.text('file body'), findsOneWidget);
+      expect(editing(tester, 'README.md'), isTrue);
+      expect(crosses(), findsOneWidget);
+      // The tree is off the editor, and FILES at the head of the tabs is the
+      // way back to it.
+      expect(find.text('lib'), findsNothing);
+      expect(find.text('FILES'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('FILES draws the tree over the file, which stays open', (
+      tester,
+    ) async {
+      await browse(tester);
+      await tapText(tester, 'README.md');
+
+      await tapText(tester, 'FILES');
+      expect(find.text('lib'), findsOneWidget);
       expect(find.text('file body'), findsOneWidget);
 
-      // Out of the file first: the list is still in lib.
-      await tapText(tester, 'BACK');
-      expect(find.text('file body'), findsNothing);
-      expect(find.text('README.md'), findsOneWidget);
+      // Walking the tree keeps the drawer up; picking a file takes it down
+      // and puts the file in a tab of its own beside the first.
+      await tapText(tester, 'lib');
+      expect(find.text('lib'), findsNWidgets(2));
+      await tester.tap(treeRow('README.md').first);
+      await ready(tester);
+      expect(editing(tester, 'lib/README.md'), isTrue);
+      expect(crosses(), findsNWidgets(2));
+      expect(find.text('lib'), findsNothing);
 
-      // Then up out of lib, and only then off the screen.
+      // The ground beside the drawer closes it too.
+      await tapText(tester, 'FILES');
+      expect(find.text('lib'), findsNWidgets(2));
+      await tester.tapAt(const Offset(360, 800));
+      await ready(tester);
+      expect(find.text('lib'), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a file already open is gone to, not read again', (
+      tester,
+    ) async {
+      final runner = await browse(tester);
+      await tapText(tester, 'README.md');
+      final asked = runner.commands.length;
+
+      await tapText(tester, 'FILES');
+      await tapText(tester, 'README.md');
+
+      expect(crosses(), findsOneWidget);
+      expect(find.text('file body'), findsOneWidget);
+      expect(runner.commands, hasLength(asked));
+
+      await unmount(tester);
+    });
+
+    testWidgets('BACK closes the drawer over a file, then leaves', (
+      tester,
+    ) async {
+      await browse(tester);
+      await tapText(tester, 'README.md');
+      await tapText(tester, 'FILES');
+
       await tapText(tester, 'BACK');
+      expect(find.text('lib'), findsNothing);
+      expect(find.text('file body'), findsOneWidget);
+
       await tapText(tester, 'BACK');
       expect(find.text('BROWSE'), findsOneWidget);
 
       await unmount(tester);
     });
 
-    testWidgets('folded, a picked file takes the whole screen', (tester) async {
-      await browse(tester, size: const Size(400, 1600));
+    testWidgets('closing a tab moves to its neighbour, and the last one opens '
+        'the drawer', (tester) async {
+      await browse(tester);
       await tapText(tester, 'README.md');
+      await tapText(tester, 'FILES');
+      await tapText(tester, 'lib');
+      await tester.tap(treeRow('README.md').first);
+      await ready(tester);
+      expect(editing(tester, 'lib/README.md'), isTrue);
 
-      // The list is not on screen beside it — it is zero wide, not absent, so
-      // its state is still there to unfold onto.
-      expect(find.text('file body'), findsOneWidget);
-      expect(tester.getSize(find.text('file body')).width, greaterThan(0));
-      expect(find.text('CLOSE'), findsOneWidget);
+      await tester.tap(crosses().last);
+      await ready(tester);
+      expect(crosses(), findsOneWidget);
+      expect(editing(tester, 'README.md'), isTrue);
+
+      await tester.tap(crosses());
+      await ready(tester);
+      expect(crosses(), findsNothing);
+      expect(find.text('OPEN A FILE'), findsOneWidget);
+      // With nothing left to read the tree is back, still open where it was.
+      expect(find.text('lib'), findsNWidgets(2));
 
       await unmount(tester);
     });
 
-    testWidgets('unfolded, the list and the file are both on screen', (
+    testWidgets('unfolded, the tree and the editor are both on screen', (
       tester,
     ) async {
       await browse(tester, size: Size(Layout.columnMax * 2, 1600));
-      expect(find.text('PICK A FILE'), findsOneWidget);
+      expect(find.text('OPEN A FILE'), findsOneWidget);
+      // The sidebar is beside the editor, not a drawer, so there is nothing
+      // at the head of the tabs to open it with.
+      expect(find.text('FILES'), findsOneWidget);
 
       await tapText(tester, 'README.md');
       expect(find.text('file body'), findsOneWidget);
-      // Both panes are live, so the row that opened the file is still there.
       expect(find.text('lib'), findsOneWidget);
-      // Nothing to close: the viewer is not covering anything.
-      expect(find.text('CLOSE'), findsNothing);
 
       await unmount(tester);
     });
 
-    testWidgets('unfolding keeps the directory walked and the file open', (
+    testWidgets('unfolding keeps the tabs and the open directories', (
       tester,
     ) async {
       final runner = await browse(tester, size: const Size(400, 1600));
       await tapText(tester, 'lib');
-      await tapText(tester, 'README.md');
+      await tester.tap(find.text('README.md').first);
+      await ready(tester);
       final asked = runner.commands.length;
 
       // The fold: a width change and nothing else.
       tester.view.physicalSize = Size(Layout.columnMax * 2, 1600);
       await ready(tester);
 
-      // Same file, same directory, and not one command spent re-reading them:
-      // the widths changed and the tree under them did not.
+      // Same tab, same open directory, and not one command spent re-reading
+      // them: the widths changed and the tree under them did not.
+      expect(editing(tester, 'lib/README.md'), isTrue);
       expect(find.text('file body'), findsOneWidget);
-      expect(find.text('README.md'), findsOneWidget);
-      expect(find.text('LIB'), findsOneWidget);
+      expect(find.text('lib'), findsNWidgets(2));
       expect(runner.commands, hasLength(asked));
 
       await unmount(tester);
@@ -577,7 +708,133 @@ void main() {
       await ready(tester);
 
       expect(find.text('file body'), findsOneWidget);
+      // Folded with a file open, the tree is a drawer and a closed one.
+      expect(find.text('lib'), findsNothing);
       expect(runner.commands, hasLength(asked));
+
+      await unmount(tester);
+    });
+
+    /// The sidebar's own box, which is what a drag on the seam resizes.
+    Finder filesPanel() => find.byWidgetPredicate(
+      (widget) => widget is Panel && widget.title == 'FILES',
+    );
+
+    double sidebarWidth(WidgetTester tester) =>
+        tester.getSize(filesPanel()).width;
+
+    /// The middle of the grip, which sits against the sidebar's right edge in
+    /// both layouts: beside the editor it is the gap, over the editor it is
+    /// the drawer's own edge.
+    Offset grip(WidgetTester tester) {
+      final box = tester.getRect(filesPanel());
+      return Offset(box.right + Spacing.lg, box.center.dy);
+    }
+
+    /// The preferences row, read through [WidgetTester.runAsync] because the
+    /// query stream behind it runs on the real clock and not the test's.
+    Future<double> written(WidgetTester tester, String key) async =>
+        (await tester.runAsync(
+          () => settings.watchNumber(key, orElse: -1).first,
+        ))!;
+
+    const unfolded = Size(1200, 1600);
+
+    testWidgets('the seam beside the editor is dragged wider and narrower', (
+      tester,
+    ) async {
+      await browse(tester, size: unfolded);
+
+      final before = sidebarWidth(tester);
+      await tester.dragFrom(grip(tester), const Offset(80, 0));
+      await ready(tester);
+      expect(sidebarWidth(tester), closeTo(before + 80, 1));
+
+      await tester.dragFrom(grip(tester), const Offset(-120, 0));
+      await ready(tester);
+      expect(sidebarWidth(tester), closeTo(before - 40, 1));
+
+      await unmount(tester);
+    });
+
+    testWidgets('the seam stops at both ends rather than closing a pane', (
+      tester,
+    ) async {
+      await browse(tester, size: unfolded);
+      // The pane the seam moves across, inside the screen's own edges.
+      const pane = 1200 - Spacing.screenEdge * 2;
+
+      await tester.dragFrom(grip(tester), const Offset(2000, 0));
+      await ready(tester);
+      expect(
+        sidebarWidth(tester),
+        closeTo(pane * PaneSeam.beside.max - Spacing.lg * 2 / 2, 1),
+      );
+      expect(find.text('OPEN A FILE'), findsOneWidget);
+
+      await tester.dragFrom(grip(tester), const Offset(-2000, 0));
+      await ready(tester);
+      expect(
+        sidebarWidth(tester),
+        closeTo(pane * PaneSeam.beside.min - Spacing.lg * 2 / 2, 1),
+      );
+      expect(find.text('lib'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('folded, the drawer has a seam of its own', (tester) async {
+      await browse(tester);
+
+      final before = sidebarWidth(tester);
+      await tester.dragFrom(grip(tester), const Offset(10, 0));
+      await ready(tester);
+      expect(sidebarWidth(tester), closeTo(before + 10, 1));
+
+      // The drawer's width is its own row, so the pane beside the editor is
+      // left where it was.
+      expect(
+        await written(tester, SettingsRepository.codeDrawerShare),
+        isNot(-1),
+      );
+      expect(await written(tester, SettingsRepository.codeSidebarShare), -1);
+
+      await unmount(tester);
+    });
+
+    testWidgets('the width is written on the lift, not on the way', (
+      tester,
+    ) async {
+      await browse(tester, size: unfolded);
+
+      final finger = await tester.startGesture(grip(tester));
+      await finger.moveBy(const Offset(40, 0));
+      await ready(tester);
+      await finger.moveBy(const Offset(40, 0));
+      await ready(tester);
+      expect(await written(tester, SettingsRepository.codeSidebarShare), -1);
+
+      await finger.up();
+      await ready(tester);
+      expect(
+        await written(tester, SettingsRepository.codeSidebarShare),
+        closeTo(0.4 + 80 / (1200 - Spacing.screenEdge * 2), 0.001),
+      );
+
+      await unmount(tester);
+    });
+
+    testWidgets('the explorer comes up at the width it was left at', (
+      tester,
+    ) async {
+      await settings.setNumber(SettingsRepository.codeSidebarShare, 0.25);
+      await browse(tester, size: unfolded);
+
+      const pane = 1200 - Spacing.screenEdge * 2;
+      expect(
+        sidebarWidth(tester),
+        closeTo(pane * 0.25 - Spacing.lg * 2 / 2, 1),
+      );
 
       await unmount(tester);
     });
