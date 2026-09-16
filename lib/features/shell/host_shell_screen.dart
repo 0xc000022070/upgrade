@@ -275,8 +275,12 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     }
   }
 
+  /// The tab on screen first: under Mosh every tab of the host hears the same
+  /// bell, and the sheet names the shell the user is looking at. Then any
+  /// other live tab, in order.
   ShellSession? _nextPin(List<ShellSession> sessions) {
-    for (final session in sessions) {
+    final onScreen = _store.activeFor(widget.host.id);
+    for (final session in [?onScreen, ...sessions]) {
       final request = session.pin;
       if (request == null || session.state is! ShellLive) continue;
       if (request.id == _pinDismissed) continue;
@@ -295,12 +299,33 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       title: title,
       builder: (context) {
         _pinSheet = context;
+        // The sheet names the tab on screen once that tab holds the same
+        // request, which under Mosh it does a moment after the first tab. A
+        // tab taking a request is the tab's own news, not the store's, so
+        // the label follows every tab of the host.
         return PanelSheetBody(
           title: title,
-          children: [_PinSheet(number: session.number, request: request)],
+          children: [
+            ShellWatcher(
+              store: _store,
+              watch: (store) => store.forHost(widget.host.id),
+              builder: (_) => _PinSheet(
+                number: _pinTab(session, request),
+                request: request,
+              ),
+            ),
+          ],
         );
       },
     );
+  }
+
+  int _pinTab(ShellSession session, PinRequest request) {
+    final onScreen = _store.activeFor(widget.host.id);
+    if (onScreen != null && onScreen.pin?.id == request.id) {
+      return onScreen.number;
+    }
+    return session.number;
   }
 
   ShellSession? _nextBadExit(List<ShellSession> sessions) {

@@ -215,6 +215,36 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('the sheet names the tab on screen when it holds the request', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      await openNewShell(tester);
+      final connections = transport.opened;
+      expect(connections, hasLength(2));
+
+      // Under Mosh every tab of the host hears the bell, one after another.
+      // The sheet comes up on the first to hold the request and names it,
+      // then names the tab on screen the moment that one holds it too.
+      connections[0].emit(request());
+      await ready(tester);
+
+      expect(find.text('AUTHORIZATION REQUIRED'), findsOneWidget);
+      expect(find.text('SHELL 1'), findsOneWidget);
+
+      connections[1].emit(request());
+      await ready(tester);
+
+      expect(find.text('AUTHORIZATION REQUIRED'), findsOneWidget);
+      expect(find.text('SHELL 2'), findsOneWidget);
+      expect(find.text('SHELL 1'), findsNothing);
+
+      await unmount(tester);
+    });
+
     testWidgets('UNLOCK takes down the sheet and nothing under it', (
       tester,
     ) async {

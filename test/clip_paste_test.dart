@@ -93,16 +93,16 @@ void main() {
 
       expect(result.outcome, PasteOutcome.pasted);
       expect(result.line, 'PASTED');
-      // The first exec on any live shell is the pinentry mark, which is not
-      // the paste's.
+      // The first two execs on any live shell are the pinentry mark and the
+      // ask for what is open, neither of them the paste's.
       final commands = connection.execs
-          .skip(1)
+          .skip(2)
           .map((exec) => exec.command)
           .toList();
       expect(commands, hasLength(3));
       expect(commands[0], contains('uname -s'));
       expect(commands[1], uploadCommand(clip.fileName));
-      expect(connection.execs[2].stdin, await clip.file.readAsBytes());
+      expect(connection.execs[3].stdin, await clip.file.readAsBytes());
       expect(commands[2], contains('wl-copy --type image/png'));
       expect(connection.writes.last, pasteKey);
       expect(session.clipboard?.backend, ClipboardBackend.wayland);
@@ -121,7 +121,7 @@ void main() {
 
     expect(result.outcome, PasteOutcome.path);
     expect(result.line, 'PATH · no display server');
-    expect(connection.execs.skip(1), hasLength(2));
+    expect(connection.execs.skip(2), hasLength(2));
     expect(connection.written, contains('/tmp/dazzle/${clip.fileName}'));
     expect(connection.writes.any((bytes) => bytes.contains(0x16)), isFalse);
   });
@@ -201,8 +201,8 @@ void main() {
 
     expect(result.line, 'PASTED');
     expect(name, matches(RegExp(r'^[0-9a-f-]+\.png$')));
-    expect(connection.execs[2].command, uploadCommand(name));
-    expect(connection.execs[2].stdin, bytes);
+    expect(connection.execs[3].command, uploadCommand(name));
+    expect(connection.execs[3].stdin, bytes);
     expect(clips.count, 1);
   });
 
