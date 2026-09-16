@@ -13,12 +13,14 @@ import '../../design/tokens.dart';
 import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_text_action.dart';
+import '../../design/components/segment_switch.dart';
 import '../../design/components/toolbar_icon_action.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../platform/host_key_dial.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/link_probe.dart';
+import '../code/code_list.dart';
 import '../screen_scaffold.dart';
 import '../settings/host_form_screen.dart';
 import '../shell/shell_sheet.dart';
@@ -30,7 +32,13 @@ import 'keys_screen.dart';
 import 'link_probes.dart';
 import 'preview_tile.dart';
 
-/// Registered hosts with their metadata and screen previews.
+/// Two lists under one title. MACHINES is the registered hosts with their
+/// metadata and screen previews. CODE is every registered directory on every
+/// host: a directory is the app's own, filed with the machine it sits on, so it
+/// draws here whether or not the Projects plugin is on.
+///
+/// The pick lives here and is not persisted: the screen opens on MACHINES
+/// after a cold start.
 class HostsScreen extends ConsumerStatefulWidget {
   const HostsScreen({super.key});
 
@@ -46,6 +54,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
   /// flag has to be put down on the way out or a screen that is gone leaves the
   /// poller running.
   late final StateController<bool> _visible;
+  int _segment = 0;
 
   @override
   void initState() {
@@ -104,20 +113,32 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
         icon: DazzleIcons.sshKey,
         onTap: () => openKeys(context),
       ),
+      header: SegmentSwitch(
+        labels: const ['MACHINES', 'CODE'],
+        currentIndex: _segment,
+        onSelected: (index) => setState(() => _segment = index),
+      ),
       children: [
-        // No empty state under the hosts: with none registered the screen is
-        // `ADD HOST` alone, which says the same thing and does something.
-        PanelStack(
-          children: [
-            for (final host in hostList)
-              _HostPanel(
-                host: host,
-                keyName: keyNames[host.keyId],
-                outcome: _outcomeFor(feed, host.id),
-              ),
-          ],
-        ),
-        PanelTextAction(label: 'ADD HOST', onTap: () => openHostForm(context)),
+        if (_segment == 1)
+          const CodeList()
+        else ...[
+          // No empty state under the hosts: with none registered the screen is
+          // `ADD HOST` alone, which says the same thing and does something.
+          PanelStack(
+            children: [
+              for (final host in hostList)
+                _HostPanel(
+                  host: host,
+                  keyName: keyNames[host.keyId],
+                  outcome: _outcomeFor(feed, host.id),
+                ),
+            ],
+          ),
+          PanelTextAction(
+            label: 'ADD HOST',
+            onTap: () => openHostForm(context),
+          ),
+        ],
       ],
     );
   }
