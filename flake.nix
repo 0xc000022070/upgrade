@@ -171,11 +171,6 @@
             JAVA_HOME = "${jdk}";
 
             shellHook = ''
-              # SPEC.md §39.16's build line. Computed on every `nix develop`,
-              # including the `nix develop -c` that phone.toml builds through, so
-              # the sha a binary is stamped with is the sha it was built from.
-              # `dev` outside a checkout, which is what an unstamped build should
-              # admit to being.
               export DAZZLE_BUILD="$(${pkgs.git}/bin/git rev-parse --short HEAD 2>/dev/null || echo dev)"
 
               # The SDK stays off PATH on purpose: the host adb owns the server,
@@ -187,14 +182,16 @@
               # truncate it, costing the apk its version.
               if [ -d android ]; then
                 props=android/local.properties
+                tmp=$(mktemp "$props.XXXXXX")
                 {
                   printf 'sdk.dir=%s\n' ${sdkRoot}
                   printf 'flutter.sdk=%s\n' ${pkgs.flutter}
                   if [ -e "$props" ]; then
                     ${pkgs.gnugrep}/bin/grep -vE '^(sdk\.dir|flutter\.sdk)=' "$props" || true
                   fi
-                } > "$props.tmp"
-                mv -f "$props.tmp" "$props"
+                } > "$tmp"
+                chmod 644 "$tmp"
+                mv -f "$tmp" "$props"
               fi
             '';
           };
