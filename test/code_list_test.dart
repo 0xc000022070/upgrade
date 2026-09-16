@@ -1,26 +1,38 @@
 import 'support/native_plugins.dart';
 
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/navigation.dart';
 import 'package:dazzle/application/path_scan.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/data/repositories/key_repository.dart';
 import 'package:dazzle/data/repositories/path_repository.dart';
-import 'package:dazzle/features/projects/projects_screen.dart';
+import 'package:dazzle/features/hosts/hosts_screen.dart';
+import 'package:dazzle/features/hosts/link_probes.dart';
+import 'package:dazzle/features/screen/screen_preview.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/platform/keys.dart';
+import 'package:dazzle/platform/host_keys.dart';
+import 'package:dazzle/platform/link_probe.dart';
 
+import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// CODE: the registered directories as a primitive of their own.
+/// CODE: the registered directories as a primitive of their own, the second
+/// segment of HOSTS.
 ///
 /// The list is where a directory is registered now — the host form no longer
 /// draws a paths block at all — so everything the form used to be tested for
-/// is tested here, through the segment the user actually reaches it by.
+/// is tested here, through the segment the user actually reaches it by. The
+/// list is the app's own and not the Projects plugin's, so it is also pumped
+/// with Projects off.
 
 /// What a host answers `agent paths` with. The picker offers these.
 const _scanned = ['~/src/dazzle', '/srv/gate', '~/src/monolith'];
@@ -48,6 +60,9 @@ void main() {
   late HostRepository hosts;
   late MemoryPrivateKeyStore privateKeys;
   late PathRepository paths;
+  late Directory root;
+  late ScreenPreviews previews;
+  late ShellSessions sessions;
 
   // Real repositories over one memory database, not in-memory fakes: the CODE
   // list joins paths to hosts in SQL, so a host that lives only in a fake is a
@@ -59,18 +74,42 @@ void main() {
     hosts = DriftHostRepository(db);
     privateKeys = MemoryPrivateKeyStore();
     paths = DriftPathRepository(db);
+    root = Directory.systemTemp.createTempSync('dazzle-code');
+    previews = ScreenPreviews(Directory('${root.path}/screens'));
+    sessions = fakeShellSessions(FakeShellTransport()..stall = true);
+    addTearDown(previews.dispose);
     await keys.save(_key('key-1'));
     await privateKeys.write('key-1', 'PEM');
   });
 
-  tearDown(() => db.close());
+  tearDown(() {
+    root.deleteSync(recursive: true);
+    return db.close();
+  });
 
-  Widget app() => ProviderScope(
+  // The MACHINES segment under the same title probes, previews and dials the
+  // hosts it lists; none of that reaches a socket here.
+  Future<void> noDial({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    required HostKeyVerifier verifier,
+  }) async {}
+
+  Widget app({bool projects = true}) => ProviderScope(
     overrides: [
-      ...featureTestOverrides(db),
+      ...featureTestOverrides(db, enabled: projects),
+      navIndexProvider.overrideWith((ref) => HostsScreen.navIndex),
       keyRepositoryProvider.overrideWithValue(keys),
       hostRepositoryProvider.overrideWithValue(hosts),
       privateKeyStoreProvider.overrideWithValue(privateKeys),
+      screenPreviewsProvider.overrideWith((ref) async => previews),
+      shellSessionsProvider.overrideWithValue(sessions),
+      linkProbesProvider.overrideWithValue(
+        LinkProbes(probe: (_, _) async => const LinkResult.unknown()),
+      ),
+      hostKeyDialProvider.overrideWith((ref) => noDial),
       pathScannerProvider.overrideWithValue(
         PathScanner(
           fetch: ({
@@ -92,7 +131,7 @@ void main() {
         ),
       ),
     ],
-    child: MaterialApp(theme: testTheme, home: ProjectsScreen()),
+    child: MaterialApp(theme: testTheme, home: const HostsScreen()),
   );
 
   Future<void> ready(WidgetTester tester) async {
@@ -104,11 +143,11 @@ void main() {
     }
   }
 
-  Future<void> open(WidgetTester tester) async {
+  Future<void> open(WidgetTester tester, {bool projects = true}) async {
     tester.view.physicalSize = const Size(400, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(projects: projects));
     await ready(tester);
   }
 
@@ -124,22 +163,46 @@ void main() {
 
   Future<void> toCode(WidgetTester tester) => tapText(tester, 'CODE');
 
-  testWidgets('the tab opens on BOARD and the switch reaches CODE', (
+  testWidgets('HOSTS opens on MACHINES and the switch reaches CODE', (
     tester,
   ) async {
     await hosts.save(_host('1', 'nyx'));
     await open(tester);
 
-    // BOARD is what a projects tab is, so it is what opens.
-    expect(find.text('PROJECTS'), findsWidgets);
+    // The machines are what a hosts tab is, so they are what opens.
+    expect(find.text('HOSTS'), findsWidgets);
+    expect(find.text('ADD HOST'), findsOneWidget);
     expect(find.text('WORKSPACES'), findsNothing);
 
     await toCode(tester);
     expect(find.text('WORKSPACES'), findsOneWidget);
+    expect(find.text('ADD HOST'), findsNothing);
 
     // And back, on the same screen: this is a segment, not a destination.
-    await tapText(tester, 'BOARD');
+    await tapText(tester, 'MACHINES');
     expect(find.text('WORKSPACES'), findsNothing);
+    expect(find.text('ADD HOST'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('CODE lists and registers with the Projects plugin off', (
+    tester,
+  ) async {
+    await hosts.save(_host('1', 'nyx'));
+    await paths.add(hostId: '1', directory: '~/src/monolith');
+    await open(tester, projects: false);
+    await toCode(tester);
+
+    expect(find.text('WORKSPACES'), findsOneWidget);
+    expect(find.text(shortPathLabel('~/src/monolith')), findsOneWidget);
+
+    await tapText(tester, 'ADD');
+    await tapText(tester, shortPathLabel('~/src/dazzle'));
+    await tapText(tester, 'ADD 1');
+
+    expect(find.text(shortPathLabel('~/src/dazzle')), findsOneWidget);
+    expect((await paths.listForHost('1')).length, 2);
 
     await unmount(tester);
   });

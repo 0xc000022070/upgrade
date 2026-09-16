@@ -5,25 +5,16 @@ import '../../application/providers.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
-import '../../design/components/segment_switch.dart';
 import '../../design/spacing.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../screen_scaffold.dart';
-import 'code_list.dart';
 import 'project_detail_screen.dart';
 import 'project_form_screen.dart';
 import 'project_row.dart';
 
-/// Two lists under one title. BOARD is the projects: one panel, the same row
-/// HOME uses, plus the lead line, with the folded ARCHIVED panel under it. CODE
-/// is every registered directory on every host.
-///
-/// They are siblings and not a hierarchy — a directory with no project and a
-/// project with no directory are both ordinary — which is why the switch is a
-/// segment on one screen rather than two destinations in the nav.
-///
-/// The pick lives here and is not persisted: the screen opens on BOARD after a
-/// cold start.
+/// The board: one panel, the same row HOME uses, plus the lead line, with the
+/// folded ARCHIVED panel under it. The registered directories are not here;
+/// they are the app's own and sit under HOSTS.
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
 
@@ -33,19 +24,10 @@ class ProjectsScreen extends ConsumerStatefulWidget {
 
 class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   bool _showArchived = false;
-  int _segment = 0;
 
   @override
   Widget build(BuildContext context) {
-    return ScreenScaffold(
-      title: 'PROJECTS',
-      header: SegmentSwitch(
-        labels: const ['BOARD', 'CODE'],
-        currentIndex: _segment,
-        onSelected: (index) => setState(() => _segment = index),
-      ),
-      children: [if (_segment == 1) const CodeList() else _board()],
-    );
+    return ScreenScaffold(title: 'PROJECTS', children: [_board()]);
   }
 
   Widget _board() {
@@ -98,9 +80,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             title: 'ARCHIVED',
             affordance: PanelAffordance(
               '${archived.length}',
-              icon: _showArchived
-                  ? DazzleIcons.collapse
-                  : DazzleIcons.expand,
+              icon: _showArchived ? DazzleIcons.collapse : DazzleIcons.expand,
             ),
             onHeaderTap: () => setState(() => _showArchived = !_showArchived),
             bodyPadding: panelRowsPadding,
