@@ -19,6 +19,7 @@ import '../data/repositories/task_repository.dart';
 import '../data/views.dart';
 import '../platform/keys.dart';
 import 'agents.dart';
+import 'pane_share.dart';
 import 'shell_font.dart';
 import 'native_plugins.dart';
 
@@ -362,6 +363,15 @@ final shellFontSizeProvider = StreamProvider<double>(
         SettingsRepository.shellFontSize,
         orElse: shellFontSizeDefault,
       ),
+);
+
+/// Where the explorer's seams sit. A stream for the same reason as
+/// [shellFontSizeProvider]: the seam is dragged on one workspace and drawn on
+/// every other, and on the next open of the screen.
+final paneShareProvider = StreamProvider.family<double, PaneSeam>(
+  (ref, seam) => ref
+      .watch(settingsRepositoryProvider)
+      .watchNumber(seam.key, orElse: seam.fallback),
 );
 
 /// The `[ THEME ]` setting: whether the app tracks the phone's own theme

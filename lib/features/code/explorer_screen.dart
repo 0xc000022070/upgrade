@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/pane_share.dart';
+import '../../application/providers.dart';
 import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
@@ -10,7 +13,6 @@ import '../../design/components/segment_switch.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
 import '../../platform/workspace/workspace_model.dart';
-import '../screen_scaffold.dart';
 import 'change_marks.dart';
 import 'diff_sheet.dart';
 import 'syntax.dart';
@@ -25,117 +27,176 @@ void openExplorer(BuildContext context, WorkspaceController controller) {
   );
 }
 
-/// The workspace's files, as a tree the phone walks one directory at a time.
+/// The workspace laid out the way an IDE is: a sidebar holding the tree, an
+/// editor holding the open files under a row of tabs.
 ///
-/// Folded and unfolded are one layout, not two. The screen is always a list
-/// beside a viewer; what a fold changes is how wide each of them is, and
-/// nothing else:
-///
-/// * folded, nothing picked — the list is the screen and the viewer is 0 wide;
-/// * folded, a file picked — the viewer is the screen and the list is 0 wide;
-/// * unfolded — both are on screen, the list narrow and the viewer wide.
-///
-/// One tree at every width is the whole point: a wrapper inserted at a
-/// breakpoint discards the state under it, and unfolding the phone would throw
-/// away the directory the user had walked to and the file they were reading.
-/// Widths are numbers, and numbers can change mid-gesture.
-class ExplorerScreen extends StatefulWidget {
+/// Nothing here swaps a list for a file and back. A file opened is a tab and
+/// stays one; the tree keeps its open directories while a file is read.
+/// Folded and unfolded are one layout: unfolded the sidebar and the editor
+/// share the width, folded the editor has it and the sidebar is a drawer over
+/// it. A fold changes the widths and nothing else, so the tabs, the drawer
+/// and the open directories are the same widgets at every width — a wrapper
+/// inserted at a breakpoint would discard the state under it.
+class ExplorerScreen extends ConsumerStatefulWidget {
   const ExplorerScreen({super.key, required this.controller});
 
   final WorkspaceController controller;
 
   @override
-  State<ExplorerScreen> createState() => _ExplorerScreenState();
+  ConsumerState<ExplorerScreen> createState() => _ExplorerScreenState();
 }
 
-class _ExplorerScreenState extends State<ExplorerScreen> {
-  /// Where the list is, relative to the workspace root. Empty is the root.
-  String _directory = '';
+/// One open file: what it says, its colours and its marks, kept for the
+/// screen's life so switching back to it costs the host nothing.
+class _Tab {
+  _Tab(this.path);
 
-  List<DirEntry>? _entries;
-  bool _listFailed = false;
+  final String path;
 
-  /// The file in the viewer, relative to the root, and its text. Null when
-  /// nothing is picked, which folded means the list has the screen.
-  String? _file;
-  String? _text;
-  bool _fileFailed = false;
+  /// The cell on the tab row, for the row to scroll it into view.
+  final key = GlobalKey();
+
+  String? text;
+  bool failed = false;
 
   /// The text cut into coloured runs, one list per line. Null until the
   /// colouring lands, which for a long file is a moment after the text does,
   /// and for a file the app has no grammar for is never.
-  List<List<SyntaxSpan>>? _spans;
+  List<List<SyntaxSpan>>? spans;
 
-  /// The gutter's marks for the open file, by line number, or null while the
-  /// hunks are still coming or for a file that has no change to mark.
-  Map<int, LineMark>? _marks;
+  /// The gutter's marks by line number, or null while the hunks are still
+  /// coming or for a file that has no change to mark.
+  Map<int, LineMark>? marks;
 
   /// Which of the marked lines PREV and NEXT last landed on; -1 is none yet.
-  int _visit = -1;
+  int visit = -1;
 
   /// One key per marked line, so NEXT can ask the scroll view for it.
-  final _markKeys = <int, GlobalKey>{};
+  final markKeys = <int, GlobalKey>{};
 
-  /// The list drawn as the flat list of changed files rather than the tree.
+  String get name => path.split('/').last;
+}
+
+class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
+  /// The directories drawn open, by path from the root. The root always is.
+  final _expanded = <String>{''};
+
+  /// Every listing asked for so far, kept for the screen's life.
+  final _listings = <String, List<DirEntry>>{};
+
+  /// The directories whose listing failed; closing and reopening asks again.
+  final _failed = <String>{};
+
+  final _tabs = <_Tab>[];
+  int _active = -1;
+
+  /// Folded, whether the sidebar is over the editor. Open until a file is
+  /// picked, so the tree is the first thing seen on a phone.
+  bool _drawer = true;
+
+  /// The sidebar drawn as the flat list of changed files rather than the tree.
   bool _changedOnly = false;
-
-  /// Bumped on every navigation so a slow listing that lands after the user
-  /// has moved on is dropped rather than drawn over where they are now.
-  int _walk = 0;
 
   @override
   void initState() {
     super.initState();
-    _open('');
+    _list('');
   }
 
-  Future<void> _open(String directory) async {
-    final walk = ++_walk;
-    setState(() {
-      _directory = directory;
-      _entries = null;
-      _listFailed = false;
-    });
+  Future<void> _list(String directory) async {
     final entries = await widget.controller.list(directory);
-    if (!mounted || walk != _walk) return;
+    if (!mounted) return;
     setState(() {
-      _entries = entries;
-      _listFailed = entries == null;
+      if (entries == null) {
+        _failed.add(directory);
+      } else {
+        _listings[directory] = entries;
+      }
     });
   }
 
-  Future<void> _read(String path) async {
+  void _toggle(String directory) {
     setState(() {
-      _file = path;
-      _text = null;
-      _spans = null;
-      _marks = null;
-      _visit = -1;
-      _fileFailed = false;
+      if (!_expanded.remove(directory)) _expanded.add(directory);
     });
-    final text = await widget.controller.read(path);
-    if (!mounted || _file != path) return;
+    if (_expanded.contains(directory) && !_listings.containsKey(directory)) {
+      _failed.remove(directory);
+      _list(directory);
+    }
+  }
+
+  _Tab? get _tab => _active < 0 ? null : _tabs[_active];
+
+  /// A file already open is gone to, not read again.
+  void _read(String path) {
+    final index = _tabs.indexWhere((tab) => tab.path == path);
+    if (index >= 0) {
+      setState(() {
+        _active = index;
+        _drawer = false;
+      });
+      _reveal();
+      return;
+    }
+    final tab = _Tab(path);
     setState(() {
-      _text = text;
-      _fileFailed = text == null;
+      _tabs.add(tab);
+      _active = _tabs.length - 1;
+      _drawer = false;
+    });
+    _reveal();
+    _load(tab);
+  }
+
+  Future<void> _load(_Tab tab) async {
+    final text = await widget.controller.read(tab.path);
+    if (!mounted || !_tabs.contains(tab)) return;
+    setState(() {
+      tab.text = text;
+      tab.failed = text == null;
     });
     if (text == null) return;
     // The colours and the marks are two answers with nothing between them, so
     // they are asked for together and each lands when it lands.
-    final language = languageOf(path);
+    final language = languageOf(tab.path);
     if (language != null) {
       unawaited(
         highlightFile(text, language).then((spans) {
-          if (!mounted || _file != path || _text != text) return;
-          setState(() => _spans = spans);
+          if (!mounted || !_tabs.contains(tab)) return;
+          setState(() => tab.spans = spans);
         }),
       );
     }
-    final changed = _changedFile(path);
+    final changed = _changedFile(tab.path);
     if (changed == null || changed.untracked || changed.binary) return;
     final lines = await widget.controller.diff(changed);
-    if (!mounted || _file != path || _text != text || lines == null) return;
-    setState(() => _marks = changeMarks(lines));
+    if (!mounted || !_tabs.contains(tab) || lines == null) return;
+    setState(() => tab.marks = changeMarks(lines));
+  }
+
+  /// Scrolls the tab row to the tab on screen once it has been laid out.
+  void _reveal() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _tab?.key.currentContext;
+      if (target == null) return;
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 200),
+      );
+    });
+  }
+
+  void _closeTab(_Tab tab) {
+    setState(() {
+      final index = _tabs.indexOf(tab);
+      _tabs.removeAt(index);
+      if (_tabs.isEmpty) {
+        _active = -1;
+        _drawer = true;
+      } else if (_active > index || _active >= _tabs.length) {
+        _active -= 1;
+      }
+    });
   }
 
   WorkspaceOverview? get _overview => widget.controller.overview;
@@ -155,26 +216,19 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
     return null;
   }
 
-  void _close() {
-    _file = null;
-    _text = null;
-    _spans = null;
-    _marks = null;
-    _visit = -1;
-  }
+  /// Whether the sidebar and the editor share the width, or the sidebar is a
+  /// drawer over it. The one place the fold is read.
+  bool _wide(BuildContext context) =>
+      MediaQuery.sizeOf(context).width - 2 * Spacing.screenEdge >=
+      Layout.columnMax;
 
-  String _join(String name) => _directory.isEmpty ? name : '$_directory/$name';
+  /// Folded, the drawer over a file is a thing to close before leaving; over
+  /// nothing it is the screen, and back leaves.
+  bool get _drawerOverFile => _drawer && _tabs.isNotEmpty;
 
-  /// One step back up the tree, or out of the file, or off the screen — in
-  /// that order, which is the order the user walked in.
-  void _back() {
-    if (_file != null) {
-      setState(_close);
-      return;
-    }
-    if (_directory.isNotEmpty) {
-      final cut = _directory.lastIndexOf('/');
-      _open(cut < 0 ? '' : _directory.substring(0, cut));
+  void _back(bool wide) {
+    if (!wide && _drawerOverFile) {
+      setState(() => _drawer = false);
       return;
     }
     Navigator.of(context).pop();
@@ -182,12 +236,21 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final wide = _wide(context);
+    // The seam a finger is on is let go the moment the row says the same
+    // thing, so a width written here is also the width drawn on the next open.
+    for (final seam in PaneSeam.values) {
+      ref.listen(paneShareProvider(seam), (_, next) {
+        if (_held == seam && next.valueOrNull == _heldShare) {
+          setState(() => _held = null);
+        }
+      });
+    }
+    final share = {for (final seam in PaneSeam.values) seam: _share(seam)};
     return PopScope(
-      // The system gesture walks the tree the way the breadcrumb does, and
-      // only leaves once there is nowhere left to walk back to.
-      canPop: _file == null && _directory.isEmpty,
+      canPop: wide || !_drawerOverFile,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _back();
+        if (!didPop) _back(wide);
       },
       child: ColoredBox(
         color: context.tokens.backgroundPrimary,
@@ -203,9 +266,9 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _header(),
+                _header(wide),
                 const SizedBox(height: Spacing.lg),
-                Expanded(child: _panes()),
+                Expanded(child: _panes(wide, share)),
               ],
             ),
           ),
@@ -214,18 +277,7 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
     );
   }
 
-  Widget _header() {
-    final segments = <CrumbSegment>[
-      CrumbSegment(
-        widget.controller.label.toUpperCase(),
-        onTap: () => _open(''),
-      ),
-      for (var i = 0; i < _walked.length; i++)
-        CrumbSegment(
-          _walked[i].toUpperCase(),
-          onTap: () => _open(_walked.take(i + 1).join('/')),
-        ),
-    ];
+  Widget _header(bool wide) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -233,10 +285,17 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
           height: TapTargets.minHeight,
           child: Row(
             children: [
-              Expanded(child: _SegmentedPath(segments: segments)),
+              Expanded(
+                child: Text(
+                  '/ ${widget.controller.label.toUpperCase()}',
+                  style: context.tokens.breadcrumb,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: _back,
+                onTap: () => _back(wide),
                 child: Padding(
                   padding: const EdgeInsets.only(left: Spacing.md),
                   child: Text('BACK', style: context.tokens.panelHeader),
@@ -251,52 +310,114 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
     );
   }
 
-  List<String> get _walked =>
-      _directory.isEmpty ? const [] : _directory.split('/');
-
-  Widget _panes() {
+  Widget _panes(bool wide, Map<PaneSeam, double> share) {
     // The badges and the marks are read off the workspace's own status, so a
     // REFRESH on the screen behind redraws them here.
     return ListenableBuilder(
       listenable: widget.controller,
-      builder: (context, _) => _split(),
+      builder: (context, _) => wide
+          ? _split(share[PaneSeam.beside]!)
+          : _stacked(share[PaneSeam.over]!),
     );
   }
 
-  Widget _split() {
+  /// The seam whose share the finger is holding, and what it holds. Held on
+  /// past the lift, until the preferences row comes back saying the same
+  /// thing, so the panes do not jump back to the old width while the write is
+  /// in flight.
+  PaneSeam? _held;
+  double _heldShare = 0;
+
+  double _share(PaneSeam seam) => seam == _held
+      ? _heldShare
+      : ref.watch(paneShareProvider(seam)).valueOrNull ?? seam.fallback;
+
+  void _seamGrabbed(PaneSeam seam, double share) {
+    setState(() {
+      _held = seam;
+      _heldShare = share;
+    });
+  }
+
+  void _seamMoved(double moved, double width) {
+    final seam = _held;
+    if (seam == null) return;
+    final next = seam.dragged(_heldShare, moved, width);
+    if (next == _heldShare) return;
+    setState(() => _heldShare = next);
+  }
+
+  /// The write happens on the lift, once, rather than on every frame of the
+  /// drag: the row is one number, and nothing reading it needs sixty of them.
+  void _seamDropped() {
+    final seam = _held;
+    if (seam == null) return;
+    unawaited(
+      ref.read(settingsRepositoryProvider).setNumber(seam.key, _heldShare),
+    );
+  }
+
+  Widget _grip(PaneSeam seam, double share, double width) => _Grip(
+    onGrab: () => _seamGrabbed(seam, share),
+    onMove: (moved) => _seamMoved(moved, width),
+    onDrop: _seamDropped,
+  );
+
+  Widget _split(double share) {
     return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final wide = width >= Layout.columnMax;
-        // The one place the fold is read. Everything below is the same tree at
-        // every width, holding the same state.
-        final listWidth = wide
-            ? width * _listShare - Spacing.md / 2
-            : (_file == null ? width : 0.0);
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(width: listWidth, child: _list()),
-            SizedBox(width: wide ? Spacing.md : 0),
-            Expanded(child: _viewer(wide: wide)),
-          ],
-        );
-      },
+      builder: (context, constraints) => Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: constraints.maxWidth * share - _Grip.width / 2,
+            child: _sidebar(),
+          ),
+          _grip(PaneSeam.beside, share, constraints.maxWidth),
+          Expanded(child: _editor(wide: true)),
+        ],
+      ),
     );
   }
 
-  /// The list keeps a little under half: a file's lines are longer than a
-  /// file's name, and the pane that is read gets the width.
-  static const _listShare = 0.4;
+  Widget _stacked(double share) {
+    return LayoutBuilder(
+      builder: (context, constraints) => Stack(
+        fit: StackFit.expand,
+        children: [
+          _editor(wide: false),
+          if (_drawer) ...[
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _drawer = false),
+              child: ColoredBox(color: context.tokens.scrim),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: share,
+                heightFactor: 1,
+                // The drawer's own right edge is its seam, so the grip rides
+                // inside the width it moves rather than out over the scrim,
+                // where a touch means close and not drag.
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: _sidebar()),
+                    _grip(PaneSeam.over, share, constraints.maxWidth),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
-  Widget _list() {
-    final entries = _entries;
+  Widget _sidebar() {
     final changes = _changes;
     return Panel(
       title: 'FILES',
-      affordance: entries == null
-          ? null
-          : PanelAffordance('${entries.length}', showIcon: false),
       bodyPadding: EdgeInsets.zero,
       bodyFlexible: true,
       child: Column(
@@ -329,24 +450,22 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
     );
   }
 
-  /// The directory's entries with the checkout's word on each: a letter on a
-  /// changed file, a count on a directory with changes under it, and a row
-  /// for a file that was deleted here and so is not in the listing at all.
+  /// The tree from the root down through every open directory, with the
+  /// checkout's word on each row: a letter on a changed file, a count on a
+  /// directory with changes under it, and a row for a file that was deleted
+  /// and so is not in any listing at all.
   Widget _treeRows(Map<String, WorkspaceChange> changes) {
-    final entries = _entries;
-    if (entries == null) {
+    if (!_listings.containsKey('')) {
       return Padding(
         padding: const EdgeInsets.all(Spacing.panelPadding),
-        child: EmptyState(_listFailed ? 'could not read it' : 'reading…'),
+        child: EmptyState(
+          _failed.contains('') ? 'could not read it' : 'reading…',
+        ),
       );
     }
-    final gone = [
-      for (final change in changes.values)
-        if (change.kind == WorkspaceChangeKind.deleted &&
-            _parentOf(change.path) == _directory)
-          change,
-    ];
-    if (entries.isEmpty && gone.isEmpty) {
+    final rows = <Widget>[];
+    _walk('', 0, changes, rows);
+    if (rows.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(Spacing.panelPadding),
         child: EmptyState('empty'),
@@ -354,52 +473,100 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
     }
     return Padding(
       padding: panelRowsPadding,
-      child: ListRowGroup(
-        children: [
-          for (final entry in entries) _treeRow(entry, changes),
-          for (final change in gone)
-            ListRow(
-              title: change.path.split('/').last,
-              value: _badge(change.kind),
-              valueColor: _badgeColor(change.kind),
-              titleColor: context.tokens.textMuted,
-              onTap: () {
-                final file = _changedFile(change.path);
-                if (file != null) {
-                  showDiffSheet(context, widget.controller, file: file);
-                }
-              },
-            ),
-        ],
-      ),
+      child: ListRowGroup(children: rows),
     );
   }
 
-  Widget _treeRow(DirEntry entry, Map<String, WorkspaceChange> changes) {
-    final path = _join(entry.name);
-    if (entry.isDirectory) {
-      final under = changes.keys.where((p) => p.startsWith('$path/')).length;
-      return ListRow(
-        title: entry.name,
-        node: true,
-        value: under == 0 ? null : '$under',
-        valueColor: context.tokens.warning,
-        onTap: () => _open(path),
+  void _walk(
+    String directory,
+    int depth,
+    Map<String, WorkspaceChange> changes,
+    List<Widget> rows,
+  ) {
+    final entries = _listings[directory];
+    if (entries == null) {
+      if (depth > 0) {
+        rows.add(
+          _note(
+            _failed.contains(directory) ? 'could not read it' : 'reading…',
+            depth,
+          ),
+        );
+      }
+      return;
+    }
+    for (final entry in entries) {
+      final path = directory.isEmpty ? entry.name : '$directory/${entry.name}';
+      if (entry.isDirectory) {
+        final open = _expanded.contains(path);
+        final under = changes.keys.where((p) => p.startsWith('$path/')).length;
+        rows.add(
+          ListRow(
+            title: entry.name,
+            leading: const SizedBox.shrink(),
+            leadingWidth: _indent(depth),
+            node: !open,
+            value: under == 0 ? null : '$under',
+            valueColor: context.tokens.warning,
+            onTap: () => _toggle(path),
+          ),
+        );
+        if (open) _walk(path, depth + 1, changes, rows);
+        continue;
+      }
+      final change = changes[path];
+      rows.add(
+        ListRow(
+          title: entry.name,
+          leading: const SizedBox.shrink(),
+          leadingWidth: _indent(depth),
+          value: change == null ? _sizeWord(entry.size) : _letter(change.kind),
+          valueColor: change == null ? null : _badgeColor(change.kind),
+          titleColor: path == _tab?.path ? context.tokens.accent : null,
+          onTap: () => _read(path),
+        ),
       );
     }
-    final change = changes[path];
-    return ListRow(
-      title: entry.name,
-      value: change == null ? _sizeWord(entry.size) : _badge(change.kind),
-      valueColor: change == null ? null : _badgeColor(change.kind),
-      titleColor: path == _file ? context.tokens.accent : null,
-      onTap: () => _read(path),
-    );
+    for (final change in changes.values) {
+      if (change.kind != WorkspaceChangeKind.deleted ||
+          _parentOf(change.path) != directory) {
+        continue;
+      }
+      rows.add(
+        ListRow(
+          title: change.path.split('/').last,
+          leading: const SizedBox.shrink(),
+          leadingWidth: _indent(depth),
+          value: _letter(change.kind),
+          valueColor: _badgeColor(change.kind),
+          titleColor: context.tokens.textMuted,
+          onTap: () {
+            final file = _changedFile(change.path);
+            if (file != null) {
+              showDiffSheet(context, widget.controller, file: file);
+            }
+          },
+        ),
+      );
+    }
   }
 
+  /// A word where a directory's entries would be, while they are coming or
+  /// when they never came.
+  Widget _note(String word, int depth) => ListRow(
+    title: word,
+    leading: const SizedBox.shrink(),
+    leadingWidth: _indent(depth),
+    titleColor: context.tokens.textMuted,
+  );
+
+  /// One step further in per level, taken out of the row's glyph slot so the
+  /// rule under the row still runs the panel's width.
+  static double _indent(int depth) => depth * Spacing.xl;
+
   /// Every changed file in the checkout, flat, with the counts the workspace
-  /// screen shows. A tap opens the file whole, or the diff for a file that is
-  /// not there to open any more.
+  /// screen shows. A tap opens the file, or the diff for a file that is not
+  /// there to open any more.
   Widget _changedRows() {
     final files = _overview?.files ?? const <WorkspaceFile>[];
     if (files.isEmpty) {
@@ -415,12 +582,12 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
           for (final file in files)
             ListRow(
               title: file.path,
-              subtitle: file.binary
-                  ? null
-                  : '+${file.added} \u2212${file.removed}',
-              value: _badge(file.kind),
+              subtitle: file.binary ? null : '+${file.added} −${file.removed}',
+              value: _letter(file.kind),
               valueColor: _badgeColor(file.kind),
-              titleColor: file.path == _file ? context.tokens.accent : null,
+              titleColor: file.path == _tab?.path
+                  ? context.tokens.accent
+                  : null,
               onTap: file.kind == WorkspaceChangeKind.deleted
                   ? () => showDiffSheet(context, widget.controller, file: file)
                   : () => _read(file.path),
@@ -435,15 +602,6 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
     return cut < 0 ? '' : path.substring(0, cut);
   }
 
-  static String _badge(WorkspaceChangeKind kind) => switch (kind) {
-    WorkspaceChangeKind.modified => 'M',
-    WorkspaceChangeKind.added => 'A',
-    WorkspaceChangeKind.deleted => 'D',
-    WorkspaceChangeKind.renamed => 'R',
-    WorkspaceChangeKind.untracked => '?',
-    WorkspaceChangeKind.conflicted => '!',
-  };
-
   Color _badgeColor(WorkspaceChangeKind kind) => switch (kind) {
     WorkspaceChangeKind.modified ||
     WorkspaceChangeKind.renamed => context.tokens.warning,
@@ -453,10 +611,74 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
     WorkspaceChangeKind.conflicted => context.tokens.danger,
   };
 
-  /// The line under the viewer's title on a changed file: what kind of change
-  /// it is, how many places, and the three verbs that walk them.
-  Widget _strip(WorkspaceFile file) {
-    final marks = _marks;
+  Widget _editor({required bool wide}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _tabRow(wide: wide),
+        const SizedBox(height: Spacing.md),
+        Expanded(child: _viewer()),
+      ],
+    );
+  }
+
+  /// The open files, one cell each, and folded the word that opens the
+  /// drawer at the head of them.
+  Widget _tabRow({required bool wide}) {
+    final changes = _changes;
+    return SizedBox(
+      height: TapTargets.minHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: context.tokens.borderNormal,
+              width: Borders.hairline,
+            ),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!wide)
+              _TabCell(
+                label: 'FILES',
+                active: _drawer,
+                onTap: () => setState(() => _drawer = !_drawer),
+              ),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final tab in _tabs)
+                      _TabCell(
+                        key: tab.key,
+                        label: tab.name,
+                        badge: changes[tab.path]?.kind,
+                        badgeColor: switch (changes[tab.path]?.kind) {
+                          null => null,
+                          final kind => _badgeColor(kind),
+                        },
+                        active: tab == _tab,
+                        onTap: () => _read(tab.path),
+                        onClose: () => _closeTab(tab),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The line under the tabs on a changed file: what kind of change it is,
+  /// how many places, and the three verbs that walk them.
+  Widget _strip(_Tab tab, WorkspaceFile file) {
+    final marks = tab.marks;
     final lines = marks == null ? const <int>[] : (marks.keys.toList()..sort());
     final word = file.untracked
         ? 'UNTRACKED'
@@ -481,8 +703,8 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
             ),
           ),
           if (lines.isNotEmpty) ...[
-            _verb('PREV', () => _step(lines, -1)),
-            _verb('NEXT', () => _step(lines, 1)),
+            _verb('PREV', () => _step(tab, lines, -1)),
+            _verb('NEXT', () => _step(tab, lines, 1)),
           ],
           _verb(
             'DIFF',
@@ -503,9 +725,9 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
   );
 
   /// One marked line along, wrapping at either end, and scrolled to.
-  void _step(List<int> lines, int by) {
-    setState(() => _visit = (_visit + by) % lines.length);
-    final target = _markKeys[lines[_visit]]?.currentContext;
+  void _step(_Tab tab, List<int> lines, int by) {
+    setState(() => tab.visit = (tab.visit + by) % lines.length);
+    final target = tab.markKeys[lines[tab.visit]]?.currentContext;
     if (target == null) return;
     Scrollable.ensureVisible(
       target,
@@ -514,33 +736,23 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
     );
   }
 
-  Widget _viewer({required bool wide}) {
-    final file = _file;
-    if (file == null) {
-      // Unfolded with nothing picked, this is where the pane says what it is
-      // for. Folded it is zero wide and never laid out.
-      return wide
-          ? const Panel(title: 'VIEWER', child: EmptyState('pick a file'))
-          : const SizedBox.shrink();
+  Widget _viewer() {
+    final tab = _tab;
+    if (tab == null) {
+      return const Panel(title: 'EDITOR', child: EmptyState('open a file'));
     }
-    final changed = _changedFile(file);
+    final changed = _changedFile(tab.path);
     return Panel(
-      title: file,
-      affordance: wide
-          ? null
-          : PanelAffordance(
-              'CLOSE',
-              showIcon: false,
-              onTap: () => setState(_close),
-            ),
+      title: tab.path,
+      literalTitle: true,
       bodyPadding: EdgeInsets.zero,
       bodyFlexible: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (changed != null) _strip(changed),
+          if (changed != null) _strip(tab, changed),
           Expanded(
-            child: switch ((_text, _fileFailed)) {
+            child: switch ((tab.text, tab.failed)) {
               (null, false) => const Padding(
                 padding: EdgeInsets.all(Spacing.panelPadding),
                 child: EmptyState('reading…'),
@@ -550,14 +762,150 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
                 child: EmptyState('could not read it'),
               ),
               (final text?, _) => _FileBody(
+                key: ValueKey(tab.path),
                 text: text,
-                spans: _spans,
-                marks: _marks,
-                keys: _markKeys,
+                spans: tab.spans,
+                marks: tab.marks,
+                keys: tab.markKeys,
               ),
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The checkout's one-letter word on a file.
+String _letter(WorkspaceChangeKind kind) => switch (kind) {
+  WorkspaceChangeKind.modified => 'M',
+  WorkspaceChangeKind.added => 'A',
+  WorkspaceChangeKind.deleted => 'D',
+  WorkspaceChangeKind.renamed => 'R',
+  WorkspaceChangeKind.untracked => '?',
+  WorkspaceChangeKind.conflicted => '!',
+};
+
+/// One cell on the tab row: the file's name, the checkout's letter when it
+/// has one, and the cross that closes it. The underline is the whole of what
+/// marks the tab on screen beyond its ink, the way the shell's tabs do it.
+/// The seam between the two panes, as something a finger can take.
+///
+/// The bar down the middle is what says so; the box around it is wider than
+/// the bar because a hairline is not a touch target. It is `opaque` so that the
+/// drag begins on the gap itself and not only on the mark drawn in it.
+class _Grip extends StatelessWidget {
+  const _Grip({
+    required this.onGrab,
+    required this.onMove,
+    required this.onDrop,
+  });
+
+  /// Wide enough for a finger, and the gap between the panes at the same time.
+  static const width = Spacing.lg * 2;
+
+  static const _barWidth = 2.0;
+  static const _barHeight = Spacing.xl * 2;
+
+  final VoidCallback onGrab;
+  final void Function(double moved) onMove;
+  final VoidCallback onDrop;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragStart: (_) => onGrab(),
+      onHorizontalDragUpdate: (details) => onMove(details.delta.dx),
+      onHorizontalDragEnd: (_) => onDrop(),
+      child: SizedBox(
+        width: width,
+        child: Center(
+          child: Container(
+            width: _barWidth,
+            height: _barHeight,
+            decoration: BoxDecoration(
+              color: context.tokens.borderNormal,
+              borderRadius: BorderRadius.circular(_barWidth),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TabCell extends StatelessWidget {
+  const _TabCell({
+    super.key,
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.badge,
+    this.badgeColor,
+    this.onClose,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  final WorkspaceChangeKind? badge;
+  final Color? badgeColor;
+  final VoidCallback? onClose;
+
+  static const cross = '×';
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = active ? context.tokens.accent : context.tokens.textMuted;
+    final badge = this.badge;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minWidth: TapTargets.minHeight),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: active
+                ? BorderSide(
+                    color: context.tokens.accent,
+                    width: Borders.hairline * 2,
+                  )
+                : BorderSide.none,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: context.tokens.panelHeader.copyWith(color: tint),
+              maxLines: 1,
+            ),
+            if (badge != null) ...[
+              const SizedBox(width: Spacing.sm),
+              Text(
+                _letter(badge),
+                style: context.tokens.panelHeader.copyWith(color: badgeColor),
+              ),
+            ],
+            if (onClose != null) ...[
+              const SizedBox(width: Spacing.md),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onClose,
+                child: Text(
+                  cross,
+                  style: context.tokens.panelHeader.copyWith(
+                    color: context.tokens.textMuted,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -570,6 +918,7 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
 /// a file being edited.
 class _FileBody extends StatelessWidget {
   const _FileBody({
+    super.key,
     required this.text,
     required this.spans,
     required this.marks,
@@ -714,38 +1063,6 @@ class _Mark extends StatelessWidget {
             ),
           ),
         },
-      ),
-    );
-  }
-}
-
-/// The walked path, each segment tappable back to itself. The scaffold's own
-/// crumb is a widget of its own file and private to it; this is the same
-/// shape over a path that changes without the route changing.
-class _SegmentedPath extends StatelessWidget {
-  const _SegmentedPath({required this.segments});
-
-  final List<CrumbSegment> segments;
-
-  @override
-  Widget build(BuildContext context) {
-    // Reversed and right-aligned so the deepest segments — the ones that say
-    // where the user is — are the ones that survive a narrow line.
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      reverse: true,
-      child: Row(
-        children: [
-          Text('/ ', style: context.tokens.breadcrumb),
-          for (var i = 0; i < segments.length; i++) ...[
-            if (i > 0) Text(' / ', style: context.tokens.breadcrumb),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: segments[i].onTap,
-              child: Text(segments[i].label, style: context.tokens.breadcrumb),
-            ),
-          ],
-        ],
       ),
     );
   }

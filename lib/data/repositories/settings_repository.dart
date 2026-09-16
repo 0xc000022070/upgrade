@@ -27,6 +27,13 @@ class SettingsRepository {
   /// since it is the user's reading distance and not a property of a shell.
   static const shellFontSize = 'shell_font_size';
 
+  /// How much of the explorer's width the tree holds beside the editor, and
+  /// how much of it the drawer holds over the editor, each as a share of the
+  /// pane. Defaults in `PaneSeam`: the seam is a reading decision, so one
+  /// share serves every workspace on every host.
+  static const codeSidebarShare = 'code_sidebar_share';
+  static const codeDrawerShare = 'code_drawer_share';
+
   /// The `[ THEME ]` row. Default off (HOUSE): the fixed palette is what
   /// every spec ruling and screenshot assumes, so a device opts into tracking
   /// the phone's own theme rather than the app defaulting to it.
