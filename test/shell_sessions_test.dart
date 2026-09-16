@@ -782,6 +782,37 @@ void main() {
     expect(state.detail, 'SSHAuthFailError: publickey');
   });
 
+  testWidgets('a machine that did not answer names the dial in its detail', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+
+    await _spend(tester, transport, session);
+    transport.refuse = const ShellFailure(
+      ShellFailureKind.unreachable,
+      detail: 'connection refused',
+    );
+    sessions.wakeAll();
+    await _pumpDial(tester);
+    for (final delay in shellReconnectDelays) {
+      expect(session.state, isA<ShellDropped>());
+      await tester.pump(delay);
+      await _pumpDial(tester);
+    }
+
+    // The host row's own user, address and port, so the reader is sent to
+    // the port that was dialled and not to whatever the socket said about
+    // its own end.
+    final state = session.state as ShellWaiting;
+    expect(state.kind, ShellFailureKind.unreachable);
+    expect(state.detail, 'luis@100.64.0.1:22 · connection refused');
+
+    await sessions.close(_rose.id, session);
+  });
+
   testWidgets('an error nobody mapped keeps its own words', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);

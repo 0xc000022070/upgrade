@@ -435,15 +435,15 @@ ShellFailure? shellFailureFor(
   // in is a platform detail, and one copy of that guess is enough.
   SocketException() when HerdrClient.isLookupFailure(error) => ShellFailure(
     ShellFailureKind.unresolved,
-    detail: '$error',
+    detail: socketWords(error),
   ),
   SocketException() => ShellFailure(
     ShellFailureKind.unreachable,
-    detail: '$error',
+    detail: socketWords(error),
   ),
   TimeoutException() => ShellFailure(
     ShellFailureKind.unreachable,
-    detail: '$error',
+    detail: timeoutWords(error),
   ),
   SSHError() => ShellFailure(ShellFailureKind.unreachable, detail: '$error'),
   _ => null,
@@ -987,4 +987,17 @@ Future<ExecResult> _exec(
     stdout: out.takeBytes(),
     stderr: err.takeBytes(),
   );
+}
+
+/// The operating system's words for a socket that did not open, and nothing
+/// of the socket's report of itself: the address and port it prints are the
+/// phone's end of a connection that never existed, and a reader sent to that
+/// port goes looking for a service nobody dialled.
+String socketWords(SocketException error) =>
+    (error.osError?.message ?? error.message).toLowerCase();
+
+/// A dial that ran out of time, with the timeout it was given.
+String timeoutWords(TimeoutException error) {
+  final duration = error.duration;
+  return duration == null ? 'no answer' : 'no answer in ${duration.inSeconds}s';
 }
