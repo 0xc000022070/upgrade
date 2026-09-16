@@ -248,7 +248,10 @@ never sees the request itself, only the bell, and asks the host what is open.
 The first answer wins, and a tab holding a request keeps asking until the host
 says it is gone. The request also rings the shade as `AUTHORIZATION REQUIRED`,
 one notification per host on its own channel, and tapping it opens that host's
-shell.
+shell. The pinentry gives up on a request after a window of its own and never
+says how long that is, so an ask the app has held five minutes is drawn as one
+that may have expired, and an answer written after the host took the request
+down is reported as expired rather than passed off as sent.
 
 An SSH login on Linux does not inherit the desktop display. Put this in the
 login shell setup when agents started from Dazzle must read image attachments:

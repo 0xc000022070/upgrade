@@ -223,6 +223,7 @@ ShellSessions fakeShellSessions(
   Future<void> Function(String hostId, PinnedHostKey key)? pinHostKey,
   ShellTabRepository? tabs,
   Duration pinRecheck = const Duration(seconds: 5),
+  Duration pinStale = const Duration(minutes: 5),
   PinNotifier? notifier,
 }) => ShellSessions(
   readPrivateKey: (_) async => privateKey,
@@ -230,5 +231,6 @@ ShellSessions fakeShellSessions(
   tabs: tabs,
   open: transport.open,
   pinRecheck: pinRecheck,
+  pinStale: pinStale,
   notifier: notifier,
 );

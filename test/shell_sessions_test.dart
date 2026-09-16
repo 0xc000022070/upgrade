@@ -1520,6 +1520,97 @@ void main() {
 
       await sessions.close(_rose.id, session);
     });
+
+    test('an ask that keeps standing past its window may be over', () async {
+      final shade = _Shade();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(
+        transport,
+        notifier: shade,
+        pinRecheck: const Duration(milliseconds: 10),
+        pinStale: const Duration(milliseconds: 40),
+      );
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+      final payload = base64Encode(
+        utf8.encode(jsonEncode({'mode': 'pin', 'desc': 'the key'})),
+      );
+
+      connection.answerWith('$id $payload\n');
+      connection.emit('\x07');
+      await _settle();
+      await _settle();
+      expect(session.pin?.id, id);
+      expect(session.pin?.stale, isFalse);
+
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(session.pin?.id, id);
+      expect(session.pin?.stale, isTrue);
+      // The same ask grown old is not another ask.
+      expect(shade.events, ['up h1 ROSE · the key']);
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test('an answer the host had already taken down is expired', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      connection.emit(osc({'mode': 'pin'}));
+      await _settle();
+      connection.answer = (command, _) => ExecResult(
+        exitCode: command == pinentryAnswerCommand(id) ? 1 : 0,
+        stdout: Uint8List(0),
+        stderr: Uint8List(0),
+      );
+
+      expect(await sessions.answerPin(session, 'hunter2'), PinAnswer.expired);
+      expect(session.pin, isNull);
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test('an answer the fifo took is sent', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      connection.emit(osc({'mode': 'pin'}));
+      await _settle();
+
+      expect(await sessions.answerPin(session, 'hunter2'), PinAnswer.sent);
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test('an answer the link swallowed is lost', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      connection.emit(osc({'mode': 'pin'}));
+      await _settle();
+      connection.answer = (command, _) {
+        if (command == pinentryAnswerCommand(id)) throw 'link lost';
+        return ExecResult(
+          exitCode: 0,
+          stdout: Uint8List(0),
+          stderr: Uint8List(0),
+        );
+      };
+
+      expect(await sessions.answerPin(session, 'hunter2'), PinAnswer.lost);
+
+      await sessions.close(_rose.id, session);
+    });
   });
 
   testWidgets('a shell the user exited is not reconnected', (tester) async {

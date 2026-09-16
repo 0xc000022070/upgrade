@@ -175,17 +175,19 @@ class PinRequest {
   const PinRequest({
     required this.id,
     required this.mode,
+    required this.since,
     this.desc = '',
     this.prompt = '',
     this.error = '',
     this.ok = '',
     this.cancel = '',
+    this.stale = false,
   });
 
   /// Null for anything that is not a request: an id that is not one, a
   /// payload that is not base64 or not JSON. A host is trusted to run a shell,
   /// not to shape a command, and the id is the one thing here that reaches one.
-  static PinRequest? decode(String id, String payload) {
+  static PinRequest? decode(String id, String payload, {DateTime? at}) {
     if (!pinentryRequestId.hasMatch(id)) return null;
     try {
       final json = jsonDecode(utf8.decode(base64Decode(payload)));
@@ -199,6 +201,7 @@ class PinRequest {
       return PinRequest(
         id: id,
         mode: mode.isEmpty ? 'pin' : mode,
+        since: at ?? DateTime.now(),
         desc: field('desc'),
         prompt: field('prompt'),
         error: field('error'),
@@ -214,7 +217,7 @@ class PinRequest {
   /// and the payload with a space between, in the order the host listed them.
   /// A line that is not a request is skipped rather than fatal, because the
   /// list is read off a directory a user's processes share.
-  static List<PinRequest> decodeOpen(String listing) {
+  static List<PinRequest> decodeOpen(String listing, {DateTime? at}) {
     final requests = <PinRequest>[];
     for (final line in listing.split('\n')) {
       final space = line.indexOf(' ');
@@ -222,6 +225,7 @@ class PinRequest {
       final request = decode(
         line.substring(0, space),
         line.substring(space + 1).trim(),
+        at: at,
       );
       if (request != null) requests.add(request);
     }
@@ -235,6 +239,32 @@ class PinRequest {
   final String error;
   final String ok;
   final String cancel;
+
+  /// When the phone first heard this ask. The host says nothing about its own
+  /// clock: the payload carries the agent's words and the open listing says a
+  /// request stands, never for how much longer. So the count starts where the
+  /// tab took it and nowhere else, and it is never counted down to a deadline
+  /// the phone would be inventing.
+  final DateTime since;
+
+  /// Whether the ask has stood long enough in the phone's hands that the
+  /// host's own window may have run out under it. Never a claim that it has:
+  /// the host listed it as open on the last ask, and what the phone does not
+  /// know is how much of the host's window is left.
+  final bool stale;
+
+  /// The same ask, drawn as one that may already be over.
+  PinRequest aged() => PinRequest(
+    id: id,
+    mode: mode,
+    since: since,
+    desc: desc,
+    prompt: prompt,
+    error: error,
+    ok: ok,
+    cancel: cancel,
+    stale: true,
+  );
 
   /// The field's label: the agent's prompt without its colon, in the app's
   /// case, or the word the box on the computer uses.
@@ -255,6 +285,15 @@ class PinRequest {
     return cleaned.isEmpty ? fallback : cleaned;
   }
 }
+
+/// What became of an answer the user gave.
+///
+/// The fifo an answer is written into is guarded by the fifo being there, so a
+/// command that comes back failed is proof the ask was down before the
+/// passphrase left the phone: nothing was written and nothing is waiting on
+/// it. A channel that never came back is the link going, which is a different
+/// thing and already has its own word on the route.
+enum PinAnswer { sent, expired, lost }
 
 /// One shell: its tab number, its terminal, and the connection under it.
 ///
@@ -528,6 +567,7 @@ class ShellSessions extends ChangeNotifier {
     this.tabs,
     ShellOpener? open,
     this.pinRecheck = const Duration(seconds: 5),
+    this.pinStale = const Duration(minutes: 5),
     this.notifier,
   }) : _open = open ?? const ShellTunnel().open;
 
@@ -543,6 +583,12 @@ class ShellSessions extends ChangeNotifier {
   /// How long a tab holding a request waits before asking the host again
   /// whether it still stands. Short only in a test.
   final Duration pinRecheck;
+
+  /// How long an ask stands in the phone's hands before the sheet stops
+  /// drawing it as one that is certainly still wanted. The pinentry's own
+  /// default window, which the phone cannot read and does not claim is the one
+  /// in force. Short only in a test.
+  final Duration pinStale;
 
   final Future<String?> Function(String keyId) readPrivateKey;
 
@@ -1171,7 +1217,11 @@ class ShellSessions extends ChangeNotifier {
         if (!result.ok || !identical(session.connection, connection)) return;
         final open = PinRequest.decodeOpen(result.out);
         final next = open.isEmpty ? null : open.first;
-        if (next?.id != session.pin?.id) _setPin(session, next);
+        if (next?.id != session.pin?.id) {
+          _setPin(session, next);
+        } else {
+          _agePin(session);
+        }
       } while (session._askAgain);
     } finally {
       session._asking = false;
@@ -1182,14 +1232,31 @@ class ShellSessions extends ChangeNotifier {
     }
   }
 
+  /// An ask gets old on the same asking that keeps it alive: the tab is
+  /// already asking the host every [pinRecheck] whether its request stands,
+  /// and one that keeps coming back past [pinStale] is drawn from then on as
+  /// one the host's own window may have run out under. The id does not change,
+  /// so the sheet stays up and the shade is not rung a second time.
+  void _agePin(ShellSession session) {
+    final request = session.pin;
+    if (request == null || request.stale) return;
+    if (DateTime.now().difference(request.since) < pinStale) return;
+    _setPin(session, request.aged());
+  }
+
   /// Answers the request the tab is holding. Null is the cancel, which is a
   /// decision and reaches every surface; a sheet merely swiped away calls
   /// nothing. The request is dropped before the channel is opened, so a
   /// second tap sends nothing twice.
-  Future<void> answerPin(ShellSession session, String? passphrase) async {
+  ///
+  /// The fifo is written only while it is there, so what the command comes
+  /// back with says whether the answer landed: a failure is an ask the host
+  /// had already taken down, and the phone says so rather than letting the
+  /// user believe they unlocked anything.
+  Future<PinAnswer> answerPin(ShellSession session, String? passphrase) async {
     final request = session.pin;
     final connection = session.connection;
-    if (request == null) return;
+    if (request == null) return PinAnswer.lost;
     _setPin(session, null);
     // One request, one fifo: the answer settles it on every tab of the host
     // that heard the same bell, before any of them can ask for it again.
@@ -1197,13 +1264,16 @@ class ShellSessions extends ChangeNotifier {
       if (identical(other, session) || other.pin?.id != request.id) continue;
       _setPin(other, null);
     }
-    if (connection == null) return;
+    if (connection == null) return PinAnswer.lost;
     try {
-      await connection.exec(
+      final result = await connection.exec(
         pinentryAnswerCommand(request.id),
         stdin: Uint8List.fromList(utf8.encode('${passphrase ?? ''}\n')),
       );
-    } catch (_) {}
+      return result.ok ? PinAnswer.sent : PinAnswer.expired;
+    } catch (_) {
+      return PinAnswer.lost;
+    }
   }
 
   Future<void> _connect(

@@ -259,18 +259,24 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       // session's shell, and a redial would take that shell away from the
       // answer the user is typing.
       final release = _store.hold();
+      PinAnswer? outcome;
       try {
         final answer = await _pinSheetFor(session, request);
         if (!mounted) return;
         if (answer == null) {
           _pinDismissed = request.id;
         } else if (session.pin?.id == request.id) {
-          await _store.answerPin(session, answer.passphrase);
+          outcome = await _store.answerPin(session, answer.passphrase);
         }
       } finally {
         release();
         _pinShown = null;
         _pinSheet = null;
+      }
+      if (!mounted) return;
+      if (outcome == PinAnswer.expired) {
+        await _expiredSheet(session.number);
+        if (!mounted) return;
       }
     }
   }
@@ -311,7 +317,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
               watch: (store) => store.forHost(widget.host.id),
               builder: (_) => _PinSheet(
                 number: _pinTab(session, request),
-                request: request,
+                request: _pinHeld(session, request),
               ),
             ),
           ],
@@ -326,6 +332,52 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       return onScreen.number;
     }
     return session.number;
+  }
+
+  /// The ask as a tab holds it now, rather than as it was when the sheet went
+  /// up: the same id grows old where it stands, and the sheet has to draw that.
+  /// Falls back to the one the sheet was raised with once no tab holds it,
+  /// which is the moment the sheet is on its way down.
+  PinRequest _pinHeld(ShellSession session, PinRequest request) {
+    for (final other in [session, ..._store.forHost(widget.host.id)]) {
+      final held = other.pin;
+      if (held != null && held.id == request.id) return held;
+    }
+    return request;
+  }
+
+  /// What the phone says when an answer reached nobody: the host had taken the
+  /// ask down before the passphrase left, so nothing was written and nothing
+  /// is waiting on it.
+  Future<void> _expiredSheet(int number) async {
+    const title = 'AUTHORIZATION EXPIRED';
+    await showPanelSheet<void>(
+      context,
+      title: title,
+      builder: (context) => PanelSheetBody(
+        title: title,
+        children: [
+          Text('SHELL $number', style: context.tokens.label),
+          const SizedBox(height: Spacing.sm),
+          Text(
+            'The host had already taken this ask down, so nothing reached it. '
+            'If the key is still wanted the ask comes again.',
+            style: context.tokens.prose,
+          ),
+          const SizedBox(height: Spacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: ActionBlock(
+                  label: 'CLOSE',
+                  onTap: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   ShellSession? _nextBadExit(List<ShellSession> sessions) {
@@ -899,6 +951,16 @@ class _PinSheetState extends State<_PinSheet> {
             style: context.tokens.prose.copyWith(color: context.tokens.danger),
           ),
         ],
+        // The host gives up on an ask after a window of its own and never says
+        // how long that is, so an ask this old is drawn as one that may be
+        // over rather than as one that is: it was listed open a moment ago.
+        if (request.stale) ...[
+          const SizedBox(height: Spacing.sm),
+          Text(
+            'MAY HAVE EXPIRED',
+            style: context.tokens.label.copyWith(color: context.tokens.warning),
+          ),
+        ],
         const SizedBox(height: Spacing.md),
         if (wantsPin) ...[
           FieldPanel(
@@ -926,7 +988,10 @@ class _PinSheetState extends State<_PinSheet> {
               child: ActionBlock(
                 label: request.okLabel,
                 tone: context.tokens.accent,
-                filled: true,
+                // The fill is what the sheet wants done; an ask that may be
+                // over is not something the phone asks for any more, so the
+                // block stays and stops leading.
+                filled: !request.stale,
                 onTap: () => _decide(wantsPin ? _field.text : 'ok'),
               ),
             ),
