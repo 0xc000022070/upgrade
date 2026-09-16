@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/design/components/action_block.dart';
 import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_bar.dart';
 import 'package:dazzle/platform/shell/remote_shell.dart';
+import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:xterm/xterm.dart';
 
 import 'support/fake_shell.dart';
@@ -163,19 +166,22 @@ void main() {
 
   group('AUTHORIZATION REQUIRED', () {
     const id = '0123456789abcdef';
-    String request({String requestId = id, String error = ''}) {
-      final payload = base64Encode(
-        utf8.encode(
-          jsonEncode({
-            'mode': 'pin',
-            'desc': 'Please enter the passphrase for the ssh key',
-            'prompt': 'Passphrase:',
-            'error': error,
-          }),
-        ),
-      );
-      return '\x1b]7771;pin;$requestId;$payload\x07';
-    }
+    String payload({String error = ''}) => base64Encode(
+      utf8.encode(
+        jsonEncode({
+          'mode': 'pin',
+          'desc': 'Please enter the passphrase for the ssh key',
+          'prompt': 'Passphrase:',
+          'error': error,
+        }),
+      ),
+    );
+
+    String request({String requestId = id, String error = ''}) =>
+        '\x1b]7771;pin;$requestId;${payload(error: error)}\x07';
+
+    /// What the host answers while it still holds the request open.
+    String listing() => '$id ${payload()}\n';
 
     testWidgets('a request raises the sheet and UNLOCK sends what was typed', (
       tester,
@@ -355,6 +361,78 @@ void main() {
       connection.emit(request(requestId: 'fedcba9876543210'));
       await ready(tester);
       expect(find.text('AUTHORIZATION REQUIRED'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('an ask that stands past its window may be over', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(
+        transport,
+        pinRecheck: const Duration(milliseconds: 50),
+        pinStale: Duration.zero,
+      );
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      final connection = transport.opened.single;
+
+      // The pinentry rings the bell behind the request and keeps listing it
+      // open, so what changes from here is the ask's age alone.
+      connection.answerWith(listing());
+      connection.emit(request());
+      await ready(tester);
+      ActionBlock unlock() => tester.widget<ActionBlock>(
+        find.widgetWithText(ActionBlock, 'UNLOCK'),
+      );
+      expect(find.text('AUTHORIZATION REQUIRED'), findsOneWidget);
+      expect(find.text('MAY HAVE EXPIRED'), findsNothing);
+      expect(unlock().filled, isTrue);
+
+      connection.emit('\x07');
+      await ready(tester);
+
+      expect(find.text('AUTHORIZATION REQUIRED'), findsOneWidget);
+      expect(find.text('MAY HAVE EXPIRED'), findsOneWidget);
+      expect(unlock().filled, isFalse);
+
+      // The withdrawal stops the asking the bell started.
+      connection.emit('\x1b]7771;done;$id\x07');
+      await ready(tester);
+      expect(find.text('AUTHORIZATION REQUIRED'), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('an answer the host had already taken down says so', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      final connection = transport.opened.single;
+
+      connection.emit(request());
+      await ready(tester);
+      connection.answer = (command, _) => ExecResult(
+        exitCode: command == pinentryAnswerCommand(id) ? 1 : 0,
+        stdout: Uint8List(0),
+        stderr: Uint8List(0),
+      );
+
+      await tester.enterText(find.byType(TextField), 'hunter2');
+      await tester.tap(find.text('UNLOCK'));
+      await ready(tester);
+
+      expect(find.text('AUTHORIZATION REQUIRED'), findsNothing);
+      expect(find.text('AUTHORIZATION EXPIRED'), findsOneWidget);
+      expect(find.text('SHELL 1'), findsOneWidget);
+
+      await tester.tap(find.text('CLOSE'));
+      await ready(tester);
+      expect(find.text('AUTHORIZATION EXPIRED'), findsNothing);
 
       await unmount(tester);
     });
