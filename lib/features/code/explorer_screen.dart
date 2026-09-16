@@ -8,6 +8,8 @@ import '../../design/layout.dart';
 import '../../design/spacing.dart';
 import '../../platform/workspace/workspace_model.dart';
 import '../screen_scaffold.dart';
+import 'syntax.dart';
+import 'syntax_style.dart';
 import 'workspace_controller.dart';
 
 void openExplorer(BuildContext context, WorkspaceController controller) {
@@ -54,6 +56,11 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
   String? _text;
   bool _fileFailed = false;
 
+  /// The text cut into coloured runs, one list per line. Null until the
+  /// colouring lands, which for a long file is a moment after the text does,
+  /// and for a file the app has no grammar for is never.
+  List<List<SyntaxSpan>>? _spans;
+
   /// Bumped on every navigation so a slow listing that lands after the user
   /// has moved on is dropped rather than drawn over where they are now.
   int _walk = 0;
@@ -83,6 +90,7 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
     setState(() {
       _file = path;
       _text = null;
+      _spans = null;
       _fileFailed = false;
     });
     final text = await widget.controller.read(path);
@@ -91,6 +99,11 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
       _text = text;
       _fileFailed = text == null;
     });
+    final language = languageOf(path);
+    if (text == null || language == null) return;
+    final spans = await highlightFile(text, language);
+    if (!mounted || _file != path || _text != text) return;
+    setState(() => _spans = spans);
   }
 
   String _join(String name) => _directory.isEmpty ? name : '$_directory/$name';
@@ -102,6 +115,7 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
       setState(() {
         _file = null;
         _text = null;
+        _spans = null;
       });
       return;
     }
@@ -280,6 +294,7 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
               onTap: () => setState(() {
                 _file = null;
                 _text = null;
+                _spans = null;
               }),
             ),
       bodyPadding: EdgeInsets.zero,
@@ -293,23 +308,30 @@ class _ExplorerScreenState extends State<ExplorerScreen> {
           padding: EdgeInsets.all(Spacing.panelPadding),
           child: EmptyState('could not read it'),
         ),
-        (final text?, _) => _FileBody(text: text),
+        (final text?, _) => _FileBody(text: text, spans: _spans),
       },
     );
   }
 }
 
 /// The file, unwrapped and scrolling both ways, in the same mono the diff uses
-/// and with no colouring of any kind: this is a file being read, not a file
-/// being edited.
+/// and coloured by the same grammars, with the whole file in view so a block
+/// comment is a comment to where it ends. No gutter: this is a file being
+/// read, not a file being edited.
 class _FileBody extends StatelessWidget {
-  const _FileBody({required this.text});
+  const _FileBody({required this.text, required this.spans});
 
   final String text;
 
+  /// One list of runs per line, or null while the colouring is still coming
+  /// or never will, in which case every line is drawn plain.
+  final List<List<SyntaxSpan>>? spans;
+
   @override
   Widget build(BuildContext context) {
+    final style = context.tokens.noteBody;
     final lines = text.split('\n');
+    final spans = this.spans;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: IntrinsicWidth(
@@ -322,13 +344,24 @@ class _FileBody extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (final line in lines)
-                Text(
-                  line,
-                  style: context.tokens.noteBody,
-                  maxLines: 1,
-                  softWrap: false,
-                ),
+              for (var i = 0; i < lines.length; i++)
+                if (spans == null || i >= spans.length)
+                  Text(lines[i], style: style, maxLines: 1, softWrap: false)
+                else
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        for (final span in spans[i])
+                          TextSpan(
+                            text: span.text,
+                            style: syntaxStyle(context, span.token),
+                          ),
+                      ],
+                    ),
+                    style: style,
+                    maxLines: 1,
+                    softWrap: false,
+                  ),
             ],
           ),
         ),

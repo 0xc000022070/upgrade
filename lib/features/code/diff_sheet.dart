@@ -26,6 +26,7 @@ import 'diff_map.dart';
 import 'hunk_pin.dart';
 import 'intraline.dart';
 import 'syntax.dart';
+import 'syntax_style.dart';
 import 'workspace_controller.dart';
 
 /// The diff of a workspace the caller is already reading, on the connection it
@@ -1430,7 +1431,7 @@ class _DiffRow extends StatelessWidget {
       return TextSpan(
         children: [
           for (final span in runs)
-            TextSpan(text: span.text, style: _style(context, span.token)),
+            TextSpan(text: span.text, style: syntaxStyle(context, span.token)),
         ],
       );
     }
@@ -1441,7 +1442,7 @@ class _DiffRow extends StatelessWidget {
     var at = 0;
     for (final span in runs) {
       final end = at + span.text.length;
-      final style = _style(context, span.token);
+      final style = syntaxStyle(context, span.token);
       final from = math.max(at, run.start);
       final to = math.min(end, run.end);
       if (from >= to) {
@@ -1470,20 +1471,6 @@ class _DiffRow extends StatelessWidget {
     }
     return TextSpan(children: children);
   }
-
-  static TextStyle? _style(BuildContext context, SyntaxToken token) =>
-      switch (token) {
-        SyntaxToken.plain => null,
-        SyntaxToken.punctuation => TextStyle(color: context.tokens.textMuted),
-        SyntaxToken.keyword => TextStyle(color: context.tokens.syntax.keyword),
-        SyntaxToken.type => TextStyle(color: context.tokens.syntax.type),
-        SyntaxToken.string => TextStyle(color: context.tokens.syntax.string),
-        SyntaxToken.number => TextStyle(color: context.tokens.syntax.number),
-        SyntaxToken.comment => TextStyle(color: context.tokens.syntax.comment),
-        SyntaxToken.annotation => TextStyle(
-          color: context.tokens.syntax.annotation,
-        ),
-      };
 }
 
 /// `+3 −1` on a row git could count, one word on a row it could not. Shared

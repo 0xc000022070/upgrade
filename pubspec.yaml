@@ -30,6 +30,8 @@ environment:
 dependencies:
   dazzle_luau:
     path: packages/dazzle_luau
+  dazzle_highlight:
+    path: packages/dazzle_highlight
   crypto: ^3.0.7
   pub_semver: ^2.2.1
   toml: ^0.18.0
