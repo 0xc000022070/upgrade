@@ -86,7 +86,7 @@ faraday:
     tools=${ANDROID_HOME:?run inside the nix dev shell}/build-tools/37.0.0
 
     # Reachability first: a dead transport should not cost an AOT build.
-    attached() { phone device list | grep -qE '^android[[:space:]]+faraday[[:space:]].*attached'; }
+    attached() { phone device list | grep -qE '^android[[:space:]]+faraday[[:space:]].*(attached|online)'; }
     attached || phone device connect faraday
     attached || { echo "faraday: no transport after connect" >&2; exit 1; }
     serial=$(phone device list | grep -E '^android[[:space:]]+faraday[[:space:]]' | grep -oE '[^[:space:]]+:[0-9]+' | head -1)
