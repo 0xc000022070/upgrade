@@ -254,6 +254,23 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     );
   }
 
+  /// [getCellOffset] as the screen sees it rather than as the buffer does.
+  /// Dazzle patch.
+  ///
+  /// The two agree only while nothing has scrolled off. A selection wants the
+  /// buffer's row so it follows the text up into the scrollback, but a mouse
+  /// report can only name a row of the screen, which is all an application
+  /// with no scrollback of its own has. Reporting the buffer's row puts every
+  /// click as many rows below the finger as the scrollback is deep.
+  CellOffset getViewportCellOffset(Offset offset) {
+    final cell = getCellOffset(offset);
+    final top = _terminal.buffer.lines.length - _terminal.viewHeight;
+    return CellOffset(
+      cell.x,
+      (cell.y - top).clamp(0, _terminal.viewHeight - 1),
+    );
+  }
+
   /// Select the token under [from], extended to the token under [to]. A point
   /// with no token under it stands for its own cell, so a press on a gap still
   /// selects and a drag across one still follows the finger. Dazzle patch.
@@ -314,7 +331,7 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     TerminalMouseButtonState buttonState,
     Offset offset,
   ) {
-    final position = getCellOffset(offset);
+    final position = getViewportCellOffset(offset);
     return _terminal.mouseInput(button, buttonState, position);
   }
 

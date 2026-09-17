@@ -335,6 +335,28 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets(
+      'a click names a row of the screen, not one of the scrollback',
+      (tester) async {
+        final transport = FakeShellTransport();
+        final sessions = fakeShellSessions(transport);
+        await tester.pumpWidget(app(sessions, db: db));
+        await ready(tester);
+        transport.opened.single.emit('\x1b[?1000h\x1b[?1006h');
+        await fill(tester, transport);
+        final terminal = sessions.activeFor(rose.id)!.terminal;
+        final scrollback = terminal.buffer.lines.length - terminal.viewHeight;
+        expect(scrollback, greaterThan(0));
+
+        // The third row of the screen, which is a row far down the buffer.
+        await tester.tapAt(cellAt(tester, 1, scrollback + 2));
+        await ready(tester);
+        expect(transport.opened.single.written, '\x1b[<0;2;3M\x1b[<0;2;3m');
+
+        await unmount(tester);
+      },
+    );
+
     /// The COPY / CLEAR cell as one box, and the top edge of a cell on the
     /// terminal, both on the screen.
     Rect pill(WidgetTester tester) => tester.getRect(
