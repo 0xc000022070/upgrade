@@ -42,6 +42,7 @@ readonly -a CONCERNS=(
   "04-touch-selection|a touch selection anchors at pointer-down and takes tokens whole, and a mouse report names a screen row|lib/src/ui/gesture/gesture_handler.dart lib/src/ui/render.dart lib/src/core/buffer/token.dart lib/src/core/buffer/buffer.dart lib/core.dart"
   "05-row-index-through-trim|a row's index follows it through a trim and a shift|lib/src/utils/circular_buffer.dart"
   "06-report-apart-from-output|what the terminal answers is reported apart from what the user typed|lib/src/terminal.dart"
+  "07-colour-queries|a program that asks what the terminal is drawn in is answered|lib/src/core/color.dart lib/src/core/escape/parser.dart lib/src/core/escape/handler.dart lib/src/core/escape/emitter.dart"
 )
 
 die() {
@@ -176,10 +177,13 @@ generate() {
   verify
 }
 
-# 03 and 06 add API that dazzle calls (keyboardOnTap in shell_terminal.dart,
-# onReport in shell_sessions.dart), so dropping either wants those call sites
-# edited too. 04 drops clean for a build: the token API it adds is only read by
-# test/terminal_token_test.dart. 01, 02 and 05 change behaviour and no surface.
+# 03, 06 and 07 add API that dazzle calls (keyboardOnTap in shell_terminal.dart,
+# onReport and colors in shell_sessions.dart), so dropping any of them wants
+# those call sites edited too. 06 and 07 are one behaviour split across an
+# ownership line — the colour reply is answered in 07 and emitted in 06 — so
+# neither compiles without the other. 04 drops clean for a build: the token API
+# it adds is only read by test/terminal_token_test.dart. 01, 02 and 05 change
+# behaviour and no surface.
 without() {
   local drop=${1:-}
   [[ -n $drop ]] || die "usage: xterm-patches.sh without <patch-name>"

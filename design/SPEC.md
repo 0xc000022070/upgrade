@@ -1518,6 +1518,24 @@ Struck: a longer timer for a refused key, an hour or a day instead of a minute. 
 
 Struck: a notification asking the user to go and fix the key. The ongoing line already names the host and says what it refused, HOSTS is where a credential is answered, and a second alert about a machine that is not going anywhere is a phone buzzing about the state it was in a minute ago.
 
+### A program that asks what the terminal is drawn in is answered
+
+A program that paints a whole screen asks the terminal for its colours before it paints one: `10` for the foreground, `11` for the background, `12` for the cursor, each asked with a question mark, and a question can chain — every mark after the first asks for the next colour in turn. Each is answered `rgb:` and three channels, the eight bits of a colour written across the sixteen the format carries, and the answer ends the way the question did, a bell for a bell and a terminator for a terminator, because a program reading until a bell never sees an answer that finished any other way.
+
+**What is answered is the palette the terminal is actually drawn in, and there is one of it.** The foreground, the ground and the cursor are the house terminal's, which is what the terminal is drawn in under every scheme the phone can put behind the rest of the app — the ANSI table and the grounds do not follow the system's colours — so the answer cannot go stale under a theme changing mid-session. The colours are given to the terminal when the session is made rather than pushed from the view, because a tab that is restored without being looked at is asked this question before anything of it has been drawn.
+
+**Saying nothing is not neutral, and it is what put the block on the screen.** A program that asks and hears nothing assumes a palette of its own and paints its ground with it, so its panes come up filled with a dark that is not the terminal's: a rectangle edged exactly where that program's panes are, over a screen that is black everywhere the program left alone. A desktop emulator hides its own copy of this, because a cell whose ground is the one it was configured with is folded back into the default ground and drawn as that instead — the phone does no folding and draws what it was sent. The difference between the two screens is an answer given on one machine and withheld on the other.
+
+**It leaves the way the terminal's other answers leave.** Nobody typed it, so it goes out on the report channel beside the device attributes and the cursor position, past the modifiers the shell arms for what the user types and untouched by them.
+
+Struck: honouring the other half of the sequence — a program setting those colours, and putting them back. The terminal's ground is a surface of this app, drawn in the house's colours under the house's chrome, and a program that repaints it has themed the phone rather than its own screen. The sequences are left unhandled, as they were.
+
+Struck: answering the same question about a numbered colour of the ANSI table. Nothing that runs here asks it, and a program that did would meet the silence this section describes with its own table, which is a colour being wrong rather than a surface being taken.
+
+Struck: a list of terminal themes for the reader to choose from. The colours the remote paints with are not a taste the reader was expressing, and a picker makes them answer by hand, once per program, a question the program had already asked out loud.
+
+Struck: reading the ground back off the screen — taking the colour the remote filled most of the pixels with as the terminal's own. It is a guess at the answer to a question that was asked plainly, it moves the ground under whatever the remote happens to be drawing, and it is wrong in exactly the case that matters, a program that fills the screen with something other than its ground.
+
 ## Theme
 
 ### One token read path carries every colour and text role
