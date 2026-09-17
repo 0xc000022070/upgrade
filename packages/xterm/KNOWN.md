@@ -3,7 +3,7 @@
 One case per entry, in the shape a test wants. Each is either already pinned by
 a test, or open — true and unpinned — or unknown, meaning nobody has looked.
 
-This package ships no tests of its own. Everything pinned today is a widget
+The patches carry no tests of their own. Everything pinned today is a widget
 test in dazzle's `test/`, driving `TerminalView` on the shell route.
 
 ---
