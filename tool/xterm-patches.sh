@@ -31,8 +31,8 @@ readonly PATCHES="$PKG/patches"
 readonly -a CONCERNS=(
   "01-wheel-button-ids|a wheel button is 64-67, not 68-71|lib/src/core/mouse/button.dart"
   "02-scroll-forwarding|scroll forwards on a local position and swaps on the last lift|lib/src/ui/scroll_handler.dart lib/src/ui/infinite_scroll_view.dart"
-  "03-keyboard-on-tap|a tap on the terminal need not raise the IME|lib/src/terminal_view.dart"
-  "04-touch-selection|a touch selection anchors at pointer-down and takes tokens whole|lib/src/ui/gesture/gesture_handler.dart lib/src/ui/render.dart lib/src/core/buffer/token.dart lib/src/core/buffer/buffer.dart lib/core.dart"
+  "03-keyboard-on-tap|a tap on the terminal need not raise the IME, and a scroll reports a screen row|lib/src/terminal_view.dart"
+  "04-touch-selection|a touch selection anchors at pointer-down and takes tokens whole, and a mouse report names a screen row|lib/src/ui/gesture/gesture_handler.dart lib/src/ui/render.dart lib/src/core/buffer/token.dart lib/src/core/buffer/buffer.dart lib/core.dart"
   "05-row-index-through-trim|a row's index follows it through a trim and a shift|lib/src/utils/circular_buffer.dart"
   "06-report-apart-from-output|what the terminal answers is reported apart from what the user typed|lib/src/terminal.dart"
 )

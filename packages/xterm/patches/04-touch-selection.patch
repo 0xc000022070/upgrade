@@ -1,4 +1,4 @@
-# a touch selection anchors at pointer-down and takes tokens whole
+# a touch selection anchors at pointer-down and takes tokens whole, and a mouse report names a screen row
 #
 # Against xterm 4.0.0. Regenerate with `just xterm-patches`.
 
@@ -372,7 +372,7 @@ index 2f6d7b6..76ebf5a 100644
    }
  }
 diff --git a/lib/src/ui/render.dart b/lib/src/ui/render.dart
-index de2a2f7..3e75295 100644
+index de2a2f7..5f1a8a4 100644
 --- a/lib/src/ui/render.dart
 +++ b/lib/src/ui/render.dart
 @@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
@@ -383,11 +383,28 @@ index de2a2f7..3e75295 100644
  import 'package:xterm/src/core/buffer/segment.dart';
  import 'package:xterm/src/core/mouse/button.dart';
  import 'package:xterm/src/core/mouse/button_state.dart';
-@@ -253,41 +254,50 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
+@@ -253,41 +254,67 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
      );
    }
  
 -  /// Selects entire words in the terminal that contains [from] and [to].
++  /// [getCellOffset] as the screen sees it rather than as the buffer does.
++  /// Dazzle patch.
++  ///
++  /// The two agree only while nothing has scrolled off. A selection wants the
++  /// buffer's row so it follows the text up into the scrollback, but a mouse
++  /// report can only name a row of the screen, which is all an application
++  /// with no scrollback of its own has. Reporting the buffer's row puts every
++  /// click as many rows below the finger as the scrollback is deep.
++  CellOffset getViewportCellOffset(Offset offset) {
++    final cell = getCellOffset(offset);
++    final top = _terminal.buffer.lines.length - _terminal.viewHeight;
++    return CellOffset(
++      cell.x,
++      (cell.y - top).clamp(0, _terminal.viewHeight - 1),
++    );
++  }
++
 +  /// Select the token under [from], extended to the token under [to]. A point
 +  /// with no token under it stands for its own cell, so a press on a gap still
 +  /// selects and a drag across one still follows the finger. Dazzle patch.
@@ -458,3 +475,12 @@ index de2a2f7..3e75295 100644
        if (toPosition.x >= fromPosition.x) {
          toPosition = CellOffset(toPosition.x + 1, toPosition.y);
        }
+@@ -304,7 +331,7 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
+     TerminalMouseButtonState buttonState,
+     Offset offset,
+   ) {
+-    final position = getCellOffset(offset);
++    final position = getViewportCellOffset(offset);
+     return _terminal.mouseInput(button, buttonState, position);
+   }
+ 

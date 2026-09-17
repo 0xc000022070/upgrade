@@ -1,9 +1,9 @@
-# a tap on the terminal need not raise the IME
+# a tap on the terminal need not raise the IME, and a scroll reports a screen row
 #
 # Against xterm 4.0.0. Regenerate with `just xterm-patches`.
 
 diff --git a/lib/src/terminal_view.dart b/lib/src/terminal_view.dart
-index cf2c3c3..9e5c7dd 100644
+index cf2c3c3..c188562 100644
 --- a/lib/src/terminal_view.dart
 +++ b/lib/src/terminal_view.dart
 @@ -48,6 +48,7 @@ class TerminalView extends StatefulWidget {
@@ -26,6 +26,15 @@ index cf2c3c3..9e5c7dd 100644
    /// If true, when the terminal is in alternate buffer (for example running
    /// vim, man, etc), if the application does not declare that it can handle
    /// scrolling, the terminal will simulate scrolling by sending up/down arrow
+@@ -244,7 +250,7 @@ class TerminalViewState extends State<TerminalView> {
+     child = TerminalScrollGestureHandler(
+       terminal: widget.terminal,
+       simulateScroll: widget.simulateScroll,
+-      getCellOffset: (offset) => renderTerminal.getCellOffset(offset),
++      getCellOffset: (offset) => renderTerminal.getViewportCellOffset(offset),
+       getLineHeight: () => renderTerminal.lineHeight,
+       child: child,
+     );
 @@ -348,7 +354,7 @@ class TerminalViewState extends State<TerminalView> {
    void _onTapDown(_) {
      if (_controller.selection != null) {

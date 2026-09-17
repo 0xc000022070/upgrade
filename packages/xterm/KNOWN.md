@@ -133,6 +133,14 @@ test in dazzle's `test/`, driving `TerminalView` on the shell route.
          under it
 - status pinned - shell_terminal_test.dart
 
+**a mouse report names a row of the screen**
+- given  a terminal with scrollback under an application that asked for the
+         mouse
+- when   a finger taps, or a drag forwards a wheel report
+- then   the row on the wire is the screen row under the finger, not that row
+         plus the depth of the scrollback
+- status pinned - shell_terminal_test.dart
+
 **a line that leaves the scrollback stops the press**
 - given  a live press on a line
 - when   that line is evicted from the scrollback
