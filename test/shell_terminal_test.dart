@@ -14,6 +14,7 @@ import 'package:xterm/xterm.dart';
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
 import 'support/shell_route.dart';
+import 'support/themed_app.dart';
 
 void main() {
   setUp(stubDeviceChannels);
@@ -875,6 +876,52 @@ void main() {
 
       expect(connection.written, isEmpty);
       expect(session.scrollController.position.pixels, lessThan(before));
+
+      await unmount(tester);
+    });
+
+    testWidgets('the wheel survives the scrollable being handed a new '
+        'position', (tester) async {
+      addTearDown(tester.view.reset);
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      final connection = transport.opened.single;
+
+      connection.emit('line\r\n' * 200);
+      await ready(tester);
+      connection.emit('\x1b[?1002h\x1b[?1006h');
+      await ready(tester);
+
+      Future<String> wheel() async {
+        connection.writes.clear();
+        await tester.drag(find.byType(TerminalView), const Offset(0, 120));
+        await ready(tester);
+        return connection.written;
+      }
+
+      final wheelReport = contains(RegExp(r'\x1b\[<64;\d+;\d+M'));
+      expect(await wheel(), wheelReport);
+
+      // A theme animation and a screen the app is moved onto each rebuild the
+      // scrollable's position out from under the render object that reads it.
+      await tester.pumpWidget(
+        app(
+          sessions,
+          theme: testTheme.copyWith(
+            colorScheme: testTheme.colorScheme.copyWith(
+              primary: DazzleColors.accentMuted,
+            ),
+          ),
+        ),
+      );
+      await ready(tester);
+      expect(await wheel(), wheelReport);
+
+      tester.view.devicePixelRatio = 2;
+      await ready(tester);
+      expect(await wheel(), wheelReport);
 
       await unmount(tester);
     });
