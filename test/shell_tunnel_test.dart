@@ -138,6 +138,11 @@ class FakeExec implements ShellExec {
   Future<void> closeStdin() async {
     if (!_done.isCompleted) _done.complete();
   }
+
+  @override
+  void close() {
+    if (!_done.isCompleted) _done.complete();
+  }
 }
 
 class FakeHost implements ShellHost {

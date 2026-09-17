@@ -94,10 +94,20 @@ class FakeShellConnection implements ShellConnection {
   }
 
   @override
-  Future<ExecResult> exec(String command, {Uint8List? stdin}) async {
+  Future<ExecResult> exec(
+    String command, {
+    Uint8List? stdin,
+    Duration? timeout,
+  }) async {
     execs.add((command: command, stdin: stdin));
-    return answer(command, stdin);
+    if (!wedged) return answer(command, stdin);
+    final never = Completer<ExecResult>().future;
+    return timeout == null ? never : never.timeout(timeout);
   }
+
+  /// A command that reaches the host and never comes back, which is what
+  /// writing into a fifo nobody is reading looks like from this end.
+  bool wedged = false;
 
   /// A host that prints [stdout] for the next commands, with this exit.
   void answerWith(String stdout, {int exitCode = 0}) {
@@ -224,6 +234,7 @@ ShellSessions fakeShellSessions(
   ShellTabRepository? tabs,
   Duration pinRecheck = const Duration(seconds: 5),
   Duration pinStale = const Duration(minutes: 5),
+  Duration pinAnswerWait = const Duration(seconds: 5),
   PinNotifier? notifier,
 }) => ShellSessions(
   readPrivateKey: (_) async => privateKey,
@@ -232,5 +243,6 @@ ShellSessions fakeShellSessions(
   open: transport.open,
   pinRecheck: pinRecheck,
   pinStale: pinStale,
+  pinAnswerWait: pinAnswerWait,
   notifier: notifier,
 );

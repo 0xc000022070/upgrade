@@ -39,6 +39,11 @@ abstract interface class ShellExec {
 
   void write(Uint8List bytes);
   Future<void> closeStdin();
+
+  /// Takes the channel down without waiting for the command to exit, which is
+  /// the only thing that ends a command blocked on something that will never
+  /// come.
+  void close();
 }
 
 /// One channel carrying a pty. The real one is an [SSHSession].
@@ -553,6 +558,9 @@ class _SshExec implements ShellExec {
 
   @override
   Future<void> closeStdin() => _session.stdin.close();
+
+  @override
+  void close() => _session.close();
 }
 
 class _SshPty implements ShellPty {
@@ -674,8 +682,11 @@ class MoshShellConnection implements ShellConnection {
   }
 
   @override
-  Future<ExecResult> exec(String command, {Uint8List? stdin}) =>
-      _withHost((host) => _exec(host, command, stdin: stdin));
+  Future<ExecResult> exec(
+    String command, {
+    Uint8List? stdin,
+    Duration? timeout,
+  }) => _withHost((host) => _exec(host, command, stdin: stdin, timeout: timeout));
 
   @override
   Future<bool> terminateRemote(
@@ -893,8 +904,12 @@ class SshShellConnection implements ShellConnection {
   void resize(int columns, int rows) => _pty.resizeTerminal(columns, rows);
 
   @override
-  Future<ExecResult> exec(String command, {Uint8List? stdin}) async {
-    return _exec(_host, command, stdin: stdin);
+  Future<ExecResult> exec(
+    String command, {
+    Uint8List? stdin,
+    Duration? timeout,
+  }) async {
+    return _exec(_host, command, stdin: stdin, timeout: timeout);
   }
 
   @override
@@ -970,6 +985,7 @@ Future<ExecResult> _exec(
   ShellHost host,
   String command, {
   Uint8List? stdin,
+  Duration? timeout,
 }) async {
   final channel = await host.execute(command);
   final out = BytesBuilder(copy: false);
@@ -980,8 +996,22 @@ Future<ExecResult> _exec(
   ]);
   if (stdin != null) channel.write(stdin);
   await channel.closeStdin();
-  await channel.done;
-  await drained;
+  final exited = Future(() async {
+    await channel.done;
+    await drained;
+  });
+  if (timeout == null) {
+    await exited;
+  } else {
+    try {
+      await exited.timeout(timeout);
+    } on TimeoutException {
+      // The command is still on the host and nothing it was given has been
+      // read. Closing the channel is what takes it down with it.
+      channel.close();
+      rethrow;
+    }
+  }
   return ExecResult(
     exitCode: channel.exitCode,
     stdout: out.takeBytes(),

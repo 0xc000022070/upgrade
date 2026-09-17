@@ -1640,6 +1640,28 @@ void main() {
       await sessions.close(_rose.id, session);
     });
 
+    test('an answer that reaches a fifo nobody reads is expired', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(
+        transport,
+        pinAnswerWait: const Duration(milliseconds: 20),
+      );
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      connection.emit(osc({'mode': 'pin'}));
+      await _settle();
+      // The pinentry died without taking its fifo down, so the guard passes
+      // and the write waits for a reader that is never coming.
+      connection.wedged = true;
+
+      expect(await sessions.answerPin(session, 'hunter2'), PinAnswer.expired);
+      expect(session.pin, isNull);
+
+      await sessions.close(_rose.id, session);
+    });
+
     test('an answer the link swallowed is lost', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
