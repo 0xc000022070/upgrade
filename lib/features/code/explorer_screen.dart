@@ -15,6 +15,7 @@ import '../../design/spacing.dart';
 import '../../platform/workspace/workspace_model.dart';
 import 'change_marks.dart';
 import 'diff_sheet.dart';
+import 'file_icons.dart';
 import 'syntax.dart';
 import 'syntax_style.dart';
 import 'workspace_controller.dart';
@@ -503,8 +504,11 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
         rows.add(
           ListRow(
             title: entry.name,
-            leading: const SizedBox.shrink(),
-            leadingWidth: _indent(depth),
+            leading: Align(
+              alignment: Alignment.centerRight,
+              child: FileIcon.directory(open: open),
+            ),
+            leadingWidth: _indent(depth) + IconSizes.glyph,
             node: !open,
             value: under == 0 ? null : '$under',
             valueColor: context.tokens.warning,
@@ -518,8 +522,11 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
       rows.add(
         ListRow(
           title: entry.name,
-          leading: const SizedBox.shrink(),
-          leadingWidth: _indent(depth),
+          leading: Align(
+            alignment: Alignment.centerRight,
+            child: FileIcon.file(languageOf(path)),
+          ),
+          leadingWidth: _indent(depth) + IconSizes.glyph,
           value: change == null ? _sizeWord(entry.size) : _letter(change.kind),
           valueColor: change == null ? null : _badgeColor(change.kind),
           titleColor: path == _tab?.path ? context.tokens.accent : null,
@@ -535,8 +542,11 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
       rows.add(
         ListRow(
           title: change.path.split('/').last,
-          leading: const SizedBox.shrink(),
-          leadingWidth: _indent(depth),
+          leading: Align(
+            alignment: Alignment.centerRight,
+            child: FileIcon.file(languageOf(change.path)),
+          ),
+          leadingWidth: _indent(depth) + IconSizes.glyph,
           value: _letter(change.kind),
           valueColor: _badgeColor(change.kind),
           titleColor: context.tokens.textMuted,
@@ -556,7 +566,7 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
   Widget _note(String word, int depth) => ListRow(
     title: word,
     leading: const SizedBox.shrink(),
-    leadingWidth: _indent(depth),
+    leadingWidth: _indent(depth) + IconSizes.glyph,
     titleColor: context.tokens.textMuted,
   );
 
@@ -583,6 +593,7 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
             ListRow(
               title: file.path,
               subtitle: file.binary ? null : '+${file.added} −${file.removed}',
+              leading: FileIcon.file(languageOf(file.path)),
               value: _letter(file.kind),
               valueColor: _badgeColor(file.kind),
               titleColor: file.path == _tab?.path

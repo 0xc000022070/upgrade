@@ -1771,6 +1771,16 @@ Every file opened is a tab and stays one until it is closed. A tab carries the f
 
 Over both, the workspace's name and `BACK`. `BACK` and the system back close the drawer when it is open over a file, and leave the screen otherwise.
 
+### The explorer marks each file row with a Nerd Font glyph
+
+Every directory and every file in the tree carries a glyph before its name, from the Symbols Nerd Font Mono the app already carries for a shell prompt rather than the Dazzle vector set. This is the one place the house vectors are stood down, and it is stood down for now and not for good: `languageOf` alone names close to thirty grammars, and the set is borrowed until the vectors catch up with it.
+
+A directory carries an open or a closed folder. A file carries the glyph of the language it is coloured by — dart, javascript, typescript, go, rust, python, c, cpp, java, kotlin, scala, bash, yaml, json, sql, nix, lua, markdown, dockerfile, makefile, css, scss, xml and graphql each their own, ini and properties the one config mark between them — and a file coloured plain, or in protobuf, diff, http or nginx, carries the same mark as one the app does not recognise at all. The word standing where a directory's entries are still coming, or never came, is not a file and carries no glyph; it holds the empty slot anyway, so it stands where the entries it stands in for will. CHANGED carries the same file glyph against each path it lists, so both halves of the switch read alike.
+
+The glyph sits in the muted text, at the size a row's glyph slot has always drawn at, indented with the row it marks. That size is the slot's and not the reader's: the borrowed glyph is a full em wide where the app's own icons are drawn to fit, so one that answered a larger text size would be cut off at the slot's edge instead of growing with the name beside it.
+
+- Regression tests: a file draws the glyph of the language `languageOf` reads its path as, and dart, go, nix and the rest each draw a different one; ini and properties draw the one mark, and it is nobody else's; a file in protobuf, diff, http or nginx draws what a file with no grammar at all draws; an open directory and a closed one draw different folders; a glyph under a doubled text size is drawn at the size it is under none; a row under CHANGED draws the glyph its path's language draws under TREE.
+
 ### The seam between the tree and the file is the user's to move
 
 How wide the tree should be is a reading decision and not a layout constant: a checkout of long paths wants more of the screen, a file of long lines wants less, and which of those is true today is the user's to say and nobody else's. So the seam is a grip, and the grip is dragged. Beside the editor the grip is the gap between the two panes; over the editor it is the drawer's own right edge. A short hairline down the middle of it is what says it can be taken, and the panes follow the finger as it moves.
