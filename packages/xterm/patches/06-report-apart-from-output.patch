@@ -1,0 +1,99 @@
+# what the terminal answers is reported apart from what the user typed
+#
+# Against xterm 4.0.0. Regenerate with `just xterm-patches`.
+
+diff --git a/lib/src/terminal.dart b/lib/src/terminal.dart
+index 461e208..d0a254b 100644
+--- a/lib/src/terminal.dart
++++ b/lib/src/terminal.dart
+@@ -43,10 +43,20 @@ class Terminal with Observable implements TerminalState, EscapeHandler {
+   void Function(String icon)? onIconChange;
+ 
+   /// Function that is called when the terminal emits data to the underlying
+-  /// program. This is typically caused by user inputs from [textInput],
+-  /// [keyInput], [mouseInput], or [paste].
++  /// program on the user's behalf: [textInput], [keyInput], [charInput] or
++  /// [paste].
+   void Function(String data)? onOutput;
+ 
++  /// Function that is called when the terminal emits data to the underlying
++  /// program on its own behalf: the answers to the program's own queries —
++  /// device attributes, operating status, cursor position, size — and the
++  /// mouse reports.
++  ///
++  /// None of this is anything the user typed, so an embedder that transforms
++  /// input on its way out must leave it alone. Left unset it falls back to
++  /// [onOutput], which is where all of it used to go.
++  void Function(String data)? onReport;
++
+   /// Function that is called when the dimensions of the terminal change.
+   void Function(int width, int height, int pixelWidth, int pixelHeight)?
+       onResize;
+@@ -76,6 +86,7 @@ class Terminal with Observable implements TerminalState, EscapeHandler {
+     this.onTitleChange,
+     this.onIconChange,
+     this.onOutput,
++    this.onReport,
+     this.onResize,
+     this.platform = TerminalTargetPlatform.unknown,
+     this.inputHandler = defaultInputHandler,
+@@ -85,6 +96,8 @@ class Terminal with Observable implements TerminalState, EscapeHandler {
+     this.wordSeparators,
+   });
+ 
++  void _report(String data) => (onReport ?? onOutput)?.call(data);
++
+   late final _parser = EscapeParser(this);
+ 
+   final _emitter = const EscapeEmitter();
+@@ -340,7 +353,7 @@ class Terminal with Observable implements TerminalState, EscapeHandler {
+       platform: platform,
+     ));
+     if (output != null) {
+-      onOutput?.call(output);
++      _report(output);
+       return true;
+     }
+     return false;
+@@ -531,27 +544,27 @@ class Terminal with Observable implements TerminalState, EscapeHandler {
+ 
+   @override
+   void sendPrimaryDeviceAttributes() {
+-    onOutput?.call(_emitter.primaryDeviceAttributes());
++    _report(_emitter.primaryDeviceAttributes());
+   }
+ 
+   @override
+   void sendSecondaryDeviceAttributes() {
+-    onOutput?.call(_emitter.secondaryDeviceAttributes());
++    _report(_emitter.secondaryDeviceAttributes());
+   }
+ 
+   @override
+   void sendTertiaryDeviceAttributes() {
+-    onOutput?.call(_emitter.tertiaryDeviceAttributes());
++    _report(_emitter.tertiaryDeviceAttributes());
+   }
+ 
+   @override
+   void sendOperatingStatus() {
+-    onOutput?.call(_emitter.operatingStatus());
++    _report(_emitter.operatingStatus());
+   }
+ 
+   @override
+   void sendCursorPosition() {
+-    onOutput?.call(_emitter.cursorPosition(_buffer.cursorX, _buffer.cursorY));
++    _report(_emitter.cursorPosition(_buffer.cursorX, _buffer.cursorY));
+   }
+ 
+   @override
+@@ -643,7 +656,7 @@ class Terminal with Observable implements TerminalState, EscapeHandler {
+ 
+   @override
+   void sendSize() {
+-    onOutput?.call(_emitter.size(viewHeight, viewWidth));
++    _report(_emitter.size(viewHeight, viewWidth));
+   }
+ 
+   @override

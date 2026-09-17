@@ -1,0 +1,460 @@
+# a touch selection anchors at pointer-down and takes tokens whole
+#
+# Against xterm 4.0.0. Regenerate with `just xterm-patches`.
+
+diff --git a/lib/core.dart b/lib/core.dart
+index ffe7f1c..389d483 100644
+--- a/lib/core.dart
++++ b/lib/core.dart
+@@ -6,6 +6,7 @@ export 'src/core/buffer/range.dart';
+ export 'src/core/buffer/range_block.dart';
+ export 'src/core/buffer/range_line.dart';
+ export 'src/core/buffer/segment.dart';
++export 'src/core/buffer/token.dart';
+ export 'src/core/cell.dart';
+ export 'src/core/color.dart';
+ export 'src/core/cursor.dart';
+diff --git a/lib/src/core/buffer/buffer.dart b/lib/src/core/buffer/buffer.dart
+index 1078938..0f89485 100644
+--- a/lib/src/core/buffer/buffer.dart
++++ b/lib/src/core/buffer/buffer.dart
+@@ -4,6 +4,7 @@ import 'package:xterm/src/core/buffer/cell_offset.dart';
+ import 'package:xterm/src/core/buffer/line.dart';
+ import 'package:xterm/src/core/buffer/range_line.dart';
+ import 'package:xterm/src/core/buffer/range.dart';
++import 'package:xterm/src/core/buffer/token.dart';
+ import 'package:xterm/src/core/charset.dart';
+ import 'package:xterm/src/core/cursor.dart';
+ import 'package:xterm/src/core/reflow.dart';
+@@ -511,6 +512,57 @@ class Buffer {
+     r'\'.codeUnitAt(0),
+   };
+ 
++  /// The token under [position]: the run of non-blank cells around it, taken
++  /// across a soft wrap and less the punctuation the run only happens to end
++  /// in. Null when the cell under [position] is blank, which is the caller's
++  /// to answer. See token.dart for the rule. Dazzle patch.
++  BufferRangeLine? getTokenBoundary(CellOffset position) {
++    final width = viewWidth;
++    if (width <= 0 || position.y < 0 || position.y >= lines.length) return null;
++
++    // A wrapped row is a continuation of the one above it, so the logical line
++    // is walked out in both directions before it is read: a URL that ran off
++    // the right edge is one token and is selected as one.
++    var first = position.y;
++    while (first > 0 && lines[first].isWrapped) {
++      first--;
++    }
++    var last = position.y;
++    while (last + 1 < lines.length && lines[last + 1].isWrapped) {
++      last++;
++    }
++
++    // One UTF-16 unit per cell, so a match's index is a column: getText skips
++    // empty cells and would slide every offset after the first gap. A blank
++    // cell reads as a space, and the trailing half of a wide character as a
++    // replacement, which keeps it inside its run rather than splitting it.
++    final text = StringBuffer();
++    for (var y = first; y <= last; y++) {
++      final line = lines[y];
++      for (var x = 0; x < width; x++) {
++        final code = x < line.length ? line.getCodePoint(x) : 0;
++        if (code == 0) {
++          final wide = x > 0 && x - 1 < line.length && line.getWidth(x - 1) > 1;
++          text.writeCharCode(wide ? 0xfffd : 0x20);
++        } else if (code > 0xffff) {
++          text.writeCharCode(0xfffd);
++        } else {
++          text.writeCharCode(code);
++        }
++      }
++    }
++
++    final span = tokenAt(
++      text.toString(),
++      (position.y - first) * width + position.x,
++    );
++    if (span == null) return null;
++
++    CellOffset at(int index) =>
++        CellOffset(index % width, first + index ~/ width);
++    return BufferRangeLine(at(span.start), at(span.end));
++  }
++
+   BufferRangeLine? getWordBoundary(CellOffset position) {
+     var separators = wordSeparators ?? defaultWordSeparators;
+     if (position.y >= lines.length) {
+diff --git a/lib/src/core/buffer/token.dart b/lib/src/core/buffer/token.dart
+new file mode 100644
+index 0000000..5cfe213
+--- /dev/null
++++ b/lib/src/core/buffer/token.dart
+@@ -0,0 +1,118 @@
++/// What a long press takes out of a line of terminal text. Dazzle patch.
++///
++/// `Buffer.getWordBoundary` answers with a word, and a word is the wrong unit
++/// for a terminal: its separator set breaks on `.`, `:`, `-` and `/`, which
++/// are the characters a URL, a path and `file.dart:42` are made of, so a press
++/// on any of them could only ever hand back one segment.
++///
++/// The unit here is the run of non-blank cells around the finger, less the
++/// punctuation the run only happens to end in. Prose words are already
++/// space-delimited, so this is a superset of what a word rule gets right, and
++/// it takes `/home/luis/x.dart:42`, `git@github.com:o/r.git` and
++/// `github.com/o/r` whole. A URL with a scheme inside the run wins over the
++/// run itself, which is what pulls the link out of `url=https://x.dev/a`.
++library;
++
++/// A half-open span of a string: [start] inclusive, [end] exclusive.
++class TokenSpan {
++  const TokenSpan(this.start, this.end);
++
++  final int start;
++  final int end;
++
++  @override
++  bool operator ==(Object other) =>
++      other is TokenSpan && other.start == start && other.end == end;
++
++  @override
++  int get hashCode => Object.hash(start, end);
++
++  @override
++  String toString() => 'TokenSpan($start, $end)';
++}
++
++/// Sentence punctuation: a run that ends in it ends in it by accident.
++const _trailing = '.,;:!?';
++
++/// Wrappers, paired by position. A quote is its own closer.
++const _openers = '([{<\'"`';
++const _closers = ')]}>\'"`';
++
++/// A scheme and its authority. The tail is deliberately greedy — a URL may
++/// hold anything but a space, and the punctuation it should not have swallowed
++/// is taken off by [_trim], which knows that `(bar)` closes and `foo).` does
++/// not.
++final _url = RegExp(r'[A-Za-z][A-Za-z0-9+.\-]*://\S+');
++
++bool _isBlank(int code) => code == 0x20 || code == 0x09 || code == 0;
++
++/// The token under [index], or null when the character there is blank — a
++/// press on a gap is the caller's to answer, since a gap in the middle of a
++/// line still deserves a selection.
++TokenSpan? tokenAt(String text, int index) {
++  if (index < 0 || index >= text.length) return null;
++  if (_isBlank(text.codeUnitAt(index))) return null;
++
++  var start = index;
++  while (start > 0 && !_isBlank(text.codeUnitAt(start - 1))) {
++    start--;
++  }
++  var end = index + 1;
++  while (end < text.length && !_isBlank(text.codeUnitAt(end))) {
++    end++;
++  }
++
++  for (final match in _url.allMatches(text.substring(start, end))) {
++    final from = start + match.start;
++    final to = start + match.end;
++    if (index >= from && index < to) return _trim(text, from, to, index);
++  }
++
++  return _trim(text, start, end, index);
++}
++
++/// Peels punctuation off both ends while the finger stays inside what is left:
++/// sentence marks at the tail, a wrapper around the whole of it, and a bracket
++/// whose other half is not in the run.
++TokenSpan _trim(String text, int start, int end, int index) {
++  var from = start;
++  var to = end;
++
++  var peeled = true;
++  while (peeled && to - from > 1) {
++    peeled = false;
++
++    while (to - 1 > index && _trailing.contains(text[to - 1])) {
++      to--;
++      peeled = true;
++    }
++
++    if (to - from > 2 && index > from && index < to - 1) {
++      final open = _openers.indexOf(text[from]);
++      if (open >= 0 && text[to - 1] == _closers[open]) {
++        from++;
++        to--;
++        peeled = true;
++        continue;
++      }
++    }
++
++    if (to - 1 > index) {
++      final close = _closers.indexOf(text[to - 1]);
++      if (close >= 0 && !text.substring(from, to - 1).contains(_openers[close])) {
++        to--;
++        peeled = true;
++      }
++    }
++
++    if (from < index) {
++      final open = _openers.indexOf(text[from]);
++      if (open >= 0 && !text.substring(from + 1, to).contains(_closers[open])) {
++        from++;
++        peeled = true;
++      }
++    }
++  }
++
++  return TokenSpan(from, to);
++}
+diff --git a/lib/src/ui/gesture/gesture_handler.dart b/lib/src/ui/gesture/gesture_handler.dart
+index 2f6d7b6..76ebf5a 100644
+--- a/lib/src/ui/gesture/gesture_handler.dart
++++ b/lib/src/ui/gesture/gesture_handler.dart
+@@ -1,5 +1,7 @@
+ import 'package:flutter/gestures.dart';
+ import 'package:flutter/widgets.dart';
++import 'package:xterm/src/core/buffer/cell_offset.dart';
++import 'package:xterm/src/core/buffer/line.dart';
+ import 'package:xterm/src/core/mouse/button.dart';
+ import 'package:xterm/src/core/mouse/button_state.dart';
+ import 'package:xterm/src/terminal_view.dart';
+@@ -55,14 +57,67 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
+ 
+   RenderTerminal get renderTerminal => terminalView.renderTerminal;
+ 
+-  DragStartDetails? _lastDragStartDetails;
++  /// Where the finger went down, as a cell in the buffer rather than a pixel
++  /// on the screen. Dazzle patch.
++  ///
++  /// A long press is reported half a second after the down, and a drag frames
++  /// later still; a shell that is printing has scrolled the buffer under a
++  /// held finger by then, so the pixel it landed on now covers whatever text
++  /// has since risen into it — the selection lands rows away from the words
++  /// the user pressed. An anchor is the buffer's own handle on that cell and
++  /// follows the line wherever the scrollback carries it, so the press is
++  /// resolved once, when it happens, and read back later.
++  CellAnchor? _pressAnchor;
++
++  /// The pointer the anchor belongs to. A second finger is a pinch, not a
++  /// selection, and must not move where the first one landed.
++  int? _pressPointer;
+ 
+-  LongPressStartDetails? _lastLongPressStartDetails;
++  @override
++  void dispose() {
++    _dropAnchor();
++    super.dispose();
++  }
++
++  void _dropAnchor() {
++    _pressAnchor?.dispose();
++    _pressAnchor = null;
++    _pressPointer = null;
++  }
++
++  void _onPointerDown(PointerDownEvent event) {
++    if (_pressPointer != null) return;
++    _dropAnchor();
++    final render = terminalView.renderTerminal;
++    final cell = render.getCellOffset(render.globalToLocal(event.position));
++    _pressPointer = event.pointer;
++    _pressAnchor = terminalView.widget.terminal.buffer.createAnchorFromOffset(
++      cell,
++    );
++  }
++
++  void _onPointerFinished(PointerEvent event) {
++    if (event.pointer != _pressPointer) return;
++    _dropAnchor();
++  }
++
++  /// The cell the press started on, or null once the line it was on has been
++  /// pushed out of the scrollback — there is nothing left to anchor to, and a
++  /// stale row index would be the same bug in another form.
++  CellOffset? get _pressCell {
++    final anchor = _pressAnchor;
++    return anchor != null && anchor.attached ? anchor.offset : null;
++  }
+ 
+   @override
+   Widget build(BuildContext context) {
+     return TerminalGestureDetector(
+-      child: widget.child,
++      child: Listener(
++        onPointerDown: _onPointerDown,
++        onPointerUp: _onPointerFinished,
++        onPointerCancel: _onPointerFinished,
++        child: widget.child,
++      ),
+       onTapUp: widget.onTapUp,
+       onSingleTapUp: onSingleTapUp,
+       onTapDown: onTapDown,
+@@ -126,6 +181,11 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
+   }
+ 
+   void onTapDown(TapDownDetails details) {
++    // A touch is not a tap until it lifts: the recognizer reports the down at
++    // its deadline, while the arena is still open, so a press that goes on to
++    // be a long press or a scroll would click the application and drop the
++    // selection on its way. Its down waits for the up. Dazzle patch.
++    if (details.kind == PointerDeviceKind.touch) return;
+     // onTapDown is special, as it will always call the supplied callback.
+     // The TerminalView depends on it to bring the terminal into focus.
+     _tapDown(
+@@ -137,6 +197,18 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
+   }
+ 
+   void onSingleTapUp(TapUpDetails details) {
++    if (details.kind == PointerDeviceKind.touch) {
++      _tapDown(
++        widget.onTapDown,
++        TapDownDetails(
++          globalPosition: details.globalPosition,
++          localPosition: details.localPosition,
++          kind: details.kind,
++        ),
++        TerminalMouseButton.left,
++        forceCallback: true,
++      );
++    }
+     _tapUp(widget.onSingleTapUp, details, TerminalMouseButton.left);
+   }
+ 
+@@ -161,31 +233,36 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
+   }
+ 
+   void onLongPressStart(LongPressStartDetails details) {
+-    _lastLongPressStartDetails = details;
+-    renderTerminal.selectWord(details.localPosition);
++    final from = _pressCell;
++    if (from == null) return;
++    renderTerminal.selectWordAt(from);
+   }
+ 
+   void onLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
+-    renderTerminal.selectWord(
+-      _lastLongPressStartDetails!.localPosition,
+-      details.localPosition,
++    final from = _pressCell;
++    if (from == null) return;
++    renderTerminal.selectWordAt(
++      from,
++      renderTerminal.getCellOffset(details.localPosition),
+     );
+   }
+ 
+   // void onLongPressUp() {}
+ 
+   void onDragStart(DragStartDetails details) {
+-    _lastDragStartDetails = details;
+-
++    final from = _pressCell;
++    if (from == null) return;
+     details.kind == PointerDeviceKind.mouse
+-        ? renderTerminal.selectCharacters(details.localPosition)
+-        : renderTerminal.selectWord(details.localPosition);
++        ? renderTerminal.selectCharactersAt(from)
++        : renderTerminal.selectWordAt(from);
+   }
+ 
+   void onDragUpdate(DragUpdateDetails details) {
+-    renderTerminal.selectCharacters(
+-      _lastDragStartDetails!.localPosition,
+-      details.localPosition,
++    final from = _pressCell;
++    if (from == null) return;
++    renderTerminal.selectCharactersAt(
++      from,
++      renderTerminal.getCellOffset(details.localPosition),
+     );
+   }
+ }
+diff --git a/lib/src/ui/render.dart b/lib/src/ui/render.dart
+index de2a2f7..3e75295 100644
+--- a/lib/src/ui/render.dart
++++ b/lib/src/ui/render.dart
+@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
+ import 'package:flutter/widgets.dart';
+ import 'package:xterm/src/core/buffer/cell_offset.dart';
+ import 'package:xterm/src/core/buffer/range.dart';
++import 'package:xterm/src/core/buffer/range_line.dart';
+ import 'package:xterm/src/core/buffer/segment.dart';
+ import 'package:xterm/src/core/mouse/button.dart';
+ import 'package:xterm/src/core/mouse/button_state.dart';
+@@ -253,41 +254,50 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
+     );
+   }
+ 
+-  /// Selects entire words in the terminal that contains [from] and [to].
++  /// Select the token under [from], extended to the token under [to]. A point
++  /// with no token under it stands for its own cell, so a press on a gap still
++  /// selects and a drag across one still follows the finger. Dazzle patch.
+   void selectWord(Offset from, [Offset? to]) {
+-    final fromOffset = getCellOffset(from);
+-    final fromBoundary = _terminal.buffer.getWordBoundary(fromOffset);
+-    if (fromBoundary == null) return;
+-    if (to == null) {
+-      _controller.setSelection(
+-        _terminal.buffer.createAnchorFromOffset(fromBoundary.begin),
+-        _terminal.buffer.createAnchorFromOffset(fromBoundary.end),
+-        mode: SelectionMode.line,
+-      );
+-    } else {
+-      final toOffset = getCellOffset(to);
+-      final toBoundary = _terminal.buffer.getWordBoundary(toOffset);
+-      if (toBoundary == null) return;
+-      final range = fromBoundary.merge(toBoundary);
+-      _controller.setSelection(
+-        _terminal.buffer.createAnchorFromOffset(range.begin),
+-        _terminal.buffer.createAnchorFromOffset(range.end),
+-        mode: SelectionMode.line,
+-      );
++    selectWordAt(getCellOffset(from), to == null ? null : getCellOffset(to));
++  }
++
++  /// [selectWord] in the buffer's own coordinates, for a caller holding a cell
++  /// it resolved earlier: a pixel is only worth what the scroll offset was
++  /// when the finger landed on it, and a shell that is printing moves the line
++  /// under a held finger before the long press is reported. Dazzle patch.
++  void selectWordAt(CellOffset from, [CellOffset? to]) {
++    var range = _tokenOrCell(from);
++    if (to != null) {
++      range = range.merge(_tokenOrCell(to));
+     }
++    _controller.setSelection(
++      _terminal.buffer.createAnchorFromOffset(range.begin),
++      _terminal.buffer.createAnchorFromOffset(range.end),
++      mode: SelectionMode.line,
++    );
++  }
++
++  BufferRangeLine _tokenOrCell(CellOffset offset) {
++    return _terminal.buffer.getTokenBoundary(offset) ??
++        BufferRangeLine(offset, CellOffset(offset.x + 1, offset.y));
+   }
+ 
+-  /// Selects characters in the terminal that starts from [from] to [to]. At
+-  /// least one cell is selected even if [from] and [to] are same.
+   void selectCharacters(Offset from, [Offset? to]) {
+-    final fromPosition = getCellOffset(from);
++    selectCharactersAt(
++      getCellOffset(from),
++      to == null ? null : getCellOffset(to),
++    );
++  }
++
++  /// [selectCharacters] in the buffer's own coordinates. Dazzle patch.
++  void selectCharactersAt(CellOffset fromPosition, [CellOffset? to]) {
+     if (to == null) {
+       _controller.setSelection(
+         _terminal.buffer.createAnchorFromOffset(fromPosition),
+         _terminal.buffer.createAnchorFromOffset(fromPosition),
+       );
+     } else {
+-      var toPosition = getCellOffset(to);
++      var toPosition = to;
+       if (toPosition.x >= fromPosition.x) {
+         toPosition = CellOffset(toPosition.x + 1, toPosition.y);
+       }
