@@ -21,9 +21,10 @@ import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/design/layout.dart';
 import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/features/code/diff_map.dart';
+import 'package:dazzle/features/code/explorer.dart';
 import 'package:dazzle/features/code/diff_sheet.dart';
 import 'package:dazzle/features/code/file_icons.dart';
-import 'package:dazzle/features/code/workspace_screen.dart';
+import 'package:dazzle/features/code/workspace_sheet.dart';
 import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/keys.dart';
 import 'package:dazzle/platform/workspace/workspace_client.dart';
@@ -236,7 +237,7 @@ void main() {
     child: MaterialApp(
       theme: testTheme,
       builder: houseText,
-      home: WorkspaceScreen(
+      home: WorkspaceSheet(
         path: path,
         host: host,
         open: ({
@@ -283,76 +284,91 @@ void main() {
     await ready(tester);
   }
 
-  group('the detail', () {
-    testWidgets('opens on one command and draws all three answers', (
-      tester,
-    ) async {
+  group('the sheet', () {
+    testWidgets('opens on the tree, one command behind it', (tester) async {
       final runner = await open(tester);
 
-      // One trip, three questions. This is the whole latency argument.
-      expect(runner.commands, hasLength(1));
-      expect(runner.commands.single, startsWith("sh -c '"));
+      // The overview and the root, and nothing between them: no screen in
+      // front of the tree and no second handshake under it.
+      expect(runner.commands, hasLength(2));
+      expect(runner.commands.first, startsWith("sh -c '"));
+      expect(runner.commands.last, contains('find'));
 
-      // Twice: the branch the checkout is on, and the same branch again on
-      // the worktree row that is this checkout.
-      expect(find.text('main'), findsNWidgets(2));
-      expect(find.text('origin/main'), findsOneWidget);
+      // The toolbar says where this is and what it is on.
+      expect(find.text('DAZZLE'), findsOneWidget);
+      expect(find.text('main'), findsOneWidget);
       expect(find.text('+1 -0'), findsOneWidget);
-      expect(find.text('lib/main.dart'), findsOneWidget);
-      expect(find.text('scratch.txt'), findsOneWidget);
-      expect(find.text('dazzle-fix'), findsOneWidget);
+      // And the tree is what came up under it.
+      expect(find.text('lib'), findsOneWidget);
+      expect(find.text('README.md'), findsOneWidget);
 
       await unmount(tester);
     });
 
-    testWidgets('a change says what it is and how much of it there is', (
+    testWidgets('nothing is asked for until the connection is up', (
       tester,
     ) async {
-      await open(tester);
+      final answering = Completer<WorkspaceRunner>();
+      final runner = FakeRunner();
+      tester.view.physicalSize = const Size(400, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            privateKeyStoreProvider.overrideWithValue(privateKeys),
+            databaseProvider.overrideWithValue(db),
+          ],
+          child: MaterialApp(
+            theme: testTheme,
+            builder: houseText,
+            home: WorkspaceSheet(
+              path: path,
+              host: host,
+              open: ({
+                required address,
+                required port,
+                required user,
+                required privateKey,
+                verifier,
+              }) => answering.future,
+            ),
+          ),
+        ),
+      );
+      await ready(tester);
 
-      expect(find.text('MODIFIED'), findsOneWidget);
-      expect(find.text('+3 −1'), findsOneWidget);
-      // numstat never mentions an untracked file, so it has no counts to show
-      // and says the one thing that is true about it instead.
-      expect(find.text('UNTRACKED'), findsOneWidget);
-      expect(find.text('NEW'), findsOneWidget);
+      // A listing asked of a workspace with nobody to ask comes back as a
+      // failure, and the root would read as unreadable before the handshake
+      // had even landed.
+      expect(runner.commands, isEmpty);
+      expect(find.text('CONNECTING…'), findsOneWidget);
 
-      // Added and removed mean opposite things, so the row separates them by
-      // colour and not only by the sign in front of them.
-      final counted = tester
-          .widgetList<ListRow>(find.byType(ListRow))
-          .singleWhere((row) => row.title == 'lib/main.dart');
-      expect(counted.valueSpans!.map((span) => span.style?.color).toList(), [
-        DazzleColors.accent,
-        null,
-        DazzleColors.warning,
-      ]);
-      // A file git could not count has one word and no pair to tell apart.
-      final uncounted = tester
-          .widgetList<ListRow>(find.byType(ListRow))
-          .singleWhere((row) => row.title == 'scratch.txt');
-      expect(uncounted.valueSpans!.single.style, isNull);
+      answering.complete(runner);
+      await ready(tester);
+
+      expect(runner.commands.where((c) => c.contains('find')), hasLength(1));
+      expect(find.text('README.md'), findsOneWidget);
 
       await unmount(tester);
     });
 
-    testWidgets('a side nothing went is not lit', (tester) async {
-      await open(
-        tester,
-        runner: FakeRunner(
-          overview:
-              '$_status$workspaceRecord\n$_worktrees$workspaceRecord\n'
-              '7\t0\tlib/main.dart\n',
-        ),
-      );
+    testWidgets('the foot of the sheet clears the phone\'s own bar', (
+      tester,
+    ) async {
+      const inset = 48.0;
+      tester.view.padding = const FakeViewPadding(bottom: inset);
+      await open(tester);
 
-      // The colour reports how much of the file went that way, so a zero keeps
-      // the muted column it shares with a count git could not take.
-      final row = tester
-          .widgetList<ListRow>(find.byType(ListRow))
-          .singleWhere((row) => row.title == 'lib/main.dart');
-      expect(row.valueSpans!.first.style?.color, DazzleColors.accent);
-      expect(row.valueSpans!.last.style, isNull);
+      // The last row of the tree is not under the bar that swipes the sheet
+      // away.
+      final panel = find.byWidgetPredicate(
+        (widget) => widget is Panel && widget.title == 'FILES',
+      );
+      expect(
+        tester.getBottomLeft(panel).dy,
+        lessThanOrEqualTo(1600 - inset - Spacing.md),
+      );
 
       await unmount(tester);
     });
@@ -365,10 +381,10 @@ void main() {
         ),
       );
 
+      // No count on the switch, and the list behind it is empty.
+      expect(find.text('CHANGED'), findsOneWidget);
+      await tapText(tester, 'CHANGED');
       expect(find.text('CLEAN'), findsOneWidget);
-      expect(find.text('NOTHING CHANGED'), findsOneWidget);
-      // One checkout is not a list of siblings.
-      expect(find.text('WORKTREES'), findsNothing);
 
       await unmount(tester);
     });
@@ -386,6 +402,11 @@ void main() {
 
       expect(find.text('directory gone'), findsOneWidget);
       expect(find.text('RETRY'), findsOneWidget);
+      // The shell is still on the row: the host answered, the directory did
+      // not, and the one place that can be done anything about is a terminal.
+      expect(find.text('SHELL'), findsOneWidget);
+      // Nothing was asked of a workspace that never opened.
+      expect(runner.commands.where((c) => c.contains('find')), isEmpty);
 
       await unmount(tester);
     });
@@ -402,6 +423,15 @@ void main() {
       await open(tester, runner: runner);
 
       expect(find.text('not a checkout'), findsOneWidget);
+      // Nothing is claimed about a branch there is none of, and the swapper
+      // answers nothing.
+      expect(find.text('detached'), findsNothing);
+      expect(
+        tester
+            .widget<GestureDetector>(find.byKey(const ValueKey('code-branch')))
+            .onTap,
+        isNull,
+      );
 
       await unmount(tester);
     });
@@ -421,33 +451,51 @@ void main() {
       tester,
     ) async {
       final runner = await open(tester);
-      expect(runner.commands, hasLength(1));
+      expect(runner.commands, hasLength(2));
 
       await tapText(tester, 'REFRESH');
-      expect(runner.commands, hasLength(2));
-      // The same connection: the fake would be a second object otherwise.
+
+      // The status the marks are read off, and the tree that is drawn from
+      // the listings, both asked for again on the connection already open.
+      expect(runner.commands, hasLength(4));
+      expect(runner.commands.last, contains('find'));
       expect(runner.closed, isFalse);
 
       await unmount(tester);
     });
 
-    testWidgets('a worktree is opened on the connection already held', (
+    testWidgets('the swapper opens a worktree on the connection already held', (
       tester,
     ) async {
       final runner = await open(tester);
+      await tapText(tester, 'README.md');
+      final asked = runner.commands.length;
+
+      await tester.tap(find.byKey(const ValueKey('code-branch')));
+      await ready(tester);
+      // The one on screen is marked and answers nothing.
+      expect(find.text('ON SCREEN'), findsOneWidget);
+      expect(find.text('fix/paths'), findsOneWidget);
 
       await tapText(tester, 'dazzle-fix');
 
-      // One more command, not one more connection, and no route pushed: the
-      // screen is a view of a directory and the directory changed.
-      expect(runner.commands, hasLength(2));
-      expect(runner.commands.last, contains('dazzle-fix'));
+      // No route and no second connection: the sheet is a view of a directory
+      // and the directory changed.
+      expect(runner.commands.length, greaterThan(asked));
+      expect(
+        runner.commands.where((c) => c.contains('dazzle-fix')),
+        isNotEmpty,
+      );
       expect(runner.closed, isFalse);
+      // And what was read belonged to the checkout that was left: the tab is
+      // closed and the tree is back at the root of the new one.
+      expect(find.text('file body'), findsNothing);
+      expect(find.text('OPEN A FILE'), findsOneWidget);
 
       await unmount(tester);
     });
 
-    testWidgets('the connection closes when the screen goes', (tester) async {
+    testWidgets('the connection closes when the sheet goes', (tester) async {
       final runner = await open(tester);
       await unmount(tester);
       await tester.pump(const Duration(milliseconds: 10));
@@ -455,50 +503,80 @@ void main() {
       expect(runner.closed, isTrue);
     });
 
-    testWidgets('a change opens its hunks in the viewer', (tester) async {
-      final runner = await open(tester);
-
-      await tapText(tester, 'lib/main.dart');
-
-      // One command, and it names no file: the hunks of everything that
-      // changed come back together and the row that was tapped is drawn out
-      // of them.
-      expect(runner.commands.last, contains('diff --no-color HEAD |'));
-      expect(runner.commands.last, isNot(contains('lib/main.dart')));
-      // The marker is a column of its own, in the colour that says which side
-      // the line is on, so the line itself is the line that is in the file.
-      expect(find.text('const port = 22;'), findsOneWidget);
-      expect(find.text('const port = 357;'), findsOneWidget);
-      // And the preamble is not drawn at all: the panel's header is the path.
-      expect(
-        find.text('diff --git a/lib/main.dart b/lib/main.dart'),
-        findsNothing,
+    testWidgets('a tap on a workspace opens the sheet over the list', (
+      tester,
+    ) async {
+      final runner = FakeRunner();
+      tester.view.physicalSize = const Size(400, 1600);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 24);
+      addTearDown(tester.view.reset);
+      void from(BuildContext context) => openWorkspace(
+        context,
+        path,
+        host,
+        open: ({
+          required address,
+          required port,
+          required user,
+          required privateKey,
+          verifier,
+        }) async => runner,
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            privateKeyStoreProvider.overrideWithValue(privateKeys),
+            databaseProvider.overrideWithValue(db),
+          ],
+          child: MaterialApp(
+            theme: testTheme,
+            builder: houseText,
+            home: Builder(
+              builder: (context) => GestureDetector(
+                onTap: () => from(context),
+                child: const Text('DAZZLE ROW'),
+              ),
+            ),
+          ),
+        ),
       );
 
-      await unmount(tester);
-    });
+      await tapText(tester, 'DAZZLE ROW');
 
-    testWidgets('an untracked file diffs against nothing', (tester) async {
-      final runner = await open(tester);
+      // One tap and the tree is up, over a list that is still drawn under it.
+      expect(find.text('README.md'), findsOneWidget);
+      expect(find.text('DAZZLE ROW'), findsOneWidget);
+      final sheet = find.byKey(const ValueKey('code-sheet'));
+      expect(tester.getTopLeft(sheet).dy, 24);
+      expect(find.byKey(const ValueKey('code-grip-rule')), findsOneWidget);
 
-      await tapText(tester, 'scratch.txt');
+      // The same workspace asked for again while its sheet is up keeps the
+      // one sheet. The row itself is under the scrim, so the ask comes from
+      // where a second entry point's would: the list's own context.
+      from(tester.element(find.text('DAZZLE ROW')));
+      await ready(tester);
+      expect(sheet, findsOneWidget);
 
-      expect(runner.commands.last, contains('--no-index'));
+      // And the phone's own back leaves it.
+      await tester.binding.handlePopRoute();
+      await ready(tester);
+      expect(sheet, findsNothing);
+      expect(find.text('DAZZLE ROW'), findsOneWidget);
 
       await unmount(tester);
     });
   });
 
   group('the explorer', () {
-    Future<FakeRunner> browse(WidgetTester tester, {Size? size}) async {
-      final runner = await open(tester, size: size ?? const Size(400, 1600));
-      await tapText(tester, 'BROWSE');
-      return runner;
-    }
+    Future<FakeRunner> browse(WidgetTester tester, {Size? size}) async =>
+        open(tester, size: size ?? const Size(400, 1600));
 
     /// The tab row's cross, one per open file, which is how many tabs there
-    /// are without reading the row.
-    Finder crosses() => find.text('×');
+    /// are without reading the row. The sheet's toolbar closes with one too,
+    /// and that one is not a tab.
+    Finder crosses() =>
+        find.descendant(of: find.byType(Explorer), matching: find.text('×'));
 
     /// The tree's rows by name, apart from the tab and the title that say the
     /// same name once a file is open. The first is the deepest drawn.
@@ -616,19 +694,20 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('BACK closes the drawer over a file, then leaves', (
+    testWidgets('the phone\'s back closes the drawer over a file first', (
       tester,
     ) async {
       await browse(tester);
       await tapText(tester, 'README.md');
       await tapText(tester, 'FILES');
 
-      await tapText(tester, 'BACK');
+      await tester.binding.handlePopRoute();
+      await ready(tester);
+
+      // The drawer is a thing to close before leaving; the file it was drawn
+      // over is still open under it.
       expect(find.text('lib'), findsNothing);
       expect(find.text('file body'), findsOneWidget);
-
-      await tapText(tester, 'BACK');
-      expect(find.text('BROWSE'), findsOneWidget);
 
       await unmount(tester);
     });
@@ -848,7 +927,6 @@ void main() {
           stderr: '',
         );
       await open(tester, runner: runner);
-      await tapText(tester, 'BROWSE');
 
       expect(find.text('COULD NOT READ IT'), findsOneWidget);
 
@@ -873,8 +951,13 @@ void main() {
       await ready(tester);
     }
 
-    /// The viewer as the workspace opens it: over the connection the screen
-    /// already holds, on the file that was tapped.
+    /// How much tape the explorer had already spent when the sheet was asked
+    /// for, so a count of the viewer's round trips is the viewer's alone: the
+    /// file it opens over was read and marked before `DIFF` was pressed.
+    var spent = 0;
+
+    /// The viewer as the explorer opens it: over the connection the sheet
+    /// already holds, on the changed file that was put on the screen.
     Future<FakeRunner> viewer(
       WidgetTester tester, {
       Size? size,
@@ -885,7 +968,14 @@ void main() {
         runner: runner,
         size: size ?? const Size(400, 1600),
       );
-      await tapText(tester, 'lib/main.dart');
+      // The flat list of what changed, whose strip carries the count, and the
+      // file that every fixture here has hunks for.
+      await tester.tap(find.textContaining('CHANGED').last);
+      await ready(tester);
+      await tester.tap(find.widgetWithText(ListRow, 'lib/main.dart'));
+      await ready(tester);
+      spent = opened.commands.length;
+      await tapText(tester, 'DIFF');
       return opened;
     }
 
@@ -920,6 +1010,8 @@ void main() {
         expect(style.decoration ?? TextDecoration.none, TextDecoration.none);
         expect(style.fontFamily, isNot('monospace'));
       }
+
+      await unmount(tester);
     });
 
     testWidgets('opens on the working tree with the history beside it', (
@@ -1194,7 +1286,7 @@ void main() {
       await tester.binding.handlePopRoute();
       await ready(tester);
       expect(find.text('COMMITS'), findsNothing);
-      expect(find.text('BROWSE'), findsOneWidget);
+      expect(find.text('FILES'), findsOneWidget);
 
       await unmount(tester);
     });
@@ -1202,6 +1294,7 @@ void main() {
     /// Every command that came back with hunks in it, which is what the viewer
     /// is charged a round trip for.
     int diffsAsked(FakeRunner runner) => runner.commands
+        .skip(spent)
         .where(
           (command) =>
               command.contains('--no-color HEAD') ||
@@ -1218,7 +1311,7 @@ void main() {
       expect(find.text('const port = 357;'), findsOneWidget);
       expect(diffsAsked(runner), 1);
       expect(
-        runner.commands.where((c) => c.contains('HEAD --')),
+        runner.commands.skip(spent).where((c) => c.contains('HEAD --')),
         isEmpty,
         reason: 'no file was asked for by name',
       );
@@ -1612,11 +1705,7 @@ void main() {
         // Wider than the phone the other tests use: the rows around the pane
         // are not laid out for a raised text size, and their overflow is not
         // what this one is about.
-        await open(tester, size: const Size(700, 1600));
-        // The row is opened by its kicker rather than its path: a path too
-        // wide for its row gives up its leading directories, and at a raised
-        // text size this one is.
-        await tapText(tester, 'MODIFIED');
+        await viewer(tester, size: const Size(700, 1600));
         final line = onSheet(find.text('const port = 22;'));
         final pitch =
             tester.getTopLeft(onSheet(find.text('const port = 357;'))).dy -
@@ -1655,8 +1744,7 @@ void main() {
         /// Every hairline drawn between the numbers and the file, and how far
         /// apart two lines sit.
         Future<(double, double)> measure() async {
-          await open(tester, size: const Size(700, 1600));
-          await tapText(tester, 'MODIFIED');
+          await viewer(tester, size: const Size(700, 1600));
           final pitch =
               tester.getTopLeft(onSheet(find.text('const port = 357;'))).dy -
               tester.getTopLeft(onSheet(find.text('const port = 22;'))).dy;
@@ -1746,9 +1834,7 @@ void main() {
       FakeRunner? runner,
       Size size = const Size(400, 1600),
     }) async {
-      final fake = await open(tester, runner: runner ?? tracked(), size: size);
-      await tapText(tester, 'BROWSE');
-      return fake;
+      return open(tester, runner: runner ?? tracked(), size: size);
     }
 
     ListRow row(WidgetTester tester, String title) =>

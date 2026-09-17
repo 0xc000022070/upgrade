@@ -24,7 +24,7 @@ import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/sprite.dart';
-import '../code/workspace_screen.dart';
+import '../code/workspace_sheet.dart';
 import '../home/capture_bar.dart';
 import '../hosts/hosts_screen.dart';
 import '../screen_scaffold.dart';

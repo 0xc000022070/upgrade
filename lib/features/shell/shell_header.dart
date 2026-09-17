@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -15,75 +14,6 @@ import '../../design/spacing.dart';
 import '../../platform/shell/shell_connection.dart';
 import 'shell_sessions.dart';
 import 'shell_status.dart';
-
-/// What the sheet's grip needs from the route it is a grip for. Named rather
-/// than reached for through the route's own type: the header is a header
-/// wherever it is drawn, and a page has no drag at all.
-abstract interface class SheetDrag {
-  void dragStart();
-
-  /// A finger's pixels, against the height they are a share of.
-  void dragBy(double pixels, double height);
-
-  void dragEnd(double velocity);
-
-  void dragCancel();
-}
-
-/// The header as the sheet's grip: a vertical drag on it moves the sheet with
-/// the finger, and the release decides whether the sheet leaves or comes
-/// back. Nothing at all when the route is a page, which is how a test pumps
-/// it.
-///
-/// The route's own controller is what the drag moves, the way the iOS back
-/// swipe moves a page's: the transition already knows how to draw the sheet
-/// at any point of its rise, and popping from a part-way value runs the rest
-/// of the slide from there.
-class ShellSheetGrip extends StatefulWidget {
-  const ShellSheetGrip({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  State<ShellSheetGrip> createState() => _ShellSheetGripState();
-}
-
-class _ShellSheetGripState extends State<ShellSheetGrip> {
-  SheetDrag? _route;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final route = ModalRoute.of(context);
-    _route = switch (route) {
-      final SheetDrag drag => drag,
-      _ => null,
-    };
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final route = _route;
-    if (route == null) return widget.child;
-    return GestureDetector(
-      key: const ValueKey('shell-grip'),
-      behavior: HitTestBehavior.opaque,
-      // The finger's whole travel moves the sheet, the slop included: the
-      // sheet is under the finger from the first pixel, not from the
-      // nineteenth.
-      dragStartBehavior: DragStartBehavior.down,
-      onVerticalDragStart: (_) => route.dragStart(),
-      onVerticalDragUpdate: (details) => route.dragBy(
-        details.primaryDelta!,
-        MediaQuery.sizeOf(context).height,
-      ),
-      onVerticalDragEnd: (details) =>
-          route.dragEnd(details.primaryVelocity ?? 0),
-      onVerticalDragCancel: route.dragCancel,
-      child: widget.child,
-    );
-  }
-}
 
 /// The one row above the terminal, and the one place in the route that is a
 /// fixed size: the tab cells in it are hit targets before they are labels.

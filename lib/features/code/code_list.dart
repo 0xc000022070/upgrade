@@ -13,7 +13,7 @@ import '../../design/components/picker_row.dart';
 import '../../design/components/section.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../hosts/path_picker_sheet.dart';
-import 'workspace_screen.dart';
+import 'workspace_sheet.dart';
 
 /// The registered directories, host by host.
 ///
