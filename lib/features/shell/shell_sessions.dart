@@ -128,6 +128,18 @@ const shellReconnectDelays = <Duration>[
 /// and the dim SGR is what every other tool marks its own lines with.
 const shellReconnectMarker = '\r\n\x1b[2m-- reconnected --\x1b[0m\r\n';
 
+/// Turned off above each new shell. The modes a terminal is in belong to the
+/// program that set them, and a new shell means that program is gone. A link
+/// dropped under a mouse-reporting application otherwise leaves the terminal
+/// reporting for as long as the session lives, because the session outlives
+/// the connection on purpose and the terminal goes with it: every drag is then
+/// forwarded as a wheel report to a shell that ignores it, and every tap is
+/// swallowed the same way, so the terminal reads as dead to the touch until
+/// the app is restarted. Mouse reporting in the three modes an application can
+/// ask for it, the encoding it reports in, and bracketed paste.
+const shellModeReset =
+    '\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?2004l';
+
 const shellReattachMarker = '\r\n\x1b[2m-- reattached --\x1b[0m\r\n';
 const shellRestoreMarker = '\r\n\x1b[2m-- session restored --\x1b[0m\r\n';
 
@@ -1358,6 +1370,17 @@ class ShellSessions extends ChangeNotifier {
         reconnected: reconnected,
         restored: restored,
       );
+      // A pane is the one thing that survives the link, so the program that
+      // set the modes is still there and they are still true. Anything else
+      // comes back as a new shell that never asked for them.
+      if ((reconnected || restored) && session.pane == null) {
+        session.terminal.write(shellModeReset);
+        // Leaving the alternate screen restores a cursor that was only saved
+        // on the way in, so it is left alone unless the terminal is on it.
+        if (session.terminal.isUsingAltBuffer) {
+          session.terminal.write('\x1b[?1049l');
+        }
+      }
       if (marker != null) session.terminal.write(marker);
       final moshPane =
           connection.transport == ShellTransport.mosh && session.pane != null;

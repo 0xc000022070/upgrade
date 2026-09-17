@@ -671,6 +671,57 @@ void main() {
     await sessions.close(_rose.id, session);
   });
 
+  testWidgets('a reconnect takes the dead application\'s mouse reporting and '
+      'its screen with it', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+
+    // A full-screen application reporting mouse input, which is what the
+    // terminal is left holding when the link goes under one.
+    transport.opened.single.emit('\x1b[?1049h\x1b[?1002h\x1b[?1006h');
+    await _pumpDial(tester);
+    expect(session.terminal.mouseMode.reportScroll, isTrue);
+    expect(session.terminal.isUsingAltBuffer, isTrue);
+
+    transport.opened.single.drop();
+    await tester.pump();
+    await tester.pump(shellReconnectDelays.first);
+    await _pumpDial(tester);
+
+    // What comes back is a login shell that asked for none of it. A terminal
+    // still reporting would forward every drag and swallow every tap.
+    expect(session.terminal.mouseMode.reportScroll, isFalse);
+    expect(session.terminal.isUsingAltBuffer, isFalse);
+
+    await sessions.close(_rose.id, session);
+  });
+
+  testWidgets('a pane that outlived the link keeps what its application set', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    const pane = (session: 'lab', pane: 'w22:p1');
+    final session = sessions.open(_rose, command: 'attach', pane: pane)!;
+    await _pumpDial(tester);
+
+    transport.opened.single.emit('\x1b[?1002h\x1b[?1006h');
+    await _pumpDial(tester);
+
+    transport.opened.single.drop();
+    await tester.pump();
+    await tester.pump(shellReconnectDelays.first);
+    await _pumpDial(tester);
+
+    // The program on the far end is the thing a pane survives for, so the
+    // modes it set are still true and resetting them would be the lie.
+    expect(session.terminal.mouseMode.reportScroll, isTrue);
+
+    await sessions.close(_rose.id, session);
+  });
+
   test('a tab opened on a pane is the one the store hands back for it', () {
     final sessions = fakeShellSessions(FakeShellTransport());
 
