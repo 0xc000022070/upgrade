@@ -580,6 +580,7 @@ class ShellSessions extends ChangeNotifier {
     ShellOpener? open,
     this.pinRecheck = const Duration(seconds: 5),
     this.pinStale = const Duration(minutes: 5),
+    this.pinAnswerWait = const Duration(seconds: 5),
     this.notifier,
   }) : _open = open ?? const ShellTunnel().open;
 
@@ -601,6 +602,12 @@ class ShellSessions extends ChangeNotifier {
   /// default window, which the phone cannot read and does not claim is the one
   /// in force. Short only in a test.
   final Duration pinStale;
+
+  /// How long an answer is given to reach the fifo before the request behind
+  /// it is taken as gone. A fifo left behind by a pinentry that died still
+  /// passes the answer command's `[ -p ]` guard, and the write then blocks for
+  /// as long as the connection lives, since the reader it waits for is dead.
+  final Duration pinAnswerWait;
 
   final Future<String?> Function(String keyId) readPrivateKey;
 
@@ -1281,8 +1288,13 @@ class ShellSessions extends ChangeNotifier {
       final result = await connection.exec(
         pinentryAnswerCommand(request.id),
         stdin: Uint8List.fromList(utf8.encode('${passphrase ?? ''}\n')),
+        timeout: pinAnswerWait,
       );
       return result.ok ? PinAnswer.sent : PinAnswer.expired;
+    } on TimeoutException {
+      // The guard passed, so the fifo was there, and the write never landed,
+      // so nobody is reading it: the request behind it is gone either way.
+      return PinAnswer.expired;
     } catch (_) {
       return PinAnswer.lost;
     }

@@ -54,7 +54,12 @@ abstract interface class ShellConnection {
   /// shell on the pty never sees any of it: what lands a clip on the host and
   /// what puts it on the host's clipboard both go this way, so nothing about
   /// the user's own prompt is disturbed.
-  Future<ExecResult> exec(String command, {Uint8List? stdin});
+  ///
+  /// With a [timeout], a command still running when it runs out throws
+  /// [TimeoutException] and its channel is taken down, so a command blocked on
+  /// something that will never come does not hold the channel and whatever was
+  /// written to it open for the life of the connection.
+  Future<ExecResult> exec(String command, {Uint8List? stdin, Duration? timeout});
 }
 
 enum ShellContinuity { plain, started, resumed }
