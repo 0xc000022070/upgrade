@@ -13,6 +13,7 @@ import '../../data/repositories/path_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
+import '../../design/components/drag_sheet.dart';
 import '../../design/components/field_panel.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel_sheet.dart';
@@ -788,7 +789,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                 // The rows above the terminal are the sheet's grip: the
                 // terminal's own drag is its scroll, and the bar's is its
                 // horizontal one.
-                ShellSheetGrip(
+                SheetGrip(
+                  key: const ValueKey('shell-grip'),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [

@@ -10,6 +10,7 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/components/segment_switch.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
 import '../../platform/workspace/workspace_model.dart';
@@ -19,14 +20,6 @@ import 'file_icons.dart';
 import 'syntax.dart';
 import 'syntax_style.dart';
 import 'workspace_controller.dart';
-
-void openExplorer(BuildContext context, WorkspaceController controller) {
-  Navigator.of(context, rootNavigator: true).push(
-    MaterialPageRoute<void>(
-      builder: (_) => ExplorerScreen(controller: controller),
-    ),
-  );
-}
 
 /// The workspace laid out the way an IDE is: a sidebar holding the tree, an
 /// editor holding the open files under a row of tabs.
@@ -38,13 +31,13 @@ void openExplorer(BuildContext context, WorkspaceController controller) {
 /// it. A fold changes the widths and nothing else, so the tabs, the drawer
 /// and the open directories are the same widgets at every width — a wrapper
 /// inserted at a breakpoint would discard the state under it.
-class ExplorerScreen extends ConsumerStatefulWidget {
-  const ExplorerScreen({super.key, required this.controller});
+class Explorer extends ConsumerStatefulWidget {
+  const Explorer({super.key, required this.controller});
 
   final WorkspaceController controller;
 
   @override
-  ConsumerState<ExplorerScreen> createState() => _ExplorerScreenState();
+  ConsumerState<Explorer> createState() => _ExplorerState();
 }
 
 /// One open file: what it says, its colours and its marks, kept for the
@@ -78,7 +71,7 @@ class _Tab {
   String get name => path.split('/').last;
 }
 
-class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
+class _ExplorerState extends ConsumerState<Explorer> {
   /// The directories drawn open, by path from the root. The root always is.
   final _expanded = <String>{''};
 
@@ -98,18 +91,78 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
   /// The sidebar drawn as the flat list of changed files rather than the tree.
   bool _changedOnly = false;
 
+  /// Every directory asked for, answered or not, so a listing in flight is
+  /// not asked for twice — by a directory closed and opened again, or by the
+  /// connection coming up under a tree that has already started.
+  final _asked = <String>{};
+
+  /// The checkout on screen. The toolbar can point the sheet at a sibling
+  /// worktree, and what is drawn here belonged to the one it left.
+  late String _directory = widget.controller.directory;
+
   @override
   void initState() {
     super.initState();
-    _list('');
+    widget.controller.addListener(_onWorkspace);
+    _onWorkspace();
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onWorkspace);
+    super.dispose();
+  }
+
+  /// Nothing is asked for while the connection is still coming up: a listing
+  /// asked of a workspace that has nobody to ask comes back as a failure, and
+  /// the root would be marked unreadable before the handshake had landed.
+  void _onWorkspace() {
+    if (widget.controller.directory != _directory) {
+      _directory = widget.controller.directory;
+      setState(_clear);
+    }
+    if (widget.controller.phase == WorkspacePhase.ready) _list('');
+  }
+
+  /// Back to an explorer that has read nothing, keeping the seam's width and
+  /// which half of the switch is on: they are the user's, not the checkout's.
+  void _clear() {
+    _expanded
+      ..clear()
+      ..add('');
+    _listings.clear();
+    _failed.clear();
+    _asked.clear();
+    _tabs.clear();
+    _active = -1;
+    _drawer = true;
+  }
+
+  /// What REFRESH on the FILES panel does: the status the marks are read off,
+  /// and every listing the tree is drawn from, asked for again. The open
+  /// directories stay open — they are where the user is, not what was read.
+  void _refresh() {
+    unawaited(widget.controller.refresh());
+    setState(() {
+      _listings.clear();
+      _failed.clear();
+      _asked.clear();
+    });
+    for (final directory in _expanded.toList()) {
+      _list(directory);
+    }
   }
 
   Future<void> _list(String directory) async {
+    if (!_asked.add(directory)) return;
     final entries = await widget.controller.list(directory);
     if (!mounted) return;
     setState(() {
       if (entries == null) {
         _failed.add(directory);
+        // A directory that answered nothing is asked again when it is opened
+        // again; one that answered is kept for the sheet's life.
+        _asked.remove(directory);
       } else {
         _listings[directory] = entries;
       }
@@ -120,7 +173,7 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
     setState(() {
       if (!_expanded.remove(directory)) _expanded.add(directory);
     });
-    if (_expanded.contains(directory) && !_listings.containsKey(directory)) {
+    if (_expanded.contains(directory)) {
       _failed.remove(directory);
       _list(directory);
     }
@@ -253,61 +306,17 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _back(wide);
       },
-      child: ColoredBox(
-        color: context.tokens.backgroundPrimary,
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Spacing.screenEdge,
-              Spacing.lg,
-              Spacing.screenEdge,
-              0,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _header(wide),
-                const SizedBox(height: Spacing.lg),
-                Expanded(child: _panes(wide, share)),
-              ],
-            ),
-          ),
+      child: Padding(
+        // The foot stands clear of the phone's own gesture bar: a row under
+        // the bar that swipes the sheet away is a row nobody can tap.
+        padding: EdgeInsets.fromLTRB(
+          Spacing.screenEdge,
+          Spacing.lg,
+          Spacing.screenEdge,
+          MediaQuery.paddingOf(context).bottom + Spacing.md,
         ),
+        child: _panes(wide, share),
       ),
-    );
-  }
-
-  Widget _header(bool wide) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SizedBox(
-          height: TapTargets.minHeight,
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '/ ${widget.controller.label.toUpperCase()}',
-                  style: context.tokens.breadcrumb,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _back(wide),
-                child: Padding(
-                  padding: const EdgeInsets.only(left: Spacing.md),
-                  child: Text('BACK', style: context.tokens.panelHeader),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: Spacing.md),
-        Container(height: Borders.hairline, color: context.tokens.borderNormal),
-      ],
     );
   }
 
@@ -419,6 +428,11 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
     final changes = _changes;
     return Panel(
       title: 'FILES',
+      affordance: PanelAffordance(
+        'REFRESH',
+        icon: DazzleIcons.sync,
+        onTap: _refresh,
+      ),
       bodyPadding: EdgeInsets.zero,
       bodyFlexible: true,
       child: Column(
@@ -460,7 +474,11 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
       return Padding(
         padding: const EdgeInsets.all(Spacing.panelPadding),
         child: EmptyState(
-          _failed.contains('') ? 'could not read it' : 'reading…',
+          _failed.contains('')
+              ? 'could not read it'
+              : widget.controller.phase == WorkspacePhase.ready
+              ? 'reading…'
+              : 'connecting…',
         ),
       );
     }

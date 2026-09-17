@@ -1747,7 +1747,7 @@ With nothing left to turn on, because every installed plugin is already on and n
 
 ### CODE is a segment of HOSTS and belongs to the app
 
-HOSTS carries `[ MACHINES ]  [ CODE ]` under its title, drawn the way the PROJECTS switch was. MACHINES is the host list exactly as it is, with `ADD HOST` under it. CODE is the workspace list: every registered directory, one panel per host, `ADD` on the strip, `RE-POINT` and `REMOVE` on a long press, the workspace opening on a tap. The switch is remembered for the session and HOSTS opens on MACHINES after a cold start. PROJECTS is the board alone and carries no switch.
+HOSTS carries `[ MACHINES ]  [ CODE ]` under its title, drawn the way the PROJECTS switch was. MACHINES is the host list exactly as it is, with `ADD HOST` under it. CODE is the workspace list: every registered directory, one panel per host, `ADD` on the strip, `RE-POINT` and `REMOVE` on a long press, the workspace's sheet coming up on a tap. The switch is remembered for the session and HOSTS opens on MACHINES after a cold start. PROJECTS is the board alone and carries no switch.
 
 The registered directories are the app's own, alongside the hosts they sit on. CODE draws without the Projects plugin: with Projects off, HOSTS still lists, registers, re-points, removes and opens every workspace, and disabling Projects withdraws the PROJECTS tab and the project link on a workspace, not the workspace. Projects keeps leasing the workspaces service for the `CODE` section of a project's detail, which is the only place the link is made from the project's side.
 
@@ -1769,7 +1769,7 @@ The tree expands in place. The root is open when the screen opens; a tap on a di
 
 Every file opened is a tab and stays one until it is closed. A tab carries the file's name, the checkout's letter in its colour when it has one, and `×`; the tab on screen is in the accent with the underline the shell's tabs carry, the rest in the muted text. A tap on a file already open goes to its tab rather than reading it again, and a tab holds its text, colours and marks for the screen's life, so switching costs the host nothing. Closing the tab on screen moves to the one beside it. The tab row scrolls sideways once it is fuller than the screen, and the tab on screen is scrolled into view. Under the tabs the editor is a panel titled by the open file's path, with the changed file's strip and the file under it; with no tab open it says `OPEN A FILE`.
 
-Over both, the workspace's name and `BACK`. `BACK` and the system back close the drawer when it is open over a file, and leave the screen otherwise.
+Over both is the sheet's own toolbar, and the explorer draws no header of its own: what says which checkout this is belongs to the sheet that holds it, not to the tree inside. The system back closes the drawer when it is open over a file, and leaves the sheet otherwise.
 
 ### The explorer marks each file row with a Nerd Font glyph
 
@@ -1798,3 +1798,27 @@ The explorer's FILES panel carries `[ TREE ]  [ CHANGED ]` under its title, and 
 The viewer has a gutter: the line's number in the muted text, and between the number and the line a bar three pixels wide that is the accent down a line that is new, the warning down a line that replaced one or more, and a thin line of danger along the top of the line that now sits where lines were taken out — on the last line, when they were the last. The marks are read off the file's own hunks against `HEAD`, asked for once when the file opens, alongside the colouring; a file the checkout has no word on has numbers and no marks, an untracked file is all new and gets none rather than a bar the length of the file, and a binary one is never diffed.
 
 Under the editor's tabs, on a changed file, one line: `N CHANGES` in the letter's colour, or `UNTRACKED`, then `PREV` and `NEXT` that walk the marked lines and wrap at either end, and `DIFF` that opens the diff sheet on this file. Nothing in CODE writes to the checkout: status, listing, contents and hunks are the whole of what it asks, and nothing on the explorer or its sheet stages, discards, commits or edits.
+
+### The workspace is a sheet that comes up on the tree, not a page in front of it
+
+A tap on a workspace opens the explorer, and it opens it directly: one tap from the list to the tree, with no screen in between whose whole job was to offer a `BROWSE` row. The detail page is gone. What it held that is worth keeping was already somewhere else or belongs on the toolbar — the change list is the explorer's own CHANGED, the history is one step behind any file's diff, and the branch, the worktrees and the shell are the toolbar's three cells.
+
+It is a sheet and not a screen, for the reason the terminal is: a checkout is looked at beside something else, and the thing behind it is why it was opened. It is the shell sheet's own shape and its own mechanics — parked at the bottom, as tall as the window under the status bar, a grip at the top edge that drags it down, and a scrim, a fling or the system back to leave — so the two modals of this app open, feel and close alike, and the code the terminal already had for that is the code this sheet uses rather than a second copy of it. One sheet per navigator: tapping the workspace that is already up brings that sheet back instead of stacking another.
+
+The sheet holds the connection for its own life, one dial, and it says so while it is dialling: the toolbar is drawn at once with what it already knows, and the body says it is connecting under it. A dial that fails says why in one line with `RETRY` beside it, and the toolbar stays on the row so the shell is still reachable on a host whose checkout would not answer. Nothing under the sheet is asked for until the connection is up — a tree that asks while there is nobody to ask marks its own root as failed and then has to be told to try again.
+
+The last row inside the sheet stops short of the phone's own gesture bar by the system's inset and the house gap over it. A sheet that runs to the bottom edge of the glass puts its last row under the bar that swipes it away.
+
+- Regression tests: a tap on a workspace row opens the sheet on the explorer and pushes no route; a second tap on the same workspace brings the same sheet up rather than a second one; the sheet drags down and dismisses on a fling the way the terminal's does; the tree asks the host nothing until the connection is up, and asks for the root once when it is; a failed dial says why with `RETRY` and still draws the toolbar; the bottom of the sheet clears the system inset.
+
+### The sheet's toolbar says where this is, what it is on, and how to get a shell at it
+
+Inside the sheet, under its grip and over the explorer, one row of the terminal header's height, bordered like it and holding four things between the screen edges.
+
+The workspace's name at the left, in the panel header, elided rather than allowed to push the rest off the row. Then the branch, in the mono, with the tracking beside it when there is an upstream ahead or behind — the cell is the swapper: a tap opens a picker of every worktree of this checkout, each under its own branch, the one on screen marked, and a pick re-points the sheet at that worktree on the connection it already holds. Nothing is pushed and nothing is registered, and the tree, the tabs and the open directories start over, because they were another checkout's. A directory that is not a checkout draws the cell dimmed and answers nothing.
+
+Then the shell, which opens the terminal's sheet on this host already standing in this directory, over this one — a shell at the checkout in one tap from the file being read, which is the whole point of putting it on the row. Leaving the terminal leaves the explorer where it was. Then `×`, which is what the terminal's header closes with.
+
+`REFRESH` is not on the toolbar: what it refreshes is the tree and the marks, so it is the FILES panel's own affordance, beside the `[ TREE ]  [ CHANGED ]` switch it redraws.
+
+- Regression tests: the toolbar draws the workspace name, the branch and its tracking; the swapper lists the worktrees with their branches and marks the one on screen; a pick re-points the sheet with no second dial and clears the tree and the tabs; a directory that is not a checkout dims the cell; the shell cell opens a terminal already at the directory and the explorer is as it was underneath; `REFRESH` is on the FILES panel and re-asks for the tree.
