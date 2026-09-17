@@ -395,10 +395,7 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
       scrim: c(scrim, other.scrim),
       mediaBackdrop: c(mediaBackdrop, other.mediaBackdrop),
       selectionWash: c(selectionWash, other.selectionWash),
-      selectionWashCurrent: c(
-        selectionWashCurrent,
-        other.selectionWashCurrent,
-      ),
+      selectionWashCurrent: c(selectionWashCurrent, other.selectionWashCurrent),
       terminalSelectionWash: c(
         terminalSelectionWash,
         other.terminalSelectionWash,
@@ -443,4 +440,15 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
 /// directly.
 extension DazzleTokensContext on BuildContext {
   DazzleTokens get tokens => Theme.of(this).extension<DazzleTokens>()!;
+}
+
+/// What a program running in the terminal is told when it asks what the
+/// terminal is drawn in. A session carries these from the moment it is made,
+/// so a tab nobody has looked at yet still answers.
+extension TerminalThemeReport on TerminalTheme {
+  TerminalColors get reportedColors => TerminalColors(
+    foreground: foreground.toARGB32(),
+    background: background.toARGB32(),
+    cursor: cursor.toARGB32(),
+  );
 }

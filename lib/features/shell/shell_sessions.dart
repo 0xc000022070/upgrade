@@ -11,6 +11,7 @@ import '../../application/pin_alerts.dart';
 import '../../application/providers.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/shell_tab_repository.dart';
+import '../../design/tokens.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/pin_notifications.dart';
@@ -841,7 +842,10 @@ class ShellSessions extends ChangeNotifier {
     final session =
         ShellSession(
             number: number,
-            terminal: Terminal(maxLines: shellScrollback),
+            terminal: Terminal(
+              maxLines: shellScrollback,
+              colors: DazzleTokens.house.terminal.reportedColors,
+            ),
             host: host,
             remoteSession: remoteSession,
             mark: remoteSession,

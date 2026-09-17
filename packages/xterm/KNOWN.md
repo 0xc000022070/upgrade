@@ -226,6 +226,42 @@ test in dazzle's `test/`, driving `TerminalView` on the shell route.
 
 ---
 
+## colour queries
+
+**a colour the terminal is drawn in is reported when asked**
+- given  a terminal told what it is drawn in
+- when   a program asks for the foreground, the background or the cursor
+- then   each is answered `rgb:` in sixteen-bit channels, terminated the way
+         the question was
+- status pinned - terminal_colors_test.dart
+
+**one question can walk the slots**
+- given  a question that chains its marks
+- when   it asks from the foreground
+- then   the slots after it are answered in turn, and a chain running past
+         the cursor is answered not at all
+- status pinned - terminal_colors_test.dart
+
+**a colour being set is not a question**
+- given  a program setting a colour, or putting one back
+- when   the sequence arrives
+- then   nothing is reported and it reaches the private-OSC path as before
+- status pinned - terminal_colors_test.dart
+
+**an answer is not something the user typed**
+- given  a session with a modifier armed
+- when   a colour query is answered
+- then   the reply leaves on the report channel with the modifier unspent
+- status pinned - terminal_colors_test.dart
+
+**the numbered colours of the table**
+- given  a program asking `OSC 4` about an indexed colour
+- when   the query arrives
+- then   nothing is answered, and the program falls back to its own table
+- status open
+
+---
+
 ## keyboard
 
 **a tap does not ask for the keyboard**
