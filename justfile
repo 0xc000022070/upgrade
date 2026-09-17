@@ -1,6 +1,11 @@
 default:
     @just --list
 
+# Whether the fixture VM's sshd is answering. One place, because three recipes
+# ask the same question and a guest half-booted answers the port and not the
+# handshake.
+host_vm_probe := "bash -c 'exec 3<>/dev/tcp/127.0.0.1/2222 && head -c 3 <&3 | grep -q SSH' 2>/dev/null"
+
 # Regenerate drift / build_runner output. Not committed; run after schema edits.
 gen:
     flutter pub run build_runner build
@@ -31,8 +36,70 @@ fmt:
 # total, and half the cores left the tail of the run idle.
 
 # The suite, or the paths named: `just test test/shell_tabs_test.dart`.
+# The `host` tier stays out: it wants the fixture VM, and a machine that is not
+# there is not a red test. `just test-host` is where those run.
 test *args: xterm-build
-    flutter test -j {{ num_cpus() }} {{ args }}
+    flutter test -j {{ num_cpus() }} --exclude-tags host {{ args }}
+
+# The tier that wants a machine on the other end of the socket. Brings the
+# fixture VM up if nothing answers, then runs only that tier.
+#
+# `-j 1` on purpose: every one of these tests dials the same guest, and a
+# handshake is cheap next to what a second one does to the other's timings.
+#
+# Scoped to `test/host` rather than the whole tree: `--tags` still has to load
+# every file it is pointed at before it can see that none of them is tagged,
+# which is a minute of loading for eighteen tests.
+test-host *args: xterm-build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just host-vm
+    flutter test -j 1 --tags host {{ if args == "" { "test/host" } else { args } }}
+
+# Everything, both tiers, the fixture VM included. What a release is gated on.
+test-all *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just test {{ args }}
+    just test-host
+
+# The fixture VM, up and answering. Idempotent: a guest already listening on
+# 2222 is left alone, so this is safe in front of every recipe that needs one.
+#
+# The VM is detached from this shell with `setsid`, because a guest that dies
+# with the recipe that started it would be booted again by every test file.
+host-vm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if {{ host_vm_probe }}; then echo "host vm: up"; exit 0; fi
+    log="${TMPDIR:-/tmp}/dazzle-host-vm.log"
+    echo "host vm: booting, log $log"
+    nohup setsid --wait nix run .#host-vm -- -nographic </dev/null >"$log" 2>&1 &
+    vm=$!
+    for _ in $(seq 1 180); do
+        if {{ host_vm_probe }}; then echo "host vm: up"; exit 0; fi
+        # A guest that cannot start is not a guest that is slow: qemu gives up
+        # on a port it cannot forward in under a second, and waiting the full
+        # six minutes for it says nothing that the last lines of the log do not.
+        if ! kill -0 "$vm" 2>/dev/null; then
+            echo "host vm: the guest exited while booting; see $log" >&2
+            tail -n 3 "$log" >&2
+            exit 1
+        fi
+        sleep 2
+    done
+    echo "host vm: no sshd on 2222 after six minutes; see $log" >&2
+    exit 1
+
+# Stop the fixture VM. The disk image is kept: it is where the guest's host key
+# lives, and a test pins that key.
+host-vm-down:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Matched on qemu's own `-name`: the nix runner execs into qemu, so the
+    # wrapper's name is gone from the process table by the time anything looks.
+    pkill -f 'qemu-system-.* -name dazzle-host' || true
+    echo "host vm: down"
 
 # Debug APK (arm64 only); the same artifact runs on the emulator and on faraday.
 # DAZZLE_BUILD comes from the flake's shellHook and stamps §39.16's build line.

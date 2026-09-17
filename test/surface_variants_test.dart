@@ -1,0 +1,200 @@
+import 'dart:math' as math;
+
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:dazzle/data/database.dart';
+import 'package:dazzle/design/components/panel.dart';
+import 'package:dazzle/design/layout.dart';
+import 'package:dazzle/design/spacing.dart';
+import 'package:dazzle/design/tokens.dart';
+import 'package:dazzle/features/home/home_screen.dart';
+import 'package:dazzle/features/settings/settings_screen.dart';
+
+import 'support/native_plugins.dart';
+import 'support/platform_channels.dart';
+import 'support/variants.dart';
+
+/// The grounds and the accent — the colours a palette owns and a screen must
+/// take from the theme rather than name for itself.
+Set<Color> _chrome(DazzleTokens tokens) => {
+  tokens.backgroundPrimary,
+  tokens.backgroundSecondary,
+  tokens.surfacePrimary,
+  tokens.surfaceSecondary,
+  tokens.accent,
+  tokens.accentMuted,
+};
+
+/// Deliberately the house's under every palette: code, diffs and the backdrops
+/// over them are read on their own grounds whatever the chrome is wearing.
+/// Subtracted so a screen that draws one is not read as a screen that leaked
+/// the house.
+Set<Color> _shared(DazzleTokens tokens) => {
+  tokens.scrim,
+  tokens.mediaBackdrop,
+  tokens.diffMapWindow,
+  tokens.diffAddedGround,
+  tokens.diffRemovedGround,
+  tokens.diffCappedGround,
+};
+
+/// The house colours [palette] has no use for. A rendered pixel in this set is
+/// a widget that reached for the house instead of `context.tokens`, which is
+/// invisible while the house is the palette under test and is the whole of the
+/// SYSTEM theme's bug surface.
+Set<Color> _houseOnly(Palette palette) =>
+    _chrome(DazzleTokens.house)
+        .difference(_chrome(palette.tokens).union(_shared(palette.tokens)));
+
+/// Every colour the tree actually paints or prints.
+Iterable<Color> _painted(WidgetTester tester) sync* {
+  for (final widget in tester.allWidgets) {
+    switch (widget) {
+      case Container():
+        final color = widget.color;
+        if (color != null) yield color;
+        final decoration = widget.decoration;
+        if (decoration is BoxDecoration) {
+          final fill = decoration.color;
+          if (fill != null) yield fill;
+        }
+      case ColoredBox():
+        yield widget.color;
+      case DecoratedBox(decoration: final BoxDecoration decoration):
+        final fill = decoration.color;
+        if (fill != null) yield fill;
+      case Text():
+        final color = widget.style?.color;
+        if (color != null) yield color;
+      default:
+        break;
+    }
+  }
+}
+
+void main() {
+  late AppDatabase db;
+
+  setUp(() {
+    stubDeviceChannels();
+    db = AppDatabase(NativeDatabase.memory());
+  });
+
+  tearDown(() async {
+    await db.close();
+  });
+
+  Widget host(Widget child, {ThemeData? theme}) => ProviderScope(
+    overrides: [...featureTestOverrides(db)],
+    child: MaterialApp(theme: theme ?? Palette.house.theme, home: child),
+  );
+
+  /// The screens run timers of their own — the static background's offset, the
+  /// boot sweep — and the binding fails the test on any that outlive it.
+  Future<void> settle(WidgetTester tester) async {
+    for (var i = 0; i < 6; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  Future<void> unmount(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  }
+
+  /// A panel is the widest thing on any screen, so its box is where the column
+  /// cap and the gutter are observable. Assertions are on the outermost one:
+  /// panels nest, and an inner one says nothing about the column.
+  Rect widestPanel(WidgetTester tester) {
+    final boxes = tester
+        .widgetList<Panel>(find.byType(Panel))
+        .map((panel) => tester.getRect(find.byWidget(panel)))
+        .toList();
+    expect(boxes, isNotEmpty, reason: 'the screen drew no panel');
+    boxes.sort((a, b) => b.width.compareTo(a.width));
+    return boxes.first;
+  }
+
+  void expectCappedAndCentred(WidgetTester tester, Surface surface) {
+    final panel = widestPanel(tester);
+    // Exact, not a ceiling: a column that collapsed to a third of the width
+    // also satisfies a cap, and the number here is the whole of the layout
+    // rule — the width up to [Layout.columnMax], less the screen edge a side.
+    final column =
+        math.min(surface.width, Layout.columnMax) - 2 * Spacing.screenEdge;
+    expect(
+      panel.width,
+      moreOrLessEquals(column, epsilon: 0.5),
+      reason: 'the content column is not $column wide on $surface',
+    );
+    // Centred, not left-aligned with a right margin: on the fold the gutter is
+    // 125dp a side and a column pinned left reads as a layout bug even though
+    // nothing overflows.
+    expect(
+      panel.left,
+      moreOrLessEquals(surface.width - panel.right, epsilon: 0.5),
+      reason: 'the column is off centre on $surface',
+    );
+  }
+
+  testWidgets('HOME lays out on every surface', (tester) async {
+    final surface = surfaces.currentValue!;
+    useSurface(tester, surface);
+
+    await tester.pumpWidget(host(const Scaffold(body: HomeScreen())));
+    await settle(tester);
+
+    expect(find.bySemanticsLabel('SETTINGS'), findsOneWidget);
+    expectCappedAndCentred(tester, surface);
+    await unmount(tester);
+  }, variant: surfaces);
+
+  testWidgets('SETTINGS lays out on every surface', (tester) async {
+    final surface = surfaces.currentValue!;
+    useSurface(tester, surface);
+
+    await tester.pumpWidget(host(const SettingsScreen()));
+    await settle(tester);
+
+    expect(find.text('[ THEME ]'), findsOneWidget);
+    expect(find.text('[ BUILD ]'), findsOneWidget);
+    expectCappedAndCentred(tester, surface);
+    await unmount(tester);
+  }, variant: surfaces);
+
+  testWidgets('HOME wears every palette', (tester) async {
+    final palette = palettes.currentValue!;
+    useSurface(tester, Surface.phone);
+
+    await tester.pumpWidget(
+      host(const Scaffold(body: HomeScreen()), theme: palette.theme),
+    );
+    await settle(tester);
+
+    final leaked = _painted(tester).toSet().intersection(_houseOnly(palette));
+    expect(leaked, isEmpty, reason: 'HOME painted the house under $palette');
+    await unmount(tester);
+  }, variant: palettes);
+
+  testWidgets('SETTINGS wears every palette', (tester) async {
+    final palette = palettes.currentValue!;
+    useSurface(tester, Surface.phone);
+
+    await tester.pumpWidget(host(const SettingsScreen(), theme: palette.theme));
+    await settle(tester);
+
+    final leaked = _painted(tester).toSet().intersection(_houseOnly(palette));
+    expect(
+      leaked,
+      isEmpty,
+      reason: 'SETTINGS painted the house under $palette',
+    );
+    await unmount(tester);
+  }, variant: palettes);
+}
