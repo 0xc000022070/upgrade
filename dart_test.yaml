@@ -1,0 +1,13 @@
+# The tiers the suite runs in.
+#
+# Untagged is the default tier and the whole of what `just test` runs: no
+# machine on the other end of a socket, no budget but the framework's. It is
+# the tier that has to stay quick enough to run on every change.
+#
+# `host` wants the NixOS fixture VM answering on 127.0.0.1:2222. `just
+# test-host` starts it and runs them; nothing in the default tier may assume
+# it is there. A real handshake, a real channel and a real process are slower
+# than anything faked, so the tier is given twice the budget.
+tags:
+  host:
+    timeout: 2x
