@@ -20,7 +20,7 @@ assets:
     cp "$src"/textures/noise-fine.png "$src"/textures/grid-8.svg "$src"/textures/scanline-3.png assets/textures/
     echo "assets: $(ls assets/icons/*.svg | wc -l) icons, $(ls assets/icons/signal/*.svg | wc -l) signal, $(ls assets/textures/* | wc -l) textures"
 
-analyze: xterm-sync
+analyze: xterm-build
     flutter analyze
 
 fmt:
@@ -31,15 +31,15 @@ fmt:
 # total, and half the cores left the tail of the run idle.
 
 # The suite, or the paths named: `just test test/shell_tabs_test.dart`.
-test *args: xterm-sync
+test *args: xterm-build
     flutter test -j {{ num_cpus() }} {{ args }}
 
 # Debug APK (arm64 only); the same artifact runs on the emulator and on faraday.
 # DAZZLE_BUILD comes from the flake's shellHook and stamps §39.16's build line.
-apk: xterm-sync
+apk: xterm-build
     flutter build apk --debug --target-platform android-arm64 --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}
 
-apk-fixtures: xterm-sync
+apk-fixtures: xterm-build
     flutter build apk --debug --target-platform android-arm64 --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev} --dart-define=DAZZLE_SEED_FIXTURES=true
 
 # Release APK, the artifact faraday is upgraded with. arm64 only: the emulator
@@ -57,7 +57,7 @@ dev:
 # Hot reload against the emulator on rose, over a forwarded adb server socket.
 # The inner loop: run once, then `kill -USR1 $(cat build/run.pid)` to reload and
 # -USR2 to restart, instead of paying for an apk on every change.
-run: xterm-sync
+run: xterm-build
     #!/usr/bin/env bash
     set -euo pipefail
     ssh -fN -o ExitOnForwardFailure=yes -L 5038:127.0.0.1:5037 rose || true
@@ -199,27 +199,18 @@ publish:
 review:
     phone up --profile review
 
-desktop: xterm-sync
+desktop: xterm-build
     flutter run -d linux --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}
 
-# Put our xterm changes into the resolved package. Run after a clone, after a
-# `pub get` that refetched it, and after `dart pub cache repair`. Refuses to
-# overwrite a package somebody is in the middle of editing.
-xterm-sync:
-    tool/xterm-patches.sh sync
+# Write upstream's xterm plus packages/xterm/patches into .dart_tool, which is
+# what pubspec overrides xterm onto. A no-op once it matches the patches.
+xterm-build:
+    tool/xterm-patches.sh build
 
-# Rewrite packages/xterm/patches from the package in the cache.
+# Rewrite packages/xterm/patches from edits made to .dart_tool/xterm.
 xterm-patches:
     tool/xterm-patches.sh generate
 
-# Prove the package in the cache is pristine upstream plus the series.
+# Prove the patches reproduce .dart_tool/xterm exactly.
 xterm-verify:
     tool/xterm-patches.sh verify
-
-# Discard whatever is in the cache and write pristine upstream plus the series.
-xterm-apply:
-    tool/xterm-patches.sh apply
-
-# Hand the cache back to upstream, for every other project on this machine.
-xterm-reset:
-    tool/xterm-patches.sh reset
