@@ -22,6 +22,7 @@ import 'package:dazzle/design/layout.dart';
 import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/features/code/diff_map.dart';
 import 'package:dazzle/features/code/diff_sheet.dart';
+import 'package:dazzle/features/code/file_icons.dart';
 import 'package:dazzle/features/code/workspace_screen.dart';
 import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/keys.dart';
@@ -1753,6 +1754,18 @@ void main() {
     ListRow row(WidgetTester tester, String title) =>
         tester.widget<ListRow>(find.widgetWithText(ListRow, title));
 
+    /// The codepoint of the glyph in a row's leading slot.
+    int glyph(WidgetTester tester, String title) {
+      final icon = find.descendant(
+        of: find.widgetWithText(ListRow, title),
+        matching: find.byType(FileIcon),
+      );
+      return tester
+          .widget<Text>(find.descendant(of: icon, matching: find.byType(Text)))
+          .data!
+          .codeUnitAt(0);
+    }
+
     /// A word the checkout has for a deleted file, which the listing cannot
     /// carry since the file is not there to list.
     final gone =
@@ -1822,6 +1835,25 @@ void main() {
       // Its hunks are against HEAD, which is the only place it still is.
       expect(runner.commands.last, contains('diff --no-color HEAD'));
       expect(runner.commands.any(writes.hasMatch), isFalse);
+
+      await unmount(tester);
+    });
+
+    testWidgets('both halves of the switch mark a path with one glyph', (
+      tester,
+    ) async {
+      await browse(tester);
+      await tapText(tester, 'lib');
+
+      final dart = glyph(tester, 'main.dart');
+      final text = glyph(tester, 'scratch.txt');
+      final folder = glyph(tester, 'lib');
+      expect(dart, isNot(text));
+      expect(folder, isNot(anyOf(dart, text)));
+
+      await tapText(tester, 'CHANGED 2');
+      expect(glyph(tester, 'lib/main.dart'), dart);
+      expect(glyph(tester, 'scratch.txt'), text);
 
       await unmount(tester);
     });
