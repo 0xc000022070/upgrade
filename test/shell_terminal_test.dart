@@ -880,6 +880,56 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('turning reporting on under a finger does not take the drag', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      final connection = transport.opened.single;
+      final session = sessions.activeFor(rose.id)!;
+
+      connection.emit('line\r\n' * 200);
+      await ready(tester);
+      expect(session.terminal.mouseMode.reportScroll, isFalse);
+
+      // The first twenty pixels go to the gesture arena's touch slop, so the
+      // finger is walked down in steps rather than thrown in one move.
+      final start = session.scrollController.position.pixels;
+      final finger = await tester.startGesture(
+        tester.getCenter(find.byType(TerminalView)),
+      );
+      for (var i = 0; i < 4; i++) {
+        await finger.moveBy(const Offset(0, 20));
+        await tester.pump();
+      }
+      final moved = session.scrollController.position.pixels;
+      expect(moved, lessThan(start));
+
+      // The application turns reporting on mid-drag, which is what a redraw
+      // does. The scrollable the finger is on must survive it.
+      connection.emit('\x1b[?1002h\x1b[?1006h');
+      await tester.pump();
+      expect(session.terminal.mouseMode.reportScroll, isTrue);
+
+      for (var i = 0; i < 4; i++) {
+        await finger.moveBy(const Offset(0, 20));
+        await tester.pump();
+      }
+      expect(session.scrollController.position.pixels, lessThan(moved));
+
+      // And the swap the drag deferred lands on the lift, so the next drag
+      // goes to the application.
+      await finger.up();
+      await ready(tester);
+      await tester.drag(find.byType(TerminalView), const Offset(0, 120));
+      await ready(tester);
+      expect(connection.written, contains(RegExp(r'\x1b\[<6[45];\d+;\d+M')));
+
+      await unmount(tester);
+    });
+
     testWidgets('the wheel survives the scrollable being handed a new '
         'position', (tester) async {
       addTearDown(tester.view.reset);
