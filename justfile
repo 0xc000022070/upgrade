@@ -201,3 +201,11 @@ review:
 
 desktop:
     flutter run -d linux --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}
+
+# Rewrite packages/xterm/patches from the fork, then prove it reproduces it.
+xterm-patches:
+    tool/xterm-patches.sh generate
+
+# Prove the series still reproduces the fork from a pristine upstream.
+xterm-verify:
+    tool/xterm-patches.sh verify

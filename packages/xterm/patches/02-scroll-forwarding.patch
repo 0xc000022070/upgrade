@@ -1,0 +1,161 @@
+# scroll forwards on a local position and swaps on the last lift
+#
+# Against xterm 4.0.0. Regenerate with `just xterm-patches`.
+
+diff --git a/lib/src/ui/infinite_scroll_view.dart b/lib/src/ui/infinite_scroll_view.dart
+index 9640a3c..f99515c 100644
+--- a/lib/src/ui/infinite_scroll_view.dart
++++ b/lib/src/ui/infinite_scroll_view.dart
+@@ -74,11 +74,17 @@ class _RenderInfiniteScrollView extends RenderShiftedBox {
+         super(child);
+ 
+   ViewportOffset _position;
++
++  /// The listener moved here has to be the one [attach] registers: a
++  /// scrollable replaces its position whenever its dependencies change, and
++  /// carrying a different listener across left [_onScroll] on the position
++  /// that was thrown away, which is the whole scroll-forwarding path. Dazzle
++  /// patch.
+   set position(ViewportOffset value) {
+     if (_position == value) return;
+-    if (attached) _position.removeListener(markNeedsLayout);
++    if (attached) _position.removeListener(_onScroll);
+     _position = value;
+-    if (attached) _position.addListener(markNeedsLayout);
++    if (attached) _position.addListener(_onScroll);
+     markNeedsLayout();
+   }
+ 
+diff --git a/lib/src/ui/scroll_handler.dart b/lib/src/ui/scroll_handler.dart
+index d0ad9a8..efa6441 100644
+--- a/lib/src/ui/scroll_handler.dart
++++ b/lib/src/ui/scroll_handler.dart
+@@ -38,22 +38,27 @@ class TerminalScrollGestureHandler extends StatefulWidget {
+ 
+ class _TerminalScrollGestureHandlerState
+     extends State<TerminalScrollGestureHandler> {
+-  /// Whether the application is in alternate screen buffer. If false, then this
+-  /// widget does nothing.
+-  var isAltBuffer = false;
++  bool _forwardScroll = false;
++
++  bool get _shouldForwardScroll =>
++      widget.terminal.isUsingAltBuffer ||
++      widget.terminal.mouseMode.reportScroll;
+ 
+   /// The variable that tracks the line offset in last scroll event. Used to
+   /// determine how many the scroll events should be sent to the terminal.
+   var lastLineOffset = 0;
+ 
+   /// This variable tracks the last offset where the scroll gesture started.
+-  /// Used to calculate the cell offset of the terminal mouse event.
++  /// Used to calculate the cell offset of the terminal mouse event. Local to
++  /// this widget: [getCellOffset] subtracts the view's padding and nothing
++  /// else, so a global offset would report a row shifted by everything drawn
++  /// above the terminal. Dazzle patch.
+   var lastPointerPosition = Offset.zero;
+ 
+   @override
+   void initState() {
+     widget.terminal.addListener(_onTerminalUpdated);
+-    isAltBuffer = widget.terminal.isUsingAltBuffer;
++    _forwardScroll = _shouldForwardScroll;
+     super.initState();
+   }
+ 
+@@ -68,16 +73,44 @@ class _TerminalScrollGestureHandlerState
+     if (oldWidget.terminal != widget.terminal) {
+       oldWidget.terminal.removeListener(_onTerminalUpdated);
+       widget.terminal.addListener(_onTerminalUpdated);
+-      isAltBuffer = widget.terminal.isUsingAltBuffer;
++      _forwardScroll = _shouldForwardScroll;
++      lastLineOffset = 0;
+     }
+     super.didUpdateWidget(oldWidget);
+   }
+ 
++  /// How many fingers are on the terminal, and whether the mode changed while
++  /// one of them was down. Dazzle patch.
++  var _pointers = 0;
++  var _swapPending = false;
++
+   void _onTerminalUpdated() {
+-    if (isAltBuffer != widget.terminal.isUsingAltBuffer) {
+-      isAltBuffer = widget.terminal.isUsingAltBuffer;
+-      setState(() {});
++    if (_forwardScroll == _shouldForwardScroll) {
++      _swapPending = false;
++      return;
+     }
++    // A mouse-reporting application toggles its mode as it redraws, and the
++    // swap that follows replaces the scrollable a finger is dragging with
++    // another one that has never heard of the drag. So a swap under a finger
++    // waits for the last of them to lift. Dazzle patch.
++    if (_pointers > 0) {
++      _swapPending = true;
++      return;
++    }
++    _swap();
++  }
++
++  void _swap() {
++    _swapPending = false;
++    _forwardScroll = _shouldForwardScroll;
++    lastLineOffset = 0;
++    setState(() {});
++  }
++
++  void _lift() {
++    if (_pointers > 0) _pointers--;
++    if (_pointers > 0 || !_swapPending) return;
++    _swap();
+   }
+ 
+   /// Send a single scroll event to the terminal. If [simulateScroll] is true,
+@@ -113,21 +146,36 @@ class _TerminalScrollGestureHandlerState
+ 
+   @override
+   Widget build(BuildContext context) {
+-    if (!isAltBuffer) {
+-      return widget.child;
+-    }
+-
++    // The listener sits outside the branch rather than inside the forwarding
++    // one, so that it survives a swap and keeps counting the fingers that were
++    // already down when the mode changed. Dazzle patch.
+     return Listener(
+       onPointerSignal: (event) {
+-        lastPointerPosition = event.position;
++        lastPointerPosition = event.localPosition;
+       },
+       onPointerDown: (event) {
+-        lastPointerPosition = event.position;
++        lastPointerPosition = event.localPosition;
++        _pointers++;
+       },
+-      child: InfiniteScrollView(
+-        onScroll: _onScroll,
+-        child: widget.child,
+-      ),
++      onPointerUp: (_) => _lift(),
++      onPointerCancel: (_) => _lift(),
++      child: _forwardScroll
++          ? InfiniteScrollView(
++              onScroll: _onScroll,
++              child: ScrollConfiguration(
++                behavior: const _RemoteScrollBehavior(),
++                child: widget.child,
++              ),
++            )
++          : widget.child,
+     );
+   }
+ }
++
++class _RemoteScrollBehavior extends ScrollBehavior {
++  const _RemoteScrollBehavior();
++
++  @override
++  ScrollPhysics getScrollPhysics(BuildContext context) =>
++      const NeverScrollableScrollPhysics();
++}
