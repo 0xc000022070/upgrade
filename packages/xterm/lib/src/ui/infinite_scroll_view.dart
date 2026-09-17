@@ -74,11 +74,17 @@ class _RenderInfiniteScrollView extends RenderShiftedBox {
         super(child);
 
   ViewportOffset _position;
+
+  /// The listener moved here has to be the one [attach] registers: a
+  /// scrollable replaces its position whenever its dependencies change, and
+  /// carrying a different listener across left [_onScroll] on the position
+  /// that was thrown away, which is the whole scroll-forwarding path. Dazzle
+  /// patch.
   set position(ViewportOffset value) {
     if (_position == value) return;
-    if (attached) _position.removeListener(markNeedsLayout);
+    if (attached) _position.removeListener(_onScroll);
     _position = value;
-    if (attached) _position.addListener(markNeedsLayout);
+    if (attached) _position.addListener(_onScroll);
     markNeedsLayout();
   }
 

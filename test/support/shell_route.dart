@@ -28,20 +28,21 @@ const rose = Host(
 
 /// The route on a store, with no registered directory behind it unless the
 /// test hands in a database that has one.
-Widget app(ShellSessions sessions, {Widget? home, AppDatabase? db}) =>
-    ProviderScope(
-      overrides: [
-        shellSessionsProvider.overrideWithValue(sessions),
-        if (db != null)
-          databaseProvider.overrideWithValue(db)
-        else
-          noWorkspaces,
-      ],
-      child: MaterialApp(
-        theme: testTheme,
-        home: home ?? const HostShellRoute(host: rose),
-      ),
-    );
+Widget app(
+  ShellSessions sessions, {
+  Widget? home,
+  AppDatabase? db,
+  ThemeData? theme,
+}) => ProviderScope(
+  overrides: [
+    shellSessionsProvider.overrideWithValue(sessions),
+    if (db != null) databaseProvider.overrideWithValue(db) else noWorkspaces,
+  ],
+  child: MaterialApp(
+    theme: theme ?? testTheme,
+    home: home ?? const HostShellRoute(host: rose),
+  ),
+);
 
 /// A host with nothing registered on it, which is what every test that is
 /// about the tabs, the keys or the terminal wants the header to read.
