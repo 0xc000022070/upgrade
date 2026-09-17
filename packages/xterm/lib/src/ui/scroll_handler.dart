@@ -79,12 +79,38 @@ class _TerminalScrollGestureHandlerState
     super.didUpdateWidget(oldWidget);
   }
 
+  /// How many fingers are on the terminal, and whether the mode changed while
+  /// one of them was down. Dazzle patch.
+  var _pointers = 0;
+  var _swapPending = false;
+
   void _onTerminalUpdated() {
-    if (_forwardScroll != _shouldForwardScroll) {
-      _forwardScroll = _shouldForwardScroll;
-      lastLineOffset = 0;
-      setState(() {});
+    if (_forwardScroll == _shouldForwardScroll) {
+      _swapPending = false;
+      return;
     }
+    // A mouse-reporting application toggles its mode as it redraws, and the
+    // swap that follows replaces the scrollable a finger is dragging with
+    // another one that has never heard of the drag. So a swap under a finger
+    // waits for the last of them to lift. Dazzle patch.
+    if (_pointers > 0) {
+      _swapPending = true;
+      return;
+    }
+    _swap();
+  }
+
+  void _swap() {
+    _swapPending = false;
+    _forwardScroll = _shouldForwardScroll;
+    lastLineOffset = 0;
+    setState(() {});
+  }
+
+  void _lift() {
+    if (_pointers > 0) _pointers--;
+    if (_pointers > 0 || !_swapPending) return;
+    _swap();
   }
 
   /// Send a single scroll event to the terminal. If [simulateScroll] is true,
@@ -120,24 +146,28 @@ class _TerminalScrollGestureHandlerState
 
   @override
   Widget build(BuildContext context) {
-    if (!_forwardScroll) {
-      return widget.child;
-    }
-
+    // The listener sits outside the branch rather than inside the forwarding
+    // one, so that it survives a swap and keeps counting the fingers that were
+    // already down when the mode changed. Dazzle patch.
     return Listener(
       onPointerSignal: (event) {
         lastPointerPosition = event.localPosition;
       },
       onPointerDown: (event) {
         lastPointerPosition = event.localPosition;
+        _pointers++;
       },
-      child: InfiniteScrollView(
-        onScroll: _onScroll,
-        child: ScrollConfiguration(
-          behavior: const _RemoteScrollBehavior(),
-          child: widget.child,
-        ),
-      ),
+      onPointerUp: (_) => _lift(),
+      onPointerCancel: (_) => _lift(),
+      child: _forwardScroll
+          ? InfiniteScrollView(
+              onScroll: _onScroll,
+              child: ScrollConfiguration(
+                behavior: const _RemoteScrollBehavior(),
+                child: widget.child,
+              ),
+            )
+          : widget.child,
     );
   }
 }
