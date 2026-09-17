@@ -58,25 +58,15 @@ dependencies:
   pinenacl: ^0.6.0
   pointycastle: ^4.0.0
   url_launcher: ^6.3.1
+  # Upstream's release with our changes applied over it, one patch per
+  # behaviour in packages/xterm/patches. Nothing in pub applies them, so a
+  # checkout runs `just xterm-sync` before it builds; packages/xterm/KNOWN.md
+  # carries the cases and `just xterm-verify` proves what the package holds.
   xterm: ^4.0.0
   uuid: ^4.6.0
   flutter_local_notifications: ^22.3.0
   flutter_foreground_task: ^11.0.1
   gal: ^2.3.3
-
-# xterm 4.0.0 gets the alternate screen's touch scroll wrong twice: wheel
-# reports carry ids 68/69 (Shift+wheel) and a row computed from a global
-# offset. Claude Code runs on the alternate screen with mouse reporting on, so
-# its transcript never saw the scroll. packages/xterm is the release with both
-# lines fixed, a keyboardOnTap flag on the view so a tap on the shell is not a
-# call for the IME, and a touch selection that follows the finger, stays on the
-# cell the press landed on while the shell prints, and takes URLs and paths
-# whole, and an onReport apart from onOutput so what the terminal answers on
-# its own behalf is not taken for something the user typed; see its pubspec.
-dependency_overrides:
-  xterm:
-    path: packages/xterm
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
