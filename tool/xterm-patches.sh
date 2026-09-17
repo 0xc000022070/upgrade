@@ -1,35 +1,31 @@
 #!/usr/bin/env bash
-# xterm is a hosted dependency and the patches beside it are what we changed.
-# Nothing in pub applies them, so they are applied into the resolved package in
-# the pub cache, which is the copy the analyzer, the IDE and the build all read.
+# Our changes to xterm are packages/xterm/patches, one patch per behaviour.
+# The package the app builds against is upstream's release with those applied,
+# materialised under .dart_tool and never committed; pubspec overrides xterm
+# onto it.
 #
-#   sync      apply the series when the cache is pristine, and say so otherwise
-#   apply     overwrite the cache with pristine plus the series
-#   generate  rewrite the series from whatever the cache holds now
-#   verify    prove the cache is pristine plus the series and nothing else
-#   reset     put the cache back to pristine
-#   without   apply the series with one patch dropped
+#   build     materialise it, if the version or the patches moved
+#   generate  rewrite the patches from edits made to it
+#   verify    prove the patches reproduce it exactly
+#   without   materialise it with one patch dropped, to bisect a behaviour
 #
-# Editing xterm means editing the cache and running `generate`. Dropping one
-# patch and running the series is how a behaviour gets bisected back to the
-# change that introduced it.
-#
-# The cache is shared by every project on this machine, so what is written
-# there is upstream's own version with our lines in it. `reset` undoes that,
-# and so does `dart pub cache repair`.
+# Editing xterm means editing .dart_tool/xterm and running `generate`. A build
+# leaves a tree whose patches it already holds alone, so an edit survives until
+# it is written down or thrown away with `rm -rf .dart_tool/xterm`.
 set -euo pipefail
 
-readonly UPSTREAM_VERSION=4.0.0
+readonly VERSION=4.0.0
 # sha256 over the sorted sha256 of every .dart file under lib/, so a refetched
-# upstream is checked against the source the series was cut from.
-readonly UPSTREAM_LIB_SHA=12bd4729255b42339be8858b09a320c167556c8429b171bce627a7c27461126a
+# upstream is checked against the source the patches were cut from.
+readonly LIB_SHA=12bd4729255b42339be8858b09a320c167556c8429b171bce627a7c27461126a
 
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly PATCHES="$ROOT/packages/xterm/patches"
-# Kept out of the pub cache and out of git: the cache holds the patched copy,
-# so the only pristine upstream on this machine is the one we keep ourselves.
-readonly PRISTINE="$ROOT/.dart_tool/xterm-$UPSTREAM_VERSION-pristine"
-readonly CACHE="${PUB_CACHE:-$HOME/.pub-cache}/hosted/pub.dev/xterm-$UPSTREAM_VERSION"
+readonly BUILD="$ROOT/.dart_tool/xterm"
+readonly UPSTREAM="$ROOT/.dart_tool/xterm-$VERSION-upstream"
+
+readonly TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 
 # One entry per behaviour, in the order they apply: <file>|<subject>|<paths...>
 # scroll-forwarding is one patch and not three because the local pointer
@@ -57,200 +53,129 @@ lib_sha() {
   (cd "$1" && find . -type f -name '*.dart' -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
 }
 
-# An unmutated 4.0.0, fetched into a cache of its own so the patched one is
-# never the thing we diff against.
-pristine_lib() {
-  if [[ ! -d $PRISTINE/lib ]]; then
-    echo "fetching pristine xterm $UPSTREAM_VERSION" >&2
-    local fetch
-    fetch=$(mktemp -d)
-    PUB_CACHE="$fetch" dart pub cache add xterm --version "$UPSTREAM_VERSION" >&2
-    mkdir -p "$PRISTINE"
-    cp -r "$fetch/hosted/pub.dev/xterm-$UPSTREAM_VERSION/lib" "$PRISTINE/lib"
-    chmod -R u+w "$PRISTINE/lib"
-    rm -rf "$fetch"
+# What the build is made of. A tree already stamped with this is left alone.
+stamp() {
+  {
+    echo "$VERSION"
+    cat "$PATCHES"/*.patch
+  } | sha256sum | cut -d' ' -f1
+}
+
+# Upstream's release, fetched once into a cache of our own and checked against
+# the source the patches were cut from.
+upstream() {
+  if [[ ! -d $UPSTREAM ]]; then
+    echo "fetching xterm $VERSION" >&2
+    PUB_CACHE="$TMP/fetch" dart pub cache add xterm --version "$VERSION" >&2
+    local got
+    got=$(find "$TMP/fetch" -type d -name "xterm-$VERSION" -print -quit)
+    [[ -n $got ]] || die "dart pub cache add left no xterm-$VERSION behind"
+    cp -r "$got" "$UPSTREAM"
+    chmod -R u+w "$UPSTREAM"
   fi
 
   local got
-  got=$(lib_sha "$PRISTINE/lib")
-  [[ $got == "$UPSTREAM_LIB_SHA" ]] ||
-    die "pristine xterm $UPSTREAM_VERSION does not match the pinned hash"$'\n'"  want $UPSTREAM_LIB_SHA"$'\n'"  got  $got"
-
-  echo "$PRISTINE/lib"
+  got=$(lib_sha "$UPSTREAM/lib")
+  [[ $got == "$LIB_SHA" ]] ||
+    die "xterm $VERSION is not the source the patches were cut from"$'\n'"  want $LIB_SHA"$'\n'"  got  $got"
 }
 
-# The resolved package, which is only there after a `pub get`. Everything here
-# overwrites it, so the path is checked rather than trusted: a PUB_CACHE that
-# points somewhere unexpected must not turn into an `rm -rf` on it.
-cache_lib() {
-  [[ $CACHE == */hosted/pub.dev/xterm-$UPSTREAM_VERSION ]] ||
-    die "refusing to work on $CACHE"
-  [[ -d $CACHE/lib ]] ||
-    die "xterm $UPSTREAM_VERSION is not in the pub cache; run \`flutter pub get\`"
-  echo "$CACHE/lib"
+# Upstream plus the patches, under TMP and never in place, so a patch that
+# fails leaves no half-applied tree behind for the next build to no-op over.
+materialise() {
+  local into=$TMP/$1 drop=${2:-} patch
+  upstream
+  cp -r "$UPSTREAM" "$into"
+  chmod -R u+w "$into"
+  for patch in "$PATCHES"/*.patch; do
+    if [[ -n $drop && $(basename "$patch" .patch) == "$drop" ]]; then continue; fi
+    git -C "$into" apply -p1 --whitespace=nowarn "$patch" ||
+      die "$(basename "$patch") does not apply${drop:+ without $drop; they are one behaviour}"
+  done
+  # A patch that applied to nothing is the failure this whole arrangement is
+  # most likely to hide, so the tree is proven to have moved off upstream.
+  ! diff -rq --exclude='.*' "$UPSTREAM" "$into" >/dev/null ||
+    die "the patches applied but changed nothing"
 }
 
-# A git tree holding pristine lib/, one commit per behaviour. git does the hunk
-# splitting and guarantees the series applies in order.
-build_series() {
-  local pristine=$1 package=$2 work=$3
+install_tree() {
+  materialise product "${1:-}"
+  rm -rf "$BUILD"
+  mv "$TMP/product" "$BUILD"
+}
 
+build() {
+  local want
+  want=$(stamp)
+  [[ -f $BUILD/.stamp && $(cat "$BUILD/.stamp") == "$want" ]] && return 0
+
+  install_tree
+  echo "$want" >"$BUILD/.stamp"
+  echo "built xterm $VERSION plus ${#CONCERNS[@]} patches into .dart_tool/xterm"
+}
+
+verify() {
+  [[ -d $BUILD ]] || build
+  materialise fresh
+  if ! diff -ruN --exclude='.*' "$TMP/fresh" "$BUILD" >/dev/null; then
+    echo ".dart_tool/xterm is not upstream plus the patches:" >&2
+    # head closes the pipe on the 40th line, which is not this script failing.
+    diff -ruN --exclude='.*' "$TMP/fresh" "$BUILD" | head -40 >&2 || true
+    die "write the difference down with \`just xterm-patches\`, or throw it away with \`rm -rf .dart_tool/xterm\`"
+  fi
+  echo ".dart_tool/xterm is xterm $VERSION plus the patches, and nothing else"
+}
+
+# git does the hunk splitting: a tree of upstream, one commit per behaviour,
+# and the diff of each commit is that behaviour's patch. `git diff` rather than
+# format-patch, so no commit id or date lands in the file and regenerating an
+# unchanged package rewrites nothing.
+generate() {
+  local work=$TMP/series
+  upstream
   mkdir -p "$work"
-  cp -r "$pristine" "$work/lib"
+  cp -r "$UPSTREAM/lib" "$work/lib"
   chmod -R u+w "$work/lib"
 
-  git -C "$work" init -q
-  git -C "$work" add -A
-  git -C "$work" -c user.email=x -c user.name=x -c commit.gpgsign=false commit -qm "xterm $UPSTREAM_VERSION"
+  local git=(git -C "$work" -c user.email=x -c user.name=x -c commit.gpgsign=false)
+  "${git[@]}" init -q
+  "${git[@]}" add -A
+  "${git[@]}" commit -qm "xterm $VERSION"
+
+  # Written aside and swapped in at the end: a series that cannot regenerate
+  # must not take the committed one with it on the way out.
+  local out=$TMP/patches
+  mkdir -p "$out"
 
   local entry name subject paths path
   for entry in "${CONCERNS[@]}"; do
     IFS='|' read -r name subject paths <<<"$entry"
     for path in $paths; do
-      [[ -f $package/$path ]] || die "$path is in the series but not in the package"
+      [[ -f $BUILD/$path ]] || die "$path is in the series but not in .dart_tool/xterm"
       mkdir -p "$work/$(dirname "$path")"
-      cp "$package/$path" "$work/$path"
+      cp "$BUILD/$path" "$work/$path"
     done
-    git -C "$work" add -A
-    git -C "$work" -c user.email=x -c user.name=x -c commit.gpgsign=false commit -qm "$subject"
-  done
-}
-
-generate() {
-  local pristine work
-  pristine=$(pristine_lib)
-  cache_lib >/dev/null
-  work=$(mktemp -d)
-  trap 'rm -rf "${work:-}"' EXIT
-
-  build_series "$pristine" "$CACHE" "$work"
-
-  rm -rf "$PATCHES"
-  mkdir -p "$PATCHES"
-
-  # `git diff` of each step rather than format-patch: no commit id, no date, so
-  # regenerating an unchanged package rewrites nothing.
-  local i=1 entry name subject
-  for entry in "${CONCERNS[@]}"; do
-    IFS='|' read -r name subject _ <<<"$entry"
-    local rev
-    rev=$(git -C "$work" rev-list --reverse HEAD | sed -n "$((i + 1))p")
+    "${git[@]}" add -A
+    "${git[@]}" commit -qm "$subject" >/dev/null ||
+      die "nothing changed for $name; .dart_tool/xterm is missing that patch, so \`just xterm-build\` first"
     {
       echo "# $subject"
       echo "#"
-      echo "# Against xterm $UPSTREAM_VERSION. Regenerate with \`just xterm-patches\`."
+      echo "# Against xterm $VERSION. Regenerate with \`just xterm-patches\`."
       echo
-      git -C "$work" diff --no-color --no-ext-diff "$rev~1" "$rev"
-    } >"$PATCHES/$name.patch"
+      "${git[@]}" diff --no-color --no-ext-diff HEAD~1 HEAD
+    } >"$out/$name.patch"
     echo "  $name.patch"
-    i=$((i + 1))
   done
 
-  # Anything changed in the cache that no patch claims would silently vanish
-  # from the series, so the series is only honest if it reproduces the package.
-  rm -rf "$work"
+  rm -rf "$PATCHES"
+  mv "$out" "$PATCHES"
+
+  # An edit no patch claims would vanish from the series, so the series is only
+  # honest if it still reproduces what it was read from.
   verify
 }
 
-# The series applied to a pristine copy, in a directory of its own.
-patched_lib() {
-  local pristine work
-  pristine=$(pristine_lib)
-  work=$1
-
-  mkdir -p "$work"
-  cp -r "$pristine" "$work/lib"
-  chmod -R u+w "$work/lib"
-
-  local patch drop=${2:-}
-  for patch in "$PATCHES"/*.patch; do
-    [[ -f $patch ]] || die "no patches in $PATCHES"
-    [[ -n $drop && $(basename "$patch" .patch) == "$drop" ]] && continue
-    (cd "$work" && git apply -p1 --whitespace=nowarn "$patch") ||
-      die "$(basename "$patch") does not apply${drop:+ without $drop; they are one concern}"
-  done
-}
-
-# Which of the three states the cache is in, so a caller can tell an unpatched
-# package from one somebody is in the middle of editing.
-state() {
-  local cache work
-  cache=$(cache_lib)
-  work=$(mktemp -d)
-  trap 'rm -rf "${work:-}"' EXIT
-  cp -r "$(pristine_lib)" "$work/pristine"
-  patched_lib "$work/patched" >/dev/null
-
-  local answer=edited
-  if diff -rqN --exclude='.*' "$work/pristine" "$cache" >/dev/null 2>&1; then
-    answer=pristine
-  elif diff -rqN --exclude='.*' "$work/patched/lib" "$cache" >/dev/null 2>&1; then
-    answer=patched
-  fi
-  rm -rf "$work"
-  echo "$answer"
-}
-
-write_cache() {
-  local drop=${1:-} cache work
-  cache=$(cache_lib)
-  work=$(mktemp -d)
-  trap 'rm -rf "${work:-}"' EXIT
-
-  patched_lib "$work" "$drop" >/dev/null
-  rm -rf "$cache"
-  cp -r "$work/lib" "$cache"
-  rm -rf "$work"
-}
-
-apply() {
-  write_cache
-  echo "xterm $UPSTREAM_VERSION in the pub cache carries the series"
-}
-
-reset_cache() {
-  local pristine cache
-  pristine=$(pristine_lib)
-  cache=$(cache_lib)
-  rm -rf "$cache"
-  cp -r "$pristine" "$cache"
-  echo "xterm $UPSTREAM_VERSION in the pub cache is upstream's again"
-}
-
-# What a build runs first: an untouched package is patched, one already
-# carrying the series is left alone, and one being edited is reported and then
-# left alone too, because the edit is the only copy of itself and the run it is
-# about to be tested by is the reason it exists. `verify` is what refuses it,
-# at the gate, where an edit nobody wrote down is a change about to be lost.
-sync() {
-  case "$(state)" in
-  patched) echo "xterm $UPSTREAM_VERSION already carries the series" ;;
-  pristine) apply ;;
-  edited)
-    echo "xterm $UPSTREAM_VERSION in the pub cache is neither upstream's nor the series;" >&2
-    echo "  leaving it. Record it with \`just xterm-patches\`, or drop it with \`just xterm-apply\`." >&2
-    ;;
-  esac
-}
-
-verify() {
-  local cache work
-  cache=$(cache_lib)
-  work=$(mktemp -d)
-  trap 'rm -rf "${work:-}"' EXIT
-
-  patched_lib "$work" >/dev/null
-  if ! diff -ruN --exclude='.*' "$work/lib" "$cache" >/dev/null; then
-    echo "the series does not reproduce the xterm in the pub cache:" >&2
-    diff -ruN --exclude='.*' "$work/lib" "$cache" | head -40 >&2
-    die "run \`just xterm-patches\` to rewrite it, or \`just xterm-apply\` to discard it"
-  fi
-  echo "the pub cache holds xterm $UPSTREAM_VERSION plus the series, and nothing else"
-}
-
-# Rebuild the package from the series with one patch left out, so a behaviour
-# can be tried without the change that is suspected of causing it.
-#
 # 03 and 06 add API that dazzle calls (keyboardOnTap in shell_terminal.dart,
 # onReport in shell_sessions.dart), so dropping either wants those call sites
 # edited too. 04 drops clean for a build: the token API it adds is only read by
@@ -261,18 +186,16 @@ without() {
   [[ -f $PATCHES/$drop.patch ]] ||
     die "no patch $drop; have: $(cd "$PATCHES" && ls ./*.patch | sed -e 's|\./||' -e 's/\.patch$//' | tr '\n' ' ')"
 
-  write_cache "$drop"
-  echo "xterm $UPSTREAM_VERSION in the pub cache carries the series without $drop"
-  echo "restore with: just xterm-apply"
+  install_tree "$drop"
+  # A stamp no build can match, so the next one puts the patch back.
+  echo "without-$drop" >"$BUILD/.stamp"
+  echo "built xterm $VERSION without $drop; \`just xterm-build\` puts it back"
 }
 
-case "${1:-verify}" in
-sync) sync ;;
-apply) apply ;;
+case "${1:-build}" in
+build) build ;;
 generate) generate ;;
 verify) verify ;;
-reset) reset_cache ;;
-state) state ;;
 without) without "${2:-}" ;;
-*) die "usage: xterm-patches.sh [sync|apply|generate|verify|reset|state|without <patch-name>]" ;;
+*) die "usage: xterm-patches.sh [build|generate|verify|without <patch-name>]" ;;
 esac

@@ -58,15 +58,22 @@ dependencies:
   pinenacl: ^0.6.0
   pointycastle: ^4.0.0
   url_launcher: ^6.3.1
-  # Upstream's release with our changes applied over it, one patch per
-  # behaviour in packages/xterm/patches. Nothing in pub applies them, so a
-  # checkout runs `just xterm-sync` before it builds; packages/xterm/KNOWN.md
-  # carries the cases and `just xterm-verify` proves what the package holds.
   xterm: ^4.0.0
   uuid: ^4.6.0
   flutter_local_notifications: ^22.3.0
   flutter_foreground_task: ^11.0.1
   gal: ^2.3.3
+
+# xterm is upstream's release with our changes applied over it, one patch per
+# behaviour in packages/xterm/patches. Nothing in pub applies them, so
+# `just xterm-build` writes the patched package into .dart_tool and this points
+# at it; every build recipe depends on that, and a bare `flutter pub get` in a
+# fresh checkout wants it run first. packages/xterm/KNOWN.md carries the cases
+# and `just xterm-verify` proves the patches reproduce what is built.
+dependency_overrides:
+  xterm:
+    path: .dart_tool/xterm
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
