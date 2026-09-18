@@ -7,21 +7,15 @@ import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import 'shell_sessions.dart';
 
-/// How far below the fold counts as below it. The view corrects its own offset
-/// by fractions of a pixel as it lays out, and a cell that comes and goes with
-/// those is a flicker in the corner of a shell nobody is scrolling.
+/// How far below the fold counts as below it. The view corrects its own offset by
+/// fractions of a pixel as it lays out, and a cell that comes and goes with those is a
+/// flicker in the corner of a shell nobody is scrolling.
 const _fold = 1.0;
 
-/// The way back to the last line, for a view that is not on it.
-///
-/// The terminal follows its output only while the offset is at the end, which
-/// is what lets a reader scroll up without the shell dragging them down again.
-/// The cost is a view that can sit anywhere in ten thousand lines with nothing
-/// saying the shell has moved on. The cell is that, and the way back.
-///
-/// Stateful for the listeners it keeps: the scroll, which says where the view
-/// is; the terminal, whose output moves the end away from it; and the
-/// controller, because the corner is the selection's while there is one.
+/// The terminal follows its output only while the offset is at the end, which is what
+/// lets a reader scroll up without the shell dragging them down again. Stateful for the
+/// listeners it keeps: the scroll, the terminal, and the controller, because the corner
+/// is the selection's while there is one.
 class ShellTailCell extends StatefulWidget {
   const ShellTailCell({super.key, required this.session});
 
@@ -70,8 +64,8 @@ class _ShellTailCellState extends State<ShellTailCell> {
   }
 
   bool get _behind {
-    // One thing floats over the terminal at a time, and a selection has the
-    // corner: its own cell is there and the finger that made it is on it.
+    // One thing floats over the terminal at a time, and a selection has the corner:
+    // its own cell is there and the finger that made it is on it.
     if (widget.session.controller.selection != null) return false;
     final position = widget.session.tailPosition;
     return position != null && position.extentAfter > _fold;
@@ -85,8 +79,8 @@ class _ShellTailCellState extends State<ShellTailCell> {
       duration: Motion.fast,
       curve: Motion.transition,
     );
-    // Output during the ride grows the end past where the animation was aimed,
-    // and landing a line short of it is landing on nothing.
+    // Output during the ride grows the end past where the animation was aimed, and
+    // landing a line short of it is landing on nothing.
     if (mounted) widget.session.followTail();
   }
 

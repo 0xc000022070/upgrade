@@ -65,9 +65,8 @@ void main() {
 
   tearDown(() => db.close());
 
-  /// The background grain is read out of the settings table by [StaticSurface],
-  /// which
-  /// every screen sits under, so the database is not optional even here.
+  /// [StaticSurface] reads the background grain out of the settings table, so the database
+  /// is not optional even here.
   Widget host(AgentPanelState state, {AgentRetry? retry, FakePip? pip}) =>
       ProviderScope(
         overrides: [
@@ -82,8 +81,8 @@ void main() {
         child: MaterialApp(theme: testTheme, home: AgentsScreen()),
       );
 
-  /// Panel titles render through [SignalText], which holds a scrambled string
-  /// for the decode: a single pump reads a title mid-flipbook.
+  /// Panel titles hold a scrambled string for the decode: a single pump reads a title
+  /// mid-flipbook.
   Future<void> ready(WidgetTester tester) async {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
@@ -138,8 +137,8 @@ void main() {
 
     expect(find.text('TURN HERDR ON IN A HOST'), findsOneWidget);
     expect(find.text('WORKSPACES'), findsNothing);
-    // Torn down between the two states: swapping the scope's overrides in place
-    // leaves the provider holding the value it already had.
+    // Swapping the scope's overrides in place leaves the provider holding the value it
+    // already had.
     await unmount(tester);
 
     await tester.pumpWidget(
@@ -239,8 +238,6 @@ void main() {
     );
     await ready(tester);
 
-    // Naming the single host on every panel is noise, and one host is
-    // the shape every install has until a second machine is registered.
     expect(find.text('WQ'), findsOneWidget);
     expect(find.text('WR'), findsOneWidget);
     expect(find.textContaining('NYX'), findsNothing);
@@ -266,8 +263,6 @@ void main() {
     );
     await ready(tester);
 
-    // The same rule as the host's name: one session is nobody's business,
-    // two have to be told apart, and the same workspace id lives in both.
     expect(find.text('DEFAULT / WQ'), findsOneWidget);
     expect(find.text('LAB / WQ'), findsOneWidget);
     expect(find.text('WQ'), findsNothing);
@@ -293,8 +288,6 @@ void main() {
     );
     await ready(tester);
 
-    // The same workspace id on two machines is two panels: `wQ` is a tmux name
-    // and says nothing about which host it is on.
     expect(find.text('NYX / WQ'), findsOneWidget);
     expect(find.text('ROSE / WQ'), findsOneWidget);
     await unmount(tester);
@@ -347,8 +340,6 @@ void main() {
       'assets/icons/agent-claude.svg',
       'assets/icons/agent-codex.svg',
     ]);
-    // The unknown kind is the third row's box, drawn as its own initial. The
-    // two that have a file are drawn from it and never fall back to a letter.
     expect(find.text('G'), findsOneWidget);
     expect(find.text('?'), findsNothing);
     expect(find.text('C'), findsNothing);
@@ -378,8 +369,6 @@ void main() {
       for (final row in tester.widgetList<ListRow>(find.byType(ListRow)))
         row.value: row.valueColor,
     };
-    // Work waiting to be read is brighter than work that was already seen,
-    // and a word the app cannot place is drawn as itself rather than dropped.
     expect(rows['DONE'], DazzleColors.textPrimary);
     expect(rows['IDLE'], DazzleColors.textMuted);
     expect(rows['COMPACTING'], DazzleColors.textMuted);
@@ -428,8 +417,6 @@ void main() {
     );
     await ready(tester);
 
-    // VIEW ALL is the panel at full height, and the one action the panel had
-    // beside VIEW ALL would otherwise be the one thing the route lost.
     expect(find.text('PIP'), findsOneWidget);
     await tester.tap(find.text('PIP'));
     await tester.pump();
@@ -438,8 +425,6 @@ void main() {
   });
 }
 
-/// The assets behind the marks on screen, in row order. Read off the loaders
-/// rather than the raster: the point is which file each row asked for.
 List<String> markAssets(WidgetTester tester) => [
   for (final picture in tester.widgetList<SvgPicture>(
     find.descendant(

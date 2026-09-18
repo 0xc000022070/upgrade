@@ -5,9 +5,6 @@ import '../spacing.dart';
 import 'panel.dart';
 import 'dazzle_field.dart';
 
-/// A form is not an exception to the skin. Every field is a
-/// panel whose header strip is the field's name, so a form reads as the same
-/// stack of bordered sections as every list screen.
 class FieldPanel extends StatelessWidget {
   const FieldPanel({
     super.key,
@@ -30,18 +27,13 @@ class FieldPanel extends StatelessWidget {
   final bool autofocus;
   final TextInputAction textInputAction;
 
-  /// Every keystroke. A field that filters a list rather than composing a
-  /// value needs the list to follow the typing.
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
-  /// Overrides the type a single-line field would otherwise get. A multi-line
-  /// field stays [TextInputType.multiline] whatever this says: the newline key
-  /// is what makes it multi-line at all.
+  /// A multi-line field stays [TextInputType.multiline] whatever this says: the newline
+  /// key is what makes it multi-line at all.
   final TextInputType? keyboardType;
 
-  /// A secret: dots for characters, and no suggestions or autocorrect, which
-  /// would put the word in the keyboard's own dictionary.
   final bool obscureText;
 
   @override
@@ -74,9 +66,6 @@ class FieldPanel extends StatelessWidget {
   }
 }
 
-/// The enum equivalent: one panel, one row of bracket-labelled choices. A
-/// selected value is drawn as the solid block, so the current choice carries
-/// the accent fill and the rest stay outlined.
 class ChoicePanel<T> extends StatelessWidget {
   const ChoicePanel({
     super.key,

@@ -35,22 +35,20 @@ import 'platform/plugins/usage.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // The app is portrait, and the screen route is the single
-  // exception — it widens the set on the way in and puts it back on the way
-  // out. Set here rather than in the manifest so both halves of that sentence
-  // are in Dart and the route's dispose has something exact to restore.
+  // The app is portrait and the screen route is the single exception, widening the set on
+  // the way in and putting it back on the way out. Set here rather than in the manifest so
+  // that route's dispose has something exact to restore.
   await SystemChrome.setPreferredOrientations(const [
     DeviceOrientation.portraitUp,
   ]);
 
-  // The database is opened and seeded before the first frame so every screen
-  // can read a synchronous handle instead of an AsyncValue of one. Each step is
-  // also recorded, because the boot log reports real work.
+  // Opened and seeded before the first frame so every screen reads a synchronous handle
+  // rather than an AsyncValue of one.
   final boot = <BootStep>[];
 
   final db = AppDatabase();
-  // Drift opens lazily, so the first statement is what actually opens the file
-  // and runs the migration — timing it anywhere else would report a no-op.
+  // Drift opens lazily, so the first statement is what actually opens the file and runs
+  // the migration; timing it anywhere else would report a no-op.
   await db.customSelect('SELECT 1').get();
   boot.add(const BootStep('open database', 'ok'));
   boot.add(BootStep('run migrations', 'v${db.schemaVersion}'));
@@ -105,36 +103,31 @@ Future<void> main() async {
   );
   boot.add(const BootStep('load fonts', '${FontFamilies.count}'));
 
-  // Image attachments are files under app support, and the rows that
-  // point at them are read inside builds; the directory is resolved here so
-  // that read stays synchronous.
+  // The rows that point at these files are read inside builds, so the directory is
+  // resolved here to keep that read synchronous.
   await ImageAttachments.init();
   boot.add(const BootStep('mount attachments', 'ok'));
 
-  // Clips are files under the cache directory and never outlive a run. The
-  // directory is emptied here, before anything could be read from it.
+  // Clips never outlive a run, and the directory is emptied before anything could be read
+  // from it.
   final clips = await ClipStore.open();
   boot.add(const BootStep('clear clips', 'ok'));
 
-  // Beside the clips in the cache, but unlike them the file is kept: a card
-  // that survived the restart is one request nobody has to make.
+  // Beside the clips in the cache, but kept: a card that survived the restart is one
+  // request nobody has to make.
   final previews = await LinkPreviews.open();
   boot.add(const BootStep('mount link previews', 'ok'));
 
   final model = await Device.model();
   boot.add(BootStep('mounted device ${model ?? 'unknown'}', 'ok'));
 
-  // The notification channel and the foreground service's own channel
-  // are created before the first frame, so a settings toggle has something to
-  // ask permission for and an action tap has somewhere to land.
   await initAlerts();
   boot.add(const BootStep('arm alerts', 'ok'));
 
   unawaited(warmGlitchIcons());
 
-  // Read before the first frame rather than from a screen, so the shells the
-  // last run left are dialling while the boot log is still on top. The dials
-  // themselves are not awaited; only the tab rows are.
+  // Read before the first frame rather than from a screen, so the shells the last run left
+  // are dialling while the boot log is still on top. Only the tab rows are awaited.
   final container = ProviderContainer(
     overrides: [
       ...databaseOverrides(db),
@@ -145,7 +138,6 @@ Future<void> main() async {
       nativeUsageFileProvider.overrideWith((ref) async => usageFile),
       pluginStoreProvider.overrideWith((ref) async => pluginStore),
       ...alertOverrides(),
-      // The channel reaches the activity, which only a running app has.
       pipSurfaceProvider.overrideWithValue(const PipSurface()),
       clipStoreProvider.overrideWithValue(clips),
       linkPreviewsProvider.overrideWithValue(previews),

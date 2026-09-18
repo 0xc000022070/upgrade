@@ -2,10 +2,6 @@ import 'package:dazzle_highlight/dazzle_highlight.dart';
 import 'package:dazzle_highlight/languages/all.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The vendored engine on its own terms: every grammar shipped parses a
-/// sample of itself and hands back the text whole, as runs with the scopes
-/// highlight.js names.
-
 const _samples = <String, String>{
   'bash': 'if [ -z "\$X" ]; then echo hi; fi',
   'c': '#include <stdio.h>\nint main(void) { return 0; }',

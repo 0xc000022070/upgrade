@@ -7,8 +7,6 @@ import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/enums.dart';
 import 'package:dazzle/data/raw_tables.dart';
 
-/// A task with every column carrying something, so a dump that drops one is a
-/// dump that fails here.
 Future<void> _seed(AppDatabase db) async {
   await db
       .into(db.projects)
@@ -129,8 +127,7 @@ void main() {
   });
 
   test('a blob travels as base64 and lands as bytes', () async {
-    // No column in this schema is declared a blob, but sqlite stores what it
-    // is given, so this is the shape the dump has to survive.
+    // No column in this schema is declared a blob, but sqlite stores what it is given.
     final bytes = Uint8List.fromList([0, 1, 250, 255]);
     await a.customStatement('INSERT INTO settings (key, value) VALUES (?, ?)', [
       'k',

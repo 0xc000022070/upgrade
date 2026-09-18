@@ -34,9 +34,8 @@ Future<void> _drain(WidgetTester tester) async {
   }
 }
 
-/// The builtin fixtures leave a single widget able to take the input bar, so
-/// nothing ever contends for it. This one also accepts the input bar, which is
-/// what makes the replace question reachable.
+/// The builtin fixtures leave a single widget able to take the input bar, so nothing ever
+/// contends for it. This one also accepts it.
 PluginPackage _contendingProjects() {
   final toml = File('lib/plugins/projects/dazzle.plugin.toml')
       .readAsStringSync()

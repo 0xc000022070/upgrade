@@ -1,7 +1,3 @@
-/// The screen route's phase: three states, and the reason line living on the
-/// only one that has one.
-library;
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/features/screen/screen_controller.dart';
@@ -30,8 +26,6 @@ void main() {
   );
 
   test('a failure puts its worded line on the phase itself', () async {
-    // The host names a key whose secret is gone from the keystore, which is
-    // the one failure that happens before anything is dialled.
     final controller = HostScreenController(
       host: _nyx,
       readPrivateKey: (_) async => null,
@@ -41,9 +35,6 @@ void main() {
     await controller.connect();
 
     final phase = controller.phase;
-    // Not a nullable getter beside the phase: a reason exists exactly when the
-    // dial failed, and the route reads it off the case rather than from a
-    // second field that the other two states leave null.
     expect(phase, isA<ScreenFailed>());
     expect((phase as ScreenFailed).reason, 'key rejected');
   });

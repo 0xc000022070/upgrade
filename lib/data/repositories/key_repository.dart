@@ -64,12 +64,6 @@ class InMemoryKeyRepository implements KeyRepository {
   }
 }
 
-/// Thrown by [DriftKeyRepository.delete] when a host still names the key.
-///
-/// The delete is refused rather than cascaded: a host whose key
-/// vanished cannot connect and cannot say why, and the row that would explain it
-/// is the one that was just removed. [hostNames] is carried so the caller can
-/// name the hosts instead of only refusing.
 class KeyInUseException implements Exception {
   const KeyInUseException(this.hostNames);
 
@@ -79,18 +73,13 @@ class KeyInUseException implements Exception {
   String toString() => 'key is used by ${hostNames.join(', ')}';
 }
 
-/// The public half of every generated key. The private half is
-/// never written here — it lives in the platform keystore behind
-/// [PrivateKeyStore], and deleting a key from this table does not delete it
-/// there; [Ed25519Keys.delete] is the caller's second step.
+/// The private half is never written here: it lives in the platform keystore, and
+/// [Ed25519Keys.delete] is the caller's second step.
 class DriftKeyRepository implements KeyRepository {
   DriftKeyRepository(this._db);
 
   final AppDatabase _db;
 
-  /// Creation order, oldest first, which is the order [InMemoryKeyRepository]
-  /// produces by appending. The two implementations back the same screens and a
-  /// different order under one of them would only ever show up on device.
   @override
   Stream<List<ManagedKey>> watchAll() {
     return (_db.select(_db.keys)
@@ -122,10 +111,8 @@ class DriftKeyRepository implements KeyRepository {
         );
   }
 
-  /// Refused while a host references the key. sqlite is not the guard here:
-  /// this database never enables `PRAGMA foreign_keys`, so the declared
-  /// reference on `hosts.key_id` would let the row go. The check and the delete
-  /// share a transaction so a host saved between the two cannot slip past it.
+  /// sqlite is not the guard — `PRAGMA foreign_keys` is never on — so the check and the
+  /// delete share a transaction, or a host saved between the two would slip past.
   @override
   Future<void> delete(String id) {
     return _db.transaction(() async {

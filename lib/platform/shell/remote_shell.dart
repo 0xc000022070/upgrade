@@ -4,15 +4,9 @@ String shellQuote(String value) => "'${value.replaceAll("'", "'\\''")}'";
 
 String underSh(String script) => 'sh -c ${shellQuote(script)}';
 
-/// `cd` to [directory], with a leading `~` left outside the quotes.
-///
-/// A registered directory is stored as the user typed it, `~` and all, because
-/// expanding it on the phone would put this machine's home directory in a
-/// command the host runs. So the expansion belongs to the host — and quoting
-/// the path, which is what makes a space or a `$` in it safe, is the one thing
-/// that stops the shell from doing it. The tilde and its slash are the only
-/// characters held out of the quotes; everything after them is still quoted,
-/// and a path that does not start with one is quoted whole.
+/// A registered directory is stored as the user typed it, `~` and all, and quoting the
+/// path is the one thing that stops the shell expanding it. The tilde and its slash are
+/// the only characters held out of the quotes.
 String shellCd(String directory) {
   if (directory == '~') return 'cd ~';
   if (directory.startsWith('~/')) {
@@ -21,30 +15,18 @@ String shellCd(String directory) {
   return 'cd ${shellQuote(directory)}';
 }
 
-/// The command a tab runs to come up in [directory] rather than in `$HOME`:
-/// the `cd`, then a login shell in its place, which is what `ssh -t host 'cd
-/// dir && exec $SHELL -l'` asks for.
-///
-/// The shell is exec'd rather than typed at. A line written at a login shell
-/// races everything that shell reads before its prompt, and a host whose rc
-/// asks which session to open takes the line's first character as its answer.
-/// `$SHELL` is left for the host to expand, because whose shell it is belongs
-/// to the host; and a `cd` that fails ends the tab where it stands rather than
-/// opening a shell somewhere nobody asked for.
+/// The shell is exec'd rather than typed at: a line written at a login shell races
+/// everything that shell reads before its prompt. `$SHELL` is left for the host to
+/// expand, and a `cd` that fails ends the tab where it stands.
 String shellIn(String directory) => '${shellCd(directory)} && exec \$SHELL -l';
 
-/// The variable every tab's shell carries, so a host can be asked which of its
-/// processes is that tab. Exported before the `exec`, which is what carries it
-/// into the login shell that replaces it.
+/// Exported before the `exec`, which is what carries it into the login shell that
+/// replaces it.
 const shellMarkVariable = 'DAZZLE_TAB';
 
-/// What a mark may be, which is the one thing here that reaches a command the
-/// host runs: letters and digits, and nothing a shell or a `grep` reads as
-/// anything but itself.
+/// Letters and digits, and nothing a shell or a `grep` reads as anything but itself.
 final shellMark = RegExp(r'^[a-z0-9]{6,32}$');
 
-/// What a tab actually runs: its mark, then whatever the tab was opened for —
-/// a directory to come up in, a pane to attach to, or the login shell itself.
 String shellMarked(String mark, {String? command}) {
   assert(shellMark.hasMatch(mark));
   return 'export $shellMarkVariable=$mark; ${command ?? 'exec \$SHELL -l'}';
@@ -115,17 +97,10 @@ String moshServerCleanupCommand(String session) {
   );
 }
 
-/// Where the shell marked [mark] is standing, read off the host's own process
-/// table rather than waited for from the shell.
-///
-/// The topmost marked process is the tab's shell: everything it starts
-/// inherits the mark, and a child's directory is not the shell's. `/proc` and
-/// nothing else — a host that keeps its processes elsewhere answers nothing,
-/// which is what puts the tab back on what it was told.
-///
-/// `environ` is read a line at a time rather than with `grep -z`, which is
-/// GNU's and not every host's; stderr is closed at the top because a process
-/// list walked by a user is mostly other people's.
+/// The topmost marked process is the tab's shell: everything it starts inherits the mark,
+/// and a child's directory is not the shell's. `environ` is read a line at a time rather
+/// than with `grep -z`, which is GNU's and not every host's; stderr is closed at the top
+/// because a process list walked by a user is mostly other people's.
 String shellCwdProbe(String mark) {
   assert(shellMark.hasMatch(mark));
   const marked =
@@ -136,8 +111,8 @@ String shellCwdProbe(String mark) {
     'c=; s=; '
     'for p in /proc/[0-9]*; do '
     'm "\$p" $mark || continue; '
-    // The multiplexer is looked for on every marked process and the shell only
-    // on the topmost, so a client started deep in the tab is still found.
+    // The multiplexer is looked for on every marked process and the shell only on the
+    // topmost, so a client started deep in the tab is still found.
     'a=\$(tr "\\000" " " < "\$p/cmdline"); '
     'case "\${a%% *}" in herdr|*/herdr) '
     's=\$(tr "\\000" "\\n" < "\$p/environ" | sed -n "s/^HERDR_SESSION=//p"); '
@@ -154,10 +129,6 @@ String shellCwdProbe(String mark) {
   );
 }
 
-/// Where a tab is standing, out of what [shellCwdProbe] answers: the directory
-/// of the tab's own shell, and the multiplexer session a client running in the
-/// tab is on. Both can be missing, and the session being there is what makes
-/// the directory a fallback rather than the answer.
 typedef ShellPlace = ({String? cwd, String? herdrSession});
 
 ShellPlace parseShellPlace(String source) {
@@ -175,29 +146,22 @@ ShellPlace parseShellPlace(String source) {
   );
 }
 
-/// Where a file the app pushes lands on a host. World-writable and cleared by
-/// the host's own reboot, which is the right lifetime for a file nothing ever
-/// comes back for. Shared by the shell's paste and by a send's images, so the
-/// directory and the command that fills it are written once.
+/// World-writable and cleared by the host's own reboot, which is the right lifetime for
+/// a file nothing ever comes back for.
 const remoteUploadDirectory = '/tmp/dazzle';
 
 String remotePathFor(String fileName) => '$remoteUploadDirectory/$fileName';
 
-/// The command a file's bytes are written into: the directory made if it is
-/// not, the file taken whole from stdin.
 String uploadCommand(String fileName) => underSh(
   'mkdir -p ${shellQuote(remoteUploadDirectory)} && '
   'cat > ${shellQuote(remotePathFor(fileName))}',
 );
 
-/// A file on its way to a host: the name it lands under and the bytes that go
-/// on the exec channel's stdin.
 class RemoteFile {
   const RemoteFile(this.name, this.bytes);
 
-  /// The base name of a local path, held to the characters a name may carry.
-  /// The path is the app's own and its names are uuids, but a name is about to
-  /// be interpolated into a remote path, and one that could climb out of
+  /// The path is the app's own and its names are uuids, but a name is about to be
+  /// interpolated into a remote path, and one that could climb out of
   /// [remoteUploadDirectory] must not be able to.
   factory RemoteFile.fromPath(String path, Uint8List bytes) {
     final base = path.split('/').last;
@@ -214,22 +178,15 @@ class RemoteFile {
   String get remotePath => remotePathFor(name);
 }
 
-/// Where a host's `pinentry-gate` looks for terminals that want to be asked,
-/// and where it puts the fifo an answer goes into. The pinentry's own runtime
-/// directory; the shell expands it on the host, never the phone.
+/// The pinentry's own runtime directory; the shell expands it on the host, never the
+/// phone.
 const pinentryGateDirectory =
     r'${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pinentry-gate';
 
-/// Marks this tab's pty as a place to ask. Run on an exec channel of the
-/// tab's connection.
-///
-/// The pty is the one the tab's shell sits on, and what holds it is either
-/// this connection's own sshd session, which is the channel's parent, or the
-/// Mosh server the tab was started under, found by the tab's mark in its
-/// environment: a Mosh shell hangs off a server that let go of the ssh
-/// session that started it the moment it came up, so the channel's parent
-/// owns no pty then. The mark is the holder's pid, which is what lets the
-/// pinentry tell a live mark from one whose holder ended.
+/// What holds the pty is either this connection's own sshd session or the Mosh server
+/// the tab was started under, found by the tab's mark: a Mosh shell hangs off a server
+/// that let go of the ssh session that started it, so the channel's parent owns no pty
+/// then. The mark is the holder's pid.
 String pinentryMarkCommand(String tab) {
   assert(durableShellSession.hasMatch(tab));
   return underSh(
@@ -250,17 +207,11 @@ String pinentryMarkCommand(String tab) {
   );
 }
 
-/// Lists what the host's pinentry holds open, one request per line: the id, a
-/// space, the payload its OSC carries. Run on the tab's connection when the
-/// tab hears the bell.
-///
-/// The OSC reaches a tab whole over ssh, but a Mosh shell's pty ends at a
-/// server that ships a screen and not a byte stream, and an OSC it does not
-/// know never leaves the host — the bell the pinentry rings after it does. So
-/// the bell is the signal and the host is the source, on both transports. A
-/// request is open while its fifo stands; the json beside it is what the OSC
-/// would have said. A host without the pinentry answers nothing, and exits 0
-/// doing it.
+/// The OSC reaches a tab whole over ssh, but a Mosh shell's pty ends at a server that
+/// ships a screen and not a byte stream, and an OSC it does not know never leaves the
+/// host — the bell the pinentry rings after it does. So the bell is the signal and the
+/// host is the source, on both transports. A host without the pinentry exits 0 saying
+/// nothing.
 String pinentryOpenCommand() => underSh(
   'exec 2>/dev/null; d="$pinentryGateDirectory"; '
   'for f in "\$d"/*.json; do '
@@ -269,14 +220,13 @@ String pinentryOpenCommand() => underSh(
   'done; exit 0',
 );
 
-/// What a request's id looks like; anything else is not one and is never put
-/// in a command.
+/// What a request's id looks like; anything else is not one and is never put in a
+/// command.
 final pinentryRequestId = RegExp(r'^[a-f0-9]{16,32}$');
 
-/// Answers a request: the passphrase and its newline on stdin, a bare newline
-/// for a cancel. The fifo is written as it is and never created — once the
-/// pinentry has taken it down the request is settled, and a passphrase must
-/// not end up in a regular file in its place.
+/// The fifo is written as it is and never created — once the pinentry has taken it down
+/// the request is settled, and a passphrase must not end up in a regular file in its
+/// place.
 String pinentryAnswerCommand(String id) {
   assert(pinentryRequestId.hasMatch(id));
   return underSh(

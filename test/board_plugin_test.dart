@@ -72,8 +72,6 @@ List<Map<String, Object?>> commands(PluginUiNode node) => [
     command! as Map<String, Object?>,
 ];
 
-// The board draws its own ground and rules before anything the user put on it,
-// so a link is the accent line rather than any line at all.
 List<Map<String, Object?>> links(PluginUiNode node) => [
   for (final command in commands(node))
     if (command['op'] == 'line' && command['color'] == 'accent') command,

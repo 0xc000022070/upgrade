@@ -8,9 +8,6 @@ import 'package:dazzle/data/repositories/mutation.dart';
 import 'package:dazzle/data/repositories/project_repository.dart';
 import 'package:dazzle/data/repositories/task_repository.dart';
 
-/// The builder every repository write goes through. These are the guarantees
-/// it exists to make structural rather than remembered: one transaction, one
-/// instant, one event, and nothing at all when nothing changed.
 void main() {
   late AppDatabase db;
   late ActivityRepository activity;

@@ -4,16 +4,10 @@ import 'colors.dart';
 import 'tokens.dart';
 import 'typography.dart';
 
-/// Turns a platform [ColorScheme] — Material You's tonal palette, or a seeded
-/// fallback where the device has none — into a [DazzleTokens] instance.
-///
-/// Only the chrome moves. [SyntaxPalette], the terminal's ANSI table and the
-/// diff grounds stay the house's: they exist so code and diffs stay legible
-/// against the always-dark surfaces they are read on, and a wallpaper's hue
-/// has no bearing on that legibility.
+/// Only the chrome moves. [SyntaxPalette], the terminal's ANSI table and the diff
+/// grounds stay the house's: they are read against always-dark surfaces.
 DazzleTokens dazzleTokensFromScheme(ColorScheme scheme) {
-  TextStyle recolor(TextStyle base, Color color) =>
-      base.copyWith(color: color);
+  TextStyle recolor(TextStyle base, Color color) => base.copyWith(color: color);
 
   final textPrimary = scheme.onSurface;
   final textSecondary = scheme.onSurfaceVariant;
@@ -74,10 +68,6 @@ DazzleTokens dazzleTokensFromScheme(ColorScheme scheme) {
   );
 }
 
-/// Resolves the `[ THEME ]` SYSTEM setting into tokens: Material You's tonal
-/// palette when the platform hands one over, a [ColorScheme] seeded from the
-/// house accent otherwise — so SYSTEM always tracks at least light/dark, even
-/// on a device or OS version with no dynamic colour to offer.
 DazzleTokens dazzleTokensForSystem({
   required Brightness platformBrightness,
   required ColorScheme? lightDynamic,

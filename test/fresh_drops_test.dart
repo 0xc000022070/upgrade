@@ -22,9 +22,7 @@ import 'package:dazzle/features/tasks/selection_bar.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// A drop typed on this screen stays marked until the user leaves, and the
-/// panel forgets what it stopped drawing, never what it has not drawn yet. The
-/// header ticker never settles, so nothing here may use `pumpAndSettle`.
+/// The header ticker never settles, so nothing here may use `pumpAndSettle`.
 Future<void> _drain(
   WidgetTester tester, {
   Duration step = Duration.zero,
@@ -40,9 +38,6 @@ Future<void> _drain(
 Future<void> _ready(WidgetTester tester) =>
     _drain(tester, step: const Duration(milliseconds: 100));
 
-/// A row's age is the whole highlight, so the assertion is the ink on it. Every
-/// row in these tests was written seconds ago and reads `now`; what tells a
-/// fresh one from an old one is the accent.
 int _accentAges(WidgetTester tester) => tester
     .widgetList<Text>(find.text('now'))
     .where((text) => text.style?.color == DazzleColors.accent)
@@ -78,8 +73,6 @@ void main() {
     ),
   );
 
-  /// The tab shell, for the door a tab switch opens: leaving HOME without
-  /// leaving the route it lives on.
   Widget shell() => ProviderScope(
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(theme: testTheme, home: DazzleShell()),
@@ -90,8 +83,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  /// The capture bar is the only thing that can make a row fresh, so the tests
-  /// type into it rather than writing through the repository.
   Future<void> capture(WidgetTester tester, String title) async {
     await tester.enterText(find.byType(TextField).first, title);
     await tester.testTextInput.receiveAction(TextInputAction.done);
@@ -112,8 +103,6 @@ void main() {
 
     expect(find.text('recien escrito'), findsOneWidget);
     expect(_fresh(tester).idsIn('home'), hasLength(2));
-    // Two of the three ages carry the accent; the row the screen was opened
-    // with keeps the dim it had.
     expect(_accentAges(tester), 2);
 
     await unmount(tester);
@@ -130,7 +119,6 @@ void main() {
     await tester.longPress(find.text('recien escrito'));
     await _ready(tester);
 
-    // One gesture, the whole set: the old row is not in it.
     expect(find.text('2 SELECTED'), findsOneWidget);
     expect(find.text('[x]'), findsNWidgets(2));
     expect(find.text('[ ]'), findsOneWidget);
@@ -152,8 +140,6 @@ void main() {
     expect(find.text('1 SELECTED'), findsOneWidget);
     expect(find.text('[x]'), findsOneWidget);
     expect(_fresh(tester).idsIn('home'), isEmpty);
-    // The mode paints boxes, not ages, but the set is gone under it: leaving
-    // the mode leaves no accent behind either.
     expect(_accentAges(tester), 0);
 
     await unmount(tester);
@@ -182,8 +168,6 @@ void main() {
     await capture(tester, 'recien escrito');
     expect(_fresh(tester).idsIn('home'), hasLength(1));
 
-    // The tabs keep HOME mounted, so nothing is disposed on the way out: the
-    // shell is what has to put the set down.
     await tester.tap(
       find.descendant(of: find.byType(NavBar), matching: find.text('PROJECTS')),
     );
@@ -218,7 +202,6 @@ void main() {
     );
     await _ready(tester);
 
-    // Nothing happened to the rows, so nothing happened to the set.
     expect(find.byType(SelectionBar), findsNothing);
     expect(_fresh(tester).idsIn('home'), hasLength(2));
     expect(_accentAges(tester), 2);
@@ -227,9 +210,8 @@ void main() {
   });
 
   group('the panel forgets what it stopped drawing', () {
-    /// The panel takes its rows as a parameter, so the stream can be replaced
-    /// by something the test steps by hand: that is the whole race — the bar
-    /// marks a row fresh when the write returns, and the list catches up later.
+    /// The race: the bar marks a row fresh when the write returns, and the list catches up
+    /// later.
     late ValueNotifier<AsyncValue<List<Task>>> feed;
 
     Widget panelHost() => ProviderScope(
@@ -273,8 +255,7 @@ void main() {
 
       final task = await row('recien escrito');
       notifier(tester).add(DropSelection.homeScope, task.id);
-      // Two frames with the list still empty: one for the build that reads the
-      // set, one for the post-frame prune that used to eat it.
+      // Two frames: one for the build that reads the set, one for the post-frame prune.
       await tester.pump();
       await tester.pump();
 
@@ -315,7 +296,6 @@ void main() {
       await tester.pump();
       expect(read(tester).idsIn(DropSelection.homeScope), hasLength(1));
 
-      // Drawn, then gone: this is removal, and removal is what empties the set.
       feed.value = const AsyncValue.data(<Task>[]);
       await tester.pump();
       await tester.pump();

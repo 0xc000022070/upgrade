@@ -7,25 +7,15 @@ import '../../application/reason_lines.dart';
 import '../herdr_client.dart';
 import '../host_keys.dart';
 
-/// The screen route's reason lines, as types.
-///
-/// The three ssh-shaped ones are the same failures the agent poll already
-/// names, and
-/// [VncFailure.reason] words them the way [AgentOutcome.reason] does. The rest
-/// belong to the screen: the tunnel, the security handshake in its three
-/// endings, and a stream that ended under a session that was still reading it.
 sealed class VncFailure implements Exception {
   const VncFailure([this.detail]);
 
-  /// What the transport actually said. Carried out of here so
-  /// the caller, which is the half that knows the host's name, writes the
-  /// `dazzle.vnc <host>: …` debug line.
+  /// Carried out of here so the caller, which is the half that knows the host's name,
+  /// writes the debug line.
   final String? detail;
 
-  /// Which of the app's reason lines this failure is.
   ReasonLine get line;
 
-  /// That line, given the host it happened to.
   String reason(String host) => line.on(host);
 
   @override
@@ -53,8 +43,8 @@ final class VncKeyRejected extends VncFailure {
   ReasonLine get line => ReasonLine.keyRejected;
 }
 
-/// The `direct-tcpip` channel open was denied. SSH is live, so this is its own
-/// line rather than `unreachable`.
+/// The `direct-tcpip` channel open was denied. SSH is live, so this is its own line
+/// rather than `unreachable`.
 final class VncTunnelRefused extends VncFailure {
   const VncTunnelRefused([super.detail]);
 
@@ -62,8 +52,8 @@ final class VncTunnelRefused extends VncFailure {
   ReasonLine get line => ReasonLine.tunnelRefused;
 }
 
-/// The server's security list has neither `None` nor VNC Authentication
-/// on it, or refused the handshake outright. Apple's own types land here.
+/// The server's security list has neither `None` nor VNC Authentication on it, or
+/// refused the handshake outright. Apple's own types land here.
 final class VncAuthUnsupported extends VncFailure {
   const VncAuthUnsupported([super.detail]);
 
@@ -71,8 +61,6 @@ final class VncAuthUnsupported extends VncFailure {
   ReasonLine get line => ReasonLine.authUnsupported;
 }
 
-/// The server offers VNC Authentication and nothing weaker, and the host row
-/// holds no password to answer it with.
 final class VncPasswordNeeded extends VncFailure {
   const VncPasswordNeeded([super.detail]);
 
@@ -80,8 +68,6 @@ final class VncPasswordNeeded extends VncFailure {
   ReasonLine get line => ReasonLine.passwordNeeded;
 }
 
-/// The server failed the password response. Worded beside `key rejected`,
-/// which is the same event one layer down.
 final class VncAuthRejected extends VncFailure {
   const VncAuthRejected([super.detail]);
 
@@ -89,9 +75,8 @@ final class VncAuthRejected extends VncFailure {
   ReasonLine get line => ReasonLine.passwordRejected;
 }
 
-/// The RFB stream ended. Covers the tunnel dropping mid-session and a
-/// handshake that stopped short of the bytes it promised, because from the
-/// reader's side those are the same event.
+/// Covers the tunnel dropping mid-session and a handshake that stopped short of the
+/// bytes it promised, because from the reader's side those are the same event.
 final class VncStreamClosed extends VncFailure {
   const VncStreamClosed([super.detail]);
 
@@ -99,8 +84,6 @@ final class VncStreamClosed extends VncFailure {
   ReasonLine get line => ReasonLine.streamClosed;
 }
 
-/// Nothing is pinned for this host and the screen route's own sheet was not
-/// offered, or was and the user said no.
 final class VncHostKeyUnverified extends VncFailure {
   const VncHostKeyUnverified([super.detail]);
 
@@ -108,7 +91,6 @@ final class VncHostKeyUnverified extends VncFailure {
   ReasonLine get line => ReasonLine.hostKeyUnverified;
 }
 
-/// The machine presented a key that is not the one pinned for it.
 final class VncHostKeyChanged extends VncFailure {
   const VncHostKeyChanged([super.detail]);
 
@@ -116,39 +98,31 @@ final class VncHostKeyChanged extends VncFailure {
   ReasonLine get line => ReasonLine.hostKeyChanged;
 }
 
-/// Every error the ssh layer can raise, on those lines.
-///
-/// Null for anything unexpected: the real error belongs in the debug log,
-/// and a bug in the layer above reads better as itself than as
-/// `nyx unreachable`.
-VncFailure? asVncFailure(
-  Object error, [
-  HostKeyRefusal? refusal,
-]) => switch (error) {
-  VncFailure() => error,
-  // The verifier's answer is the reason, whatever error the closing handshake
-  // surfaced. Read before the error, as the shell's mapping does.
-  _ when refusal != null => switch (refusal) {
-    HostKeyRefusal.unverified => VncHostKeyUnverified('$error'),
-    HostKeyRefusal.changed => VncHostKeyChanged('$error'),
-  },
-  SSHHostkeyError() => VncHostKeyChanged('$error'),
-  // dartssh2 raises this when the server answers the channel open with a
-  // failure, which is what `restrict` and a missing `permitopen` both do.
-  SSHChannelOpenError() => VncTunnelRefused('$error'),
-  SSHAuthFailError() => VncKeyRejected('$error'),
-  SSHKeyDecodeError() => VncKeyRejected('$error'),
-  // The only failure that happens before an address exists. The test
-  // is [HerdrClient]'s, deliberately: which errno family a lookup failure
-  // lands in is a platform detail, and one copy of that guess is enough.
-  SocketException() when HerdrClient.isLookupFailure(error) => VncUnresolved(
-    '$error',
-  ),
-  SocketException() => VncUnreachable('$error'),
-  TimeoutException() => VncUnreachable('$error'),
-  SSHError() => VncUnreachable('$error'),
-  _ => null,
-};
+/// Null for anything unexpected: a bug in the layer above reads better as itself than as
+/// a reason line.
+VncFailure? asVncFailure(Object error, [HostKeyRefusal? refusal]) =>
+    switch (error) {
+      VncFailure() => error,
+      // The verifier's answer is the reason, whatever error the closing handshake surfaced.
+      _ when refusal != null => switch (refusal) {
+        HostKeyRefusal.unverified => VncHostKeyUnverified('$error'),
+        HostKeyRefusal.changed => VncHostKeyChanged('$error'),
+      },
+      SSHHostkeyError() => VncHostKeyChanged('$error'),
+      // dartssh2 raises this when the server answers the channel open with a failure, which
+      // is what `restrict` and a missing `permitopen` both do.
+      SSHChannelOpenError() => VncTunnelRefused('$error'),
+      SSHAuthFailError() => VncKeyRejected('$error'),
+      SSHKeyDecodeError() => VncKeyRejected('$error'),
+      // The test is [HerdrClient]'s, deliberately: which errno family a lookup failure lands
+      // in is a platform detail.
+      SocketException() when HerdrClient.isLookupFailure(error) =>
+        VncUnresolved('$error'),
+      SocketException() => VncUnreachable('$error'),
+      TimeoutException() => VncUnreachable('$error'),
+      SSHError() => VncUnreachable('$error'),
+      _ => null,
+    };
 
 Future<T> guardVnc<T>(
   Future<T> Function() body, [

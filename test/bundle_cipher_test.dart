@@ -4,8 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/platform/bundle_cipher.dart';
 
-// Small enough to run in a test, well below what the app seals under; the
-// envelope carries the numbers, so the opener does not care which.
+// Small enough to run in a test, well below what the app seals under; the envelope
+// carries the numbers, so the opener does not care which.
 BundleCipher _cipher({KdfRunner? run}) => BundleCipher(
   memoryKib: 64,
   iterations: 1,

@@ -6,10 +6,6 @@ import 'package:dazzle/data/repositories/key_repository.dart';
 import 'package:dazzle/platform/host_keys.dart';
 import 'package:dazzle/data/enums.dart';
 
-/// The drift implementations behind the in-memory ones the
-/// screens are built against, so the two are held to the same behaviour and the
-/// rules that only exist in the drift half — the delete refusal and the
-/// integration rows — are held to anything at all.
 void main() {
   late AppDatabase db;
   late DriftKeyRepository keys;
@@ -72,9 +68,7 @@ void main() {
       await key('k1', day: 1);
       await key('k3', day: 5);
 
-      // The order [InMemoryKeyRepository] produces by appending. The screens
-      // are built against that one, so a different order here would only ever
-      // be found on device.
+      // The order [InMemoryKeyRepository] produces by appending.
       expect((await keys.all()).map((k) => k.id), ['k1', 'k2', 'k3']);
       expect(
         await keys.watchAll().first.then((list) => list.map((k) => k.id)),
@@ -99,8 +93,8 @@ void main() {
           isA<KeyInUseException>().having((e) => e.hostNames, 'hosts', ['nyx']),
         ),
       );
-      // sqlite is not the guard — this database never enables PRAGMA
-      // foreign_keys, so without the repository check the row would be gone.
+      // This database never enables PRAGMA foreign_keys, so without the repository check the
+      // row would be gone.
       expect((await keys.all()).single.id, 'k1');
     });
 
@@ -125,7 +119,6 @@ void main() {
       await key('k2', day: 2);
       await host('h1', keyId: 'k1');
 
-      // Another key's host is not this key's problem.
       await keys.delete('k2');
       expect((await keys.all()).map((k) => k.id), ['k1']);
 
@@ -201,8 +194,6 @@ void main() {
 
       await hosts.forgetHostKey('h1');
 
-      // Not two thirds of a pin: a fingerprint left behind with no type would
-      // be compared against the next key that answers.
       expect((await hosts.all()).single.hostKey, isNull);
       final row = await (db.select(db.hosts)).getSingle();
       expect(row.hostKeyType, isNull);
@@ -222,8 +213,6 @@ void main() {
         ),
       );
 
-      // The form saves the whole host and knows nothing about keys. Renaming a
-      // machine is not a reason to trust whatever answers next.
       await host('h1', name: 'nyx.tailnet');
 
       final stored = (await hosts.all()).single;
@@ -234,8 +223,6 @@ void main() {
 
   group('integrations', () {
     test('a host starts with none', () async {
-      // The app never assumes a host is a herdr endpoint, so a
-      // registered host is invisible to the poller until a kind is switched on.
       await key('k1');
       await host('h1');
 
@@ -303,8 +290,6 @@ void main() {
       await hosts.setIntegration('h1', IntegrationKind.herdr, true);
       await hosts.setIntegration('h3', IntegrationKind.herdr, true);
 
-      // All of them are polled concurrently, so the set is what decides how
-      // many hosts the panel merges rows from.
       expect(
         (await hosts.watchWithIntegration(IntegrationKind.herdr).first)
             .map((h) => h.name)
@@ -327,8 +312,6 @@ void main() {
       await pumpEventQueue();
       await sub.cancel();
 
-      // One stream over both tables. Two — an integration read and then a host
-      // read — would let the panel hold a name the row no longer has.
       expect(seen.last, 'nyx.tailnet');
     });
 
@@ -339,10 +322,7 @@ void main() {
 
       await hosts.delete('h1');
 
-      // Dart-side, in the same transaction: this database never enables PRAGMA
-      // foreign_keys, so nothing at the sqlite level would have removed them,
-      // and a later host given the same id would come up integrated by nobody's
-      // choice.
+      // Dart-side, in the same transaction: this database never enables PRAGMA foreign_keys.
       expect(await db.select(db.hostIntegrations).get(), isEmpty);
       expect(
         await hosts.watchWithIntegration(IntegrationKind.herdr).first,
@@ -367,9 +347,8 @@ void main() {
     });
 
     test('an integration row pointing at nothing yields no host', () async {
-      // Not a state the repository can produce, but the table is text and a
-      // future migration or a hand-edited database can leave one behind. The
-      // panel has to read it as blocked, not as a host with no address.
+      // Not a state the repository can produce, but the table is text and a future migration
+      // or a hand-edited database can leave one behind.
       await db
           .into(db.hostIntegrations)
           .insert(

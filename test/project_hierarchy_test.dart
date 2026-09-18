@@ -8,9 +8,6 @@ import 'package:dazzle/data/repositories/note_repository.dart';
 import 'package:dazzle/data/repositories/project_repository.dart';
 import 'package:dazzle/data/repositories/task_repository.dart';
 
-/// A subproject is a project with a parent, so nothing here
-/// tests a new entity: it tests that the same rows read differently once one of
-/// them points at another.
 void main() {
   late AppDatabase db;
   late ProjectRepository projects;
@@ -27,7 +24,7 @@ void main() {
 
   tearDown(() => db.close());
 
-  /// root > child > grandchild, the shape the whole section is about.
+  /// root > child > grandchild.
   Future<List<String>> tree() async {
     final root = await projects.create(name: 'Infra');
     final child = await projects.create(name: 'Homelab', parentId: root);
@@ -86,7 +83,6 @@ void main() {
       expect(root.doneCount, 1);
       expect(root.percent, 50);
 
-      // The child's own row aggregates its own subtree, not the whole tree.
       final child = (await projects.watchChildren(ids[0]).first).single;
       expect(child.totalCount, 2);
       final leaf = (await projects.watchSummary(ids[2]).first)!;
@@ -103,8 +99,6 @@ void main() {
       expect(root.percent, 0);
     });
 
-    // Only the progress number aggregates: NEXT ACTION and
-    // the lead line keep pointing at the task's own project.
     test('the lead task stays the project own, not a descendant one', () async {
       final ids = await tree();
       await tasks.create(projectId: ids[2], title: 'VLANs', isNext: true);
@@ -125,7 +119,6 @@ void main() {
       final ids = await tree();
       final other = await projects.create(name: 'Dotfiles');
 
-      // The mid-level project moves; its own child is not rewritten.
       await projects.edit(ids[1], parentId: other);
 
       expect((await projects.watchChildren(other).first).map((p) => p.name), [
@@ -146,7 +139,6 @@ void main() {
 
       await projects.edit(ids[1], parentId: null);
 
-      // Both roots now, most recently touched first: the move is a write.
       expect((await projects.watchSummaries().first).map((p) => p.name), [
         'Homelab',
         'Infra',
@@ -174,7 +166,6 @@ void main() {
         projects.edit(ids[0], parentId: ids[0]),
         throwsStateError,
       );
-      // The refused write left nothing behind.
       expect((await projects.watchSummaries().first).map((p) => p.projectId), [
         ids[0],
       ]);
@@ -189,22 +180,16 @@ void main() {
       await projects.archive(ids[0]);
 
       expect(await projects.watchSummaries().first, isEmpty);
-      // The descendants keep their own status column.
       final rows = await db.select(db.projects).get();
       expect(
         rows.where((p) => p.status == ProjectStatus.archived).map((p) => p.id),
         [ids[0]],
       );
-      // A hidden project's tasks leave Home the way an archived
-      // project's tasks already do.
       expect(await db.watchNextAction().first, isNull);
-      // The ARCHIVED panel lists the root only: the children's own status is
-      // still active, and their parent is hidden.
       expect(
         (await projects.watchArchivedSummaries().first).map((p) => p.projectId),
         [ids[0]],
       );
-      // Nothing reachable is left: watchAll feeds the pickers.
       expect(await projects.watchAll().first, isEmpty);
     });
 
@@ -218,8 +203,6 @@ void main() {
       expect((await projects.watchSummaries().first).map((p) => p.projectId), [
         ids[0],
       ]);
-      // The child was archived in its own right before the parent was, and it
-      // comes back archived rather than active.
       expect(await projects.watchChildren(ids[0]).first, isEmpty);
       expect(
         (await projects.watchArchivedSummaries().first).map((p) => p.projectId),
@@ -227,25 +210,28 @@ void main() {
       );
     });
 
-    test('an archived child under a visible parent is its own record', () async {
-      final ids = await tree();
+    test(
+      'an archived child under a visible parent is its own record',
+      () async {
+        final ids = await tree();
 
-      await projects.archive(ids[1]);
+        await projects.archive(ids[1]);
 
-      // Not in the parent's PROJECTS panel, but in the tab's ARCHIVED panel:
-      // its own status is archived and its parent is not hidden.
-      expect(await projects.watchChildren(ids[0]).first, isEmpty);
-      expect(
-        (await projects.watchArchivedSummaries().first).map((p) => p.projectId),
-        [ids[1]],
-      );
-      // The grandchild is hidden by the ancestor, and it is not a record of its
-      // own — its own status never changed.
-      expect(
-        (await projects.watchArchivedSummaries().first).map((p) => p.projectId),
-        isNot(contains(ids[2])),
-      );
-    });
+        expect(await projects.watchChildren(ids[0]).first, isEmpty);
+        expect(
+          (await projects.watchArchivedSummaries().first).map(
+            (p) => p.projectId,
+          ),
+          [ids[1]],
+        );
+        expect(
+          (await projects.watchArchivedSummaries().first).map(
+            (p) => p.projectId,
+          ),
+          isNot(contains(ids[2])),
+        );
+      },
+    );
   });
 
   group('cascade delete', () {
@@ -260,7 +246,6 @@ void main() {
         await projects.delete(ids[0]);
 
         expect(await db.select(db.projects).get(), isEmpty);
-        // The rule holds all the way down: items survive as drops.
         final rows = await db.select(db.tasks).get();
         expect(rows.single.id, task);
         expect(rows.single.projectId, isNull);

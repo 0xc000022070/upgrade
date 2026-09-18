@@ -60,9 +60,7 @@ ManagedKey _key(String id, String name) => ManagedKey(
   createdAt: DateTime(2026),
 );
 
-/// What a phone hands over when the reader raises the text size: a curve, not
-/// a factor. A label's size doubles, a size the app never paints text at is
-/// left where it was.
+/// What a phone hands over when the reader raises the text size: a curve, not a factor.
 const _systemCurve = _SystemCurve();
 
 class _SystemCurve implements TextScaler {
@@ -104,8 +102,8 @@ void main() {
     previews = ScreenPreviews(Directory('${root.path}/screens'));
     shells = FakeShellTransport()..stall = true;
     sessions = fakeShellSessions(shells);
-    // No socket in a test. Without this the panel knocks on the addresses the
-    // fixtures name, which are somebody's machines.
+    // No socket in a test. Without this the panel knocks on the addresses the fixtures name,
+    // which are somebody's machines.
     answers = {};
     probed = [];
     probes = LinkProbes(
@@ -114,8 +112,6 @@ void main() {
         return answers['$address:$port'] ?? const LinkResult.unknown();
       },
     );
-    // Nothing here dials, so the default is a dial that opens nothing and
-    // comes back; the tests that care hand their own in.
     dial = ({
       required address,
       required port,
@@ -148,8 +144,8 @@ void main() {
         child: MaterialApp(theme: testTheme, home: child),
       );
 
-  /// The background grain runs off a ticker that never settles, so a test that
-  /// ends with the tree mounted leaves a pending timer and hangs the file.
+  /// The grain runs off a ticker that never settles, so a test that ends with the tree
+  /// mounted leaves a pending timer and hangs the file.
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
@@ -199,8 +195,6 @@ void main() {
     await unmount(tester);
   });
 
-  /// The width `_MetaRow` gives the label column, which the screen keeps to
-  /// itself.
   const labelColumn = 96.0;
 
   testWidgets('a metadata label is given the width its words take', (
@@ -211,8 +205,7 @@ void main() {
     addTearDown(tester.view.reset);
     await seed();
 
-    /// How far the value sits from the start of the label beside it. Measured
-    /// from the two left edges, which are box positions rather than ink, so the
+    /// Measured from the two left edges, which are box positions rather than ink, so the
     /// fallback font a test renders with cannot move them.
     Future<double> reach([TextScaler? scaler]) async {
       await tester.pumpWidget(
@@ -235,21 +228,12 @@ void main() {
     }
 
     final reached = await reach();
-    // A phone does not raise every size by the same factor: the curve gives a
-    // small one most of the rise and a large one almost none. A column derived
-    // from the label's own size follows the label; one derived from its width
-    // hardly moves, and the longest label broke across two lines in the middle
-    // of a word.
     final curved = await reach(_systemCurve);
 
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     final bigReach = await reach();
 
-    // The column is the longest label and nothing else, so the value has to
-    // start a gutter past the end of it at every text size. Held at the width
-    // it was drawn at, the column was one the longest label ran out of and
-    // into its own value; given no gutter, the two still touched.
     expect(reached, closeTo(labelColumn + Spacing.md, 0.01));
     expect(bigReach, closeTo(labelColumn * 1.3 + Spacing.md, 0.01));
     expect(curved, closeTo(labelColumn * 2 + Spacing.md, 0.01));
@@ -265,11 +249,8 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    // Both hosts, not just the one with a screen: ssh is what a host already
-    // is, so it is not behind an integration.
     expect(find.text('SHELL'), findsNWidgets(2));
 
-    // The whole row, which is wider than the words in it.
     final row = find.ancestor(
       of: find.text('SHELL').first,
       matching: find.byType(GestureDetector),
@@ -298,8 +279,6 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    // The cards are the SSH tab's. What a host keeps here is the row that
-    // starts one, which still counts what is open on it.
     expect(find.text('SHELLS'), findsNothing);
     expect(find.text('ACTIVE SESSIONS'), findsNothing);
     expect(find.byKey(const ValueKey('shell-card-h1-1')), findsNothing);
@@ -314,8 +293,7 @@ void main() {
     tester.view.physicalSize = const Size(400, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    // The hosts without their integrations: HOSTS in front starts the agents
-    // poll, and its ten-second tick would outlive the test.
+    // HOSTS in front starts the agents poll, and its ten-second tick would outlive the test.
     await keys.save(_key('key-1', 'faraday'));
     await hosts.save(_rose);
     await hosts.save(_nyx);
@@ -326,20 +304,17 @@ void main() {
     );
     answers['100.64.0.2:357'] = const LinkResult(LinkStatus.refused);
 
-    // The probes go out when HOSTS is the tab in front, not when the widget
-    // happens to be built, so the route has to be the one on screen.
+    // The probes go out when HOSTS is the tab in front, not when the widget happens to be
+    // built.
     await tester.pumpWidget(
       app(const HostsScreen(), index: HostsScreen.navIndex),
     );
     await ready(tester);
 
-    // What the machine calls itself and how long it took to say so, which is
-    // the difference between a host that is up and a port that is open.
     expect(find.text('OPENSSH_9.9 · 120 MS'), findsOneWidget);
     expect(find.text('REFUSED'), findsOneWidget);
     expect(probed, ['100.64.0.1:22', '100.64.0.2:357']);
 
-    // The whole row is the hit, and a tap asks again however fresh the answer.
     final row = find.ancestor(
       of: find.text('REFUSED'),
       matching: find.byType(GestureDetector),
@@ -424,8 +399,6 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    // One machine the app can recognise and one it cannot. The offer to look
-    // stands only on the second.
     expect(find.text('VERIFY'), findsOneWidget);
 
     await unmount(tester);
@@ -447,8 +420,6 @@ void main() {
         pinnedAt: DateTime(2026, 9, 3),
       ),
     );
-    // The dial is held open, which is what the machine on the other end does
-    // while a user reads a fingerprint.
     final answered = Completer<void>();
     dial = ({
       required address,
@@ -463,17 +434,12 @@ void main() {
     await tester.tap(find.text('VERIFY'));
     await ready(tester);
 
-    // The row says the dial is out. Nothing else on the screen does, and a
-    // silent one is the failure the user reported.
     expect(find.text('VERIFYING'), findsOneWidget);
     expect(find.text('VERIFY'), findsNothing);
 
     answered.completeError(const HostKeySilent());
     await ready(tester);
 
-    // A machine that took the connection and never presented a key. The word
-    // stands until the next tap rather than being written to a log nobody on a
-    // handset can read.
     expect(find.text('NO ANSWER'), findsOneWidget);
     expect(find.text('VERIFYING'), findsNothing);
 
@@ -494,9 +460,6 @@ void main() {
       pinnedAt: DateTime(2026, 9, 3),
     );
     await hosts.pinHostKey(_rose.id, pin);
-    // The state the user reported from: the key is pinned and the last poll
-    // still says it is not. The affordance is drawn off that poll, so the row
-    // offers a dial whose answer it then has nowhere to put.
     final stale = AgentPanelState([
       HostOutcome(
         host: Host(
@@ -532,15 +495,10 @@ void main() {
     );
     await ready(tester);
 
-    // Both hosts offer it: rose off the stale poll, nyx because nothing is
-    // pinned to it at all. The tap is rose's.
     expect(find.text('VERIFY'), findsNWidgets(2));
     await tester.tap(find.text('VERIFY').first);
     await ready(tester);
 
-    // The machine answered with the key the app already trusts. That is an
-    // answer, and the row stops asking for one rather than dropping back to
-    // `VERIFY` as though the tap had never happened.
     expect(asked, 1);
     expect(find.text('VERIFYING'), findsNothing);
     expect(find.text('VERIFY'), findsOneWidget);
@@ -562,8 +520,6 @@ void main() {
     await ready(tester);
 
     expect(find.text('SHELL · 2 OPEN'), findsOneWidget);
-    // The host with nothing open is not counted at zero: it reads as the way
-    // in, which is what it is.
     expect(find.text('SHELL'), findsOneWidget);
 
     await unmount(tester);
@@ -582,15 +538,11 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    // Only the host with a live session draws one, so it names the panel.
     final panel = find
         .ancestor(of: find.text('CLIPBOARD'), matching: find.byType(Panel))
         .first;
     final shell = tester.getTopLeft(find.text('SHELL · 1 OPEN')).dy;
 
-    // What the host answered about its clipboard is a fact about the machine
-    // like the rows above it, so it joins them rather than splitting the way
-    // in off the list it belongs to.
     for (final label in const [
       'ADDRESS',
       'USER',
@@ -685,8 +637,6 @@ void main() {
     expect(find.byType(Image), findsOneWidget);
     expect(aspect(), closeTo(320 / 180, 0.001));
 
-    // A second frame of another shape: the tile has to take the new file, not
-    // the one it already read off the same path.
     await tester.runAsync(() => previews.write(_nyx.id, Framebuffer(800, 800)));
     await ready(tester);
     expect(aspect(), closeTo(1, 0.001));
@@ -762,9 +712,6 @@ void main() {
 
       expect(worstShellState([]), isNull);
       expect(worstShellState([connecting]), isA<ShellConnecting>());
-      // A shell that is up is worth saying so beside one still dialling, and
-      // one tab in trouble is what the panel has to say however many are fine
-      // next to it.
       expect(worstShellState([connecting, live]), isA<ShellLive>());
       expect(worstShellState([live, connecting, failed]), isA<ShellFailed>());
     });

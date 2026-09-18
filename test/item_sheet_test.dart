@@ -27,9 +27,8 @@ import 'package:dazzle/platform/link_metadata.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// The sheet is mounted directly rather than opened from a
-/// row: what is under test is its body and its footer, and a route on top of a
-/// screen only adds a second ticker to drain.
+/// Mounted directly rather than opened from a row: a route on top of a screen only adds a
+/// second ticker to drain.
 Future<void> _drain(
   WidgetTester tester, {
   Duration step = Duration.zero,
@@ -45,14 +44,14 @@ Future<void> _drain(
 Future<void> _ready(WidgetTester tester) =>
     _drain(tester, step: const Duration(milliseconds: 100));
 
-/// The strip is icons only, so its buttons have no text to find; every verb
-/// names its glyph, which is what makes them findable.
+/// The strip is icons only, so its buttons have no text to find; every verb names its
+/// glyph.
 Finder _glyph(ToolbarGlyph glyph) => find.byWidgetPredicate(
   (widget) => widget is Icon && widget.icon == glyph.icon,
 );
 
-/// The line over the strip is in the root overlay, so it is told from the
-/// title editor by which side of that split it is on.
+/// The line over the strip is in the root overlay, so it is told from the title editor by
+/// which side of that split it is on.
 final _line = find.descendant(
   of: find.byType(KeyboardToolbar),
   matching: find.byType(TextField),
@@ -161,10 +160,8 @@ void main() {
     expect(find.text('INFRA PERSONAL / DROPS'), findsOneWidget);
     expect(find.text('Object storage'), findsOneWidget);
     expect(find.text('[ LINKS ]'), findsOneWidget);
-    // The host, stripped of `www.`.
     expect(find.text('min.io'), findsOneWidget);
     expect(find.text('garagehq.deuxfleurs.fr'), findsOneWidget);
-    // Images are squares in their own field, not rows in LINKS.
     expect(find.text('[ IMAGES ]'), findsOneWidget);
     expect(find.text('attachments/019-abc.jpg'), findsNothing);
     expect(find.text('[ WITH ]'), findsOneWidget);
@@ -182,8 +179,8 @@ void main() {
     final directory = Directory.systemTemp.createTempSync('dazzle-sheet-test');
     addTearDown(() => directory.deleteSync(recursive: true));
     final cache = LinkPreviewCache.inDirectory(directory);
-    // The cache is a file, and a file is real I/O: it only settles on the
-    // real event loop, not the one the test drives.
+    // The cache is a file, and a file is real I/O: it only settles on the real event loop,
+    // not the one the test drives.
     await tester.runAsync(
       () => cache.write(
         post,
@@ -225,8 +222,6 @@ void main() {
       find.text('Si tienes que hacer un review, hazlo bien'),
       findsOneWidget,
     );
-    // The card is the row's replacement, and the link that answered nothing
-    // keeps the row it always had.
     expect(find.text('x.com'), findsNothing);
     expect(find.text('min.io'), findsOneWidget);
 
@@ -296,22 +291,17 @@ void main() {
   testWidgets(
     'a drop is finished from its own sheet and holds no other state',
     (tester) async {
-      // The item is text plus attachments until it is filed.
       final task = await tasks.capture('revisar pgbouncer');
 
       await tester.pumpWidget(host(task));
       await _ready(tester);
 
-      // A drop has no location above DROPS, and the strip says so rather than
-      // going blank.
       expect(find.text('DROPS'), findsOneWidget);
       expect(find.text('MOVE'), findsOneWidget);
       for (final verb in ['MARK NEXT', 'GROUP WITH', 'BLOCK']) {
         expect(find.text(verb), findsNothing, reason: '$verb is a state');
       }
 
-      // Finishing is not one of them: an item the user has dealt with says so
-      // wherever it sits.
       expect(find.text('DONE'), findsOneWidget);
       await tester.tap(find.text('DONE'));
       await _ready(tester);
@@ -323,7 +313,6 @@ void main() {
       expect(find.text('DONE'), findsOneWidget);
       expect((await reload(tester, task)).done, isFalse);
 
-      // One block is left on the footer, so DELETE moves to the strip.
       expect(find.text('DELETE'), findsNothing);
       await tester.longPress(find.text('DROPS'));
       await _ready(tester);
@@ -334,14 +323,10 @@ void main() {
       await tester.tap(_glyph(ToolbarGlyph.more));
       await _ready(tester);
 
-      // The extras row behind `+` is the same story: one verb, the one that
-      // stops it being a drop.
       expect(_glyph(ToolbarGlyph.move), findsOneWidget);
       expect(_glyph(ToolbarGlyph.next), findsNothing);
       expect(_glyph(ToolbarGlyph.block), findsNothing);
       expect(_glyph(ToolbarGlyph.pair), findsNothing);
-      // Not even the one it does have: the row behind `+` is for what cannot be
-      // reached with the keyboard down, and the footer already carries DONE.
       expect(_glyph(ToolbarGlyph.done), findsNothing);
 
       await unmount(tester);
@@ -356,8 +341,6 @@ void main() {
       kind: AttachmentKind.url,
       value: 'https://a.example',
     );
-    // Attached the same way and left behind all the same: a path under the
-    // app's support directory is not something anywhere else can open.
     await attachments.create(
       itemId: task,
       kind: AttachmentKind.image,
@@ -371,7 +354,6 @@ void main() {
     await _ready(tester);
 
     expect(written, ['revisar pgbouncer\n\nhttps://a.example']);
-    // Nothing on the screen moved, so the label is the whole answer.
     expect(find.text('COPIED'), findsOneWidget);
     expect(find.text('COPY'), findsNothing);
 
@@ -383,9 +365,6 @@ void main() {
   });
 
   testWidgets('a project row with no goal gets the full sheet', (tester) async {
-    // Ruling reversed 2026-09-02: the project is what makes a task, so
-    // a row in a project's DROPS panel keeps every state block. This is the
-    // shape of every row the user wrote before goals existed.
     final project = await projects.create(name: 'Infra personal');
     final task = await tasks.capture('revisar pgbouncer');
     await tasks.moveToTarget(task, ItemTarget.project(project));
@@ -423,7 +402,6 @@ void main() {
     await tester.tap(find.text('Postgres'));
     await _ready(tester);
 
-    // The default row, whatever the item is.
     expect(_glyph(ToolbarGlyph.link), findsOneWidget);
     expect(_glyph(ToolbarGlyph.image), findsOneWidget);
     expect(_glyph(ToolbarGlyph.next), findsNothing);
@@ -463,8 +441,6 @@ void main() {
     await tester.tap(find.text('BLOCK'));
     await _ready(tester);
     expect(find.byType(Dialog), findsNothing);
-    // The reason rides the same line the link does, over the strip, labelled
-    // by what it is asking for.
     expect(find.text('BLOCKED BY'), findsOneWidget);
     expect(find.text('what is holding it'), findsOneWidget);
 
@@ -494,7 +470,6 @@ void main() {
 
     expect(find.text('MOVE TO'), findsOneWidget);
     expect(find.text('BACK'), findsOneWidget);
-    // The picker took the sheet over: the footer it came from is gone.
     expect(find.text('DELETE'), findsNothing);
     expect(find.text('INFRA PERSONAL'), findsOneWidget);
     expect(find.text('Reduce SaaS'), findsOneWidget);
@@ -505,7 +480,6 @@ void main() {
     final moved = await reload(tester, task);
     expect(moved.projectId, project);
     expect(moved.goalId, goal);
-    // Back on the item, and the strip has followed the move.
     expect(find.text('INFRA PERSONAL / REDUCE SAAS'), findsOneWidget);
 
     await unmount(tester);
@@ -520,8 +494,6 @@ void main() {
     await tester.pumpWidget(host(task));
     await _ready(tester);
 
-    // The body is a readout until the title is tapped; the strip comes
-    // up with the keyboard, and it is the only place the link icon exists.
     await tester.tap(find.text('revisar pgbouncer'));
     await _ready(tester);
     expect(find.byType(KeyboardToolbar), findsOneWidget);
@@ -529,8 +501,6 @@ void main() {
     await tester.tap(_glyph(ToolbarGlyph.link));
     await _ready(tester);
 
-    // Offered, not taken: the URL is in the line where it can be read and
-    // corrected, and nothing is a chip until ATTACH says so.
     expect(find.byType(Dialog), findsNothing);
     expect(find.text('LINK'), findsOneWidget);
     expect(
@@ -574,8 +544,6 @@ void main() {
     await tester.tap(_glyph(ToolbarGlyph.link));
     await _ready(tester);
 
-    // Two fields, and the title is not one of them: the editor keeps the
-    // title it was opened with while the line asks for the URL.
     expect(find.text('https://'), findsOneWidget);
     expect(tester.widget<TextField>(_line).controller!.text, isEmpty);
     expect(find.byType(TextField), findsNWidgets(2));
@@ -585,8 +553,6 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 
-    // Committing takes the line down and hands the keyboard back to the
-    // title rather than closing it.
     expect(find.text('[ garagehq.deuxfleurs.fr ]'), findsOneWidget);
     expect(_line, findsNothing);
     expect(find.byType(KeyboardToolbar), findsOneWidget);
@@ -614,8 +580,6 @@ void main() {
     await tester.pumpWidget(host(task));
     await _ready(tester);
 
-    // The token is the head of the line and the prose is its tail, so the two
-    // taps are the two ends of the same paragraph.
     final title = tester.getRect(find.byType(LinkText));
     await tester.tapAt(Offset(title.left + 8, title.center.dy));
     await _ready(tester);
@@ -626,7 +590,6 @@ void main() {
     await tester.tapAt(Offset(title.right - 8, title.center.dy));
     await _ready(tester);
 
-    // Everything that is not the token is still the way into the editor.
     expect(opened, hasLength(1));
     expect(find.byType(TextField), findsOneWidget);
 
@@ -643,8 +606,6 @@ void main() {
     await tester.tap(find.byType(LinkText));
     await _ready(tester);
 
-    // The editor used to be unbounded, which is what let a long item carry the
-    // sheet it was typed in off the screen.
     final field = tester.widget<TextField>(find.byType(TextField));
     expect(field.maxLines, DazzleField.bodyLines);
     expect(field.keyboardType, TextInputType.text);

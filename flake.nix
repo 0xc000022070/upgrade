@@ -173,13 +173,10 @@
             shellHook = ''
               export DAZZLE_BUILD="$(${pkgs.git}/bin/git rev-parse --short HEAD 2>/dev/null || echo dev)"
 
-              # The SDK stays off PATH on purpose: the host adb owns the server,
-              # flutter and gradle reach the SDK through ANDROID_HOME instead.
-              # Store paths change with the flake lock, so these two keys are
-              # rewritten per shell and never committed. Every other key is kept:
-              # `flutter build` writes flutter.versionCode into the same file for
-              # gradle to read back, and a shell opening mid-build used to
-              # truncate it, costing the apk its version.
+              # Only these two keys are rewritten, because store paths move with the
+              # flake lock. Every other key is kept: `flutter build` writes
+              # flutter.versionCode into the same file for gradle to read back, and a
+              # shell opening mid-build used to truncate it, costing the apk its version.
               if [ -d android ]; then
                 props=android/local.properties
                 tmp=$(mktemp "$props.XXXXXX")

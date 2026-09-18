@@ -5,10 +5,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../application/clips.dart';
 
-/// Gallery only, no camera, as many as the user picks, in the order picked.
-/// The picker's own resize is used on the way in; what comes back is then
-/// made a PNG here, because that is the one type the clipboard readers on
-/// the host ask for. Nothing is held: a photo is attached and forgotten.
+/// The picker's own resize is used on the way in; what comes back is then made a PNG
+/// here, because that is the one type the clipboard readers on the host ask for.
 Future<List<Uint8List>> pickPhotos() async {
   final picked = await ImagePicker().pickMultiImage(
     maxWidth: photoAttachEdge,
@@ -22,8 +20,8 @@ Future<List<Uint8List>> pickPhotos() async {
   return photos;
 }
 
-/// Through the engine's own codecs: the picker hands back a JPEG on Android
-/// whenever it resized, and nothing else in the app decodes one.
+/// Through the engine's own codecs: the picker hands back a JPEG on Android whenever it
+/// resized, and nothing else in the app decodes one.
 Future<Uint8List> transcodeToPng(Uint8List bytes) async {
   final codec = await ui.instantiateImageCodec(bytes);
   try {

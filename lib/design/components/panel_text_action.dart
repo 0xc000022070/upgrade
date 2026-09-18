@@ -5,7 +5,6 @@ import '../icons/dazzle_icon.dart';
 import '../icons/dazzle_icons.dart';
 import '../spacing.dart';
 
-/// A verb drawn as a row: an icon and a word, tall enough to tap.
 class PanelTextAction extends StatelessWidget {
   const PanelTextAction({
     super.key,

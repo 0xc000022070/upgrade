@@ -36,8 +36,6 @@ import 'link_text.dart';
 import 'plugin_actions.dart';
 import '../../application/native_plugins.dart';
 
-/// The quick view. Row tap and long press both land here; there is no separate
-/// action sheet any more.
 Future<void> openItemSheet(BuildContext context, String taskId) {
   return showPanelSheet<void>(
     context,
@@ -50,15 +48,6 @@ Future<void> openItemSheet(BuildContext context, String taskId) {
   );
 }
 
-/// The pickers replace this sheet's body instead of opening over it: the app
-/// gets exactly one modal surface, and a sheet stacked on a sheet is the chrome
-/// the design exists to remove.
-///
-/// Sealed rather than an enum because two of the five carry something. The
-/// picked target and the state of the send that followed it used to sit beside
-/// the mode as their own nullable fields, which left three reads writing
-/// `if (target != null)` for a case that cannot happen and two writing
-/// `?? ''` for the same one. A dispatch is not a dispatch without a target.
 sealed class _Mode {
   const _Mode();
 }
@@ -75,15 +64,10 @@ final class _Pair extends _Mode {
   const _Pair();
 }
 
-/// SEND, from the moment it is tapped. What it chooses and where it got to
-/// live in [SendFlow]; the sheet only needs to know it is showing one.
 final class _Send extends _Mode {
   const _Send();
 }
 
-/// What the labelled line over the keyboard strip is holding, or null when
-/// there is none. The body field is the title and only ever the title: a link
-/// and a reason are their own values and are typed on their own line.
 enum _Line {
   link('LINK', 'ATTACH', 'https://'),
   reason('BLOCKED BY', 'BLOCK', 'what is holding it');
@@ -110,26 +94,23 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   bool _editing = false;
   _Line? _line;
 
-  /// A drop's DELETE is off the footer until the breadcrumb is held.
   bool _deleteRevealed = false;
 
   final _field = TextEditingController();
   final _focus = FocusNode();
 
-  /// The line's own text. Kept for the life of the sheet rather than made per
-  /// opening: the strip is an overlay and reads it a frame late.
+  /// Kept for the life of the sheet rather than made per opening: the strip is an overlay
+  /// and reads it a frame late.
   final _lineField = TextEditingController();
 
-  /// Attached to the editing session, not to the row: the title and its
-  /// attachments land together, because they were entered as one thing.
   final _pending = <NewAttachment>[];
 
   @override
   void initState() {
     super.initState();
     _focus.addListener(() {
-      // The line over the strip holds the caret while it is up and the editor
-      // is open behind it: only a caret that left both ends the edit.
+      // The line over the strip holds the caret while it is up and the editor is open behind
+      // it: only a caret that left both ends the edit.
       if (!_focus.hasFocus && _editing && _line == null) _commit();
     });
   }
@@ -142,9 +123,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     super.dispose();
   }
 
-  /// The editor, with the title in it. [line] raises a line over the strip at
-  /// the same time — BLOCK with the keyboard down has a reason to type and
-  /// nowhere to type it.
   void _startEdit(Task task, {_Line? line}) {
     _field.text = task.title;
     _field.selection = TextSelection.collapsed(offset: _field.text.length);
@@ -156,8 +134,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     _focus.requestFocus();
   }
 
-  /// Blur, and every path out of the editor. The title and the attachments land
-  /// together: they were typed as one thing.
   Future<void> _commit() async {
     final value = withoutTrackingInText(_field.text.trim());
     final attachments = List<NewAttachment>.from(_pending);
@@ -179,11 +155,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     }
   }
 
-  /// The IME action on the body field, which is the title and nothing else.
   Future<void> _submit() => _commit();
 
-  /// The link glyph raises the line, prefilled from the clipboard when it holds
-  /// a URL. Nothing is attached until the line says so.
   Future<void> _openLink() async {
     if (_line != null) return _closeLine();
     final url = await urlFromClipboard();
@@ -195,8 +168,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     setState(() => _line = _Line.link);
   }
 
-  /// The keyboard went down with the line still up. The title editor was only
-  /// open because something was being typed, so it closes with it.
   void _dismissLine() {
     _closeLine();
     if (_editing) _commit();
@@ -207,8 +178,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     setState(() => _line = null);
   }
 
-  /// What the line commits, by what it was holding. The keyboard stays: the
-  /// title is still open underneath and was never given up for this.
   Future<void> _commitLine(String value) async {
     final line = _line;
     _closeLine();
@@ -226,13 +195,12 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     }
   }
 
-  /// The gallery, and nothing between it and the chip.
   Future<void> _image() async {
     final path = await ref.read(attachmentFilesProvider).pick();
     if (!mounted || path == null) return;
     setState(() => _pending.add(NewAttachment.image(path)));
-    // The picker took the focus to another activity; without this the strip and
-    // the keyboard do not come back and the chip lands on a dismissed editor.
+    // The picker took the focus to another activity; without this the strip and the keyboard
+    // do not come back and the chip lands on a dismissed editor.
     _focus.requestFocus();
   }
 
@@ -270,9 +238,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     final task = ref.watch(taskProvider(widget.taskId)).valueOrNull;
     final location = ref.watch(itemLocationProvider(widget.taskId)).valueOrNull;
 
-    // The item can be deleted from under the sheet — by this footer, or by a
-    // project delete landing while it is open. Closing beats rendering a frame
-    // of an item that is gone.
+    // The item can be deleted from under the sheet — by this footer, or by a project delete
+    // landing while it is open.
     if (task == null) return const SizedBox.shrink();
 
     switch (_mode) {
@@ -310,8 +277,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
       case _Item():
         return PanelSheetBody(
           title: location?.label ?? 'DROPS',
-          // A drop's footer carries no state verbs, so its delete hangs off
-          // the breadcrumb. The block still confirms in place once revealed.
           onTitleLongPress: _isDrop(task)
               ? () => setState(() => _deleteRevealed = true)
               : null,
@@ -320,26 +285,15 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     }
   }
 
-  /// A drop is text plus
-  /// attachments and it is the *project* that makes it a task. A goal is
-  /// optional grouping: a project task without one keeps every state block, so
-  /// the pre-goal rows already on the user's device stay tasks. The state
-  /// columns are still on the row, and this is the one place that decides
-  /// which of them may be read while the item is unfiled. `done` may; `isNext`,
+  /// The state columns are on the row either way, and this is the one place that decides
+  /// which of them may be read while the item is unfiled: `done` may; `isNext`,
   /// `blockedReason` and `bundleId` may not.
   bool _isDrop(Task task) => task.projectId == null;
 
-  /// A card is a request, and an item that is a wall of links is a list, not
-  /// a page.
   static const _previewLimit = 3;
 
-  /// A URL written into the text is text and leaves no attachment behind, so
-  /// the title is the only place most drops keep their link. A link that is
-  /// both is one card, and it is the attachment's, because only that one can
-  /// be removed.
-  ///
-  /// A page that answered with nothing, or has not answered yet, is absent
-  /// here and keeps the row it already had.
+  /// A link that is both a URL in the text and an attachment is one card, and it is the
+  /// attachment's, because only that one can be removed.
   List<({LinkPreview preview, Attachment? attachment})> _cards(
     Task task,
     List<Attachment> links,
@@ -381,8 +335,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     final images = attachments
         .where((a) => a.kind == AttachmentKind.image)
         .toList();
-    // Newest first, and kept past a move: an item that was sent and then filed
-    // still went somewhere, and the panel is the only place that says where.
+    // Newest first, and kept past a move: an item that was sent and then filed still went
+    // somewhere.
     final dispatches =
         ref.watch(itemDispatchesProvider(widget.taskId)).valueOrNull ??
         const <Dispatch>[];
@@ -434,8 +388,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         const SheetRule(),
         SheetField(
           label: 'IMAGES',
-          // A row of squares, not a list of file names. Tap opens the
-          // viewer, long press removes — the same two gestures as a link row.
           child: SizedBox(
             height: _imageSquare,
             child: ListView.separated(
@@ -495,9 +447,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                         : () => _detach(card.attachment!),
                   ),
                 ),
-              // A link that said nothing about itself keeps the row it always
-              // had. Tap opens, long press removes — the trailing `x` was one
-              // more control in a body that is a readout.
               if (rows.isNotEmpty)
                 ListRowGroup(
                   children: [
@@ -528,10 +477,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-          // Full title, unclipped. This is the one place in the app
-          // where an item's text is not cut to one line — and the one place a
-          // URL inside it is openable: the token takes the tap, the rest of the
-          // text opens the editor.
           child: LinkText(
             task.title,
             style: context.tokens.rowTitleLead.copyWith(
@@ -582,7 +527,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
               onRemove: () => setState(() => _pending.remove(attachment)),
             ),
       ],
-      // Text and links, plus images. Everything else is behind `+`.
       actions: [
         ToolbarAction(
           glyph: ToolbarGlyph.link,
@@ -595,7 +539,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           onTap: () => insertNewline(_field),
         ),
       ],
-      // A drop has one extra verb, the one that stops it being a drop.
       extras: _isDrop(task)
           ? [
               ToolbarAction(
@@ -648,9 +591,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     setState(() => _line = _Line.reason);
   }
 
-  /// The drop as text: the title as it was typed, then a blank line and its
-  /// links. The images stay behind — their value is a path under the app's
-  /// support directory, and nothing outside the app can open it.
+  /// The images stay behind: their value is a path under the app's support directory, and
+  /// nothing outside the app can open it.
   Future<void> _copyText(Task task) async {
     final attachments =
         ref.read(itemAttachmentsProvider(widget.taskId)).valueOrNull ??
@@ -667,30 +609,15 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     );
   }
 
-  /// One row of solid action blocks, for the moment the keyboard is
-  /// down. It wraps rather than scrolls — six verbs do not fit across a phone,
-  /// and a horizontally scrolling row hides the half of them a user is looking
-  /// for.
-  ///
-  /// A drop cuts that row down to DONE, COPY, which takes its text off the
-  /// phone, and MOVE, which is what turns it into a task. DONE and SEND are on
-  /// both: finishing a thing is not a property of where it was put, and filing
-  /// it under a project does not stop an agent picking it up.
-  /// DELETE is not a state, but it is not on the row either — a long press on
-  /// the breadcrumb reveals it.
   Widget _footer(Task task) {
     final tasks = ref.read(taskRepositoryProvider);
     return Wrap(
       spacing: Spacing.md,
       runSpacing: Spacing.md,
       children: [
-        // On every item, filed or not. Finishing a thing is not a property of
-        // where it was put, and a drop the user has dealt with had nowhere to
-        // say so.
         ActionBlock(
           label: task.done ? 'UNDO' : 'DONE',
           tone: context.tokens.accent,
-          // The one commit in the row takes the one accent surface.
           filled: !task.done,
           onTap: () => tasks.setDone(task.id, !task.done),
         ),
@@ -704,8 +631,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                 task.isNext ? tasks.unsetNext(task.id) : tasks.setNext(task.id),
           ),
         ],
-        // First on a drop's row: it is what the text is for, and it is the one
-        // verb here that changes nothing, so it says so in its own label.
         if (_isDrop(task))
           FlashActionBlock(
             label: 'COPY',
@@ -724,9 +649,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ActionBlock(
             label: task.blockedReason == null ? 'BLOCK' : 'UNBLOCK',
             tone: context.tokens.warning,
-            // With the keyboard down there is nowhere to type a reason, so
-            // BLOCK raises the field in reason mode rather than opening an
-            // editor of its own in the body.
             onTap: () => task.blockedReason == null
                 ? _startEdit(task, line: _Line.reason)
                 : tasks.unblock(task.id),
@@ -744,7 +666,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   }
 }
 
-/// A 56px square in the readout.
 class _Square extends ConsumerWidget {
   const _Square({
     required this.attachment,

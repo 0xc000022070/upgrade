@@ -17,8 +17,6 @@ import 'package:dazzle/features/projects/projects_screen.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// The hierarchy on screen: the `PROJECTS N` panel, the breadcrumb, the
-/// subtree number under the title and the `[ PARENT ]` picker's exclusions.
 /// The background ticker never settles, so `pumpAndSettle` is out here too.
 Future<void> _drain(
   WidgetTester tester, {
@@ -55,8 +53,8 @@ void main() {
     child: MaterialApp(theme: testTheme, home: screen),
   );
 
-  /// The form is one long scroll and its ListView only builds what fits, so
-  /// the delete block at the bottom needs a viewport tall enough to reach it.
+  /// The form is one long scroll and its ListView only builds what fits, so the delete
+  /// block at the bottom needs a viewport tall enough to reach it.
   void tall(WidgetTester tester) {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(420, 2400);
@@ -69,8 +67,6 @@ void main() {
   }
 
   Future<List<String>> tree() async {
-    // Every project carries an objective, so its name is the row's kicker and
-    // the row reads the way it is drawn everywhere else.
     final root = await projects.create(name: 'Infra', objective: 'Own it all');
     final child = await projects.create(
       name: 'Homelab',
@@ -93,8 +89,6 @@ void main() {
       await _ready(tester);
 
       expect(find.text('HOMELAB'), findsOneWidget);
-      // The grandchild is reached through HOMELAB, never from here: the
-      // hierarchy is navigational, not an explorer.
       expect(find.text('NETWORKING'), findsNothing);
       await unmount(tester);
     });
@@ -105,7 +99,6 @@ void main() {
 
       await tester.pumpWidget(host(ProjectDetailScreen(projectId: ids[2])));
       await _ready(tester);
-      // The depth stays discoverable on a leaf that already has a parent.
       expect(find.text('NOTHING UNDER THIS PROJECT'), findsOneWidget);
       await unmount(tester);
 
@@ -129,7 +122,6 @@ void main() {
       expect(find.text('PROJECTS'), findsWidgets);
       expect(find.text('INFRA'), findsOneWidget);
       expect(find.text('HOMELAB'), findsOneWidget);
-      // The title already carries the project's own name.
       expect(find.text('NETWORKING'), findsOneWidget);
       expect(find.text('EDIT'), findsOneWidget);
       expect(find.text('ARCHIVE'), findsOneWidget);
@@ -159,7 +151,6 @@ void main() {
       await tester.pumpWidget(host(ProjectDetailScreen(projectId: ids[0])));
       await _ready(tester);
 
-      // Zero tasks of its own, two below it.
       expect(find.text('1 OF 2 TASKS'), findsOneWidget);
       expect(find.text('50%'), findsWidgets);
       await unmount(tester);
@@ -193,11 +184,8 @@ void main() {
       await tester.pumpWidget(host(const ProjectsScreen()));
       await _ready(tester);
 
-      // HOME's capped panel is gone, and the tab it left behind never
-      // truncated: four roots, four rows, no overflow row to count them into.
       expect(find.text('+1 MORE'), findsNothing);
       expect(find.byType(ProjectRow), findsNWidgets(4));
-      // The two descendants are not on this list at all.
       expect(find.text('HOMELAB'), findsNothing);
       await unmount(tester);
     });
@@ -219,7 +207,6 @@ void main() {
       expect(find.text('NONE'), findsOneWidget);
       expect(find.text('INFRA'), findsWidgets);
       expect(find.text('DOTFILES'), findsOneWidget);
-      // Itself and its descendant are absent rather than offered and refused.
       expect(find.text('HOMELAB'), findsNothing);
       expect(find.text('NETWORKING'), findsNothing);
       await unmount(tester);
@@ -234,7 +221,6 @@ void main() {
       );
       await _ready(tester);
 
-      // `INFRA / HOMELAB` under NETWORKING, nothing under a root.
       expect(find.text('INFRA / HOMELAB'), findsOneWidget);
       expect(find.text('INFRA'), findsWidgets);
       await unmount(tester);
@@ -242,10 +228,8 @@ void main() {
   });
 
   group('a breadcrumb segment', () {
-    /// The stack the app really builds: the shell, then one push per level
-    /// walked. A wide view keeps every segment on the row, so the tap lands on
-    /// the ancestor and not on the ellipsis that replaces it when it does not
-    /// fit.
+    /// A wide view keeps every segment on the row, so the tap lands on the ancestor and not
+    /// on the ellipsis that replaces it when it does not fit.
     Future<ProviderContainer> walk(
       WidgetTester tester,
       List<String> ids,
@@ -287,7 +271,6 @@ void main() {
             .projectId,
         ids[0],
       );
-      // The tab is left alone: the stack answered the tap.
       expect(container.read(navIndexProvider), 0);
       await unmount(tester);
     });
@@ -295,15 +278,11 @@ void main() {
     testWidgets('lands on the projects tab when the ancestor is not on the '
         'stack', (tester) async {
       final ids = await tree();
-      // Opened straight at the grandchild, which is what a move leaves behind:
-      // the crumb names a parent this session never walked into.
       final container = await walk(tester, [ids[2]]);
 
       await tester.tap(find.text('HOMELAB'));
       await _ready(tester);
 
-      // The ancestor or the tab is allowed. Unwinding to `isFirst` alone
-      // dropped the user on HOME, which is neither.
       expect(find.byType(ProjectDetailScreen), findsNothing);
       expect(container.read(navIndexProvider), 1);
       await unmount(tester);
@@ -364,7 +343,6 @@ void main() {
         host(ProjectFormScreen(project: await _row(db, ids[2]))),
       );
       await _ready(tester);
-      // The inline confirm, unchanged where nothing else goes with it.
       expect(
         find.text(
           'ITEMS IN THIS PROJECT BECOME DROPS. NOTHING IS DELETED '

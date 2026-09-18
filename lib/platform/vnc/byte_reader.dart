@@ -4,12 +4,8 @@ import 'dart:typed_data';
 
 import 'vnc_failure.dart';
 
-/// Exactly-n reads over a byte stream that arrives in whatever sizes the
-/// tunnel hands over.
-///
-/// RFB is a framed protocol read with a ruler — two bytes here, then a length,
-/// then that many — and an ssh channel delivers packets, not frames. Every
-/// parser in this directory reads through this, so none of them has to hold a
+/// RFB is a framed protocol read with a ruler and an ssh channel delivers packets, not
+/// frames. Every parser in this directory reads through this, so none holds a
 /// partial-message state machine.
 class ByteReader {
   ByteReader(Stream<List<int>> source) {
@@ -25,9 +21,8 @@ class ByteReader {
   final Queue<Uint8List> _chunks = Queue();
   int _available = 0;
 
-  /// How far into [_chunks].first the reads have already got. Kept as an offset
-  /// rather than by re-slicing the head, so a 4 KB packet read two bytes at a
-  /// time costs no copies.
+  /// Kept as an offset rather than by re-slicing the head, so a 4 KB packet read two bytes
+  /// at a time costs no copies.
   int _offset = 0;
   Completer<void>? _pending;
   bool _done = false;
@@ -59,11 +54,8 @@ class ByteReader {
     pending?.complete();
   }
 
-  /// Blocks until [count] bytes have arrived, then returns them.
-  ///
-  /// A stream that ends first is the `stream closed` reason: a handshake cut in
-  /// half and a tunnel dropped mid-frame are the same event from here, and both
-  /// are reported rather than left as a future that never completes.
+  /// A stream that ends first is the `stream closed` reason: a handshake cut in half and a
+  /// tunnel dropped mid-frame are the same event from here.
   Future<Uint8List> read(int count) async {
     while (_available < count) {
       if (_error != null) throw _error!;
@@ -78,7 +70,6 @@ class ByteReader {
   Uint8List _take(int count) {
     if (count == 0) return Uint8List(0);
     final head = _chunks.first;
-    // The common case by far: the next message is already inside one packet.
     if (head.length - _offset >= count) {
       final view = Uint8List.sublistView(head, _offset, _offset + count);
       _offset += count;
@@ -87,8 +78,8 @@ class ByteReader {
         _offset = 0;
       }
       _available -= count;
-      // A view, not a copy — every caller either parses it at once or blits it
-      // into the framebuffer, and a full-screen Raw rect is 8 MB of it.
+      // A view, not a copy — every caller either parses it at once or blits it into the
+      // framebuffer, and a full-screen Raw rect is 8 MB of it.
       return view;
     }
     final out = Uint8List(count);
@@ -120,15 +111,14 @@ class ByteReader {
     return bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3];
   }
 
-  /// RFB's `S32`, which only the encoding numbers use — and only they need the
-  /// sign, `DesktopSize` being -223.
+  /// RFB's `S32`, which only the encoding numbers use — and only they need the sign,
+  /// `DesktopSize` being -223.
   Future<int> readS32() async {
     final bytes = await read(4);
     return ByteData.sublistView(bytes).getInt32(0);
   }
 
-  /// Reads and drops [count] bytes. The colour-map and cut-text messages are
-  /// read to stay in frame and then thrown away.
+  /// The colour-map and cut-text messages are read to stay in frame and then thrown away.
   Future<void> skip(int count) => read(count);
 
   Future<void> close() async {

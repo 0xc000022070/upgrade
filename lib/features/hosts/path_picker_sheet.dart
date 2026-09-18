@@ -13,19 +13,6 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
 
-/// Picks working directories on [host], from the host's own answer.
-///
-/// The list is every git checkout found under the host's standard roots.
-/// Typing a path from memory on a phone keyboard is the thing this
-/// replaces, so the field at the top filters what came back rather than
-/// composing a new path — and the manual entry underneath it is the escape
-/// hatch for a checkout the standard roots do not cover, not the main road.
-///
-/// [multiple] is the difference between registering and re-pointing: a host
-/// with thirty checkouts on it is registered in one pass, and a row that
-/// already exists is pointed somewhere else with a single tap. [taken] is what
-/// the caller already has, kept out of the list so the same directory is not
-/// registered twice.
 Future<List<String>?> showPathPicker(
   BuildContext context, {
   required Host host,
@@ -82,9 +69,6 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
     if (mounted) setState(() => _scan = scan);
   }
 
-  /// Case-insensitive and on the whole path, so `hot` finds
-  /// `~/Projects/github.com/luisnquin/dazzle` by its last segment and `luis`
-  /// finds every checkout under that owner.
   List<String> _matching(List<String> directories) {
     final needle = _filter.text.trim().toLowerCase();
     return [
@@ -130,10 +114,8 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
           ],
         ),
       ],
-      // An empty answer means no checkout was found. The path can still be
-      // typed, and nothing here is broken. A host
-      // whose every checkout is already registered is not this case: that one
-      // keeps the list so the filter and the escape hatch stay reachable.
+      // A host whose every checkout is already registered is not this case: that one keeps the
+      // list so the filter and the escape hatch stay reachable.
       PathScanFound(:final directories) when directories.isEmpty => [
         Text('NO CHECKOUTS REPORTED', style: context.tokens.panelHeader),
         const SizedBox(height: Spacing.lg),
@@ -178,8 +160,6 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
           children: [
             for (final directory in matching)
               ListRow(
-                // The whole row is one line: the owner and the repository,
-                // which is what tells two checkouts of the same name apart.
                 leading: widget.multiple
                     ? Text(
                         _chosen.contains(directory) ? '[x]' : '[ ]',
@@ -222,7 +202,6 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
     ];
   }
 
-  /// One tap: a choice in a multiple pick, the whole answer in a single one.
   void _take(String directory) {
     if (!widget.multiple) {
       Navigator.pop(context, [directory]);

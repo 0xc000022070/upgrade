@@ -62,8 +62,8 @@ void main() {
     child: MaterialApp(theme: testTheme, home: SshScreen()),
   );
 
-  /// The background grain runs off a ticker that never settles, so a test that
-  /// ends with the tree mounted leaves a pending timer and hangs the file.
+  /// The grain runs off a ticker that never settles, so a test that ends with the tree
+  /// mounted leaves a pending timer and hangs the file.
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
@@ -101,8 +101,6 @@ void main() {
 
     expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('NYX'), findsOneWidget);
-    // The Termius line: what the row does with the host, not what the host is.
-    // Its address, key and state are on HOSTS.
     expect(find.text('ssh, luis'), findsNWidgets(2));
     expect(find.text('100.64.0.1:22'), findsNothing);
 
@@ -139,8 +137,6 @@ void main() {
     expect(find.byKey(const ValueKey('shell-card-h2-2')), findsOneWidget);
     expect(find.text('ROSE 1'), findsOneWidget);
     expect(find.text('NYX 2'), findsOneWidget);
-    // The host rows count what is open on them, so the list below the cards
-    // says the same thing about a machine that the cards above it do.
     expect(find.text('1 OPEN'), findsOneWidget);
     expect(find.text('2 OPEN'), findsOneWidget);
 
@@ -186,8 +182,6 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    // The output starts in the top leading corner now, so the mark sits in the
-    // other one.
     final card = tester.getRect(find.byKey(const ValueKey('shell-card-h1-1')));
     final dot = tester.getRect(find.byKey(const ValueKey('shell-dot-h1-1')));
 

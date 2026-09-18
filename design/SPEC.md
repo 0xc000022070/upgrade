@@ -1898,3 +1898,19 @@ Struck: fetching a link when it is filed. It would turn the capture bar into a t
 Struck: sending a crawler's name to get a crawler's page. It is a link preview that lies about who is asking, and the hosts that answer a crawler and not a browser are exactly the ones the endpoint list already covers.
 
 Struck: reading the page inside the app. A card is the answer to *what is this*; the answer to *read it* is the browser, which is where the tap has always gone.
+
+## The source
+
+### The code is read, not narrated
+
+Everything this repository builds from — the Dart, the justfile, the Nix files, the Android glue, the Luau plugins — carries almost no comments. What a thing is called, what it takes and what it hands back is the code's own job; the reasoning that put it there is the commit that made the change and this document. A comment that restates a signature, names a field after its own name, gives a file or a section a heading, narrates the next four lines, or argues a decision the code has already settled is not written, and where one exists it is deleted rather than reworded.
+
+What is written is short and rare: a line or two where the behaviour is not the obvious one — an order that matters, a bound that comes from outside the file, a case that reads like a mistake and is not. It sits on the thing it explains, in plain words, and never grows into a paragraph. Where the explanation needs a paragraph, the code is wrong shape and the paragraph is not the fix.
+
+Directives to a tool are not comments in this sense. `// ignore:`, `// ignore_for_file:` and their kin are instructions the analyzer reads; a bare trailing `//` is how `dart format` is told to leave a hand-laid-out literal alone; and the line above a `just` recipe is the description `just --list` prints. All of them stay, and a recipe keeps exactly one such line, short enough to read as a whole sentence in that listing.
+
+A `library;` directive whose only purpose was to carry a file's doc comment goes when the comment does.
+
+The rule is the app's own source, not every file in the tree. Vendored code under `packages/` is somebody else's work kept close, and a change to one of those files belongs upstream. Generated files are the generator's.
+
+Struck: moving the prose into `///` doc comments. The marker was never what made them too much.

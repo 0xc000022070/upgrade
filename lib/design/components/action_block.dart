@@ -3,13 +3,6 @@ import 'package:flutter/widgets.dart';
 import '../tokens.dart';
 import '../spacing.dart';
 
-/// A confirm block at footer scale. [SolidActionBar] is the full-width commit;
-/// this is the same block sized to its label, so a row of them reads as a
-/// keypad of verbs rather than as a stack of buttons.
-///
-/// [filled] is reserved for a state that is on or an action that
-/// commits; every other block is the same rectangle drawn as a hairline
-/// outline, which keeps one accent surface per row.
 class ActionBlock extends StatelessWidget {
   const ActionBlock({
     super.key,
@@ -31,10 +24,8 @@ class ActionBlock extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        // A [Container] with an `alignment` and no width expands to fill its
-        // constraints, which turned a row of six verbs into six full-width
-        // bars. The sized [Align] centres the label without claiming the
-        // width, so the block is as wide as what it says.
+        // A [Container] with an `alignment` and no width expands to fill its constraints; the
+        // sized [Align] centres the label without claiming the width.
         constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
         padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
         decoration: BoxDecoration(

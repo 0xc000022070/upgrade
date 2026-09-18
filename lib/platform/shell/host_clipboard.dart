@@ -12,19 +12,15 @@ export 'remote_shell.dart'
 import 'remote_shell.dart';
 import 'shell_connection.dart';
 
-/// What can put an image on a host's clipboard, found by asking the host.
 enum ClipboardBackend { wayland, x11, macos, none }
 
-/// The answer to the probe: which backend, why not when none, and the
-/// environment every command on that backend has to
-/// carry, because an exec channel starts with none of the desktop's.
+/// The environment every command on that backend has to carry, because an exec channel
+/// starts with none of the desktop's.
 class HostClipboard {
   const HostClipboard(this.backend, {this.reason, this.environment = const {}});
 
   final ClipboardBackend backend;
 
-  /// Worded for the `CLIPBOARD` row: what is missing, in the words of the
-  /// package that would fix it.
   final String? reason;
 
   final Map<String, String> environment;
@@ -33,7 +29,6 @@ class HostClipboard {
 
   String get label => backend.name.toUpperCase();
 
-  /// `WAYLAND`, or `NONE · no wl-copy`.
   String get line => reason == null ? label : '$label · $reason';
 
   @override
@@ -58,19 +53,10 @@ class HostClipboard {
   String toString() => 'HostClipboard($line $environment)';
 }
 
-/// What the host is asked, once per connection: the kernel, the wayland
-/// socket under the runtime directory when the environment does not name
-/// one, an X display the same way, which of the tools is installed, and —
-/// the part that matters — whether the compositor speaks data-control.
-///
-/// The last one is tested with the consumer's own requirement rather than
-/// inferred from the compositor's name. `wl-paste --watch` refuses outright
-/// on a compositor without the protocol and otherwise sits and waits, so a
-/// one-second `timeout` around it answers 1 on the first and 124 on the
-/// second. An agent that reads the clipboard through `arboard` needs exactly
-/// that protocol, and a compositor without it — GNOME's — is a `NONE` here no
-/// matter what `wl-copy` itself would manage through its focus-stealing
-/// fallback.
+/// The part that matters is the last test: whether the compositor speaks data-control,
+/// asked with the consumer's own requirement rather than inferred from its name.
+/// `wl-paste --watch` refuses outright without the protocol and otherwise sits and
+/// waits, so a one-second `timeout` answers 1 on the first and 124 on the second.
 const probeScript = r'''
 printf 'os=%s\n' "$(uname -s)"
 r="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
@@ -105,9 +91,8 @@ exit 0
 /// The exit `timeout` reports when the command it wrapped was still running.
 const _timedOut = '124';
 
-/// The probe's answer as a backend. Wayland before X11: a wayland session
-/// sets `DISPLAY` too, for XWayland, and the agent's terminal is on the
-/// compositor's clipboard, not XWayland's.
+/// Wayland before X11: a wayland session sets `DISPLAY` too, for XWayland, and the
+/// agent's terminal is on the compositor's clipboard.
 HostClipboard parseProbe(ExecResult result) {
   HostClipboard answer(
     ClipboardBackend backend, {
@@ -115,9 +100,8 @@ HostClipboard parseProbe(ExecResult result) {
     Map<String, String> environment = const {},
   }) => HostClipboard(backend, reason: reason, environment: environment);
   if (!result.ok) {
-    // The script ends in `exit 0`, so a bad exit is the host refusing to run
-    // it at all: a key without exec or a missing `sh`. The row carries what
-    // the host said so the refusal names itself.
+    // The script ends in `exit 0`, so a bad exit is the host refusing to run it at all: a
+    // key without exec or a missing `sh`.
     final code = result.exitCode?.toString() ?? '?';
     final said = (result.err.trim().isEmpty ? result.out : result.err)
         .trim()
@@ -195,13 +179,9 @@ HostClipboard parseProbe(ExecResult result) {
   return answer(ClipboardBackend.none, reason: 'no display server');
 }
 
-/// The command that puts a clip already on the host onto its clipboard, or
-/// null when there is no clipboard to put it on.
-///
-/// Every backend's tool forks to go on serving the selection after the
-/// command returns, so both of its outputs go to `/dev/null`: a child still
-/// holding the channel's pipes would keep the channel from closing, and the
-/// paste is waiting on that close.
+/// Every backend's tool forks to go on serving the selection after the command returns,
+/// so both of its outputs go to `/dev/null`: a child still holding the channel's pipes
+/// would keep the channel from closing, and the paste is waiting on that close.
 String? clipboardCommand(HostClipboard clipboard, String fileName) {
   if (!clipboard.usable) return null;
   final remotePath = remotePathFor(fileName);
@@ -223,8 +203,7 @@ String? clipboardCommand(HostClipboard clipboard, String fileName) {
   return script == null ? null : underSh(script);
 }
 
-/// Runs the probe on a live connection. A channel that fails to open is the
-/// same answer as a probe that did: nothing here can set a clipboard.
+/// A channel that fails to open is the same answer as a probe that did.
 Future<HostClipboard> probeClipboard(ShellConnection connection) async {
   try {
     return parseProbe(await connection.exec(underSh(probeScript)));

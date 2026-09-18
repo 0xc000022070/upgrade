@@ -2,9 +2,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// The Theme section's rule: colour and text style come from context.tokens,
-/// not from the constant classes or a raw literal, anywhere outside the
-/// design layer that defines them.
 const _roots = [
   'lib/features',
   'lib/app',

@@ -1,7 +1,3 @@
-/// The two moments the phone dials a waiting shell again: the app coming back
-/// in front, and a network arriving under it.
-library;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -57,8 +53,8 @@ void main() {
     transport.refuse = null;
     final spent = transport.verifiers.length;
 
-    // A handover straight from wifi to cell is an arrival: the socket on the
-    // old network is dead whether or not the phone was ever without one.
+    // A handover straight from wifi to cell is an arrival: the socket on the old network is
+    // dead whether or not the phone was ever without one.
     await pushNetwork(true);
     await tester.pump();
     await tester.pump();
@@ -79,8 +75,6 @@ void main() {
     transport.refuse = null;
     final spent = transport.verifiers.length;
 
-    // The loss is what put the tab where it is. Dialling over nothing would
-    // spend the fresh schedule for nothing.
     await pushNetwork(false);
     await tester.pump();
     await tester.pump();
@@ -107,8 +101,6 @@ void main() {
     await tester.pump();
     expect(transport.verifiers, hasLength(spent));
 
-    // The phone in a pocket is where the schedule was spent, so this is the
-    // first moment anybody is looking at the tab again.
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     await tester.pump();

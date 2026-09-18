@@ -5,12 +5,8 @@ import 'package:dazzle/features/home/capture_bar.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// The capture and selection bars are the last thing above the system gesture
-/// area on a screen that pins nothing under them, and on device the pill was
-/// sitting on the field. [BottomBarFrame] reads the inset off the MediaQuery it
-/// is given rather than being told about it, which only works because a
-/// Scaffold spends the bottom padding on whichever slot sits lowest: the bar
-/// gets it in the bottom slot, and reads 0 in a body with a nav bar below.
+/// A Scaffold spends the bottom padding on whichever slot sits lowest: the bar gets it in
+/// the bottom slot, and reads 0 in a body with a nav bar below.
 void main() {
   setUp(stubDeviceChannels);
 
@@ -72,8 +68,6 @@ void main() {
       bottomPadding: inset,
       navBarBelow: true,
     );
-    // The nav bar under it took the inset, so a bar that took it again would
-    // float the capture panel half a nav bar above the ground it sits on.
     expect(inseted, bare);
   });
 }

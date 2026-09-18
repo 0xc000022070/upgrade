@@ -1,16 +1,9 @@
 /// Colouring for code, over the vendored grammar engine.
 ///
-/// Two ways in. [highlight] takes one line and never sees the one above it:
-/// a hunk is not a file, the line above a line in a hunk may not be the line
-/// above it in the checkout, and a highlighter that carries a guess over a
-/// hunk boundary is a highlighter that lies. [highlightFile] takes the whole
-/// file, which is the only way a block comment or a string that runs over a
-/// line break is coloured to where it ends.
-///
-/// What the grammar cannot place is left [SyntaxToken.plain], the colour the
-/// whole line used to be. Being wrong is worse than being quiet here: in a
-/// diff the two colours that mean added and removed are the ones the screen
-/// exists for.
+/// [highlight] takes one line and never sees the one above it: the line above a line in a
+/// hunk may not be the line above it in the checkout. [highlightFile] takes the whole
+/// file, which is the only way a block comment or a string that runs over a line break is
+/// coloured to where it ends. What the grammar cannot place is left [SyntaxToken.plain].
 library;
 
 import 'dart:isolate';
@@ -31,14 +24,13 @@ enum SyntaxToken {
 
 typedef SyntaxSpan = ({String text, SyntaxToken token});
 
-/// One of the shipped grammars, by the name highlight.js gives it.
 class SyntaxLanguage {
   const SyntaxLanguage(this.name, {this.blockComments = false});
 
   final String name;
 
-  /// `/* … */` is in the language, which is also what makes a `*` at the head
-  /// of a line on its own a continuation rather than a multiplication.
+  /// `/* … */` is in the language, which is also what makes a `*` at the head of a line on
+  /// its own a continuation rather than a multiplication.
   final bool blockComments;
 
   @override
@@ -80,9 +72,8 @@ const _diff = SyntaxLanguage('diff');
 const _http = SyntaxLanguage('http');
 const _nginx = SyntaxLanguage('nginx');
 
-/// The language a path is in, by its extension or, for the files that have
-/// none, by its name. A file the app does not know is not guessed at: it is
-/// left uncoloured.
+/// By extension or, for the files that have none, by name. A file the app does not know
+/// is not guessed at: it is left uncoloured.
 SyntaxLanguage? languageOf(String path) {
   final name = path.split('/').last.toLowerCase();
   switch (name) {
@@ -142,25 +133,19 @@ SyntaxLanguage? languageOf(String path) {
   };
 }
 
-/// One line, cut into runs of a single colour. A null [language] gives back the
-/// line whole and plain, which is what every line looked like before.
 List<SyntaxSpan> highlight(String line, SyntaxLanguage? language) {
   if (language == null || line.isEmpty) return [_plain(line)];
-  // A line that opens inside a block comment cannot be told from one that
-  // does not, so the two shapes the eye reads as a continuation — a line
-  // whose first non-space is `*`, and one that closes a block — are taken
-  // whole. It is the one guess worth making: doc comments are most of what
-  // a diff shows of a comment.
+  // A line that opens inside a block comment cannot be told from one that does
+  // not, so the two shapes the eye reads as a continuation — a line whose first
+  // non-space is `*`, and one that closes a block — are taken whole.
   if (language.blockComments && _isBlockContinuation(line)) {
     return [(text: line, token: SyntaxToken.comment)];
   }
   return _run(line, language) ?? [_plain(line)];
 }
 
-/// Every line of [text], each cut into runs, coloured with the whole file in
-/// view. Below [inlineBytes] it is done on the spot; above, on another
-/// isolate, so a long file never holds a frame. The result has one entry per
-/// line of `text.split('\n')`, in order.
+/// Below [inlineBytes] on the spot; above, on another isolate, so a long file never holds
+/// a frame. One entry per line of `text.split('\n')`, in order.
 Future<List<List<SyntaxSpan>>> highlightFile(
   String text,
   SyntaxLanguage? language, {
@@ -177,7 +162,6 @@ Future<List<List<SyntaxSpan>>> highlightFile(
   return Isolate.run(() => highlightLines(text, language));
 }
 
-/// [highlightFile], on the calling isolate.
 List<List<SyntaxSpan>> highlightLines(String text, SyntaxLanguage language) {
   final spans = _run(text, language);
   if (spans == null) {
@@ -185,9 +169,9 @@ List<List<SyntaxSpan>> highlightLines(String text, SyntaxLanguage language) {
       for (final line in text.split('\n')) [_plain(line)],
     ];
   }
-  // The runs are cut again at every line break, so a comment that spans
-  // three lines is three comment runs, one per line, and an empty line is an
-  // empty plain run rather than nothing.
+  // The runs are cut again at every line break, so a comment that spans three
+  // lines is three comment runs, one per line, and an empty line is an empty
+  // plain run rather than nothing.
   final lines = <List<SyntaxSpan>>[[]];
   for (final span in spans) {
     final pieces = span.text.split('\n');
@@ -212,15 +196,12 @@ bool _isBlockContinuation(String line) {
   return trimmed.contains('*/') && !trimmed.contains('/*');
 }
 
-/// One engine per isolate, built the first time it is asked for. The grammars
-/// compile themselves in place on first use, so they are not shared across
-/// engines.
+/// One engine per isolate, built the first time it is asked for. The grammars compile
+/// themselves in place on first use, so they are not shared across engines.
 final _engine = highlighterWithAllLanguages();
 
-/// The engine's runs, merged where two neighbours got the same colour. Null
-/// when the engine gave up part way — it swallows a grammar's own errors and
-/// hands back what it had — since a partial colouring is a colouring that
-/// drops text.
+/// Null when the engine gave up part way — it swallows a grammar's own errors and hands
+/// back what it had — since a partial colouring is a colouring that drops text.
 List<SyntaxSpan>? _run(String code, SyntaxLanguage language) {
   final HighlightResult result;
   try {
@@ -243,11 +224,10 @@ List<SyntaxSpan>? _run(String code, SyntaxLanguage language) {
   return length == code.length ? spans : null;
 }
 
-/// What a highlight.js scope is drawn as. The innermost scope that has a
-/// colour wins; one that does not is looked through to the scope around it,
-/// so a string's escape is a string and a keyword inside a function head is
-/// a keyword. The scopes mapped to plain are the ones that stop the walk:
-/// text inside `${…}` is code again, not more of the string.
+/// The innermost scope that has a colour wins; one that does not is looked through to the
+/// scope around it, so a string's escape is a string and a keyword inside a function head
+/// is a keyword. The scopes mapped to plain are the ones that stop the walk: text inside
+/// `${…}` is code again, not more of the string.
 SyntaxToken _tokenOf(List<String> scopes) {
   for (final scope in scopes.reversed) {
     final token = _byScope[scope] ?? _byScope[scope.split('.').first];

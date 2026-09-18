@@ -6,11 +6,6 @@ import '../../design/components/meta.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 
-/// One link drawn as what is at the other end of it. Presentational only: a
-/// link with no answer is not a card with nothing in it, it is the row it
-/// already was, and that is decided by whoever holds the answer.
-///
-/// [preview] is what came back, never a placeholder.
 class LinkPreviewCard extends StatelessWidget {
   const LinkPreviewCard({
     super.key,
@@ -22,8 +17,6 @@ class LinkPreviewCard extends StatelessWidget {
   final LinkPreview preview;
   final VoidCallback? onTap;
 
-  /// Null for a URL written into the title: that text is the item, and there
-  /// is nothing to detach.
   final VoidCallback? onLongPress;
 
   static const imageRatio = 16 / 9;
@@ -81,8 +74,6 @@ class LinkPreviewCard extends StatelessWidget {
     );
   }
 
-  /// `X.COM · FAZT`. The host leads because it is never absent and never
-  /// wrong; what a page calls itself is a nicer word for the same thing.
   String _source() {
     final site = preview.siteName ?? chipLabelFor(preview.url);
     final author = preview.author;

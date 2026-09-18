@@ -4,8 +4,6 @@ import '../tokens.dart';
 import '../spacing.dart';
 import 'meta.dart';
 
-/// A key fact takes the `[ LABEL ]` mono form, so the label
-/// reads as a field name in a readout rather than as a heading.
 class BracketLabel extends StatelessWidget {
   const BracketLabel(this.label, {super.key, required this.value, this.color});
 

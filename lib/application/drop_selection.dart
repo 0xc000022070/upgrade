@@ -2,13 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// A long press on a drop puts its panel into selection mode.
-/// The state lives outside the panel because the bar that acts on it replaces
-/// the capture bar, which is the panel's sibling and not its child.
-///
-/// [scope] names the panel that owns the mode — `home`, or a project's id. One
-/// scope at a time: entering the mode anywhere leaves it everywhere else, which
-/// is what keeps a selection from following the user to another screen.
 class DropSelection {
   const DropSelection(this.scope, this.ids);
   const DropSelection.off() : scope = null, ids = const {};
@@ -35,21 +28,11 @@ class DropSelectionNotifier extends Notifier<DropSelection> {
 
   void begin(String scope, String id) => state = DropSelection(scope, {id});
 
-  /// Holding a fresh row checks every fresh row of that panel in the
-  /// one gesture. The ids are the panel's own — captured into this scope and
-  /// not yet forgotten — so a batch can only ever act on rows that belong to
-  /// it.
   void beginMany(String scope, Set<String> ids) =>
       state = DropSelection(scope, {...ids});
 
-  /// `SELECT` on the header strip enters the same mode with nothing
-  /// checked. It is a separate entry point rather than [begin] with a null id
-  /// because the long press is a gesture *on a row* and always has one.
   void beginEmpty(String scope) => state = DropSelection(scope, const {});
 
-  /// Emptying the set does not leave the mode: un-checking the last row leaves
-  /// the panel selectable with the two verbs disabled. Leaving is the `x` on
-  /// the strip, the back gesture, or finishing an action.
   void toggle(String id) {
     if (!state.active) return;
     final ids = {...state.ids};
@@ -61,14 +44,8 @@ class DropSelectionNotifier extends Notifier<DropSelection> {
     if (state.active) state = const DropSelection.off();
   }
 
-  /// The panel's teardown path, for the case the tab shell cannot see: a
-  /// pushed screen popped while its DROPS panel held a selection.
-  ///
-  /// It is a microtask because a widget's `dispose` runs while Flutter is
-  /// finalizing the tree, and a provider written there would ask an ancestor
-  /// that is already deactivated to rebuild. By the time the microtask runs the
-  /// tree is settled — or the whole container is gone, which is what [_gone]
-  /// answers, since a dead provider cannot be written to.
+  /// A microtask because `dispose` runs while Flutter finalizes the tree, and a provider
+  /// written there asks a deactivated ancestor to rebuild.
   void clearScopeLater(String scope) {
     scheduleMicrotask(() {
       if (_gone) return;
@@ -76,13 +53,8 @@ class DropSelectionNotifier extends Notifier<DropSelection> {
     });
   }
 
-  /// An item deleted or moved from somewhere else must not be acted on by a
-  /// batch that can no longer see it.
-  ///
-  /// What leaves the set is what the panel *stopped* showing, never
-  /// what it has not shown yet. Absence is not removal — a row can be in a set
-  /// before the stream that feeds the panel has delivered it — so the caller
-  /// names the ids that went, and the panel is the only thing that knows.
+  /// What went, never what is missing: a row can be in the set before the stream that
+  /// feeds the panel has delivered it.
   void forget(String scope, Set<String> removed) {
     if (!state.ownedBy(scope)) return;
     final kept = state.ids.where((id) => !removed.contains(id)).toSet();

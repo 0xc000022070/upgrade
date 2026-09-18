@@ -5,9 +5,6 @@ import 'package:dazzle/design/components/panel_sheet.dart';
 
 import 'support/themed_app.dart';
 
-/// The confirm sheet carries body copy when the question cannot say it all in
-/// a header, and carries none when it can.
-
 void main() {
   const message = 'Opening this pane here detaches its other terminal view.';
 

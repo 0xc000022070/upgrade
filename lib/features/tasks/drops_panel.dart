@@ -15,30 +15,6 @@ import '../../design/spacing.dart';
 import 'item_sheet.dart';
 import 'task_row.dart';
 
-/// The panel of goal-less rows, on HOME and inside a project. Holding one turns
-/// the panel's own header strip into a contextual action bar.
-///
-/// Only HOME's rows are drops. Both kinds are a [TaskRow]; [stateful] says
-/// which. A project's DROPS panel holds that project's tasks without a goal,
-/// so those rows carry the lot — checkbox, dim, blocked line, NEXT arrow and
-/// the full quick view. HOME's carry the checkbox and the dim and no more.
-/// The user's own device is full of pre-goal tasks with state; a panel that
-/// hid it was the bug.
-///
-/// [scope] is what tells one DROPS panel from another. Only the panel that owns
-/// the mode draws checkboxes, so entering it on HOME leaves a project's panel
-/// exactly as it was.
-///
-/// `SELECT` on the strip is the same mode, entered with nothing
-/// checked, for the user who does not know the panel answers a long press.
-///
-/// A row captured on this screen keeps an accent age until the user leaves, and
-/// a long press on one of them checks the whole fresh set.
-///
-/// The verbs are off the strip. A header scrolls away with its
-/// panel, so the mode's chrome moved to the bar in the capture bar's slot and
-/// the strip says what it says outside the mode — title and count, with
-/// `SELECT` hidden because the mode it opens is already on.
 class DropsPanel extends ConsumerStatefulWidget {
   const DropsPanel({
     super.key,
@@ -56,11 +32,8 @@ class DropsPanel extends ConsumerStatefulWidget {
   final String title;
   final String empty;
 
-  /// Rows are tasks, not drops: they carry their state and open the full sheet.
   final bool stateful;
 
-  /// Fired by the capture bar of a pushed route, where the nav
-  /// icon that normally takes the landing is not on screen.
   final GlitchController? landing;
 
   final ValueChanged<String>? onCompleted;
@@ -73,29 +46,22 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
   DropSelectionNotifier? _selection;
   FreshDropsNotifier? _fresh;
 
-  /// The ids this panel has actually drawn. A set is pruned against
-  /// what left this, never against what is missing from the list — the capture
-  /// bar marks a row fresh when the write returns, and the stream delivers it
-  /// a frame or more later.
+  /// A set is pruned against what left this, never against what is missing from the list —
+  /// the capture bar marks a row fresh when the write returns, and the stream delivers it a
+  /// frame or more later.
   final _rendered = <String>{};
   bool _showDone = false;
 
   @override
   void dispose() {
-    // A selection never survives a navigation away from its panel. A
-    // pushed route disposes the panel under it; the tab shell clears the mode
-    // itself for the case where the panel stays mounted in an [IndexedStack].
-    // `ref` is unusable here, so the notifier read during build does it.
+    // A pushed route disposes the panel under it; the tab shell clears the mode itself for
+    // the case where the panel stays mounted in an [IndexedStack]. `ref` is unusable here,
+    // so the notifier read during build does it.
     _selection?.clearScopeLater(widget.scope);
-    // The fresh set goes the same way, and the back gesture out of a
-    // project is exactly this path.
     _fresh?.clearScopeLater(widget.scope);
     super.dispose();
   }
 
-  /// Holding a fresh row is a gesture on the set, not on the row —
-  /// every fresh row of this panel goes in. Holding anything else says the set
-  /// is over, and the mode opens on that one row.
   void _hold(String id, Set<String> fresh) {
     final selection = ref.read(dropSelectionProvider.notifier);
     if (fresh.contains(id)) {
@@ -106,7 +72,6 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
     selection.begin(widget.scope, id);
   }
 
-  /// The quick view is a pushed route, which counts as leaving.
   void _open(String id) {
     ref.read(freshDropsProvider.notifier).clear();
     openItemSheet(context, id);
@@ -134,14 +99,9 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
     _fresh = freshNotifier;
     final fresh = ref.watch(freshDropsProvider).idsIn(widget.scope);
 
-    // Rows that left the panel while the mode was on — moved from a sheet,
-    // deleted elsewhere — must not stay in a set the batch will act on. The
-    // fresh set goes the same way, which is what empties it when a batch takes
-    // the last fresh row out.
-    //
-    // The ids that left are the ones this panel drew and no longer
-    // draws. An id it has never drawn is not gone, it has not arrived, and both
-    // sets are written by something that runs ahead of the stream.
+    // The ids that left are the ones this panel drew and no longer draws. An id it has never
+    // drawn is not gone, it has not arrived, and both sets are written by something that
+    // runs ahead of the stream.
     if (widget.drops.hasValue) {
       final present = {for (final task in rows) task.id};
       final removed = _rendered.difference(present);
@@ -163,10 +123,6 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
         mainAxisSize: MainAxisSize.min,
         children: [
           PanelAffordance('${rows.length}', showIcon: false),
-          // The way into the mode without holding a row, next to the
-          // count and tracked like `NEW +`. Hidden on an empty panel — there is
-          // nothing to select — and hidden while the mode is on, where the bar
-          // at the bottom of the screen is what the panel is doing.
           if (rows.isNotEmpty && !selecting) ...[
             const SizedBox(width: Spacing.lg),
             PanelAffordance(
@@ -185,15 +141,10 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
         builder: (items) => ListRowGroup(
           children: [
             for (final task in items)
-              // While the mode is on the box replaces the checkbox in the
-              // leading slot — a selection is not a state of the item — so
-              // both kinds of row look the same in it.
               if (!selecting)
                 TaskRow(
                   key: ValueKey(task.id),
                   task: task,
-                  // HOME's rows are unfiled and show done and nothing else; a
-                  // project's own panel holds tasks and shows the lot.
                   drop: !widget.stateful,
                   fresh: fresh.contains(task.id),
                   onTap: widget.stateful ? null : () => _open(task.id),
@@ -209,20 +160,13 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
                   title: task.title,
                   titleColor: task.done ? context.tokens.textMuted : null,
                   value: relativeAge(task.createdAt),
-                  // The whole highlight: the age in accent instead of the
-                  // dim it has by default. Nothing else on the row moves.
                   valueColor: fresh.contains(task.id)
                       ? context.tokens.accent
                       : null,
                   leading: _SelectionBox(checked: selection.holds(task.id)),
                   leadingWidth: _SelectionBox.width,
-                  // In the mode a tap is the toggle and nothing opens.
                   onTap: () => notifier.toggle(task.id),
-                  // Long-press is the way in and nothing else: once the mode is
-                  // on, holding a row is not a second gesture to learn.
                   onLongPress: null,
-                  // The box is the row's leading edge here, and a tag next to a
-                  // checkbox reads as a second thing to check.
                   trailing: null,
                 ),
           ],
@@ -260,8 +204,6 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
     );
 
     if (!selecting) return panels;
-    // The back gesture leaves the mode with nothing changed. The scope
-    // is the panel's, so the handler is too.
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -272,14 +214,11 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
   }
 }
 
-/// A mono box rather than the row's own checkbox: done is drawn with an icon,
-/// and a selection is not a state of the item.
 class _SelectionBox extends StatelessWidget {
   const _SelectionBox({required this.checked});
 
-  // The box wants 20px; `[x]` at the 12px row size measures ~22, so the slot
-  // is the next step of the 4px rhythm that does not clip the
-  // closing bracket.
+  // The box wants 20px; `[x]` at the 12px row size measures ~22, so the slot is the next
+  // step of the 4px rhythm that does not clip the closing bracket.
   static const width = 24.0;
 
   final bool checked;

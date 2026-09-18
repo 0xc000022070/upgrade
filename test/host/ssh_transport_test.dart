@@ -9,13 +9,6 @@ import 'package:dazzle/platform/shell/shell_tunnel.dart';
 
 import 'fixture.dart';
 
-/// The half of the transport the default tier cannot reach.
-///
-/// Everything above `ShellDialer` is proven against fakes, which is where it
-/// belongs: the socket is the one thing a unit test cannot have. But that
-/// leaves the dial, the handshake, the pty request and the window change
-/// proven by nothing but hand-driving a phone. This is that half, run against
-/// a machine that exists.
 void main() {
   const tunnel = ShellTunnel();
 
@@ -41,8 +34,8 @@ void main() {
     final connection = await open();
     addTearDown(connection.close);
 
-    // The guest's prompt is `%n@%m:%~%#`, so its own hostname is what says the
-    // shell is up and is the one string no echo of ours could have produced.
+    // The guest's prompt is `%n@%m:%~%#`, so its own hostname is the one string no echo of
+    // ours could have produced.
     await readUntil(connection, 'dazzle-host');
     expect(connection.transport, ShellTransport.ssh);
     expect(connection.continuity, ShellContinuity.plain);
@@ -52,9 +45,8 @@ void main() {
     final connection = await open(command: 'stty size', columns: 100, rows: 30);
     addTearDown(connection.close);
 
-    // Rows then columns, which is the order stty prints and the reverse of the
-    // order the request carries them in. A transposed pty request passes every
-    // fake and fails here.
+    // Rows then columns, which is the order stty prints and the reverse of the order the
+    // request carries them in.
     expect(await readUntil(connection, '30 100'), contains('30 100'));
   });
 
@@ -85,8 +77,6 @@ void main() {
 
     expect(result.exitCode, 0);
     expect(result.out, 'beside');
-    // The pty saw none of it: a second channel is the whole reason a clip can
-    // be sent without a line appearing at the user's prompt.
     expect(prompt, isNot(contains('beside')));
   });
 

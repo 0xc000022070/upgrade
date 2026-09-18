@@ -9,9 +9,6 @@ import 'package:dazzle/features/screen_scaffold.dart';
 
 import 'support/themed_app.dart';
 
-/// A text-only action is small to read and big to hit. The
-/// header strip is a row tall, the label stays where it always was, and the
-/// box that answers a finger is the row's height by at least 44.
 Widget _host(Widget child) => Theme(
   data: testTheme,
   child: Directionality(
@@ -23,8 +20,8 @@ Widget _host(Widget child) => Theme(
   ),
 );
 
-/// [SignalText] decodes on entry off a periodic timer; every measurement here
-/// is of the settled strip.
+/// [SignalText] decodes on entry off a periodic timer; every measurement here is of the
+/// settled strip.
 Future<void> _settle(WidgetTester tester) =>
     tester.pump(const Duration(seconds: 1));
 
@@ -36,7 +33,6 @@ Future<void> _drain(WidgetTester tester) async {
 Finder _rowAround(Finder child) =>
     find.ancestor(of: child, matching: find.byType(Row)).first;
 
-/// The pad [PanelAffordance] claims on each side of its label.
 double _padFor(Rect label) =>
     math.max(Spacing.md, (TapTargets.minHeight - label.width) / 2);
 
@@ -95,8 +91,6 @@ void main() {
 
       final button = find.byType(PanelAffordance).at(0);
       final readout = find.byType(PanelAffordance).at(1);
-      // Same box, same left edge: the hit grows, the layout does not, so the
-      // gap a caller puts between two actions is still the gap it drew.
       expect(tester.getSize(button), tester.getSize(readout));
       expect(
         tester.getTopLeft(find.text('VIEW ALL').at(0)).dx,
@@ -163,7 +157,6 @@ void main() {
       await _settle(tester);
 
       final label = tester.getRect(find.byType(PanelAffordance));
-      // The label is the one this rule exists for: narrower than the pad.
       expect(label.width, lessThan(TapTargets.minHeight - 2 * Spacing.md));
       final pad = _padFor(label);
       expect(pad, greaterThan(Spacing.md));
@@ -201,8 +194,6 @@ void main() {
       expect(taps, 1);
       expect(header, 0);
 
-      // The strip still owns everything the action did not claim: the box has
-      // an edge, it is not the whole right half of the strip.
       await tester.tapAt(
         Offset(label.left - _padFor(label) - 2, label.center.dy),
       );
@@ -241,7 +232,6 @@ void main() {
       );
 
       final label = tester.getRect(find.byType(PanelAffordance));
-      // Nothing under the count swallows the strip's own tap.
       await tester.tapAt(Offset(label.left - Spacing.md, label.center.dy));
       await tester.pump();
       expect(header, 1);
@@ -340,8 +330,6 @@ void main() {
       );
       await _settle(tester);
 
-      // The line is the height it is beside a verb, so the title under it does
-      // not sit lower on the screens that carry one.
       final row = tester.getRect(_rowAround(find.text('/ PROJECTS')));
       expect(row.height, TapTargets.minHeight);
 
@@ -384,8 +372,6 @@ void main() {
       final row = tester.getRect(_rowAround(find.text('HOMELAB')));
       final label = tester.getRect(find.text('HOMELAB'));
       expect(row.height, TapTargets.minHeight);
-      // The label sat on the line's centre before it was a target and still
-      // does: the height went to the box, not to the path.
       expect(label.center.dy, moreOrLessEquals(row.center.dy, epsilon: 0.5));
       expect(label.height, lessThan(RowMetrics.minHeight));
 
@@ -395,14 +381,12 @@ void main() {
       }
       expect(opens, 2);
 
-      // Spacing.md past the label, into the ` / ` that separates it from the
-      // segment on its right.
+      // Spacing.md past the label, into the ` / ` that separates it from the segment on its
+      // right.
       await tester.tapAt(Offset(label.right + Spacing.md - 0.5, row.center.dy));
       await tester.pump();
       expect(opens, 3);
 
-      // The last segment is the screen the user is on: no tap, so no box, and
-      // nothing of its neighbour's reaches it.
       final end = tester.getRect(find.text('DNS').first);
       await tester.tapAt(end.center);
       await tester.pump();

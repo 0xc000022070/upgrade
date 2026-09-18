@@ -4,8 +4,6 @@ import '../../data/enums.dart';
 import '../tokens.dart';
 import '../spacing.dart';
 
-/// Bordered, never filled: status is information, not a coloured surface
-/// (accent stays sparse).
 class StatusTag extends StatelessWidget {
   const StatusTag(this.label, {super.key, required Color this.color})
     : projectStatus = null;
@@ -15,8 +13,6 @@ class StatusTag extends StatelessWidget {
       color = null,
       projectStatus = status;
 
-  /// Set directly, or null when built from [projectStatus] — resolved
-  /// against the live tokens in [build].
   final String? label;
   final Color? color;
   final ProjectStatus? projectStatus;

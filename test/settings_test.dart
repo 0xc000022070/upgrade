@@ -35,11 +35,8 @@ Future<void> _ready(WidgetTester tester) =>
 Offset _offsetOf(WidgetTester tester) =>
     tester.widget<StaticBackground>(find.byType(StaticBackground)).offset.value;
 
-/// The fill behind a picker row is the whole statement of which value is
-/// current: the selected row is the accent block, everything else is a plain
-/// row with no decoration of its own.
-/// A second row reading OFF sits on this screen, so the static picker is
-/// addressed inside its own panel rather than by the word alone.
+/// A second row reading OFF sits on this screen, so the static picker is addressed inside
+/// its own panel rather than by the word alone.
 Finder _inStatic(String label) => find.descendant(
   of: find.ancestor(of: find.text('[ STATIC ]'), matching: find.byType(Panel)),
   matching: find.text(label),
@@ -76,9 +73,8 @@ void main() {
     await db.close();
   });
 
-  /// The background timer outlives the test otherwise: the binding checks for
-  /// pending timers after the body, and the driver only cancels its own on
-  /// dispose.
+  /// The binding checks for pending timers after the body, and the driver only cancels its
+  /// own on dispose.
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
@@ -105,7 +101,6 @@ void main() {
     expect(find.text('[ STATIC ]'), findsOneWidget);
     expect(find.text('[ THEME ]'), findsOneWidget);
     expect(find.text('[ BUILD ]'), findsOneWidget);
-    // The route has no nav bar of its own; the two tabs stay where they are.
     expect(find.text('PROJECTS'), findsNothing);
     await unmount(tester);
   });
@@ -118,8 +113,6 @@ void main() {
 
     expect(_isBlock(tester, 'ON'), isTrue);
     expect(_isBlock(tester, 'OFF'), isFalse);
-    // Nothing is written until the user says so: the default is the absence of
-    // a row, not a row holding the default.
     expect(
       await (db.select(
         db.settings,
@@ -159,7 +152,6 @@ void main() {
 
     expect(_isBlockIn(tester, _inTheme('HOUSE')), isTrue);
     expect(_isBlockIn(tester, _inTheme('SYSTEM')), isFalse);
-    // Nothing is written until the user says so, the same as [ STATIC ].
     expect(
       await (db.select(
         db.settings,
@@ -202,8 +194,6 @@ void main() {
     await tester.pump(Effects.staticStep * 4);
     expect(_offsetOf(tester), parked);
 
-    // And the switch is live: turning it back on starts the grain without a
-    // remount.
     await settings.setFlag(SettingsRepository.staticEnabled, true);
     await _ready(tester);
     await tester.pump(Effects.staticStep);
@@ -217,8 +207,8 @@ void main() {
     await tester.pumpWidget(host(const SettingsScreen()));
     await _ready(tester);
 
-    // No --dart-define under `flutter test`, and the stub device channel does
-    // not answer `build`: the line says `dev` rather than inventing a version.
+    // No --dart-define under `flutter test`, and the stub device channel does not answer
+    // `build`.
     expect(find.text('dev'), findsOneWidget);
     await unmount(tester);
   });

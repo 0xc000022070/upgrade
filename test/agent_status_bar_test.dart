@@ -42,9 +42,8 @@ AgentSnapshot agent(String name, String status) => AgentSnapshot(
 HostOutcome answering(List<AgentSnapshot> agents, {Host on = nyx}) =>
     HostOutcome(host: on, kind: AgentOutcomeKind.snapshot, agents: agents);
 
-/// What a phone hands over when the reader raises the text size: a curve, not a
-/// factor, which gives a small size most of the rise and a large one almost
-/// none.
+/// What a phone hands over when the reader raises the text size: a curve, not a factor,
+/// which gives a small size most of the rise and a large one almost none.
 class _SystemCurve implements TextScaler {
   const _SystemCurve();
 
@@ -98,7 +97,6 @@ Future<void> pumpBar(
   await tester.pump();
 }
 
-/// The colour of the block at the head of the line.
 Color mark(WidgetTester tester) => tester
     .widget<ColoredBox>(
       find.descendant(
@@ -108,7 +106,6 @@ Color mark(WidgetTester tester) => tester
     )
     .color;
 
-/// Whatever the bar put on its one line, or null when there is no bar.
 String? line(WidgetTester tester) {
   final texts = tester
       .widgetList<Text>(find.byType(Text))
@@ -131,8 +128,6 @@ void main() {
         ]),
       ]);
 
-      // All four states herdr classifies, blocked first because it is the count
-      // about to cost the user something.
       expect(line(tester), '1 BLOCKED · 1 WORKING · 1 DONE · 1 IDLE');
     });
 
@@ -162,8 +157,6 @@ void main() {
         answering([agent('claude', 'idle'), agent('codex', 'idle')]),
       ]);
 
-      // Height is the scarce thing on this window, and a row reporting that
-      // there is nothing to report is the row the reader stops seeing.
       expect(find.byKey(const ValueKey('agent-status')), findsNothing);
     });
 
@@ -172,9 +165,6 @@ void main() {
         answering([agent('claude', 'done')]),
       ]);
 
-      // Nothing is running, so the shade's tally is empty and the corner window
-      // is disarmed. An agent that finished at three in the morning is still
-      // the thing the phone is picked up to find out.
       expect(line(tester), '1 DONE');
     });
 
@@ -183,10 +173,6 @@ void main() {
         answering([agent('claude', 'working')]),
       ], live: false);
 
-      // The feed keeps its last value after the poll behind it stops, so the
-      // count is still there to be drawn. With the watcher off and HOME behind
-      // another tab nothing is dialling, and `1 WORKING` from an hour ago is
-      // worse than no line.
       expect(find.byKey(const ValueKey('agent-status')), findsNothing);
     });
 
@@ -204,10 +190,6 @@ void main() {
         answering([agent('claude', 'working')], on: rose),
       ]);
 
-      // The shade drops its tally under a failure because the count it could
-      // draw came off the host that went away. This count is taken over the
-      // hosts that answered, so both are true at once and the bar has the width
-      // to say both.
       expect(line(tester), 'NYX UNREACHABLE · 1 WORKING');
     });
 
@@ -218,9 +200,6 @@ void main() {
         HostOutcome(
           host: nyx,
           kind: AgentOutcomeKind.unreachable,
-          // The watcher sends the last agents a host was seen with so that a
-          // blink does not empty the panel. Counting those is counting work the
-          // app has lost sight of.
           agents: [agent('claude', 'working'), agent('codex', 'blocked')],
         ),
       ]);
@@ -234,9 +213,6 @@ void main() {
         HostOutcome(host: rose, kind: AgentOutcomeKind.unreachable),
       ]);
 
-      // `KEY REJECTED +1` on a surface that shows one failure and counts the
-      // rest does not say which machine, and nothing else on this screen does
-      // either.
       expect(line(tester), 'NYX · KEY REJECTED +1');
     });
 
@@ -278,8 +254,6 @@ void main() {
         answering([agent('claude', 'blocked')], on: rose),
       ]);
 
-      // A machine nobody can reach is the app failing to look, and an agent
-      // stopped at a question is the user being waited on.
       expect(mark(tester), DazzleColors.accent);
     });
 
@@ -295,9 +269,6 @@ void main() {
 
       expect(await mark(null), agentStatusMarkSize);
 
-      // A phone does not raise every size by the same factor. Held at the size
-      // it was drawn at, the block shrank against its own text until it read as
-      // a speck of dust on the bar.
       expect(await mark(const _SystemCurve()), agentStatusMarkSize * 2);
     });
   });
@@ -336,8 +307,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('agent-status')));
     await tester.pump();
 
-    // The count is not the answer: a blocked agent is answered in the pane it
-    // is blocked in, and the panel is the door to it.
     expect(container.read(navIndexProvider), 0);
   });
 }

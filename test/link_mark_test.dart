@@ -21,9 +21,6 @@ import 'package:dazzle/features/tasks/task_row.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// A row says it has links; it does not say what they are. The mark is for
-/// attachments only — a URL written into the title is already on the row in
-/// full, and marking it there would say the same thing twice.
 Future<void> _ready(WidgetTester tester) async {
   for (var i = 0; i < 6; i++) {
     await tester.runAsync(
@@ -35,8 +32,8 @@ Future<void> _ready(WidgetTester tester) async {
 
 final _mark = find.byIcon(ToolbarGlyph.link.icon);
 
-/// Every asset icon reaches the tree through [DazzleIcon], which names the
-/// glyph rather than carrying font data to match on.
+/// Every asset icon reaches the tree through [DazzleIcon], which names the glyph rather
+/// than carrying font data to match on.
 final _arrow = find.byWidgetPredicate(
   (widget) => widget is DazzleIcon && widget.icon == DazzleIcons.forward,
 );
@@ -87,8 +84,6 @@ void main() {
     await tester.pumpWidget(host(await load(tester, id)));
     await _ready(tester);
 
-    // A count of one is the glyph itself: `1` next to it reads as a number
-    // the row is reporting rather than as how many links there are.
     expect(_mark, findsOneWidget);
     expect(find.text('1'), findsNothing);
 
@@ -148,7 +143,6 @@ void main() {
 
     expect(_mark, findsOneWidget);
     expect(_arrow, findsOneWidget);
-    // The arrow is the trailing edge; the mark is the column before it.
     expect(tester.getCenter(_mark).dx, lessThan(tester.getCenter(_arrow).dx));
 
     await unmount(tester);

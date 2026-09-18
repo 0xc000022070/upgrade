@@ -45,10 +45,19 @@ void main() {
     test('every text role is recoloured but keeps its house shape', () {
       final tokens = dazzleTokensFromScheme(scheme);
       expect(tokens.screenTitle.color, scheme.onSurface);
-      expect(tokens.screenTitle.fontFamily, DazzleTokens.house.screenTitle.fontFamily);
-      expect(tokens.screenTitle.fontSize, DazzleTokens.house.screenTitle.fontSize);
+      expect(
+        tokens.screenTitle.fontFamily,
+        DazzleTokens.house.screenTitle.fontFamily,
+      );
+      expect(
+        tokens.screenTitle.fontSize,
+        DazzleTokens.house.screenTitle.fontSize,
+      );
       expect(tokens.heroPercent.color, scheme.primary);
-      expect(tokens.panelHeader.color, isNot(DazzleTokens.house.panelHeader.color));
+      expect(
+        tokens.panelHeader.color,
+        isNot(DazzleTokens.house.panelHeader.color),
+      );
     });
 
     test('code and diff palettes stay the house palette', () {
@@ -90,8 +99,10 @@ void main() {
         darkDynamic: null,
       );
       expect(tokens.brightness, Brightness.dark);
-      // A seed still produces a full, usable set of chrome colours.
-      expect(tokens.backgroundPrimary, isNot(DazzleTokens.house.backgroundPrimary));
+      expect(
+        tokens.backgroundPrimary,
+        isNot(DazzleTokens.house.backgroundPrimary),
+      );
     });
   });
 }

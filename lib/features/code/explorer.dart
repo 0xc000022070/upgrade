@@ -22,16 +22,6 @@ import 'syntax.dart';
 import 'syntax_style.dart';
 import 'workspace_controller.dart';
 
-/// The workspace laid out the way an IDE is: a sidebar holding the tree, an
-/// editor holding the open files under a row of tabs.
-///
-/// Nothing here swaps a list for a file and back. A file opened is a tab and
-/// stays one; the tree keeps its open directories while a file is read.
-/// Folded and unfolded are one layout: unfolded the sidebar and the editor
-/// share the width, folded the editor has it and the sidebar is a drawer over
-/// it. A fold changes the widths and nothing else, so the tabs, the drawer
-/// and the open directories are the same widgets at every width — a wrapper
-/// inserted at a breakpoint would discard the state under it.
 class Explorer extends ConsumerStatefulWidget {
   const Explorer({super.key, required this.controller});
 
@@ -41,32 +31,25 @@ class Explorer extends ConsumerStatefulWidget {
   ConsumerState<Explorer> createState() => _ExplorerState();
 }
 
-/// One open file: what it says, its colours and its marks, kept for the
-/// screen's life so switching back to it costs the host nothing.
 class _Tab {
   _Tab(this.path);
 
   final String path;
 
-  /// The cell on the tab row, for the row to scroll it into view.
   final key = GlobalKey();
 
   String? text;
   bool failed = false;
 
-  /// The text cut into coloured runs, one list per line. Null until the
-  /// colouring lands, which for a long file is a moment after the text does,
+  /// Null until the colouring lands, which for a long file is a moment after the text does,
   /// and for a file the app has no grammar for is never.
   List<List<SyntaxSpan>>? spans;
 
-  /// The gutter's marks by line number, or null while the hunks are still
-  /// coming or for a file that has no change to mark.
   Map<int, LineMark>? marks;
 
   /// Which block of marked lines PREV and NEXT last landed on; -1 is none yet.
   int visit = -1;
 
-  /// One key per marked line, so NEXT can ask the scroll view for it.
   final markKeys = <int, GlobalKey>{};
 
   String get name => path.split('/').last;
@@ -76,7 +59,6 @@ class _ExplorerState extends ConsumerState<Explorer> {
   /// The directories drawn open, by path from the root. The root always is.
   final _expanded = <String>{''};
 
-  /// Every listing asked for so far, kept for the screen's life.
   final _listings = <String, List<DirEntry>>{};
 
   /// The directories whose listing failed; closing and reopening asks again.
@@ -85,20 +67,17 @@ class _ExplorerState extends ConsumerState<Explorer> {
   final _tabs = <_Tab>[];
   int _active = -1;
 
-  /// Folded, whether the sidebar is over the editor. Open until a file is
-  /// picked, so the tree is the first thing seen on a phone.
   bool _drawer = true;
 
-  /// The sidebar drawn as the flat list of changed files rather than the tree.
   bool _changedOnly = false;
 
-  /// Every directory asked for, answered or not, so a listing in flight is
-  /// not asked for twice — by a directory closed and opened again, or by the
-  /// connection coming up under a tree that has already started.
+  /// Every directory asked for, answered or not, so a listing in flight is not asked for
+  /// twice — by a directory closed and opened again, or by the connection coming up under a
+  /// tree that has already started.
   final _asked = <String>{};
 
-  /// The checkout on screen. The toolbar can point the sheet at a sibling
-  /// worktree, and what is drawn here belonged to the one it left.
+  /// The checkout on screen. The toolbar can point the sheet at a sibling worktree, and
+  /// what is drawn here belonged to the one it left.
   late String _directory = widget.controller.directory;
 
   @override
@@ -114,9 +93,9 @@ class _ExplorerState extends ConsumerState<Explorer> {
     super.dispose();
   }
 
-  /// Nothing is asked for while the connection is still coming up: a listing
-  /// asked of a workspace that has nobody to ask comes back as a failure, and
-  /// the root would be marked unreadable before the handshake had landed.
+  /// Nothing is asked for while the connection is still coming up: a listing asked of a
+  /// workspace that has nobody to ask comes back as a failure, and the root would be marked
+  /// unreadable before the handshake had landed.
   void _onWorkspace() {
     if (widget.controller.directory != _directory) {
       _directory = widget.controller.directory;
@@ -125,8 +104,8 @@ class _ExplorerState extends ConsumerState<Explorer> {
     if (widget.controller.phase == WorkspacePhase.ready) _list('');
   }
 
-  /// Back to an explorer that has read nothing, keeping the seam's width and
-  /// which half of the switch is on: they are the user's, not the checkout's.
+  /// The seam's width and which half of the switch is on are kept: they are the user's, not
+  /// the checkout's.
   void _clear() {
     _expanded
       ..clear()
@@ -139,9 +118,7 @@ class _ExplorerState extends ConsumerState<Explorer> {
     _drawer = true;
   }
 
-  /// What REFRESH on the FILES panel does: the status the marks are read off,
-  /// and every listing the tree is drawn from, asked for again. The open
-  /// directories stay open — they are where the user is, not what was read.
+  /// The open directories stay open — they are where the user is, not what was read.
   void _refresh() {
     unawaited(widget.controller.refresh());
     setState(() {
@@ -161,8 +138,8 @@ class _ExplorerState extends ConsumerState<Explorer> {
     setState(() {
       if (entries == null) {
         _failed.add(directory);
-        // A directory that answered nothing is asked again when it is opened
-        // again; one that answered is kept for the sheet's life.
+        // A directory that answered nothing is asked again when it is opened again; one
+        // that answered is kept for the sheet's life.
         _asked.remove(directory);
       } else {
         _listings[directory] = entries;
@@ -182,7 +159,6 @@ class _ExplorerState extends ConsumerState<Explorer> {
 
   _Tab? get _tab => _active < 0 ? null : _tabs[_active];
 
-  /// A file already open is gone to, not read again.
   void _read(String path) {
     final index = _tabs.indexWhere((tab) => tab.path == path);
     if (index >= 0) {
@@ -211,8 +187,6 @@ class _ExplorerState extends ConsumerState<Explorer> {
       tab.failed = text == null;
     });
     if (text == null) return;
-    // The colours and the marks are two answers with nothing between them, so
-    // they are asked for together and each lands when it lands.
     final language = languageOf(tab.path);
     if (language != null) {
       unawaited(
@@ -229,7 +203,6 @@ class _ExplorerState extends ConsumerState<Explorer> {
     setState(() => tab.marks = changeMarks(lines));
   }
 
-  /// Scrolls the tab row to the tab on screen once it has been laid out.
   void _reveal() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final target = _tab?.key.currentContext;
@@ -256,14 +229,11 @@ class _ExplorerState extends ConsumerState<Explorer> {
 
   WorkspaceOverview? get _overview => widget.controller.overview;
 
-  /// Every change the checkout reports, by path from the root.
   Map<String, WorkspaceChange> get _changes => {
     for (final change in _overview?.status.changes ?? const <WorkspaceChange>[])
       change.path: change,
   };
 
-  /// The change list's row for a path, which carries the counts and is what
-  /// the diff sheet is opened on. Null for a clean file.
   WorkspaceFile? _changedFile(String path) {
     for (final file in _overview?.files ?? const <WorkspaceFile>[]) {
       if (file.path == path) return file;
@@ -271,14 +241,10 @@ class _ExplorerState extends ConsumerState<Explorer> {
     return null;
   }
 
-  /// Whether the sidebar and the editor share the width, or the sidebar is a
-  /// drawer over it. The one place the fold is read.
   bool _wide(BuildContext context) =>
       MediaQuery.sizeOf(context).width - 2 * Spacing.screenEdge >=
       Layout.columnMax;
 
-  /// Folded, the drawer over a file is a thing to close before leaving; over
-  /// nothing it is the screen, and back leaves.
   bool get _drawerOverFile => _drawer && _tabs.isNotEmpty;
 
   void _back(bool wide) {
@@ -292,8 +258,8 @@ class _ExplorerState extends ConsumerState<Explorer> {
   @override
   Widget build(BuildContext context) {
     final wide = _wide(context);
-    // The seam a finger is on is let go the moment the row says the same
-    // thing, so a width written here is also the width drawn on the next open.
+    // The seam a finger is on is let go the moment the row says the same thing, so a
+    // width written here is also the width drawn on the next open.
     for (final seam in PaneSeam.values) {
       ref.listen(paneShareProvider(seam), (_, next) {
         if (_held == seam && next.valueOrNull == _heldShare) {
@@ -308,8 +274,8 @@ class _ExplorerState extends ConsumerState<Explorer> {
         if (!didPop) _back(wide);
       },
       child: Padding(
-        // The foot stands clear of the phone's own gesture bar: a row under
-        // the bar that swipes the sheet away is a row nobody can tap.
+        // The foot stands clear of the phone's own gesture bar: a row under the bar
+        // that swipes the sheet away is a row nobody can tap.
         padding: EdgeInsets.fromLTRB(
           Spacing.screenEdge,
           Spacing.lg,
@@ -322,8 +288,6 @@ class _ExplorerState extends ConsumerState<Explorer> {
   }
 
   Widget _panes(bool wide, Map<PaneSeam, double> share) {
-    // The badges and the marks are read off the workspace's own status, so a
-    // REFRESH on the screen behind redraws them here.
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) => wide
@@ -332,10 +296,9 @@ class _ExplorerState extends ConsumerState<Explorer> {
     );
   }
 
-  /// The seam whose share the finger is holding, and what it holds. Held on
-  /// past the lift, until the preferences row comes back saying the same
-  /// thing, so the panes do not jump back to the old width while the write is
-  /// in flight.
+  /// The seam whose share the finger is holding, and what it holds. Held on past the lift,
+  /// until the preferences row comes back saying the same thing, so the panes do not jump
+  /// back to the old width while the write is in flight.
   PaneSeam? _held;
   double _heldShare = 0;
 
@@ -358,8 +321,7 @@ class _ExplorerState extends ConsumerState<Explorer> {
     setState(() => _heldShare = next);
   }
 
-  /// The write happens on the lift, once, rather than on every frame of the
-  /// drag: the row is one number, and nothing reading it needs sixty of them.
+  /// The write happens on the lift, once, rather than on every frame of the drag.
   void _seamDropped() {
     final seam = _held;
     if (seam == null) return;
@@ -407,9 +369,9 @@ class _ExplorerState extends ConsumerState<Explorer> {
               child: FractionallySizedBox(
                 widthFactor: share,
                 heightFactor: 1,
-                // The drawer's own right edge is its seam, so the grip rides
-                // inside the width it moves rather than out over the scrim,
-                // where a touch means close and not drag.
+                // The drawer's own right edge is its seam, so the grip rides inside the
+                // width it moves rather than out over the scrim, where a touch means
+                // close and not drag.
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -466,10 +428,6 @@ class _ExplorerState extends ConsumerState<Explorer> {
     );
   }
 
-  /// The tree from the root down through every open directory, with the
-  /// checkout's word on each row: a letter on a changed file, a count on a
-  /// directory with changes under it, and a row for a file that was deleted
-  /// and so is not in any listing at all.
   Widget _treeRows(Map<String, WorkspaceChange> changes) {
     if (!_listings.containsKey('')) {
       return Padding(
@@ -580,8 +538,6 @@ class _ExplorerState extends ConsumerState<Explorer> {
     }
   }
 
-  /// A word where a directory's entries would be, while they are coming or
-  /// when they never came.
   Widget _note(String word, int depth) => ListRow(
     title: word,
     leading: const SizedBox.shrink(),
@@ -589,13 +545,10 @@ class _ExplorerState extends ConsumerState<Explorer> {
     titleColor: context.tokens.textMuted,
   );
 
-  /// One step further in per level, taken out of the row's glyph slot so the
-  /// rule under the row still runs the panel's width.
+  /// One step further in per level, taken out of the row's glyph slot so the rule under the
+  /// row still runs the panel's width.
   static double _indent(int depth) => depth * Spacing.xl;
 
-  /// Every changed file in the checkout, flat, with the counts the workspace
-  /// screen shows. A tap opens the file, or the diff for a file that is not
-  /// there to open any more.
   Widget _changedRows() {
     final files = _overview?.files ?? const <WorkspaceFile>[];
     if (files.isEmpty) {
@@ -652,8 +605,6 @@ class _ExplorerState extends ConsumerState<Explorer> {
     );
   }
 
-  /// The open files, one cell each, and folded the word that opens the
-  /// drawer at the head of them.
   Widget _tabRow({required bool wide}) {
     final changes = _changes;
     return SizedBox(
@@ -705,8 +656,6 @@ class _ExplorerState extends ConsumerState<Explorer> {
     );
   }
 
-  /// The line under the tabs on a changed file: what kind of change it is,
-  /// how many places, and the three marks that walk them.
   Widget _strip(_Tab tab, WorkspaceFile file) {
     final marks = tab.marks;
     final blocks = marks == null ? const <int>[] : markBlocks(marks);
@@ -743,7 +692,6 @@ class _ExplorerState extends ConsumerState<Explorer> {
     );
   }
 
-  /// A mark, with the word it stands for on its node for a screen reader.
   Widget _verb(DazzleIcons icon, String label, VoidCallback onTap) => Semantics(
     container: true,
     button: true,
@@ -767,7 +715,6 @@ class _ExplorerState extends ConsumerState<Explorer> {
     ),
   );
 
-  /// One block along, wrapping at either end, and scrolled to by its head.
   void _step(_Tab tab, List<int> blocks, int by) {
     setState(() => tab.visit = (tab.visit + by) % blocks.length);
     final target = tab.markKeys[blocks[tab.visit]]?.currentContext;
@@ -819,7 +766,6 @@ class _ExplorerState extends ConsumerState<Explorer> {
   }
 }
 
-/// The checkout's one-letter word on a file.
 String _letter(WorkspaceChangeKind kind) => switch (kind) {
   WorkspaceChangeKind.modified => 'M',
   WorkspaceChangeKind.added => 'A',
@@ -829,14 +775,9 @@ String _letter(WorkspaceChangeKind kind) => switch (kind) {
   WorkspaceChangeKind.conflicted => '!',
 };
 
-/// One cell on the tab row: the file's name, the checkout's letter when it
-/// has one, and the cross that closes it. The underline is the whole of what
-/// marks the tab on screen beyond its ink, the way the shell's tabs do it.
-/// The seam between the two panes, as something a finger can take.
-///
-/// The bar down the middle is what says so; the box around it is wider than
-/// the bar because a hairline is not a touch target. It is `opaque` so that the
-/// drag begins on the gap itself and not only on the mark drawn in it.
+/// The seam between the two panes, as something a finger can take. The box around the bar
+/// is wider than the bar because a hairline is not a touch target, and it is `opaque` so
+/// the drag begins on the gap itself and not only on the mark drawn in it.
 class _Grip extends StatelessWidget {
   const _Grip({
     required this.onGrab,
@@ -954,11 +895,6 @@ class _TabCell extends StatelessWidget {
   }
 }
 
-/// The file, unwrapped and scrolling both ways, in the same mono the diff uses
-/// and coloured by the same grammars, with the whole file in view so a block
-/// comment is a comment to where it ends. A gutter of line numbers, and
-/// beside each one the checkout's mark on it. This is a file being read, not
-/// a file being edited.
 class _FileBody extends StatelessWidget {
   const _FileBody({
     super.key,
@@ -970,14 +906,12 @@ class _FileBody extends StatelessWidget {
 
   final String text;
 
-  /// One list of runs per line, or null while the colouring is still coming
-  /// or never will, in which case every line is drawn plain.
+  /// Null while the colouring is still coming or never will, in which case every line is
+  /// drawn plain.
   final List<List<SyntaxSpan>>? spans;
 
-  /// The gutter's marks by line number. Null draws the numbers alone.
   final Map<int, LineMark>? marks;
 
-  /// Filled here, one key per marked line, for NEXT and PREV to scroll to.
   final Map<int, GlobalKey> keys;
 
   @override
@@ -986,9 +920,9 @@ class _FileBody extends StatelessWidget {
     final lines = text.split('\n');
     final spans = this.spans;
     final marks = this.marks ?? const <int, LineMark>{};
-    // Every row is one line of the same face, so one measurement is the
-    // height of all of them, and the gutter can be a fixed box beside each
-    // rather than a second column measured against the first.
+    // Every row is one line of the same face, so one measurement is the height of
+    // all of them, and the gutter can be a fixed box beside each rather than a
+    // second column measured against the first.
     final painter = TextPainter(
       text: TextSpan(text: '0', style: style),
       textDirection: TextDirection.ltr,
@@ -1000,8 +934,8 @@ class _FileBody extends StatelessWidget {
     for (final line in marks.keys) {
       keys.putIfAbsent(line, GlobalKey.new);
     }
-    // A deletion past the last line — the file used to go on — sits on the
-    // last line there is.
+    // A deletion past the last line — the file used to go on — sits on the last
+    // line there is.
     LineMark? markAt(int line) =>
         marks[line] ??
         (line == lines.length && marks[line + 1] == LineMark.deleted
@@ -1075,9 +1009,6 @@ class _FileBody extends StatelessWidget {
   }
 }
 
-/// The bar between the number and the line: the accent down an added line,
-/// the warning down a changed one, a thin line of danger along the top where
-/// lines were taken out, and nothing on a line the checkout has no word on.
 class _Mark extends StatelessWidget {
   const _Mark({required this.mark, required this.height});
 
@@ -1111,8 +1042,6 @@ class _Mark extends StatelessWidget {
   }
 }
 
-/// Bytes as one short word. Sizes here are a hint about what a tap will cost,
-/// not an accounting, so one decimal is one more than anybody needs.
 String _sizeWord(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).round()} K';

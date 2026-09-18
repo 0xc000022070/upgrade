@@ -14,9 +14,6 @@ import '../shell/shell_sessions.dart';
 import '../shell/shell_status.dart';
 import '../shell/shell_watcher.dart';
 
-/// What is running, and what to run it on: the shells the app is holding, then
-/// the machines a new one starts on. The tab is the sessions — a host is
-/// registered and edited on HOSTS, and reached from here only to be dialled.
 class SshScreen extends ConsumerWidget {
   const SshScreen({super.key});
 
@@ -35,23 +32,16 @@ class SshScreen extends ConsumerWidget {
   }
 }
 
-/// `ACTIVE SESSIONS`: every session across every host as a live miniature,
-/// above the list the user starts one from.
-///
-/// Drawn only while there is one. The panel is the answer to "what have I got
-/// open", and with nothing open the hosts below are the whole screen.
 class _SessionsPanel extends ConsumerWidget {
   const _SessionsPanel({required this.hosts});
 
-  /// In HOSTS order, which is the order the cards run in: the panel below is
-  /// the index the user already has for their machines.
   final List<Host> hosts;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final store = ref.watch(shellSessionsProvider);
-    // The store is a notifier, not a provider's value: it is the same object
-    // for the app's life and every change it has to report it reports here.
+    // The store is a notifier and not a provider's value: it is the same object for the
+    // app's life, and every change it has to report it reports here.
     return AnimatedBuilder(
       animation: store,
       builder: (context, _) {
@@ -87,11 +77,6 @@ class _SessionsPanel extends ConsumerWidget {
   }
 }
 
-/// `HOSTS`: one row per registered machine, and a tap is a shell on it.
-///
-/// The row says what a host is for on this tab and nothing else about it —
-/// `ssh, <user>`, and how many shells are already open. Its address, its key
-/// and its state are on HOSTS, which is the screen about the machine.
 class _HostsPanel extends ConsumerWidget {
   const _HostsPanel({required this.hosts});
 
@@ -126,8 +111,6 @@ class _HostRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The dot is the worst of what this host's tabs are doing, so the row
-    // follows them as well as the set they came from.
     return ShellWatcher(
       store: store,
       watch: (store) => store.forHost(host.id),
@@ -142,13 +125,10 @@ class _HostRow extends StatelessWidget {
       title: host.name.toUpperCase(),
       subtitle: 'ssh, ${host.user}',
       node: true,
-      // The dot is where a row's glyph goes, so a host with a shell in trouble
-      // reads as one at the width of a list rather than a panel.
       leading: worst == null ? null : ShellStateDot(state: worst),
       value: sessions.isEmpty ? null : '${sessions.length} OPEN',
-      // A host with no session opens one; a host with sessions lands on the
-      // tab it was last left on, which is what the route does with no session
-      // named.
+      // A host with sessions lands on the tab it was last left on, which is what the route
+      // does with no session named.
       onTap: () => openHostShell(context, host),
     );
   }

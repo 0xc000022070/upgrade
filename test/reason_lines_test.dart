@@ -21,8 +21,6 @@ void main() {
     test('only the two lines about reaching a machine name one', () {
       expect(ReasonLine.unreachable.on('NYX'), 'nyx unreachable');
       expect(ReasonLine.unresolved.on('NYX'), 'nyx unresolved');
-      // Everything else is about this connection and reads the same wherever
-      // it happened, so a host handed to it is dropped rather than prefixed.
       expect(ReasonLine.keyRejected.on('NYX'), 'key rejected');
       expect(ReasonLine.streamClosed.on('NYX'), 'stream closed');
       expect(ReasonLine.hostKeyChanged.on('NYX'), 'host key changed');
@@ -42,7 +40,6 @@ void main() {
   });
 
   group('one fact, one sentence, whatever layer found it', () {
-    /// Every way the app can be told the host would not take the key.
     test('a key the host rejected', () {
       const line = 'key rejected';
       expect(const HerdrKeyRejected().reason('NYX'), line);
@@ -80,8 +77,6 @@ void main() {
       );
     });
 
-    /// The one failure whose line carries a value, and the only reason the
-    /// mapping is not simply an enum-to-enum table.
     test('a protocol the app does not speak', () {
       expect(const HerdrProtocolMismatch(3).reason('NYX'), 'protocol 3');
       expect(
@@ -111,8 +106,6 @@ void main() {
           kind: kind,
           protocol: 3,
         ).namedReason;
-        // Which lines name their host is the line's own fact. Listed a second
-        // time here, a line that grew one would read `nyx nyx unreachable`.
         expect(
           'nyx'.allMatches(named).length,
           1,

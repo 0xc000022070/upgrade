@@ -48,8 +48,7 @@ void main() {
     () async {
       final server = await ServerSocket.bind('127.0.0.1', 0);
       addTearDown(server.close);
-      // Held open and silent, which is what the LAN address on the user's own
-      // network does.
+      // Held open and silent, which is what the LAN address on the user's own network does.
       final held = <Socket>[];
       server.listen(held.add);
       addTearDown(() {
@@ -102,11 +101,7 @@ void main() {
   });
 
   test('a name that does not resolve says so', () async {
-    final result = await probeLink(
-      'nyx.dazzle.invalid',
-      22,
-      deadline: _short,
-    );
+    final result = await probeLink('nyx.dazzle.invalid', 22, deadline: _short);
 
     expect(result.status, LinkStatus.unresolved);
     expect(linkWord(result), 'UNRESOLVED');
@@ -141,8 +136,6 @@ void main() {
     await probes.refresh([_rose]);
     expect(calls, 1);
 
-    // The tap on the row, which is what the user reaches for after plugging
-    // the machine back in.
     await probes.probe(_rose, force: true);
     expect(calls, 2);
 

@@ -6,9 +6,8 @@ import 'package:dazzle/platform/vnc/framebuffer.dart';
 
 Framebuffer _split(int width, int height) {
   final framebuffer = Framebuffer(width, height);
-  // Left half red, right half blue: an average over any box inside one half is
-  // that half's colour, so a downscale that reads the wrong pixels shows up as
-  // a colour and not as a rounding difference.
+  // Left half red, right half blue: an average over any box inside one half is that half's
+  // colour, so a downscale that reads the wrong pixels shows up as a colour.
   framebuffer.fill(0, 0, width ~/ 2, height, 0, 0, 0xFF);
   framebuffer.fill(width ~/ 2, 0, width - width ~/ 2, height, 0xFF, 0, 0);
   return framebuffer;
@@ -79,7 +78,6 @@ void main() {
 
     expect(previews.read('host-1'), isNull);
     expect(previews.fileFor('host-1').existsSync(), isFalse);
-    // Deleting a host that never had one is not an error.
     await previews.delete('host-2');
   });
 

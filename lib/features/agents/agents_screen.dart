@@ -30,7 +30,6 @@ void openAgents(BuildContext context) {
 class AgentsScreen extends ConsumerWidget {
   const AgentsScreen({super.key, this.onOpen});
 
-  /// A row's tap. Null takes it to the agent's pane in the shell sheet.
   final AgentOpen? onOpen;
 
   @override
@@ -44,8 +43,8 @@ class AgentsScreen extends ConsumerWidget {
           titleTrailing: const PipAffordance(),
           onBack: () => Navigator.of(context).pop(),
           children: [
-            // Same reload blink as the panel: `waiting for host` would
-            // replace the workspaces on every report the watcher pushes.
+            // Same reload blink as the panel: `waiting for host` would replace the workspaces on
+            // every report the watcher pushes.
             state.when(
               skipLoadingOnReload: true,
               loading: () => const Panel(
@@ -68,18 +67,12 @@ class AgentsScreen extends ConsumerWidget {
   }
 }
 
-/// VIEW ALL is the panel at full height, so it mirrors the panel's states
-/// exactly: the blocked line, one line per failing host, workspaces for
-/// the hosts that answered.
 class _Feed extends StatelessWidget {
   const _Feed(this.feed, {required this.onOpen});
 
   final AgentPanelState feed;
   final AgentOpen onOpen;
 
-  /// Nothing to read on this route: no host set, or every host answered and
-  /// none of them is running an agent. A host that failed is not empty — its
-  /// line is the only place that failure is said — so those keep the stack.
   bool get _empty =>
       feed.noHost ||
       feed.outcomes.every((outcome) => outcome.ok && outcome.agents.isEmpty);
@@ -100,9 +93,8 @@ class _Feed extends StatelessWidget {
         ],
       );
     }
-    // Group by host then workspace, and collapse the host level when
-    // there is only one — naming the single host on every panel is noise, and
-    // it is the shape every install has until a second machine is registered.
+    // The host level is collapsed when there is only one, which is the shape every install
+    // has until a second machine is registered.
     final single = feed.outcomes.length == 1;
     return PanelStack(
       children: [
@@ -115,9 +107,6 @@ class _Feed extends StatelessWidget {
     );
   }
 
-  /// A host's agents by session, then workspace. The session goes in the
-  /// title on the same rule as the host's name: only when there is more than
-  /// one to tell apart.
   List<Widget> _workspacePanels(
     BuildContext context,
     HostOutcome outcome, {
@@ -161,8 +150,6 @@ class _Feed extends StatelessWidget {
             children: [
               for (final agent in groups[workspace]!)
                 ListRow(
-                  // The same box the Home row draws, in the 14px glyph
-                  // slot widened to the 24 the box needs.
                   leading: AgentMark(agent.agent),
                   leadingWidth: 24,
                   title: agentMarkName(agent.agent),
@@ -178,9 +165,6 @@ class _Feed extends StatelessWidget {
   }
 }
 
-/// The mascot on an empty AGENTS route. The idle sheet runs here rather than
-/// holding a frame the way the project detail's does: an empty route has
-/// nothing else for the eye, which is where a loop belongs.
 class _MascotEmpty extends StatelessWidget {
   const _MascotEmpty();
 

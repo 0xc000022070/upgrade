@@ -1,8 +1,3 @@
-/// A clip into a shell: the bytes go up a second channel, the host's
-/// clipboard takes the file, and the one byte of Ctrl+V goes down the pty —
-/// or the path does, where the host has no clipboard.
-library;
-
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -93,8 +88,8 @@ void main() {
 
       expect(result.outcome, PasteOutcome.pasted);
       expect(result.line, 'PASTED');
-      // The first two execs on any live shell are the pinentry mark and the
-      // ask for what is open, neither of them the paste's.
+      // The first two execs on any live shell are the pinentry mark and the ask for what is
+      // open, neither of them the paste's.
       final commands = connection.execs
           .skip(2)
           .map((exec) => exec.command)

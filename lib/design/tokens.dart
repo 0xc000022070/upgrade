@@ -4,9 +4,6 @@ import 'package:xterm/xterm.dart';
 import 'colors.dart';
 import 'typography.dart';
 
-/// The syntax palette, held under the main one. Grouped so a caller who wants
-/// "the colour of a diff keyword" reaches one field, not six loose ones on
-/// [DazzleTokens] itself.
 @immutable
 class SyntaxPalette {
   const SyntaxPalette({
@@ -44,16 +41,8 @@ class SyntaxPalette {
   );
 }
 
-/// The whole UI contract, as one value. Every colour a component or a screen
-/// draws with, and every text role, is a field here — never a constant
-/// reached for directly. [DazzleTokens.house] is the default and is built
-/// from the same constants the app has always shipped, so registering this
-/// extension changes nothing on screen; a different instance is what makes a
-/// theme.
-///
-/// Geometry (spacing, radii, icon sizes, tap targets, bar sizes) is not here:
-/// it does not change with the theme, so it stays the plain constants in
-/// `spacing.dart`.
+/// Geometry is not here: it does not change with the theme, so it stays the plain
+/// constants in `spacing.dart`.
 @immutable
 class DazzleTokens extends ThemeExtension<DazzleTokens> {
   const DazzleTokens({
@@ -108,11 +97,8 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
     required this.pipMeta,
   });
 
-  /// Drives [ColorScheme.brightness] and the platform icon brightness — the
-  /// only place the theme reaches past colour.
   final Brightness brightness;
 
-  // Palette.
   final Color backgroundPrimary;
   final Color backgroundSecondary;
   final Color surfacePrimary;
@@ -129,25 +115,16 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
   final Color danger;
   final SyntaxPalette syntax;
 
-  // Semantic extras: the raw literals a feature would otherwise reach for.
-  /// A dimmed backdrop over content still in view, e.g. a sheet's barrier.
   final Color scrim;
 
-  /// Opaque black behind full-bleed media — a framebuffer, an image, a
-  /// terminal — where the house background would show through the edges.
   final Color mediaBackdrop;
 
-  /// A text selection or search-hit wash, drawn under the glyphs it marks.
   final Color selectionWash;
 
-  /// The stronger wash for the current match among several.
   final Color selectionWashCurrent;
 
-  /// The shell's own selection wash, one step lighter than [selectionWash]
-  /// so it reads against a terminal's own colours rather than the UI's.
   final Color terminalSelectionWash;
 
-  /// The diff minimap's viewport window.
   final Color diffMapWindow;
   final Color diffAddedGround;
   final Color diffRemovedGround;
@@ -155,10 +132,8 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
   final Color diffAddedRun;
   final Color diffRemovedRun;
 
-  /// The shell's ANSI palette, cursor and selection.
   final TerminalTheme terminal;
 
-  // Text roles.
   final TextStyle screenTitle;
   final TextStyle breadcrumb;
   final TextStyle panelHeader;
@@ -181,9 +156,6 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
   final TextStyle pipState;
   final TextStyle pipMeta;
 
-  /// The house look, byte-identical to the constants the app shipped with
-  /// before this contract existed. Every other [DazzleTokens] instance is
-  /// judged against it, never the other way around.
   static const house = DazzleTokens(
     brightness: Brightness.dark,
     backgroundPrimary: DazzleColors.backgroundPrimary,
@@ -374,8 +346,8 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
     Color c(Color a, Color b) => Color.lerp(a, b, t)!;
     TextStyle s(TextStyle a, TextStyle b) => TextStyle.lerp(a, b, t)!;
     return DazzleTokens(
-      // A brightness does not blend either; the crossfade in the colours is
-      // the transition, and the platform brightness flips once it is done.
+      // A brightness does not blend: the crossfade in the colours is the transition, and the
+      // platform brightness flips once it is done.
       brightness: t < 0.5 ? brightness : other.brightness,
       backgroundPrimary: c(backgroundPrimary, other.backgroundPrimary),
       backgroundSecondary: c(backgroundSecondary, other.backgroundSecondary),
@@ -406,8 +378,7 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
       diffCappedGround: c(diffCappedGround, other.diffCappedGround),
       diffAddedRun: c(diffAddedRun, other.diffAddedRun),
       diffRemovedRun: c(diffRemovedRun, other.diffRemovedRun),
-      // A terminal palette does not blend: at t >= 0.5 the other theme's is
-      // simply in effect, since there is no sensible midpoint for an ANSI
+      // A terminal palette does not blend either — there is no sensible midpoint for an ANSI
       // colour table.
       terminal: t < 0.5 ? terminal : other.terminal,
       screenTitle: s(screenTitle, other.screenTitle),
@@ -435,16 +406,10 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
   }
 }
 
-/// The one read path: a component reaches for `context.tokens.accent`, never
-/// for `DazzleColors.accent` or `Theme.of(context).extension<DazzleTokens>()`
-/// directly.
 extension DazzleTokensContext on BuildContext {
   DazzleTokens get tokens => Theme.of(this).extension<DazzleTokens>()!;
 }
 
-/// What a program running in the terminal is told when it asks what the
-/// terminal is drawn in. A session carries these from the moment it is made,
-/// so a tab nobody has looked at yet still answers.
 extension TerminalThemeReport on TerminalTheme {
   TerminalColors get reportedColors => TerminalColors(
     foreground: foreground.toARGB32(),

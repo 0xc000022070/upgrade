@@ -10,19 +10,12 @@ import '../../design/spacing.dart';
 import '../home/capture_bar.dart';
 import 'drop_actions.dart';
 
-/// While selection mode is on, the capture bar's slot
-/// holds this instead. The verbs used to ride the panel's own header strip,
-/// which scrolls away with the panel — so on a long list the user was left in a
-/// mode whose only way out was above the fold.
-///
-/// It is built on [BottomBarFrame] rather than on its own padding and panel:
-/// the two bars trade the same slot, and a height they each computed would
-/// shift every panel on the screen the moment the mode came on.
+/// Built on [BottomBarFrame] rather than on its own padding and panel: the two bars trade
+/// the same slot, and a height they each computed would shift every panel on the screen
+/// the moment the mode came on.
 class SelectionBar extends ConsumerStatefulWidget {
   const SelectionBar({super.key, required this.scope});
 
-  /// The panel that owns the mode. The bar acts on that panel's rows and on
-  /// nothing else, so a screen only pins it while the scope is its own.
   final String scope;
 
   @override
@@ -30,8 +23,6 @@ class SelectionBar extends ConsumerStatefulWidget {
 }
 
 class _SelectionBarState extends ConsumerState<SelectionBar> {
-  /// How many rows the last copy took, while the notice is up. The count slot
-  /// is the only place a verb that moves nothing can report from.
   int? _copied;
   Timer? _endNotice;
 
@@ -60,8 +51,8 @@ class _SelectionBarState extends ConsumerState<SelectionBar> {
     final notifier = ref.read(dropSelectionProvider.notifier);
     // Emptying the set does not leave the mode — it disables the verbs.
     final empty = selection.count == 0;
-    // A check or an uncheck ends the notice on the spot: `2 COPIED` over three
-    // checked rows would be reporting on a selection that is gone.
+    // A check or an uncheck ends the notice on the spot: `2 COPIED` over three checked rows
+    // would be reporting on a selection that is gone.
     ref.listen(dropSelectionProvider, (_, _) => _forgetNotice());
 
     return BottomBarFrame(
@@ -110,10 +101,6 @@ class _SelectionBarState extends ConsumerState<SelectionBar> {
   }
 }
 
-/// A selection verb, moved off the header strip with its glyph, its size
-/// and its three inks unchanged. It takes the whole height of the bar's row the
-/// way the capture bar's submit glyph does, so the hit is the full slot rather
-/// than a 44px box floating in it.
 class _BarAction extends StatefulWidget {
   const _BarAction({
     required this.icon,
@@ -123,8 +110,8 @@ class _BarAction extends StatefulWidget {
 
   final IconData icon;
 
-  /// Not a Material tooltip: it is the semantics label, so the bar's verbs are
-  /// reachable by name to a screen reader and to `phone tap`.
+  /// Not a Material tooltip: it is the semantics label, so the bar's verbs are reachable by
+  /// name to a screen reader and to `phone tap`.
   final String tooltip;
   final VoidCallback? onTap;
 

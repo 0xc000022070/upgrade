@@ -1,12 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-/// One connection to a herdr server's socket: the bytes in, the bytes out, and
-/// the way to let it go.
-///
-/// Who opens it is not this layer's business. In the app it is a
-/// `direct-streamlocal@openssh.com` channel inside the host's own ssh
-/// connection; in a test it is two controllers.
 class HerdrLink {
   const HerdrLink({
     required this.incoming,
@@ -21,7 +15,6 @@ class HerdrLink {
 
 typedef HerdrDial = Future<HerdrLink> Function();
 
-/// What herdr answered.
 sealed class HerdrReply {
   const HerdrReply();
 }
@@ -29,15 +22,11 @@ sealed class HerdrReply {
 final class HerdrResult extends HerdrReply {
   const HerdrResult(this.type, this.value);
 
-  /// herdr's own name for the shape of [value]: `agent_list`, `ok`, `pong`.
   final String type;
 
   final Map<String, Object?> value;
 }
 
-/// The request arrived and the server said no. A refusal is data: which of the
-/// steps of a send failed, and whether a prompt was read, are both read off
-/// [code].
 final class HerdrRefusal extends HerdrReply {
   const HerdrRefusal(this.code, this.message);
 
@@ -45,12 +34,9 @@ final class HerdrRefusal extends HerdrReply {
   final String message;
 }
 
-/// One event off a held subscription.
-///
-/// herdr names an event twice: `pane_updated` on the envelope every client
-/// gets, `pane.agent_status_changed` on the ones a subscription asked for by
-/// pane. [kind] is the second form written as the first, so a reader has one
-/// vocabulary.
+/// herdr names an event twice: `pane_updated` on the envelope every client gets,
+/// `pane.agent_status_changed` on the ones a subscription asked for by pane. [kind] is
+/// the second form written as the first.
 class HerdrEvent {
   const HerdrEvent(this.kind, this.data);
 
@@ -58,29 +44,21 @@ class HerdrEvent {
   final Map<String, Object?> data;
 }
 
-/// A reply this layer could not read, or a link that went away mid-request.
-///
-/// Its own exception rather than one of the app's reason lines: nothing here
-/// knows which host it is talking to, and the caller maps it.
+/// Its own exception rather than one of the app's reason lines: nothing here knows which
+/// host it is talking to.
 class HerdrMalformed implements Exception {
   const HerdrMalformed([this.detail, this.protocol]);
 
   final String? detail;
 
-  /// The protocol number the far side reported, when it reported one.
   final int? protocol;
 
   @override
   String toString() => 'HerdrMalformed(${detail ?? ''})';
 }
 
-/// herdr's socket API, newline-delimited JSON.
-///
-/// A server answers one request per connection and then stops reading, so
-/// every call dials its own link and a subscription holds one of its own. That
-/// is still the cheap side of the trade: a channel is a window and two
-/// packets, where the command line it replaces was a shell, a `herdr` process
-/// and this same socket opened from the far end.
+/// A server answers one request per connection and then stops reading, so every call
+/// dials its own link and a subscription holds one of its own.
 class HerdrApi {
   HerdrApi(this.dial);
 
@@ -105,9 +83,8 @@ class HerdrApi {
     }
   }
 
-  /// Events from [subscriptions] until the caller stops listening or the link
-  /// goes. herdr sends `subscription_started` first; a link that answers
-  /// anything else never became a subscription and the stream fails.
+  /// herdr sends `subscription_started` first; a link that answers anything else never
+  /// became a subscription and the stream fails.
   Stream<HerdrEvent> subscribe(List<Map<String, Object?>> subscriptions) {
     final events = StreamController<HerdrEvent>();
     HerdrLink? held;
@@ -164,16 +141,14 @@ class HerdrApi {
     '${jsonEncode({'id': id, 'method': method, 'params': params})}\n',
   );
 
-  /// The cast is what makes this run: ssh hands over a `Stream<Uint8List>`,
-  /// whose `transform` asks for a `StreamTransformer<Uint8List, String>` off
-  /// the runtime type argument, and `utf8.decoder` is one over `List<int>`.
-  /// Without it the decode throws where only the device can see it.
+  /// The cast is what makes this run: ssh hands over a `Stream<Uint8List>`, whose
+  /// `transform` asks for a `StreamTransformer<Uint8List, String>` off the runtime type
+  /// argument, and `utf8.decoder` is one over `List<int>`.
   static Stream<String> _lines(Stream<List<int>> bytes) => bytes
       .cast<List<int>>()
       .transform(utf8.decoder)
       .transform(const LineSplitter());
 
-  /// A response line: the result and its type, or herdr's refusal.
   static HerdrReply _reply(String line) {
     final decoded = _decode(line);
     final error = decoded['error'];
@@ -190,8 +165,8 @@ class HerdrApi {
     return HerdrResult(type, result);
   }
 
-  /// An event line, or null for a line that is a response: a subscription
-  /// carries both, and a late reply is not an event.
+  /// Null for a line that is a response: a subscription carries both, and a late reply is
+  /// not an event.
   static HerdrEvent? _event(String line) {
     final decoded = _decode(line);
     final kind = decoded['event'];

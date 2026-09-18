@@ -3,8 +3,8 @@ default = "pixel_7-api36"
 [build.android]
 app = "dev.luisnquin.dazzle"
 stale = "find lib assets android/app/src packages/dazzle_luau plugins pubspec.yaml pubspec.lock -type f | sort | xargs cksum | cksum"
-# Single-quoted so DAZZLE_BUILD is expanded inside the dev shell, where the
-# flake has just computed it (SPEC.md §39.16), and not out here where it is unset.
+# Single-quoted so DAZZLE_BUILD is expanded inside the dev shell, where the flake
+# has just computed it, and not out here where it is unset.
 run = """
 nix develop -c bash -c 'flutter build apk --debug --target-platform android-arm64 --dart-define=DAZZLE_BUILD=$DAZZLE_BUILD'
 phone app install -t "$PHONE_ID" build/app/outputs/flutter-apk/app-debug.apk
@@ -14,8 +14,7 @@ phone app install -t "$PHONE_ID" build/app/outputs/flutter-apk/app-debug.apk
 state = "prepared"
 
 # Emulators ship with the animation scales at 0, which Flutter reports as
-# MediaQuery.disableAnimations and which switches the whole §16 motion layer
-# off. Review has to see what a handset sees.
+# MediaQuery.disableAnimations and which switches the whole motion layer off.
 [devices.pixel_7-api36.settings.global]
 window_animation_scale = "1"
 transition_animation_scale = "1"
@@ -24,8 +23,7 @@ animator_duration_scale = "1"
 [devices.faraday]
 state = "prepared"
 
-# `dev` is the only device this agent drives; `review` is the user's handset and
-# gets installs only. A bare `phone up` converges both from the same APK.
+# `dev` is the only device this agent drives; `review` gets installs only.
 [profiles.dev]
 devices = ["pixel_7-api36"]
 

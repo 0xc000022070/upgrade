@@ -4,11 +4,6 @@ import 'dart:typed_data';
 
 import 'package:dazzle/platform/herdr_socket.dart';
 
-/// A stand-in for the `direct-streamlocal@openssh.com` channel: lines in one
-/// end, lines out the other, both readable by a test.
-///
-/// The client under test is the real one — only the ssh channel is scripted,
-/// which is the boundary the app cannot cross without a host.
 class FakeHerdrLink {
   FakeHerdrLink({Stream<Uint8List>? scripted}) {
     _outgoing.stream.listen((bytes) => _written.write(utf8.decode(bytes)));
@@ -17,17 +12,16 @@ class FakeHerdrLink {
     }
   }
 
-  /// Typed as ssh delivers it. A `StreamController<List<int>>` here would widen
-  /// the runtime type argument back and hide a missing cast in the client.
+  /// A `StreamController<List<int>>` here would widen the runtime type argument back and
+  /// hide a missing cast in the client.
   final StreamController<Uint8List> _incoming = StreamController<Uint8List>();
   final StreamController<List<int>> _outgoing = StreamController<List<int>>();
   final _written = StringBuffer();
 
   var _shut = false;
 
-  /// Whether the client let the channel go. A herdr connection is destroyed
-  /// rather than half-closed, so the test asks about this and not about a
-  /// closed sink.
+  /// A herdr connection is destroyed rather than half-closed, so the test asks about this
+  /// and not about a closed sink.
   bool get shut => _shut;
 
   HerdrLink get link => HerdrLink(
@@ -39,19 +33,16 @@ class FakeHerdrLink {
     },
   );
 
-  /// Everything the client has written, one entry per line.
   List<Map<String, Object?>> get sent => [
     for (final line in const LineSplitter().convert(_written.toString()))
       if (line.trim().isNotEmpty) jsonDecode(line) as Map<String, Object?>,
   ];
 
-  /// One line, as a server writes it.
   void say(Object? message) =>
       _incoming.add(utf8.encode('${jsonEncode(message)}\n'));
 
   void feed(String raw) => _incoming.add(utf8.encode(raw));
 
-  /// The far end going away.
   Future<void> endStream() async {
     if (!_incoming.isClosed) await _incoming.close();
   }
@@ -62,7 +53,6 @@ class FakeHerdrLink {
   }
 }
 
-/// A herdr response line.
 Map<String, Object?> herdrResult(
   Map<String, Object?> result, {
   String id = 'dazzle:0',
@@ -77,7 +67,6 @@ Map<String, Object?> herdrError(
   'error': {'code': code, 'message': message},
 };
 
-/// An `agent.list` result for one pane.
 Map<String, Object?> agentListResult(
   String pane, {
   String agent = 'claude',

@@ -1,16 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/features/code/syntax.dart';
 
-/// The colouring under the diff's own two colours, and over the explorer's
-/// whole file.
-///
-/// The diff hands over a single line on its own, because that is the only
-/// thing it has: a hunk is not a file, and the line above a line in a hunk
-/// may not be the line above it in the checkout. The explorer hands over the
-/// file, and gets back one list of runs per line.
-
-/// The runs that carry a colour, which is what the eye is being asked about.
-/// The plain runs between them are the colour the whole line used to be.
 List<(String, SyntaxToken)> coloured(String line, String path) => [
   for (final span in highlight(line, languageOf(path)))
     if (span.token != SyntaxToken.plain) (span.text, span.token),
@@ -19,8 +9,8 @@ List<(String, SyntaxToken)> coloured(String line, String path) => [
 void main() {
   group('the language a file is read as', () {
     test('comes from the extension and from nothing else', () {
-      // `func` is a keyword in one of these and a name in the other, and the
-      // path is the only thing that says which.
+      // `func` is a keyword in one of these and a name in the other, and the path is the only
+      // thing that says which.
       expect(
         coloured('func main() {', 'cmd/herdr/main.go'),
         contains(('func', SyntaxToken.keyword)),
@@ -87,8 +77,8 @@ void main() {
       for (final file in files) {
         final language = languageOf(file);
         expect(language, isNotNull, reason: file);
-        // A grammar the engine does not have would come back plain whole, and
-        // a comment is the one thing every grammar here colours.
+        // A grammar the engine does not have would come back plain whole, and a comment is the
+        // one thing every grammar here colours.
         final lines = highlightLines('x = 1', language!);
         expect(lines.single.map((span) => span.text).join(), 'x = 1');
       }
@@ -139,16 +129,14 @@ void main() {
     });
 
     test('a line that reads as inside a block comment is a comment whole', () {
-      // The one guess worth making: a diff shows more of a doc comment's
-      // middle than of its opening line.
       expect(coloured('  /// one line at a time', 'lib/main.dart'), [
         ('/// one line at a time', SyntaxToken.comment),
       ]);
       expect(coloured('   * and never across two', 'lib/main.dart'), [
         ('   * and never across two', SyntaxToken.comment),
       ]);
-      // And where there are no block comments there is no continuation to
-      // read: a leading `*` is multiplication.
+      // And where there are no block comments there is no continuation to read: a leading `*`
+      // is multiplication.
       expect(
         coloured('   * and never across two', 'run.py'),
         isNot(contains(('   * and never across two', SyntaxToken.comment))),
@@ -167,7 +155,6 @@ void main() {
         coloured('let x: u32 = 5;', 'src/main.rs'),
         contains(('u32', SyntaxToken.type)),
       );
-      // A shell has no types and plenty of shouting.
       expect(
         coloured('PORT=357', 'deploy.sh'),
         isNot(contains(('PORT', SyntaxToken.type))),

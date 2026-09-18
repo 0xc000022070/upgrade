@@ -16,9 +16,6 @@ import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// A tap on an agent row: the shell sheet on the agent's host, in the tab
-/// attached to its pane, made once and found after that.
-
 const _rose = Host(
   id: 'h1',
   name: 'rose',
@@ -115,9 +112,6 @@ void main() {
       ),
       findsOneWidget,
     );
-    // The app's confirm shape: CANCEL beside the commit, the commit filled
-    // accent. Opening a pane here takes over its terminal view and stops
-    // nothing, so it is never drawn in the destructive ink.
     final commit = tester.widget<ActionBlock>(
       find.widgetWithText(ActionBlock, 'OPEN HERE'),
     );
@@ -132,8 +126,7 @@ void main() {
     final session = sessions.forHost(_rose.id).single;
     expect(session.pane, _pane);
     expect(session.command, _takeoverAttach);
-    // The channel's own command, and nothing typed at a shell: a line written
-    // at a login shell races whatever that shell reads before its prompt.
+    // A line written at a login shell races whatever that shell reads before its prompt.
     expect(transport.commands, [
       shellMarked(session.mark, command: _takeoverAttach),
     ]);
@@ -177,7 +170,6 @@ void main() {
     await tester.tap(find.text('OPEN HERE'));
     await ready(tester);
     final first = sessions.forHost(_rose.id).single;
-    // A second tab on the host, so the tap has something to choose against.
     sessions.open(_rose);
     await ready(tester);
     expect(sessions.activeFor(_rose.id), isNot(same(first)));

@@ -69,10 +69,8 @@ class PluginIndex {
   }
 }
 
-/// A source is an index repository and ref an author has added under
-/// Settings PLUGINS. Its shape is validated here; the repository and ref
-/// themselves are validated the same way an install target is, the first
-/// time the source is fetched.
+/// Its shape is validated here; the repository and ref themselves are validated the same
+/// way an install target is, the first time the source is fetched.
 class PluginSource {
   factory PluginSource({required String repository, required String ref}) =>
       PluginSource._(

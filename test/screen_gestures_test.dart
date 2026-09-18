@@ -1,16 +1,11 @@
-/// The screen's gestures, over the view that maps them: tap left-clicks,
-/// long press right-clicks, long press then drag holds button 1, and a
-/// two-finger drag at fit is the wheel.
-library;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/features/screen/framebuffer_view.dart';
 
 import 'support/themed_app.dart';
 
-/// nyx's desktop in a 400 by 800 window: 400 by 225 letterboxed, so the
-/// vertical offset is part of every expectation below.
+/// nyx's desktop in a 400 by 800 window: 400 by 225 letterboxed, so the vertical offset
+/// is part of every expectation below.
 const _framebuffer = Size(1920, 1080);
 const _viewport = Size(400, 800);
 const _top = (800 - 225) / 2;
@@ -34,8 +29,7 @@ Future<Recorder> pumpView(WidgetTester tester) async {
             width: _viewport.width,
             height: _viewport.height,
             child: FramebufferView(
-              // No image: the gestures do not depend on one, and a real
-              // [ui.Image] in a widget test needs the engine's decoder.
+              // A real [ui.Image] in a widget test needs the engine's decoder.
               image: null,
               framebufferSize: _framebuffer,
               onClick: recorder.clicks.add,
@@ -51,8 +45,8 @@ Future<Recorder> pumpView(WidgetTester tester) async {
   return recorder;
 }
 
-/// The view is centred in an 800 by 600 test window, so a point in it is offset
-/// by the slack around it.
+/// The view is centred in an 800 by 600 test window, so a point in it is offset by the
+/// slack around it.
 Offset inView(Offset local) => Offset(
   (800 - _viewport.width) / 2 + local.dx,
   (600 - _viewport.height) / 2 + local.dy,
@@ -111,7 +105,6 @@ void main() {
     );
     await tester.pump();
 
-    // Both fingers down the screen: the content follows, which is scrolling up.
     for (var step = 0; step < 5; step++) {
       await first.moveBy(const Offset(0, 25));
       await second.moveBy(const Offset(0, 25));
@@ -121,13 +114,10 @@ void main() {
     await second.up();
     await tester.pumpAndSettle();
 
-    // The fingers cover 125 px between them, and the first pointer move goes
-    // to the gesture arena before the scale recognizer owns the gesture: 112 px
-    // reach the view, which is two whole steps of 40.
+    // The fingers cover 125 px between them, and the first pointer move goes to the gesture
+    // arena before the scale recognizer owns the gesture: 112 px reach the view.
     expect(recorder.wheels, hasLength(2));
     expect(recorder.wheels.every((event) => event.$2), isTrue);
-    // The wheel goes where the fingers are now, which is below where they
-    // started: the horizontal focal point has not moved.
     expect(recorder.wheels.first.$1.dx, closeTo(960, 2));
     expect(recorder.wheels.first.$1.dy, greaterThan(480));
     expect(recorder.clicks, isEmpty);
@@ -146,7 +136,6 @@ void main() {
         inView(const Offset(250, _top + 100)),
       );
       await tester.pump();
-      // Fingers apart: 100 px between them becomes 300.
       for (var step = 0; step < 4; step++) {
         await first.moveBy(const Offset(-25, 0));
         await second.moveBy(const Offset(25, 0));
@@ -154,7 +143,6 @@ void main() {
       }
       expect(recorder.wheels, isEmpty, reason: 'a pinch is not a scroll');
 
-      // Now the same downward drag, with the desktop overflowing the viewport.
       for (var step = 0; step < 5; step++) {
         await first.moveBy(const Offset(0, 25));
         await second.moveBy(const Offset(0, 25));
@@ -173,7 +161,6 @@ void main() {
   ) async {
     final recorder = await pumpView(tester);
 
-    // In first, from the close pinch a hand opens with.
     var first = await tester.startGesture(
       inView(const Offset(150, _top + 100)),
     );
@@ -190,9 +177,6 @@ void main() {
     await second.up();
     await tester.pumpAndSettle();
 
-    // And back out. A hand that is about to close starts wide, which is the
-    // whole of the difference: the fingers have further to travel before the
-    // span has changed by as much of itself.
     first = await tester.startGesture(inView(const Offset(50, _top + 100)));
     second = await tester.startGesture(inView(const Offset(350, _top + 100)));
     await tester.pump();
@@ -206,8 +190,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(recorder.wheels, isEmpty, reason: 'a pinch is not a scroll');
 
-    // Back at fit there is nothing to pan, so the two-finger drag is the
-    // wheel again. It is the only reading the view gives of its own zoom.
     first = await tester.startGesture(inView(const Offset(150, _top + 60)));
     second = await tester.startGesture(inView(const Offset(250, _top + 60)));
     await tester.pump();
@@ -228,7 +210,6 @@ void main() {
   ) async {
     final recorder = await pumpView(tester);
 
-    // The same span the pinch above closes from, moving as one.
     final first = await tester.startGesture(
       inView(const Offset(50, _top + 60)),
     );

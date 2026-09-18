@@ -1,27 +1,21 @@
 import 'package:flutter/services.dart';
 
-/// The system's picture-in-picture window.
-///
-/// What Android parks in the corner is this activity's own surface, not a copy
-/// of it: there is no second renderer and nothing to keep in step. The app is
-/// told the mode changed and draws something else, and the something else is
-/// the only part of this that is the app's problem.
+/// What Android parks in the corner is this activity's own surface, not a copy of it:
+/// there is no second renderer and nothing to keep in step.
 abstract final class Pip {
   static const _calls = MethodChannel('dev.luisnquin.dazzle/pip');
   static const _mode = EventChannel('dev.luisnquin.dazzle/pip/mode');
 
-  /// False on a platform with no such window and on an Android device whose
-  /// maker left the feature out, which is a real configuration on the cheap end
-  /// and on a watch.
+  /// False on a platform with no such window and on an Android device whose maker left the
+  /// feature out.
   static Future<bool> available() async =>
       await _calls.invokeMethod<bool>('available') ?? false;
 
-  /// Moves the activity into the system's picture-in-picture window.
   static Future<bool> enter() async =>
       await _calls.invokeMethod<bool>('enter') ?? false;
 
-  /// True while the window is up. Replayed on subscribe, because a listener
-  /// that arrived late would otherwise draw the whole app into a corner tile.
+  /// Replayed on subscribe, because a listener that arrived late would otherwise draw the
+  /// whole app into a corner tile.
   static Stream<bool> mode() =>
       _mode.receiveBroadcastStream().map((event) => event == true);
 }

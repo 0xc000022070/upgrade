@@ -244,10 +244,8 @@ class _PlacedPluginBounds extends StatelessWidget {
   }
 }
 
-/// Home with nothing on it: a row per installed plugin that is off, naming
-/// what turning it on puts on the phone. The promise is read off the plugin's
-/// own contributions, never written per plugin, so a plugin the app has never
-/// heard of is described the same way as the bundled two.
+/// The promise is read off the plugin's own contributions, never written per plugin, so a
+/// plugin the app has never heard of is described the same way as the bundled two.
 class _PluginsOffPanel extends StatelessWidget {
   const _PluginsOffPanel({required this.catalog});
 

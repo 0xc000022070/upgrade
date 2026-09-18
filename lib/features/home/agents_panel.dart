@@ -27,7 +27,6 @@ class AgentsPanel extends ConsumerWidget {
   final AgentPanelState? state;
   final VoidCallback? onViewAll;
 
-  /// A row's tap. Null takes it to the agent's pane in the shell sheet.
   final AgentOpen? onOpen;
   final DateTime? now;
 
@@ -67,12 +66,9 @@ class AgentsPanel extends ConsumerWidget {
         horizontal: Spacing.panelPadding,
         vertical: Spacing.md,
       ),
-      // The feed is rebuilt on every watcher report, and a rebuilt
-      // StreamProvider passes through loading before its first event lands.
-      // Without this the body collapses to the spinner's 12px for a frame on
-      // every poll, which reads as a blink and shoves NEXT ACTION and DROPS up
-      // and back down. The spinner is for the first load, when there is nothing
-      // to hold.
+      // The feed is rebuilt on every watcher report, and a rebuilt StreamProvider passes
+      // through loading before its first event lands: without this the body collapses to the
+      // spinner's 12px for a frame on every poll.
       child: value.when(
         skipLoadingOnReload: true,
         loading: () => const DelayedSpinner(),
@@ -109,28 +105,25 @@ class _AgentsBody extends StatelessWidget {
     if (data.noHost) return _SetupLine(onTap: onConfigureHosts);
 
     final failures = data.failures;
-    // Rows keep their host: a tap needs the machine the agent was read from,
-    // and the merged list has already lost it.
+    // Rows keep their host: a tap needs the machine the agent was read from, and the merged
+    // list has already lost it.
     final active = [
       for (final outcome in data.outcomes)
         for (final agent in outcome.agents)
           if (agent.state.active) (host: outcome.host, agent: agent),
     ]..sort((a, b) => b.agent.stateChangeSeq.compareTo(a.agent.stateChangeSeq));
-    // Resting and not idle: an agent whose work finished unwatched is idle
-    // with something to read, and it is counted here rather than nowhere.
+    // Resting and not idle: an agent whose work finished unwatched is idle with something to
+    // read, and it is counted here rather than nowhere.
     final idle = data.agents.where((agent) => agent.state.resting).length;
     final blocked = data.agents.where((agent) => agent.blocked).length;
-    // Every host failed, so there is no snapshot behind the panel and a
-    // `0 idle · 0 blocked` footer would read as "nothing is running" rather
-    // than "nobody answered".
+    // Every host failed, so there is no snapshot behind the panel and a `0 idle · 0 blocked`
+    // footer would read as "nothing is running" rather than "nobody answered".
     final answered = failures.length < data.outcomes.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // One line per failing host, above the rows the healthy hosts still
-        // contribute. A failure never takes the panel down with it.
         for (final outcome in failures)
           _ErrorLine(
             text: _failureLine(outcome, failures.length > 1),
@@ -151,8 +144,6 @@ class _AgentsBody extends StatelessWidget {
     );
   }
 
-  /// With one failing host the bare lines read fine; with two, `key rejected`
-  /// twice does not say which machine, so the host goes back in front.
   String _failureLine(HostOutcome outcome, bool disambiguate) =>
       disambiguate ? outcome.namedReason : outcome.reason;
 }

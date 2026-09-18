@@ -8,12 +8,6 @@ import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
 import '../../platform/host_keys.dart';
 
-/// What the user is asked the first time a machine answers: this is the key it
-/// presented, do you accept it as this host's.
-///
-/// The sheet is the confirm sheet's shape with the fingerprint between the
-/// header and the two blocks, because the fingerprint is the whole of what
-/// there is to decide on.
 Future<bool> askHostKey(
   BuildContext context, {
   required Host host,

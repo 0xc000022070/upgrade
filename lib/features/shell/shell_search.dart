@@ -13,23 +13,18 @@ import '../../design/spacing.dart';
 import 'shell_sessions.dart';
 import 'shell_surface.dart';
 
-/// Where one hit is: the line it is on and the columns it runs between, the
-/// end one past the last cell the way a selection's end is.
+/// The line a hit is on and the columns it runs between, the end one past the last cell
+/// the way a selection's end is.
 typedef ShellHit = ({int line, int start, int end});
 
-/// How many hits a query gets. Past this the query is not a search, and a mark
-/// on every line of a buffer is paid for by the frame that draws it.
+/// Past this the query is not a search, and a mark on every line of a buffer is paid for
+/// by the frame that draws it.
 const shellHitCap = 500;
 
-/// How long after the last keystroke the buffer is read. A phone types faster
-/// than ten thousand lines are scanned.
 const _typingSettles = Motion.instant;
 
-/// Every place [query] is in the buffer, oldest first, the newest [shellHitCap]
-/// of them.
-///
-/// Case is ignored: a shell prints what it likes and the user is looking for a
-/// word, not for a spelling of it.
+/// Case is ignored: a shell prints what it likes and the user is looking for a word, not
+/// for a spelling of it.
 List<ShellHit> shellHits(Terminal terminal, String query) {
   final needle = query.trim().toLowerCase();
   if (needle.isEmpty) return const [];
@@ -55,12 +50,9 @@ List<ShellHit> shellHits(Terminal terminal, String query) {
   return found;
 }
 
-/// The search line, between the terminal and the key bar: what to look for,
-/// where you are in what was found, a step either way and the way out.
-///
-/// It reads the buffer and never writes to the shell. The field takes the
-/// keyboard off the terminal for as long as the line is up, which is what
-/// makes the characters land here instead of in the remote.
+/// It reads the buffer and never writes to the shell. The field takes the keyboard off
+/// the terminal for as long as the line is up, which is what makes the characters land
+/// here instead of in the remote.
 class ShellSearchRow extends StatefulWidget {
   const ShellSearchRow({
     super.key,
@@ -72,8 +64,6 @@ class ShellSearchRow extends StatefulWidget {
   final ShellSession session;
   final VoidCallback onClose;
 
-  /// How the line finds the terminal it is searching, for the line height that
-  /// turns a hit into a scroll offset.
   final ShellSurface? Function(ShellSession session) surfaceOf;
 
   @override
@@ -102,11 +92,11 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
   @override
   void dispose() {
     _typing?.cancel();
-    // The marks go after the frame, not in it: dropping one tells the
-    // controller, and a notification sent while the tree is being taken down
-    // reaches views that can no longer be marked dirty. The controller belongs
-    // to the tab, so it is still there to be told — unless the tab itself
-    // went, and then the buffer took the marks with it.
+    // The marks go after the frame, not in it: dropping one tells the controller,
+    // and a notification sent while the tree is being taken down reaches views that
+    // can no longer be marked dirty. The controller belongs to the tab, so it is
+    // still there to be told — unless the tab itself went, and then the buffer took
+    // the marks with it.
     final session = widget.session;
     final marks = List.of(_marks);
     final anchors = List.of(_anchors);
@@ -136,7 +126,6 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
     _reveal();
   }
 
-  /// A step through what was found, the ends meeting.
   void _step(int by) {
     if (_hits.isEmpty) return;
     setState(() => _index = (_index + by) % _hits.length);
@@ -168,8 +157,8 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
     }
   }
 
-  /// The marks go, and the anchors holding them to their lines go with them:
-  /// a highlight disposes neither of its own.
+  /// The marks go, and the anchors holding them to their lines go with them: a
+  /// highlight disposes neither of its own.
   void _unmark() {
     _drop(List.of(_marks), List.of(_anchors));
     _marks.clear();
@@ -185,8 +174,7 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
     }
   }
 
-  /// Puts the line the hit is on in the middle of the view. A mark nobody can
-  /// see is not an answer.
+  /// Puts the line the hit is on in the middle of the view.
   void _reveal() {
     if (_hits.isEmpty) return;
     final position = widget.session.tailPosition;

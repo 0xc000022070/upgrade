@@ -27,11 +27,9 @@ let
     ];
   });
 
-  # Loopback and not 0.0.0.0: nyx runs its own mosh-server for the phone's tab
-  # on 60001:60999, and a wildcard bind on a port one of those already holds
-  # fails the whole netdev, so the guest would not boot while the user had a
-  # session up. A loopback bind sits beside an address-specific one, and the
-  # emulator reaches it as 10.0.2.2 either way.
+  # Loopback and not 0.0.0.0: nyx runs its own mosh-server on 60001:60999, and a
+  # wildcard bind on a port one of those holds fails the whole netdev, so the guest
+  # would not boot while the user had a session up.
   moshForwards = map (port: {
     from = "host";
     host.address = "127.0.0.1";
@@ -70,10 +68,8 @@ in
     shell = pkgs.zsh;
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA7Fr1T+6b4F464Ii+inLkt3asc9p6gBPrHRpTiyJLRL test-key"
-      # The `host` test tier's key, whose private half is committed beside this
-      # file. It opens a local qemu guest that rejects every outbound packet
-      # and holds nothing, and it is kept apart from `test-key` so the phone's
-      # own entry goes on working while the tests have a key of their own.
+      # The `host` tier's key, private half committed beside this file. Kept apart
+      # from `test-key` so the phone's entry goes on working on its own.
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHAVni8THzq+Yi2QvpL4MjM4yHxw/bdoThYcZV3yJLqt dazzle-host-vm-test"
     ];
   };

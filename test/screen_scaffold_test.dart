@@ -11,8 +11,6 @@ import 'package:dazzle/features/screen_scaffold.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// Orchestrator ruling, 2026-09-02: the crumb never wraps, and a screen that
-/// carries a verb on the crumb line gives up the root segment to fit.
 void main() {
   setUp(stubDeviceChannels);
 
@@ -31,7 +29,6 @@ void main() {
       ),
       '/ PERSONAL CONTROL PLANE / PROJECTS',
     );
-    // Never down to nothing: one segment is already as short as a path goes.
     expect(
       ScreenScaffold.crumbFor('/ PERSONAL CONTROL PLANE', hasTrailing: true),
       '/ PERSONAL CONTROL PLANE',
@@ -80,7 +77,6 @@ void main() {
   });
 
   group('segmented crumb', () {
-    /// Width in dp, so the collapse can be driven the way the phone drives it.
     Future<void> sized(WidgetTester tester, double width) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = Size(width, 900);
@@ -89,9 +85,8 @@ void main() {
 
     final tapped = <String>[];
 
-    // Inside a [Scaffold], so the trailing verb is sized by the app's own text
-    // style rather than by WidgetsApp's oversized error style — otherwise the
-    // verb eats the width the collapse is supposed to be measured against.
+    // Inside a [Scaffold], so the trailing verb is sized by the app's own text style rather
+    // than by WidgetsApp's oversized error style.
     Widget host(List<String> path, {Widget? trailing}) => ProviderScope(
       child: MaterialApp(
         theme: testTheme,
@@ -151,8 +146,6 @@ void main() {
         ),
         findsOneWidget,
       );
-      // The immediate parent is the floor of the collapse, and the verbs it
-      // made room for are still on the line.
       expect(find.text('HOMELAB'), findsOneWidget);
       expect(find.text('PROJECTS'), findsNothing);
       expect(find.text('EDIT'), findsOneWidget);
@@ -170,11 +163,8 @@ void main() {
       await tester.pumpWidget(host(path, trailing: const Text('EDIT')));
       await tester.pump(const Duration(milliseconds: 100));
 
-      // The width is found rather than written down: the test font is not the
-      // app's, so a dp figure taken off the phone means nothing here. Narrowing
-      // until the collapse is one step away lands on the tightest row that
-      // still holds the whole path, which is where a Flexible per segment used
-      // to cut `INFRA PERSONAL` short with space left beside `HOMELAB`.
+      // The width is found rather than written down: the test font is not the app's, so a dp
+      // figure taken off the phone means nothing here.
       for (var width = 1200.0; width > 200; width -= 4) {
         tester.view.physicalSize = Size(width, 900);
         await tester.pump(const Duration(milliseconds: 16));
@@ -234,8 +224,8 @@ void main() {
       ),
     );
 
-    /// The [SignalText] itself rather than its glyphs: the title decodes on
-    /// entry, so the characters on screen at any pump are not the title's.
+    /// The [SignalText] itself rather than its glyphs: the title decodes on entry, so the
+    /// characters on screen at any pump are not the title's.
     Future<(double, double)> header(WidgetTester tester, Widget widget) async {
       await tester.pumpWidget(widget);
       await tester.pump(const Duration(milliseconds: 100));
@@ -265,8 +255,6 @@ void main() {
       final withBack = await header(tester, host(onBack: () {}));
       final bare = await header(tester, host());
 
-      // A crumb line is the height of a tap target on all three, so the title
-      // under it does not move when the user changes tab.
       expect(withTrailing.$1, TapTargets.minHeight + Spacing.lg);
       expect(withBack, withTrailing);
       expect(bare, withTrailing);

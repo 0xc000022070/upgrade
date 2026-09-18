@@ -6,13 +6,6 @@ import '../tokens.dart';
 import 'action_block.dart';
 import 'solid_action_bar.dart';
 
-/// A destructive action confirms in place. The block keeps its
-/// position and swaps its own label and tone for [window]; a second tap inside
-/// that window commits, and letting it lapse is the cancel.
-///
-/// This replaces the confirm sheet for deletes that already live on a
-/// surface of their own — a form, a quick view. Opening a second sheet over a
-/// sheet is the chrome the skin exists to remove.
 class InlineConfirmBlock extends StatefulWidget {
   const InlineConfirmBlock({
     super.key,
@@ -29,16 +22,10 @@ class InlineConfirmBlock extends StatefulWidget {
   final String confirmLabel;
   final VoidCallback onConfirmed;
 
-  /// A solid warning block, and danger is kept for the commit
-  /// itself, so arming is a colour step and not only a word change.
-  /// Null falls back to the house warning/danger tokens in [build].
   final Color? tone;
   final Color? armedTone;
   final Duration window;
 
-  /// The quick view's footer puts DELETE in a row of sized blocks, not
-  /// on a full-width bar. Only the shape changes: arming, the window and the
-  /// colour step are the same.
   final bool compact;
 
   @override
@@ -58,8 +45,8 @@ class _InlineConfirmBlockState extends State<InlineConfirmBlock> {
   void _tap() {
     if (_armed) {
       _disarm?.cancel();
-      // Disarmed before the callback runs: the callback usually pops this
-      // widget's route, and a timer firing into a dead State throws.
+      // Disarmed before the callback runs: the callback usually pops this widget's route, and
+      // a timer firing into a dead State throws.
       setState(() => _armed = false);
       widget.onConfirmed();
       return;

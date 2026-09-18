@@ -4,62 +4,40 @@ import 'dart:typed_data';
 import '../../application/reason_lines.dart';
 import '../host_keys.dart';
 
-/// One live shell on a host, whatever is carrying it.
-///
-/// The seam between the transport (builder A, `shell_tunnel.dart`) and the
-/// route and store (builder B, `lib/features/shell/`). A test drives the
-/// store and the view through its own implementation of this; real sessions
-/// are either a Mosh UDP channel or an SSH channel with a pty.
 abstract interface class ShellConnection {
   ShellTransport get transport;
 
-  /// Transport reachability after the shell opened. SSH ends its channel when
-  /// reachability is lost. Mosh stays open while roaming, so it reports the
-  /// difference between an existing session and recent server contact here.
+  /// SSH ends its channel when reachability is lost. Mosh stays open while roaming, so it
+  /// reports the difference between an existing session and recent server contact here.
   Stream<ShellConnectionHealth> get health;
 
-  /// Whether this channel started or resumed an explicitly requested durable
-  /// target. Ordinary and Herdr sessions are plain at this boundary.
   ShellContinuity get continuity;
 
-  /// What the shell prints, stdout and stderr in arrival order.
   Stream<Uint8List> get output;
 
-  /// What the user typed, bytes exactly as the terminal emitted them.
   void write(Uint8List bytes);
 
-  /// The view's new size, forwarded as a window change.
   void resize(int columns, int rows);
 
-  /// Completes when the remote shell ends, with its exit code, or with
-  /// null when the channel closed without one.
   Future<int?> get exitCode;
 
-  /// Closes the channel and the connection under it.
   Future<void> close();
 
-  /// Moves a roaming transport onto the phone's current network. Plain SSH
-  /// has nothing to do here; Mosh rebinds its UDP socket.
   Future<void> rehome();
 
-  /// Ends this tab's marked Mosh server and, only when explicitly requested,
-  /// its durable shell. True means the pending cleanup may be forgotten.
   Future<bool> terminateRemote(String session, {required bool durableShell});
 
-  /// The active pane's directory in one Dazzle-owned remote shell.
   Future<String?> remoteDirectory(String session);
 
-  /// Runs one command on a second channel of the same connection, with
-  /// [stdin] written to it and closed, and answers once it has exited. The
-  /// shell on the pty never sees any of it: what lands a clip on the host and
-  /// what puts it on the host's clipboard both go this way, so nothing about
-  /// the user's own prompt is disturbed.
-  ///
-  /// With a [timeout], a command still running when it runs out throws
-  /// [TimeoutException] and its channel is taken down, so a command blocked on
-  /// something that will never come does not hold the channel and whatever was
-  /// written to it open for the life of the connection.
-  Future<ExecResult> exec(String command, {Uint8List? stdin, Duration? timeout});
+  /// A second channel, so the shell on the pty never sees any of it. With a [timeout], a
+  /// command still running when it runs out throws and its channel is taken down, so one
+  /// blocked on something that will never come does not hold the channel open for the life
+  /// of the connection.
+  Future<ExecResult> exec(
+    String command, {
+    Uint8List? stdin,
+    Duration? timeout,
+  });
 }
 
 enum ShellContinuity { plain, started, resumed }
@@ -68,7 +46,6 @@ enum ShellTransport { ssh, mosh }
 
 enum ShellConnectionHealth { connected, reconnecting, disconnected }
 
-/// What a command on an exec channel came back with.
 class ExecResult {
   const ExecResult({
     required this.exitCode,
@@ -86,10 +63,6 @@ class ExecResult {
   String get err => utf8.decode(stderr, allowMalformed: true);
 }
 
-/// What the store needs of the transport: open one shell at this size, or one
-/// [command] on a pty of that size instead of the login shell. The real one is
-/// `ShellTunnel.open`. Failures are thrown as the `VncFailure`-style reasons
-/// the header already knows how to word.
 typedef ShellOpener = Future<ShellConnection> Function({
   required String address,
   required int port,
@@ -103,37 +76,25 @@ typedef ShellOpener = Future<ShellConnection> Function({
   HostKeyVerifier? verifier,
 });
 
-/// Why a shell did not open or did not stay open, one line's worth each.
 enum ShellFailureKind {
-  /// The name did not resolve.
   unresolved,
 
-  /// The machine did not answer.
   unreachable,
 
-  /// The host would not take the key.
   keyRejected,
 
-  /// The channel, the pty or the shell request was denied, which is what a
-  /// key line still reading `restrict` without `pty` gives every time.
+  /// Which is what a key line still reading `restrict` without `pty` gives every time.
   shellRefused,
 
-  /// The connection went away without an exit code.
   streamClosed,
 
-  /// Nothing is pinned for this host and nobody could be asked, or the user
-  /// was asked and said no.
   hostKeyUnverified,
 
-  /// The machine presented a key that is not the one pinned for it. Refused
-  /// with no way past it here; the pin is dropped on the host form or not at
-  /// all.
   hostKeyChanged,
 }
 
-/// Which sentence each kind is worded as. The header's word and the reason
-/// row's line are both read off it, so the two cannot say different things
-/// about the same failure.
+/// The header's word and the reason row's line are both read off it, so the two cannot
+/// say different things about the same failure.
 extension ShellFailureLine on ShellFailureKind {
   ReasonLine get line => switch (this) {
     ShellFailureKind.unresolved => ReasonLine.unresolved,
@@ -146,13 +107,11 @@ extension ShellFailureLine on ShellFailureKind {
   };
 }
 
-/// Thrown by the opener and by the transport while a session is up.
 class ShellFailure implements Exception {
   const ShellFailure(this.kind, {this.detail});
 
   final ShellFailureKind kind;
 
-  /// The underlying error's words, for the debug log only.
   final String? detail;
 
   @override

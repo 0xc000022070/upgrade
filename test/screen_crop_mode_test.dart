@@ -1,8 +1,3 @@
-/// Crop mode over the picture: one finger draws a box, nothing reaches the
-/// host, and SAVE or HOLD hands the box back in framebuffer pixels with
-/// which of the two it was.
-library;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/features/screen/framebuffer_view.dart';

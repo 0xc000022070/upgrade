@@ -1,22 +1,17 @@
 #!/usr/bin/env bash
-# Our changes to xterm are packages/xterm/patches, one patch per behaviour.
-# The package the app builds against is upstream's release with those applied,
-# materialised under .dart_tool and never committed; pubspec overrides xterm
-# onto it.
+# Upstream xterm plus packages/xterm/patches, materialised under .dart_tool.
 #
 #   build     materialise it, if the version or the patches moved
 #   generate  rewrite the patches from edits made to it
 #   verify    prove the patches reproduce it exactly
 #   without   materialise it with one patch dropped, to bisect a behaviour
 #
-# Editing xterm means editing .dart_tool/xterm and running `generate`. A build
-# leaves a tree whose patches it already holds alone, so an edit survives until
-# it is written down or thrown away with `rm -rf .dart_tool/xterm`.
+# A build leaves a tree whose patches it already holds alone, so an edit to
+# .dart_tool/xterm survives until `generate` writes it down or `rm -rf` drops it.
 set -euo pipefail
 
 readonly VERSION=4.0.0
-# sha256 over the sorted sha256 of every .dart file under lib/, so a refetched
-# upstream is checked against the source the patches were cut from.
+# sha256 over the sorted sha256 of every .dart file under lib/.
 readonly LIB_SHA=12bd4729255b42339be8858b09a320c167556c8429b171bce627a7c27461126a
 
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -28,13 +23,7 @@ readonly TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 # One entry per behaviour, in the order they apply: <file>|<subject>|<paths...>
-# scroll-forwarding is one patch and not three because the local pointer
-# position, the mouseMode.reportScroll condition and the deferred swap rewrite
-# the same hunks; split any finer and the patches stop being what we did.
-#
-# A whole file is copied per entry, so a file belongs to exactly one of them. A
-# change reaching two files that already sit in different entries is carried by
-# both of their subjects rather than by an entry of its own.
+# A whole file is copied per entry, so a file belongs to exactly one of them.
 readonly -a CONCERNS=(
   "01-wheel-button-ids|a wheel button is 64-67, not 68-71|lib/src/core/mouse/button.dart"
   "02-scroll-forwarding|scroll forwards on a local position and swaps on the last lift|lib/src/ui/scroll_handler.dart lib/src/ui/infinite_scroll_view.dart"
@@ -62,8 +51,8 @@ stamp() {
   } | sha256sum | cut -d' ' -f1
 }
 
-# Upstream's release, fetched once into a cache of our own and checked against
-# the source the patches were cut from.
+# Fetched once into a cache of our own, checked against the source the patches
+# were cut from.
 upstream() {
   if [[ ! -d $UPSTREAM ]]; then
     echo "fetching xterm $VERSION" >&2
@@ -81,8 +70,8 @@ upstream() {
     die "xterm $VERSION is not the source the patches were cut from"$'\n'"  want $LIB_SHA"$'\n'"  got  $got"
 }
 
-# Upstream plus the patches, under TMP and never in place, so a patch that
-# fails leaves no half-applied tree behind for the next build to no-op over.
+# Under TMP and never in place: a patch that fails would otherwise leave a
+# half-applied tree for the next build to no-op over.
 materialise() {
   local into=$TMP/$1 drop=${2:-} patch
   upstream
@@ -93,8 +82,7 @@ materialise() {
     git -C "$into" apply -p1 --whitespace=nowarn "$patch" ||
       die "$(basename "$patch") does not apply${drop:+ without $drop; they are one behaviour}"
   done
-  # A patch that applied to nothing is the failure this whole arrangement is
-  # most likely to hide, so the tree is proven to have moved off upstream.
+  # A patch that applied to nothing is what this arrangement would otherwise hide.
   ! diff -rq --exclude='.*' "$UPSTREAM" "$into" >/dev/null ||
     die "the patches applied but changed nothing"
 }
@@ -127,10 +115,8 @@ verify() {
   echo ".dart_tool/xterm is xterm $VERSION plus the patches, and nothing else"
 }
 
-# git does the hunk splitting: a tree of upstream, one commit per behaviour,
-# and the diff of each commit is that behaviour's patch. `git diff` rather than
-# format-patch, so no commit id or date lands in the file and regenerating an
-# unchanged package rewrites nothing.
+# `git diff` rather than format-patch, so no commit id or date lands in the file
+# and regenerating an unchanged package rewrites nothing.
 generate() {
   local work=$TMP/series
   upstream
@@ -143,8 +129,8 @@ generate() {
   "${git[@]}" add -A
   "${git[@]}" commit -qm "xterm $VERSION"
 
-  # Written aside and swapped in at the end: a series that cannot regenerate
-  # must not take the committed one with it on the way out.
+  # Swapped in at the end: a series that cannot regenerate must not take the
+  # committed one with it on the way out.
   local out=$TMP/patches
   mkdir -p "$out"
 
@@ -172,18 +158,13 @@ generate() {
   rm -rf "$PATCHES"
   mv "$out" "$PATCHES"
 
-  # An edit no patch claims would vanish from the series, so the series is only
-  # honest if it still reproduces what it was read from.
+  # An edit no patch claims would vanish from the series.
   verify
 }
 
-# 03, 06 and 07 add API that dazzle calls (keyboardOnTap in shell_terminal.dart,
-# onReport and colors in shell_sessions.dart), so dropping any of them wants
-# those call sites edited too. 06 and 07 are one behaviour split across an
-# ownership line — the colour reply is answered in 07 and emitted in 06 — so
-# neither compiles without the other. 04 drops clean for a build: the token API
-# it adds is only read by test/terminal_token_test.dart. 01, 02 and 05 change
-# behaviour and no surface.
+# What each patch costs to drop: 03, 06 and 07 add API dazzle calls, and 06 and 07
+# are one behaviour so neither compiles without the other. 04's token API is read
+# only by test/terminal_token_test.dart. 01, 02 and 05 change no surface.
 without() {
   local drop=${1:-}
   [[ -n $drop ]] || die "usage: xterm-patches.sh without <patch-name>"

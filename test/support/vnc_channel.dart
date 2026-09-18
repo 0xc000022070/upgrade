@@ -1,11 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-/// A stand-in for the `direct-tcpip` channel: bytes in one end, bytes out
-/// the other, both readable by a test.
-///
-/// The client under test is the real one — only the ssh channel is scripted,
-/// which is the boundary the app cannot cross without a host.
 class FakeVncChannel {
   FakeVncChannel() {
     _outgoing.stream.listen(_sent.add);
@@ -18,7 +13,6 @@ class FakeVncChannel {
   Stream<List<int>> get stream => _incoming.stream;
   StreamSink<List<int>> get sink => _outgoing.sink;
 
-  /// Everything the client has written so far, in order.
   Uint8List get sent => Uint8List.fromList(_sent.toBytes());
 
   void feed(List<int> bytes) => _incoming.add(bytes);
@@ -32,13 +26,10 @@ class FakeVncChannel {
   }
 }
 
-/// The bytes a 3.8 server sends before the first framebuffer update.
-///
-/// [securityTypes] is what the server offers; the client takes `None` (1)
-/// where it can and VNC Authentication (2) with a password where it cannot.
-/// [challenge] is the 16 bytes a server expecting the password sends, after
-/// which every version answers with a `SecurityResult`; a 3.8 failure is
-/// followed by [reason].
+/// [securityTypes] is what the server offers; the client takes `None` (1) where it can
+/// and VNC Authentication (2) with a password where it cannot. [challenge] is the 16
+/// bytes a server expecting the password sends, after which every version answers with a
+/// `SecurityResult`; a 3.8 failure is followed by [reason].
 List<int> serverHandshake({
   String version = 'RFB 003.008\n',
   List<int> securityTypes = const [1],
@@ -95,9 +86,7 @@ List<int> serverPixelFormat() => [
   0,
 ];
 
-/// A `FramebufferUpdate` header minus its message type, which the caller
-/// writes so a test reads as the byte stream it is: padding, then the rect
-/// count.
+/// A `FramebufferUpdate` header minus its message type: padding, then the rect count.
 List<int> updateHeader(int rects) => [0, ..._u16(rects)];
 
 List<int> rectHeader({

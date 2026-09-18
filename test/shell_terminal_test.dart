@@ -22,9 +22,8 @@ void main() {
   double fontSize(WidgetTester tester) =>
       tester.widget<TerminalView>(find.byType(TerminalView)).textStyle.fontSize;
 
-  /// Where the terminal's own scroll sits. The main buffer draws inside a
-  /// [Scrollable], so a drag that reaches the terminal moves this and a drag
-  /// the pinch ate does not.
+  /// The main buffer draws inside a [Scrollable], so a drag that reaches the terminal moves
+  /// this and a drag the pinch ate does not.
   double scrollOffset(WidgetTester tester) => tester
       .state<ScrollableState>(
         find.descendant(
@@ -35,8 +34,8 @@ void main() {
       .position
       .pixels;
 
-  /// Fills the buffer past its viewport so there is a scrollback to move into,
-  /// and lets the store decode it off the real event loop.
+  /// Fills the buffer past its viewport and lets the store decode it off the real event
+  /// loop.
   Future<void> fill(WidgetTester tester, FakeShellTransport transport) async {
     final buffer = StringBuffer();
     for (var i = 0; i < 200; i++) {
@@ -46,10 +45,8 @@ void main() {
     await ready(tester);
   }
 
-  /// Two fingers on the view, `from` apart, moved to `to` apart along the row
-  /// and lifted. Two steps: the first carries the span past the scale slop
-  /// while each finger is still inside the drag slop, so the pinch is the
-  /// gesture that wins and not a scroll.
+  /// Two steps: the first carries the span past the scale slop while each finger is still
+  /// inside the drag slop, so the pinch is the gesture that wins and not a scroll.
   Future<void> pinch(
     WidgetTester tester, {
     required double from,
@@ -99,9 +96,8 @@ void main() {
       await ready(tester);
       expect(fontSize(tester), 13);
 
-      // The recognizer measures its starting span once it has accepted, a
-      // slop past where the fingers landed, so the size is asserted by
-      // direction and not by the ratio the fingers drew.
+      // The recognizer measures its starting span once it has accepted, a slop past where the
+      // fingers landed.
       await pinch(tester, from: 100, to: 160);
       final grown = fontSize(tester);
       expect(grown, greaterThan(13));
@@ -140,8 +136,7 @@ void main() {
       await ready(tester);
       final drawn = fontSize(tester);
       expect(drawn, greaterThan(13));
-      // The row is read off the real event loop: a drift stream never emits
-      // inside the test's own.
+      // A drift stream never emits inside the test's own event loop.
       final written = await tester.runAsync(
         () => settings
             .watchNumber(SettingsRepository.shellFontSize, orElse: 0)
@@ -166,9 +161,8 @@ void main() {
       await fill(tester, transport);
 
       final before = scrollOffset(tester);
-      // Horizontal first, past the pan slop the scale recognizer wins on while
-      // the vertical drag is still inside its own: this is the diagonal swipe a
-      // thumb draws on glass, the one the old pinch handler ate.
+      // Horizontal first, past the pan slop the scale recognizer wins on while the vertical
+      // drag is still inside its own.
       final center = tester.getCenter(find.byType(TerminalView));
       final finger = await tester.startGesture(center);
       await finger.moveBy(const Offset(50, 8));
@@ -178,8 +172,6 @@ void main() {
       await finger.up();
       await ready(tester);
 
-      // The type is untouched and the buffer has moved: the drag reached the
-      // terminal instead of the resize.
       expect(fontSize(tester), 13);
       expect(scrollOffset(tester), isNot(before));
 
@@ -213,7 +205,6 @@ void main() {
       transport.opened.single.emit('copyme\r\n');
       await ready(tester);
 
-      // Nothing selected, nothing to copy.
       expect(find.byKey(const ValueKey('shell-copy')), findsNothing);
 
       final session = sessions.activeFor(rose.id)!;
@@ -231,14 +222,12 @@ void main() {
       await tester.pump();
 
       expect(copied, selected);
-      // The copy takes the selection with it, so the cell goes too.
       expect(session.controller.selection, isNull);
       expect(find.byKey(const ValueKey('shell-copy')), findsNothing);
 
       await unmount(tester);
     });
 
-    /// Where a cell sits on screen, through the render object that paints it.
     Offset cellAt(WidgetTester tester, int x, int y) {
       final render = tester
           .state<TerminalViewState>(find.byType(TerminalView))
@@ -278,26 +267,21 @@ void main() {
       String selected() =>
           session.terminal.buffer.getText(session.controller.selection);
 
-      // Column 4 is the middle of the three spaces between one and two: a
-      // space with a word to one side counts as that word, so only this cell
-      // is a gap in the buffer's eyes.
+      // A space with a word to one side counts as that word, so only this cell is a gap in the
+      // buffer's eyes.
       final gesture = await hold(tester, cellAt(tester, 4, 0));
       await tester.pump();
       expect(selected(), ' ');
       expect(haptics, ['HapticFeedbackType.selectionClick']);
 
-      // Across the next space: the range grows to it rather than waiting for
-      // the finger to land on a word.
       await gesture.moveTo(cellAt(tester, 5, 0));
       await tester.pump();
       expect(selected(), '  ');
 
-      // On to a word, and the whole of it comes in.
       await gesture.moveTo(cellAt(tester, 7, 0));
       await tester.pump();
       expect(selected(), '  two');
 
-      // Growing the selection is one press, one tick.
       await gesture.up();
       await tester.pump();
       expect(haptics, hasLength(1));
@@ -313,7 +297,6 @@ void main() {
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions, db: db));
       await ready(tester);
-      // The shell turns mouse reporting on, the way a TUI does.
       transport.opened.single.emit('\x1b[?1000h\x1b[?1006hword\r\n');
       await ready(tester);
       final session = sessions.activeFor(rose.id)!;
@@ -325,8 +308,6 @@ void main() {
       expect(session.controller.selection, isNotNull);
       expect(transport.opened.single.written, isEmpty);
 
-      // A tap is still a click, press and release together, and it drops the
-      // selection.
       await tester.tapAt(cellAt(tester, 1, 0));
       await ready(tester);
       expect(session.controller.selection, isNull);
@@ -348,7 +329,6 @@ void main() {
         final scrollback = terminal.buffer.lines.length - terminal.viewHeight;
         expect(scrollback, greaterThan(0));
 
-        // The third row of the screen, which is a row far down the buffer.
         await tester.tapAt(cellAt(tester, 1, scrollback + 2));
         await ready(tester);
         expect(transport.opened.single.written, '\x1b[<0;2;3M\x1b[<0;2;3m');
@@ -357,8 +337,6 @@ void main() {
       },
     );
 
-    /// The COPY / CLEAR cell as one box, and the top edge of a cell on the
-    /// terminal, both on the screen.
     Rect pill(WidgetTester tester) => tester.getRect(
       find
           .ancestor(
@@ -394,7 +372,6 @@ void main() {
       final render = tester
           .state<TerminalViewState>(find.byType(TerminalView))
           .renderTerminal;
-      // Just over the line, and centred on the word.
       expect(box.bottom, lessThan(top));
       expect(box.bottom, greaterThan(top - render.cellSize.height * 2));
       final word = (cellAt(tester, 10, 8).dx + cellAt(tester, 15, 8).dx) / 2;
@@ -449,7 +426,6 @@ void main() {
       await ready(tester);
       expect(selected(), 'two');
 
-      // The grips stand on the word's edges, their bars down the line.
       final begin = find.byKey(const ValueKey('shell-select-begin'));
       final end = find.byKey(const ValueKey('shell-select-end'));
       expect(
@@ -462,8 +438,6 @@ void main() {
       );
       expect(tester.getRect(begin).top, moreOrLessEquals(cellTop(tester, 0)));
 
-      // The end grip out to the last word, then the begin grip back to the
-      // first; the other end holds.
       await tester.drag(end, Offset(cell.width * 5, 0));
       await ready(tester);
       expect(selected(), 'two three');
@@ -471,7 +445,6 @@ void main() {
       await ready(tester);
       expect(selected(), 'one two three');
 
-      // Past the other end: the range turns round rather than collapsing.
       await tester.drag(begin, Offset(cell.width * 12, 0));
       await ready(tester);
       expect(selected(), 'e');
@@ -503,9 +476,8 @@ void main() {
         return -1;
       }
 
-      // Fill the scrollback to the brim: from here on every line printed drops
-      // one off the top, and the index of every line still in the buffer walks
-      // down by one with it.
+      // From here on every line printed drops one off the top, and the index of every line
+      // still in the buffer walks down by one with it.
       shell.emit('${'filler\r\n' * shellScrollback}one two three\r\n');
       await ready(tester);
       expect(terminal.buffer.height, shellScrollback);
@@ -516,7 +488,6 @@ void main() {
       await ready(tester);
       expect(selected(), 'two');
 
-      // The end grip goes down, and two lines arrive before the finger moves.
       final grip = find.byKey(const ValueKey('shell-select-end'));
       final drag = await tester.startGesture(tester.getRect(grip).center);
       await tester.pump();
@@ -525,9 +496,6 @@ void main() {
       final after = rowOfWords();
       expect(after, before - 2);
 
-      // The finger carries the far end out to the last word. The near end is
-      // where the grip started, and a row number taken back then now points
-      // two lines below the words.
       await drag.moveTo(cellAt(tester, 12, after));
       await ready(tester);
       expect(selected(), 'two three');
@@ -548,10 +516,6 @@ void main() {
       await ready(tester);
       final session = sessions.activeFor(rose.id)!;
 
-      // The finger goes down on the word, then the shell prints past the
-      // bottom of the view before the half second is up. The buffer scrolls
-      // under the finger, so by the time the long press is reported the pixel
-      // it is on covers a line that was not there when it landed.
       final gesture = await tester.startGesture(cellAt(tester, 2, 0));
       shell.emit(
         List.generate(
@@ -582,8 +546,6 @@ void main() {
       String selected() =>
           session.terminal.buffer.getText(session.controller.selection);
 
-      // On the last row of a full view, so the next line printed scrolls
-      // rather than filling empty space below.
       final last = session.terminal.viewHeight - 1;
       shell.emit('${'\r\n' * last}alpha bravo');
       await ready(tester);
@@ -592,9 +554,6 @@ void main() {
       await tester.pump();
       expect(selected(), 'alpha');
 
-      // Two lines arrive while the finger is still down, then it moves out to
-      // the second word. The far end is the finger's, the near end the
-      // press's, and the press's must not have gone down with the scroll.
       shell.emit('\r\nline a\r\nline b');
       await ready(tester);
       await gesture.moveTo(cellAt(tester, 7, last));
@@ -624,10 +583,6 @@ void main() {
       await tester.pump();
       expect(terminal.buffer.getText(session.controller.selection!), 'alpha');
 
-      // A whole scrollback's worth of output while the finger is down: the
-      // held line is gone, and with it both the selection's ends and the
-      // press's own cell. The drag has nothing to come from, so it lets go
-      // rather than reading a row number the buffer no longer answers for.
       shell.emit('gone\r\n' * shellScrollback);
       await ready(tester);
       expect(session.controller.selection, isNull);
@@ -657,9 +612,8 @@ void main() {
       await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
       expect(selected(), 'alpha');
 
-      // The long press has already won the arena, so the second finger never
-      // reaches the recognizer — but it is a pointer down all the same, and it
-      // must not take the anchor off the word the first one is holding.
+      // The long press has already won the arena, so the second finger never reaches the
+      // recognizer — but it is a pointer down all the same.
       final two = await tester.startGesture(cellAt(tester, 14, 0), pointer: 2);
       await tester.pump();
       await one.moveTo(cellAt(tester, 8, 0));
@@ -691,18 +645,12 @@ void main() {
         await ready(tester);
       }
 
-      // Inside the link: the scheme wins over the run it sits in, so the
-      // `url=` prefix is left behind.
       await press(18);
       expect(selected(), 'https://x.dev/a/b?c=1');
 
-      // Outside it, on the prefix: no scheme under the finger, so the whole
-      // run comes, `=` and all.
       await press(5);
       expect(selected(), 'url=https://x.dev/a/b?c=1');
 
-      // A word the sentence wrapped and punctuated: the brackets and the stop
-      // are not part of it.
       await press(32);
       expect(selected(), 'done');
 
@@ -717,8 +665,6 @@ void main() {
       await tester.pumpWidget(app(sessions, db: db));
       await ready(tester);
       final session = sessions.activeFor(rose.id)!;
-      // Longer than the view is wide, so the terminal wraps it onto the next
-      // row without a line of its own.
       final url = 'https://x.dev/${'a' * (session.terminal.viewWidth + 20)}';
       transport.opened.single.emit('$url\r\n');
       await ready(tester);
@@ -747,8 +693,6 @@ void main() {
       final session = sessions.activeFor(rose.id)!;
       final terminal = session.terminal;
 
-      // The alternate screen, filled to its last row: a REPL, a pager, an
-      // editor. There is no scrollback behind it.
       shell.emit('\x1b[?1049h');
       await ready(tester);
       shell.emit(
@@ -757,17 +701,12 @@ void main() {
       await ready(tester);
       final tall = terminal.viewHeight;
 
-      // The keyboard comes up and takes rows off the view, then goes away
-      // again. Every row the shrink cut off the top is trimmed, and the rows
-      // that are left move up by that many.
       tester.view.viewInsets = const FakeViewPadding(bottom: 400);
       await ready(tester);
       expect(terminal.viewHeight, lessThan(tall));
       tester.view.viewInsets = FakeViewPadding.zero;
       await ready(tester);
 
-      // A press on the third row down takes the third row down, not the one
-      // the row's index named before the view lost its top.
       final third = terminal.buffer.lines[2].toString().trimRight();
       final gesture = await hold(tester, cellAt(tester, 1, 2));
       await tester.pump();
@@ -844,8 +783,8 @@ void main() {
       await ready(tester);
       final connection = transport.opened.single;
 
-      // Mosh rejects mode 1003 after a TUI first enables mode 1002. Its
-      // fallback disables 1002, leaving the outer terminal with no mouse mode.
+      // Mosh rejects mode 1003 after a TUI first enables mode 1002. Its fallback disables
+      // 1002, leaving the outer terminal with no mouse mode.
       connection.emit('\x1b[?1049h\x1b[?1002h\x1b[?1002l\x1b[?1006hHerdr');
       await ready(tester);
 
@@ -916,8 +855,8 @@ void main() {
       await ready(tester);
       expect(session.terminal.mouseMode.reportScroll, isFalse);
 
-      // The first twenty pixels go to the gesture arena's touch slop, so the
-      // finger is walked down in steps rather than thrown in one move.
+      // The first twenty pixels go to the gesture arena's touch slop, so the finger is walked
+      // down in steps rather than thrown in one move.
       final start = session.scrollController.position.pixels;
       final finger = await tester.startGesture(
         tester.getCenter(find.byType(TerminalView)),
@@ -929,8 +868,6 @@ void main() {
       final moved = session.scrollController.position.pixels;
       expect(moved, lessThan(start));
 
-      // The application turns reporting on mid-drag, which is what a redraw
-      // does. The scrollable the finger is on must survive it.
       connection.emit('\x1b[?1002h\x1b[?1006h');
       await tester.pump();
       expect(session.terminal.mouseMode.reportScroll, isTrue);
@@ -941,8 +878,6 @@ void main() {
       }
       expect(session.scrollController.position.pixels, lessThan(moved));
 
-      // And the swap the drag deferred lands on the lift, so the next drag
-      // goes to the application.
       await finger.up();
       await ready(tester);
       await tester.drag(find.byType(TerminalView), const Offset(0, 120));
@@ -976,8 +911,8 @@ void main() {
       final wheelReport = contains(RegExp(r'\x1b\[<64;\d+;\d+M'));
       expect(await wheel(), wheelReport);
 
-      // A theme animation and a screen the app is moved onto each rebuild the
-      // scrollable's position out from under the render object that reads it.
+      // A theme animation and a screen the app is moved onto each rebuild the scrollable's
+      // position out from under the render object that reads it.
       await tester.pumpWidget(
         app(
           sessions,
@@ -1000,8 +935,6 @@ void main() {
   });
 
   group('the way back to the live line', () {
-    /// A screenful of output and then some, so there is something behind the
-    /// bottom of the view to scroll into.
     Future<ShellSession> filled(
       WidgetTester tester,
       FakeShellTransport transport,
@@ -1014,7 +947,6 @@ void main() {
       return sessions.activeFor(rose.id)!;
     }
 
-    /// Puts the view a screenful up, the way a finger dragging down does.
     void scrollUp(ShellSession session) {
       final position = session.scrollController.position;
       session.scrollController.jumpTo(position.maxScrollExtent - 200);
@@ -1029,8 +961,6 @@ void main() {
       final sessions = fakeShellSessions(transport);
       final session = await filled(tester, transport, sessions);
 
-      // The terminal follows its own output, so a shell left alone is on its
-      // last line however much it prints.
       expect(session.scrollController.position.extentAfter, 0);
       expect(tail, findsNothing);
 
@@ -1048,9 +978,6 @@ void main() {
       await tester.pump();
 
       expect(tail, findsOneWidget);
-      // A mark in the corner, not a bar across the bottom of the shell. The
-      // cell is its own label and the floor under it; a cell that takes the
-      // pane's width covers a whole row of output and every touch along it.
       expect(
         tester.getSize(tail).width,
         lessThan(tester.getSize(find.byType(TerminalView)).width / 2),

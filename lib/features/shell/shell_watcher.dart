@@ -2,13 +2,10 @@ import 'package:flutter/widgets.dart';
 
 import 'shell_sessions.dart';
 
-/// Follows both the set of tabs and the tabs in it.
-///
-/// The two are announced separately: the store says which tabs exist, each
-/// session says what it is showing and what state it is in. Anything that
-/// reads a tab's state through the store needs both, and the subscription on
-/// the tabs has to move as the set does — a tab that has gone is let go of,
-/// one that was already followed is left alone.
+/// The store says which tabs exist, each session says what it is showing and what state
+/// it is in. Anything that reads a tab's state through the store needs both, and the
+/// subscription on the tabs has to move as the set does — a tab that has gone is let go
+/// of, one that was already followed is left alone.
 class ShellFollower {
   ShellFollower({
     required this.store,
@@ -21,7 +18,6 @@ class ShellFollower {
 
   final ShellSessions store;
 
-  /// The tabs to follow, read again every time the store reports.
   final List<ShellSession> Function(ShellSessions store) watch;
 
   final VoidCallback onChange;
@@ -53,12 +49,6 @@ class ShellFollower {
   }
 }
 
-/// Draws something that reads both the set of tabs and what those tabs are
-/// doing.
-///
-/// A view that needs only one of the two listens to that one — the card strip
-/// to the store, a card to its own session. This is for the views that need
-/// both, because the tabs they draw are the ones the store is handing them.
 class ShellWatcher extends StatefulWidget {
   const ShellWatcher({
     super.key,

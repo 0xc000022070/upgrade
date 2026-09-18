@@ -39,8 +39,7 @@ const _nyx = Host(
   keyId: 'key-1',
 );
 
-/// The store dials on a microtask, so every assertion about a connection has
-/// to let those run first.
+/// The store dials on a microtask.
 Future<void> _settle() => Future<void>.delayed(Duration.zero);
 
 class _DelayedShellTabs extends InMemoryShellTabRepository {
@@ -69,15 +68,15 @@ class _DelayedShellTabs extends InMemoryShellTabRepository {
   }
 }
 
-/// The store's own clock is the test binding's inside [testWidgets], so a
-/// reconnect's wait is advanced by pumping rather than waited out.
+/// The store's own clock is the test binding's inside [testWidgets], so a reconnect's
+/// wait is advanced by pumping rather than waited out.
 Future<void> _pumpDial(WidgetTester tester) async {
   await tester.pump();
   await tester.pump();
 }
 
-/// Runs a live session's whole schedule out with nothing answering, which is
-/// what a phone asleep in a pocket does to one. Leaves the transport refusing.
+/// Runs a live session's whole schedule out with nothing answering. Leaves the transport
+/// refusing.
 Future<void> _spend(
   WidgetTester tester,
   FakeShellTransport transport,
@@ -107,7 +106,6 @@ void main() {
     await sessions.close(_rose.id, second);
     final fourth = sessions.open(_rose)!;
 
-    // The gap stays a gap: `2` is spent for this visit.
     expect(fourth.number, 4);
     expect(sessions.forHost(_rose.id).map((session) => session.number), [
       1,
@@ -127,8 +125,7 @@ void main() {
     expect(transport.commands, [
       shellMarked(session.mark, command: session.command),
     ]);
-    // Nothing typed at the far end: a line written at a login shell races
-    // whatever that shell reads before its prompt.
+    // A line written at a login shell races whatever that shell reads before its prompt.
     expect(transport.opened.single.written, isEmpty);
   });
 
@@ -178,8 +175,6 @@ void main() {
     final session = sessions.open(_rose)!;
     await _pumpDial(tester);
 
-    // What the dead shell printed stays on screen, so the terminal is the same
-    // object after the reconnect as before it.
     final terminal = session.terminal;
     transport.opened.single.drop();
     await tester.pump();
@@ -218,8 +213,7 @@ void main() {
     await _settle();
     final connection = transport.opened.single;
 
-    // The two bytes of `ñ`, arriving as two reads the way a busy channel
-    // delivers them.
+    // The two bytes of `ñ`, arriving as two reads the way a busy channel delivers them.
     connection.emitBytes([0xC3]);
     await _settle();
     connection.emitBytes([0xB1]);
@@ -237,7 +231,6 @@ void main() {
     final connection = transport.opened.single;
 
     sessions.arm(session, {StickyModifier.ctrl});
-    // What the soft keyboard puts in, which never passes through the bar.
     session.terminal.textInput('c');
 
     expect(connection.writes.single, [0x03]);
@@ -282,7 +275,6 @@ void main() {
       await _settle();
 
       sessions.arm(session, {StickyModifier.alt}, repeat: 2);
-      // What the bar hands down, already mapped to bytes.
       sessions.send(session, Uint8List.fromList([0x1b, 0x5b, 0x41]));
 
       expect(session.sticky, {StickyModifier.alt});
@@ -303,8 +295,7 @@ void main() {
         final connection = transport.opened.single;
 
         sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
-        // DSR 6, "where is the cursor": what an agent asks the terminal while
-        // the user is deciding what to press.
+        // DSR 6, "where is the cursor".
         session.terminal.write('\x1b[6n');
 
         expect(session.sticky, {StickyModifier.ctrl});
@@ -329,8 +320,8 @@ void main() {
       await _settle();
 
       sessions.arm(session, {StickyModifier.ctrl}, repeat: 3);
-      // Device attributes, operating status, cursor position, size: every
-      // reply xterm makes without being typed at.
+      // Device attributes, operating status, cursor position, size: every reply xterm makes
+      // without being typed at.
       for (final query in [
         '\x1b[c',
         '\x1b[>c',
@@ -356,8 +347,6 @@ void main() {
       sessions.arm(session, {StickyModifier.alt}, repeat: 2);
       session.terminal.write('\x1b[6n');
 
-      // The program asked where the cursor is; a meta prefix would make it
-      // read the answer as something else entirely.
       expect(connection.writes, [
         [0x1b, 0x5b, 0x30, 0x3b, 0x30, 0x52],
       ]);
@@ -469,8 +458,6 @@ void main() {
       final session = sessions.open(_rose)!;
       await _settle();
       var notices = 0;
-      // The tab's own notifier: the count is drawn by the bar under this
-      // terminal and by nothing on the screen behind it.
       session.addListener(() => notices++);
 
       sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
@@ -479,7 +466,6 @@ void main() {
       expect(notices, 2);
       session.terminal.textInput('d');
       expect(notices, 3);
-      // Nothing armed, nothing to redraw.
       session.terminal.textInput('d');
       expect(notices, 3);
     });
@@ -512,7 +498,6 @@ void main() {
       expect(second.sticky, isEmpty);
       expect(second.stickyRepeat, 1);
 
-      // Coming back finds the arming where it was left, count and all.
       sessions.activate(_rose.id, first);
       expect(first.sticky, {StickyModifier.ctrl});
       expect(first.stickyRepeat, 2);
@@ -678,8 +663,6 @@ void main() {
     final session = sessions.open(_rose)!;
     await _pumpDial(tester);
 
-    // A full-screen application reporting mouse input, which is what the
-    // terminal is left holding when the link goes under one.
     transport.opened.single.emit('\x1b[?1049h\x1b[?1002h\x1b[?1006h');
     await _pumpDial(tester);
     expect(session.terminal.mouseMode.reportScroll, isTrue);
@@ -690,8 +673,6 @@ void main() {
     await tester.pump(shellReconnectDelays.first);
     await _pumpDial(tester);
 
-    // What comes back is a login shell that asked for none of it. A terminal
-    // still reporting would forward every drag and swallow every tap.
     expect(session.terminal.mouseMode.reportScroll, isFalse);
     expect(session.terminal.isUsingAltBuffer, isFalse);
 
@@ -715,8 +696,6 @@ void main() {
     await tester.pump(shellReconnectDelays.first);
     await _pumpDial(tester);
 
-    // The program on the far end is the thing a pane survives for, so the
-    // modes it set are still true and resetting them would be the lie.
     expect(session.terminal.mouseMode.reportScroll, isTrue);
 
     await sessions.close(_rose.id, session);
@@ -733,9 +712,6 @@ void main() {
     expect(bare.pane, isNull);
     expect(attached.pane, pane);
     expect(sessions.holding(_rose.id, pane), same(attached));
-    // Same pane id on another host is another pane, and so is the same pane
-    // id under another session of the same host: each herdr server numbers
-    // its own.
     expect(
       sessions.holding(_rose.id, (session: 'lab', pane: 'w26:p1')),
       isNull,
@@ -760,9 +736,6 @@ void main() {
     await tester.pump(shellReconnectDelays.first);
     await _pumpDial(tester);
 
-    // The attach is the channel's command rather than a line someone typed
-    // once, so the dial that replaces a dropped one carries it again and the
-    // tab is still the pane's.
     expect(session.pane, pane);
     expect(sessions.holding(_rose.id, pane), same(session));
     final marked = shellMarked(session.mark, command: 'attach');
@@ -855,9 +828,6 @@ void main() {
       await _pumpDial(tester);
     }
 
-    // The host row's own user, address and port, so the reader is sent to
-    // the port that was dialled and not to whatever the socket said about
-    // its own end.
     final state = session.state as ShellWaiting;
     expect(state.kind, ShellFailureKind.unreachable);
     expect(state.detail, 'luis@100.64.0.1:22 · connection refused');
@@ -876,8 +846,6 @@ void main() {
     sessions.stopReconnect(session);
     await tester.pump();
 
-    // The one failure the app has no word for is the one whose text is
-    // always kept, and giving up shows what the last dial hit.
     final state = session.state as ShellFailed;
     expect(state.kind, ShellFailureKind.streamClosed);
     expect(state.detail, contains('no route to host'));
@@ -936,7 +904,6 @@ void main() {
     await tester.pump();
     expect(sessions.forHost(_rose.id), hasLength(1));
 
-    // Leaving the route, which is the thing that must not take the shell down.
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
 
@@ -956,7 +923,6 @@ void main() {
     transport.opened.single.drop();
     await tester.pump();
 
-    // The dial does not go out until the first wait is up.
     expect(session.state, isA<ShellDropped>());
     expect((session.state as ShellDropped).attempt, 1);
     expect(transport.opened, hasLength(1));
@@ -966,10 +932,7 @@ void main() {
 
     expect(session.state, isA<ShellLive>());
     expect(transport.opened, hasLength(2));
-    // The scrollback the dead shell left, then the mark, then the new one.
     expect(session.terminal.buffer.getText(), contains('-- reconnected --'));
-    // Nothing on a timer asks about a host key: the schedule runs with nobody
-    // looking at the route.
     expect(transport.verifiers.last?.prompt, isNull);
 
     await sessions.close(_rose.id, session);
@@ -1008,8 +971,6 @@ void main() {
     final session = sessions.open(_rose)!;
     await _pumpDial(tester);
 
-    // Opening a tab on a host the phone cannot reach yet is the same problem
-    // as losing one mid-session, and it is the app that dials again.
     expect(session.state, isA<ShellDropped>());
 
     transport.refuse = null;
@@ -1032,9 +993,6 @@ void main() {
 
     await _spend(tester, transport, session);
 
-    // Six dials after the first, and then nothing: the schedule can run out in
-    // a pocket, so its end is a tab waiting rather than a tab that failed. It
-    // carries what the last dial actually hit, not the drop that started it.
     expect(transport.verifiers, hasLength(1 + shellReconnectDelays.length));
     expect(session.state, isA<ShellWaiting>());
     expect((session.state as ShellWaiting).kind, ShellFailureKind.unreachable);
@@ -1062,8 +1020,6 @@ void main() {
     sessions.wakeAll();
     await _pumpDial(tester);
 
-    // The whole of the ruling: the tab comes back on the pane it was on, with
-    // the agent that is running there, under the mark that says a shell died.
     expect(session.state, isA<ShellLive>());
     expect(transport.commands.last, shellMarked(session.mark, command: attach));
     expect(session.pane, pane);
@@ -1102,8 +1058,6 @@ void main() {
     sessions.wakeAll();
     await _pumpDial(tester);
 
-    // The wake dialled, missed, and is waiting two seconds rather than running
-    // the whole minute out again with nobody looking.
     expect(transport.verifiers, hasLength(spent + 1));
     expect(session.state, isA<ShellDropped>());
     expect((session.state as ShellDropped).attempt, 2);
@@ -1133,8 +1087,6 @@ void main() {
     sessions.wakeAll();
     await _pumpDial(tester);
 
-    // A network arriving says nothing about a key that is not the one pinned,
-    // and a tab with a shell on the other end has nothing to come back from.
     expect(live.state, isA<ShellLive>());
     expect(refused.state, isA<ShellFailed>());
     expect(transport.verifiers, hasLength(dialled));
@@ -1158,8 +1110,6 @@ void main() {
     sessions.wakeAll();
     await _pumpDial(tester);
 
-    // The user is answering something the host asked, and a redial would take
-    // the shell the question belongs to out from under the answer.
     expect(transport.verifiers, hasLength(spent));
     expect(session.state, isA<ShellWaiting>());
 
@@ -1189,8 +1139,6 @@ void main() {
     transport.refuse = null;
     final spent = transport.verifiers.length;
 
-    // Not `stream closed`, which is only what a tab stopped mid-schedule ends
-    // on: this one was already reading what its last dial hit.
     expect(session.state, isA<ShellFailed>());
     expect((session.state as ShellFailed).kind, ShellFailureKind.unreachable);
 
@@ -1215,7 +1163,6 @@ void main() {
     await tester.pump(shellReconnectDelays.first);
     await _pumpDial(tester);
 
-    // An answer, not an accident: dialling again would only get the same one.
     expect(session.state, isA<ShellFailed>());
     expect(
       (session.state as ShellFailed).kind,
@@ -1258,7 +1205,6 @@ void main() {
         expect(request.okLabel, 'UNLOCK');
         expect(request.cancelLabel, 'CANCEL');
         expect(told, 1);
-        // The sequence is swallowed whole, nothing of it lands on the screen.
         expect(session.terminal.buffer.getText(), isNot(contains('7771')));
 
         connection.emit('\x1b]7771;done;fedcba9876543210\x07');
@@ -1598,7 +1544,6 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 80));
       expect(session.pin?.id, id);
       expect(session.pin?.stale, isTrue);
-      // The same ask grown old is not another ask.
       expect(shade.events, ['up h1 ROSE · the key']);
 
       await sessions.close(_rose.id, session);
@@ -1652,8 +1597,8 @@ void main() {
 
       connection.emit(osc({'mode': 'pin'}));
       await _settle();
-      // The pinentry died without taking its fifo down, so the guard passes
-      // and the write waits for a reader that is never coming.
+      // The pinentry died without taking its fifo down, so the guard passes and the write
+      // waits for a reader that is never coming.
       connection.wedged = true;
 
       expect(await sessions.answerPin(session, 'hunter2'), PinAnswer.expired);
@@ -1789,7 +1734,6 @@ void main() {
         [2, false],
       ]);
 
-      // The tab the user was on closing moves the flag with the route.
       await sessions.close(_rose.id, first);
       await _settle();
       expect((await tabs.all()).single.active, isTrue);
@@ -1805,8 +1749,6 @@ void main() {
       before.activate(_rose.id, before.forHost(_rose.id).first);
       await _settle();
 
-      // A second store over the same table is what the next process is: the
-      // connections are gone, the rows are not.
       final transport = FakeShellTransport();
       final after = fakeShellSessions(transport, tabs: tabs);
       expect(await after.restore(hosts), 3);
@@ -1820,7 +1762,6 @@ void main() {
         after.forHost(_rose.id).first.terminal.buffer.getText(),
         contains('-- reconnected --'),
       );
-      // And the tab the user left in front is the one that comes back in front.
       expect(after.activeFor(_rose.id)!.number, 1);
     });
 
@@ -1879,8 +1820,6 @@ void main() {
       await sessions.restore(hosts);
       await _settle();
 
-      // No prompt, so a host whose key was never pinned is refused here rather
-      // than asking a user who is still on the boot log.
       expect(transport.verifiers.single!.prompt, isNull);
     });
 
@@ -2008,8 +1947,8 @@ void main() {
   });
 
   group('a session lets go of what it owns', () {
-    /// A listenable that has been disposed refuses a new listener, which is
-    /// the only thing one says about itself from the outside.
+    /// A listenable that has been disposed refuses a new listener, which is the only thing
+    /// one says about itself from the outside.
     void expectDisposed(ChangeNotifier notifier, String what) {
       expect(
         () => notifier.addListener(() {}),
@@ -2037,8 +1976,6 @@ void main() {
       await _pumpDial(tester);
 
       await sessions.close(_rose.id, session);
-      // Still alive in the frame the tab was dropped in: the view holding
-      // them has not been rebuilt out of the tree yet.
       expectAlive(session.controller, 'the selection controller');
 
       await tester.pump();
@@ -2102,8 +2039,6 @@ void main() {
       await _pumpDial(tester);
       await tester.pump();
 
-      // The tab on screen goes, so its view is the one leaving the tree while
-      // the store retires what it was drawing with.
       await sessions.close(_rose.id, second);
       await tester.pump();
       await tester.pump();
@@ -2136,8 +2071,6 @@ void main() {
       await tester.pump();
       expect(session.state, isA<ShellDropped>());
 
-      // The wait runs out and the redial starts, which parks it on the close
-      // of the shell that died. The tab goes while it is parked there.
       final hold = Completer<void>();
       transport.opened.single.hold = hold;
       await tester.pump(shellReconnectDelays.first);
@@ -2161,8 +2094,6 @@ void main() {
       expect(session.state, isA<ShellConnecting>());
 
       await sessions.close(_rose.id, session);
-      // The dial the closed tab started now lands, on a host that never heard
-      // it had been given up on.
       transport.land();
       await _pumpDial(tester);
 
@@ -2193,8 +2124,6 @@ void main() {
   });
 
   group('a change reaches the tab it happened to', () {
-    /// What each notifier said since it was wired, so a test can name where a
-    /// change was announced rather than only that something was.
     ({int Function() store, int Function() session}) counts(
       ShellSessions sessions,
       ShellSession session,
@@ -2217,7 +2146,6 @@ void main() {
       sessions.send(session, Uint8List.fromList([4]));
       sessions.send(session, Uint8List.fromList([4]));
 
-      // Armed, spent once, spent out: three changes, all of them this tab's.
       expect(said.session(), 3);
       expect(said.store(), 0);
 
@@ -2321,7 +2249,6 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      // The title is on the card without the store having said a word.
       expect(find.text('htop'), findsOneWidget);
       expect(storeSaid, 0);
 

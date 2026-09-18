@@ -28,12 +28,11 @@ const _nyx = Host(
   keyId: 'key-1',
 );
 
-/// The screen's height in the default test surface: the drag's share of the
-/// rise is measured against it.
+/// The screen's height in the default test surface.
 const _height = 600.0;
 
-/// A status bar, so the sheet has something to stand under. The surface has
-/// none of its own.
+/// A status bar, so the sheet has something to stand under. The surface has none of its
+/// own.
 const _statusBar = 48.0;
 
 void main() {
@@ -83,14 +82,10 @@ void main() {
     await open(tester);
 
     expect(find.text('ROSE'), findsOneWidget);
-    // The tab beneath is still in the tree: the sheet is not a page in front
-    // of it.
     expect(find.text('OPEN'), findsOneWidget);
     final route = ModalRoute.of(tester.element(header));
     expect(route, isA<ShellSheetRoute>());
     expect(route!.opaque, isFalse);
-    // Foot to the screen's edge and head to the status bar: the sheet holds
-    // the rows a page held, and the band that stood here costs nothing now.
     expect(tester.getTopLeft(sheet).dy, _statusBar);
     expect(tester.getBottomLeft(sheet).dy, _height);
 
@@ -148,12 +143,8 @@ void main() {
 
     expect(rule, findsOneWidget);
     expect(tester.getSize(rule), const Size(36, 2));
-    // On the sheet's own edge, over the header's ground rather than above it:
-    // the header starts where the sheet does.
     expect(tester.getTopLeft(rule).dy, _statusBar + 5);
     expect(tester.getTopLeft(header).dy, _statusBar);
-    // A sign and not a target: a drag that starts on the rule is a drag on
-    // the header under it, and moves the sheet.
     final gesture = await tester.startGesture(tester.getCenter(rule));
     await gesture.moveBy(const Offset(0, 100));
     await tester.pump();
@@ -174,7 +165,6 @@ void main() {
 
     expect(find.text('ROSE'), findsNothing);
     expect(find.text('OPEN'), findsOneWidget);
-    // The sheet went, the session did not: it is on the tab's card.
     expect(sessions.forHost(_rose.id), isNotEmpty);
 
     await unmount(tester);

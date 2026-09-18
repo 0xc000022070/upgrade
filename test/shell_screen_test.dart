@@ -10,7 +10,6 @@ import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
 import 'support/shell_route.dart';
 
-/// What the info mark in the middle of the header is drawn in.
 Color? inkOfInfoMark(WidgetTester tester) => tester
     .widget<Text>(
       find.descendant(
@@ -21,9 +20,8 @@ Color? inkOfInfoMark(WidgetTester tester) => tester
     .style
     ?.color;
 
-/// Opens the readout behind the info mark. The sheet's own transition and no
-/// more: a tab on a reconnect schedule moves on under a longer pump, and the
-/// sheet follows the session rather than the tap that opened it.
+/// The sheet's own transition and no more: a tab on a reconnect schedule moves on under a
+/// longer pump.
 Future<void> openInfo(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('shell-tab-info')));
   await tester.pump();
@@ -40,18 +38,14 @@ void main() {
     await ready(tester);
 
     expect(find.text('ROSE'), findsOneWidget);
-    // The word costs the row nothing now: the mark carries it, and the row
-    // reads the same whatever the link is doing.
     expect(find.text('CONNECTING'), findsNothing);
     expect(inkOfInfoMark(tester), DazzleColors.warning);
-    // Nothing has gone wrong yet, so nothing is taken from the terminal.
     expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
     expect(find.text('RETRY'), findsNothing);
 
     await openInfo(tester);
 
     expect(find.text('CONNECTING'), findsOneWidget);
-    // No connection yet, so there is no transport to name.
     expect(find.text('—'), findsOneWidget);
     expect(find.text('STOP'), findsNothing);
 
@@ -64,14 +58,10 @@ void main() {
     await ready(tester);
 
     expect(find.text('ROSE'), findsOneWidget);
-    // SSH is the host's baseline and goes unsaid, so the middle of the row is
-    // empty while the shell is up.
     expect(find.textContaining('SSH'), findsNothing);
     expect(find.textContaining('/'), findsNothing);
     expect(find.text('CONNECTING'), findsNothing);
     expect(find.text('RETRY'), findsNothing);
-    // Nothing stands in the middle either: the mark is the cost of what it
-    // has to say, and a shell that is up has nothing.
     expect(find.byKey(const ValueKey('shell-tab-info')), findsNothing);
     expect(
       tester.getSize(find.byKey(const ValueKey('shell-header'))).height,
@@ -100,17 +90,12 @@ void main() {
 
     await openInfo(tester);
     expect(find.text('EXITED 130'), findsOneWidget);
-    // A shell the user walked out of is not a link that broke, so it is not
-    // dialled again and there is nothing to press: another shell is another
-    // tab.
     expect(find.text('RETRY'), findsNothing);
     expect(find.text('STOP'), findsNothing);
     expect(transport.opened, hasLength(1));
 
     await tester.tapAt(Offset.zero);
     await ready(tester);
-    // A shell that ran and stopped is not a failure, so it costs the terminal
-    // no row.
     expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
     expect(
       tester.getSize(find.byKey(const ValueKey('shell-header'))).height,
@@ -131,8 +116,6 @@ void main() {
     expect(find.text('DISCONNECTED'), findsNothing);
     expect(find.text('shell refused'), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
-    // The host answered and said no. Dialling again would get the same answer,
-    // so the row is a sentence and nothing more.
     expect(find.text('RETRY'), findsNothing);
     expect(transport.opened, isEmpty);
 
@@ -163,7 +146,6 @@ void main() {
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
-    // Closed: one line, the words the header has room for.
     expect(find.text('shell refused'), findsOneWidget);
     expect(find.textContaining('pty-req denied'), findsNothing);
 
@@ -219,8 +201,6 @@ void main() {
 
     await openInfo(tester);
 
-    // The count, so a wait that is getting long says so, and the one control:
-    // the dialling is the app's, the giving up is the user's.
     expect(find.text('RECONNECTING 1/6'), findsOneWidget);
     expect(find.text('RETRY'), findsNothing);
 
@@ -249,9 +229,6 @@ void main() {
       await ready(tester);
     }
 
-    // One word where the count was, and no spinner: the app is not working,
-    // it is waiting. The row underneath says what the last dial hit, and
-    // `STOP` is the same way out the sheet offers mid-schedule.
     expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
 
     await openInfo(tester);
@@ -280,8 +257,6 @@ void main() {
     transport.opened.last.exit(0);
     await ready(tester);
 
-    // Nothing to say and nothing to read: the tab is gone and the one left is
-    // the one still running.
     expect(sessions.forHost(rose.id), hasLength(1));
     expect(sessions.forHost(rose.id).single.number, 1);
     expect(find.textContaining('EXITED'), findsNothing);
@@ -323,8 +298,6 @@ void main() {
     await tester.tap(find.text('KEEP'));
     await ready(tester);
 
-    // The output is the only place the error is written down, so KEEP is the
-    // tab staying exactly as the shell left it.
     expect(find.text('SHELL 1 EXITED 3'), findsNothing);
     expect(sessions.forHost(rose.id), hasLength(1));
     expect(find.text('EXITED 3'), findsNothing);
@@ -406,8 +379,6 @@ void main() {
     expect(find.text('~'), findsOneWidget);
     expect(find.text('luis@nyx: ~'), findsNothing);
 
-    // Once the shell is gone the mark is what the row is for, and the word is
-    // behind it.
     transport.opened.single.exit(1);
     await ready(tester);
     await tester.tap(find.text('KEEP'));
@@ -439,7 +410,6 @@ void main() {
     expect(focused(), isFalse);
     expect(tester.testTextInput.hasAnyClients, isFalse);
 
-    // The tap still does the one thing it is for: dropping a selection.
     transport.opened.single.emit('selectme\r\n');
     await ready(tester);
     final session = sessions.activeFor(rose.id)!;
@@ -456,7 +426,6 @@ void main() {
     expect(session.controller.selection, isNull);
     expect(focused(), isFalse);
 
-    // The bar is still the way in.
     await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
     await ready(tester);
     expect(focused(), isTrue);

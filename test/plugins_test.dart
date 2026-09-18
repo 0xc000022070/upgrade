@@ -60,7 +60,8 @@ String filesManifest({List<String> files = const ['lib/util.luau']}) =>
               '[runtime]',
         );
 
-String filesUiManifest({bool declareUiApi = true}) => '''
+String filesUiManifest({bool declareUiApi = true}) =>
+    '''
 manifest_version = 5
 id = "test.filesui"
 name = "Test files ui"
@@ -75,7 +76,8 @@ ui = [${declareUiApi ? '"page"' : '"record_action"'}]
 [contributes]
 ${declareUiApi ? '[[contributes.pages]]\nid = "main"\ntitle = "Main"\n' : '[[contributes.record_actions]]\nid = "run"\ntitle = "RUN"\n'}''';
 
-String uiManifest({bool declareUiApi = true, int uiApiValue = 1}) => '''
+String uiManifest({bool declareUiApi = true, int uiApiValue = 1}) =>
+    '''
 manifest_version = 4
 id = "test.ui"
 name = "Test ui"
@@ -296,9 +298,7 @@ void main() {
     });
 
     test('format 5 without ui_api still parses, with no UI version', () {
-      final parsed = PluginManifest.parse(
-        filesUiManifest(declareUiApi: false),
-      );
+      final parsed = PluginManifest.parse(filesUiManifest(declareUiApi: false));
       expect(parsed.uiVersion, isNull);
       expect(parsed.files, ['lib/util.luau']);
     });
@@ -331,19 +331,13 @@ void main() {
       },
     );
 
-    test(
-      'format 4 with a wrong ui_api value is rejected fresh, retained as unsupported',
-      () {
-        final bad = uiManifest(uiApiValue: 3);
-        expect(
-          () => PluginManifest.parse(bad),
-          throwsA(isA<PluginException>()),
-        );
-        final retained = PluginManifest.parse(bad, retainUnsupported: true);
-        expect(retained.supported, isFalse);
-        expect(retained.incompatibility, 'Unsupported UI API version');
-      },
-    );
+    test('format 4 with a wrong ui_api value is rejected fresh, retained as unsupported', () {
+      final bad = uiManifest(uiApiValue: 3);
+      expect(() => PluginManifest.parse(bad), throwsA(isA<PluginException>()));
+      final retained = PluginManifest.parse(bad, retainUnsupported: true);
+      expect(retained.supported, isFalse);
+      expect(retained.incompatibility, 'Unsupported UI API version');
+    });
 
     test(
       'topological order, missing dependency, cycles, incompatible version',
@@ -422,20 +416,13 @@ void main() {
         'unknown = true\n${pluginIndex()}',
       ),
       'unknown entry field': pluginIndexDocument(
-        pluginIndex().replaceFirst(
-          'ref = "main"',
-          'ref = "main"\nextra = "x"',
-        ),
+        pluginIndex().replaceFirst('ref = "main"', 'ref = "main"\nextra = "x"'),
       ),
       'duplicate id': pluginIndexDocument('${pluginIndex()}\n${pluginIndex()}'),
       'invalid identifier': pluginIndexDocument(pluginIndex(id: 'Test.One')),
-      'blank repository': pluginIndexDocument(
-        pluginIndex(repository: '   '),
-      ),
+      'blank repository': pluginIndexDocument(pluginIndex(repository: '   ')),
       'blank ref': pluginIndexDocument(pluginIndex(ref: '   ')),
-      'oversized summary': pluginIndexDocument(
-        pluginIndex(summary: 'A' * 141),
-      ),
+      'oversized summary': pluginIndexDocument(pluginIndex(summary: 'A' * 141)),
       'oversized author': pluginIndexDocument(pluginIndex(author: 'A' * 81)),
       'non-list plugins': pluginIndexDocument('plugins = "x"'),
       'too many entries': pluginIndexDocument(

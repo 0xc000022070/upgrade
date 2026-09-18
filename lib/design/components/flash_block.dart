@@ -5,15 +5,8 @@ import 'package:flutter/widgets.dart';
 
 import 'action_block.dart';
 
-/// How long a verb that changed nothing on screen says what it did.
 const flashWindow = Duration(seconds: 2);
 
-/// A block that answers in its own label. The inline confirm swaps a label to
-/// ask; this one swaps it to report, once the work is done.
-///
-/// It exists for the verbs that leave the screen exactly as they found it — a
-/// copy moves no row and closes no sheet — where the label is the only place
-/// the app has to say that anything happened at all.
 class FlashActionBlock extends StatefulWidget {
   const FlashActionBlock({
     super.key,
@@ -26,8 +19,8 @@ class FlashActionBlock extends StatefulWidget {
   final String label;
   final String flashLabel;
 
-  /// Awaited before the label flips: a report of work that has not happened
-  /// yet is a lie the width of one frame.
+  /// Awaited before the label flips: a report of work that has not happened yet is a lie
+  /// the width of one frame.
   final AsyncCallback onTap;
 
   final Duration window;

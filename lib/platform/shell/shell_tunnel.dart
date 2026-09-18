@@ -12,25 +12,18 @@ import 'mosh_channel.dart';
 import 'remote_shell.dart';
 import 'shell_connection.dart';
 
-/// The slice of [SSHClient] this file uses, named so a test can stand in for
-/// the one part that needs a machine on the other end.
 abstract interface class ShellHost {
   Future<void> get authenticated;
 
-  /// A session channel with a pty on it and nothing else on it.
   Future<ShellPty> shell(SSHPtyConfig pty);
 
-  /// A session channel with a pty on it running one command, which is what
-  /// `ssh -t host cmd` asks for.
   Future<ShellPty> run(String command, SSHPtyConfig pty);
 
-  /// A session channel running one command, without a pty.
   Future<ShellExec> execute(String command);
 
   Future<void> close();
 }
 
-/// One channel carrying a command. The real one is an [SSHSession] too.
 abstract interface class ShellExec {
   Stream<Uint8List> get stdout;
   Stream<Uint8List> get stderr;
@@ -40,19 +33,15 @@ abstract interface class ShellExec {
   void write(Uint8List bytes);
   Future<void> closeStdin();
 
-  /// Takes the channel down without waiting for the command to exit, which is
-  /// the only thing that ends a command blocked on something that will never
-  /// come.
+  /// Without waiting for the command to exit, which is the only thing that ends a command
+  /// blocked on something that will never come.
   void close();
 }
 
-/// One channel carrying a pty. The real one is an [SSHSession].
 abstract interface class ShellPty {
   Stream<Uint8List> get stdout;
   Stream<Uint8List> get stderr;
 
-  /// Completes when the channel goes, after which [exitCode] is whatever the
-  /// remote reported, or null if it reported nothing.
   Future<void> get done;
   int? get exitCode;
 
@@ -61,8 +50,6 @@ abstract interface class ShellPty {
   void close();
 }
 
-/// Everything up to and including the ssh client, injectable because the
-/// socket is the half a test cannot have. The real one is [dialSsh].
 typedef ShellDialer = Future<ShellHost> Function({
   required String address,
   required int port,
@@ -73,17 +60,10 @@ typedef ShellDialer = Future<ShellHost> Function({
   HostKeyVerifier? verifier,
 });
 
-/// The transport: the host's own ssh connection with a pty inside it, carrying
-/// either the remote's login shell or one command.
-///
-/// A tab with no persistent session is the user's rule and the whole of it: a
-/// shell request or one command on a session channel with a pty.
-///
-/// A tab with one is an exec request on the same kind of channel, which is
-/// what `ssh -t` is. It exists because typing a line at a login shell is a
-/// race against everything that shell reads before its prompt: a host whose rc
-/// asks which session to open eats the line's first character, and no delay
-/// fixes it because the reader is what runs first, not what runs late.
+/// A tab with a persistent session is an exec request rather than a shell request,
+/// because typing a line at a login shell is a race against everything that shell reads
+/// before its prompt: a host whose rc asks which session to open eats the line's first
+/// character, and no delay fixes it because the reader is what runs first.
 class ShellTunnel {
   const ShellTunnel({
     this.timeout = const Duration(seconds: 10),
@@ -93,8 +73,6 @@ class ShellTunnel {
     this.moshDialer = dialMosh,
   });
 
-  /// What the remote is told the terminal is. The view is an xterm emulator
-  /// with a 256 colour palette, so this is a description and not a preference.
   static const terminalType = 'xterm-256color';
 
   final Duration timeout;
@@ -103,13 +81,6 @@ class ShellTunnel {
   final ShellDialer dial;
   final MoshDialer moshDialer;
 
-  /// Opens the connection, authenticates, and asks for the shell.
-  ///
-  /// The failure mapping is the agent poll's plus this section's own: a name
-  /// that did not resolve, a machine that did not answer, a key the host would
-  /// not take, a request the host denied — which is what a key line reading
-  /// `restrict` without `pty` gives every time — and a stream that ended
-  /// before the login did.
   Future<ShellConnection> open({
     required String address,
     required int port,
@@ -136,10 +107,9 @@ class ShellTunnel {
       verifier,
     );
     try {
-      // The host key is checked inside the handshake, which is what
-      // [ShellHost.authenticated] is waiting on: a refusal surfaces here as an
-      // ssh error, and the verifier is the only thing that knows which of the
-      // two refusals it was.
+      // The host key is checked inside the handshake, which is what [ShellHost.authenticated]
+      // is waiting on: a refusal surfaces here as an ssh error, and the verifier is the only
+      // thing that knows which of the two refusals it was.
       await _guard(address, () => host.authenticated, verifier);
       final config = SSHPtyConfig(
         type: terminalType,
@@ -188,9 +158,8 @@ class ShellTunnel {
         tmux: durable?.tmux,
       );
     } catch (_) {
-      // Half-open is worse than none: an ssh connection left behind counts
-      // against the host until its own timeout, and there is no reconnect
-      // loop to come back and reuse it.
+      // Half-open is worse than none: an ssh connection left behind counts against the host
+      // until its own timeout, and there is no reconnect loop to reuse it.
       await host.close();
       rethrow;
     }
@@ -350,10 +319,8 @@ class ShellTunnel {
     try {
       return await body();
     } catch (error) {
-      // The refusal wins over whatever the transport threw. A rejected host
-      // key closes the connection, and which error that close surfaces as
-      // depends on how far the handshake had got; the verifier's answer does
-      // not.
+      // The refusal wins over whatever the transport threw: which error a closing handshake
+      // surfaces depends on how far it had got, and the verifier's answer does not.
       final failure = shellFailureFor(error, verifier?.refusal);
       _log(address, '${failure ?? error}');
       throw failure ?? error;
@@ -372,90 +339,78 @@ class _DurableTarget {
 void _log(String address, Object message) =>
     debugPrint('dazzle.shell $address: $message');
 
-/// Every error the ssh layer can raise, on the seam's five lines.
-///
-/// Null for anything unexpected: the real error belongs in the debug log, and
-/// a bug in the layer above reads better as itself than as a reason line.
-ShellFailure? shellFailureFor(
-  Object error, [
-  HostKeyRefusal? refusal,
-]) => switch (error) {
-  ShellFailure() => error,
-  // The verifier said no, and the connection went away carrying whichever
-  // error the handshake had reached. The refusal is the reason, whatever the
-  // error is, so it is read before the error is looked at.
-  _ when refusal != null => ShellFailure(switch (refusal) {
-    HostKeyRefusal.unverified => ShellFailureKind.hostKeyUnverified,
-    HostKeyRefusal.changed => ShellFailureKind.hostKeyChanged,
-  }, detail: '$error'),
-  // Nobody refused anything and the key still did not check out: the server's
-  // signature was wrong, or it swapped its key across a rekey. Either way the
-  // machine is not the one that was pinned.
-  SSHHostkeyError() => ShellFailure(
-    ShellFailureKind.hostKeyChanged,
-    detail: '$error',
-  ),
-  // The channel open, or the pty or shell request on it. All three are the
-  // same sentence to the user: sshd would not give them a shell.
-  SSHChannelOpenError() => ShellFailure(
-    ShellFailureKind.shellRefused,
-    detail: '$error',
-  ),
-  SSHChannelRequestError() => ShellFailure(
-    ShellFailureKind.shellRefused,
-    detail: '$error',
-  ),
-  // The server ran out of methods to try, or the pem never was one.
-  SSHAuthFailError() => ShellFailure(
-    ShellFailureKind.keyRejected,
-    detail: '$error',
-  ),
-  SSHKeyDecodeError() => ShellFailure(
-    ShellFailureKind.keyRejected,
-    detail: '$error',
-  ),
-  // Auth that ended without the server saying no: the connection went away
-  // under it, or nothing came back at all. What the socket said, if it said
-  // anything, is the better line of the two.
-  SSHAuthAbortError(:final reason?) =>
-    shellFailureFor(reason, refusal) ??
-        ShellFailure(ShellFailureKind.streamClosed, detail: '$error'),
-  SSHAuthAbortError() => ShellFailure(
-    ShellFailureKind.streamClosed,
-    detail: '$error',
-  ),
-  // An orderly close is how a transport that stopped mid-request reads from
-  // this side.
-  SSHStateError() => ShellFailure(
-    ShellFailureKind.streamClosed,
-    detail: '$error',
-  ),
-  // The socket's own error, wrapped. Unwrapped here so a refused connection
-  // under a handshake reads as the refusal it is.
-  SSHSocketError() =>
-    shellFailureFor(error.error, refusal) ??
-        ShellFailure(ShellFailureKind.unreachable, detail: '$error'),
-  // The only failure that happens before an address exists. The test is
-  // [HerdrClient]'s, deliberately: which errno family a lookup failure lands
-  // in is a platform detail, and one copy of that guess is enough.
-  SocketException() when HerdrClient.isLookupFailure(error) => ShellFailure(
-    ShellFailureKind.unresolved,
-    detail: socketWords(error),
-  ),
-  SocketException() => ShellFailure(
-    ShellFailureKind.unreachable,
-    detail: socketWords(error),
-  ),
-  TimeoutException() => ShellFailure(
-    ShellFailureKind.unreachable,
-    detail: timeoutWords(error),
-  ),
-  SSHError() => ShellFailure(ShellFailureKind.unreachable, detail: '$error'),
-  _ => null,
-};
+/// Null for anything unexpected: a bug in the layer above reads better as itself than as
+/// a reason line.
+ShellFailure? shellFailureFor(Object error, [HostKeyRefusal? refusal]) =>
+    switch (error) {
+      ShellFailure() => error,
+      _ when refusal != null => ShellFailure(switch (refusal) {
+        HostKeyRefusal.unverified => ShellFailureKind.hostKeyUnverified,
+        HostKeyRefusal.changed => ShellFailureKind.hostKeyChanged,
+      }, detail: '$error'),
+      // Nobody refused anything and the key still did not check out: the server's signature
+      // was wrong, or it swapped its key across a rekey.
+      SSHHostkeyError() => ShellFailure(
+        ShellFailureKind.hostKeyChanged,
+        detail: '$error',
+      ),
+      // The channel open, or the pty or shell request on it. All three are the same sentence
+      // to the user: sshd would not give them a shell.
+      SSHChannelOpenError() => ShellFailure(
+        ShellFailureKind.shellRefused,
+        detail: '$error',
+      ),
+      SSHChannelRequestError() => ShellFailure(
+        ShellFailureKind.shellRefused,
+        detail: '$error',
+      ),
+      SSHAuthFailError() => ShellFailure(
+        ShellFailureKind.keyRejected,
+        detail: '$error',
+      ),
+      SSHKeyDecodeError() => ShellFailure(
+        ShellFailureKind.keyRejected,
+        detail: '$error',
+      ),
+      // Auth that ended without the server saying no: the connection went away under it, or
+      // nothing came back at all.
+      SSHAuthAbortError(:final reason?) =>
+        shellFailureFor(reason, refusal) ??
+            ShellFailure(ShellFailureKind.streamClosed, detail: '$error'),
+      SSHAuthAbortError() => ShellFailure(
+        ShellFailureKind.streamClosed,
+        detail: '$error',
+      ),
+      SSHStateError() => ShellFailure(
+        ShellFailureKind.streamClosed,
+        detail: '$error',
+      ),
+      // The socket's own error, unwrapped here so a refused connection under a handshake
+      // reads as the refusal it is.
+      SSHSocketError() =>
+        shellFailureFor(error.error, refusal) ??
+            ShellFailure(ShellFailureKind.unreachable, detail: '$error'),
+      // The only failure that happens before an address exists. The test is [HerdrClient]'s,
+      // deliberately: which errno family a lookup failure lands in is a platform detail.
+      SocketException() when HerdrClient.isLookupFailure(error) => ShellFailure(
+        ShellFailureKind.unresolved,
+        detail: socketWords(error),
+      ),
+      SocketException() => ShellFailure(
+        ShellFailureKind.unreachable,
+        detail: socketWords(error),
+      ),
+      TimeoutException() => ShellFailure(
+        ShellFailureKind.unreachable,
+        detail: timeoutWords(error),
+      ),
+      SSHError() => ShellFailure(
+        ShellFailureKind.unreachable,
+        detail: '$error',
+      ),
+      _ => null,
+    };
 
-/// The real dialer: the socket and the client over it, authenticated lazily by
-/// [ShellHost.authenticated] so the caller decides where auth is awaited.
 Future<ShellHost> dialSsh({
   required String address,
   required int port,
@@ -476,9 +431,7 @@ Future<ShellHost> dialSsh({
   );
 }
 
-/// The client over a socket that is already open. Split from [dialSsh] because
-/// the socket is the one half a test cannot have, and what happens to a
-/// connection that dies under the handshake is worth a test.
+/// Split from [dialSsh] because the socket is the one half a test cannot have.
 ShellHost sshHostOver(
   SSHSocket socket, {
   required String user,
@@ -510,15 +463,12 @@ class _SshHost implements ShellHost {
 
   @override
   Future<ShellPty> shell(SSHPtyConfig pty) async =>
-      // The pty and nothing beside it: no environment map, no x11, and the
-      // shell request rather than an exec.
       _SshPty(await _client.shell(pty: pty));
 
   @override
   Future<ShellPty> run(String command, SSHPtyConfig pty) async =>
-      // Same channel and same pty as [shell]; the exec request in place of the
-      // shell request is the only difference, so a detach ends the channel the
-      // way `exit` ends a shell.
+      // Same channel and same pty as [shell]; the exec request in place of the shell request
+      // is what makes a detach end the channel the way `exit` ends a shell.
       _SshPty(await _client.execute(command, pty: pty));
 
   @override
@@ -528,10 +478,8 @@ class _SshHost implements ShellHost {
   @override
   Future<void> close() async {
     _client.close();
-    // Closing a socket the host reset finishes with the reset, and every dial
-    // that failed closes what it opened: unawaited, that error escapes to the
-    // zone and every unreachable host puts an unhandled exception in the log
-    // beside the failure the app had already worded.
+    // Closing a socket the host reset finishes with the reset, and every dial that failed
+    // closes what it opened: unawaited, that error escapes to the zone.
     await _socket.close().catchError((Object _) {});
   }
 }
@@ -591,9 +539,8 @@ class _SshPty implements ShellPty {
   void close() => _session.close();
 }
 
-/// A Mosh UDP session plus an SSH control connection for file, clipboard,
-/// directory, and cleanup commands. The control connection is discarded on a
-/// network handover and redialled on demand; the terminal never waits for it.
+/// The control connection is discarded on a network handover and redialled on demand;
+/// the terminal never waits for it.
 class MoshShellConnection implements ShellConnection {
   MoshShellConnection(
     ShellHost host,
@@ -686,7 +633,8 @@ class MoshShellConnection implements ShellConnection {
     String command, {
     Uint8List? stdin,
     Duration? timeout,
-  }) => _withHost((host) => _exec(host, command, stdin: stdin, timeout: timeout));
+  }) =>
+      _withHost((host) => _exec(host, command, stdin: stdin, timeout: timeout));
 
   @override
   Future<bool> terminateRemote(
@@ -737,8 +685,7 @@ class MoshShellConnection implements ShellConnection {
     await _healthEvents.close();
   }
 
-  /// Drops a Mosh attempt that never became a shell while leaving its SSH
-  /// connection available for the plain fallback in the same dial.
+  /// Leaves the SSH connection available for the plain fallback in the same dial.
   Future<void> abandon() async {
     if (_closed) return;
     _closed = true;
@@ -849,8 +796,6 @@ class MoshShellConnection implements ShellConnection {
   }
 }
 
-/// One live shell: the two output streams merged, stdin, the window size, and
-/// the three things that close together.
 class SshShellConnection implements ShellConnection {
   SshShellConnection(
     this._host,
@@ -880,10 +825,9 @@ class SshShellConnection implements ShellConnection {
   final _reading = <StreamSubscription<Uint8List>>[];
   final _exit = Completer<int?>();
 
-  /// Held until someone is listening. A login shell prints its banner and its
-  /// prompt the moment the channel opens, which is before the store that opened
-  /// it has had a turn to subscribe, and a prompt that never arrives reads as a
-  /// shell that never started.
+  /// A login shell prints its banner and its prompt the moment the channel opens, which is
+  /// before the store that opened it has had a turn to subscribe, and a prompt that never
+  /// arrives reads as a shell that never started.
   final _pending = <Uint8List>[];
 
   late final StreamController<Uint8List> _out =
@@ -951,8 +895,8 @@ class SshShellConnection implements ShellConnection {
     await _out.close();
   }
 
-  /// Everything queues, so a chunk that arrives in the same turn as the first
-  /// listener still lands behind the ones that came before it.
+  /// Everything queues, so a chunk that arrives in the same turn as the first listener
+  /// still lands behind the ones that came before it.
   void _emit(Uint8List bytes) {
     _pending.add(bytes);
     _drain();
@@ -966,8 +910,6 @@ class SshShellConnection implements ShellConnection {
     _pending.clear();
   }
 
-  /// A stream that fails takes the session with it: the reason belongs to
-  /// whoever is drawing the terminal, worded as the seam's kinds.
   void _onStreamError(Object error) {
     if (_out.isClosed) return;
     _out.addError(
@@ -1006,8 +948,8 @@ Future<ExecResult> _exec(
     try {
       await exited.timeout(timeout);
     } on TimeoutException {
-      // The command is still on the host and nothing it was given has been
-      // read. Closing the channel is what takes it down with it.
+      // The command is still on the host and nothing it was given has been read. Closing the
+      // channel is what takes it down with it.
       channel.close();
       rethrow;
     }
@@ -1019,14 +961,11 @@ Future<ExecResult> _exec(
   );
 }
 
-/// The operating system's words for a socket that did not open, and nothing
-/// of the socket's report of itself: the address and port it prints are the
-/// phone's end of a connection that never existed, and a reader sent to that
-/// port goes looking for a service nobody dialled.
+/// Nothing of the socket's report of itself: the address and port it prints are the
+/// phone's end of a connection that never existed.
 String socketWords(SocketException error) =>
     (error.osError?.message ?? error.message).toLowerCase();
 
-/// A dial that ran out of time, with the timeout it was given.
 String timeoutWords(TimeoutException error) {
   final duration = error.duration;
   return duration == null ? 'no answer' : 'no answer in ${duration.inSeconds}s';

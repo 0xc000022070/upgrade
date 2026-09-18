@@ -1,16 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <!-- The flutter template grants this in the debug and profile manifests only,
-         so a release build reaches nothing: SPEC.md §39.20 polls herdr over ssh
-         and every host came back unreachable until this was declared here. -->
+         so a release build reached nothing and every host came back unreachable. -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- The default network is watched so a shell whose reconnect schedule is
-         spent is dialled again the moment the phone has a network to dial over. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-    <!-- SPEC.md §39.31. The watcher is a foreground service: API 34+ makes the
-         type a manifest declaration and specialUse the only one that fits an
-         app holding ssh connections open for its own user. POST_NOTIFICATIONS
-         is what the [ ALERTS ] toggle asks for on API 33+. -->
+    <!-- API 34+ makes the foreground service type a manifest declaration, and
+         specialUse is the only one that fits an app holding ssh connections open. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -31,10 +26,6 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
@@ -44,9 +35,8 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- §39.31: the plugin declares the service without a type, which an
-             API 34+ device refuses to start. The override names the type and
-             the subtype string Google requires alongside it. -->
+        <!-- The plugin declares the service without a type, which an API 34+ device
+             refuses to start. The override names it and the subtype Google wants. -->
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
             android:foregroundServiceType="specialUse"
@@ -57,30 +47,23 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keeps one ssh connection per configured host open so a blocked agent can raise a status-bar alert while the app is not in front."/>
         </service>
-        <!-- §39.31's YES and NO. flutter_local_notifications routes every action
-             tap through this receiver and declares it nowhere itself, so without
-             the line the buttons are drawn, ripple, and answer nothing. -->
+        <!-- flutter_local_notifications routes every action tap through this receiver
+             and declares it nowhere itself: without the line the buttons answer nothing. -->
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
             android:exported="false"/>
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <!-- The Flutter tool reads this to generate GeneratedPluginRegistrant.java. -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
-
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <!-- Package visibility: without these, an API 30+ device answers that nothing
+         can handle the intent. PROCESS_TEXT is the engine's own. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
-        <!-- SPEC.md 39.4: a link row opens in the browser through url_launcher.
-             Without this, canLaunchUrl finds nothing on API 30+. -->
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="https"/>

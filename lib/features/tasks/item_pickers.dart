@@ -13,17 +13,6 @@ import '../../design/components/dazzle_field.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 
-/// Both pickers are bodies rather than routes: the quick view
-/// swaps its own contents for one of them instead of opening a sheet over a
-/// sheet, and the capture toolbar mounts the target picker on its own.
-
-/// DROPS first, then every active project as a header row followed by its goals
-/// indented one level, then paused projects. Archived are absent — filing into
-/// something that is finished is not a move anyone means.
-///
-/// The list stays flat: the tree is for navigation, and a
-/// picker that made the user walk it would be the explorer the spec refuses.
-/// A child says where it sits on its own row instead, as its parent path.
 class TargetPickerBody extends ConsumerWidget {
   const TargetPickerBody({
     super.key,
@@ -31,8 +20,6 @@ class TargetPickerBody extends ConsumerWidget {
     required this.onPicked,
   });
 
-  /// Drawn as the solid block, so the picker answers "where is it now" before
-  /// it offers anywhere else.
   final ItemTarget? current;
   final ValueChanged<ItemTarget> onPicked;
 
@@ -40,9 +27,8 @@ class TargetPickerBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final projects =
         ref.watch(captureProjectsProvider).valueOrNull ?? const <Project>[];
-    // watchAll already drops archived and orders by creation; status is the
-    // only reordering the picker does, so a paused project keeps its place
-    // among its peers instead of being sorted twice.
+    // watchAll already drops archived and orders by creation; status is the only reordering
+    // the picker does, so a paused project keeps its place among its peers.
     final active = projects.where((p) => p.status == ProjectStatus.active);
     final paused = projects.where((p) => p.status == ProjectStatus.paused);
     final paths = parentPaths(projects);
@@ -88,7 +74,6 @@ class _ProjectTarget extends ConsumerWidget {
 
   final Project project;
 
-  /// The parent path, `INFRA / HOMELAB`. Empty for a root.
   final String path;
   final ItemTarget? current;
   final ValueChanged<ItemTarget> onPicked;
@@ -105,8 +90,6 @@ class _ProjectTarget extends ConsumerWidget {
         PickerRow(
           label: project.name.toUpperCase(),
           subtitle: path.isEmpty ? null : path,
-          // A paused project is still a legal target; saying so on the row is
-          // cheaper than a user filing into it and wondering where it went.
           value: project.status == ProjectStatus.paused ? 'PAUSED' : null,
           selected: current == ItemTarget.project(project.id),
           onTap: () => onPicked(ItemTarget.project(project.id)),
@@ -124,9 +107,6 @@ class _ProjectTarget extends ConsumerWidget {
   }
 }
 
-/// Open items, newest first, minus the item itself and whatever it already
-/// travels with. The search field is the first thing in the body because a
-/// bundle candidate is usually something typed days ago.
 class PairPickerBody extends ConsumerStatefulWidget {
   const PairPickerBody({
     super.key,

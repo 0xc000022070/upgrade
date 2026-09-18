@@ -17,8 +17,6 @@ class TaskRepository {
   final AppDatabase _db;
   final ActivityRepository _activity;
 
-  /// Owned rather than injected so a capture can write its item and its links
-  /// inside one transaction without the call site holding both.
   final AttachmentRepository _attachments;
   static const _uuid = Uuid();
 
@@ -43,14 +41,6 @@ class TaskRepository {
         .map(withBundlesAdjacent);
   }
 
-  /// The project's own DROPS panel — filed to the project but
-  /// under no goal.
-  ///
-  /// Newest first, like Home's DROPS. The capture bar sits at the bottom
-  /// of the project and says the captured row appears at the top of this panel;
-  /// oldest first sent it under every task already there, which on a project
-  /// with a real list is off screen. Goal panels and [watchByProject] keep
-  /// creation order: those are worked through, this one is added to.
   Stream<List<Task>> watchProjectDrops(String projectId) {
     return (_db.select(_db.tasks)
           ..where((t) => t.projectId.equals(projectId) & t.goalId.isNull())
@@ -67,11 +57,6 @@ class TaskRepository {
         .map(withBundlesAdjacent);
   }
 
-  /// DROPS: unfiled items, newest first.
-  /// A drop has no done, so the panel does not filter on it. A done
-  /// task that is later unfiled — by MOVE or by a project delete — keeps
-  /// the column set, and filtering here would leave that row on no surface at
-  /// all.
   Stream<List<Task>> watchDrops() {
     return (_db.select(_db.tasks)
           ..where((t) => t.projectId.isNull())
@@ -84,8 +69,6 @@ class TaskRepository {
     _db.tasks,
   )..where((t) => t.id.equals(id))).watchSingleOrNull();
 
-  /// The `[ WITH ]` list. An unbundled item has no mates, and
-  /// a bundle that lost its last partner reports none either.
   Stream<List<Task>> watchMates(String id) {
     return (_db.select(
       _db.tasks,
@@ -99,8 +82,6 @@ class TaskRepository {
     });
   }
 
-  /// The PAIR picker: open drops and ideas, newest first, excluding
-  /// the item itself and whatever it already travels with.
   Stream<List<Task>> watchPairCandidates(String id) {
     return (_db.select(
       _db.tasks,
@@ -110,9 +91,8 @@ class TaskRepository {
             ..where((t) {
               var filter = t.id.equals(id).not() & t.done.equals(false);
               if (bundleId != null) {
-                // `bundle_id <> 'x'` is NULL for an unbundled row, which
-                // SQLite treats as false; the null arm is what keeps plain
-                // items in the picker.
+                // `bundle_id <> 'x'` is NULL for an unbundled row, which SQLite treats as false; the
+                // null arm is what keeps plain items in the picker.
                 filter =
                     filter &
                     (t.bundleId.isNull() | t.bundleId.equals(bundleId).not());
@@ -172,10 +152,6 @@ class TaskRepository {
     });
   }
 
-  /// The capture bar's one write: the item, its links and the
-  /// event land in a single transaction, at whatever target the bar was
-  /// pointing at. The distinct event is what makes a capture read as a dump
-  /// rather than as planning.
   Future<String> capture(
     String title, {
     ItemTarget target = const ItemTarget.drops(),
@@ -202,8 +178,8 @@ class TaskRepository {
           id,
           TasksCompanion(
             done: Value(done),
-            // Finishing the flagged task retires the flag: leaving it set would
-            // point NEXT ACTION at something already crossed off.
+            // Finishing the flagged task retires the flag, or NEXT ACTION would point at something
+            // already crossed off.
             isNext: done ? const Value(false) : const Value.absent(),
             updatedAt: Value(now),
           ),
@@ -237,9 +213,8 @@ class TaskRepository {
         return null;
       });
 
-  /// At most one task in the database carries the flag. Clearing
-  /// the others in the same transaction is what makes that an invariant rather
-  /// than a convention every call site has to remember.
+  /// At most one task carries the flag; clearing the others in the same transaction is
+  /// what makes that an invariant rather than a convention.
   Future<void> setNext(String id, {DateTime? at}) => _mutations
       .on(id)
       .at(at)
@@ -252,8 +227,6 @@ class TaskRepository {
         return null;
       });
 
-  /// `UNSET`: the flag comes off without anything else taking
-  /// it, so HOME's NEXT ACTION panel goes away rather than moving on.
   Future<void> unsetNext(String id, {DateTime? at}) => _mutations
       .on(id)
       .at(at)
@@ -266,8 +239,6 @@ class TaskRepository {
         return 'unflagged';
       });
 
-  /// A bundle moves whole. The member lookup happens inside the
-  /// transaction, so a concurrent pair cannot leave half a bundle behind.
   Future<void> moveToTarget(String id, ItemTarget target, {DateTime? at}) =>
       _mutations
           .on(id)
@@ -290,8 +261,8 @@ class TaskRepository {
             return ids.length > 1 ? 'bundle of ${ids.length}' : null;
           });
 
-  /// Pairing is a union. Whichever bundle already exists wins,
-  /// so joining an item to a pair makes a trio rather than splitting it.
+  /// Pairing is a union: whichever bundle already exists wins, so joining an item to a
+  /// pair makes a trio rather than splitting it.
   Future<void> pair(String id, String otherId, {DateTime? at}) => _mutations
       .on(id)
       .at(at)
@@ -308,8 +279,6 @@ class TaskRepository {
         return 'paired with ${other.title}';
       });
 
-  /// Unpairing clears the id on this item only; the rest of the
-  /// bundle stays together.
   Future<void> unpair(String id, {DateTime? at}) => _mutations
       .on(id)
       .at(at)
@@ -353,24 +322,21 @@ class TaskRepository {
         return true;
       });
 
-  /// Deleting drops the task's notes and links with it: neither has a screen
-  /// that can reach it once the item is gone, and the foreign keys would refuse
-  /// the delete. A bundled item is deleted alone — a bundle moves whole, it
-  /// does not die whole.
-  Future<void> delete(String id, {DateTime? at}) => _mutations
-      .on(id)
-      .at(at)
-      .writes(ActivityAction.deleted, (task, now) async {
-        await (_db.delete(
-          _db.attachments,
-        )..where((a) => a.itemId.equals(id))).go();
-        // The older rows migrated into `attachments` but were left behind in
-        // `links`; a deleted item takes both copies with it.
-        await (_db.delete(_db.links)..where((l) => l.taskId.equals(id))).go();
-        await (_db.delete(_db.notes)..where((n) => n.taskId.equals(id))).go();
-        await (_db.delete(_db.tasks)..where((t) => t.id.equals(id))).go();
-        return null;
-      });
+  /// Notes and links go with the task. A bundled item is deleted alone.
+  Future<void> delete(
+    String id, {
+    DateTime? at,
+  }) => _mutations.on(id).at(at).writes(ActivityAction.deleted, (
+    task,
+    now,
+  ) async {
+    await (_db.delete(_db.attachments)..where((a) => a.itemId.equals(id))).go();
+    // Older rows migrated into `attachments` but were left behind in `links`.
+    await (_db.delete(_db.links)..where((l) => l.taskId.equals(id))).go();
+    await (_db.delete(_db.notes)..where((n) => n.taskId.equals(id))).go();
+    await (_db.delete(_db.tasks)..where((t) => t.id.equals(id))).go();
+    return null;
+  });
 
   Future<int> _write(String id, TasksCompanion values) =>
       (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(values);

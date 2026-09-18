@@ -7,17 +7,14 @@ import '../database.dart';
 import '../enums.dart';
 import '../views.dart';
 
-/// Append-only. Nothing here updates or deletes: the stream is the record of
-/// what happened, not a projection of current state.
 class ActivityRepository {
   ActivityRepository(this._db);
 
   final AppDatabase _db;
   static const _uuid = Uuid();
 
-  /// Called by the other repositories from inside their transaction. Drift
-  /// routes operations on this same database instance through the ambient
-  /// transaction executor, so the event and the mutation commit together.
+  /// Called from inside the callers' transaction: drift routes operations on this same
+  /// database instance through the ambient executor, so both commit together.
   Future<void> log({
     required EntityType entityType,
     required String entityId,

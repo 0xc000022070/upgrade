@@ -1,14 +1,9 @@
-/// The regression list: the pointer mapping from touch to
-/// framebuffer coordinates, under fit and under zoom.
-library;
-
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/features/screen/screen_transform.dart';
 
-/// nyx's desktop on a phone held upright: 1920 by 1080 fitted to 400 logical
-/// pixels of width.
+/// 1920 by 1080 fitted to 400 logical pixels of width.
 const _framebuffer = Size(1920, 1080);
 const _viewport = Size(400, 800);
 
@@ -53,7 +48,6 @@ void main() {
     });
 
     test('a tap on the black ground clamps to the nearest edge', () {
-      // Above the letterbox and past its right: still a click the host gets.
       expect(
         _fit.toFramebuffer(const Offset(200, 4)),
         closeToOffset(const Offset(960, 0)),
@@ -67,8 +61,7 @@ void main() {
 
   group('under zoom', () {
     test('the pixel under the pinch centre stays under it', () {
-      // 4x: 1600 by 900, so both axes overflow and the anchor is free to be
-      // honoured on both.
+      // 4x: 1600 by 900, so both axes overflow and the anchor is free to be honoured on both.
       const focus = Offset(200, 400);
       final anchor = _fit.toFramebuffer(focus);
       final zoomed = _fit.zoomedAbout(focus, 4);
@@ -78,18 +71,19 @@ void main() {
       expect(zoomed.toFramebuffer(focus), closeToOffset(anchor));
     });
 
-    test('a zoom that leaves the image shorter than the viewport stays centred', () {
-      // At 2.5x the desktop is 1000 by 562.5 in an 800-tall viewport: the
-      // horizontal anchor holds, and vertically there is still nothing to pan,
-      // so centring wins over the pinch centre rather than opening a black bar
-      // on one side only.
-      const focus = Offset(120, _top + 40);
-      final anchor = _fit.toFramebuffer(focus);
-      final zoomed = _fit.zoomedAbout(focus, 2.5);
+    test(
+      'a zoom that leaves the image shorter than the viewport stays centred',
+      () {
+        // At 2.5x the desktop is 1000 by 562.5 in an 800-tall viewport: horizontally there is
+        // something to pan, vertically there is not.
+        const focus = Offset(120, _top + 40);
+        final anchor = _fit.toFramebuffer(focus);
+        final zoomed = _fit.zoomedAbout(focus, 2.5);
 
-      expect(zoomed.toFramebuffer(focus).dx, closeTo(anchor.dx, 0.5));
-      expect(zoomed.origin.dy, closeTo((800 - 562.5) / 2, 1e-9));
-    });
+        expect(zoomed.toFramebuffer(focus).dx, closeTo(anchor.dx, 0.5));
+        expect(zoomed.origin.dy, closeTo((800 - 562.5) / 2, 1e-9));
+      },
+    );
 
     test('a doubled zoom halves the desktop span a touch crosses', () {
       final zoomed = _fit.zoomedAbout(const Offset(200, _top + 112.5), 2);

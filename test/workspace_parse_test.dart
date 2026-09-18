@@ -3,11 +3,8 @@ import 'package:dazzle/platform/shell/remote_shell.dart';
 import 'package:dazzle/platform/workspace/workspace_commands.dart';
 import 'package:dazzle/platform/workspace/workspace_model.dart';
 
-/// What git says, and what the screens read out of it.
-///
-/// Every one of these is a real answer from a real command, pasted whole: the
-/// parsers exist because porcelain formats are positional, and a test that
-/// hand-builds a tidy line does not catch the field that was miscounted.
+/// Every one of these is a real answer from a real command, pasted whole: porcelain
+/// formats are positional, and a hand-built tidy line does not catch a miscounted field.
 
 const _status = '''
 # branch.oid 1a2b3c4d
@@ -125,8 +122,6 @@ void main() {
       final byPath = {for (final file in files) file.path: file};
       expect(byPath['lib/gone.dart']!.kind, WorkspaceChangeKind.deleted);
       expect(byPath['lib/gone.dart']!.removed, 12);
-      // numstat says nothing about a path git is not tracking, so a modified
-      // kind is the only thing the row could otherwise have claimed.
       expect(byPath['assets/logo.png']!.kind, WorkspaceChangeKind.modified);
     });
 
@@ -226,8 +221,6 @@ index 1a2b3c..4d5e6f 100644
     });
 
     test('the preamble is not drawn, the +++ header least of all', () {
-      // The panel's own header already says which file this is, and a `+++`
-      // read as an addition would be a green line the file does not have.
       final lines = parseDiff(diff);
       expect(
         lines.map((line) => line.text),
@@ -241,14 +234,13 @@ index 1a2b3c..4d5e6f 100644
 
     test('a line carries the numbers it has on each side of the change', () {
       final lines = parseDiff(diff);
-      // `@@ -1,4 +1,4 @@`: the context line is line one either side, the
-      // removed line is line two of the old file and of no new one, and the
-      // line that replaced it is line two of the new file only.
+      // `@@ -1,4 +1,4 @@`: the context line is line one either side, the removed line is line
+      // two of the old file and of no new one, and the line that replaced it is line two of
+      // the new file only.
       expect((lines[1].oldLine, lines[1].newLine), (1, 1));
       expect((lines[2].oldLine, lines[2].newLine), (2, null));
       expect((lines[3].oldLine, lines[3].newLine), (null, 2));
       expect((lines[4].oldLine, lines[4].newLine), (3, 3));
-      // The hunk header sits over both sides and is numbered by neither.
       expect(lines[0].oldLine, isNull);
       expect(lines[0].newLine, isNull);
     });
@@ -272,11 +264,8 @@ index 1a2b3c..4d5e6f 100644
 +third
 ''', complete: false);
 
-      // Three lines of the file, and then the row that is not one of them.
       expect(lines.last.kind, DiffLineKind.capped);
       expect(lines.last.text, 'kept 3 lines; the rest did not fit');
-      // The count is of the file's lines. A reader compares it with the count
-      // the change list showed, and that one does not count hunk headers.
       expect(
         lines.where((line) => line.kind == DiffLineKind.hunk),
         hasLength(1),
@@ -284,8 +273,7 @@ index 1a2b3c..4d5e6f 100644
     });
 
     test('half a line is dropped rather than drawn as a whole one', () {
-      // `head -c` cuts at a byte, so the answer can stop inside a line. Drawn,
-      // that line is indistinguishable from a line that is really that short.
+      // `head -c` cuts at a byte, so the answer can stop inside a line.
       final lines = parseDiff('''
 @@ -1,3 +1,3 @@
  first
@@ -336,15 +324,12 @@ new file mode 100644
       expect(files.keys, ['lib/main.dart', 'lib/gone.dart', 'lib/new.dart']);
       expect(files['lib/main.dart']![1].text, 'const port = 22;');
       expect(files['lib/main.dart']![2].kind, DiffLineKind.added);
-      // Each file starts its own count: the numbers are the file's, not the
-      // answer's.
       expect(files['lib/new.dart']![1].newLine, 1);
     });
 
     test('a file with nothing but one side is keyed by the side it has', () {
-      // `+++ /dev/null` on a deletion and `--- /dev/null` on an addition: the
-      // path is whichever of the two is a file, and the change list knows it
-      // by that name either way.
+      // `+++ /dev/null` on a deletion and `--- /dev/null` on an addition: the path is
+      // whichever of the two is a file.
       final files = parseDiffByFile(many, complete: true);
       expect(files, contains('lib/gone.dart'));
       expect(files, contains('lib/new.dart'));
@@ -413,7 +398,6 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
         WorkspaceChangeKind.deleted,
         WorkspaceChangeKind.renamed,
       ]);
-      // A rename is drawn as the name it has now, over the name it had.
       expect(changes.last.path, 'lib/renamed.dart');
       expect(changes.last.origin, 'lib/old.dart');
     });
@@ -472,19 +456,12 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
 
     test('the checkout a directory is inside is what is asked for', () {
       final command = WorkspaceCommands.repository('~/src/dazzle/lib');
-      // The top level, not the directory: a shell three directories deep
-      // opens the whole repository rather than a corner of it.
       expect(_script(command), contains('git rev-parse --show-toplevel'));
       expect(_script(command), contains("cd ~/'src/dazzle/lib'"));
-      // And a directory inside no checkout says so by saying nothing.
       expect(command, contains('exit $workspaceNoRepository'));
     });
 
     test('the whole diff is one command and every diff is capped', () {
-      // The round trip is what a radio charges for, so the file list and the
-      // hunks behind all of it come back together rather than one file at a
-      // time. The cap is what stops a regenerated lockfile being the thing
-      // that comes over the radio.
       expect(
         _script(WorkspaceCommands.sourceDiff('/srv')),
         contains('git --no-pager diff --no-color HEAD | head -c'),
@@ -509,9 +486,8 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
 
     test('a quote in a path cannot end the command', () {
       final command = WorkspaceCommands.file('/srv', "it's.txt");
-      // Closed, escaped, reopened: what reaches `head` is one argument, and
-      // the apostrophe in the name is a character in it rather than the end
-      // of the command.
+      // Closed, escaped, reopened: what reaches `head` is one argument, and the apostrophe in
+      // the name is a character in it rather than the end of the command.
       expect(_script(command), contains(r"head -c 262144 -- 'it'\''s.txt'"));
     });
 
@@ -527,10 +503,8 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
     });
 
     test('a tilde is the home of the host, not a directory named ~', () {
-      // A registered directory is stored as the user typed it, so `~` reaches
-      // the host unexpanded and the host is the one that owes the expansion.
-      // Quoted whole it is a directory nobody has, and the screen words that
-      // as `directory gone`.
+      // A registered directory is stored as the user typed it, so `~` reaches the host
+      // unexpanded and quoted whole it is a directory nobody has.
       expect(
         _script(WorkspaceCommands.overview('~/src/dazzle')),
         contains("cd ~/'src/dazzle'"),
@@ -546,26 +520,18 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
     });
 
     test('only the tilde leaves the quotes', () {
-      // The rest of the path is quoted exactly as before, so a space in it is
-      // still one argument and an apostrophe still cannot end the command.
       expect(shellCd('~/my src'), "cd ~/'my src'");
       expect(shellCd('~'), 'cd ~');
       expect(shellCd('/srv/gate'), "cd '/srv/gate'");
-      // Only at the front: a tilde further in is a character in a name.
       expect(shellCd('/srv/~gate'), "cd '/srv/~gate'");
     });
 
     test('a shell in a directory execs one, and only after the cd', () {
-      // `&&`, not `;`: a directory that is gone leaves the tab with the cd's
-      // own error rather than a shell in the home the caller never asked for.
       expect(shellIn('~/my src'), "cd ~/'my src' && exec \$SHELL -l");
-      // Left for the host to expand: whose shell it is is the host's answer.
       expect(shellIn('/srv/gate'), contains(r'exec $SHELL'));
     });
 
     test('a listing is not a repository question', () {
-      // The explorer walks any directory the workspace holds, and a checkout
-      // test on every step would be a round trip spent on nothing.
       expect(
         WorkspaceCommands.listing('/srv/gate', 'lib'),
         isNot(contains('rev-parse')),
@@ -601,8 +567,7 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
     });
 
     test('a merge is read along its first parent, so it has a diff at all', () {
-      // A merge against every parent is empty, which would read on the screen
-      // as a commit that changed nothing.
+      // A merge against every parent is empty.
       expect(
         WorkspaceCommands.commitFiles('/srv/gate', '1a2b3c'),
         contains('--first-parent'),
@@ -628,8 +593,8 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
   });
 }
 
-/// The script the host runs, with the outer `sh -c` quoting undone — which is
-/// the only level a test about the script itself should be reading at.
+/// With the outer `sh -c` quoting undone, which is the only level a test about the script
+/// itself should be reading at.
 String _script(String command) {
   expect(command, startsWith("sh -c '"));
   expect(command, endsWith("'"));

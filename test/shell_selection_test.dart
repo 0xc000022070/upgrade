@@ -10,8 +10,8 @@ import 'package:xterm/xterm.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// A terminal's geometry with no terminal behind it: square-ish cells on a
-/// grid, and the inset a real surface carries already carried.
+/// A terminal's geometry with no terminal behind it: square-ish cells on a grid, and the
+/// inset a real surface carries already carried.
 class _FakeSurface implements ShellSurface {
   const _FakeSurface({this.inset = shellTerminalPadding});
 
@@ -51,7 +51,6 @@ ShellSession _session() => ShellSession(
   ),
 );
 
-/// Takes the cells `from`..`to` on one row, the way a press and a drag do.
 void _select(ShellSession session, int from, int to, {int row = 1}) {
   final buffer = session.terminal.buffer;
   session.controller.setSelection(
@@ -104,8 +103,8 @@ void main() {
 
     final begin = surface.offsetOf(const CellOffset(2, 1));
     final end = surface.offsetOf(const CellOffset(7, 1));
-    // The grip's bar stands on the cell's edge, so the widget around it is
-    // half its own width to the left of that edge.
+    // The grip's bar stands on the cell's edge, so the widget around it is half its own
+    // width to the left of that edge.
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('shell-select-begin'))),
       Offset(begin.dx - ShellSelectionGrip.width / 2, begin.dy),
@@ -121,8 +120,6 @@ void main() {
   ) async {
     final session = _session();
     addTearDown(session.dispose);
-    // A surface that says the terminal starts in the corner: a layer carrying
-    // a padding of its own would push the grip off it.
     const surface = _FakeSurface(inset: EdgeInsets.zero);
     await _pump(tester, session, surfaceOf: (_) => surface);
     _select(session, 0, 3, row: 0);
@@ -202,7 +199,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(opened, [url]);
-    // The verb spent the selection, the way copying it does.
     expect(session.controller.selection, isNull);
   });
 

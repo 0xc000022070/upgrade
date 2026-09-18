@@ -1,8 +1,3 @@
-/// What the screen route leaves behind: the controller holding on to the last
-/// frame that became an image, and the route storing it for the host's tile on
-/// the way out.
-library;
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -31,9 +26,6 @@ const _nyx = Host(
   keyId: 'k1',
 );
 
-/// A screen carried by scripted bytes. The client is the real one; only the
-/// ssh channel is faked, so the frames the controller sees are parsed rather
-/// than handed over.
 class _FakeConnection implements VncConnection {
   _FakeConnection._(this._channel, this.rfb, this.serverInit);
 
@@ -52,8 +44,7 @@ class _FakeConnection implements VncConnection {
   @override
   final RfbServerInit serverInit;
 
-  /// One Raw pixel, which is all the controller needs to build an image and
-  /// all the route needs to have something to store.
+  /// One Raw pixel, which is all the controller needs to build an image.
   void feedPixel(int x, int y, List<int> bgrx) {
     _channel.feed([
       Rfb.serverFramebufferUpdate,
@@ -80,8 +71,7 @@ VncOpener _opener(_FakeConnection connection) =>
       HostKeyVerifier? verifier,
     }) async => connection;
 
-/// Decoding is real async, which the fake clock a widget test runs on never
-/// advances: every wait here has to happen on the real one.
+/// Decoding is real async, which the fake clock a widget test runs on never advances.
 Future<void> _until(bool Function() done) async {
   for (var i = 0; i < 200 && !done(); i++) {
     await Future<void>.delayed(const Duration(milliseconds: 5));
@@ -122,8 +112,6 @@ void main() {
         () => controller.lastFramebuffer!.pixels[Rfb.bytesPerPixel] == 0x44,
       );
 
-      // The second update, with the first still under it: the route stores the
-      // screen as it stood, not the rect that last changed on it.
       final second = controller.lastFramebuffer!;
       expect(second.pixels.sublist(0, 3), <int>[0x11, 0x22, 0x33]);
       expect(
@@ -140,8 +128,6 @@ void main() {
     addTearDown(() => root.deleteSync(recursive: true));
     final previews = ScreenPreviews(Directory('${root.path}/screens'));
     addTearDown(previews.dispose);
-    // The store announces a host when its file is closed, so this is the one
-    // signal that separates a written frame from a file that merely exists.
     final written = <String>[];
     final changes = previews.changes.listen(written.add);
     addTearDown(changes.cancel);
@@ -179,17 +165,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Popping the route, which is the write the tile is waiting on: the 30
-    // second tick has not come round once in the life of this test.
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
 
-    // The write is real file IO started from dispose, so it needs both clocks:
-    // the real one to deliver the completion and the test's own to let the
-    // continuation waiting on it through. The cap is generous because it is a
-    // deadline on a loaded machine and not a measurement: the loop leaves the
-    // moment the write lands, so a suite that has the cores to spare pays none
-    // of it.
+    // The write is real file IO started from dispose, so it needs both clocks: the real one
+    // to deliver the completion and the test's own to let the continuation through.
     for (var i = 0; i < 400 && written.isEmpty; i++) {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 10)),

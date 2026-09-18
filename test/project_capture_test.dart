@@ -87,8 +87,6 @@ void main() {
     expect(taskRows, hasLength(1));
     expect(taskRows!.single.projectId, projectId);
     expect(taskRows.single.goalId, isNull);
-    // The URL was part of the sentence, so it stays in the title and is not
-    // filed a second time as an attachment.
     expect(taskRows.single.title, 'Read https://docs.flutter.dev');
     expect(attachmentRows, isEmpty);
     expect(find.byType(KeyboardToolbar), findsNothing);
@@ -129,9 +127,6 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 
-    // At the top of the panel, not under the tasks already filed. The
-    // capture bar is at the bottom of the screen and the panel is above it, so
-    // a row appended to the end is the one place the eye does not go.
     expect(
       tester.getTopLeft(find.text('comprar cable USB-C')).dy,
       lessThan(tester.getTopLeft(find.text('Postgres propio')).dy),
@@ -143,9 +138,8 @@ void main() {
     final projectId = await projects.create(name: 'Infra personal');
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(400, 800);
-    // A Scaffold insets its body for the IME and leaves the bottom slot alone,
-    // so the bar this screen mounts there covered its own field with the
-    // keyboard: on device the project was captured into blind.
+    // A Scaffold insets its body for the IME and leaves the bottom slot alone, so the bar
+    // this screen mounts there covered its own field with the keyboard.
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     addTearDown(tester.view.reset);
 
@@ -166,8 +160,7 @@ void main() {
     final nav = ProviderScope.containerOf(
       tester.element(find.byType(ProjectDetailScreen)),
     ).read(navGlitchProvider);
-    // The controller is read off the tree once and then held: the scrim
-    // takes the panels off screen while the field has focus, so a finder that
+    // The scrim takes the panels off screen while the field has focus, so a finder that
     // works before the capture finds nothing on the frame it lands.
     final landing = tester.widget<DropsPanel>(find.byType(DropsPanel)).landing!;
     final header = find.ancestor(
@@ -182,9 +175,6 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
 
-    // The row lands in this panel, so the panel is what tears. The nav
-    // icon HOME would have used is not on screen under a pushed route, and it
-    // is not fired behind it either.
     expect(landing.idle, isFalse);
     expect(nav.controllers.every((controller) => controller.idle), isTrue);
 

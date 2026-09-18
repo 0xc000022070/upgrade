@@ -7,9 +7,6 @@ import '../../application/attachment_files.dart';
 import '../../application/native_plugins.dart';
 import '../../design/tokens.dart';
 
-/// Black, pinch to zoom, back to close. A route rather than a
-/// dialog — this is the one surface in the app that wants the whole screen,
-/// and the system back gesture is the only affordance it needs.
 Future<void> openImageViewer(BuildContext context, String relative) {
   return Navigator.of(context, rootNavigator: true).push(
     PageRouteBuilder<void>(
@@ -35,8 +32,6 @@ class _ImageViewer extends ConsumerWidget {
     return ColoredBox(
       color: context.tokens.mediaBackdrop,
       child: GestureDetector(
-        // Tap closes as well as back: a viewer with no chrome has to say yes to
-        // the gesture a user will try first.
         onTap: () => Navigator.of(context).maybePop(),
         child: InteractiveViewer(
           minScale: 1,

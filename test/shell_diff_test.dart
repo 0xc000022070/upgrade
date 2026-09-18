@@ -20,10 +20,6 @@ import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
 import 'support/shell_route.dart';
 
-/// The way into the diff from a terminal: the version-control mark on the
-/// header, and the question it answers before it is drawn — which repository
-/// the tab is standing in.
-
 final _key = ManagedKey(
   id: 'key-1',
   name: 'faraday',
@@ -34,15 +30,14 @@ final _key = ManagedKey(
 
 const _diffCell = ValueKey('shell-tab-diff');
 
-/// A host that prints the same thing whatever it is asked, as an answer the
-/// transport can be handed before the screen's first frame.
+/// A host that prints the same thing whatever it is asked, as an answer the transport can
+/// be handed before the screen's first frame.
 ExecResult _says(String stdout, {int exitCode = 0}) => ExecResult(
   exitCode: exitCode,
   stdout: Uint8List.fromList(utf8.encode(stdout)),
   stderr: Uint8List(0),
 );
 
-/// The version-control mark as it is drawn on the row.
 DazzleIcon _mark(WidgetTester tester) => tester.widget<DazzleIcon>(
   find.descendant(of: find.byKey(_diffCell), matching: find.byType(DazzleIcon)),
 );
@@ -56,8 +51,7 @@ void main() {
         cwdFromOsc('file://rose/home/luis/src/dazzle'),
         '/home/luis/src/dazzle',
       );
-      // A hook writes the path escaped, and a space is the escape that
-      // happens.
+      // A hook writes the path escaped, and a space is the escape that happens.
       expect(cwdFromOsc('file://rose/home/luis/my%20src'), '/home/luis/my src');
       expect(cwdFromOsc(' file://rose/srv \n'), '/srv');
     });
@@ -86,18 +80,13 @@ void main() {
       expect(probe, contains('/proc/[0-9]*'));
       expect(probe, contains('DAZZLE_TAB='));
       expect(probe, contains('s1a2b3c'));
-      // The parent is looked at, which is what leaves a `vim` out of the
-      // answer and the shell that started it in.
       expect(probe, contains('PPid'));
       expect(probe, contains(r'readlink "$p/cwd"'));
-      // A tab can be holding a client instead of a shell, so the same walk
-      // reads the session such a client says it is on.
       expect(probe, contains('herdr'));
       expect(probe, contains('HERDR_SESSION='));
       expect(probe, contains('--session '));
       // Portable: `grep -z` is GNU's and not every host's.
       expect(probe, isNot(contains('grep -qz')));
-      // A tab's directory is read and nothing on the host is touched.
       expect(probe, isNot(contains('kill')));
       expect(probe, isNot(contains('rm ')));
     });
@@ -146,8 +135,6 @@ void main() {
     test('a tab holding a client names the session it is on', () {
       final place = parseShellPlace('/home/luis\nhub\n');
 
-      // Both, and the session is what makes the directory the fallback: the
-      // client stands where it was started, not where its panes are.
       expect(place.cwd, '/home/luis');
       expect(place.herdrSession, 'hub');
     });
@@ -155,8 +142,7 @@ void main() {
     test('nothing found is nothing said', () {
       expect(parseShellPlace('\n\n').cwd, isNull);
       expect(parseShellPlace('\n\n').herdrSession, isNull);
-      // A `readlink` on a process that has since gone answers something that
-      // is not a path, and that is not a place either.
+      // A `readlink` on a process that has since gone answers something that is not a path.
       expect(parseShellPlace('(unreachable)\n\n').cwd, isNull);
       expect(parseShellPlace('').cwd, isNull);
     });
@@ -172,8 +158,6 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      // Nothing registered and the dial refused: there is no shell to ask
-      // where it is, and the app will not ask the user instead.
       final session = sessions.forHost(rose.id).single;
       expect(session.connection, isNull);
       expect(find.byKey(_diffCell), findsNothing);
@@ -189,8 +173,6 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      // A row that already holds nine tabs cannot spend four letters on a
-      // word.
       expect(find.text('DIFF'), findsNothing);
       expect(_mark(tester).icon, DazzleIcons.branch);
 
@@ -202,8 +184,6 @@ void main() {
     ) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      // The tab is standing in a directory that is inside no checkout: the
-      // walk finds it and `git` refuses it.
       transport.opening = (connection) => connection.answer = (command, _) =>
           _says(
             command.contains('rev-parse') ? '' : '/home/luis\n\n',
@@ -215,8 +195,6 @@ void main() {
       expect(sessions.forHost(rose.id).single.repository, isNull);
       expect(_mark(tester).color, DazzleColors.textDisabled);
 
-      // And it answers nothing: a phone that says `NOT A CHECKOUT` after a tap
-      // has spent the tap saying what it already knew.
       await tester.tap(find.byKey(_diffCell));
       await ready(tester);
       expect(find.text('WORKING TREE'), findsNothing);
@@ -237,7 +215,6 @@ void main() {
       await ready(tester);
 
       final session = sessions.forHost(rose.id).single;
-      // Three directories deep is still the whole repository.
       expect(session.cwd, '/home/luis/src/dazzle/lib/features');
       expect(session.repository, '/home/luis/src/dazzle');
       expect(_mark(tester).color, isNot(DazzleColors.textDisabled));
@@ -259,11 +236,9 @@ void main() {
       connection.directoryRequests.clear();
 
       expect(await sessions.cwdFromHost(session), '/home/luis/src/dazzle');
-      // Asked on a second channel, so the shell on the pty sees none of it.
       expect(connection.execs.last.command, shellCwdProbe(session.mark));
       expect(connection.directoryRequests, isEmpty);
       expect(connection.written, isNot(contains('/proc')));
-      // And kept, so the tab knows where it is without asking twice.
       expect(session.cwd, '/home/luis/src/dazzle');
 
       await unmount(tester);
@@ -281,8 +256,6 @@ void main() {
       final session = sessions.open(rose, pane: pane)!;
       await ready(tester);
       final connection = transport.opened.last;
-      // The pane the tab is on has been walked into a repository; the pane
-      // beside it has not, and the attach itself is standing in `$HOME`.
       connection.answerWith(
         '{"result":{"type":"pane_list","panes":['
         '{"pane_id":"w2C:p2","cwd":"/home/luis"},'
@@ -292,8 +265,6 @@ void main() {
       );
 
       expect(await sessions.cwdFromHost(session), '/home/luis/src/dazzle');
-      // The multiplexer, not the process tree: nothing this connection
-      // started is standing where that shell is.
       expect(connection.execs.last.command, HerdrCommands.panes('hub'));
       expect(connection.execs.last.command, isNot(contains('/proc')));
 
@@ -381,7 +352,6 @@ void main() {
     });
 
     testWidgets('keeps its place with nine tabs open', (tester) async {
-      // A phone's width, where the tabs alone are wider than the row.
       tester.view.physicalSize = const Size(411, 900);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -392,8 +362,6 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      // The strip is what gives way. The cell is drawn whole, before the
-      // close, and the close is still on the right edge of the row.
       expect(tester.takeException(), isNull);
       final diff = tester.getRect(find.byKey(_diffCell));
       final close = tester.getRect(
@@ -437,8 +405,6 @@ void main() {
       await tester.tap(find.byKey(_diffCell));
       await ready(tester);
 
-      // Nothing is chosen for the user: two directories on one machine are
-      // two repositories.
       expect(find.text('DAZZLE'), findsOneWidget);
       expect(find.text('GATE'), findsOneWidget);
 

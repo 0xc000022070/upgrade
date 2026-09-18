@@ -18,10 +18,6 @@ import '../../design/spacing.dart';
 import '../../platform/bundle_cipher.dart';
 import '../../platform/documents.dart';
 
-/// The way the hosts and keys leave this phone and land on another: a sealed
-/// file through the system picker, with a passphrase over it. Sits on `SYS`
-/// between the alerts and the build stamp, and keeps the last thing that
-/// happened as a row, since the picker itself leaves no trace on the screen.
 class BundlePanel extends ConsumerStatefulWidget {
   const BundlePanel({super.key});
 
@@ -81,9 +77,9 @@ class _BundlePanelState extends ConsumerState<BundlePanel> {
     setState(() => _last = (words: words, failed: failed));
   }
 
-  /// The sheet does the sealing under its own bar, so `SEALING` is read where
-  /// the passphrase was typed. The picker comes up after, and its dismissal is
-  /// nothing happening.
+  /// The sheet does the sealing under its own bar, so `SEALING` is read where the
+  /// passphrase was typed. The picker comes up after, and its dismissal is nothing
+  /// happening.
   Future<void> _export() async {
     final transfer = ref.read(bundleTransferProvider);
     final cipher = ref.read(bundleCipherProvider);
@@ -109,8 +105,6 @@ class _BundlePanelState extends ConsumerState<BundlePanel> {
     }
   }
 
-  /// Picker, passphrase, count, confirm: the user sees what they are about to
-  /// take before anything is written.
   Future<void> _import() async {
     final transfer = ref.read(bundleTransferProvider);
     final cipher = ref.read(bundleCipherProvider);
@@ -205,8 +199,6 @@ class _BundlePanelState extends ConsumerState<BundlePanel> {
   }
 }
 
-/// What a sheet comes back with: a line for the panel, or the bundle that
-/// opened and still wants confirming.
 class _Outcome {
   const _Outcome._(this.words, {required this.failed, this.bundle});
 
@@ -220,10 +212,6 @@ class _Outcome {
   final Bundle? bundle;
 }
 
-/// The passphrase, asked twice on the way out and once on the way in. The bar
-/// names what is missing the way the host form does, and reads the busy word
-/// while the derivation runs. A fault out of the action is handed back as the
-/// sheet's result rather than raised through it.
 class _PassphraseSheet extends StatefulWidget {
   const _PassphraseSheet({
     required this.confirm,
@@ -280,8 +268,8 @@ class _PassphraseSheetState extends State<_PassphraseSheet> {
       }
       return;
     } catch (_) {
-      // Anything else is a bug, not a word for the panel: the bar comes back
-      // so the sheet is not stuck on its busy word, and the error goes up.
+      // Anything else is a bug, not a word for the panel: the bar comes back so the sheet is
+      // not stuck on its busy word, and the error goes up.
       if (mounted) setState(() => _running = false);
       rethrow;
     }

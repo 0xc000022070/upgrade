@@ -9,11 +9,6 @@ import '../spacing.dart';
 import 'action_block.dart';
 import 'dazzle_field.dart';
 
-/// The toolbar's glyphs are named one by one, one glyph per verb and
-/// none reused. Naming them as an enum rather than passing [IconData] around is
-/// what makes that rule checkable: a second `link` cannot appear under another
-/// name, and a test can find a verb without knowing which Material glyph it
-/// currently draws.
 enum ToolbarGlyph {
   link(Icons.link, 'LINK'),
   image(Icons.image_outlined, 'IMAGE'),
@@ -31,12 +26,9 @@ enum ToolbarGlyph {
 
   final IconData icon;
 
-  /// The long-press tooltip for the icon-only strip.
   final String word;
 }
 
-/// One icon on the strip. A label would make it a button bar,
-/// which is the form the user rejected.
 class ToolbarAction {
   const ToolbarAction({
     required this.glyph,
@@ -47,14 +39,9 @@ class ToolbarAction {
   final ToolbarGlyph glyph;
   final VoidCallback onTap;
 
-  /// The mode the strip is currently in — URL mode lights the link glyph, the
-  /// open extras row lights `+` — so the field's state is legible without a
-  /// placeholder to read.
   final bool lit;
 }
 
-/// `[ host ] x` for a URL, a 28px thumbnail with the same `x` for an
-/// image. Either way these are the field's attachments and not the body's.
 class ToolbarChip {
   const ToolbarChip({required this.label, this.onRemove, this.tone})
     : imagePath = null;
@@ -65,25 +52,13 @@ class ToolbarChip {
 
   final String label;
 
-  /// An absolute path on disk. Null for a URL chip, which has nothing to show
-  /// but its host.
   final String? imagePath;
 
-  /// Null for a chip that is a mode rather than an attachment — the capture
-  /// target, which is always set and only ever changes.
   final VoidCallback? onRemove;
 
-  /// Null falls back to the house secondary text tone where the chip renders.
   final Color? tone;
 }
 
-/// One labelled line raised on the strip, above the chips and the glyphs, for
-/// a value that is not the body text: a link, a blocked reason.
-///
-/// The line belongs to the keyboard and dies with it, which is what separates
-/// it from the body field, which is capped rather than borrowed: the text the
-/// user was writing stays on screen underneath, with its caret, and never
-/// changes hands.
 class ToolbarField {
   const ToolbarField({
     required this.label,
@@ -97,41 +72,23 @@ class ToolbarField {
     this.accepts,
   });
 
-  /// `LINK`, `BLOCKED BY`. Uppercase, in the panel header's type.
   final String label;
 
   final TextEditingController controller;
 
-  /// The commit block's word — `ATTACH`.
   final String action;
 
   final ValueChanged<String> onSubmit;
   final VoidCallback onCancel;
 
-  /// The strip going down out from under the line — a dismissed keyboard
-  /// rather than an answered line. Defaults to [onCancel]; a host that has to
-  /// tell the two apart passes its own.
   final VoidCallback? onDismiss;
 
   final String? hint;
   final TextInputType? keyboardType;
 
-  /// Whether what is typed can be committed yet. Null accepts anything
-  /// non-empty. The block goes to disabled ink and stops taking taps while this
-  /// is false, so a value the caller will refuse is refused where it was typed
-  /// instead of disappearing on submit.
   final bool Function(String)? accepts;
 }
 
-/// The accessory strip, in its two-row shape, pinned above
-/// the IME for as long as [focus] holds it.
-///
-/// It lives in the root overlay rather than in the widget that owns the field:
-/// the quick view is a dialog route padded away from the screen edges, and a
-/// strip built inside it could be neither full width nor flush with the
-/// keyboard. The overlay is also what lets the capture bar and the quick view
-/// share one strip without sharing a parent — and what puts the scrim
-/// over the page while leaving [child] lit.
 class KeyboardAccessory extends StatefulWidget {
   const KeyboardAccessory({
     super.key,
@@ -145,29 +102,17 @@ class KeyboardAccessory extends StatefulWidget {
 
   final FocusNode focus;
 
-  /// The line raised over the strip, or null when there is none. Its focus
-  /// node belongs to the accessory: the host's field must be able to lose the
-  /// caret without the strip — and the line on it — going away.
   final ToolbarField? field;
 
-  /// The default row: `link`, `image`. The `+` that opens [extras] is
-  /// appended here rather than passed in, because the swap is the accessory's
-  /// behaviour and not the host's.
   final List<ToolbarAction> actions;
 
-  /// What `+` swaps the row to. Empty means no `+` at all — a drop's title has
-  /// one extra verb, and a surface with none should not grow the glyph that
-  /// promises them.
   final List<ToolbarAction> extras;
 
   final List<ToolbarChip> chips;
   final Widget child;
 
-  /// How much room the mounted strip is taking above the IME, or zero when
-  /// there is none. There is one keyboard and therefore one accessory, so a
-  /// single value is the whole state: the strip is an overlay, and without
-  /// this the surfaces that sit against the keyboard — the sheet frame, the
-  /// capture bar — would be the ones it covers.
+  /// One keyboard, therefore one accessory, so a single value is the whole state. Without
+  /// it the surfaces that sit against the keyboard would be the ones the strip covers.
   static final ValueNotifier<double> reservedHeight = ValueNotifier<double>(0);
 
   @override
@@ -179,27 +124,17 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
   OverlayEntry? _entry;
   OverlayEntry? _scrim;
 
-  /// The strip's contents live in a notifier rather than being read off
-  /// `widget` by the entry's builder: the entry is not a descendant of this
-  /// state, so marking it dirty from a rebuild of the host is a build outside
-  /// the current build scope. A notifier written after the frame is the one
-  /// legal way to push a change across that gap.
+  /// The entry is not a descendant of this state, so marking it dirty from a rebuild of
+  /// the host is a build outside the current build scope. A notifier written after the
+  /// frame is the one legal way across that gap.
   final _strip = ValueNotifier<_Strip?>(null);
 
-  /// The extras row is open. It is state of the strip and not of the
-  /// host, and it closes with the keyboard.
   bool _open = false;
 
-  /// The caret while a [ToolbarField] is up. It is the accessory's own, so the
-  /// host's field losing focus to it is not the keyboard going away.
   final _fieldFocus = FocusNode();
 
-  /// The rectangle the scrim leaves clear — [child]'s, in global coordinates.
   final _hole = ValueNotifier<Rect?>(null);
 
-  /// Read every frame while the strip is up, because the thing being measured
-  /// moves for reasons no rebuild of this widget reports: the IME animating in,
-  /// the sheet lifting off the keyboard, a chip row appearing.
   late final Ticker _tracker;
   final _holeKey = GlobalKey();
 
@@ -210,9 +145,8 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
   @override
   void initState() {
     super.initState();
-    // Both are built here rather than lazily: [_remove] runs from [dispose] and
-    // touches them, and a ticker created while the state is being disposed is
-    // an error rather than a no-op.
+    // Both eagerly rather than lazily: [_remove] runs from [dispose] and touches them, and
+    // a ticker created while the state is being disposed is an error.
     _tracker = createTicker((_) => _measure());
     _fade = AnimationController(vsync: this, duration: Motion.accessory);
     widget.focus.addListener(_onFocus);
@@ -226,15 +160,11 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
       old.focus.removeListener(_onFocus);
       widget.focus.addListener(_onFocus);
     }
-    // The line takes the caret when it is raised and hands it back when it
-    // goes, so the keyboard never leaves and the host's field is live again the
-    // moment the line closes.
     if (old.field == null && widget.field != null) {
       _fieldFocus.requestFocus();
     } else if (old.field != null && widget.field == null && _entry != null) {
-      // Only while the strip is still up: a line that went down with the
-      // keyboard has no caret to hand back, and asking for one there would
-      // raise the keyboard the user just dismissed.
+      // Only while the strip is still up: asking for the caret after the keyboard went would
+      // raise the one the user just dismissed.
       widget.focus.requestFocus();
     }
     _sync();
@@ -242,9 +172,8 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
 
   @override
   void dispose() {
-    // [State.mounted] is still true in here — the element is cleared after
-    // dispose returns — and the entry going down with the state has a listener
-    // that is already defunct. This is what says so.
+    // [State.mounted] is still true inside dispose — the element is cleared after it
+    // returns — so this is what says the entry is gone.
     _gone = true;
     widget.focus.removeListener(_onFocus);
     _fieldFocus.removeListener(_onFocus);
@@ -262,10 +191,8 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
       _insert();
       return;
     }
-    // The caret is in flight between the two while a line opens or closes:
-    // both read unfocused for the rest of the frame, and tearing the strip
-    // down there would take the line with it. Decided after the frame, when
-    // whichever node is taking it has it.
+    // The caret is in flight between the two while a line opens or closes: both read
+    // unfocused for the rest of the frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (widget.focus.hasFocus || _fieldFocus.hasFocus) return;
@@ -280,18 +207,14 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     _open = false;
     _strip.value = _resolve();
     _measure();
-    // Order matters: the scrim goes in first so the strip draws over it. They
-    // are two entries rather than one because only the strip moves with the
-    // keyboard.
+    // The scrim goes in first so the strip draws over it. Two entries rather than one
+    // because only the strip moves with the keyboard.
     _scrim = OverlayEntry(builder: _buildScrim);
     _entry = OverlayEntry(builder: _buildStrip);
     overlay.insertAll([_scrim!, _entry!]);
     _fade.forward(from: 0);
     if (!_tracker.isActive) _tracker.start();
     _reserve();
-    // Raised together with the strip rather than onto one already up — the
-    // footer's BLOCK opens the editor and the line in one move. The caret
-    // belongs to the line either way.
     if (widget.field != null) _fieldFocus.requestFocus();
   }
 
@@ -303,8 +226,6 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     _open = false;
     if (!_gone) {
       _strip.value = null;
-      // The line lives on the strip: a keyboard dismissed under it takes it
-      // down rather than leaving it up with no caret in it.
       final field = widget.field;
       if (field != null) (field.onDismiss ?? field.onCancel)();
     }
@@ -317,9 +238,8 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     _reserve();
   }
 
-  /// Deferred a frame: this runs from [didUpdateWidget], inside a build, and
-  /// both the overlay entry and the hosts listening to [reservedHeight] are
-  /// outside it.
+  /// Deferred a frame: this runs from [didUpdateWidget], inside a build, and both the
+  /// overlay entry and the hosts listening to [reservedHeight] are outside it.
   void _sync() {
     if (_entry == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -329,8 +249,6 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     });
   }
 
-  /// `+` swaps the row in place and `←` swaps it back. The host never
-  /// sees either glyph; it only says which verbs are extras.
   _Strip _resolve() {
     final row = <ToolbarAction>[];
     if (_open) {
@@ -357,8 +275,6 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
   void _measure() {
     final box = _holeKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize || !box.attached) return;
-    // Inflated by the panel's own padding: the hole is the form, and a scrim
-    // drawn flush to the text would read as a cut rather than as focus.
     final rect = (box.localToGlobal(Offset.zero) & box.size).inflate(
       Spacing.md,
     );
@@ -383,8 +299,6 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     return Positioned(
       left: 0,
       right: 0,
-      // Flush with the top of the keyboard, and with the bottom of the screen
-      // in the frame between focus and the IME arriving.
       bottom: MediaQuery.of(context).viewInsets.bottom,
       child: ValueListenableBuilder<_Strip?>(
         valueListenable: _strip,
@@ -401,10 +315,8 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     );
   }
 
-  /// The scrim: `#000` at 60% over everything but the form, its chips, the
-  /// strip and the keyboard. It is four rectangles around the hole rather than
-  /// one sheet with a hole punched in it, so the form underneath keeps taking
-  /// taps — a scrim that swallowed the caret would be worse than no scrim.
+  /// Four rectangles around the hole rather than one sheet with a hole punched in it, so
+  /// the form underneath keeps taking taps.
   Widget _buildScrim(BuildContext context) {
     final media = MediaQuery.of(context);
     return ValueListenableBuilder<Rect?>(
@@ -450,8 +362,7 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     );
   }
 
-  /// Both nodes: the caret may be in the line rather than in the host's field,
-  /// and a scrim tap dismisses the whole surface either way.
+  /// Both nodes: the caret may be in the line rather than in the host's field.
   void _dismiss() {
     _fieldFocus.unfocus();
     widget.focus.unfocus();
@@ -497,8 +408,6 @@ class _ScrimPane extends StatelessWidget {
   }
 }
 
-/// What the strip is showing right now. A plain holder, so the notifier fires
-/// on every host rebuild instead of comparing lists of closures.
 class _Strip {
   const _Strip(this.actions, this.chips, this.open, this.field);
 
@@ -508,8 +417,6 @@ class _Strip {
   final ToolbarField? field;
 }
 
-/// The strip itself, separated from the overlay plumbing so a test can mount it
-/// on its own.
 class KeyboardToolbar extends StatelessWidget {
   const KeyboardToolbar({
     super.key,
@@ -536,12 +443,8 @@ class KeyboardToolbar extends StatelessWidget {
 
   final ToolbarField? field;
 
-  /// Owned by [KeyboardAccessory]; passed in so the line can be mounted on its
-  /// own in a test without the overlay.
   final FocusNode? fieldFocus;
 
-  /// Only the switcher's key: which row is up is decided upstream, and the
-  /// strip's height is the same either way: no growth.
   final bool extrasOpen;
 
   @override
@@ -550,8 +453,6 @@ class KeyboardToolbar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Above the chips: what is being typed comes before what it will
-        // become, and the chip it commits to lands on the row underneath it.
         if (field != null) _FieldLine(field: field!, focus: fieldFocus),
         if (chips.isNotEmpty)
           Container(
@@ -579,10 +480,7 @@ class KeyboardToolbar extends StatelessWidget {
           ),
           child: AnimatedSwitcher(
             duration: Motion.accessory,
-            // Cross-fade in place: the default of stacking the outgoing child
-            // under the incoming one is exactly what is wanted, but the
-            // sized box keeps the row from laying out at the union of the two
-            // widths mid-swap.
+            // The sized box keeps the row from laying out at the union of the two widths mid-swap.
             layoutBuilder: (current, previous) => Stack(
               alignment: Alignment.centerLeft,
               children: [...previous, ?current],
@@ -600,7 +498,6 @@ class KeyboardToolbar extends StatelessWidget {
   }
 }
 
-/// `LINK  [ …typed… ]  ATTACH  x` on one 44px line.
 class _FieldLine extends StatelessWidget {
   const _FieldLine({required this.field, this.focus});
 
@@ -609,8 +506,8 @@ class _FieldLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The overlay is not under the app's own [Material], and a text field
-    // asserts one above it.
+    // The overlay is not under the app's own [Material], and a text field asserts one above
+    // it.
     return Material(
       type: MaterialType.transparency,
       child: Container(
@@ -649,9 +546,6 @@ class _FieldLine extends StatelessWidget {
               valueListenable: field.controller,
               builder: (context, value, _) {
                 final ready = _accepts(value.text);
-                // Disabled ink and no tap rather than a hidden block: the verb
-                // is what the line is for, and a value it will not take is
-                // answered where it was typed.
                 return ActionBlock(
                   label: field.action,
                   tone: ready
@@ -770,9 +664,6 @@ class _Chip extends StatelessWidget {
   }
 }
 
-/// A 28px square of the picked image with an `x`. The `x` is drawn over
-/// the corner rather than beside it, because a thumbnail with a label-width
-/// affordance next to it stops reading as a square.
 class _ImageChip extends StatelessWidget {
   const _ImageChip({required this.path, required this.removable});
 
@@ -797,9 +688,8 @@ class _ImageChip extends StatelessWidget {
             child: Image.file(
               File(path),
               fit: BoxFit.cover,
-              // A picked file can be gone by the time the chip draws — the
-              // gallery item was deleted, the copy failed. The frame is still
-              // an attachment the user can remove.
+              // A picked file can be gone by the time the chip draws, and the frame is still an
+              // attachment the user can remove.
               errorBuilder: (_, _, _) =>
                   ColoredBox(color: context.tokens.surfaceSecondary),
             ),

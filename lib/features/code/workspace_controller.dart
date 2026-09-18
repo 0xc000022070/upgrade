@@ -10,13 +10,8 @@ import '../../platform/workspace/workspace_client.dart';
 import '../../platform/workspace/workspace_commands.dart';
 import '../../platform/workspace/workspace_model.dart';
 
-/// How a workspace opens: connect, then ask. Both states are on screen —
-/// [WorkspacePhase.connecting] is the handshake, and everything after it is
-/// one command on a connection that is already up.
 enum WorkspacePhase { connecting, ready, failed }
 
-/// The transport seam, the same shape the vnc and shell
-/// openers have.
 typedef WorkspaceOpener = Future<WorkspaceRunner> Function({
   required String address,
   required int port,
@@ -25,16 +20,10 @@ typedef WorkspaceOpener = Future<WorkspaceRunner> Function({
   HostKeyVerifier? verifier,
 });
 
-/// One directory on one host, read over a connection held for the route's
-/// lifetime.
-///
-/// A [ChangeNotifier] for the reason `HostScreenController` is one: the
-/// connection is exactly as long-lived as the screen, and a provider that
-/// outlived the widget would leave an ssh session open on the host.
-///
-/// The connection is held rather than reopened per command because on a phone
-/// the cost of asking a machine anything is the round trip: the handshake is
-/// paid once, and a tap on a file after that is a single `sh -c`.
+/// A [ChangeNotifier] for the reason `HostScreenController` is one: the connection is
+/// exactly as long-lived as the screen, and a provider that outlived the widget would
+/// leave an ssh session open on the host. The connection is held rather than reopened per
+/// command because on a phone the cost of asking a machine anything is the round trip.
 class WorkspaceController extends ChangeNotifier {
   WorkspaceController({
     required this.host,
@@ -49,13 +38,12 @@ class WorkspaceController extends ChangeNotifier {
   final Future<String?> Function(String keyId) readPrivateKey;
   final WorkspaceOpener _open;
 
-  /// The directory the screen is reading. Not final: a worktree is opened by
-  /// pointing the screen at it, on the same connection and without a route
-  /// push, because it is the same machine and the same repository.
+  /// Not final: a worktree is opened by pointing the screen at it, on the same connection
+  /// and without a route push.
   String _directory;
 
-  /// Where the screen started, which is the registered row. Kept so the
-  /// worktree list can say which one is the one that was registered.
+  /// Where the screen started, which is the registered row. Kept so the worktree list can
+  /// say which one is the one that was registered.
   final String _root;
 
   WorkspaceRunner? _runner;
@@ -73,7 +61,6 @@ class WorkspaceController extends ChangeNotifier {
   String? get reason => _reason;
   WorkspaceOverview? get overview => _overview;
 
-  /// The last segment, which is what the title shows.
   String get label {
     final segments = _directory.split('/').where((s) => s.isNotEmpty);
     return segments.isEmpty ? _directory : segments.last;
@@ -112,15 +99,11 @@ class WorkspaceController extends ChangeNotifier {
     }
   }
 
-  /// Asks again on the connection already open. The handshake is not repeated:
-  /// this is the one command the screen was drawn from.
   Future<void> refresh() async {
     if (_runner == null) return connect();
     await _load(_attempt);
   }
 
-  /// Points the screen at a sibling checkout. Same connection, same repository,
-  /// no route: the screen is a view of a directory and the directory changed.
   Future<void> openWorktree(String directory) async {
     if (directory == _directory) return;
     _directory = directory;
@@ -129,22 +112,14 @@ class WorkspaceController extends ChangeNotifier {
     await refresh();
   }
 
-  /// Every changed file's hunks against `HEAD`, keyed by the path the change
-  /// list knows each one by.
-  ///
-  /// The viewer walks a list of files, and on a radio the cost of each step is
-  /// the round trip and not the bytes: a commit of twenty files read one file
-  /// at a time is twenty handshakes' worth of latency, paid by the user one tap
-  /// at a time. So the whole diff is asked for once and every tap after it is
-  /// already answered.
-  ///
-  /// A file the answer did not reach — it came back at the byte cap, or it is
-  /// untracked and `diff` never names it — is simply absent, and [diff] is
-  /// still there for it.
+  /// The viewer walks a list of files, and on a radio the cost of each step is the round
+  /// trip and not the bytes, so the whole diff is asked for once and every tap after it is
+  /// already answered. A file the answer did not reach — it came back at the byte cap, or
+  /// it is untracked and `diff` never names it — is simply absent, and [diff] is still
+  /// there for it.
   Future<Map<String, List<DiffLine>>?> sourceDiffs() =>
       _diffs(WorkspaceCommands.sourceDiff(_directory));
 
-  /// The same, for one commit.
   Future<Map<String, List<DiffLine>>?> commitDiffs(String sha) =>
       _diffs(WorkspaceCommands.commitDiffAll(_directory, sha));
 
@@ -154,8 +129,8 @@ class WorkspaceController extends ChangeNotifier {
     return parseDiffByFile(reply.stdout, complete: _whole(reply.stdout));
   }
 
-  /// One file's hunks. Null when the command failed, which the sheet words as
-  /// its own empty line rather than tearing down the screen behind it.
+  /// Null when the command failed, which the sheet words as its own empty line rather than
+  /// tearing down the screen behind it.
   Future<List<DiffLine>?> diff(WorkspaceFile file) async {
     final command = file.untracked
         ? WorkspaceCommands.newFileDiff(_directory, file.path)
@@ -165,23 +140,18 @@ class WorkspaceController extends ChangeNotifier {
     return parseDiff(reply.stdout, complete: _whole(reply.stdout));
   }
 
-  /// The history behind the directory, newest first. Read once per screen and
-  /// held by the caller: a list of a hundred subjects does not change while a
-  /// diff is being read.
   Future<List<Commit>?> commits() async {
     final reply = await _run(WorkspaceCommands.commits(_directory));
     if (reply == null || !reply.ok) return null;
     return parseCommits(reply.stdout);
   }
 
-  /// What one commit touched, counts and kinds together.
   Future<List<WorkspaceFile>?> commitFiles(String sha) async {
     final reply = await _run(WorkspaceCommands.commitFiles(_directory, sha));
     if (reply == null || !reply.ok) return null;
     return parseCommitFiles(reply.stdout);
   }
 
-  /// One file's hunks inside one commit.
   Future<List<DiffLine>?> commitDiff(String sha, String path) async {
     final reply = await _run(
       WorkspaceCommands.commitDiff(_directory, sha, path),
@@ -190,23 +160,19 @@ class WorkspaceController extends ChangeNotifier {
     return parseDiff(reply.stdout, complete: _whole(reply.stdout));
   }
 
-  /// Whether an answer came back under the cap its command put on it. `head`
-  /// counted bytes, so only the encoded length can be compared with the number
-  /// it was given: a cut multibyte character decodes to a replacement no
-  /// shorter than the bytes it stood for, so an answer at the cap still reads
-  /// as one.
+  /// `head` counted bytes, so only the encoded length can be compared with the number it
+  /// was given: a cut multibyte character decodes to a replacement no shorter than the
+  /// bytes it stood for, so an answer at the cap still reads as one.
   static bool _whole(String stdout) =>
       utf8.encode(stdout).length < WorkspaceCommands.diffBytes;
 
-  /// One directory's entries, [path] relative to [directory] and empty for the
-  /// root itself.
+  /// [path] relative to [directory], empty for the root itself.
   Future<List<DirEntry>?> list(String path) async {
     final reply = await _run(WorkspaceCommands.listing(_directory, path));
     if (reply == null || !reply.ok) return null;
     return parseListing(reply.stdout);
   }
 
-  /// One file's text, already capped by the command.
   Future<String?> read(String path) async {
     final reply = await _run(WorkspaceCommands.file(_directory, path));
     if (reply == null || !reply.ok) return null;
@@ -235,9 +201,7 @@ class WorkspaceController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Null when the connection is gone. The reason is put on the screen on the
-  /// way past, so a tap that meets a dropped connection says so instead of
-  /// answering with nothing.
+  /// Null when the connection is gone. The reason is put on the screen on the way past.
   Future<WorkspaceReply?> _run(String command) async {
     final runner = _runner;
     if (runner == null) return null;

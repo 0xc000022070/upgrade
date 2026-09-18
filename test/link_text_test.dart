@@ -6,10 +6,6 @@ import 'package:dazzle/features/tasks/link_text.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// A URL inside a title is text and stays text: it is never cut out into an
-/// attachment. What it does get is the mark the field paints while it is typed
-/// and a tap that opens it, and neither may take the gesture the text around it
-/// carries.
 void main() {
   late List<String> opened;
 
@@ -36,8 +32,8 @@ void main() {
         ),
       );
 
-  /// The rendered runs as (text, marked) pairs. The mark is a style on a range
-  /// rather than a widget, so the span tree is the only place to read it.
+  /// The mark is a style on a range rather than a widget, so the span tree is the only
+  /// place to read it.
   List<(String, bool)> spans(WidgetTester tester) {
     final text = tester.widget<Text>(find.byType(Text));
     final span = text.textSpan;
@@ -81,9 +77,8 @@ void main() {
     await tester.tap(find.byType(LinkText));
     await tester.pump();
 
-    // The span's recognizer wins the arena, so the gesture the caller wrapped
-    // the text in — in the quick view, the one that opens the editor — never
-    // sees it.
+    // The span's recognizer wins the arena, so the gesture the caller wrapped the text in
+    // never sees it.
     expect(opened, ['https://min.io/docs']);
     expect(tapped, 0);
   });
@@ -94,8 +89,6 @@ void main() {
     var tapped = 0;
     await mount(tester, 'mirar https://min.io manana', () => tapped++);
 
-    // The last run is the prose after the token; its own centre is as far from
-    // the token as the line gets.
     final box = tester.getRect(find.byType(LinkText));
     await tester.tapAt(Offset(box.right - 8, box.center.dy));
     await tester.pump();

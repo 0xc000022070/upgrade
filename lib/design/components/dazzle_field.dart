@@ -2,15 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../tokens.dart';
 
-/// Every field in the app draws the same way — a 2px accent block for a caret,
-/// no underline, a dense box and a hint in the row subtitle's ink — and that
-/// rule lived in eight copies. It is why the two fields an item's text is
-/// written in disagreed about whether they grow: capture was pinned to one
-/// line and scrolled its own text off the right edge, while the quick view's
-/// title grew without a ceiling and pushed the sheet it sits in.
-///
-/// [bodyLines] is the answer to both. A field grows to that many lines and
-/// scrolls inside itself after.
 class DazzleField extends StatelessWidget {
   const DazzleField({
     super.key,
@@ -31,8 +22,6 @@ class DazzleField extends StatelessWidget {
     this.contentPadding = EdgeInsets.zero,
   });
 
-  /// The ceiling both body fields take. Past it the text scrolls inside the
-  /// field instead of the field taking more of the screen.
   static const bodyLines = 6;
 
   final TextEditingController controller;
@@ -43,23 +32,16 @@ class DazzleField extends StatelessWidget {
   final bool autofocus;
   final int minLines;
 
-  /// Null is the unbounded field. Nothing in the app asks for one any more.
   final int? maxLines;
 
-  /// Defaults to [TextInputType.text] even where the field takes more than one
-  /// line, and that is what keeps the checkmark on the IME's enter key: a
-  /// multiline type asks the keyboard for a `↵` in the same place, and the two
-  /// cannot share it. A line break comes from the strip over the keyboard.
+  /// Text even for a multi-line field: a multiline type asks the keyboard for a `↵` where
+  /// the commit checkmark goes, and the two cannot share the key.
   final TextInputType? keyboardType;
 
   final TextInputAction textInputAction;
 
-  /// A secret: dots for characters, and nothing offered to the keyboard's
-  /// dictionary.
   final bool obscureText;
 
-  /// Autocorrect and the suggestion strip. Off for a field holding a value the
-  /// keyboard cannot know — a search over a shell's scrollback, a host name.
   final bool suggest;
 
   final ValueChanged<String>? onChanged;
@@ -96,9 +78,6 @@ class DazzleField extends StatelessWidget {
   }
 }
 
-/// Puts a line break where the caret is, and over what is selected the way
-/// typing over a selection works. This is the only way to break a line in a
-/// body field: its enter key is the commit.
 void insertNewline(TextEditingController controller) {
   final value = controller.value;
   final selection = value.selection;

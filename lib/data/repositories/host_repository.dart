@@ -5,12 +5,6 @@ import '../database.dart';
 import '../enums.dart';
 import 'path_repository.dart';
 
-/// A machine the user has registered.
-///
-/// Renamed from `HerdrHost` (user ruling, 2026-09-02): a host is a machine, not
-/// a herdr endpoint. What the app does with it is [IntegrationKind], carried
-/// alongside rather than baked into the type, so the backend that later proxies
-/// herdr swaps a transport and leaves this class alone.
 class Host {
   const Host({
     required this.id,
@@ -27,33 +21,22 @@ class Host {
   final String name;
   final String address;
 
-  /// Required rather than defaulted to 22: the column carries the default, and
-  /// a second one here would let a mapping that forgot the field compile and
-  /// quietly dial 22.
+  /// Required rather than defaulted to 22, so a mapping that forgets the field cannot
+  /// compile and quietly dial 22.
   final int port;
   final String user;
   final String keyId;
 
-  /// The machine's own key, trusted the first time it was seen. Null for a host
-  /// that has never been connected to, which is the only state in which the app
-  /// will ask about one.
   final PinnedHostKey? hostKey;
 
-  /// The VNC Authentication password, offered only to a server whose list has
-  /// no `None`. Null for a host whose server needs none, which is every one
-  /// but a Mac's Screen Sharing.
   final String? vncPassword;
 }
 
 abstract interface class HostRepository {
   Stream<List<Host>> watchAll();
 
-  /// Every host with [kind] switched on. The agents feed polls all of them, so
-  /// this is a list and never a single row: there is no "selected" host.
   Stream<List<Host>> watchWithIntegration(IntegrationKind kind);
 
-  /// The kinds [hostId] has on. The host form has to render a switch per known
-  /// kind in its current position, which no by-kind query can answer.
   Stream<Set<IntegrationKind>> watchIntegrations(String hostId);
 
   Future<List<Host>> all();
@@ -61,13 +44,10 @@ abstract interface class HostRepository {
   Future<void> delete(String id);
   Future<void> setIntegration(String hostId, IntegrationKind kind, bool on);
 
-  /// Trusts [key] for [hostId] from now on. Called by the verifier the moment
-  /// the user taps `TRUST`, not by the form: the fingerprint only exists inside
-  /// a handshake.
+  /// Called by the verifier the moment the user taps `TRUST`, not by the form: the
+  /// fingerprint only exists inside a handshake.
   Future<void> pinHostKey(String hostId, PinnedHostKey key);
 
-  /// Drops the pin, which is the only way past a key that changed. The next
-  /// connection asks again.
   Future<void> forgetHostKey(String hostId);
 }
 
@@ -127,8 +107,6 @@ class InMemoryHostRepository implements HostRepository {
   @override
   Future<void> forgetHostKey(String hostId) async => _rewriteKey(hostId, null);
 
-  /// Rebuilt rather than copied: [Host] has no `copyWith`, and one written for
-  /// a single nullable field could not tell "leave it" from "clear it".
   void _rewriteKey(String hostId, PinnedHostKey? key) {
     final index = _hosts.indexWhere((host) => host.id == hostId);
     if (index < 0) return;
@@ -148,9 +126,6 @@ class InMemoryHostRepository implements HostRepository {
   Set<IntegrationKind> _kinds(String hostId) =>
       _integrations[hostId] ?? const {};
 
-  /// One listener list for both tables' worth of state, because every one of
-  /// these streams is derived from both: switching an integration on changes
-  /// what [watchWithIntegration] returns without touching [_hosts].
   Stream<T> _watch<T>(T Function() read) {
     return Stream<T>.multi((controller) {
       void emit() => controller.add(read());
@@ -168,7 +143,6 @@ class InMemoryHostRepository implements HostRepository {
   }
 }
 
-/// The registered machines and the integrations they have on.
 class DriftHostRepository implements HostRepository {
   DriftHostRepository(this._db);
 
@@ -181,9 +155,8 @@ class DriftHostRepository implements HostRepository {
         .map((rows) => rows.map(hostFromRow).toList());
   }
 
-  /// One joined stream, so switching the integration on and renaming the host
-  /// both repaint the panel. Two streams — the hosts, then their integrations —
-  /// would let the feed poll a host whose row has already changed under it.
+  /// One joined stream: two — hosts, then integrations — would let the feed poll a host
+  /// whose row has already changed under it.
   @override
   Stream<List<Host>> watchWithIntegration(IntegrationKind kind) {
     final query = _db.select(_db.hosts).join([
@@ -232,16 +205,8 @@ class DriftHostRepository implements HostRepository {
         );
   }
 
-  /// Everything hanging off the host goes with it, in Dart and in the same
-  /// transaction. The declared references do not enforce anything — this
-  /// database never enables `PRAGMA foreign_keys` — so left alone they would
-  /// outlive the host: the integration rows would switch a future host with the
-  /// same id on by itself, and the paths would keep offering directories on a
-  /// machine the app can no longer reach.
-  ///
-  /// The dispatch rows go too, through the paths. The drops they name do not:
-  /// unregistering a machine loses the record of where work was sent, never the
-  /// work.
+  /// In Dart, because this database never enables `PRAGMA foreign_keys`: left alone the
+  /// integration rows would switch a future host with the same id on by itself.
   @override
   Future<void> delete(String id) {
     return _db.transaction(() async {
@@ -258,9 +223,7 @@ class DriftHostRepository implements HostRepository {
     });
   }
 
-  /// On is a row, off is no row. There is no third state to store and none to
-  /// render, and an integration nobody has ever touched reads the same as one
-  /// switched off — which is what a freshly registered host needs.
+  /// On is a row, off is no row. An integration nobody has touched reads as off.
   @override
   Future<void> setIntegration(String hostId, IntegrationKind kind, bool on) {
     if (!on) {
@@ -298,9 +261,6 @@ class DriftHostRepository implements HostRepository {
   }
 }
 
-/// The row as the domain type. Top-level rather than private to the repository
-/// because the send picker joins paths to hosts and has to build the same
-/// [Host] from the same columns.
 Host hostFromRow(HostRow row) => Host(
   id: row.id,
   name: row.name,
@@ -312,9 +272,6 @@ Host hostFromRow(HostRow row) => Host(
   vncPassword: row.vncPassword,
 );
 
-/// The three columns as one value, or null unless all three are there. A row
-/// with a fingerprint and no type is not a pin the app would compare against,
-/// so it reads as no pin at all.
 PinnedHostKey? pinnedKeyFromRow(HostRow row) {
   final type = row.hostKeyType;
   final fingerprint = row.hostKeyFingerprint;

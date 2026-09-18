@@ -2,16 +2,10 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
-/// The tables the bundle maps by hand. They are assembled out of the keystore
-/// and three repositories rather than read off a row, so they cannot come
-/// through here.
 const curatedTables = {'keys', 'hosts', 'host_integrations', 'paths'};
 
-/// Every other table, read column for column and written back the same way.
-///
-/// Not through the repositories: each one applies its own rules on the way in —
-/// the single `isNext` item, the reasons a delete is refused — and a phone that
-/// arrives having had those applied is not the phone that left.
+/// Not through the repositories: each applies its own rules on the way in, and a phone
+/// that arrives having had those applied is not the phone that left.
 class RawTables {
   const RawTables(this.db);
 
@@ -35,10 +29,8 @@ class RawTables {
     return dumped;
   }
 
-  /// Replaces by primary key, so the same file run in twice is the same phone
-  /// as running it once. A table or a column the bundle names and this schema
-  /// does not have is skipped rather than refused: a file from a later build
-  /// still lands everything this one understands.
+  /// Replaces by primary key, so running the same file in twice lands the same phone. A
+  /// table or column this schema does not have is skipped rather than refused.
   Future<int> restore(Map<String, List<Map<String, Object?>>> rows) async {
     var written = 0;
     for (final table in _tables) {
@@ -65,8 +57,7 @@ class RawTables {
   }
 }
 
-/// Sqlite hands back ints, doubles, strings, nulls and blobs. Only the blob has
-/// no JSON of its own, so it travels wrapped and comes back unwrapped.
+/// Only a blob has no JSON of its own, so it travels wrapped.
 Object? _out(Object? value) =>
     value is Uint8List ? {'b64': base64Encode(value)} : value;
 

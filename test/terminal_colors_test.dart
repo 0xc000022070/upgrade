@@ -1,10 +1,3 @@
-/// What a program is told when it asks what the terminal is drawn in.
-///
-/// A full-screen program asks before it paints, and a terminal that says
-/// nothing is answered with a palette the program made up — which is how a
-/// ground that is not this app's ends up filling the panes it draws.
-library;
-
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -26,8 +19,7 @@ const _rose = Host(
 
 Future<void> _settle() => Future<void>.delayed(Duration.zero);
 
-/// A terminal drawn in colours nothing else in the suite uses, so a reply can
-/// only have come from these.
+/// Colours nothing else in the suite uses, so a reply can only have come from these.
 const _colors = TerminalColors(
   foreground: 0xFFE8E8E8,
   background: 0xFF08090B,
@@ -74,8 +66,8 @@ void main() {
 
       it.terminal.write('\x1b]11;?\x1b\\');
 
-      // A program that asked with ST reads until ST; a bell would leave it
-      // waiting on a reply it has already been sent.
+      // A program that asked with ST reads until ST; a bell would leave it waiting on a reply
+      // it has already been sent.
       expect(it.reports, ['\x1b]11;rgb:0808/0909/0b0b\x1b\\']);
     });
 
@@ -115,8 +107,6 @@ void main() {
 
       it.terminal.write('\x1b]11;#161821\x07');
 
-      // The ground is this app's surface. The sequence goes nowhere, as it
-      // always did.
       expect(it.reports, isEmpty);
       expect(it.unknown, ['11;#161821']);
     });
@@ -133,8 +123,8 @@ void main() {
     test('a question about a colour there is no name for is not answered', () {
       final it = _terminal();
 
-      // Four marks from slot 10 runs past the cursor, into the colours this
-      // terminal has nothing to say about.
+      // Four marks from slot 10 runs past the cursor, into the colours this terminal has
+      // nothing to say about.
       it.terminal.write('\x1b]10;?;?;?;?\x07');
 
       expect(it.reports, isEmpty);
@@ -184,8 +174,6 @@ void main() {
       sessions.arm(session, {StickyModifier.alt}, repeat: 2);
       session.terminal.write('\x1b]11;?\x07');
 
-      // Nobody typed it, so it leaves on the report channel untouched and the
-      // count the user armed is still theirs to spend.
       expect(connection.writes.single.first, 0x1b);
       expect(connection.writes.single[1], 0x5d);
       expect(session.stickyRepeat, 2);

@@ -6,15 +6,10 @@ import 'spacing.dart';
 import 'tokens.dart';
 import 'typography.dart';
 
-/// Material is used as a substrate only. Everything that would leak a Material
-/// look — ripples, elevation tints, drop shadows, rounded defaults, overscroll
-/// glow, the zoom page transition — is neutralized here so components can be
-/// built from the Dazzle tokens alone.
+/// Material is a substrate only. Everything that would leak a Material look — ripples,
+/// elevation tints, shadows, rounded defaults, overscroll glow, the zoom transition — is
+/// neutralized here.
 abstract final class DazzleTheme {
-  /// [tokens] is the whole visual contract; every colour and text role below
-  /// is read from it rather than from the constants directly, so a caller
-  /// that passes something other than [DazzleTokens.house] gets a real
-  /// theme change and not just a registered, unused extension.
   static ThemeData build([DazzleTokens tokens = DazzleTokens.house]) {
     final schemeBuilder = tokens.brightness == Brightness.dark
         ? ColorScheme.dark
@@ -44,7 +39,6 @@ abstract final class DazzleTheme {
       visualDensity: VisualDensity.compact,
       extensions: [tokens],
 
-      // No ripple, no highlight bloom, no hover wash.
       splashFactory: NoSplash.splashFactory,
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
@@ -95,7 +89,6 @@ abstract final class DazzleTheme {
   );
 }
 
-/// Overscroll glow is a Material tell; a hard stop reads as a real instrument.
 final class DazzleScrollBehavior extends MaterialScrollBehavior {
   const DazzleScrollBehavior();
 
@@ -115,8 +108,6 @@ final class DazzleScrollBehavior extends MaterialScrollBehavior {
   };
 }
 
-/// Short opacity plus a small directional shift, replacing
-/// Material's zoom transition.
 final class _SignalPageTransition extends PageTransitionsBuilder {
   const _SignalPageTransition();
 

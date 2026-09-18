@@ -46,9 +46,6 @@ void main() {
       expect(summary.percent, 0);
     });
 
-    // Ruling reversed 2026-09-02: a goal is optional grouping, so the
-    // project's own goal-less rows are tasks and count like any other. Only an
-    // unfiled item is a drop, and a drop belongs to no project to be counted by.
     test('counts every task of the project, goal or not', () async {
       final project = await projects.create(name: 'Infra personal');
       final other = await projects.create(name: 'Dotfiles');
@@ -145,9 +142,6 @@ void main() {
       expect(next.blockedReason, 'Waiting for credentials');
     });
 
-    // The suggestion fallback was removed: an open, high-priority
-    // task is no longer promoted on its own, so HOME drops the panel instead of
-    // answering a question the user never asked.
     test('with nothing flagged there is no next action', () async {
       final low = await projects.create(
         name: 'Dotfiles',
@@ -178,9 +172,6 @@ void main() {
       expect(await db.watchNextAction().first, isNull);
     });
 
-    // Archiving a project puts it away without touching what is
-    // filed under it, so the flag survives — but the item must not keep asking
-    // to be done next from a project the user has shelved.
     test('archiving the project takes its flagged item out of next', () async {
       final project = await projects.create(name: 'Drone FPV');
       final task = await tasks.create(projectId: project, title: 'Antena');
@@ -208,8 +199,6 @@ void main() {
       expect(archived.map((p) => p.projectId), [shelved]);
       expect(archived.single.status, ProjectStatus.archived);
 
-      // Unarchive is the exact undo, and nothing filed under the
-      // project moved in either direction.
       await projects.unarchive(shelved);
       expect(await projects.watchArchivedSummaries().first, isEmpty);
       expect((await projects.watchSummaries().first).length, 2);
@@ -219,7 +208,6 @@ void main() {
   group('blocking', () {
     test('the reason is the blocked state, and unblock clears both', () async {
       final project = await projects.create(name: 'Infra personal');
-      // Reversed: no goal, and the row is still a task that blocks.
       final task = await tasks.create(projectId: project, title: 'Storage');
 
       await tasks.block(task, 'Esperando proveedor S3 compatible');
@@ -259,9 +247,6 @@ void main() {
       expect(await tasks.watchProjectDrops(project).first, hasLength(1));
     });
 
-    // Ruling reversed 2026-09-02: the *project* is what turns a drop
-    // into a task. This is the regression the user hit on faraday — every row
-    // they wrote before goals existed carries state and no goal.
     test('a drop moved into a project is a task, goal or not', () async {
       final project = await projects.create(name: 'Infra personal');
       final task = await tasks.capture('revisar pgbouncer');
@@ -542,7 +527,6 @@ void main() {
       final last = await tasks.capture('last');
       await tasks.pair(last, first);
 
-      // Newest first, so the raw order is last, middle, first.
       expect((await tasks.watchDrops().first).map((t) => t.title), [
         'last',
         'first',
@@ -580,7 +564,6 @@ void main() {
       );
 
       final rows = await attachments.watchForItem(id).first;
-      // The two kinds share one table so this order survives.
       expect(rows.map((a) => a.value), [
         'https://www.example.com/a',
         'attachments/019-abc.jpg',

@@ -15,13 +15,6 @@ import '../../design/icons/dazzle_icons.dart';
 import '../hosts/path_picker_sheet.dart';
 import 'workspace_sheet.dart';
 
-/// The registered directories, host by host.
-///
-/// A directory is a thing of its own here, not a property of the machine that
-/// holds it: it is registered from this list and no longer from the host form.
-/// Nothing on this screen needs herdr — finding a checkout is a `find` over
-/// ssh, and only sending work to an agent needs a hub session — so the rows are
-/// drawn for every host the app can dial.
 class CodeList extends ConsumerWidget {
   const CodeList({super.key});
 
@@ -100,9 +93,6 @@ class CodeList extends ConsumerWidget {
   }
 }
 
-/// One host's panel body. The host name is the group's line rather than a
-/// panel of its own, so the list reads as one list and not as a stack that
-/// grows a header per machine.
 class _HostGroup extends ConsumerWidget {
   const _HostGroup({required this.group});
 

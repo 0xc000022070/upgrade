@@ -1,7 +1,3 @@
-/// The clipboard probe's answer, read off what the host printed, and the
-/// commands each backend turns a landed clip into.
-library;
-
 import 'dart:convert';
 import 'dart:typed_data';
 
