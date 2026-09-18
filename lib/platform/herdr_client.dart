@@ -8,6 +8,7 @@ import 'package:dartssh2/dartssh2.dart';
 import '../application/agent_kind.dart';
 import '../application/agent_state.dart';
 import '../application/reason_lines.dart';
+import 'herdr_socket.dart';
 import 'host_keys.dart';
 import 'shell/remote_shell.dart';
 
@@ -24,7 +25,7 @@ class AgentSnapshot {
   });
 
   /// The herdr session the agent was listed in. Not in herdr's own document,
-  /// which one server answers without saying which; stamped by the sweep and
+  /// which one server answers without saying which; stamped by the reader and
   /// carried from there, because no command reaches a pane without it.
   final String session;
   final String paneId;
@@ -45,9 +46,9 @@ class AgentSnapshot {
 
   PaneRef get pane => (session: session, pane: paneId);
 
-  /// The eight fields the watcher's projection consumes, so a
-  /// snapshot survives the hop from the watcher's isolate to the UI's without a
-  /// second shape to keep in step.
+  /// The eight fields the watcher's projection consumes, so a snapshot
+  /// survives the hop from the watcher's isolate to the UI's without a second
+  /// shape to keep in step.
   Map<String, Object?> toJson() => {
     'session': session,
     'pane_id': paneId,
@@ -83,11 +84,18 @@ class AgentSnapshot {
 /// both own a `w1:p1`, so the id alone is not a pane.
 typedef PaneRef = ({String session, String pane});
 
+/// A method and its arguments, ready for a herdr server.
+typedef HerdrRequest = ({String method, Map<String, Object?> params});
+
+/// The commands that are still commands.
+///
+/// What a herdr server can answer is asked over its socket. What is left is a
+/// TUI the user drives, a shell expansion, a directory test, and the roster
+/// itself — no socket method lists sessions, and reaching a session's socket
+/// means knowing where it is.
 abstract final class HerdrCommands {
   static final _pane = RegExp(r'^[A-Za-z0-9]+:[A-Za-z0-9]+$');
   static final _session = RegExp(r'^[A-Za-z0-9_.-]+$');
-  static final _key = RegExp(r'^(enter|esc|up|down|tab|[A-Za-z0-9])$');
-  static final _model = RegExp(r'^[a-z0-9][a-z0-9._:-]{0,63}$');
 
   static bool isSessionName(String name) => _session.hasMatch(name);
 
@@ -105,22 +113,6 @@ abstract final class HerdrCommands {
   static String _herdr(String session, String arguments) =>
       '${_env(session)} herdr $arguments';
 
-  /// One sweep: the roster, held; then every running session's agent list,
-  /// one line each with the name and a tab in front of it; then the roster,
-  /// closing the frame. The roster is read before the sessions are asked so a
-  /// session that stops in between is one that answers, not one that is
-  /// missing.
-  static const _sweep =
-      r'''r=$(herdr session list --json) || exit; '''
-      r'''herdr session list | awk 'NR>1 && $2=="running"{print $1}' | '''
-      r'''while read -r s; do printf '%s\t' "$s"; '''
-      r'''env HERDR_SESSION="$s" herdr agent list | tr -d '\n'; printf '\n'; '''
-      r'''done; printf '%s' "$r" | tr -d '\n'; printf '\n'; ''';
-
-  static String list() => underSh(_sweep);
-
-  static String watch() => underSh('while :; do ${_sweep}sleep 2; done');
-
   static String sessions() => underSh('exec herdr session list --json');
 
   /// The command a shell tab runs in place of the login shell, on a channel
@@ -131,13 +123,23 @@ abstract final class HerdrCommands {
   /// user's `$SHELL -c`, non-interactively, which is also why no rc of theirs
   /// is in front of it.
   static String attach(PaneRef pane, {bool takeover = false}) {
-    _requirePane(pane.pane);
+    requirePane(pane.pane);
     final takeoverFlag = takeover ? ' --takeover' : '';
     return _herdr(
       pane.session,
       'agent attach ${shellQuote(pane.pane)}$takeoverFlag',
     );
   }
+
+  /// The absolute directory [directory] names, or exit 20 when there is none.
+  /// `workspace.create` takes the cwd it is handed without a word when nothing
+  /// is there, so the existence of the directory is settled before it is
+  /// asked — and `~` is the shell's to expand, not herdr's.
+  static String resolveDirectory(String directory) => underSh(
+    'dir=${shellQuote(directory)}; '
+    r'''case "$dir" in '~') dir="$HOME";; '~/'*) dir="$HOME/${dir#'~/'}";; esac; '''
+    r'''[ -d "$dir" ] || exit 20; printf '%s\n' "$dir"''',
+  );
 
   static String paths() => underSh(r'''
 for root in "$HOME/Projects" "$HOME/.dotfiles" "$HOME/src"; do
@@ -159,33 +161,22 @@ done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
     return underSh('exec $argv');
   }
 
-  static String read(PaneRef pane, {int lines = 8}) {
-    _requirePane(pane.pane);
-    return underSh(
-      'exec ${_herdr(pane.session, 'agent read ${shellQuote(pane.pane)} '
-      '--source visible --lines $lines --format text')}',
-    );
-  }
+  /// The session's panes, each with the directory its own shell is standing
+  /// in. Still a command because the shell tab that asks may be reached over
+  /// mosh, which forwards no unix socket.
+  static String panes(String session) =>
+      underSh('exec ${_herdr(session, 'pane list')}');
 
-  static String wait(PaneRef pane, {required Duration timeout}) {
-    _requirePane(pane.pane);
-    return underSh(
-      'exec ${_herdr(pane.session, 'agent wait ${shellQuote(pane.pane)} '
-      '--until idle --timeout ${timeout.inMilliseconds}')}',
-    );
+  static void requirePane(String pane) {
+    if (!_pane.hasMatch(pane)) throw const HerdrProtocolMismatch();
   }
+}
 
-  static String keys(PaneRef pane, List<String> keys) {
-    _requirePane(pane.pane);
-    if (keys.isEmpty || keys.any((key) => !_key.hasMatch(key))) {
-      throw const HerdrProtocolMismatch(null, 'invalid key');
-    }
-    final arguments = keys.map(shellQuote).join(' ');
-    return underSh(
-      'exec ${_herdr(pane.session, 'agent send-keys ${shellQuote(pane.pane)} '
-      '$arguments')}',
-    );
-  }
+/// Every request the app puts on a herdr socket, built in one place so what
+/// goes out can be read without following the call.
+abstract final class HerdrRequests {
+  static final _key = RegExp(r'^(enter|esc|up|down|tab|[A-Za-z0-9])$');
+  static final _model = RegExp(r'^[a-z0-9][a-z0-9._:-]{0,63}$');
 
   /// The pane a send opens is nobody's terminal: the only line typed at its
   /// shell is the agent's own start, flags and all, and that line has no
@@ -194,83 +185,128 @@ done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
   /// lists because they are what a host's rc leaves alone — `HISTFILE` is
   /// assigned outright by every generated rc there is, so a value put here
   /// loses to the one the rc names a moment later.
-  static const _withoutHistory =
-      "--env 'HISTORY_IGNORE=*' --env 'HISTIGNORE=*'";
+  static const withoutHistory = {'HISTORY_IGNORE': '*', 'HISTIGNORE': '*'};
 
-  static String workspaceCreate(
-    String directory, {
+  static const HerdrRequest agentList = (method: 'agent.list', params: {});
+
+  static HerdrRequest workspaceCreate({
+    required String cwd,
     required String label,
-    required String session,
-  }) => underSh(
-    'dir=${shellQuote(directory)}; '
-    r'''case "$dir" in '~') dir="$HOME";; '~/'*) dir="$HOME/${dir#'~/'}";; esac; '''
-    r'''[ -d "$dir" ] || { printf '%s\n' 'dazzle: no directory' >&2; exit 20; }; '''
-    '${_herdr(session, 'workspace create --cwd "\$dir" '
-    '--label ${shellQuote(label)} $_withoutHistory --no-focus')}',
+  }) => (
+    method: 'workspace.create',
+    params: {
+      'cwd': cwd,
+      'label': label,
+      'env': withoutHistory,
+      'focus': false,
+    },
   );
 
-  static String agentStart({
+  static HerdrRequest workspaceClose(String workspace) => (
+    method: 'workspace.close',
+    params: {'workspace_id': workspace},
+  );
+
+  static HerdrRequest agentStart({
     required PaneRef pane,
     required String name,
     required AgentKind kind,
     String? model,
   }) {
-    _requirePane(pane.pane);
+    HerdrCommands.requirePane(pane.pane);
     if (model != null && !_model.hasMatch(model)) {
       throw ArgumentError.value(model, 'model');
     }
-    final flags = [...kind.startFlags];
-    if (model != null) flags.addAll(['--model', model]);
-    final arguments = [
-      'agent',
-      'start',
-      name,
-      '--kind',
-      kind.name,
-      '--pane',
-      pane.pane,
-      '--',
-      ...flags,
-    ].map(shellQuote).join(' ');
-    return underSh('exec ${_herdr(pane.session, arguments)}');
-  }
-
-  /// The session's panes, each with the directory its own shell is standing
-  /// in. A tab attached to a pane is not standing where its attach is: the
-  /// shell that has the directory belongs to the multiplexer, and the
-  /// multiplexer is what can be asked about it.
-  static String panes(String session) =>
-      underSh('exec ${_herdr(session, 'pane list')}');
-
-  static String processInfo(PaneRef pane) {
-    _requirePane(pane.pane);
-    return underSh(
-      'exec ${_herdr(pane.session, 'pane process-info --pane '
-      '${shellQuote(pane.pane)}')}',
+    return (
+      method: 'agent.start',
+      params: {
+        'name': name,
+        'kind': kind.name,
+        'pane_id': pane.pane,
+        'args': [...kind.startFlags, if (model != null) ...['--model', model]],
+      },
     );
   }
 
-  /// `--wait --until working` makes the exit code say whether the agent took
-  /// the text: herdr answers `agent_prompt_stalled` when nothing changed
-  /// within its own five-second window.
-  static String prompt(PaneRef pane) {
-    _requirePane(pane.pane);
-    return underSh(
-      r'''text=$(cat); [ -n "$text" ] || exit 2; '''
-      'exec ${_herdr(pane.session, 'agent prompt ${shellQuote(pane.pane)} '
-      '"\$text" --wait --until working '
-      '--timeout ${promptStall.inMilliseconds}')}',
+  static HerdrRequest processInfo(PaneRef pane) {
+    HerdrCommands.requirePane(pane.pane);
+    return (
+      method: 'pane.process_info',
+      params: {'pane_id': pane.pane},
     );
   }
 
-  static String workspaceClose(String workspace, {required String session}) =>
-      underSh(
-        '${_herdr(session, 'workspace close ${shellQuote(workspace)}')} '
-        '>/dev/null 2>&1 || true',
-      );
+  static HerdrRequest read(PaneRef pane, {int lines = 8}) {
+    HerdrCommands.requirePane(pane.pane);
+    return (
+      method: 'agent.read',
+      params: {
+        'target': pane.pane,
+        'source': 'visible',
+        'lines': lines,
+        'format': 'text',
+      },
+    );
+  }
 
-  static void _requirePane(String pane) {
-    if (!_pane.hasMatch(pane)) throw const HerdrProtocolMismatch();
+  static HerdrRequest sendKeys(PaneRef pane, List<String> keys) {
+    HerdrCommands.requirePane(pane.pane);
+    if (keys.isEmpty || keys.any((key) => !_key.hasMatch(key))) {
+      throw const HerdrProtocolMismatch(null, 'invalid key');
+    }
+    return (
+      method: 'agent.send_keys',
+      params: {'target': pane.pane, 'keys': keys},
+    );
+  }
+
+  static HerdrRequest wait(PaneRef pane, {required Duration timeout}) {
+    HerdrCommands.requirePane(pane.pane);
+    return (
+      method: 'agent.wait',
+      params: {
+        'target': pane.pane,
+        'until': const ['idle'],
+        'timeout_ms': timeout.inMilliseconds,
+      },
+    );
+  }
+
+  /// `wait` makes the answer say whether the agent took the text: herdr
+  /// refuses with `agent_prompt_stalled` when nothing changed inside the
+  /// window.
+  static HerdrRequest prompt(PaneRef pane, String text) {
+    HerdrCommands.requirePane(pane.pane);
+    return (
+      method: 'agent.prompt',
+      params: {
+        'target': pane.pane,
+        'text': text,
+        'wait': {
+          'until': const ['working'],
+          'timeout_ms': promptStall.inMilliseconds,
+        },
+      },
+    );
+  }
+
+  /// What a session's own channel listens for: panes arriving and leaving.
+  /// Status transitions are not among them — herdr reports those only to a
+  /// subscription that named the pane, which is what [paneStatus] asks for.
+  static const paneSet = <Map<String, Object?>>[
+    {'type': 'pane.created'},
+    {'type': 'pane.closed'},
+    {'type': 'pane.exited'},
+    {'type': 'pane.agent_detected'},
+    {'type': 'workspace.created'},
+    {'type': 'workspace.closed'},
+  ];
+
+  static List<Map<String, Object?>> paneStatus(PaneRef pane) {
+    HerdrCommands.requirePane(pane.pane);
+    return [
+      {'type': 'pane.agent_status_changed', 'pane_id': pane.pane},
+    ];
   }
 }
 
@@ -297,6 +333,7 @@ class SessionEntry {
     required this.name,
     required this.running,
     required this.isDefault,
+    required this.socketPath,
   });
 
   final String name;
@@ -304,6 +341,10 @@ class SessionEntry {
 
   /// The session herdr itself falls back to with no `HERDR_SESSION` set.
   final bool isDefault;
+
+  /// Where this session's server listens. The roster is the only thing that
+  /// says so, which is why the roster is read before anything is asked.
+  final String socketPath;
 }
 
 /// Where a spawn lands, decided from the roster before anything is created.
@@ -342,7 +383,7 @@ final class SpawnRefused extends SpawnResult {
 
   final SpawnRefusal refusal;
 
-  /// Both remote streams, for the debug line. Never shown to the user.
+  /// What the host said, for the debug line. Never shown to the user.
   final String? detail;
 }
 
@@ -357,8 +398,7 @@ sealed class HerdrFailure implements Exception {
   /// Which of the app's reason lines this failure is.
   ReasonLine get line;
 
-  /// That line, given the host it happened to. The host's name is a thing this
-  /// layer deliberately does not know, so it is handed in.
+  /// That line, given the host it happened to.
   String reason(String host) => line.on(host);
 
   @override
@@ -421,58 +461,54 @@ final class HerdrProtocolMismatch extends HerdrFailure {
 
 /// One authenticated connection to a host, held open.
 ///
-/// The watcher runs a remote polling loop for as long as it lives and reads a
-/// blocked pane's tail on the same connection. A second connection per
-/// notification would add another SSH handshake for every blocked agent.
+/// Everything a herdr server can answer travels over that one connection, each
+/// exchange on a `direct-streamlocal@openssh.com` channel to the server's own
+/// socket. A channel is a window and two packets; the command line it replaces
+/// was a shell, a `herdr` process and this same socket opened from the far end.
 class HerdrSession {
   HerdrSession._(this._socket, this._client);
 
   final SSHSocket _socket;
   final SSHClient _client;
 
-  /// The watch stream: one sweep of every running session per frame, the
-  /// first at once and another every two seconds. The loop never exits on its
-  /// own, so this stream ends only on a dropped
-  /// connection — which is the watcher's signal to back off and reconnect.
-  Stream<List<AgentSnapshot>> watch() async* {
-    final session = await _guard(() => _client.execute(HerdrCommands.watch()));
-    try {
-      yield* HerdrClient.parseWatchStream(session.stdout.cast<List<int>>());
-    } finally {
-      session.close();
-    }
+  /// Where each herdr session's server listens, as of the last roster read.
+  final _sockets = <String, String>{};
+
+  /// Agents as they change, not as a clock says to look.
+  ///
+  /// One channel per running session reports panes arriving and leaving, one
+  /// more per agent pane reports that pane's status transitions, and either
+  /// kind of event asks the servers for a fresh list. The roster is re-read on
+  /// its own slow beat, since no socket method lists sessions. The stream ends
+  /// on a dropped connection, which is the watcher's signal to back off and
+  /// reconnect.
+  Stream<List<AgentSnapshot>> watch() => _AgentWatch(this).stream;
+
+  /// Every running session's agents, read once.
+  Future<List<AgentSnapshot>> list() async {
+    final roster = await _roster();
+    return _agents([
+      for (final entry in roster)
+        if (entry.running) entry.name,
+    ]);
   }
 
   /// The expanded notification body. Null rather than throwing: a tail the
   /// host would not give up is a notification without its extra lines, never a
   /// notification that does not arrive.
-  Future<String?> read(PaneRef pane) async {
-    try {
-      final result = await _guard(
-        () => _client.runWithResult(HerdrCommands.read(pane)),
-      );
-      if (result.exitCode != 0) return null;
-      final tail = utf8.decode(result.stdout).trimRight();
-      return tail.isEmpty ? null : tail;
-    } on HerdrFailure {
-      return null;
-    }
-  }
+  Future<String?> read(PaneRef pane) => _read(pane);
 
   /// The notification's `YES` / `NO`. Throws so it can say `FAILED · …` with
   /// what the host answered.
   Future<void> sendKeys(PaneRef pane, List<String> keys) async {
-    final result = await _guard(
-      () => _client.runWithResult(HerdrCommands.keys(pane, keys)),
-    );
-    if (result.exitCode != 0) {
-      throw HerdrProtocolMismatch(null, utf8.decode(result.output).trim());
+    final reply = await _call(pane.session, HerdrRequests.sendKeys(pane, keys));
+    if (reply is HerdrRefusal) {
+      throw HerdrProtocolMismatch(null, _said(reply));
     }
   }
 
-  /// Lands [images], creates a workspace, starts one agent, then sends the
-  /// prompt on stdin. Any failure after workspace creation closes that
-  /// workspace.
+  /// Lands [images], creates a workspace, starts one agent, then prompts it.
+  /// Any failure after workspace creation closes that workspace.
   ///
   /// The images go first and outside [deadline]: nothing has been created yet,
   /// so an upload that fails leaves no workspace behind, and a photo on a
@@ -507,9 +543,10 @@ class HerdrSession {
             utf8.decode(roster.output).trim(),
           );
         }
-        final target = HerdrClient.spawnTarget(
+        final entries = _remember(
           HerdrClient.parseSessions(utf8.decode(roster.stdout)),
         );
+        final target = HerdrClient.spawnTarget(entries);
         final String name;
         switch (target) {
           case SpawnTargetRefused(:final refusal):
@@ -518,27 +555,33 @@ class HerdrSession {
             name = target.name;
         }
         session = name;
-        final created = await _guard(
+        final resolved = await _guard(
           () => _client.runWithResult(
-            HerdrCommands.workspaceCreate(
-              directory,
-              label: _directoryLabel(directory),
-              session: name,
-            ),
+            HerdrCommands.resolveDirectory(directory),
           ),
         );
-        if (created.exitCode == 20) {
+        if (resolved.exitCode == 20) {
           return const SpawnRefused(SpawnRefusal.noDirectory);
         }
-        if (created.exitCode != 0) {
+        if (resolved.exitCode != 0) {
           return SpawnRefused(
             SpawnRefusal.spawnFailed,
-            utf8.decode(created.output).trim(),
+            utf8.decode(resolved.output).trim(),
           );
+        }
+        final created = await _call(
+          name,
+          HerdrRequests.workspaceCreate(
+            cwd: utf8.decode(resolved.stdout).trim(),
+            label: _directoryLabel(directory),
+          ),
+        );
+        if (created is! HerdrResult) {
+          return SpawnRefused(SpawnRefusal.spawnFailed, _said(created));
         }
         final PaneRef pane = (
           session: name,
-          pane: HerdrClient.parseWorkspacePane(utf8.decode(created.stdout)),
+          pane: HerdrClient.parseWorkspacePane(created.value),
         );
         final made = pane.pane.split(':').first;
         workspace = made;
@@ -552,17 +595,12 @@ class HerdrSession {
           kind: kind,
           model: model,
         );
-        if (started.exitCode != 0 &&
-            HerdrClient.parseErrorCode(utf8.decode(started.stderr)) ==
-                'agent_not_ready') {
+        if (started is HerdrRefusal && started.code == 'agent_not_ready') {
           started = await _acceptTrust(pane, kind) ?? started;
         }
-        if (started.exitCode != 0) {
+        if (started is! HerdrResult) {
           await _closeWorkspace(made, name);
-          return SpawnRefused(
-            SpawnRefusal.startFailed,
-            utf8.decode(started.output).trim(),
-          );
+          return SpawnRefused(SpawnRefusal.startFailed, _said(started));
         }
         if (expired) {
           await _closeWorkspace(made, name);
@@ -571,20 +609,17 @@ class HerdrSession {
         // An agent that has just repainted after its trust dialog is idle to
         // herdr a beat before it reads input, and text sent in that beat is
         // gone without a trace. A stalled prompt is sent again.
-        var sent = await _runPrompt(pane, prompt);
+        var sent = await _call(name, HerdrRequests.prompt(pane, prompt));
         for (var attempt = 1; attempt < promptAttempts && !expired; attempt++) {
-          if (sent.exitCode == 0 ||
-              !HerdrClient.isPromptStalled(utf8.decode(sent.stderr))) {
+          if (sent is! HerdrRefusal ||
+              !HerdrClient.isPromptStalled(sent.code)) {
             break;
           }
-          sent = await _runPrompt(pane, prompt);
+          sent = await _call(name, HerdrRequests.prompt(pane, prompt));
         }
-        if (sent.exitCode != 0) {
+        if (sent is! HerdrResult) {
           await _closeWorkspace(made, name);
-          return SpawnRefused(
-            SpawnRefusal.spawnFailed,
-            utf8.decode(sent.output).trim(),
-          );
+          return SpawnRefused(SpawnRefusal.spawnFailed, _said(sent));
         }
         return SpawnSent(pane.pane);
       })().timeout(deadline);
@@ -597,12 +632,36 @@ class HerdrSession {
     }
   }
 
+  /// The host's git checkouts. Empty leaves the manual path field available.
+  Future<List<String>> paths() async {
+    final result = await _guard(
+      () => _client.runWithResult(HerdrCommands.paths()),
+    );
+    if (result.exitCode != 0) return const [];
+    return HerdrClient.parsePaths(utf8.decode(result.stdout));
+  }
+
+  /// Empty leaves the agent's own default model selected. No session is
+  /// involved: nothing here talks to a herdr server.
+  Future<List<String>> models(AgentKind kind) async {
+    final result = await _guard(
+      () => _client.runWithResult(HerdrCommands.models(kind)),
+    );
+    if (result.exitCode != 0) return const [];
+    return HerdrClient.parseModels(utf8.decode(result.stdout));
+  }
+
+  void close() {
+    _client.close();
+    _socket.close();
+  }
+
   /// `herdr agent start` wants the pane's shell alone at its prompt, and a
   /// shell still sourcing its rc files hands the terminal to every command it
-  /// runs. herdr answers `agent_pane_busy` for that instant instead of
+  /// runs. herdr refuses with `agent_pane_busy` for that instant instead of
   /// waiting, so the start is held until process-info shows the prompt, and a
   /// busy answer inside the settle window is the shell not being there yet.
-  Future<SSHRunResult> _startAtPrompt({
+  Future<HerdrReply> _startAtPrompt({
     required PaneRef pane,
     required String name,
     required AgentKind kind,
@@ -611,20 +670,18 @@ class HerdrSession {
     final settle = Stopwatch()..start();
     while (true) {
       await _awaitPrompt(pane, settle);
-      final started = await _guard(
-        () => _client.runWithResult(
-          HerdrCommands.agentStart(
-            pane: pane,
-            name: name,
-            kind: kind,
-            model: model,
-          ),
+      final started = await _call(
+        pane.session,
+        HerdrRequests.agentStart(
+          pane: pane,
+          name: name,
+          kind: kind,
+          model: model,
         ),
       );
-      if (started.exitCode == 0 ||
+      if (started is! HerdrRefusal ||
           settle.elapsed >= promptSettle ||
-          HerdrClient.parseErrorCode(utf8.decode(started.stderr)) !=
-              'agent_pane_busy') {
+          started.code != 'agent_pane_busy') {
         return started;
       }
       await Future<void>.delayed(promptPoll);
@@ -636,11 +693,9 @@ class HerdrSession {
   /// is actually wrong.
   Future<void> _awaitPrompt(PaneRef pane, Stopwatch settle) async {
     while (settle.elapsed < promptSettle) {
-      final info = await _guard(
-        () => _client.runWithResult(HerdrCommands.processInfo(pane)),
-      );
-      if (info.exitCode != 0 ||
-          HerdrClient.parseShellAtPrompt(utf8.decode(info.stdout))) {
+      final info = await _call(pane.session, HerdrRequests.processInfo(pane));
+      if (info is! HerdrResult ||
+          HerdrClient.parseShellAtPrompt(info.value)) {
         return;
       }
       await Future<void>.delayed(promptPoll);
@@ -653,21 +708,37 @@ class HerdrSession {
   /// so the dialog is answered for them and `agent wait` judges the start.
   /// Null when the pane shows anything else: the start's own answer is then
   /// the one to report.
-  Future<SSHRunResult?> _acceptTrust(PaneRef pane, AgentKind kind) async {
-    final screen = await _guard(
-      () => _client.runWithResult(HerdrCommands.read(pane, lines: trustLines)),
-    );
-    if (screen.exitCode != 0) return null;
-    final keys = kind.trustKeys(utf8.decode(screen.stdout));
+  Future<HerdrReply?> _acceptTrust(PaneRef pane, AgentKind kind) async {
+    final screen = await _read(pane, lines: trustLines);
+    if (screen == null) return null;
+    final keys = kind.trustKeys(screen);
     if (keys == null) return null;
-    final answered = await _guard(
-      () => _client.runWithResult(HerdrCommands.keys(pane, keys)),
+    final answered = await _call(
+      pane.session,
+      HerdrRequests.sendKeys(pane, keys),
     );
-    if (answered.exitCode != 0) return answered;
-    return _guard(
-      () =>
-          _client.runWithResult(HerdrCommands.wait(pane, timeout: trustSettle)),
+    if (answered is HerdrRefusal) return answered;
+    return _call(
+      pane.session,
+      HerdrRequests.wait(pane, timeout: trustSettle),
     );
+  }
+
+  Future<String?> _read(PaneRef pane, {int lines = 8}) async {
+    try {
+      final reply = await _call(
+        pane.session,
+        HerdrRequests.read(pane, lines: lines),
+      );
+      if (reply is! HerdrResult) return null;
+      final read = reply.value['read'];
+      final text = read is Map<String, Object?> ? read['text'] : null;
+      if (text is! String) return null;
+      final tail = text.trimRight();
+      return tail.isEmpty ? null : tail;
+    } on HerdrFailure {
+      return null;
+    }
   }
 
   /// Every image on one exec channel each, in the order they were attached.
@@ -700,11 +771,8 @@ class HerdrSession {
     return null;
   }
 
-  Future<SSHRunResult> _runPrompt(PaneRef pane, String prompt) =>
-      _runWithStdin(HerdrCommands.prompt(pane), utf8.encode(prompt));
-
-  /// `runWithResult` has no way to write stdin, and both the prompt and an
-  /// upload are a command whose whole input arrives that way.
+  /// `runWithResult` has no way to write stdin, and an image's whole content
+  /// arrives that way.
   ///
   /// [within] bounds the whole exchange. Nothing under this notices a link
   /// that has stopped moving — the keepalive pings on its own timer and
@@ -748,50 +816,261 @@ class HerdrSession {
 
   Future<void> _closeWorkspace(String workspace, String session) async {
     try {
-      await _guard(
-        () => _client.runWithResult(
-          HerdrCommands.workspaceClose(workspace, session: session),
-        ),
-      );
+      await _call(session, HerdrRequests.workspaceClose(workspace));
     } catch (_) {
       // The primary failure is what the caller reports. Cleanup is best effort.
     }
   }
 
-  /// The host's git checkouts. Empty leaves the manual path field available.
-  Future<List<String>> paths() async {
+  /// The roster, and with it where every session listens.
+  Future<List<SessionEntry>> _roster() async {
     final result = await _guard(
-      () => _client.runWithResult(HerdrCommands.paths()),
-    );
-    if (result.exitCode != 0) return const [];
-    return HerdrClient.parsePaths(utf8.decode(result.stdout));
-  }
-
-  /// Empty leaves the agent's own default model selected. No session goes on
-  /// the line: nothing here talks to a herdr server.
-  Future<List<String>> models(AgentKind kind) async {
-    final result = await _guard(
-      () => _client.runWithResult(HerdrCommands.models(kind)),
-    );
-    if (result.exitCode != 0) return const [];
-    return HerdrClient.parseModels(utf8.decode(result.stdout));
-  }
-
-  /// One sweep of every running session.
-  Future<List<AgentSnapshot>> list() async {
-    final result = await _guard(
-      () => _client.runWithResult(HerdrCommands.list()),
+      () => _client.runWithResult(HerdrCommands.sessions()),
     );
     if (result.exitCode != 0) {
-      // What the remote said, both streams, is the debug line.
       throw HerdrProtocolMismatch(null, utf8.decode(result.output).trim());
     }
-    return HerdrClient.parseSweepOutput(utf8.decode(result.stdout));
+    return _remember(HerdrClient.parseSessions(utf8.decode(result.stdout)));
   }
 
-  void close() {
-    _client.close();
-    _socket.close();
+  List<SessionEntry> _remember(List<SessionEntry> entries) {
+    _sockets
+      ..clear()
+      ..addEntries(
+        entries.map((entry) => MapEntry(entry.name, entry.socketPath)),
+      );
+    return entries;
+  }
+
+  /// The agents in [sessions], each stamped with the session that answered. A
+  /// session whose socket no longer accepts stopped between the roster and its
+  /// turn, and is skipped rather than failing the round.
+  Future<List<AgentSnapshot>> _agents(Iterable<String> sessions) async {
+    final agents = <AgentSnapshot>[];
+    for (final session in sessions) {
+      final path = _sockets[session];
+      if (path == null) continue;
+      final link = await _linkOrNone(path);
+      if (link == null) continue;
+      final reply = await _guard(
+        () => _once(link).call(HerdrRequests.agentList.method),
+      );
+      agents.addAll(HerdrClient.parseSessionAgents(reply, session: session));
+    }
+    return agents;
+  }
+
+  Future<HerdrReply> _call(String session, HerdrRequest request) => _guard(
+    () => _api(session).call(request.method, request.params),
+  );
+
+  HerdrApi _api(String session) {
+    final path = _sockets[session];
+    if (path == null) {
+      throw HerdrProtocolMismatch(null, 'no socket for $session');
+    }
+    return HerdrApi(() => _link(path));
+  }
+
+  /// An api over a link that is already open. Good for exactly one exchange,
+  /// which is all a herdr connection answers anyway.
+  HerdrApi _once(HerdrLink link) => HerdrApi(() async => link);
+
+  /// An event channel held open on [session]'s server, or null when nothing
+  /// answers on its socket.
+  Future<Stream<HerdrEvent>?> _events(
+    String session,
+    List<Map<String, Object?>> subscriptions,
+  ) async {
+    final path = _sockets[session];
+    if (path == null) return null;
+    final link = await _linkOrNone(path);
+    if (link == null) return null;
+    return _once(link).subscribe(subscriptions);
+  }
+
+  Future<HerdrLink> _link(String path) async {
+    final channel = await _guard(() => _client.forwardLocalUnix(path));
+    return _wrap(channel);
+  }
+
+  /// The same, but null when the far side refused the channel: no server is
+  /// listening on [path]. A connection that is itself gone fails with the
+  /// errors every other exchange fails with, and is not swallowed here.
+  Future<HerdrLink?> _linkOrNone(String path) async {
+    final SSHForwardChannel channel;
+    try {
+      channel = await _client.forwardLocalUnix(path);
+    } on SSHChannelOpenError {
+      return null;
+    } catch (error) {
+      throw asHerdrFailure(error) ?? error;
+    }
+    return _wrap(channel);
+  }
+
+  /// A channel let go rather than closed: herdr resets a connection whose
+  /// client half-closes it, and the answer is already in hand by then.
+  HerdrLink _wrap(SSHForwardChannel channel) => HerdrLink(
+    incoming: channel.stream,
+    outgoing: channel.sink,
+    shut: () async => channel.destroy(),
+  );
+
+  static String _said(HerdrReply reply) => switch (reply) {
+    HerdrRefusal(:final code, :final message) =>
+      message.isEmpty ? code : '$code: $message',
+    HerdrResult(:final type) => type,
+  };
+}
+
+/// The event-driven watch: the roster on a slow beat, the servers' own events
+/// for everything else, and one agent list per settled burst of them.
+class _AgentWatch {
+  _AgentWatch(this._session) {
+    _out = StreamController<List<AgentSnapshot>>(
+      onListen: _start,
+      onCancel: _stop,
+    );
+  }
+
+  final HerdrSession _session;
+  late final StreamController<List<AgentSnapshot>> _out;
+
+  /// The running sessions, and the channel each one's panes are reported on.
+  final _live = <String>{};
+  final _panes = <String, StreamSubscription<HerdrEvent>>{};
+
+  /// One channel per agent pane. Nothing else reports a status transition.
+  final _statuses = <PaneRef, StreamSubscription<HerdrEvent>>{};
+
+  Timer? _beat;
+  Timer? _settle;
+  var _busy = false;
+  var _again = false;
+  var _againRoster = false;
+  var _closed = false;
+
+  Stream<List<AgentSnapshot>> get stream => _out.stream;
+
+  void _start() {
+    unawaited(_tick(roster: true));
+    _beat = Timer.periodic(watchRoster, (_) => unawaited(_tick(roster: true)));
+  }
+
+  Future<void> _stop() async {
+    _closed = true;
+    _beat?.cancel();
+    _settle?.cancel();
+    final held = [..._panes.values, ..._statuses.values];
+    _panes.clear();
+    _statuses.clear();
+    for (final subscription in held) {
+      await subscription.cancel();
+    }
+  }
+
+  /// A burst of events is one list, not one each: a pane going from working to
+  /// idle moves the panel once.
+  void _nudge() {
+    if (_closed) return;
+    _settle?.cancel();
+    _settle = Timer(watchSettle, () => unawaited(_tick(roster: false)));
+  }
+
+  Future<void> _tick({required bool roster}) async {
+    if (_closed) return;
+    if (_busy) {
+      _again = true;
+      _againRoster |= roster;
+      return;
+    }
+    _busy = true;
+    try {
+      if (roster) await _reconcile();
+      final agents = await _session._agents(_live);
+      if (_closed) return;
+      await _track(agents);
+      _out.add(agents);
+    } catch (error, stack) {
+      _fail(error, stack);
+      return;
+    } finally {
+      _busy = false;
+    }
+    if (_again) {
+      _again = false;
+      final wanted = _againRoster;
+      _againRoster = false;
+      unawaited(_tick(roster: wanted));
+    }
+  }
+
+  /// The roster, and a pane channel for every session it calls running.
+  Future<void> _reconcile() async {
+    final entries = await _session._roster();
+    final live = {
+      for (final entry in entries)
+        if (entry.running) entry.name,
+    };
+    for (final name in _panes.keys.toList()) {
+      if (!live.contains(name)) await _panes.remove(name)!.cancel();
+    }
+    for (final name in live) {
+      if (_panes.containsKey(name)) continue;
+      // A channel that ends while the connection lives is that server going
+      // away. The next roster puts it back when it returns.
+      final held = await _hold(
+        name,
+        HerdrRequests.paneSet,
+        () => _panes.remove(name),
+      );
+      if (held != null) _panes[name] = held;
+    }
+    _live
+      ..clear()
+      ..addAll(live);
+  }
+
+  /// A status channel for every pane in [agents], and none for panes that are
+  /// no longer there.
+  Future<void> _track(List<AgentSnapshot> agents) async {
+    final wanted = {for (final agent in agents) agent.pane};
+    for (final pane in _statuses.keys.toList()) {
+      if (!wanted.contains(pane)) await _statuses.remove(pane)!.cancel();
+    }
+    for (final pane in wanted) {
+      if (_statuses.containsKey(pane)) continue;
+      final held = await _hold(
+        pane.session,
+        HerdrRequests.paneStatus(pane),
+        () => _statuses.remove(pane),
+      );
+      if (held != null) _statuses[pane] = held;
+    }
+  }
+
+  /// One channel, listening. Null when no server answered, or when the watch
+  /// ended while it was being opened — in which case the channel just opened
+  /// is let go rather than left hanging on the connection.
+  Future<StreamSubscription<HerdrEvent>?> _hold(
+    String session,
+    List<Map<String, Object?>> subscriptions,
+    void Function() gone,
+  ) async {
+    final events = await _session._events(session, subscriptions);
+    if (events == null) return null;
+    final held = events.listen((_) => _nudge(), onDone: gone, onError: _fail);
+    if (!_closed) return held;
+    await held.cancel();
+    return null;
+  }
+
+  void _fail(Object error, [StackTrace? stack]) {
+    if (_closed) return;
+    _closed = true;
+    _out.addError(asHerdrFailure(error) ?? error, stack);
+    unawaited(_out.close());
   }
 }
 
@@ -838,10 +1117,20 @@ const trustSettle = Duration(seconds: 15);
 const trustLines = 40;
 
 /// Longer than herdr's five-second stall window, so a prompt the agent never
-/// read comes back as `agent_prompt_stalled` and not as a bare timeout.
+/// read is refused as `agent_prompt_stalled` and not as a bare timeout.
 const promptStall = Duration(seconds: 6);
 
 const promptAttempts = 3;
+
+/// How long a burst of events is gathered before the agents are read. Long
+/// enough that a pane closing and its workspace closing are one read; short
+/// enough that the panel is not waiting on it.
+const watchSettle = Duration(milliseconds: 250);
+
+/// How often the roster is re-read while watching. Slow, because the only
+/// thing it catches is a herdr session starting or stopping, and it is the one
+/// part of the watch that still costs a process.
+const watchRoster = Duration(seconds: 30);
 
 String _directoryLabel(String directory) {
   final parts = directory.split('/').where((part) => part.isNotEmpty).toList();
@@ -872,11 +1161,11 @@ class HerdrClient {
   /// so it is declared rather than inherited.
   final Duration keepAlive;
 
-  /// Dart words a name that did not resolve in the exception's
-  /// own message; the errno underneath is from the EAI_* namespace, which
-  /// cannot be told apart from a connect errno by number alone. Matched on the
-  /// message for that reason, over both halves because which one carries the
-  /// words depends on the platform.
+  /// Dart words a name that did not resolve in the exception's own message;
+  /// the errno underneath is from the EAI_* namespace, which cannot be told
+  /// apart from a connect errno by number alone. Matched on the message for
+  /// that reason, over both halves because which one carries the words depends
+  /// on the platform.
   static bool isLookupFailure(SocketException error) {
     final said = '${error.message} ${error.osError?.message ?? ''}'
         .toLowerCase();
@@ -886,75 +1175,11 @@ class HerdrClient {
         said.contains('no address associated with hostname');
   }
 
-  /// The watch stream, decoded: one sweep frame per snapshot.
-  ///
-  /// Separate from [HerdrSession.watch] so the shape the gate emits can be run
-  /// through the real code without an ssh connection to emit it.
-  static Stream<List<AgentSnapshot>> parseWatchStream(Stream<List<int>> bytes) {
-    final lines = bytes
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        // A connection that drops mid-watch raises the same [SSHError] shapes
-        // as one that never opened, and the watcher's reason line is written
-        // from a [HerdrFailure]. Mapped on the stream rather than around the
-        // parse, which would leave the parse errors and the transport errors on
-        // two different paths.
-        .handleError((Object error) => throw asHerdrFailure(error) ?? error);
-    return _frames(lines);
-  }
-
-  /// A frame is the session lines up to the roster line that closes it. The
-  /// roster is the one line of the sweep that is a JSON document on its own,
-  /// so it is told apart by its first character and not by counting.
-  static Stream<List<AgentSnapshot>> _frames(Stream<String> lines) async* {
-    final answers = <String, String>{};
-    await for (final line in lines) {
-      final frame = _feed(answers, line);
-      if (frame != null) yield frame;
-    }
-  }
-
-  /// One sweep's whole output, for the one-shot list: the frame the watch
-  /// reads, read once. Output with no roster line in it is not a frame.
-  static List<AgentSnapshot> parseSweepOutput(String source) {
-    final answers = <String, String>{};
-    for (final line in const LineSplitter().convert(source)) {
-      final frame = _feed(answers, line);
-      if (frame != null) return frame;
-    }
-    throw HerdrProtocolMismatch(null, source.trim());
-  }
-
-  /// The frame [line] closes, or null while one is still being gathered into
-  /// [answers], which is emptied when it closes.
-  static List<AgentSnapshot>? _feed(Map<String, String> answers, String line) {
-    if (line.trim().isEmpty) return null;
-    if (line.startsWith('{')) {
-      final frame = parseSweep(answers, line);
-      answers.clear();
-      return frame;
-    }
-    final tab = line.indexOf('\t');
-    if (tab < 0) throw const HerdrProtocolMismatch();
-    answers[line.substring(0, tab)] = line.substring(tab + 1);
-    return null;
-  }
-
-  static String parseWorkspacePane(String source) {
-    Object? decoded;
-    try {
-      decoded = jsonDecode(source);
-    } on FormatException {
-      throw const HerdrProtocolMismatch();
-    }
-    if (decoded is! Map<String, Object?>) {
-      throw const HerdrProtocolMismatch();
-    }
-    final result = decoded['result'];
-    final root = result is Map<String, Object?> ? result['root_pane'] : null;
+  static String parseWorkspacePane(Map<String, Object?> result) {
+    final root = result['root_pane'];
     final pane = root is Map<String, Object?> ? root['pane_id'] : null;
     if (pane is! String) throw const HerdrProtocolMismatch();
-    HerdrCommands._requirePane(pane);
+    HerdrCommands.requirePane(pane);
     return pane;
   }
 
@@ -963,15 +1188,8 @@ class HerdrClient {
   /// `herdr agent start` requires. A reply that does not show a process group
   /// cannot be waited on, so it counts as ready and the start speaks for
   /// itself. Not a mismatch: throwing past spawn would leak the workspace.
-  static bool parseShellAtPrompt(String source) {
-    Object? decoded;
-    try {
-      decoded = jsonDecode(source);
-    } on FormatException {
-      return true;
-    }
-    final result = decoded is Map<String, Object?> ? decoded['result'] : null;
-    final info = result is Map<String, Object?> ? result['process_info'] : null;
+  static bool parseShellAtPrompt(Map<String, Object?> result) {
+    final info = result['process_info'];
     if (info is! Map<String, Object?>) return true;
     final shell = info['shell_pid'];
     final group = info['foreground_process_group_id'];
@@ -1011,27 +1229,13 @@ class HerdrClient {
     return null;
   }
 
-  /// Whether a failed `agent prompt --wait` means the text was never read:
-  /// herdr saw no state change inside its stall window, or the shorter
-  /// `--timeout` fired first. Anything else is the agent refusing the prompt.
-  static bool isPromptStalled(String stderr) =>
-      switch (parseErrorCode(stderr)) {
-        'agent_prompt_stalled' || 'timeout' => true,
-        _ => false,
-      };
-
-  /// The `error.code` of a failed herdr response, or null for anything else.
-  static String? parseErrorCode(String source) {
-    Object? decoded;
-    try {
-      decoded = jsonDecode(source);
-    } on FormatException {
-      return null;
-    }
-    final error = decoded is Map<String, Object?> ? decoded['error'] : null;
-    final code = error is Map<String, Object?> ? error['code'] : null;
-    return code is String ? code : null;
-  }
+  /// Whether a refused `agent.prompt` means the text was never read: herdr saw
+  /// no state change inside its stall window, or the shorter timeout fired
+  /// first. Anything else is the agent refusing the prompt.
+  static bool isPromptStalled(String? code) => switch (code) {
+    'agent_prompt_stalled' || 'timeout' => true,
+    _ => false,
+  };
 
   /// Paths are newline-delimited now. JSON arrays remain accepted for hosts
   /// running the previous command wrapper.
@@ -1076,27 +1280,35 @@ class HerdrClient {
     ];
   }
 
-  /// One session's `herdr agent list` document, every agent in it stamped
-  /// with [session]: the document itself does not say which server answered,
-  /// and nothing above this layer may reach a pane without knowing.
-  static List<AgentSnapshot> parseAgentList(
-    String source, {
+  /// What one session contributes to a list: its agents, or none when the
+  /// server stopped between the roster and its turn. Any other refusal is the
+  /// host no longer answering the way the app reads it, and an empty panel
+  /// would hide that.
+  static List<AgentSnapshot> parseSessionAgents(
+    HerdrReply reply, {
     required String session,
   }) {
-    Object? decoded;
-    try {
-      decoded = jsonDecode(source);
-    } on FormatException {
-      throw const HerdrProtocolMismatch();
+    switch (reply) {
+      case HerdrRefusal(:final code, :final message):
+        if (code == 'server_not_running') return const [];
+        throw HerdrProtocolMismatch(
+          null,
+          message.isEmpty ? code : '$code: $message',
+        );
+      case HerdrResult(:final value):
+        return parseAgentList(value, session: session);
     }
-    if (decoded is! Map<String, Object?>) {
-      throw const HerdrProtocolMismatch();
-    }
-    final result = decoded['result'];
-    if (decoded['id'] != 'cli:agent:list' ||
-        result is! Map<String, Object?> ||
-        result['type'] != 'agent_list') {
-      throw HerdrProtocolMismatch(_protocolFrom(decoded, result));
+  }
+
+  /// One server's `agent.list` result, every agent in it stamped with
+  /// [session]: the document does not say which server answered, and nothing
+  /// above this layer may reach a pane without knowing.
+  static List<AgentSnapshot> parseAgentList(
+    Map<String, Object?> result, {
+    required String session,
+  }) {
+    if (result['type'] != 'agent_list') {
+      throw HerdrProtocolMismatch(_protocolOf(result));
     }
     final agents = result['agents'];
     if (agents is! List<Object?>) throw const HerdrProtocolMismatch();
@@ -1110,8 +1322,8 @@ class HerdrClient {
   }
 
   /// The `herdr session list --json` roster. A session whose name is not one
-  /// the app would put on a command line is left out rather than refused: the
-  /// sweep never asked it either.
+  /// the app would put on a command line is left out rather than refused: no
+  /// command of the app's ever named it either.
   static List<SessionEntry> parseSessions(String source) {
     Object? decoded;
     try {
@@ -1129,38 +1341,24 @@ class HerdrClient {
       final name = entry['name'];
       final running = entry['running'];
       final isDefault = entry['default'];
-      if (name is! String || running is! bool || isDefault is! bool) {
+      final socket = entry['socket_path'];
+      if (name is! String ||
+          running is! bool ||
+          isDefault is! bool ||
+          socket is! String) {
         throw const HerdrProtocolMismatch();
       }
       if (!HerdrCommands.isSessionName(name)) continue;
       entries.add(
-        SessionEntry(name: name, running: running, isDefault: isDefault),
+        SessionEntry(
+          name: name,
+          running: running,
+          isDefault: isDefault,
+          socketPath: socket,
+        ),
       );
     }
     return entries;
-  }
-
-  /// One sweep, decoded: the per-session answers in the order they were
-  /// printed, and the roster that closed the frame.
-  ///
-  /// A session that stopped between the roster and its own turn answers
-  /// `server_not_running` and is skipped. A session the roster calls running
-  /// that printed no line is the host's `session list` no longer reading the
-  /// way the sweep reads it, which is a mismatch and not an empty panel.
-  static List<AgentSnapshot> parseSweep(
-    Map<String, String> answers,
-    String roster,
-  ) {
-    for (final session in parseSessions(roster)) {
-      if (session.running && !answers.containsKey(session.name)) {
-        throw HerdrProtocolMismatch(null, 'no answer from ${session.name}');
-      }
-    }
-    return [
-      for (final MapEntry(key: session, value: answer) in answers.entries)
-        if (parseErrorCode(answer) != 'server_not_running')
-          ...parseAgentList(answer, session: session),
-    ];
   }
 
   /// Where a spawn goes on a host with these sessions: the default when it is
@@ -1177,13 +1375,9 @@ class HerdrClient {
     return const SpawnTarget.refused(SpawnRefusal.noDefaultSession);
   }
 
-  static int? _protocolFrom(Map<String, Object?> root, Object? result) {
-    final rootProtocol = root['protocol'];
-    if (rootProtocol is int) return rootProtocol;
-    if (result is Map<String, Object?> && result['protocol'] is int) {
-      return result['protocol'] as int;
-    }
-    return null;
+  static int? _protocolOf(Map<String, Object?> result) {
+    final protocol = result['protocol'];
+    return protocol is int ? protocol : null;
   }
 
   Future<HerdrSession> connect({
@@ -1317,10 +1511,10 @@ class HerdrClient {
   }
 }
 
-/// Every ssh error this app can meet, mapped onto the four reason lines.
+/// Every ssh error this app can meet, mapped onto the reason lines.
 ///
-/// Shared by the one-shot fetch and by every command on a held session: a
-/// session that drops mid-`watch` fails with the same [SSHError] shapes as one
+/// Shared by the one-shot fetch and by every exchange on a held session: a
+/// session that drops mid-watch fails with the same [SSHError] shapes as one
 /// that never connected, and the watcher says why in those same words.
 /// Null for anything this app did not expect from ssh: a bug in the layer above
 /// reads better as itself than as `nyx unreachable`.
@@ -1335,6 +1529,9 @@ HerdrFailure? asHerdrFailure(
     HostKeyRefusal.unverified => HerdrHostKeyUnverified('$error'),
     HostKeyRefusal.changed => HerdrHostKeyChanged('$error'),
   },
+  // A socket that answered something this app cannot read is a herdr the app
+  // does not know how to talk to.
+  HerdrMalformed() => HerdrProtocolMismatch(error.protocol, '$error'),
   SSHHostkeyError() => HerdrHostKeyChanged('$error'),
   SSHAuthFailError() => HerdrKeyRejected('$error'),
   SSHKeyDecodeError() => HerdrKeyRejected('$error'),

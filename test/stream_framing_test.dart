@@ -14,12 +14,14 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/platform/herdr_client.dart';
+import 'package:dazzle/platform/herdr_socket.dart';
 import 'package:dazzle/platform/vnc/framebuffer.dart';
 import 'package:dazzle/platform/vnc/rfb_client.dart';
 import 'package:dazzle/platform/vnc/rfb_messages.dart';
 import 'package:xterm/xterm.dart';
 
 import 'support/chunking.dart';
+import 'support/herdr_link.dart';
 import 'support/vnc_channel.dart';
 
 /// The chunked decoder's other end, as the shell store wires it: decoded text
@@ -42,56 +44,58 @@ List<int> _pixelAt(Framebuffer buffer, int x, int y) {
 }
 
 void main() {
-  group('the herdr sweep is framed by its newlines and not by its packets', () {
-    String agentList(String pane, {String status = 'working'}) => jsonEncode({
-      'id': 'cli:agent:list',
-      'result': {
-        'type': 'agent_list',
-        'agents': [
-          {
-            'agent': 'claude',
-            'agent_status': status,
-            'cwd': '/home/dev/Projects/fixture',
-            'pane_id': pane,
-            'state_change_seq': 1,
-            'terminal_title_stripped': 'fixture',
-            'workspace_id': 'w1',
-          },
-        ],
-      },
-    });
+  group('the herdr socket is framed by its newlines and not by its packets', () {
+    String line(Object? message) => '${jsonEncode(message)}\n';
 
-    final roster = jsonEncode({
-      'sessions': [
-        {'default': true, 'name': 'default', 'running': true},
-      ],
-    });
+    test('a reply comes out whole however the bytes were cut', () async {
+      final answer = line({
+        'id': 'dazzle:0',
+        'result': agentListResult('w1:p1', status: 'blocked'),
+      });
 
-    test('two frames come out whole however the bytes were cut', () async {
-      final sweep =
-          'default\t${agentList('w1:p1')}\n$roster\n'
-          'default\t${agentList('w1:p2', status: 'blocked')}\n$roster\n';
+      for (final split in splitsOf(utf8.encode(answer))) {
+        final link = FakeHerdrLink(scripted: split.stream);
+        final reply = await HerdrApi(() async => link.link).call('agent.list');
+        final agents = HerdrClient.parseSessionAgents(
+          reply,
+          session: 'default',
+        );
 
-      for (final split in splitsOf(utf8.encode(sweep))) {
-        final frames = await HerdrClient.parseWatchStream(split.stream)
-            .toList();
-
-        expect(frames, hasLength(2), reason: split.reason);
-        expect(frames.first.single.paneId, 'w1:p1', reason: split.reason);
-        expect(frames.last.single.state.word, 'blocked', reason: split.reason);
+        expect(agents.single.paneId, 'w1:p1', reason: split.reason);
+        expect(agents.single.state.word, 'blocked', reason: split.reason);
+        expect(link.shut, isTrue, reason: split.reason);
       }
     });
 
-    test('a frame split across the tab keeps its session name', () async {
-      // The tab is the one byte that separates a session's name from its
-      // answer, and it is the byte a cut is most likely to land on.
-      final sweep = 'default\t${agentList('w1:p1')}\n$roster\n';
+    test('a subscription reads its events however the bytes were cut', () async {
+      final feed =
+          line({
+            'id': 'dazzle:0',
+            'result': {'type': 'subscription_started'},
+          }) +
+          line({
+            'event': 'pane.agent_status_changed',
+            'data': {'pane_id': 'w1:p1'},
+          }) +
+          line({
+            'event': 'pane_updated',
+            'data': {'pane_id': 'w1:p2'},
+          });
 
-      for (final split in splitsOf(utf8.encode(sweep))) {
-        final frames = await HerdrClient.parseWatchStream(split.stream)
+      for (final split in splitsOf(utf8.encode(feed))) {
+        final link = FakeHerdrLink(scripted: split.stream);
+        final events = await HerdrApi(() async => link.link)
+            .subscribe(HerdrRequests.paneStatus((
+              session: 'default',
+              pane: 'w1:p1',
+            )))
             .toList();
 
-        expect(frames.single.single.session, 'default', reason: split.reason);
+        expect(
+          events.map((event) => event.kind),
+          ['pane_agent_status_changed', 'pane_updated'],
+          reason: split.reason,
+        );
       }
     });
   });
