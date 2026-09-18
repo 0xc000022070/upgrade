@@ -59,6 +59,17 @@ Map<int, LineMark> changeMarks(List<DiffLine> lines) {
   return marks;
 }
 
+/// The first line of every run of neighbouring marked lines, in file order: a
+/// block of forty new lines is one place in the file, not forty.
+List<int> markBlocks(Map<int, LineMark> marks) {
+  final lines = marks.keys.toList()..sort();
+  final blocks = <int>[];
+  for (var at = 0; at < lines.length; at++) {
+    if (at == 0 || lines[at] != lines[at - 1] + 1) blocks.add(lines[at]);
+  }
+  return blocks;
+}
+
 final _hunk = RegExp(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))?');
 
 /// The number of the first new line under a hunk header. A hunk that puts

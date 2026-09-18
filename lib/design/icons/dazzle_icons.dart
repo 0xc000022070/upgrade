@@ -23,6 +23,7 @@ enum DazzleIcons {
   critical('critical'),
   crop('crop'),
   device('device'),
+  diff('diff'),
   done('done'),
   edit('edit'),
   encrypted('encrypted'),
