@@ -11,6 +11,7 @@ import '../../application/native_plugins.dart';
 import '../../application/plugin_placements.dart';
 import '../../application/providers.dart';
 import '../../data/repositories/plugin_placement_repository.dart';
+import '../../design/components/dot_spinner.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_text_action.dart';
@@ -132,13 +133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   const AgentsPanel(),
                   if (placementState.isLoading && catalog.widgets.isNotEmpty)
-                    Panel(
-                      title: '[ PLUGINS ]',
-                      child: Text(
-                        'LOADING HOME LAYOUT',
-                        style: context.tokens.rowSubtitle,
-                      ),
-                    ),
+                    const Panel(title: '[ PLUGINS ]', child: DelayedSpinner()),
                   if (placementState.hasError)
                     Panel(
                       title: '[ PLUGIN LAYOUT ERROR ]',

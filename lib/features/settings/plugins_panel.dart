@@ -8,6 +8,7 @@ import '../../application/plugin_placements.dart';
 import '../../data/repositories/plugin_placement_repository.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/dazzle_field.dart';
+import '../../design/components/dot_spinner.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
@@ -439,7 +440,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                 'RUNTIME',
                 'Native · no plugin VM or interpreter\nShared Flutter heap; per-plugin heap is not attributable',
               ),
-              if (nativeReport!.isLoading) _fact('STORAGE', 'LOADING'),
+              if (nativeReport!.isLoading) _counting('STORAGE'),
               if (nativeReport.hasError)
                 _fact('STORAGE', '${nativeReport.error}'),
               for (final dataset in nativeReport.valueOrNull ?? [])
@@ -479,7 +480,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                     'HOST API ${entry.key}',
                     '${entry.value.calls} calls · ${entry.value.failed} failed\n${entry.value.sentBytes} request bytes · ${entry.value.receivedBytes} response bytes\n${entry.value.elapsedMicros} µs awaited · current app session',
                   ),
-              if (report!.isLoading) _fact('USAGE', 'LOADING'),
+              if (report!.isLoading) _counting('USAGE'),
               if (report.hasError) _fact('USAGE', '${report.error}'),
               if (report.valueOrNull case final data?) ...[
                 _fact(
@@ -602,6 +603,11 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
       child: Text(value, style: context.tokens.rowSubtitle),
     ),
   );
+
+  Widget _counting(String name) => Padding(
+    padding: const EdgeInsets.only(bottom: Spacing.md),
+    child: SheetField(label: name, child: const DelayedSpinner()),
+  );
 }
 
 class _SourcesSheet extends ConsumerStatefulWidget {
@@ -706,7 +712,7 @@ class _SourcesSheetState extends ConsumerState<_SourcesSheet> {
         ),
         const SheetRule(),
         sources.when(
-          loading: () => Text('LOADING', style: context.tokens.rowSubtitle),
+          loading: () => const DelayedSpinner(),
           error: (error, _) =>
               Text('$error', style: context.tokens.rowSubtitle),
           data: (list) => list.isEmpty
@@ -743,7 +749,7 @@ class _BrowseSheet extends ConsumerWidget {
       title: 'BROWSE',
       children: [
         browse.when(
-          loading: () => Text('LOADING', style: context.tokens.rowSubtitle),
+          loading: () => const DelayedSpinner(),
           error: (error, _) =>
               Text('$error', style: context.tokens.rowSubtitle),
           data: (data) => Column(
@@ -886,7 +892,7 @@ class _PluginLayoutControlsState extends ConsumerState<_PluginLayoutControls> {
     return SheetField(
       label: 'YOUR LAYOUT',
       child: placements.when(
-        loading: () => Text('LOADING', style: context.tokens.rowSubtitle),
+        loading: () => const DelayedSpinner(),
         error: (error, _) => Text('$error', style: context.tokens.rowSubtitle),
         data: (state) {
           if (owner == null || (owner.widgets.isEmpty && owner.pages.isEmpty)) {
