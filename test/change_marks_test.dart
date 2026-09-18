@@ -122,4 +122,36 @@ void main() {
       isEmpty,
     );
   });
+
+  group('the blocks the walk stops on', () {
+    test('neighbouring lines are one block, headed by the first', () {
+      expect(
+        markBlocks(const {
+          4: LineMark.added,
+          5: LineMark.added,
+          6: LineMark.modified,
+        }),
+        [4],
+      );
+    });
+
+    test('a gap of one line starts another', () {
+      expect(markBlocks(const {4: LineMark.added, 6: LineMark.added}), [4, 6]);
+    });
+
+    test('the blocks come out in file order whatever order they went in', () {
+      expect(
+        markBlocks(const {
+          55: LineMark.added,
+          2: LineMark.modified,
+          3: LineMark.modified,
+        }),
+        [2, 55],
+      );
+    });
+
+    test('a file with no marks has no blocks', () {
+      expect(markBlocks(const {}), isEmpty);
+    });
+  });
 }

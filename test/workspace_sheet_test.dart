@@ -18,6 +18,8 @@ import 'package:dazzle/design/components/list_row.dart';
 import 'package:dazzle/design/components/panel.dart';
 import 'package:dazzle/design/components/path_line.dart';
 import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/icons/dazzle_icon.dart';
+import 'package:dazzle/design/icons/dazzle_icons.dart';
 import 'package:dazzle/design/layout.dart';
 import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/features/code/diff_map.dart';
@@ -281,6 +283,12 @@ void main() {
 
   Future<void> tapText(WidgetTester tester, String text) async {
     await tester.tap(find.text(text).last);
+    await ready(tester);
+  }
+
+  /// A control drawn as a mark, reached by the word on its node.
+  Future<void> tapMark(WidgetTester tester, String label) async {
+    await tester.tap(find.bySemanticsLabel(label).last);
     await ready(tester);
   }
 
@@ -975,7 +983,7 @@ void main() {
       await tester.tap(find.widgetWithText(ListRow, 'lib/main.dart'));
       await ready(tester);
       spent = opened.commands.length;
-      await tapText(tester, 'DIFF');
+      await tapMark(tester, 'DIFF');
       return opened;
     }
 
@@ -1870,6 +1878,20 @@ void main() {
         '@@ -54,0 +55,1 @@\n'
         '+line 55\n';
 
+    /// Three neighbouring lines replaced, then a single one put in near the
+    /// end: four changed lines in two places.
+    const blockThenOne =
+        'diff --git a/lib/main.dart b/lib/main.dart\n'
+        '@@ -2,3 +2,3 @@\n'
+        '-line 2\n'
+        '-line 3\n'
+        '-line 4\n'
+        '+LINE 2\n'
+        '+LINE 3\n'
+        '+LINE 4\n'
+        '@@ -54,0 +55,1 @@\n'
+        '+line 55\n';
+
     /// Everything a checkout can be asked that changes it. The tape is held
     /// against this after every walk, since the feature is read-only by ruling
     /// and a command that writes is the failure mode this guards.
@@ -1975,9 +1997,20 @@ void main() {
       await tapText(tester, 'lib/main.dart');
 
       expect(find.text('1 CHANGE'), findsOneWidget);
-      expect(find.text('PREV'), findsOneWidget);
-      expect(find.text('NEXT'), findsOneWidget);
-      expect(find.text('DIFF'), findsOneWidget);
+      for (final word in ['PREV', 'NEXT', 'DIFF']) {
+        expect(find.text(word), findsNothing);
+        expect(find.bySemanticsLabel(word), findsOneWidget);
+      }
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w is DazzleIcon &&
+              (w.icon == DazzleIcons.arrowUp ||
+                  w.icon == DazzleIcons.arrowDown ||
+                  w.icon == DazzleIcons.diff),
+        ),
+        findsNWidgets(3),
+      );
       // The one replaced line wears the warning down its gutter.
       expect(
         find.byWidgetPredicate(
@@ -2008,17 +2041,49 @@ void main() {
       expect(find.text('2 CHANGES'), findsOneWidget);
       expect(find.text('55').hitTestable(), findsNothing);
 
-      await tapText(tester, 'NEXT');
+      await tapMark(tester, 'NEXT');
       expect(find.text('2').hitTestable(), findsOneWidget);
-      await tapText(tester, 'NEXT');
+      await tapMark(tester, 'NEXT');
       expect(find.text('55').hitTestable(), findsOneWidget);
       // Past the last mark is the first again.
-      await tapText(tester, 'NEXT');
+      await tapMark(tester, 'NEXT');
       expect(find.text('2').hitTestable(), findsOneWidget);
       expect(find.text('55').hitTestable(), findsNothing);
       // And before the first is the last.
-      await tapText(tester, 'PREV');
+      await tapMark(tester, 'PREV');
       expect(find.text('55').hitTestable(), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a run of changed lines is one stop, not one each', (
+      tester,
+    ) async {
+      final runner = tracked()
+        ..answers['head -c 262144'] = WorkspaceReply(
+          exitCode: 0,
+          stdout: long,
+          stderr: '',
+        )
+        ..answers['HEAD -- '] = const WorkspaceReply(
+          exitCode: 0,
+          stdout: blockThenOne,
+          stderr: '',
+        );
+      await browse(tester, runner: runner, size: const Size(400, 700));
+      await tapText(tester, 'CHANGED 2');
+      await tapText(tester, 'lib/main.dart');
+
+      // Four changed lines in two places, and the count says the places.
+      expect(find.text('2 CHANGES'), findsOneWidget);
+
+      // The step out of the block clears all of it, not one line of it.
+      await tapMark(tester, 'NEXT');
+      expect(find.text('2').hitTestable(), findsOneWidget);
+      await tapMark(tester, 'NEXT');
+      expect(find.text('55').hitTestable(), findsOneWidget);
+      await tapMark(tester, 'NEXT');
+      expect(find.text('2').hitTestable(), findsOneWidget);
 
       await unmount(tester);
     });
@@ -2027,7 +2092,7 @@ void main() {
       await browse(tester);
       await tapText(tester, 'CHANGED 2');
       await tapText(tester, 'lib/main.dart');
-      await tapText(tester, 'DIFF');
+      await tapMark(tester, 'DIFF');
 
       expect(find.byType(DiffSheet), findsOneWidget);
       expect(find.text('const port = 22;'), findsOneWidget);
@@ -2041,8 +2106,8 @@ void main() {
       await tapText(tester, 'scratch.txt');
 
       expect(find.text('UNTRACKED'), findsOneWidget);
-      expect(find.text('NEXT'), findsNothing);
-      expect(find.text('DIFF'), findsOneWidget);
+      expect(find.bySemanticsLabel('NEXT'), findsNothing);
+      expect(find.bySemanticsLabel('DIFF'), findsOneWidget);
       // All of it is new, so there is no hunk worth a round trip.
       expect(runner.commands.any((c) => c.contains('--no-index')), isFalse);
 
@@ -2054,7 +2119,7 @@ void main() {
       await tapText(tester, 'README.md');
 
       expect(find.text('1'), findsWidgets);
-      expect(find.text('DIFF'), findsNothing);
+      expect(find.bySemanticsLabel('DIFF'), findsNothing);
       // The mark column is there, three wide, and nothing is drawn in it.
       expect(
         find.byWidgetPredicate((w) => w is SizedBox && w.width == 3),

@@ -10,6 +10,7 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/components/segment_switch.dart';
+import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
@@ -62,7 +63,7 @@ class _Tab {
   /// coming or for a file that has no change to mark.
   Map<int, LineMark>? marks;
 
-  /// Which of the marked lines PREV and NEXT last landed on; -1 is none yet.
+  /// Which block of marked lines PREV and NEXT last landed on; -1 is none yet.
   int visit = -1;
 
   /// One key per marked line, so NEXT can ask the scroll view for it.
@@ -705,22 +706,19 @@ class _ExplorerState extends ConsumerState<Explorer> {
   }
 
   /// The line under the tabs on a changed file: what kind of change it is,
-  /// how many places, and the three verbs that walk them.
+  /// how many places, and the three marks that walk them.
   Widget _strip(_Tab tab, WorkspaceFile file) {
     final marks = tab.marks;
-    final lines = marks == null ? const <int>[] : (marks.keys.toList()..sort());
+    final blocks = marks == null ? const <int>[] : markBlocks(marks);
     final word = file.untracked
         ? 'UNTRACKED'
         : marks == null
         ? 'CHANGED'
-        : lines.isEmpty
+        : blocks.isEmpty
         ? 'NO MARKS'
-        : '${lines.length} ${lines.length == 1 ? 'CHANGE' : 'CHANGES'}';
+        : '${blocks.length} ${blocks.length == 1 ? 'CHANGE' : 'CHANGES'}';
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: Spacing.panelPadding,
-        vertical: Spacing.sm,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.panelPadding),
       child: Row(
         children: [
           Expanded(
@@ -731,11 +729,12 @@ class _ExplorerState extends ConsumerState<Explorer> {
               ),
             ),
           ),
-          if (lines.isNotEmpty) ...[
-            _verb('PREV', () => _step(tab, lines, -1)),
-            _verb('NEXT', () => _step(tab, lines, 1)),
+          if (blocks.isNotEmpty) ...[
+            _verb(DazzleIcons.arrowUp, 'PREV', () => _step(tab, blocks, -1)),
+            _verb(DazzleIcons.arrowDown, 'NEXT', () => _step(tab, blocks, 1)),
           ],
           _verb(
+            DazzleIcons.diff,
             'DIFF',
             () => showDiffSheet(context, widget.controller, file: file),
           ),
@@ -744,19 +743,34 @@ class _ExplorerState extends ConsumerState<Explorer> {
     );
   }
 
-  Widget _verb(String label, VoidCallback onTap) => GestureDetector(
-    behavior: HitTestBehavior.opaque,
+  /// A mark, with the word it stands for on its node for a screen reader.
+  Widget _verb(DazzleIcons icon, String label, VoidCallback onTap) => Semantics(
+    container: true,
+    button: true,
+    label: label,
     onTap: onTap,
-    child: Padding(
-      padding: const EdgeInsets.only(left: Spacing.md),
-      child: Text(label, style: context.tokens.panelHeader),
+    excludeSemantics: true,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(
+        width: TapTargets.minHeight,
+        height: RowMetrics.minHeight,
+        child: Center(
+          child: DazzleIcon(
+            icon,
+            size: IconSizes.sm,
+            color: context.tokens.textSecondary,
+          ),
+        ),
+      ),
     ),
   );
 
-  /// One marked line along, wrapping at either end, and scrolled to.
-  void _step(_Tab tab, List<int> lines, int by) {
-    setState(() => tab.visit = (tab.visit + by) % lines.length);
-    final target = tab.markKeys[lines[tab.visit]]?.currentContext;
+  /// One block along, wrapping at either end, and scrolled to by its head.
+  void _step(_Tab tab, List<int> blocks, int by) {
+    setState(() => tab.visit = (tab.visit + by) % blocks.length);
+    final target = tab.markKeys[blocks[tab.visit]]?.currentContext;
     if (target == null) return;
     Scrollable.ensureVisible(
       target,
