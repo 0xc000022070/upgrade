@@ -28,6 +28,7 @@ import 'design/typography.dart';
 import 'features/shell/shell_sessions.dart';
 import 'features/tasks/image_input.dart';
 import 'platform/device.dart';
+import 'platform/link_metadata.dart';
 import 'platform/plugins/store.dart';
 import 'platform/plugins/usage.dart';
 
@@ -115,6 +116,11 @@ Future<void> main() async {
   final clips = await ClipStore.open();
   boot.add(const BootStep('clear clips', 'ok'));
 
+  // Beside the clips in the cache, but unlike them the file is kept: a card
+  // that survived the restart is one request nobody has to make.
+  final previews = await LinkPreviews.open();
+  boot.add(const BootStep('mount link previews', 'ok'));
+
   final model = await Device.model();
   boot.add(BootStep('mounted device ${model ?? 'unknown'}', 'ok'));
 
@@ -142,6 +148,7 @@ Future<void> main() async {
       // The channel reaches the activity, which only a running app has.
       pipSurfaceProvider.overrideWithValue(const PipSurface()),
       clipStoreProvider.overrideWithValue(clips),
+      linkPreviewsProvider.overrideWithValue(previews),
     ],
   );
   final shells = await container

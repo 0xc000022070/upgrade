@@ -1,9 +1,13 @@
 import 'support/native_plugins.dart';
 
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/application/link_preview.dart';
+import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/application/urls.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/activity_repository.dart';
@@ -18,6 +22,7 @@ import 'package:dazzle/design/components/dazzle_field.dart';
 import 'package:dazzle/features/tasks/item_sheet.dart';
 import 'package:dazzle/features/tasks/item_pickers.dart';
 import 'package:dazzle/features/tasks/link_text.dart';
+import 'package:dazzle/platform/link_metadata.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -72,13 +77,14 @@ void main() {
 
   tearDown(() => db.close());
 
-  Widget host(String taskId) => ProviderScope(
-    overrides: [...featureTestOverrides(db)],
-    child: MaterialApp(
-      theme: testTheme,
-      home: Scaffold(body: ItemSheet(taskId: taskId)),
-    ),
-  );
+  Widget host(String taskId, {List<Override> extra = const []}) =>
+      ProviderScope(
+        overrides: [...featureTestOverrides(db), ...extra],
+        child: MaterialApp(
+          theme: testTheme,
+          home: Scaffold(body: ItemSheet(taskId: taskId)),
+        ),
+      );
 
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
@@ -165,6 +171,64 @@ void main() {
     expect(find.text('Redis propio'), findsOneWidget);
     expect(find.text('[ BLOCKED BY ]'), findsOneWidget);
     expect(find.text('Esperando proveedor S3'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a link that says what it is takes a card instead of a row', (
+    tester,
+  ) async {
+    const post = 'https://x.com/FaztTech/status/1';
+    final directory = Directory.systemTemp.createTempSync('dazzle-sheet-test');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final cache = LinkPreviewCache.inDirectory(directory);
+    // The cache is a file, and a file is real I/O: it only settles on the
+    // real event loop, not the one the test drives.
+    await tester.runAsync(
+      () => cache.write(
+        post,
+        const LinkPreview(
+          url: post,
+          description: 'Si tienes que hacer un review, hazlo bien',
+          siteName: 'X',
+          author: 'Fazt',
+        ),
+      ),
+    );
+
+    final task = await tasks.create(title: 'Read this later');
+    await attachments.create(
+      itemId: task,
+      kind: AttachmentKind.url,
+      value: post,
+    );
+    await attachments.create(
+      itemId: task,
+      kind: AttachmentKind.url,
+      value: 'https://min.io',
+    );
+
+    await tester.pumpWidget(
+      host(
+        task,
+        extra: [
+          linkPreviewsProvider.overrideWithValue(
+            LinkPreviews(fetcher: LinkMetadataFetcher(), cache: cache),
+          ),
+        ],
+      ),
+    );
+    await _ready(tester);
+
+    expect(find.text('X · FAZT'), findsOneWidget);
+    expect(
+      find.text('Si tienes que hacer un review, hazlo bien'),
+      findsOneWidget,
+    );
+    // The card is the row's replacement, and the link that answered nothing
+    // keeps the row it always had.
+    expect(find.text('x.com'), findsNothing);
+    expect(find.text('min.io'), findsOneWidget);
 
     await unmount(tester);
   });
