@@ -41,6 +41,28 @@ void main() {
     );
   });
 
+  test('the share sheet id goes and what plays the video stays', () {
+    expect(
+      normalizeUrl('https://youtu.be/dQw4w9WgXcQ?si=Yl1xK9k2'),
+      'https://youtu.be/dQw4w9WgXcQ',
+    );
+    expect(
+      normalizeUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=Yl1&t=42'),
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42',
+    );
+    expect(
+      normalizeUrl('https://open.spotify.com/track/4cOdK2?si=8f2b1c'),
+      'https://open.spotify.com/track/4cOdK2',
+    );
+  });
+
+  test('a shared video written into a line is cleaned there too', () {
+    expect(
+      withoutTrackingInText('ver https://youtu.be/dQw4w9WgXcQ?si=Yl1 manana'),
+      'ver https://youtu.be/dQw4w9WgXcQ manana',
+    );
+  });
+
   test('what the page needs is left alone', () {
     expect(
       normalizeUrl(

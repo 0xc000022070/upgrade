@@ -111,8 +111,10 @@ const _trackingNames = {
   // The other networks that stamp a click id.
   'msclkid', 'twclid', 'ttclid', 'li_fat_id', 'rdt_cid', 'sccid', 'epik',
   'yclid', 'ysclid', '_openstat',
-  // Instagram's share sheet.
-  'igshid', 'igsh',
+  // The share sheets. `si` is what a video or music link comes back with when
+  // it was passed on by hand: the id that opens it is in the path, and this
+  // says who passed it.
+  'igshid', 'igsh', 'si',
   // Mail, and the platforms that send it.
   'mc_cid', 'mc_eid', 'mkt_tok', '_kx', '__s', '_bta_c', '_bta_tid',
   '_hsenc', '_hsmi', '__hssc', '__hstc', '__hsfp', 'hsctatracking',
