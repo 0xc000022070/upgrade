@@ -7,7 +7,7 @@ import '../platform/plugins/module.dart';
 import '../platform/plugins/store.dart';
 
 const builtinModules = <NativePluginModule>[dropsPlugin, projectsPlugin];
-const bundledScriptDirectories = ['plugins/agent-schedules'];
+const bundledScriptDirectories = ['plugins/agent-schedules', 'plugins/board'];
 
 Future<List<PluginPackage>> loadBuiltinPlugins() async => [
   for (final module in builtinModules) await _load(module),

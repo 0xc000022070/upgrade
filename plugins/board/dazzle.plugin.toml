@@ -1,0 +1,32 @@
+manifest_version = 5
+id = "dazzle.board"
+name = "Board"
+purpose = "Arrange notes and links on a scrolling board."
+version = "1.0.0"
+dazzle_api = "^2.1.0"
+ui_api = 2
+author = "Dazzle"
+homepage = "https://github.com/0xc000022070/dazzle"
+license = "MIT"
+summary = "Notes and links on a tap-driven canvas, built on the plugin drawing surface"
+
+[runtime]
+kind = "luau"
+entry = "main.luau"
+
+[datasets.boards]
+schema_version = 1
+quota_bytes = 1048576
+quota_records = 2000
+
+[capabilities.boards]
+api_version = 1
+dataset = "self:boards"
+operations = ["get", "query", "put", "delete"]
+
+[permissions]
+ui = ["page", "canvas"]
+
+[[contributes.pages]]
+id = "main"
+title = "Board"
