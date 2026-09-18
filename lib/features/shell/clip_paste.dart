@@ -53,7 +53,7 @@ Future<PasteResult> pasteImage({
   required Uint8List bytes,
 }) async {
   final connection = session.connection;
-  if (connection == null || session.state is! ShellLive) {
+  if (connection == null || !session.state.holdsSession) {
     return const PasteResult(PasteOutcome.failed, detail: 'no shell');
   }
   final clipboard = await store.clipboardFor(session);
