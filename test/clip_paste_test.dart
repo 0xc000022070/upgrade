@@ -7,6 +7,7 @@ import 'package:dazzle/application/clips.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/features/screen/screen_preview.dart';
 import 'package:dazzle/features/shell/clip_paste.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/platform/shell/host_clipboard.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
 
@@ -199,6 +200,23 @@ void main() {
     expect(connection.execs[3].command, uploadCommand(name));
     expect(connection.execs[3].stdin, bytes);
     expect(clips.count, 1);
+  });
+
+  test('a mosh tab still roaming attaches rather than refusing', () async {
+    final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+    final store = fakeShellSessions(transport);
+    final session = store.open(_nyx)!;
+    await _settle();
+    final connection = transport.opened.single;
+    _answerProbeWith(connection, _waylandProbe);
+    connection.setHealth(ShellConnectionHealth.reconnecting);
+    await _settle();
+    expect(session.state, isA<ShellReconnecting>());
+
+    final result = await pasteClip(store: store, session: session, clip: clip);
+
+    expect(result.outcome, PasteOutcome.pasted);
+    expect(connection.writes.last, pasteKey);
   });
 
   test('a session with no shell under it is FAILED at once', () async {

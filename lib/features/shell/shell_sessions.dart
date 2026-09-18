@@ -104,6 +104,13 @@ extension ShellStateFailure on ShellState {
   };
 }
 
+extension ShellStateLink on ShellState {
+  bool get holdsSession =>
+      this is ShellLive ||
+      this is ShellReconnecting ||
+      this is ShellDisconnected;
+}
+
 /// The first two cover a wifi handover; the rest cover a lift ride and a tunnel, after
 /// which a phone that still cannot see the host is somewhere the user knows about.
 const shellReconnectDelays = <Duration>[
@@ -1401,10 +1408,7 @@ class ShellSessions extends ChangeNotifier {
     for (final sessions in _byHost.values) {
       for (final session in List.of(sessions)) {
         final connection = session.connection;
-        if (connection != null &&
-            (session.state is ShellLive ||
-                session.state is ShellReconnecting ||
-                session.state is ShellDisconnected)) {
+        if (connection != null && session.state.holdsSession) {
           unawaited(
             connection.rehome().catchError((Object error) {
               debugPrint(
