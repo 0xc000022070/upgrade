@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/clipboard_text.dart';
+import '../../application/link_preview.dart';
 import '../../application/formatting.dart';
 import '../../application/providers.dart';
 import '../../application/urls.dart';
@@ -30,6 +31,7 @@ import '../../application/attachment_files.dart';
 import 'image_viewer.dart';
 import 'item_pickers.dart';
 import 'item_send.dart';
+import 'link_preview_card.dart';
 import 'link_text.dart';
 import 'plugin_actions.dart';
 import '../../application/native_plugins.dart';
@@ -327,6 +329,43 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   /// `blockedReason` and `bundleId` may not.
   bool _isDrop(Task task) => task.projectId == null;
 
+  /// A card is a request, and an item that is a wall of links is a list, not
+  /// a page.
+  static const _previewLimit = 3;
+
+  /// A URL written into the text is text and leaves no attachment behind, so
+  /// the title is the only place most drops keep their link. A link that is
+  /// both is one card, and it is the attachment's, because only that one can
+  /// be removed.
+  ///
+  /// A page that answered with nothing, or has not answered yet, is absent
+  /// here and keeps the row it already had.
+  List<({LinkPreview preview, Attachment? attachment})> _cards(
+    Task task,
+    List<Attachment> links,
+  ) {
+    final asked = <String, Attachment?>{};
+    for (final link in links) {
+      asked.putIfAbsent(link.value, () => link);
+      if (asked.length == _previewLimit) break;
+    }
+    if (asked.length < _previewLimit) {
+      for (final token in urlTokens(task.title)) {
+        asked.putIfAbsent(token.url, () => null);
+        if (asked.length == _previewLimit) break;
+      }
+    }
+
+    final drawn = <({LinkPreview preview, Attachment? attachment})>[];
+    for (final entry in asked.entries) {
+      final preview = ref.watch(linkPreviewProvider(entry.key)).valueOrNull;
+      if (preview != null) {
+        drawn.add((preview: preview, attachment: entry.value));
+      }
+    }
+    return drawn;
+  }
+
   List<Widget> _readout(Task task) {
     final drop = _isDrop(task);
     final attachments =
@@ -334,6 +373,10 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         const <Attachment>[];
     final links = attachments
         .where((a) => a.kind == AttachmentKind.url)
+        .toList();
+    final cards = _cards(task, links);
+    final rows = links
+        .where((a) => !cards.any((c) => c.attachment?.id == a.id))
         .toList();
     final images = attachments
         .where((a) => a.kind == AttachmentKind.image)
@@ -433,19 +476,38 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ),
         ),
       ],
-      if (links.isNotEmpty) ...[
+      if (cards.isNotEmpty || rows.isNotEmpty) ...[
         const SheetRule(),
         SheetField(
           label: 'LINKS',
-          // Rows, and only rows. Tap opens, long press removes — the
-          // trailing `x` was one more control in a body that is a readout.
-          child: ListRowGroup(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              for (final link in links)
-                ListRow(
-                  title: attachmentLabel(link),
-                  onTap: () => _open(link),
-                  onLongPress: () => _detach(link),
+              for (final card in cards)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Spacing.sm),
+                  child: LinkPreviewCard(
+                    preview: card.preview,
+                    onTap: () => openUrl(card.preview.url),
+                    onLongPress: card.attachment == null
+                        ? null
+                        : () => _detach(card.attachment!),
+                  ),
+                ),
+              // A link that said nothing about itself keeps the row it always
+              // had. Tap opens, long press removes — the trailing `x` was one
+              // more control in a body that is a readout.
+              if (rows.isNotEmpty)
+                ListRowGroup(
+                  children: [
+                    for (final link in rows)
+                      ListRow(
+                        title: attachmentLabel(link),
+                        onTap: () => _open(link),
+                        onLongPress: () => _detach(link),
+                      ),
+                  ],
                 ),
             ],
           ),

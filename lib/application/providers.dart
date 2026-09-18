@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../data/database.dart';
 import '../data/plugin_api.dart';
@@ -18,7 +21,9 @@ import '../data/repositories/shell_tab_repository.dart';
 import '../data/repositories/task_repository.dart';
 import '../data/views.dart';
 import '../platform/keys.dart';
+import '../platform/link_metadata.dart';
 import 'agents.dart';
+import 'link_preview.dart';
 import 'pane_share.dart';
 import 'shell_font.dart';
 import 'native_plugins.dart';
@@ -309,6 +314,26 @@ final itemAttachmentsProvider = StreamProvider.family<List<Attachment>, String>(
   (ref, id) => ref.watch(attachmentRepositoryProvider).watchForItem(id),
   dependencies: [attachmentRepositoryProvider],
 );
+
+/// Boot overrides this with a store under the platform's cache directory;
+/// without the override — a widget test — the file is under the system temp.
+final linkPreviewsProvider = Provider<LinkPreviews>((ref) {
+  ref.keepAlive();
+  return LinkPreviews(
+    fetcher: LinkMetadataFetcher(),
+    cache: LinkPreviewCache.inDirectory(
+      Directory(p.join(Directory.systemTemp.path, 'dazzle')),
+    ),
+  );
+});
+
+/// Read when a card asks and not before. Auto-disposed: the answer's home is
+/// the cache on disk, not a provider held open for every URL ever drawn.
+final linkPreviewProvider = FutureProvider.autoDispose
+    .family<LinkPreview?, String>(
+      (ref, url) => ref.watch(linkPreviewsProvider).of(url),
+      dependencies: [linkPreviewsProvider],
+    );
 
 /// One subscription for every row on screen: the mark a row draws for its
 /// links reads this map rather than opening a stream of its own.
