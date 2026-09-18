@@ -14,9 +14,6 @@ class NavDestination {
   final DazzleIcons icon;
 }
 
-/// Capture is a bar on HOME and the activity stream is HOME's RECENT section,
-/// so neither needs a destination of its own. HOSTS is the registered machines
-/// and the keys that get into them; SSH is what is running on them right now.
 const navDestinations = [
   NavDestination('HOME', DazzleIcons.home),
   NavDestination('PROJECTS', DazzleIcons.projects),
@@ -25,9 +22,8 @@ const navDestinations = [
   NavDestination('TOOLS', DazzleIcons.more),
 ];
 
-/// Built from tokens rather than BottomNavigationBar: Material's version brings
-/// its own ripple, elevation and 56px shape assumptions, all of which we would
-/// have to undo.
+/// Built from tokens rather than BottomNavigationBar, whose ripple, elevation and 56px
+/// shape assumptions would all have to be undone.
 class NavBar extends StatelessWidget {
   const NavBar({
     super.key,
@@ -43,8 +39,6 @@ class NavBar extends StatelessWidget {
   final List<int> visibleIndices;
   final String? contributedLabel;
 
-  /// One controller per destination: a tab becoming active, and the
-  /// autonomous tick, glitch the icon that stands for that screen.
   final List<GlitchController> glitch;
 
   @override
@@ -59,9 +53,8 @@ class NavBar extends StatelessWidget {
           ),
         ),
       ),
-      // The bar's ground and its top rule run the full width — a nav
-      // that stops at the column would leave the corners of a near-square
-      // display bare — and only the tabs inside it take the cap.
+      // The ground and the top rule run the full width — a nav that stopped at the column
+      // would leave the corners of a near-square display bare — and only the tabs take the cap.
       child: SafeArea(
         top: false,
         child: ContentColumn(
@@ -109,17 +102,13 @@ class _NavItem extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: ConstrainedBox(
-        // As tall as the words the phone is painting, with the bar's own
-        // height as a floor. Fixed, it was the label's height at the text
-        // size the bar was drawn at and two pixels short of it at the
-        // largest, which took the bottom off every label in the bar.
+        // As tall as the words the phone is painting, with the bar's own height as a floor.
+        // Fixed, it was two pixels short at the largest text size and took the bottom off every
+        // label.
         constraints: const BoxConstraints(minHeight: 52),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // A rule segment over the active tab. The mocks run
-            // it the full width of the tab, sitting on the nav's own top rule,
-            // so activating a tab moves the segment rather than resizing it.
             Container(
               height: BarSizes.inlineThickness,
               color: active ? context.tokens.accent : null,

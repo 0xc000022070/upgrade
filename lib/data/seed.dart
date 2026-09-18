@@ -6,14 +6,6 @@ import 'repositories/note_repository.dart';
 import 'repositories/project_repository.dart';
 import 'repositories/task_repository.dart';
 
-/// Explicitly enabled debug fixture so the screens have something real to
-/// render. It runs the same repository calls the UI does, which means the
-/// activity stream it produces is genuine — the `completed` and `blocked`
-/// events below are emitted by the transitions, not hand-written.
-///
-/// `Infra personal > Homelab > Networking` is the two-deep tree
-/// the hierarchy is exercised on. Every level carries tasks of its own, so a
-/// parent's number is visibly not its own tasks' number.
 Future<void> seedDevData(
   AppDatabase db, {
   required ProjectRepository projects,
@@ -71,8 +63,6 @@ Future<void> seedDevData(
     at: ago(const Duration(days: 10, hours: -5)),
   );
 
-  /// Creates a project's tasks, then closes the first [done] of them so the
-  /// audit stream carries real `completed` events rather than seeded rows.
   Future<List<String>> tasksFor(
     String projectId, {
     required List<String> titles,

@@ -2,8 +2,6 @@ import 'package:drift/drift.dart';
 
 import '../database.dart';
 
-/// One tab as it was left: the host it is on, its number, and whether it was
-/// the one on screen.
 class ShellTab {
   const ShellTab({
     required this.hostId,
@@ -26,17 +24,9 @@ class ShellTab {
   final DateTime? retiredAt;
 }
 
-/// The tabs that were open when the app last ran.
-///
-/// The stable tab id finds its Mosh server and, for ordinary shells, its tmux
-/// session. A Herdr pair finds an agent pane. Retired rows are cleanup work,
-/// not tabs to restore.
 abstract class ShellTabRepository {
-  /// In open order, so the numbers come back the way they were handed out.
   Future<List<ShellTab>> all();
 
-  /// Records the tab and makes it the active one on its host, which is what
-  /// opening a shell does to the tab row.
   Future<void> open(
     String hostId,
     int number, {
@@ -52,8 +42,6 @@ abstract class ShellTabRepository {
 
   Future<List<ShellTab>> retired(String hostId);
 
-  /// The one tab on screen for this host. Every other row on it is cleared, so
-  /// a host has one active tab in the table as it has one on the route.
   Future<void> activate(String hostId, int number);
 }
 

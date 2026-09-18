@@ -1,6 +1,5 @@
-/// Hand-written mirror of assets/icons/hl-*.svg. Kept explicit rather than
-/// generated so a missing or renamed file is a compile error, not a runtime
-/// asset exception.
+/// Hand-written mirror of assets/icons/hl-*.svg, so a missing or renamed file is a
+/// compile error rather than a runtime asset exception.
 enum DazzleIcons {
   acknowledged('acknowledged'),
   active('active'),
@@ -67,10 +66,5 @@ enum DazzleIcons {
 
   String get asset => 'assets/icons/hl-$slug.svg';
 
-  /// One glitch frame swaps the icon for its nodes-only "signal" variant. Only
-  /// the icons a [GlitchController] is ever attached to are read this way — see
-  /// `glitchIcons` — and the key strip's eight marks ship none, because none of
-  /// them is ever glitched: the strip and the rail have no glitch event, and
-  /// the nav bar's frames recolour the plain glyph rather than swapping it.
   String get signalAsset => 'assets/icons/signal/hl-$slug-signal.svg';
 }

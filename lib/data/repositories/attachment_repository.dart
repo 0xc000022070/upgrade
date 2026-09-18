@@ -4,9 +4,6 @@ import 'package:uuid/uuid.dart';
 import '../database.dart';
 import '../enums.dart';
 
-/// One attachment that does not exist yet: what the capture bar and the quick
-/// view collect while a field is open, and hand over when it commits. Keeping
-/// the two kinds in one list is what preserves the order they were attached in.
 class NewAttachment {
   const NewAttachment(this.kind, this.value);
 
@@ -15,18 +12,9 @@ class NewAttachment {
 
   final AttachmentKind kind;
 
-  /// The URL, or the path relative to the app support directory.
   final String value;
 }
 
-/// Replaces the link repository. Attachments carry no activity
-/// events: they hang off an item the stream already reports, and one capture
-/// can add several at once.
-///
-/// File IO is deliberately absent — an image row stores a path relative to the
-/// app support directory, and the copying and deleting of the file itself is
-/// the picker's business, so the repository stays a database and the tests stay
-/// free of platform channels.
 class AttachmentRepository {
   AttachmentRepository(this._db);
 
@@ -46,10 +34,8 @@ class AttachmentRepository {
     )..where((a) => a.itemId.equals(itemId))).get();
   }
 
-  /// What a whole set holds, keyed by item, in one query. The same reason
-  /// [watchLinkCounts] exists: a batch of thirty drops must not become thirty
-  /// selects. Items with no attachment are absent rather than empty, and each
-  /// list is in the order the attachments were made.
+  /// Items with no attachment are absent rather than empty, and each list keeps the order
+  /// the attachments were made in.
   Future<Map<String, List<Attachment>>> forItems(
     Iterable<String> itemIds,
   ) async {
@@ -88,10 +74,8 @@ class AttachmentRepository {
     return id;
   }
 
-  /// How many links each item holds, keyed by item. One query for a whole
-  /// screen rather than one stream per row: a panel of thirty drops would
-  /// otherwise open thirty subscriptions to answer a glyph. Items with no link
-  /// are absent rather than zero.
+  /// One query for a whole screen: a panel of thirty drops must not open thirty streams to
+  /// draw a glyph. Items with no link are absent rather than zero.
   Stream<Map<String, int>> watchLinkCounts() {
     final item = _db.attachments.itemId;
     final total = _db.attachments.id.count();
@@ -108,9 +92,6 @@ class AttachmentRepository {
       (_db.delete(_db.attachments)..where((a) => a.id.equals(id))).go();
 }
 
-/// What a URL attachment shows as a row or a chip: the host,
-/// stripped of `www.`, falling back to the raw text when it will not parse — a
-/// malformed link is still worth showing.
 String attachmentLabel(Attachment attachment) {
   final uri = Uri.tryParse(attachment.value);
   final host = uri?.host ?? '';

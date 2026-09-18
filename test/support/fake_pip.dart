@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:dazzle/application/pip.dart';
 
-/// A window that records what it was told rather than asking an activity.
 class FakePip implements PipSurface {
   FakePip({this.here = true});
 

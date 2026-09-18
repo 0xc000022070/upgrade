@@ -5,14 +5,10 @@ import 'dart:typed_data';
 import 'framebuffer.dart';
 import 'vnc_failure.dart';
 
-/// ZRLE, RFC 6143 section 7.7.6.
-///
-/// One zlib stream for the whole session, which is the part that cannot be got
-/// wrong: the server's deflate window spans every rect it has ever sent, so the
-/// inflater is opened once and fed for as long as the connection lives.
-/// Resetting it — or decoding a rect with a fresh one — desynchronises the
-/// stream permanently, and the symptom is a screen that decodes for a second
-/// and then turns to noise.
+/// One zlib stream for the whole session: the server's deflate window spans every rect
+/// it has ever sent, so the inflater is opened once and fed for as long as the
+/// connection lives. Resetting it desynchronises the stream permanently, and the symptom
+/// is a screen that decodes for a second and then turns to noise.
 class ZrleDecoder {
   ZrleDecoder() {
     _sink = ZLibDecoder().startChunkedConversion(_collector);
@@ -20,27 +16,22 @@ class ZrleDecoder {
 
   static const tileSize = 64;
 
-  /// CPIXEL is 3 bytes for this pixel format — 32 bpp, depth 24, and
-  /// all three colour maxima inside the low three bytes, so the fourth carries
-  /// nothing and is left off the wire. Little-endian with red at shift 16 puts
-  /// those three bytes in B, G, R order, which is the framebuffer's own.
+  /// CPIXEL is 3 bytes for this pixel format: all three colour maxima sit inside the low
+  /// three bytes, so the fourth carries nothing and is left off the wire. Little-endian
+  /// with red at shift 16 puts those bytes in B, G, R order, the framebuffer's own.
   static const cpixelBytes = 3;
 
   final BytesBuilder _pending = BytesBuilder(copy: false);
   late final Sink<List<int>> _collector = _CollectorSink(_pending);
   late final ByteConversionSink _sink;
 
-  /// Inflates one rect's worth of the session stream.
-  ///
-  /// The server flushes at every rect boundary, so everything it compressed for
-  /// this rect is out by the time [add] returns and nothing is left half-read
-  /// inside the inflater.
+  /// The server flushes at every rect boundary, so everything it compressed for this rect
+  /// is out by the time [add] returns.
   Uint8List inflate(Uint8List compressed) {
     _sink.add(compressed);
     return _pending.takeBytes();
   }
 
-  /// Decodes an inflated rect into [target] at ([x], [y]).
   void decodeRect(
     Framebuffer target,
     Uint8List data, {
@@ -76,8 +67,8 @@ class ZrleDecoder {
   }) {
     final subencoding = cursor.u8();
     final writer = _TileWriter(target, x, y, width, height);
-    // Bit 7 is the RLE flag and the low bits are the palette size, which is
-    // why the ranges below read the way RFC 6143 tabulates them.
+    // Bit 7 is the RLE flag and the low bits are the palette size, which is why the ranges
+    // below read the way RFC 6143 tabulates them.
     if (subencoding == 0) {
       for (var i = 0; i < width * height; i++) {
         writer.run(1, cursor.cpixel());
@@ -101,8 +92,8 @@ class ZrleDecoder {
       _paletteRle(cursor, writer, subencoding - 128, width * height);
       return;
     }
-    // 17..127 and 129 are unused by the encoding and mean the stream is no
-    // longer where this decoder thinks it is.
+    // 17..127 and 129 are unused by the encoding and mean the stream is no longer where
+    // this decoder thinks it is.
     throw VncStreamClosed('zrle subencoding $subencoding');
   }
 
@@ -121,9 +112,8 @@ class ZrleDecoder {
         : 4;
     final perByte = 8 ~/ bits;
     final mask = (1 << bits) - 1;
-    // Each row is packed on its own and padded out to a whole byte, so a
-    // 65-pixel-wide tile does not carry its second row's first pixels in its
-    // first row's last byte.
+    // Each row is packed on its own and padded out to a whole byte, so a 65-pixel-wide tile
+    // does not carry its second row's first pixels in its first row's last byte.
     for (var row = 0; row < height; row++) {
       var column = 0;
       while (column < width) {
@@ -156,8 +146,8 @@ class ZrleDecoder {
     var written = 0;
     while (written < pixels) {
       final index = cursor.u8();
-      // The high bit says a run length follows; without it the index stands
-      // for exactly one pixel and costs one byte.
+      // The high bit says a run length follows; without it the index stands for exactly one
+      // pixel.
       final length = index & 0x80 != 0 ? cursor.runLength() : 1;
       writer.run(length, palette[index & 0x7F]);
       written += length;
@@ -168,9 +158,8 @@ class ZrleDecoder {
     try {
       _sink.close();
     } catch (_) {
-      // A session torn down mid-stream leaves the inflater with a truncated
-      // block, and closing it then throws. Nothing downstream cares: the
-      // decoder is being discarded.
+      // A session torn down mid-stream leaves the inflater with a truncated block, and
+      // closing it then throws.
     }
   }
 }
@@ -187,8 +176,6 @@ class _CollectorSink implements Sink<List<int>> {
   void close() {}
 }
 
-/// One BGR triple out of the stream. A class rather than a packed int because
-/// the framebuffer takes the three channels apart anyway.
 class ZrlePixel {
   const ZrlePixel(this.blue, this.green, this.red);
 
@@ -225,8 +212,7 @@ class _Cursor {
     for (var i = 0; i < size; i++) cpixel(),
   ];
 
-  /// RFC 6143: a length of one plus every 255 read, ended by the first
-  /// byte below 255.
+  /// RFC 6143: a length of one plus every 255 read, ended by the first byte below 255.
   int runLength() {
     var length = 1;
     var part = u8();
@@ -238,10 +224,8 @@ class _Cursor {
   }
 }
 
-/// Writes runs across a tile, wrapping at its right edge.
-///
-/// RLE runs are counted in pixels and cross tile rows freely, so the tile's
-/// geometry lives here rather than in each subencoding.
+/// RLE runs are counted in pixels and cross tile rows freely, so the tile's geometry
+/// lives here rather than in each subencoding.
 class _TileWriter {
   _TileWriter(this._target, this._x, this._y, this._width, this._height);
 

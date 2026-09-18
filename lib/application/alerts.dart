@@ -9,18 +9,10 @@ import 'agent_kind.dart';
 import 'agents.dart';
 import 'providers.dart';
 
-/// Everything about a blocked-agent alert that is a decision
-/// rather than a platform call, kept away from the notification plugin and the
-/// foreground service so the regression list can be run on the vm.
-
-/// The persistent watcher notification. Fixed, because there is one service.
 const watcherNotificationId = 1;
 
-/// One notification per pane, "id derived from host and pane so a repeat
-/// updates in place". The id has to survive a process death — the watcher's
-/// isolate is not the isolate that answers a tap — so it is derived rather than
-/// handed out from a counter. Offset past [watcherNotificationId] and folded to
-/// 30 bits, which keeps it inside the signed 32-bit id Android takes.
+/// Derived rather than counted out, because the isolate answering a tap is not the
+/// one that posted. Folded to 30 bits to stay inside Android's signed 32-bit id.
 int alertNotificationId(String hostId, String paneId) {
   var hash = 0;
   for (final unit in '$hostId/$paneId'.codeUnits) {
@@ -29,25 +21,15 @@ int alertNotificationId(String hostId, String paneId) {
   return 1000 + hash;
 }
 
-/// What a pane running nothing the app knows is answered with. The keys as the
-/// spec writes them are not yet checked against a live blocked pane: the
-/// emulator's key is not on nyx, so nothing here has answered a real prompt.
 const _defaultAnswerKeys = (yes: 'enter', no: 'esc');
 
-/// The key sent to the remote agent. Kept as a list because a later kind may
-/// need two. herdr names whatever the pane is running, so a name that is no
-/// agent of ours is answered the way most TUIs are.
 List<String> answerKeys(String agent, {required bool yes}) {
   final table = AgentKind.lookup(agent)?.answerKeys ?? _defaultAnswerKeys;
   return [yes ? table.yes : table.no];
 }
 
-/// An empty `agent` reads as `?` everywhere; the title is the
-/// same name uppercased.
 String alertTitle(AgentSnapshot snapshot) => blockedTitle(snapshot.agent);
 
-/// The same title built from the agent name alone, which is all the isolate
-/// that answers an action tap is given.
 String blockedTitle(String agent) {
   final name = agent.trim();
   return '${name.isEmpty ? '?' : name.toUpperCase()} BLOCKED';
@@ -55,14 +37,10 @@ String blockedTitle(String agent) {
 
 String alertText(AgentSnapshot snapshot) => snapshot.terminalTitleStripped;
 
-/// The action states, after a tap and while the watcher has not yet seen
-/// the pane leave `blocked`.
 String alertSentLine({required bool yes}) => 'SENT · ${yes ? 'YES' : 'NO'}';
 
 String alertFailedLine(String reason) => 'FAILED · $reason';
 
-/// The failure vocabulary without the host name: an alert names one host
-/// already, so repeating it in the line would only cost width.
 String alertFailureReason(HerdrFailure failure) => switch (failure) {
   HerdrKeyRejected() => 'KEY REJECTED',
   HerdrProtocolMismatch(:final protocol) => 'PROTOCOL ${protocol ?? '?'}',
@@ -72,21 +50,12 @@ String alertFailureReason(HerdrFailure failure) => switch (failure) {
   HerdrHostKeyChanged() => 'HOST KEY CHANGED',
 };
 
-/// The actions come back if 10 s pass with no change.
 const alertActionRestore = Duration(seconds: 10);
 
-/// Keepalive every 15 s, reconnect after 5 s doubling to 60 s. Kept
-/// with the decisions rather than with the watcher: the schedule is one, and
-/// the keepalive is the number the isolate answering a tap has to dial with
-/// too.
 const watcherKeepAlive = Duration(seconds: 15);
 const watcherMinBackoff = Duration(seconds: 5);
 const watcherMaxBackoff = Duration(seconds: 60);
 
-/// One host's reconnect delay. It doubles per outage and not per
-/// lifetime, so [reset] runs whenever a connection carries a snapshot: a link
-/// that held for hours and then dropped retries after 5 s, not after the 60 s
-/// some earlier outage climbed to.
 class WatcherBackoff {
   Duration _current = watcherMinBackoff;
 
@@ -100,19 +69,10 @@ class WatcherBackoff {
   void reset() => _current = watcherMinBackoff;
 }
 
-/// The blocked panes one host is currently showing, and the edges into and out
-/// of that set.
-///
-/// One notification per blocked *episode*: a pane that is still
-/// blocked on the next snapshot is not a new alert, and a pane that unblocks and
-/// blocks again is. That is a set difference, kept per host because two hosts
-/// can hand out the same pane id.
 class BlockedEdges {
   final Map<String, Set<String>> _blocked = {};
 
-  /// "the first snapshot after a connect counts every blocked pane as
-  /// new". Called on every connect, so the set the difference is taken against
-  /// is empty and every blocked pane comes out of [apply] as an edge.
+  /// Called on every connect, so the next difference counts every blocked pane as new.
   void reset(String hostId) => _blocked.remove(hostId);
 
   BlockedDelta apply(String hostId, List<AgentSnapshot> agents) {
@@ -125,8 +85,6 @@ class BlockedEdges {
       if (!was.contains(agent.paneId)) entered.add(agent);
     }
     _blocked[hostId] = now;
-    // A pane that disappeared from the list left `blocked` as far as this app
-    // can tell, and the notification is cleared either way.
     return BlockedDelta(
       entered: entered,
       left: [
@@ -148,13 +106,8 @@ class BlockedDelta {
   bool get isEmpty => entered.isEmpty && left.isEmpty;
 }
 
-/// Everything an action tap needs, carried on the notification itself.
-///
-/// "Actions work with only the service alive, the activity gone." The
-/// tap is answered in a background isolate that has no database and no
-/// providers, so the host it must dial travels with the notification rather
-/// than being looked up. The private key does not: it stays in the keystore and
-/// is read back by [keyId], which is the one part of this that is a secret.
+/// The tap is answered in a background isolate with no database and no providers, so
+/// everything the dial needs travels on the notification. The private key does not.
 class AlertTarget {
   const AlertTarget({
     required this.hostId,
@@ -174,16 +127,10 @@ class AlertTarget {
   final String user;
   final String keyId;
 
-  /// The herdr session the pane is in, carried with the pane because the
-  /// answer is typed into that session and no other.
   final String session;
   final String paneId;
   final String agent;
 
-  /// The notification's own text, carried so the isolate answering a tap can
-  /// redraw the notification with the state line under it. It cannot read
-  /// the line back off the posted notification: only the process that is still
-  /// holding the snapshot knows it, and by then that process may be gone.
   final String text;
 
   factory AlertTarget.forHost(Host host, AgentSnapshot snapshot) => AlertTarget(
@@ -238,12 +185,6 @@ class AlertTarget {
   }
 }
 
-/// What one host's watcher connection is doing, as the service isolate reports
-/// it to the UI.
-///
-/// Home reads the watcher's snapshots instead of its own poll, and draws the
-/// same reason lines, so the report carries the outcome and not just
-/// the agents.
 class WatcherReport {
   const WatcherReport({
     required this.hostId,
@@ -261,8 +202,6 @@ class WatcherReport {
   final DateTime? lastGoodAt;
   final int? protocol;
 
-  /// The persistent line, `nyx unreachable · retry 30s`: the backoff the
-  /// watcher is currently sitting out.
   final Duration? retryIn;
   final String? requestId;
 
@@ -313,15 +252,6 @@ class WatcherReport {
   );
 }
 
-/// The persistent notification body: what the agents are doing, the first
-/// failing host's reason line with its backoff when a host is down, and
-/// `WATCHING N HOSTS` when the hosts answer and none of their agents is up to
-/// anything.
-///
-/// A failure takes the line ahead of the tally, because a watcher that cannot
-/// see a host is not a watcher reporting that the host is quiet, and the tally
-/// it could draw would be the last one it was told rather than the one that is
-/// true.
 String watcherNotificationText(
   List<HostOutcome> outcomes, {
   Map<String, Duration> retries = const {},
@@ -339,13 +269,9 @@ String watcherNotificationText(
   return 'WATCHING $count HOST${count == 1 ? '' : 'S'}';
 }
 
-/// The `[ ALERTS ]` row, as one value rather than three booleans
-/// the row would have to combine at paint time.
 enum AlertsRow {
-  /// No host has `HERDR` on: dim, `NO HOST`, and the toggle does nothing.
   noHost,
 
-  /// The OS refused notifications, so the toggle went back off.
   denied,
   off,
   on;
@@ -359,17 +285,14 @@ enum AlertsRow {
   };
 }
 
-/// "The setting persists across launches." The settings table
-/// already stores flags, so this is a row and not a schema change.
 final alertsEnabledProvider = StreamProvider<bool>(
   (ref) => ref
       .watch(settingsRepositoryProvider)
       .watchFlag(SettingsRepository.alertsBlockedAgents, orElse: false),
 );
 
-/// Set when a permission request comes back refused, cleared when the row is
-/// next touched. Not persisted: the OS is the record, and a user who granted
-/// the permission from the system settings should not meet a stale line.
+/// Not persisted: the OS is the record, and a permission granted from system settings
+/// must not meet a stale line.
 final alertsDeniedProvider = StateProvider<bool>((ref) => false);
 
 final alertsRowProvider = Provider<AlertsRow>((ref) {
@@ -381,9 +304,6 @@ final alertsRowProvider = Provider<AlertsRow>((ref) {
       : AlertsRow.off;
 });
 
-/// The watcher runs when `ALERTS` is on **and** some host has `HERDR`
-/// on, and stops the moment either stops being true. One expression, so the two
-/// halves cannot drift.
 final watcherWantedProvider = Provider<bool>(
   (ref) => ref.watch(alertsRowProvider) == AlertsRow.on,
 );

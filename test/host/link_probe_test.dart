@@ -8,13 +8,9 @@ import 'package:dazzle/platform/link_probe.dart';
 
 import 'fixture.dart';
 
-/// The probe against sockets that exist.
-///
-/// Its whole job is to tell four kinds of silence apart, and every one of them
-/// is an operating system's answer rather than a branch in this code: a
-/// refusal carries errno 111, a dropped packet carries nothing until the
-/// deadline, and a tarpit carries a connection and no line. None of that can be
-/// faked into being true.
+/// Every one of the four silences is an operating system's answer rather than a branch in
+/// this code: a refusal carries errno 111, a dropped packet carries nothing until the
+/// deadline, and a tarpit carries a connection and no line.
 void main() {
   test('the guest sshd answers with its identification line', () async {
     final result = await probeLink(hostVm.address, hostVm.port);
@@ -40,8 +36,7 @@ void main() {
   });
 
   test('a port that accepts and never speaks is no banner', () async {
-    // The case the user actually has on their LAN: something answers the port
-    // and is not a shell. A connect-only probe calls this up.
+    // Something answers the port and is not a shell, which a connect-only probe calls up.
     final tarpit = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
     final held = <Socket>[];
     tarpit.listen(held.add);

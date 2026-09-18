@@ -73,7 +73,6 @@ void main() {
   final header = find.byKey(const ValueKey('shell-header'));
   final switcher = find.byKey(const ValueKey('shell-host-switch'));
 
-  /// The sheet up on whichever host the bar names.
   Future<void> raise(WidgetTester tester) async {
     await tester.tap(bar);
     await ready(tester);
@@ -103,14 +102,12 @@ void main() {
     await ready(tester);
     await raise(tester);
 
-    // The bar parked on the last host opened, so the sheet is on NYX.
     expect(find.text('NYX'), findsOneWidget);
     expect(switcher, findsOneWidget);
 
     await tester.tap(switcher);
     await ready(tester);
 
-    // Every shell on every host, whichever one the sheet is holding.
     expect(find.text('SHELLS'), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-switch-h1-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-switch-h2-1')), findsOneWidget);
@@ -138,10 +135,7 @@ void main() {
 
     expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('NYX'), findsNothing);
-    // The same sheet, handed another host: a second route would have stacked
-    // one shell over the other.
     expect(ModalRoute.of(tester.element(header)), same(route));
-    // And it is still the sheet, so the way out is the way it was.
     await tester.drag(header, const Offset(0, 400));
     await ready(tester);
     expect(header, findsNothing);
@@ -223,7 +217,6 @@ void main() {
 
       expect(find.text('TAKE OVER'), findsOneWidget);
       expect(find.byKey(const ValueKey('shell-take-h2')), findsOneWidget);
-      // The host already running is a session row, not an offer.
       expect(find.byKey(const ValueKey('shell-switch-h1-1')), findsOneWidget);
       expect(find.byKey(const ValueKey('shell-take-h1')), findsNothing);
 

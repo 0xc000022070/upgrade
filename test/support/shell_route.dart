@@ -12,11 +12,6 @@ import 'package:dazzle/features/shell/shell_sessions.dart';
 
 import 'themed_app.dart';
 
-/// What every shell route test starts from. The route's tests are split by
-/// what they are about — the header, the tabs, the keys, the terminal — and
-/// each of those files pumps this same route.
-
-/// The host all of them dial.
 const rose = Host(
   id: 'h1',
   name: 'rose',
@@ -26,8 +21,6 @@ const rose = Host(
   keyId: 'key-1',
 );
 
-/// The route on a store, with no registered directory behind it unless the
-/// test hands in a database that has one.
 Widget app(
   ShellSessions sessions, {
   Widget? home,
@@ -44,26 +37,20 @@ Widget app(
   ),
 );
 
-/// A host with nothing registered on it, which is what every test that is
-/// about the tabs, the keys or the terminal wants the header to read.
-///
-/// The answer and not the database it would come out of: drift keeps timers a
-/// widget test never settles, and a test that says nothing about the
-/// workspaces should not be paying for one.
+/// The answer and not the database it would come out of: drift keeps timers a widget test
+/// never settles.
 Override get noWorkspaces => workspacesByHostProvider.overrideWith(
   (ref) => Stream.value(const <HostWorkspaces>[]),
 );
 
-/// A database with nothing in it, closed when the test ends. For the tests
-/// that read what was written — the pinch, and the registered directories.
 AppDatabase memoryDatabase() {
   final db = AppDatabase(NativeDatabase.memory());
   addTearDown(db.close);
   return db;
 }
 
-/// The store dials off a microtask and the panels decode their headers over
-/// a few frames, so nothing is on screen after a single pump.
+/// The store dials off a microtask and the panels decode their headers over a few frames,
+/// so nothing is on screen after a single pump.
 Future<void> ready(WidgetTester tester) async {
   await tester.runAsync(
     () => Future<void>.delayed(const Duration(milliseconds: 5)),
@@ -73,7 +60,6 @@ Future<void> ready(WidgetTester tester) async {
   }
 }
 
-/// Opens the `+` menu and picks one registered host.
 Future<void> openNewShell(WidgetTester tester, {String hostId = 'h1'}) async {
   await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
   await ready(tester);
@@ -81,14 +67,13 @@ Future<void> openNewShell(WidgetTester tester, {String hostId = 'h1'}) async {
   await ready(tester);
 }
 
-/// The route holds a terminal that never settles on its own, so the tree is
-/// taken down by hand rather than left mounted at the end of a test.
+/// The route holds a terminal that never settles on its own, so the tree is taken down by
+/// hand rather than left mounted at the end of a test.
 Future<void> unmount(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pump(const Duration(milliseconds: 1));
 }
 
-/// A page to pop back to, so the last tab closing has somewhere to land.
 class Launcher extends StatelessWidget {
   const Launcher({super.key});
 

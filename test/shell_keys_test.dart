@@ -34,7 +34,6 @@ void main() {
     await ready(tester);
     expect(find.text('CTRL(x2)'), findsOneWidget);
 
-    // The keyboard's own characters, which never pass through the bar.
     terminal.textInput('d');
     await ready(tester);
     expect(find.text('CTRL(x2)'), findsNothing);
@@ -105,23 +104,17 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
     await ready(tester);
     expect(focused(), isTrue);
-    // The focus is on the terminal but no keyboard has come up yet, and the
-    // cell says what is on screen.
     expect(armed(), isFalse);
 
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await ready(tester);
     expect(armed(), isTrue);
 
-    // The system taking the keyboard away dims the cell even though the view
-    // keeps the focus, so the next tap asks for a keyboard rather than
-    // dismissing one that is not there.
     tester.view.viewInsets = FakeViewPadding.zero;
     await ready(tester);
     expect(focused(), isTrue);
     expect(armed(), isFalse);
 
-    // And with the keyboard up the cell puts it away.
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await ready(tester);
     await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
@@ -145,11 +138,8 @@ void main() {
         .hasFocus;
     bool armed() => tester.widget<ShellBar>(find.byType(ShellBar)).keyboardOpen;
 
-    // What the window comes back with when it was stopped with the keyboard
-    // up: the inset stands, nothing holds focus, and there is no keyboard
-    // under it. The inset alone would light the cell and every tap on it would
-    // put away a keyboard that is not there, which left the strip jammed until
-    // the app was killed.
+    // What the window comes back with when it was stopped with the keyboard up: the inset
+    // stands, nothing holds focus, and there is no keyboard under it.
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await ready(tester);
     expect(focused(), isFalse);
@@ -157,8 +147,6 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
     await ready(tester);
-    // One tap asks for a real keyboard, and a real keyboard is what replaces
-    // the inset it left standing.
     expect(focused(), isTrue);
 
     await unmount(tester);
@@ -233,8 +221,6 @@ void main() {
       expect(connections, hasLength(2));
 
       // Under Mosh every tab of the host hears the bell, one after another.
-      // The sheet comes up on the first to hold the request and names it,
-      // then names the tab on screen the moment that one holds it too.
       connections[0].emit(request());
       await ready(tester);
 
@@ -351,13 +337,11 @@ void main() {
         connection.execs.map((exec) => exec.command),
         isNot(contains(pinentryAnswerCommand(id))),
       );
-      // The computer still has it; the phone is not asked twice for one id.
       expect(sessions.forHost(rose.id).single.pin?.id, id);
       connection.emit('hello\n');
       await ready(tester);
       expect(find.text('AUTHORIZATION REQUIRED'), findsNothing);
 
-      // The next request is a new one and comes up.
       connection.emit(request(requestId: 'fedcba9876543210'));
       await ready(tester);
       expect(find.text('AUTHORIZATION REQUIRED'), findsOneWidget);
@@ -378,8 +362,6 @@ void main() {
       await ready(tester);
       final connection = transport.opened.single;
 
-      // The pinentry rings the bell behind the request and keeps listing it
-      // open, so what changes from here is the ask's age alone.
       connection.answerWith(listing());
       connection.emit(request());
       await ready(tester);
@@ -397,7 +379,6 @@ void main() {
       expect(find.text('MAY HAVE EXPIRED'), findsOneWidget);
       expect(unlock().filled, isFalse);
 
-      // The withdrawal stops the asking the bell started.
       connection.emit('\x1b]7771;done;$id\x07');
       await ready(tester);
       expect(find.text('AUTHORIZATION REQUIRED'), findsNothing);

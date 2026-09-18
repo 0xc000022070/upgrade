@@ -6,9 +6,6 @@ import 'package:pinenacl/x25519.dart' show ByteList, SecretBox;
 import 'package:pointycastle/key_derivators/api.dart';
 import 'package:pointycastle/key_derivators/argon2.dart';
 
-/// Every reason a bundle does not move, each its own word on the panel. The
-/// first three are the cipher's, the last two belong to the transfer and the
-/// picker; they share the type because the panel treats them as one kind.
 enum BundleFault {
   notABundle,
   newerBundle,
@@ -26,9 +23,8 @@ class BundleException implements Exception {
   String toString() => 'BundleException(${fault.name})';
 }
 
-/// What the passphrase goes through on its way to a key. Carried in the
-/// envelope so that a file sealed under one default still opens under a later
-/// one; on the way in the envelope's numbers drive the derivation, not ours.
+/// Carried in the envelope so that a file sealed under one default still opens under a
+/// later one; on the way in the envelope's numbers drive the derivation, not ours.
 class BundleKdf {
   const BundleKdf({
     required this.salt,
@@ -40,8 +36,8 @@ class BundleKdf {
   static const defaultMemoryKib = 65536;
   static const defaultIterations = 3;
 
-  /// Above this a file is asking the phone to allocate a quarter gigabyte on
-  /// somebody else's say-so, and is refused rather than obeyed.
+  /// Above this a file is asking the phone to allocate a quarter gigabyte on somebody
+  /// else's say-so.
   static const maxMemoryKib = 262144;
 
   final Uint8List salt;
@@ -57,7 +53,6 @@ class BundleKdf {
     'salt': base64Encode(salt),
   };
 
-  /// Null for anything that is not an argon2id block with sane numbers.
   static BundleKdf? fromJson(Object? json) {
     if (json is! Map) return null;
     final memory = json['memory'];
@@ -94,8 +89,8 @@ class BundleKdf {
   }
 }
 
-/// One derivation, as a value that can cross an isolate boundary: strings and
-/// byte lists only, so the app can run it under `compute` and the tests inline.
+/// Strings and byte lists only, so the app can run it under `compute` and the tests
+/// inline.
 class KdfJob {
   const KdfJob({required this.passphrase, required this.kdf});
 
@@ -103,7 +98,7 @@ class KdfJob {
   final BundleKdf kdf;
 }
 
-/// The Argon2id run itself. Top-level so that `compute` can take it.
+/// Top-level so that `compute` can take it.
 Uint8List deriveBundleKey(KdfJob job) {
   final kdf = job.kdf;
   final generator = Argon2BytesGenerator()
@@ -125,12 +120,8 @@ typedef KdfRunner = Future<Uint8List> Function(KdfJob job);
 
 Future<Uint8List> _inline(KdfJob job) async => deriveBundleKey(job);
 
-/// Seals a payload under a passphrase and opens it again.
-///
-/// The envelope is JSON so that a curious `cat` says what the file is: a
-/// marker, a version, the KDF and its parameters, then salt, nonce and box in
-/// base64. The box is NaCl's secretbox — XSalsa20 with a Poly1305 tag — so a
-/// wrong passphrase and an edited box fail the same way, on the tag.
+/// The envelope is JSON so that a curious `cat` says what the file is. The box is NaCl's
+/// secretbox, so a wrong passphrase and an edited box fail the same way, on the tag.
 class BundleCipher {
   BundleCipher({
     this.memoryKib = BundleKdf.defaultMemoryKib,
@@ -141,9 +132,8 @@ class BundleCipher {
 
   static const marker = 'bundle';
 
-  /// The key the marker sits under. The app was called Spectacle when it wrote
-  /// the files its users are now importing into Dazzle, so both names open and
-  /// the current one is written.
+  /// The app was called Spectacle when it wrote the files its users are now importing into
+  /// Dazzle, so both names open and the current one is written.
   static const markerKey = 'dazzle';
   static const legacyMarkerKey = 'spectacle';
   static const version = 1;
@@ -154,8 +144,6 @@ class BundleCipher {
   final int memoryKib;
   final int iterations;
 
-  /// Where the derivation runs: inline by default, off the UI isolate in the
-  /// app.
   final KdfRunner run;
   final Random _random;
 
@@ -210,8 +198,8 @@ class BundleCipher {
     try {
       return SecretBox(key).decrypt(ByteList(box), nonce: nonce);
     } catch (_) {
-      // A failed tag is thrown as a bare string by the library, so nothing
-      // narrower than this catches it.
+      // A failed tag is thrown as a bare string by the library, so nothing narrower than this
+      // catches it.
       throw const BundleException(BundleFault.wrongPassphrase);
     }
   }

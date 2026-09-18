@@ -5,9 +5,6 @@ import 'package:dazzle/design/components/inline_confirm.dart';
 
 import 'support/themed_app.dart';
 
-/// Delete confirms in place. What matters is that a single tap
-/// never commits and that the armed window closes on its own — the block is the
-/// only guard between a stray tap and a deleted project.
 void main() {
   Future<void> pump(WidgetTester tester, VoidCallback onConfirmed) {
     return tester.pumpWidget(
@@ -49,7 +46,6 @@ void main() {
     expect(confirmed, 0);
     expect(find.text('CONFIRM DELETE'), findsOneWidget);
     expect(find.text('DELETE PROJECT'), findsNothing);
-    // The commit is the only thing that wears danger.
     expect(toneOf(tester), DazzleColors.danger);
   });
 
@@ -63,7 +59,6 @@ void main() {
     await tester.pump();
 
     expect(confirmed, 1);
-    // Disarmed by the commit, so a third tap re-arms rather than deleting again.
     expect(find.text('DELETE PROJECT'), findsOneWidget);
 
     await tester.tap(find.byType(InlineConfirmBlock));
@@ -85,7 +80,6 @@ void main() {
     await tester.tap(find.byType(InlineConfirmBlock));
     await tester.pump();
 
-    // The lapsed window means this tap arms again instead of committing.
     expect(confirmed, 0);
     await tester.pump(const Duration(seconds: 4));
   });

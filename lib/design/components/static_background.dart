@@ -9,9 +9,6 @@ import 'package:flutter/widgets.dart';
 import '../../platform/device.dart';
 import '../motion.dart';
 
-/// The scaffold grain is one alpha-only tile, never regenerated
-/// and never a shader. Motion comes from jumping the tile's phase, so the only
-/// input is an offset; [StaticBackgroundDriver] decides when it moves.
 class StaticBackground extends StatefulWidget {
   const StaticBackground({
     super.key,
@@ -21,19 +18,14 @@ class StaticBackground extends StatefulWidget {
 
   final Widget child;
 
-  /// The phase arrives as a listenable rather than a value so a jump repaints
-  /// the grain and nothing else: the driver's `build` never runs on a tick, no
-  /// element rebuilds and no box is laid out again.
   final ValueListenable<Offset> offset;
 
-  /// The tile is authored at 512 logical pixels with mirrored edges, so a shift
-  /// by a whole tile is invisible and any offset can be reduced into one tile.
+  /// The tile is authored at 512 logical pixels with mirrored edges, so a shift by a whole
+  /// tile is invisible and any offset reduces into one tile.
   static const tile = 512.0;
 
   static const _asset = 'assets/textures/noise-fine.png';
 
-  /// The grain stays at the edge of visibility: it is texture, not a
-  /// layer anyone should be able to point at.
   static const _opacity = 0.04;
 
   @override
@@ -59,9 +51,8 @@ class _StaticBackgroundState extends State<StaticBackground> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // The grain owns its own layer. Without the boundary the ten repaints a
-        // second it asks for are ten repaints of every panel above it, which is
-        // what pinned the device warm.
+        // The grain owns its own layer. Without the boundary its ten repaints a second are ten
+        // repaints of every panel above it.
         Positioned.fill(
           child: RepaintBoundary(
             child: IgnorePointer(
@@ -77,8 +68,7 @@ class _StaticBackgroundState extends State<StaticBackground> {
   }
 }
 
-/// Decoded once per process rather than once per route: every driver paints the
-/// same tile, and the decode is the only expensive thing about it.
+/// Decoded once per process rather than once per route.
 Future<ui.Image>? _pendingTile;
 
 Future<ui.Image> _tileImage() => _pendingTile ??= () async {
@@ -103,10 +93,8 @@ class _GrainPainter extends CustomPainter {
       offset.value.dx % StaticBackground.tile,
       offset.value.dy % StaticBackground.tile,
     );
-    // One rect under a repeating shader. The tiling is the GPU's, so a jump
-    // costs a translated matrix instead of a grid of image blits, and the layer
-    // no longer has to overdraw by a tile on every edge — a repeated shader has
-    // no edge to expose.
+    // One rect under a repeating shader: the tiling is the GPU's, so a jump costs a
+    // translated matrix instead of a grid of blits and the layer has no edge to overdraw.
     canvas.drawRect(
       Offset.zero & size,
       Paint()
@@ -116,8 +104,7 @@ class _GrainPainter extends CustomPainter {
           TileMode.repeated,
           Matrix4.translationValues(phase.dx, phase.dy, 0).storage,
         )
-        // Only the alpha is read here: a paint's alpha modulates its shader,
-        // which is the job the DecorationImage opacity used to do.
+        // Only the alpha is read: a paint's alpha modulates its shader.
         ..color = const Color.fromRGBO(
           255,
           255,
@@ -132,13 +119,9 @@ class _GrainPainter extends CustomPainter {
       oldDelegate.tile != tile || oldDelegate.offset != offset;
 }
 
-/// The TV-static half of the background. The offset is advanced on a timer,
-/// once every 100ms: a `Ticker` would land the jumps on real frames, but it
-/// also asks for a frame on every vsync for as long as it runs, so the pipeline
-/// never idles and the device never cools. The rate is the effect — driving
-/// this at 60fps would read as smooth drift rather than static — so the frames
-/// the app costs should be the ten a second that change something, and no
-/// others.
+/// A timer and not a `Ticker`: a ticker asks for a frame on every vsync for as long as
+/// it runs, so the pipeline never idles and the device never cools. The 100ms rate is
+/// the effect.
 class StaticBackgroundDriver extends StatefulWidget {
   const StaticBackgroundDriver({
     super.key,
@@ -148,11 +131,6 @@ class StaticBackgroundDriver extends StatefulWidget {
 
   final Widget child;
 
-  /// The `[ STATIC ] OFF` setting. False takes the same path a thermal
-  /// throttle does: the timer stops and the tile stays where it last landed, so
-  /// the grain is still painted and only its motion is gone. The preference
-  /// arrives from the database, which this layer must not know about, so it
-  /// comes in as a flag and the app layer reads it.
   final bool enabled;
 
   @override
@@ -161,8 +139,7 @@ class StaticBackgroundDriver extends StatefulWidget {
 
 class _StaticBackgroundDriverState extends State<StaticBackgroundDriver>
     with WidgetsBindingObserver {
-  // Fixed seed: effects are deterministic, so the static plays the
-  // same sequence every launch rather than being a source of real randomness.
+  // Fixed seed: the static plays the same sequence every launch.
   final _random = Random(0xB7FF2A);
   final _offset = ValueNotifier(Offset.zero);
 
@@ -178,8 +155,6 @@ class _StaticBackgroundDriverState extends State<StaticBackgroundDriver>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // The stream replays the current value on subscribe, so no separate read is
-    // needed; on desktop and in tests the channel is absent and it stays false.
     _throttleSub = Device.throttleChanges().listen((value) {
       if (!mounted || value == _throttled) return;
       _throttled = value;
@@ -192,9 +167,8 @@ class _StaticBackgroundDriverState extends State<StaticBackgroundDriver>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _reduceMotion = MediaQuery.disableAnimationsOf(context);
-    // A `Ticker` followed the ambient [TickerMode] for free; a timer has to be
-    // told. A pushed opaque route switches it off for the screens behind it,
-    // and a covered driver must keep costing nothing.
+    // A `Ticker` followed the ambient [TickerMode] for free; a timer has to be told. A
+    // pushed opaque route switches it off for the screens behind it.
     _visible = TickerMode.valuesOf(context).enabled;
     _sync();
   }

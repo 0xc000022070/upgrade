@@ -1,7 +1,3 @@
-/// A box drawn over the picture, back to framebuffer pixels, and those
-/// pixels out as a frame.
-library;
-
 import 'dart:typed_data';
 import 'dart:ui';
 

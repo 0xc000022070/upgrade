@@ -17,11 +17,6 @@ import 'agents.dart';
 import 'providers.dart';
 import 'reason_lines.dart';
 
-/// What moves between phones: the whole phone. The keys with their private
-/// halves and the hosts with everything known about them, mapped by hand
-/// because they are assembled out of a keystore and three repositories; every
-/// other table as the rows sqlite holds; and the bytes behind each image
-/// attachment, which live in a sandbox the far phone does not have.
 class Bundle {
   const Bundle({
     required this.keys,
@@ -35,10 +30,8 @@ class Bundle {
   final List<BundleHost> hosts;
   final List<BundlePath> paths;
 
-  /// Table name to its rows, for everything outside [curatedTables].
   final Map<String, List<Map<String, Object?>>> rows;
 
-  /// Attachment bytes, under the path the row holds them by.
   final Map<String, Uint8List> files;
 
   BundleCount get count => BundleCount(
@@ -61,9 +54,6 @@ class Bundle {
     },
   };
 
-  /// A payload that opened under the passphrase but does not read as a bundle
-  /// is a file somebody sealed with the app's own envelope around something
-  /// else; it gets the same word as a file with no envelope at all.
   static Bundle decode(Uint8List payload) {
     try {
       final json = jsonDecode(utf8.decode(payload));
@@ -91,8 +81,6 @@ class Bundle {
     return [for (final item in value) item as Map];
   }
 
-  /// Absent in a bundle written before the file carried the whole phone, which
-  /// is the file this app was built to read.
   static Map<String, List<Map<String, Object?>>> _rows(Object? value) {
     if (value == null) return const {};
     if (value is! Map) throw const FormatException();
@@ -120,8 +108,6 @@ class BundleKey {
 
   final ManagedKey key;
 
-  /// The PEM out of the keystore. The one thing that otherwise never leaves
-  /// the phone, and the one thing without which the other phone cannot dial.
   final String privateKey;
 
   Map<String, Object> toJson() => {
@@ -215,8 +201,6 @@ class BundlePath {
   final String label;
   final DateTime createdAt;
 
-  /// Travels now that the projects travel with it: the link that used to be
-  /// dangling by definition is a link that resolves.
   final String? projectId;
 
   Map<String, Object?> toJson() => {
@@ -240,8 +224,6 @@ class BundlePath {
 
 DateTime _date(Object? value) => DateTime.parse(value as String);
 
-/// What a bundle holds, as the panel says it: `2 HOSTS · 1 KEY · 5 PATHS`,
-/// with `· 312 ROWS` and `· 4 IMAGES` on the end when the file carries any.
 class BundleCount {
   const BundleCount({
     required this.hosts,
@@ -269,13 +251,10 @@ class BundleCount {
       n == 1 ? '1 $noun' : '$n ${noun}S';
 }
 
-/// Runs a body as one write, or as nothing special where there is no
-/// database to speak of.
 typedef Atomically = Future<T> Function<T>(Future<T> Function() body);
 
 Future<T> _plain<T>(Future<T> Function() body) => body();
 
-/// Gathers a bundle off this phone and lands one on it.
 class BundleTransfer {
   const BundleTransfer({
     required this.keys,
@@ -295,8 +274,6 @@ class BundleTransfer {
   final AttachmentBytes attachments;
   final Atomically atomically;
 
-  /// Everything on this phone. A key row whose private half is gone from the
-  /// keystore is skipped: it could not dial here either.
   Future<Bundle> gather() async {
     final gathered = <BundleKey>[];
     for (final key in await keys.all()) {
@@ -336,9 +313,6 @@ class BundleTransfer {
     );
   }
 
-  /// The bytes behind every image attachment in the dump. A row whose file is
-  /// gone is left with nothing to carry: the row is the record, and the phone
-  /// it lands on shows the same gap this one does.
   Future<Map<String, Uint8List>> _pictures(
     Map<String, List<Map<String, Object?>>> rows,
   ) async {
@@ -353,13 +327,8 @@ class BundleTransfer {
     return pictures;
   }
 
-  /// Merges by id and deletes nothing. Refused whole when a host names a key
-  /// neither the bundle nor the phone has: that host could never dial.
-  ///
-  /// Private keys and attachment bytes go down before the rows go to the
-  /// database. A private key with no row is inert and a file with no row is a
-  /// few kilobytes; a row with no private key is a host that cannot dial, and
-  /// a row with no file is a picture that is gone.
+  /// Private keys and attachment bytes go down before the rows: a key or file with no row
+  /// is inert, a row with no key is a host that cannot dial.
   Future<BundleCount> apply(Bundle bundle) async {
     final known = {
       for (final key in await keys.all()) key.id,
@@ -405,22 +374,18 @@ class BundleTransfer {
           ),
         );
       }
-      // After the curated four, because the tables that reference them —
-      // dispatches, shell tabs, attachments — outnumber the one column that
-      // points the other way.
+      // After the curated four, which the other tables reference.
       await raw.restore(bundle.rows);
     });
     return bundle.count;
   }
 }
 
-/// `dazzle-2026-09-08.bundle`: the picker's suggested name.
 String bundleFileName(DateTime now) {
   final day = now.toIso8601String().substring(0, 10);
   return 'dazzle-$day.bundle';
 }
 
-/// The panel's word for each way a bundle did not move.
 ReasonLine bundleLine(BundleFault fault) => switch (fault) {
   BundleFault.notABundle => ReasonLine.notABundle,
   BundleFault.newerBundle => ReasonLine.newerBundle,
@@ -429,8 +394,7 @@ ReasonLine bundleLine(BundleFault fault) => switch (fault) {
   BundleFault.noPicker => ReasonLine.noPicker,
 };
 
-/// The derivation runs off the UI isolate: 64 MiB of Argon2id is a second or
-/// two the frame would otherwise stall for.
+/// Off the UI isolate: 64 MiB of Argon2id would stall the frame for a second or two.
 final bundleCipherProvider = Provider<BundleCipher>(
   (ref) => BundleCipher(run: (job) => compute(deriveBundleKey, job)),
 );

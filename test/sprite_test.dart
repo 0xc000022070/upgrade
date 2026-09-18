@@ -29,9 +29,8 @@ import 'support/platform_channels.dart';
 import 'support/shell_route.dart' show noWorkspaces;
 import 'support/themed_app.dart';
 
-/// The sheets are read off disk rather than through the bundle:
-/// the manifest is the artist's contract with the widget, and a test that went
-/// through `rootBundle` would pass on a stale copy in the build directory.
+/// Read off disk rather than through the bundle: a test that went through `rootBundle`
+/// would pass on a stale copy in the build directory.
 MascotManifest manifestFromDisk() =>
     MascotManifest.parse(File(mascotManifestAsset).readAsStringSync());
 
@@ -41,10 +40,8 @@ MascotManifest manifestFromDisk() =>
   return (width: bytes.getUint32(16), height: bytes.getUint32(20));
 }
 
-/// The autonomous tick never settles, so nothing here may use `pumpAndSettle`;
-/// each
-/// round buys real time for drift and the asset bundle, and fake time for the
-/// widgets that consume them.
+/// The autonomous tick never settles, so nothing here may use `pumpAndSettle`; each round
+/// buys real time for drift and the asset bundle, and fake time for the widgets.
 Future<void> drain(WidgetTester tester, {Duration step = Duration.zero}) async {
   for (var i = 0; i < 6; i++) {
     await tester.runAsync(
@@ -54,9 +51,9 @@ Future<void> drain(WidgetTester tester, {Duration step = Duration.zero}) async {
   }
 }
 
-/// A [Ticker]'s first callback carries an elapsed of zero — it is the tick that
-/// records the start — so a single large `pump` moves the sheet by one frame,
-/// not by its whole duration. Everything here has to be walked.
+/// A [Ticker]'s first callback carries an elapsed of zero — it is the tick that records
+/// the start — so a single large `pump` moves the sheet by one frame, not by its whole
+/// duration.
 Future<Duration?> pumpUntilHome(
   WidgetTester tester, {
   Duration budget = const Duration(seconds: 5),
@@ -143,8 +140,6 @@ void main() {
     });
 
     test('never rounds down to nothing', () {
-      // A sprite that fits nowhere overflows its box; one at scale 0 would be
-      // an invisible widget with no error anywhere.
       expect(mascotScaleFor(47), 1);
       expect(mascotScaleFor(0), 1);
     });
@@ -161,9 +156,8 @@ void main() {
           home: SplashRoute(next: (_) => const Text('HOME', key: Key('home'))),
         ),
       );
-      // The manifest future is created in the real zone by `runAsync`, so its
-      // continuation — the one that starts the ticker — only lands on a pump
-      // that has given real time back.
+      // The manifest future is created in the real zone by `runAsync`, so its continuation —
+      // the one that starts the ticker — only lands on a pump that has given real time back.
       await drain(tester);
     }
 
@@ -178,9 +172,6 @@ void main() {
       final at = await pumpUntilHome(tester);
 
       expect(at, isNotNull, reason: 'the splash never handed over');
-      // Not before the sheet has played out: 7 frames at 6fps is 1167ms, and
-      // only then the hold on the last pose. A handover hung on a timer alone,
-      // or on the last frame appearing, would land earlier than this.
       expect(
         at!,
         greaterThanOrEqualTo(
@@ -193,7 +184,6 @@ void main() {
               splashHold,
         ),
       );
-      // Replaced, not stacked: the splash is unreachable from Home.
       expect(find.byType(Sprite), findsNothing);
     });
 
@@ -222,8 +212,6 @@ void main() {
       return db.close();
     });
 
-    /// The alert's payload. The route is pushed off the notification alone, so
-    /// the host it names never has to exist.
     NotificationResponse open() => NotificationResponse(
       notificationResponseType:
           NotificationResponseType.selectedNotificationAction,
@@ -258,8 +246,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
     }
 
-    /// The replay is a post-frame callback and the route it pushes runs its own
-    /// transition, so the frame Home first appears on is too early to look.
+    /// The replay is a post-frame callback and the route it pushes runs its own transition,
+    /// so the frame Home first appears on is too early to look.
     Future<void> settle(WidgetTester tester) async {
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(milliseconds: 100));
@@ -271,13 +259,9 @@ void main() {
       await tester.pumpWidget(scope(SplashRoute(next: (_) => host())));
       await drain(tester);
 
-      // The regression this covers: with the alerts host mounted from the
-      // first frame there was always a handler, and the splash delays it.
       expect(alertOpenHandler, isNotNull);
       await handleAlertAction(open());
       await tester.pump();
-      // Nothing is pushed over the splash: the navigator it would come back to
-      // has no Home under it yet.
       expect(find.byType(AgentsScreen), findsNothing);
 
       expect(await pumpUntilHome(tester), isNotNull);
@@ -323,7 +307,6 @@ void main() {
       expect(find.byType(AgentsScreen), findsNothing);
       await unmount(tester);
 
-      // A host that is gone opens nothing, and the flag is spent either way.
       deferPinOpen('h9');
       await tester.pumpWidget(scope(host()));
       await settle(tester);
@@ -340,9 +323,6 @@ void main() {
       expect(find.byType(AgentsScreen), findsOneWidget);
       await unmount(tester);
 
-      // A second run of the same process — a hot restart, or the host rebuilt
-      // under a new scope — must find nothing pending, or every launch after
-      // one alert would open the route again.
       await tester.pumpWidget(scope(host()));
       await settle(tester);
 
@@ -381,8 +361,6 @@ void main() {
       final sprite = tester.widget<Sprite>(find.byType(Sprite));
       expect(sprite.state, 'idle');
       expect(sprite.scale, 2);
-      // Static: the loop belongs to the empty state, not to a card that
-      // stays on screen for as long as the project is open.
       expect(sprite.frame, 0);
 
       await tester.pumpWidget(const SizedBox.shrink());
@@ -410,7 +388,6 @@ void main() {
       expect(sprite.scale, 4);
       expect(sprite.frame, isNull);
       expect(find.text('DAZZLE_'), findsOneWidget);
-      // The blocked line is not replaced by the mascot, only joined by it.
       expect(find.text(AgentPanelState.blockedLine), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
@@ -420,8 +397,6 @@ void main() {
     testWidgets('a host that answered with nothing gets the mascot too', (
       tester,
     ) async {
-      // The reachable empty: `VIEW ALL` is only drawn when a host is set, so a
-      // placement hung on `noHost` alone could never be opened from Home.
       const host = Host(
         id: 'nyx',
         name: 'Nyx',

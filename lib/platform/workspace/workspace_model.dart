@@ -1,7 +1,5 @@
 import 'workspace_commands.dart';
 
-/// What one line of `status --porcelain=v2 --branch` said about the checkout
-/// itself, with the counts the header draws.
 class WorkspaceStatus {
   const WorkspaceStatus({
     required this.branch,
@@ -19,8 +17,6 @@ class WorkspaceStatus {
     changes: <WorkspaceChange>[],
   );
 
-  /// Null on a detached HEAD, which git reports as `(detached)` and the header
-  /// draws as the short oid instead.
   final String? branch;
   final String? upstream;
   final int ahead;
@@ -30,9 +26,8 @@ class WorkspaceStatus {
   bool get clean => changes.isEmpty;
 }
 
-/// How a path differs from `HEAD`. Deliberately coarser than git's two-letter
-/// code: the screen has no staging, so a change staged and a change not staged
-/// are the same change to it.
+/// Deliberately coarser than git's two-letter code: the screen has no staging, so a
+/// change staged and a change not staged are the same change to it.
 enum WorkspaceChangeKind {
   modified,
   added,
@@ -48,12 +43,9 @@ class WorkspaceChange {
   final String path;
   final WorkspaceChangeKind kind;
 
-  /// Where a rename came from. Null for everything else.
   final String? origin;
 }
 
-/// One checkout of the same repository. The one the screen is on is in here
-/// too — it is the row that matches the directory on screen.
 class Worktree {
   const Worktree({
     required this.directory,
@@ -64,21 +56,16 @@ class Worktree {
 
   final String directory;
 
-  /// The short name, `main` and not `refs/heads/main`. Null when detached or
-  /// bare.
   final String? branch;
   final String? head;
   final bool bare;
 
-  /// The last segment, which is what the row shows: every worktree of one
-  /// repository shares a prefix and none of it says which this is.
   String get label {
     final segments = directory.split('/').where((s) => s.isNotEmpty);
     return segments.isEmpty ? directory : segments.last;
   }
 }
 
-/// One row of the diff list: what changed and by how much.
 class WorkspaceFile {
   const WorkspaceFile({
     required this.path,
@@ -100,7 +87,6 @@ class WorkspaceFile {
   bool get untracked => kind == WorkspaceChangeKind.untracked;
 }
 
-/// The whole first answer, split and parsed.
 class WorkspaceOverview {
   const WorkspaceOverview({
     required this.status,
@@ -113,7 +99,6 @@ class WorkspaceOverview {
   final List<WorkspaceFile> files;
 }
 
-/// One commit of the history, as the list draws it.
 class Commit {
   const Commit({
     required this.sha,
@@ -127,9 +112,9 @@ class Commit {
   final String short;
   final String author;
 
-  /// `3 days ago`, in git's own words. The phone does no date arithmetic and
-  /// keeps no timezone of its own: whose clock a commit was made on is the
-  /// host's business, and `%ar` is already the sentence a person reads.
+  /// The phone does no date arithmetic and keeps no timezone of its own: whose clock a
+  /// commit was made on is the host's business, and `%ar` is already the sentence a person
+  /// reads.
   final String age;
 
   final String subject;
@@ -155,16 +140,12 @@ class DiffLine {
   final DiffLineKind kind;
   final String text;
 
-  /// Where this line sits in the file before the change and in the file after
-  /// it. Null on the side the line is not on — an added line has no number on
-  /// the left — and on everything that is not a line of a file.
+  /// Null on the side the line is not on — an added line has no number on the left — and
+  /// on everything that is not a line of a file.
   final int? oldLine;
   final int? newLine;
 }
 
-/// Splits the composed answer of [WorkspaceCommands.overview] and parses each
-/// section. A section git left empty parses to an empty list, which is what a
-/// clean checkout with no siblings honestly is.
 WorkspaceOverview parseOverview(String output) {
   final sections = output.split(workspaceRecord);
   String section(int index) => index < sections.length ? sections[index] : '';
@@ -186,8 +167,8 @@ WorkspaceStatus parseStatus(String output) {
   for (final line in _lines(output)) {
     if (line.startsWith('# branch.head ')) {
       final name = line.substring('# branch.head '.length).trim();
-      // git says `(detached)` where a name would be, and a branch literally
-      // called that is not a name git would have accepted.
+      // git says `(detached)` where a name would be, and a branch literally called that is
+      // not a name git would have accepted.
       branch = name == '(detached)' ? null : name;
     } else if (line.startsWith('# branch.upstream ')) {
       upstream = line.substring('# branch.upstream '.length).trim();
@@ -206,8 +187,8 @@ WorkspaceStatus parseStatus(String output) {
         ),
       );
     } else if (line.startsWith('u ')) {
-      // `u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>`: ten fields
-      // before a path that may hold spaces.
+      // `u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>`: ten fields before a path
+      // that may hold spaces.
       final path = _tail(line, 10);
       if (path != null) {
         changes.add(
@@ -281,8 +262,7 @@ List<Worktree> parseWorktrees(String output) {
   return worktrees;
 }
 
-/// `<added>\t<removed>\t<path>`, with `-` for a binary file. A rename is
-/// reported here as `old => new` inside the path, which is left as git wrote
+/// A rename is reported here as `old => new` inside the path, which is left as git wrote
 /// it: the status section already carries the pair split apart.
 List<WorkspaceFile> parseNumstat(String output) {
   final files = <WorkspaceFile>[];
@@ -301,8 +281,7 @@ List<WorkspaceFile> parseNumstat(String output) {
   return files;
 }
 
-/// One line per commit, its fields separated by [workspaceField]. A subject
-/// carrying that character is not a subject git could have been given, so
+/// A subject carrying [workspaceField] is not a subject git could have been given, so
 /// everything past the fourth separator is the subject whole.
 List<Commit> parseCommits(String output) {
   final commits = <Commit>[];
@@ -322,9 +301,8 @@ List<Commit> parseCommits(String output) {
   return commits;
 }
 
-/// `<code>\t<path>` off `--name-status`, and `R<score>\t<old>\t<new>` for a
-/// rename. The score is not read: how alike the two files are says nothing the
-/// row has room for.
+/// The score on a rename is not read: how alike the two files are says nothing the row
+/// has room for.
 List<WorkspaceChange> parseNameStatus(String output) {
   final changes = <WorkspaceChange>[];
   for (final line in _lines(output)) {
@@ -343,9 +321,6 @@ List<WorkspaceChange> parseNameStatus(String output) {
   return changes;
 }
 
-/// The two sections of [WorkspaceCommands.commitFiles]: the counts, and the
-/// letters that say what happened. Same shape as the working tree's list, so
-/// one row widget draws both.
 List<WorkspaceFile> parseCommitFiles(String output) {
   final sections = output.split(workspaceRecord);
   String section(int index) => index < sections.length ? sections[index] : '';
@@ -361,12 +336,8 @@ List<WorkspaceFile> parseCommitFiles(String output) {
   );
 }
 
-/// The diff list the screen draws: numstat for what git can count, then the
-/// untracked files, which numstat says nothing about and which are most of
-/// what a half-finished change looks like.
-///
-/// The kind comes from status where status knows the path, so a deletion reads
-/// as a deletion instead of as a file with only removals.
+/// The kind comes from status where status knows the path, so a deletion reads as a
+/// deletion instead of as a file with only removals.
 List<WorkspaceFile> mergeFiles(
   WorkspaceStatus status,
   List<WorkspaceFile> numstat,
@@ -400,9 +371,8 @@ List<WorkspaceFile> mergeFiles(
   return files;
 }
 
-/// `<type>\t<size>\t<name>` off `find -printf`. Sorted here rather than on the
-/// host: directories first and then by name, which is one `sort` the host does
-/// not run and one shell quoting problem that does not exist.
+/// Sorted here rather than on the host: one `sort` the host does not run and one shell
+/// quoting problem that does not exist.
 List<DirEntry> parseListing(String output) {
   final entries = <DirEntry>[];
   for (final line in _lines(output)) {
@@ -427,14 +397,9 @@ List<DirEntry> parseListing(String output) {
   return entries;
 }
 
-/// A unified diff, classified line by line. No syntax colouring and no
-/// language: an added line and a removed line are the only two things the
-/// screen paints differently, and everything else is the same grey.
-/// [complete] is false when the answer came back at the byte cap. The last
-/// line of it is then however much of a line `head` had room for, which is
-/// dropped rather than drawn — half a line of code is indistinguishable from a
-/// whole one — and the file says where it stops instead of ending as if the
-/// diff had.
+/// [complete] is false when the answer came back at the byte cap. The last line is then
+/// however much of a line `head` had room for, which is dropped rather than drawn, and
+/// the file says where it stops instead of ending as if the diff had.
 List<DiffLine> parseDiff(String output, {bool complete = true}) {
   final lines = <DiffLine>[];
   var started = false;
@@ -448,10 +413,8 @@ List<DiffLine> parseDiff(String output, {bool complete = true}) {
       newNo = at.$2;
       lines.add(DiffLine(DiffLineKind.hunk, line));
     } else if (!started) {
-      // The `diff --git`, `index`, `---` and `+++` preamble says what the
-      // panel's own header already says, so it is dropped rather than drawn.
-      // What is left of a preamble — `Binary files … differ`, a mode git could
-      // not apply — is the only thing a file with no hunks has to say.
+      // What is left of a preamble — `Binary files … differ`, a mode git could not apply — is
+      // the only thing a file with no hunks has to say.
       if (_preamble.any(line.startsWith)) continue;
       lines.add(DiffLine(DiffLineKind.meta, line));
     } else if (line.startsWith('+')) {
@@ -479,10 +442,8 @@ List<DiffLine> parseDiff(String output, {bool complete = true}) {
   return lines;
 }
 
-/// The row a capped file ends on. Counts what the reader can actually scroll
-/// through — the lines of the file, not the `@@` headers standing over them —
-/// because the number is there to be compared with the count the change list
-/// showed, and that count is of lines too.
+/// Counts the lines of the file and not the `@@` headers over them, because the number
+/// is there to be compared with the count the change list showed.
 void _sayWhereItStops(List<DiffLine> lines, String output) {
   if (!output.endsWith('\n') && lines.isNotEmpty) lines.removeLast();
   final kept = lines
@@ -493,21 +454,15 @@ void _sayWhereItStops(List<DiffLine> lines, String output) {
             line.kind == DiffLineKind.context,
       )
       .length;
-  // Short enough to be read where it is. The body does not wrap, so a notice
-  // that runs past the right edge is one the reader has to drag the file
-  // sideways to finish — about the one row that is there to be read at once.
+  // The body does not wrap, so a notice that runs past the right edge is one the reader
+  // has to drag the file sideways to finish.
   lines.add(
     DiffLine(DiffLineKind.capped, 'kept $kept lines; the rest did not fit'),
   );
 }
 
-/// Every file of one `diff` or `show`, split apart and parsed, keyed by the
-/// path the change list knows each one by.
-///
-/// [complete] is false when the answer came back at the byte cap, which means
-/// the last file in it is however much of a file `head` had room for. That one
-/// is dropped: half a diff drawn as a whole one is worse than a file that costs
-/// a command of its own, and the caller asks for it by name instead.
+/// [complete] is false when the answer came back at the byte cap, so the last file in it
+/// is dropped and the caller asks for it by name instead.
 Map<String, List<DiffLine>> parseDiffByFile(
   String output, {
   required bool complete,
@@ -522,9 +477,8 @@ Map<String, List<DiffLine>> parseDiffByFile(
     final block = blocks.last;
     block.lines.add(line);
     if (block.named) continue;
-    // The two header lines name one path each and are the only place a path
-    // with a space in it is unambiguous. `/dev/null` on either side is a file
-    // that was added or deleted, so the other side is the name.
+    // The two header lines name one path each and are the only place a path with a space in
+    // it is unambiguous. `/dev/null` on either side means the other side is the name.
     if (line.startsWith('+++ ') && line != '+++ /dev/null') {
       block.path = _side(line.substring(4), 'b/');
       block.named = true;
@@ -539,27 +493,20 @@ Map<String, List<DiffLine>> parseDiffByFile(
   };
 }
 
-/// One file's lines on the way through, before they are parsed. The path is
-/// mutable because the `diff --git` line is a guess and the `+++` header under
-/// it is the answer — and a file with no hunks at all, a mode change or a
-/// binary, never gets that header and keeps the guess.
+/// The path is mutable because the `diff --git` line is a guess and the `+++` header
+/// under it is the answer — and a file with no hunks at all never gets that header.
 class _DiffBlock {
   _DiffBlock(this.path);
 
   String path;
 
-  /// Set once the `+++` line has spoken, which is the name the change list
-  /// uses: a rename is filed under where the file ended up.
   bool named = false;
 
   final lines = <String>[];
 }
 
-/// `diff --git a/lib/main.dart b/lib/main.dart` as `lib/main.dart`.
-///
-/// Both halves are on one line with a space between them, so a path containing
-/// ` b/` is read wrong here. It is read right a line later: this is only ever
-/// the name of a file git had nothing else to say about.
+/// Both halves are on one line with a space between them, so a path containing ` b/` is
+/// read wrong here. It is read right a line later.
 String _gitPath(String line) {
   final rest = line.substring('diff --git '.length);
   final at = rest.lastIndexOf(' b/');
@@ -568,8 +515,8 @@ String _gitPath(String line) {
   return quoted < 0 ? '' : _side(rest.substring(quoted + 1), 'b/');
 }
 
-/// `a/lib/main.dart` as `lib/main.dart`. git quotes a path it had to escape;
-/// the change list quotes the same one the same way, so the two still meet.
+/// git quotes a path it had to escape; the change list quotes the same one the same way,
+/// so the two still meet.
 String _side(String value, String prefix) {
   if (value.startsWith('"')) {
     final inner = value.substring(1, value.length - 1);
@@ -595,8 +542,8 @@ const _preamble = [
   'copy to ',
 ];
 
-/// The first line number either side of `@@ -a,b +c,d @@`. A hunk git could
-/// not be read out of starts both sides at one, which is where a file starts.
+/// A hunk git could not be read out of starts both sides at one, which is where a file
+/// starts.
 (int, int) _hunkStarts(String header) {
   final match = RegExp(r'^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@')
       .firstMatch(header);
@@ -605,8 +552,8 @@ const _preamble = [
 }
 
 WorkspaceChangeKind _kindOf(String code) {
-  // `XY`, staged then unstaged, with `.` for unchanged on that side. The first
-  // letter that is not a dot is the one that says what happened.
+  // `XY`, staged then unstaged, with `.` for unchanged. The first letter that is not a
+  // dot is the one that says what happened.
   for (final letter in code.split('')) {
     switch (letter) {
       case 'A':
@@ -624,8 +571,8 @@ WorkspaceChangeKind _kindOf(String code) {
   return WorkspaceChangeKind.modified;
 }
 
-/// Everything after [fields] space-separated fields, which is how a porcelain
-/// v2 line holds a path with spaces in it without quoting.
+/// Everything after [fields] space-separated fields, which is how a porcelain v2 line
+/// holds a path with spaces in it without quoting.
 String? _tail(String line, int fields) {
   var index = 0;
   for (var i = 0; i < fields; i++) {
@@ -639,8 +586,6 @@ String? _tail(String line, int fields) {
 String _shortRef(String ref) =>
     ref.startsWith('refs/heads/') ? ref.substring('refs/heads/'.length) : ref;
 
-/// Splits on newlines without the trailing empty element a plain `split` adds,
-/// which every parser here would otherwise have to remember to drop.
 List<String> _lines(String output, {bool keepEmpty = false}) {
   final lines = output.split('\n');
   if (lines.isNotEmpty && lines.last.isEmpty) lines.removeLast();

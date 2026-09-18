@@ -122,7 +122,6 @@ void main() {
 
     await tester.tap(find.text('CLAUDE'));
 
-    // The host is the one the row was read from, not the first in the feed.
     expect(opened, [(hostB, claude)]);
   });
 
@@ -186,9 +185,6 @@ void main() {
       await _waitFor(() => verifiers.isNotEmpty);
       final verifier = verifiers.first!;
 
-      // A poll happens with the phone in a pocket. There is nobody to put a
-      // fingerprint in front of, so the host is not trusted for the first time
-      // here — it is left for a route where the user can look at it.
       expect(verifier.prompt, isNull);
       expect(
         await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:whatever'),
@@ -202,14 +198,10 @@ void main() {
     final hosts = InMemoryHostRepository();
     await hosts.save(hostA);
     await hosts.save(hostB);
-    // A registered host is not a herdr endpoint until the integration says
-    // so, so B is invisible to the poller at the start.
     await hosts.setIntegration(hostA.id, IntegrationKind.herdr, true);
     final privateKeys = MemoryPrivateKeyStore();
     await privateKeys.write('key-a', 'private-a');
     await privateKeys.write('key-b', 'private-b');
-    // What the transport was actually asked to dial, address and port
-    // together, so a build that hardcodes 22 fails here rather than on a phone.
     final addresses = <String>[];
     String dialled(Host host) => '${host.address}:${host.port}';
     final states = <AgentPanelState>[];
@@ -252,9 +244,7 @@ void main() {
     expect(addresses, isNot(contains(dialled(hostB))));
 
     await hosts.setIntegration(hostB.id, IntegrationKind.herdr, true);
-    // B's sshd is on 357: the host carries the port and the poll uses it.
     await _waitFor(() => addresses.contains(dialled(hostB)));
-    // One state carries both: B's failure does not take A's rows down with it.
     await _waitFor(
       () => states.any(
         (state) =>
@@ -272,7 +262,6 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 30));
 
     expect(addresses, containsAllInOrder([dialled(hostA), dialled(hostB)]));
-    // Blocked means blocked: nothing is polled once the set empties.
     expect(addresses, hasLength(fetches));
   });
 
@@ -323,10 +312,6 @@ void main() {
     final dialled = fetches;
     await Future<void>.delayed(const Duration(milliseconds: 30));
 
-    // Closing the gate swaps the poll for a stream that says nothing, and the
-    // provider keeps the state it already had. So a surface cannot tell that
-    // the count went cold by asking for the count, and absence is something it
-    // has to decide rather than something that happens to it.
     expect(fetches, dialled);
     expect(
       container.read(agentsFeedProvider).valueOrNull?.agents,
@@ -367,8 +352,6 @@ void main() {
     );
     addTearDown(subscription.close);
 
-    // Not folded into unreachable: the two send the user to different places,
-    // a typo in the address against a port, a firewall or a dead machine.
     await _waitFor(
       () => states.any(
         (state) =>
@@ -410,8 +393,6 @@ void main() {
     ]);
     await tester.pumpWidget(host(state));
 
-    // The unresolved line already carries its host, like the unreachable
-    // one; only the lines that do not get the prefix.
     expect(find.text('a unresolved'), findsOneWidget);
     expect(find.text('b · key rejected'), findsOneWidget);
   });
@@ -477,8 +458,6 @@ void main() {
     ]);
     await tester.pumpWidget(host(state));
 
-    // Same agent name on two machines is two agents; collapsing them by name
-    // would hide half the work.
     expect(find.text('on A'), findsOneWidget);
     expect(find.text('on B'), findsOneWidget);
     expect(find.text('0 idle · 1 blocked'), findsOneWidget);
@@ -522,9 +501,6 @@ void main() {
     ], receivedAt: DateTime(2026));
     await tester.pumpWidget(host(state));
 
-    // `done` is the idle a phone sees most: the tab was never focused, so the
-    // work that finished was never seen. Counted as neither idle nor active,
-    // it was on the panel nowhere at all.
     expect(find.text('2 idle · 0 blocked'), findsOneWidget);
     expect(find.text('finished'), findsNothing);
   });
@@ -543,8 +519,6 @@ void main() {
     ], receivedAt: DateTime(2026));
     await tester.pumpWidget(host(state));
 
-    // Not idle and not blocked, because neither is known to be true; the
-    // header count is where it is answered for.
     expect(find.text('0 idle · 0 blocked'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
   });
@@ -572,8 +546,6 @@ void main() {
     expect(find.text('nyx unreachable'), findsOneWidget);
     expect(find.text('12s ago'), findsOneWidget);
     expect(find.text('AGENT'), findsNothing);
-    // Every host failed, so there is no footer to count: `0 idle` would read as
-    // a healthy empty tmux rather than as nobody answering.
     expect(find.textContaining('idle ·'), findsNothing);
   });
 
@@ -614,8 +586,6 @@ void main() {
     ]);
     await tester.pumpWidget(host(state));
 
-    // Only the unreachable line carries its host; with two failures the bare
-    // lines would not say which machine, so the name goes back.
     expect(find.text('a · key rejected'), findsOneWidget);
     expect(find.text('b · protocol 9'), findsOneWidget);
   });
@@ -659,7 +629,6 @@ void main() {
     );
 
     expect(markAsset(tester), 'assets/icons/agent-claude.svg');
-    // The letter box is gone, not merely covered: `C` was the whole glyph.
     expect(find.text('C'), findsNothing);
     expect(find.text('?'), findsNothing);
     expect(find.text('CLAUDE'), findsOneWidget);
@@ -707,11 +676,8 @@ void main() {
       ),
       findsNothing,
     );
-    // Its own initial rather than a question mark, which would be the same box
-    // for every name the app has no file for.
     expect(find.text('G'), findsOneWidget);
     expect(find.text('?'), findsNothing);
-    // The fallback is the box only. The name is still what herdr reported.
     expect(find.text('GIZMO'), findsOneWidget);
   });
 
@@ -732,8 +698,6 @@ void main() {
       ),
     );
 
-    // Two: the box and the name. An empty name would otherwise render as an
-    // empty cell that reads as a layout bug rather than as missing data.
     expect(find.text('?'), findsNWidgets(2));
     expect(
       find.descendant(of: find.byType(AgentMark), matching: find.text('?')),
@@ -742,10 +706,7 @@ void main() {
   });
 
   testWidgets('a feed reload keeps the last rows on screen', (tester) async {
-    // The watcher pushes one report per host and every one of them rebuilds
-    // the feed. A rebuilt StreamProvider sits in loading until its first event
-    // lands, so a panel that renders that loading blinks its body away on
-    // every poll and drags the panels under it up with it.
+    // A rebuilt StreamProvider sits in loading until its first event lands.
     final reloads = StateProvider((ref) => 0);
     final feed = StreamController<AgentPanelState>.broadcast();
     addTearDown(feed.close);
@@ -781,9 +742,7 @@ void main() {
     await tester.pump();
     expect(find.text('live work'), findsOneWidget);
 
-    // The broadcast stream replays nothing, so the rebuilt provider stays in
-    // loading: what is on screen after this is what the panel does with a
-    // reload it has data behind.
+    // The broadcast stream replays nothing, so the rebuilt provider stays in loading.
     container.read(reloads.notifier).state++;
     await tester.pump();
 
@@ -800,9 +759,6 @@ Future<void> _waitFor(bool Function() condition) async {
   expect(condition(), isTrue);
 }
 
-/// The asset behind the one [AgentMark] on screen, or null when it fell back
-/// to `?`. Read off the loader rather than the raster: the point is which file
-/// the row asked for.
 String? markAsset(WidgetTester tester) {
   final marks = find.descendant(
     of: find.byType(AgentMark),

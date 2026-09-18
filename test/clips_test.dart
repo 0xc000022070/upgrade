@@ -1,7 +1,3 @@
-/// The tray: what it holds, what it drops, and that nothing about it is
-/// anywhere but the directory it was opened on.
-library;
-
 import 'dart:io';
 import 'dart:typed_data';
 

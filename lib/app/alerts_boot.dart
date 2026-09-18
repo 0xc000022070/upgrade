@@ -15,25 +15,17 @@ import '../platform/alert_actions.dart';
 import '../platform/alert_notifications.dart';
 import '../platform/pin_notifications.dart';
 
-/// The alert wiring: what `main()` has to do before the first frame, and the
-/// override that hands Home the watcher's snapshots instead of its own poll.
-
-/// Set when the process was started by an `OPEN` tap on an alert, so a cold
-/// launch lands on the `AGENTS` route once there is a navigator to push it on.
+/// Set when the process was started by an `OPEN` tap on an alert, so a cold launch
+/// lands on the `AGENTS` route once there is a navigator to push it on.
 bool _pendingOpen = false;
 
-/// The host of an `AUTHORIZATION REQUIRED` tap that arrived the same way, so
-/// the launch lands on that host's shell instead.
+/// The host of an `AUTHORIZATION REQUIRED` tap that arrived the same way.
 String? _pendingPinHost;
 
-/// Parks an `OPEN` that arrived before [AlertsHost] existed.
-///
-/// The splash owns the screen for the first ~1.8s of a cold start and
-/// [AlertsHost] is inside the route it pushes, so the tap that launched the app
-/// lands in that window with no handler installed — `handleAlertAction` would
-/// drop it and the launch would end on Home. The splash installs this instead,
-/// which is the same flag a launch through `getNotificationAppLaunchDetails`
-/// sets, and [AlertsHost] drains it on its first frame either way.
+/// The splash owns the screen for the first ~1.8 s of a cold start and [AlertsHost] is
+/// inside the route it pushes, so a tap that launched the app lands in that window with
+/// no handler installed. The splash parks it in the same flag a launch through
+/// `getNotificationAppLaunchDetails` sets, and [AlertsHost] drains it either way.
 void deferAlertOpen() => _pendingOpen = true;
 
 void deferPinOpen(String hostId) => _pendingPinHost = hostId;
@@ -76,11 +68,8 @@ List<Override> alertOverrides() => [
   ),
 ];
 
-/// Keeps the foreground service in step with the two conditions that ask for
-/// it and turns an `OPEN` tap into a route.
-///
-/// A widget rather than a provider listener: the route needs a [BuildContext],
-/// and the service has to stop when the app is disposed with `ALERTS` off.
+/// A widget rather than a provider listener: the route needs a [BuildContext], and the
+/// service has to stop when the app is disposed with `ALERTS` off.
 class AlertsHost extends ConsumerStatefulWidget {
   const AlertsHost({super.key, required this.child});
 
@@ -91,9 +80,9 @@ class AlertsHost extends ConsumerStatefulWidget {
 }
 
 class _AlertsHostState extends ConsumerState<AlertsHost> {
-  /// The host set the service was last told to watch, or the empty string for
-  /// "stopped". Two providers drive one reconciliation, and without this a
-  /// change in either would restart a service already watching these hosts.
+  /// The host set the service was last told to watch, or the empty string for "stopped".
+  /// Two providers drive one reconciliation, and without this a change in either would
+  /// restart a service already watching these hosts.
   String? _applied;
 
   @override
@@ -101,9 +90,8 @@ class _AlertsHostState extends ConsumerState<AlertsHost> {
     super.initState();
     alertOpenHandler = _open;
     pinOpenHandler = _openShell;
-    // Both conditions in one place, so the two cannot drift out of step. In
-    // `build` this was a side effect that ran again on every rebuild, including
-    // the ones neither provider caused.
+    // Both conditions in one place. In `build` this was a side effect that ran again on
+    // every rebuild, including the ones neither provider caused.
     ref.listenManual(watcherWantedProvider, (_, _) => _sync());
     ref.listenManual(
       herdrHostsProvider,
@@ -135,8 +123,7 @@ class _AlertsHostState extends ConsumerState<AlertsHost> {
     openAgents(context);
   }
 
-  /// The shell of the host the notification named, where the sheet is. A host
-  /// that has since been deleted opens nothing: the request went with it.
+  /// A host that has since been deleted opens nothing: the request went with it.
   void _openShell(String hostId) {
     unawaited(() async {
       final hosts = await ref.read(hostRepositoryProvider).all();

@@ -1,7 +1,3 @@
-/// The strip's keys as a terminal reads them: the table, the sticky modifiers,
-/// and the two keys that are worth nothing here.
-library;
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/platform/shell/strip_bytes.dart';
 import 'package:dazzle/platform/vnc/keysyms.dart';

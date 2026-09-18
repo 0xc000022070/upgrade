@@ -1,7 +1,3 @@
-/// A path is identified by its end, so the line gives up its directories from
-/// the left rather than ellipsizing its name away.
-library;
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/design/components/path_line.dart';
@@ -41,15 +37,10 @@ void main() {
     final line = await pumpPath(tester, deep, width: 500);
     expect(line, startsWith('…/'));
     expect(line, endsWith('/MainActivity.kt'));
-    // Only what it had to: the loop stops at the first line that fits, so a
-    // width with room to spare keeps more of the path than the floor does.
     expect(line.length, greaterThan('…/MainActivity.kt'.length));
   });
 
   testWidgets('the name is the floor and it keeps its mark', (tester) async {
-    // Narrower than any segment: there is nothing left to give up, so the line
-    // is the name with the `…` still saying directories were dropped, and the
-    // ellipsis in the text does the rest.
     expect(await pumpPath(tester, deep, width: 20), '…/MainActivity.kt');
   });
 

@@ -15,8 +15,6 @@ import 'package:dazzle/features/settings/alerts_block.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// The `[ ALERTS ]` row.
-
 const nyx = Host(
   id: 'host-1',
   name: 'nyx',
@@ -54,8 +52,8 @@ void main() {
     ),
   );
 
-  /// The background grain and the panel's own entry both run off tickers that
-  /// never settle, so `pumpAndSettle` here would spin until the test timed out.
+  /// The grain and the panel's own entry run off tickers that never settle, so
+  /// `pumpAndSettle` would spin until the test timed out.
   Future<void> settle(WidgetTester tester) async {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 16));
@@ -77,7 +75,6 @@ void main() {
     await settle(tester);
 
     expect(find.text('NO HOST'), findsOneWidget);
-    // "the row is dim".
     expect(
       tester.widget<Text>(find.text('BLOCKED AGENTS')).style?.color,
       DazzleColors.textMuted,

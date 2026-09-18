@@ -35,11 +35,9 @@ class KeyDetailScreen extends ConsumerWidget {
     try {
       await ref.read(keyRepositoryProvider).delete(keyRecord.id);
     } on KeyInUseException {
-      // The pre-check above is what greys the bar out and is read from a
-      // stream; the repository refuses in a transaction against the table
-      // itself. A host registered between the two is caught here, and the
-      // private key is deliberately not dropped: the row it belongs to still
-      // exists.
+      // The pre-check above is read from a stream; the repository refuses in a transaction
+      // against the table itself. A host registered between the two is caught here, and the
+      // private key is deliberately not dropped: the row it belongs to still exists.
       return;
     }
     await ref.read(ed25519KeysProvider).delete(keyRecord.id);
@@ -115,10 +113,6 @@ class KeyDetailScreen extends ConsumerWidget {
   }
 }
 
-/// The bar names what is holding the key, the way the host form's action bar
-/// names the field it is still missing. Greyed out with `DELETE` on it, the
-/// screen said no without saying why: the `[ USED BY ]` list above is the
-/// reason, and the two were not read as one thing.
 String _deleteLabel(int users) => switch (users) {
   0 => 'DELETE',
   1 => 'USED BY 1 HOST',

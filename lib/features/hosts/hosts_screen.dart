@@ -32,17 +32,9 @@ import 'keys_screen.dart';
 import 'link_probes.dart';
 import 'preview_tile.dart';
 
-/// Two lists under one title. MACHINES is the registered hosts with their
-/// metadata and screen previews. CODE is every registered directory on every
-/// host: a directory is the app's own, filed with the machine it sits on, so it
-/// draws here whether or not the Projects plugin is on.
-///
-/// The pick lives here and is not persisted: the screen opens on MACHINES
-/// after a cold start.
 class HostsScreen extends ConsumerStatefulWidget {
   const HostsScreen({super.key});
 
-  /// The tab this screen is, which is what decides whether it is on screen.
   static const navIndex = 2;
 
   @override
@@ -50,9 +42,8 @@ class HostsScreen extends ConsumerStatefulWidget {
 }
 
 class _HostsScreenState extends ConsumerState<HostsScreen> {
-  /// Resolved in [initState] and held: `ref` throws once dispose runs, and the
-  /// flag has to be put down on the way out or a screen that is gone leaves the
-  /// poller running.
+  /// Resolved in [initState] and held: `ref` throws once dispose runs, and the flag has to
+  /// be put down on the way out or a screen that is gone leaves the poller running.
   late final StateController<bool> _visible;
   int _segment = 0;
 
@@ -60,8 +51,8 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
   void initState() {
     super.initState();
     _visible = ref.read(homeAgentsVisibleProvider.notifier);
-    // Mounting is not the signal — the shell keeps every tab mounted — so the
-    // selected index is, and the first sync waits for the frame being built.
+    // Mounting is not the signal — the shell keeps every tab mounted — so the selected index
+    // is, and the first sync waits for the frame being built.
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncVisible());
   }
 
@@ -71,10 +62,9 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     super.dispose();
   }
 
-  /// The agent poller runs while either of the two screens that read it is in
-  /// front. Home writes the same flag from its own listener, so this one only
-  /// ever raises it, and it raises it after the frame so it lands last no
-  /// matter which listener the shell happens to call first.
+  /// Home writes the same flag from its own listener, so this one only ever raises it, and
+  /// it raises it after the frame so it lands last whichever listener the shell called
+  /// first.
   void _syncVisible() {
     if (!mounted) return;
     if (ref.read(navIndexProvider) != HostsScreen.navIndex) return;
@@ -82,9 +72,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
       if (!mounted) return;
       if (ref.read(navIndexProvider) != HostsScreen.navIndex) return;
       _visible.state = true;
-      // The panel is worth nothing if it says what a host was doing when the
-      // app was last opened, so the probes run on the way in rather than on a
-      // schedule of their own.
       unawaited(
         ref
             .read(linkProbesProvider)
@@ -122,8 +109,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
         if (_segment == 1)
           const CodeList()
         else ...[
-          // No empty state under the hosts: with none registered the screen is
-          // `ADD HOST` alone, which says the same thing and does something.
           PanelStack(
             children: [
               for (final host in hostList)
@@ -194,8 +179,6 @@ class _HostPanel extends ConsumerWidget {
           if (integrations.contains(IntegrationKind.herdr))
             _HerdrStateRow(host: host, outcome: outcome),
           _ClipboardRow(host: host),
-          // Last of the rows: everything above it is a fact about the machine
-          // and this is the way in, so it does not sit between two readouts.
           _ShellRow(host: host),
           if (integrations.contains(IntegrationKind.vnc)) ...[
             const SizedBox(height: Spacing.sm),
@@ -269,11 +252,6 @@ class _HerdrStateRowState extends ConsumerState<_HerdrStateRow> {
   }
 }
 
-/// `SHELL >`, on every host panel: ssh is what a host already is, so this is
-/// not behind an integration the way the screen is.
-///
-/// The whole row is the hit rather than the words at the end of it — the panel
-/// is a list of rows and this one reads as another of them.
 class _ShellRow extends ConsumerStatefulWidget {
   const _ShellRow({required this.host});
 
@@ -312,9 +290,8 @@ class _ShellRowState extends ConsumerState<_ShellRow> {
                   ),
                   const SizedBox(width: Spacing.sm),
                 ],
-                // Drawn by the affordance and tapped by the row above it:
-                // passing an `onTap` here would put a second, smaller hit box
-                // inside this one.
+                // Drawn by the affordance and tapped by the row above it: passing an `onTap` here would
+                // put a second, smaller hit box inside this one.
                 PanelAffordance(
                   sessions.isEmpty
                       ? 'SHELL'
@@ -330,10 +307,7 @@ class _ShellRowState extends ConsumerState<_ShellRow> {
   }
 }
 
-/// `CLIPBOARD`, only while a shell is open on the host: which of the
-/// backends the probe found on that connection, or why none, in the name of
-/// the package that would change the answer. The probe runs the first time
-/// the row is drawn and again on every reconnect.
+/// The probe runs the first time the row is drawn and again on every reconnect.
 class _ClipboardRow extends ConsumerWidget {
   const _ClipboardRow({required this.host});
 
@@ -344,8 +318,6 @@ class _ClipboardRow extends ConsumerWidget {
     final store = ref.watch(shellSessionsProvider);
     return ShellWatcher(
       store: store,
-      // The row is about the tab the host is looking at: whether it is live
-      // and what its host answered the probe with are both that tab's news.
       watch: (store) {
         final active = store.activeFor(host.id);
         return active == null ? const [] : [active];
@@ -357,8 +329,8 @@ class _ClipboardRow extends ConsumerWidget {
         }
         final clipboard = active.clipboard;
         if (clipboard == null) {
-          // Kicked from here rather than from the store on connect: a shell
-          // that is never asked to paste never pays for the round trip.
+          // Kicked from here rather than from the store on connect: a shell that is never asked to
+          // paste never pays for the round trip.
           WidgetsBinding.instance.addPostFrameCallback(
             (_) => unawaited(store.clipboardFor(active)),
           );
@@ -375,8 +347,6 @@ class _ClipboardRow extends ConsumerWidget {
   }
 }
 
-/// The same words the AGENTS panel puts under its rows, so a host says the same
-/// thing about itself in both places.
 String _stateLine(HostOutcome? outcome) {
   if (outcome == null) return '—';
   if (!outcome.ok) return outcome.reason;
@@ -384,11 +354,8 @@ String _stateLine(HostOutcome? outcome) {
   return '${outcome.agents.length} agents · $blocked blocked';
 }
 
-/// Wide enough for the longest label a host panel puts in it, at the size the
-/// panel is drawn at.
 const _labelWidth = 96.0;
 
-/// How much bigger the label is than the size it was drawn at.
 double _labelScale(BuildContext context) {
   final size = context.tokens.label.fontSize!;
   return MediaQuery.textScalerOf(context).scale(size) / size;
@@ -408,30 +375,23 @@ class _MetaRow extends StatelessWidget {
   final bool strong;
   final Color? color;
 
-  /// The one verb a metadata row may carry, at its right end.
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      // A minimum, which is what the metric is called: a row holding words the
-      // reader asked to be bigger is taller than one that is not.
+      // A minimum, which is what the metric is called: a row holding words the reader asked to
+      // be bigger is taller than one that is not.
       constraints: const BoxConstraints(minHeight: RowMetrics.minHeight),
       child: Row(
         children: [
           SizedBox(
-            // The column holds a word, so it grows by whatever the label's own
-            // size grew by. Handing the width to the scaler as if it were a
-            // font size is not the same number: the system curve gives a small
-            // size much more than a large one, so a 96px "font" barely moved
-            // while the 9px label it was holding nearly doubled and broke
-            // across two lines in the middle of a word.
+            // Handing the width to the scaler as if it were a font size is not the same number: the
+            // system curve gives a small size much more than a large one, so a 96px "font" barely
+            // moved while the 9px label it was holding nearly doubled and broke mid-word.
             width: _labelWidth * _labelScale(context),
             child: Text(label, style: context.tokens.label),
           ),
-          // The column is the longest label and nothing more, so without a
-          // gutter that label ends exactly where its value starts and the two
-          // read as one run of letters.
           const SizedBox(width: Spacing.md),
           Expanded(
             child: Meta(value, strong: strong, color: color),
@@ -446,9 +406,6 @@ class _MetaRow extends StatelessWidget {
   }
 }
 
-/// What answered, and the way to trust what did. The whole row is the hit: a
-/// tap probes this host again whatever the age of its last answer, which is
-/// what the user reaches for after plugging the machine back in.
 class _LinkRow extends ConsumerStatefulWidget {
   const _LinkRow({required this.host, required this.outcome});
 
@@ -462,21 +419,13 @@ class _LinkRow extends ConsumerStatefulWidget {
 class _LinkRowState extends ConsumerState<_LinkRow> {
   bool _verifying = false;
 
-  /// Set once a dial from this row has come back with the machine's key
-  /// accepted. The row's own answer outranks [_LinkRow.outcome], which is the
-  /// last word of a poll this tap does not re-run: without it a host that is
-  /// already pinned goes `VERIFYING` and straight back to `VERIFY`, having
-  /// checked the key and had nothing to say about it.
+  /// The row's own answer outranks [_LinkRow.outcome], which is the last word of a poll
+  /// this tap does not re-run: without it a host that is already pinned goes `VERIFYING`
+  /// and straight back to `VERIFY`.
   bool _verified = false;
 
-  /// What the last dial from this row came back with, in the affordance's own
-  /// vocabulary, or null when it has not been tapped or the user simply said
-  /// no. Cleared on the next tap.
   String? _failure;
 
-  /// Drawn while the app has nothing to check the machine against, or while
-  /// what it has does not match. Both are states a dial refuses in, and this
-  /// row is the only way out of the first.
   bool get _unverified =>
       widget.host.hostKey == null ||
       widget.outcome?.kind == AgentOutcomeKind.hostKeyUnverified ||
@@ -503,9 +452,6 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
     );
   }
 
-  /// One word at the row's right end, and it is the same word throughout: what
-  /// the dial is doing, or what it hit. A dial in flight is not tappable — the
-  /// sheet it is opening is the next thing to happen.
   Widget? _trailing() {
     if (_verifying) {
       return const PanelAffordance('VERIFYING', showIcon: false);
@@ -520,9 +466,6 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
     );
   }
 
-  /// A dial that opens nothing and exists to put the key on screen. A refused
-  /// one leaves the reason where it already was — on the host's own state row
-  /// — rather than throwing a sheet at the user twice.
   Future<void> _verify() async {
     if (_verifying) return;
     setState(() {
@@ -560,12 +503,9 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
           privateKey: privateKey,
           verifier: verifier,
         );
-        // A user who said no said nothing went wrong; the row goes back to
-        // offering the dial. A key that does not match the pin is the one
-        // refusal that has to stay on screen.
+        // A user who said no said nothing went wrong. A key that does not match the pin is the
+        // one refusal that has to stay on screen.
         if (verifier.refusal == HostKeyRefusal.changed) failure = 'KEY CHANGED';
-        // No refusal at all is the machine answering for itself: the key
-        // matched what is pinned, or the user has just pinned it.
         verified = verifier.refusal == null;
       }
     } catch (error) {
@@ -581,9 +521,8 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
   }
 }
 
-/// The words a failed dial leaves in the affordance. `NO ANSWER` is the one
-/// worth naming: a socket that opens and stays silent is a machine behind a
-/// tarpit, not a machine that is down, and the two look identical without it.
+/// `NO ANSWER` is the one worth naming: a socket that opens and stays silent is a machine
+/// behind a tarpit, not a machine that is down, and the two look identical without it.
 String _failureWord(Object error) => switch (error) {
   HostKeySilent() => 'NO ANSWER',
   SocketException() => 'NO ROUTE',

@@ -32,11 +32,6 @@ import 'package:dazzle/platform/shell/remote_shell.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// Handing a drop to an agent: the remote transaction, its four failures, and
-/// the row that is written for exactly one successful send.
-
-/// What the transport was called with, so a test can assert the command's
-/// inputs and the prompt without a socket.
 class _Call {
   _Call(this.kind, this.directory, this.prompt, [this.images = const []]);
 
@@ -77,9 +72,8 @@ Future<void> _drain(WidgetTester tester) async {
 
 void main() {
   test('workspace creation carries the path home was expanded in', () {
-    // The `~` is expanded on the host first, by the one command that also
-    // proves the directory is there; `workspace.create` then takes the answer
-    // as data, where no quote of the user's can mean anything.
+    // The `~` is expanded on the host first, by the one command that also proves the
+    // directory is there.
     expect(
       HerdrCommands.resolveDirectory("~/src/dazzle with 'quote'"),
       contains(r'$HOME'),
@@ -99,8 +93,7 @@ void main() {
       links: const ['https://a.example', 'https://b.example'],
     );
     expect(prompt, 'read the gate log\n\nhttps://a.example\nhttps://b.example');
-    // What goes on stdin is this string and nothing more: no trailing newline
-    // to be read as an empty last link, and no framing.
+    // No trailing newline to be read as an empty last link, and no framing.
     expect(utf8.encode(prompt), utf8.encode(prompt));
     expect(utf8.decode(utf8.encode(prompt)), prompt);
   });
@@ -179,8 +172,6 @@ void main() {
         spawnRefusalReason(SpawnRefusal.uploadFailed),
         'image upload failed',
       );
-      // The two the roster refuses with: nowhere to start, and too many
-      // places with no default to pick among them.
       expect(spawnRefusalReason(SpawnRefusal.noSession), 'no herdr session');
       expect(
         spawnRefusalReason(SpawnRefusal.noDefaultSession),
@@ -286,9 +277,6 @@ void main() {
       expect(calls.single.directory, '~/src/dazzle');
       expect(calls.single.prompt, 'read the gate log\n\nhttps://a.example');
 
-      // A send goes out from a list the user tapped, not from a route showing
-      // a fingerprint, so an unpinned host is refused here as it is on every
-      // other path nobody is watching.
       final verifier = verifiers.single!;
       expect(verifier.prompt, isNull);
       expect(
@@ -352,8 +340,6 @@ void main() {
           );
 
       expect(state, isA<SendSent>());
-      // Every file is read once, in the order it was attached, and the bytes
-      // that were read are the bytes the transport was handed.
       expect(read, const [
         '/support/attachments/first.png',
         '/support/attachments/second.jpg',
@@ -365,8 +351,6 @@ void main() {
       ]);
       expect(images.first.bytes, Uint8List.fromList([30]));
       expect(images.last.bytes, Uint8List.fromList([31]));
-      // The prompt says where the host will find them, not where the phone
-      // kept them.
       expect(
         calls.single.prompt,
         'what is wrong here\n\nhttps://a.example\n'
@@ -440,41 +424,44 @@ void main() {
       expect(await dispatches.watchSentItems().first, isEmpty);
     });
 
-    test('a connection that never opened keeps the words the panel uses', () async {
-      final itemId = await onlyTaskId();
-      // The sender answers with a state rather than rethrowing, so each failure
-      // is read off the state's line.
-      Future<String> reasonFor(HerdrFailure failure) async {
-        final state =
-            await sender(
-              ({
-                required address,
-                required port,
-                required user,
-                required privateKey,
-                required kind,
-                required directory,
-                required prompt,
-                images = const <RemoteFile>[],
-                model,
-                verifier,
-              }) async => throw failure,
-            )(
-              target: _target(),
-              kind: const ClaudeKind(),
-              itemId: itemId,
-              title: 'read the gate log',
-              links: const [],
-            );
-        return (state as SendFailed).reason;
-      }
+    test(
+      'a connection that never opened keeps the words the panel uses',
+      () async {
+        final itemId = await onlyTaskId();
+        // The sender answers with a state rather than rethrowing, so each failure is read off
+        // the state's line.
+        Future<String> reasonFor(HerdrFailure failure) async {
+          final state =
+              await sender(
+                ({
+                  required address,
+                  required port,
+                  required user,
+                  required privateKey,
+                  required kind,
+                  required directory,
+                  required prompt,
+                  images = const <RemoteFile>[],
+                  model,
+                  verifier,
+                }) async => throw failure,
+              )(
+                target: _target(),
+                kind: const ClaudeKind(),
+                itemId: itemId,
+                title: 'read the gate log',
+                links: const [],
+              );
+          return (state as SendFailed).reason;
+        }
 
-      expect(await reasonFor(const HerdrUnreachable()), 'nyx unreachable');
-      expect(await reasonFor(const HerdrUnresolved()), 'nyx unresolved');
-      expect(await reasonFor(const HerdrKeyRejected()), 'key rejected');
-      expect(await reasonFor(const HerdrProtocolMismatch(22)), 'protocol 22');
-      expect(await dispatches.watchForItem(itemId).first, isEmpty);
-    });
+        expect(await reasonFor(const HerdrUnreachable()), 'nyx unreachable');
+        expect(await reasonFor(const HerdrUnresolved()), 'nyx unresolved');
+        expect(await reasonFor(const HerdrKeyRejected()), 'key rejected');
+        expect(await reasonFor(const HerdrProtocolMismatch(22)), 'protocol 22');
+        expect(await dispatches.watchForItem(itemId).first, isEmpty);
+      },
+    );
 
     test('a host whose key is gone never dials', () async {
       final itemId = await onlyTaskId();
@@ -650,8 +637,6 @@ void main() {
       await tester.pumpWidget(app(id));
       await _drain(tester);
 
-      // The project's own state verbs are there, and SEND with them: filing
-      // an item is not what decides whether an agent can pick it up.
       expect(find.text('DONE'), findsOneWidget);
       expect(find.text('SEND'), findsOneWidget);
 
@@ -678,9 +663,6 @@ void main() {
       await tester.tap(find.text('SEND'));
       await _drain(tester);
 
-      // The one directory the project is worked in is not a choice, so the
-      // picker is skipped outright. What the send still does not know is which
-      // agent and which model, and those are still asked.
       expect(find.text('SEND TO'), findsNothing);
       expect(find.text('AGENT'), findsOneWidget);
       expect(find.text('MODEL'), findsOneWidget);
@@ -701,8 +683,6 @@ void main() {
         db,
         activity,
       ).create(title: 'ship the picker', projectId: project);
-      // Registered loose first, so the band and not the insertion order is
-      // what puts the project's directories on top.
       await addPath(label: 'gate');
       await addPath(label: 'dazzle', projectId: project);
       await addPath(label: 'monolith', projectId: project);
@@ -712,8 +692,6 @@ void main() {
       await tester.tap(find.text('SEND'));
       await _drain(tester);
 
-      // Two directories under the project is a choice, so it is asked — and
-      // the two it is between are the ones at the top of the list.
       expect(find.text('SEND TO'), findsOneWidget);
       expect(find.text('LINKED'), findsNWidgets(2));
       final loose = tester.getTopLeft(find.text('NYX / GATE')).dy;
@@ -772,8 +750,6 @@ void main() {
       expect(find.text('SEND TO'), findsOneWidget);
       expect(find.text('NYX / DAZZLE'), findsOneWidget);
 
-      // The target is chosen first, and the agent and the model after it: both
-      // belong to this send and neither is stored on the path.
       await tester.tap(find.text('NYX / DAZZLE'));
       await _drain(tester);
       expect(find.text('AGENT'), findsOneWidget);

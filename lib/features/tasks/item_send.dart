@@ -22,41 +22,22 @@ import '../hosts/path_picker_sheet.dart';
 import '../home/agent_mark.dart';
 import '../../application/attachment_files.dart';
 
-/// Where the send is: choosing a workspace, or pointed at one.
-///
-/// Sealed rather than an enum because the second carries what the first picked.
-/// The target and the state of the send that followed it used to sit beside the
-/// mode as their own nullable fields, which left reads writing `if (target !=
-/// null)` for a case that cannot happen. A dispatch is not a dispatch without a
-/// target.
 sealed class _Step {
   const _Step();
 }
 
-/// The picker over every registered workspace, the item's own ones first.
 final class _Pick extends _Step {
   const _Pick();
 }
 
-/// One workspace picked, and what the send to it is doing once it has gone out.
-/// One step and not two: the target the picker chose is what a retry needs, and
-/// going back means the same thing from either.
 final class _Dispatch extends _Step {
   const _Dispatch(this.target, {this.state});
 
   final PathTarget target;
 
-  /// Null until `SEND` is tapped: before that this is the agent and model
-  /// picker, after it the one line the send is saying.
   final SendState? state;
 }
 
-/// SEND, from the moment it is tapped to the pane id it comes back with.
-///
-/// Its own widget and not part of the item sheet's body: the choices it makes —
-/// which workspace, which agent, which model — belong to this send and to
-/// nothing the sheet holds. The sheet is left holding one mode where it used to
-/// hold two and the three fields they carried.
 class SendFlow extends ConsumerStatefulWidget {
   const SendFlow({
     super.key,
@@ -67,11 +48,8 @@ class SendFlow extends ConsumerStatefulWidget {
 
   final String taskId;
 
-  /// Null for a drop. Decides which workspaces sort to the top, and whether the
-  /// picker can be skipped.
   final String? projectId;
 
-  /// Back out of the send, to whatever the sheet was showing before it.
   final VoidCallback onExit;
 
   @override
@@ -79,26 +57,18 @@ class SendFlow extends ConsumerStatefulWidget {
 }
 
 class _SendFlowState extends ConsumerState<SendFlow> {
-  /// Null until the flow has been steered: before that the step is derived
-  /// from the workspaces the item's project is linked to, which arrive a frame
-  /// or two after the sheet does.
   _Step? _step;
 
-  /// How this send goes out: which agent picks it up and on which model. Both
-  /// live on the send and not on the path: the same directory is worked by
-  /// claude one day and codex the next, and the row should not have to be
-  /// edited to say so.
   AgentKind _kind = AgentKind.all.first;
   String? _model;
   PathScan _models = const PathScanLoading();
 
-  /// The host and kind [_models] was fetched for, so a rebuild does not refetch
-  /// what it already has.
+  /// The host and kind [_models] was fetched for, so a rebuild does not refetch what it
+  /// already has.
   String? _scanned;
 
-  /// The directories linked to the item's project, empty for a drop. Watched:
-  /// the flow opens before the query behind it has answered, and what the
-  /// answer says decides whether there is anything to pick.
+  /// Watched: the flow opens before the query behind it has answered, and what the answer
+  /// says decides whether there is anything to pick.
   List<PathTarget> _linked() {
     final projectId = widget.projectId;
     if (projectId == null) return const [];
@@ -106,10 +76,6 @@ class _SendFlowState extends ConsumerState<SendFlow> {
         const [];
   }
 
-  /// One workspace under the item's project is not a choice, so it is not
-  /// offered as one. The kind and the model still are: those belong to the
-  /// send, and the same directory is worked by claude one day and codex the
-  /// next.
   _Step _opening(List<PathTarget> linked) =>
       linked.length == 1 ? _Dispatch(linked.first) : const _Pick();
 
@@ -120,9 +86,9 @@ class _SendFlowState extends ConsumerState<SendFlow> {
     });
   }
 
-  /// Driven from the build and not from the taps: every way into a dispatch —
-  /// a picked row, a picker skipped for the only workspace there was, a kind
-  /// switched under an open one — needs the same scan.
+  /// Driven from the build and not from the taps: every way into a dispatch — a picked row,
+  /// a picker skipped for the only workspace there was, a kind switched under an open one —
+  /// needs the same scan.
   void _ensureModels(PathTarget target) {
     final key = '${target.host.id}/${_kind.name}';
     if (_scanned == key) return;
@@ -138,8 +104,6 @@ class _SendFlowState extends ConsumerState<SendFlow> {
     setState(() => _models = scan);
   }
 
-  /// Registers a path without leaving the drop. The host form is where paths
-  /// are curated; this is where one is needed, which is a different moment.
   Future<void> _registerPath() async {
     final hosts = ref.read(hostsProvider).valueOrNull ?? const <Host>[];
     if (hosts.isEmpty) return;
@@ -177,9 +141,8 @@ class _SendFlowState extends ConsumerState<SendFlow> {
   Future<void> _send(PathTarget target) async {
     final task = ref.read(taskProvider(widget.taskId)).valueOrNull;
     if (task == null) return;
-    // The title as it was typed and the attachments as they are attached, read
-    // once here: a send is one message, and re-reading it inside the transport
-    // would let an edit land halfway through.
+    // Read once here: a send is one message, and re-reading it inside the transport would
+    // let an edit land halfway through.
     final attachments =
         ref.read(itemAttachmentsProvider(widget.taskId)).valueOrNull ??
         const <Attachment>[];
@@ -194,8 +157,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
         for (final attachment in attachments)
           if (attachment.kind == AttachmentKind.url) attachment.value,
       ],
-      // An image row holds a path relative to app support; the file is what
-      // goes up, so it is resolved here where the resolver lives.
+      // An image row holds a path relative to app support; the file is what goes up.
       imagePaths: [
         for (final attachment in attachments)
           if (attachment.kind == AttachmentKind.image)
@@ -225,9 +187,6 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           affordance: PanelAffordance(
             'BACK',
             icon: DazzleIcons.back,
-            // Back out of the picker while nothing has gone out; back out of
-            // the send once something has, because the picker would offer to
-            // send the same item a second time.
             onTap: () => dispatch.state == null
                 ? setState(() => _step = const _Pick())
                 : widget.onExit(),
@@ -237,12 +196,6 @@ class _SendFlowState extends ConsumerState<SendFlow> {
     }
   }
 
-  /// Every registered directory, the item's own ones first.
-  ///
-  /// The order is the whole difference a link makes here: a loose drop keeps
-  /// the flat list it always had, and an item under a project opens on the
-  /// directories that project is worked in, then the rest of their hosts,
-  /// then everywhere else.
   Widget _picker() {
     final pathState = ref.watch(pathTargetsProvider);
     final hostState = ref.watch(hostsProvider);
@@ -251,8 +204,8 @@ class _SendFlowState extends ConsumerState<SendFlow> {
     final availableHosts = hostState.valueOrNull ?? const <Host>[];
     final ids = {for (final target in linked) target.path.id};
     final hosts = {for (final target in linked) target.host.id};
-    // Partitioned and not sorted: a sort is not stable in Dart, and the order
-    // inside each band is the order the user registered them in.
+    // Partitioned and not sorted: a sort is not stable in Dart, and the order inside each
+    // band is the order the user registered them in.
     final targets = ids.isEmpty
         ? all
         : [
@@ -298,8 +251,6 @@ class _SendFlowState extends ConsumerState<SendFlow> {
             kicker: ids.contains(target.path.id) ? 'LINKED' : null,
             onTap: () => _toDispatch(target),
           ),
-        // The paths screen is in settings, two tabs away; a drop that needs a
-        // directory that is not registered yet gets to register it here.
         if (availableHosts.isNotEmpty)
           ListRow(
             title: 'REGISTER A PATH',
@@ -310,13 +261,6 @@ class _SendFlowState extends ConsumerState<SendFlow> {
     );
   }
 
-  /// The picker, and then the one thing the send is doing. Both live in this
-  /// body: a send has no screen of its own, and a spinner over the picker would
-  /// leave the rows tappable while one of them is already running.
-  ///
-  /// The agent and the model are offered as blocks and never as a field. A slug
-  /// typed by hand is a slug that can be wrong, and the host is the only party
-  /// that knows which ones its CLIs accept.
   List<Widget> _dispatchBody(_Dispatch dispatch) {
     if (dispatch.state case final state?) {
       return [_status(dispatch.target, state)];
@@ -365,8 +309,8 @@ class _SendFlowState extends ConsumerState<SendFlow> {
     ];
   }
 
-  /// DEFAULT is always first and always available: it sends no `--model` at
-  /// all, which is the one choice that cannot be refused by the agent.
+  /// DEFAULT sends no `--model` at all, which is the one choice that cannot be refused by
+  /// the agent.
   Widget _modelChoices() {
     final slugs = switch (_models) {
       PathScanFound(:final directories) => directories,
@@ -402,7 +346,6 @@ class _SendFlowState extends ConsumerState<SendFlow> {
     );
   }
 
-  /// What the send is doing, in the sheet the send was started from.
   Widget _status(PathTarget target, SendState state) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

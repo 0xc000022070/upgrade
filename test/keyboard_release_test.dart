@@ -6,19 +6,14 @@ import 'package:dazzle/app/keyboard_release.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// The bug this is here for: the screen goes off with the keyboard up, and the
-/// window comes back with the keyboard's inset still standing and no keyboard
-/// under it. Every screen then lays out one keyboard short of the display, and
-/// no amount of navigating clears it — the number belongs to the view, not to
-/// the tree. The keyboard is taken down on the way out so the system has
-/// nothing to leave behind, and an inset nobody claims is refused on the way
-/// back in.
+/// The window comes back with the keyboard's inset still standing and no keyboard under
+/// it, and no amount of navigating clears it — the number belongs to the view, not to the
+/// tree.
 void main() {
   setUp(stubDeviceChannels);
 
-  /// The lifecycle as the platform sends it, which fills in the states between
-  /// this one and the last: `paused` arrives behind `inactive` and `hidden`,
-  /// exactly as a screen going off delivers them.
+  /// `paused` arrives behind `inactive` and `hidden`, exactly as a screen going off
+  /// delivers them.
   Future<void> lifecycle(WidgetTester tester, AppLifecycleState state) async {
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
@@ -64,9 +59,7 @@ void main() {
     final node = await field(tester);
     final calls = recordTextInput();
 
-    // Pulling the shade or answering a permission dialog raises `inactive` and
-    // stops there. The window never stopped, so the keyboard is still the
-    // user's and taking it away would cost them the word they were typing.
+    // Pulling the shade or answering a permission dialog raises `inactive` and stops there.
     await lifecycle(tester, AppLifecycleState.inactive);
 
     expect(node.hasFocus, isTrue);
@@ -80,8 +73,6 @@ void main() {
     await field(tester);
     await lifecycle(tester, AppLifecycleState.paused);
 
-    // The state the device comes back in: the keyboard was let go on the way
-    // out, and the inset it left behind is still standing.
     tester.view.viewInsets = const FakeViewPadding(bottom: 400);
     final calls = recordTextInput();
 
@@ -101,9 +92,6 @@ void main() {
     tester.view.viewInsets = const FakeViewPadding(bottom: 400);
     final calls = recordTextInput();
 
-    // A field that takes the focus back as the app comes up is asking for the
-    // keyboard the inset reports, and this must not be the thing that takes it
-    // away from them.
     node.requestFocus();
     await lifecycle(tester, AppLifecycleState.resumed);
     await tester.pump();

@@ -22,10 +22,6 @@ import 'package:dazzle/features/tasks/selection_bar.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// The selection verbs left the panel's header strip for the
-/// slot the capture bar was holding. The two tabs are back and HOME's
-/// PROJECTS panel is gone, so the doors out of the mode are the nav bar and
-/// a pushed route, never a strip on HOME.
 Future<void> _drain(
   WidgetTester tester, {
   Duration step = Duration.zero,
@@ -41,13 +37,12 @@ Future<void> _drain(
 Future<void> _ready(WidgetTester tester) =>
     _drain(tester, step: const Duration(milliseconds: 100));
 
-/// The nav label, not the screen title: at index 1 both read `PROJECTS` and
-/// only one of them is the tab.
+/// The nav label, not the screen title: at index 1 both read `PROJECTS`.
 Finder _tab(String label) =>
     find.descendant(of: find.byType(NavBar), matching: find.text(label));
 
-/// The mode is state, not chrome: a route over HOME hides the bar whether or
-/// not the set went with it, so the claim is read off the provider.
+/// A route over HOME hides the bar whether or not the set went with it, so the claim is
+/// read off the provider.
 DropSelection _selection(WidgetTester tester) => ProviderScope.containerOf(
   tester.element(find.byType(HomeScreen, skipOffstage: false)),
 ).read(dropSelectionProvider);
@@ -77,8 +72,6 @@ void main() {
     ),
   );
 
-  /// The tab shell itself, for the claims that are about leaving one tab for
-  /// the other. `BootGate` is the app's, not the shell's, so it is not here.
   Widget shell() => ProviderScope(
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(theme: testTheme, home: DazzleShell()),
@@ -95,13 +88,10 @@ void main() {
     await tester.pumpWidget(host());
     await _ready(tester);
 
-    // The panel was the tab's list a tap away, saying the same thing twice.
-    // Nothing on HOME names a project or opens one.
     expect(find.text('PROJECTS'), findsNothing);
     expect(find.textContaining('VIEW ALL'), findsNothing);
     expect(find.text('INFRA PERSONAL'), findsNothing);
     expect(find.byType(ProjectsScreen), findsNothing);
-    // The capture bar is still the only thing pinned under the panels.
     expect(find.byType(CaptureBar), findsOneWidget);
 
     await unmount(tester);
@@ -121,8 +111,6 @@ void main() {
 
     expect(find.byType(ProjectsScreen), findsOneWidget);
     expect(find.text('ALL PROJECTS'), findsOneWidget);
-    // Swapped in an IndexedStack, not pushed: HOME is offstage rather than
-    // disposed, which is what the poller reads to stop itself.
     expect(find.byType(HomeScreen), findsNothing);
     expect(find.byType(HomeScreen, skipOffstage: false), findsOneWidget);
 
@@ -150,13 +138,9 @@ void main() {
 
     expect(find.byType(CaptureBar), findsNothing);
     final bar = tester.getRect(find.byType(SelectionBar));
-    // The whole point of the swap: the slot does not change size, so no panel
-    // above it moves when the mode comes on.
     expect(bar, capture);
     expect(find.text('1 SELECTED'), findsOneWidget);
 
-    // The strip is a strip again — title, count, no verbs, no leading
-    // x, and SELECT hidden because the mode it opens is already on.
     final strip = find.ancestor(
       of: find.text('DROPS'),
       matching: find.byType(Row),
@@ -175,7 +159,6 @@ void main() {
     );
     expect(find.text('SELECT'), findsNothing);
 
-    // And the verbs are on the bar, not floating anywhere else.
     expect(
       find.descendant(
         of: find.byType(SelectionBar),
@@ -221,9 +204,8 @@ void main() {
     );
     await _ready(tester);
 
-    // The page is one non-lazy scroll view, so the header stays in the tree
-    // after it leaves the screen: off-screen is a geometry claim, not a
-    // finder one. It is above the viewport; the bar has not moved a pixel.
+    // The page is one non-lazy scroll view, so the header stays in the tree after it leaves
+    // the screen: off-screen is a geometry claim, not a finder one.
     expect(tester.getRect(find.text('DROPS')).bottom, lessThan(0));
     expect(find.byType(SelectionBar).hitTestable(), findsOneWidget);
     expect(tester.getRect(find.byType(SelectionBar)), before);
@@ -285,7 +267,6 @@ void main() {
     final uno = await tasks.capture('uno');
     await tasks.capture('dos');
     final tres = await tasks.capture('tres');
-    // The one with a link proves the entry shape survives the batch.
     await attachments.create(
       itemId: tres,
       kind: AttachmentKind.url,
@@ -295,8 +276,6 @@ void main() {
     await tester.pumpWidget(host());
     await _ready(tester);
 
-    // Checked oldest first, drawn newest first: what the clipboard carries is
-    // the panel's order, not the order the set was assembled in.
     await tester.longPress(find.text('uno'));
     await _ready(tester);
     await tester.tap(find.text('tres'));
@@ -312,8 +291,6 @@ void main() {
     await _ready(tester);
 
     expect(written, ['tres\n\nhttps://a.example\n\nuno']);
-    // Nothing left the panel, so nothing leaves the mode either: the same two
-    // rows are still checked and the bar is still up.
     expect(find.byType(SelectionBar), findsOneWidget);
     expect(_selection(tester).ids, {uno, tres});
     expect(find.text('2 COPIED'), findsOneWidget);
@@ -347,8 +324,6 @@ void main() {
     await _ready(tester);
     expect(find.text('1 COPIED'), findsOneWidget);
 
-    // Inside the window: the notice is about a selection that no longer
-    // exists, so it goes rather than counting rows it never copied.
     await tester.tap(find.text('dos'));
     await _ready(tester);
     expect(find.text('1 COPIED'), findsNothing);
@@ -366,8 +341,6 @@ void main() {
     await _ready(tester);
     expect(find.byType(SelectionBar), findsOneWidget);
 
-    // HOME is never disposed under a pushed route, so nothing else would have
-    // put the mode down on the way out: the door itself has to.
     await tester.tap(find.bySemanticsLabel('SETTINGS'));
     await _ready(tester);
     expect(find.byType(SettingsScreen), findsOneWidget);
@@ -392,8 +365,6 @@ void main() {
     await _ready(tester);
     expect(find.text('1 SELECTED'), findsOneWidget);
 
-    // The tabs keep HOME mounted, so the shell is the only thing that sees the
-    // user leave the panel the mode belongs to.
     await tester.tap(_tab('PROJECTS'));
     await _ready(tester);
     expect(_selection(tester).ids, isEmpty);

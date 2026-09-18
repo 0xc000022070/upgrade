@@ -37,8 +37,6 @@ void main() {
       final hits = shellHits(terminal, 'hello');
 
       expect(hits, hasLength(3));
-      // In the order the buffer holds them: the line above first, and the two
-      // on one line left to right.
       expect(hits[0].start, 0);
       expect(hits[1].line, hits[0].line + 1);
       expect(hits[1].start, 0);
@@ -61,16 +59,13 @@ void main() {
       final hits = shellHits(terminal, 'mark');
 
       expect(hits, hasLength(shellHitCap));
-      // The oldest hundred are the ones dropped: what was just printed is
-      // what a search is for.
       final all = shellHits(terminal, 'mark');
       expect(all.last.line, greaterThan(shellHitCap));
     });
   });
 
   group('the line under the terminal', () {
-    /// The row on its own over a session with a buffer, which is everything
-    /// the search reads. No terminal is laid out under it, so nothing moves.
+    /// No terminal is laid out under it, so nothing moves.
     Future<ShellSession> row(
       WidgetTester tester,
       FakeShellTransport transport, {
@@ -121,7 +116,6 @@ void main() {
       await tester.pump();
       expect(count(tester), '1/3');
 
-      // The ends meet: a step past the oldest is the newest again.
       await tester.tap(find.byKey(_prev));
       await tester.pump();
       expect(count(tester), '3/3');
@@ -152,7 +146,6 @@ void main() {
       expect(marks, hasLength(2));
       expect(marks.where((mark) => mark.color == currentWash), hasLength(1));
       expect(marks.where((mark) => mark.color == wash), hasLength(1));
-      // The newest hit is the one being read.
       expect(
         marks.firstWhere((mark) => mark.color == currentWash).range!.begin.y,
         greaterThan(
@@ -211,8 +204,6 @@ void main() {
       await tester.pump();
 
       expect(closed, isTrue);
-      // The row is taken down by whoever opened it; the marks go with the
-      // row and not with the tap.
       await tester.pumpWidget(const SizedBox.shrink());
       expect(session.controller.highlights, isEmpty);
     });
@@ -251,8 +242,6 @@ void main() {
       transport.opened.single.emit('needle\r\n${'filler\r\n' * 300}');
       await ready(tester);
 
-      // The view is on the last line, three hundred lines past the one word
-      // being looked for.
       final position = session.tailPosition!;
       expect(position.extentAfter, 0);
       final bottom = position.pixels;
@@ -264,8 +253,6 @@ void main() {
 
       expect(session.controller.highlights, hasLength(1));
       expect(session.scrollController.position.pixels, lessThan(bottom));
-      // And the way back to the live line is there, because the view is off
-      // it now.
       expect(find.byKey(const ValueKey('shell-tail')), findsOneWidget);
 
       await tester.tap(find.byKey(_close));
@@ -284,8 +271,6 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      // One frame, so nothing had the chance to stand between the tap and the
-      // field: the cell has one answer and gives it.
       await tester.tap(find.byKey(const ValueKey('bar-find')));
       await tester.pump();
       expect(find.byKey(_field), findsOneWidget);

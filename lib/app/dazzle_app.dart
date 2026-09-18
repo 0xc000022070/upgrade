@@ -33,11 +33,8 @@ Widget _pluginPage(PluginPageRegistration page) => page.native
     ? NativeContributionSurface.page(page)
     : PluginPage(plugin: page.owner, page: page.contribution);
 
-/// The system bars carry the app background rather than a scrim: on Android 15+
-/// the window is edge-to-edge, so the scaffold behind them is what the user
-/// sees and only the icon brightness has to be declared. [background] is the
-/// active tokens' own brightness; the icons take the opposite of it so they
-/// stay legible whichever theme is running.
+/// On Android 15+ the window is edge-to-edge, so the scaffold behind the bars is what the
+/// user sees and only the icon brightness has to be declared.
 SystemUiOverlayStyle _systemBars(Brightness background) {
   final icons = background == Brightness.dark
       ? Brightness.light
@@ -52,21 +49,15 @@ SystemUiOverlayStyle _systemBars(Brightness background) {
   );
 }
 
-/// What text is drawn with where nothing above it has said.
-///
-/// A screen pushed on the root navigator is outside the shell's `Scaffold`,
-/// and the framework's answer for text with no `Material` over it is its own
-/// debug style: yellow double underlines under every word on the screen,
-/// carried into whatever the style beside them did not name. The house has an
-/// answer of its own, and this is where it is given — over the navigator, so
-/// every route is under it.
+/// The framework's answer for text with no `Material` over it is its own debug style:
+/// yellow double underlines under every word. Declared over the navigator, so every
+/// route pushed outside the shell's `Scaffold` is under it.
 Widget houseText(BuildContext context, Widget? child) =>
     DefaultTextStyle(style: context.tokens.prose, child: child!);
 
 class DazzleApp extends ConsumerWidget {
   const DazzleApp({super.key, this.boot = const []});
 
-  /// Steps recorded by `main()`, replayed by the boot log.
   final List<BootStep> boot;
 
   @override
@@ -86,17 +77,14 @@ class DazzleApp extends ConsumerWidget {
           debugShowCheckedModeBanner: false,
           theme: DazzleTheme.build(tokens),
           scrollBehavior: const DazzleScrollBehavior(),
-          // The window the system parks in a corner is over every route
-          // rather than inside one: the app goes there from wherever the
-          // user was.
+          // Over every route rather than inside one: the app goes to the parked window from
+          // wherever the user was.
           builder: (context, child) =>
               houseText(context, PipHost(child: child!)),
-          // The splash is the navigator's first route and hands the screen
-          // to Home by replacing itself, so it is unreachable afterwards and
-          // a resume never plays it. `AlertsHost` is inside the route it
-          // pushes rather than around this one — a wrapper here would be
-          // part of the route being replaced, and the watcher reconciliation
-          // and the alert `OPEN` handler would be disposed at the moment
+          // The splash is the navigator's first route and hands the screen to Home by replacing
+          // itself, so a resume never plays it. `AlertsHost` is inside the route it pushes rather
+          // than around this one: a wrapper here would be part of the route being replaced, and
+          // the watcher reconciliation and the `OPEN` handler would be disposed at the moment
           // Home appears.
           home: SplashRoute(
             next: (context) => AlertsHost(
@@ -111,10 +99,6 @@ class DazzleApp extends ConsumerWidget {
   }
 }
 
-/// HOME, HOSTS, SSH and TOOLS are the stable tabs. A plugin may contribute one
-/// additional navigation page. All are kept mounted in an
-/// [IndexedStack], so a tab is never rebuilt from nothing and the screen the
-/// user comes back to is the screen they left.
 class DazzleShell extends ConsumerStatefulWidget {
   const DazzleShell({super.key});
 
@@ -123,17 +107,13 @@ class DazzleShell extends ConsumerStatefulWidget {
 }
 
 class _DazzleShellState extends ConsumerState<DazzleShell> {
-  /// Bumped per tab when it is brought forward, which is what [ScreenEntry]
-  /// turns into "this screen entered" for the decode and smear effects.
   final _entries = List.filled(navDestinations.length, 0);
 
   void _onIndexChanged(int index) {
     setState(() => _entries[index]++);
     ref.read(navGlitchProvider).fire(index);
-    // A selection never survives a navigation away from its panel, and the
-    // tabs keep every screen mounted — the panel is never disposed, so the
-    // shell is the only place that sees the user leave it. The fresh set
-    // leaves by the same door: a tab switch is leaving the screen.
+    // The tabs keep every screen mounted, so the panel is never disposed and the shell is
+    // the only place that sees the user leave it.
     ref.read(dropSelectionProvider.notifier).clear();
     ref.read(freshDropsProvider.notifier).clear();
   }
@@ -169,13 +149,8 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _systemBars(context.tokens.brightness),
-      // Outside the tabs and every route pushed over them: the keyboard is the
-      // window's, not a screen's, and the screen that had it up when the window
-      // stopped is not always the one that comes back.
       child: KeyboardRelease(
         child: AutonomousTicks(
-          // One event at a time: the tick always lands on the icon of the
-          // screen in front of the user, never on a background tab.
           onTick: () => glitch.fire(ref.read(navIndexProvider)),
           child: Scaffold(
             backgroundColor: context.tokens.backgroundPrimary,
@@ -189,12 +164,6 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
                 ],
               ),
             ),
-            // The parked shell rides over the nav bar rather than in the body:
-            // it belongs to the app and not to a tab, and the shell sheet comes
-            // down onto it from any of the four. The agent line is there for
-            // the same reason and sits above it, furthest from the thumb: the
-            // parked shell is tapped to get back into something, and the line
-            // is read.
             bottomNavigationBar: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

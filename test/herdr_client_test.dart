@@ -11,9 +11,9 @@ import 'support/herdr_link.dart';
 
 void main() {
   test('parses a local herdr agent list fixture', () {
-    final decoded =
-        jsonDecode(File('test/fixtures/herdr_agent_list.json').readAsStringSync())
-            as Map<String, Object?>;
+    final decoded = jsonDecode(
+      File('test/fixtures/herdr_agent_list.json').readAsStringSync(),
+    ) as Map<String, Object?>;
     final agents = HerdrClient.parseAgentList(
       decoded['result']! as Map<String, Object?>,
       session: 'lab',
@@ -70,8 +70,6 @@ void main() {
       ),
       isEmpty,
     );
-    // Any other refusal is the host no longer answering the way this reads it,
-    // and an empty panel would hide it.
     expect(
       () => HerdrClient.parseSessionAgents(
         const HerdrRefusal('invalid_request', 'unknown method'),
@@ -87,7 +85,6 @@ void main() {
     );
 
     expect(sessions.single.socketPath, contains('default'));
-    // A roster without it is a host this app cannot reach a server on.
     expect(
       () => HerdrClient.parseSessions(
         '{"sessions":[{"default":true,"name":"default","running":true}]}',
@@ -136,7 +133,6 @@ void main() {
           SpawnRefusal.noDefaultSession,
         ),
       );
-      // A name the app would never put on a line is not a session it can use.
       expect(
         target([('my session', running: true, isDefault: true)]),
         isA<SpawnTargetRefused>(),
@@ -145,9 +141,8 @@ void main() {
   );
 
   test('a lookup failure is not a refused connection', () {
-    // Dart words the DNS failure in the exception's own message; the errno
-    // beneath is EAI_*, a namespace that cannot be told from a connect errno
-    // by number, which is why this reads the words.
+    // Dart words the DNS failure in the exception's own message; the errno beneath is EAI_*,
+    // a namespace that cannot be told from a connect errno by number.
     expect(
       HerdrClient.isLookupFailure(
         const SocketException(
@@ -166,7 +161,6 @@ void main() {
       ),
       isFalse,
     );
-    // A tarpit that accepts and never speaks is a timeout, not a lookup.
     expect(
       HerdrClient.isLookupFailure(
         const SocketException('Connection timed out'),
@@ -177,10 +171,10 @@ void main() {
 
   test('rejects a response from an unknown protocol shape', () {
     expect(
-      () => HerdrClient.parseAgentList(
-        const {'type': 'other', 'protocol': 22},
-        session: 'default',
-      ),
+      () => HerdrClient.parseAgentList(const {
+        'type': 'other',
+        'protocol': 22,
+      }, session: 'default'),
       throwsA(
         isA<HerdrProtocolMismatch>().having(
           (error) => error.protocol,
@@ -189,7 +183,6 @@ void main() {
         ),
       ),
     );
-    // A line this layer could not read at all is the same reason line.
     expect(
       asHerdrFailure(const HerdrMalformed('garbage', 20)),
       isA<HerdrProtocolMismatch>().having(
@@ -287,8 +280,6 @@ void main() {
       () => HerdrRequests.sendKeys((session: 'lab', pane: 'wH:p1'), const []),
       throwsA(isA<HerdrProtocolMismatch>()),
     );
-    // A session name still has to survive being quoted into the one command
-    // that names it.
     expect(
       () => HerdrCommands.attach((session: "lab' reboot '", pane: 'wH:p1')),
       throwsA(isA<HerdrProtocolMismatch>()),
@@ -397,42 +388,42 @@ void main() {
     expect(request.params, {
       'cwd': "/home/dev/checkout with ' quote",
       'label': "label with ' quote",
-      // The pane's shell keeps no history: the `*` reaches herdr as a pattern
-      // and not as whatever the working directory happened to hold.
+      // The `*` reaches herdr as a pattern and not as whatever the working directory happened
+      // to hold.
       'env': {'HISTORY_IGNORE': '*', 'HISTIGNORE': '*'},
       'focus': false,
     });
-    expect(
-      HerdrRequests.workspaceClose('wH').params,
-      const {'workspace_id': 'wH'},
-    );
+    expect(HerdrRequests.workspaceClose('wH').params, const {
+      'workspace_id': 'wH',
+    });
   });
 
-  test('the directory is resolved and tested before anything is made', () async {
-    final temp = Directory.systemTemp.createTempSync('dazzle-herdr-command');
-    addTearDown(() => temp.deleteSync(recursive: true));
-    final directory = Directory("${temp.path}/checkout with ' quote")
-      ..createSync();
+  test(
+    'the directory is resolved and tested before anything is made',
+    () async {
+      final temp = Directory.systemTemp.createTempSync('dazzle-herdr-command');
+      addTearDown(() => temp.deleteSync(recursive: true));
+      final directory = Directory("${temp.path}/checkout with ' quote")
+        ..createSync();
 
-    Future<ProcessResult> resolve(String path, {String? home}) => Process.run(
-      '/bin/sh',
-      ['-c', HerdrCommands.resolveDirectory(path)],
-      environment: {'HOME': ?home},
-    );
+      Future<ProcessResult> resolve(String path, {String? home}) => Process.run(
+        '/bin/sh',
+        ['-c', HerdrCommands.resolveDirectory(path)],
+        environment: {'HOME': ?home},
+      );
 
-    final found = await resolve(directory.path);
-    expect(found.exitCode, 0, reason: '${found.stderr}');
-    expect((found.stdout as String).trim(), directory.path);
+      final found = await resolve(directory.path);
+      expect(found.exitCode, 0, reason: '${found.stderr}');
+      expect((found.stdout as String).trim(), directory.path);
 
-    // `workspace.create` takes a cwd that is not there without a word, so the
-    // test is done here or nowhere.
-    final missing = await resolve('${temp.path}/nowhere');
-    expect(missing.exitCode, 20);
+      final missing = await resolve('${temp.path}/nowhere');
+      expect(missing.exitCode, 20);
 
-    final tilde = await resolve('~/checkout with \' quote', home: temp.path);
-    expect(tilde.exitCode, 0, reason: '${tilde.stderr}');
-    expect((tilde.stdout as String).trim(), directory.path);
-  });
+      final tilde = await resolve('~/checkout with \' quote', home: temp.path);
+      expect(tilde.exitCode, 0, reason: '${tilde.stderr}');
+      expect((tilde.stdout as String).trim(), directory.path);
+    },
+  );
 
   test(
     'an exchange that stops moving is given up on and then let go',
@@ -444,8 +435,8 @@ void main() {
         throwsA(isA<TimeoutException>()),
       );
 
-      // What the abandoned exchange fails with once its channel closes under it
-      // has nowhere to go, and must not reach the zone as an unhandled error.
+      // What the abandoned exchange fails with once its channel closes under it must not reach
+      // the zone as an unhandled error.
       stalled.completeError(const SocketException('channel closed'));
       await Future<void>.delayed(const Duration(milliseconds: 20));
     },

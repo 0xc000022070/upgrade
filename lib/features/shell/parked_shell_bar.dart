@@ -9,17 +9,11 @@ import 'shell_sessions.dart';
 import 'shell_watcher.dart';
 import 'shell_status.dart';
 
-/// One row, over the nav bar: enough for a name, a state and a verb, and no
-/// more than the sheet gives back when it goes down.
 const parkedShellBarHeight = 36.0;
 
-/// The shell the user dragged away, parked over the nav bar, one tap from
-/// being back.
-///
-/// Drawn whenever a session is open anywhere, so it is already standing under
-/// the sheet while the sheet is up and is on screen the instant the sheet has
-/// gone. Nothing animates it in: the sheet going down is the only thing that
-/// should be moving.
+/// Drawn whenever a session is open anywhere, so it is already standing under the sheet
+/// while the sheet is up and is on screen the instant the sheet has gone. Nothing
+/// animates it in: the sheet going down is the only thing that should be moving.
 class ParkedShellBar extends ConsumerWidget {
   const ParkedShellBar({super.key});
 
@@ -28,8 +22,8 @@ class ParkedShellBar extends ConsumerWidget {
     final store = ref.watch(shellSessionsProvider);
     return ShellWatcher(
       store: store,
-      // The bar names one tab and says what it is called, so it follows that
-      // tab as well as the set that decides which one it is.
+      // The bar names one tab and says what it is called, so it follows that tab as
+      // well as the set that decides which one it is.
       watch: (store) {
         final session = store.parked;
         return session == null ? const [] : [session];
@@ -48,8 +42,6 @@ class _Bar extends StatelessWidget {
 
   final ShellSession session;
 
-  /// Tabs running behind the one named, on this host and on any other. The bar
-  /// leads to one shell, and this is how it says there are more.
   final int others;
 
   @override
@@ -58,8 +50,8 @@ class _Bar extends StatelessWidget {
     return GestureDetector(
       key: const ValueKey('parked-shell'),
       behavior: HitTestBehavior.opaque,
-      // The session, not the host: the bar names one tab and lands on the tab
-      // it names.
+      // The session, not the host: the bar names one tab and lands on the tab it
+      // names.
       onTap: () => openHostShell(context, session.host, session: session),
       child: DecoratedBox(
         decoration: BoxDecoration(

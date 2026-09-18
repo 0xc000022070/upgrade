@@ -6,8 +6,6 @@ DiffLine removed(String text) => DiffLine(DiffLineKind.removed, text);
 DiffLine added(String text) => DiffLine(DiffLineKind.added, text);
 DiffLine context(String text) => DiffLine(DiffLineKind.context, text);
 
-/// What the row would paint, so a case reads as the words it marks rather than
-/// as a pair of offsets.
 String? marked(List<DiffLine> lines, int at) {
   final span = intralineChanges(lines)[at];
   return span == null ? null : lines[at].text.substring(span.start, span.end);

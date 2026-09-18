@@ -8,13 +8,6 @@ import 'path_line.dart';
 import 'progress_bar.dart';
 import 'signal_text.dart';
 
-/// Three columns and nothing else: a 14px glyph on the left when
-/// the row is actionable, a mono line stack in the middle, and one right-hand
-/// column carrying a short inline bar and a value.
-///
-/// The height is the content's, not a fixed step: the mocks land a one-line row
-/// near 40, a two-line row near 57 and a three-line row near 70, which is what
-/// a constant 12px of vertical padding and a 4px line gap produce.
 class ListRow extends StatelessWidget {
   const ListRow({
     super.key,
@@ -41,76 +34,41 @@ class ListRow extends StatelessWidget {
     this.decode = false,
   }) : assert(value == null || valueSpans == null, 'one value column');
 
-  /// The line above the title — the project a row belongs to. Drawn as it is
-  /// handed over: a row whose kicker is a word the app chose says it in
-  /// capitals itself, and a row whose kicker is a sha says it the way the
-  /// repository does, because a reader who retypes it needs the string and
-  /// not a rendering of it.
   final String? kicker;
 
   final String title;
 
-  /// The title is a name this app did not choose — a path, a sha — so it is
-  /// drawn in the case it has and given up from the left rather than from the
-  /// end, which is the half that identifies it. Set here rather than guessed
-  /// from the string: a title with a slash in it is not necessarily one of
-  /// these, and one of these is not necessarily too long to matter.
   final bool literalTitle;
 
-  /// Second line. On a blocked row this is the reason, in warning.
   final String? subtitle;
 
-  /// Third line, always muted: the context a row came from.
   final String? caption;
 
-  /// The 14px glyph slot. A row with no action leaves it empty and the text
-  /// starts at the panel's padding.
   final Widget? leading;
 
-  /// The selection checkbox is a mono `[ ]`, which needs 24 rather than
-  /// the 14 a glyph takes. The slot widens; the gutter after it does not, so
-  /// every other row on the screen keeps its left edge.
   final double leadingWidth;
 
-  /// Percent, duration, time or count. One column, right-aligned.
   final String? value;
 
-  /// The same column when the value is two values — a diff count's added and
-  /// removed, which mean opposite things and are read at a glance rather than
-  /// parsed. A row sets this or [value], never both; the spans take the value
-  /// style and override only what makes them tell apart.
   final List<TextSpan>? valueSpans;
   final Color? valueColor;
   final bool valueStrong;
 
-  /// 0..1. Draws the 56x2 inline bar immediately left of [value].
   final double? progress;
 
-  /// The diamond that marks a row as opening something.
   final bool node;
 
-  /// Escape hatch for a row whose right edge is a control rather than a value.
   final Widget? trailing;
 
   final VoidCallback? onTap;
 
-  /// No trailing `...`: the sheet is a long press, so a row keeps
-  /// its right column for data.
-  ///
-  /// It is also the way into selection mode on a drop row. It carries no
-  /// argument: the mode is the panel's, and the row only says which one was
-  /// held.
   final VoidCallback? onLongPress;
 
-  /// The checkbox glyph toggles done without opening the quick view,
-  /// with a 40px target. It is an overlay rather than a wrapper around
-  /// [leading], because a hit outside the 14px glyph slot never reaches a
-  /// child of it. 40 is wider than the 26px gutter, so the target does take
-  /// the first two characters of the title with it — the alternative is a
-  /// 14px target, which the spec rules out.
+  /// An overlay rather than a wrapper around [leading], because a hit outside the 14px
+  /// glyph slot never reaches a child of it. 40 is wider than the 26px gutter, so the
+  /// target does take the first two characters of the title with it.
   final VoidCallback? onLeadingTap;
 
-  /// The one row a screen is built around gets a 13px title instead of 12.
   final bool lead;
 
   final Color? titleColor;
@@ -124,9 +82,7 @@ class ListRow extends StatelessWidget {
         ? base
         : base.copyWith(color: titleColor);
 
-    // The glyph sits on the title's line, not on the row's centre: a three
-    // line row would otherwise park it next to the reason. Every other line
-    // indents past the slot so the whole stack keeps one left edge.
+    // The glyph sits on the title's line, not on the row's centre.
     final indent = leading == null ? 0.0 : leadingWidth + Spacing.lg;
 
     Widget indented(Widget child) => Padding(
@@ -150,9 +106,8 @@ class ListRow extends StatelessWidget {
           if (leading != null) ...[
             SizedBox(
               width: leadingWidth,
-              // As tall as the title's line is drawn, not as tall as it was
-              // designed: held at the one, the glyph rose off the letters it
-              // marks the moment the reader asked for a larger text size.
+              // As tall as the title's line is drawn, not as designed: held at the one, the glyph
+              // rose off the letters the moment the reader asked for a larger text size.
               height:
                   MediaQuery.textScalerOf(context).scale(titleStyle.fontSize!) *
                   titleStyle.height!,
@@ -256,8 +211,8 @@ class ListRow extends StatelessWidget {
       body = Stack(
         children: [
           content,
-          // Last child, so it is hit-tested first and its recognizer enters
-          // the arena before the row's — the inner tap wins.
+          // Last child, so it is hit-tested first and its recognizer enters the arena before the
+          // row's.
           Positioned(
             left: 0,
             top: 0,
@@ -282,15 +237,11 @@ class ListRow extends StatelessWidget {
   }
 }
 
-/// Rows inside a panel are separated by a 1px rule that runs the full
-/// inner width, the way a table rules its lines.
 class ListRowGroup extends StatelessWidget {
   const ListRowGroup({super.key, required this.children, this.ruled = true});
 
   final List<Widget> children;
 
-  /// HOME's PROJECTS panel stacks its rows unruled: each row is already three
-  /// lines tall, and a rule between them turns the panel into a grid.
   final bool ruled;
 
   @override

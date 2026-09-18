@@ -1,9 +1,5 @@
 import 'database.dart';
 
-/// Bundled items render adjacent in every list. Adjacency is a
-/// projection concern, not an order column — the list keeps its own sort and
-/// each bundle is pulled together at the position of its first member, so a
-/// pair never changes where the pair sits.
 List<Task> withBundlesAdjacent(List<Task> items) {
   final byBundle = <String, List<Task>>{};
   for (final item in items) {

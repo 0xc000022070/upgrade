@@ -5,12 +5,8 @@ import 'package:dazzle/features/code/syntax.dart';
 
 import 'support/themed_app.dart';
 
-/// The one glyph a tree row carries.
-///
-/// The table behind it is keyed by the name `languageOf` gives a grammar and
-/// nothing ties the two together at compile time, so a grammar renamed on one
-/// side and not the other loses its glyph without a word. What is asserted
-/// here is that every name still finds one.
+/// The table is keyed by the name `languageOf` gives a grammar and nothing ties the two
+/// together at compile time, so a grammar renamed on one side loses its glyph silently.
 
 Future<int> _draw(WidgetTester tester, Widget icon, {double scale = 1}) async {
   await tester.pumpWidget(
@@ -30,7 +26,6 @@ Future<int> _draw(WidgetTester tester, Widget icon, {double scale = 1}) async {
 Future<int> _file(WidgetTester tester, String path) =>
     _draw(tester, FileIcon.file(languageOf(path)));
 
-/// One path per grammar the tree marks with a glyph of its own.
 const _own = <String, String>{
   'dart': 'lib/main.dart',
   'javascript': 'web/app.js',

@@ -108,8 +108,6 @@ void main() {
       await tester.tapAt(Offset(strip.center.dx, strip.top + _paneHeight / 2));
       await tester.pump();
 
-      // Half the strip is half the file: five hundred pixels in, less half a
-      // pane so what was touched is looked at rather than begun at.
       expect(scroll.offset, _rows * _rowHeight / 2 - _paneHeight / 2);
     });
 
@@ -143,12 +141,11 @@ void main() {
       final touch = await tester.startGesture(
         Offset(strip.center.dx, strip.bottom - 10),
       );
-      // A thumb that rests before it moves has already jumped once by the time
-      // the drag is told apart from a tap, and taking the origin then would
-      // owe the way back to where that first jump landed.
+      // A thumb that rests before it moves has already jumped once by the time the drag is
+      // told apart from a tap.
       await tester.pump(const Duration(milliseconds: 200));
-      // Two moves: the first is spent winning the drag, and the second is the
-      // first frame of the scrub that reports one.
+      // Two moves: the first is spent winning the drag, the second is the first frame that
+      // reports one.
       await touch.moveBy(const Offset(0, -40));
       await tester.pump();
       await touch.moveBy(const Offset(0, -20));

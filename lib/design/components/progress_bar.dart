@@ -3,8 +3,6 @@ import 'package:flutter/widgets.dart';
 import '../tokens.dart';
 import '../motion.dart';
 
-/// A 2px rule that fills. No rounded caps, no gradient, no percentage baked in
-/// — the number is metadata and lives next to the bar, not inside it.
 class ProgressBar extends StatelessWidget {
   const ProgressBar({
     super.key,
@@ -14,16 +12,11 @@ class ProgressBar extends StatelessWidget {
     this.thickness = 2,
   });
 
-  /// 0..1. A goal with no tasks is 0, never indeterminate.
   final double value;
 
-  /// A diamond marker is reserved for the fill edge; passing it in
-  /// keeps the bar itself free of animation state.
   final Widget? head;
   final double headSize;
 
-  /// Secondary goals draw a 1px rule so the main goal's 2px bar stays the one
-  /// the eye lands on.
   final double thickness;
 
   @override

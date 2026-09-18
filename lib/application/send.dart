@@ -13,10 +13,6 @@ import 'agent_kind.dart';
 import 'agents.dart';
 import 'providers.dart';
 
-/// Nothing outside this typedef's implementation names a transport, the same
-/// way the agents feed's fetch does not: today a send is an ssh command, and a
-/// backend proxying herdr would replace [HerdrClient] without a screen or a
-/// provider above changing.
 typedef HerdrSend = Future<SpawnResult> Function({
   required String address,
   required int port,
@@ -30,16 +26,12 @@ typedef HerdrSend = Future<SpawnResult> Function({
   HostKeyVerifier? verifier,
 });
 
-/// How a local file becomes bytes. A seam for the same reason [HerdrSend] is
-/// one: a test drives a send with images and no filesystem under it.
 typedef ReadImage = Future<Uint8List> Function(String path);
 
 Future<Uint8List> _readFile(String path) => File(path).readAsBytes();
 
-/// The evidence seam, the one the watcher already uses. With
-/// `--dart-define=DAZZLE_FAKE_SPAWN=true` the send never dials and answers
-/// with a pane id, which is what lets the sheet's three states be captured on
-/// an emulator while the verb is not deployed on the host yet.
+/// With `--dart-define=DAZZLE_FAKE_SPAWN=true` the send never dials and answers with a
+/// pane id.
 const _fakeSpawn = bool.fromEnvironment('DAZZLE_FAKE_SPAWN');
 
 Future<SpawnResult> _fakeSend({
@@ -65,14 +57,9 @@ final herdrSendProvider = Provider<HerdrSend>((ref) {
   return client.send;
 });
 
-/// What the agent is handed on stdin: the drop's title as it was typed, then a
-/// blank line, one link per line, and one image path per line under them.
-///
-/// Not a template with headings. The title is the whole instruction the user
-/// wrote, and anything wrapped around it would be words the agent reads as
-/// coming from them. An image is its path on the host and nothing else, which
-/// is what both agents document as the way to hand them a picture; the bytes
-/// are already there by the time this string is read.
+/// The title is the whole instruction: nothing is wrapped around it, or the agent reads
+/// those words as the user's. An image is its path on the host, which is how both
+/// agents document being handed a picture.
 String sendPrompt({
   required String title,
   required List<String> links,
@@ -100,8 +87,6 @@ final class SendSent extends SendState {
 final class SendFailed extends SendState {
   const SendFailed(this.reason);
 
-  /// One line, lowercase, the words the agents panel already uses for the
-  /// connection failures so the same problem never reads two ways.
   final String reason;
 }
 
@@ -115,11 +100,6 @@ String spawnRefusalReason(SpawnRefusal refusal) => switch (refusal) {
   SpawnRefusal.noDefaultSession => 'no default session',
 };
 
-/// One send, end to end: key, dial, prompt, and the row that says it happened.
-///
-/// A plain class and not a notifier because the sheet owns the state — it has
-/// exactly one send in flight and forgets it when it closes — and because a
-/// test can then drive a send with three fakes and no widget tree.
 class Sender {
   const Sender({
     required this.send,
@@ -135,9 +115,6 @@ class Sender {
   final ReadImage readImage;
   final void Function()? checkActive;
 
-  /// [kind] and [model] are the send's, not the path's: where the work goes is
-  /// a property of the directory, what picks it up is a property of this send.
-  /// [model] null is the agent's own default, which is always accepted.
   Future<SendState> call({
     required PathTarget target,
     required String itemId,
@@ -157,10 +134,8 @@ class Sender {
       log('no private key stored for ${host.keyId}');
       return const SendFailed('key rejected');
     }
-    // Read before the dial. An attachment whose file is gone cannot be sent
-    // without the prompt naming a path the agent would never find, so the send
-    // fails here rather than going out with a line about a picture that is not
-    // there.
+    // Read before the dial: an attachment whose file is gone must not go out as a prompt
+    // naming a path the agent would never find.
     final images = <RemoteFile>[];
     for (final path in imagePaths) {
       try {
@@ -191,9 +166,6 @@ class Sender {
     }
     checkActive?.call();
     switch (result) {
-      // The row is written here and only here: a send that did not come back
-      // with a pane never happened, and `[ SENT ]` must not carry a line the
-      // user cannot open.
       case SpawnSent(:final paneId):
         await dispatches.record(
           itemId: itemId,

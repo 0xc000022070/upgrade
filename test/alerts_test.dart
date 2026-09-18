@@ -15,16 +15,11 @@ import 'package:dazzle/platform/keys.dart';
 
 import 'support/herdr_link.dart';
 
-/// The alerts regression list.
-
-/// A client that never dials: it keeps what it was handed to check the host
-/// with, and reports the host as down so the loop backs off instead of
-/// looping on it.
+/// Never dials: it keeps what it was handed to check the host with, and reports the host
+/// as down so the loop backs off instead of looping on it.
 class RecordingHerdrClient extends HerdrClient {
   RecordingHerdrClient({this.failures = const {}});
 
-  /// What to throw for a given address, when the test wants a particular
-  /// refusal rather than a machine that is merely not there.
   final Map<String, HerdrFailure> failures;
 
   final verifiers = <HostKeyVerifier?>[];
@@ -100,26 +95,20 @@ void main() {
       expect(again.entered.map((agent) => agent.paneId), ['wQ:p1']);
     });
 
-    test('counts every blocked pane as new on the service\'s first snapshot', () {
-      // Amended: the "new" moment is the service starting, and a fresh
-      // service is a fresh [BlockedEdges] on its handler. Nothing to difference
-      // against, so every pane already showing blocked is an edge.
-      final edges = BlockedEdges();
-      final first = edges.apply('h1', [snapshot(), snapshot(pane: 'wQ:p2')]);
-      expect(first.entered, hasLength(2));
-      expect(first.left, isEmpty);
-    });
+    test(
+      'counts every blocked pane as new on the service\'s first snapshot',
+      () {
+        final edges = BlockedEdges();
+        final first = edges.apply('h1', [snapshot(), snapshot(pane: 'wQ:p2')]);
+        expect(first.entered, hasLength(2));
+        expect(first.left, isEmpty);
+      },
+    );
 
     test('a reconnect keeps the set, so nothing still blocked re-enters', () {
-      // The A6 review flag, and the reason the rule was amended. The loop used
-      // to call `edges.reset` on every connect; a pane the user had already
-      // answered came back out of `apply` as an edge, which reposted the alert
-      // with YES/NO restored and threw away its `SENT · YES` line.
       final edges = BlockedEdges();
       expect(edges.apply('h1', [snapshot()]).entered, hasLength(1));
 
-      // The link drops and comes back inside one service life. `_HostLoop`
-      // reconnects and the next snapshot lands on the same set.
       final rejoined = edges.apply('h1', [snapshot()]);
       expect(rejoined.entered, isEmpty, reason: 'no re-alert, no sound');
       expect(rejoined.left, isEmpty);
@@ -130,8 +119,6 @@ void main() {
       final edges = BlockedEdges();
       edges.apply('h1', [snapshot(), snapshot(pane: 'wQ:p2')]);
 
-      // Down and back: p1 unblocked meanwhile, p2 is still blocked, and p3
-      // blocked while nobody was watching.
       final rejoined = edges.apply('h1', [
         snapshot(pane: 'wQ:p2'),
         snapshot(pane: 'wQ:p3'),
@@ -139,7 +126,6 @@ void main() {
       expect(rejoined.left, ['wQ:p1'], reason: 'its notification is cancelled');
       expect(rejoined.entered.map((agent) => agent.paneId), ['wQ:p3']);
 
-      // And once only: the next snapshot after that is quiet again.
       expect(
         edges.apply('h1', [
           snapshot(pane: 'wQ:p2'),
@@ -149,18 +135,18 @@ void main() {
       );
     });
 
-    test('reset is what a host going away does, and it alone makes panes new', () {
-      // `_HostLoop.stop()` — the host was removed or its address, port, user or
-      // key changed, so the next loop is watching a different machine. Nothing
-      // else calls it any more.
-      final edges = BlockedEdges();
-      edges.apply('h1', [snapshot()]);
-      expect(edges.apply('h1', [snapshot()]).entered, isEmpty);
+    test(
+      'reset is what a host going away does, and it alone makes panes new',
+      () {
+        final edges = BlockedEdges();
+        edges.apply('h1', [snapshot()]);
+        expect(edges.apply('h1', [snapshot()]).entered, isEmpty);
 
-      edges.reset('h1');
-      expect(edges.blockedOn('h1'), isEmpty);
-      expect(edges.apply('h1', [snapshot()]).entered, hasLength(1));
-    });
+        edges.reset('h1');
+        expect(edges.blockedOn('h1'), isEmpty);
+        expect(edges.apply('h1', [snapshot()]).entered, hasLength(1));
+      },
+    );
 
     test('a pane that disappears leaves blocked', () {
       final edges = BlockedEdges();
@@ -291,8 +277,6 @@ void main() {
         ..advance();
       expect(backoff.current, const Duration(seconds: 40));
 
-      // What a connection that carried a snapshot does: an outage after hours
-      // of quiet retries in 5 s, not in whatever the last bad night reached.
       backoff.reset();
       expect(backoff.current, watcherMinBackoff);
       backoff.advance();
@@ -300,17 +284,11 @@ void main() {
     });
 
     test('a refused credential is not among the failures it knocks on', () {
-      // The two that are about reaching a machine: a route comes back and a
-      // name starts resolving without anybody touching the phone.
       expect(AgentOutcomeKind.unreachable.retryable, isTrue);
       expect(AgentOutcomeKind.unresolved.retryable, isTrue);
-      // Answered on the far side by an upgrade, and it costs the host an
-      // authenticated connection rather than a failed one.
       expect(AgentOutcomeKind.protocolMismatch.retryable, isTrue);
 
-      // The host refuses this every time it is asked, and counts the asking.
       expect(AgentOutcomeKind.keyRejected.retryable, isFalse);
-      // These two are answered by the user on HOSTS, never by a timer.
       expect(AgentOutcomeKind.hostKeyUnverified.retryable, isFalse);
       expect(AgentOutcomeKind.hostKeyChanged.retryable, isFalse);
     });
@@ -319,8 +297,6 @@ void main() {
       TestWidgetsFlutterBinding.ensureInitialized();
       final store = MemoryPrivateKeyStore();
       await store.write('k1', 'PRIVATE KEY');
-      // One host that answers with a rejected key, one that is merely not
-      // there, watched together the way two rows on HOSTS are.
       final client = RecordingHerdrClient(
         failures: {host.address: const HerdrKeyRejected('key rejected')},
       );
@@ -330,8 +306,6 @@ void main() {
       );
 
       await handler.setHosts(const [host, other]);
-      // Past the first step of the backoff, so a loop that meant to knock
-      // again has had its chance to.
       await Future<void>.delayed(
         watcherMinBackoff + const Duration(seconds: 1),
       );
@@ -380,9 +354,6 @@ void main() {
       await pump();
       expect(seen.last?.outcomes.single.kind, AgentOutcomeKind.unreachable);
 
-      // The toggle going off hands Home straight back to its own poll.
-      // Holding the last report would freeze the panel on `nyx unreachable ·
-      // retry 5s` for a host that is fine.
       running.add(false);
       await pump();
       expect(seen.last, isNull);
@@ -400,9 +371,6 @@ void main() {
       expect(HerdrRequests.paneStatus(pane), [
         {'type': 'pane.agent_status_changed', 'pane_id': 'wQ:p1'},
       ]);
-      // The session-wide set carries panes coming and going but never a status
-      // change, so a blocked agent would go unalerted on that subscription
-      // alone.
       expect(
         HerdrRequests.paneSet.map((subscription) => subscription['type']),
         isNot(contains('pane.agent_status_changed')),
@@ -414,8 +382,6 @@ void main() {
     });
 
     test('a read and a send name the pane and nothing else', () {
-      // Which session a pane lives in is which socket the request is dialled
-      // on, so it never travels inside the request.
       expect(HerdrRequests.read(pane).params, {
         'target': 'wQ:p1',
         'source': 'visible',
@@ -435,9 +401,9 @@ void main() {
     addTearDown(watching.dispose);
     addTearDown(listing.dispose);
 
-    final events = HerdrApi(() async => watching.link).subscribe(
-      HerdrRequests.paneStatus((session: 'default', pane: 'wQ:p1')),
-    );
+    final events = HerdrApi(
+      () async => watching.link,
+    ).subscribe(HerdrRequests.paneStatus((session: 'default', pane: 'wQ:p1')));
     final woken = events.first;
     watching.say(const {
       'id': 'dazzle:0',
@@ -448,8 +414,6 @@ void main() {
       'data': {'pane_id': 'wQ:p1'},
     });
 
-    // herdr names this event with dots and the session-wide ones with
-    // underscores; the watch reads one vocabulary.
     expect((await woken).kind, 'pane_agent_status_changed');
 
     final reply = HerdrApi(() async => listing.link).call('agent.list');
@@ -575,10 +539,6 @@ void main() {
     });
 
     test('the count leaves out the agents a failed host left behind', () {
-      // The watcher sends the last agents a host was seen with so a blink does
-      // not empty the panel. The shade never reaches the tally with a host
-      // down, but the strip over the nav bar draws one beside a failure, so the
-      // rule lives in the count rather than in who calls it.
       expect(
         agentTally([
           HostOutcome(
@@ -628,7 +588,6 @@ void main() {
     expect(decoded.agent, 'claude');
     expect(decoded.text, 'ALLOW touch probe.txt?');
     expect(decoded.title, 'CLAUDE BLOCKED');
-    // The secret is not on the notification: only the id that finds it.
     expect(target.encode(), isNot(contains('PRIVATE KEY')));
     expect(AlertTarget.decode(null), isNull);
     expect(AlertTarget.decode('{'), isNull);
@@ -667,8 +626,6 @@ void main() {
         client: client,
       );
 
-      // `host` has no key pinned to it, which is the state a host is in until
-      // someone stands in front of a fingerprint and says yes.
       await handler.setHosts(const [host]);
       final deadline = DateTime.now().add(const Duration(seconds: 5));
       while (client.verifiers.isEmpty && DateTime.now().isBefore(deadline)) {
@@ -677,9 +634,6 @@ void main() {
       await handler.onDestroy(DateTime.now(), false);
 
       final verifier = client.verifiers.single!;
-      // A service in a notification tray has nobody to ask, so the host is not
-      // trusted for the first time here: it is left for a route the user is
-      // looking at.
       expect(verifier.prompt, isNull);
       expect(
         await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:whatever'),
@@ -750,10 +704,6 @@ void main() {
       client: client,
     );
 
-    // The state the user is actually in: a key trusted from a route months
-    // ago. Without the pin the service refuses this host on every tick, and
-    // the row it draws says `host key unverified` about a host nobody can
-    // verify any harder.
     final pinned = Host(
       id: host.id,
       name: host.name,
@@ -780,8 +730,6 @@ void main() {
       isTrue,
     );
     expect(verifier.refusal, isNull);
-    // The machine answering with something else is still refused, and still
-    // without a prompt: the service has nobody to ask.
     expect(
       await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:someone-else'),
       isFalse,

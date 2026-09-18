@@ -4,9 +4,6 @@ import '../../data/views.dart';
 import '../spacing.dart';
 import '../tokens.dart';
 
-/// One line of the audit stream. The mocks set RECENT tighter
-/// than a list: no glyph, no rule, no tap — what changed on the left, where it
-/// happened and how long ago on the right.
 class ActivityRow extends StatelessWidget {
   const ActivityRow({super.key, required this.entry, required this.timeLabel});
 

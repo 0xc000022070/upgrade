@@ -10,9 +10,8 @@ import 'support/themed_app.dart';
 
 void main() {
   testWidgets('the glyph on a row sits on the line it marks', (tester) async {
-    /// How far the glyph's centre is from the centre of the title beside it.
-    /// Both are box positions rather than ink, so the fallback face a test
-    /// renders with cannot move them.
+    /// Both are box positions rather than ink, so the fallback face a test renders with
+    /// cannot move them.
     Future<double> drift() async {
       await tester.pumpWidget(
         MaterialApp(
@@ -35,17 +34,13 @@ void main() {
       return glyph.center.dy - title.center.dy;
     }
 
-    // Half a pixel, not none: a paragraph's box is rounded up to a whole
-    // pixel and the slot beside it is not.
+    // Half a pixel, not none: a paragraph's box is rounded up to a whole pixel and the slot
+    // beside it is not.
     expect(await drift(), closeTo(0, 0.5));
 
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-    // The glyph marks one line of a stack rather than the row, so the slot
-    // holding it is measured at the size that line is painted. Held at the
-    // size it was designed at, the glyph stayed where a smaller title used to
-    // be and the row read as two things.
     expect(await drift(), closeTo(0, 0.5));
   });
 }

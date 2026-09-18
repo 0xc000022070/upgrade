@@ -28,22 +28,14 @@ class MainActivity : FlutterActivity() {
         getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     }
 
-    // One document picker at a time: the Dart call waiting on it, and for a
-    // save, the bytes to write once the user has chosen where.
+    // One document picker at a time.
     private var pendingDocument: MethodChannel.Result? = null
     private var pendingBytes: ByteArray? = null
 
-    // Picture-in-picture. The window the system parks in the corner is this
-    // activity's own surface, so there is nothing to mirror and nothing to
-    // render twice: Dart is told the mode changed and draws a panel sized for
-    // it.
     private var pipEvents: EventChannel.EventSink? = null
 
-    // The Android 12+ splash fades itself out over the app window it is already
-    // covering. SPEC 16c.1 gives the whole boot log 600ms, and measurement put
-    // ~130ms of it under that fade, so the log was rolling where nobody could
-    // read it. Dropping the splash view the moment the first frame is ready
-    // hands those milliseconds back, and a hard cut is what 16c.1 asks for.
+    // The Android 12+ splash fades itself out over the app window it already
+    // covers, and measurement put ~130ms of the boot log under that fade.
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -59,12 +51,9 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "model" -> result.success(Build.MODEL)
-                    // SPEC 39.16's build line. PackageManager already knows the
-                    // version name and code the apk was signed with, so no
-                    // package carries them into Dart.
+                    // PackageManager already knows the version name and code the
+                    // apk was signed with, so no package carries them into Dart.
                     "build" -> result.success(buildInfo())
-                    // SPEC 39.93's bundle goes through the system picker, so
-                    // the app never decides where the file lives.
                     "saveDocument" -> saveDocument(call.argument<String>("name") ?: "dazzle.bundle",
                         call.argument<String>("mime") ?: "application/octet-stream",
                         call.argument<ByteArray>("bytes") ?: ByteArray(0),
@@ -107,9 +96,8 @@ class MainActivity : FlutterActivity() {
     private fun pipAvailable() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
         packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
 
-    // Wide and short, because what the window carries is lines of text and the
-    // system will not give it more height than the ratio asks for. The system
-    // clamps anything past 2.39:1, which this is well inside.
+    // The system will not give the window more height than the ratio asks for,
+    // and clamps anything past 2.39:1.
     private fun pipParams(): PictureInPictureParams {
         val builder = PictureInPictureParams.Builder()
             .setAspectRatio(Rational(16, 9))
@@ -170,7 +158,6 @@ class MainActivity : FlutterActivity() {
         pendingBytes = null
         val uri: Uri? = if (resultCode == Activity.RESULT_OK) data?.data else null
         if (uri == null) {
-            // Dismissed: nothing happened, and Dart says nothing about it.
             result.success(if (requestCode == SAVE_DOCUMENT) false else null)
             return
         }
@@ -204,11 +191,8 @@ class MainActivity : FlutterActivity() {
 private const val SAVE_DOCUMENT = 3901
 private const val OPEN_DOCUMENT = 3902
 
-// Battery saver and thermal pressure are two OS signals with one meaning for
-// this app: stop spending frames on decoration. They are merged here rather than
-// in Dart so the UI subscribes to the decision, not to the inputs. Either can
-// arrive while the app is in front, and the static has to stop at that moment
-// rather than at the next resume.
+// Battery saver and thermal pressure are merged here rather than in Dart, so the
+// UI subscribes to the decision and not to the two inputs.
 private class ThrottleStreamHandler(
     private val context: Context,
     private val power: PowerManager,
@@ -220,9 +204,7 @@ private class ThrottleStreamHandler(
 
     override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
         events = sink
-        // Replayed on subscribe: the app can be launched with either signal
-        // already standing, and a stream that only reports changes would leave
-        // it running until the first one arrived.
+        // Replayed: the app can be launched with either signal already standing.
         emit()
 
         receiver = object : BroadcastReceiver() {
@@ -234,8 +216,7 @@ private class ThrottleStreamHandler(
         )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // The listener fires on the executor it is given, and an EventSink
-            // may only be touched from the main thread.
+            // An EventSink may only be touched from the main thread.
             val listener = PowerManager.OnThermalStatusChangedListener { emit() }
             thermal = listener
             power.addThermalStatusListener(context.mainExecutor, listener)
@@ -253,10 +234,8 @@ private class ThrottleStreamHandler(
         last = null
     }
 
-    // MODERATE is the first status at which the OS is already throttling the
-    // device to shed heat; LIGHT and NONE are normal running. Both listeners can
-    // fire for a change that does not cross the line, so unchanged values are
-    // dropped here rather than in Dart.
+    // MODERATE is the first status at which the OS is already throttling to shed
+    // heat. Both listeners fire for changes that do not cross the line.
     private fun emit() {
         val throttled = power.isPowerSaveMode ||
             (
@@ -269,13 +248,9 @@ private class ThrottleStreamHandler(
     }
 }
 
-// The default network is the one the app's sockets are on, so a handover
-// straight from wifi to cell arrives here as a loss and an arrival even though
-// the phone was never without a network — which is exactly the case a shell
-// whose reconnect schedule is spent has to be dialled again for.
-//
-// Nothing is replayed on subscribe: the network the phone already had is what
-// the waiting shells failed on.
+// A handover straight from wifi to cell arrives here as a loss and an arrival
+// even though the phone was never without a network. Nothing is replayed on
+// subscribe: the network the phone already had is what the waiting shells failed on.
 private class NetworkStreamHandler(
     private val connectivity: ConnectivityManager,
 ) : EventChannel.StreamHandler {
@@ -299,8 +274,7 @@ private class NetworkStreamHandler(
         events = null
     }
 
-    // The callback runs on a binder thread and an EventSink may only be touched
-    // from the main one.
+    // The callback runs on a binder thread; an EventSink is main-thread only.
     private fun emit(up: Boolean) {
         main.post { events?.success(up) }
     }

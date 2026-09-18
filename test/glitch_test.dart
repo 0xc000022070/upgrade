@@ -29,8 +29,7 @@ void main() {
         await tester.pump(Effects.glitchStep);
       }
 
-      // Frames 0..n-1 in order, then the idle sentinel. The sequence is capped
-      // at 5 frames and 260ms; this is 5 at 225ms.
+      // Capped at 5 frames and 260ms; this is 5 at 225ms.
       expect(frames, [for (var i = 0; i < Effects.glitchFrames; i++) i, -1]);
       expect(
         Effects.glitchStep * Effects.glitchFrames,
@@ -71,8 +70,6 @@ void main() {
       await tester.pump();
       expect(find.byType(GlitchBlocks), findsOneWidget);
 
-      // The last frame is the clean glyph, so the tear is gone one
-      // step before the controller goes idle rather than with it.
       for (var i = 0; i < Effects.glitchFrames - 1; i++) {
         await tester.pump(Effects.glitchStep);
       }
@@ -90,8 +87,6 @@ void main() {
       await tester.pumpWidget(_host(controller, reduceMotion: false));
       controller.fire(seed: 11);
       await tester.pump();
-      // Frame 2 is the accent one. Its blocks take no luminance step, so the
-      // frame is a single flat colour however it is torn.
       await tester.pump(Effects.glitchStep);
       await tester.pump(Effects.glitchStep);
       final accent = tester.widget<GlitchBlocks>(find.byType(GlitchBlocks));
@@ -122,9 +117,6 @@ void main() {
   });
 
   group('block plan', () {
-    /// The ruling is a number, so it is checked as one: no seed may spend more
-    /// than the budget, and overlapping blocks are charged twice here, which
-    /// makes the assertion stricter than the pixels on screen.
     test('never corrupts more than 30% of the shape', () {
       for (var seed = 0; seed < 500; seed++) {
         final plan = planGlitchBlocks(seed, blocks: 8, fragments: 3);
@@ -139,8 +131,6 @@ void main() {
 
     test('blocks keep the sizes and the sideways reach of the spec', () {
       for (var seed = 0; seed < 200; seed++) {
-        // Fragments have ranges of their own, so this asks for displacement
-        // blocks alone.
         for (final block in planGlitchBlocks(seed, blocks: 4, fragments: 0)) {
           expect(block.dest.height, inInclusiveRange(1 / 64, 1 / 4));
           expect(block.dest.width, inInclusiveRange(1 / 8, 1 / 2));
@@ -158,8 +148,6 @@ void main() {
         final moshed = plan.where((block) => block.isMosh).toList();
         expect(moshed, hasLength(inInclusiveRange(1, 2)), reason: 'seed $seed');
         for (final block in moshed) {
-          // A mosh that reached past the box would sample nothing and read as
-          // a hole punched in the glyph rather than as misplaced ink.
           final source = block.dest.top - block.shift.dy;
           expect(source, inInclusiveRange(0, 1 - block.dest.height));
         }
@@ -171,8 +159,6 @@ void main() {
         final plan = planGlitchBlocks(seed, blocks: 0, fragments: 3);
         expect(plan, hasLength(inInclusiveRange(2, 3)), reason: 'seed $seed');
         for (final block in plan) {
-          // "Detach fully": the crumb clears the region it came from, so it
-          // reads as a piece sitting in empty space and not as a thicker edge.
           expect(block.shift.dx.abs(), greaterThan(block.dest.width));
           expect(block.dest.left, greaterThanOrEqualTo(0));
           expect(block.dest.right, lessThanOrEqualTo(1));
@@ -192,10 +178,8 @@ void main() {
     });
 
     test('the boot tear still lands inside the boot cap', () {
-      // The event moved to the end of the roll, so the boot screen now holds
-      // for the whole glitch after its last line instead of tearing a log the
-      // eye has not read yet. main() records six steps and the roll spends one
-      // [Effects.bootLineStep] per step, counting the tick that ends it.
+      // main() records six steps and the roll spends one [Effects.bootLineStep] per step,
+      // counting the tick that ends it.
       final roll = Effects.bootLineStep * 6;
       expect(roll + Effects.glitchDuration, lessThanOrEqualTo(Effects.bootCap));
     });

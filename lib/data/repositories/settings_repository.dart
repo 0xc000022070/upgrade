@@ -1,42 +1,19 @@
 import '../database.dart';
 
-/// The preferences table, read as a stream so a screen that
-/// changes a setting and a screen that obeys it never have to agree on when to
-/// rebuild.
-///
-/// A missing row is the default rather than an error: the table is added
-/// empty by the migration, so every install starts with nothing written and the
-/// defaults here are what the app has always done.
 class SettingsRepository {
   SettingsRepository(this._db);
 
   final AppDatabase _db;
 
-  /// The background grain. Default on — turning it off is the user opting out
-  /// of the
-  /// skin, not the app deciding for them.
   static const staticEnabled = 'static_enabled';
 
-  /// The `[ ALERTS ]` row. Default off: with it on the app holds an
-  /// ssh connection open in the background, which is not a thing to start doing
-  /// on an install that never asked.
   static const alertsBlockedAgents = 'alerts_blocked_agents';
 
-  /// The terminal's type size in logical points. Default 13, the size every
-  /// shell drew before it could be pinched; one size for every host and tab,
-  /// since it is the user's reading distance and not a property of a shell.
   static const shellFontSize = 'shell_font_size';
 
-  /// How much of the explorer's width the tree holds beside the editor, and
-  /// how much of it the drawer holds over the editor, each as a share of the
-  /// pane. Defaults in `PaneSeam`: the seam is a reading decision, so one
-  /// share serves every workspace on every host.
   static const codeSidebarShare = 'code_sidebar_share';
   static const codeDrawerShare = 'code_drawer_share';
 
-  /// The `[ THEME ]` row. Default off (HOUSE): the fixed palette is what
-  /// every spec ruling and screenshot assumes, so a device opts into tracking
-  /// the phone's own theme rather than the app defaulting to it.
   static const themeSystem = 'theme_system';
 
   Stream<bool> watchFlag(String key, {required bool orElse}) {
@@ -52,13 +29,10 @@ class SettingsRepository {
     return row == null ? orElse : row.value == '1';
   }
 
-  /// Upsert on the key, so a preference is written the same way whether or not
-  /// it has ever been set.
   Future<void> setFlag(String key, bool value) =>
       _write(key, value ? '1' : '0');
 
-  /// A number is its decimal text. A row that does not parse reads as the
-  /// default rather than throwing: a preference is never worth a crash.
+  /// A row that does not parse reads as the default rather than throwing.
   Stream<double> watchNumber(String key, {required double orElse}) {
     return (_db.select(_db.settings)..where((s) => s.key.equals(key)))
         .watchSingleOrNull()

@@ -4,10 +4,6 @@ import '../tokens.dart';
 import '../spacing.dart';
 import 'list_row.dart';
 
-/// One row of a picker: the current value is the solid accent
-/// block, everything else is a plain row. Used by the move and pair
-/// pickers and by the settings screen, which is why it sits in the design layer
-/// and not next to either of them.
 class PickerRow extends StatelessWidget {
   const PickerRow({
     super.key,
@@ -22,17 +18,12 @@ class PickerRow extends StatelessWidget {
 
   final String label;
 
-  /// A child project's row carries its parent path here,
-  /// `INFRA / HOMELAB`, so a flat picker still says where a row sits.
   final String? subtitle;
 
   final String? value;
   final bool indent;
   final bool selected;
 
-  /// A row whose condition is not met is drawn dim and does
-  /// nothing. Dim rows elsewhere use [context.tokens.textMuted], so this is
-  /// the same reading and not a second one.
   final bool dim;
 
   final VoidCallback onTap;

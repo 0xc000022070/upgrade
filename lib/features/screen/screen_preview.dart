@@ -12,15 +12,12 @@ import '../../platform/vnc/framebuffer.dart';
 import '../../platform/vnc/rfb_messages.dart';
 import 'screen_transform.dart';
 
-/// The width a host's last frame is stored at. Small enough that a blur of
-/// sigma 2 over it destroys the text and leaves the layout, and small enough
-/// that one file per host stays a few tens of kilobytes.
+/// Small enough that a blur of sigma 2 over it destroys the text and leaves the layout,
+/// and that one file per host stays a few tens of kilobytes.
 const previewWidth = 320;
 
-/// How often a live screen route writes its frame out.
 const previewInterval = Duration(seconds: 30);
 
-/// A frame reduced to [previewWidth], as packed 8-bit rgb.
 class PreviewFrame {
   const PreviewFrame({
     required this.width,
@@ -33,9 +30,9 @@ class PreviewFrame {
   final Uint8List rgb;
 }
 
-/// Area averaging: every target pixel is the mean of the source box it covers,
-/// which is what keeps a downscaled terminal readable as a layout instead of a
-/// field of aliased single pixels.
+/// Area averaging: every target pixel is the mean of the source box it covers, which is
+/// what keeps a downscaled terminal readable as a layout instead of a field of aliased
+/// single pixels.
 PreviewFrame downsampleFrame(
   Framebuffer framebuffer, {
   int width = previewWidth,
@@ -45,8 +42,8 @@ PreviewFrame downsampleFrame(
   if (sourceWidth <= 0 || sourceHeight <= 0) {
     return PreviewFrame(width: 0, height: 0, rgb: Uint8List(0));
   }
-  // A frame already narrower than the target is stored as it is: upscaling
-  // would cost bytes and add nothing the blur does not destroy anyway.
+  // A frame already narrower than the target is stored as it is: upscaling would cost
+  // bytes and add nothing the blur does not destroy anyway.
   final targetWidth = math.min(sourceWidth, width);
   final targetHeight = math.max(
     1,
@@ -83,9 +80,8 @@ PreviewFrame downsampleFrame(
   return PreviewFrame(width: targetWidth, height: targetHeight, rgb: rgb);
 }
 
-/// The pixels under a crop, one for one. No scaling in either direction: what
-/// the user drew a box around is what the agent gets, and a terminal's text is
-/// the first thing resampling destroys.
+/// No scaling in either direction: what the user drew a box around is what the agent
+/// gets, and a terminal's text is the first thing resampling destroys.
 PreviewFrame cropFrame(Framebuffer framebuffer, CropRect rect) {
   final left = rect.left.clamp(0, framebuffer.width);
   final top = rect.top.clamp(0, framebuffer.height);
@@ -109,10 +105,10 @@ PreviewFrame cropFrame(Framebuffer framebuffer, CropRect rect) {
   return PreviewFrame(width: width, height: height, rgb: rgb);
 }
 
-/// Written by hand rather than through `dart:ui`, which can only encode an
-/// image it has already uploaded to the GPU: the frame arrives as bytes, the
-/// tile wants bytes back, and a round trip through the engine would put the
-/// writer on the platform thread and out of reach of a plain unit test.
+/// Written by hand rather than through `dart:ui`, which can only encode an image it has
+/// already uploaded to the GPU: the frame arrives as bytes, the tile wants bytes back,
+/// and a round trip through the engine would put the writer on the platform thread and
+/// out of reach of a plain unit test.
 Uint8List encodePng(PreviewFrame frame) {
   final stride = frame.width * 3;
   final raw = Uint8List(frame.height * (stride + 1));
@@ -135,11 +131,11 @@ Uint8List encodePng(PreviewFrame frame) {
       .takeBytes();
 }
 
-/// The stored size of a frame, read off the header rather than by decoding:
-/// the tile needs the aspect before it has an image to measure.
+/// Read off the header rather than by decoding: the tile needs the aspect before it has
+/// an image to measure.
 ({int width, int height})? readPngSize(List<int> head) {
-  // Signature 8 bytes, then the IHDR chunk's length and name, then the two
-  // dimensions. Nothing before byte 24 varies between PNGs this writer makes.
+  // Signature 8 bytes, then the IHDR chunk's length and name, then the two dimensions.
+  // Nothing before byte 24 varies between PNGs this writer makes.
   if (head.length < 24) return null;
   int be32(int at) =>
       (head[at] << 24) |
@@ -183,10 +179,8 @@ int _crc32(List<int> bytes) {
   return (c ^ 0xFFFFFFFF) & 0xFFFFFFFF;
 }
 
-/// One stored frame: the encoded PNG, the size its header declares, and the
-/// file it came off. The bytes are carried rather than the path alone because
-/// the file is replaced in place — an image keyed on the path would go on
-/// drawing the frame before this one.
+/// The bytes are carried rather than the path alone because the file is replaced in place
+/// — an image keyed on the path would go on drawing the frame before this one.
 class StoredPreview {
   const StoredPreview({
     required this.file,
@@ -203,8 +197,6 @@ class StoredPreview {
   double get aspect => height == 0 ? 16 / 9 : width / height;
 }
 
-/// One PNG per host under the app support directory, replaced in place and
-/// removed with the host. Survives restarts; nothing else reads the directory.
 class ScreenPreviews {
   ScreenPreviews(this.directory);
 
@@ -212,9 +204,8 @@ class ScreenPreviews {
 
   final _changes = StreamController<String>.broadcast();
 
-  /// The host ids whose stored frame has just been written or removed. A tile
-  /// reads its file once and the path never changes, so without this it would
-  /// keep drawing whatever was there when it was first built.
+  /// A tile reads its file once and the path never changes, so without this it would keep
+  /// drawing whatever was there when it was first built.
   Stream<String> get changes => _changes.stream;
 
   static Future<ScreenPreviews> open() async {
@@ -226,7 +217,6 @@ class ScreenPreviews {
 
   File fileFor(String hostId) => File(p.join(directory.path, '$hostId.png'));
 
-  /// Called when the screen route leaves and on a timer while it is live.
   Future<File> write(String hostId, Framebuffer framebuffer) async {
     final bytes = encodePng(downsampleFrame(framebuffer));
     if (!directory.existsSync()) {
@@ -237,7 +227,6 @@ class ScreenPreviews {
     return file;
   }
 
-  /// The last frame this host showed, or null when it has never shown one.
   StoredPreview? read(String hostId) {
     final file = fileFor(hostId);
     if (!file.existsSync()) return null;
@@ -273,16 +262,13 @@ final screenPreviewsProvider = FutureProvider<ScreenPreviews>((ref) async {
   return previews;
 });
 
-/// What a host's tile draws, re-read every time the writer touches that host's
-/// file: the screen route writes one every 30 seconds and again on the way
-/// out, and the tile is what those writes are for.
 final screenPreviewProvider = FutureProvider.family<StoredPreview?, String>((
   ref,
   hostId,
 ) async {
   final previews = await ref.watch(screenPreviewsProvider.future);
-  // Subscribed before the read, so a frame written between the two is not the
-  // one frame this provider never hears about.
+  // Subscribed before the read, so a frame written between the two is not the one frame
+  // this provider never hears about.
   final changes = previews.changes
       .where((changed) => changed == hostId)
       .listen((_) => ref.invalidateSelf());

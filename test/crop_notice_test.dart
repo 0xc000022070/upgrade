@@ -1,6 +1,3 @@
-/// The one line the breadcrumb shows after a crop.
-library;
-
 import 'dart:io';
 import 'dart:typed_data';
 

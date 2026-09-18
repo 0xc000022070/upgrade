@@ -19,9 +19,8 @@ import 'package:dazzle/features/tasks/item_sheet.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// The screen mounts a 10fps ticker for the background static, so nothing here
-/// can use `pumpAndSettle`. Drift needs real time to run its query and fake
-/// time to deliver it, so each round buys a little of both.
+/// The screen mounts a 10fps ticker, so nothing here can use `pumpAndSettle`. Drift needs
+/// real time to run its query and fake time to deliver it, so each round buys both.
 Future<void> _drain(
   WidgetTester tester, {
   Duration step = Duration.zero,
@@ -34,9 +33,8 @@ Future<void> _drain(
   }
 }
 
-/// Panel titles run the decode on entry, so the headers the finders match
-/// on are a glyph soup until it locks. Pre-tap waits therefore have to move the
-/// fake clock; post-tap ones must not, or they would run the glitch out.
+/// Pre-tap waits have to move the fake clock; post-tap ones must not, or they would run
+/// the glitch out.
 Future<void> _ready(WidgetTester tester) =>
     _drain(tester, step: const Duration(milliseconds: 100));
 
@@ -53,8 +51,6 @@ void main() {
     final goals = GoalRepository(db, activity);
     final tasks = TaskRepository(db, activity);
     projectId = await projects.create(name: 'Infra personal');
-    // The checkbox lives on a task filed under a goal. A drop has no
-    // glyph at all, so the toggle tests need a goal to hang the row on.
     final goalId = await goals.create(projectId: projectId, title: 'Storage');
     openTaskId = await tasks.create(
       title: 'Object storage',
@@ -88,17 +84,15 @@ void main() {
     matching: find.text(title),
   );
 
-  /// Read outside the fake clock: a drift query issued inside it never
-  /// completes, because nothing advances the real event loop it waits on.
+  /// Read outside the fake clock: a drift query issued inside it never completes, because
+  /// nothing advances the real event loop it waits on.
   Future<bool> isDoneInDb(WidgetTester tester) async {
     final rows = await tester.runAsync(() => db.select(db.tasks).get());
     return rows!.firstWhere((task) => task.id == openTaskId).done;
   }
 
-  /// The toggle moved off the row and onto the 40px target around the
-  /// checkbox glyph; the row itself now opens the quick view. Tapping the
-  /// title would therefore open a sheet, so the toggle tests aim at the
-  /// row's top-left corner instead.
+  /// The toggle is the 40px target around the checkbox glyph and the row itself opens the
+  /// quick view, so these aim at the row's top-left corner.
   Future<void> tapCheckbox(WidgetTester tester, String title) {
     final row = find.ancestor(
       of: find.text(title),
@@ -107,8 +101,8 @@ void main() {
     return tester.tapAt(tester.getTopLeft(row) + const Offset(12, 12));
   }
 
-  /// Riverpod tears its stream subscriptions down through zero-length timers,
-  /// which the binding counts as pending unless the tree is unmounted first.
+  /// Riverpod tears its stream subscriptions down through zero-length timers, which the
+  /// binding counts as pending unless the tree is unmounted first.
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
@@ -122,9 +116,6 @@ void main() {
     await tapCheckbox(tester, 'Object storage');
     await _drain(tester);
 
-    // One panel per goal replaced OPEN/DONE, so a done item has
-    // nowhere else to be: the write lands, the glitch plays on the glyph the
-    // finger is still on, and the row does not move.
     expect(await isDoneInDb(tester), isTrue);
     expect(inGoal('Object storage'), findsOneWidget);
     expect(find.byType(GlitchBlocks), findsOneWidget);
@@ -163,8 +154,6 @@ void main() {
 
     expect(find.byType(ItemSheet), findsOneWidget);
     expect(await isDoneInDb(tester), isFalse);
-    // The sheet carries the item's location, which is what tells it apart
-    // from the row it grew out of.
     expect(find.text('INFRA PERSONAL / STORAGE'), findsOneWidget);
 
     await unmount(tester);

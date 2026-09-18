@@ -171,8 +171,8 @@ void main() {
           ),
         ),
       );
-      // panel and section titles decode on entry off a periodic timer;
-      // pumpAndSettle does not drain it, so settle with a fixed pump instead.
+      // Panel and section titles decode on entry off a periodic timer; pumpAndSettle does not
+      // drain it.
       await tester.pump(const Duration(seconds: 1));
       expect(tester.takeException(), isNull);
       expect(find.text('A PANEL'), findsOneWidget);

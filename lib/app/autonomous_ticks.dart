@@ -5,10 +5,8 @@ import 'package:flutter/widgets.dart';
 
 import '../design/motion.dart';
 
-/// "It just goes and does it": a low-frequency scheduler so the
-/// tool looks like it is running. Exactly one event fires at a time and the
-/// interval is seeded once per session, so a run is reproducible from its seed
-/// while never repeating the same rhythm across launches.
+/// Exactly one event fires at a time, and the interval is seeded once per session: a run
+/// is reproducible from its seed and never repeats the same rhythm across launches.
 class AutonomousTicks extends StatefulWidget {
   const AutonomousTicks({super.key, required this.onTick, required this.child});
 

@@ -5,10 +5,6 @@ import 'package:flutter/widgets.dart';
 import '../tokens.dart';
 import '../motion.dart';
 
-/// The only loading indicator in the app. A 3x3 grid of 2px
-/// squares with one lit at a time, stepping clockwise around the ring — the
-/// centre is part of the grid but never lights, which is what makes the motion
-/// read as rotation rather than as a random blink.
 class DotSpinner extends StatefulWidget {
   const DotSpinner({super.key});
 
@@ -64,9 +60,6 @@ class _DotSpinnerState extends State<DotSpinner> {
   }
 }
 
-/// Again, "only when a wait exceeds 200ms". A local query almost never
-/// does, so the spinner is gated behind the threshold rather than shown eagerly
-/// and hidden a frame later.
 class DelayedSpinner extends StatefulWidget {
   const DelayedSpinner({super.key});
 

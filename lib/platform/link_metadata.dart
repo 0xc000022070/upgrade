@@ -7,9 +7,6 @@ import 'package:path_provider/path_provider.dart';
 
 import '../application/link_preview.dart';
 
-/// Asking a page what it is. Nothing here runs until a quick view is opened:
-/// filing a link sends no request, and a page learns the phone exists only at
-/// the moment its link is read.
 class LinkMetadataFetcher {
   LinkMetadataFetcher({HttpClient Function()? httpClientFactory})
     : _httpClientFactory = httpClientFactory ?? HttpClient.new;
@@ -18,19 +15,15 @@ class LinkMetadataFetcher {
 
   static const timeout = Duration(seconds: 12);
 
-  /// The read stops at `</head>` anyway; this is the ceiling for a page that
-  /// closes it late or never.
+  /// The read stops at `</head>` anyway; this is the ceiling for a page that closes it
+  /// late or never.
   static const pageLimit = 256 * 1024;
   static const oembedLimit = 64 * 1024;
 
-  /// Honest about being a phone. Sending a crawler's name to get a crawler's
-  /// page is a preview that lies about who is asking, and the hosts that
-  /// answer a crawler and not a browser are the ones [knownOembedEndpoint]
-  /// already covers.
+  /// Honest about being a phone. Sending a crawler's name to get a crawler's page is a
+  /// preview that lies about who is asking.
   static const userAgent = 'Dazzle/1.0 (+link-preview)';
 
-  /// Two requests at worst: a page that publishes a description is finished
-  /// after the first. A post is not — its text lives only in the embed.
   Future<LinkPreview?> fetch(String url) async {
     final target = Uri.tryParse(url);
     if (target == null ||
@@ -53,8 +46,7 @@ class LinkMetadataFetcher {
       }
       return preview.isBare ? null : preview;
     } on Exception {
-      // Every way somebody else's server can fail is the same answer here:
-      // there is no preview, draw the row.
+      // Every way somebody else's server can fail is the same answer here.
       return null;
     } finally {
       client.close(force: true);
@@ -70,8 +62,6 @@ class LinkMetadataFetcher {
     return decoded is Map<String, Object?> ? decoded : null;
   }
 
-  /// The cap is a ceiling and the head is the real limit: a page whose shell
-  /// is a megabyte of script is read as far as the tags and no further.
   Future<String?> _read(
     HttpClient client,
     Uri url, {
@@ -105,16 +95,16 @@ class LinkMetadataFetcher {
         bytes.length = limit;
         break;
       }
-      // The overlap is what stops the marker being missed when a chunk
-      // boundary lands inside it.
+      // The overlap is what stops the marker being missed when a chunk boundary lands inside
+      // it.
       if (html && _closesHead(bytes, from: from - _headEnd.length)) break;
     }
     // A page with one bad byte in its body still has a perfectly good title.
     return utf8.decode(bytes, allowMalformed: true);
   }
 
-  /// Anything a title could be inside. Decoding an image or an archive as text
-  /// to look for `<meta>` in it is work with no possible result.
+  /// Decoding an image or an archive as text to look for `<meta>` in it is work with no
+  /// possible result.
   static bool _readable(ContentType? type) {
     if (type == null) return true;
     if (type.primaryType == 'text') return true;
@@ -142,10 +132,9 @@ class LinkMetadataFetcher {
   }
 }
 
-/// A JSON file under the cache directory, not a table. A preview is a copy of
-/// somebody else's page: it goes stale, it can be reclaimed without losing a
-/// word the user wrote, and it has no business travelling in the bundle that
-/// carries one phone to another.
+/// A JSON file under the cache directory, not a table: a preview goes stale, can be
+/// reclaimed without losing a word the user wrote, and has no business travelling in a
+/// bundle.
 class LinkPreviewCache {
   LinkPreviewCache(this.file);
 
@@ -153,24 +142,23 @@ class LinkPreviewCache {
   static const maxEntries = 64;
   static const ttl = Duration(days: 7);
 
-  /// A page that answered with nothing is remembered too, briefly: without
-  /// this, a link that will never have a card is refetched on every open of
-  /// the item that holds it.
+  /// A page that answered with nothing is remembered too, briefly: without this a link
+  /// that will never have a card is refetched on every open of the item that holds it.
   static const missTtl = Duration(hours: 6);
 
   final File file;
 
   final _entries = <String, _Entry>{};
 
-  /// The read, not a flag: two cards asking at once on a cold start would
-  /// otherwise have the second see an empty map.
+  /// The read, not a flag: two cards asking at once on a cold start would otherwise have
+  /// the second see an empty map.
   Future<void>? _loading;
 
   static LinkPreviewCache inDirectory(Directory cache) =>
       LinkPreviewCache(File(p.join(cache.path, fileName)));
 
-  /// A miss inside its window reads back as a held null, which is why the
-  /// answer is a record and not a nullable preview.
+  /// A miss inside its window reads back as a held null, which is why the answer is a
+  /// record and not a nullable preview.
   Future<({LinkPreview? preview})?> read(String url) async {
     await _load();
     final entry = _entries[url];
@@ -223,7 +211,7 @@ class LinkPreviewCache {
         flush: true,
       );
     } on Exception {
-      // Best effort: the previews are in memory for this run either way.
+      // The previews are in memory for this run either way.
     }
   }
 }
@@ -251,13 +239,9 @@ class _Entry {
   }
 }
 
-/// The cache in front of the fetch, and one request per URL however many cards
-/// ask for it.
 class LinkPreviews {
   LinkPreviews({required this.fetcher, required this.cache});
 
-  /// Unlike the clips beside it the file is kept across runs: a preview
-  /// surviving a restart is the whole point of writing it down.
   static Future<LinkPreviews> open() async {
     final cache = await getTemporaryDirectory();
     return LinkPreviews(

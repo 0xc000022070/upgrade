@@ -65,8 +65,8 @@ Widget harness(
     data: testTheme,
     child: Directionality(
       textDirection: TextDirection.ltr,
-      // The window clamps the reader's text scale rather than ignoring it, and
-      // asking what the scale is means there has to be something to ask.
+      // The window clamps the reader's text scale rather than ignoring it, and asking what the
+      // scale is means there has to be something to ask.
       child: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
         child: child,
@@ -75,27 +75,21 @@ Widget harness(
   ),
 );
 
-/// A second harness pumped under the same scope keeps the first one's feed: a
-/// stream override is read once. Each case gets a scope of its own.
+/// A second harness pumped under the same scope keeps the first one's feed: a stream
+/// override is read once.
 Future<void> clear(WidgetTester tester) =>
     tester.pumpWidget(const SizedBox.shrink());
 
-/// Whether `PIP` is drawn in the disabled grey rather than the resting ink.
 bool dimmed(WidgetTester tester) {
   final text = tester.widget<Text>(find.text('PIP'));
   return text.style?.color == DazzleColors.textDisabled;
 }
 
-/// The rows drawn on the window, in the order they were drawn, as the reader
-/// sees them. They are spans rather than whole strings, so the plain text of
-/// the paragraph is what there is to compare.
 List<String> drawnRows(WidgetTester tester) => tester
     .widgetList<RichText>(find.byType(RichText))
     .map((text) => text.text.toPlainText())
     .toList();
 
-/// The mark files the window asked for, in row order. Read off the loaders
-/// rather than the raster: the point is which file each row named.
 List<String> markAssets(WidgetTester tester) => [
   for (final picture in tester.widgetList<SvgPicture>(
     find.descendant(
@@ -144,9 +138,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Drawn, so the action is learnt where it lives; dim, so it is not read
-      // as an offer; and inert, because a window over nothing is a tile the
-      // user then has to go and close.
       expect(find.text('PIP'), findsOneWidget);
       expect(dimmed(tester), isTrue);
       await tester.tap(find.text('PIP'), warnIfMissed: false);
@@ -206,16 +197,13 @@ void main() {
       await tester.pump(Duration.zero);
       expect(container.read(agentsFeedLiveProvider), isTrue);
 
-      // Entering picture-in-picture pauses the activity, which the framework
-      // reports as inactive. The app is still on the screen, so the poll behind
-      // the window keeps going; the shell's wake and the drops read the
-      // stricter answer.
+      // Entering picture-in-picture pauses the activity, which the framework reports as
+      // inactive.
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       await tester.pump(Duration.zero);
       expect(container.read(agentsFeedLiveProvider), isTrue);
       expect(container.read(appForegroundProvider), isFalse);
 
-      // Behind another app, or swiped away: nobody to count for.
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await tester.pump(Duration.zero);
       expect(container.read(agentsFeedLiveProvider), isFalse);
@@ -245,8 +233,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(PipPanel), findsOneWidget);
-      // Still mounted, and still holding whatever state it had: offstage is not
-      // gone.
       expect(find.text('the app', skipOffstage: false), findsOneWidget);
       expect(find.text('the app'), findsNothing);
 
@@ -304,7 +290,6 @@ void main() {
       final rows = drawnRows(tester);
       expect(rows, contains('CLAUDE · nyx'));
       expect(rows, contains('AMP · nyx'));
-      // Resting agents are not on the window at all.
       expect(rows, isNot(contains('CODEX · nyx')));
       expect(rows.indexOf('CLAUDE · nyx'), lessThan(rows.indexOf('AMP · nyx')));
     });
@@ -349,13 +334,9 @@ void main() {
 
   group('an agent is told apart before its name is read', () {
     test('a name the app cannot place keeps its own letter', () {
-      // herdr reports whatever it found in the pane, so the ones the app has
-      // no file for are the normal case rather than the edge. One box with a
-      // question mark for every one of them separates nothing.
       expect(agentMarkLetter('gemini'), 'G');
       expect(agentMarkLetter('aider'), 'A');
       expect(agentMarkLetter('goose-cli'), 'G');
-      // The one case the question mark is honest in.
       expect(agentMarkLetter(''), '?');
     });
 
@@ -419,9 +400,6 @@ void main() {
       );
       await tester.pump();
 
-      // The count is still there to be read off the feed, and it is not the
-      // headline: nothing can take this window down from inside the app, so the
-      // choice is between a stale tally and saying that it is one.
       expect(find.text('NOT WATCHING'), findsOneWidget);
       expect(find.text('1 BLOCKED · 1 WORKING'), findsNothing);
       expect(find.text('LAST SEEN 1 BLOCKED · 1 WORKING'), findsOneWidget);
@@ -486,8 +464,6 @@ void main() {
       await tester.pump();
       final short = drawnRows(tester);
       final listed = short.where((row) => row.contains(' · nyx')).length;
-      // Fewer rows, and the ones that came off are counted rather than clipped:
-      // the window says five either way.
       expect(listed, lessThan(3));
       expect(find.text('+${5 - listed} MORE'), findsOneWidget);
     });
@@ -513,9 +489,6 @@ void main() {
       await tester.pump();
       final huge = tester.getSize(find.byType(AgentMark).first);
 
-      // It rises, because a window that ignores the setting is a window the
-      // reader it was set for cannot read. It stops, because the system decides
-      // how big this is and nothing here can ask for more room.
       expect(huge.width, greaterThan(plain.width));
       expect(huge.width, closeTo(plain.width * 1.3, 0.01));
     });

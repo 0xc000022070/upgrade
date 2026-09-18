@@ -8,21 +8,16 @@ import 'shell_sessions.dart';
 import 'shell_status.dart';
 import 'shell_thumbnail.dart';
 
-/// Roughly the miniature's own proportions at the size the cards are read at:
-/// wide enough for a line of a shell's output to be recognisable, short enough
-/// that a row of them is a strip and not a wall.
 const shellCardWidth = 160.0;
 const shellCardHeight = 110.0;
 
-/// Two lines of caption, whether or not the shell named itself: a card that
-/// grows when its title arrives would move every card beside it.
+/// Two lines of caption, whether or not the shell named itself: a card that grows when
+/// its title arrives would move every card beside it.
 const shellCardCaptionHeight = 28.0;
 
-/// The whole strip a panel gives the cards.
 const shellCardStripHeight =
     shellCardHeight + Spacing.md + shellCardCaptionHeight;
 
-/// One session: what it is showing, whose it is, and what it is called.
 class ShellCard extends StatelessWidget {
   const ShellCard({super.key, required this.host, required this.session});
 
@@ -31,9 +26,9 @@ class ShellCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The card's own tab, not the store: what a shell prints and what state it
-    // is in are this session's news, and a keystroke in another tab is none of
-    // this card's business.
+    // The card's own tab, not the store: what a shell prints and what state it is in
+    // are this session's news, and a keystroke in another tab is none of this card's
+    // business.
     return AnimatedBuilder(
       animation: session,
       builder: (context, _) => _build(context),
@@ -44,8 +39,8 @@ class ShellCard extends StatelessWidget {
     final title = session.title;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      // The card names the tab, so the route opens on it rather than on
-      // whichever one the host was last left on.
+      // The card names the tab, so the route opens on it rather than on whichever one
+      // the host was last left on.
       onTap: () => openHostShell(context, host, session: session),
       child: SizedBox(
         width: shellCardWidth,
@@ -69,8 +64,6 @@ class ShellCard extends StatelessWidget {
                   Positioned.fill(
                     child: ShellThumbnail(terminal: session.terminal),
                   ),
-                  // The trailing corner: the leading one is where the
-                  // miniature's first line starts.
                   Positioned(
                     right: Spacing.sm,
                     top: Spacing.sm,

@@ -9,8 +9,8 @@ const _rows = 100;
 const _rowHeight = 10.0;
 const _paneHeight = 50.0;
 
-/// The pane the way back floats over: a hundred rows of one height, so an
-/// offset and a line number are the same number read two ways.
+/// A hundred rows of one height, so an offset and a line number are the same number read
+/// two ways.
 Widget pane(DiffJumps jumps) => Theme(
   data: testTheme,
   child: Directionality(
@@ -69,8 +69,6 @@ void main() {
 
       jumps.to(400);
       await tester.pump();
-      // The strip touched twice in the same place, or the walk run off the
-      // end of the file and back onto the hunk it is already on.
       jumps.to(400);
       await tester.pump();
 
@@ -108,11 +106,9 @@ void main() {
       final jumps = mounted(tester);
       await tester.pumpWidget(pane(jumps));
 
-      // The reader is a third of the way down and takes hold of the strip.
       jumps.scroll.jumpTo(300);
       await tester.pump();
       jumps.hold();
-      // A thumb travelling down it hands over a jump per frame.
       for (final offset in [340.0, 420.0, 530.0, 550.0]) {
         jumps.to(offset);
         await tester.pump();
@@ -120,7 +116,6 @@ void main() {
       jumps.release();
       await tester.pump();
 
-      // Not 530: the frame before the last one is not a place the reader was.
       expect(jumps.from, 300);
     });
 
@@ -142,8 +137,6 @@ void main() {
       jumps.release();
       await tester.pump();
 
-      // Letting go ends the movement, so the second drag keeps its own origin
-      // rather than inheriting the first one's.
       expect(jumps.from, 500);
     });
   });
@@ -165,7 +158,6 @@ void main() {
       jumps.to(700);
       await tester.pump();
 
-      // Row twenty, counted from one, is where the second jump began.
       expect(find.text('LINE 21', findRichText: true), findsOneWidget);
     });
 
@@ -178,8 +170,6 @@ void main() {
       jumps.to(700);
       await tester.pump();
 
-      // A cell that takes the pane's width is a banner over the code rather
-      // than something standing in the corner of it.
       final frame = tester.getRect(find.byType(ListView));
       final cell = tester.getRect(find.byKey(const ValueKey('diff-return')));
       expect(cell.width, lessThan(frame.width / 2));
@@ -193,8 +183,6 @@ void main() {
       final jumps = mounted(tester);
       await tester.pumpWidget(pane(jumps));
 
-      // Less than the pane's own height: the lines it came from are still on
-      // the screen, and a way back to them would point at what is in view.
       jumps.to(_paneHeight - _rowHeight);
       await tester.pump();
 
@@ -213,7 +201,6 @@ void main() {
       await tester.pump();
 
       expect(find.byKey(const ValueKey('diff-return')), findsNothing);
-      // Not spent, only out of sight: scrolling away again offers it back.
       expect(jumps.from, 0);
     });
 

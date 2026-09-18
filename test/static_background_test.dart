@@ -24,8 +24,6 @@ void main() {
       final first = _offsetOf(tester);
       expect(first, isNot(start));
 
-      // Half a step later the tile is still where it was: the 10fps rate is the
-      // effect, and a frame in between must not move it.
       await tester.pump(Effects.staticStep ~/ 2);
       expect(_offsetOf(tester), first);
 

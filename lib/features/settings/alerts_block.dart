@@ -8,8 +8,6 @@ import '../../design/components/panel.dart';
 import '../../design/components/picker_row.dart';
 import '../../platform/agent_watcher.dart';
 
-/// The `[ ALERTS ]` block: one row, under `[ HOSTS ]` because it
-/// is about the hosts above it.
 class AlertsSettingsBlock extends ConsumerWidget {
   const AlertsSettingsBlock({super.key, this.requestPermission});
 
@@ -22,9 +20,8 @@ class AlertsSettingsBlock extends ConsumerWidget {
       await settings.setFlag(SettingsRepository.alertsBlockedAgents, false);
       return;
     }
-    // Turning it on asks the OS; refused, the toggle stays off and the
-    // row says so. The refusal is not written to the settings row — the OS is
-    // the record, and it can be granted from outside the app.
+    // The refusal is not written to the settings row: the OS is the record, and it can be
+    // granted from outside the app.
     final granted =
         await (requestPermission ?? AgentWatcher.requestPermission)();
     ref.read(alertsDeniedProvider.notifier).state = !granted;
@@ -46,8 +43,6 @@ class AlertsSettingsBlock extends ConsumerWidget {
             value: 'OFF',
             subtitle: row.subtitle,
             selected: row == AlertsRow.on,
-            // With no HERDR host the row is dim and the toggle does
-            // nothing, so the two halves of "does nothing" read the same.
             dim: !row.interactive,
             onTap: row.interactive ? () => _toggle(ref, row) : () {},
           ),

@@ -7,22 +7,18 @@ import 'package:uuid/uuid.dart';
 
 import '../../application/clips.dart';
 
-/// An image attachment is a copy, not a reference. The gallery
-/// entry the user picked can be deleted, moved or re-encoded by the OS, and a
-/// content URI does not survive a reinstall; the app support directory does.
-///
-/// Rows store the path *relative* to that directory. The sandbox path carries
-/// the package's data directory and changes between installs on some devices,
-/// so an absolute path in the database is a broken image waiting for an
-/// upgrade.
+/// An image attachment is a copy: the gallery entry can be deleted, moved or re-encoded
+/// by the OS, and a content URI does not survive a reinstall. Rows store the path
+/// *relative* to the app support directory, because the sandbox path carries the
+/// package's data directory and changes between installs on some devices.
 abstract final class ImageAttachments {
   static const _uuid = Uuid();
   static const _dir = 'attachments';
 
   static String? _root;
 
-  /// Resolved once at boot so a chip and a readout square can turn a row into a
-  /// file synchronously, inside a build.
+  /// Resolved once at boot so a chip and a readout square can turn a row into a file
+  /// synchronously, inside a build.
   static Future<void> init() async {
     final support = await getApplicationSupportDirectory();
     final dir = Directory(p.join(support.path, _dir));
@@ -30,8 +26,8 @@ abstract final class ImageAttachments {
     _root = support.path;
   }
 
-  /// Null before [init] has run — in a widget test, which has no platform
-  /// channels and no images to show either.
+  /// Null before [init] has run — in a widget test, which has no platform channels and no
+  /// images to show either.
   static String? absolute(String relative) {
     final root = _root;
     if (root == null || p.isAbsolute(relative)) return null;
@@ -39,13 +35,8 @@ abstract final class ImageAttachments {
     return p.isWithin(p.join(root, _dir), resolved) ? resolved : null;
   }
 
-  /// Gallery only, no camera. Returns the relative path of the copy, or
-  /// null when the picker was dismissed.
-  ///
-  /// The picker's own resize is used on the way in. What is kept is what is
-  /// sent, and a camera's full frame is tens of times the bytes of a picture
-  /// an agent can read just as well — the phone's own storage pays for the
-  /// difference too, for the whole life of the drop.
+  /// Gallery only, no camera, and the picker's own resize is used on the way in: what is
+  /// kept is what is sent. Null when the picker was dismissed.
   static Future<String?> pick() async {
     final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
@@ -63,8 +54,8 @@ abstract final class ImageAttachments {
     return relative;
   }
 
-  /// Best effort: the row is the record, and a file that is already gone must
-  /// not stop the row from being deleted.
+  /// Best effort: the row is the record, and a file that is already gone must not stop the
+  /// row from being deleted.
   static Future<void> remove(String relative) async {
     final path = absolute(relative);
     if (path == null) return;

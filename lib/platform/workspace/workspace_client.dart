@@ -5,7 +5,6 @@ import 'package:dartssh2/dartssh2.dart';
 import '../herdr_client.dart';
 import '../host_keys.dart';
 
-/// What one command on a workspace came back with.
 class WorkspaceReply {
   const WorkspaceReply({
     required this.exitCode,
@@ -20,23 +19,14 @@ class WorkspaceReply {
   bool get ok => exitCode == 0;
 }
 
-/// The seam the workspace screens are driven through. A test hands the store
-/// its own function and never opens a socket; the real one is [WorkspaceSsh].
 abstract interface class WorkspaceRunner {
-  /// Runs one command and answers with what it printed. The connection is the
-  /// implementation's business: the caller asks in round trips, not in
-  /// sessions.
   Future<WorkspaceReply> run(String command);
 
   Future<void> close();
 }
 
-/// One ssh connection, held open for as long as a workspace is on screen.
-///
-/// Held, not reopened: a handshake is the expensive part of asking a machine
-/// anything, and every tap on this screen — a file's hunks, a directory's
-/// entries — is one command on a connection that already exists. The screen
-/// closes it on the way out.
+/// Held, not reopened: a handshake is the expensive part of asking a machine anything,
+/// and every tap on this screen is one command on a connection that already exists.
 class WorkspaceSsh implements WorkspaceRunner {
   WorkspaceSsh._(this._socket, this._client);
 
@@ -71,8 +61,8 @@ class WorkspaceSsh implements WorkspaceRunner {
       await _guard(() => client.authenticated, verifier);
       return WorkspaceSsh._(socket, client);
     } on HerdrFailure {
-      // Half-open costs the host a connection until its own timeout, and the
-      // phone has one of these per workspace it opens.
+      // Half-open costs the host a connection until its own timeout, and the phone has one of
+      // these per workspace it opens.
       client.close();
       socket.close();
       rethrow;
@@ -105,8 +95,7 @@ Future<T> _guard<T>(
   try {
     return await body();
   } catch (error) {
-    // The ssh failures are ssh failures whoever asked: the same four reason
-    // lines the agent list and the path scan already word.
+    // The ssh failures are ssh failures whoever asked.
     throw asHerdrFailure(error, verifier?.refusal) ?? error;
   }
 }

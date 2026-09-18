@@ -51,8 +51,6 @@ void main() {
       ),
     );
 
-    // A multiline keyboard type would put a `↵` on the key the checkmark is
-    // on, which is the whole reason the type is stated rather than derived.
     final field = tester.widget<TextField>(find.byType(TextField));
     expect(field.minLines, 1);
     expect(field.maxLines, 6);

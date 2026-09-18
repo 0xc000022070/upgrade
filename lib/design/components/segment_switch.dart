@@ -3,18 +3,6 @@ import 'package:flutter/widgets.dart';
 import '../tokens.dart';
 import '../spacing.dart';
 
-/// Two or more cells that pick which of a screen's lists is drawn, sitting
-/// under the screen title and over the panel stack.
-///
-/// The active cell is marked the way the nav bar marks the active tab: a rule
-/// of [BarSizes.inlineThickness] across the whole cell, in the accent, with the
-/// inactive cells carrying a transparent one so nothing shifts when the pick
-/// moves. Active means one thing in this app, and this does not invent a
-/// second.
-///
-/// The pick is the caller's state. Nothing here is persisted: a screen that
-/// remembers which list it was on across a cold start is answering a question
-/// the user did not ask.
 class SegmentSwitch extends StatelessWidget {
   const SegmentSwitch({
     super.key,
@@ -63,9 +51,6 @@ class _Segment extends StatelessWidget {
       onTap: onTap,
       child: Column(
         children: [
-          // The whole cell is the hit, not the word: a two-cell row across a
-          // phone gives each half more than enough width, and a target the
-          // size of the text would be the smallest one on the screen.
           SizedBox(
             height: TapTargets.minHeight,
             child: Center(

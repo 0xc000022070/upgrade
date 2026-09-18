@@ -6,8 +6,6 @@ import '../effects/glitch.dart';
 import '../spacing.dart';
 import 'dazzle_icons.dart';
 
-/// The only way icons reach the tree. Every asset is monochrome `currentColor`,
-/// so colouring is a theme decision here rather than a property of the file.
 class DazzleIcon extends StatelessWidget {
   const DazzleIcon(
     this.icon, {
@@ -22,13 +20,8 @@ class DazzleIcon extends StatelessWidget {
   final double size;
   final Color color;
 
-  /// Renders the nodes-only variant. It is no longer part of the glitch
-  /// sequence — see [GlitchedIcon] — so this is now only a way to ask for the
-  /// variant outright.
   final bool signal;
 
-  /// When attached, a [GlitchController.fire] plays the glitch frame sequence
-  /// on this icon. Reduce-motion drops it entirely rather than shortening it.
   final GlitchController? glitch;
 
   Widget _svg({required bool asSignal, required Color paint}) {
@@ -47,8 +40,6 @@ class DazzleIcon extends StatelessWidget {
     if (controller == null || MediaQuery.disableAnimationsOf(context)) {
       return rest;
     }
-    // The glitch recolours the icon it was given; it never swaps the icon out
-    // for a different one, so the variant is fixed here and not per frame.
     return GlitchedIcon(
       controller: controller,
       rest: rest,
@@ -57,9 +48,6 @@ class DazzleIcon extends StatelessWidget {
   }
 }
 
-/// The icons a [GlitchController] is ever attached to: the three nav glyphs
-/// (tab change, autonomous tick, capture landing), the task checkbox and the
-/// capture target glyph.
 const glitchIcons = [
   DazzleIcons.home,
   DazzleIcons.projects,
@@ -69,14 +57,9 @@ const glitchIcons = [
   DazzleIcons.submit,
 ];
 
-/// A glitch frame swaps the colour, and flutter_svg keys its cache on the
-/// asset/colour pair — so the first play of a sequence decodes entries it has
-/// never seen and renders nothing until each one lands, which on device shows
-/// up as the icon blinking out for a frame. Warming the pairs is what makes the
-/// first flipbook run as clean as the tenth.
-///
-/// Deliberately not awaited by `main()`: it gates nothing, and no effect may
-/// delay input readiness. The boot log outlasts it either way.
+/// flutter_svg keys its cache on the asset/colour pair, so the first play of a sequence
+/// decodes entries it has never seen and renders nothing until each one lands. Not
+/// awaited by `main()`: it gates nothing.
 Future<void> warmGlitchIcons() {
   const paints = [DazzleColors.textPrimary, DazzleColors.accent];
   return Future.wait([
@@ -89,8 +72,6 @@ Future<void> warmGlitchIcons() {
   ]);
 }
 
-/// Split out so a widget test can assert the glitch layer exists (or, under
-/// reduce-motion, does not) without having to rasterise an SVG.
 class GlitchedIcon extends StatelessWidget {
   const GlitchedIcon({
     super.key,
@@ -101,7 +82,6 @@ class GlitchedIcon extends StatelessWidget {
 
   final GlitchController controller;
 
-  /// What the icon looks like when nothing is happening, which is almost always.
   final Widget rest;
   final Widget Function({required Color paint}) frame;
 
@@ -110,16 +90,8 @@ class GlitchedIcon extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, child) {
-        // Frames, in order: a light tear, a heavier one, the accent, the
-        // heaviest, then the clean glyph. The block set grows across the
-        // sequence rather than decaying — the shape of the artist's study in
-        // design/explorations/motion — so the icon comes apart and is then
-        // simply there again.
-        //
-        // The nodes-only frame is gone. On a glyph like the checkbox the
-        // signal variant is a single 5x5 diamond, so that frame left 0% of the
-        // shape on screen and read as the icon blinking out, which the "at
-        // least 70% intact" rule exists to prevent.
+        // The block set grows across the sequence rather than decaying, and the last frame is
+        // the clean glyph: the flipbook ends on the shape it corrupted.
         return switch (controller.frame) {
           0 => GlitchBlocks(
             seed: controller.seed,
@@ -133,9 +105,6 @@ class GlitchedIcon extends StatelessWidget {
             fragments: 2,
             child: frame(paint: DazzleColors.textPrimary),
           ),
-          // The single colour event of the sequence, so its blocks take no
-          // luminance step and drop no fragments: the frame is one flat accent
-          // shape, torn.
           2 => GlitchBlocks(
             seed: controller.seed + 2,
             blocks: 3,
@@ -149,8 +118,6 @@ class GlitchedIcon extends StatelessWidget {
             fragments: 3,
             child: frame(paint: DazzleColors.textPrimary),
           ),
-          // Frame 4 is the clean glyph held for one step, not the return to
-          // rest: the flipbook itself ends on the shape.
           _ => child!,
         };
       },

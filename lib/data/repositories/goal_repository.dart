@@ -7,8 +7,6 @@ import '../views.dart';
 import 'activity_repository.dart';
 import 'mutation.dart';
 
-/// A goal is a grouping inside one project; it owns no
-/// state, so every operation here is about where items sit, not about the goal.
 class GoalRepository {
   GoalRepository(this._db, this._activity);
 
@@ -69,8 +67,6 @@ class GoalRepository {
     });
   }
 
-  /// The goals table has no `updated_at`: a goal is a label over
-  /// items, and the items carry their own times.
   Future<void> rename(String id, String title, {DateTime? at}) => _mutations
       .on(id)
       .at(at)
@@ -83,8 +79,7 @@ class GoalRepository {
         return null;
       });
 
-  /// The items under a deleted goal fall back to the project's
-  /// DROPS. Deleting a grouping never deletes what was grouped.
+  /// The items under a deleted goal fall back to the project's DROPS.
   Future<void> delete(String id, {DateTime? at}) => _mutations
       .on(id)
       .at(at)

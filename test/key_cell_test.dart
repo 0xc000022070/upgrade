@@ -1,7 +1,3 @@
-/// The shared key: what it reads, how it rolls when what it reads changes,
-/// and the vertical drag that counts an arming up and down.
-library;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/design/colors.dart';
@@ -31,8 +27,8 @@ Future<CellRecord> pumpCell(
         textDirection: TextDirection.ltr,
         child: Align(
           alignment: Alignment.topLeft,
-          // A row, as the bar's is: it hands the cell an unbounded width, which
-          // is what leaves the cell as wide as the word it carries.
+          // A row hands the cell an unbounded width, which is what leaves the cell as wide as the
+          // word it carries.
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -58,7 +54,6 @@ Future<CellRecord> pumpCell(
 
 Finder get _cell => find.byKey(const ValueKey('cell'));
 
-/// A drag the recognizer takes, of exactly [dy] from where the finger landed.
 Future<void> dragCell(WidgetTester tester, double dy) async {
   await tester.drag(_cell, Offset(0, dy));
   await tester.pumpAndSettle();
@@ -210,8 +205,8 @@ void main() {
   testWidgets('a cell with a floor of its own is as wide as its label', (
     tester,
   ) async {
-    /// A cell floated over something rather than sitting in a row: the align
-    /// hands it the whole width and nothing takes it back.
+    /// A cell floated over something rather than sitting in a row: the align hands it the
+    /// whole width and nothing takes it back.
     Future<double> width(double? floor) async {
       await tester.pumpWidget(
         Theme(
@@ -237,10 +232,6 @@ void main() {
       return tester.getSize(find.byKey(const ValueKey('floated'))).width;
     }
 
-    // The floor is a floor: the cell is the word plus its padding, and the
-    // floor only speaks when the word is shorter than it. Given the pane's
-    // whole width the cell took all of it, and the corner mark was drawn as a
-    // bar across the bottom of the screen it was floating over.
     final loose = await width(40);
     expect(loose, lessThan(200));
     expect(loose, greaterThanOrEqualTo(40));

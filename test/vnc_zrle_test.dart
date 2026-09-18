@@ -1,7 +1,3 @@
-/// The ZRLE regression list: vectors for every subencoding, and
-/// the one zlib stream that outlives every rect in a session.
-library;
-
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -10,8 +6,8 @@ import 'package:dazzle/platform/vnc/framebuffer.dart';
 import 'package:dazzle/platform/vnc/vnc_failure.dart';
 import 'package:dazzle/platform/vnc/zrle.dart';
 
-/// A CPIXEL in this session's format: the three low bytes of BGRX, in wire
-/// order. RFC 6143 drops the byte the pixel format never reads.
+/// A CPIXEL in this session's format: the three low bytes of BGRX, in wire order. RFC
+/// 6143 drops the byte the pixel format never reads.
 List<int> cpixel(int blue, int green, int red) => [blue, green, red];
 
 const _a = (0x11, 0x22, 0x33);
@@ -22,8 +18,7 @@ const _e = (0xDD, 0xEE, 0xFF);
 
 List<int> wire((int, int, int) pixel) => cpixel(pixel.$1, pixel.$2, pixel.$3);
 
-/// What the framebuffer should hold for a pixel: BGR from the wire, alpha
-/// forced opaque.
+/// BGR from the wire, alpha forced opaque.
 List<int> opaque((int, int, int) pixel) => [pixel.$1, pixel.$2, pixel.$3, 0xFF];
 
 List<int> pixelAt(Framebuffer buffer, int x, int y) {
@@ -31,9 +26,8 @@ List<int> pixelAt(Framebuffer buffer, int x, int y) {
   return buffer.pixels.sublist(at, at + 4);
 }
 
-/// wayvnc's writer, as far as this decoder can tell: one deflate stream for
-/// the whole session, flushed with `Z_SYNC_FLUSH` at the end of every rect and
-/// never ended.
+/// wayvnc's writer, as far as this decoder can tell: one deflate stream for the whole
+/// session, flushed with `Z_SYNC_FLUSH` at the end of every rect and never ended.
 class DeflateSession {
   final RawZLibFilter _filter = RawZLibFilter.deflateFilter();
 
@@ -62,8 +56,8 @@ void main() {
 
   tearDown(() => decoder.close());
 
-  /// Every subencoding takes the same shape: one tile's bytes, decoded at an
-  /// offset that is not the origin so a tile written to the wrong place shows.
+  /// Decoded at an offset that is not the origin, so a tile written to the wrong place
+  /// shows.
   void decodeTile(List<int> data, {int width = 4, int height = 2}) {
     decoder.decodeRect(
       buffer,
@@ -106,8 +100,8 @@ void main() {
   });
 
   test('subencoding 2: a two-colour palette packs one bit per pixel', () {
-    // 0b0110_0000 and 0b1001_0000: four used bits, the rest padding, and each
-    // row starts on a byte of its own.
+    // 0b0110_0000 and 0b1001_0000: four used bits, the rest padding, and each row starts on
+    // a byte of its own.
     decodeTile([2, ...wire(_a), ...wire(_b), 0x60, 0x90]);
 
     expect(
@@ -175,10 +169,7 @@ void main() {
   });
 
   test('subencoding 128: a run longer than 255 reads its length in parts', () {
-    // 300 of _a then 212 of _b over a whole 64x8 tile: 1 + 255 + 44 and
-    // 1 + 211.
-    // A whole tile, so it starts at the top: 64 by 8 is every row the
-    // framebuffer has.
+    // 300 of _a then 212 of _b over a whole 64x8 tile: 1 + 255 + 44 and 1 + 211.
     decoder.decodeRect(
       buffer,
       Uint8List.fromList([128, ...wire(_a), 255, 44, ...wire(_b), 211]),
@@ -199,7 +190,7 @@ void main() {
       130,
       ...wire(_a), ...wire(_b),
       0x80, 2, // three of palette[0]
-      0x01, //    one of palette[1]
+      0x01, // one of palette[1]
       0x81, 3, // four of palette[1]
     ]);
 
@@ -271,8 +262,6 @@ void main() {
       server.rect([1, ...wire(_a)]);
       final second = server.rect([1, ...wire(_b)]);
 
-      // Which is the whole reason the inflater is never reset: the
-      // second rect is a continuation, not a stream.
       final fresh = ZrleDecoder();
       addTearDown(fresh.close);
       expect(() => fresh.inflate(second), throwsA(anything));

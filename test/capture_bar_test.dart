@@ -18,10 +18,6 @@ import 'package:dazzle/features/home/capture_bar.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// The bar has no toolbar row
-/// of its own any more, so everything under test here only exists while the
-/// field holds focus — and the default row is text, links and images, with the
-/// target behind `+`.
 Future<void> _drain(
   WidgetTester tester, {
   Duration step = Duration.zero,
@@ -41,8 +37,8 @@ Finder _glyph(ToolbarGlyph glyph) => find.byWidgetPredicate(
   (widget) => widget is Icon && widget.icon == glyph.icon,
 );
 
-/// The strip lives in the root overlay rather than under the bar, so the two
-/// fields are told apart by which side of that split they are on.
+/// The strip lives in the root overlay rather than under the bar, so the two fields are
+/// told apart by which side of that split they are on.
 final _line = find.descendant(
   of: find.byType(KeyboardToolbar),
   matching: find.byType(TextField),
@@ -91,7 +87,6 @@ void main() {
     await _ready(tester);
 
     expect(find.byType(KeyboardToolbar), findsOneWidget);
-    // Link, image, `+`. Nothing else, ever.
     expect(_glyph(ToolbarGlyph.link), findsOneWidget);
     expect(_glyph(ToolbarGlyph.image), findsOneWidget);
     expect(_glyph(ToolbarGlyph.more), findsOneWidget);
@@ -112,8 +107,6 @@ void main() {
     await tester.tap(_glyph(ToolbarGlyph.more));
     await _ready(tester);
 
-    // Capture aims, and that is the whole extras row — next and block
-    // are states, and a capture has none.
     expect(_glyph(ToolbarGlyph.back), findsOneWidget);
     expect(_glyph(ToolbarGlyph.target), findsOneWidget);
     expect(_glyph(ToolbarGlyph.next), findsNothing);
@@ -140,8 +133,6 @@ void main() {
     await _ready(tester);
     expect(_glyph(ToolbarGlyph.target), findsOneWidget);
 
-    // The scrim covers everything above the form; the top-left corner of
-    // the screen is the part of it furthest from anything else.
     await tester.tapAt(const Offset(10, 10));
     await _ready(tester);
 
@@ -166,8 +157,6 @@ void main() {
     await tester.tap(find.byType(TextField));
     await _ready(tester);
 
-    // The default target has no chip, so an unaimed capture has no
-    // chip row at all and the toolbar sits on the field.
     expect(find.text('[ DROPS ]'), findsNothing);
     expect(
       KeyboardAccessory.reservedHeight.value,
@@ -195,8 +184,6 @@ void main() {
     final rows = await tester.runAsync(() => db.select(db.tasks).get());
     expect(rows!.single.title, 'revisar pgbouncer');
     expect(rows.single.projectId, project);
-    // The target is the state of one capture, not a mode the bar keeps.
-    // Back at the default, so back to no chip.
     expect(find.text('[ INFRA PERSONAL ]'), findsNothing);
     expect(find.text('[ DROPS ]'), findsNothing);
 
@@ -221,8 +208,6 @@ void main() {
     await tester.tap(find.text('[ INFRA PERSONAL ]'));
     await _ready(tester);
 
-    // Removing the chip is the way back to the default, and the
-    // default is chipless rather than a chip that says DROPS.
     expect(find.text('[ INFRA PERSONAL ]'), findsNothing);
     expect(find.text('[ DROPS ]'), findsNothing);
 
@@ -249,8 +234,6 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 
-    // The field clears, focus drops, and the strip goes with it — so
-    // the scrim and the space it reserved go too.
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
       isEmpty,
@@ -277,8 +260,6 @@ void main() {
 
     final tasks = await tester.runAsync(() => db.select(db.tasks).get());
     final links = await tester.runAsync(() => db.select(db.attachments).get());
-    // The line is a sentence with a URL in it, not an attachment with a
-    // sentence around it. It is kept whole and stored once.
     expect(tasks!.single.title, 'revisar https://min.io');
     expect(links, isEmpty);
 
@@ -321,8 +302,6 @@ void main() {
     await tester.tap(find.text('Ship MVP'));
     await _ready(tester);
 
-    // `[ ROMMY / SHIP MVP ]`. A goal title alone does not say which
-    // project it sits under, and two projects can hold the same goal.
     expect(find.text('[ ROMMY / SHIP MVP ]'), findsOneWidget);
 
     await unmount(tester);
@@ -343,8 +322,6 @@ void main() {
     await tester.enterText(_capture, List.filled(12, 'x').join('\n'));
     await tester.pump();
 
-    // Six lines is taller than one and twelve is not taller than six: past the
-    // cap the text scrolls inside the field instead of taking the screen.
     expect(six, greaterThan(one));
     expect(tester.getSize(_capture).height, six);
 
@@ -387,8 +364,6 @@ void main() {
     await tester.tap(_glyph(ToolbarGlyph.link));
     await _ready(tester);
 
-    // A second field over the strip. The capture keeps what was typed in it,
-    // and the strip reserves the line's height on top of its own.
     expect(_line, findsOneWidget);
     expect(find.text('LINK'), findsOneWidget);
     expect(find.text('https://'), findsOneWidget);
@@ -406,7 +381,6 @@ void main() {
     await tester.tap(find.text('ATTACH'));
     await _ready(tester);
 
-    // Committing takes the line down and leaves a chip behind it.
     expect(_line, findsNothing);
     expect(find.text('[ min.io ]'), findsOneWidget);
     expect(
@@ -439,8 +413,6 @@ void main() {
     await tester.tap(_glyph(ToolbarGlyph.link));
     await _ready(tester);
 
-    // Offered, not taken: the URL is visible and editable, and nothing is
-    // attached until the verb is pressed.
     expect(
       tester.widget<TextField>(_line).controller!.text,
       'https://garagehq.deuxfleurs.fr',
@@ -476,8 +448,6 @@ void main() {
     expect(blocked.onTap, isNull);
     expect(blocked.tone, DazzleColors.textDisabled);
 
-    // The tap lands and nothing happens: the line stays up with the text in
-    // it rather than swallowing it.
     await tester.tap(find.text('ATTACH'));
     await _ready(tester);
     expect(_line, findsOneWidget);
@@ -548,9 +518,6 @@ void main() {
     await tester.tapAt(const Offset(10, 10));
     await _ready(tester);
 
-    // The line belongs to the strip, so it leaves with it — and the caret is
-    // not handed back to the capture field, which would raise the keyboard the
-    // tap just dismissed.
     expect(find.byType(KeyboardToolbar), findsNothing);
     expect(KeyboardAccessory.reservedHeight.value, 0);
     expect(tester.testTextInput.isVisible, isFalse);
@@ -573,9 +540,6 @@ void main() {
     );
     await _ready(tester);
 
-    // The assertion is on what the field actually renders, so it
-    // covers the wiring the controller alone cannot — a bar that forgot to use
-    // it would still pass the controller's own tests.
     final painted = _spans(tester);
     expect(painted.where((span) => span.$2).map((span) => span.$1), [
       'https://min.io/docs',
@@ -585,8 +549,6 @@ void main() {
       'mirar https://min.io/docs manana',
     );
 
-    // The mark says *this is a link*, not *this will be filed as one*: the
-    // paint changes nothing about what submit writes.
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
     final rows = await tester.runAsync(() => db.select(db.attachments).get());
@@ -612,9 +574,8 @@ void main() {
   });
 }
 
-/// The rendered runs of the capture field as (text, highlighted) pairs. The
-/// editable's span is the only place the mark exists — it is a style on a
-/// range, not a widget anyone can find.
+/// The editable's span is the only place the mark exists — a style on a range, not a
+/// widget anyone can find.
 List<(String, bool)> _spans(WidgetTester tester) {
   final span = tester
       .widget<EditableText>(find.byType(EditableText))

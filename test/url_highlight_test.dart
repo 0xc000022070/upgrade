@@ -6,15 +6,11 @@ import 'package:dazzle/features/tasks/url_highlight_controller.dart';
 
 import 'support/themed_app.dart';
 
-/// The highlight is a promise about what a tap will open, so the assertion
-/// that matters is that the painted ranges and [urlTokens] never disagree:
-/// the readout opens exactly the runs the field marked.
 void main() {
   late BuildContext ctx;
 
-  /// [buildTextSpan] reaches `context.tokens` for the marked run's colours,
-  /// so the context it is handed has to be a live one, sitting under the
-  /// house theme, rather than an element that was never mounted.
+  /// [buildTextSpan] reaches `context.tokens`, so the context it is handed has to be a live
+  /// one rather than an element that was never mounted.
   Future<void> mountContext(WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -29,7 +25,6 @@ void main() {
     );
   }
 
-  /// The spans a real field would get, flattened to (text, marked) pairs.
   List<(String, bool)> render(String text) {
     final controller = UrlHighlightController(text: text);
     final span = controller.buildTextSpan(
@@ -44,8 +39,7 @@ void main() {
       out.add((piece.text!, piece.style?.backgroundColor != null));
       return true;
     });
-    // A field with no URL in it gets one plain span, and `visitChildren` on a
-    // childless span visits the span itself.
+    // `visitChildren` on a childless span visits the span itself.
     if (out.isEmpty && span.text != null) out.add((span.text!, false));
     return out;
   }
@@ -70,9 +64,6 @@ void main() {
     'the marked run is the whole whitespace token, trailing dot and all',
     (tester) async {
       await mountContext(tester);
-      // The token is attached as typed, so the highlight has to cover the
-      // trailing dot too: a mark that stopped at `.io` would promise a link the
-      // submit does not attach.
       const text = 'trailing https://min.io.';
       expect(
         render(text).where((span) => span.$2).single.$1,
@@ -84,8 +75,6 @@ void main() {
 
   testWidgets('a bracketed URL is neither painted nor opened', (tester) async {
     await mountContext(tester);
-    // `(https://...)` has no authority once the bracket is part of it, so
-    // there is no token — and the field must not claim otherwise.
     const text = 'ver (https://min.io/docs)';
     expect(render(text).any((span) => span.$2), isFalse);
     expect(urlTokens(text), isEmpty);

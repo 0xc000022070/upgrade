@@ -7,15 +7,11 @@ import '../../design/spacing.dart';
 import '../../platform/workspace/workspace_model.dart';
 import 'diff_jump.dart';
 
-/// A run of neighbouring lines that all arrived, or all left, as a half-open
-/// range of row indices.
 typedef DiffStreak = ({int start, int end, DiffLineKind kind});
 
-/// The added and removed stretches of a diff, in the order they are drawn.
-///
-/// Neighbours of one kind are one streak: a block of forty removed lines is
-/// one place in the file, not forty, and the strip that draws this is too
-/// narrow to tell them apart anyway.
+/// Neighbours of one kind are one streak: a block of forty removed lines is one place in
+/// the file, not forty, and the strip that draws this is too narrow to tell them apart
+/// anyway.
 List<DiffStreak> diffStreaks(List<DiffLine> lines) {
   final streaks = <DiffStreak>[];
   for (var at = 0; at < lines.length; at++) {
@@ -31,8 +27,6 @@ List<DiffStreak> diffStreaks(List<DiffLine> lines) {
   return streaks;
 }
 
-/// The column down the right edge of the diff pane that says where the changes
-/// are and which part of the file is on screen.
 class DiffMap extends StatelessWidget {
   const DiffMap({
     super.key,
@@ -43,22 +37,19 @@ class DiffMap extends StatelessWidget {
 
   final List<DiffStreak> streaks;
 
-  /// How many rows the file has, which is what the strip's height stands for.
   final int rows;
 
-  /// The pane's scroller, read for the window and jumped by a touch.
   final DiffJumps jumps;
 
-  /// Wide enough for a thumb to land on, most of it air around the marks.
   static const width = Spacing.xl;
 
   void _jump(double at, double height) {
     if (!jumps.scroll.hasClients || height <= 0) return;
     final position = jumps.scroll.position;
     final content = position.maxScrollExtent + position.viewportDimension;
-    // The touch names the middle of what the reader wants to see, not its top:
-    // a mark tapped at the very bottom of the strip is still a place to read
-    // around rather than a place to start.
+    // The touch names the middle of what the reader wants to see, not its top: a mark tapped
+    // at the very bottom of the strip is still a place to read around rather than a place to
+    // start.
     final want = at / height * content - position.viewportDimension / 2;
     jumps.to(want);
   }
@@ -70,9 +61,9 @@ class DiffMap extends StatelessWidget {
       builder: (context, constraints) => GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (tap) => _jump(tap.localPosition.dy, constraints.maxHeight),
-        // Taken at the touch and not at the start of the drag: a thumb that
-        // rests before it moves has already jumped once by then, and the way
-        // back would be owed to where that jump landed.
+        // Taken at the touch and not at the start of the drag: a thumb that rests before it
+        // moves has already jumped once by then, and the way back would be owed to where that
+        // jump landed.
         onVerticalDragDown: (drag) => jumps.hold(),
         onVerticalDragUpdate: (drag) =>
             _jump(drag.localPosition.dy, constraints.maxHeight),
@@ -105,14 +96,10 @@ class _MapPainter extends CustomPainter {
   final ScrollController scroll;
   final DazzleTokens tokens;
 
-  /// A single changed line in a file of thousands is a fraction of a pixel
-  /// tall. It is drawn at the smallest height a thumb can be aimed at instead,
-  /// because a mark nobody can see is the same as no strip at all.
+  /// A single changed line in a file of thousands is a fraction of a pixel tall. It is
+  /// drawn at the smallest height a thumb can be aimed at instead.
   static const _leastMark = 3.0;
 
-  /// The marks are a margin note and the code is the subject, so they are kept
-  /// narrow: the accent at full strength down a tenth of the pane's width
-  /// would be the loudest thing on a screen it is only annotating.
   static const _markInset = Spacing.md;
 
   @override
@@ -161,8 +148,8 @@ class _MapPainter extends CustomPainter {
       height,
     );
     canvas.drawRect(window, Paint()..color = tokens.diffMapWindow);
-    // A fill alone is legible against the ground and not against a run of
-    // marks, which is exactly where knowing what is on screen matters most.
+    // A fill alone is legible against the ground and not against a run of marks, which is
+    // exactly where knowing what is on screen matters most.
     final bracket = Paint()..color = tokens.textDisabled;
     canvas.drawRect(
       Rect.fromLTWH(window.left, window.top, window.width, Borders.hairline),

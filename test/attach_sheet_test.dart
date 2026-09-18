@@ -1,7 +1,3 @@
-/// The `?` on the attach sheet: the copy that says where a picture goes, off
-/// until it is asked for and gone again on a second tap.
-library;
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -52,7 +48,6 @@ void main() {
   final copy = find.byKey(const ValueKey('attach-help-body'));
   final photos = find.byKey(const ValueKey('attach-photos'));
 
-  /// The sheet over a live shell, opened the way the key bar opens it.
   Future<void> openSheet(WidgetTester tester) async {
     final session = sessions.open(_nyx)!;
     await tester.runAsync(
@@ -171,8 +166,8 @@ void main() {
     await tester.tap(help);
     await tester.pumpAndSettle();
 
-    // What a live shell runs on its own: the pinentry mark, and one look at
-    // what the pinentry holds open.
+    // What a live shell runs on its own: the pinentry mark, and one look at what the
+    // pinentry holds open.
     expect(connection.execs.map((exec) => exec.command), [
       pinentryMarkCommand(sessions.forHost(_nyx.id).single.tab),
       pinentryOpenCommand(),

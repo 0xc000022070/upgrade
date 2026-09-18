@@ -54,26 +54,12 @@ final attachmentDataGateProvider = Provider<PluginDataGate>(
   dependencies: [pluginDataGateProvider],
 );
 
-/// Overridden in main() with the opened (and, in debug, seeded) database, so
-/// no screen ever has to wait on an async database handle.
 final databaseProvider = Provider<AppDatabase>(
   (ref) => throw UnimplementedError('databaseProvider must be overridden'),
 );
 
-/// Everything that has to be swapped to run the app against a
-/// real database, in one list, because they are swapped together or not at all.
-///
-/// The key and host providers are declared in `agents.dart` over in-memory
-/// implementations so the AGENTS and Settings screens can be built and tested
-/// without a database. That default is the wrong one for the app, and nothing
-/// about reading it says so — the app comes up looking like it works and forgets
-/// every key on restart. Overriding here means the swap is a compile-time fact
-/// of `main()` rather than a thing to remember.
-///
-/// [privateKeyStoreProvider] already defaults to the keystore-backed store, so
-/// its override changes nothing today. It is listed anyway: the three belong to
-/// one decision, and a future change to that default should not silently become
-/// a change to what the app stores private keys in.
+/// Swapped together or not at all. Without them the app comes up looking like it works
+/// and forgets every key on restart.
 List<Override> databaseOverrides(AppDatabase db) => [
   databaseProvider.overrideWithValue(db),
   keyRepositoryProvider.overrideWith(
@@ -126,18 +112,12 @@ final shellTabRepositoryProvider = Provider<ShellTabRepository>(
   (ref) => DriftShellTabRepository(ref.watch(databaseProvider)),
 );
 
-/// Concrete and not swappable the way the host and key repositories are: paths
-/// only ever exist under a host that has been saved, so there is no screen that
-/// can be built without a database to hold them.
 final pathRepositoryProvider = Provider<PathRepository>((ref) {
   final backend = DriftPathRepository(ref.watch(databaseProvider));
   final gate = ref.watch(pluginDataGateProvider);
   return gate == null ? backend : PluginWorkspaceApi(backend, gate);
 }, dependencies: [pluginDataGateProvider]);
 
-/// Every send that happened. Split from [pathRepositoryProvider] because the
-/// two are read from different places: the picker wants targets, the sheet and
-/// the rows want history.
 final dispatchRepositoryProvider = Provider<DispatchRepository>((ref) {
   final backend = DriftDispatchRepository(
     ref.watch(databaseProvider),
@@ -153,8 +133,6 @@ final noteRepositoryProvider = Provider<NoteRepository>((ref) {
   return PluginNoteApi(backend, _gateFor(ref, 'item_notes'), db);
 }, dependencies: [pluginDataGateProvider]);
 
-/// Every screen reads a drift `watch` stream, so a write anywhere repaints the
-/// views that depend on the touched tables without any manual invalidation.
 final nextActionProvider = StreamProvider<NextAction?>(
   (ref) => ref.watch(taskRepositoryProvider).watchNextAction(),
   dependencies: [taskRepositoryProvider],
@@ -170,21 +148,16 @@ final dropsProvider = StreamProvider<List<Task>>(
   dependencies: [taskRepositoryProvider],
 );
 
-/// The registered destinations offered by the send picker.
 final pathTargetsProvider = StreamProvider<List<PathTarget>>(
   (ref) => ref.watch(pathRepositoryProvider).watchTargets(),
   dependencies: [pathRepositoryProvider],
 );
 
-/// The CODE list: every registered directory, host by host. Separate from
-/// [pathTargetsProvider] because the two want different shapes of the same
-/// table — the picker wants a flat list of targets, this wants panels.
 final workspacesByHostProvider = StreamProvider<List<HostWorkspaces>>(
   (ref) => ref.watch(pathRepositoryProvider).watchByHost(),
   dependencies: [pathRepositoryProvider],
 );
 
-/// The directories filed under one project, for its CODE section.
 final projectWorkspacesProvider =
     StreamProvider.family<List<PathTarget>, String>(
       (ref, projectId) =>
@@ -192,8 +165,6 @@ final projectWorkspacesProvider =
       dependencies: [pathRepositoryProvider],
     );
 
-/// One stream for every row that might carry the tag, rather than a query per
-/// drop: Home draws the whole list at once.
 final sentItemsProvider = StreamProvider<Set<String>>(
   (ref) => ref.watch(dispatchRepositoryProvider).watchSentItems(),
   dependencies: [dispatchRepositoryProvider],
@@ -260,9 +231,6 @@ final projectProvider = StreamProvider.family<Project?, String>(
   dependencies: [projectRepositoryProvider],
 );
 
-/// Three families, because a project detail asks three
-/// hierarchy questions: what is under me, what is my number over the subtree,
-/// and what is the path down to me.
 final projectChildrenProvider =
     StreamProvider.family<List<ProjectSummary>, String>(
       (ref, id) => ref.watch(projectRepositoryProvider).watchChildren(id),
@@ -315,8 +283,6 @@ final itemAttachmentsProvider = StreamProvider.family<List<Attachment>, String>(
   dependencies: [attachmentRepositoryProvider],
 );
 
-/// Boot overrides this with a store under the platform's cache directory;
-/// without the override — a widget test — the file is under the system temp.
 final linkPreviewsProvider = Provider<LinkPreviews>((ref) {
   ref.keepAlive();
   return LinkPreviews(
@@ -327,16 +293,12 @@ final linkPreviewsProvider = Provider<LinkPreviews>((ref) {
   );
 });
 
-/// Read when a card asks and not before. Auto-disposed: the answer's home is
-/// the cache on disk, not a provider held open for every URL ever drawn.
 final linkPreviewProvider = FutureProvider.autoDispose
     .family<LinkPreview?, String>(
       (ref, url) => ref.watch(linkPreviewsProvider).of(url),
       dependencies: [linkPreviewsProvider],
     );
 
-/// One subscription for every row on screen: the mark a row draws for its
-/// links reads this map rather than opening a stream of its own.
 final linkCountsProvider = StreamProvider<Map<String, int>>(
   (ref) => ref.watch(attachmentRepositoryProvider).watchLinkCounts(),
   dependencies: [attachmentRepositoryProvider],
@@ -370,17 +332,12 @@ final itemLocationProvider = StreamProvider.family<ItemLocation, String>((
   );
 }, dependencies: [pluginDataGateProvider]);
 
-/// The `[ STATIC ]` setting. A stream and not a one-shot read: the value
-/// is changed on one screen and obeyed on every other, and the driver behind
-/// the settings route has to stop the moment the row is written.
 final staticEnabledProvider = StreamProvider<bool>(
   (ref) => ref
       .watch(settingsRepositoryProvider)
       .watchFlag(SettingsRepository.staticEnabled, orElse: true),
 );
 
-/// The terminal's type size. A stream for the same reason: it is pinched on
-/// one shell tab and drawn on every other, and on the next open of the route.
 final shellFontSizeProvider = StreamProvider<double>(
   (ref) => ref
       .watch(settingsRepositoryProvider)
@@ -390,20 +347,12 @@ final shellFontSizeProvider = StreamProvider<double>(
       ),
 );
 
-/// Where the explorer's seams sit. A stream for the same reason as
-/// [shellFontSizeProvider]: the seam is dragged on one workspace and drawn on
-/// every other, and on the next open of the screen.
 final paneShareProvider = StreamProvider.family<double, PaneSeam>(
   (ref, seam) => ref
       .watch(settingsRepositoryProvider)
       .watchNumber(seam.key, orElse: seam.fallback),
 );
 
-/// The `[ THEME ]` setting: whether the app tracks the phone's own theme
-/// (Material You where the platform offers it, light/dark otherwise) instead
-/// of the fixed house palette. A stream for the same reason as
-/// [staticEnabledProvider]: the row is written on SETTINGS and obeyed by the
-/// running [MaterialApp] on every other screen.
 final themeSystemProvider = StreamProvider<bool>(
   (ref) => ref
       .watch(settingsRepositoryProvider)

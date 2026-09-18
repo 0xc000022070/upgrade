@@ -7,27 +7,18 @@ import '../design/sprite.dart';
 import '../platform/alert_actions.dart';
 import 'alerts_boot.dart';
 
-/// The splash: the mascot's seven frames, once.
-///
-/// Cold start only, and by construction rather than by a flag — the route is
-/// the navigator's first, it replaces itself with Home, and nothing pushes it
-/// again, so a resume comes back to whatever Home was showing.
-///
-/// It sits above `AlertsHost` in the stack rather than below it: the alerts
-/// wiring lives in the Home route, so replacing this one leaves it untouched,
-/// where a splash *inside* the Home route would have taken the watcher's
-/// reconciliation and the `OPEN` handler down with it.
+/// Cold start by construction rather than by a flag: the route is the navigator's first,
+/// it replaces itself with Home, and nothing pushes it again. It sits above
+/// `AlertsHost` rather than below it — a splash inside the Home route would take the
+/// watcher reconciliation and the `OPEN` handler down with it.
 
-/// How long the finished pose is held before Home takes the screen. Long
-/// enough that the last frame is a beat rather than a flicker, short enough
-/// that the whole route — 1167ms of sprite, then this — stays well under the
-/// 2.5s budget.
+/// Long enough that the last frame is a beat rather than a flicker, short enough that the
+/// whole route stays well under the 2.5 s budget.
 const splashHold = Duration(milliseconds: 420);
 
 class SplashRoute extends StatefulWidget {
   const SplashRoute({super.key, required this.next});
 
-  /// Home. Built only when the splash is done with the screen.
   final WidgetBuilder next;
 
   @override
@@ -41,17 +32,14 @@ class _SplashRouteState extends State<SplashRoute> {
   @override
   void initState() {
     super.initState();
-    // An alert's `OPEN` is delivered as soon as Android brings the activity up,
-    // which is inside this route's window. Parking it in the flag a cold launch
-    // already uses is what keeps the tap from being dropped; `AlertsHost` takes
-    // the handler back when it mounts and replays the flag on its first frame.
+    // An alert's `OPEN` is delivered as soon as Android brings the activity up, which is
+    // inside this route's window.
     alertOpenHandler = deferAlertOpen;
     pinOpenHandler = deferPinOpen;
   }
 
-  /// The sprite holds its last frame from here on, so `onDone` arrives exactly
-  /// once — but a rebuilt sheet would call it again, and the handover must not
-  /// be scheduled twice.
+  /// The sprite holds its last frame, so `onDone` arrives exactly once — but a rebuilt
+  /// sheet would call it again, and the handover must not be scheduled twice.
   void _played() {
     if (_handedOver) return;
     _handedOver = true;
@@ -63,8 +51,6 @@ class _SplashRouteState extends State<SplashRoute> {
     Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(
         pageBuilder: (context, _, _) => widget.next(context),
-        // The boot log hard-cuts to the shell, and a fade here would cross two
-        // very different grounds.
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
       ),
@@ -74,8 +60,8 @@ class _SplashRouteState extends State<SplashRoute> {
   @override
   void dispose() {
     _handover?.cancel();
-    // Only if `AlertsHost` has not already claimed it: the replacement route is
-    // built before this one is disposed, so by here the handler is usually its.
+    // Only if `AlertsHost` has not already claimed it: the replacement route is built before
+    // this one is disposed.
     if (identical(alertOpenHandler, deferAlertOpen)) alertOpenHandler = null;
     if (identical(pinOpenHandler, deferPinOpen)) pinOpenHandler = null;
     super.dispose();

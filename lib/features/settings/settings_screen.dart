@@ -12,8 +12,6 @@ import '../screen_scaffold.dart';
 import 'alerts_block.dart';
 import 'bundle_panel.dart';
 
-/// Settings is a route pushed from HOME's `SYS` crumb action, on the root
-/// navigator so the nav bar is not part of it.
 void openSettings(BuildContext context) {
   Navigator.of(
     context,
@@ -29,8 +27,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  /// Read once, not watched: the version of the running binary cannot change
-  /// under a mounted screen.
+  /// Read once, not watched: the version of the running binary cannot change under a
+  /// mounted screen.
   late final Future<BuildInfo?> _build = Device.build();
 
   Future<void> _setStatic(bool value) async {
@@ -97,11 +95,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                 ),
-                // Hosts and keys are the HOSTS tab now; what is left here is
-                // the app's own settings. Alerts stay: what they watch is a
-                // preference, not a machine. The bundle is the phone's whole
-                // set of hosts and keys leaving or arriving, which is a
-                // system act, not a row on the tab that lists them.
                 const AlertsSettingsBlock(),
                 const BundlePanel(),
                 Panel(
@@ -109,8 +102,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: FutureBuilder<BuildInfo?>(
                     future: _build,
                     builder: (context, snapshot) => Text(
-                      // Nothing is invented while the answer is in flight: the
-                      // revision is compiled in and is true on its own.
                       snapshot.data?.stamp ?? BuildInfo.revision,
                       style: context.tokens.buildStamp,
                     ),

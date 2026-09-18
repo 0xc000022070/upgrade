@@ -22,10 +22,8 @@ import 'package:dazzle/features/tasks/selection_bar.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// Goal CRUD, the optional objective, archive and unarchive. The background
-/// ticker never settles, so nothing here may use
-/// `pumpAndSettle`; each round buys real time for drift and fake time for the
-/// widgets that consume it.
+/// The background ticker never settles, so nothing here may use `pumpAndSettle`; each
+/// round buys real time for drift and fake time for the widgets that consume it.
 Future<void> _drain(
   WidgetTester tester, {
   Duration step = Duration.zero,
@@ -73,12 +71,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  /// The confirm modal and the goal sheet both put their verbs in an
-  /// [ActionBlock], whose label is upper-cased; the breadcrumb affordance is a
-  /// plain upper-case string too, so both are reached by text.
-  /// The tapped verb usually opens a panel, and a panel title is a glyph soup
-  /// until the decode locks — so the wait after the tap has to move the
-  /// fake clock, not just the event loop.
+  /// A panel title is a glyph soup until the decode locks, so the wait after a tap has to
+  /// move the fake clock and not just the event loop.
   Future<void> tapText(WidgetTester tester, String text) async {
     await tester.tap(find.text(text).last);
     await _ready(tester);
@@ -92,7 +86,6 @@ void main() {
     await _ready(tester);
 
     expect(find.text('OBJECTIVE'), findsNothing);
-    // The hero keeps the number even with the panel gone.
     expect(find.text('0 OF 0 TASKS'), findsOneWidget);
     expect(find.text('0%'), findsOneWidget);
 
@@ -130,8 +123,6 @@ void main() {
     expect((await reload(tester, id)).status, ProjectStatus.active);
 
     await tapText(tester, 'ARCHIVE');
-    // The modal's own block, not the breadcrumb's: `.last` is the one the
-    // dialog route put on top.
     await tapText(tester, 'ARCHIVE');
     expect((await reload(tester, id)).status, ProjectStatus.archived);
 
@@ -167,12 +158,9 @@ void main() {
     await tester.pumpWidget(host(const ProjectsScreen()));
     await _ready(tester);
 
-    // The objective is the title line when there is one, the name is
-    // when there is not — and neither leaves an empty line behind.
     expect(find.text('Hierro propio'), findsOneWidget);
     expect(find.text('Drone FPV'), findsOneWidget);
 
-    // Archived work is out of the live list and folded into its own panel.
     expect(find.text('ARCHIVED'), findsOneWidget);
     expect(find.text('Viejo'), findsNothing);
 
@@ -188,15 +176,12 @@ void main() {
     await tester.pumpWidget(host(const ProjectsScreen()));
     await _ready(tester);
 
-    // The tab holds the only create affordance for a project:
-    // HOME no longer has a PROJECTS strip that could carry a second.
     expect(find.text('NEW'), findsOneWidget);
 
     await tapText(tester, 'NEW');
 
     expect(find.byType(ProjectFormScreen), findsOneWidget);
     expect(find.text('NEW PROJECT'), findsWidgets);
-    // Create has no delete block.
     expect(find.text('DELETE PROJECT'), findsNothing);
 
     await unmount(tester);
@@ -218,8 +203,6 @@ void main() {
 
     expect(find.text('NEW GOAL'), findsNothing);
     expect(find.text('OBJECT STORAGE'), findsOneWidget);
-    // The strip's count is the goal list's length, and it is the only number a
-    // goalless project would have got wrong.
     expect(find.text('1'), findsWidgets);
 
     await unmount(tester);
@@ -235,7 +218,6 @@ void main() {
     await _ready(tester);
     await tapText(tester, 'RENAME');
 
-    // Rename is the same one-line editor, prefilled.
     expect(find.text('RENAME GOAL'), findsOneWidget);
     expect(find.text('Storage'), findsOneWidget);
 
@@ -267,8 +249,6 @@ void main() {
     expect(find.text('DELETE GOAL?'), findsOneWidget);
     await tapText(tester, 'DELETE');
 
-    // The heading goes, the work does not — it lands in the project's
-    // own DROPS panel.
     expect(find.text('STORAGE'), findsNothing);
     final drops = find.descendant(
       of: find.ancestor(of: find.text('DROPS'), matching: find.byType(Panel)),
@@ -288,13 +268,11 @@ void main() {
     await tester.pumpWidget(host(ProjectDetailScreen(projectId: id)));
     await _ready(tester);
 
-    // The strip carries it inside a project exactly as on Home.
     await tapText(tester, 'SELECT');
     await _ready(tester);
 
     expect(find.text('0 SELECTED'), findsOneWidget);
     expect(find.text('[ ]'), findsOneWidget);
-    // In the mode the row is a box, not the task checkbox.
     expect(find.text('SELECT'), findsNothing);
 
     await tester.tap(find.text('Rotar llaves ssh'));
@@ -309,8 +287,6 @@ void main() {
   ) async {
     final written = recordClipboardWrites();
     final id = await projects.create(name: 'Infra personal');
-    // Home's own drops are the trap: the bar is the same widget in both
-    // scopes, and a copy that read the wrong stream would come out empty here.
     await tasks.capture('esto vive en home');
     await tasks.create(
       title: 'viejo',
@@ -412,8 +388,6 @@ void main() {
       await tapText(tester, 'LINK');
       await tapText(tester, '…/src/dazzle');
 
-      // The row is now the panel's, and the host it lives on is the value:
-      // which machine holds the code is half of what a directory is.
       expect(find.text('…/src/dazzle'), findsOneWidget);
       expect(find.text('NYX'), findsOneWidget);
 

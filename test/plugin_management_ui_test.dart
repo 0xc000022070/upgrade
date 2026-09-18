@@ -42,8 +42,6 @@ PluginPackage _schedules() => PluginPackage(
   revision: '1.0.0',
 );
 
-/// Every builtin page is named after its plugin, so a retitled one is what
-/// makes the disambiguating suffix reachable.
 PluginPackage _projectsPageTitled(String title) {
   final toml = File('lib/plugins/projects/dazzle.plugin.toml')
       .readAsStringSync()

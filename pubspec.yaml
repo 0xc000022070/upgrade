@@ -1,32 +1,12 @@
 name: dazzle
 description: Local-first personal control plane.
-# The following line prevents the package from being accidentally published to
-# pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none'
 
-# The following defines the version and build number for your application.
-# A version number is three numbers separated by dots, like 1.2.43
-# followed by an optional build number separated by a +.
-# Both the version and the builder number may be overridden in flutter
-# build by specifying --build-name and --build-number, respectively.
-# In Android, build-name is used as versionName while build-number used as versionCode.
-# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
-# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
-# Read more about iOS versioning at
-# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-# In Windows, build-name is used as the major, minor, and patch parts
-# of the product and file versions while build-number is used as the build suffix.
 version: 1.0.0+125
 
 environment:
   sdk: ^3.13.0
 
-# Dependencies specify other packages that your package needs in order to work.
-# To automatically upgrade your package dependencies to the latest versions
-# consider running `flutter pub upgrade --major-versions`. Alternatively,
-# dependencies can be manually updated by changing the version numbers below to
-# the latest version available on pub.dev. To see which dependencies have newer
-# versions available, run `flutter pub outdated`.
 dependencies:
   dazzle_luau:
     path: packages/dazzle_luau
@@ -43,11 +23,8 @@ dependencies:
   drift_flutter: ^0.3.1
   dartssh2: ^4.0.0
   dynamic_color: ^1.7.0
-  # Pinned, not a caret range. 11.0.0 raised the android module to
-  # compileSdk 37 and no android build of this tree succeeds without an
-  # android-37 platform; the store SDK only carries a minor-versioned
-  # android-37.0 directory, which AGP 9.1.0 does not accept. 10.3.1 is
-  # compileSdk 36 and exposes the same read/write/delete API keys.dart uses.
+  # Pinned: 11.0.0 raises the android module to compileSdk 37, and the store SDK
+  # only carries an android-37.0 directory that AGP 9.1.0 will not accept.
   flutter_secure_storage: 10.3.1
   flutter_svg: ^2.3.0
   flutter_riverpod: ^2.6.1
@@ -64,12 +41,9 @@ dependencies:
   flutter_foreground_task: ^11.0.1
   gal: ^2.3.3
 
-# xterm is upstream's release with our changes applied over it, one patch per
-# behaviour in packages/xterm/patches. Nothing in pub applies them, so
-# `just xterm-build` writes the patched package into .dart_tool and this points
-# at it; every build recipe depends on that, and a bare `flutter pub get` in a
-# fresh checkout wants it run first. packages/xterm/KNOWN.md carries the cases
-# and `just xterm-verify` proves the patches reproduce what is built.
+# Nothing in pub applies the patches in packages/xterm/patches, so
+# `just xterm-build` writes the patched package into .dart_tool and this points at
+# it: a fresh checkout wants that run before `flutter pub get`.
 dependency_overrides:
   xterm:
     path: .dart_tool/xterm
@@ -78,22 +52,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
   flutter_lints: ^6.0.0
   drift_dev: ^2.34.5
   build_runner: ^2.16.0
 
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
-
-# The following section is specific to Flutter packages.
 flutter:
-  # The toolbar glyphs are Material Icons; the font ships with the
-  # framework and is tree-shaken to the ten that are used.
+  # The toolbar glyphs are Material Icons, tree-shaken to the ten that are used.
   uses-material-design: true
 
   assets:
@@ -134,9 +98,8 @@ flutter:
           weight: 400
         - asset: assets/fonts/ibm_plex_mono/IBMPlexMono-Medium.ttf
           weight: 500
-    # The glyphs a shell prompt draws that IBM Plex Mono never claimed to have:
-    # git branch, host, nix snowflake, the rest of the Nerd Fonts private-use
-    # icon set. Symbols-only, so it never competes with Plex for a letterform.
+    # The private-use glyphs a shell prompt draws. Symbols only, so it never
+    # competes with Plex for a letterform.
     - family: Symbols Nerd Font Mono
       fonts:
         - asset: assets/fonts/nerd_font_symbols/SymbolsNerdFontMono-Regular.ttf

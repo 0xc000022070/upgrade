@@ -2,9 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/features/code/change_marks.dart';
 import 'package:dazzle/platform/workspace/workspace_model.dart';
 
-/// The gutter's marks, read off hunks the way the diff parser hands them over:
-/// added and context lines numbered in the new file, removed lines not.
-
 DiffLine _hunk(String header) => DiffLine(DiffLineKind.hunk, header);
 DiffLine _add(String text, int at) =>
     DiffLine(DiffLineKind.added, text, newLine: at);
@@ -69,8 +66,6 @@ void main() {
   });
 
   test('a deletion at the end lands one past the last line', () {
-    // The renderer draws it on the last line there is; here the number says
-    // where the cut was.
     final marks = changeMarks([
       _hunk('@@ -2,2 +2,1 @@'),
       _ctx('a', 2, 2),
@@ -80,8 +75,8 @@ void main() {
   });
 
   test('a hunk with no context is placed by its header', () {
-    // What `git diff -U0` hands over: the header alone says where the lines
-    // are, and a pure deletion is headed by the line before the cut.
+    // What `git diff -U0` hands over: the header alone says where the lines are, and a pure
+    // deletion is headed by the line before the cut.
     final marks = changeMarks([
       _hunk('@@ -5,1 +5,1 @@'),
       _del('x', 5),

@@ -14,8 +14,6 @@ const _rows = 100;
 const _rowHeight = 10.0;
 const _paneHeight = 50.0;
 
-/// Stands in for the pane's own row, so a test can tell the held header from
-/// the row it stands in for.
 class _Held extends StatelessWidget {
   const _Held(this.row);
 
@@ -140,8 +138,6 @@ void main() {
       scroll.jumpTo(150);
       await tester.pump();
 
-      // Row fifteen is past the second header at row twenty, so the hunk
-      // being read is still the first.
       expect(tester.widget<_Held>(find.byType(_Held)).row, 0);
 
       scroll.jumpTo(250);

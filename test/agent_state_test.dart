@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agent_state.dart';
 
-/// What herdr reports a pane's agent to be, and what the screens ask of it.
 void main() {
   group('the door from a word', () {
     test('answers the states herdr classifies', () {
@@ -16,8 +15,6 @@ void main() {
     });
 
     test('keeps a word it cannot place instead of dropping it', () {
-      // herdr's own `unknown`, and anything it grows later: the screen still
-      // has a word to print, which is the whole of what it can honestly say.
       expect(AgentState.of('unknown'), const UnknownState('unknown'));
       final grown = AgentState.of('compacting');
       expect(grown, isA<UnknownState>());
@@ -43,8 +40,6 @@ void main() {
     });
 
     test('an agent that finished unseen work is resting, not lost', () {
-      // `done` is idle with work behind it nobody has looked at. Counting it
-      // as neither left it off every list the panel draws.
       expect(const DoneState().resting, isTrue);
       expect(const IdleState().resting, isTrue);
       expect(const DoneState().active, isFalse);

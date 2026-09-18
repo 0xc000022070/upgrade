@@ -22,9 +22,6 @@ import 'workspace_controller.dart';
 
 final _openWorkspaceRoutes = Expando<WorkspaceSheetRoute>();
 
-/// The way in: a workspace row on CODE, or a project's `CODE` section. One tap
-/// from the row to the tree — the checkout is a sheet over the list, the way
-/// the terminal is a sheet over the screen it was opened from.
 void openWorkspace(
   BuildContext context,
   AgentPath path,
@@ -49,15 +46,12 @@ void openWorkspace(
   );
 }
 
-/// The workspace as a modal sheet: the app's drag sheet, holding one
-/// checkout's explorer, with the toolbar as its grip.
 class WorkspaceSheetRoute extends DragSheetRoute<void> {
   WorkspaceSheetRoute({required this.path, required this.host, this.open});
 
   final AgentPath path;
   final Host host;
 
-  /// The transport, for a test that drives the sheet without a socket.
   final WorkspaceOpener? open;
 
   @override
@@ -74,12 +68,6 @@ class WorkspaceSheetRoute extends DragSheetRoute<void> {
       WorkspaceSheet(path: path, host: host, open: open);
 }
 
-/// One registered directory, read over ssh: the tree, the files opened out of
-/// it, and what the checkout has changed in them.
-///
-/// Read only. Nothing here commits, stages or checks out — the verbs live in
-/// the shell the toolbar opens, already in this directory, which is where a
-/// change to a repository is made from a phone.
 class WorkspaceSheet extends ConsumerStatefulWidget {
   const WorkspaceSheet({
     super.key,
@@ -91,7 +79,6 @@ class WorkspaceSheet extends ConsumerStatefulWidget {
   final AgentPath path;
   final Host host;
 
-  /// The transport, for a test that drives the sheet without a socket.
   final WorkspaceOpener? open;
 
   @override
@@ -140,9 +127,8 @@ class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
     );
   }
 
-  /// The row inside the sheet's top edge: where this is, what it is on, and
-  /// the two ways out of it. Drawn in every phase, so a failed dial still has
-  /// the shell on the row and somewhere to say why.
+  /// Drawn in every phase, so a failed dial still has the shell on the row and somewhere to
+  /// say why.
   Widget _toolbar() {
     final status = _controller.overview?.status;
     return Container(
@@ -160,8 +146,8 @@ class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: _BranchCell(
-                // Nothing is claimed about a checkout that has not answered:
-                // the mark stands dimmed on its own until it has.
+                // Nothing is claimed about a checkout that has not answered: the mark stands
+                // dimmed on its own until it has.
                 branch: status == null ? null : status.branch ?? 'detached',
                 tracking: status == null ? null : _tracking(status),
                 onTap: status == null ? null : _swap,
@@ -170,8 +156,8 @@ class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
           ),
           _Cell(
             label: 'SHELL',
-            // The directory is the tab's own command, so the terminal comes up
-            // where the sheet was rather than in `$HOME`.
+            // The directory is the tab's own command, so the terminal comes up where the
+            // sheet was rather than in `$HOME`.
             onTap: () => openHostShell(
               context,
               widget.host,
@@ -186,9 +172,6 @@ class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
     );
   }
 
-  /// The siblings, the one on screen among them. A pick points this sheet at
-  /// another checkout on the connection it already holds — no route, no
-  /// registration: it is the same repository on the same machine.
   Future<void> _swap() async {
     final overview = _controller.overview;
     if (overview == null) return;
@@ -254,9 +237,6 @@ class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
   }
 }
 
-/// How wide the workspace's name may grow before it is cut off. The rest of
-/// the row is the branch and two cells, and a name is not allowed to push
-/// either off the screen.
 const _nameMaxWidth = 112.0;
 
 class _Name extends StatelessWidget {
@@ -281,8 +261,6 @@ class _Name extends StatelessWidget {
   }
 }
 
-/// What the checkout is on, and the swapper. The branch is the word and the
-/// tracking is the column beside it, in the mono both lists read in.
 class _BranchCell extends StatelessWidget {
   const _BranchCell({
     required this.branch,
@@ -339,8 +317,6 @@ class _BranchCell extends StatelessWidget {
   }
 }
 
-/// A word on the toolbar's right, the terminal header's cell in everything
-/// but its tab underline: these are verbs, and none of them is a tab.
 class _Cell extends StatelessWidget {
   const _Cell({required this.label, required this.onTap});
 
@@ -369,9 +345,8 @@ class _Cell extends StatelessWidget {
   }
 }
 
-/// `+2 -1` against the upstream, or nothing when there is no upstream or the
-/// branch is level with it. Level is the ordinary case and says nothing worth
-/// a column.
+/// `+2 -1` against the upstream, or nothing when there is no upstream or the branch is
+/// level with it.
 String? _tracking(WorkspaceStatus status) {
   if (status.upstream == null) return null;
   if (status.ahead == 0 && status.behind == 0) return null;

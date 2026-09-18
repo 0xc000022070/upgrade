@@ -1,7 +1,3 @@
-/// The screen's regression list: the handshake, the failure words, the
-/// rect encodings and the input messages, all against scripted bytes.
-library;
-
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -18,9 +14,6 @@ import 'package:dazzle/platform/vnc/vnc_failure.dart';
 
 import 'support/vnc_channel.dart';
 
-/// The bytes the client owes a 3.8 server before it asks for a frame:
-/// the version line back, `None`, a shared `ClientInit`, then the format and
-/// the encodings it wants.
 Uint8List expectedClientHandshake() {
   final out = <int>[
     ...'RFB 003.008\n'.codeUnits,
@@ -35,8 +28,6 @@ Uint8List expectedClientHandshake() {
 /// Sixteen bytes counting up, the challenge every vector below answers.
 final challenge = List<int>.generate(16, (i) => i);
 
-/// The client bytes a password handshake owes a 3.8 server: the version
-/// line, the choice of VNC Authentication, the DES response, then the rest.
 Uint8List expectedPasswordHandshake(String password) => Uint8List.fromList([
   ...'RFB 003.008\n'.codeUnits,
   Rfb.securityVncAuth,
@@ -53,8 +44,8 @@ Uint8List hex(String text) => Uint8List.fromList([
 
 void main() {
   group('vnc authentication', () {
-    // Computed outside the app: openssl des-ede3-ecb, no padding, over the
-    // challenge, keyed with the mirrored password bytes three times over.
+    // Computed outside the app: openssl des-ede3-ecb, no padding, over the challenge, keyed
+    // with the mirrored password bytes three times over.
     test('an 8-character password answers the challenge as DES does', () {
       expect(
         vncAuthResponse('password', challenge),
@@ -188,8 +179,7 @@ void main() {
         channel.sent,
         Uint8List.fromList([
           ...'RFB 003.003\n'.codeUnits,
-          // 3.3 offers no choice, so none is sent back: the response follows
-          // the version line.
+          // 3.3 offers no choice, so none is sent back: the response follows the version line.
           ...vncAuthResponse('pw', challenge),
           1,
           ...RfbClientMessages.setPixelFormat(),
@@ -276,8 +266,8 @@ void main() {
           0,
           ...u32(9),
           ...'too many'.codeUnits,
-          // The reason string, one byte short of its length, then the byte that
-          // completes it: the reader must not stop at a chunk boundary.
+          // The reason string, one byte short of its length, then the byte that completes it: the
+          // reader must not stop at a chunk boundary.
           '!'.codeUnitAt(0),
         ]);
 
@@ -308,7 +298,6 @@ void main() {
 
   group('failure words', () {
     test('a refused channel is tunnel refused', () {
-      // The SSH connection is up; the host refuses only `direct-tcpip`.
       final failure = asVncFailure(
         SSHChannelOpenError(1, 'administratively prohibited'),
       );
@@ -342,8 +331,6 @@ void main() {
   });
 
   group('framebuffer updates', () {
-    /// A client past the handshake, on a small screen so the vectors stay
-    /// readable.
     Future<(FakeVncChannel, RfbClient)> live({
       int width = 8,
       int height = 4,
@@ -374,8 +361,7 @@ void main() {
           height: 1,
           encoding: Rfb.encodingRaw,
         ),
-        // BGRX, and the X byte is deliberately zero: the framebuffer owes
-        // Flutter an opaque alpha whatever the wire says.
+        // BGRX, and the X byte is deliberately zero.
         0x10, 0x20, 0x30, 0x00,
         0x40, 0x50, 0x60, 0x00,
       ]);
@@ -532,8 +518,8 @@ void main() {
         addTearDown(client.close);
 
         final before = channel.sent.length;
-        // What the strip does for a CTRL-held letter: modifier down, key down,
-        // key up, modifier up.
+        // What the strip does for a CTRL-held letter: modifier down, key down, key up, modifier
+        // up.
         client
           ..sendKey(Keysyms.control, down: true)
           ..sendKey(Keysyms.forCharacter('c'), down: true)
@@ -601,8 +587,7 @@ void main() {
   });
 }
 
-/// The pump runs for as long as the channel feeds it; nothing awaits it, and
-/// its errors are read off [RfbClient.frames].
+/// Nothing awaits it, and its errors are read off [RfbClient.frames].
 void unawaitedRun(RfbClient client) {
   client.run().ignore();
 }

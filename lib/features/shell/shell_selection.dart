@@ -14,19 +14,12 @@ import '../../platform/browser.dart';
 import 'shell_sessions.dart';
 import 'shell_surface.dart';
 
-/// The selection's furniture, which xterm does not draw for a touch: a grip at
-/// either end of it to drag that end by, and a floating cell that reads the
-/// selected text out of the buffer — onto the clipboard, or, when the text is
-/// a link, into the browser. Nothing while there is no selection.
-///
-/// The cell sits on the selection, over the top line of it, the way a text
-/// field's toolbar sits on the words: the finger that made the selection is
-/// already there, and a cell in a corner is a reach and a look away from the
-/// words it acts on. Below the grips when the top line has no room over it.
-///
-/// Stateful for the listeners it keeps: the session's controller, which is
-/// where the selection lives and the only thing that says a copy is possible;
-/// the scroll and the terminal, which move the selected line under it.
+/// The selection's furniture, which xterm does not draw for a touch: a grip at either end
+/// to drag that end by, and a floating cell that reads the selected text out of the
+/// buffer — onto the clipboard, or into the browser when it is a link. The cell sits over
+/// the top line of the selection, and below the grips when that line has no room over it.
+/// Stateful for the listeners it keeps: the session's controller, and the scroll and the
+/// terminal, which move the selected line under it.
 class ShellSelectionActions extends StatefulWidget {
   const ShellSelectionActions({
     super.key,
@@ -36,8 +29,6 @@ class ShellSelectionActions extends StatefulWidget {
 
   final ShellSession session;
 
-  /// How the layer finds the terminal under it. Swapped in a test for a
-  /// surface with no terminal behind it at all.
   final ShellSurface? Function(ShellSession session) surfaceOf;
 
   @override
@@ -79,15 +70,14 @@ class _SelectionActionsState extends State<ShellSelectionActions> {
     session.terminal.removeListener(_onMove);
   }
 
-  /// The line under the affordance moved: a scroll, or output that pushed it.
   void _onMove() {
     if (mounted && _selected) setState(() {});
   }
 
   bool _selected = false;
 
-  /// The tick under the finger that says the press took: the highlight comes
-  /// a frame later and is easy to miss under a thumb.
+  /// The tick under the finger that says the press took: the highlight comes a frame later
+  /// and is easy to miss under a thumb.
   void _onSelection() {
     if (!mounted) return;
     final selected = widget.session.controller.selection != null;
@@ -96,14 +86,12 @@ class _SelectionActionsState extends State<ShellSelectionActions> {
     setState(() {});
   }
 
-  /// The cell at the end a grip is not dragging, held from the start of the
-  /// drag: the selection is normalised on every read, so once the finger
-  /// crosses the other end the range no longer says which end is the still
-  /// one. The cell itself and not the range's end, which is one past it.
-  ///
-  /// An anchor and not a [CellOffset], because a row index is only true of the
-  /// buffer that answered it: output arriving mid-drag pushes the scrollback
-  /// along and the still end would walk up the screen with it.
+  /// The cell at the end a grip is not dragging, held from the start of the drag: the
+  /// selection is normalised on every read, so once the finger crosses the other end the
+  /// range no longer says which end is the still one. An anchor and not a [CellOffset],
+  /// because a row index is only true of the buffer that answered it: output arriving
+  /// mid-drag pushes the scrollback along and the still end would walk up the screen with
+  /// it.
   CellAnchor? _held;
 
   void _onGripStart(_SelectionPart grip) {
@@ -121,8 +109,6 @@ class _SelectionActionsState extends State<ShellSelectionActions> {
     _held = null;
   }
 
-  /// The selection runs from the held cell to the one under the finger,
-  /// whichever way round they are, and takes both.
   void _onGripDrag(Offset global) {
     final anchor = _held;
     final surface = widget.surfaceOf(widget.session);
@@ -148,18 +134,17 @@ class _SelectionActionsState extends State<ShellSelectionActions> {
     controller.clearSelection();
   }
 
-  /// The selected text when it is a link, and null when it is anything else.
-  /// Read on every build: a grip dragged one cell either way changes the
-  /// answer, and the answer is what says whether there is a verb to draw.
+  /// Read on every build: a grip dragged one cell either way changes the answer, and the
+  /// answer is what says whether there is a verb to draw.
   String? get _link {
     final selection = widget.session.controller.selection;
     if (selection == null) return null;
     return explicitUrl(widget.session.terminal.buffer.getText(selection));
   }
 
-  /// The selection is spent by opening it, the way it is spent by copying it —
-  /// but only if something took the URL. A launch that went nowhere leaves the
-  /// words on the screen to try again with.
+  /// The selection is spent by opening it, the way it is spent by copying it — but only if
+  /// something took the URL. A launch that went nowhere leaves the words on the screen to
+  /// try again with.
   Future<void> _open(String url) async {
     if (await openUrl(url)) widget.session.controller.clearSelection();
   }
@@ -171,9 +156,8 @@ class _SelectionActionsState extends State<ShellSelectionActions> {
     final lineHeight = widget.surfaceOf(widget.session)?.lineHeight ?? 0;
     final link = _link;
     return CustomMultiChildLayout(
-      // The surface is asked again at layout: the terminal corrects its own
-      // scroll offset while it lays out, and what this build read is a frame
-      // behind that.
+      // The surface is asked again at layout: the terminal corrects its own scroll
+      // offset while it lays out, and what this build read is a frame behind that.
       delegate: _SelectionLayout(
         selection,
         () => widget.surfaceOf(widget.session),
@@ -243,11 +227,9 @@ class _SelectionActionsState extends State<ShellSelectionActions> {
 
 enum _SelectionPart { begin, end, actions }
 
-/// A bar down the edge of the selection's first or last cell, with a knob under
-/// it to take the finger, that moves that end of the selection where it is
-/// dragged. It claims the pointer on the down: left to the arena, the scroll
-/// under it takes any drag with a vertical lean before this one has moved
-/// far enough to say it is a drag at all.
+/// It claims the pointer on the down: left to the arena, the scroll under it takes any
+/// drag with a vertical lean before this one has moved far enough to say it is a drag at
+/// all.
 class ShellSelectionGrip extends StatelessWidget {
   const ShellSelectionGrip({
     super.key,
@@ -311,16 +293,11 @@ class _GripDragRecognizer extends PanGestureRecognizer {
   }
 }
 
-/// Puts the grips on the ends of the selection and the cell over it, centred,
-/// or under it when the top has no room; kept on the screen either way. Each
-/// child takes its own size: the layout is the parent's whole area and only
-/// the children are targets, so a touch anywhere else still reaches the
-/// terminal.
-///
-/// The selection's place is read at layout and not at build: the terminal
-/// corrects its own scroll offset while it lays out, without a word to the
-/// scroll controller, and a position taken before that is a line off. The
-/// terminal is laid out first in the stack, so what this reads is this frame's.
+/// The selection's place is read at layout and not at build: the terminal corrects its
+/// own scroll offset while it lays out, without a word to the scroll controller, and a
+/// position taken before that is a line off. The terminal is laid out first in the stack,
+/// so what this reads is this frame's. Each child takes its own size, so a touch anywhere
+/// else still reaches the terminal.
 class _SelectionLayout extends MultiChildLayoutDelegate {
   _SelectionLayout(this.selection, this.surfaceOf);
 
@@ -342,21 +319,21 @@ class _SelectionLayout extends MultiChildLayoutDelegate {
 
     final surface = surfaceOf();
     if (surface == null) {
-      // No view to ask: the corner over the key bar, where a thumb already
-      // is, and the grips out of the way under it.
+      // No view to ask: the corner over the key bar, where a thumb already is, and
+      // the grips out of the way under it.
       positionChild(_SelectionPart.actions, room);
       positionChild(_SelectionPart.begin, Offset(size.width, size.height));
       positionChild(_SelectionPart.end, Offset(size.width, size.height));
       return;
     }
 
-    // In the layer's own coordinates, which the surface answers in: a
-    // transform walk is not allowed mid-layout, and the surface has already
-    // carried the terminal's inset out.
+    // In the layer's own coordinates, which the surface answers in: a transform
+    // walk is not allowed mid-layout, and the surface has already carried the
+    // terminal's inset out.
     final range = selection.normalized;
     final cellSize = surface.cellSize;
-    // The range's end is one past the last cell, so its offset is the
-    // selection's right edge as it stands.
+    // The range's end is one past the last cell, so its offset is the selection's
+    // right edge as it stands.
     final begin = surface.offsetOf(range.begin);
     final end = surface.offsetOf(range.end);
     positionChild(
@@ -365,8 +342,6 @@ class _SelectionLayout extends MultiChildLayoutDelegate {
     );
     positionChild(_SelectionPart.end, Offset(end.dx - grip.width / 2, end.dy));
 
-    // Centred on the top line of the selection, or on the width when the
-    // selection runs on past it.
     final right = range.begin.y == range.end.y ? end.dx : size.width;
     final double x = ((begin.dx + right - cell.width) / 2).clamp(0.0, room.dx);
     var y = begin.dy - _gap - cell.height;

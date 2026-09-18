@@ -9,25 +9,21 @@ import 'vnc_auth.dart';
 import 'vnc_failure.dart';
 import 'zrle.dart';
 
-/// The RFB client, over any pair of byte streams.
-///
-/// It owns no socket, which is the whole reason `dart_rfb` is not used here:
-/// the stream this reads is a `direct-tcpip` channel inside the host's ssh
-/// connection, and in the tests it is a scripted list of bytes.
+/// It owns no socket, which is the whole reason `dart_rfb` is not used here: the stream
+/// this reads is a `direct-tcpip` channel inside the host's ssh connection.
 class RfbClient {
   RfbClient({
     required Stream<List<int>> incoming,
     required this._outgoing,
     this._password,
-  }) : // Eagerly, in the constructor body's place: a server that sends its
-       // version line the instant the channel opens must not race a reader
-       // that has not subscribed yet.
+  }) : // Eagerly, in the constructor body's place: a server that sends its version line the
+       // instant the channel opens must not race a reader that has not subscribed yet.
        _reader = ByteReader(incoming);
 
   final StreamSink<List<int>> _outgoing;
 
-  /// Offered only to a server with no `None` on its list. Null means the
-  /// host row has none, which makes such a server `password needed`.
+  /// Offered only to a server with no `None` on its list. Null means the host row has
+  /// none, which makes such a server `password needed`.
   final String? _password;
   final ByteReader _reader;
   final ZrleDecoder _zrle = ZrleDecoder();
@@ -40,21 +36,17 @@ class RfbClient {
   bool _closed = false;
   Stopwatch? _sinceRequest;
 
-  /// A `DesktopSize` invalidates every coordinate the server has sent,
-  /// so the next request after one asks for the whole screen again.
+  /// A `DesktopSize` invalidates every coordinate the server has sent, so the next request
+  /// after one asks for the whole screen again.
   bool _needsFullUpdate = false;
 
   /// One event per `FramebufferUpdate`, after every rect in it has landed.
-  /// "One image per update, never one per rect" is this stream: the
-  /// listener turns the framebuffer into an image and asks for the next update.
   Stream<Framebuffer> get frames => _frames.stream;
 
   Framebuffer get framebuffer => _framebuffer!;
   RfbServerInit get serverInit => _serverInit!;
   RfbVersion get version => _version!;
 
-  /// Version, security, `ClientInit`, `ServerInit`, then the two format
-  /// messages. Returns what the server said it is showing.
   Future<RfbServerInit> handshake() async {
     final greeting = await _reader.read(12);
     final version = RfbVersion.negotiate(String.fromCharCodes(greeting));
@@ -72,8 +64,8 @@ class RfbClient {
 
   Future<void> _security(RfbVersion version) async {
     if (version == RfbVersion.v3_3) {
-      // 3.3 does not offer a list: the server names one type and that is the
-      // whole negotiation. Type 0 is a refusal, with the reason after it.
+      // 3.3 does not offer a list: the server names one type and that is the whole
+      // negotiation. Type 0 is a refusal, with the reason after it.
       final type = await _reader.readU32();
       if (type == Rfb.securityInvalid) {
         throw VncAuthUnsupported(await _readReason());
@@ -83,8 +75,7 @@ class RfbClient {
     }
     final count = await _reader.readU8();
     if (count == 0) {
-      // A refusal, not an empty list: the reason string follows and is the
-      // best thing this app can put in the debug log.
+      // A refusal, not an empty list: the reason string follows.
       throw VncAuthUnsupported(await _readReason());
     }
     final type = _choose(await _reader.read(count));
@@ -92,9 +83,8 @@ class RfbClient {
     await _authenticate(version, type);
   }
 
-  /// `None` whenever it is offered, whatever password the row holds; the
-  /// password only where `None` is not. Neither on the list is the one case
-  /// that stays `auth unsupported`.
+  /// `None` whenever it is offered, whatever password the row holds; the password only
+  /// where `None` is not.
   int _choose(List<int> types) {
     if (types.contains(Rfb.securityNone)) return Rfb.securityNone;
     final offered = 'server offers ${types.join(',')}';
@@ -105,8 +95,7 @@ class RfbClient {
     throw VncAuthUnsupported(offered);
   }
 
-  /// The exchange the chosen type asks for, then the `SecurityResult` where
-  /// one follows: after `None` only under 3.8, after a password under every
+  /// The `SecurityResult` follows `None` only under 3.8, and a password under every
   /// version. Only 3.8 puts a reason string behind a failure.
   Future<void> _authenticate(RfbVersion version, int type) async {
     if (type == Rfb.securityNone && version != RfbVersion.v3_8) return;
@@ -145,11 +134,8 @@ class RfbClient {
     );
   }
 
-  /// Reads server messages until the stream ends or [close] is called.
-  ///
-  /// Errors land on [frames] rather than being thrown here: the caller is a
-  /// widget's controller, and a reason line on the screen is what is asked
-  /// for in every one of these cases.
+  /// Errors land on [frames] rather than being thrown here: the caller is a widget's
+  /// controller, and a reason line on the screen is what is wanted in every case.
   Future<void> run() async {
     try {
       while (!_closed) {
@@ -168,8 +154,8 @@ class RfbClient {
       case Rfb.serverFramebufferUpdate:
         await _readFramebufferUpdate();
       case Rfb.serverSetColourMapEntries:
-        // Read and dropped: this client asked for true colour, so
-        // a colour map is only something to stay in frame over.
+        // Read and dropped: this client asked for true colour, so a colour map is only
+        // something to stay in frame over.
         await _reader.skip(1);
         await _reader.readU16();
         final colours = await _reader.readU16();
@@ -181,8 +167,8 @@ class RfbClient {
         final length = await _reader.readU32();
         await _reader.skip(length);
       default:
-        // Anything else means the reader is no longer message-aligned, and
-        // every byte after it would be read as garbage.
+        // Anything else means the reader is no longer message-aligned, and every byte after it
+        // would be read as garbage.
         throw VncStreamClosed('server message type $type');
     }
   }
@@ -202,9 +188,8 @@ class RfbClient {
       final height = await _reader.readU16();
       final code = await _reader.readS32();
       final encoding = RectEncoding.of(code);
-      // Only an encoding this client never offered lands here, and the bytes
-      // behind it are of an unknown length: the reader cannot be skipped past
-      // the rect and is no longer aligned to the next one.
+      // The bytes behind an encoding this client never offered are of an unknown length: the
+      // reader cannot be skipped past the rect and is no longer aligned to the next one.
       if (encoding == null) throw VncStreamClosed('rect encoding $code');
       await encoding.read(
         RfbRect(x: x, y: y, width: width, height: height),
@@ -215,9 +200,8 @@ class RfbClient {
     if (!_frames.isClosed) _frames.add(target.framebuffer);
   }
 
-  /// One non-incremental request first, incremental after, and at most
-  /// 24 a second. The caller sends the next one once it has painted the last
-  /// update, so this is where the cap lives rather than in a timer.
+  /// The caller sends the next request once it has painted the last update, so the cap
+  /// lives here rather than in a timer.
   Future<void> requestUpdate({bool incremental = true}) async {
     final target = _framebuffer;
     if (_closed || target == null) return;
@@ -260,9 +244,8 @@ class RfbClient {
     _outgoing.add(bytes);
   }
 
-  /// Leaving the route closes the channel. Everything opened here is
-  /// closed here, and the frame stream is shut before the channel so a rect
-  /// half-read at teardown does not surface as a reason line.
+  /// The frame stream is shut before the channel so a rect half-read at teardown does not
+  /// surface as a reason line.
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
@@ -272,8 +255,7 @@ class RfbClient {
     try {
       await _outgoing.close();
     } catch (_) {
-      // A channel the far end already dropped throws on close. There is
-      // nothing left to release.
+      // A channel the far end already dropped throws on close.
     }
   }
 }

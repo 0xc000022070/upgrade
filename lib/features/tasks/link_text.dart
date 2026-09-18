@@ -5,18 +5,9 @@ import '../../application/urls.dart';
 import '../../design/tokens.dart';
 import '../../platform/browser.dart';
 
-/// A title, with the links inside it painted and openable where they stand.
-///
-/// The capture field paints the same tokens through
-/// [UrlHighlightController]; this is that treatment on the readout side, where
-/// the text is no longer editable and the token can carry a tap. Both read
-/// [urlTokens], so a token that painted while it was typed is the one that
-/// opens once it is filed.
-///
-/// The tap belongs to the span and not to the widget: the surrounding text
-/// keeps whatever gesture the caller wrapped it in — in the quick view, the one
-/// that opens the editor — so a finger on the URL opens the browser and a
-/// finger anywhere else does what it always did.
+/// The tap belongs to the span and not to the widget, so the surrounding text keeps
+/// whatever gesture the caller wrapped it in — in the quick view, the one that opens the
+/// editor.
 class LinkText extends StatefulWidget {
   const LinkText(this.data, {super.key, required this.style});
 
@@ -28,8 +19,8 @@ class LinkText extends StatefulWidget {
 }
 
 class _LinkTextState extends State<LinkText> {
-  /// One recognizer per token, rebuilt whenever the text is. They hold a
-  /// pointer subscription, so they are disposed rather than dropped.
+  /// One recognizer per token, rebuilt whenever the text is. They hold a pointer
+  /// subscription, so they are disposed rather than dropped.
   var _recognizers = <TapGestureRecognizer>[];
 
   @override

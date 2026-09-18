@@ -2,8 +2,6 @@ import 'package:flutter/widgets.dart';
 
 import 'signal_text.dart';
 
-/// How wide one line of [text] paints in [style] — for a layout that has to
-/// know what fits before it builds anything.
 double lineWidth(BuildContext context, String text, TextStyle style) {
   final painter = TextPainter(
     text: TextSpan(text: text, style: style),
@@ -16,15 +14,9 @@ double lineWidth(BuildContext context, String text, TextStyle style) {
   return width;
 }
 
-/// A file path on one line, given up from the left when the line is too narrow
-/// to hold it.
-///
-/// [TextOverflow.ellipsis] cuts the end off, and the end of a path is its
-/// name: the half the reader came for, and the only half that tells two files
-/// of the same shape apart. The directories in front of it are the half they
-/// can already guess, so those go instead, collapsed to a single `…` the way
-/// the breadcrumb gives up its ancestors. The name is the floor — under it
-/// there is nothing left to give up and the line ellipsizes like any other.
+/// [TextOverflow.ellipsis] cuts the end off, and the end of a path is its name. The
+/// directories in front of it go instead, collapsed to a single `…`; the name is the
+/// floor, under which the line ellipsizes like any other.
 class PathLine extends StatelessWidget {
   const PathLine(
     this.path, {

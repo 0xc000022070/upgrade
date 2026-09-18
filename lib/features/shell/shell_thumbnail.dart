@@ -7,25 +7,19 @@ import 'package:xterm/xterm.dart';
 import '../../design/tokens.dart';
 import '../../design/typography.dart';
 
-/// How often the miniature is allowed to catch up with the terminal under it.
-/// A build log scrolling at full speed would otherwise repaint every card on
-/// the panel for every chunk that arrives.
+/// A build log scrolling at full speed would otherwise repaint every card on the panel
+/// for every chunk that arrives.
 const _thumbnailInterval = Duration(milliseconds: 500);
 
-/// The size the miniature's glyphs are drawn at, and the room one line takes.
-/// Small, and no smaller: a card 160 points wide holds about thirty columns of
-/// this, which is a prompt and the tail of what it answered.
+/// Small, and no smaller: a card 160 points wide holds about thirty columns of this,
+/// which is a prompt and the tail of what it answered.
 const thumbnailFontSize = 9.0;
 const thumbnailLineHeight = 11.0;
 
-/// What the miniature draws: the lines the terminal is showing, oldest first,
-/// ending at the last one with anything on it.
-///
-/// Trailing spaces go, because a line of them is a line of nothing at this
-/// size and the painter should not spend a layout on it. The blank rows under
-/// the cursor go with them: a shell's viewport is mostly empty and a card
-/// anchored on its last row is a card of nothing. A blank line between two
-/// written ones is output and stays.
+/// Trailing spaces go, because a line of them is a line of nothing at this size. The
+/// blank rows under the cursor go with them: a shell's viewport is mostly empty and a
+/// card anchored on its last row is a card of nothing. A blank line between two written
+/// ones is output and stays.
 List<String> thumbnailLines(Terminal terminal) {
   final buffer = terminal.buffer;
   final first = (buffer.height - buffer.viewHeight).clamp(0, buffer.height);
@@ -40,10 +34,8 @@ List<String> thumbnailLines(Terminal terminal) {
   return lines.sublist(0, last);
 }
 
-/// The lines a card of this height has room for, oldest first: the tail of
-/// [lines], because the newest output and the prompt under it are the part
-/// worth a glance. What is older falls off the top, the way a terminal keeps
-/// what has already been read.
+/// The tail of [lines], because the newest output and the prompt under it are the part
+/// worth a glance.
 List<String> thumbnailTail(List<String> lines, double height) {
   final rows = height ~/ thumbnailLineHeight;
   if (rows <= 0) return const [];
@@ -51,8 +43,6 @@ List<String> thumbnailTail(List<String> lines, double height) {
   return lines.sublist(lines.length - rows);
 }
 
-/// A live miniature of one session's terminal: what it is showing, small, on
-/// the same black the route draws.
 class ShellThumbnail extends StatefulWidget {
   const ShellThumbnail({super.key, required this.terminal});
 
@@ -88,9 +78,8 @@ class _ShellThumbnailState extends State<ShellThumbnail> {
     super.dispose();
   }
 
-  /// Output arrives in chunks; the card redraws on a clock. The first chunk
-  /// after a quiet stretch still waits out the interval, which is what keeps a
-  /// steady stream to two repaints a second instead of two per chunk.
+  /// The first chunk after a quiet stretch still waits out the interval, which is what
+  /// keeps a steady stream to two repaints a second instead of two per chunk.
   void _onOutput() => _waiting ??= Timer(_thumbnailInterval, _catchUp);
 
   void _catchUp() {
@@ -119,12 +108,6 @@ class _ShellThumbnailState extends State<ShellThumbnail> {
   }
 }
 
-/// The miniature itself: the tail of the lines at a fixed size, glyphs in the
-/// text colour, nothing else. No attributes — colour and weight are illegible
-/// at this size, and the card is a glance, not a read.
-///
-/// Nothing is scaled to make a full line fit: the size is what makes the text
-/// readable, so a line wider than the card is cut by its edge instead.
 class ShellThumbnailPainter extends CustomPainter {
   const ShellThumbnailPainter({required this.lines, required this.textColor});
 

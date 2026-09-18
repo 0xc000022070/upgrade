@@ -21,8 +21,6 @@ void main() {
     });
 
     test('a path, a port and an scp target survive their separators', () {
-      // The word rule breaks on every one of `.`, `:`, `-` and `/`; the run
-      // rule is what keeps these in one piece.
       expect(take('at /home/luis/x.dart:42 now', 10), '/home/luis/x.dart:42');
       expect(take('host db-1.local:5432 up', 8), 'db-1.local:5432');
       expect(
@@ -34,8 +32,6 @@ void main() {
 
     test('a scheme inside the run wins the run', () {
       expect(take('url=https://x.dev/a/b?c=1', 20), 'https://x.dev/a/b?c=1');
-      // Off the link and on the prefix, there is no scheme under the finger,
-      // so the run is the answer.
       expect(take('url=https://x.dev/a', 1), 'url=https://x.dev/a');
       expect(take('[INFO] https://x.dev/a', 12), 'https://x.dev/a');
     });
@@ -50,12 +46,8 @@ void main() {
     });
 
     test('punctuation the token needs is kept', () {
-      // A balanced pair inside the link belongs to it; the one that closes
-      // nothing does not.
       expect(take('see https://x.dev/a_(b)_c.', 12), 'https://x.dev/a_(b)_c');
       expect(take('x.dev/a?b=1&c=2', 3), 'x.dev/a?b=1&c=2');
-      // The finger on the punctuation itself keeps it: nothing is peeled past
-      // where the press landed.
       expect(take('done.', 4), 'done.');
       expect(take('(done)', 0), '(done)');
     });
@@ -82,25 +74,22 @@ void main() {
     });
 
     test('a token torn across a soft wrap is still one token', () {
-      // 40 columns wide, so the link runs off the right edge and continues on
-      // a row that is a continuation rather than a line of its own.
+      // 40 columns wide, so the link runs off the right edge and continues on a row that is a
+      // continuation rather than a line of its own.
       final url = 'https://x.dev/${'a' * 36}/b';
       final terminal = terminalWith('$url\r\n');
       expect(terminal.buffer.lines[1].isWrapped, isTrue);
-      // From either row, and from the tail as much as the head.
       expect(take(terminal, 5, 0), url);
       expect(take(terminal, 3, 1), url);
     });
 
     test('a glyph wider than one cell does not slide the columns after it', () {
-      // The flattened line must be one UTF-16 unit per cell or an index stops
-      // being a column: '名' occupies two cells and the second holds no code
-      // point of its own, and an emoji is a surrogate pair in one cell run.
+      // The flattened line must be one UTF-16 unit per cell or an index stops being a column:
+      // '名' occupies two cells and the second holds no code point of its own, and an emoji is
+      // a surrogate pair in one cell run.
       final terminal = terminalWith('名前 https://x.dev/a 😀 tail\r\n');
       expect(take(terminal, 6, 0), 'https://x.dev/a');
       expect(take(terminal, 25, 0), 'tail');
-      // The wide run is its own token, and the trailing half of a wide cell
-      // belongs to the glyph rather than splitting it.
       expect(take(terminal, 0, 0), '名前');
       expect(take(terminal, 1, 0), '名前');
     });

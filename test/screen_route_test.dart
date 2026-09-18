@@ -1,9 +1,3 @@
-/// The regression list at the screen route: `CONNECTING` giving way to a
-/// breadcrumb standing alone, a reason line with `RETRY`, the
-/// strip's key events and the keyboard's Return, the rail's two independent
-/// toggles, and disposing the route closing the channel and the client.
-library;
-
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -36,11 +30,6 @@ const _nyx = Host(
   keyId: 'k1',
 );
 
-/// A screen carried by scripted bytes instead of an ssh channel.
-///
-/// The [RfbClient] inside is the real one: only the transport is faked, which
-/// is what makes "closes channel and client" a thing to assert rather than to
-/// read.
 class FakeVncConnection implements VncConnection {
   FakeVncConnection._(this.channel, this.rfb, this.serverInit);
 
@@ -65,8 +54,6 @@ class FakeVncConnection implements VncConnection {
 
   bool closed = false;
 
-  /// One Raw rect over the top-left pixel, which is enough for the controller
-  /// to decode an image and for the route to draw one.
   void feedFrame() {
     channel.feed([
       Rfb.serverFramebufferUpdate,
@@ -87,11 +74,8 @@ class FakeVncConnection implements VncConnection {
   }
 }
 
-/// The route under test, with the transport and the keystore stubbed and
-/// nothing else.
-/// What Android reserves at the left edge for its own back gesture. A pointer
-/// that goes down inside it never reaches the app, which is why the rail's way
-/// back has to start further in than this.
+/// What Android reserves at the left edge for its own back gesture. A pointer that goes
+/// down inside it never reaches the app.
 const gestureInset = 24.0;
 
 Future<void> pumpRoute(
@@ -122,9 +106,8 @@ Future<void> pumpRoute(
   );
 }
 
-/// Decoding an image and tearing a stream down are real async: the fake clock
-/// a widget test runs on never advances them, so both need a turn of the real
-/// one before the tree is pumped again.
+/// Decoding an image and tearing a stream down are real async: the fake clock a widget
+/// test runs on never advances them.
 Future<void> settleAsync(WidgetTester tester) async {
   await tester.runAsync(
     () => Future<void>.delayed(const Duration(milliseconds: 60)),
@@ -166,8 +149,6 @@ void main() {
     gate.complete();
     await tester.pumpAndSettle();
 
-    // `LIVE` is gone, and so is `KEYS`. What is left on the line is the
-    // breadcrumb, and the rail is what opens the keyboard now.
     expect(find.text('LIVE'), findsNothing);
     expect(find.text('KEYS'), findsNothing);
     expect(find.text('/ NYX SCREEN'), findsOneWidget);
@@ -249,35 +230,28 @@ void main() {
     await pumpRoute(tester, open: _liveOpen());
     await tester.pumpAndSettle();
 
-    // Neither: the rail is the only chrome over the picture.
     expect(find.byKey(const ValueKey('key-CTRL')), findsNothing);
     expect(keyboardUp(tester), isFalse);
 
-    // The rail belongs on the left edge, and a [Panel] left unbounded
-    // stretches to full width with its toggles centred over the picture.
     final rail = tester.getRect(find.byKey(const ValueKey('rail-keyboard')));
     expect(rail.left, lessThan(Spacing.lg));
     expect(rail.width, lessThan(TapTargets.minHeight + 1));
 
-    // Strip without keyboard — the AVNC frame the user asked for.
     await tester.tap(find.byKey(const ValueKey('rail-keys')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('key-CTRL')), findsOneWidget);
     expect(keyboardUp(tester), isFalse);
 
-    // Both.
     await tester.tap(find.byKey(const ValueKey('rail-keyboard')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('key-CTRL')), findsOneWidget);
     expect(keyboardUp(tester), isTrue);
 
-    // Keyboard without strip.
     await tester.tap(find.byKey(const ValueKey('rail-keys')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('key-CTRL')), findsNothing);
     expect(keyboardUp(tester), isTrue);
 
-    // And the keyboard alone goes down again, leaving neither.
     await tester.tap(find.byKey(const ValueKey('rail-keyboard')));
     await tester.pumpAndSettle();
     expect(keyboardUp(tester), isFalse);
@@ -290,7 +264,6 @@ void main() {
     await pumpRoute(tester, open: _liveOpen((c) => connection = c));
     await tester.pumpAndSettle();
 
-    // Both up, so the drag can be shown not to touch either.
     await tester.tap(find.byKey(const ValueKey('rail-keys')));
     await tester.tap(find.byKey(const ValueKey('rail-keyboard')));
     await tester.pumpAndSettle();
@@ -299,9 +272,8 @@ void main() {
 
     final before = connection.channel.sent.length;
 
-    // Barely past the touch slop, which is all the room a real drag towards
-    // the left edge has: the rail starts about twenty-five logical pixels from
-    // it.
+    // Barely past the touch slop, which is all the room a real drag towards the left edge
+    // has: the rail starts about twenty-five logical pixels from it.
     await tester.drag(
       find.byKey(const ValueKey('rail-panel')),
       const Offset(-26, 0),
@@ -312,7 +284,6 @@ void main() {
     expect(find.byKey(const ValueKey('key-CTRL')), findsOneWidget);
     expect(keyboardUp(tester), isTrue);
 
-    // A drag back to the right, starting on the handle.
     await tester.drag(
       find.byKey(const ValueKey('rail-handle')),
       const Offset(60, 0),
@@ -321,10 +292,6 @@ void main() {
     expect(find.byKey(const ValueKey('rail-panel')), findsOneWidget);
     expect(find.byKey(const ValueKey('rail-handle')), findsNothing);
 
-    // And a tap on the handle is the same door.
-    // Barely past the touch slop, which is all the room a real drag towards
-    // the left edge has: the rail starts about twenty-five logical pixels from
-    // it.
     await tester.drag(
       find.byKey(const ValueKey('rail-panel')),
       const Offset(-26, 0),
@@ -362,9 +329,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // The patch the hidden rail keeps is the footprint the shown one had, not
-    // the sliver drawn in it: it starts at the edge and ends past the inset,
-    // so there is room to put a finger down where the system will not take it.
     final footprint = tester.getRect(find.byKey(const ValueKey('rail-handle')));
     expect(footprint.left, 0);
     expect(footprint.right, greaterThan(gestureInset * 2));
@@ -395,8 +359,6 @@ void main() {
       edgeGesture: true,
     );
     await tester.pumpAndSettle();
-    // The picture itself, not the ground under it: only a decoded frame takes
-    // pointers, and decoding one is real async.
     connection.feedFrame();
     await settleAsync(tester);
     expect(find.byType(FramebufferView), findsOneWidget);
@@ -408,10 +370,6 @@ void main() {
     await tester.pumpAndSettle();
     final footprint = tester.getRect(find.byKey(const ValueKey('rail-handle')));
 
-    // A pointer drag at the host is a long press and then a move: the picture
-    // gives its single-finger gestures to the pointer, and a bare one-finger
-    // slide over it is not one of them. Both starts are that same gesture, so
-    // the only difference between them is which side of the patch they are on.
     Future<void> pointerDrag(double x) async {
       final gesture = await tester.startGesture(Offset(x, footprint.center.dy));
       await tester.pump(const Duration(milliseconds: 600));
@@ -474,8 +432,6 @@ void main() {
     }
     expect(box('SUPER').top, greaterThan(box('ESC').top));
 
-    // Six equal columns, which is what makes the arrows read as a T rather
-    // than as four keys that happen to be near each other.
     for (final label in [...top, ...bottom]) {
       expect(
         box(label).width,
@@ -492,8 +448,6 @@ void main() {
     expect(box('LEFT').center.dx, lessThan(box('DOWN').center.dx));
     expect(box('RIGHT').center.dx, greaterThan(box('DOWN').center.dx));
     expect(box('END').center.dx, moreOrLessEquals(box('RIGHT').center.dx));
-    // The fourth cell of the top row is empty: nothing sits over the left
-    // arrow.
     expect(
       top.where(
         (label) => (box(label).center.dx - box('LEFT').center.dx).abs() < 1,
@@ -511,9 +465,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(keyboardUp(tester), isTrue);
 
-    // What the system back gesture and the IME's own hide actually do: the
-    // platform drops the input connection, and [EditableText] answers that by
-    // unfocusing. Nothing tells the route directly.
+    // The platform drops the input connection and [EditableText] answers that by unfocusing.
+    // Nothing tells the route directly.
     tester.testTextInput.closeConnection();
     await tester.pumpAndSettle();
 
@@ -534,13 +487,11 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('rail-keys')));
     await tester.pumpAndSettle();
-    // `ENTER` and `DONE` are off the strip.
     expect(find.text('ENTER'), findsNothing);
     expect(find.text('DONE'), findsNothing);
 
     final before = connection.channel.sent.length;
 
-    // A letter comes from the IME as an edit on the hidden field.
     await tester.enterText(find.byType(EditableText), '${_sentinel}h');
     await tester.pumpAndSettle();
 
@@ -575,7 +526,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('key-TAB')));
     await tester.pumpAndSettle();
-    // The second one is outside the chord: one key is what sticky means.
     await tester.tap(find.byKey(const ValueKey('key-TAB')));
     await tester.pumpAndSettle();
 
@@ -599,8 +549,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('rail-keyboard')));
     await tester.pumpAndSettle();
 
-    // Gboard draws ↵ rather than a checkmark because the field asks for a
-    // multiline input type, and what the ↵ delivers is this edit.
+    // Gboard draws ↵ rather than a checkmark because the field asks for a multiline input
+    // type.
     final field = tester.widget<EditableText>(find.byType(EditableText));
     expect(field.keyboardType, TextInputType.multiline);
     expect(field.textInputAction, TextInputAction.newline);
@@ -613,8 +563,8 @@ void main() {
       (Keysyms.enter, true),
       (Keysyms.enter, false),
     ]);
-    // 0x0A is a C0 control with no keysym of its own; `forCharacter` would send
-    // it as Unicode, and this is the assertion that it never does.
+    // 0x0A is a C0 control with no keysym of its own; `forCharacter` would send it as
+    // Unicode.
     expect(
       keyEvents(connection.channel.sent.sublist(before)),
       isNot(contains((Keysyms.forCharacter('\n'), true))),
@@ -663,7 +613,6 @@ void main() {
     expect(find.byType(ScreenRail), findsOneWidget);
     expect(connection.closed, isFalse);
 
-    // The way out: the breadcrumb pops the route.
     await tester.tap(find.text('/ NYX SCREEN'));
     await tester.pumpAndSettle();
     await settleAsync(tester);
@@ -674,13 +623,10 @@ void main() {
       returnsNormally,
       reason: 'closing must not throw on the way out',
     );
-    // A pointer event after the close writes nothing: the sink is gone.
     connection.rfb.sendPointer(x: 0, y: 0, buttonMask: RfbButtons.left);
   });
 }
 
-/// A live screen, with the connection handed back to the caller when it wants
-/// one. Every assertion below opens the same way.
 VncOpener _liveOpen([void Function(FakeVncConnection)? keep]) =>
     ({
       required String address,
@@ -695,21 +641,13 @@ VncOpener _liveOpen([void Function(FakeVncConnection)? keep]) =>
       return connection;
     };
 
-/// Whether the IME is attached, which on this route is the whole of what "the
-/// keyboard is up" means: the hidden field is mounted either way, and only the
-/// focus on it moves.
-///
-/// Both halves are asserted, and the platform half is the one that matters. A
-/// [FocusNode] outlives its widget, so a field that was reparented out from
-/// under the IME still reads as focused while the connection behind it is gone
-/// — which on the emulator was the keyboard dropping when the strip was raised
-/// and a test watching focus alone stayed green through it.
+/// A [FocusNode] outlives its widget, so a field reparented out from under the IME still
+/// reads as focused while the connection behind it is gone. Both halves are asserted.
 bool keyboardUp(WidgetTester tester) =>
     tester.testTextInput.hasAnyClients &&
     tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus;
 
-/// The strip's hidden field starts on a run of zero-width spaces so a backspace
-/// with nothing typed is still an edit.
+/// A run of zero-width spaces, so a backspace with nothing typed is still an edit.
 const _sentinel = '​​​​​​​​';
 
 List<(int, bool)> keyEvents(Uint8List written) {

@@ -17,8 +17,6 @@ import 'support/native_plugins.dart';
 import 'support/platform_channels.dart';
 import 'support/variants.dart';
 
-/// The grounds and the accent — the colours a palette owns and a screen must
-/// take from the theme rather than name for itself.
 Set<Color> _chrome(DazzleTokens tokens) => {
   tokens.backgroundPrimary,
   tokens.backgroundSecondary,
@@ -28,10 +26,8 @@ Set<Color> _chrome(DazzleTokens tokens) => {
   tokens.accentMuted,
 };
 
-/// Deliberately the house's under every palette: code, diffs and the backdrops
-/// over them are read on their own grounds whatever the chrome is wearing.
-/// Subtracted so a screen that draws one is not read as a screen that leaked
-/// the house.
+/// Deliberately the house's under every palette. Subtracted so a screen that draws one is
+/// not read as a screen that leaked the house.
 Set<Color> _shared(DazzleTokens tokens) => {
   tokens.scrim,
   tokens.mediaBackdrop,
@@ -41,15 +37,12 @@ Set<Color> _shared(DazzleTokens tokens) => {
   tokens.diffCappedGround,
 };
 
-/// The house colours [palette] has no use for. A rendered pixel in this set is
-/// a widget that reached for the house instead of `context.tokens`, which is
-/// invisible while the house is the palette under test and is the whole of the
-/// SYSTEM theme's bug surface.
+/// A rendered pixel in this set is a widget that reached for the house instead of
+/// `context.tokens`, which is invisible while the house is the palette under test.
 Set<Color> _houseOnly(Palette palette) =>
     _chrome(DazzleTokens.house)
         .difference(_chrome(palette.tokens).union(_shared(palette.tokens)));
 
-/// Every colour the tree actually paints or prints.
 Iterable<Color> _painted(WidgetTester tester) sync* {
   for (final widget in tester.allWidgets) {
     switch (widget) {
@@ -92,8 +85,8 @@ void main() {
     child: MaterialApp(theme: theme ?? Palette.house.theme, home: child),
   );
 
-  /// The screens run timers of their own — the static background's offset, the
-  /// boot sweep — and the binding fails the test on any that outlive it.
+  /// The screens run timers of their own, and the binding fails the test on any that
+  /// outlive it.
   Future<void> settle(WidgetTester tester) async {
     for (var i = 0; i < 6; i++) {
       await tester.runAsync(
@@ -108,9 +101,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  /// A panel is the widest thing on any screen, so its box is where the column
-  /// cap and the gutter are observable. Assertions are on the outermost one:
-  /// panels nest, and an inner one says nothing about the column.
+  /// Assertions are on the outermost panel: panels nest, and an inner one says nothing
+  /// about the column.
   Rect widestPanel(WidgetTester tester) {
     final boxes = tester
         .widgetList<Panel>(find.byType(Panel))
@@ -123,9 +115,8 @@ void main() {
 
   void expectCappedAndCentred(WidgetTester tester, Surface surface) {
     final panel = widestPanel(tester);
-    // Exact, not a ceiling: a column that collapsed to a third of the width
-    // also satisfies a cap, and the number here is the whole of the layout
-    // rule — the width up to [Layout.columnMax], less the screen edge a side.
+    // Exact, not a ceiling: a column that collapsed to a third of the width also satisfies a
+    // cap.
     final column =
         math.min(surface.width, Layout.columnMax) - 2 * Spacing.screenEdge;
     expect(
@@ -133,9 +124,6 @@ void main() {
       moreOrLessEquals(column, epsilon: 0.5),
       reason: 'the content column is not $column wide on $surface',
     );
-    // Centred, not left-aligned with a right margin: on the fold the gutter is
-    // 125dp a side and a column pinned left reads as a layout bug even though
-    // nothing overflows.
     expect(
       panel.left,
       moreOrLessEquals(surface.width - panel.right, epsilon: 0.5),

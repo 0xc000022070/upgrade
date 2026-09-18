@@ -41,11 +41,8 @@ void main() {
 
   tearDown(() => db.close());
 
-  /// The key and host repositories stay in-memory — they are what these tests
-  /// assert against — but the screens sit under [StaticSurface], which reads
-  /// the background grain out of the settings table. Without a database the
-  /// scaffold throws before any of these screens builds, which is what took all
-  /// three of these tests down at once.
+  /// The screens sit under [StaticSurface], which reads the background grain out of the
+  /// settings table; without a database the scaffold throws before any of them builds.
   Widget host(Widget child) => ProviderScope(
     overrides: [
       ...featureTestOverrides(db),
@@ -56,9 +53,8 @@ void main() {
     child: MaterialApp(theme: testTheme, home: child),
   );
 
-  /// The background grain runs off a ticker that never settles, so a test that
-  /// ends with the tree still mounted leaves a pending timer and hangs the
-  /// file.
+  /// The grain runs off a ticker that never settles, so a test that ends with the tree
+  /// still mounted leaves a pending timer and hangs the file.
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
@@ -101,8 +97,6 @@ void main() {
     await tester.pumpWidget(host(KeyDetailScreen(keyRecord: managedKey)));
     await _ready(tester);
 
-    // The bar names the hold rather than reading DELETE, so the greyed-out
-    // state and the `[ USED BY ]` list above it say the same thing.
     expect(find.text('DELETE'), findsNothing);
     final delete = tester.widget<Text>(find.text('USED BY 1 HOST'));
     expect(delete.style?.color, DazzleColors.textDisabled);
@@ -114,10 +108,8 @@ void main() {
   });
 
   testWidgets('host save requires selecting a key', (tester) async {
-    // The `[ PORT ]` field pushed the action bar past the bottom of the default
-    // 800x600 surface, and a [ListView] never builds what it does not show. The
-    // form is opened on a phone-shaped view tall enough to hold all of it, the
-    // same way test/host_form_test.dart does.
+    // The `[ PORT ]` field pushed the action bar past the bottom of the default 800x600
+    // surface, and a [ListView] never builds what it does not show.
     tester.view.physicalSize = const Size(400, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);

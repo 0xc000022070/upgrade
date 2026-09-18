@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import '../../design/tokens.dart';
 import 'syntax.dart';
 
-/// The colour a run is drawn in, over whatever style the line already has.
-/// Plain is null so the line's own colour shows through; punctuation is the
-/// muted text, not a syntax colour, since it is furniture.
+/// Plain is null so the line's own colour shows through; punctuation is the muted text,
+/// not a syntax colour, since it is furniture.
 TextStyle? syntaxStyle(BuildContext context, SyntaxToken token) =>
     switch (token) {
       SyntaxToken.plain => null,

@@ -7,17 +7,10 @@ import '../icons/dazzle_icons.dart';
 import '../motion.dart';
 import '../spacing.dart';
 
-/// How far a vertical drag has to travel, once it has taken the pointer off
-/// the tap, before it counts as a flick in that direction.
+/// How far a vertical drag has to travel, once it has taken the pointer off the tap,
+/// before it counts as a flick.
 const _flickDistance = 8.0;
 
-/// One key drawn as a key: a tracked word or one of the artist's marks, with
-/// the press tint and the armed accent that say what it is doing.
-///
-/// Shared by the screen's keys strip and the shell's bar so the two are the
-/// same key under two layouts. The strip's cells take their width from the
-/// row they are in and stand a full tap target tall; the bar's are shorter and
-/// set their own floor, which is what [minWidth] and [padding] are for.
 class KeyCell extends StatefulWidget {
   const KeyCell({
     super.key,
@@ -40,37 +33,20 @@ class KeyCell extends StatefulWidget {
   final VoidCallback onTap;
   final bool armed;
 
-  /// Drawn as a key and worth nothing: no press tint, no arming. Dimmer than a
-  /// key at rest, which is the only thing that says so before it is pressed.
   final bool inert;
 
-  /// How many things this key is armed for. Anything above one is drawn after
-  /// the label, `CTRL(x2)`, and the change rolls rather than cuts.
   final int repeat;
 
-  /// Armed for everything that follows rather than for a count. Drawn
-  /// `CTRL(∞)`, which replaces the count rather than sitting beside it: a
-  /// number under a modifier nothing spends says nothing.
   final bool locked;
 
-  /// A vertical drag over the cell, `1` down and `-1` up. Null leaves the cell
-  /// with nothing but its tap, which is what every key that cannot be counted
-  /// wants.
   final void Function(int step)? onFlick;
 
-  /// A press held over the cell. Null on every key that has nothing to hold —
-  /// a key that sends bytes is over the moment it is pressed.
   final VoidCallback? onLongPress;
 
-  /// A floor, not a width: a cell is as wide as its label plus [padding] on
-  /// either side, and no narrower than this. Null leaves the width to whatever
-  /// row the cell is in.
   final double? minWidth;
 
   final double padding;
 
-  /// A full tap target unless a row stretches its cells, which is how the bar
-  /// hands every cell its whole short row as a hit area.
   final double height;
 
   @override
@@ -83,9 +59,6 @@ class _KeyCellState extends State<KeyCell> {
 
   @override
   Widget build(BuildContext context) {
-    // The press tint, and the same accent for a modifier that is armed: both
-    // mean "this key is what the next thing you do goes through". An inert key
-    // has neither and is dimmer at rest than one that works.
     final tint = widget.inert
         ? context.tokens.textMuted
         : _down || widget.armed
@@ -105,15 +78,10 @@ class _KeyCellState extends State<KeyCell> {
       onTapCancel: widget.inert ? null : () => setState(() => _down = false),
       onTapUp: widget.inert ? null : (_) => setState(() => _down = false),
       onTap: widget.inert ? null : widget.onTap,
-      // The hold shares the detector with the tap for the same reason the drag
-      // does: the two are in one arena, so a finger that stays wins the hold
-      // and the tap under it is cancelled rather than both firing.
       onLongPress: hold,
-      // The drag lives on the same detector as the tap so the two share an
-      // arena entry: a finger that moves takes the drag and the tap is
-      // cancelled under it, rather than both firing. The travel is counted
-      // from the finger's own first pixel, slop included, so the distance
-      // below is the distance the user actually moved.
+      // The drag and the hold share the tap's detector so the three share one arena entry: a
+      // finger that moves or stays takes it and the tap under it is cancelled, rather than
+      // both firing. Travel counts from the first pixel, slop included.
       dragStartBehavior: DragStartBehavior.down,
       onVerticalDragStart: flick == null
           ? null
@@ -142,17 +110,13 @@ class _KeyCellState extends State<KeyCell> {
         padding: widget.minWidth == null
             ? null
             : EdgeInsets.symmetric(horizontal: widget.padding),
-        // A container that centres its child fills whatever it is handed:
-        // a share of the row in the strip, and the whole pane under a cell
-        // floated over one. The align below does the centring instead, and a
-        // cell with a floor of its own takes its width from its label, which
-        // is what the floor is documented to be a floor of.
+        // A container that centres its child fills whatever it is handed; the align below does
+        // the centring instead, so a cell with a floor of its own takes its width from its
+        // label.
         alignment: widget.minWidth == null ? Alignment.center : null,
         child: Align(
           widthFactor: widget.minWidth == null ? null : 1,
           heightFactor: 1,
-          // The label is still the semantics: a glyph key reads as its name to
-          // a screen reader, which a bare picture would not.
           child: Semantics(
             label: widget.locked
                 ? '${widget.label} latched'
@@ -172,9 +136,6 @@ class _KeyCellState extends State<KeyCell> {
   }
 }
 
-/// A word that changes by rolling: the one leaving goes out through the floor
-/// while the one arriving comes in through the ceiling, clipped to the line so
-/// neither is ever seen outside it.
 class _RollingLabel extends StatefulWidget {
   const _RollingLabel({required this.text, required this.style});
 
@@ -187,15 +148,13 @@ class _RollingLabel extends StatefulWidget {
 
 class _RollingLabelState extends State<_RollingLabel>
     with SingleTickerProviderStateMixin {
-  late final AnimationController
-  _roll = AnimationController(vsync: this, duration: Motion.fast)
-    ..addStatusListener((status) {
-      // The word that left is dropped the moment it has, so the cell goes back
-      // to being as wide as the word it now reads.
-      if (status == AnimationStatus.completed && mounted) {
-        setState(() => _leaving = null);
-      }
-    });
+  late final AnimationController _roll =
+      AnimationController(vsync: this, duration: Motion.fast)
+        ..addStatusListener((status) {
+          if (status == AnimationStatus.completed && mounted) {
+            setState(() => _leaving = null);
+          }
+        });
 
   String? _leaving;
 
@@ -223,9 +182,8 @@ class _RollingLabelState extends State<_RollingLabel>
         animation: _roll,
         builder: (context, _) {
           final t = Motion.transition.transform(_roll.value);
-          // The arriving word sizes the stack; the one leaving is laid over it
-          // and translated by its whole height, so a longer word going out is
-          // never what the cell is measured by.
+          // The arriving word sizes the stack; the one leaving is laid over it and translated by
+          // its whole height, so a longer word going out never measures the cell.
           return Stack(
             children: [
               FractionalTranslation(

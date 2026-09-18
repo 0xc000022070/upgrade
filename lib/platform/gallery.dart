@@ -2,9 +2,8 @@ import 'dart:typed_data';
 
 import 'package:gal/gal.dart';
 
-/// Writes one PNG into the phone's gallery, under the app's own album, and
-/// asks for access on the way when the platform still wants asking — which is
-/// Android up to 9 and nothing after, where the app's own media are its own.
+/// Asks for access on the way when the platform still wants asking, which is Android up
+/// to 9 and nothing after.
 typedef GallerySaver = Future<void> Function(Uint8List png, String name);
 
 const galleryAlbum = 'Dazzle';

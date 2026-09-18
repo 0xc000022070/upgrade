@@ -9,28 +9,20 @@ import 'alert_notifications.dart';
 import 'herdr_client.dart';
 import 'keys.dart';
 
-/// The alert's `YES` and `NO`, answered wherever the tap lands.
-///
-/// Android delivers an action tap to this app's background isolate when the
-/// activity is gone and to the main isolate when it is not, so the same
-/// function has to work in both. It therefore looks nothing up: the host comes
-/// off the notification's payload and the key off the keystore, which every
-/// isolate of the process can read. "Actions work with only the service alive"
-/// is the floor; this clears it, because they work with nothing alive.
+/// Android delivers an action tap to this app's background isolate when the activity is
+/// gone and to the main isolate when it is not, so this looks nothing up: the host comes
+/// off the notification's payload and the key off the keystore, which every isolate can
+/// read.
 
 @pragma('vm:entry-point')
 void alertActionBackground(NotificationResponse response) {
   unawaited(handleAlertAction(response));
 }
 
-/// Non-null while [handleAlertAction] should open the app instead of answering:
-/// the UI isolate sets this so a cold `OPEN` can be replayed once the shell is
-/// on screen.
+/// Non-null while [handleAlertAction] should open the app instead of answering, so a
+/// cold `OPEN` can be replayed once the shell is on screen.
 void Function()? alertOpenHandler;
 
-/// The same for a tap on `AUTHORIZATION REQUIRED`, which names the host whose
-/// shell the sheet is on. There is nothing to answer in the background: a
-/// passphrase is typed, never tapped.
 void Function(String hostId)? pinOpenHandler;
 
 Future<void> handleAlertAction(NotificationResponse response) async {
@@ -47,8 +39,8 @@ Future<void> handleAlertAction(NotificationResponse response) async {
     case alertActionNo:
       await _answer(target, yes: false);
     case alertActionOpen:
-      // Android is already bringing the activity up; the route is pushed by
-      // whichever isolate has one, and the background isolate has none.
+      // Android is already bringing the activity up; the route is pushed by whichever isolate
+      // has one, and the background isolate has none.
       alertOpenHandler?.call();
   }
 }
@@ -64,9 +56,8 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
         withActions: withActions,
       );
 
-  // The state line goes up before the connection is dialled: the actions are
-  // replaced "after a tap", and an unreachable host takes ten seconds to
-  // say so.
+  // The state line goes up before the connection is dialled: an unreachable host takes
+  // ten seconds to say so.
   await redraw(line: alertSentLine(yes: yes), withActions: false);
 
   try {
@@ -88,7 +79,6 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
       session.close();
     }
   } on HerdrFailure catch (error) {
-    // The debug line, from an isolate that has no host name to put in it.
     debugPrint('dazzle.herdr ${target.address}: ${error.detail ?? error}');
     await redraw(
       line: alertFailedLine(alertFailureReason(error)),
@@ -97,8 +87,7 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
     return;
   }
 
-  // The actions come back if 10 s pass with no change. The watcher
-  // clearing the notification first is the other ending, so a restore that
+  // The watcher clearing the notification first is the other ending, so a restore that
   // would resurrect a dismissed alert is dropped.
   await Future<void>.delayed(alertActionRestore);
   if (!await _stillPosted(target.notificationId)) return;
@@ -110,8 +99,8 @@ Future<bool> _stillPosted(int id) async {
     final active = await AlertNotifications.plugin.getActiveNotifications();
     return active.any((notification) => notification.id == id);
   } catch (_) {
-    // Older Android cannot answer; leaving the actions off would be worse than
-    // a redraw of something that is gone.
+    // Older Android cannot answer; leaving the actions off would be worse than a redraw of
+    // something that is gone.
     return true;
   }
 }

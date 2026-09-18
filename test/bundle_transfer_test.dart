@@ -36,8 +36,6 @@ Host _rose({String name = 'rose', String keyId = 'k1'}) => Host(
   vncPassword: 'hunter2',
 );
 
-/// The app support directory, without one. Counts its writes so a test can
-/// tell a file that was left alone from one that was written again.
 class _Pictures implements AttachmentBytes {
   final files = <String, Uint8List>{};
   final written = <String>[];
@@ -53,7 +51,6 @@ class _Pictures implements AttachmentBytes {
   }
 }
 
-/// One phone: a database, its repositories, its keystore and its pictures.
 class _Phone {
   _Phone() : db = AppDatabase(NativeDatabase.memory()) {
     keys = DriftKeyRepository(db);
@@ -82,9 +79,6 @@ class _Phone {
 
   Future<void> close() => db.close();
 
-  /// Two keys, one host with a pin, a VNC password and herdr on, two paths,
-  /// one of them filed under a project, and that project with a task under it
-  /// wearing every column a repository would otherwise have opinions about.
   Future<void> seed() async {
     await keys.save(_key('k1'));
     await keys.save(_key('k2'));
@@ -182,7 +176,6 @@ void main() {
     ]);
     expect(bundle.count.words, startsWith('1 HOST · 2 KEYS · 2 PATHS · '));
 
-    // The project travels, so the link that points at it travels too.
     expect(bundle.paths.first.projectId, 'proj-1');
     expect(bundle.paths.last.projectId, isNull);
     expect(Bundle.decode(bundle.encode()).paths.first.projectId, 'proj-1');
@@ -236,13 +229,7 @@ void main() {
   test('the count names rows and images only when there are any', () {
     const bare = BundleCount(hosts: 1, keys: 1, paths: 0);
     expect(bare.words, '1 HOST · 1 KEY · 0 PATHS');
-    const full = BundleCount(
-      hosts: 2,
-      keys: 1,
-      paths: 5,
-      rows: 312,
-      images: 4,
-    );
+    const full = BundleCount(hosts: 2, keys: 1, paths: 5, rows: 312, images: 4);
     expect(full.words, '2 HOSTS · 1 KEY · 5 PATHS · 312 ROWS · 4 IMAGES');
   });
 

@@ -1,7 +1,3 @@
-/// The rect encodings as a registry: one entry per encoding, and the offer the
-/// client sends derived from it rather than written beside it.
-library;
-
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -31,8 +27,6 @@ void main() {
     });
 
     test('every encoding the client offers is one it can read', () {
-      // The two lists cannot disagree because there is only one: an entry
-      // added to `all` is offered, and nothing else can be.
       for (final code in RectEncoding.offer) {
         expect(RectEncoding.of(code), isNotNull);
       }
@@ -42,8 +36,7 @@ void main() {
     });
 
     test('an encoding that was never offered has no entry', () {
-      // Hextile: a real RFB encoding this client does not speak, which is
-      // exactly the case the read loop turns into a reason line.
+      // Hextile: a real RFB encoding this client does not speak.
       expect(RectEncoding.of(5), isNull);
       expect(RectEncoding.of(-239), isNull);
     });
@@ -85,8 +78,6 @@ void main() {
       final target = _target(framebuffer);
       expect(target.resized, isFalse);
 
-      // The one encoding with no data behind its header: the geometry is the
-      // header's own width and height.
       await RectEncoding.of(Rfb.encodingDesktopSize)!
           .read(const RfbRect(x: 0, y: 0, width: 4, height: 3), target);
 

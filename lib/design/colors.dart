@@ -1,7 +1,5 @@
 import 'dart:ui';
 
-/// The palette. The accent is reserved for active / progress /
-/// selection / important status; it never covers a large surface.
 abstract final class DazzleColors {
   static const backgroundPrimary = Color(0xFF08090B);
   static const backgroundSecondary = Color(0xFF0B0D10);
@@ -24,14 +22,6 @@ abstract final class DazzleColors {
   static const danger = Color(0xFFB84A4A);
 }
 
-/// The second palette, held under the first: the colours the text *inside* a
-/// diff line is given, once the ground and the glyph have said which side of
-/// the change that line is on.
-///
-/// None of them is [DazzleColors.accent] or [DazzleColors.danger], which
-/// already mean added and removed here, and none is brighter than
-/// [DazzleColors.textPrimary], which is what an uncoloured line is. Syntax
-/// is the quieter of the two things a diff says.
 abstract final class SyntaxColors {
   static const keyword = Color(0xFF9E8CD0);
   static const type = Color(0xFF6FB3A8);

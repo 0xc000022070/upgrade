@@ -22,8 +22,8 @@ import 'plugin_management_screen.dart';
 String _hex(Color color) =>
     '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
 
-/// The theme table an API-2 plugin's `mount` event carries, so a page can
-/// read the device's active look instead of guessing at the house palette.
+/// The theme table an API-2 plugin's `mount` event carries, so a page reads the device's
+/// active look instead of guessing at the house palette.
 Map<String, Object?> pluginThemeTable(DazzleTokens tokens) => {
   'brightness': tokens.brightness == Brightness.dark ? 'dark' : 'light',
   'background': _hex(tokens.backgroundPrimary),

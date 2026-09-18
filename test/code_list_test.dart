@@ -25,16 +25,6 @@ import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// CODE: the registered directories as a primitive of their own, the second
-/// segment of HOSTS.
-///
-/// The list is where a directory is registered now — the host form no longer
-/// draws a paths block at all — so everything the form used to be tested for
-/// is tested here, through the segment the user actually reaches it by. The
-/// list is the app's own and not the Projects plugin's, so it is also pumped
-/// with Projects off.
-
-/// What a host answers `agent paths` with. The picker offers these.
 const _scanned = ['~/src/dazzle', '/srv/gate', '~/src/monolith'];
 
 ManagedKey _key(String id) => ManagedKey(
@@ -64,8 +54,7 @@ void main() {
   late ScreenPreviews previews;
   late ShellSessions sessions;
 
-  // Real repositories over one memory database, not in-memory fakes: the CODE
-  // list joins paths to hosts in SQL, so a host that lives only in a fake is a
+  // The CODE list joins paths to hosts in SQL, so a host that lives only in a fake is a
   // host the list cannot see.
   setUp(() async {
     stubDeviceChannels();
@@ -87,8 +76,8 @@ void main() {
     return db.close();
   });
 
-  // The MACHINES segment under the same title probes, previews and dials the
-  // hosts it lists; none of that reaches a socket here.
+  // The MACHINES segment probes, previews and dials the hosts it lists; none of that
+  // reaches a socket here.
   Future<void> noDial({
     required String address,
     required int port,
@@ -169,7 +158,6 @@ void main() {
     await hosts.save(_host('1', 'nyx'));
     await open(tester);
 
-    // The machines are what a hosts tab is, so they are what opens.
     expect(find.text('HOSTS'), findsWidgets);
     expect(find.text('ADD HOST'), findsOneWidget);
     expect(find.text('WORKSPACES'), findsNothing);
@@ -178,7 +166,6 @@ void main() {
     expect(find.text('WORKSPACES'), findsOneWidget);
     expect(find.text('ADD HOST'), findsNothing);
 
-    // And back, on the same screen: this is a segment, not a destination.
     await tapText(tester, 'MACHINES');
     expect(find.text('WORKSPACES'), findsNothing);
     expect(find.text('ADD HOST'), findsOneWidget);
@@ -214,8 +201,6 @@ void main() {
     await toCode(tester);
 
     expect(find.text('NO HOSTS YET'), findsOneWidget);
-    // ADD is drawn and dead: the verb is not the problem, the empty list of
-    // machines is, and the line under it says so.
     expect(find.text('ADD'), findsOneWidget);
 
     await unmount(tester);
@@ -230,7 +215,6 @@ void main() {
     await toCode(tester);
 
     await tapText(tester, 'ADD');
-    // Two hosts, so the host is asked for first.
     expect(find.text('ROSE'), findsOneWidget);
     await tapText(tester, 'NYX');
 
@@ -243,7 +227,6 @@ void main() {
       '~/src/dazzle',
       '/srv/gate',
     ]);
-    // Both rows carry the host they are on, since the list spans machines.
     expect(find.text('NYX'), findsNWidgets(2));
 
     await unmount(tester);
@@ -271,7 +254,6 @@ void main() {
     await toCode(tester);
 
     await tapText(tester, 'ADD');
-    // The row on the list behind is the only one left saying it.
     expect(find.text(shortPathLabel('~/src/dazzle')), findsOneWidget);
     expect(find.text(shortPathLabel('/srv/gate')), findsOneWidget);
 
@@ -319,8 +301,6 @@ void main() {
   testWidgets('a host with herdr off still lists and still registers', (
     tester,
   ) async {
-    // Nothing on this screen is a herdr thing: a checkout is found with find
-    // and read with git, and only handing work to an agent needs a herdr session.
     await hosts.save(_host('1', 'nyx'));
     await open(tester);
     await toCode(tester);

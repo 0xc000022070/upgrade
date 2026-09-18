@@ -11,9 +11,8 @@ import 'package:dazzle/data/repositories/path_repository.dart';
 import 'package:dazzle/data/repositories/shell_tab_repository.dart';
 import 'package:dazzle/data/repositories/settings_repository.dart';
 
-/// The v2 schema exactly as it shipped, written out by hand: the point of the
-/// test is that the v3 migration meets a database it did not create, so the
-/// fixture must not come from the current table definitions.
+/// Written out by hand: the migration meets a database it did not create, so no fixture
+/// here may come from the current table definitions.
 const _v2Schema = [
   '''
 CREATE TABLE projects (
@@ -62,11 +61,6 @@ CREATE TABLE activity_events (
 )''',
 ];
 
-/// The v3 schema exactly as it shipped, for the attachments upgrade. Same
-/// reason as
-/// [_v2Schema]: `links` no longer has a table class to generate DDL from that
-/// would prove anything, and `attachments` must meet a database it did not
-/// create.
 const _v3Schema = [
   ..._v2Schema,
   '''
@@ -91,10 +85,6 @@ CREATE TABLE links (
   'ALTER TABLE tasks ADD COLUMN bundle_id TEXT',
 ];
 
-/// The v5 schema exactly as it shipped, for the project tree. This is the
-/// version every device that has taken every migration is on, so it is the
-/// jump the next release actually performs on a phone; the v2 fixture below
-/// only covers the one device that skipped everything.
 const _v5Schema = [
   ..._v3Schema,
   '''
@@ -114,20 +104,11 @@ CREATE TABLE settings (
 )''',
 ];
 
-/// The v6 schema exactly as it shipped, for the keys and hosts upgrade. v6 is
-/// what
-/// phase 8 put on the emulator, so this is the jump a device that took the last
-/// release actually performs.
 const _v6Schema = [
   ..._v5Schema,
   'ALTER TABLE projects ADD COLUMN parent_id TEXT REFERENCES projects (id)',
 ];
 
-/// The v7 schema exactly as it shipped, for the port upgrade. `hosts` has no
-/// `port` here, which is the whole point: v7 is what every device that took the
-/// keys and hosts release is on, and the column has to arrive on a table this
-/// file wrote rather than on one the current definitions created with it
-/// already there.
 const _v7Schema = [
   ..._v6Schema,
   '''
@@ -156,18 +137,11 @@ CREATE TABLE host_integrations (
 )''',
 ];
 
-/// The v8 schema: v7 plus the column the port upgrade added. What every device
-/// that has taken every release so far is on, and so the jump the paths tables
-/// actually perform.
 const _v8Schema = [
   ..._v7Schema,
   'ALTER TABLE hosts ADD COLUMN port INTEGER NOT NULL DEFAULT 22',
 ];
 
-/// The v11 schema: everything v8 had plus the host key columns, the two paths
-/// tables and the shell tabs, with `agent` still on `paths`. The jump off it is
-/// the one that moves the kind onto the dispatch, so the column has to be here
-/// on a table this file wrote.
 const _v11Schema = [
   ..._v8Schema,
   'ALTER TABLE hosts ADD COLUMN host_key_type TEXT',
@@ -202,10 +176,6 @@ CREATE TABLE shell_tabs (
 )''',
 ];
 
-/// The v13 schema: v8 plus the host key columns, the vnc password, the two
-/// paths tables with the agent already moved onto the dispatch, and the shell
-/// tabs. `paths` has no `project_id` here, which is the whole point — the
-/// upgrade off it is the one that links a directory to a project.
 const _v13Schema = [
   ..._v8Schema,
   'ALTER TABLE hosts ADD COLUMN host_key_type TEXT',
@@ -247,9 +217,8 @@ const _v14Schema = [
   'ALTER TABLE paths ADD COLUMN project_id TEXT REFERENCES projects (id)',
 ];
 
-/// Drives [QueryExecutor.ensureOpen] to stamp `user_version = 2` and lay down
-/// the old schema, which is what makes the file drift later opens a real v2
-/// database rather than a v3 one with rows in it.
+/// Drives [QueryExecutor.ensureOpen] to stamp `user_version = 2` and lay down the old
+/// schema, which is what makes the file drift later opens a real v2 database.
 class _V2Database implements QueryExecutorUser {
   _V2Database([this.schemaVersion = 2, this.statements = _v2Schema]);
 
@@ -263,8 +232,8 @@ class _V2Database implements QueryExecutorUser {
     QueryExecutor executor,
     OpeningDetails details,
   ) async {
-    // The executor handed to beforeOpen refuses statements until it has been
-    // told it is open; drift's own Migrator does the same before it runs DDL.
+    // The executor handed to beforeOpen refuses statements until it has been told it is
+    // open; drift's own Migrator does the same before it runs DDL.
     await executor.ensureOpen(this);
     if (!details.wasCreated) return;
     for (final statement in statements) {
@@ -339,69 +308,64 @@ void main() {
     await executor.close();
   }
 
-  test('a v2 database upgrades to the current schema with every row still there', () async {
-    await writeV2Fixture();
+  test(
+    'a v2 database upgrades to the current schema with every row still there',
+    () async {
+      await writeV2Fixture();
 
-    final db = AppDatabase(NativeDatabase(file));
-    addTearDown(db.close);
+      final db = AppDatabase(NativeDatabase(file));
+      addTearDown(db.close);
 
-    // Forces ensureOpen, and with it the migration.
-    final tasks = await db.select(db.tasks).get();
+      // Forces ensureOpen, and with it the migration.
+      final tasks = await db.select(db.tasks).get();
 
-    expect(
-      await db
-          .customSelect('PRAGMA user_version')
-          .getSingle()
-          .then((row) => row.read<int>('user_version')),
-      db.schemaVersion,
-    );
+      expect(
+        await db
+            .customSelect('PRAGMA user_version')
+            .getSingle()
+            .then((row) => row.read<int>('user_version')),
+        db.schemaVersion,
+      );
 
-    final projects = await db.select(db.projects).get();
-    expect(projects.single.name, 'Infra personal');
-    expect(projects.single.status, ProjectStatus.active);
-    expect(projects.single.priority, Priority.high);
-    expect(projects.single.createdAt, DateTime.parse(stamp(20)));
+      final projects = await db.select(db.projects).get();
+      expect(projects.single.name, 'Infra personal');
+      expect(projects.single.status, ProjectStatus.active);
+      expect(projects.single.priority, Priority.high);
+      expect(projects.single.createdAt, DateTime.parse(stamp(20)));
 
-    expect(tasks.map((t) => t.id), ['t1', 't2', 't3', 't4']);
-    expect(tasks.firstWhere((t) => t.id == 't1').done, isTrue);
-    expect(
-      tasks.firstWhere((t) => t.id == 't2').blockedReason,
-      'Esperando proveedor S3',
-    );
-    expect(tasks.firstWhere((t) => t.id == 't3').projectId, isNull);
-    expect(tasks.firstWhere((t) => t.id == 't4').isNext, isTrue);
+      expect(tasks.map((t) => t.id), ['t1', 't2', 't3', 't4']);
+      expect(tasks.firstWhere((t) => t.id == 't1').done, isTrue);
+      expect(
+        tasks.firstWhere((t) => t.id == 't2').blockedReason,
+        'Esperando proveedor S3',
+      );
+      expect(tasks.firstWhere((t) => t.id == 't3').projectId, isNull);
+      expect(tasks.firstWhere((t) => t.id == 't4').isNext, isTrue);
 
-    // The added columns exist and read as null on rows written before them.
-    expect(tasks.every((t) => t.goalId == null), isTrue);
-    expect(tasks.every((t) => t.bundleId == null), isTrue);
-    // A null parent is a root, so the flat list the user had is the
-    // tree the migration produces. Nothing is orphaned and nothing moves.
-    expect(projects.every((p) => p.parentId == null), isTrue);
+      expect(tasks.every((t) => t.goalId == null), isTrue);
+      expect(tasks.every((t) => t.bundleId == null), isTrue);
+      expect(projects.every((p) => p.parentId == null), isTrue);
 
-    expect(
-      (await db.select(db.notes).get()).single.content,
-      'Probar Garage y MinIO',
-    );
-    expect(
-      (await db.select(db.activityEvents).get()).single.action,
-      ActivityAction.completed,
-    );
+      expect(
+        (await db.select(db.notes).get()).single.content,
+        'Probar Garage y MinIO',
+      );
+      expect(
+        (await db.select(db.activityEvents).get()).single.action,
+        ActivityAction.completed,
+      );
 
-    // Every table a later version added exists and is empty rather than absent.
-    expect(await db.select(db.goals).get(), isEmpty);
-    expect(await db.select(db.attachments).get(), isEmpty);
-    expect(await db.select(db.settings).get(), isEmpty);
-    // No host is assumed, so the upgrade lands on the same empty tables a
-    // fresh install has and the AGENTS panel comes up blocked.
-    expect(await db.select(db.keys).get(), isEmpty);
-    expect(await db.select(db.hosts).get(), isEmpty);
-    expect(await db.select(db.paths).get(), isEmpty);
-    expect(await db.select(db.dispatches).get(), isEmpty);
-  });
+      expect(await db.select(db.goals).get(), isEmpty);
+      expect(await db.select(db.attachments).get(), isEmpty);
+      expect(await db.select(db.settings).get(), isEmpty);
+      expect(await db.select(db.keys).get(), isEmpty);
+      expect(await db.select(db.hosts).get(), isEmpty);
+      expect(await db.select(db.paths).get(), isEmpty);
+      expect(await db.select(db.dispatches).get(), isEmpty);
+    },
+  );
 
   test('a v3 database folds its links into attachments', () async {
-    // A v2 file first, then the v3 shape on top of it: the fixture is the
-    // schema as it shipped, not as the current table classes would draw it.
     final executor = NativeDatabase(file);
     await executor.ensureOpen(_V2Database(3, _v3Schema));
     await executor.runInsert(
@@ -448,15 +412,11 @@ void main() {
     ]);
     expect(attachments.first.createdAt, DateTime.parse(stamp(22)));
 
-    // The fold copies rather than moves: a rollback to v3 has to find its rows
-    // where it left them.
     expect(await db.select(db.links).get(), hasLength(2));
   });
 
   test('settings survive the jump the installed build will make', () async {
-    // faraday runs a v2 build, so the v2 -> v7 jump is the one that matters:
-    // the added table has to appear on a database full of rows, and a
-    // preference written into it has to read back.
+    // faraday runs a v2 build, so the v2 -> v7 jump is the one that matters.
     await writeV2Fixture();
 
     final db = AppDatabase(NativeDatabase(file));
@@ -478,14 +438,12 @@ void main() {
     await settings.setFlag(SettingsRepository.staticEnabled, true);
     expect((await db.select(db.settings).get()), hasLength(1));
 
-    // The rows the migration carried are still there under the new table.
     expect(await db.select(db.tasks).get(), hasLength(4));
   });
 
   test(
     'a v5 database gains parent_id with every project still a root',
     () async {
-      // The jump a device that has taken every migration actually makes.
       final executor = NativeDatabase(file);
       await executor.ensureOpen(_V2Database(5, _v5Schema));
       for (final row in [
@@ -523,8 +481,6 @@ void main() {
       );
       expect(projects.map((p) => p.id), ['p1', 'p2']);
       expect(projects.every((p) => p.parentId == null), isTrue);
-      // Both are roots, so both are on the list the tab reads, and neither has
-      // borrowed the other's task.
       expect((await db.watchRootSummaries().first).map((p) => p.projectId), [
         'p1',
         'p2',
@@ -536,8 +492,6 @@ void main() {
         reason: 'a preference written before the upgrade survives it',
       );
 
-      // The column is writable on a row the migration carried, and the subtree
-      // progress follows immediately: p1 owns no task of its own.
       await (db.update(db.projects)..where((p) => p.id.equals('p2'))).write(
         const ProjectsCompanion(parentId: Value('p1')),
       );
@@ -550,8 +504,6 @@ void main() {
   );
 
   test('a v6 database gains keys and hosts, both empty', () async {
-    // The jump the installed v14 build makes. Two tables appear on a database
-    // full of rows and nothing else moves.
     final executor = NativeDatabase(file);
     await executor.ensureOpen(_V2Database(6, _v6Schema));
     for (final row in [
@@ -592,8 +544,6 @@ void main() {
           .then((row) => row.read<int>('user_version')),
       db.schemaVersion,
     );
-    // The project tree survives untouched: the upgrade adds tables, it does not
-    // rewrite a row.
     expect(projects.map((p) => p.id), ['p1', 'p2']);
     expect(projects.firstWhere((p) => p.id == 'p2').parentId, 'p1');
     expect(
@@ -602,8 +552,6 @@ void main() {
       isFalse,
     );
 
-    // Nothing is assumed. No key, no host, and no integration switched on,
-    // which is the state the AGENTS panel renders as a link to HOSTS.
     expect(await db.select(db.keys).get(), isEmpty);
     expect(await db.select(db.hosts).get(), isEmpty);
     expect(await db.select(db.hostIntegrations).get(), isEmpty);
@@ -614,7 +562,6 @@ void main() {
       isEmpty,
     );
 
-    // And the new tables take writes on a database the migration upgraded.
     final keys = DriftKeyRepository(db);
     await keys.save(
       ManagedKey(
@@ -728,8 +675,6 @@ void main() {
           .then((row) => row.read<int>('user_version')),
       db.schemaVersion,
     );
-    // The row the user already had keeps working, on the port the transport
-    // was in fact dialling it on before the column existed.
     final host = (await DriftHostRepository(db).all()).single;
     expect(host.id, 'h1');
     expect(host.address, '100.118.60.77');
@@ -742,8 +687,6 @@ void main() {
       'h1',
     );
 
-    // And the upgraded table takes a port that is not the default, and the
-    // password the row never had.
     await DriftHostRepository(db).save(
       Host(
         id: 'h1',
@@ -785,14 +728,10 @@ void main() {
           .then((row) => row.read<int>('user_version')),
       db.schemaVersion,
     );
-    // The host the user registered is untouched, on the port it was saved on.
     expect((await DriftHostRepository(db).all()).single.port, 357);
-    // Nothing is invented for it: a directory is something the user registers,
-    // so the upgrade lands on the two empty tables a fresh install has.
     expect(await db.select(db.paths).get(), isEmpty);
     expect(await db.select(db.dispatches).get(), isEmpty);
 
-    // And both take writes on a database the migration upgraded.
     final paths = DriftPathRepository(db);
     final path = await paths.add(hostId: 'h1', directory: '~/src/dazzle');
     await db
@@ -853,20 +792,15 @@ void main() {
     final db = AppDatabase(NativeDatabase(file));
     addTearDown(db.close);
 
-    // The send that was made by codex still says codex, and says nothing about
-    // a model: the column arrives after the send, so there is none to claim.
     final dispatch = (await db.select(db.dispatches).get()).single;
     expect(dispatch.agent, 'codex');
     expect(dispatch.model, isNull);
 
-    // And the path no longer answers for an agent at all.
     final columns = await db
         .customSelect('PRAGMA table_info(paths)')
         .get()
         .then((rows) => rows.map((row) => row.read<String>('name')).toList());
     expect(columns, isNot(contains('agent')));
-    // And gains the link on the way through, since the rebuild that drops
-    // `agent` builds the table from the current definition.
     expect(columns, contains('project_id'));
     expect((await db.select(db.paths).get()).single.projectId, isNull);
     expect(
@@ -898,9 +832,6 @@ void main() {
     final db = AppDatabase(NativeDatabase(file));
     addTearDown(db.close);
 
-    // The directory is still registered and belongs to nobody: a path that
-    // predates the link is exactly what an unlinked one is, so there is
-    // nothing to backfill and nothing was.
     final path = (await DriftPathRepository(db).listForHost('h1')).single;
     expect(path.directory, '~/src/dazzle');
     expect(path.projectId, isNull);
@@ -962,8 +893,6 @@ void main() {
     final db = AppDatabase(NativeDatabase(file));
     addTearDown(db.close);
 
-    // A tab is written when a shell opens, so an install that upgrades into
-    // the table comes up on no sessions, which is what it came up on before.
     final tabs = DriftShellTabRepository(db);
     expect(await tabs.all(), isEmpty);
 

@@ -117,11 +117,9 @@ return {run = function() require("lib/a") end}
     await expectLater(run(package), throwsA(isA<LuauException>()));
   });
 
-  test(
-    'a module error under pcall reports its own error, twice, not a stuck state',
-    () async {
-      final package = linked(
-        '''
+  test('a module error under pcall reports its own error, twice, not a stuck state', () async {
+    final package = linked(
+      '''
 return {run = function()
   local ok1, err1 = pcall(function() return require("lib/broken") end)
   local ok2, err2 = pcall(function() return require("lib/broken") end)
@@ -130,9 +128,8 @@ return {run = function()
   assert(string.find(err2, "boom"), "second error must be the module's own")
 end}
 ''',
-        {'lib/broken.luau': 'error("boom", 0)'},
-      );
-      await run(package);
-    },
-  );
+      {'lib/broken.luau': 'error("boom", 0)'},
+    );
+    await run(package);
+  });
 }

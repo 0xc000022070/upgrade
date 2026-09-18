@@ -1,8 +1,3 @@
-/// Reading a page's own account of itself: the three conventions it may be
-/// written in, the request that goes out for it, and the file that stops the
-/// same question being asked twice.
-library;
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -11,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/link_preview.dart';
 import 'package:dazzle/platform/link_metadata.dart';
 
-/// A page that publishes Open Graph, which is most of them.
 const _openGraph = '''
 <!doctype html><html><head>
 <meta charset="utf-8">
@@ -25,8 +19,6 @@ const _openGraph = '''
 </body></html>
 ''';
 
-/// Twitter's names on a page that never shipped Open Graph, plus a relative
-/// image and a bare attribute value.
 const _twitterCard = '''
 <html><head>
 <meta name=twitter:title content="A Post">
@@ -36,7 +28,6 @@ const _twitterCard = '''
 </head></html>
 ''';
 
-/// Neither, and nothing but the document's own two tags.
 const _plainDocument = '''
 <html><head>
 <title>  Just   a page
@@ -45,7 +36,6 @@ const _plainDocument = '''
 </head></html>
 ''';
 
-/// A page that advertises where to ask for the thing itself.
 const _discovers = '''
 <html><head>
 <meta property="og:title" content="A Video">
@@ -87,7 +77,6 @@ void main() {
       expect(preview.title, 'A Post');
       expect(preview.description, 'What it says');
       expect(preview.imageUrl, 'https://elsewhere.test/media/card.png');
-      // A handle is not a site name; the card falls back to the host.
       expect(preview.siteName, isNull);
     });
 
@@ -393,8 +382,8 @@ class _FakeHttpClient implements HttpClient {
   final Map<String, _Reply> replies;
   final asked = <String>[];
 
-  /// What was actually pulled off the socket, which is the only way to tell a
-  /// read that stopped early from one that read the lot and threw it away.
+  /// The only way to tell a read that stopped early from one that read the lot and threw it
+  /// away.
   var readBytes = 0;
 
   @override

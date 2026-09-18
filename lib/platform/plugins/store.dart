@@ -60,8 +60,7 @@ class PluginPackage {
       )
       .toString();
 
-  /// The entry source with every declared file linked in as a `require`-able
-  /// module. Identical to [source] for single-file packages.
+  /// Identical to [source] for single-file packages.
   late final String linkedSource = _link();
 
   String _link() {
@@ -464,10 +463,8 @@ class PluginFetcher {
   static const _debugMode = !_releaseMode && !_profileMode;
   static const _originEnv = String.fromEnvironment('DAZZLE_PLUGIN_ORIGIN');
 
-  /// A dev-only override for the plugin/index fetch base, read from
-  /// `--dart-define=DAZZLE_PLUGIN_ORIGIN=http://host:port`. Lets an author
-  /// serve a plugin or index from a local directory over HTTP instead of
-  /// GitHub. Ignored outside debug builds.
+  /// Read from `--dart-define=DAZZLE_PLUGIN_ORIGIN=http://host:port`, so an author can
+  /// serve a plugin or index from a local directory. Ignored outside debug builds.
   String? get _devOrigin {
     if (!_debugMode || _originEnv.isEmpty) return null;
     final uri = Uri.tryParse(_originEnv);
@@ -477,8 +474,8 @@ class PluginFetcher {
         : _originEnv;
   }
 
-  /// The revision to fetch at. Under [_devOrigin] the ref is served as-is
-  /// by the local origin, with no GitHub ref resolution.
+  /// Under [_devOrigin] the ref is served as-is by the local origin, with no GitHub ref
+  /// resolution.
   Future<String> _revisionFor(
     ({String owner, String repo, String origin}) target,
     String ref,
@@ -582,9 +579,8 @@ class PluginFetcher {
     }
   }
 
-  /// Resolves [ref] (a full commit SHA, a tag or a branch name) to the
-  /// commit SHA it names. A full SHA is returned as-is without a network
-  /// call; anything else is resolved through the GitHub REST API.
+  /// A full SHA is returned as-is without a network call; anything else is resolved
+  /// through the GitHub REST API.
   Future<String> _resolveRef(
     ({String owner, String repo, String origin}) target,
     String ref,
@@ -612,8 +608,6 @@ class PluginFetcher {
     }
   }
 
-  /// The tag of the repository's latest published release, or its default
-  /// branch when it has no releases.
   Future<String> latestRef(String repository) async {
     if (_devOrigin != null) {
       throw const PluginException(

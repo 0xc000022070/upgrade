@@ -1,10 +1,3 @@
-/// The shell transport: what it asks the host for, what it carries once the
-/// shell is up, and which line every failure turns into.
-///
-/// The socket is the one part a test cannot have, so the dialer is the seam:
-/// everything below it is a fake, everything above it is the real code.
-library;
-
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -19,9 +12,7 @@ import 'package:dazzle/platform/shell/shell_tunnel.dart';
 import 'package:dazzle/platform/host_keys.dart';
 import 'package:dazzle/platform/keys.dart';
 
-/// A socket that answers a dial and then goes away mid-handshake, which is
-/// what a host that resets the connection looks like from here. `dart:io`
-/// reports a reset on both ends of the socket: the stream the transport reads
+/// `dart:io` reports a reset on both ends of the socket: the stream the transport reads
 /// and the `done` nothing in dartssh2 is holding.
 class RudeSocket implements SSHSocket {
   final _incoming = StreamController<Uint8List>();
@@ -55,9 +46,6 @@ class RudeSocket implements SSHSocket {
   @override
   Future<void> flush() async {}
 
-  /// The host going away under the handshake: the stream the transport reads
-  /// errors, and the close that follows fails the way `dart:io` fails the
-  /// close of a socket that was reset under it.
   void reset() {
     _reset = true;
     _incoming.addError(_reason);
@@ -368,10 +356,8 @@ void main() {
         );
         addTearDown(connection.close);
 
-        // The same pty on the same kind of channel, under an exec request
-        // instead of a shell request — `ssh -t`. Nothing is written at a
-        // prompt, because there is no shell in front of the command to have
-        // one.
+        // The same pty on the same kind of channel, under an exec request instead of a shell
+        // request — `ssh -t`.
         expect(host.requests, [
           "run herdr agent attach 'w22:p1' xterm-256color 100x40",
         ]);
@@ -972,14 +958,10 @@ void main() {
       );
       socket.reset();
       await expectLater(host.authenticated, throwsA(anything));
-      // What the tunnel does with a dial that failed: half-open is worse
-      // than none.
       await host.close();
     }, (error, _) => loose.add(error));
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
-    // The dial threw and the caller worded it. The client finishing its own
-    // end with the same error is not a second failure to report.
     expect(loose, isEmpty);
   });
 }

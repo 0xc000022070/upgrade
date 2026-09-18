@@ -5,14 +5,6 @@ import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/data/repositories/path_repository.dart';
 
-/// What a registered directory is, and what it takes with it when it goes.
-///
-/// The block that used to edit these lived on the host form and does not any
-/// more — a directory is a primitive of its own now, registered from the CODE
-/// list, and the screen half of this is in `code_list_test.dart`. What is left
-/// here is what a path means underneath any screen: how it is labelled, and
-/// what a delete cascades to.
-
 void main() {
   late AppDatabase db;
 
@@ -81,7 +73,6 @@ void main() {
 
     await paths.repoint(path.id, '~/src/dazzle/');
 
-    // The id survives, which is what keeps the sends already made readable.
     final row = (await paths.listForHost('host-1')).single;
     expect(row.id, path.id);
     expect(row.directory, '~/src/dazzle/');
@@ -110,10 +101,7 @@ void main() {
     await seedHost();
     await seedDrop();
     final paths = DriftPathRepository(db);
-    final path = await paths.add(
-      hostId: 'host-1',
-      directory: '~/src/dazzle',
-    );
+    final path = await paths.add(hostId: 'host-1', directory: '~/src/dazzle');
     await seedDispatch(path.id);
 
     await paths.remove(path.id);

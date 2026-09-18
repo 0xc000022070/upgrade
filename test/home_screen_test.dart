@@ -21,13 +21,9 @@ import 'package:dazzle/design/icons/dazzle_icons.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-/// The selection verbs are private, so the ink is the only readable statement
-/// of whether they are enabled.
 Color? _verbColor(WidgetTester tester, IconData icon) =>
     tester.widget<Icon>(find.byIcon(icon)).color;
 
-/// The checkbox is an SVG under a colour, so the asset it was handed is the
-/// only readable statement of which of the two it is drawing.
 Finder _box(String title, DazzleIcons icon) => find.descendant(
   of: find.ancestor(of: find.text(title), matching: find.byType(ListRow)),
   matching: find.byWidgetPredicate(
@@ -35,8 +31,8 @@ Finder _box(String title, DazzleIcons icon) => find.descendant(
   ),
 );
 
-/// The checkbox target is an overlay over the row's first 40px, not a wrapper
-/// around the glyph, so the corner is what a finger is aimed at.
+/// The checkbox target is an overlay over the row's first 40px, not a wrapper around the
+/// glyph.
 Future<void> _tapBox(WidgetTester tester, String title) => tester.tapAt(
   tester.getTopLeft(
         find.ancestor(of: find.text(title), matching: find.byType(ListRow)),
@@ -44,8 +40,6 @@ Future<void> _tapBox(WidgetTester tester, String title) => tester.tapAt(
       const Offset(12, 12),
 );
 
-/// The panels HOME does *not* show are as much of the change as
-/// the ones it does, so this asserts both directions.
 Future<void> _drain(
   WidgetTester tester, {
   Duration step = Duration.zero,
@@ -96,9 +90,6 @@ void main() {
     await _ready(tester);
 
     expect(find.text('[ PLUGINS ]'), findsOneWidget);
-    // Read off each plugin's declared contributions, pages first, so the
-    // fresh phone is told what a tab, a card and a bar it does not have yet
-    // would be.
     expect(find.text('Drops'), findsOneWidget);
     expect(find.text('DROPS CARD · CAPTURE BAR'), findsOneWidget);
     expect(find.text('Projects'), findsOneWidget);
@@ -120,16 +111,12 @@ void main() {
     tester,
   ) async {
     final project = await projects.create(name: 'Infra personal');
-    // A high-priority open task is exactly what the old fallback would have
-    // promoted; it stays where it is.
     await tasks.create(projectId: project, title: 'Object storage');
 
     await tester.pumpWidget(host());
     await _ready(tester);
 
     expect(find.text('NEXT ACTION'), findsNothing);
-    // HOME is AGENTS and DROPS with nothing between them. The projects
-    // list is the tab next door, not a second copy of it here.
     expect(find.text('AGENTS'), findsOneWidget);
     expect(find.text('DROPS'), findsOneWidget);
     expect(find.text('PROJECTS'), findsNothing);
@@ -195,8 +182,6 @@ void main() {
     await tester.pumpWidget(host());
     await _ready(tester);
 
-    // The row is a row. A flagged item that answers no tap is the mock
-    // this screen was written to remove.
     await tester.tap(find.text('Object storage').first);
     await _ready(tester);
 
@@ -224,7 +209,6 @@ void main() {
     expect(find.text('LOOSE'), findsNothing);
     expect(find.text('DROPS'), findsOneWidget);
     expect(find.text('revisar pgbouncer'), findsOneWidget);
-    // A blocked item is not on HOME at all now: it lives in its project.
     expect(find.text('Object storage'), findsNothing);
 
     await unmount(tester);
@@ -318,8 +302,6 @@ void main() {
     await tester.pumpWidget(host());
     await _ready(tester);
 
-    // A plain tap is still the quick view, so the mode must not be what
-    // a tap produces.
     await tester.tap(find.text('revisar el backup'));
     await _ready(tester);
     expect(find.text('1 SELECTED'), findsNothing);
@@ -330,13 +312,9 @@ void main() {
     await _ready(tester);
 
     expect(find.text('1 SELECTED'), findsOneWidget);
-    // The strip keeps its title: the mode's chrome is the bar in the
-    // capture bar's slot, and a header that scrolls away carries none of it.
     expect(find.text('DROPS'), findsOneWidget);
-    // Every row in the panel carries a box, and only the held one is checked.
     expect(find.text('[x]'), findsOneWidget);
     expect(find.text('[ ]'), findsOneWidget);
-    // The capture bar is not drawn while the mode is on.
     expect(find.byType(CaptureBar), findsNothing);
     expect(find.byType(SelectionBar), findsOneWidget);
 
@@ -355,8 +333,6 @@ void main() {
     await tester.tap(find.text('SELECT'));
     await _ready(tester);
 
-    // The mode is on, the bar says nothing is checked, and every row
-    // carries an empty box.
     expect(find.text('0 SELECTED'), findsOneWidget);
     expect(find.text('[ ]'), findsNWidgets(2));
     expect(find.text('[x]'), findsNothing);
@@ -364,7 +340,6 @@ void main() {
     expect(_verbColor(tester, Icons.arrow_forward), DazzleColors.textDisabled);
     expect(_verbColor(tester, Icons.delete_outline), DazzleColors.textDisabled);
 
-    // The first check is what lights them.
     await tester.tap(find.text('primero'));
     await _ready(tester);
     expect(find.text('1 SELECTED'), findsOneWidget);
@@ -393,7 +368,6 @@ void main() {
     await tester.longPress(find.text('sigue siendo un hold'));
     await _ready(tester);
 
-    // The highlight adds a door; it does not close the old one.
     expect(find.text('1 SELECTED'), findsOneWidget);
     expect(find.text('[x]'), findsOneWidget);
 
@@ -416,7 +390,6 @@ void main() {
     expect(find.text('2 SELECTED'), findsOneWidget);
     expect(find.text('[x]'), findsNWidgets(2));
 
-    // The same tap the other way: nothing opened on the way in or out.
     await tester.tap(find.text('segundo'));
     await _ready(tester);
     expect(find.text('1 SELECTED'), findsOneWidget);
@@ -463,7 +436,6 @@ void main() {
     await tester.tap(find.bySemanticsLabel('DELETE'));
     await _ready(tester);
 
-    // The modal asks, and nothing is gone before its second block.
     expect(find.text('DELETE 2 DROPS?'), findsWidgets);
     var rows = await tester.runAsync(() => db.select(db.tasks).get());
     expect(rows, hasLength(2));
@@ -481,7 +453,6 @@ void main() {
 
     rows = await tester.runAsync(() => db.select(db.tasks).get());
     expect(rows, isEmpty);
-    // The mode ends with the action.
     expect(find.text('2 SELECTED'), findsNothing);
 
     await unmount(tester);
@@ -505,8 +476,6 @@ void main() {
     await _ready(tester);
     expect(find.text('MOVE TO'), findsWidgets);
 
-    // HOME's own PROJECTS panel carries the same name, so the tap is scoped to
-    // the picker rather than to the first match on screen.
     await tester.tap(
       find.descendant(
         of: find.byType(TargetPickerBody),

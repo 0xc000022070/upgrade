@@ -54,8 +54,8 @@ void main() {
   late BundleCipher cipher;
 
   setUp(() {
-    // The static picker and the build stamp on the same route go through the
-    // device channel too; a test that wants the picker restubs it.
+    // The static picker and the build stamp on the same route go through the device channel
+    // too; a test that wants the picker restubs it.
     stubDeviceChannels();
     db = AppDatabase(NativeDatabase.memory());
     keys = InMemoryKeyRepository();
@@ -82,8 +82,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  /// The route settles over a few real ticks: the settings stream, and here
-  /// the derivation and the picker stub, all of which want real time.
+  /// The settings stream, the derivation and the picker stub all want real time.
   Future<void> ready(WidgetTester tester) async {
     for (var i = 0; i < 8; i++) {
       await tester.runAsync(

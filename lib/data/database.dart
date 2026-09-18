@@ -34,10 +34,8 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 15;
 
-  /// From v2 on there is real data on the user's handset, so the
-  /// upgrade is additive — two new tables and two nullable columns, nothing
-  /// dropped and nothing recreated. Only the pre-v2 path, which never left the
-  /// debug fixture, still recreates.
+  /// A step guarded `from >= N` is one the `createTable` calls above already build from
+  /// the current definition; adding its columns again below N is an error.
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
@@ -61,10 +59,8 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(tasks, tasks.bundleId);
       }
       if (from < 4) {
-        // Links fold into attachments. The old table is left in place
-        // rather than dropped: the copy is the only destructive step this
-        // migration could take, and not taking it is what makes a rollback to
-        // v3 still find its rows.
+        // The old table is left in place rather than dropped, so a rollback to v3 still finds
+        // its rows.
         await m.createTable(attachments);
         await customStatement('''
 INSERT INTO attachments (id, item_id, kind, value, created_at)
@@ -72,69 +68,33 @@ SELECT id, task_id, 'url', url, created_at FROM links
 ''');
       }
       if (from < 5) {
-        // Adds one table and touches nothing else. A preference that
-        // has never been written has no row, so the defaults live in
-        // [SettingsRepository] and this migration has no backfill to do.
         await m.createTable(settings);
       }
       if (from < 6) {
-        // Adds one nullable column. Every existing project reads back
-        // with a null parent, which is exactly what a root is, so the tree the
-        // migration produces is the flat list the user already had.
         await m.addColumn(projects, projects.parentId);
       }
       if (from < 7) {
-        // Three empty tables and nothing else. There is no default host to
-        // backfill — the app never assumes one
-        // — so an install that upgrades into v7 comes up with no key, no host
-        // and no integration switched on, which is the same state a fresh
-        // install has and the one the AGENTS panel renders as blocked.
         await m.createTable(keys);
         await m.createTable(hosts);
         await m.createTable(hostIntegrations);
       }
-      // Adds one column with a default, so SQLite backfills every
-      // existing row as it rewrites the table header and no UPDATE is needed.
-      // 22 is not a guess for those rows: it is the port the transport dialled
-      // unconditionally in every build that wrote them.
-      //
-      // Only from 7. [Migrator.createTable] above builds `hosts` from the
-      // current definition, which already carries the column, so a database
-      // coming from below 7 gets it there and adding it again is an error.
+      // 22 is not a guess: it is the port the transport dialled unconditionally in every
+      // build that wrote those rows.
       if (from == 7) {
         await m.addColumn(hosts, hosts.port);
       }
-      // Two empty tables. Nothing to backfill: a path is something the user
-      // registers by hand, and a dispatch is written only by a send that has
-      // already happened, so an upgraded install starts with neither and the
-      // host form draws its paths block empty.
       if (from < 9) {
         await m.createTable(paths);
         await m.createTable(dispatches);
       }
-      // The same shape as the port column above: a database from below 7 has
-      // its hosts table created from the current definition, which already
-      // carries these three, so only one that already had the table gets them
-      // added. Nullable and not backfilled — an unpinned host pins on its next
-      // connection, which is the one place the fingerprint can be learned.
       if (from >= 7 && from < 10) {
         await m.addColumn(hosts, hosts.hostKeyType);
         await m.addColumn(hosts, hosts.hostKeyFingerprint);
         await m.addColumn(hosts, hosts.hostKeyPinnedAt);
       }
-      // One empty table. A tab is written when a shell opens, so an install
-      // that upgrades into v11 comes up with none, which is what every install
-      // before this one came up with.
       if (from < 11) {
         await m.createTable(shellTabs);
       }
-      // The agent moves off the path and onto the send. Every dispatch already
-      // made inherits the kind its path carried, so the sent lines keep saying
-      // what picked the work up; only then is the column dropped, and a path
-      // that is gone leaves the dispatch on the column's own default.
-      //
-      // Only from 9: below it the two tables are created above from the current
-      // definitions, which carry these columns and no `paths.agent` already.
       if (from >= 9 && from < 12) {
         await m.addColumn(dispatches, dispatches.agent);
         await m.addColumn(dispatches, dispatches.model);
@@ -143,36 +103,20 @@ SELECT id, task_id, 'url', url, created_at FROM links
           '(SELECT agent FROM paths WHERE paths.id = dispatches.path_id), '
           "'claude')",
         );
-        // The rebuild takes its shape from the current definition, so every
-        // column added to `paths` after this migration was written is a column
-        // this rebuild has to be told about — it is not in the old table to be
-        // copied from.
+        // The rebuild takes its shape from the current definition, so every column added to
+        // `paths` after this migration has to be named here.
         await m.alterTable(
           TableMigration(paths, newColumns: [paths.projectId]),
         );
       }
-      // One nullable column, not backfilled: a host with no password is the
-      // host every build before this one had. Only from 7, as the host key
-      // columns above: below it the table is created from the current
-      // definition, which already carries it.
       if (from >= 7 && from < 13) {
         await m.addColumn(hosts, hosts.vncPassword);
       }
-      // One nullable column and no backfill: a registered directory that
-      // predates the link belongs to no project, which is exactly what an
-      // unlinked one is, so the list this migration produces is the flat set
-      // the user already had.
-      //
-      // Only from 12. Below 9 `paths` is created above from the current
-      // definition, and 9 to 11 goes through the rebuild above, which is the
-      // same definition again — both already carry the column.
       if (from >= 12 && from < 14) {
         await m.addColumn(paths, paths.projectId);
       }
-      // Existing tabs are not claimed as durable after the fact. Their remote
-      // process was never put in a Dazzle-owned tmux session, and no older row
-      // records which Herdr pane it held. All four columns stay null, so those
-      // rows keep the fresh-shell restore older builds used.
+      // All four columns stay null, so these rows keep the fresh-shell restore older builds
+      // used: their remote process was never in a Dazzle-owned session.
       if (from >= 11 && from < 15) {
         await m.addColumn(shellTabs, shellTabs.remoteSession);
         await m.addColumn(shellTabs, shellTabs.herdrSession);
@@ -182,22 +126,12 @@ SELECT id, task_id, 'url', url, created_at FROM links
     },
   );
 
-  /// ISO-8601 text keeps the stored instant unambiguous and keeps raw-SQL
-  /// ORDER BY on timestamps correct, since UTC ISO strings sort lexically.
+  /// UTC ISO-8601 strings sort lexically, which is what keeps raw-SQL ORDER BY on a
+  /// timestamp correct.
   @override
   DriftDatabaseOptions get options =>
       const DriftDatabaseOptions(storeDateTimeAsText: true);
 
-  /// The flagged task, and only that: there is no suggestion fallback, so with
-  /// nothing flagged there is no row and Home omits the panel entirely. A
-  /// screen that picks the row itself was answering a question nobody asked.
-  ///
-  /// A drop is an item with no project, and a goal is optional grouping, so a
-  /// project task without one is still a task and can still be the flagged row.
-  ///
-  /// Hidden, not archived. A task under a live project whose
-  /// grandparent is archived has left the user's field of view just as
-  /// completely as one under an archived project, so it leaves Home with it.
   Stream<NextAction?> watchNextAction() {
     return customSelect(
       '''
@@ -256,18 +190,9 @@ ORDER BY t.updated_at DESC
         .map((rows) => rows.map(activityEntryOf).toList());
   }
 
-  /// The recursive walks every hierarchy question is asked
-  /// through, spliced into the queries below rather than declared as SQL views:
-  /// drift keys stream invalidation off the [readsFrom] table set, and a view
-  /// would hide `projects` from it.
-  ///
-  /// `visibility` carries the archived flag down from the roots, so a project
-  /// is hidden when it or any ancestor is archived. It descends from roots
-  /// only, so a `parent_id` cycle never enters it — and a row missing from it
-  /// reads as hidden, which makes a corrupted tree degrade to invisible instead
-  /// of to a hang. `subtree` pairs every project with itself and each of its
-  /// descendants, under the depth bound the repository's cycle guard enforces
-  /// on write, restated here where a malformed row would otherwise loop.
+  /// Spliced into the queries rather than declared as views: drift keys stream
+  /// invalidation off [readsFrom], and a view would hide `projects` from it. A project
+  /// missing from `visibility` reads as hidden, so a cycle degrades to invisible.
   static const _visibilityCte = """
   visibility(id, hidden) AS (
     SELECT p.id, CASE WHEN p.status = 'archived' THEN 1 ELSE 0 END
@@ -297,20 +222,11 @@ ORDER BY t.updated_at DESC
   static const _withVisibility = 'WITH RECURSIVE$_visibilityCte';
   static const _withTree = 'WITH RECURSIVE$_visibilityCte,$_progressCte';
 
-  /// Absent from `visibility` counts as hidden; see [_visibilityCte].
   static String _visible(String column) =>
       'COALESCE((SELECT v.hidden FROM visibility v WHERE v.id = $column), 1) = 0';
 
-  /// The ordering is a projection concern, not a column sort:
-  /// status and priority are stored as their names, so `ORDER BY` on either
-  /// column would be alphabetical. Priority ranks first among active projects
-  /// because HOME shows only the top three rows of this same list.
-  /// The same projection answers both lists. Archived projects
-  /// are absent from every screen that asks what to do next, and present in the
-  /// one panel that exists to hold them.
-  /// Progress counts the subtree, while the lead line stays the project's own:
-  /// only the number aggregates, and a task is still ranked by the project it
-  /// is actually filed in.
+  /// Status and priority are stored as their names, so `ORDER BY` on either column would
+  /// be alphabetical.
   Stream<List<ProjectSummary>> _summaries(
     String where, {
     List<Variable<Object>> variables = const [],
@@ -360,37 +276,25 @@ ORDER BY CASE p.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
     );
   }
 
-  /// Home and the Projects tab list roots only. A child is reached
-  /// through its parent's detail, never from a flat list.
   Stream<List<ProjectSummary>> watchRootSummaries() =>
       _summaries("p.parent_id IS NULL AND p.status <> 'archived'");
 
-  /// The `ARCHIVED` panel lists projects whose own status is archived
-  /// and whose parent is not itself hidden — an archived branch appears once,
-  /// at the point where it was archived, not once per project under it.
   Stream<List<ProjectSummary>> watchArchivedSummaries() => _summaries(
     "p.status = 'archived' "
     'AND (p.parent_id IS NULL OR ${_visible('p.parent_id')})',
   );
 
-  /// The immediate children of one project, as the `PROJECTS N` panel
-  /// on its detail. Archived children are not here — they are in the Projects
-  /// tab's `ARCHIVED` panel, the one place an archived project is listed.
   Stream<List<ProjectSummary>> watchChildSummaries(String parentId) =>
       _summaries(
         "p.parent_id = ?1 AND p.status <> 'archived'",
         variables: [Variable<String>(parentId)],
       );
 
-  /// One project's own row, for the subtree number under its title.
   Stream<ProjectSummary?> watchProjectSummary(String id) => _summaries(
     'p.id = ?1',
     variables: [Variable<String>(id)],
   ).map((rows) => rows.isEmpty ? null : rows.first);
 
-  /// The breadcrumb: the ancestors of [id], root first, self excluded. A
-  /// stream and not a read, so renaming or archiving a project two levels up
-  /// repaints the crumb of the screen the user is standing on.
   Stream<List<ProjectCrumb>> watchAncestors(String id) {
     return customSelect(
       """
@@ -420,9 +324,6 @@ SELECT id, name, status FROM chain WHERE depth > 0 ORDER BY depth DESC
     );
   }
 
-  /// Every project the user can still reach — hidden ones are dropped, so the
-  /// MOVE picker and the `[ PARENT ]` picker cannot file work into
-  /// a branch that is archived out of sight.
   Stream<List<Project>> watchVisibleProjects() {
     return customSelect(
       """
@@ -436,8 +337,6 @@ ORDER BY p.created_at ASC
     ).watch().map((rows) => rows.map((row) => projects.map(row.data)).toList());
   }
 
-  /// [id] and every project under it, shallowest first. The cycle guard
-  /// on write and the cascade on delete are the same walk.
   Future<List<String>> subtreeIds(String id) async {
     final rows = await customSelect(
       """
@@ -457,8 +356,6 @@ SELECT id, depth FROM sub ORDER BY depth ASC
     return rows.map((row) => row.read<String>('id')).toList();
   }
 
-  /// A goal's progress is counted from the items pointing at it,
-  /// never stored. One projection keeps the GOALS panel headers off an N+1.
   Stream<List<GoalSummary>> watchGoalSummaries(String projectId) {
     return customSelect(
       """
@@ -488,8 +385,6 @@ ORDER BY g.sort_order ASC, g.created_at ASC
     );
   }
 
-  /// The quick view's header strip. Resolved in one read so the
-  /// sheet opens with its breadcrumb already known.
   Stream<ItemLocation> watchItemLocation(String taskId) {
     return customSelect(
       """

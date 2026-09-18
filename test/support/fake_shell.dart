@@ -8,8 +8,6 @@ import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:dazzle/platform/host_keys.dart';
 
-/// A connection with no host behind it: what went out, what came in, and an
-/// exit the test decides the moment of.
 class FakeShellConnection implements ShellConnection {
   FakeShellConnection({
     this.continuity = ShellContinuity.plain,
@@ -38,12 +36,11 @@ class FakeShellConnection implements ShellConnection {
   /// Every command run on a second channel, with what was written into it.
   final execs = <({String command, Uint8List? stdin})>[];
 
-  /// Held to keep [close] from completing, so a test can act inside the window
-  /// a redial spends shutting the shell that died down.
+  /// Held to keep [close] from completing, so a test can act inside the window a redial
+  /// spends shutting the shell that died down.
   Completer<void>? hold;
 
-  /// What those commands answer. The default is a host that runs anything
-  /// and says nothing, which is what an upload looks like from here.
+  /// The default is a host that runs anything and says nothing.
   ExecResult Function(String command, Uint8List? stdin) answer = (_, _) =>
       ExecResult(exitCode: 0, stdout: Uint8List(0), stderr: Uint8List(0));
 
@@ -105,11 +102,10 @@ class FakeShellConnection implements ShellConnection {
     return timeout == null ? never : never.timeout(timeout);
   }
 
-  /// A command that reaches the host and never comes back, which is what
-  /// writing into a fifo nobody is reading looks like from this end.
+  /// A command that reaches the host and never comes back, which is what writing into a
+  /// fifo nobody is reading looks like from this end.
   bool wedged = false;
 
-  /// A host that prints [stdout] for the next commands, with this exit.
   void answerWith(String stdout, {int exitCode = 0}) {
     answer = (_, _) => ExecResult(
       exitCode: exitCode,
@@ -122,8 +118,8 @@ class FakeShellConnection implements ShellConnection {
 
   void emitBytes(List<int> bytes) => _output.add(Uint8List.fromList(bytes));
 
-  /// The link going away under a live shell: the stream errors and the
-  /// connection is never told, which is what a phone leaving wifi looks like.
+  /// The stream errors and the connection is never told, which is what a phone leaving wifi
+  /// looks like.
   void drop([Object error = 'link lost']) => _output.addError(error);
 
   void setHealth(ShellConnectionHealth health) => _health.add(health);
@@ -132,22 +128,18 @@ class FakeShellConnection implements ShellConnection {
     if (!_exit.isCompleted) _exit.complete(code);
   }
 
-  /// Everything written to the connection as one string, which is what a
-  /// remote's line discipline would see.
   String get written => writes.map(String.fromCharCodes).join();
 }
 
-/// The opener a test hands the store, and the connections it handed back.
 class FakeShellTransport {
   final opened = <FakeShellConnection>[];
   final sizes = <List<int>>[];
 
-  /// One per dial, in order: what the store handed the transport to check the
-  /// host with.
+  /// One per dial, in order.
   final verifiers = <HostKeyVerifier?>[];
 
-  /// One per dial, in order: what the tab asked to run in place of the login
-  /// shell, and null for the tabs that wanted the login shell.
+  /// One per dial, in order: what the tab asked to run in place of the login shell, and
+  /// null for the tabs that wanted the login shell.
   final commands = <String?>[];
   final tabSessions = <String?>[];
   final persistentSessions = <String?>[];
@@ -156,17 +148,16 @@ class FakeShellTransport {
   ShellTransport transport = ShellTransport.ssh;
   final _persistent = <String>{};
 
-  /// Set to make the next dial fail, cleared to let it succeed. Null keeps a
-  /// dial pending forever, which is how `CONNECTING` is held still.
+  /// Set to make the next dial fail, cleared to let it succeed. Null keeps a dial pending
+  /// forever, which is how `CONNECTING` is held still.
   Object? refuse;
   var stall = false;
 
-  /// Run on every connection the moment it is handed back, which is the only
-  /// place a test can answer a question the screen asks on its first frame.
+  /// Run on every connection the moment it is handed back, which is the only place a test
+  /// can answer a question the screen asks on its first frame.
   void Function(FakeShellConnection connection)? opening;
 
-  /// The dials [stall] is holding, so a test can let one land late — after
-  /// whatever it was dialling for has moved on.
+  /// The dials [stall] is holding, so a test can let one land late.
   final _stalled =
       <({Completer<ShellConnection> pending, String? persistentSession})>[];
 

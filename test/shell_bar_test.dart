@@ -1,7 +1,3 @@
-/// The shell's key bar: what each cell puts on the wire, what the sticky
-/// modifiers do to it, and the two cells that are not keys at all.
-library;
-
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -22,9 +18,8 @@ class BarRecord {
   int attaches = 0;
   int finds = 0;
 
-  /// Every arming the bar asked for, one readable line each: the modifiers by
-  /// name, and the count or the latch when there is one. Records hold their
-  /// set by identity, so the shape they are compared in is a written one.
+  /// Records hold their set by identity, so the shape they are compared in is a written
+  /// one.
   List<String> get armings => armed.map((arming) {
     final keys = arming.keys.isEmpty
         ? 'none'
@@ -78,14 +73,13 @@ Future<void> tapCell(WidgetTester tester, String label) async {
   await tester.pump();
 }
 
-/// A press held over one cell, long enough for the hold to take the arena off
-/// the tap.
+/// Long enough for the hold to take the arena off the tap.
 Future<void> holdCell(WidgetTester tester, String label) async {
   await tester.longPress(find.byKey(ValueKey('bar-$label')));
   await tester.pumpAndSettle();
 }
 
-/// A vertical drag over one cell, far enough past the slop to be a flick.
+/// Far enough past the slop to be a flick.
 Future<void> flickCell(
   WidgetTester tester,
   String label, {
@@ -108,7 +102,6 @@ Color? tintOf(WidgetTester tester, String label) => tester
     .style
     ?.color;
 
-/// The tint of a cell drawn as an icon rather than a word.
 Color iconTintOf(WidgetTester tester, String label) => tester
     .widget<DazzleIcon>(
       find.descendant(
@@ -208,7 +201,6 @@ void main() {
       expect(find.text('CTRL'), findsOneWidget);
 
       await pumpBar(tester, sticky: {StickyModifier.ctrl}, repeat: 2);
-      // Mid-roll both words are on the cell, one leaving and one arriving.
       await tester.pump(const Duration(milliseconds: 70));
       expect(find.text('CTRL'), findsOneWidget);
       expect(find.text('CTRL(x2)'), findsOneWidget);
@@ -419,8 +411,6 @@ void main() {
       await holdCell(tester, 'ESC');
 
       expect(record.armed, isEmpty);
-      // A key with nothing to hold is still a key: the hold is a press, and
-      // the press is what it answers.
       expect(record.sent, [
         [0x1b],
       ]);
@@ -477,8 +467,8 @@ void main() {
       expect(find.byKey(const ValueKey('bar-fade-end')), findsOneWidget);
       expect(find.byKey(const ValueKey('bar-fade-start')), findsNothing);
 
-      // From the head of the strip: at this width the cells past it are half
-      // under the fixed half of the bar, where a drag is not a scroll.
+      // From the head of the strip: at this width the cells past it are half under the fixed
+      // half of the bar, where a drag is not a scroll.
       await tester.drag(
         find.byKey(const ValueKey('bar-find')),
         const Offset(-400, 0),

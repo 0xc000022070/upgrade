@@ -18,15 +18,9 @@ class SheetAction {
   final VoidCallback onSelected;
   final bool danger;
 
-  /// A picker's current value is drawn as the block, so the sheet says
-  /// where the thing is now and not only where it could go. A selected row is
-  /// still tappable and still closes the sheet; its callback is the no-op.
   final bool selected;
 }
 
-/// A bottom sheet built from tokens rather than Material's: no drag handle, no
-/// rounded shoulders, no elevation — a bordered panel that slides up over a
-/// dimmed screen and nothing else.
 Future<void> showActionSheet(
   BuildContext context, {
   required String title,
@@ -64,9 +58,6 @@ Future<void> showActionSheet(
   );
 }
 
-/// A blocked task always carries a reason, so the reason is
-/// collected on the same surface as the action rather than left to a later edit.
-/// Whitespace is refused here, which is why the caller never has to check.
 Future<String?> promptForText(
   BuildContext context, {
   required String title,
@@ -80,8 +71,7 @@ Future<String?> promptForText(
     barrierColor: const Color(0xCC000000),
     transitionDuration: Motion.fast,
     pageBuilder: (context, animation, secondary) => Padding(
-      // A dialog route does not resize for the IME the way a scaffold does, so
-      // without this the panel it opens sits underneath the keyboard it raises.
+      // A dialog route does not resize for the IME the way a scaffold does.
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Align(
         alignment: Alignment.bottomCenter,
@@ -141,8 +131,6 @@ class _PromptState extends State<_Prompt> {
               onSubmitted: (_) => _submit(),
             ),
           ),
-          // The commit only exists while there is something to commit, which is
-          // the same rule the capture bar follows.
           ValueListenableBuilder<TextEditingValue>(
             valueListenable: _controller,
             builder: (context, value, _) => value.text.trim().isEmpty
@@ -166,8 +154,6 @@ class _Sheet extends StatelessWidget {
   final String title;
   final List<SheetAction> actions;
 
-  /// A picker has no recommended row: every option is the same kind of thing,
-  /// and promoting the first one would claim an opinion the list does not have.
   final bool recommendFirst;
 
   @override
@@ -184,8 +170,6 @@ class _Sheet extends StatelessWidget {
                 final action = actions[i];
                 final block = actions[i].selected || (i == 0 && recommendFirst);
                 return Padding(
-                  // A block row needs air around it; the plain rows
-                  // keep their hairline rhythm.
                   padding: EdgeInsets.symmetric(
                     vertical: block ? Spacing.sm : 0,
                   ),
@@ -194,8 +178,6 @@ class _Sheet extends StatelessWidget {
                       : _PlainRow(
                           label: action.label,
                           danger: action.danger,
-                          // The last row carries no rule: a separator under the
-                          // final item separates it from nothing.
                           divider: i < actions.length - 1,
                           onTap: () {
                             Navigator.of(context).pop();
@@ -261,9 +243,6 @@ class _Panel extends StatelessWidget {
   }
 }
 
-/// The recommended action in a sheet and the current value in a
-/// picker are both drawn as a solid accent block with inverted text and a mono
-/// `// ` prefix — the same visual weight as a primary CTA.
 class _BlockRow extends StatelessWidget {
   const _BlockRow({required this.action});
 

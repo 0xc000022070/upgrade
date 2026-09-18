@@ -5,7 +5,6 @@ import 'package:dazzle/application/agent_kind.dart';
 import 'package:dazzle/application/alerts.dart';
 import 'package:dazzle/features/home/agent_mark.dart';
 
-/// The one door from a name to an agent, and what each agent answers behind it.
 void main() {
   group('the factory', () {
     test('answers the two kinds and refuses a third', () {

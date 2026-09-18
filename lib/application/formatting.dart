@@ -1,5 +1,3 @@
-/// Hand-rolled instead of pulling `intl`: the app renders a single locale and
-/// exactly two shapes, a time of day and a compact relative age.
 String two(int value) => value.toString().padLeft(2, '0');
 
 String timeOfDay(DateTime at) {

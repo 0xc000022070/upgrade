@@ -1,6 +1,5 @@
--- A page is never told its viewport width, so the board is as wide as the
--- narrowest phone leaves inside the screen's padding, and is drawn at that width
--- rather than the canvas node's own default of 240.
+-- A page is never told its viewport width, so the board is drawn at what the
+-- narrowest phone leaves rather than at the canvas node's own default of 240.
 local BOARD_WIDTH = 328
 local NOTE_WIDTH = 132
 local NOTE_HEIGHT = 64
@@ -8,8 +7,8 @@ local LINE_CHARS = 17
 local NOTE_LINES = 3
 local GRID = 150
 local MAX_RULES = 18
--- A single drawing surface carries 256 commands: the ground and its rules spend
--- nineteen, a note three and a link one, so the board holds what is left.
+-- A drawing surface carries 256 commands: the ground and its rules spend
+-- nineteen, a note three and a link one.
 local MAX_NOTES = 60
 local MAX_LINKS = 40
 local MAX_COMMANDS = 250
@@ -115,8 +114,6 @@ local function hit(objects, x, y)
     return found
 end
 
--- A note is centred on the tap and then held whole inside the board, so the
--- right-hand column lands beside the edge instead of half over it.
 local function place(x)
     local left = x - NOTE_WIDTH / 2
     if left < 4 then return 4 end
@@ -146,9 +143,8 @@ local function removeNote(state, id)
     if state.linkFrom == id then state.linkFrom = "" end
 end
 
--- The drawing surface wraps text to the whole canvas, not to the note it sits
--- in, so a note breaks its own lines on the spaces between words. A word with no
--- break in it is cut, because leaving it whole would run it over the note's edge.
+-- The drawing surface wraps text to the whole canvas and not to the note it sits
+-- in, so a note breaks its own lines and cuts a word that has no break in it.
 local function lay(text)
     local lines, line = {}, ""
     for word in string.gmatch(text, "%S+") do
@@ -199,8 +195,6 @@ local function surfaceHeight(objects)
     return bottom
 end
 
--- The board is drawn before anything on it, so an empty board is still a surface
--- the user can see the edges of rather than the page's own background.
 local function ground(height, commands)
     table.insert(commands, {op = "rect", x = 0, y = 0,
         width = BOARD_WIDTH, height = height, color = "surface"})
@@ -379,9 +373,8 @@ local function update(state, event)
     return state
 end
 
--- A button is padded by the host and a page is never told how wide it is, so
--- five tools across one row leave too little for the word inside them to stay on
--- one line. They are dealt into two rows instead.
+-- The host pads a button and a page is never told how wide it is, so five tools
+-- across one row leave too little for the word inside them.
 local TOOLS = {
     {{id = "select", text = "PICK"}, {id = "note", text = "NOTE"}, {id = "move", text = "MOVE"}},
     {{id = "link", text = "LINK"}, {id = "erase", text = "WIPE"}},
@@ -432,8 +425,6 @@ end
 local function boardView(state)
     local selected = find(state.objects, state.selected)
     local height = surfaceHeight(state.objects)
-    -- The editor keeps its place whether or not a note is selected, so selecting
-    -- one never moves the board out from under the finger that is arranging it.
     return {
         toolRow(state, 1),
         ui.Spacer {key = "tools_gap", height = 6},

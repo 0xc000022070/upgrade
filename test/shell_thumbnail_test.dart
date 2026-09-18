@@ -1,7 +1,3 @@
-/// The session card's miniature: which lines it takes off the terminal, how
-/// often it goes back for more, and when the painter bothers to repaint.
-library;
-
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -18,7 +14,6 @@ Terminal terminalShowing(List<String> lines, {int rows = 4, int columns = 20}) {
   return terminal;
 }
 
-/// The painter the widget is currently handing the canvas.
 ShellThumbnailPainter painterOf(WidgetTester tester) =>
     tester
             .widget<CustomPaint>(

@@ -1,9 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/urls.dart';
 
-/// Two rules and one grammar. A title is prose and has to be read as prose; a
-/// terminal selection is whatever the user dragged a grip across, and the
-/// scheme in front of it is the only thing that says it is a link.
 void main() {
   test('a scheme is the whole of what a selected link needs', () {
     expect(

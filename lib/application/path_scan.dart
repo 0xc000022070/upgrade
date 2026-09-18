@@ -10,8 +10,6 @@ import 'agent_kind.dart';
 import 'agents.dart';
 import 'providers.dart';
 
-/// The checkout scan, behind the same seam the send uses. What the picker
-/// consumes is a list of strings.
 typedef HerdrPaths = Future<List<String>> Function({
   required String address,
   required int port,
@@ -20,7 +18,6 @@ typedef HerdrPaths = Future<List<String>> Function({
   HostKeyVerifier? verifier,
 });
 
-/// The model scan, same seam and same shape.
 typedef HerdrModels = Future<List<String>> Function({
   required String address,
   required int port,
@@ -38,7 +35,6 @@ final class PathScanLoading extends PathScan {
   const PathScanLoading();
 }
 
-/// A scan that answered. An empty list leaves manual directory entry available.
 final class PathScanFound extends PathScan {
   const PathScanFound(this.directories);
 
@@ -51,10 +47,6 @@ final class PathScanFailed extends PathScan {
   final String reason;
 }
 
-/// Asks a host which checkouts it has.
-///
-/// A plain class for the same reason [Sender] is one: the sheet owns the
-/// state, and a test drives it with two fakes and no widget tree.
 class PathScanner {
   const PathScanner({
     required this.fetch,
@@ -79,8 +71,6 @@ class PathScanner {
     ),
   );
 
-  /// The slugs [kind] accepts on [host]. Same failure words as the path scan
-  /// because both use the same connection.
   Future<PathScan> models(Host host, AgentKind kind) => _ask(
     host,
     (privateKey) => fetchModels(

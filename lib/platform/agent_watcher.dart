@@ -13,30 +13,22 @@ import 'herdr_client.dart';
 import 'host_keys.dart';
 import 'keys.dart';
 
-/// The watcher: the foreground service that holds one `agent
-/// watch` connection per HERDR host for as long as `[ ALERTS ]` is on.
-///
-/// The service runs its own isolate. Nothing in this file may reach for a
-/// provider, the database or a widget — the isolate has none of them. What it
-/// needs travels through [FlutterForegroundTask.saveData] (the host rows) and
-/// the keystore (the secrets, which never leave it).
+/// The service runs its own isolate. Nothing in this file may reach for a provider, the
+/// database or a widget: what it needs travels through
+/// [FlutterForegroundTask.saveData] and the keystore.
 
-/// How often the feed asks Android whether the service is still there. Only
-/// the ending nobody announces needs it — a service the system killed — so the
+/// Only the ending nobody announces needs it — a service the system killed — so the
 /// period is the agent poll's own cadence rather than anything tighter.
 const watcherLivenessPeriod = Duration(seconds: 10);
 
-/// The service's own notification, not the alerts'. It is silent and
-/// at the bottom of the shade.
 const watcherChannelId = 'watcher';
 const watcherChannelName = 'Agent watcher';
 const watcherNotificationTitle = 'DAZZLE';
 
 const _hostsKey = 'dazzle.watcher.hosts';
 
-/// The evidence seam. With `--dart-define=DAZZLE_FAKE_WATCH=true` the watcher
-/// never dials: each host's stream is a canned pair of snapshots, which is what
-/// produces the alert on an emulator that has no key on the host.
+/// With `--dart-define=DAZZLE_FAKE_WATCH=true` each host's stream is a canned pair of
+/// snapshots, which is what produces the alert on an emulator with no key on the host.
 const _fakeWatch = bool.fromEnvironment('DAZZLE_FAKE_WATCH');
 
 String encodeWatcherHosts(List<Host> hosts) => jsonEncode([
@@ -48,10 +40,8 @@ String encodeWatcherHosts(List<Host> hosts) => jsonEncode([
       'port': host.port,
       'user': host.user,
       'key_id': host.keyId,
-      // The pin travels with the host. The service dials unattended and has
-      // nobody to ask, so a host whose key it cannot see is one it refuses on
-      // every tick — and the refusal reads as `host key unverified` on a host
-      // the user pinned long ago.
+      // The pin travels with the host. The service dials unattended and has nobody to ask, so
+      // a host whose key it cannot see is one it refuses on every tick.
       if (host.hostKey case final key?)
         'host_key': {
           'type': key.type,
@@ -89,8 +79,8 @@ PinnedHostKey? _decodePinnedKey(Object? raw) {
   final at = raw['pinned_at'];
   final type = raw['type'];
   final fingerprint = raw['fingerprint'];
-  // Read rather than cast: a payload this cannot make sense of costs the pin,
-  // and a throw here would cost the whole host list the decode is building.
+  // Read rather than cast: a payload this cannot make sense of costs the pin, and a throw
+  // would cost the whole host list the decode is building.
   final pinnedAt = at is String ? DateTime.tryParse(at) : null;
   if (pinnedAt == null || type is! String || fingerprint is! String) {
     return null;
@@ -102,22 +92,17 @@ PinnedHostKey? _decodePinnedKey(Object? raw) {
   );
 }
 
-/// The main isolate's half: start, stop and re-feed the service.
 class AgentWatcher {
   const AgentWatcher._();
 
   static Future<void> init() async {
-    // The service isolate's [FlutterForegroundTask.sendDataToMain] posts to a
-    // port this registers under a name. Without it every report is sent into
-    // nothing: the callbacks [taskData] adds are held, and nobody ever calls
-    // them, so "Home reads its snapshots" is a stream that stays empty
-    // for the life of the process.
+    // Without this every report is sent into nothing: the callbacks [taskData] adds are
+    // held and nobody ever calls them.
     FlutterForegroundTask.initCommunicationPort();
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: watcherChannelId,
         channelName: watcherChannelName,
-        // "a persistent notification at minimum importance, silent".
         channelImportance: NotificationChannelImportance.MIN,
         priority: NotificationPriority.MIN,
         playSound: false,
@@ -130,7 +115,6 @@ class AgentWatcher {
         eventAction: ForegroundTaskEventAction.nothing(),
         allowWakeLock: true,
         allowWifiLock: true,
-        // "It survives the activity being swiped away."
         stopWithTask: false,
         allowAutoRestart: true,
       ),
@@ -139,8 +123,6 @@ class AgentWatcher {
 
   static Future<bool> get running => FlutterForegroundTask.isRunningService;
 
-  /// The toggle asks for the notification permission when it is turned
-  /// on, and goes back off when the OS refuses.
   static Future<bool> requestPermission() async {
     final current = await FlutterForegroundTask.checkNotificationPermission();
     if (current == NotificationPermission.granted) return true;
@@ -204,20 +186,15 @@ class AgentWatcher {
     if (await FlutterForegroundTask.isRunningService) {
       await FlutterForegroundTask.stopService();
     }
-    // Said even when nothing was running: [_sync] calls stop for every state
-    // that is not "on with a host", and a feed still holding the last report
-    // has to be cleared by whichever of them it lands in.
+    // Said even when nothing was running: [_sync] calls stop for every state that is not
+    // "on with a host", and a feed still holding the last report has to be cleared.
     _stops.add(null);
   }
 
-  /// Every [stop], for [serviceLiveness] to pass on. Broadcast because a
-  /// process may hold more than one feed over its life and none of them is the
-  /// one that called stop.
+  /// Broadcast because a process may hold more than one feed over its life and none of
+  /// them is the one that called stop.
   static final _stops = StreamController<void>.broadcast();
 
-  /// False once no foreground service is running. [stop] says so at once; the
-  /// poll is there for the other ending, a service Android killed or that
-  /// died, which tells nobody.
   static Stream<bool> serviceLiveness({
     Duration period = watcherLivenessPeriod,
   }) {
@@ -242,8 +219,6 @@ class AgentWatcher {
     return controller.stream;
   }
 
-  /// What the service isolate sends the main one, as a stream. The plugin
-  /// offers a callback pair; [feed] wants something a test can hand a fake of.
   static Stream<Object> taskData() {
     late StreamController<Object> controller;
     void onData(Object data) => controller.add(data);
@@ -254,12 +229,6 @@ class AgentWatcher {
     return controller.stream;
   }
 
-  /// The service's reports, folded into the panel state Home reads. Null until
-  /// the first report and null again once the service is gone, which is what
-  /// hands Home back to its own poll at both ends.
-  ///
-  /// Both sources are arguments so the fold can be exercised without the
-  /// plugin; both default to it.
   static Stream<AgentPanelState?> feed(
     Stream<List<Host>> hosts, {
     Stream<Object>? data,
@@ -305,10 +274,8 @@ class AgentWatcher {
         subscriptions.add(
           (running ?? serviceLiveness()).listen((alive) {
             if (alive || reports.isEmpty) return;
-            // Nothing stands behind the last report any more. Keeping it would
-            // freeze Home on the watcher's final word, and `onDestroy` unwinds
-            // every host loop, so that word can be a retry line for a host that
-            // is perfectly fine.
+            // Nothing stands behind the last report any more, and `onDestroy` unwinds every host
+            // loop, so that word can be a retry line for a host that is perfectly fine.
             reports.clear();
             emit();
           }),
@@ -357,8 +324,6 @@ class AgentWatcherHandler extends TaskHandler {
   final Map<String, _HostLoop> _loops = {};
   final Map<String, WatcherReport> _reports = {};
 
-  /// The line the shade is currently showing, so a report that does not move it
-  /// does not repost it.
   String? _persistent;
   List<Host> _hosts = const [];
 
@@ -404,9 +369,8 @@ class AgentWatcherHandler extends TaskHandler {
     await setHosts(decodeWatcherHosts(raw));
   }
 
-  /// The hosts this service watches. Public only so a test can reach the loops
-  /// without the store the isolate reads them from, which is a plugin channel
-  /// no test binding answers.
+  /// Public only so a test can reach the loops without the store the isolate reads them
+  /// from, which is a plugin channel no test binding answers.
   @visibleForTesting
   Future<void> setHosts(List<Host> hosts) async {
     _hosts = hosts;
@@ -457,10 +421,8 @@ class AgentWatcherHandler extends TaskHandler {
               HostOutcome(host: host, kind: AgentOutcomeKind.snapshot),
           ])
         : watcherNotificationText(outcomes, retries: retries);
-    // A host reports whenever it has anything to say, and most of what it says
-    // does not move the line: a title changing three panes down is a report and
-    // the tally over it is the same tally. Posting it again is a binder call and
-    // a redraw of a row in the shade that already reads that way.
+    // Most of what a host reports does not move the line, and posting it again is a binder
+    // call and a redraw of a row in the shade that already reads that way.
     if (text == _persistent) return;
     _persistent = text;
     FlutterForegroundTask.updateService(
@@ -470,7 +432,6 @@ class AgentWatcherHandler extends TaskHandler {
   }
 }
 
-/// One host's connection, with the reconnect schedule around it.
 class _HostLoop {
   _HostLoop({
     required this.host,
@@ -501,8 +462,8 @@ class _HostLoop {
       other.port == host.port &&
       other.user == host.user &&
       other.keyId == host.keyId &&
-      // A pin that appeared or changed is a different dial: the loop started
-      // under the old one goes on refusing the machine every tick.
+      // A pin that appeared or changed is a different dial: the loop started under the old
+      // one goes on refusing the machine every tick.
       other.hostKey?.type == host.hostKey?.type &&
       other.hostKey?.fingerprint == host.hostKey?.fingerprint;
 
@@ -537,28 +498,25 @@ class _HostLoop {
   Future<void> stop() async {
     _stopped = true;
     _session?.close();
-    // A loop between retries is asleep in [_wait], and `await _running` would
-    // hold the caller there for the rest of that sleep — a minute, once the
-    // backoff has grown to its ceiling.
+    // A loop between retries is asleep in [_wait], and `await _running` would hold the
+    // caller there for the rest of that sleep.
     if (_waiting case final waiting? when !waiting.isCompleted) {
       waiting.complete();
     }
     await _running;
-    // The alert is cleared when the app stops being able to say the
-    // pane is still blocked, and a watcher that is going away cannot.
+    // The alert is cleared when the app stops being able to say the pane is still blocked,
+    // and a watcher that is going away cannot.
     for (final pane in edges.blockedOn(host.id)) {
       await AlertNotifications.cancel(alertNotificationId(host.id, pane));
     }
     edges.reset(host.id);
   }
 
-  // One line per failure, naming the host and what the transport said.
   void _log(Object error) => debugPrint('dazzle.herdr ${host.name}: $error');
 
-  /// A sleep [stop] can cut short. Every wait this loop takes goes through it:
-  /// the service is torn down by Android's `onDestroy`, which is on a clock,
-  /// and a loop still asleep in its own backoff carries the whole service past
-  /// it.
+  /// Every wait this loop takes goes through it: the service is torn down by Android's
+  /// `onDestroy`, which is on a clock, and a loop asleep in its own backoff carries the
+  /// whole service past it.
   Future<void> _wait(Duration duration) async {
     final waiting = _waiting = Completer<void>();
     final timer = Timer(duration, waiting.complete);
@@ -596,24 +554,18 @@ class _HostLoop {
       }
       if (_stopped) return;
       if (interrupted) continue;
-      // An answer nothing is going to ask again is stood on rather than slept
-      // off. The report is already out, the panel and the shade are showing
-      // it, and the loop ends here until the host row or the setting changes
-      // under it, either of which builds this watcher again from the top.
+      // An answer nothing is going to ask again is stood on rather than slept off: the loop
+      // ends here until the host row or the setting changes under it.
       if (!kind.retryable) return;
       await _wait(_backoff.current);
       _backoff.advance();
     }
   }
 
-  /// A stopped loop says nothing more. [stop] closes the session, and closing
-  /// it is what ends the watch, so the unwind arrives here as an unreachable
-  /// host — a claim the panel would then hold for a host that never went down.
+  /// [stop] closes the session, and closing it is what ends the watch, so the unwind would
+  /// otherwise arrive here as an unreachable host.
   void _reportFailure(AgentOutcomeKind kind, {int? protocol}) {
     if (_stopped) return;
-    // A failure nobody is coming back from has no countdown to put on the
-    // line, and a `RETRY 60S` under one would be the app promising a knock it
-    // has decided not to make.
     _report(
       kind,
       protocol: protocol,
@@ -632,20 +584,14 @@ class _HostLoop {
       port: host.port,
       user: host.user,
       privateKey: privateKey,
-      // A background service with nothing on screen: an unpinned host is
-      // refused rather than trusted on nobody's word.
+      // A background service with nothing on screen: an unpinned host is refused rather than
+      // trusted on nobody's word.
       verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
     );
     _session = session;
-    // No reset here. Every blocked pane counts as new on the first
-    // snapshot after the *service* starts, and [BlockedEdges] lives on the
-    // handler, so a fresh service already begins with nothing to difference
-    // against — that one moment needs no help. A reconnect inside one service
-    // life keeps the set, because the panes did not change while the link was
-    // down: resetting here re-entered every pane still blocked, which reposted
-    // the alert with its actions back and overwrote a `SENT · YES` the user had
-    // already answered. The set the difference is taken against is dropped only
-    // when the host itself goes ([stop]).
+    // No reset here. A reconnect inside one service life keeps the set, because the panes
+    // did not change while the link was down: resetting re-entered every pane still
+    // blocked, which reposted the alert and overwrote an answer the user had already given.
     await for (final agents in session.watch()) {
       if (_stopped) return;
       await _onSnapshot(agents, session);
@@ -658,17 +604,16 @@ class _HostLoop {
   ) async {
     _lastAgents = agents;
     _lastGoodAt = DateTime.now();
-    // The backoff is per outage: a connection that carried a snapshot has
-    // earned the next one its full 5 s start.
+    // The backoff is per outage: a connection that carried a snapshot has earned the next
+    // one its full start.
     _backoff.reset();
     final delta = edges.apply(host.id, agents);
     for (final pane in delta.left) {
       await AlertNotifications.cancel(alertNotificationId(host.id, pane));
     }
     for (final snapshot in delta.entered) {
-      // The expanded form carries the pane's tail, read over the same
-      // connection. A tail that fails to arrive is not worth losing the alert
-      // over, so [HerdrSession.read] answers null and the alert goes out flat.
+      // A tail that fails to arrive is not worth losing the alert over, so [HerdrSession.read]
+      // answers null and the alert goes out flat.
       final tail = session == null ? null : await session.read(snapshot.pane);
       await AlertNotifications.alert(
         target: AlertTarget.forHost(host, snapshot),
@@ -686,8 +631,8 @@ class _HostLoop {
       WatcherReport(
         hostId: host.id,
         kind: kind,
-        // The agent poll's rule, kept here too: a host that blinks does not empty
-        // the panel, so the last good agents ride along with the failure.
+        // A host that blinks does not empty the panel, so the last good agents ride along with
+        // the failure.
         agents: _lastAgents,
         lastGoodAt: _lastGoodAt,
         protocol: protocol,
@@ -698,11 +643,6 @@ class _HostLoop {
   }
 
   Future<void> _watchFake() async {
-    // One blocked pane, which is the edge the alert is taken on, and enough
-    // else around it to draw the surfaces that list agents rather than count
-    // them: four names that have to be told apart, one of them resting so that
-    // the rule about which agents are listed has something to leave out, and
-    // more of them than the corner window has room for.
     const agents = [
       AgentSnapshot(
         session: 'default',

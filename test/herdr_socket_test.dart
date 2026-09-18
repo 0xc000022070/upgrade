@@ -1,7 +1,3 @@
-/// herdr's socket API as this app speaks it: one request per connection,
-/// newline-delimited JSON, no greeting.
-library;
-
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -14,10 +10,14 @@ void main() {
     final link = FakeHerdrLink();
     addTearDown(link.dispose);
 
-    final reply = HerdrApi(() async => link.link).call('agent.read', const {
-      'target': 'w1:p1',
-    });
-    link.say(herdrResult(const {'type': 'pane_read', 'read': {'text': 'hi'}}));
+    final reply = HerdrApi(() async => link.link)
+        .call('agent.read', const {'target': 'w1:p1'});
+    link.say(
+      herdrResult(const {
+        'type': 'pane_read',
+        'read': {'text': 'hi'},
+      }),
+    );
 
     expect(await reply, isA<HerdrResult>());
     expect(link.sent.single, {
@@ -25,8 +25,7 @@ void main() {
       'method': 'agent.read',
       'params': {'target': 'w1:p1'},
     });
-    // herdr answers one request per connection and then stops reading, so the
-    // link is let go rather than reused.
+    // herdr answers one request per connection and then stops reading.
     expect(link.shut, isTrue);
   });
 
@@ -43,10 +42,10 @@ void main() {
     await api.call('agent.list');
 
     expect(links, hasLength(2));
-    expect(
-      links.map((link) => link.sent.single['id']),
-      ['dazzle:0', 'dazzle:1'],
-    );
+    expect(links.map((link) => link.sent.single['id']), [
+      'dazzle:0',
+      'dazzle:1',
+    ]);
     expect(links.every((link) => link.shut), isTrue);
   });
 
@@ -77,8 +76,6 @@ void main() {
     await answers((link) => link.feed('not json\n'));
     await answers((link) => link.say(const ['a list is not a reply']));
     await answers((link) => link.say(const {'id': 'dazzle:0'}));
-    // A channel that opened and then went away with nothing on it: the far
-    // side is not a herdr server, or it died mid-answer.
     await answers((link) => unawaited(link.endStream()));
   });
 
@@ -91,9 +88,7 @@ void main() {
 
     await expectLater(
       reply,
-      throwsA(
-        isA<HerdrMalformed>().having((e) => e.protocol, 'protocol', 23),
-      ),
+      throwsA(isA<HerdrMalformed>().having((e) => e.protocol, 'protocol', 23)),
     );
   });
 
@@ -110,8 +105,6 @@ void main() {
       'event': 'pane_updated',
       'data': {'pane_id': 'w1:p1'},
     });
-    // A late response on a subscription is not an event, and dropping it is
-    // not the same as failing on it.
     link.say(herdrResult(const {'type': 'ok'}));
     link.say(const {'event': 'pane.agent_status_changed'});
     await link.endStream();
@@ -138,9 +131,8 @@ void main() {
   });
 
   test('a dial that fails reaches the listener', () async {
-    final events = HerdrApi(
-      () async => throw const SocketRefused(),
-    ).subscribe(const []);
+    final events = HerdrApi(() async => throw const SocketRefused())
+        .subscribe(const []);
 
     await expectLater(events.toList(), throwsA(isA<SocketRefused>()));
   });

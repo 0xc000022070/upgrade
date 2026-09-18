@@ -187,8 +187,6 @@ void main() {
   test('both refusals read as one sentence each', () {
     expect(HostKeyRefusal.unverified.line.words, 'host key unverified');
     expect(HostKeyRefusal.changed.line.words, 'host key changed');
-    // The screen route asks the failure for its line; the host's name is not
-    // in either of these two, which is the point of them being one sentence.
     expect(
       VncHostKeyChanged('x').reason('nyx'),
       HostKeyRefusal.changed.line.words,

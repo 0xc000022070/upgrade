@@ -10,11 +10,6 @@ import 'shell_sessions.dart';
 
 final _openShellRoutes = Expando<ShellSheetRoute>();
 
-/// The way in: a host panel's `SHELL >` row on HOSTS, a host row on SSH, or one
-/// of that tab's session cards, which names the session it wants on screen.
-///
-/// The shell is a sheet over that screen, not a page in front of it: the
-/// screen stays drawn under the wash, and the header drags the sheet down.
 void openHostShell(
   BuildContext context,
   Host host, {
@@ -27,9 +22,8 @@ void openHostShell(
   final up = _openShellRoutes[navigator];
   if (up != null && up.isActive) {
     if (up.host.id == host.id) return;
-    // Asked for another host while this one's shell is up, which is what a
-    // tap on a passphrase notification does: the sheet goes to the host that
-    // was asked for.
+    // Asked for another host while this one's shell is up, which is what a tap on a
+    // passphrase notification does: the sheet goes to the host that was asked for.
     navigator.removeRoute(up);
   }
 
@@ -50,8 +44,6 @@ void openHostShell(
   );
 }
 
-/// The shell as a modal sheet: the app's drag sheet, holding one host's
-/// terminal, with the header as its grip.
 class ShellSheetRoute extends DragSheetRoute<void> {
   ShellSheetRoute({
     required this.host,
@@ -64,15 +56,13 @@ class ShellSheetRoute extends DragSheetRoute<void> {
   final Host host;
   final ShellSession? session;
 
-  /// What the tab runs in place of the login shell, which is how an agent row
-  /// hands its attach, and a workspace its directory, to a terminal.
+  /// What the tab runs in place of the login shell, which is how an agent row hands its
+  /// attach, and a workspace its directory, to a terminal.
   final String? command;
 
-  /// Where [command] leaves the tab standing.
   final String? directory;
 
-  /// The herdr pane [command] attaches the tab to, remembered on the tab so
-  /// the next tap on that agent finds it.
+  /// Remembered on the tab so the next tap on that agent finds it.
   final PaneRef? pane;
 
   @override
@@ -96,13 +86,9 @@ class ShellSheetRoute extends DragSheetRoute<void> {
   }
 }
 
-/// What the sheet holds: one host's shell at a time, and the host it holds is
-/// the switcher's to change.
-///
-/// The shell is keyed by host id, so switching drops the state of the host
-/// being left and builds the one arrived at from its `initState` — the same
-/// path a fresh open takes, which is what makes the arriving host activate the
-/// tab it was asked for.
+/// The shell is keyed by host id, so switching drops the state of the host being left and
+/// builds the one arrived at from its `initState` — the same path a fresh open takes,
+/// which is what makes the arriving host activate the tab it was asked for.
 class _SheetContents extends StatefulWidget {
   const _SheetContents({
     required this.host,
@@ -152,9 +138,8 @@ class _SheetContentsState extends State<_SheetContents> {
       host: _host,
       session: _session,
       openNew: _openNew,
-      // Only the host the sheet opened on is the one they were meant for:
-      // switching hosts carries nothing of the directory or the agent it came
-      // from.
+      // Only the host the sheet opened on is the one they were meant for: switching
+      // hosts carries nothing of the directory or the agent it came from.
       command: _host.id == widget.host.id ? widget.command : null,
       directory: _host.id == widget.host.id ? widget.directory : null,
       pane: _host.id == widget.host.id ? widget.pane : null,

@@ -95,8 +95,6 @@ void main() {
     expect(bar, findsOneWidget);
     expect(find.text('ROSE 1'), findsOneWidget);
     expect(find.text('TAP TO RESUME'), findsOneWidget);
-    // Over the nav bar and against it: the two are one block at the foot of
-    // every tab.
     expect(
       tester.getBottomLeft(bar).dy,
       moreOrLessEquals(tester.getTopLeft(find.byType(NavBar)).dy),
@@ -108,10 +106,8 @@ void main() {
   testWidgets('the agent line stacks on it without taking the window', (
     tester,
   ) async {
-    // Two bars and the nav bar are three rows at the foot of one window, and
-    // the reader's text size grows all three at once. A column that ran out of
-    // window would throw here rather than quietly take the bottom off the
-    // labels the way it did on the device.
+    // Two bars and the nav bar are three rows at the foot of one window. A column that ran
+    // out of window throws here rather than quietly taking the bottom off the labels.
     tester.platformDispatcher.textScaleFactorTestValue = 2;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
@@ -119,8 +115,7 @@ void main() {
       app(
         extra: [
           navIndexProvider.overrideWith((ref) => 1),
-          // The strip draws a count only while something is keeping the count
-          // current, and this test is about where the row sits.
+          // The strip draws a count only while something is keeping the count current.
           agentsFeedLiveProvider.overrideWithValue(true),
           agentsFeedProvider.overrideWith(
             (ref) => Stream.value(
@@ -162,8 +157,6 @@ void main() {
     expect(line, findsOneWidget);
     expect(bar, findsOneWidget);
 
-    // Furthest from the thumb: the parked shell is tapped to get back into
-    // something, and the line is read.
     expect(
       tester.getBottomLeft(line).dy,
       moreOrLessEquals(tester.getTopLeft(bar).dy),
@@ -206,7 +199,6 @@ void main() {
     await tester.drag(header, const Offset(0, 400));
     await ready(tester);
 
-    // The route is gone and the way back is standing where it was.
     expect(header, findsNothing);
     expect(bar, findsOneWidget);
 
@@ -246,7 +238,6 @@ void main() {
     sessions.open(_nyx);
     await ready(tester);
 
-    // NYX 1 in front, ROSE 1 and ROSE 2 behind it, on any host.
     expect(find.text('NYX 1'), findsOneWidget);
     expect(find.text('+2'), findsOneWidget);
 

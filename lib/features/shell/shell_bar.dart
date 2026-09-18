@@ -10,13 +10,8 @@ import '../../design/spacing.dart';
 import '../../platform/shell/strip_bytes.dart';
 import '../../platform/vnc/keysyms.dart';
 
-/// One cell of the bar: what it is called, what it sends, and the mark it is
-/// drawn as when a word is not what it is.
 typedef _BarKey = ({String label, int keysym, DazzleIcons? icon});
 
-/// The bar's keys, in the order the two apps the user lives in put them: the
-/// modifiers first, then what a shell needs to get out of something, then the
-/// cursor.
 const _barKeys = <_BarKey>[
   (label: 'ESC', keysym: Keysyms.escape, icon: null),
   (label: 'TAB', keysym: Keysyms.tab, icon: null),
@@ -27,41 +22,30 @@ const _barKeys = <_BarKey>[
   (label: 'END', keysym: Keysyms.end, icon: null),
 ];
 
-/// The modifiers the shell keeps, in the order they are drawn. No `SHIFT`,
-/// which the soft keyboard already applies to what it sends, and no `SUPER`,
+/// No `SHIFT`, which the soft keyboard already applies to what it sends, and no `SUPER`,
 /// which belongs to a compositor and not to a terminal.
 const _barModifiers = <StickyModifier>[StickyModifier.ctrl, StickyModifier.alt];
 
-/// How much of the scrolling half a fade covers at the end it goes on past,
-/// and how much of that is the bar's surface before the gradient starts. A
-/// fade that only thins is not seen: a glyph sits in the middle of its cell,
-/// where a gradient spread over the whole width has already run out. The solid
-/// part takes the sliver against the rule and the rest thins over the cell.
+/// How much of the scrolling half a fade covers at the end it goes on past, and how much
+/// of that is the bar's surface before the gradient starts. A fade that only thins is not
+/// seen: a glyph sits in the middle of its cell, where a gradient spread over the whole
+/// width has already run out.
 const _fadeWidth = 32.0;
 const _fadeSolid = 0.28;
 
-/// The bar's own row, shorter than a tap target: the terminal is what the user
-/// came for and every row above it is taken from the screen. The whole row is
-/// the hit area, so a short cell is still not a small one.
 const _barHeight = RowMetrics.minHeight;
 
-/// A cell is its label plus this much either side, so `ATTACH` is wide and `↑`
-/// is not, and never narrower than the row is tall.
 const _cellPadding = RowMetrics.padding;
 
-/// How many keys one arming can be made to last. Two is the chord the gesture
-/// exists for — `CTRL D` twice out of an agent — and three is the margin for a
-/// process that ignored the first interrupt. Past that a user is holding a key
-/// down, which a soft keyboard does not do.
+/// How many keys one arming can be made to last. Two is the chord the gesture exists for
+/// — `CTRL D` twice out of an agent — and three is the margin for a process that ignored
+/// the first interrupt. Past that a user is holding a key down, which a soft keyboard
+/// does not do.
 const _maxRepeat = 3;
 
-/// The key bar under the terminal: always there, the keys scrolling when the
-/// phone is too narrow, with `ATTACH` and the keyboard toggle pinned past the
-/// rule at the right end where a thumb finds them without scrolling back.
-///
-/// Controlled from the outside on purpose. The armed set belongs to the
-/// session, because the modifiers have to reach characters the IME types
-/// straight into the terminal, which never pass through this widget.
+/// Controlled from the outside on purpose. The armed set belongs to the session, because
+/// the modifiers have to reach characters the IME types straight into the terminal, which
+/// never pass through this widget.
 class ShellBar extends StatelessWidget {
   const ShellBar({
     super.key,
@@ -80,14 +64,12 @@ class ShellBar extends StatelessWidget {
 
   final Set<StickyModifier> sticky;
 
-  /// How many keys the armed set survives. It belongs to the whole arming
-  /// rather than to one cell: two modifiers armed together are both spent on
-  /// the same keys.
+  /// It belongs to the whole arming rather than to one cell: two modifiers armed together
+  /// are both spent on the same keys.
   final int repeat;
 
-  /// Whether the armed set survives keys at all. A latched arming is spent by
-  /// nothing and ends only when the last modifier is tapped off it, which is
-  /// what a hand working a chord over and over asks for and no count says.
+  /// A latched arming is spent by nothing and ends only when the last modifier is tapped
+  /// off it, which is what a hand working a chord over and over asks for and no count says.
   final bool locked;
 
   final void Function(Set<StickyModifier> sticky, int repeat, bool locked)
@@ -96,18 +78,11 @@ class ShellBar extends StatelessWidget {
   final bool keyboardOpen;
   final VoidCallback onKeyboard;
 
-  /// How many clips are held in memory. The cell is always on the bar, since
-  /// photos come in through it whether or not anything is held; the count
-  /// shows only as a mark that there is something.
   final int clipCount;
   final VoidCallback? onAttach;
 
-  /// Whether the search line is up.
   final bool searching;
 
-  /// What the one cell for both lines does. Which of them it raises is not
-  /// this widget's to decide — it depends on what the pane has to offer, and
-  /// the pane is what is scanned above it.
   final VoidCallback? onFind;
 
   @override
@@ -119,18 +94,13 @@ class ShellBar extends StatelessWidget {
         border: Border(top: BorderSide(color: context.tokens.borderSubtle)),
       ),
       child: Row(
-        // The cells take the row's height rather than setting one, so the hit
-        // area is the whole bar less the hairline that draws its top edge.
+        // The cells take the row's height rather than setting one, so the hit area is
+        // the whole bar less the hairline that draws its top edge.
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             child: _Keys(
               children: [
-                // At the head of the row, where the keys rest: what it opens
-                // is a line, not a key, and it is the one cell here that is
-                // not sent to the shell. Both lines are behind it — a second
-                // cell that came and went with the pane's turns moved the keys
-                // under the thumb reaching for them.
                 KeyCell(
                   key: const ValueKey('bar-find'),
                   label: 'FIND',
@@ -165,8 +135,6 @@ class ShellBar extends StatelessWidget {
               ],
             ),
           ),
-          // The scroll can take the keys away from the thumb; it never takes
-          // the photo in or the way back to the keyboard.
           const CellDivider(),
           KeyCell(
             key: const ValueKey('bar-ATTACH'),
@@ -189,18 +157,16 @@ class ShellBar extends StatelessWidget {
     );
   }
 
-  /// A key goes as its bytes, and nothing else: the armed set is spent where
-  /// every byte passes, which is the only place that sees the characters the
-  /// IME types straight into the terminal as well as these.
+  /// A key goes as its bytes, and nothing else: the armed set is spent where every byte
+  /// passes, which is the only place that sees the characters the IME types straight into
+  /// the terminal as well as these.
   void _send(int keysym) {
     final bytes = stripBytes(keysym, sticky);
     if (bytes != null) onBytes(bytes);
   }
 
-  /// A tap adds a modifier to the arming or takes it off, whatever the arming
-  /// is: the latch and the count belong to the set, so a modifier tapped on
-  /// under a latch is latched with it, and the arming ends when the last one
-  /// is tapped off.
+  /// The latch and the count belong to the set, so a modifier tapped on under a latch is
+  /// latched with it, and the arming ends when the last one is tapped off.
   void _toggle(StickyModifier modifier) {
     final next = Set.of(sticky);
     if (!next.remove(modifier)) next.add(modifier);
@@ -211,19 +177,14 @@ class ShellBar extends StatelessWidget {
     onSticky(next, repeat, locked);
   }
 
-  /// A press held over a modifier latches the arming: armed until it is tapped
-  /// off, and spent by nothing in between. The count goes with it — there is
-  /// no number under a modifier no key takes anything off.
+  /// A press held over a modifier latches the arming: armed until it is tapped off, and
+  /// spent by nothing in between.
   void _latch(StickyModifier modifier) =>
       onSticky({...sticky, modifier}, 1, true);
 
-  /// A drag down arms the modifier and counts up, a drag up counts back and
-  /// then lets it go. Down from nothing lands on two rather than one: arming
-  /// for a single key is what the tap already does.
-  ///
-  /// A latched arming only comes down: there is nothing above forever, so a
-  /// drag down over one leaves it where it is, and a drag up lets it go whole
-  /// the way the tap does.
+  /// A drag down arms the modifier and counts up, a drag up counts back and then lets it
+  /// go. Down from nothing lands on two rather than one: arming for a single key is what
+  /// the tap already does. A latched arming only comes down.
   void _flick(StickyModifier modifier, int step) {
     final armed = sticky.contains(modifier);
     if (locked && armed) {
@@ -239,8 +200,8 @@ class ShellBar extends StatelessWidget {
     }
     if (!armed) return;
     if (repeat > 2) {
-      // A copy, not the set the caller handed down: the store empties what it
-      // is given before it fills it.
+      // A copy, not the set the caller handed down: the store empties what it is
+      // given before it fills it.
       onSticky(Set.of(sticky), repeat - 1, false);
       return;
     }
@@ -248,12 +209,9 @@ class ShellBar extends StatelessWidget {
   }
 }
 
-/// The scrolling half of the bar, with a fade over whichever end still has
-/// cells behind it.
-///
-/// The metrics are followed rather than the offset: the same answer covers a
-/// row scrolled past its start and a row too wide for the phone that has not
-/// been touched, and a bar whose keys all fit reports neither.
+/// The metrics are followed rather than the offset: the same answer covers a row scrolled
+/// past its start and a row too wide for the phone that has not been touched, and a bar
+/// whose keys all fit reports neither.
 class _Keys extends StatefulWidget {
   const _Keys({required this.children});
 
@@ -306,8 +264,6 @@ class _KeysState extends State<_Keys> {
   }
 }
 
-/// The bar's own surface, thinning out over the cell it cuts. Takes no taps:
-/// what is under it is half a key and still a key.
 class _Fade extends StatelessWidget {
   const _Fade({super.key, this.end = false});
 

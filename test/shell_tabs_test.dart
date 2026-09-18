@@ -12,7 +12,6 @@ import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
 import 'support/shell_route.dart';
 
-/// The word one tab is drawn with.
 String labelOfTab(WidgetTester tester, int number) => tester
     .widget<Text>(
       find.descendant(
@@ -22,8 +21,6 @@ String labelOfTab(WidgetTester tester, int number) => tester
     )
     .data!;
 
-/// The colour of one tab's state dot.
-/// The colour of one tab's state dot.
 Color? dotOfTab(WidgetTester tester, int number) =>
     (tester
                 .widget<Container>(
@@ -39,7 +36,6 @@ Color? dotOfTab(WidgetTester tester, int number) =>
             as BoxDecoration)
         .color;
 
-/// What the info mark in the middle of the header is drawn in.
 Color? inkOfInfoMark(WidgetTester tester) => tester
     .widget<Text>(
       find.descendant(
@@ -50,16 +46,14 @@ Color? inkOfInfoMark(WidgetTester tester) => tester
     .style
     ?.color;
 
-/// Opens the readout behind the info mark. The sheet's own transition and no
-/// more: a tab on a reconnect schedule moves on under a longer pump, and the
-/// sheet follows the session rather than the tap that opened it.
+/// The sheet's own transition and no more: a tab on a reconnect schedule moves on under a
+/// longer pump.
 Future<void> openInfo(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('shell-tab-info')));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 200));
 }
 
-/// Every word the header is drawn with, left to right.
 List<String?> headerWords(WidgetTester tester) => tester
     .widgetList<Text>(
       find.descendant(
@@ -81,8 +75,6 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    // What is carrying a shell that is up costs the row nothing at all: no
-    // word, and no mark to open for one either.
     expect(find.text('MOSH'), findsNothing);
     expect(find.byKey(const ValueKey('shell-tab-info')), findsNothing);
 
@@ -97,8 +89,6 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    // The host, the one tab, the plus and the close. A shell that is up takes
-    // no word and no cell of the row to say so.
     expect(headerWords(tester), ['ROSE', '1', '+', '×']);
 
     await unmount(tester);
@@ -153,7 +143,6 @@ void main() {
     expect(find.byKey(const ValueKey('shell-tab-2')), findsOneWidget);
     expect(sessions.activeFor(rose.id)?.number, 2);
 
-    // And the first tab takes the user back to the shell it holds.
     await tester.tap(find.byKey(const ValueKey('shell-tab-1')));
     await ready(tester);
     expect(sessions.activeFor(rose.id)?.number, 1);
@@ -229,8 +218,6 @@ void main() {
 
       expect(dotOfTab(tester, 1), isNot(DazzleColors.accent));
 
-      // Giving up on the schedule is a decision, and it is made in the sheet
-      // the mark opens rather than from the row.
       expect(find.text('STOP'), findsNothing);
       await openInfo(tester);
       await tester.tap(find.byKey(const ValueKey('shell-info-stop')));
@@ -247,8 +234,6 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      // The cap is on the word, not on the cell: a tab that says `1` is a tap
-      // target wide and leaves the rest of the row to what the shell is doing.
       expect(
         tester.getSize(find.byKey(const ValueKey('shell-tab-1'))).width,
         lessThan(60),
@@ -278,10 +263,8 @@ void main() {
       );
       await ready(tester);
 
-      // Both tabs and the plus stand on the row at once: the name gives way
-      // before the strip does, and nothing is behind a scroll nobody is told
-      // about. Against the strip's own viewport and not the screen — a cell
-      // the strip has clipped is still inside the phone.
+      // Against the strip's own viewport and not the screen — a cell the strip has clipped is
+      // still inside the phone.
       final strip = tester.getRect(
         find.descendant(
           of: find.byKey(const ValueKey('shell-header')),
@@ -316,8 +299,7 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      // Through the store, the way the plus opens one: the plus itself is off
-      // the right edge here, which is the very thing being fixed.
+      // Through the store: the plus itself is off the right edge here.
       sessions.open(rose);
       await ready(tester);
 
@@ -330,7 +312,6 @@ void main() {
   });
 
   testWidgets('the plus is gone once nine tabs are open', (tester) async {
-    // A phone's width, where nine tabs are wider than the row they are in.
     tester.view.physicalSize = const Size(411, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -344,7 +325,6 @@ void main() {
 
     expect(find.byKey(const ValueKey('shell-tab-9')), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-tab-new')), findsNothing);
-    // The tabs scroll inside the header rather than running off it.
     expect(tester.takeException(), isNull);
     expect(
       tester.getSize(find.byKey(const ValueKey('shell-header'))).height,
@@ -426,10 +406,9 @@ void main() {
   });
 
   group('the keyboard follows the tab', () {
-    /// Whether the IME is wired to anything. The view opens a text input
-    /// connection when its focus node takes focus and closes it when the view
-    /// goes; a focus node that is held with no connection under it is a
-    /// keyboard that types into nothing.
+    /// The view opens a text input connection when its focus node takes focus and closes it
+    /// when the view goes; a node held with no connection under it is a keyboard that types
+    /// into nothing.
     bool connected(WidgetTester tester) => tester.testTextInput.hasAnyClients;
 
     Future<void> type(WidgetTester tester, String text) async {
@@ -501,14 +480,10 @@ void main() {
       await ready(tester);
       expect(connected(tester), isTrue);
 
-      // The shell the keyboard was on exits clean and takes its tab, which
-      // puts the first tab back on screen.
       transport.opened[1].exit(0);
       await ready(tester);
       expect(sessions.activeFor(rose.id)?.number, 1);
 
-      // Whether the keyboard came along or went down, the cell's next tap
-      // has to end with a keyboard that types into the shell on screen.
       if (!connected(tester)) {
         await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
         await ready(tester);
@@ -534,8 +509,8 @@ void main() {
           .widget<TerminalView>(find.byType(TerminalView))
           .focusNode;
 
-      // Two views sharing one node hand focus over without a change of focus,
-      // and a view that never sees the change never opens its input.
+      // Two views sharing one node hand focus over without a change of focus, and a view that
+      // never sees the change never opens its input.
       expect(first, isNotNull);
       expect(second, isNot(same(first)));
 

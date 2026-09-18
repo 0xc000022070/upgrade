@@ -11,24 +11,15 @@ import '../shell/shell_sessions.dart';
 import '../shell/shell_sheet.dart';
 import '../ssh/ssh_screen.dart';
 
-/// What a row hands a tap: the host the agent was read from and the agent.
 typedef AgentOpen = void Function(Host host, AgentSnapshot agent);
 
-/// A tap on an agent row: the shell sheet on the agent's host, in the tab
-/// attached to its pane.
-///
-/// The tab is found before it is made. One already attached to the pane is
-/// activated; otherwise the user confirms moving the pane's terminal view to
-/// this device and a fresh tab runs `herdr agent attach --takeover` as the
-/// channel's own command. Takeover detaches another terminal client; it does
-/// not replace or stop the agent. The tab remembers the pane so the next tap
-/// lands in it without another takeover.
-///
-/// Not typed at a login shell. A line written at a shell races everything that
-/// shell reads before its prompt, and a host whose rc asks which session to
-/// open takes the line's first character as its answer. The nav moves to SSH
-/// under the sheet first: that is the tab the sheet belongs to, and the one
-/// Home's poll stops for.
+/// The tab is found before it is made: one already attached to the pane is activated,
+/// otherwise the user confirms moving the pane's terminal view to this device and a fresh
+/// tab runs `herdr agent attach --takeover` as the channel's own command. Takeover
+/// detaches another terminal client; it does not replace or stop the agent. Not typed at
+/// a login shell: a line written at a shell races everything that shell reads before its
+/// prompt, and a host whose rc asks which session to open takes the line's first
+/// character as its answer.
 void openAgentShell(
   BuildContext context,
   WidgetRef ref,

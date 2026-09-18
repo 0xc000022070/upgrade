@@ -17,19 +17,15 @@ import 'clip_paste.dart';
 import 'photo_attach.dart';
 import 'shell_sessions.dart';
 
-/// How long the sheet shows what the attach came to before it goes.
 const attachSheetLinger = Duration(milliseconds: 700);
 
-/// The pause between two pictures going in. Each one is a clipboard write
-/// and a keystroke, and the agent reads the clipboard on the keystroke: the
-/// next write has to wait for that read.
+/// The pause between two pictures going in. Each one is a clipboard write and a
+/// keystroke, and the agent reads the clipboard on the keystroke: the next write has to
+/// wait for that read.
 const attachGap = Duration(milliseconds: 300);
 
-/// What the gallery hands back, so a test can hand back something else.
 typedef PhotoPicker = Future<List<Uint8List>> Function();
 
-/// The sheet over a shell: photos from the gallery, as many as picked,
-/// attached straight away; and what is held in memory, one tap each.
 Future<void> showAttachSheet(
   BuildContext context, {
   required ShellSession session,
@@ -105,8 +101,8 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
     await _finish(last!, count: photos.length);
   }
 
-  /// The last result on the sheet, then the sheet goes — unless it failed,
-  /// which is left where the user can read it.
+  /// The last result on the sheet, then the sheet goes — unless it failed, which is left
+  /// where the user can read it.
   Future<void> _finish(PasteResult result, {int count = 1}) async {
     if (!mounted) return;
     setState(() {
@@ -201,10 +197,6 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
   }
 }
 
-/// What the sheet says about itself under the `?`: what a picture is for,
-/// what each of the two ways in does, and what a failure falls back to. Body
-/// copy is the one place the app is read rather than scanned, so it is the
-/// sheet's Sans and not another tracked label.
 class _AttachHelp extends StatelessWidget {
   const _AttachHelp();
 
@@ -236,9 +228,8 @@ class _AttachHelp extends StatelessWidget {
   }
 }
 
-/// One held clip: the picture at a fixed footprint, its size under it, `×`
-/// on it. The thumbnail is decoded at twice its drawn width and no more, so
-/// eight tiles cost the sheet a fraction of one clip.
+/// The thumbnail is decoded at twice its drawn width and no more, so eight tiles cost the
+/// sheet a fraction of one clip.
 class _ClipTile extends StatelessWidget {
   const _ClipTile({
     super.key,

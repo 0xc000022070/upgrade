@@ -5,25 +5,18 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-/// The pirate mascot's sheets, and the one widget that draws them.
-///
-/// The sheets are pixel art on a 48px grid, frames left to right at 1x. Nothing
-/// here resamples: [FilterQuality.none] at an integer scale is the whole
-/// rendering contract, because a fractional scale on a 48px figure puts some
-/// source pixels on two device pixels and its neighbours on one, and the
-/// silhouette stops being pixel art.
+/// [FilterQuality.none] at an integer scale is the whole rendering contract: a
+/// fractional scale on a 48px figure puts some source pixels on two device pixels and
+/// its neighbours on one.
 
-/// One cell's side, in source pixels. The manifest carries the same number and
-/// a test asserts the two agree — the constant exists so a [Sprite] has a size
-/// before the manifest has been read, which is what keeps the first frame from
-/// laying out at zero and then jumping.
+/// The manifest carries the same number and a test asserts the two agree; the constant
+/// exists so a [Sprite] has a size before the manifest has been read.
 const mascotCell = 48;
 
 const mascotManifestAsset = 'assets/sprites/mascot.json';
 
 String mascotSheetAsset(String state) => 'assets/sprites/mascot-$state.png';
 
-/// One state's row in the manifest.
 class MascotState {
   const MascotState({
     required this.name,
@@ -37,9 +30,6 @@ class MascotState {
   final int fps;
   final bool loop;
 
-  /// How long one play of the sheet takes. For a looping state this is the
-  /// period; for a held one it is when the last frame arrives and the ticker
-  /// has nothing left to do.
   Duration get length =>
       Duration(microseconds: Duration.microsecondsPerSecond * frames ~/ fps);
 }
@@ -67,9 +57,6 @@ class MascotManifest {
 
   static Future<MascotManifest>? _pending;
 
-  /// Read once per isolate. Every placement asks for the same three numbers,
-  /// and a sprite that re-read the bundle would spend an asset round trip on
-  /// each mount.
   static Future<MascotManifest> load([AssetBundle? bundle]) =>
       _pending ??= (bundle ?? rootBundle)
           .loadString(mascotManifestAsset)
@@ -79,9 +66,6 @@ class MascotManifest {
   static void resetForTest() => _pending = null;
 }
 
-/// Which frame is on screen after [elapsed]. A looping state wraps; a held one
-/// stops on the last frame and stays there, which is what the splash's final
-/// pose is.
 int mascotFrameAt(Duration elapsed, MascotState state) {
   if (elapsed <= Duration.zero) return 0;
   final index =
@@ -90,21 +74,14 @@ int mascotFrameAt(Duration elapsed, MascotState state) {
   return index >= state.frames ? state.frames - 1 : index;
 }
 
-/// The largest integer scale whose cell fits in [available]. Never zero: a
-/// height under one cell draws the sprite at 1x and overflows rather than
-/// vanishing, because a mascot nobody can see is harder to notice than one that
-/// does not fit.
+/// Never zero: a height under one cell draws at 1x and overflows rather than vanishing.
 int mascotScaleFor(double available, {int cell = mascotCell}) {
   final scale = available ~/ cell;
   return scale < 1 ? 1 : scale;
 }
 
-/// One state of the mascot, at an integer scale.
-///
-/// Give it [scale] or [height], never both — [height] is the caller saying "as
-/// large as fits here" and resolves through [mascotScaleFor]. [frame] pins a
-/// single frame and builds no ticker at all, which is what the two static
-/// placements use.
+/// Give it [scale] or [height], never both. [frame] pins a single frame and builds no
+/// ticker at all.
 class Sprite extends StatefulWidget {
   const Sprite({
     super.key,
@@ -123,10 +100,8 @@ class Sprite extends StatefulWidget {
   final int? scale;
   final double? height;
 
-  /// A fixed frame index. The sprite is static and no [Ticker] is created.
   final int? frame;
 
-  /// Fired once when a non-looping state reaches its last frame.
   final VoidCallback? onDone;
 
   @override
@@ -183,9 +158,8 @@ class _SpriteState extends State<Sprite> with SingleTickerProviderStateMixin {
   }
 
   void _startTicker() {
-    // A pinned frame and a one-frame sheet both have nothing to advance, and a
-    // ticker for either would ask the engine for a frame every 16ms to redraw
-    // the same pixels.
+    // A pinned frame and a one-frame sheet have nothing to advance, and a ticker for either
+    // would ask the engine for a frame every 16ms to redraw the same pixels.
     if (widget.frame != null || _state!.frames < 2 || _ticker != null) return;
     _ticker = createTicker(_tick)..start();
   }
@@ -194,12 +168,9 @@ class _SpriteState extends State<Sprite> with SingleTickerProviderStateMixin {
     final state = _state!;
     final frame = mascotFrameAt(elapsed, state);
     if (frame != _frame) setState(() => _frame = frame);
-    // Not `frame == frames - 1`: the last frame is reached a whole frame's
-    // worth of time before the sheet has finished playing, and a caller told
-    // "done" then would cut that frame short.
+    // Not `frame == frames - 1`: the last frame is reached a whole frame's worth of time
+    // before the sheet has finished playing.
     if (state.loop || _done || elapsed < state.length) return;
-    // The held pose is drawn from here on; the ticker would only keep
-    // recomputing the same index.
     _done = true;
     _ticker?.stop();
     widget.onDone?.call();
