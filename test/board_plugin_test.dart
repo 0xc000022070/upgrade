@@ -72,6 +72,13 @@ List<Map<String, Object?>> commands(PluginUiNode node) => [
     command! as Map<String, Object?>,
 ];
 
+// The board draws its own ground and rules before anything the user put on it,
+// so a link is the accent line rather than any line at all.
+List<Map<String, Object?>> links(PluginUiNode node) => [
+  for (final command in commands(node))
+    if (command['op'] == 'line' && command['color'] == 'accent') command,
+];
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory root;
@@ -137,7 +144,7 @@ void main() {
           .where((c) => c['op'] == 'text')
           .single;
       expect(reopened['y'], placed['y']);
-      expect(texts(app.view), contains('1 NOTES / 0 LINKS'));
+      expect(texts(app.view), contains('BOARD 1 / 1 NOTES / 0 LINKS'));
     },
   );
 
@@ -158,8 +165,8 @@ void main() {
     await app.tool('link');
     await app.tap(80, 110, 'a');
     await app.tap(80, 410, 'link1');
-    expect(commands(app.view).any((c) => c['op'] == 'line'), isTrue);
-    expect(texts(app.view), contains('2 NOTES / 1 LINKS'));
+    expect(links(app.view), hasLength(1));
+    expect(texts(app.view), contains('BOARD 1 / 2 NOTES / 1 LINKS'));
     await app.tool('move');
     await app.tool('select');
     await app.tap(80, 110, 'pick2');
@@ -169,8 +176,54 @@ void main() {
     expect(moved['y'], 900 - 64 / 2 + 8);
     await app.tool('erase');
     await app.tap(200, 910, 'gone');
-    expect(commands(app.view).any((c) => c['op'] == 'line'), isFalse);
-    expect(texts(app.view), contains('1 NOTES / 0 LINKS'));
+    expect(links(app.view), isEmpty);
+    expect(texts(app.view), contains('BOARD 1 / 1 NOTES / 0 LINKS'));
+  });
+
+  test('a board is renamed and keeps the name it was given', () async {
+    await opened();
+    await app.action('boards');
+    final boardId = app.state!['boardId']! as String;
+    await app.send({
+      'type': 'action',
+      'id': 'rename_board',
+      'args': {'id': boardId},
+      'fields': {'bn_$boardId': 'ROUTES'},
+    });
+    await app.action('open_board', {
+      'args': {'id': boardId},
+    });
+    expect(texts(app.view), contains('ROUTES / 0 NOTES / 0 LINKS'));
+    await app.send({
+      'type': 'action',
+      'id': 'rename_board',
+      'args': {'id': boardId},
+      'fields': {'bn_$boardId': ''},
+    });
+    expect(
+      texts(app.view),
+      contains('A board keeps its name until a new one is typed.'),
+    );
+    await app.action('boards');
+    await app.action('open_board', {
+      'args': {'id': boardId},
+    });
+    expect(texts(app.view), contains('ROUTES / 0 NOTES / 0 LINKS'));
+  });
+
+  test('the board keeps its place when a note is selected', () async {
+    await opened();
+    await app.tool('note');
+    await app.tap(80, 300, 'note1');
+    final placed = surface(app.view).props['height'];
+    await app.tool('select');
+    await app.tap(4000, 4000, 'nothing');
+    expect(app.state!['selected'], '');
+    expect(surface(app.view).props['height'], placed);
+    expect(
+      walk(app.view).where((entry) => entry.kind == 'input').map((e) => e.key),
+      contains('note'),
+    );
   });
 
   test('moving with nothing selected explains itself', () async {
@@ -183,13 +236,52 @@ void main() {
   test('a filled board refuses the next note instead of dropping it', () async {
     await opened();
     await app.tool('note');
-    for (var index = 0; index < 70; index++) {
+    for (var index = 0; index < 60; index++) {
       await app.tap(40 + (index % 2) * 140, 40 + index * 8, 'note$index');
     }
-    expect(texts(app.view), contains('70 NOTES / 0 LINKS'));
+    expect(texts(app.view), contains('BOARD 1 / 60 NOTES / 0 LINKS'));
     await app.tap(40, 200, 'overflow');
     expect(texts(app.view), contains('This board holds no more notes.'));
-    expect(texts(app.view), contains('70 NOTES / 0 LINKS'));
+    expect(texts(app.view), contains('BOARD 1 / 60 NOTES / 0 LINKS'));
     expect(commands(app.view).length, lessThanOrEqualTo(256));
+  });
+
+  test('a note breaks its lines between words, not inside them', () async {
+    await opened();
+    await app.tool('note');
+    await app.tap(80, 300, 'note1');
+    await app.send({
+      'type': 'action',
+      'id': 'save_note',
+      'fields': {'note': 'Ship the board plugin to faraday'},
+    });
+    final drawn =
+        commands(app.view).firstWhere((c) => c['op'] == 'text')['text']!
+            as String;
+    expect(drawn.split('\n'), ['Ship the board', 'plugin to faraday']);
+    await app.send({
+      'type': 'action',
+      'id': 'save_note',
+      'fields': {
+        'note': 'unbreakablewordthatrunspastthenote and then some more words',
+      },
+    });
+    final cut =
+        commands(app.view).firstWhere((c) => c['op'] == 'text')['text']!
+            as String;
+    expect(cut.split('\n').first, 'unbreakablewordth');
+    expect(cut, endsWith('…'));
+  });
+
+  test('the board is drawn under whatever is put on it', () async {
+    await opened();
+    final ground = commands(app.view).first;
+    expect(ground['op'], 'rect');
+    expect(ground['color'], 'surface');
+    expect(ground['width'], surface(app.view).props['width']);
+    expect(ground['height'], surface(app.view).props['height']);
+    final rules = commands(app.view).where((c) => c['color'] == 'border');
+    expect(rules, isNotEmpty);
+    expect(rules.every((c) => c['op'] == 'line'), isTrue);
   });
 }

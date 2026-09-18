@@ -1,8 +1,16 @@
+-- A page is never told its viewport width, so the board is as wide as the
+-- narrowest phone leaves inside the screen's padding, and is drawn at that width
+-- rather than the canvas node's own default of 240.
+local BOARD_WIDTH = 328
 local NOTE_WIDTH = 132
 local NOTE_HEIGHT = 64
--- A single drawing surface carries 256 commands: a note spends three of them
--- and a link one, so the board holds what those two together fit inside.
-local MAX_NOTES = 70
+local LINE_CHARS = 17
+local NOTE_LINES = 3
+local GRID = 150
+local MAX_RULES = 18
+-- A single drawing surface carries 256 commands: the ground and its rules spend
+-- nineteen, a note three and a link one, so the board holds what is left.
+local MAX_NOTES = 60
 local MAX_LINKS = 40
 local MAX_COMMANDS = 250
 local MAX_DELETES = 48
@@ -80,10 +88,10 @@ local function readObjects(boardId)
     return scan("o:" .. boardId .. ":", 4, decode)
 end
 
-local function find(objects, id)
+local function find(rows, id)
     if id == "" then return nil end
-    for _, object in ipairs(objects) do
-        if object.id == id then return object end
+    for _, row in ipairs(rows) do
+        if row.id == id then return row end
     end
     return nil
 end
@@ -107,11 +115,12 @@ local function hit(objects, x, y)
     return found
 end
 
--- A page is never told its viewport width, so a note is centred on the tap and
--- only its left edge is held on the surface; the surface clips its own right.
+-- A note is centred on the tap and then held whole inside the board, so the
+-- right-hand column lands beside the edge instead of half over it.
 local function place(x)
     local left = x - NOTE_WIDTH / 2
     if left < 4 then return 4 end
+    if left > BOARD_WIDTH - NOTE_WIDTH - 4 then return BOARD_WIDTH - NOTE_WIDTH - 4 end
     return left
 end
 
@@ -137,13 +146,43 @@ local function removeNote(state, id)
     if state.linkFrom == id then state.linkFrom = "" end
 end
 
+-- The drawing surface wraps text to the whole canvas, not to the note it sits
+-- in, so a note breaks its own lines on the spaces between words. A word with no
+-- break in it is cut, because leaving it whole would run it over the note's edge.
+local function lay(text)
+    local lines, line = {}, ""
+    for word in string.gmatch(text, "%S+") do
+        while utf8.len(word) > LINE_CHARS do
+            if line ~= "" then
+                table.insert(lines, line)
+                line = ""
+            end
+            local cut = utf8.offset(word, LINE_CHARS + 1)
+            table.insert(lines, string.sub(word, 1, cut - 1))
+            word = string.sub(word, cut)
+            if #lines > NOTE_LINES then return lines end
+        end
+        local candidate = line == "" and word or (line .. " " .. word)
+        if utf8.len(candidate) <= LINE_CHARS then
+            line = candidate
+        else
+            table.insert(lines, line)
+            line = word
+            if #lines > NOTE_LINES then return lines end
+        end
+    end
+    if line ~= "" then table.insert(lines, line) end
+    return lines
+end
+
 local function wrap(text)
     if text == "" then return "" end
-    local lines, start = {}, 1
-    while start <= #text and #lines < 3 do
-        local ending = utf8.offset(text, 19, start) or (#text + 1)
-        table.insert(lines, string.sub(text, start, ending - 1))
-        start = ending
+    local lines = lay(text)
+    if #lines > NOTE_LINES then
+        local last = lines[NOTE_LINES]
+        while #lines > NOTE_LINES do table.remove(lines) end
+        local cut = utf8.offset(last, utf8.len(last))
+        lines[NOTE_LINES] = string.sub(last, 1, cut - 1) .. "…"
     end
     return table.concat(lines, "\n")
 end
@@ -160,8 +199,22 @@ local function surfaceHeight(objects)
     return bottom
 end
 
-local function drawing(state)
+-- The board is drawn before anything on it, so an empty board is still a surface
+-- the user can see the edges of rather than the page's own background.
+local function ground(height, commands)
+    table.insert(commands, {op = "rect", x = 0, y = 0,
+        width = BOARD_WIDTH, height = height, color = "surface"})
+    local rules = math.floor(height / GRID)
+    if rules > MAX_RULES then rules = MAX_RULES end
+    for index = 1, rules do
+        table.insert(commands, {op = "line", color = "border", stroke = 1,
+            x = 0, y = index * GRID, x2 = BOARD_WIDTH, y2 = index * GRID})
+    end
+end
+
+local function drawing(state, height)
     local commands, notes = {}, {}
+    ground(height, commands)
     for _, object in ipairs(state.objects) do
         if object.kind == "note" then notes[object.id] = object end
     end
@@ -169,7 +222,7 @@ local function drawing(state)
         if object.kind == "edge" and #commands < MAX_COMMANDS then
             local from, to = notes[object.a], notes[object.b]
             if from and to then
-                table.insert(commands, {op = "line", color = "border", stroke = 2,
+                table.insert(commands, {op = "line", color = "accent", stroke = 2,
                     x = from.x + NOTE_WIDTH / 2, y = from.y + NOTE_HEIGHT / 2,
                     x2 = to.x + NOTE_WIDTH / 2, y2 = to.y + NOTE_HEIGHT / 2})
             end
@@ -182,7 +235,7 @@ local function drawing(state)
                 width = NOTE_WIDTH + 2, height = NOTE_HEIGHT + 2,
                 color = marked and "accent" or "border"})
             table.insert(commands, {op = "rect", x = object.x, y = object.y,
-                width = NOTE_WIDTH, height = NOTE_HEIGHT, color = "surface"})
+                width = NOTE_WIDTH, height = NOTE_HEIGHT, color = "background"})
             table.insert(commands, {op = "text", x = object.x + 8, y = object.y + 8,
                 text = object.text == "" and "EMPTY" or wrap(object.text),
                 size = 11, color = object.text == "" and "muted" or nil})
@@ -246,6 +299,15 @@ local function tap(state, event)
     return state
 end
 
+local function open(state, id, name)
+    state.boardId = id
+    state.boardName = name
+    state.objects = readObjects(id)
+    state.selected = ""
+    state.linkFrom = ""
+    state.mode = "board"
+end
+
 local function update(state, event)
     if event.type == "mount" then
         state.boards = readBoards()
@@ -256,20 +318,24 @@ local function update(state, event)
     local args = event.args or {}
     state.message = ""
     if event.id == "new_board" then
-        local key = "b:" .. event.token
-        dazzle.data.put("boards", key, "BOARD " .. tostring(#state.boards + 1), 0)
+        local name = "BOARD " .. tostring(#state.boards + 1)
+        dazzle.data.put("boards", "b:" .. event.token, name, 0)
         state.boards = readBoards()
-        state.boardId = event.token
+        open(state, event.token, name)
         state.objects = {}
-        state.selected = ""
-        state.linkFrom = ""
-        state.mode = "board"
     elseif event.id == "open_board" then
-        state.boardId = args.id
-        state.objects = readObjects(args.id)
-        state.selected = ""
-        state.linkFrom = ""
-        state.mode = "board"
+        local board = find(state.boards, args.id)
+        open(state, args.id, board and board.name or "BOARD")
+    elseif event.id == "rename_board" then
+        local board = find(state.boards, args.id)
+        local name = clean(values["bn_" .. tostring(args.id)] or "")
+        if board and name ~= "" then
+            dazzle.data.put("boards", "b:" .. args.id, name, board.revision)
+            state.boards = readBoards()
+            if state.boardId == args.id then state.boardName = name end
+        else
+            state.message = "A board keeps its name until a new one is typed."
+        end
     elseif event.id == "delete_board" then
         local board = find(state.boards, args.id)
         if board then
@@ -300,19 +366,25 @@ local function update(state, event)
         if object then
             object.text = clean(values.note or "")
             store(object)
+        else
+            state.message = "Select a note before writing on it."
         end
     elseif event.id == "erase_note" then
-        if state.selected ~= "" then removeNote(state, state.selected) end
+        if state.selected ~= "" then
+            removeNote(state, state.selected)
+        else
+            state.message = "Select a note before erasing it."
+        end
     end
     return state
 end
 
+-- A button is padded by the host and a page is never told how wide it is, so
+-- five tools across one row leave too little for the word inside them to stay on
+-- one line. They are dealt into two rows instead.
 local TOOLS = {
-    {id = "select", text = "SELECT"},
-    {id = "note", text = "NOTE"},
-    {id = "move", text = "MOVE"},
-    {id = "link", text = "LINK"},
-    {id = "erase", text = "ERASE"},
+    {{id = "select", text = "PICK"}, {id = "note", text = "NOTE"}, {id = "move", text = "MOVE"}},
+    {{id = "link", text = "LINK"}, {id = "erase", text = "WIPE"}},
 }
 
 local HINTS = {
@@ -327,10 +399,11 @@ local function boardsView(state)
     local rows = {}
     for _, board in ipairs(state.boards) do
         table.insert(rows, ui.Box {key = "b_" .. board.id, padding = 12, children = {
-            label("n_" .. board.id, board.name, "accent", 14),
+            ui.Input {key = "bn_" .. board.id, label = "Name", value = board.name},
             ui.Spacer {key = "s_" .. board.id, height = 8},
             ui.Row {key = "a_" .. board.id, gap = 8, children = {
                 button("o_" .. board.id, "OPEN", "open_board", {id = board.id}, true),
+                button("r_" .. board.id, "RENAME", "rename_board", {id = board.id}),
                 button("d_" .. board.id, "DELETE", "delete_board", {id = board.id}),
             }},
         }})
@@ -345,33 +418,41 @@ local function boardsView(state)
     }
 end
 
-local function boardView(state)
+local function toolRow(state, index)
     local tools = {}
-    for _, tool in ipairs(TOOLS) do
+    for _, tool in ipairs(TOOLS[index]) do
         table.insert(tools, ui.Button {key = "t_" .. tool.id, text = tool.text, onPress = "tool",
-            args = {tool = tool.id},
+            args = {tool = tool.id}, flex = 1,
             color = state.tool == tool.id and "background" or "muted",
             background = state.tool == tool.id and "accent" or nil})
     end
-    local children = {
-        ui.Row {key = "tools", gap = 6, children = tools},
+    return ui.Row {key = "tools" .. tostring(index), gap = 6, children = tools}
+end
+
+local function boardView(state)
+    local selected = find(state.objects, state.selected)
+    local height = surfaceHeight(state.objects)
+    -- The editor keeps its place whether or not a note is selected, so selecting
+    -- one never moves the board out from under the finger that is arranging it.
+    return {
+        toolRow(state, 1),
+        ui.Spacer {key = "tools_gap", height = 6},
+        toolRow(state, 2),
         ui.Spacer {key = "tools_space", height = 8},
         label("hint", HINTS[state.tool] or "", "muted", 11),
+        ui.Input {key = "note", lines = 2,
+            label = selected and "Note" or "Note · select one on the board",
+            value = selected and selected.text or ""},
+        ui.Row {key = "note_actions", gap = 8, children = {
+            button("save_note", "SAVE", "save_note", nil, selected ~= nil),
+            button("erase_note", "ERASE", "erase_note"),
+        }},
+        ui.Spacer {key = "surface_space", height = 10},
+        ui.List {key = "surface", flex = 1, children = {
+            ui.Canvas {key = "board", width = BOARD_WIDTH, height = height,
+                onPress = "tap", commands = drawing(state, height)},
+        }},
     }
-    local selected = find(state.objects, state.selected)
-    if selected then
-        table.insert(children, ui.Input {key = "note", label = "Note", value = selected.text, lines = 2})
-        table.insert(children, ui.Row {key = "note_actions", gap = 8, children = {
-            button("save_note", "SAVE NOTE", "save_note", nil, true),
-            button("erase_note", "ERASE NOTE", "erase_note"),
-        }})
-    end
-    table.insert(children, ui.Spacer {key = "surface_space", height = 10})
-    table.insert(children, ui.List {key = "surface", flex = 1, children = {
-        ui.Canvas {key = "board", height = surfaceHeight(state.objects),
-            onPress = "tap", commands = drawing(state)},
-    }})
-    return children
 end
 
 local function view(state)
@@ -381,7 +462,7 @@ local function view(state)
             state.mode == "board" and button("back_boards", "BOARDS", "boards") or ui.Spacer {key = "no_back", width = 1},
         }},
         label("subtitle", state.mode == "board"
-            and tostring(count(state.objects, "note")) .. " NOTES / " .. tostring(count(state.objects, "edge")) .. " LINKS"
+            and state.boardName .. " / " .. tostring(count(state.objects, "note")) .. " NOTES / " .. tostring(count(state.objects, "edge")) .. " LINKS"
             or "NOTES AND LINKS / TAP TO ARRANGE"),
         ui.Spacer {key = "head_space", height = 14},
     }
@@ -395,7 +476,7 @@ end
 
 return ui.app {
     init = function()
-        return {mode = "boards", boards = {}, boardId = "", objects = {},
+        return {mode = "boards", boards = {}, boardId = "", boardName = "", objects = {},
             selected = "", linkFrom = "", tool = "select", message = ""}
     end,
     update = update,
