@@ -1636,6 +1636,18 @@ The plugin manages one-shot and daily runs with an explicit timezone, repository
 
 Disabling the plugin preserves preferences, schedules and history. Host-owned future runs are paused through the host API. An unreachable host leaves a visible pending pause until the host acknowledges it; the app never claims offline cancellation has completed. Already-running agents are not silently killed.
 
+### A board of notes is a Luau plugin on the canvas every plugin already has
+
+Board is a standalone Luau package shipped with the app, bundled and disabled until the user enables it. It owns one dataset holding its boards, the notes on them and the links between them. It declares no dependency, binds to no other plugin's dataset and asks for no host service: a board opens with every other plugin disabled, and disabling Board leaves its boards intact.
+
+A board is a tall drawing surface the user taps. The toolbar holds one tool at a time and the tap means what that tool says: place a note, select one, move the selected note to the tap, link two notes, or erase a note and the links that touched it. The selected note's text is edited in a field beneath the surface and written back on save. A link is drawn between the two notes it joins and follows them when either moves.
+
+The surface scrolls under the finger natively and no script runs while it does. A tap is delivered in the surface's own coordinates rather than the viewport's, so what the user touched is where the note lands no matter how far the board has been scrolled.
+
+Board is written against the drawing surface, the tap and the dataset API a repository plugin already has, and it adds no host surface of its own. Nothing it does is reserved to it. An author outside this repository can build a different surface — a map, a graph, a game — from the same primitive, and the app ships no board-shaped node that would decide on that author's behalf what a canvas is for.
+
+A board holds as many notes and links as one drawing pass and one invocation's dataset transfer allow. Reaching that ceiling refuses the new note and says so on the board, rather than dropping notes from the drawing or accepting one it cannot store.
+
 Repository plugins are an Android feature in this target; a future public iOS distribution needs its own distribution decision. WebAssembly and arbitrary background Lua execution on the phone remain deferred.
 
 ## Routines

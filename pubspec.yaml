@@ -103,6 +103,8 @@ flutter:
     - lib/plugins/projects/main.dart
     - plugins/agent-schedules/dazzle.plugin.toml
     - plugins/agent-schedules/main.luau
+    - plugins/board/dazzle.plugin.toml
+    - plugins/board/main.luau
     - assets/host/scheduler.py
     - assets/icons/
     - assets/icons/signal/
