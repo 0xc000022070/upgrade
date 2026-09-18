@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/clips.dart';
 import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
+import '../../design/components/dot_spinner.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/icons/dazzle_icon.dart';
@@ -177,10 +178,20 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
               ),
             if (_status != null) ...[
               const SheetRule(),
-              Text(
-                _status!,
-                key: const ValueKey('attach-status'),
-                style: context.tokens.label,
+              Row(
+                children: [
+                  if (_busy) ...[
+                    const DotSpinner(),
+                    const SizedBox(width: Spacing.md),
+                  ],
+                  Expanded(
+                    child: Text(
+                      _status!,
+                      key: const ValueKey('attach-status'),
+                      style: context.tokens.label,
+                    ),
+                  ),
+                ],
               ),
             ],
           ],

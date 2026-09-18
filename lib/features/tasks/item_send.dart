@@ -279,7 +279,10 @@ class _SendFlowState extends ConsumerState<SendFlow> {
             },
           )
         else if (pathState.isLoading || hostState.isLoading)
-          const ListRow(title: 'LOADING DESTINATIONS')
+          const ListRow(
+            title: 'LOADING DESTINATIONS',
+            trailing: SizedBox(width: 12, child: DelayedSpinner()),
+          )
         else if (targets.isEmpty)
           ListRow(
             title: availableHosts.isEmpty
@@ -410,19 +413,29 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           child: Text(target.title, style: context.tokens.value),
         ),
         const SizedBox(height: Spacing.lg),
-        Text(
-          switch (state) {
-            SendSending() => 'SENDING',
-            SendSent(:final paneId) => 'SENT · $paneId',
-            SendFailed(:final reason) => reason,
-          },
-          style: context.tokens.rowTitle.copyWith(
-            color: switch (state) {
-              SendSending() => context.tokens.textMuted,
-              SendSent() => context.tokens.accent,
-              SendFailed() => context.tokens.warning,
-            },
-          ),
+        Row(
+          children: [
+            if (state is SendSending) ...[
+              const DotSpinner(),
+              const SizedBox(width: Spacing.md),
+            ],
+            Expanded(
+              child: Text(
+                switch (state) {
+                  SendSending() => 'SENDING',
+                  SendSent(:final paneId) => 'SENT · $paneId',
+                  SendFailed(:final reason) => reason,
+                },
+                style: context.tokens.rowTitle.copyWith(
+                  color: switch (state) {
+                    SendSending() => context.tokens.textMuted,
+                    SendSent() => context.tokens.accent,
+                    SendFailed() => context.tokens.warning,
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
         if (state is! SendSending) ...[
           const SizedBox(height: Spacing.lg),
