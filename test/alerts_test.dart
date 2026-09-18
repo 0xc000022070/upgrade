@@ -9,8 +9,11 @@ import 'package:dazzle/application/alerts.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/platform/agent_watcher.dart';
 import 'package:dazzle/platform/herdr_client.dart';
+import 'package:dazzle/platform/herdr_socket.dart';
 import 'package:dazzle/platform/host_keys.dart';
 import 'package:dazzle/platform/keys.dart';
+
+import 'support/herdr_link.dart';
 
 /// The alerts regression list.
 
@@ -390,77 +393,83 @@ void main() {
     });
   });
 
-  group('the remote commands', () {
-    test('list and watch sweep every running session, naming none', () {
-      expect(HerdrCommands.list(), contains('herdr session list --json'));
-      expect(HerdrCommands.list(), contains('herdr agent list'));
-      expect(HerdrCommands.list(), isNot(contains('hub')));
-      expect(HerdrCommands.list(), isNot(contains("HERDR_SESSION='")));
-      expect(HerdrCommands.watch(), contains('sleep 2'));
-      expect(HerdrCommands.watch(), isNot(contains("HERDR_SESSION='")));
-    });
+  group('the remote surface', () {
+    const pane = (session: 'lab', pane: 'wQ:p1');
 
-    test('read and keys carry the session the pane was listed in', () {
-      const pane = (session: 'lab', pane: 'wQ:p1');
-      expect(HerdrCommands.read(pane), contains('agent read'));
-      expect(HerdrCommands.read(pane), matches(r"HERDR_SESSION=('|'\\'')lab"));
+    test('a pane is watched for its own status changes', () {
+      expect(HerdrRequests.paneStatus(pane), [
+        {'type': 'pane.agent_status_changed', 'pane_id': 'wQ:p1'},
+      ]);
+      // The session-wide set carries panes coming and going but never a status
+      // change, so a blocked agent would go unalerted on that subscription
+      // alone.
       expect(
-        HerdrCommands.keys(pane, const ['enter']),
-        contains('agent send-keys'),
+        HerdrRequests.paneSet.map((subscription) => subscription['type']),
+        isNot(contains('pane.agent_status_changed')),
       );
       expect(
-        HerdrCommands.keys(pane, const ['enter']),
-        matches(r"HERDR_SESSION=('|'\\'')lab"),
-      );
-      expect(
-        () => HerdrCommands.read((session: 'lab; reboot', pane: 'wQ:p1')),
+        () => HerdrRequests.paneStatus((session: 'lab', pane: 'wQ:p1; reboot')),
         throwsA(isA<HerdrProtocolMismatch>()),
       );
     });
+
+    test('a read and a send name the pane and nothing else', () {
+      // Which session a pane lives in is which socket the request is dialled
+      // on, so it never travels inside the request.
+      expect(HerdrRequests.read(pane).params, {
+        'target': 'wQ:p1',
+        'source': 'visible',
+        'lines': 8,
+        'format': 'text',
+      });
+      expect(HerdrRequests.sendKeys(pane, const ['enter']).params, {
+        'target': 'wQ:p1',
+        'keys': ['enter'],
+      });
+    });
   });
 
-  test('a watch stream of one sweep per frame parses', () async {
-    String line(String status, int seq) => jsonEncode({
-      'id': 'cli:agent:list',
-      'result': {
-        'type': 'agent_list',
-        'agents': [
-          {
-            'agent': 'claude',
-            'agent_status': status,
-            'cwd': '/home/luisnquin/src',
-            'pane_id': 'wQ:p1',
-            'state_change_seq': seq,
-            'terminal_title_stripped': 'dazzle',
-            'workspace_id': 'wQ',
-          },
-        ],
-      },
+  test('a status event wakes a list that reads the pane as blocked', () async {
+    final watching = FakeHerdrLink();
+    final listing = FakeHerdrLink();
+    addTearDown(watching.dispose);
+    addTearDown(listing.dispose);
+
+    final events = HerdrApi(() async => watching.link).subscribe(
+      HerdrRequests.paneStatus((session: 'default', pane: 'wQ:p1')),
+    );
+    final woken = events.first;
+    watching.say(const {
+      'id': 'dazzle:0',
+      'result': {'type': 'subscription_started'},
+    });
+    watching.say(const {
+      'event': 'pane.agent_status_changed',
+      'data': {'pane_id': 'wQ:p1'},
     });
 
-    final roster = jsonEncode({
-      'sessions': [
-        {'default': true, 'name': 'default', 'running': true},
+    // herdr names this event with dots and the session-wide ones with
+    // underscores; the watch reads one vocabulary.
+    expect((await woken).kind, 'pane_agent_status_changed');
+
+    final reply = HerdrApi(() async => listing.link).call('agent.list');
+    listing.say(
+      herdrResult(agentListResult('wQ:p1', status: 'blocked', seq: 2)),
+    );
+    final agents = HerdrClient.parseSessionAgents(
+      await reply,
+      session: 'default',
+    );
+
+    expect(agents.single.state.word, 'blocked');
+    expect(agents.single.blocked, isTrue);
+    expect(agents.single.session, 'default');
+    expect(listing.sent.single['method'], 'agent.list');
+    expect(watching.sent.single['params'], {
+      'subscriptions': [
+        {'type': 'pane.agent_status_changed', 'pane_id': 'wQ:p1'},
       ],
     });
-    final working = 'default\t${line('working', 1)}\n$roster';
-    final blocked = 'default\t${line('blocked', 2)}\n$roster';
-    final stream = '$working\n$blocked\n';
-    // The remote loop writes whole lines, but tcp may cut them anywhere, so the
-    // split has to be the line terminator's job and not the packet's.
-    final cut = working.length + 12;
-    final bytes = Stream<List<int>>.fromIterable([
-      utf8.encode(stream.substring(0, cut)),
-      utf8.encode(stream.substring(cut)),
-    ]);
-    final frames = await HerdrClient.parseWatchStream(bytes).toList();
-
-    expect(frames, hasLength(2));
-    expect(frames.first.single.state.word, 'working');
-    expect(frames.first.single.blocked, isFalse);
-    expect(frames.last.single.state.word, 'blocked');
-    expect(frames.last.single.blocked, isTrue);
-    expect(frames.last.single.session, 'default');
   });
 
   group('the notification body', () {

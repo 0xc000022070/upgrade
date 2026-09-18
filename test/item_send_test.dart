@@ -76,16 +76,21 @@ Future<void> _drain(WidgetTester tester) async {
 }
 
 void main() {
-  test('workspace creation expands home on the host and quotes the path', () {
-    final command = HerdrCommands.workspaceCreate(
-      "~/src/dazzle with 'quote'",
-      label: 'dazzle',
-      session: 'default',
+  test('workspace creation carries the path home was expanded in', () {
+    // The `~` is expanded on the host first, by the one command that also
+    // proves the directory is there; `workspace.create` then takes the answer
+    // as data, where no quote of the user's can mean anything.
+    expect(
+      HerdrCommands.resolveDirectory("~/src/dazzle with 'quote'"),
+      contains(r'$HOME'),
     );
-    expect(command, contains('dazzle with'));
-    expect(command, contains('quote'));
-    expect(command, contains('workspace create'));
-    expect(command, contains('HERDR_SESSION='));
+    expect(
+      HerdrRequests.workspaceCreate(
+        cwd: "/home/dev/src/dazzle with 'quote'",
+        label: 'dazzle',
+      ).params,
+      containsPair('cwd', "/home/dev/src/dazzle with 'quote'"),
+    );
   });
 
   test('the prompt is the title, a blank line, then one link per line', () {
