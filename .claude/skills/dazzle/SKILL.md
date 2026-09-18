@@ -11,7 +11,7 @@ You build and you review what you built. A ruling lands in the spec, the code fo
 
 - A feature enters the spec only after the user asks for it in their own words. Silence on your suggestion is not consent. No features the spec does not name; the AGENTS panel never assumes a host.
 - Build the whole ruling, then gate it once. No checkpoints, no interim reports.
-- Section numbers and the section sign stay in the spec: never in comments, test names, strings or commit messages.
+- The spec has no section numbers and no section sign. A section is named by its title, and the title stays in the spec: never in comments, test names, strings or commit messages.
 - Emulator only. Faraday is the user's phone, a review surface: install a release build on it, never drive it.
 - Never edit `authorized_keys` on any host.
 - `just analyze` and `just test` at the end, in the background, one at a time. A second run beside the first stalls both.
