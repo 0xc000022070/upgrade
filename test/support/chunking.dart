@@ -18,10 +18,13 @@ class Split {
 
   final List<Uint8List> chunks;
 
-  /// The chunks as a stream, typed the way a parser takes them: `utf8.decoder`
-  /// and every other byte transformer are written against `List<int>`, and a
-  /// `Stream<Uint8List>` is rejected at the transform rather than at the call.
-  Stream<List<int>> get stream => Stream<List<int>>.fromIterable(chunks);
+  /// The chunks as a stream, typed the way ssh hands them over. `utf8.decoder`
+  /// and every other byte transformer are written against `List<int>`, so a
+  /// `Stream<Uint8List>` is rejected at the transform rather than at the call —
+  /// which is the point. Widening this to `Stream<List<int>>` would hide from
+  /// every test the one shape the device actually reads from; the parsers cast
+  /// instead.
+  Stream<Uint8List> get stream => Stream<Uint8List>.fromIterable(chunks);
 
   /// What to hand `expect`'s `reason`, so a failure says which cut broke it
   /// rather than leaving the reader to guess which of the runs it was.

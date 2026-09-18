@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dazzle/platform/herdr_socket.dart';
 
@@ -9,14 +10,16 @@ import 'package:dazzle/platform/herdr_socket.dart';
 /// The client under test is the real one — only the ssh channel is scripted,
 /// which is the boundary the app cannot cross without a host.
 class FakeHerdrLink {
-  FakeHerdrLink({Stream<List<int>>? scripted}) {
+  FakeHerdrLink({Stream<Uint8List>? scripted}) {
     _outgoing.stream.listen((bytes) => _written.write(utf8.decode(bytes)));
     if (scripted != null) {
       unawaited(_incoming.addStream(scripted).then((_) => endStream()));
     }
   }
 
-  final StreamController<List<int>> _incoming = StreamController<List<int>>();
+  /// Typed as ssh delivers it. A `StreamController<List<int>>` here would widen
+  /// the runtime type argument back and hide a missing cast in the client.
+  final StreamController<Uint8List> _incoming = StreamController<Uint8List>();
   final StreamController<List<int>> _outgoing = StreamController<List<int>>();
   final _written = StringBuffer();
 
