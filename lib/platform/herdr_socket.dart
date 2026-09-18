@@ -127,7 +127,8 @@ class HerdrApi {
               }
               started = true;
               final reply = _reply(line);
-              if (reply is! HerdrResult || reply.type != 'subscription_started') {
+              if (reply is! HerdrResult ||
+                  reply.type != 'subscription_started') {
                 throw HerdrMalformed(line);
               }
             } catch (error, stack) {
@@ -163,8 +164,14 @@ class HerdrApi {
     '${jsonEncode({'id': id, 'method': method, 'params': params})}\n',
   );
 
-  static Stream<String> _lines(Stream<List<int>> bytes) =>
-      bytes.transform(utf8.decoder).transform(const LineSplitter());
+  /// The cast is what makes this run: ssh hands over a `Stream<Uint8List>`,
+  /// whose `transform` asks for a `StreamTransformer<Uint8List, String>` off
+  /// the runtime type argument, and `utf8.decoder` is one over `List<int>`.
+  /// Without it the decode throws where only the device can see it.
+  static Stream<String> _lines(Stream<List<int>> bytes) => bytes
+      .cast<List<int>>()
+      .transform(utf8.decoder)
+      .transform(const LineSplitter());
 
   /// A response line: the result and its type, or herdr's refusal.
   static HerdrReply _reply(String line) {
