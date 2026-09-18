@@ -1640,7 +1640,11 @@ Disabling the plugin preserves preferences, schedules and history. Host-owned fu
 
 Board is a standalone Luau package shipped with the app, bundled and disabled until the user enables it. It owns one dataset holding its boards, the notes on them and the links between them. It declares no dependency, binds to no other plugin's dataset and asks for no host service: a board opens with every other plugin disabled, and disabling Board leaves its boards intact.
 
-A board is a tall drawing surface the user taps. The toolbar holds one tool at a time and the tap means what that tool says: place a note, select one, move the selected note to the tap, link two notes, or erase a note and the links that touched it. The selected note's text is edited in a field beneath the surface and written back on save. A link is drawn between the two notes it joins and follows them when either moves.
+A board is a tall drawing surface the user taps. The toolbar holds one tool at a time and the tap means what that tool says: place a note, select one, move the selected note to the tap, link two notes, or erase a note and the links that touched it. The selected note's text is edited in a field beneath the surface and written back on save. That field is on the page whether or not a note is selected, so choosing one never moves the surface out from under the finger that is arranging it. A link is drawn between the two notes it joins and follows them when either moves.
+
+The board is drawn before anything on it: a ground the width of the narrowest phone this app is built for, ruled across at a fixed interval, so an empty board is a surface with edges rather than the page's own background. A note breaks its text on the spaces between words and says with an ellipsis when there is more of it than the note shows.
+
+A board is named when it is made and renamed from the list it is named in. The name it carries is the name the board says it has when it is open.
 
 The surface scrolls under the finger natively and no script runs while it does. A tap is delivered in the surface's own coordinates rather than the viewport's, so what the user touched is where the note lands no matter how far the board has been scrolled.
 
