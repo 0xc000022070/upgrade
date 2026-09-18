@@ -15,6 +15,7 @@ import 'package:dazzle/data/repositories/project_repository.dart';
 import 'package:dazzle/data/repositories/task_repository.dart';
 import 'package:dazzle/features/home/capture_bar.dart';
 import 'package:dazzle/design/components/action_block.dart';
+import 'package:dazzle/design/components/dot_spinner.dart';
 import 'package:dazzle/design/components/list_row.dart';
 import 'package:dazzle/features/tasks/item_sheet.dart';
 import 'package:dazzle/features/plugins/plugin_page.dart';
@@ -141,12 +142,12 @@ void main() {
       expect(find.text('NO HOSTS REGISTERED'), findsOneWidget);
       for (
         var i = 0;
-        i < 20 && find.byType(LinearProgressIndicator).evaluate().isNotEmpty;
+        i < 20 && find.byType(DelayedSpinner).evaluate().isNotEmpty;
         i++
       ) {
         await drain(tester);
       }
-      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(find.byType(DelayedSpinner), findsNothing);
       var disabled = false;
       Object? failure;
       await tester.runAsync(() async {

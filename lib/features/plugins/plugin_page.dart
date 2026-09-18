@@ -7,9 +7,11 @@ import '../../application/plugin_hosts.dart';
 import '../../application/plugins.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/tokens.dart';
+import '../../design/components/dot_spinner.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/panel_text_action.dart';
+import '../../design/spacing.dart';
 import '../../platform/plugins/manifest.dart';
 import '../../platform/plugins/contributions.dart';
 import '../../platform/plugins/store.dart';
@@ -246,12 +248,13 @@ class _PluginPageState extends ConsumerState<PluginPage> {
             widget.plugin.manifest.name.toUpperCase(),
             style: context.tokens.breadcrumb,
           ),
-          bottom: _busy
-              ? const PreferredSize(
-                  preferredSize: Size.fromHeight(2),
-                  child: LinearProgressIndicator(minHeight: 2),
-                )
-              : null,
+          actions: [
+            if (_busy)
+              const Padding(
+                padding: EdgeInsets.only(right: Spacing.screenEdge),
+                child: SizedBox(width: 12, child: DelayedSpinner()),
+              ),
+          ],
         ),
         body: Column(
           children: [
