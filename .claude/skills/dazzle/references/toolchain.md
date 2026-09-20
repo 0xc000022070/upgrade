@@ -9,7 +9,8 @@ Everything runs through the flake: `nix develop -c <cmd>` or `just`.
 | faraday | 100.127.25.101, adb `faraday:5555` | the user's phone; review only |
 
 - `just gen` codegen, `just analyze`, `just fmt`, `just test`.
-- `just apk` debug arm64. `just apk-release <version> <code>` release arm64; pass the build number from `pubspec.yaml`, a bare release build reports versionCode 1. Release arm64 builds take about half a minute; gradle speed comes from `~/.gradle/gradle.properties` (daemon on, 14g heap, 1g metaspace).
+- `just apk` debug arm64. `just apk-release` release arm64. Both stamp the commit count at HEAD as the build number; a bare release build reports versionCode 1, so the recipe always passes it. Release arm64 builds take about half a minute; gradle speed comes from `~/.gradle/gradle.properties` (daemon on, 14g heap, 1g metaspace).
+- `just deploy [handset...]` installs a release build of HEAD on the handsets; `just watch` does it again at every commit, asking in the pane with a thirty-second default of yes. See `faraday.md`.
 - `just run` hot reload against the emulator on rose, forwarding rose's adb server to `127.0.0.1:5038` over ssh. `kill -USR1 $(cat build/run.pid)` reloads, `-USR2` restarts. This is the inner loop; apks are for shipping.
 - `phone` CLI for screenshots, taps, waits and recordings on the emulator. `phone shot --settle` after an action, never a sleep. `phone --help` and `phone help <verb>` carry the rest.
 - Fold is simulated with `adb shell wm size 2232x2310`, reset with `wm size reset` when done.
