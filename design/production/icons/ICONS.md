@@ -1,48 +1,79 @@
 # Dazzle production icon reference
 
-This directory contains 43 Dazzle-owned SVG icons. All files use a 24×24 viewBox, a 1.75 px stroke, butt caps, miter joins, and `currentColor`. Routes stay unfilled. Nodes carry the fill.
+This directory contains 62 Dazzle-owned SVG icons. All files use a 24×24 viewBox, a 1.75 px stroke, butt caps, miter joins, and `currentColor`. Routes stay unfilled. Nodes carry the fill.
 
-"Diamond" means endpoint, entity, or target. "Square" means system, container, device, or junction. A mixed icon uses each node for its assigned role. Circles are forbidden. Search alone owns the opposing-corner modifier. Add alone owns the bare `+`.
+"Diamond" means endpoint, entity, or target. "Square" means system, container, device, or junction. A mixed icon uses each node for its assigned role. Circles are forbidden. Search alone owns the opposing-corner modifier. Add alone owns the bare `+`. Close alone owns the bare `×`.
 
-`hl-home.svg` uses the approved drop plus baseline construction. The vertical route terminates at a diamond local endpoint above a short baseline.
+A closed outline is drawn only where the container is the meaning: a machine, a bay, a keycap, a control frame. Nothing here is a document, a gear, a magnifier, or a cog.
 
 ## Signal variants
 
-`signal/` contains one `hl-<name>-signal.svg` for every production icon. A signal variant keeps only the icon's filled diamond and square nodes. It hides every route, frame, seal, check, triangle, and bracket. Icons without a filled node use one standard centered diamond.
+`signal/` contains one `hl-<name>-signal.svg` for the forty-three icons of the first family pass. A signal variant keeps only the icon's filled diamond and square nodes. It hides every route, frame, seal, check, triangle, and bracket. Icons without a filled node use one standard centered diamond.
 
-The variant appears for one frame of the section 16b icon-glitch event. It is not a static icon state and must not replace the normal asset outside that event.
+The variant is drawn only inside the icon-glitch event. It is not a static icon state and must not replace the normal asset outside that event. No surface asks for one today.
+
+## Navigation
 
 | Name | Meaning | Node class | Modifier | Min size |
 |---|---|---|---|---:|
-| home | Local endpoint on a baseline | Diamond target | None | 16 px |
+| home | Roof over a baseline with the local endpoint under it | Diamond target | None | 16 px |
 | projects | Project hierarchy entry point; intentionally identical to project | Square system nodes | None | 16 px |
+| hosts | Two stacked rack units, one machine each | Square system nodes | Container is the meaning | 16 px |
+| shell | Prompt caret on a baseline with the cursor block after it | Square cursor block | None | 16 px |
+| tools | A bay of docked slots holding unlike modules | Square and diamond module nodes | Container is the meaning | 16 px |
 | inbox | Capture entering its container | Square container node | None | 16 px |
 | activity | Change trace | Diamond endpoint | None | 16 px |
 | search | Targeted scan endpoint | Diamond target | Opposing corners, targeted scan | 16 px |
+
+## Entities
+
+| Name | Meaning | Node class | Modifier | Min size |
+|---|---|---|---|---:|
 | project | One project hierarchy; intentionally identical to projects | Square system nodes | None | 16 px |
 | goal | Routes converging on an outcome | Diamond target | None | 20 px |
 | task | Action moving toward execution | Diamond entity endpoint | None | 16 px |
 | note | Recorded information line | Diamond entity node | None | 16 px |
 | event | One event branching into context | Diamond entity node | None | 16 px |
 | attachment | Linked entity endpoints | Diamond endpoints | None | 20 px |
+| agent | A pet: angular ears, two diamond eyes, an open jaw | Diamond eye nodes | None | 20 px |
+| agent-blink | The same pet with the viewer's left eye closed to a bar | Diamond eye node | Blink frame only | 20 px |
+| branch | One line of work leaving another | Diamond endpoints | None | 16 px |
+| diff | What was added over what was removed | None | None | 16 px |
+
+## States
+
+| Name | Meaning | Node class | Modifier | Min size |
+|---|---|---|---|---:|
 | done | Route completed at its endpoint | Diamond endpoint | None | 16 px |
 | pending | Queued directional route | None | None | 16 px |
 | active | Live target emitting on two sides | Diamond target | None | 16 px |
 | blocked | Route stopped by a barrier | Diamond endpoints | None | 16 px |
 | warning | Universal warning sign | Square system dot | None | 16 px |
 | failed | Route terminated by failure | Diamond endpoint | None | 16 px |
-| message | Packet entering a routed path | Square packet node | None | 16 px |
-| channel | Two routed system lanes | Square system nodes | None | 20 px |
 | priority | Route raised toward a target | Diamond target | None | 16 px |
 | critical | Double-bang warning state | Square system dots | None | 16 px |
 | acknowledged | Route received and confirmed | Diamond target | None | 16 px |
-| encrypted | Sealed entity | Diamond entity node | None | 16 px |
 | verified | Check proven inside a seal; the closed evidence boundary separates it from done | None | None | 16 px |
+| progress-marker | Current goal progress head | Diamond target | None | 16 px |
+
+## Transport
+
+| Name | Meaning | Node class | Modifier | Min size |
+|---|---|---|---|---:|
+| message | Packet entering a routed path | Square packet node | None | 16 px |
+| channel | Two routed system lanes | Square system nodes | None | 20 px |
 | device | Solid device block with two routes per side | Square device node | None | 16 px |
 | sync | Two-way exchange between endpoints | Diamond endpoints | None | 20 px |
 | relay | Junction routing to two endpoints | Square junction and diamond endpoints | None | 20 px |
-| vault | Protected system convergence | Square system node | None | 16 px |
 | connection | Coupled entity endpoints | Diamond endpoints | None | 16 px |
+| vault | Protected system convergence | Square system node | None | 16 px |
+| encrypted | Sealed entity | Diamond entity node | None | 16 px |
+| ssh-key | A key: diamond bow, shaft, two teeth | None | None | 16 px |
+
+## Controls
+
+| Name | Meaning | Node class | Modifier | Min size |
+|---|---|---|---|---:|
 | add | Add a new item | None | Bare `+`, reserved | 16 px |
 | close | Close or dismiss | None | Bare `×`, reserved | 16 px |
 | back | Move to the previous view | None | None | 16 px |
@@ -56,4 +87,19 @@ The variant appears for one frame of the section 16b icon-glitch event. It is no
 | collapse | Collapse content | None | None | 16 px |
 | checkbox-empty | Unchecked task control | None | Square control frame | 16 px |
 | checkbox-checked | Checked task control | None | Square control frame | 16 px |
-| progress-marker | Current goal progress head | Diamond target | None | 16 px |
+| arrow-up | Direction, up | None | None | 16 px |
+| arrow-down | Direction, down | None | None | 16 px |
+| arrow-left | Direction, left | None | None | 16 px |
+| arrow-right | Direction, right | None | None | 16 px |
+| settings | Two faders set to different values | Square handle nodes | None | 16 px |
+| plugins | Two keyed parts routed into each other | Square system nodes | None | 16 px |
+
+## The screen surface
+
+| Name | Meaning | Node class | Modifier | Min size |
+|---|---|---|---|---:|
+| keyboard | The soft keyboard: a panel of key rules over a spacebar | None | Container is the meaning | 16 px |
+| keys | The modifier strip: one keycap carrying a caret | None | Container is the meaning | 20 px |
+| super | The super key: a centre cap with four corner tabs | None | None | 16 px |
+| crop | Two overlapping corner rules marking a region | None | None | 16 px |
+| pip | A small window docked inside a larger one | Square window node | None | 20 px |

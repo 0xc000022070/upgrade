@@ -18,8 +18,8 @@ const navDestinations = [
   NavDestination('HOME', DazzleIcons.home),
   NavDestination('PROJECTS', DazzleIcons.projects),
   NavDestination('HOSTS', DazzleIcons.hosts),
-  NavDestination('SSH', DazzleIcons.connection),
-  NavDestination('TOOLS', DazzleIcons.more),
+  NavDestination('SSH', DazzleIcons.shell),
+  NavDestination('TOOLS', DazzleIcons.tools),
 ];
 
 /// Built from tokens rather than BottomNavigationBar, whose ripple, elevation and 56px
