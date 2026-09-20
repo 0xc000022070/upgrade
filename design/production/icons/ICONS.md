@@ -16,10 +16,10 @@ The variant is drawn only inside the icon-glitch event. It is not a static icon 
 
 | Name | Meaning | Node class | Modifier | Min size |
 |---|---|---|---|---:|
-| home | Roof over a baseline with the local endpoint under it | Diamond target | None | 16 px |
+| home | House outline, open on the right, with the local endpoint inside it | Diamond target | None | 16 px |
 | projects | Project hierarchy entry point; intentionally identical to project | Square system nodes | None | 16 px |
 | hosts | Two stacked rack units, one machine each | Square system nodes | Container is the meaning | 16 px |
-| shell | Prompt caret on a baseline with the cursor block after it | Square cursor block | None | 16 px |
+| shell | Prompt caret with the cursor block inline after it | Square cursor block | None | 16 px |
 | tools | A bay of docked slots holding unlike modules | Square and diamond module nodes | Container is the meaning | 16 px |
 | inbox | Capture entering its container | Square container node | None | 16 px |
 | activity | Change trace | Diamond endpoint | None | 16 px |
@@ -92,7 +92,7 @@ The variant is drawn only inside the icon-glitch event. It is not a static icon 
 | arrow-left | Direction, left | None | None | 16 px |
 | arrow-right | Direction, right | None | None | 16 px |
 | settings | Two faders set to different values | Square handle nodes | None | 16 px |
-| plugins | Two keyed parts routed into each other | Square system nodes | None | 16 px |
+| plugins | A part with a keyed tab on its edge, waiting for the socket it fits | None | None | 16 px |
 
 ## The screen surface
 

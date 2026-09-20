@@ -89,8 +89,9 @@ B, Signal nodes, is the approved base grammar. These rules supersede the candida
 - Optical bounds: most routes stay inside x/y 3–21. Node tips may reach 2–22 when the node is an endpoint.
 - Minimum size: 16 px for compact icons and 20 px for multi-route icons, as recorded in `ICONS.md`.
 - Cross budget: a bare `+` belongs only to add. A bare `×` belongs only to close. Blocked and failed combine a diagonal cross with a route, so their state meaning survives without labels.
-- Home has no modifier. Its construction is a 45° roof over a short baseline with one diamond local endpoint under the apex.
-- A closed outline is allowed only where the container is the subject: a rack unit, a bay of slots, a keycap, a control frame. It is never a generic symbol traced as an outline — a document, a gear, a magnifier, a cog.
+- Home has no modifier. Its construction is a 45° roof carried down into walls, open on the right so the outline is a house rather than a traced box, with one diamond local endpoint inside it. A roof floating over a detached baseline was drawn first and reads as two objects.
+- A closed outline is allowed only where the container is the subject: a rack unit, a bay of slots, a keycap, a control frame, a house, a part that plugs into something. It is never a generic symbol traced as an outline — a document, a gear, a magnifier, a cog.
+- A part that plugs into something is drawn as its own body with a keyed tab squared off on one edge. The round knob a puzzle piece really has is a curve and is not available, and the tab alone carries the meaning: nothing else in the family has an edge that interrupts itself.
 - Critical uses a double-bang warning triangle. Warning keeps one bent bang. The pair remains distinct at 16 px.
 - Verified uses a check inside the encrypted seal silhouette. Done remains an open check route ending at a diamond node.
 - Projects and project intentionally share one glyph. Navigation context and labels carry plurality. A second symbol would imply a false semantic difference.
