@@ -648,6 +648,14 @@ Nothing is added to the host for this. The key the app installs is a plain `auth
 
 Struck: a runtime of the app's own, injected on the host and written in a native language, to make this faster and safer. The daemon it describes is herdr, which is already there and already speaks a protocol; the cost the phone was paying was a process per poll on the host and a wakeup per poll on the radio, and neither is a thing a second daemon removes. It would also be the app installing a binary on a machine whose owner installed a key for it, which is a larger permission than anything else in this document asks for, and every byte it parsed would be one more thing between the user's agents and the screen.
 
+### A started agent is handed its prompt once it is ready for it, not once it is launched
+
+Starting an agent and giving it the text are two requests, and the server answers the first as soon as the process is on the pane rather than when the agent is up. A pane with a process in it is not yet a named agent, and the prompt that follows a millisecond later is refused for exactly that — a send that had already made a workspace and started an agent, closing both and telling the user the spawn failed, every time, on a machine where nothing was wrong.
+
+So the send waits between them, and the wait is the server's own: after a start that was accepted it asks the server to hold until the pane comes to rest, and prompts when that answer lands. A wait that expires is an agent taking longer than the window rather than a verdict, and the prompt goes anyway.
+
+**A prompt refused because the agent is not ready is a moment, not an answer.** It is retried on the same terms as one the agent never read, inside the deadline the whole send is already under, and before each retry the pane is looked at: a trust dialog is answered the way the start's own refusal used to be answered, and anything else is waited out. What is never done is reporting the text as refused because the far side was still opening.
+
 ### The ongoing notification says what the agents are, not what the watcher is
 
 The watcher has always posted a notification of its own: silent, at the bottom of the shade, there for as long as `[ ALERTS ]` is on, because Android will not hold a service's connections open without one. It said `WATCHING 2 HOSTS`. That is a line about the app. The phone comes out of a pocket to answer a different question — whether anything is waiting on the user — and the one surface the app has on screen without being opened was the one surface that did not answer it.
