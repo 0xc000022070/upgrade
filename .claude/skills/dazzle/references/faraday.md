@@ -1,17 +1,11 @@
-# Faraday
+# Faraday and the other handsets
 
-Faraday is the user's Pixel 10 Pro Fold. It holds real data. Review surface only.
+Faraday is the user's Pixel 10 Pro Fold. It holds real data. Review surface only. Moriarty and watson are the other handsets `phone` knows, on the tailnet when they are on at all.
 
-- Push at every shipped feature automatically, without asking (user, 2026-09-03).
-- Build it yourself from the committed tree: `nix develop path:$PWD -c just apk-release <version> <code>` with the build number from `pubspec.yaml`; park a copy at `rose:/tmp/dazzle-v<N>.apk`.
-- If a builder already parked one, fetch it: `scp rose:/tmp/dazzle-v<N>.apk <scratch>/`.
-- Verify before install, both from the android-sdk-build-tools 37.0.0 store path
-  (`/nix/store/*-android-sdk-build-tools-37.0.0/libexec/android-sdk/build-tools/37.0.0/`):
-  - `aapt2 dump badging <apk>` shows the expected `versionCode`.
-  - `apksigner verify --print-certs <apk>` shows SHA-256
-    `d6b7cdfb8d0a5c0017e317b7db27f3fb3ce0b3f650f28ca6b989c4582f5d7e5e`.
-- Drive the device with the `phone` CLI, never raw adb. `phone device list` must show faraday `attached/tcp`; if it is `known` or `offline`, `phone device connect faraday`.
-- Install in place only: `phone app install -t faraday <apk>`. Never `phone up` against faraday: it launches the app, and the user opens it themselves.
-- Confirm (the one thing `phone` has no verb for): `adb -s <serial> shell dumpsys package dev.luisnquin.dazzle` (serial from `phone device list --json`; `faraday:5555` only when the transport is wireless) shows the new `versionCode`, `firstInstallTime=2026-09-12 20:41:45` unchanged, `signatures:[90230224]`.
-- Never tap, type, `uninstall`, `pm clear`, or install a differently signed apk on it.
+- Push at every shipped feature automatically, without asking (user, 2026-09-03). The build number is the commit count at HEAD, so the feature commit is the release: no `pubspec.yaml` bump.
+- `nix develop -c just deploy faraday`, from the committed tree. Never `nix develop path:$PWD`: that hashes `build/` and `.dart_tool/` into the store and does not come back. `just deploy` bare takes every handset attached; a named one is dialled first. `just watch` in a pane keeps doing it at every commit: each build rings and asks there, an `n` shelves it, thirty seconds of silence installs it.
+- `tool/deploy.sh` is the whole of it: it exports HEAD into `build/deploy/tree` (so another session's uncommitted work never ships), builds there, checks the apk's `versionCode` against the commit count and its signing cert against the debug keystore's SHA-256 `d6b7cdfb8d0a5c0017e317b7db27f3fb3ce0b3f650f28ca6b989c4582f5d7e5e`, reads each handset's installed `versionCode` and leaves alone any at or past HEAD, installs in place, and proves the install by `versionCode` and a moved `lastUpdateTime`. The verified apk stays at `build/deploy/dazzle-<name>-<code>-<sha>.apk`.
+- Drive the device with the `phone` CLI, never raw adb; `dumpsys package dev.luisnquin.dazzle` is the one exception, the confirmation `phone` has no verb for. `firstInstallTime=2026-09-12 20:41:45` must never move on faraday: a moved one means the package was replaced, not upgraded. `signatures:[90230224]`.
+- Never `phone up` against faraday: it launches the app, and the user opens it themselves. Never tap, type, `uninstall`, `pm clear`, or install a differently signed apk on it.
+- Transport: `phone device list` must show faraday `attached/tcp`. `online` with a null serial is tailscale reachability, not adb. `phone device connect faraday` first; when its sweep finds nothing, a plain `adb connect faraday:5555` has worked.
 - Record the push in memory with the lastUpdateTime.

@@ -85,18 +85,19 @@ host-vm-down:
     pkill -f 'qemu-system-.* -name dazzle-host' || true
     echo "host vm: down"
 
+build_name := `sed -n 's/^version:[[:space:]]*\([^+[:space:]]\{1,\}\).*$/\1/p' pubspec.yaml`
+build_code := `git rev-list --count HEAD 2>/dev/null || echo 1`
+stamp := "--build-name=" + build_name + " --build-number=" + build_code + " --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}"
+
 # Debug APK (arm64 only); the same artifact runs on the emulator and on faraday.
 apk: pub-build
-    flutter build apk --debug --target-platform android-arm64 --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}
+    flutter build apk --debug --target-platform android-arm64 {{stamp}}
 
 apk-fixtures: pub-build
-    flutter build apk --debug --target-platform android-arm64 --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev} --dart-define=DAZZLE_SEED_FIXTURES=true
-
-# The build number is passed explicitly because a bare release build has reported
-# versionCode 1 regardless of what pubspec declares.
+    flutter build apk --debug --target-platform android-arm64 {{stamp}} --dart-define=DAZZLE_SEED_FIXTURES=true
 
 # Release APK, the artifact faraday is upgraded with. arm64 only.
-apk-release version="1.0.0" code="1": pub-verify
+apk-release version=build_name code=build_code: pub-verify
     flutter build apk --release --target-platform android-arm64 --build-name={{version}} --build-number={{code}} --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}
 
 # Emulator on rose: the only device this repo drives interactively.
@@ -110,59 +111,18 @@ run: pub-build
     ssh -fN -o ExitOnForwardFailure=yes -L 5038:127.0.0.1:5037 rose || true
     ADB_SERVER_SOCKET=tcp:127.0.0.1:5038 flutter run -d emulator-5554 \
         --pid-file build/run.pid \
-        --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}
+        {{stamp}}
 
-# ~/.android/debug.keystore on this machine, which release signs with. An apk from
-# any other key can only land by uninstalling, and faraday holds real data.
-faraday_cert := "d6b7cdfb8d0a5c0017e317b7db27f3fb3ce0b3f650f28ca6b989c4582f5d7e5e"
+# The build number is the commit count at HEAD, so a handset already there is
+# left alone. `just watch` repeats this at every commit, asking in the pane first.
+# Upgrade the handsets to a release build of HEAD. Installs in place, never launches.
+deploy *devices:
+    tool/deploy.sh once {{devices}}
 
-# Upgrade faraday to a release build of this tree. Installs in place, never launches.
-faraday:
-    #!/usr/bin/env bash
-    set -euo pipefail
+watch *devices:
+    tool/deploy.sh watch {{devices}}
 
-    stamp=$(sed -n 's/^version:[[:space:]]*\([^+[:space:]]\{1,\}\)+\([0-9]\{1,\}\)[[:space:]]*$/\1 \2/p' pubspec.yaml)
-    [[ -n $stamp ]] || { echo "faraday: pubspec.yaml has no 'version: <name>+<code>' line" >&2; exit 1; }
-    read -r version code <<<"$stamp"
-
-    tools=${ANDROID_HOME:?run inside the nix dev shell}/build-tools/37.0.0
-
-    # Reachability first: a dead transport should not cost an AOT build.
-    attached() { phone device list | grep -qE '^android[[:space:]]+faraday[[:space:]].*(attached|online)'; }
-    attached || phone device connect faraday
-    attached || { echo "faraday: no transport after connect" >&2; exit 1; }
-    # The table's last column is the pinned endpoint, not the live transport: a USB
-    # session still reads faraday:5555. Only the JSON row carries the serial.
-    serial=$(phone device list --json | tr -d '\n' | grep -oE '"label": "faraday"[^}]*"serial": "[^"]+"' | sed 's/.*"serial": "//; s/"$//')
-    [[ -n $serial ]] || { echo "faraday: no serial in phone device list --json" >&2; exit 1; }
-
-    export DAZZLE_BUILD="${DAZZLE_BUILD:-$(git rev-parse --short HEAD)}"
-    git diff --quiet HEAD || echo "faraday: tree is dirty, the build line still stamps $DAZZLE_BUILD" >&2
-
-    # Removed first so a failed build cannot leave a previous apk to verify.
-    apk=build/app/outputs/flutter-apk/app-release.apk
-    rm -f "$apk"
-    just apk-release "$version" "$code"
-
-    badged=$("$tools/aapt2" dump badging "$apk" | sed -n "1s/.*versionCode='\([0-9]*\)'.*/\1/p")
-    [[ $badged == "$code" ]] || { echo "faraday: apk reports versionCode $badged, pubspec says $code" >&2; exit 1; }
-    cert=$("$tools/apksigner" verify --print-certs "$apk" | awk '/certificate SHA-256 digest:/ {print $NF; exit}')
-    [[ $cert == "{{faraday_cert}}" ]] || { echo "faraday: apk signed by $cert, not the key faraday trusts" >&2; exit 1; }
-
-    # Read first: a rebuild at an unchanged build number proves nothing by
-    # versionCode alone, and dumpsys is the one confirmation `phone` has no verb for.
-    dumpsys() { adb -s "$serial" shell dumpsys package dev.luisnquin.dazzle; }
-    was=$(dumpsys | sed -n 's/.*lastUpdateTime=//p' | head -1)
-
-    phone app install -t faraday "$apk"
-
-    pkg=$(dumpsys)
-    installed=$(sed -n 's/.*versionCode=\([0-9]*\).*/\1/p' <<<"$pkg" | head -1)
-    [[ $installed == "$code" ]] || { echo "faraday: still on versionCode $installed after install" >&2; exit 1; }
-    now=$(sed -n 's/.*lastUpdateTime=//p' <<<"$pkg" | head -1)
-    [[ -z $was || $now != "$was" ]] || { echo "faraday: lastUpdateTime still $was, nothing was replaced" >&2; exit 1; }
-    grep -E 'firstInstallTime|lastUpdateTime' <<<"$pkg"
-    echo "faraday: $version+$code ($DAZZLE_BUILD) installed on $serial"
+faraday: (deploy "faraday")
 
 # Where the apk faraday pulls is staged. Inside the tree and gitignored, and not
 # under build/, which `flutter clean` empties.
@@ -179,23 +139,8 @@ publish:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    stamp=$(sed -n 's/^version:[[:space:]]*\([^+[:space:]]\{1,\}\)+\([0-9]\{1,\}\)[[:space:]]*$/\1 \2/p' pubspec.yaml)
-    [[ -n $stamp ]] || { echo "publish: pubspec.yaml has no 'version: <name>+<code>' line" >&2; exit 1; }
-    read -r version code <<<"$stamp"
-
-    tools=${ANDROID_HOME:?run inside the nix dev shell}/build-tools/37.0.0
-
-    export DAZZLE_BUILD="${DAZZLE_BUILD:-$(git rev-parse --short HEAD)}"
-    git diff --quiet HEAD || echo "publish: tree is dirty, the build line still stamps $DAZZLE_BUILD" >&2
-
-    apk=build/app/outputs/flutter-apk/app-release.apk
-    rm -f "$apk"
-    just apk-release "$version" "$code"
-
-    badged=$("$tools/aapt2" dump badging "$apk" | sed -n "1s/.*versionCode='\([0-9]*\)'.*/\1/p")
-    [[ $badged == "$code" ]] || { echo "publish: apk reports versionCode $badged, pubspec says $code" >&2; exit 1; }
-    cert=$("$tools/apksigner" verify --print-certs "$apk" | awk '/certificate SHA-256 digest:/ {print $NF; exit}')
-    [[ $cert == "{{faraday_cert}}" ]] || { echo "publish: apk signed by $cert, not the key faraday trusts" >&2; exit 1; }
+    read -r version code DAZZLE_BUILD <<<"$(tool/deploy.sh stamp)"
+    apk=$(tool/deploy.sh build)
 
     # '-' and not '+': a literal + in a url path reads as a space to enough clients.
     name="dazzle-$version-$code.apk"
