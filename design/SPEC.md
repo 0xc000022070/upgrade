@@ -307,9 +307,9 @@ With nothing left to turn on, because every installed plugin is already on and n
 
 ### There is one item type, and where it sits is what it is called
 
-- **Project.** Name, description, `objective` (one line), status — active, paused or archived — and priority: low, normal or high. Progress is done items over all items in the project; zero items is 0%. A project may have a parent project.
+- **Project.** Name, description, `objective` (one line), status — active, paused or archived — and a priority of four steps. Progress is done items over all items in the project; zero items is 0%. A project may have a parent project.
 - **Goal.** Id, `projectId`, title, `createdAt`, `order`. Progress is done items over all items under it. A project has zero or more goals. The project's `objective` is the one-line statement of what it is for and is not a goal.
-- **Task.** The single item type. Title, `projectId` nullable, `goalId` nullable, `bundleId` nullable, `done`, `blockedReason` (non-null means blocked), `isNext` (at most one is true across the whole database, enforced in the repository), an optional effort. There is no status enum and there is no "doing".
+- **Task.** The single item type. Title, `projectId` nullable, `goalId` nullable, `bundleId` nullable, `done`, `blockedReason` (non-null means blocked), `isNext` (at most one is true across the whole database, enforced in the repository), the same four-step priority a project carries, an optional effort. There is no status enum and there is no "doing".
 - **Note.** Belongs to a project.
 - **Attachment.** Id, `item_id`, `kind` of `url` or `image`, `value` — a URL, or a path relative to the app support directory — and `created_at`. An item has zero or more.
 - **ActivityEvent.** Written in the same transaction as every mutation it records.
@@ -324,7 +324,7 @@ The vocabulary on screen: headers say `DROPS` — unfiled on Home, goal-less ins
 
 ### Everything the user can see can be created, edited and deleted
 
-**A project** is made from `NEW +` in the `PROJECTS` panel header on the Projects tab, which opens a full-screen form on a pushed route with no nav bar: name, description, objective, status, priority. The detail screen carries `EDIT` in its breadcrumb row and opens the same form prefilled. Delete is at the bottom of the edit form as a solid warning block that confirms in place — `DELETE PROJECT` becomes `CONFIRM DELETE` for three seconds. **Deleting a project un-files its items rather than deleting them**: they become Home drops.
+**A project** is made from `NEW +` in the `PROJECTS` panel header on the Projects tab, which opens a full-screen form on a pushed route with no nav bar: name, description, objective, status, parent. The detail screen carries `EDIT` in its breadcrumb row and opens the same form prefilled. Delete is at the bottom of the edit form as a solid warning block that confirms in place — `DELETE PROJECT` becomes `CONFIRM DELETE` for three seconds. **Deleting a project un-files its items rather than deleting them**: they become Home drops.
 
 **A goal** is made from `NEW +` in the `GOALS` area of a project, as a single-line editor inline at the top of a new panel that submits on enter. Long-pressing a goal's header strip offers rename and delete; deleting one drops its items back into the project's `DROPS`.
 
@@ -350,9 +350,9 @@ Done is also toggled without opening anything, by tapping the row's leading chec
 
 `PAIR` opens a picker of items — drops and items under goals, open ones first, newest first, with the item itself and its current mates excluded — over a search field. Picking one joins the two bundles into their union. When the item is already in a bundle, `UNPAIR` stands where `PAIR` was.
 
-### A drop has no state but done
+### A drop has no state but done and how loud it is
 
-A drop is text plus attachments. It carries `done` and nothing else: no next, no blocked, no pair. Those columns stay in the schema — the row becomes a task the moment it is filed — but no surface reads or writes them while the item is a drop.
+A drop is text plus attachments. It carries `done` and its priority step, and nothing else: no next, no blocked, no pair. Those columns stay in the schema — the row becomes a task the moment it is filed — but no surface reads or writes them while the item is a drop.
 
 Its quick view is the readout with `DONE` and `MOVE` on the footer, and nothing else: no state line, no `BLOCKED BY` panel. Its row on Home carries the checkbox and the dimming that done drives, and no other glyph. Nothing in the app is ever struck through.
 
@@ -409,6 +409,37 @@ A `DROPS` panel header also carries a `SELECT` text action on the right beside i
 Home's `DROPS` and a project's `DROPS` both have this. A row under a goal keeps its quick view.
 
 **The selection bar stays where the thumb left it.** It is pinned to the bottom of the surface rather than riding the list, so scrolling through a long selection never takes the verbs off the screen.
+
+### A slide sets how important a row is, and a numeral carries it
+
+Every item row and every project row takes a horizontal slide. A slide right raises the row one step, a slide left lowers it one step, and the row snaps back to where it was either way. One gesture is one step, so the top is three slides up from the floor.
+
+There are four steps and three of them are counted in Roman numerals. The numeral has a column of its own on the right of the title, in the kicker's mono at the kicker's size, right-aligned so `I` and `III` end on the same edge:
+
+- **The floor only subtracts, and it has no numeral.** The title goes muted, the age and the checkbox go with it, and nothing whatever is added. A row parked here is the quietest thing in the panel, and it is the one step read by what is missing.
+- `I` is the row exactly as it draws otherwise, in muted ink. It is where a captured item and a new project land.
+- `II` is the same numeral one step brighter, in the secondary ink.
+- `III` is accent.
+
+**The numeral column is held whether a numeral is drawn or not**, so a row on the floor sits in the same grid as a row at the top and stepping one row moves no neighbour by a pixel.
+
+**The glitch is progressive and it is on the numeral alone.** `I` and the floor are still. `II` tears every few seconds, lightly and in few blocks. `III` tears about twice as often and in more of them, so the top of the scale is the thing in the panel that will not hold still. The corruption is seeded off the row's own id, so two rows on the same step never tear in lockstep, and the glitch never leaves the numeral's box: it marks the rank and not the title. Reduce-motion freezes all of it, and the ramp still reads, because it was a numeral before it was an effect.
+
+**Every step is the same type at the same size.** No step changes the title's size, its weight or its ink. The ramp is the numeral, the numeral's ink and the numeral's glitch, and the panel is a grid before it is a ranking.
+
+Done still wins: a done row shows its numeral in the disabled ink and stops glitching, whatever its step, because the step says what is worth reading and a done row is not.
+
+The row travels under the finger while the drag is on, capped short, and returns over 140ms. **A slide with nowhere to go does not move the row at all** — left at the floor, right at the top — so the end of the scale is felt instead of announced. The recogniser is horizontal only, so the list still scrolls under the same thumb, and the system's own edge gesture keeps the screen edge.
+
+**A slide changes how a row reads and never where it sits.** Drops stay newest first and items under a goal keep their order. A project row is the exception and not a new rule: the projects list already sorts by priority under status, so a slid project does move in it.
+
+The step is per item, and a bundle does not share it. Mates travel together when they are moved and are slid one at a time.
+
+**The project form has no priority field.** The slide is the whole gesture, so a row is the only place priority is set, for a project exactly as for an item, and a picker would be a second way to say the same thing. The quick view has no priority block for the same reason, and the activity feed records the direction — `raised`, `lowered` — and never the step.
+
+The slide is off while a panel is in selection mode, and the `NEXT ACTION` card does not take it: it is one card and not a list.
+
+**Struck:** a numeral on the floor, a step that grows the type or thickens it, a glitch on anything but the numeral, a slide that cycles from the top back round to the floor, and a drag whose distance picks the step.
 
 ### A URL is painted in the field before it is a chip
 

@@ -246,10 +246,18 @@ class _BlockClip extends CustomClipper<Rect> {
 }
 
 class GlitchPanel extends StatelessWidget {
-  const GlitchPanel({super.key, required this.controller, required this.child});
+  const GlitchPanel({
+    super.key,
+    required this.controller,
+    required this.child,
+    this.blocks = 6,
+    this.fragments = 3,
+  });
 
   final GlitchController controller;
   final Widget child;
+  final int blocks;
+  final int fragments;
 
   @override
   Widget build(BuildContext context) {
@@ -262,7 +270,8 @@ class GlitchPanel extends StatelessWidget {
         }
         return GlitchBlocks(
           seed: controller.seed + controller.frame,
-          blocks: 6,
+          blocks: blocks,
+          fragments: fragments,
           child: child!,
         );
       },

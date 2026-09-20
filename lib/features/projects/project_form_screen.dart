@@ -49,7 +49,6 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
   late final TextEditingController _description;
   late final TextEditingController _objective;
   late ProjectStatus _status;
-  late Priority _priority;
 
   String? _parent;
 
@@ -70,7 +69,6 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
     _description = TextEditingController(text: project?.description ?? '');
     _objective = TextEditingController(text: project?.objective ?? '');
     _status = project?.status ?? ProjectStatus.active;
-    _priority = project?.priority ?? Priority.normal;
     _parent = project?.parentId ?? widget.parentId;
     if (project != null) _countBelow(project.id);
   }
@@ -100,7 +98,6 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
         description: _description.text.trim(),
         objective: _objective.text.trim(),
         status: _status,
-        priority: _priority,
         parentId: _parent,
       );
     } else {
@@ -110,7 +107,6 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
         description: _description.text.trim(),
         objective: _objective.text.trim(),
         status: _status,
-        priority: _priority,
         // The children keep their own parent_id, so the subtree comes along without a write of
         // its own.
         parentId: _parent,
@@ -193,13 +189,6 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                   projectId: widget.project?.id,
                   value: _parent,
                   onChanged: (parent) => setState(() => _parent = parent),
-                ),
-                ChoicePanel<Priority>(
-                  label: 'PRIORITY',
-                  options: Priority.values,
-                  value: _priority,
-                  labelOf: (priority) => priority.name,
-                  onChanged: (priority) => setState(() => _priority = priority),
                 ),
               ],
             ),

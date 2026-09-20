@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'dazzle'));
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   /// A step guarded `from >= N` is one the `createTable` calls above already build from
   /// the current definition; adding its columns again below N is an error.
@@ -122,6 +122,9 @@ SELECT id, task_id, 'url', url, created_at FROM links
         await m.addColumn(shellTabs, shellTabs.herdrSession);
         await m.addColumn(shellTabs, shellTabs.herdrPane);
         await m.addColumn(shellTabs, shellTabs.retiredAt);
+      }
+      if (from < 16) {
+        await m.addColumn(tasks, tasks.priority);
       }
     },
   );
@@ -252,7 +255,8 @@ FROM projects p
 JOIN progress pr ON pr.root = p.id
 WHERE $where
 ORDER BY CASE p.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
-         CASE p.priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END,
+         CASE p.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1
+                         WHEN 'normal' THEN 2 ELSE 3 END,
          p.updated_at DESC
 """,
       variables: variables,

@@ -50,6 +50,9 @@ class Tasks extends Table {
   /// At most one row in the table has this set, enforced by TaskRepository and not by
   /// anything SQLite can express.
   BoolColumn get isNext => boolean().withDefault(const Constant(false))();
+
+  TextColumn get priority =>
+      textEnum<Priority>().withDefault(const Constant('normal'))();
   IntColumn get effort => integer().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();

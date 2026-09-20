@@ -18,6 +18,10 @@ abstract final class RowMetrics {
   static const lineGap = 4.0;
   static const minHeight = 36.0;
 
+  /// Three mono characters at the kicker's size. Held whether a mark is drawn or not, so
+  /// an unmarked row sits in the same grid as a marked one.
+  static const markWidth = 20.0;
+
   static const streamPadding = 3.0;
 }
 
