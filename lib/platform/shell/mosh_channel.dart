@@ -6,6 +6,7 @@ abstract interface class MoshChannel {
   Stream<Uint8List> get output;
   Stream<Object> get errors;
   Stream<int> get echoAcks;
+  Stream<void> get contacts;
   Future<void> get done;
 
   int send(Uint8List bytes);
@@ -46,6 +47,9 @@ class _DartMoshChannel implements MoshChannel {
 
   @override
   Stream<int> get echoAcks => _session.echoAcks;
+
+  @override
+  Stream<void> get contacts => _session.contacts;
 
   @override
   Future<void> get done => _session.done;

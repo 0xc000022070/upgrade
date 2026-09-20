@@ -1,0 +1,45 @@
+# every packet the server signed is reported, not only the ones carrying a screen
+#
+# Against dart_mosh 0.0.4. Regenerate with `just mosh-patches`.
+
+diff --git a/lib/src/session.dart b/lib/src/session.dart
+index 37c8856..dd95d2b 100644
+--- a/lib/src/session.dart
++++ b/lib/src/session.dart
+@@ -52,6 +52,7 @@ class MoshSession {
+   final _stdout = StreamController<List<int>>.broadcast();
+   final _stderr = StreamController<Object>.broadcast();
+   final _echoAcks = StreamController<int>.broadcast();
++  final _contacts = StreamController<void>.broadcast();
+   final _done = Completer<void>();
+   final _assembly = MoshFragmentAssembly();
+   final _replay = MoshReplayFilter();
+@@ -84,6 +85,11 @@ class MoshSession {
+   /// Stream of echo acknowledgement numbers from the server.
+   Stream<int> get echoAcks => _echoAcks.stream;
+ 
++  /// Stream of packets accepted from the server, one event each. A packet that
++  /// advances no state reaches neither [stdout] nor [echoAcks] and is still
++  /// proof the server is there.
++  Stream<void> get contacts => _contacts.stream;
++
+   /// Completes when the session is closed.
+   Future<void> get done => _done.future;
+ 
+@@ -180,6 +186,7 @@ class MoshSession {
+     await _stdout.close();
+     await _stderr.close();
+     await _echoAcks.close();
++    await _contacts.close();
+     if (!_done.isCompleted) _done.complete();
+   }
+ 
+@@ -217,6 +224,8 @@ class MoshSession {
+       return;
+     }
+ 
++    if (!_contacts.isClosed) _contacts.add(null);
++
+     final packet = MoshTransportPacket.decode(plaintext);
+     _peerTimestamp = packet.timestamp;
+     _peerTimestampAt = _clock.elapsedMilliseconds;

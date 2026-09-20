@@ -188,10 +188,9 @@ packages:
   dart_mosh:
     dependency: "direct main"
     description:
-      name: dart_mosh
-      sha256: "3301f3c6537e265bc70cc703105657a401088fd405cbc9776b12da3a2124a52d"
-      url: "https://pub.dev"
-    source: hosted
+      path: ".dart_tool/dart_mosh"
+      relative: true
+    source: path
     version: "0.0.4"
   dart_style:
     dependency: transitive

@@ -19,12 +19,18 @@ host so it keeps ownership of the adb server.
 
 ```sh
 just gen          # build_runner: drift output (*.g.dart, *.drift.dart) — not committed
+just pub-build    # xterm and dart_mosh, patched, into .dart_tool
 just analyze
 just apk          # debug APK, arm64
 just desktop      # Linux desktop, the fast iteration loop
 ```
 
 Run `just gen` after touching a drift schema; generated Dart is gitignored.
+
+Nothing in pub applies the patches under `packages/<name>/patches`, so
+`dependency_overrides` points at the trees `just pub-build` writes into
+`.dart_tool`: run it before the first `flutter pub get` in a fresh checkout.
+`tool/pub-patches.sh --help` covers editing a series.
 
 ## Device loop
 

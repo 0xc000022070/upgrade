@@ -196,6 +196,7 @@ class FakeMoshChannel implements MoshChannel {
   final _output = StreamController<Uint8List>.broadcast();
   final _errors = StreamController<Object>.broadcast();
   final _echoAcks = StreamController<int>.broadcast();
+  final _contacts = StreamController<void>.broadcast();
   final _done = Completer<void>();
 
   final sent = <Uint8List>[];
@@ -211,6 +212,9 @@ class FakeMoshChannel implements MoshChannel {
 
   @override
   Stream<int> get echoAcks => _echoAcks.stream;
+
+  @override
+  Stream<void> get contacts => _contacts.stream;
 
   @override
   Future<void> get done => _done.future;
@@ -238,11 +242,14 @@ class FakeMoshChannel implements MoshChannel {
     await _output.close();
     await _errors.close();
     await _echoAcks.close();
+    await _contacts.close();
   }
 
   void emit(String value) => _output.add(Uint8List.fromList(value.codeUnits));
 
   void acknowledge(int state) => _echoAcks.add(state);
+
+  void contact() => _contacts.add(null);
 }
 
 ShellTunnel tunnelTo(FakeHost host, {Object? dialError}) => ShellTunnel(
@@ -268,9 +275,11 @@ ShellTunnel moshTunnelTo(
   Duration timeout = const Duration(seconds: 10),
   bool emitReady = true,
   Duration healthInterval = const Duration(seconds: 3),
+  Duration giveUp = const Duration(seconds: 30),
 }) => ShellTunnel(
   timeout: timeout,
   moshHealthInterval: healthInterval,
+  moshGiveUp: giveUp,
   dial: ({
     required String address,
     required int port,
@@ -510,6 +519,90 @@ void main() {
         expect(health.last, ShellConnectionHealth.connected);
       },
     );
+
+    test(
+      'a Mosh packet that carries no screen still counts as contact',
+      () async {
+        const session = 'dazzle123';
+        final host = FakeHost()..execAnswer = moshHostAnswer;
+        final channel = FakeMoshChannel();
+        final connection = await openOn(
+          moshTunnelTo(
+            host,
+            channel,
+            healthInterval: const Duration(milliseconds: 5),
+          ),
+          command: 'exec \$SHELL -l',
+          tabSession: session,
+        );
+        addTearDown(connection.close);
+        final health = <ShellConnectionHealth>[];
+        connection.health.listen(health.add);
+
+        await Future<void>.delayed(const Duration(milliseconds: 14));
+        expect(health.last, ShellConnectionHealth.reconnecting);
+
+        channel.contact();
+        await pumpEventQueue();
+        expect(health.last, ShellConnectionHealth.connected);
+      },
+    );
+
+    test(
+      'a thawed Mosh tab owes one missed answer, not one per tick',
+      () async {
+        const session = 'dazzle123';
+        final host = FakeHost()..execAnswer = moshHostAnswer;
+        final channel = FakeMoshChannel();
+        final connection = await openOn(
+          moshTunnelTo(
+            host,
+            channel,
+            healthInterval: const Duration(milliseconds: 5),
+          ),
+          command: 'exec \$SHELL -l',
+          tabSession: session,
+        );
+        addTearDown(connection.close);
+        final health = <ShellConnectionHealth>[];
+        connection.health.listen(health.add);
+
+        final frozen = Stopwatch()..start();
+        while (frozen.elapsedMilliseconds < 40) {}
+        await pumpEventQueue();
+
+        expect(health, isNot(contains(ShellConnectionHealth.disconnected)));
+      },
+    );
+
+    test('a Mosh channel that stops answering reaches the reader', () async {
+      const session = 'dazzle123';
+      final host = FakeHost()..execAnswer = moshHostAnswer;
+      final channel = FakeMoshChannel();
+      final connection = await openOn(
+        moshTunnelTo(
+          host,
+          channel,
+          healthInterval: const Duration(milliseconds: 5),
+          giveUp: const Duration(milliseconds: 40),
+        ),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      );
+      addTearDown(connection.close);
+      Object? reported;
+      connection.output.listen(
+        (_) {},
+        onError: (Object error) {
+          reported ??= error;
+        },
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 90));
+
+      expect(reported, isA<ShellFailure>());
+      expect((reported! as ShellFailure).kind, ShellFailureKind.streamClosed);
+    });
 
     test('Mosh redials its SSH control path after a rehome', () async {
       const session = 'dazzle123';
