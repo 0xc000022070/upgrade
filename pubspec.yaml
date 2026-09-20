@@ -2,7 +2,7 @@ name: dazzle
 description: Local-first personal control plane.
 publish_to: 'none'
 
-version: 1.0.0+130
+version: 1.0.0+131
 
 environment:
   sdk: ^3.13.0
@@ -41,12 +41,11 @@ dependencies:
   flutter_foreground_task: ^11.0.1
   gal: ^2.3.3
 
-# Nothing in pub applies the patches in packages/xterm/patches, so
-# `just xterm-build` writes the patched package into .dart_tool and this points at
-# it: a fresh checkout wants that run before `flutter pub get`.
 dependency_overrides:
   xterm:
     path: .dart_tool/xterm
+  dart_mosh:
+    path: .dart_tool/dart_mosh
 
 dev_dependencies:
   flutter_test:

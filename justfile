@@ -23,7 +23,7 @@ assets:
     cp "$src"/textures/noise-fine.png "$src"/textures/grid-8.svg "$src"/textures/scanline-3.png assets/textures/
     echo "assets: $(ls assets/icons/*.svg | wc -l) icons, $(ls assets/icons/signal/*.svg | wc -l) signal, $(ls assets/textures/* | wc -l) textures"
 
-analyze: xterm-build
+analyze: pub-build
     flutter analyze
 
 fmt:
@@ -33,14 +33,14 @@ fmt:
 # file, so the wall clock is the slowest file and half the cores left the tail idle.
 
 # The suite, or the paths named. The `host` tier stays out; see `just test-host`.
-test *args: xterm-build
+test *args: pub-build
     flutter test -j {{ num_cpus() }} --exclude-tags host {{ args }}
 
 # `-j 1` because every one of these dials the same guest, and scoped to test/host
 # because `--tags` loads every file it is pointed at before it can see none is tagged.
 
 # The tier that wants a machine on the other end of the socket.
-test-host *args: xterm-build
+test-host *args: pub-build
     #!/usr/bin/env bash
     set -euo pipefail
     just host-vm
@@ -86,17 +86,17 @@ host-vm-down:
     echo "host vm: down"
 
 # Debug APK (arm64 only); the same artifact runs on the emulator and on faraday.
-apk: xterm-build
+apk: pub-build
     flutter build apk --debug --target-platform android-arm64 --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}
 
-apk-fixtures: xterm-build
+apk-fixtures: pub-build
     flutter build apk --debug --target-platform android-arm64 --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev} --dart-define=DAZZLE_SEED_FIXTURES=true
 
 # The build number is passed explicitly because a bare release build has reported
 # versionCode 1 regardless of what pubspec declares.
 
 # Release APK, the artifact faraday is upgraded with. arm64 only.
-apk-release version="1.0.0" code="1": xterm-verify
+apk-release version="1.0.0" code="1": pub-verify
     flutter build apk --release --target-platform android-arm64 --build-name={{version}} --build-number={{code}} --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}
 
 # Emulator on rose: the only device this repo drives interactively.
@@ -104,7 +104,7 @@ dev:
     phone up --profile dev
 
 # Hot reload on rose's emulator: `kill -USR1 $(cat build/run.pid)` reloads, -USR2 restarts.
-run: xterm-build
+run: pub-build
     #!/usr/bin/env bash
     set -euo pipefail
     ssh -fN -o ExitOnForwardFailure=yes -L 5038:127.0.0.1:5037 rose || true
@@ -233,20 +233,33 @@ publish:
 review:
     phone up --profile review
 
-desktop: xterm-build
+desktop: pub-build
     flutter run -d linux --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}
+
+pub-build: xterm-build mosh-build
+
+pub-verify: xterm-verify mosh-verify
 
 # Write upstream's xterm plus packages/xterm/patches into .dart_tool. A no-op when current.
 xterm-build:
-    tool/xterm-patches.sh build
+    tool/pub-patches.sh xterm build
 
 # Rewrite packages/xterm/patches from edits made to .dart_tool/xterm.
 xterm-patches:
-    tool/xterm-patches.sh generate
+    tool/pub-patches.sh xterm generate
 
 # Prove the patches reproduce .dart_tool/xterm exactly.
 xterm-verify:
-    tool/xterm-patches.sh verify
+    tool/pub-patches.sh xterm verify
+
+mosh-build:
+    tool/pub-patches.sh dart_mosh build
+
+mosh-patches:
+    tool/pub-patches.sh dart_mosh generate
+
+mosh-verify:
+    tool/pub-patches.sh dart_mosh verify
 
 # The host engine. Its own toolchain and its own tree: nothing under engine/ is
 # Dart, so `just analyze` and `just test` do not reach it and these do.

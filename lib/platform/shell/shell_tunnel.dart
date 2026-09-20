@@ -69,6 +69,7 @@ class ShellTunnel {
     this.timeout = const Duration(seconds: 10),
     this.keepAlive = const Duration(seconds: 15),
     this.moshHealthInterval = const Duration(seconds: 3),
+    this.moshGiveUp = const Duration(seconds: 30),
     this.dial = dialSsh,
     this.moshDialer = dialMosh,
   });
@@ -78,6 +79,7 @@ class ShellTunnel {
   final Duration timeout;
   final Duration keepAlive;
   final Duration moshHealthInterval;
+  final Duration moshGiveUp;
   final ShellDialer dial;
   final MoshDialer moshDialer;
 
@@ -253,6 +255,7 @@ class ShellTunnel {
               : HostKeyVerifier.pinnedOnly(trusted),
         ),
         healthInterval: moshHealthInterval,
+        giveUp: moshGiveUp,
       );
       await connection.ready.timeout(timeout);
       _log(address, 'mosh ${server.port} on ${columns}x$rows');
@@ -552,10 +555,12 @@ class MoshShellConnection implements ShellConnection {
     required this.tmux,
     required this.redial,
     this.healthInterval = const Duration(seconds: 3),
+    this.giveUp = const Duration(seconds: 30),
   }) : _host = host {
     _reading.add(_mosh.output.listen(_emit));
     _reading.add(_mosh.errors.listen((error) => _log(address, 'mosh: $error')));
     _reading.add(_mosh.echoAcks.listen(_acknowledge));
+    _reading.add(_mosh.contacts.listen((_) => _contact()));
     _mosh.done.then(
       (_) => _finish(0),
       onError: (Object error) {
@@ -569,6 +574,7 @@ class MoshShellConnection implements ShellConnection {
   final MoshChannel _mosh;
   final Future<ShellHost> Function() redial;
   final Duration healthInterval;
+  final Duration giveUp;
   ShellHost? _host;
   Future<ShellHost>? _openingHost;
   final String? tmux;
@@ -579,12 +585,14 @@ class MoshShellConnection implements ShellConnection {
   @override
   ShellTransport get transport => ShellTransport.mosh;
 
-  final _reading = <StreamSubscription<Object>>[];
+  final _reading = <StreamSubscription<void>>[];
   final _pending = <Uint8List>[];
   final _exit = Completer<int?>();
   final _ready = Completer<void>();
+  final _ticking = Stopwatch()..start();
   Timer? _healthTimer;
   int? _probeState;
+  int? _tickedAt;
   var _missedProbes = 0;
   int columns;
   int rows;
@@ -664,6 +672,8 @@ class MoshShellConnection implements ShellConnection {
     if (_closed) return;
     _setHealth(ShellConnectionHealth.reconnecting);
     await _mosh.rehome();
+    _missedProbes = 0;
+    _tickedAt = null;
     _probeState = _mosh.resize(columns, rows);
     await _dropHost(_host);
   }
@@ -775,18 +785,54 @@ class MoshShellConnection implements ShellConnection {
     _setHealth(ShellConnectionHealth.connected);
   }
 
+  int get _probesToGiveUp {
+    final probes = giveUp.inMicroseconds ~/ healthInterval.inMicroseconds;
+    return probes < 3 ? 3 : probes;
+  }
+
   void _checkHealth() {
     if (_closed) return;
+    final now = _ticking.elapsedMicroseconds;
+    final previous = _tickedAt;
+    _tickedAt = now;
     if (_probeState == null) {
       _probeState = _mosh.resize(columns, rows);
       return;
     }
+    // A process Android froze fires every tick it owed the moment it thaws, back to
+    // back: that run is one gap in the link and not one missed answer each.
+    if (previous != null &&
+        now - previous < healthInterval.inMicroseconds ~/ 2) {
+      return;
+    }
     _missedProbes++;
+    if (_missedProbes >= _probesToGiveUp) {
+      _abandonSilentChannel();
+      return;
+    }
     _setHealth(
       _missedProbes >= 3
           ? ShellConnectionHealth.disconnected
           : ShellConnectionHealth.reconnecting,
     );
+  }
+
+  void _abandonSilentChannel() {
+    _healthTimer?.cancel();
+    _healthTimer = null;
+    _setHealth(ShellConnectionHealth.disconnected);
+    _log(
+      address,
+      'mosh: no answer in ${giveUp.inSeconds}s, dropping the channel',
+    );
+    if (!_out.isClosed) {
+      _out.addError(
+        const ShellFailure(
+          ShellFailureKind.streamClosed,
+          detail: 'the mosh channel stopped answering',
+        ),
+      );
+    }
   }
 
   void _setHealth(ShellConnectionHealth health) {
