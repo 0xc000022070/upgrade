@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,13 +7,11 @@ import '../../application/fresh_drops.dart';
 import '../../application/navigation.dart';
 import '../../application/native_plugins.dart';
 import '../../application/plugin_placements.dart';
-import '../../application/providers.dart';
 import '../../data/repositories/plugin_placement_repository.dart';
 import '../../design/components/dot_spinner.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_text_action.dart';
-import '../../design/components/solid_action_bar.dart';
 import '../../design/tokens.dart';
 import '../../platform/plugins/contributions.dart';
 import '../screen_scaffold.dart';
@@ -23,7 +19,6 @@ import '../tasks/selection_bar.dart';
 import '../plugins/plugin_management_screen.dart';
 import 'agents_panel.dart';
 import 'home_actions.dart';
-import 'home_feedback.dart';
 
 String _placementErrorMessage(Object? error) =>
     error is PluginPlacementException
@@ -40,7 +35,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final _visible = ref.read(homeAgentsVisibleProvider.notifier);
-  Timer? _undoTimer;
 
   @override
   void initState() {
@@ -59,26 +53,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(freshDropsProvider.notifier).clear();
   }
 
-  void _holdUndo(String taskId) {
-    _undoTimer?.cancel();
-    _undoTimer = Timer(const Duration(seconds: 30), () {
-      if (mounted && ref.read(homeUndoTaskProvider) == taskId) {
-        ref.read(homeUndoTaskProvider.notifier).state = null;
-      }
-    });
-  }
-
-  Future<void> _undoDone() async {
-    final taskId = ref.read(homeUndoTaskProvider);
-    if (taskId == null) return;
-    _undoTimer?.cancel();
-    ref.read(homeUndoTaskProvider.notifier).state = null;
-    await ref.read(taskRepositoryProvider).setDone(taskId, false);
-  }
-
   @override
   void dispose() {
-    _undoTimer?.cancel();
     if (_visible.mounted) _visible.state = false;
     super.dispose();
   }
@@ -91,16 +67,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
       _syncVisible();
     });
-    ref.listen<String?>(homeUndoTaskProvider, (_, next) {
-      if (next != null) _holdUndo(next);
-    });
     final catalog = ref.watch(pluginContributionCatalogProvider);
     final placementState = ref.watch(pluginPlacementsProvider);
     final placements = placementState.valueOrNull;
     final selecting = ref
         .watch(dropSelectionProvider)
         .ownedBy(DropSelection.homeScope);
-    final undoTaskId = ref.watch(homeUndoTaskProvider);
     final cards = placements == null
         ? const <PluginWidgetRegistration>[]
         : [
@@ -174,8 +146,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               placements: placements!,
               child: const SelectionBar(scope: DropSelection.homeScope),
             )
-        else if (undoTaskId != null)
-          SolidActionBar(label: 'DONE · UNDO', onTap: _undoDone)
         else if (composer != null)
           _PlacedPluginWidget(registration: composer, placements: placements!),
       ],

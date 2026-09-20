@@ -12,6 +12,8 @@ import 'package:dazzle/features/home/capture_bar.dart';
 import 'package:dazzle/features/tasks/item_pickers.dart';
 import 'package:dazzle/features/tasks/selection_bar.dart';
 import 'package:dazzle/features/home/home_screen.dart';
+import 'package:dazzle/app/toast_host.dart';
+import 'package:dazzle/application/toasts.dart';
 
 import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/design/components/list_row.dart';
@@ -30,6 +32,9 @@ Finder _box(String title, DazzleIcons icon) => find.descendant(
     (widget) => widget is DazzleIcon && widget.icon == icon,
   ),
 );
+
+Finder _toast(String text) =>
+    find.descendant(of: find.byType(ToastHost), matching: find.text(text));
 
 /// The checkbox target is an overlay over the row's first 40px, not a wrapper around the
 /// glyph.
@@ -74,7 +79,16 @@ void main() {
     overrides: [...featureTestOverrides(db, enabled: enabled)],
     child: MaterialApp(
       theme: testTheme,
-      home: Scaffold(body: HomeScreen()),
+      home: const Scaffold(
+        // The shell stacks the toasts over the screen's own pinned bottom; Home alone has
+        // nowhere for a raised row to land.
+        body: Stack(
+          children: [
+            Positioned.fill(child: HomeScreen()),
+            Positioned(left: 0, right: 0, bottom: 0, child: ToastHost()),
+          ],
+        ),
+      ),
     ),
   );
 
@@ -231,17 +245,18 @@ void main() {
 
     final rows = await tester.runAsync(() => db.select(db.tasks).get());
     expect(rows!.firstWhere((task) => task.id == drop).done, isTrue);
-    expect(find.text('revisar pgbouncer'), findsNothing);
-    expect(find.text('DONE'), findsOneWidget);
-    expect(find.text('DONE · UNDO'), findsOneWidget);
+    expect(find.widgetWithText(ListRow, 'revisar pgbouncer'), findsNothing);
+    expect(_toast('DONE'), findsOneWidget);
+    expect(_toast('revisar pgbouncer'), findsOneWidget);
+    expect(_toast('UNDO'), findsOneWidget);
 
-    await tester.tap(find.text('DONE · UNDO'));
+    await tester.tap(_toast('UNDO'));
     await _ready(tester);
     final again = await tester.runAsync(() => db.select(db.tasks).get());
     expect(again!.firstWhere((task) => task.id == drop).done, isFalse);
-    expect(find.text('revisar pgbouncer'), findsOneWidget);
+    expect(find.widgetWithText(ListRow, 'revisar pgbouncer'), findsOneWidget);
     expect(find.text('DONE'), findsNothing);
-    expect(find.text('DONE · UNDO'), findsNothing);
+    expect(_toast('UNDO'), findsNothing);
 
     await unmount(tester);
   });
@@ -284,11 +299,49 @@ void main() {
     await _tapBox(tester, 'revisar pgbouncer');
     await _ready(tester);
 
-    expect(find.text('DONE · UNDO'), findsOneWidget);
+    expect(_toast('UNDO'), findsOneWidget);
     await tester.pump(const Duration(seconds: 30));
-    expect(find.text('DONE · UNDO'), findsNothing);
+    expect(_toast('UNDO'), findsNothing);
     final rows = await tester.runAsync(() => db.select(db.tasks).get());
     expect(rows!.firstWhere((task) => task.id == drop).done, isTrue);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a fourth completion folds the older toasts behind one row', (
+    tester,
+  ) async {
+    const titles = ['primero', 'segundo', 'tercero', 'cuarto'];
+    for (final title in titles) {
+      await tasks.capture(title);
+    }
+
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    for (final title in titles) {
+      await _tapBox(tester, title);
+      await _ready(tester);
+    }
+
+    expect(_toast('UNDO'), findsNWidgets(toastRowsShown));
+    expect(_toast('+1 MORE'), findsOneWidget);
+    expect(_toast('primero'), findsNothing);
+    // Newest at the bottom, so the one just finished is the row nearest the thumb.
+    expect(
+      tester.getCenter(_toast('cuarto')).dy,
+      greaterThan(tester.getCenter(_toast('tercero')).dy),
+    );
+
+    await tester.tap(_toast('+1 MORE'));
+    await _ready(tester);
+    expect(_toast('UNDO'), findsNWidgets(titles.length));
+    expect(_toast('primero'), findsOneWidget);
+    expect(_toast('LESS'), findsOneWidget);
+
+    await tester.tap(_toast('LESS'));
+    await _ready(tester);
+    expect(_toast('UNDO'), findsNWidgets(toastRowsShown));
 
     await unmount(tester);
   });

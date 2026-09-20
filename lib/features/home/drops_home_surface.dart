@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,7 +8,6 @@ import '../../data/views.dart';
 import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
-import '../../design/components/solid_action_bar.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
@@ -22,6 +19,7 @@ import '../tasks/selection_bar.dart';
 import 'agents_panel.dart';
 import 'capture_bar.dart';
 import 'home_actions.dart';
+import 'home_feedback.dart';
 
 class DropsHomeSurface extends ConsumerStatefulWidget {
   const DropsHomeSurface({super.key});
@@ -34,13 +32,10 @@ class DropsHomeSurface extends ConsumerStatefulWidget {
 
 class _DropsHomeSurfaceState extends ConsumerState<DropsHomeSurface> {
   final _landing = GlitchController();
-  Timer? _undoTimer;
-  String? _undoTaskId;
 
   @override
   void dispose() {
     _landing.dispose();
-    _undoTimer?.cancel();
     super.dispose();
   }
 
@@ -50,22 +45,6 @@ class _DropsHomeSurfaceState extends ConsumerState<DropsHomeSurface> {
     ref.read(dropSelectionProvider.notifier).clear();
     ref.read(freshDropsProvider.notifier).clear();
     go();
-  }
-
-  void _offerUndo(String taskId) {
-    _undoTimer?.cancel();
-    setState(() => _undoTaskId = taskId);
-    _undoTimer = Timer(const Duration(seconds: 30), () {
-      if (mounted) setState(() => _undoTaskId = null);
-    });
-  }
-
-  Future<void> _undoDone() async {
-    final taskId = _undoTaskId;
-    if (taskId == null) return;
-    _undoTimer?.cancel();
-    setState(() => _undoTaskId = null);
-    await ref.read(taskRepositoryProvider).setDone(taskId, false);
   }
 
   @override
@@ -103,7 +82,7 @@ class _DropsHomeSurfaceState extends ConsumerState<DropsHomeSurface> {
                     scope: DropSelection.homeScope,
                     drops: drops,
                     landing: _landing,
-                    onCompleted: _offerUndo,
+                    onCompleted: (task) => offerUndoDone(ref, task),
                   ),
                 ],
               ),
@@ -112,8 +91,6 @@ class _DropsHomeSurfaceState extends ConsumerState<DropsHomeSurface> {
         ),
         if (selecting)
           const SelectionBar(scope: DropSelection.homeScope)
-        else if (_undoTaskId != null)
-          SolidActionBar(label: 'DONE · UNDO', onTap: _undoDone)
         else
           CaptureBar(scope: DropSelection.homeScope, landing: _landing),
       ],

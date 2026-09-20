@@ -28,6 +28,7 @@ import 'nav_shell.dart';
 import 'pip_host.dart';
 import 'splash_route.dart';
 import 'static_surface.dart';
+import 'toast_host.dart';
 
 Widget _pluginPage(PluginPageRegistration page) => page.native
     ? NativeContributionSurface.page(page)
@@ -156,11 +157,25 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
             backgroundColor: context.tokens.backgroundPrimary,
             resizeToAvoidBottomInset: true,
             body: StaticSurface(
-              child: IndexedStack(
-                index: index,
+              // The stack is the body's, not the Scaffold's, so a toast lands on the
+              // screen's own pinned bottom rather than over the nav bar under it.
+              child: Stack(
                 children: [
-                  for (var i = 0; i < screens.length; i++)
-                    ScreenEntry(tick: _entries[i], child: screens[i]),
+                  Positioned.fill(
+                    child: IndexedStack(
+                      index: index,
+                      children: [
+                        for (var i = 0; i < screens.length; i++)
+                          ScreenEntry(tick: _entries[i], child: screens[i]),
+                      ],
+                    ),
+                  ),
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: ToastHost(),
+                  ),
                 ],
               ),
             ),
