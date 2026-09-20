@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="464" viewBox="0 0 840 464">
+<rect width="840" height="464" fill="#08090B"/>
+<g color="#E8E8E3" fill="currentColor" font-family="sans-serif">
+<text x="32" y="38" font-size="22">ssh-key</text>
+<text x="32" y="62" font-size="12">96px glyphs / 16px glyphs</text>
+<g transform="translate(32 88) scale(4)">  <path d="M8.5 4.5L12.5 8.5L8.5 12.5L4.5 8.5ZM11.5 11.5L20 20M15 15L18 12M18 18L20 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/></g>
+<g transform="translate(176 128) scale(0.6666666666666666)">  <path d="M8.5 4.5L12.5 8.5L8.5 12.5L4.5 8.5ZM11.5 11.5L20 20M15 15L18 12M18 18L20 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/></g>
+<text x="80" y="207" text-anchor="middle" font-size="16">01</text>
+<text x="184" y="170" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(304 88) scale(4)">  <path d="M4 6H10V12H4ZM10 9H20V13M16 9V13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/></g>
+<g transform="translate(448 128) scale(0.6666666666666666)">  <path d="M4 6H10V12H4ZM10 9H20V13M16 9V13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/></g>
+<text x="352" y="207" text-anchor="middle" font-size="16">02</text>
+<text x="456" y="170" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(576 88) scale(4)">  <path d="M12 4.5L16 8.5L12 12.5L8 8.5ZM12 12.5V20H17M12 16H16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/></g>
+<g transform="translate(720 128) scale(0.6666666666666666)">  <path d="M12 4.5L16 8.5L12 12.5L8 8.5ZM12 12.5V20H17M12 16H16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/></g>
+<text x="624" y="207" text-anchor="middle" font-size="16">03</text>
+<text x="728" y="170" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(32 276) scale(4)">  <path d="M4 4H10V10H4ZM10 7H20V10M14 14H20V20H14ZM14 17H4V14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/></g>
+<g transform="translate(176 316) scale(0.6666666666666666)">  <path d="M4 4H10V10H4ZM10 7H20V10M14 14H20V20H14ZM14 17H4V14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/></g>
+<text x="80" y="395" text-anchor="middle" font-size="16">04</text>
+<text x="184" y="358" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(304 276) scale(4)">  <path d="M7 4.5L9.5 7L7 9.5L4.5 7ZM10 7H20V11M7 14.5L9.5 17L7 19.5L4.5 17ZM10 17H17V20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/></g>
+<g transform="translate(448 316) scale(0.6666666666666666)">  <path d="M7 4.5L9.5 7L7 9.5L4.5 7ZM10 7H20V11M7 14.5L9.5 17L7 19.5L4.5 17ZM10 17H17V20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/></g>
+<text x="352" y="395" text-anchor="middle" font-size="16">05</text>
+<text x="456" y="358" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(576 276) scale(4)">  <path d="M10 4H6L4 6V10L6 12H10L12 10V6M11 11L17 17H20V20H16L13 17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/></g>
+<g transform="translate(720 316) scale(0.6666666666666666)">  <path d="M10 4H6L4 6V10L6 12H10L12 10V6M11 11L17 17H20V20H16L13 17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/></g>
+<text x="624" y="395" text-anchor="middle" font-size="16">06</text>
+<text x="728" y="358" text-anchor="middle" font-size="11">16px</text>
+</g>
+</svg>

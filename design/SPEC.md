@@ -118,6 +118,10 @@ A new family is not drawn one glyph at a time. First an exploration sheet of twe
 
 The research is tactical HUD glyphs, avionics symbology, technical diagrams, telecom symbols, industrial labelling, map symbols, signal routing, radio interfaces, equipment status icons and geometric wayfinding. Games are visual research only; their SVGs and textures are never extracted.
 
+**A glyph that skips the grammar is the one that reads as foreign.** The tell is always the same: a stock outline symbol standing in for a thing — a sheet of paper for machines, a cog for settings, a notched cross for extensions, three dots for a place. So no glyph reaches `assets/icons/` without an approved file in `design/production/icons/` and a row in that directory's index naming its meaning, its node class, its modifier and its minimum size. A closed outline is drawn only where the container is the subject — a rack unit, a bay of slots, a keycap, a control frame — and never as a traced picture of an object.
+
+**No destination and no action borrows another's glyph.** A borrowed glyph is a claim the two things are the same thing, and the reader believes it.
+
 ### Assets are sorted by what they are allowed to become
 
 ```
@@ -274,6 +278,8 @@ The idle first frame, centred on a flat dark ground, as the adaptive foreground 
 ### Four tabs, and the bar is glyph over label
 
 `HOME`, `PROJECTS`, `HOSTS`, `SSH`. Each tab is a house glyph over a mono 9 label, accent on the active one, with a thin top rule segment over it. No floating centre button, no pill container, no glow.
+
+**Every tab owns its glyph rather than borrowing one.** A destination is a place, and a glyph shared with an action says the place is that action. `HOME` is a roof over a baseline with the local endpoint under it. `HOSTS` is two stacked rack units carrying a system node each — machines, not a page of text. `SSH` is a prompt caret with the cursor block after it, because what is behind that tab is a terminal and nothing about a terminal is an abstract coupling. `TOOLS` is a bay of docked slots holding unlike modules, which is what a destination filled by plugin pages is.
 
 **Struck:** an `ACTIVITY` tab and a `SEARCH` tab. Activity events keep being written and nothing draws them; search, if it returns, returns as a field on Projects rather than as a place to go.
 
@@ -638,6 +644,14 @@ The box keeps its 24px border. Inside it the agent's official mark is reduced to
 **Struck:** a colour per agent. It reads well enough on its own and it costs the thing the panel is for — the accent is the one colour here that is asking the user for something, and a row of six hues beside it is six things competing with the only one that means anything. The mark carries the identity and the name is written beside it.
 
 The name itself stays plain text as the server reports it, uppercased.
+
+### The pet is a glyph in the family and is bound to no surface
+
+An agent drawn as a small hard-edged creature — angular ears, two diamond eyes, an open jaw — with a second file that closes the viewer's left eye to a bar of the same width, so the pair is a wink and not a redraw. Both live in the family, in the same stroke language as every other glyph, and neither references any vendor.
+
+It is not the mark for an unplaceable agent: that box carries the agent's own initial, and one creature drawn for every unknown name is the identical-box problem the question mark was struck for. It is not the mascot either, which is pixel art and is Dazzle's identity rather than an agent's.
+
+Nothing on any screen asks for it yet. The wink, when a surface does take it, is one autonomous tick and never a loop.
 
 ### A tap on an agent row lands in its pane
 
@@ -1163,7 +1177,7 @@ The reason lines are `unreachable`, `unresolved`, `key rejected`, `tunnel refuse
 
 **Gestures.** A tap moves the pointer there and left-clicks. A long press right-clicks; a long press then a drag holds button 1 while moving. A pinch zooms about its own centre, and a two-finger drag pans the zoomed view — at fit, where there is nothing to pan, it sends wheel events instead, one button 4/5 press and release per 40px.
 
-**The rail** is a vertical panel on the left edge of the picture, vertically centred, over it: three 44px toggles stacked, one for the soft keyboard, one for the key strip and one that arms crop mode, ink `--fg-dim` and accent while the thing it toggles is up. The keyboard and the strip are independent — strip without keyboard, keyboard without strip, both, neither — and closing the keyboard by the system gesture or the IME's own hide leaves the strip where it was. It keeps the same edge in landscape.
+**The rail** is a vertical panel on the left edge of the picture, vertically centred, over it: three 44px toggles stacked, one for the soft keyboard, one for the key strip and one that arms crop mode, ink `--fg-dim` and accent while the thing it toggles is up. The keyboard toggle is a panel of key rules over a spacebar and the strip toggle is a single keycap carrying a caret: stacked one above the other, two drawings of a keyboard differing only in how many rules they hold are one drawing to the reader. The keyboard and the strip are independent — strip without keyboard, keyboard without strip, both, neither — and closing the keyboard by the system gesture or the IME's own hide leaves the strip where it was. It keeps the same edge in landscape.
 
 **The rail hides on a drag to the left over it.** It slides off the edge and leaves an 8×44 handle at its vertical centre, `--fg-dim` fill with a 1dp keyline so it separates from a light picture behind it. The hidden rail keeps the footprint the shown rail had as its hit region, transparent except for the handle: a drag to the right starting anywhere in it, or a tap on it, brings it back. That region reaches past the system's own back-gesture edge zone, which would otherwise swallow a drag starting on the handle itself. Pointer drags starting inside that patch belong to the rail and to nothing else on the picture. It is shown on every route entry, the hidden state lives with the route and is not persisted, and there is no timed auto-hide.
 

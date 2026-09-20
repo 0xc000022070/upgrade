@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="464" viewBox="0 0 840 464">
+<rect width="840" height="464" fill="#08090B"/>
+<g color="#E8E8E3" fill="currentColor" font-family="sans-serif">
+<text x="32" y="38" font-size="22">home</text>
+<text x="32" y="62" font-size="12">96px glyphs / 16px glyphs</text>
+<g transform="translate(32 88) scale(4)">  <path d="M4 12.5L12 4.5L20 12.5M6 20H18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <path d="M12 12L14 14L12 16L10 14Z" fill="currentColor"/></g>
+<g transform="translate(176 128) scale(0.6666666666666666)">  <path d="M4 12.5L12 4.5L20 12.5M6 20H18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <path d="M12 12L14 14L12 16L10 14Z" fill="currentColor"/></g>
+<text x="80" y="207" text-anchor="middle" font-size="16">01</text>
+<text x="184" y="170" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(304 88) scale(4)">  <path d="M12 10V4M14 12H20M10 14L4 20M6 20H4V18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <path d="M12 10L14 12L12 14L10 12Z" fill="currentColor"/></g>
+<g transform="translate(448 128) scale(0.6666666666666666)">  <path d="M12 10V4M14 12H20M10 14L4 20M6 20H4V18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <path d="M12 10L14 12L12 14L10 12Z" fill="currentColor"/></g>
+<text x="352" y="207" text-anchor="middle" font-size="16">02</text>
+<text x="456" y="170" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(576 88) scale(4)">  <path d="M4 5H20V17H12M15 14L12 17L15 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <path d="M7 14L10 17L7 20L4 17Z" fill="currentColor"/></g>
+<g transform="translate(720 128) scale(0.6666666666666666)">  <path d="M4 5H20V17H12M15 14L12 17L15 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <path d="M7 14L10 17L7 20L4 17Z" fill="currentColor"/></g>
+<text x="624" y="207" text-anchor="middle" font-size="16">03</text>
+<text x="728" y="170" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(32 276) scale(4)">  <path d="M4 10V14L10 20H14L20 14V10M8 8.5L12 4.5L16 8.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <path d="M12 11L14 13L12 15L10 13Z" fill="currentColor"/></g>
+<g transform="translate(176 316) scale(0.6666666666666666)">  <path d="M4 10V14L10 20H14L20 14V10M8 8.5L12 4.5L16 8.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <path d="M12 11L14 13L12 15L10 13Z" fill="currentColor"/></g>
+<text x="80" y="395" text-anchor="middle" font-size="16">04</text>
+<text x="184" y="358" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(304 276) scale(4)">  <path d="M12 10V14M4 20V16H20V20M12 14V20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <path d="M12 4L15 7L12 10L9 7Z" fill="currentColor"/></g>
+<g transform="translate(448 316) scale(0.6666666666666666)">  <path d="M12 10V14M4 20V16H20V20M12 14V20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <path d="M12 4L15 7L12 10L9 7Z" fill="currentColor"/></g>
+<text x="352" y="395" text-anchor="middle" font-size="16">05</text>
+<text x="456" y="358" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(576 276) scale(4)">  <path d="M8 20V6L10 4H14L16 6V20M4 12H8M16 12H20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <path d="M12 13L14 15L12 17L10 15Z" fill="currentColor"/></g>
+<g transform="translate(720 316) scale(0.6666666666666666)">  <path d="M8 20V6L10 4H14L16 6V20M4 12H8M16 12H20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <path d="M12 13L14 15L12 17L10 15Z" fill="currentColor"/></g>
+<text x="624" y="395" text-anchor="middle" font-size="16">06</text>
+<text x="728" y="358" text-anchor="middle" font-size="11">16px</text>
+</g>
+</svg>

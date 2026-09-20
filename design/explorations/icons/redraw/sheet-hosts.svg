@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="464" viewBox="0 0 840 464">
+<rect width="840" height="464" fill="#08090B"/>
+<g color="#E8E8E3" fill="currentColor" font-family="sans-serif">
+<text x="32" y="38" font-size="22">hosts</text>
+<text x="32" y="62" font-size="12">96px glyphs / 16px glyphs</text>
+<g transform="translate(32 88) scale(4)">  <path d="M6 6V18M6 6H14M6 12H14M6 18H14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <rect x="14" y="4" width="4" height="4" fill="currentColor"/>
+  <rect x="14" y="10" width="4" height="4" fill="currentColor"/>
+  <rect x="14" y="16" width="4" height="4" fill="currentColor"/></g>
+<g transform="translate(176 128) scale(0.6666666666666666)">  <path d="M6 6V18M6 6H14M6 12H14M6 18H14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <rect x="14" y="4" width="4" height="4" fill="currentColor"/>
+  <rect x="14" y="10" width="4" height="4" fill="currentColor"/>
+  <rect x="14" y="16" width="4" height="4" fill="currentColor"/></g>
+<text x="80" y="207" text-anchor="middle" font-size="16">01</text>
+<text x="184" y="170" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(304 88) scale(4)">  <path d="M6 10V16H18V10M12 16V20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <rect x="3" y="4" width="6" height="6" fill="currentColor"/>
+  <rect x="15" y="4" width="6" height="6" fill="currentColor"/></g>
+<g transform="translate(448 128) scale(0.6666666666666666)">  <path d="M6 10V16H18V10M12 16V20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <rect x="3" y="4" width="6" height="6" fill="currentColor"/>
+  <rect x="15" y="4" width="6" height="6" fill="currentColor"/></g>
+<text x="352" y="207" text-anchor="middle" font-size="16">02</text>
+<text x="456" y="170" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(576 88) scale(4)">  <path d="M6 8V12H12V18H16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <rect x="4" y="4" width="4" height="4" fill="currentColor"/>
+  <rect x="10" y="10" width="4" height="4" fill="currentColor"/>
+  <rect x="16" y="16" width="4" height="4" fill="currentColor"/></g>
+<g transform="translate(720 128) scale(0.6666666666666666)">  <path d="M6 8V12H12V18H16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <rect x="4" y="4" width="4" height="4" fill="currentColor"/>
+  <rect x="10" y="10" width="4" height="4" fill="currentColor"/>
+  <rect x="16" y="16" width="4" height="4" fill="currentColor"/></g>
+<text x="624" y="207" text-anchor="middle" font-size="16">03</text>
+<text x="728" y="170" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(32 276) scale(4)">  <path d="M8 6H16M8 18H16M12 6V18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <rect x="4" y="4" width="4" height="4" fill="currentColor"/>
+  <rect x="16" y="4" width="4" height="4" fill="currentColor"/>
+  <rect x="4" y="16" width="4" height="4" fill="currentColor"/>
+  <rect x="16" y="16" width="4" height="4" fill="currentColor"/></g>
+<g transform="translate(176 316) scale(0.6666666666666666)">  <path d="M8 6H16M8 18H16M12 6V18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <rect x="4" y="4" width="4" height="4" fill="currentColor"/>
+  <rect x="16" y="4" width="4" height="4" fill="currentColor"/>
+  <rect x="4" y="16" width="4" height="4" fill="currentColor"/>
+  <rect x="16" y="16" width="4" height="4" fill="currentColor"/></g>
+<text x="80" y="395" text-anchor="middle" font-size="16">04</text>
+<text x="184" y="358" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(304 276) scale(4)">  <path d="M4 7H9M15 7H20M4 17H9M15 17H20M12 10V14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <rect x="9" y="4" width="6" height="6" fill="currentColor"/>
+  <rect x="9" y="14" width="6" height="6" fill="currentColor"/></g>
+<g transform="translate(448 316) scale(0.6666666666666666)">  <path d="M4 7H9M15 7H20M4 17H9M15 17H20M12 10V14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <rect x="9" y="4" width="6" height="6" fill="currentColor"/>
+  <rect x="9" y="14" width="6" height="6" fill="currentColor"/></g>
+<text x="352" y="395" text-anchor="middle" font-size="16">05</text>
+<text x="456" y="358" text-anchor="middle" font-size="11">16px</text>
+<g transform="translate(576 276) scale(4)">  <path d="M8 6H18V12M6 8V18H12M16 14L14 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <rect x="4" y="4" width="4" height="4" fill="currentColor"/>
+  <rect x="16" y="10" width="4" height="4" fill="currentColor"/>
+  <rect x="10" y="16" width="4" height="4" fill="currentColor"/></g>
+<g transform="translate(720 316) scale(0.6666666666666666)">  <path d="M8 6H18V12M6 8V18H12M16 14L14 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <rect x="4" y="4" width="4" height="4" fill="currentColor"/>
+  <rect x="16" y="10" width="4" height="4" fill="currentColor"/>
+  <rect x="10" y="16" width="4" height="4" fill="currentColor"/></g>
+<text x="624" y="395" text-anchor="middle" font-size="16">06</text>
+<text x="728" y="358" text-anchor="middle" font-size="11">16px</text>
+</g>
+</svg>
