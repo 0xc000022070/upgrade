@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dazzle/application/agents.dart';
@@ -172,5 +173,24 @@ void main() {
       );
       expect(await file.readAsString(), contents);
     }
+  });
+
+  test('whole numbers reach the engine spelled as counts', () {
+    // Everything a plugin writes crosses as a float64, so a revision of 0 and a
+    // timeout of 900 arrive here as doubles and would be sent as `0.0` and
+    // `900.0`. The engine reads those fields as counts and refuses a fraction.
+    final request = wholeNumbers({
+      'schedule': {
+        'revision': 0.0,
+        'timeout': 900.0,
+        'title': 'Nightly sweep',
+        'weights': <Object?>[1.0, 2.5],
+      },
+    });
+    expect(
+      jsonEncode(request),
+      '{"schedule":{"revision":0,"timeout":900,'
+          '"title":"Nightly sweep","weights":[1,2.5]}}',
+    );
   });
 }

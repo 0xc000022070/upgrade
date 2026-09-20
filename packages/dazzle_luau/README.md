@@ -45,7 +45,7 @@ Declare each alias under `host_capabilities.<alias>` with `api_version = 1`, a `
 Current services:
 
 - `hosts`: `list` returns registered host IDs and names.
-- `scheduler`: `inspect`, `setup`, `list`, `get`, `save`, `pause`, `resume`, `run`, `history`, `output`, `usage`, `pause_scope`, `resume_scope`. Arguments include a registered `host` ID. Source installation is supplied by Dazzle, never accepted from script arguments.
+- `scheduler`: `inspect`, `setup`, `list`, `get`, `save`, `pause`, `resume`, `run`, `history`, `output`, `usage`, `pause_scope`, `resume_scope`. Arguments include a registered `host` ID. The call reaches that host's `dazzle-engine` over the `schedule/1` service; no code is ever shipped to the machine.
 
 Host storage is scoped by plugin ID and source origin. No operation accepts another plugin's owner or arbitrary storage path. Each scope has its own versioned SQLite database and run output files. UI state, local dataset usage, and remote scheduler storage are separate measurements.
 
@@ -53,9 +53,9 @@ This API isolation is not an OS sandbox for agent processes. Granting agent exec
 
 ## Agent schedules
 
-The built-in Luau plugin is disabled until enabled in Settings. It does not depend on Drops or Projects. On a registered, verified Linux host, setup requires Python 3.9+, systemd user services, login linger, and an installed, authenticated Codex or Claude CLI. Unsupported hosts explain what is missing; macOS and Windows adapters are not implemented.
+The built-in Luau plugin is disabled until enabled in Settings. It does not depend on Drops or Projects. On a registered, verified Linux host, setup requires an installed `dazzle-engine` carrying `schedule/1`, systemd user services, login linger, and an installed, authenticated Codex or Claude CLI. A host whose engine is absent, or whose engine does not carry that service, reports the missing capability instead of simulating a schedule. Dazzle never installs the engine; the machine's owner declares it.
 
-Setup writes only the owner's Dazzle runner, database, and systemd user service/timer. It does not enable linger, alter SSH authorization, or replace existing host jobs. The timer checks once per minute. Each run uses a separate transient user service, survives phone disconnection, and uses the host agent's existing permissions and authentication. No permission-bypass flags are added.
+Setup writes only the engine's own state for that scope and the systemd user service/timer it arms. It does not enable linger, alter SSH authorization, or replace existing host jobs. The timer checks once per minute. Each run uses a separate transient user service, survives phone disconnection, and uses the host agent's existing permissions and authentication. No permission-bypass flags are added.
 
 Schedules support once or daily execution, IANA timezone, repository directory, prompt, optional model, and timeout. Editing uses optimistic revisions. Occurrences and manual request IDs are deduplicated. Runs over five minutes late are recorded as missed instead of silently replayed. Nonexistent daily times during daylight-saving transitions are skipped; ambiguous times use the first occurrence.
 

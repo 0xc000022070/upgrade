@@ -65,3 +65,6 @@ result-*
 
 # Release artifacts staged for faraday to pull — `just publish`
 /publish/
+
+# Rust build output for the host engine
+/engine/target/

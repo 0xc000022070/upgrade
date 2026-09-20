@@ -11,6 +11,17 @@
         "aarch64-linux"
       ];
 
+      # The engine is a plain Rust binary and builds anywhere; the dev shell
+      # cannot follow it onto darwin, because it composes an unfree Android SDK.
+      # Apple Silicon only: nixpkgs 26.11 dropped x86_64-darwin outright, and
+      # naming it here makes the whole flake refuse to evaluate.
+      engineSystems = systems ++ [ "aarch64-darwin" ];
+
+      forEngineSystems =
+        f: nixpkgs.lib.genAttrs engineSystems (system: f (import nixpkgs { inherit system; }));
+
+      engineFor = pkgs: self.packages.${pkgs.stdenv.hostPlatform.system}.engine;
+
       forAllSystems =
         f:
         nixpkgs.lib.genAttrs systems (
@@ -25,49 +36,55 @@
             }
           )
         );
+
+      hostVmPackages =
+        let
+          pkgs = import nixpkgs { system = "x86_64-linux"; };
+        in
+        {
+          host-vm = self.nixosConfigurations.dazzle-host.config.system.build.vm;
+
+          host-ssh = pkgs.writeShellApplication {
+            name = "dazzle-host-ssh";
+            runtimeInputs = [
+              pkgs.openssh
+              pkgs.sshpass
+            ];
+            text = ''
+              exec sshpass -p dev ssh \
+                -p 2222 \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                dev@127.0.0.1 "$@"
+            '';
+          };
+
+          host-vm-runner = pkgs.writeShellApplication {
+            name = "dazzle-host-vm";
+            runtimeInputs = [ pkgs.coreutils ];
+            text = ''
+              state_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/dazzle"
+              mkdir -p "$state_dir"
+              export NIX_DISK_IMAGE="$state_dir/host-vm.qcow2"
+              exec ${self.packages.x86_64-linux.host-vm}/bin/run-${self.nixosConfigurations.dazzle-host.config.system.name}-vm "$@"
+            '';
+          };
+        };
     in
     {
       nixosConfigurations.dazzle-host = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-        modules = [ ./nix/host-vm.nix ];
+        modules = [
+          ./nix/host-vm.nix
+          self.nixosModules.dazzle-engine
+        ];
       };
 
-      packages.x86_64-linux.host-vm = self.nixosConfigurations.dazzle-host.config.system.build.vm;
-
-      packages.x86_64-linux.host-ssh =
-        let
-          pkgs = import nixpkgs { system = "x86_64-linux"; };
-        in
-        pkgs.writeShellApplication {
-          name = "dazzle-host-ssh";
-          runtimeInputs = [
-            pkgs.openssh
-            pkgs.sshpass
-          ];
-          text = ''
-            exec sshpass -p dev ssh \
-              -p 2222 \
-              -o StrictHostKeyChecking=no \
-              -o UserKnownHostsFile=/dev/null \
-              dev@127.0.0.1 "$@"
-          '';
-        };
-
-      packages.x86_64-linux.host-vm-runner =
-        let
-          pkgs = import nixpkgs { system = "x86_64-linux"; };
-          vm = self.packages.x86_64-linux.host-vm;
-        in
-        pkgs.writeShellApplication {
-          name = "dazzle-host-vm";
-          runtimeInputs = [ pkgs.coreutils ];
-          text = ''
-            state_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/dazzle"
-            mkdir -p "$state_dir"
-            export NIX_DISK_IMAGE="$state_dir/host-vm.qcow2"
-            exec ${vm}/bin/run-${self.nixosConfigurations.dazzle-host.config.system.name}-vm "$@"
-          '';
-        };
+      # The host-VM fixtures are x86_64-linux only, so they are merged onto the
+      # engine's four systems rather than declared beside them.
+      packages = nixpkgs.lib.recursiveUpdate (forEngineSystems (pkgs: {
+        engine = pkgs.callPackage ./nix/engine.nix { };
+      })) { x86_64-linux = hostVmPackages; };
 
       apps.x86_64-linux.host-vm = {
         type = "app";
@@ -80,6 +97,35 @@
         program = "${self.packages.x86_64-linux.host-ssh}/bin/dazzle-host-ssh";
         meta.description = "Run a command on the Dazzle remote host fixture";
       };
+
+      # The engine is declared by the owner of a machine, never installed by the
+      # app, so the module is the only supported way onto a host.
+      nixosModules.dazzle-engine =
+        { pkgs, lib, ... }:
+        {
+          imports = [ ./nix/engine-module.nix ];
+          services.dazzle-engine.package = lib.mkDefault (engineFor pkgs);
+        };
+
+      nixosModules.default = self.nixosModules.dazzle-engine;
+
+      darwinModules.dazzle-engine =
+        { pkgs, lib, ... }:
+        {
+          imports = [ ./nix/engine-darwin.nix ];
+          services.dazzle-engine.package = lib.mkDefault (engineFor pkgs);
+        };
+
+      darwinModules.default = self.darwinModules.dazzle-engine;
+
+      homeModules.dazzle-engine =
+        { pkgs, lib, ... }:
+        {
+          imports = [ ./nix/engine-home.nix ];
+          services.dazzle-engine.package = lib.mkDefault (engineFor pkgs);
+        };
+
+      homeModules.default = self.homeModules.dazzle-engine;
 
       devShells = forAllSystems (
         pkgs:
@@ -137,6 +183,10 @@
               pkgs.sqlite
               pkgs.just
               jdk
+              pkgs.cargo
+              pkgs.rustc
+              pkgs.clippy
+              pkgs.rustfmt
             ];
 
             # Linux desktop target: flutter drives cmake/ninja/clang against GTK.
