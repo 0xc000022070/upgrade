@@ -6,7 +6,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:dazzle_luau/data_api.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -14,7 +14,6 @@ import '../data/repositories/host_repository.dart';
 import '../platform/host_keys.dart';
 import '../platform/plugins/manifest.dart';
 import '../platform/plugins/store.dart';
-import '../platform/shell/remote_shell.dart';
 import 'agents.dart';
 
 typedef PluginHostConfirm = Future<bool> Function(
@@ -24,7 +23,7 @@ typedef PluginHostConfirm = Future<bool> Function(
 );
 typedef PluginHostTransport = Future<Map<String, Object?>> Function(
   Host host,
-  String owner,
+  String scope,
   String operation,
   Map<String, Object?> args,
 );
@@ -145,10 +144,24 @@ String pluginHostOwner(InstalledPlugin plugin) => sha256
     .convert(utf8.encode(DataOwner(plugin.id, plugin.package.origin).identity))
     .toString();
 
+/// Luau has one number type, so every whole number a plugin writes arrives here as
+/// a double and would go on the wire spelled `0.0`. The engine's fields are typed,
+/// and it is right to refuse a fraction where it asked for a count, so the whole
+/// ones are put back the way the plugin meant them rather than the ABI loosened.
+@visibleForTesting
+Object? wholeNumbers(Object? value) => switch (value) {
+  final double number when number.isFinite && number == number.roundToDouble() =>
+    number.toInt(),
+  final Map<String, Object?> map => {
+    for (final entry in map.entries) entry.key: wholeNumbers(entry.value),
+  },
+  final List<Object?> list => [for (final item in list) wholeNumbers(item)],
+  _ => value,
+};
+
 final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
   final keys = ref.watch(privateKeyStoreProvider);
-  Future<String>? source;
-  return (host, owner, operation, args) async {
+  return (host, scope, operation, args) async {
     if (host.hostKey == null) {
       throw const PluginException(
         'Verify the host key in HOSTS before connecting',
@@ -158,9 +171,6 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
     if (privateKey == null) {
       throw const PluginException('Host private key is unavailable');
     }
-    final script = await (source ??= rootBundle.loadString(
-      'assets/host/scheduler.py',
-    ));
     final verifier = HostKeyVerifier.pinnedOnly(host.hostKey);
     final socket = await SSHSocket.connect(
       host.address,
@@ -177,11 +187,8 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
     );
     try {
       await client.authenticated.timeout(const Duration(seconds: 15));
-      final command = underSh(
-        'exec python3 -c ${shellQuote(script)} ${shellQuote(operation)} ${shellQuote(owner)}',
-      );
       final session = await client
-          .execute(command)
+          .execute('dazzle-engine')
           .timeout(const Duration(seconds: 10));
       final output = BytesBuilder(copy: false);
       final errors = BytesBuilder(copy: false);
@@ -200,7 +207,12 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
       session.stdin.add(
         Uint8List.fromList(
           utf8.encode(
-            jsonEncode({...args, if (operation == 'setup') 'source': script}),
+            jsonEncode({
+              'service': 'schedule/1',
+              'op': operation,
+              'owner': host.user,
+              'args': wholeNumbers({...args, 'scope': scope}),
+            }),
           ),
         ),
       );
@@ -212,23 +224,39 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
       try {
         response = jsonDecode(raw);
       } on FormatException {
-        throw PluginException(
-          'Host scheduler did not answer. ${utf8.decode(errors.takeBytes(), allowMalformed: true).trim()}',
-        );
+        final complaint = utf8
+            .decode(errors.takeBytes(), allowMalformed: true)
+            .trim();
+        // A machine with no engine answers over the shell instead: 127 and a line of its own.
+        if (session.exitCode == 127 || complaint.endsWith('not found')) {
+          throw const PluginException(
+            'This host has no dazzle-engine installed',
+          );
+        }
+        throw PluginException('Host engine did not answer. $complaint');
       }
       if (response is! Map<String, Object?>) {
-        throw const PluginException('Invalid scheduler response');
+        throw const PluginException('Invalid engine response');
       }
-      if (response['ok'] != true || session.exitCode != 0) {
+      if (response['ok'] != true) {
+        final error = response['error'];
+        final failure = error is Map<String, Object?>
+            ? error
+            : const <String, Object?>{};
+        final message = failure['message'] is String
+            ? failure['message']! as String
+            : 'Host scheduling failed';
         throw PluginException(
-          response['error'] as String? ?? 'Host scheduling failed',
+          failure['kind'] == 'unsupported'
+              ? "This host's engine does not carry scheduling. $message"
+              : message,
         );
       }
-      final value = response['value'];
-      if (value is! Map<String, Object?>) {
-        throw const PluginException('Invalid scheduler result');
+      final result = response['result'];
+      if (result is! Map<String, Object?>) {
+        throw const PluginException('Invalid engine result');
       }
-      return value;
+      return result;
     } finally {
       client.close();
       socket.close();
@@ -464,7 +492,6 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
             }
             check();
             final parameters = Map<String, Object?>.of(args)..remove('host');
-            parameters.remove('source');
             final result = await transport(host, owner, operation, parameters);
             check();
             if (operation == 'inspect' &&

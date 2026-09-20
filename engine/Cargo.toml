@@ -1,0 +1,26 @@
+[package]
+name = "dazzle-engine"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "The host side of a Dazzle plugin: one binary, exec'd per call."
+license = "MIT"
+
+[[bin]]
+name = "dazzle-engine"
+path = "src/main.rs"
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+chrono-tz = "0.10"
+libc = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

@@ -193,7 +193,7 @@ local function view(state)
             table.insert(children, ui.Box {key = "setup", children = {
                 label("setup_title", info.supported and "HOST READY" or "HOST SUPPORT REQUIRED", "accent", 14),
                 ui.Spacer {key = "setup_space", height = 12},
-                label("setup_reason", info.supported and "Install the private runner and systemd user timer on this host. No other jobs are changed." or info.reason),
+                label("setup_reason", info.supported and ("Install the private runner and " .. (info.platform == "darwin" and "launchd agent" or "systemd user timer") .. " on this host. No other jobs are changed.") or info.reason),
                 info.supported and button("setup_button", "ENABLE HOST SCHEDULING", "setup", nil, true) or button("probe_again", "CHECK HOST AGAIN", "inspect", nil),
             }})
         elseif state.mode == "edit" then

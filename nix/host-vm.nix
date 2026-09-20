@@ -61,8 +61,14 @@ in
     '';
   };
 
+  # The fixture host is a scheduling host. Linger is the half of it that is easy to
+  # miss: without it the user's systemd instance stops at logout, and the engine
+  # reports the host unsupported rather than installing a timer that would only run
+  # while somebody happened to be logged in.
+  services.dazzle-engine.enable = true;
   users.users.dev = {
     isNormalUser = true;
+    linger = true;
     initialPassword = "dev";
     extraGroups = [ "wheel" ];
     shell = pkgs.zsh;

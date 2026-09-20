@@ -69,7 +69,6 @@ flutter:
     - plugins/agent-schedules/main.luau
     - plugins/board/dazzle.plugin.toml
     - plugins/board/main.luau
-    - assets/host/scheduler.py
     - assets/icons/
     - assets/icons/signal/
     - assets/sprites/

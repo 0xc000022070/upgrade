@@ -247,3 +247,25 @@ xterm-patches:
 # Prove the patches reproduce .dart_tool/xterm exactly.
 xterm-verify:
     tool/xterm-patches.sh verify
+
+# The host engine. Its own toolchain and its own tree: nothing under engine/ is
+# Dart, so `just analyze` and `just test` do not reach it and these do.
+engine-build:
+    cargo build --manifest-path engine/Cargo.toml --release
+
+# The suite drives the built binary over stdin, so it is the protocol under test
+# and not the functions behind it.
+engine-test:
+    cargo test --manifest-path engine/Cargo.toml
+
+engine-gate:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo fmt --manifest-path engine/Cargo.toml --check
+    cargo clippy --manifest-path engine/Cargo.toml --all-targets -- -D warnings
+    cargo test --manifest-path engine/Cargo.toml
+
+# One call answered end to end. Through `cargo run` and not a path under engine/,
+# because CARGO_TARGET_DIR may put the binary anywhere.
+engine-probe:
+    echo '{"service":"lifecycle","op":"probe"}' | cargo run --quiet --release --manifest-path engine/Cargo.toml
