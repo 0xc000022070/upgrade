@@ -354,6 +354,13 @@ void main() {
     expect(HerdrClient.isPromptStalled(null), isFalse);
   });
 
+  test('an agent that has not announced itself is waited out, not reported', () {
+    expect(HerdrClient.isAgentPending('agent_not_ready'), isTrue);
+    expect(HerdrClient.isAgentPending('agent_prompt_stalled'), isFalse);
+    expect(HerdrClient.isAgentPending('agent_blocked'), isFalse);
+    expect(HerdrClient.isAgentPending(null), isFalse);
+  });
+
   test('wait and read target the pane', () {
     const pane = (session: 'lab', pane: 'w1:p2');
     final wait = HerdrRequests.wait(pane, timeout: const Duration(seconds: 15));

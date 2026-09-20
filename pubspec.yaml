@@ -2,7 +2,7 @@ name: dazzle
 description: Local-first personal control plane.
 publish_to: 'none'
 
-version: 1.0.0+125
+version: 1.0.0+126
 
 environment:
   sdk: ^3.13.0

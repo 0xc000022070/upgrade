@@ -536,12 +536,15 @@ class HerdrSession {
           await _closeWorkspace(made, name);
           return const SpawnRefused(SpawnRefusal.timedOut);
         }
+        await _awaitReady(pane);
+        var sent = await _call(name, HerdrRequests.prompt(pane, prompt));
         // An agent that has just repainted after its trust dialog is idle to herdr a beat
         // before it reads input, and text sent in that beat is gone without a trace.
-        var sent = await _call(name, HerdrRequests.prompt(pane, prompt));
         for (var attempt = 1; attempt < promptAttempts && !expired; attempt++) {
-          if (sent is! HerdrRefusal ||
-              !HerdrClient.isPromptStalled(sent.code)) {
+          if (sent is! HerdrRefusal) break;
+          if (HerdrClient.isAgentPending(sent.code)) {
+            if (await _acceptTrust(pane, kind) == null) await _awaitReady(pane);
+          } else if (!HerdrClient.isPromptStalled(sent.code)) {
             break;
           }
           sent = await _call(name, HerdrRequests.prompt(pane, prompt));
@@ -620,6 +623,11 @@ class HerdrSession {
       }
       await Future<void>.delayed(promptPoll);
     }
+  }
+
+  /// A start is answered the moment the process is on the pane, not when the agent is up.
+  Future<void> _awaitReady(PaneRef pane) async {
+    await _call(pane.session, HerdrRequests.wait(pane, timeout: agentSettle));
   }
 
   /// `agent_not_ready` is the agent up and waiting on something, and in a directory it has
@@ -990,6 +998,8 @@ const promptPoll = Duration(milliseconds: 100);
 
 const trustSettle = Duration(seconds: 15);
 
+const agentSettle = Duration(seconds: 20);
+
 /// Enough of the pane to hold either agent's trust dialog whole.
 const trustLines = 40;
 
@@ -1104,6 +1114,8 @@ class HerdrClient {
     'agent_prompt_stalled' || 'timeout' => true,
     _ => false,
   };
+
+  static bool isAgentPending(String? code) => code == 'agent_not_ready';
 
   /// Paths are newline-delimited now. JSON arrays remain accepted for hosts running the
   /// previous command wrapper.
