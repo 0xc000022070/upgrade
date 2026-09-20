@@ -239,6 +239,19 @@ class TaskRepository {
         return 'unflagged';
       });
 
+  Future<void> setPriority(String id, Priority priority, {DateTime? at}) =>
+      _mutations
+          .on(id)
+          .at(at)
+          .unchangedWhen((task) => task.priority == priority)
+          .writes(ActivityAction.updated, (task, now) async {
+            await _write(
+              id,
+              TasksCompanion(priority: Value(priority), updatedAt: Value(now)),
+            );
+            return priority.index > task.priority.index ? 'raised' : 'lowered';
+          });
+
   Future<void> moveToTarget(String id, ItemTarget target, {DateTime? at}) =>
       _mutations
           .on(id)

@@ -138,6 +138,17 @@ class ProjectRepository {
         return '${project.status.name} → ${status.name}';
       });
 
+  Future<void> setPriority(String id, Priority priority) => _mutations
+      .on(id)
+      .unchangedWhen((project) => project.priority == priority)
+      .writes(ActivityAction.updated, (project, now) async {
+        await _write(
+          id,
+          ProjectsCompanion(priority: Value(priority), updatedAt: Value(now)),
+        );
+        return priority.index > project.priority.index ? 'raised' : 'lowered';
+      });
+
   Future<void> archive(String id) => setStatus(id, ProjectStatus.archived);
 
   Future<void> unarchive(String id) => setStatus(id, ProjectStatus.active);

@@ -5,11 +5,13 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/enums.dart';
+import 'package:dazzle/data/repositories/activity_repository.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/data/repositories/key_repository.dart';
 import 'package:dazzle/data/repositories/path_repository.dart';
 import 'package:dazzle/data/repositories/shell_tab_repository.dart';
 import 'package:dazzle/data/repositories/settings_repository.dart';
+import 'package:dazzle/data/repositories/task_repository.dart';
 
 /// Written out by hand: the migration meets a database it did not create, so no fixture
 /// here may come from the current table definitions.
@@ -215,6 +217,14 @@ CREATE TABLE shell_tabs (
 const _v14Schema = [
   ..._v13Schema,
   'ALTER TABLE paths ADD COLUMN project_id TEXT REFERENCES projects (id)',
+];
+
+const _v15Schema = [
+  ..._v14Schema,
+  'ALTER TABLE shell_tabs ADD COLUMN remote_session TEXT',
+  'ALTER TABLE shell_tabs ADD COLUMN herdr_session TEXT',
+  'ALTER TABLE shell_tabs ADD COLUMN herdr_pane TEXT',
+  'ALTER TABLE shell_tabs ADD COLUMN retired_at TEXT',
 ];
 
 /// Drives [QueryExecutor.ensureOpen] to stamp `user_version = 2` and lay down the old
@@ -873,6 +883,49 @@ void main() {
     expect(rows[1].remoteSession, 's12345');
     expect(rows[2].herdrSession, 'work');
     expect(rows[2].herdrPane, 'w2a:p3');
+  });
+
+  test('a v15 item lands on the step a capture lands on', () async {
+    final executor = NativeDatabase(file);
+    await executor.ensureOpen(_V2Database(15, _v15Schema));
+    await executor.runInsert(
+      'INSERT INTO projects (id, name, description, objective, status, '
+      'priority, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        'p1',
+        'Infra personal',
+        'Servicios propios',
+        'Reduce SaaS dependency',
+        'active',
+        'high',
+        stamp(20),
+        stamp(20),
+      ],
+    );
+    await executor.runInsert(
+      'INSERT INTO tasks (id, project_id, title, done, is_next, created_at, '
+      'updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ['t1', 'p1', 'Postgres propio', 0, 0, stamp(21), stamp(21)],
+    );
+    await executor.close();
+
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+
+    final task = (await db.select(db.tasks).get()).single;
+    expect(task.priority, Priority.normal);
+
+    final project = (await db.select(db.projects).get()).single;
+    expect(project.priority, Priority.high);
+
+    await TaskRepository(
+      db,
+      ActivityRepository(db),
+    ).setPriority('t1', Priority.critical);
+    expect(
+      (await db.select(db.tasks).get()).single.priority,
+      Priority.critical,
+    );
   });
 
   test('an upgraded database gains shell tabs, empty and writable', () async {

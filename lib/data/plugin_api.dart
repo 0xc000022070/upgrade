@@ -183,6 +183,9 @@ class PluginTaskApi implements TaskRepository {
   Future<void> unsetNext(String id, {DateTime? at}) =>
       _gate.call('items', () => _base.unsetNext(id, at: at));
   @override
+  Future<void> setPriority(String id, Priority priority, {DateTime? at}) =>
+      _gate.call('items', () => _base.setPriority(id, priority, at: at));
+  @override
   Future<void> moveToTarget(String id, ItemTarget target, {DateTime? at}) =>
       _gate.call(
         'items',
@@ -298,6 +301,9 @@ class PluginProjectApi implements ProjectRepository {
   @override
   Future<void> setStatus(String id, ProjectStatus status) =>
       _gate.call('projects', () => _base.setStatus(id, status));
+  @override
+  Future<void> setPriority(String id, Priority priority) =>
+      _gate.call('projects', () => _base.setPriority(id, priority));
   @override
   Future<void> archive(String id) => setStatus(id, ProjectStatus.archived);
   @override

@@ -30,6 +30,7 @@ class ListRow extends StatelessWidget {
     this.onLeadingTap,
     this.lead = false,
     this.titleColor,
+    this.mark,
     this.subtitleColor,
     this.decode = false,
   }) : assert(value == null || valueSpans == null, 'one value column');
@@ -72,6 +73,11 @@ class ListRow extends StatelessWidget {
   final bool lead;
 
   final Color? titleColor;
+
+  /// Its own column outside the title, so the numerals line up down the panel however
+  /// long the titles are.
+  final Widget? mark;
+
   final Color? subtitleColor;
   final bool decode;
 
@@ -168,6 +174,10 @@ class ListRow extends StatelessWidget {
                 ],
               ),
             ),
+            if (mark != null) ...[
+              const SizedBox(width: Spacing.lg),
+              mark!,
+            ],
             if (progress != null) ...[
               const SizedBox(width: Spacing.lg),
               SizedBox(

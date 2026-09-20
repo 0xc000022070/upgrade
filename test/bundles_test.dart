@@ -1,12 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/data/bundles.dart';
 import 'package:dazzle/data/database.dart';
+import 'package:dazzle/data/enums.dart';
 
 Task item(String id, {String? bundleId}) => Task(
   id: id,
   title: id,
   done: false,
   isNext: false,
+  priority: Priority.normal,
   bundleId: bundleId,
   createdAt: DateTime.utc(2026),
   updatedAt: DateTime.utc(2026),

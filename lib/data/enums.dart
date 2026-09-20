@@ -2,7 +2,15 @@ import 'package:drift/drift.dart';
 
 enum ProjectStatus { active, paused, archived }
 
-enum Priority { low, normal, high }
+enum Priority { low, normal, high, critical }
+
+extension PriorityStep on Priority {
+  Priority? get raised =>
+      this == Priority.values.last ? null : Priority.values[index + 1];
+
+  Priority? get lowered =>
+      this == Priority.values.first ? null : Priority.values[index - 1];
+}
 
 enum AttachmentKind { url, image }
 

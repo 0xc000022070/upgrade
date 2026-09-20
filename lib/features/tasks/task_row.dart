@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/formatting.dart';
 import '../../application/providers.dart';
 import '../../data/database.dart';
+import '../../data/enums.dart';
 import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
+import '../../design/components/priority_row.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
@@ -55,7 +57,7 @@ class _TaskRowState extends ConsumerState<TaskRow> {
 
   Future<void> _toggle() async {
     // Reduce-motion drops the glitch in [DazzleIcon], so there is nothing to fire and the
-    // row simply changes weight.
+    // checkbox simply changes state.
     if (!MediaQuery.disableAnimationsOf(context)) {
       _glitch.fire(seed: widget.task.id.hashCode);
     }
@@ -64,20 +66,34 @@ class _TaskRowState extends ConsumerState<TaskRow> {
     widget.onDoneChanged?.call(done);
   }
 
+  Future<void> _step(Priority priority) =>
+      ref.read(taskRepositoryProvider).setPriority(widget.task.id, priority);
+
   @override
   Widget build(BuildContext context) {
     final task = widget.task;
-    return ListRow(
+    final ink = priorityInk(context, task.priority);
+    final dim = task.done || task.priority == Priority.low;
+    final row = ListRow(
+      mark: PriorityMark(
+        priority: task.priority,
+        seed: task.id.hashCode,
+        dim: task.done,
+      ),
       leading: DazzleIcon(
         task.done ? DazzleIcons.checkboxChecked : DazzleIcons.checkboxEmpty,
         size: IconSizes.check,
-        color: task.done ? context.tokens.textDisabled : context.tokens.accent,
+        color: dim ? context.tokens.textDisabled : context.tokens.accent,
         glitch: _glitch,
       ),
       title: task.title,
-      titleColor: task.done ? context.tokens.textMuted : null,
+      titleColor: task.done ? context.tokens.textMuted : ink.title,
       value: widget.drop || widget.fresh ? relativeAge(task.createdAt) : null,
-      valueColor: widget.fresh ? context.tokens.accent : null,
+      valueColor: widget.fresh
+          ? context.tokens.accent
+          : task.done
+          ? null
+          : ink.value,
       subtitle: widget.drop || task.blockedReason == null
           ? null
           : '[ BLOCKED BY ] ${task.blockedReason}',
@@ -103,6 +119,12 @@ class _TaskRowState extends ConsumerState<TaskRow> {
       onTap: widget.onTap ?? () => openItemSheet(context, task.id),
       onLongPress: widget.onLongPress ?? () => openItemSheet(context, task.id),
       onLeadingTap: _toggle,
+    );
+
+    return PrioritySlide(
+      priority: task.priority,
+      onChanged: _step,
+      child: row,
     );
   }
 }
