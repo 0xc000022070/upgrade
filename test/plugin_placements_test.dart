@@ -6,7 +6,7 @@ import 'package:dazzle/application/native_plugins.dart';
 import 'package:dazzle/application/plugin_placements.dart';
 import 'package:dazzle/application/plugins.dart';
 import 'package:dazzle/data/repositories/plugin_placement_repository.dart';
-import 'package:dazzle/features/home/home_feedback.dart';
+import 'package:dazzle/application/toasts.dart';
 import 'package:dazzle/platform/plugins/contributions.dart';
 import 'package:dazzle/platform/plugins/manifest.dart';
 import 'package:dazzle/platform/plugins/module.dart';
@@ -410,14 +410,24 @@ void main() {
       await controller.setPagePinned(page, false);
       await controller.setWidgetPlaced(composer, false);
       await scope.read(pluginsProvider.future);
-      scope.read(homeUndoTaskProvider.notifier).state = 'completed-task';
+      scope
+          .read(toastQueueProvider.notifier)
+          .raise(
+            Toast(
+              id: 'done:completed-task',
+              verb: 'DONE',
+              subject: 'completed task',
+              actionLabel: 'UNDO',
+              onAction: (_) async {},
+            ),
+          );
       await scope
           .read(pluginsProvider.notifier)
           .setEnabled('dazzle.projects', false);
       await scope
           .read(pluginsProvider.notifier)
           .setEnabled('dazzle.drops', false);
-      expect(scope.read(homeUndoTaskProvider), isNull);
+      expect(scope.read(toastQueueProvider), isEmpty);
       scope.dispose();
 
       catalog = await store.list();

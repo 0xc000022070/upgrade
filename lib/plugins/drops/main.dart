@@ -9,6 +9,7 @@ import '../../platform/plugins/module.dart';
 import '../../application/providers.dart';
 import '../../application/drop_selection.dart';
 import '../../application/fresh_drops.dart';
+import '../../application/toasts.dart';
 
 const dropsPlugin = NativePluginModule(
   id: 'dazzle.drops',
@@ -35,12 +36,12 @@ class _DropsContribution extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => DropsPanel(
     scope: DropSelection.homeScope,
     drops: ref.watch(dropsProvider),
-    onCompleted: (id) => ref.read(homeUndoTaskProvider.notifier).state = id,
+    onCompleted: (task) => offerUndoDone(ref, task),
   );
 }
 
 void _deactivate(Ref ref) {
   ref.read(dropSelectionProvider.notifier).clear();
   ref.read(freshDropsProvider.notifier).clear();
-  ref.read(homeUndoTaskProvider.notifier).state = null;
+  ref.read(toastQueueProvider.notifier).clear();
 }

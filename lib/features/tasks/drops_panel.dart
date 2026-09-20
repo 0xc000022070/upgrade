@@ -36,7 +36,7 @@ class DropsPanel extends ConsumerStatefulWidget {
 
   final GlitchController? landing;
 
-  final ValueChanged<String>? onCompleted;
+  final ValueChanged<Task>? onCompleted;
 
   @override
   ConsumerState<DropsPanel> createState() => _DropsPanelState();
@@ -152,7 +152,7 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
                   onDoneChanged: (done) {
                     if (!done) return;
                     freshNotifier.forget(widget.scope, {task.id});
-                    widget.onCompleted?.call(task.id);
+                    widget.onCompleted?.call(task);
                   },
                 )
               else

@@ -29,7 +29,7 @@ Nothing is copied: no logos, no icons, no layouts, no fonts, no textures, no SVG
 
 ### Anti-slop
 
-Forbidden by default: Lucide or Lucide-like icons, generic outline icon sets, glassmorphism, blue-purple and purple-pink gradients, pastel blobs, giant blurred lights, excessive glow, generic SaaS cards, huge radii, excessive pills, giant one-stat cards, fintech and Notion and Linear and crypto-dashboard aesthetics, floating widgets, decorative charts, arbitrary futuristic numbers, meaningless HUD decoration.
+Forbidden by default: Lucide or Lucide-like icons, generic outline icon sets, glassmorphism, blue-purple and purple-pink gradients, pastel blobs, giant blurred lights, excessive glow, generic SaaS cards, huge radii, excessive pills, giant one-stat cards, fintech and Notion and Linear and crypto-dashboard aesthetics, floating action buttons and decorative floating panels, decorative charts, arbitrary futuristic numbers, meaningless HUD decoration.
 
 The rule under all of it: an element that does not communicate hierarchy, state, interaction, identity or useful context is removed.
 
@@ -160,6 +160,24 @@ Every text-only action — `VIEW ALL`, `NEW +`, `SELECT`, `SYS`, `EDIT`, `ARCHIV
 The panel header strip is a row height, 36, so a strip action's hit is 36 by at least 44. The title, the count and the affordance stay vertically centred and the body padding is unchanged. The breadcrumb row does the same and is at least 36 tall.
 
 An action presses to accent ink for the duration of the press. An action with nothing behind it is a readout and is never painted as pressable.
+
+### A toast is the one thing that floats, and it stacks
+
+A toast is a panel the app raises over the bottom of the screen to say what just happened, when what happened leaves no mark the screen can show. It is drawn as any panel is — `surfacePrimary` ground, a hairline `borderNormal`, radius 2 — capped to the content column and inset at the screen edge, and it is the one surface that floats: it draws over whatever the screen has pinned down there, the capture bar, the selection bar, the parked shell bar, and none of them move to make room. It stops at the nav bar and never covers it.
+
+A row is the verb that happened, in the panel-header style and `textMuted`; the subject beside it in mono 12 and `textSecondary`, clipped to one line; and the way back at the right, in the accent. The accent is on that one word. The ground stays a panel's ground, because a filled accent bar across the screen is the large coloured surface the palette forbids.
+
+**Toasts stack rather than replace each other.** Every live one is a row in the one panel, ruled between as any row group is, newest at the bottom where the thumb already is. Three rows are shown. A fourth folds the older ones away behind the panel's own header strip, which reads `+N MORE` and is tapped to open the stack and tapped again to fold it. Six rows is the whole stack, and the oldest leaves when a seventh arrives.
+
+**A toast with a verb on it holds thirty seconds, and one with nothing to tap holds four.** Each row runs its own clock and leaves on its own. The long hold costs nothing, because a toast is never the only way back to what it undoes: the thing it reverses is still on the screen behind it, and the row that did it is still the way to do it again.
+
+**A field taking focus takes the whole stack with it.** The form's scrim covers everything outside the form, and a notice dimmed under a scrim, carrying a verb nobody can reach, is worse than no notice at all; so the stack empties when the keyboard comes up rather than waiting underneath it.
+
+Rows arrive as a short rise and a fade over 140ms and leave the same way. Nothing pulses, nothing counts its seconds down on screen, and a row already up does not move when another lands under it.
+
+**A toast is raised for what the user cannot see, and never for what the screen already shows.** An action whose result is the row under the finger says so on that row. A toast that only confirms is the app talking over a screen that has already answered.
+
+**Struck:** `DONE · UNDO` as a filled accent bar standing in the capture bar's place. The interpunct read as two buttons where there was one, it painted the loudest surface in the app for the rarest tap on the screen, and it took capture off Home for thirty seconds to say what one line of text says.
 
 ### The header of a screen says where it is
 
@@ -505,7 +523,7 @@ Struck: a per-host rule table. It is how a link cleaner ends up needing releases
 
 A stray drop is an item with no project, and until now the only ways it left HOME were MOVE, which invents a project for something that needed none, and DELETE, which throws away the text along with the fact that it was dealt with. Neither of those is what the user did: they read the line, they did the thing, and the line should be able to say so. Being finished is not a property of where an item was filed, so it is the one piece of state an unfiled item keeps.
 
-The row carries the checkbox every other row carries. Same column, same forty-pixel target over the row's corner, same glitch on the glyph as the state turns over, and the same muted title afterwards. A finished drop stays on DROPS: the panel is the whole of the unfiled, done or not, and a row that vanished under the finger would take the undo with it and leave the user with nothing to aim at. The age stays in the value column, because a drop has no project and no goal to say where it is, and when it was written down is the only thing the column can hold.
+The row carries the checkbox every other row carries. Same column, same forty-pixel target over the row's corner, same glitch on the glyph as the state turns over, and the same muted title afterwards. A finished drop stays on DROPS: the panel is the whole of the unfiled, done or not, and a row that vanished under the finger would take the undo with it and leave the user with nothing to aim at. The age stays in the value column, because a drop has no project and no goal to say where it is, and when it was written down is the only thing the column can hold. Finishing one raises a toast that names it and carries `UNDO` for thirty seconds; the checkbox is the other way back and it never expires.
 
 The quick view names it on the footer of every item. `DONE` is the first block and takes the one filled accent surface in the row, `UNDO` when it is already done, and it draws for a filed task and a stray drop alike. The sheet's title dims with the state wherever it is opened from.
 
