@@ -122,6 +122,8 @@ The research is tactical HUD glyphs, avionics symbology, technical diagrams, tel
 
 **No destination and no action borrows another's glyph.** A borrowed glyph is a claim the two things are the same thing, and the reader believes it.
 
+**A plugin is drawn as a part that plugs into something.** Its own body, with one edge carrying a keyed tab squared off. The round knob a puzzle piece really has is a curve the grammar does not own, and the tab alone is enough: nothing else in the family has an edge that interrupts itself.
+
 ### Assets are sorted by what they are allowed to become
 
 ```
@@ -279,7 +281,7 @@ The idle first frame, centred on a flat dark ground, as the adaptive foreground 
 
 `HOME`, `PROJECTS`, `HOSTS`, `SSH`. Each tab is a house glyph over a mono 9 label, accent on the active one, with a thin top rule segment over it. No floating centre button, no pill container, no glow.
 
-**Every tab owns its glyph rather than borrowing one.** A destination is a place, and a glyph shared with an action says the place is that action. `HOME` is a roof over a baseline with the local endpoint under it. `HOSTS` is two stacked rack units carrying a system node each — machines, not a page of text. `SSH` is a prompt caret with the cursor block after it, because what is behind that tab is a terminal and nothing about a terminal is an abstract coupling. `TOOLS` is a bay of docked slots holding unlike modules, which is what a destination filled by plugin pages is.
+**Every tab owns its glyph rather than borrowing one.** A destination is a place, and a glyph shared with an action says the place is that action. `HOME` is a house the roof is carried down into, open on the right, with the local endpoint inside it — a roof over a detached baseline was drawn first and reads as two objects rather than a place. `HOSTS` is two stacked rack units carrying a system node each — machines, not a page of text. `SSH` is a prompt caret with the cursor block inline after it, because what is behind that tab is a terminal and nothing about a terminal is an abstract coupling. `TOOLS` is a bay of docked slots holding unlike modules, which is what a destination filled by plugin pages is.
 
 **Struck:** an `ACTIVITY` tab and a `SEARCH` tab. Activity events keep being written and nothing draws them; search, if it returns, returns as a field on Projects rather than as a place to go.
 
