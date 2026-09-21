@@ -323,7 +323,15 @@ There is no suggestion fallback under `NEXT ACTION` — a panel that guesses at 
 
 ### The capture bar is a panel, pinned above the nav
 
-Header strip `CAPTURE / QUICK ADD`, then the field line with a mono placeholder and the accent target glyph on the right. It is always visible on Home. Submitting creates a drop; it never submits empty text. The form closes itself the moment the item is in.
+Header strip `CAPTURE / QUICK ADD`, then the field line with a mono placeholder and the accent target glyph on the right. Submitting creates a drop; it never submits empty text. The form closes itself the moment the item is in.
+
+**The bar is put away with a flick on its own header strip, and the strip stays.** A drag down the screen on `CAPTURE / QUICK ADD` takes the field, the actions and the keyboard with it and leaves the strip standing over the nav; a drag up it, or a tap on it, brings the whole bar back. Down is away and up is back, which is the answer the shell's sheet already gives a drag. The header is the only place the flick is read — over the field a vertical drag belongs to the text it is scrolling — and it is the same strip the finger grabs in both states, so nothing the gesture put away is out of reach of the gesture that undoes it.
+
+Putting the bar away drops the caret and closes the link line with it: a strip pinned over the keyboard outlives nothing. What was typed and what was attached are held and come back with the bar, because putting the bar away is not throwing a capture out. The selection bar takes the same slot and is never put away; ending the mode returns the capture bar to whichever of the two states it was left in.
+
+**The scrim outranks the flick.** While the field has focus the scrim covers the header strip along with everything else outside the form, and a drag on it is the scrim's, not the strip's. The bar is put away from a Home nobody is typing on: the tap that drops focus comes first, and it is the same tap that has always closed the keyboard.
+
+It stays away across a tab switch and across a route pushed over Home, and it is not written down. A phone picked up cold opens on a Home with something to type into, whatever the last session left put away. Only Home's bar is hidable — a project's detail captures into itself and its bar is always there.
 
 ### The toolbar beside the keyboard is icons, and it holds text and links
 

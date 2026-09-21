@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
@@ -21,6 +22,7 @@ class Panel extends StatelessWidget {
     this.affordance,
     this.onHeaderTap,
     this.onHeaderLongPress,
+    this.onHeaderFlick,
     this.bodyPadding = const EdgeInsets.all(Spacing.panelPadding),
     this.bodyFlexible = false,
     this.border,
@@ -40,6 +42,8 @@ class Panel extends StatelessWidget {
   final VoidCallback? onHeaderTap;
 
   final VoidCallback? onHeaderLongPress;
+
+  final void Function(int step)? onHeaderFlick;
 
   final EdgeInsets bodyPadding;
 
@@ -75,6 +79,7 @@ class Panel extends StatelessWidget {
                 affordance: affordance,
                 onTap: onHeaderTap,
                 onLongPress: onHeaderLongPress,
+                onFlick: onHeaderFlick,
                 ruled: child != null,
               )
             else
@@ -87,6 +92,7 @@ class Panel extends StatelessWidget {
                   affordance: affordance,
                   onTap: onHeaderTap,
                   onLongPress: onHeaderLongPress,
+                  onFlick: onHeaderFlick,
                   ruled: child != null,
                 ),
               ),
@@ -112,6 +118,7 @@ class _HeaderStrip extends StatelessWidget {
     this.affordance,
     this.onTap,
     this.onLongPress,
+    this.onFlick,
   });
 
   final String title;
@@ -120,6 +127,7 @@ class _HeaderStrip extends StatelessWidget {
   final Widget? affordance;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final void Function(int step)? onFlick;
 
   final bool ruled;
 
@@ -170,13 +178,13 @@ class _HeaderStrip extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (onTap == null && onLongPress == null)
+          if (onTap == null && onLongPress == null && onFlick == null)
             strip
           else
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
+            _StripGestures(
               onTap: onTap,
               onLongPress: onLongPress,
+              onFlick: onFlick,
               child: strip,
             ),
           if (ruled)
@@ -186,6 +194,51 @@ class _HeaderStrip extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// One detector for the three: split apart they take separate arena entries, and the
+/// drag never cancels the tap sitting under it.
+class _StripGestures extends StatefulWidget {
+  const _StripGestures({
+    required this.child,
+    this.onTap,
+    this.onLongPress,
+    this.onFlick,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final void Function(int step)? onFlick;
+
+  @override
+  State<_StripGestures> createState() => _StripGesturesState();
+}
+
+class _StripGesturesState extends State<_StripGestures> {
+  double _travel = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final flick = widget.onFlick;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      dragStartBehavior: DragStartBehavior.down,
+      onVerticalDragStart: flick == null ? null : (_) => _travel = 0,
+      onVerticalDragUpdate: flick == null
+          ? null
+          : (details) => _travel += details.delta.dy,
+      onVerticalDragEnd: flick == null
+          ? null
+          : (_) {
+              if (_travel.abs() < Gestures.flick) return;
+              flick(_travel > 0 ? 1 : -1);
+            },
+      child: widget.child,
     );
   }
 }

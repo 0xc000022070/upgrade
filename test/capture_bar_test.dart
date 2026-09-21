@@ -13,6 +13,8 @@ import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/design/components/action_block.dart';
 import 'package:dazzle/design/components/keyboard_toolbar.dart';
 import 'package:dazzle/design/components/dazzle_field.dart';
+import 'package:dazzle/design/components/panel.dart';
+import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/features/home/capture_bar.dart';
 
 import 'support/platform_channels.dart';
@@ -64,13 +66,29 @@ void main() {
 
   tearDown(() => db.close());
 
-  Widget host() => ProviderScope(
+  Widget host({bool hidable = false}) => ProviderScope(
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(
       theme: testTheme,
-      home: Scaffold(body: CaptureBar(scope: DropSelection.homeScope)),
+      home: Scaffold(
+        body: CaptureBar(scope: DropSelection.homeScope, hidable: hidable),
+      ),
     ),
   );
+
+  Offset header(WidgetTester tester) {
+    final rect = tester.getRect(
+      find
+          .descendant(of: find.byType(CaptureBar), matching: find.byType(Panel))
+          .first,
+    );
+    return Offset(rect.center.dx, rect.top + RowMetrics.minHeight / 2);
+  }
+
+  Future<void> flick(WidgetTester tester, double dy) async {
+    await tester.dragFrom(header(tester), Offset(0, dy));
+    await _ready(tester);
+  }
 
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
@@ -569,6 +587,116 @@ void main() {
     await _ready(tester);
 
     expect(_spans(tester).any((span) => span.$2), isFalse);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a flick down the header takes the bar and leaves the strip', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(hidable: true));
+    await _ready(tester);
+
+    expect(_capture, findsOneWidget);
+
+    await flick(tester, 40);
+
+    expect(_capture, findsNothing);
+    expect(find.byType(BottomBarFrame), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a flick up the strip brings the bar back', (tester) async {
+    await tester.pumpWidget(host(hidable: true));
+    await _ready(tester);
+    await flick(tester, 40);
+    expect(_capture, findsNothing);
+
+    await flick(tester, -40);
+
+    expect(_capture, findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a tap on the strip brings the bar back', (tester) async {
+    await tester.pumpWidget(host(hidable: true));
+    await _ready(tester);
+    await flick(tester, 40);
+    expect(_capture, findsNothing);
+
+    await tester.tapAt(header(tester));
+    await _ready(tester);
+
+    expect(_capture, findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a flick short of the threshold leaves the bar where it is', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(hidable: true));
+    await _ready(tester);
+
+    await flick(tester, 4);
+
+    expect(_capture, findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the scrim keeps the strip while the field has focus', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(hidable: true));
+    await _ready(tester);
+    await tester.tap(_capture);
+    await _ready(tester);
+
+    await flick(tester, 40);
+
+    expect(_capture, findsOneWidget);
+    expect(find.byType(KeyboardToolbar), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('what was typed comes back with the bar', (tester) async {
+    await tester.pumpWidget(host(hidable: true));
+    await _ready(tester);
+    await tester.tap(_capture);
+    await _ready(tester);
+    await tester.enterText(_capture, 'revisar pgbouncer.conf');
+    await _ready(tester);
+    await tester.tapAt(const Offset(10, 10));
+    await _ready(tester);
+
+    await flick(tester, 40);
+
+    expect(_capture, findsNothing);
+    expect(find.byType(KeyboardToolbar), findsNothing);
+
+    await flick(tester, -40);
+
+    expect(
+      tester.widget<TextField>(_capture).controller!.text,
+      'revisar pgbouncer.conf',
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('a bar that is not hidable does not answer the flick', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    await flick(tester, 40);
+
+    expect(_capture, findsOneWidget);
 
     await unmount(tester);
   });

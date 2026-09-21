@@ -7,10 +7,6 @@ import '../icons/dazzle_icons.dart';
 import '../motion.dart';
 import '../spacing.dart';
 
-/// How far a vertical drag has to travel, once it has taken the pointer off the tap,
-/// before it counts as a flick.
-const _flickDistance = 8.0;
-
 class KeyCell extends StatefulWidget {
   const KeyCell({
     super.key,
@@ -99,7 +95,7 @@ class _KeyCellState extends State<KeyCell> {
           ? null
           : (_) {
               setState(() => _down = false);
-              if (_travel.abs() < _flickDistance) return;
+              if (_travel.abs() < Gestures.flick) return;
               flick(_travel > 0 ? 1 : -1);
             },
       child: Container(

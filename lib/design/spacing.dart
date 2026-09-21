@@ -52,6 +52,10 @@ abstract final class IconSizes {
   static const hero = 32.0;
 }
 
+abstract final class Gestures {
+  static const flick = 8.0;
+}
+
 abstract final class TapTargets {
   static const minHeight = 44.0;
 
