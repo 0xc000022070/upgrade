@@ -290,7 +290,7 @@ void main() {
     );
     await _ready(tester);
 
-    expect(written, ['tres\n\nhttps://a.example\n\nuno']);
+    expect(written, ['tres\n\nhttps://a.example\n\n---\n\nuno']);
     expect(find.byType(SelectionBar), findsOneWidget);
     expect(_selection(tester).ids, {uno, tres});
     expect(find.text('2 COPIED'), findsOneWidget);

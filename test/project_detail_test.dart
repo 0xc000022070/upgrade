@@ -316,7 +316,7 @@ void main() {
     );
     await _ready(tester);
 
-    expect(written, ['nuevo\n\nhttps://a.example\n\nviejo']);
+    expect(written, ['nuevo\n\nhttps://a.example\n\n---\n\nviejo']);
     expect(find.text('2 COPIED'), findsOneWidget);
     expect(find.byType(SelectionBar), findsOneWidget);
 
