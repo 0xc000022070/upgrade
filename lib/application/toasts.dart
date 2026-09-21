@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-const toastHold = Duration(seconds: 30);
+const toastHold = Duration(seconds: 8);
 const toastNotice = Duration(seconds: 4);
 
-const toastRowsShown = 3;
+const toastStripsShown = 2;
 
 const toastStackLimit = 6;
 
@@ -19,7 +19,7 @@ class Toast {
   });
 
   /// Raising an id that is already up replaces it where it stands, so a state turned over
-  /// twice is one row and not two.
+  /// twice is one strip and not two.
   final String id;
 
   final String verb;
@@ -28,7 +28,7 @@ class Toast {
 
   final String? actionLabel;
 
-  /// Handed the container's own [Ref] rather than closing over a widget's: the row outlives
+  /// Handed the container's own [Ref] rather than closing over a widget's: the strip outlives
   /// the screen that raised it by up to [toastHold], and a `WidgetRef` read after that
   /// screen is gone throws.
   final Future<void> Function(Ref ref)? onAction;
@@ -57,8 +57,8 @@ class ToastQueue extends Notifier<List<Toast>> {
   void raise(Toast toast) {
     _clocks.remove(toast.id)?.cancel();
     final live = [...state.where((other) => other.id != toast.id), toast];
-    // The oldest goes rather than the newest being refused: what a row offers is a shortcut
-    // to something still reachable without it, so the top of the stack is the cheap end.
+    // The oldest goes rather than the newest being refused: what a strip offers is a shortcut
+    // to something still reachable without it, so the old end is the cheap one.
     while (live.length > toastStackLimit) {
       _clocks.remove(live.removeAt(0).id)?.cancel();
     }
