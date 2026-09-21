@@ -9,3 +9,11 @@ class SentTag extends StatelessWidget {
   Widget build(BuildContext context) =>
       Text('SENT', style: context.tokens.label);
 }
+
+class PromptTag extends StatelessWidget {
+  const PromptTag({super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      Text('PROMPT', style: context.tokens.label);
+}

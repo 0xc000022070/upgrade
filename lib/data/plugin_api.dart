@@ -206,6 +206,9 @@ class PluginTaskApi implements TaskRepository {
         () => _base.edit(id, title: title, effort: effort, at: at),
       );
   @override
+  Future<void> setPrompt(String id, String? prompt, {DateTime? at}) =>
+      _gate.call('items', () => _base.setPrompt(id, prompt, at: at));
+  @override
   Future<bool> applyDropTitle(Task expected, String title) =>
       _gate.call('items', () => _base.applyDropTitle(expected, title));
   @override

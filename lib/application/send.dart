@@ -57,17 +57,19 @@ final herdrSendProvider = Provider<HerdrSend>((ref) {
   return client.send;
 });
 
-/// The title is the whole instruction: nothing is wrapped around it, or the agent reads
+/// A prompt leads and the title follows it; nothing is wrapped around either, or the agent reads
 /// those words as the user's. An image is its path on the host, which is how both
 /// agents document being handed a picture.
 String sendPrompt({
   required String title,
   required List<String> links,
+  String? prompt,
   List<RemoteFile> images = const [],
 }) {
+  final head = prompt == null ? title : '$prompt\n\nITEM\n$title';
   final lines = [...links, for (final image in images) image.remotePath];
-  if (lines.isEmpty) return title;
-  return '$title\n\n${lines.join('\n')}';
+  if (lines.isEmpty) return head;
+  return '$head\n\n${lines.join('\n')}';
 }
 
 sealed class SendState {
@@ -121,6 +123,7 @@ class Sender {
     required String title,
     required List<String> links,
     required AgentKind kind,
+    String? prompt,
     List<String> imagePaths = const [],
     String? model,
   }) async {
@@ -157,7 +160,12 @@ class Sender {
         model: model,
         directory: target.path.directory,
         images: images,
-        prompt: sendPrompt(title: title, links: links, images: images),
+        prompt: sendPrompt(
+          title: title,
+          links: links,
+          prompt: prompt,
+          images: images,
+        ),
         verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
       );
     } on HerdrFailure catch (error) {

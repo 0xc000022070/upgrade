@@ -320,6 +320,22 @@ class TaskRepository {
         return null;
       });
 
+  Future<void> setPrompt(String id, String? prompt, {DateTime? at}) {
+    final value = prompt?.trim();
+    final stored = value == null || value.isEmpty ? null : value;
+    return _mutations
+        .on(id)
+        .at(at)
+        .unchangedWhen((task) => task.prompt == stored)
+        .writes(ActivityAction.updated, (task, now) async {
+          await _write(
+            id,
+            TasksCompanion(prompt: Value(stored), updatedAt: Value(now)),
+          );
+          return null;
+        });
+  }
+
   Future<bool> applyDropTitle(Task expected, String title) =>
       _db.transaction(() async {
         final current = await (_db.select(

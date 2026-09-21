@@ -22,8 +22,9 @@ import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/data/repositories/path_repository.dart';
 import 'package:dazzle/data/repositories/project_repository.dart';
 import 'package:dazzle/data/repositories/task_repository.dart';
+import 'package:dazzle/design/components/dazzle_field.dart';
 import 'package:dazzle/features/tasks/item_sheet.dart';
-import 'package:dazzle/features/tasks/sent_tag.dart';
+import 'package:dazzle/features/tasks/item_tags.dart';
 import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/keys.dart';
 import 'package:dazzle/platform/host_keys.dart';
@@ -129,6 +130,42 @@ void main() {
         images: [RemoteFile('a.png', Uint8List(0))],
       ),
       'what is wrong here\n\n/tmp/dazzle/a.png',
+    );
+  });
+
+  test('a prepared prompt leads and the title follows it as the item', () {
+    expect(
+      sendPrompt(
+        title: 'auth refresh',
+        prompt: 'move the session refresh off the UI thread',
+        links: const [],
+      ),
+      'move the session refresh off the UI thread\n\nITEM\nauth refresh',
+    );
+  });
+
+  test('links and images follow the item, not the prompt', () {
+    expect(
+      sendPrompt(
+        title: 'auth refresh',
+        prompt: 'tests first',
+        links: const ['https://a.example'],
+        images: [RemoteFile('a.png', Uint8List(0))],
+      ),
+      'tests first\n\nITEM\nauth refresh\n\n'
+      'https://a.example\n/tmp/dazzle/a.png',
+    );
+  });
+
+  test('every line of a multi-line prompt and title goes out', () {
+    expect(
+      sendPrompt(
+        title: 'auth refresh\nthe one on hosts',
+        prompt: 'read lib/auth\nthen move the refresh',
+        links: const [],
+      ),
+      'read lib/auth\nthen move the refresh\n\n'
+      'ITEM\nauth refresh\nthe one on hosts',
     );
   });
 
@@ -847,6 +884,37 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
     });
 
+    testWidgets('a prompt takes the strip and the dispatches stay listed', (
+      tester,
+    ) async {
+      final activity = ActivityRepository(db);
+      final tasks = TaskRepository(db, activity);
+      final id = await tasks.create(title: 'a drop');
+      await tasks.setPrompt(id, 'read lib/auth first');
+      await addPath();
+      await DriftDispatchRepository(db, activity).record(
+        itemId: id,
+        pathId: 'path-dazzle',
+        paneId: 'wQ:p7',
+        title: 'a drop',
+        agent: 'claude',
+      );
+
+      await tester.pumpWidget(app(id));
+      await _drain(tester);
+
+      expect(find.byType(PromptTag), findsOneWidget);
+      expect(find.byType(SentTag), findsNothing);
+      expect(find.text('[ SENT ]'), findsOneWidget);
+      expect(
+        find.textContaining('NYX / DAZZLE · CLAUDE · wQ:p7 · '),
+        findsOneWidget,
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    });
+
     testWidgets('the tag is a word at the trailing edge', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -855,6 +923,110 @@ void main() {
         ),
       );
       expect(find.text('SENT'), findsOneWidget);
+    });
+
+    testWidgets('a prompt is written on its own panel and read back', (
+      tester,
+    ) async {
+      final activity = ActivityRepository(db);
+      final id = await TaskRepository(db, activity).create(title: 'a drop');
+      await addPath();
+
+      await tester.pumpWidget(app(id));
+      await _drain(tester);
+      expect(find.text('PROMPT'), findsOneWidget);
+      expect(find.text('[ PROMPT ]'), findsNothing);
+      expect(find.byType(PromptTag), findsNothing);
+
+      await tester.tap(find.text('PROMPT'));
+      await _drain(tester);
+      expect(find.text('SAVE'), findsOneWidget);
+
+      await tester.enterText(find.byType(DazzleField), 'read lib/auth first');
+      await tester.tap(find.text('SAVE'));
+      await _drain(tester);
+
+      expect(find.text('[ PROMPT ]'), findsOneWidget);
+      expect(find.text('read lib/auth first'), findsOneWidget);
+      expect(find.text('EDIT PROMPT'), findsOneWidget);
+      expect(find.byType(PromptTag), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    });
+
+    testWidgets('saving an empty field is how a prompt is deleted', (
+      tester,
+    ) async {
+      final activity = ActivityRepository(db);
+      final tasks = TaskRepository(db, activity);
+      final id = await tasks.create(title: 'a drop');
+      await tasks.setPrompt(id, 'read lib/auth first');
+      await addPath();
+
+      await tester.pumpWidget(app(id));
+      await _drain(tester);
+      expect(find.text('[ PROMPT ]'), findsOneWidget);
+
+      await tester.tap(find.text('EDIT PROMPT'));
+      await _drain(tester);
+      await tester.enterText(find.byType(DazzleField), '   ');
+      await tester.tap(find.text('SAVE'));
+      await _drain(tester);
+
+      expect(find.text('[ PROMPT ]'), findsNothing);
+      expect(find.text('PROMPT'), findsOneWidget);
+      expect(find.byType(PromptTag), findsNothing);
+      expect((await db.select(db.tasks).get()).single.prompt, isNull);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    });
+
+    testWidgets('the prepared prompt is what the agent is handed', (
+      tester,
+    ) async {
+      final activity = ActivityRepository(db);
+      final tasks = TaskRepository(db, activity);
+      final id = await tasks.create(title: 'a drop');
+      await tasks.setPrompt(id, 'move the refresh off the UI thread');
+      await addPath();
+      String? seen;
+
+      await tester.pumpWidget(
+        app(
+          id,
+          send:
+              ({
+                required address,
+                required port,
+                required user,
+                required privateKey,
+                required kind,
+                required directory,
+                required prompt,
+                images = const <RemoteFile>[],
+                model,
+                verifier,
+              }) async {
+                seen = prompt;
+                return const SpawnSent('wQ:p7');
+              },
+        ),
+      );
+      await _drain(tester);
+
+      await tester.tap(find.text('SEND'));
+      await _drain(tester);
+      await tester.tap(find.text('NYX / DAZZLE'));
+      await _drain(tester);
+      await tester.tap(find.text('SEND'));
+      await _drain(tester);
+
+      expect(seen, 'move the refresh off the UI thread\n\nITEM\na drop');
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
     });
   });
 }

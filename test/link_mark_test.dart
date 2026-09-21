@@ -14,8 +14,8 @@ import 'package:dazzle/design/components/list_row.dart';
 import 'package:dazzle/design/icons/dazzle_icon.dart';
 import 'package:dazzle/design/icons/dazzle_icons.dart';
 import 'package:dazzle/features/home/home_screen.dart';
+import 'package:dazzle/features/tasks/item_tags.dart';
 import 'package:dazzle/features/tasks/link_mark.dart';
-import 'package:dazzle/features/tasks/sent_tag.dart';
 import 'package:dazzle/features/tasks/task_row.dart';
 
 import 'support/platform_channels.dart';
@@ -167,6 +167,34 @@ void main() {
     expect(_mark, findsOneWidget);
     expect(find.text('2'), findsOneWidget);
     expect(find.text('SENT'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a prepared prompt tags the row', (tester) async {
+    final id = await tasks.create(title: 'revisar pgbouncer');
+    await tester.pumpWidget(host(await load(tester, id)));
+    await _ready(tester);
+    expect(find.byType(PromptTag), findsNothing);
+
+    await tasks.setPrompt(id, 'lee el log del gate');
+    await tester.pumpWidget(host(await load(tester, id)));
+    await _ready(tester);
+    expect(find.byType(PromptTag), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the arrow still wins over the prompt tag', (tester) async {
+    final id = await tasks.create(title: 'revisar pgbouncer');
+    await tasks.setPrompt(id, 'lee el log del gate');
+    await tasks.setNext(id);
+
+    await tester.pumpWidget(host(await load(tester, id)));
+    await _ready(tester);
+
+    expect(_arrow, findsOneWidget);
+    expect(find.byType(PromptTag), findsNothing);
 
     await unmount(tester);
   });
