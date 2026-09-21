@@ -224,12 +224,13 @@ String pinentryOpenCommand() => underSh(
 /// command.
 final pinentryRequestId = RegExp(r'^[a-f0-9]{16,32}$');
 
-/// The fifo is written as it is and never created — once the pinentry has taken it down
-/// the request is settled, and a passphrase must not end up in a regular file in its
-/// place.
+/// A shell opening the fifo itself waits forever on one whose reader is gone, so the
+/// host's own pinentry takes the decision. A settled request exits non-zero.
 String pinentryAnswerCommand(String id) {
   assert(pinentryRequestId.hasMatch(id));
   return underSh(
-    'f="$pinentryGateDirectory/$id" && [ -p "\$f" ] && cat > "\$f"',
+    'exec 2>/dev/null; '
+    'PATH="\$PATH:/run/current-system/sw/bin:\$HOME/.nix-profile/bin"; '
+    'exec pinentry-gate answer $id',
   );
 }
