@@ -23,6 +23,7 @@ class Panel extends StatelessWidget {
     this.onHeaderTap,
     this.onHeaderLongPress,
     this.onHeaderFlick,
+    this.onHeaderAim,
     this.bodyPadding = const EdgeInsets.all(Spacing.panelPadding),
     this.bodyFlexible = false,
     this.border,
@@ -44,6 +45,8 @@ class Panel extends StatelessWidget {
   final VoidCallback? onHeaderLongPress;
 
   final void Function(int step)? onHeaderFlick;
+
+  final void Function(int? step)? onHeaderAim;
 
   final EdgeInsets bodyPadding;
 
@@ -80,6 +83,7 @@ class Panel extends StatelessWidget {
                 onTap: onHeaderTap,
                 onLongPress: onHeaderLongPress,
                 onFlick: onHeaderFlick,
+                onAim: onHeaderAim,
                 ruled: child != null,
               )
             else
@@ -93,6 +97,7 @@ class Panel extends StatelessWidget {
                   onTap: onHeaderTap,
                   onLongPress: onHeaderLongPress,
                   onFlick: onHeaderFlick,
+                  onAim: onHeaderAim,
                   ruled: child != null,
                 ),
               ),
@@ -119,6 +124,7 @@ class _HeaderStrip extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.onFlick,
+    this.onAim,
   });
 
   final String title;
@@ -128,6 +134,7 @@ class _HeaderStrip extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final void Function(int step)? onFlick;
+  final void Function(int? step)? onAim;
 
   final bool ruled;
 
@@ -185,6 +192,7 @@ class _HeaderStrip extends StatelessWidget {
               onTap: onTap,
               onLongPress: onLongPress,
               onFlick: onFlick,
+              onAim: onAim,
               child: strip,
             ),
           if (ruled)
@@ -206,12 +214,14 @@ class _StripGestures extends StatefulWidget {
     this.onTap,
     this.onLongPress,
     this.onFlick,
+    this.onAim,
   });
 
   final Widget child;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final void Function(int step)? onFlick;
+  final void Function(int? step)? onAim;
 
   @override
   State<_StripGestures> createState() => _StripGesturesState();
@@ -219,6 +229,16 @@ class _StripGestures extends StatefulWidget {
 
 class _StripGesturesState extends State<_StripGestures> {
   double _travel = 0;
+  int? _aim;
+
+  int? get _step =>
+      _travel.abs() < Gestures.flick ? null : (_travel > 0 ? 1 : -1);
+
+  void _aimAt(int? step) {
+    if (_aim == step) return;
+    _aim = step;
+    widget.onAim?.call(step);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -228,16 +248,26 @@ class _StripGesturesState extends State<_StripGestures> {
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
       dragStartBehavior: DragStartBehavior.down,
-      onVerticalDragStart: flick == null ? null : (_) => _travel = 0,
+      onVerticalDragStart: flick == null
+          ? null
+          : (_) {
+              _travel = 0;
+              _aimAt(null);
+            },
       onVerticalDragUpdate: flick == null
           ? null
-          : (details) => _travel += details.delta.dy,
+          : (details) {
+              _travel += details.delta.dy;
+              _aimAt(_step);
+            },
       onVerticalDragEnd: flick == null
           ? null
           : (_) {
-              if (_travel.abs() < Gestures.flick) return;
-              flick(_travel > 0 ? 1 : -1);
+              final step = _step;
+              _aimAt(null);
+              if (step != null) flick(step);
             },
+      onVerticalDragCancel: flick == null ? null : () => _aimAt(null),
       child: widget.child,
     );
   }

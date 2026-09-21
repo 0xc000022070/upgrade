@@ -15,6 +15,7 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/solid_action_bar.dart';
 import '../../design/components/dazzle_field.dart';
+import '../../design/components/dither_field.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
@@ -66,6 +67,8 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   /// late, so a controller disposed on close would be read after it was gone.
   final _linkField = TextEditingController();
   bool _linkOpen = false;
+
+  int? _aim;
 
   @override
   void dispose() {
@@ -133,6 +136,8 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
 
   void _reveal() => ref.read(captureHiddenProvider.notifier).state = false;
 
+  void _aimAt(int? step) => setState(() => _aim = step);
+
   void _flick(int step) {
     if (step > 0) {
       _stow();
@@ -190,22 +195,25 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.hidable && ref.watch(captureHiddenProvider)) {
-      return BottomBarFrame(
-        title: _title,
-        onHeaderTap: _reveal,
-        onHeaderFlick: _flick,
-      );
-    }
+    final hidden = widget.hidable && ref.watch(captureHiddenProvider);
+    // One tree either way: swapping the body for the ghost may not take the strip's own
+    // gesture state down with it, and a new branch here would do exactly that mid-drag.
+    final ghost = hidden ? _aim == -1 : _aim == 1;
     return ValueListenableBuilder<double>(
       // The strip is an overlay pinned to the top of the IME and the scaffold resizes the bar
       // to sit exactly there: without this the accessory would cover the field it belongs to.
       valueListenable: KeyboardAccessory.reservedHeight,
       builder: (context, accessory, child) => BottomBarFrame(
         title: _title,
-        accessory: accessory,
+        accessory: hidden || ghost ? 0 : accessory,
+        onHeaderTap: hidden ? _reveal : null,
         onHeaderFlick: widget.hidable ? _flick : null,
-        child: child!,
+        onHeaderAim: widget.hidable ? _aimAt : null,
+        child: ghost
+            ? CaptureGhost(action: _controller.text.trim().isNotEmpty)
+            : hidden
+            ? null
+            : child,
       ),
       child: ValueListenableBuilder<TextEditingValue>(
         valueListenable: _controller,
@@ -339,6 +347,7 @@ class BottomBarFrame extends StatelessWidget {
     this.accessory = 0,
     this.onHeaderTap,
     this.onHeaderFlick,
+    this.onHeaderAim,
   });
 
   final String title;
@@ -349,6 +358,7 @@ class BottomBarFrame extends StatelessWidget {
 
   final VoidCallback? onHeaderTap;
   final void Function(int step)? onHeaderFlick;
+  final void Function(int? step)? onHeaderAim;
 
   @override
   Widget build(BuildContext context) {
@@ -368,8 +378,64 @@ class BottomBarFrame extends StatelessWidget {
           title: title,
           onHeaderTap: onHeaderTap,
           onHeaderFlick: onHeaderFlick,
+          onHeaderAim: onHeaderAim,
           child: child,
         ),
+      ),
+    );
+  }
+}
+
+class CaptureGhost extends StatelessWidget {
+  const CaptureGhost({super.key, required this.action});
+
+  final bool action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Row(
+          children: [
+            Expanded(child: _GhostBlock(height: RowMetrics.minHeight)),
+            SizedBox(width: Spacing.md),
+            _GhostBlock(
+              width: TapTargets.minHeight,
+              height: RowMetrics.minHeight,
+            ),
+          ],
+        ),
+        if (action) ...[
+          const SizedBox(height: Spacing.md),
+          const _GhostBlock(height: TapTargets.minHeight),
+        ],
+      ],
+    );
+  }
+}
+
+class _GhostBlock extends StatelessWidget {
+  const _GhostBlock({this.width, required this.height});
+
+  final double? width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: context.tokens.borderNormal,
+            width: Borders.hairline,
+          ),
+          borderRadius: BorderRadius.circular(Radii.sharp),
+        ),
+        child: const DitherField(level: 2),
       ),
     );
   }
