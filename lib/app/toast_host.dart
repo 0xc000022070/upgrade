@@ -306,7 +306,19 @@ class _ToastStripState extends ConsumerState<_ToastStrip>
       alignment: Alignment.topCenter,
       child: FadeTransition(
         opacity: _curve,
-        child: SlideTransition(position: _drop, child: strip),
+        child: SlideTransition(
+          position: _drop,
+          child: Dismissible(
+            key: ValueKey(toast.id),
+            direction: DismissDirection.horizontal,
+            // Dropping it from the queue is what starts the leaving the stack animates,
+            // so Dismissible must not collapse the gap a second time.
+            resizeDuration: null,
+            onDismissed: (_) =>
+                ref.read(toastQueueProvider.notifier).dismiss(toast.id),
+            child: strip,
+          ),
+        ),
       ),
     );
   }
