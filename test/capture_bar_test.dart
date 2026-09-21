@@ -90,6 +90,13 @@ void main() {
     await _ready(tester);
   }
 
+  Future<TestGesture> hold(WidgetTester tester, double dy) async {
+    final gesture = await tester.startGesture(header(tester));
+    await gesture.moveBy(Offset(0, dy));
+    await tester.pump();
+    return gesture;
+  }
+
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
@@ -698,6 +705,127 @@ void main() {
 
     expect(_capture, findsOneWidget);
 
+    await unmount(tester);
+  });
+
+  testWidgets('the ghost stands in for the bar while the finger is down', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(hidable: true));
+    await _ready(tester);
+
+    expect(find.byType(CaptureGhost), findsNothing);
+
+    final gesture = await hold(tester, 40);
+
+    expect(find.byType(CaptureGhost), findsOneWidget);
+    expect(_capture, findsNothing);
+
+    await gesture.up();
+    await _ready(tester);
+
+    expect(find.byType(CaptureGhost), findsNothing);
+    expect(_capture, findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the stub raises a ghost of the bar it is about to bring back', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(hidable: true));
+    await _ready(tester);
+    await flick(tester, 40);
+
+    final gesture = await hold(tester, -40);
+
+    expect(find.byType(CaptureGhost), findsOneWidget);
+    expect(_capture, findsNothing);
+
+    await gesture.up();
+    await _ready(tester);
+
+    expect(find.byType(CaptureGhost), findsNothing);
+    expect(_capture, findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a drag that comes back takes the ghost and commits nothing', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(hidable: true));
+    await _ready(tester);
+
+    final gesture = await hold(tester, 40);
+
+    expect(find.byType(CaptureGhost), findsOneWidget);
+
+    await gesture.moveBy(const Offset(0, -40));
+    await tester.pump();
+
+    expect(find.byType(CaptureGhost), findsNothing);
+    expect(_capture, findsOneWidget);
+
+    await gesture.up();
+    await _ready(tester);
+
+    expect(_capture, findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('nothing in the ghost is live', (tester) async {
+    await tester.pumpWidget(host(hidable: true));
+    await _ready(tester);
+
+    final gesture = await hold(tester, 40);
+    final ghost = find.byType(CaptureGhost);
+
+    expect(ghost, findsOneWidget);
+    expect(
+      find.descendant(of: ghost, matching: find.byType(TextField)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: ghost, matching: find.byType(Icon)),
+      findsNothing,
+    );
+
+    await gesture.up();
+    await _ready(tester);
+    await unmount(tester);
+  });
+
+  testWidgets('the ghost carries the capture block when text is held', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(hidable: true));
+    await _ready(tester);
+
+    final bare = await hold(tester, 40);
+    final empty = tester.getSize(find.byType(CaptureGhost)).height;
+    await bare.moveBy(const Offset(0, -40));
+    await tester.pump();
+    await bare.up();
+    await _ready(tester);
+
+    await tester.tap(_capture);
+    await _ready(tester);
+    await tester.enterText(_capture, 'revisar pgbouncer.conf');
+    await _ready(tester);
+    await tester.tapAt(const Offset(10, 10));
+    await _ready(tester);
+
+    final held = await hold(tester, 40);
+
+    expect(
+      tester.getSize(find.byType(CaptureGhost)).height,
+      greaterThan(empty),
+    );
+
+    await held.up();
+    await _ready(tester);
     await unmount(tester);
   });
 }
