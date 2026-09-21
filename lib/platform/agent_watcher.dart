@@ -26,6 +26,7 @@ const watcherChannelName = 'Agent watcher';
 const watcherNotificationTitle = 'DAZZLE';
 
 const _hostsKey = 'dazzle.watcher.hosts';
+const _kindsKey = 'dazzle.watcher.kinds';
 
 /// With `--dart-define=DAZZLE_FAKE_WATCH=true` each host's stream is a canned pair of
 /// snapshots, which is what produces the alert on an emulator with no key on the host.
@@ -71,6 +72,25 @@ List<Host> decodeWatcherHosts(String? raw) {
     ];
   } catch (_) {
     return const [];
+  }
+}
+
+String encodeWatcherKinds(Set<AlertKind> kinds) => jsonEncode([
+  for (final kind in AlertKind.values)
+    if (kinds.contains(kind)) kind.name,
+]);
+
+Set<AlertKind> decodeWatcherKinds(String? raw) {
+  if (raw == null || raw.isEmpty) return const {};
+  try {
+    final json = jsonDecode(raw);
+    if (json is! List<Object?>) return const {};
+    return {
+      for (final kind in AlertKind.values)
+        if (json.contains(kind.name)) kind,
+    };
+  } catch (_) {
+    return const {};
   }
 }
 
@@ -130,11 +150,8 @@ class AgentWatcher {
     return asked == NotificationPermission.granted;
   }
 
-  static Future<void> start(List<Host> hosts) async {
-    await FlutterForegroundTask.saveData(
-      key: _hostsKey,
-      value: encodeWatcherHosts(hosts),
-    );
+  static Future<void> start(List<Host> hosts, Set<AlertKind> kinds) async {
+    await _save(hosts, kinds);
     if (await FlutterForegroundTask.isRunningService) {
       FlutterForegroundTask.sendDataToTask(_reloadHosts);
       return;
@@ -150,14 +167,22 @@ class AgentWatcher {
     }
   }
 
-  static Future<void> setHosts(List<Host> hosts) async {
+  static Future<void> setHosts(List<Host> hosts, Set<AlertKind> kinds) async {
+    await _save(hosts, kinds);
+    if (await FlutterForegroundTask.isRunningService) {
+      FlutterForegroundTask.sendDataToTask(_reloadHosts);
+    }
+  }
+
+  static Future<void> _save(List<Host> hosts, Set<AlertKind> kinds) async {
     await FlutterForegroundTask.saveData(
       key: _hostsKey,
       value: encodeWatcherHosts(hosts),
     );
-    if (await FlutterForegroundTask.isRunningService) {
-      FlutterForegroundTask.sendDataToTask(_reloadHosts);
-    }
+    await FlutterForegroundTask.saveData(
+      key: _kindsKey,
+      value: encodeWatcherKinds(kinds),
+    );
   }
 
   static Future<HostOutcome> retry(Host host) async {
@@ -320,7 +345,7 @@ class AgentWatcherHandler extends TaskHandler {
   final Ed25519Keys _keys;
   final HerdrClient _client;
 
-  final BlockedEdges _edges = BlockedEdges();
+  final _AlertBook _book = _AlertBook();
   final Map<String, _HostLoop> _loops = {};
   final Map<String, WatcherReport> _reports = {};
 
@@ -365,8 +390,27 @@ class AgentWatcherHandler extends TaskHandler {
   }
 
   Future<void> _reloadFromStore() async {
-    final raw = await FlutterForegroundTask.getData<String>(key: _hostsKey);
-    await setHosts(decodeWatcherHosts(raw));
+    final hosts = await FlutterForegroundTask.getData<String>(key: _hostsKey);
+    final kinds = await FlutterForegroundTask.getData<String>(key: _kindsKey);
+    await setKinds(decodeWatcherKinds(kinds));
+    await setHosts(decodeWatcherHosts(hosts));
+  }
+
+  @visibleForTesting
+  Future<void> setKinds(Set<AlertKind> kinds) async {
+    for (final kind in AlertKind.values) {
+      if (kinds.contains(kind) || !_book.kinds.contains(kind)) continue;
+      final edges = _book.edges[kind]!;
+      for (final host in _hosts) {
+        for (final pane in edges.panesOn(host.id)) {
+          await AlertNotifications.cancel(
+            kindNotificationId(kind, host.id, pane),
+          );
+        }
+        edges.reset(host.id);
+      }
+    }
+    _book.kinds = kinds;
   }
 
   /// Public only so a test can reach the loops without the store the isolate reads them
@@ -388,7 +432,7 @@ class AgentWatcherHandler extends TaskHandler {
         host: host,
         keys: _keys,
         client: _client,
-        edges: _edges,
+        book: _book,
         onReport: _publish,
       )..start();
     }
@@ -432,19 +476,27 @@ class AgentWatcherHandler extends TaskHandler {
   }
 }
 
+class _AlertBook {
+  final Map<AlertKind, AgentEdges> edges = {
+    for (final kind in AlertKind.values) kind: AgentEdges(kind),
+  };
+
+  Set<AlertKind> kinds = const {};
+}
+
 class _HostLoop {
   _HostLoop({
     required this.host,
     required this.keys,
     required this.client,
-    required this.edges,
+    required this.book,
     required this.onReport,
   });
 
   final Host host;
   final Ed25519Keys keys;
   final HerdrClient client;
-  final BlockedEdges edges;
+  final _AlertBook book;
   final void Function(WatcherReport) onReport;
 
   final WatcherBackoff _backoff = WatcherBackoff();
@@ -504,12 +556,17 @@ class _HostLoop {
       waiting.complete();
     }
     await _running;
-    // The alert is cleared when the app stops being able to say the pane is still blocked,
-    // and a watcher that is going away cannot.
-    for (final pane in edges.blockedOn(host.id)) {
-      await AlertNotifications.cancel(alertNotificationId(host.id, pane));
+    // The alert is cleared when the app stops being able to say the pane is still in the
+    // state that posted it, and a watcher that is going away cannot.
+    for (final kind in AlertKind.values) {
+      final edges = book.edges[kind]!;
+      for (final pane in edges.panesOn(host.id)) {
+        await AlertNotifications.cancel(
+          kindNotificationId(kind, host.id, pane),
+        );
+      }
+      edges.reset(host.id);
     }
-    edges.reset(host.id);
   }
 
   void _log(Object error) => debugPrint('dazzle.herdr ${host.name}: $error');
@@ -607,21 +664,36 @@ class _HostLoop {
     // The backoff is per outage: a connection that carried a snapshot has earned the next
     // one its full start.
     _backoff.reset();
-    final delta = edges.apply(host.id, agents);
-    for (final pane in delta.left) {
-      await AlertNotifications.cancel(alertNotificationId(host.id, pane));
-    }
-    for (final snapshot in delta.entered) {
-      // A tail that fails to arrive is not worth losing the alert over, so [HerdrSession.read]
-      // answers null and the alert goes out flat.
-      final tail = session == null ? null : await session.read(snapshot.pane);
-      await AlertNotifications.alert(
-        target: AlertTarget.forHost(host, snapshot),
-        snapshot: snapshot,
-        tail: tail,
-      );
+    for (final kind in AlertKind.values) {
+      if (!book.kinds.contains(kind)) continue;
+      final delta = book.edges[kind]!.apply(host.id, agents);
+      for (final pane in delta.left) {
+        await AlertNotifications.cancel(
+          kindNotificationId(kind, host.id, pane),
+        );
+      }
+      for (final snapshot in delta.entered) {
+        await _post(kind, snapshot, session);
+      }
     }
     _report(AgentOutcomeKind.snapshot);
+  }
+
+  Future<void> _post(
+    AlertKind kind,
+    AgentSnapshot snapshot,
+    HerdrSession? session,
+  ) async {
+    final target = AlertTarget.forHost(host, snapshot);
+    if (kind == AlertKind.done) {
+      return AlertNotifications.done(target: target, snapshot: snapshot);
+    }
+    final tail = session == null ? null : await session.read(snapshot.pane);
+    return AlertNotifications.alert(
+      target: target,
+      snapshot: snapshot,
+      tail: tail,
+    );
   }
 
   void _report(AgentOutcomeKind kind, {int? protocol, Duration? retryIn}) {
@@ -699,6 +771,24 @@ class _HostLoop {
     await _wait(const Duration(seconds: 5));
     if (_stopped) return;
     await _onSnapshot(agents, null);
+    await _wait(const Duration(seconds: 5));
+    if (_stopped) return;
+    await _onSnapshot([
+      for (final agent in agents)
+        if (agent.paneId == 'wF:p2')
+          AgentSnapshot(
+            session: agent.session,
+            paneId: agent.paneId,
+            agent: agent.agent,
+            state: const DoneState(),
+            terminalTitleStripped: agent.terminalTitleStripped,
+            workspaceId: agent.workspaceId,
+            cwd: agent.cwd,
+            stateChangeSeq: agent.stateChangeSeq + 1,
+          )
+        else
+          agent,
+    ], null);
     while (!_stopped) {
       await _wait(const Duration(seconds: 30));
     }

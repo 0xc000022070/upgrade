@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/alerts.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/enums.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
@@ -64,25 +65,52 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  Future<bool> flag() =>
-      SettingsRepository(db)
-          .flag(SettingsRepository.alertsBlockedAgents, orElse: false);
+  Future<bool> flag([AlertKind kind = AlertKind.blocked]) =>
+      SettingsRepository(db).flag(kind.settingsKey, orElse: false);
 
-  testWidgets('with no HERDR host the row is dim and does nothing', (
+  testWidgets('with no HERDR host both rows are dim and do nothing', (
     tester,
   ) async {
     await tester.pumpWidget(shell(permission: () async => true));
     await settle(tester);
 
-    expect(find.text('NO HOST'), findsOneWidget);
-    expect(
-      tester.widget<Text>(find.text('BLOCKED AGENTS')).style?.color,
-      DazzleColors.textMuted,
-    );
-    await tester.tap(find.text('BLOCKED AGENTS'));
+    expect(find.text('NO HOST'), findsNWidgets(2));
+    for (final kind in AlertKind.values) {
+      expect(
+        tester.widget<Text>(find.text(kind.label)).style?.color,
+        DazzleColors.textMuted,
+      );
+      await tester.tap(find.text(kind.label));
+      await settle(tester);
+      expect(await flag(kind), isFalse);
+    }
+    await unmount(tester);
+  });
+
+  testWidgets('the two rows are one panel, blocked above finished', (
+    tester,
+  ) async {
+    await withHerdrHost();
+    await tester.pumpWidget(shell(permission: () async => true));
     await settle(tester);
 
-    expect(await flag(), isFalse);
+    expect(
+      tester.getTopLeft(find.text('BLOCKED AGENTS')).dy,
+      lessThan(tester.getTopLeft(find.text('FINISHED AGENTS')).dy),
+    );
+    await unmount(tester);
+  });
+
+  testWidgets('each row carries its own setting', (tester) async {
+    await withHerdrHost();
+    await tester.pumpWidget(shell(permission: () async => true));
+    await settle(tester);
+
+    await tester.tap(find.text('FINISHED AGENTS'));
+    await settle(tester);
+
+    expect(await flag(AlertKind.done), isTrue);
+    expect(await flag(AlertKind.blocked), isFalse);
     await unmount(tester);
   });
 

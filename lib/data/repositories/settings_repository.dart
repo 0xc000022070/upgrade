@@ -8,6 +8,7 @@ class SettingsRepository {
   static const staticEnabled = 'static_enabled';
 
   static const alertsBlockedAgents = 'alerts_blocked_agents';
+  static const alertsDoneAgents = 'alerts_done_agents';
 
   static const shellFontSize = 'shell_font_size';
 

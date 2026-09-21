@@ -11,6 +11,32 @@ import 'providers.dart';
 
 const watcherNotificationId = 1;
 
+enum AlertKind {
+  blocked,
+  done;
+
+  bool holds(AgentSnapshot agent) => switch (this) {
+    AlertKind.blocked => agent.blocked,
+    AlertKind.done => agent.done,
+  };
+
+  String get settingsKey => switch (this) {
+    AlertKind.blocked => SettingsRepository.alertsBlockedAgents,
+    AlertKind.done => SettingsRepository.alertsDoneAgents,
+  };
+
+  String get label => switch (this) {
+    AlertKind.blocked => 'BLOCKED AGENTS',
+    AlertKind.done => 'FINISHED AGENTS',
+  };
+
+  String title(String agent) {
+    final name = agent.trim();
+    final word = this == AlertKind.blocked ? 'BLOCKED' : 'DONE';
+    return '${name.isEmpty ? '?' : name.toUpperCase()} $word';
+  }
+}
+
 /// Derived rather than counted out, because the isolate answering a tap is not the
 /// one that posted. Folded to 30 bits to stay inside Android's signed 32-bit id.
 int alertNotificationId(String hostId, String paneId) {
@@ -21,6 +47,13 @@ int alertNotificationId(String hostId, String paneId) {
   return 1000 + hash;
 }
 
+/// The kind salts the fold rather than offsetting it, because an offset would carry the
+/// id past the 30 bits. Blocked keeps the unsalted id it has always posted under.
+int kindNotificationId(AlertKind kind, String hostId, String paneId) =>
+    kind == AlertKind.blocked
+    ? alertNotificationId(hostId, paneId)
+    : alertNotificationId('${kind.name}/$hostId', paneId);
+
 const _defaultAnswerKeys = (yes: 'enter', no: 'esc');
 
 List<String> answerKeys(String agent, {required bool yes}) {
@@ -28,12 +61,8 @@ List<String> answerKeys(String agent, {required bool yes}) {
   return [yes ? table.yes : table.no];
 }
 
-String alertTitle(AgentSnapshot snapshot) => blockedTitle(snapshot.agent);
-
-String blockedTitle(String agent) {
-  final name = agent.trim();
-  return '${name.isEmpty ? '?' : name.toUpperCase()} BLOCKED';
-}
+String alertTitle(AgentSnapshot snapshot) =>
+    AlertKind.blocked.title(snapshot.agent);
 
 String alertText(AgentSnapshot snapshot) => snapshot.terminalTitleStripped;
 
@@ -69,23 +98,27 @@ class WatcherBackoff {
   void reset() => _current = watcherMinBackoff;
 }
 
-class BlockedEdges {
-  final Map<String, Set<String>> _blocked = {};
+class AgentEdges {
+  AgentEdges(this.kind);
 
-  /// Called on every connect, so the next difference counts every blocked pane as new.
-  void reset(String hostId) => _blocked.remove(hostId);
+  final AlertKind kind;
 
-  BlockedDelta apply(String hostId, List<AgentSnapshot> agents) {
-    final was = _blocked[hostId] ?? const <String>{};
+  final Map<String, Set<String>> _panes = {};
+
+  /// Called on every connect, so the next difference counts every pane in the state as new.
+  void reset(String hostId) => _panes.remove(hostId);
+
+  AgentDelta apply(String hostId, List<AgentSnapshot> agents) {
+    final was = _panes[hostId] ?? const <String>{};
     final now = <String>{};
     final entered = <AgentSnapshot>[];
     for (final agent in agents) {
-      if (!agent.blocked) continue;
+      if (!kind.holds(agent)) continue;
       now.add(agent.paneId);
       if (!was.contains(agent.paneId)) entered.add(agent);
     }
-    _blocked[hostId] = now;
-    return BlockedDelta(
+    _panes[hostId] = now;
+    return AgentDelta(
       entered: entered,
       left: [
         for (final pane in was)
@@ -94,11 +127,11 @@ class BlockedEdges {
     );
   }
 
-  Set<String> blockedOn(String hostId) => _blocked[hostId] ?? const {};
+  Set<String> panesOn(String hostId) => _panes[hostId] ?? const {};
 }
 
-class BlockedDelta {
-  const BlockedDelta({required this.entered, required this.left});
+class AgentDelta {
+  const AgentDelta({required this.entered, required this.left});
 
   final List<AgentSnapshot> entered;
   final List<String> left;
@@ -145,11 +178,14 @@ class AlertTarget {
     text: alertText(snapshot),
   );
 
-  String get title => blockedTitle(agent);
+  String get title => AlertKind.blocked.title(agent);
 
   PaneRef get pane => (session: session, pane: paneId);
 
-  int get notificationId => alertNotificationId(hostId, paneId);
+  int notificationIdFor(AlertKind kind) =>
+      kindNotificationId(kind, hostId, paneId);
+
+  int get notificationId => notificationIdFor(AlertKind.blocked);
 
   String encode() => jsonEncode({
     'host_id': hostId,
@@ -285,25 +321,32 @@ enum AlertsRow {
   };
 }
 
-final alertsEnabledProvider = StreamProvider<bool>(
-  (ref) => ref
+final alertsEnabledProvider = StreamProvider.family<bool, AlertKind>(
+  (ref, kind) => ref
       .watch(settingsRepositoryProvider)
-      .watchFlag(SettingsRepository.alertsBlockedAgents, orElse: false),
+      .watchFlag(kind.settingsKey, orElse: false),
 );
 
 /// Not persisted: the OS is the record, and a permission granted from system settings
 /// must not meet a stale line.
-final alertsDeniedProvider = StateProvider<bool>((ref) => false);
+final alertsDeniedProvider = StateProvider<Set<AlertKind>>((ref) => const {});
 
-final alertsRowProvider = Provider<AlertsRow>((ref) {
+final alertsRowProvider = Provider.family<AlertsRow, AlertKind>((ref, kind) {
   final hosts = ref.watch(herdrHostsProvider).valueOrNull ?? const [];
   if (hosts.isEmpty) return AlertsRow.noHost;
-  if (ref.watch(alertsDeniedProvider)) return AlertsRow.denied;
-  return (ref.watch(alertsEnabledProvider).valueOrNull ?? false)
+  if (ref.watch(alertsDeniedProvider).contains(kind)) return AlertsRow.denied;
+  return (ref.watch(alertsEnabledProvider(kind)).valueOrNull ?? false)
       ? AlertsRow.on
       : AlertsRow.off;
 });
 
+final alertsWantedProvider = Provider<Set<AlertKind>>((ref) {
+  return {
+    for (final kind in AlertKind.values)
+      if (ref.watch(alertsRowProvider(kind)) == AlertsRow.on) kind,
+  };
+});
+
 final watcherWantedProvider = Provider<bool>(
-  (ref) => ref.watch(alertsRowProvider) == AlertsRow.on,
+  (ref) => ref.watch(alertsWantedProvider).isNotEmpty,
 );

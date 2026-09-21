@@ -80,9 +80,9 @@ class AlertsHost extends ConsumerStatefulWidget {
 }
 
 class _AlertsHostState extends ConsumerState<AlertsHost> {
-  /// The host set the service was last told to watch, or the empty string for "stopped".
-  /// Two providers drive one reconciliation, and without this a change in either would
-  /// restart a service already watching these hosts.
+  /// The hosts and kinds the service was last told to watch, or the empty string for
+  /// "stopped". Two providers drive one reconciliation, and without this a change in either
+  /// would restart a service already watching these hosts for these kinds.
   String? _applied;
 
   @override
@@ -92,7 +92,7 @@ class _AlertsHostState extends ConsumerState<AlertsHost> {
     pinOpenHandler = _openShell;
     // Both conditions in one place. In `build` this was a side effect that ran again on
     // every rebuild, including the ones neither provider caused.
-    ref.listenManual(watcherWantedProvider, (_, _) => _sync());
+    ref.listenManual(alertsWantedProvider, (_, _) => _sync());
     ref.listenManual(
       herdrHostsProvider,
       (_, _) => _sync(),
@@ -134,12 +134,16 @@ class _AlertsHostState extends ConsumerState<AlertsHost> {
   }
 
   void _sync() {
-    final wanted = ref.read(watcherWantedProvider);
+    final kinds = ref.read(alertsWantedProvider);
     final hosts = ref.read(herdrHostsProvider).valueOrNull ?? const <Host>[];
-    final next = wanted && hosts.isNotEmpty ? encodeWatcherHosts(hosts) : '';
+    final next = kinds.isEmpty || hosts.isEmpty
+        ? ''
+        : '${encodeWatcherKinds(kinds)}${encodeWatcherHosts(hosts)}';
     if (next == _applied) return;
     _applied = next;
-    unawaited(next.isEmpty ? AgentWatcher.stop() : AgentWatcher.start(hosts));
+    unawaited(
+      next.isEmpty ? AgentWatcher.stop() : AgentWatcher.start(hosts, kinds),
+    );
   }
 
   @override
