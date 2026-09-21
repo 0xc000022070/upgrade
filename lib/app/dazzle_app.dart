@@ -157,8 +157,8 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
             backgroundColor: context.tokens.backgroundPrimary,
             resizeToAvoidBottomInset: true,
             body: StaticSurface(
-              // The stack is the body's, not the Scaffold's, so a toast lands on the
-              // screen's own pinned bottom rather than over the nav bar under it.
+              // The stack is the body's, not the Scaffold's, so a toast lands over the
+              // screen's own header and leaves the bottom of the app alone.
               child: Stack(
                 children: [
                   Positioned.fill(
@@ -173,7 +173,7 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
                   const Positioned(
                     left: 0,
                     right: 0,
-                    bottom: 0,
+                    top: 0,
                     child: ToastHost(),
                   ),
                 ],
