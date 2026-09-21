@@ -92,7 +92,11 @@ class _DropsHomeSurfaceState extends ConsumerState<DropsHomeSurface> {
         if (selecting)
           const SelectionBar(scope: DropSelection.homeScope)
         else
-          CaptureBar(scope: DropSelection.homeScope, landing: _landing),
+          CaptureBar(
+            scope: DropSelection.homeScope,
+            landing: _landing,
+            hidable: true,
+          ),
       ],
     );
   }

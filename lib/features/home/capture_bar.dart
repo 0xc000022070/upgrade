@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/capture_visibility.dart';
 import '../../application/fresh_drops.dart';
 import '../../application/navigation.dart';
 import '../../application/providers.dart';
@@ -24,12 +25,15 @@ import '../tasks/item_pickers.dart';
 import '../../application/urls.dart';
 import '../tasks/url_highlight_controller.dart';
 
+const _title = 'CAPTURE / QUICK ADD';
+
 class CaptureBar extends ConsumerStatefulWidget {
   const CaptureBar({
     super.key,
     required this.scope,
     this.fixedTarget,
     this.landing,
+    this.hidable = false,
   });
 
   final String scope;
@@ -37,6 +41,8 @@ class CaptureBar extends ConsumerStatefulWidget {
   final ItemTarget? fixedTarget;
 
   final GlitchController? landing;
+
+  final bool hidable;
 
   @override
   ConsumerState<CaptureBar> createState() => _CaptureBarState();
@@ -119,6 +125,22 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
     setState(() => _linkOpen = false);
   }
 
+  void _stow() {
+    _focus.unfocus();
+    if (_linkOpen) _closeLink();
+    ref.read(captureHiddenProvider.notifier).state = true;
+  }
+
+  void _reveal() => ref.read(captureHiddenProvider.notifier).state = false;
+
+  void _flick(int step) {
+    if (step > 0) {
+      _stow();
+    } else {
+      _reveal();
+    }
+  }
+
   Future<void> _image() async {
     final path = await ref.read(attachmentFilesProvider).pick();
     if (!mounted || path == null) return;
@@ -168,13 +190,21 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.hidable && ref.watch(captureHiddenProvider)) {
+      return BottomBarFrame(
+        title: _title,
+        onHeaderTap: _reveal,
+        onHeaderFlick: _flick,
+      );
+    }
     return ValueListenableBuilder<double>(
       // The strip is an overlay pinned to the top of the IME and the scaffold resizes the bar
       // to sit exactly there: without this the accessory would cover the field it belongs to.
       valueListenable: KeyboardAccessory.reservedHeight,
       builder: (context, accessory, child) => BottomBarFrame(
-        title: 'CAPTURE / QUICK ADD',
+        title: _title,
         accessory: accessory,
+        onHeaderFlick: widget.hidable ? _flick : null,
         child: child!,
       ),
       child: ValueListenableBuilder<TextEditingValue>(
@@ -305,14 +335,20 @@ class BottomBarFrame extends StatelessWidget {
   const BottomBarFrame({
     super.key,
     required this.title,
-    required this.child,
+    this.child,
     this.accessory = 0,
+    this.onHeaderTap,
+    this.onHeaderFlick,
   });
 
   final String title;
-  final Widget child;
+
+  final Widget? child;
 
   final double accessory;
+
+  final VoidCallback? onHeaderTap;
+  final void Function(int step)? onHeaderFlick;
 
   @override
   Widget build(BuildContext context) {
@@ -328,7 +364,12 @@ class BottomBarFrame extends StatelessWidget {
           Spacing.screenEdge,
           Spacing.md + accessory + systemBottom,
         ),
-        child: Panel(title: title, child: child),
+        child: Panel(
+          title: title,
+          onHeaderTap: onHeaderTap,
+          onHeaderFlick: onHeaderFlick,
+          child: child,
+        ),
       ),
     );
   }

@@ -27,7 +27,7 @@ Widget _home(BuildContext context) => const DropsHomeSurface();
 Widget _drops(BuildContext context) => const _DropsContribution();
 
 Widget _capture(BuildContext context) =>
-    const CaptureBar(scope: DropSelection.homeScope);
+    const CaptureBar(scope: DropSelection.homeScope, hidable: true);
 
 class _DropsContribution extends ConsumerWidget {
   const _DropsContribution();
