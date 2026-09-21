@@ -347,6 +347,48 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('swiping a toast off the side takes its undo with it', (
+    tester,
+  ) async {
+    final drop = await tasks.capture('revisar pgbouncer');
+
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    await _tapBox(tester, 'revisar pgbouncer');
+    await _ready(tester);
+
+    expect(_toast('UNDO'), findsOneWidget);
+    await tester.fling(_toast('revisar pgbouncer'), const Offset(300, 0), 1000);
+    await _ready(tester);
+    expect(_toast('UNDO'), findsNothing);
+    final rows = await tester.runAsync(() => db.select(db.tasks).get());
+    expect(rows!.firstWhere((task) => task.id == drop).done, isTrue);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the fold strip stays put under the same swipe', (tester) async {
+    const titles = ['primero', 'segundo', 'tercero'];
+    for (final title in titles) {
+      await tasks.capture(title);
+    }
+
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    for (final title in titles) {
+      await _tapBox(tester, title);
+      await _ready(tester);
+    }
+
+    expect(_toast('+1 MORE'), findsOneWidget);
+    await tester.fling(_toast('+1 MORE'), const Offset(300, 0), 1000);
+    await _ready(tester);
+    expect(_toast('+1 MORE'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
   testWidgets('holding a drop row enters selection mode with it checked', (
     tester,
   ) async {
