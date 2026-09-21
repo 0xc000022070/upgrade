@@ -25,6 +25,8 @@ sealed class AgentState {
   bool get resting => false;
 
   bool get blocked => false;
+
+  bool get done => false;
 }
 
 class WorkingState extends AgentState {
@@ -68,6 +70,9 @@ class DoneState extends AgentState {
 
   @override
   bool get resting => true;
+
+  @override
+  bool get done => true;
 }
 
 class UnknownState extends AgentState {

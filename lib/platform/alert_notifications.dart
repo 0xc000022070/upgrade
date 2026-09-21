@@ -9,8 +9,15 @@ import 'herdr_client.dart';
 class AlertNotifications {
   /// The id is the stable half; Android keeps the channel's settings from the first
   /// creation, and the user owns them after.
-  static const channelId = 'blocked_agents';
-  static const channelName = 'Blocked agents';
+  static String channelId(AlertKind kind) => switch (kind) {
+    AlertKind.blocked => 'blocked_agents',
+    AlertKind.done => 'finished_agents',
+  };
+
+  static String channelName(AlertKind kind) => switch (kind) {
+    AlertKind.blocked => 'Blocked agents',
+    AlertKind.done => 'Finished agents',
+  };
 
   static const _smallIcon = '@mipmap/ic_launcher';
 
@@ -40,19 +47,21 @@ class AlertNotifications {
       onDidReceiveNotificationResponse: onResponse,
       onDidReceiveBackgroundNotificationResponse: onBackgroundResponse,
     );
-    await plugin
+    final android = plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(
-          const AndroidNotificationChannel(
-            channelId,
-            channelName,
-            importance: Importance.high,
-            playSound: true,
-            enableVibration: true,
-          ),
-        );
+        >();
+    for (final kind in AlertKind.values) {
+      await android?.createNotificationChannel(
+        AndroidNotificationChannel(
+          channelId(kind),
+          channelName(kind),
+          importance: Importance.high,
+          playSound: true,
+          enableVibration: true,
+        ),
+      );
+    }
   }
 
   /// `OPEN` carries [showsUserInterface] so Android brings the activity up itself; `YES`
@@ -69,28 +78,41 @@ class AlertNotifications {
     ),
   ];
 
+  static List<AndroidNotificationAction> get _openOnly => const [
+    AndroidNotificationAction(
+      alertActionOpen,
+      'OPEN',
+      showsUserInterface: true,
+      cancelNotification: false,
+    ),
+  ];
+
+  static List<AndroidNotificationAction> _actionsFor(AlertKind kind) =>
+      kind == AlertKind.done ? _openOnly : _actions;
+
   static AndroidNotificationDetails _details({
     required String title,
     required String text,
     String? tail,
     required bool withActions,
     String? line,
+    AlertKind kind = AlertKind.blocked,
   }) {
     final body = line == null ? text : '$text\n$line';
     return AndroidNotificationDetails(
-      channelId,
-      channelName,
+      channelId(kind),
+      channelName(kind),
       importance: Importance.high,
       priority: Priority.high,
       category: AndroidNotificationCategory.message,
-      // The alert stays until the pane leaves `blocked`; a swipe away is the user's own
-      // decision, not a tap.
+      // The alert stays until the pane leaves the state that posted it; a swipe away is the
+      // user's own decision, not a tap.
       ongoing: false,
       autoCancel: false,
       styleInformation: tail == null
           ? null
           : BigTextStyleInformation('$body\n\n$tail', contentTitle: title),
-      actions: withActions ? _actions : const [],
+      actions: withActions ? _actionsFor(kind) : const [],
     );
   }
 
@@ -111,6 +133,28 @@ class AlertNotifications {
           text: text,
           tail: tail,
           withActions: true,
+        ),
+      ),
+      payload: target.encode(),
+    );
+  }
+
+  static Future<void> done({
+    required AlertTarget target,
+    required AgentSnapshot snapshot,
+  }) {
+    final title = AlertKind.done.title(snapshot.agent);
+    final text = alertText(snapshot);
+    return plugin.show(
+      id: target.notificationIdFor(AlertKind.done),
+      title: title,
+      body: text,
+      notificationDetails: NotificationDetails(
+        android: _details(
+          title: title,
+          text: text,
+          withActions: true,
+          kind: AlertKind.done,
         ),
       ),
       payload: target.encode(),

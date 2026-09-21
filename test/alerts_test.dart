@@ -77,8 +77,10 @@ const other = Host(
 
 void main() {
   group('the blocked edge', () {
+    AgentEdges blockedEdges() => AgentEdges(AlertKind.blocked);
+
     test('fires once per episode, and again after an unblock', () {
-      final edges = BlockedEdges();
+      final edges = blockedEdges();
 
       final first = edges.apply('h1', [snapshot()]);
       expect(first.entered.map((agent) => agent.paneId), ['wQ:p1']);
@@ -98,7 +100,7 @@ void main() {
     test(
       'counts every blocked pane as new on the service\'s first snapshot',
       () {
-        final edges = BlockedEdges();
+        final edges = blockedEdges();
         final first = edges.apply('h1', [snapshot(), snapshot(pane: 'wQ:p2')]);
         expect(first.entered, hasLength(2));
         expect(first.left, isEmpty);
@@ -106,17 +108,17 @@ void main() {
     );
 
     test('a reconnect keeps the set, so nothing still blocked re-enters', () {
-      final edges = BlockedEdges();
+      final edges = blockedEdges();
       expect(edges.apply('h1', [snapshot()]).entered, hasLength(1));
 
       final rejoined = edges.apply('h1', [snapshot()]);
       expect(rejoined.entered, isEmpty, reason: 'no re-alert, no sound');
       expect(rejoined.left, isEmpty);
-      expect(edges.blockedOn('h1'), {'wQ:p1'});
+      expect(edges.panesOn('h1'), {'wQ:p1'});
     });
 
     test('what changed while the link was down still reads as an edge', () {
-      final edges = BlockedEdges();
+      final edges = blockedEdges();
       edges.apply('h1', [snapshot(), snapshot(pane: 'wQ:p2')]);
 
       final rejoined = edges.apply('h1', [
@@ -138,27 +140,78 @@ void main() {
     test(
       'reset is what a host going away does, and it alone makes panes new',
       () {
-        final edges = BlockedEdges();
+        final edges = blockedEdges();
         edges.apply('h1', [snapshot()]);
         expect(edges.apply('h1', [snapshot()]).entered, isEmpty);
 
         edges.reset('h1');
-        expect(edges.blockedOn('h1'), isEmpty);
+        expect(edges.panesOn('h1'), isEmpty);
         expect(edges.apply('h1', [snapshot()]).entered, hasLength(1));
       },
     );
 
     test('a pane that disappears leaves blocked', () {
-      final edges = BlockedEdges();
+      final edges = blockedEdges();
       edges.apply('h1', [snapshot()]);
       expect(edges.apply('h1', const []).left, ['wQ:p1']);
     });
 
     test('two hosts blocking the same pane id are two episodes', () {
-      final edges = BlockedEdges();
+      final edges = blockedEdges();
       expect(edges.apply('h1', [snapshot()]).entered, hasLength(1));
       expect(edges.apply('h2', [snapshot()]).entered, hasLength(1));
-      expect(edges.blockedOn('h1'), {'wQ:p1'});
+      expect(edges.panesOn('h1'), {'wQ:p1'});
+    });
+  });
+
+  group('the finished edge', () {
+    AgentEdges doneEdges() => AgentEdges(AlertKind.done);
+
+    test('fires when the pane stops working, not while it is at rest', () {
+      final edges = doneEdges();
+      expect(edges.apply('h1', [snapshot(status: 'working')]).isEmpty, isTrue);
+
+      final finished = edges.apply('h1', [snapshot(status: 'done')]);
+      expect(finished.entered.map((agent) => agent.paneId), ['wQ:p1']);
+
+      expect(edges.apply('h1', [snapshot(status: 'done')]).isEmpty, isTrue);
+    });
+
+    test('an agent picked back up leaves done, and can finish again', () {
+      final edges = doneEdges();
+      edges.apply('h1', [snapshot(status: 'done')]);
+
+      final resumed = edges.apply('h1', [snapshot(status: 'working')]);
+      expect(resumed.left, ['wQ:p1'], reason: 'its notification is cancelled');
+
+      expect(
+        edges.apply('h1', [snapshot(status: 'done')]).entered,
+        hasLength(1),
+      );
+    });
+
+    test('idle is not finished, and neither is blocked', () {
+      final edges = doneEdges();
+      expect(edges.apply('h1', [snapshot(status: 'idle')]).isEmpty, isTrue);
+      expect(edges.apply('h1', [snapshot()]).isEmpty, isTrue);
+      expect(edges.panesOn('h1'), isEmpty);
+    });
+
+    test('the two kinds read the same snapshot apart', () {
+      const finished = [
+        AgentSnapshot(
+          session: 'default',
+          paneId: 'wQ:p1',
+          agent: 'claude',
+          state: DoneState(),
+          terminalTitleStripped: 'wrote the migration',
+          workspaceId: 'wQ',
+          cwd: '/home/luisnquin/src',
+          stateChangeSeq: 4,
+        ),
+      ];
+      expect(AlertKind.blocked.holds(finished.single), isFalse);
+      expect(AlertKind.done.holds(finished.single), isTrue);
     });
   });
 
@@ -183,6 +236,32 @@ void main() {
     test('an alert target carries its own id', () {
       final target = AlertTarget.forHost(host, snapshot());
       expect(target.notificationId, alertNotificationId('h1', 'wQ:p1'));
+      expect(
+        target.notificationIdFor(AlertKind.done),
+        kindNotificationId(AlertKind.done, 'h1', 'wQ:p1'),
+      );
+    });
+
+    test('a pane that blocked and then finished posts under two of them', () {
+      final blocked = kindNotificationId(AlertKind.blocked, 'h1', 'wQ:p1');
+      final done = kindNotificationId(AlertKind.done, 'h1', 'wQ:p1');
+
+      expect(blocked, isNot(done));
+      expect(done, isNot(watcherNotificationId));
+      expect(done, lessThan(1 << 31));
+      expect(done, greaterThan(0));
+      expect(blocked, alertNotificationId('h1', 'wQ:p1'));
+    });
+
+    test('a kind never collides across hosts or panes', () {
+      expect(
+        kindNotificationId(AlertKind.done, 'h1', 'wQ:p1'),
+        isNot(kindNotificationId(AlertKind.done, 'h2', 'wQ:p1')),
+      );
+      expect(
+        kindNotificationId(AlertKind.done, 'h1', 'wQ:p1'),
+        isNot(kindNotificationId(AlertKind.done, 'h1', 'wQ:p2')),
+      );
     });
   });
 
@@ -206,49 +285,79 @@ void main() {
 
   group('the watcher runs', () {
     ProviderContainer containerWith({
-      required bool alerts,
+      Set<AlertKind> alerts = const {},
       required List<Host> hosts,
-      bool denied = false,
+      Set<AlertKind> denied = const {},
     }) {
       final container = ProviderContainer(
         overrides: [
-          alertsEnabledProvider.overrideWith((ref) => Stream.value(alerts)),
+          alertsEnabledProvider.overrideWith(
+            (ref, kind) => Stream.value(alerts.contains(kind)),
+          ),
           herdrHostsProvider.overrideWith((ref) => Stream.value(hosts)),
-          if (denied) alertsDeniedProvider.overrideWith((ref) => true),
+          if (denied.isNotEmpty)
+            alertsDeniedProvider.overrideWith((ref) => denied),
         ],
       );
       addTearDown(container.dispose);
       return container;
     }
 
-    Future<AlertsRow> row(ProviderContainer container) async {
-      await container.read(alertsEnabledProvider.future);
+    Future<AlertsRow> row(ProviderContainer container, AlertKind kind) async {
+      await container.read(alertsEnabledProvider(kind).future);
       await container.read(herdrHostsProvider.future);
-      return container.read(alertsRowProvider);
+      return container.read(alertsRowProvider(kind));
     }
 
-    test('only with the toggle on and a HERDR host', () async {
-      final on = containerWith(alerts: true, hosts: const [host]);
-      expect(await row(on), AlertsRow.on);
+    test('only with a toggle on and a HERDR host', () async {
+      final on = containerWith(
+        alerts: {AlertKind.blocked},
+        hosts: const [host],
+      );
+      expect(await row(on, AlertKind.blocked), AlertsRow.on);
       expect(on.read(watcherWantedProvider), isTrue);
 
-      final off = containerWith(alerts: false, hosts: const [host]);
-      expect(await row(off), AlertsRow.off);
+      final off = containerWith(hosts: const [host]);
+      expect(await row(off, AlertKind.blocked), AlertsRow.off);
       expect(off.read(watcherWantedProvider), isFalse);
 
-      final hostless = containerWith(alerts: true, hosts: const []);
-      expect(await row(hostless), AlertsRow.noHost);
+      final hostless = containerWith(
+        alerts: {AlertKind.blocked},
+        hosts: const [],
+      );
+      expect(await row(hostless, AlertKind.blocked), AlertsRow.noHost);
       expect(hostless.read(watcherWantedProvider), isFalse);
+    });
+
+    test('for either row on its own, and for both together', () async {
+      final finished = containerWith(
+        alerts: {AlertKind.done},
+        hosts: const [host],
+      );
+      expect(await row(finished, AlertKind.blocked), AlertsRow.off);
+      expect(await row(finished, AlertKind.done), AlertsRow.on);
+      expect(finished.read(alertsWantedProvider), {AlertKind.done});
+      expect(finished.read(watcherWantedProvider), isTrue);
+
+      final both = containerWith(
+        alerts: AlertKind.values.toSet(),
+        hosts: const [host],
+      );
+      for (final kind in AlertKind.values) {
+        expect(await row(both, kind), AlertsRow.on);
+      }
+      expect(both.read(alertsWantedProvider), AlertKind.values.toSet());
     });
 
     test('never while the OS has refused notifications', () async {
       final denied = containerWith(
-        alerts: true,
+        alerts: AlertKind.values.toSet(),
         hosts: const [host],
-        denied: true,
+        denied: {AlertKind.blocked},
       );
-      expect(await row(denied), AlertsRow.denied);
-      expect(denied.read(watcherWantedProvider), isFalse);
+      expect(await row(denied, AlertKind.blocked), AlertsRow.denied);
+      expect(await row(denied, AlertKind.done), AlertsRow.on);
+      expect(denied.read(alertsWantedProvider), {AlertKind.done});
     });
 
     test('the row says which of the two is missing', () {
@@ -445,6 +554,14 @@ void main() {
     test('reads an empty agent as ?', () {
       expect(alertTitle(snapshot(agent: '')), '? BLOCKED');
       expect(alertTitle(snapshot(agent: '  ')), '? BLOCKED');
+    });
+
+    test('a finished agent says so, over the same stripped title', () {
+      expect(AlertKind.done.title('claude'), 'CLAUDE DONE');
+      expect(AlertKind.done.title(' codex '), 'CODEX DONE');
+      expect(AlertKind.done.title(''), '? DONE');
+      expect(AlertKind.blocked.label, 'BLOCKED AGENTS');
+      expect(AlertKind.done.label, 'FINISHED AGENTS');
     });
 
     test('carries the action states', () {
@@ -666,6 +783,20 @@ void main() {
     await handler.onDestroy(DateTime.now(), false);
 
     expect(client.dials, hasLength(2));
+  });
+
+  test('the wanted kinds survive the trip into the service', () {
+    expect(decodeWatcherKinds(encodeWatcherKinds({AlertKind.done})), {
+      AlertKind.done,
+    });
+    expect(
+      decodeWatcherKinds(encodeWatcherKinds(AlertKind.values.toSet())),
+      AlertKind.values.toSet(),
+    );
+    expect(decodeWatcherKinds(encodeWatcherKinds(const {})), isEmpty);
+    expect(decodeWatcherKinds(null), isEmpty);
+    expect(decodeWatcherKinds('{'), isEmpty);
+    expect(decodeWatcherKinds('["failed"]'), isEmpty);
   });
 
   test('a pinned host key survives the trip into the service', () {

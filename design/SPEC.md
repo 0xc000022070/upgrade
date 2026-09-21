@@ -745,6 +745,24 @@ So the send waits between them, and the wait is the server's own: after a start 
 
 **A prompt refused because the agent is not ready is a moment, not an answer.** It is retried on the same terms as one the agent never read, inside the deadline the whole send is already under, and before each retry the pane is looked at: a trust dialog is answered the way the start's own refusal used to be answered, and anything else is waited out. What is never done is reporting the text as refused because the far side was still opening.
 
+### A pane that stops for a question rings, and so does one that finishes
+
+Two kinds of alert leave the watcher and `[ ALERTS ]` carries a row for each.
+
+`BLOCKED AGENTS` posts `<AGENT> BLOCKED` on a pane entering `blocked`, the pane's terminal title under it and the tail of what the agent said in the expanded view, with `YES`, `NO` and `OPEN` on it. `FINISHED AGENTS` posts `<AGENT> DONE` on a pane entering `done`, the same title under it, and carries `OPEN` alone: a finished agent is news rather than a question and there is nothing on it to answer. Each comes down when its pane leaves the state, and both come down when the watcher stops, because an app that can no longer say the pane is still there should not leave a line claiming it is.
+
+**Each kind has a channel of its own**, for the reason the passphrase alert has one: Android hands the user a channel's sound and vibration after it is created, and a night of agents finishing should be silenceable without also silencing the one pane waiting on a keystroke.
+
+**Both fire on the edge into the state and never on the state.** A report that says what the last one said posts nothing. This is what `done` needs most: it is where an agent rests once the tab it finished in went unwatched, which from a phone is every tab, so a phone alerting on the state would repost the same finished agent for the rest of the night. The edge fires once per episode, and again only if that agent is given more work and finishes again.
+
+**A pane that blocks and then finishes carries both alerts at once.** The id is derived from the host, the pane and the kind, so the second posts beside the first instead of replacing it in place, and each is taken down by its own edge. The question the user has not answered is not cleared by the news that something else ended.
+
+**The watcher runs while either row is on.** It is one connection per host and one ongoing line whichever kinds are wanted, so the first row turned on is what opens it and the last row turned off is what closes it. With both off the app opens nothing in the background, ever.
+
+**Struck:** an alert for an agent that failed. herdr classifies a pane as `working`, `blocked`, `idle` or `done` and holds no verdict on how the work went, so there is nothing here to read a failure off. A line saying an agent failed would be the app inventing the one fact on the screen the user would have most wanted to trust.
+
+**Struck:** a row for the host going down. The ongoing line already names the failing host with its reason and its countdown, and a machine that is not going anywhere does not earn a surface that makes a sound.
+
 ### The ongoing notification says what the agents are, not what the watcher is
 
 The watcher has always posted a notification of its own: silent, at the bottom of the shade, there for as long as `[ ALERTS ]` is on, because Android will not hold a service's connections open without one. It said `WATCHING 2 HOSTS`. That is a line about the app. The phone comes out of a pocket to answer a different question — whether anything is waiting on the user — and the one surface the app has on screen without being opened was the one surface that did not answer it.
@@ -807,7 +825,7 @@ BuzzKit, "the open source notification orchestration layer", AGPLv3, run hosted 
 
 **Almost none of it is a gap here, because the two things are not the same shape.** Every feature on that list answers a question this app does not have: a sender who does not own the device. Subscribers, segments, device tokens, provider keys, receipts and a dashboard all exist to say which phones and whether it arrived, and there is one phone, it belongs to the user, and it is the thing posting the notification. The app is not a sender. The watcher reads herdr over ssh on a key the phone generated and posts to its own shade: nothing leaves the device, there is no token to keep, no provider to fail, and no second machine to ask afterwards what happened. An audit that carried the list across would be building a delivery network to reach the notification bar of the process already drawing it.
 
-**Preferences per kind are the piece of its model this will want, and not yet.** There is one row, `BLOCKED AGENTS`, on or off, and it governs the only alert there is, so the row is honest today. It stops being honest the moment there is a second kind: the day a routine that failed overnight or a host that went down earns a notification of its own, a user who wants one and not the other has only the switch that stops the watcher. What is worth copying is the small half of what BuzzKit does here — a choice per kind, with defaults the user can override — and not the channel half, there being one channel and it being the shade.
+**Preferences per kind are the piece of its model this took, and the only piece.** The moment a second alert existed, one row governing both would have left a user who wants the blocked pane and not the finished one holding only the switch that stops the watcher. So there is a row per kind, each on or off on its own, which is the small half of what BuzzKit does here. The channel half does not carry across: it routes between email, SMS and push, and here there is one destination and it is the shade — though each kind is given a channel of its own inside it, so the sound is the user's to set per kind rather than the app's.
 
 **Quiet hours are the one entry on its list this app has a live reason for and does not have.** The alert is posted at high importance with the channel's sound and its vibration, and it fires the moment a pane blocks, which for the phone this was built for is mostly at night — the reason to leave agents running is that the night passes without anybody sitting over them. BuzzKit files quiet hours and a daily cap under scheduling because a sender who wakes people at three in the morning stops being allowed to send. Here the same fact is sharper rather than softer, because what the alert reports is a machine waiting on one keystroke, and it will still be waiting at eight. Not built, waiting for the user's word: it is a change to how loud an alert they asked to be loud is, and that is theirs to ask for.
 
@@ -1591,7 +1609,7 @@ The nav has four labels and gains no fifth for settings. The door is a `SYS` bre
 
 **`[ STATIC ]`** is `ON` / `OFF` as a two-row picker with the block on the active one, persisted in a `settings` key-value table. OFF draws the noise tile once, unmoving, which is the same path the thermal throttle takes.
 
-**`[ ALERTS ]`** is one row, `BLOCKED AGENTS`, with a toggle. Turning it on asks the OS for notification permission; refused, the toggle stays off and the subtitle reads `NOTIFICATIONS DENIED`. With no host on the agent integration the row is dim, subtitle `NO HOST`, and the toggle does nothing. The setting survives a launch. This row is the whole of what lets the app hold a connection open while it is not in front — with it off, the app opens nothing in the background, ever.
+**`[ ALERTS ]`** is a row per alert kind, `BLOCKED AGENTS` then `FINISHED AGENTS`, each with a toggle of its own. Turning one on asks the OS for notification permission; refused, that toggle stays off and the subtitle reads `NOTIFICATIONS DENIED` — the permission is the app's, so the refusal is drawn on the row that asked. With no host on the agent integration both rows are dim, subtitle `NO HOST`, and the toggles do nothing. The settings survive a launch. These rows are the whole of what lets the app hold a connection open while it is not in front — with both off, the app opens nothing in the background, ever.
 
 **`[ BUILD ]`** is the last line, mono 11 `--fg-dim`: `v<version> (<versionCode>) <short sha>`, the sha injected at build time and reading `dev` when it is absent.
 

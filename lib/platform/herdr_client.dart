@@ -39,6 +39,8 @@ class AgentSnapshot {
 
   bool get blocked => state.blocked;
 
+  bool get done => state.done;
+
   PaneRef get pane => (session: session, pane: paneId);
 
   Map<String, Object?> toJson() => {
