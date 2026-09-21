@@ -212,6 +212,28 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('the column follows the text size and never wraps', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await pumpRamp(tester);
+
+    final line = tester.getSize(markAt(Priority.normal)).height;
+    for (final priority in Priority.values) {
+      expect(
+        tester.getSize(markAt(priority)).width,
+        RowMetrics.markWidth * 1.6,
+      );
+      if (priority != Priority.low) {
+        expect(tester.getSize(markAt(priority)).height, line);
+      }
+    }
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('the glitch quickens with the step and a done row is still', (
     tester,
   ) async {

@@ -485,7 +485,7 @@ There are four steps and three of them are counted in Roman numerals. The numera
 - `II` warms: the numeral and the title take the amber at half strength.
 - `III` is that same amber at full strength, on the numeral and on the title.
 
-**The numeral column is held whether a numeral is drawn or not**, so a row on the floor sits in the same grid as a row at the top and stepping one row moves no neighbour by a pixel.
+**The numeral column is held whether a numeral is drawn or not**, so a row on the floor sits in the same grid as a row at the top and stepping one row moves no neighbour by a pixel. Its width is the kicker's own line and not the three characters as they were first drawn: the numerals are read at the reader's text size and a column fixed at the one wraps `III` onto a second line the moment that size rises, which grows the row and shoves the panel. Whatever is in the column stays on one line and is cut at the column's edge before it is ever allowed to wrap.
 
 **The glitch is progressive and it is on the numeral alone.** `I` and the floor are still. `II` tears every few seconds, lightly and in few blocks. `III` tears about twice as often and in more of them, so the top of the scale is the thing in the panel that will not hold still. The corruption is seeded off the row's own id, so two rows on the same step never tear in lockstep, and the glitch never leaves the numeral's box: it marks the rank and not the title. Reduce-motion freezes all of it, and the ramp still reads, because it was a numeral before it was an effect.
 
