@@ -28,11 +28,19 @@ void main() {
       expect(command, endsWith("exit 0'"));
     });
 
-    test('the answer names the fifo by id and nothing else', () {
+    test('the answer hands the id over and never opens the fifo itself', () {
       final command = pinentryAnswerCommand('0123456789abcdef');
-      expect(command, contains('pinentry-gate/0123456789abcdef'));
-      expect(command, contains('[ -p '));
-      expect(command, contains('cat > '));
+      expect(command, startsWith('sh -c '));
+      expect(command, contains('pinentry-gate answer 0123456789abcdef'));
+      expect(command, isNot(contains('[ -p ')));
+      expect(command, isNot(contains('cat > ')));
+    });
+
+    test('takes only an id that is a request id', () {
+      expect(
+        () => pinentryAnswerCommand('../x'),
+        throwsA(isA<AssertionError>()),
+      );
     });
   });
 }
