@@ -58,6 +58,14 @@ PriorityPulse? priorityPulse(Priority priority) => switch (priority) {
   ),
 };
 
+/// Sized off the kicker's own line rather than held at the size it was drawn at: the
+/// numerals are type and rise with the row, and a fixed box drops `III` onto a second line.
+double priorityMarkWidth(BuildContext context) {
+  final size = context.tokens.rowKicker.fontSize!;
+  return RowMetrics.markWidth *
+      (MediaQuery.textScalerOf(context).scale(size) / size);
+}
+
 class PriorityMark extends StatefulWidget {
   const PriorityMark({
     super.key,
@@ -132,13 +140,16 @@ class _PriorityMarkState extends State<PriorityMark> {
 
   @override
   Widget build(BuildContext context) {
+    final width = priorityMarkWidth(context);
     final numeral = priorityNumerals[widget.priority];
-    if (numeral == null) return const SizedBox(width: RowMetrics.markWidth);
+    if (numeral == null) return SizedBox(width: width);
 
     final pulse = widget.dim ? null : priorityPulse(widget.priority);
     final glyph = Text(
       numeral,
       textAlign: TextAlign.right,
+      maxLines: 1,
+      softWrap: false,
       style: context.tokens.rowKicker.copyWith(
         color: widget.dim
             ? context.tokens.textDisabled
@@ -147,7 +158,7 @@ class _PriorityMarkState extends State<PriorityMark> {
     );
 
     return SizedBox(
-      width: RowMetrics.markWidth,
+      width: width,
       child: pulse == null
           ? glyph
           : GlitchPanel(
