@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/toasts.dart';
+import '../design/components/item_line.dart';
 import '../design/components/keyboard_toolbar.dart';
 import '../design/components/list_row.dart';
 import '../design/components/panel.dart';
@@ -134,13 +135,11 @@ class _ToastRowState extends ConsumerState<_ToastRow>
           if (toast.subject != null) ...[
             const SizedBox(width: Spacing.md),
             Expanded(
-              child: Text(
+              child: ItemLine(
                 toast.subject!,
                 style: context.tokens.rowTitle.copyWith(
                   color: context.tokens.textSecondary,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ] else

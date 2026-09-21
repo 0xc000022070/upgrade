@@ -4,6 +4,7 @@ import '../tokens.dart';
 import '../icons/dazzle_icon.dart';
 import '../icons/dazzle_icons.dart';
 import '../spacing.dart';
+import 'item_line.dart';
 import 'path_line.dart';
 import 'progress_bar.dart';
 import 'signal_text.dart';
@@ -90,6 +91,10 @@ class ListRow extends StatelessWidget {
 
     // The glyph sits on the title's line, not on the row's centre.
     final indent = leading == null ? 0.0 : leadingWidth + Spacing.lg;
+    final titleLine =
+        MediaQuery.textScalerOf(context).scale(titleStyle.fontSize!) *
+        titleStyle.height!;
+    final line = itemLine(title);
 
     Widget indented(Widget child) => Padding(
       padding: EdgeInsets.only(left: indent),
@@ -114,9 +119,7 @@ class ListRow extends StatelessWidget {
               width: leadingWidth,
               // As tall as the title's line is drawn, not as designed: held at the one, the glyph
               // rose off the letters the moment the reader asked for a larger text size.
-              height:
-                  MediaQuery.textScalerOf(context).scale(titleStyle.fontSize!) *
-                  titleStyle.height!,
+              height: titleLine,
               child: Center(child: leading),
             ),
             const SizedBox(width: Spacing.lg),
@@ -125,13 +128,18 @@ class ListRow extends StatelessWidget {
             child: literalTitle
                 ? PathLine(title, style: titleStyle, decode: decode)
                 : SignalText(
-                    title,
+                    line.text,
                     style: titleStyle,
                     decodeOnEntry: decode,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
           ),
+          if (!literalTitle && line.more > 0)
+            SizedBox(
+              height: titleLine,
+              child: Center(child: LineCount(line.more)),
+            ),
         ],
       ),
       if (subtitle != null)
@@ -174,10 +182,7 @@ class ListRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (mark != null) ...[
-              const SizedBox(width: Spacing.lg),
-              mark!,
-            ],
+            if (mark != null) ...[const SizedBox(width: Spacing.lg), mark!],
             if (progress != null) ...[
               const SizedBox(width: Spacing.lg),
               SizedBox(

@@ -390,6 +390,20 @@ Its quick view is the readout with `DONE` and `MOVE` on the footer, and nothing 
 
 **A goal is optional grouping and not a requirement for state.** A project's `DROPS` panel holds that project's items that have no goal, and they are tasks: the same checkbox, the same checked-and-muted done state, the same blocked line as an item under a goal, the full quick view, a place in the project's and Home's progress numbers, and the right to be `NEXT ACTION`. Filing a Home drop into a project or a goal turns it into a task, and only then do the remaining state blocks appear.
 
+### An item's text may be more than one line, and outside its sheet it is the first of them
+
+The capture field and the title edit both take six lines and carry `↵` on the keyboard toolbar, so the text is whatever was typed, newlines and all. The sheet is where all of it is read: the body draws it unclipped.
+
+Everywhere a row stands for the item — on Home, in a project, under `NEXT ACTION`, in a picker, as a toast's subject, as a mate under `[ WITH ]` — the row shows the first line that has text on it, clipped to the width as any long title is, and the number of lines under it follows in muted mono as `+2`. **The count is what tells a two-line item from a wide one**, because `…` says the width cut the line and says nothing about a line the user chose to end. One line carries no count, and a blank line is not a line here: it is spacing that was typed, and it is not counted.
+
+A sentence that names an item rather than standing for it — an activity line — takes that same first line and no count, because a count inside prose reads as part of what the sentence says.
+
+**What leaves the app leaves whole.** A copy and a send carry every line. Clipping is for reading a list and never for moving the thing.
+
+**Struck:** the `…` alone. Every list ends a long title that way, so three lines of detail under a drop read as a drop that happened to be wide, and opening it was the only way to find out.
+
+**Struck:** the newlines painted inline, as a glyph or a middot, so the whole text reads across the row. A row is one line of a list and the width is the width; a mark standing for a keypress inside prose is a second alphabet on the busiest surface in the app, and the middot already joins the parts of a path.
+
 ### A project detail is a hero over its panels
 
 The screen title is the project name with its cursor — `INFRA PERSONAL_` — over the breadcrumb. The hero card under it carries a large project glyph, 32px in the signal-node grammar, with the description in mono 11 muted beside it; the name is not repeated inside the hero. A `STATUS` row appears only when the project is paused or archived. Then the objective panel, with the big percent in Barlow Condensed 28 in accent and `n OF m TASKS` in mono under it.

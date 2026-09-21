@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../data/views.dart';
 import '../spacing.dart';
 import '../tokens.dart';
+import 'item_line.dart';
 
 class ActivityRow extends StatelessWidget {
   const ActivityRow({super.key, required this.entry, required this.timeLabel});
@@ -22,8 +23,9 @@ class ActivityRow extends StatelessWidget {
           Expanded(
             child: Text(
               entry.detail == null
-                  ? entry.title
-                  : '${entry.title}   ${entry.detail}',
+                  ? itemLine(entry.title).text
+                  : '${itemLine(entry.title).text}   '
+                        '${itemLine(entry.detail!).text}',
               style: context.tokens.value.copyWith(
                 color: context.tokens.rowTitle.color,
               ),
