@@ -18,6 +18,7 @@ import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/flash_block.dart';
 import '../../design/components/inline_confirm.dart';
+import '../../design/components/item_line.dart';
 import '../../design/components/keyboard_toolbar.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
@@ -383,7 +384,10 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
               for (final mate in mates)
                 Padding(
                   padding: const EdgeInsets.only(bottom: Spacing.sm),
-                  child: Text(mate.title, style: context.tokens.rowSubtitle),
+                  child: ItemLine(
+                    mate.title,
+                    style: context.tokens.rowSubtitle,
+                  ),
                 ),
             ],
           ),
