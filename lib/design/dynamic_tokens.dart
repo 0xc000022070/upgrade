@@ -30,6 +30,7 @@ DazzleTokens dazzleTokensFromScheme(ColorScheme scheme) {
     accent: accent,
     accentMuted: scheme.secondary,
     warning: scheme.tertiary,
+    warningMuted: scheme.tertiary.withValues(alpha: 0.7),
     danger: scheme.error,
     syntax: SyntaxPalette.house,
     scrim: DazzleTokens.house.scrim,

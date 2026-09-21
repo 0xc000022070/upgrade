@@ -16,6 +16,8 @@ class SlideSteps extends StatefulWidget {
 
   final Widget child;
 
+  /// Named for the step they take and not for the direction that fires them: a slide left
+  /// is up.
   final VoidCallback? onUp;
   final VoidCallback? onDown;
 
@@ -54,8 +56,8 @@ class _SlideStepsState extends State<SlideSteps>
   void _update(DragUpdateDetails details) {
     setState(() {
       _offset = (_offset + details.delta.dx).clamp(
-        widget.onDown == null ? 0.0 : -SlideSteps.travel,
-        widget.onUp == null ? 0.0 : SlideSteps.travel,
+        widget.onUp == null ? 0.0 : -SlideSteps.travel,
+        widget.onDown == null ? 0.0 : SlideSteps.travel,
       );
     });
   }
@@ -71,9 +73,9 @@ class _SlideStepsState extends State<SlideSteps>
     });
     _snap.forward(from: 0);
     if (!commit) return;
-    if (travelled >= SlideSteps.threshold) {
+    if (travelled <= -SlideSteps.threshold) {
       widget.onUp?.call();
-    } else if (travelled <= -SlideSteps.threshold) {
+    } else if (travelled >= SlideSteps.threshold) {
       widget.onDown?.call();
     }
   }

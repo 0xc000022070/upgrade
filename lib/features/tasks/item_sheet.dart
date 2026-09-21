@@ -34,6 +34,7 @@ import 'item_send.dart';
 import 'link_preview_card.dart';
 import 'link_text.dart';
 import 'plugin_actions.dart';
+import 'sent_tag.dart';
 import '../../application/native_plugins.dart';
 
 Future<void> openItemSheet(BuildContext context, String taskId) {
@@ -275,8 +276,12 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           onExit: () => setState(() => _mode = const _Item()),
         );
       case _Item():
+        final sent =
+            (ref.watch(sentItemsProvider).valueOrNull ?? const <String>{})
+                .contains(task.id);
         return PanelSheetBody(
           title: location?.label ?? 'DROPS',
+          affordance: sent ? const SentTag() : null,
           onTitleLongPress: _isDrop(task)
               ? () => setState(() => _deleteRevealed = true)
               : null,

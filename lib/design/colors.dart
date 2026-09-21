@@ -19,6 +19,7 @@ abstract final class DazzleColors {
   static const accentMuted = Color(0xFFA7D91E);
 
   static const warning = Color(0xFFD6A34B);
+  static const warningMuted = Color(0xFF9C7739);
   static const danger = Color(0xFFB84A4A);
 }
 

@@ -46,18 +46,18 @@ void main() {
     return travelled;
   }
 
-  testWidgets('a slide right steps the row up one', (tester) async {
+  testWidgets('a slide left steps the row up one', (tester) async {
     await tester.pumpWidget(host(Priority.normal));
 
-    expect((await slide(tester, 40)).dx, greaterThan(0));
+    expect((await slide(tester, -40)).dx, lessThan(0));
 
     expect(written, [Priority.high]);
   });
 
-  testWidgets('a slide left steps the row down one', (tester) async {
+  testWidgets('a slide right steps the row down one', (tester) async {
     await tester.pumpWidget(host(Priority.normal));
 
-    expect((await slide(tester, -40)).dx, lessThan(0));
+    expect((await slide(tester, 40)).dx, greaterThan(0));
 
     expect(written, [Priority.low]);
   });
@@ -65,23 +65,23 @@ void main() {
   testWidgets('a slide short of the threshold writes nothing', (tester) async {
     await tester.pumpWidget(host(Priority.normal));
 
-    await slide(tester, SlideSteps.threshold - 4);
+    await slide(tester, 4 - SlideSteps.threshold);
 
     expect(written, isEmpty);
   });
 
-  testWidgets('the floor does not move on a slide left', (tester) async {
+  testWidgets('the floor does not move on a slide right', (tester) async {
     await tester.pumpWidget(host(Priority.low));
 
-    expect((await slide(tester, -40)).dx, 0);
+    expect((await slide(tester, 40)).dx, 0);
 
     expect(written, isEmpty);
   });
 
-  testWidgets('the top does not move on a slide right', (tester) async {
+  testWidgets('the top does not move on a slide left', (tester) async {
     await tester.pumpWidget(host(Priority.critical));
 
-    expect((await slide(tester, 40)).dx, 0);
+    expect((await slide(tester, -40)).dx, 0);
 
     expect(written, isEmpty);
   });
@@ -89,7 +89,7 @@ void main() {
   testWidgets('the floor still steps up', (tester) async {
     await tester.pumpWidget(host(Priority.low));
 
-    expect((await slide(tester, 40)).dx, greaterThan(0));
+    expect((await slide(tester, -40)).dx, lessThan(0));
 
     expect(written, [Priority.normal]);
   });
@@ -98,7 +98,7 @@ void main() {
     await tester.pumpWidget(host(Priority.normal));
     final start = tester.getTopLeft(find.text('Object storage'));
 
-    await slide(tester, 40);
+    await slide(tester, -40);
     await tester.pumpAndSettle();
 
     expect(tester.getTopLeft(find.text('Object storage')), start);
@@ -107,7 +107,7 @@ void main() {
   testWidgets('a disabled slide takes no drag', (tester) async {
     await tester.pumpWidget(host(Priority.normal, enabled: false));
 
-    expect((await slide(tester, 40)).dx, 0);
+    expect((await slide(tester, -40)).dx, 0);
 
     expect(written, isEmpty);
   });
@@ -175,13 +175,13 @@ void main() {
     expect(numeralAt(Priority.critical).data, 'III');
 
     expect(numeralAt(Priority.normal).style!.color, tokens.textMuted);
-    expect(numeralAt(Priority.high).style!.color, tokens.textSecondary);
-    expect(numeralAt(Priority.critical).style!.color, tokens.accent);
+    expect(numeralAt(Priority.high).style!.color, tokens.warningMuted);
+    expect(numeralAt(Priority.critical).style!.color, tokens.warning);
 
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('the floor dims the row and holds the mark column', (
+  testWidgets('the ramp warms the title and holds the mark column', (
     tester,
   ) async {
     final tokens = await pumpRamp(tester);
@@ -196,11 +196,11 @@ void main() {
         .style!;
 
     expect(titleAt(Priority.low).color, tokens.textMuted);
+    expect(titleAt(Priority.normal).color, tokens.rowTitle.color);
+    expect(titleAt(Priority.high).color, tokens.warningMuted);
+    expect(titleAt(Priority.critical).color, tokens.warning);
 
     for (final priority in Priority.values) {
-      if (priority != Priority.low) {
-        expect(titleAt(priority).color, tokens.rowTitle.color);
-      }
       expect(titleAt(priority).fontSize, tokens.rowTitle.fontSize);
       expect(titleAt(priority).fontWeight, tokens.rowTitle.fontWeight);
       expect(

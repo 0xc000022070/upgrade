@@ -360,7 +360,9 @@ The vocabulary on screen: headers say `DROPS` — unfiled on Home, goal-less ins
 
 The quick view is a bottom sheet in panel style. Its header strip is the item's location as a breadcrumb: `DROPS`, or `INFRA PERSONAL / DROPS`, or `INFRA PERSONAL / REDUCE SAAS`.
 
-The body is a readout. The full title in mono 13, unclipped, tapped to edit in place — which raises the keyboard and its toolbar — and saved on blur or submit. Attachments follow: links as rows, mono 11, showing a label or the host, tapped to open in the browser and long-pressed to delete; images as a row of 56px squares, tapped for a full-screen viewer that is black, pinch-zoomed and dismissed with back, long-pressed to delete behind the same confirm. Then `[ WITH ]` when the item has mates, `[ BLOCKED BY ]` when it is blocked, and `[ EFFORT ]` when one is set.
+**An item that has been sent says so on that strip**, as the `SENT` tag the row carries, in the same label type, standing where a strip's affordance stands. The row's tag is what the eye finds in a list and the sheet is where the user goes to ask about one item, so the answer has to be on both; the strip says it in a word before the body says it in dates. It is the mark and not a verb: nothing happens when it is pressed, and it is absent on a sheet opened on a picker or a target.
+
+The body is a readout. The full title in mono 13, unclipped, tapped to edit in place — which raises the keyboard and its toolbar — and saved on blur or submit. Attachments follow: links as rows, mono 11, showing a label or the host, tapped to open in the browser and long-pressed to delete; images as a row of 56px squares, tapped for a full-screen viewer that is black, pinch-zoomed and dismissed with back, long-pressed to delete behind the same confirm. Then `[ WITH ]` when the item has mates, `[ BLOCKED BY ]` when it is blocked, `[ EFFORT ]` when one is set, and `[ SENT ]` listing where each dispatch went, newest first.
 
 The footer is one row of solid action blocks, and it is there for one-tap work when the keyboard is down: `DONE`/`UNDO`, `NEXT`/`UNSET`, `MOVE`, `PAIR`, `BLOCK`/`UNBLOCK`, and `DELETE` behind its inline confirm.
 
@@ -438,24 +440,26 @@ Home's `DROPS` and a project's `DROPS` both have this. A row under a goal keeps 
 
 ### A slide sets how important a row is, and a numeral carries it
 
-Every item row and every project row takes a horizontal slide. A slide right raises the row one step, a slide left lowers it one step, and the row snaps back to where it was either way. One gesture is one step, so the top is three slides up from the floor.
+Every item row and every project row takes a horizontal slide. A slide left raises the row one step, a slide right lowers it one step, and the row snaps back to where it was either way. One gesture is one step, so the top is three slides up from the floor.
 
 There are four steps and three of them are counted in Roman numerals. The numeral has a column of its own on the right of the title, in the kicker's mono at the kicker's size, right-aligned so `I` and `III` end on the same edge:
 
 - **The floor only subtracts, and it has no numeral.** The title goes muted, the age and the checkbox go with it, and nothing whatever is added. A row parked here is the quietest thing in the panel, and it is the one step read by what is missing.
-- `I` is the row exactly as it draws otherwise, in muted ink. It is where a captured item and a new project land.
-- `II` is the same numeral one step brighter, in the secondary ink.
-- `III` is accent.
+- `I` is the row exactly as it draws otherwise, its numeral in muted ink. It is where a captured item and a new project land.
+- `II` warms: the numeral and the title take the amber at half strength.
+- `III` is that same amber at full strength, on the numeral and on the title.
 
 **The numeral column is held whether a numeral is drawn or not**, so a row on the floor sits in the same grid as a row at the top and stepping one row moves no neighbour by a pixel.
 
 **The glitch is progressive and it is on the numeral alone.** `I` and the floor are still. `II` tears every few seconds, lightly and in few blocks. `III` tears about twice as often and in more of them, so the top of the scale is the thing in the panel that will not hold still. The corruption is seeded off the row's own id, so two rows on the same step never tear in lockstep, and the glitch never leaves the numeral's box: it marks the rank and not the title. Reduce-motion freezes all of it, and the ramp still reads, because it was a numeral before it was an effect.
 
-**Every step is the same type at the same size.** No step changes the title's size, its weight or its ink. The ramp is the numeral, the numeral's ink and the numeral's glitch, and the panel is a grid before it is a ranking.
+**Every step is the same type at the same size.** No step changes the title's size or its weight, and none of them touches the age, the checkbox, the progress or anything else on the row. The ramp is one colour getting stronger — the numeral, the title's ink and the numeral's glitch — and the panel is a grid before it is a ranking.
+
+**The ramp is amber and it never reaches the accent.** The accent is what the app answers a tap with, and a rank nobody pressed does not get it; the ramp is one hue warming from the body ink through half-strength amber to full, so a panel is read by which lines are warm and how warm they are rather than by four colours that have to be learned. The floor's grey is the same ramp one step colder.
 
 Done still wins: a done row shows its numeral in the disabled ink and stops glitching, whatever its step, because the step says what is worth reading and a done row is not.
 
-The row travels under the finger while the drag is on, capped short, and returns over 140ms. **A slide with nowhere to go does not move the row at all** — left at the floor, right at the top — so the end of the scale is felt instead of announced. The recogniser is horizontal only, so the list still scrolls under the same thumb, and the system's own edge gesture keeps the screen edge.
+The row travels under the finger while the drag is on, capped short, and returns over 140ms. **A slide with nowhere to go does not move the row at all** — right at the floor, left at the top — so the end of the scale is felt instead of announced. The recogniser is horizontal only, so the list still scrolls under the same thumb, and the system's own edge gesture keeps the screen edge.
 
 **A slide changes how a row reads and never where it sits.** Drops stay newest first and items under a goal keep their order. A project row is the exception and not a new rule: the projects list already sorts by priority under status, so a slid project does move in it.
 
