@@ -482,15 +482,27 @@ Long-pressing a drop row enters selection mode with that row checked. There is n
 
 While the mode is on, every drop row in that panel carries a 20px mono checkbox at its left — `[ ]`, `[x]` in accent when checked — and a tap toggles the row instead of opening it. The long-press is not needed again.
 
-**The panel's header strip becomes the contextual action bar**, the way a file manager or a mail client does it: `×` on the left to cancel, `N SELECTED` beside it, and on the right two icons only, a forward arrow for move and a bin for delete, 22px with 44px hits, ink `--fg-dim` and accent on press. No text blocks and no bottom bar; the capture bar stays where it is and is inert while the mode is on.
+**The bar is the contextual action bar**, the way a file manager or a mail client does it: `×` on the left to cancel, `N SELECTED` beside it, and on the right three icons, a sheet of paper for copy, a forward arrow for move and a bin for delete, 22px with 44px hits, ink `--fg-dim` and accent on press. No text blocks. It takes the capture bar's slot rather than standing over it, so no panel on the screen moves when the mode comes on.
 
 Move opens the target picker once and files every checked item. Delete opens a panel-style confirmation — `DELETE N DROPS?` with `CANCEL` and `DELETE`, the destructive one filled accent — and nothing is deleted before that second block. `×`, the back gesture, or finishing either action leaves the mode, and the selection never survives a navigation away from the panel.
 
-A `DROPS` panel header also carries a `SELECT` text action on the right beside its count, in the tracked uppercase of `NEW +`. It enters the same mode with nothing checked: the bar reads `0 SELECTED` with both icons in the idle disabled ink until the first check — `--fg-dim` is brighter than that ink and would invert the state. `SELECT` is hidden while the panel is empty and while the mode is on.
+A `DROPS` panel header also carries a `SELECT` text action on the right beside its count, in the tracked uppercase of `NEW +`. It enters the same mode with nothing checked: the bar reads `0 SELECTED` with every icon in the idle disabled ink until the first check — `--fg-dim` is brighter than that ink and would invert the state. `SELECT` is hidden while the panel is empty and while the mode is on.
 
 Home's `DROPS` and a project's `DROPS` both have this. A row under a goal keeps its quick view.
 
 **The selection bar stays where the thumb left it.** It is pinned to the bottom of the surface rather than riding the list, so scrolling through a long selection never takes the verbs off the screen.
+
+### A copied set says where one drop ends and the next begins
+
+`COPY` puts the checked drops on the clipboard in the order the panel draws them, on Home and in a project alike, and the bar reads `N COPIED` in place of `N SELECTED` for a moment. A drop's text goes out whole — every line the user wrote, no prefix, no indent, no marker on any of them — with only the empty space above and below it taken off, because that space is the boundary's job and the boundary is drawn by the app.
+
+**A rule of three dashes on a line of its own stands between one drop and the next**, with a blank line on each side. A drop's links follow its text under a blank line, one per line. A single drop copies bare: there is nothing to separate, so there is no rule, and the clipboard holds what the item holds and not a character more.
+
+**The rule is there because a blank line is not a boundary.** An item's text may run to several lines and may carry a blank line the user typed as spacing, so a set joined by blank lines alone comes back from the paste as more drops than went into it, and a second line reading `https://…` is indistinguishable from the next drop's link. What separates entries has to be a thing the text does not do by accident, and a blank line is the most accidental thing in it.
+
+**Struck:** escaping a rule the user typed. A drop whose own text is a line of three dashes reads as two drops after a paste, and every fix for that — doubling the dashes, fencing each entry, prefixing every line — puts a syntax in front of text whose whole point is that it comes out the way it went in. What is on the clipboard is read by a person and never parsed back.
+
+**Struck:** a bullet or a number leading each drop. It is unambiguous and it is a list the user did not write: the first line of every drop comes out altered, and the alteration has to be picked off by hand wherever the text is going.
 
 ### A slide sets how important a row is, and a numeral carries it
 

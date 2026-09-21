@@ -21,14 +21,51 @@ void main() {
     );
   });
 
-  test('several drops are joined by a blank line, in the order given', () {
+  test('one drop copies bare, with no rule around it', () {
+    expect(
+      dropClipboardText([const DropText('uno\ndos', [])]),
+      'uno\ndos',
+    );
+  });
+
+  test('several drops are separated by a rule, in the order given', () {
     expect(
       dropClipboardText([
         const DropText('uno', []),
         const DropText('dos', ['https://a.example']),
         const DropText('tres', []),
       ]),
-      'uno\n\ndos\n\nhttps://a.example\n\ntres',
+      'uno\n\n---\n\ndos\n\nhttps://a.example\n\n---\n\ntres',
+    );
+  });
+
+  test('a multiline drop keeps every line and stays one entry', () {
+    expect(
+      dropClipboardText([
+        const DropText('bajar el pool a 40\ny medir otra vez', []),
+        const DropText('desplegar el gate', []),
+      ]),
+      'bajar el pool a 40\ny medir otra vez\n\n---\n\ndesplegar el gate',
+    );
+  });
+
+  test('a blank line the user typed is not a boundary', () {
+    expect(
+      dropClipboardText([
+        const DropText('revisar pgbouncer\n\ny medir otra vez', []),
+        const DropText('desplegar el gate', []),
+      ]),
+      'revisar pgbouncer\n\ny medir otra vez\n\n---\n\ndesplegar el gate',
+    );
+  });
+
+  test('the empty space above and below a drop is not copied', () {
+    expect(
+      dropClipboardText([
+        const DropText('\n  uno\n\n', []),
+        const DropText('dos', ['https://a.example']),
+      ]),
+      'uno\n\n---\n\ndos\n\nhttps://a.example',
     );
   });
 
