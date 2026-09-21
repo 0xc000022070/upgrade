@@ -841,6 +841,7 @@ void main() {
         find.textContaining('NYX / DAZZLE · CLAUDE · wQ:p7 · '),
         findsOneWidget,
       );
+      expect(find.byType(SentTag), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));

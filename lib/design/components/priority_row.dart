@@ -23,19 +23,22 @@ class PriorityInk {
 }
 
 PriorityInk priorityInk(BuildContext context, Priority priority) =>
-    priority == Priority.low
-    ? PriorityInk(
+    switch (priority) {
+      Priority.low => PriorityInk(
         title: context.tokens.textMuted,
         value: context.tokens.textDisabled,
-      )
-    : const PriorityInk();
+      ),
+      Priority.normal => const PriorityInk(),
+      Priority.high => PriorityInk(title: context.tokens.warningMuted),
+      Priority.critical => PriorityInk(title: context.tokens.warning),
+    };
 
 Color priorityMarkColor(BuildContext context, Priority priority) =>
     switch (priority) {
       Priority.low => context.tokens.textDisabled,
       Priority.normal => context.tokens.textMuted,
-      Priority.high => context.tokens.textSecondary,
-      Priority.critical => context.tokens.accent,
+      Priority.high => context.tokens.warningMuted,
+      Priority.critical => context.tokens.warning,
     };
 
 typedef PriorityPulse = ({Duration beat, int blocks, int fragments});

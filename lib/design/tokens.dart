@@ -60,6 +60,7 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
     required this.accent,
     required this.accentMuted,
     required this.warning,
+    required this.warningMuted,
     required this.danger,
     required this.syntax,
     required this.scrim,
@@ -112,6 +113,7 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
   final Color accent;
   final Color accentMuted;
   final Color warning;
+  final Color warningMuted;
   final Color danger;
   final SyntaxPalette syntax;
 
@@ -171,6 +173,7 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
     accent: DazzleColors.accent,
     accentMuted: DazzleColors.accentMuted,
     warning: DazzleColors.warning,
+    warningMuted: DazzleColors.warningMuted,
     danger: DazzleColors.danger,
     syntax: SyntaxPalette.house,
     scrim: Color(0x99000000),
@@ -250,6 +253,7 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
     Color? accent,
     Color? accentMuted,
     Color? warning,
+    Color? warningMuted,
     Color? danger,
     SyntaxPalette? syntax,
     Color? scrim,
@@ -301,6 +305,7 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
       accent: accent ?? this.accent,
       accentMuted: accentMuted ?? this.accentMuted,
       warning: warning ?? this.warning,
+      warningMuted: warningMuted ?? this.warningMuted,
       danger: danger ?? this.danger,
       syntax: syntax ?? this.syntax,
       scrim: scrim ?? this.scrim,
@@ -362,6 +367,7 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
       accent: c(accent, other.accent),
       accentMuted: c(accentMuted, other.accentMuted),
       warning: c(warning, other.warning),
+      warningMuted: c(warningMuted, other.warningMuted),
       danger: c(danger, other.danger),
       syntax: syntax.lerpTo(other.syntax, t),
       scrim: c(scrim, other.scrim),
