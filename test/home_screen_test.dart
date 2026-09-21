@@ -81,7 +81,7 @@ void main() {
       theme: testTheme,
       home: const Scaffold(
         // The shell stacks the toasts over the screen's own header; Home alone has nowhere
-        // for a raised row to land.
+        // for a raised strip to land.
         body: Stack(
           children: [
             Positioned.fill(child: HomeScreen()),
@@ -300,7 +300,8 @@ void main() {
     await _ready(tester);
 
     expect(_toast('UNDO'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 30));
+    await tester.pump(toastHold);
+    await _ready(tester);
     expect(_toast('UNDO'), findsNothing);
     final rows = await tester.runAsync(() => db.select(db.tasks).get());
     expect(rows!.firstWhere((task) => task.id == drop).done, isTrue);
@@ -308,7 +309,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a fourth completion folds the older toasts behind one row', (
+  testWidgets('completions past the second fold the older toasts away', (
     tester,
   ) async {
     const titles = ['primero', 'segundo', 'tercero', 'cuarto'];
@@ -324,16 +325,16 @@ void main() {
       await _ready(tester);
     }
 
-    expect(_toast('UNDO'), findsNWidgets(toastRowsShown));
-    expect(_toast('+1 MORE'), findsOneWidget);
+    expect(_toast('UNDO'), findsNWidgets(toastStripsShown));
+    expect(_toast('+2 MORE'), findsOneWidget);
     expect(_toast('primero'), findsNothing);
-    // Newest at the bottom, so the one just finished is the row nearest the thumb.
+    // Newest on top, so the oldest is the one at the bottom and its leaving moves nothing.
     expect(
       tester.getCenter(_toast('cuarto')).dy,
-      greaterThan(tester.getCenter(_toast('tercero')).dy),
+      lessThan(tester.getCenter(_toast('tercero')).dy),
     );
 
-    await tester.tap(_toast('+1 MORE'));
+    await tester.tap(_toast('+2 MORE'));
     await _ready(tester);
     expect(_toast('UNDO'), findsNWidgets(titles.length));
     expect(_toast('primero'), findsOneWidget);
@@ -341,7 +342,7 @@ void main() {
 
     await tester.tap(_toast('LESS'));
     await _ready(tester);
-    expect(_toast('UNDO'), findsNWidgets(toastRowsShown));
+    expect(_toast('UNDO'), findsNWidgets(toastStripsShown));
 
     await unmount(tester);
   });
