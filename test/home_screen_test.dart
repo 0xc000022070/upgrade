@@ -80,12 +80,12 @@ void main() {
     child: MaterialApp(
       theme: testTheme,
       home: const Scaffold(
-        // The shell stacks the toasts over the screen's own pinned bottom; Home alone has
-        // nowhere for a raised row to land.
+        // The shell stacks the toasts over the screen's own header; Home alone has nowhere
+        // for a raised row to land.
         body: Stack(
           children: [
             Positioned.fill(child: HomeScreen()),
-            Positioned(left: 0, right: 0, bottom: 0, child: ToastHost()),
+            Positioned(left: 0, right: 0, top: 0, child: ToastHost()),
           ],
         ),
       ),

@@ -169,21 +169,25 @@ An action presses to accent ink for the duration of the press. An action with no
 
 ### A toast is the one thing that floats, and it stacks
 
-A toast is a panel the app raises over the bottom of the screen to say what just happened, when what happened leaves no mark the screen can show. It is drawn as any panel is — `surfacePrimary` ground, a hairline `borderNormal`, radius 2 — capped to the content column and inset at the screen edge, and it is the one surface that floats: it draws over whatever the screen has pinned down there, the capture bar, the selection bar, the parked shell bar, and none of them move to make room. It stops at the nav bar and never covers it.
+A toast is a panel the app raises over the top of the screen to say what just happened, when what happened leaves no mark the screen can show. It is drawn as any panel is — `surfacePrimary` ground, a hairline `borderNormal`, radius 2 — capped to the content column and inset at the screen edge, and it is the one surface that floats: it draws over whatever the screen has up there, the breadcrumb, the title and the first panel under them, and none of them move to make room. It starts under the status bar and never covers it.
+
+**It is at the top because the bottom of the screen is where the work is.** The capture bar, the selection bar and the parked shell bar all live down there, under the thumb, and a notice standing over any of them is a notice standing in the way of the next thing the user came to do. The top of a screen is the part already given over to saying where you are, which is what a toast is for; the trade is that the way back is a reach rather than a thumb-tap, and a verb tapped once a week is the right thing to make the user reach for.
 
 A row is the verb that happened, in the panel-header style and `textMuted`; the subject beside it in mono 12 and `textSecondary`, clipped to one line; and the way back at the right, in the accent. The accent is on that one word. The ground stays a panel's ground, because a filled accent bar across the screen is the large coloured surface the palette forbids.
 
-**Toasts stack rather than replace each other.** Every live one is a row in the one panel, ruled between as any row group is, newest at the bottom where the thumb already is. Three rows are shown. A fourth folds the older ones away behind the panel's own header strip, which reads `+N MORE` and is tapped to open the stack and tapped again to fold it. Six rows is the whole stack, and the oldest leaves when a seventh arrives.
+**Toasts stack rather than replace each other.** Every live one is a row in the one panel, ruled between as any row group is, newest at the bottom of the stack so a row already read never moves. Three rows are shown. A fourth folds the older ones away behind the panel's own header strip, which reads `+N MORE` and is tapped to open the stack and tapped again to fold it. Six rows is the whole stack, and the oldest leaves when a seventh arrives.
 
 **A toast with a verb on it holds thirty seconds, and one with nothing to tap holds four.** Each row runs its own clock and leaves on its own. The long hold costs nothing, because a toast is never the only way back to what it undoes: the thing it reverses is still on the screen behind it, and the row that did it is still the way to do it again.
 
 **A field taking focus takes the whole stack with it.** The form's scrim covers everything outside the form, and a notice dimmed under a scrim, carrying a verb nobody can reach, is worse than no notice at all; so the stack empties when the keyboard comes up rather than waiting underneath it.
 
-Rows arrive as a short rise and a fade over 140ms and leave the same way. Nothing pulses, nothing counts its seconds down on screen, and a row already up does not move when another lands under it.
+Rows arrive as a short drop and a fade over 140ms and leave the same way. Nothing pulses, nothing counts its seconds down on screen, and a row already up does not move when another lands under it.
 
 **A toast is raised for what the user cannot see, and never for what the screen already shows.** An action whose result is the row under the finger says so on that row. A toast that only confirms is the app talking over a screen that has already answered.
 
 **Struck:** `DONE · UNDO` as a filled accent bar standing in the capture bar's place. The interpunct read as two buttons where there was one, it painted the loudest surface in the app for the rarest tap on the screen, and it took capture off Home for thirty seconds to say what one line of text says.
+
+**Struck:** the stack over the bottom of the screen. Floating clear of the capture bar rather than replacing it fixed the theft of the field and not the covering of it: a drop marked done still put a panel across the bar the user had just typed into, for thirty seconds, and that is the strangest half-second in the app.
 
 ### The header of a screen says where it is
 

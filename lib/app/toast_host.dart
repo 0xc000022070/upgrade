@@ -50,15 +50,15 @@ class _ToastHostState extends ConsumerState<ToastHost> {
     final open = _open && folded > 0;
     final shown = open || folded <= 0 ? toasts : toasts.sublist(folded);
 
-    return Align(
-      alignment: Alignment.bottomCenter,
+    return SafeArea(
+      bottom: false,
       child: ContentColumn(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
             Spacing.screenEdge,
-            0,
-            Spacing.screenEdge,
             Spacing.md,
+            Spacing.screenEdge,
+            0,
           ),
           child: Panel(
             title: folded > 0 ? (open ? 'LESS' : '+$folded MORE') : null,
@@ -92,8 +92,8 @@ class _ToastRowState extends ConsumerState<_ToastRow>
     with SingleTickerProviderStateMixin {
   late final _entry = AnimationController(vsync: this, duration: Motion.fast);
   late final _curve = CurvedAnimation(parent: _entry, curve: Motion.enter);
-  late final _rise = Tween(
-    begin: const Offset(0, 0.12),
+  late final _drop = Tween(
+    begin: const Offset(0, -0.12),
     end: Offset.zero,
   ).animate(_curve);
 
@@ -159,7 +159,7 @@ class _ToastRowState extends ConsumerState<_ToastRow>
 
     return FadeTransition(
       opacity: _curve,
-      child: SlideTransition(position: _rise, child: row),
+      child: SlideTransition(position: _drop, child: row),
     );
   }
 }
