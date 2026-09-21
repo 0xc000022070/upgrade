@@ -29,8 +29,18 @@ readonly CERT=d6b7cdfb8d0a5c0017e317b7db27f3fb3ce0b3f650f28ca6b989c4582f5d7e5e
 readonly OUT="$ROOT/build/deploy"
 readonly TREE="$OUT/tree"
 
+if [[ -t 2 ]]; then
+  readonly RED=$'\033[1;31m' OFF=$'\033[0m'
+else
+  readonly RED='' OFF=''
+fi
+
+warn() {
+  printf '%sdeploy: %s%s\n' "$RED" "$*" "$OFF" >&2
+}
+
 die() {
-  echo "deploy: $*" >&2
+  warn "$*"
   exit 1
 }
 
@@ -82,7 +92,7 @@ build() {
 
 handsets() {
   phone device list --json |
-    jq -r '.[] | select(.platform == "android") | [.label, .reach, (.serial // "")] | @tsv'
+    jq -r '.[] | select(.platform == "android") | [.label, .reach, (.serial // ""), (.endpoints | length)] | @tsv'
 }
 
 serial_of() {
@@ -130,7 +140,10 @@ once() {
   local targets
   targets=$(resolve "$@")
   if [[ -z $targets ]]; then
-    say "no handset attached; name one to dial it"
+    local idle
+    idle=$(handsets | awk -F'\t' '$2 !~ /^attached\// && $4 > 0 { printf "%s%s (%s)", sep, $1, $2; sep = ", " }')
+    [[ -n $idle ]] || idle="none it can reach"
+    warn "no handset attached; name one to dial it: $idle"
     return 0
   fi
 
@@ -172,19 +185,19 @@ once() {
     IFS=$'\t' read -r label serial have <<<"$line"
     was=$(updated_at "$(dumpsys "$serial")")
     if ! phone app install -t "$label" "$apk"; then
-      say "$label: install failed" >&2
+      warn "$label: install failed"
       failed=1
       continue
     fi
     pkg=$(dumpsys "$serial")
     now=$(version_code "$pkg")
     if [[ $now != "$code" ]]; then
-      say "$label: still on versionCode ${now:-none} after install" >&2
+      warn "$label: still on versionCode ${now:-none} after install"
       failed=1
       continue
     fi
     if [[ -n $was && $(updated_at "$pkg") == "$was" ]]; then
-      say "$label: lastUpdateTime still $was, nothing was replaced" >&2
+      warn "$label: lastUpdateTime still $was, nothing was replaced"
       failed=1
       continue
     fi
@@ -200,7 +213,7 @@ watch() {
     head=$(git -C "$ROOT" rev-parse HEAD)
     if [[ $head != "$seen" ]]; then
       seen=$head
-      (once ask "$@") || say "that round failed; the next commit gets another"
+      (once ask "$@") || warn "that round failed; the next commit gets another"
     fi
     sleep 5
   done
