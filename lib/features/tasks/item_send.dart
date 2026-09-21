@@ -153,6 +153,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
       model: _model,
       itemId: widget.taskId,
       title: task.title,
+      prompt: task.prompt,
       links: [
         for (final attachment in attachments)
           if (attachment.kind == AttachmentKind.url) attachment.value,

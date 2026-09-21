@@ -32,10 +32,10 @@ import '../../application/attachment_files.dart';
 import 'image_viewer.dart';
 import 'item_pickers.dart';
 import 'item_send.dart';
+import 'item_tags.dart';
 import 'link_preview_card.dart';
 import 'link_text.dart';
 import 'plugin_actions.dart';
-import 'sent_tag.dart';
 import '../../application/native_plugins.dart';
 
 Future<void> openItemSheet(BuildContext context, String taskId) {
@@ -68,6 +68,10 @@ final class _Pair extends _Mode {
 
 final class _Send extends _Mode {
   const _Send();
+}
+
+final class _Prompt extends _Mode {
+  const _Prompt();
 }
 
 enum _Line {
@@ -105,6 +109,9 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   /// and reads it a frame late.
   final _lineField = TextEditingController();
 
+  final _promptField = TextEditingController();
+  final _promptFocus = FocusNode();
+
   final _pending = <NewAttachment>[];
 
   @override
@@ -121,7 +128,9 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   void dispose() {
     _field.dispose();
     _lineField.dispose();
+    _promptField.dispose();
     _focus.dispose();
+    _promptFocus.dispose();
     super.dispose();
   }
 
@@ -218,6 +227,22 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     await ref.read(taskRepositoryProvider).moveToTarget(widget.taskId, target);
   }
 
+  void _toPrompt(Task task) {
+    _focus.unfocus();
+    _promptField.text = task.prompt ?? '';
+    _promptField.selection = TextSelection.collapsed(
+      offset: _promptField.text.length,
+    );
+    setState(() => _mode = const _Prompt());
+  }
+
+  Future<void> _savePrompt() async {
+    final value = _promptField.text;
+    _promptFocus.unfocus();
+    setState(() => _mode = const _Item());
+    await ref.read(taskRepositoryProvider).setPrompt(widget.taskId, value);
+  }
+
   Future<void> _pair(String otherId) async {
     setState(() => _mode = const _Item());
     await ref.read(taskRepositoryProvider).pair(widget.taskId, otherId);
@@ -276,13 +301,30 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           projectId: task.projectId,
           onExit: () => setState(() => _mode = const _Item()),
         );
+      case _Prompt():
+        return PanelSheetBody(
+          title: 'PROMPT',
+          affordance: PanelAffordance(
+            'BACK',
+            icon: DazzleIcons.back,
+            onTap: () {
+              _promptFocus.unfocus();
+              setState(() => _mode = const _Item());
+            },
+          ),
+          children: [_promptEditor()],
+        );
       case _Item():
         final sent =
             (ref.watch(sentItemsProvider).valueOrNull ?? const <String>{})
                 .contains(task.id);
         return PanelSheetBody(
           title: location?.label ?? 'DROPS',
-          affordance: sent ? const SentTag() : null,
+          affordance: task.prompt != null
+              ? const PromptTag()
+              : sent
+              ? const SentTag()
+              : null,
           onTitleLongPress: _isDrop(task)
               ? () => setState(() => _deleteRevealed = true)
               : null,
@@ -353,6 +395,13 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
 
     return [
       _title(task),
+      if (task.prompt case final prompt?) ...[
+        const SheetRule(),
+        SheetField(
+          label: 'PROMPT',
+          child: Text(prompt, style: context.tokens.value),
+        ),
+      ],
       if (drop) PluginDropActions(task: task),
       if (!drop && task.blockedReason != null) ...[
         const SheetRule(),
@@ -595,6 +644,44 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     );
   }
 
+  Widget _promptEditor() {
+    return KeyboardAccessory(
+      focus: _promptFocus,
+      actions: [
+        ToolbarAction(
+          glyph: ToolbarGlyph.newline,
+          onTap: () => insertNewline(_promptField),
+        ),
+      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DazzleField(
+            controller: _promptField,
+            focusNode: _promptFocus,
+            autofocus: true,
+            style: context.tokens.value,
+            hint: 'what the agent is to do',
+            minLines: DazzleField.bodyLines,
+            maxLines: DazzleField.bodyLines,
+            contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
+          ),
+          const SheetRule(),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ActionBlock(
+              label: 'SAVE',
+              filled: true,
+              tone: context.tokens.accent,
+              onTap: _savePrompt,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _toReason() {
     _lineField.clear();
     setState(() => _line = _Line.reason);
@@ -647,6 +734,10 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
             onTap: () => _copyText(task),
           ),
         ActionBlock(label: 'MOVE', onTap: () => _toPicker(const _Move())),
+        ActionBlock(
+          label: task.prompt == null ? 'PROMPT' : 'EDIT PROMPT',
+          onTap: () => _toPrompt(task),
+        ),
         ActionBlock(label: 'SEND', onTap: () => _toPicker(const _Send())),
         if (!_isDrop(task)) ...[
           ActionBlock(

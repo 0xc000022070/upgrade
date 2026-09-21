@@ -42,6 +42,8 @@ class Tasks extends Table {
   /// Items sharing a non-null value travel together. There is no bundle entity.
   TextColumn get bundleId => text().nullable()();
   TextColumn get title => text()();
+  TextColumn get prompt => text().nullable()();
+
   BoolColumn get done => boolean().withDefault(const Constant(false))();
 
   /// Non-null is what "blocked" means; there is no status enum to disagree with it.

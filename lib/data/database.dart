@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'dazzle'));
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   /// A step guarded `from >= N` is one the `createTable` calls above already build from
   /// the current definition; adding its columns again below N is an error.
@@ -125,6 +125,9 @@ SELECT id, task_id, 'url', url, created_at FROM links
       }
       if (from < 16) {
         await m.addColumn(tasks, tasks.priority);
+      }
+      if (from < 17) {
+        await m.addColumn(tasks, tasks.prompt);
       }
     },
   );

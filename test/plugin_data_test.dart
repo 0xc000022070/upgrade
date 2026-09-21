@@ -108,7 +108,7 @@ void main() {
       expect(await db.select(db.projects).get(), originalProjects);
       expect(await db.select(db.attachments).get(), originalAttachments);
       expect(await db.select(db.activityEvents).get(), originalActivity);
-      expect(db.schemaVersion, 16);
+      expect(db.schemaVersion, 17);
     },
   );
 
@@ -265,6 +265,6 @@ void main() {
     expect(await db.select(db.projects).get(), originalProjects);
     expect(await db.select(db.attachments).get(), attachments);
     expect((await db.select(db.tasks).get()).length, 2);
-    expect(db.schemaVersion, 16);
+    expect(db.schemaVersion, 17);
   });
 }

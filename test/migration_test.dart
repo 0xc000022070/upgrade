@@ -227,6 +227,11 @@ const _v15Schema = [
   'ALTER TABLE shell_tabs ADD COLUMN retired_at TEXT',
 ];
 
+const _v16Schema = [
+  ..._v15Schema,
+  "ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'",
+];
+
 /// Drives [QueryExecutor.ensureOpen] to stamp `user_version = 2` and lay down the old
 /// schema, which is what makes the file drift later opens a real v2 database.
 class _V2Database implements QueryExecutorUser {
@@ -926,6 +931,35 @@ void main() {
       (await db.select(db.tasks).get()).single.priority,
       Priority.critical,
     );
+  });
+
+  test('a v16 item keeps its text and gains an empty prompt', () async {
+    final executor = NativeDatabase(file);
+    await executor.ensureOpen(_V2Database(16, _v16Schema));
+    await executor.runInsert(
+      'INSERT INTO tasks (id, title, done, is_next, priority, created_at, '
+      'updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ['t1', 'Postgres propio', 0, 0, 'high', stamp(21), stamp(21)],
+    );
+    await executor.close();
+
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+
+    final task = (await db.select(db.tasks).get()).single;
+    expect(task.title, 'Postgres propio');
+    expect(task.priority, Priority.high);
+    expect(task.prompt, isNull);
+
+    final tasks = TaskRepository(db, ActivityRepository(db));
+    await tasks.setPrompt('t1', '  move the refresh off the UI thread  ');
+    expect(
+      (await db.select(db.tasks).get()).single.prompt,
+      'move the refresh off the UI thread',
+    );
+
+    await tasks.setPrompt('t1', '   ');
+    expect((await db.select(db.tasks).get()).single.prompt, isNull);
   });
 
   test('an upgraded database gains shell tabs, empty and writable', () async {

@@ -13,8 +13,8 @@ import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import 'item_sheet.dart';
+import 'item_tags.dart';
 import 'link_mark.dart';
-import 'sent_tag.dart';
 
 class TaskRow extends ConsumerStatefulWidget {
   const TaskRow({
@@ -111,6 +111,8 @@ class _TaskRowState extends ConsumerState<TaskRow> {
                 size: IconSizes.glyph,
                 color: context.tokens.accent,
               )
+            : task.prompt != null
+            ? const PromptTag()
             : (ref.watch(sentItemsProvider).valueOrNull ?? const <String>{})
                   .contains(task.id)
             ? const SentTag()

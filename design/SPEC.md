@@ -422,6 +422,24 @@ A sentence that names an item rather than standing for it — an activity line �
 
 **Struck:** the newlines painted inline, as a glyph or a middot, so the whole text reads across the row. A row is one line of a list and the width is the width; a mark standing for a keypress inside prose is a second alphabet on the busiest surface in the app, and the middot already joins the parts of a path.
 
+### An item carries the prompt it will be sent with, and its text is only the label
+
+The text an item was captured with is a label: what the thing is, read off a row at a glance. The prompt is the instruction an agent is handed, written whenever the user has the words for it and kept until a send needs it. They are two fields because they are two jobs, and one line doing both does neither: a title long enough to brief an agent is a title no list can show, and a title short enough to read in a panel is a brief that has to be rewritten at the moment of sending.
+
+**A prompt is optional and absent by default.** An item with none sends its text, the way every item did before there was a second field, and its sheet draws no prompt block at all: no empty block, no placeholder, no dash.
+
+**`[ PROMPT ]` sits under the title on the quick view**, above everything else the readout carries, because it is what the item is for and the rest is what has happened to it. It draws the whole prompt unclipped, newlines and all, and it is a readout like the blocks under it: the body reads and the prompt is never tapped to edit.
+
+**`PROMPT` on the footer is the way in**, standing immediately before `SEND`, because a prompt is written and then sent. It reads `EDIT PROMPT` once there is one. It takes the sheet over the way `MOVE` and `SEND` do — its own panel under the word `PROMPT`, `BACK` in the affordance, a six-line field with `↵` on the keyboard toolbar, and one `SAVE` block. `BACK` leaves what was already saved alone. **Saving an empty field is how a prompt is deleted**, and there is no second verb for it: an item whose prompt the user has emptied is an item with no prompt, and the app already draws that.
+
+**A prompted item is tagged where a sent one is** — `PROMPT` in the row's trailing column and on the sheet's header strip, in the same label type, the mark and not a verb. It stands where `SENT` stands and wins over it when an item has both, because a prompt is what the item will do next and a dispatch is what it already did, and the sheet's `[ SENT ]` block still lists every dispatch in full underneath. The `NEXT ACTION` arrow still wins over both.
+
+**A drop carries a prompt.** It is not state waiting on a project: it belongs with the attachments a drop already takes and the dispatches a drop can already make, and an unfiled item is the one most likely to be a thing to hand an agent.
+
+**The prompt leads and the title follows it as context.** What goes out is the prompt, then `ITEM` with the item's text under it, then the links and the image paths as before. The agent is told what to do first and which row it came from second, and neither is wrapped in words the app put in the user's mouth.
+
+**Struck:** the prompt composed inside the send flow, prefilled from the title. A send already asks for a host, a directory, an agent and a model; writing the instruction in the same breath makes the prompt a thing done under pressure rather than a thing prepared, which is the whole point of having one.
+
 ### A project detail is a hero over its panels
 
 The screen title is the project name with its cursor — `INFRA PERSONAL_` — over the breadcrumb. The hero card under it carries a large project glyph, 32px in the signal-node grammar, with the description in mono 11 muted beside it; the name is not repeated inside the hero. A `STATUS` row appears only when the project is paused or archived. Then the objective panel, with the big percent in Barlow Condensed 28 in accent and `n OF m TASKS` in mono under it.
