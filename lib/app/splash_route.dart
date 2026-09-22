@@ -2,18 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../design/components/ascii_mascot.dart';
+import '../design/spacing.dart';
 import '../design/tokens.dart';
-import '../design/sprite.dart';
 import '../platform/alert_actions.dart';
 import 'alerts_boot.dart';
 
-/// Cold start by construction rather than by a flag: the route is the navigator's first,
-/// it replaces itself with Home, and nothing pushes it again. It sits above
-/// `AlertsHost` rather than below it — a splash inside the Home route would take the
-/// watcher reconciliation and the `OPEN` handler down with it.
-
-/// Long enough that the last frame is a beat rather than a flicker, short enough that the
-/// whole route stays well under the 2.5 s budget.
 const splashHold = Duration(milliseconds: 420);
 
 class SplashRoute extends StatefulWidget {
@@ -32,14 +26,10 @@ class _SplashRouteState extends State<SplashRoute> {
   @override
   void initState() {
     super.initState();
-    // An alert's `OPEN` is delivered as soon as Android brings the activity up, which is
-    // inside this route's window.
     alertOpenHandler = deferAlertOpen;
     pinOpenHandler = deferPinOpen;
   }
 
-  /// The sprite holds its last frame, so `onDone` arrives exactly once — but a rebuilt
-  /// sheet would call it again, and the handover must not be scheduled twice.
   void _played() {
     if (_handedOver) return;
     _handedOver = true;
@@ -60,8 +50,6 @@ class _SplashRouteState extends State<SplashRoute> {
   @override
   void dispose() {
     _handover?.cancel();
-    // Only if `AlertsHost` has not already claimed it: the replacement route is built before
-    // this one is disposed.
     if (identical(alertOpenHandler, deferAlertOpen)) alertOpenHandler = null;
     if (identical(pinOpenHandler, deferPinOpen)) pinOpenHandler = null;
     super.dispose();
@@ -69,10 +57,19 @@ class _SplashRouteState extends State<SplashRoute> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return ColoredBox(
-      color: context.tokens.backgroundPrimary,
-      child: Center(
-        child: Sprite(state: 'splash', scale: 4, onDone: _played),
+      color: tokens.backgroundPrimary,
+      child: Padding(
+        padding: const EdgeInsets.all(Spacing.screenEdge),
+        child: Center(
+          child: AsciiMascot.filling(
+            state: 'splash',
+            colour: tokens.textPrimary,
+            accent: tokens.accent,
+            onDone: _played,
+          ),
+        ),
       ),
     );
   }

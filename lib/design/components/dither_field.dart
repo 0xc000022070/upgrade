@@ -7,7 +7,6 @@ import '../tokens.dart';
 class DitherField extends StatelessWidget {
   const DitherField({super.key, this.level = 3, this.child});
 
-  /// 0-16. Higher lights more of the 4x4 cell.
   final int level;
   final Widget? child;
 
@@ -33,7 +32,6 @@ class _DitherPainter extends CustomPainter {
     [15, 7, 13, 5],
   ];
 
-  /// At 1px on a 3x density screen the dots disappear under the StaticBackground grain.
   static const _lattice = 3.0;
   static const _dot = 2.0;
 

@@ -70,7 +70,7 @@ flutter:
     - plugins/board/main.luau
     - assets/icons/
     - assets/icons/signal/
-    - assets/sprites/
+    - assets/sprites/mascot/
     - assets/textures/
 
   fonts:

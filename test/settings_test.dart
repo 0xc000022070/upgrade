@@ -8,8 +8,8 @@ import 'package:dazzle/app/static_surface.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/settings_repository.dart';
 import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/ascii_background.dart';
 import 'package:dazzle/design/components/panel.dart';
-import 'package:dazzle/design/components/static_background.dart';
 import 'package:dazzle/design/motion.dart';
 import 'package:dazzle/features/home/home_screen.dart';
 import 'package:dazzle/features/settings/settings_screen.dart';
@@ -32,11 +32,9 @@ Future<void> _drain(
 Future<void> _ready(WidgetTester tester) =>
     _drain(tester, step: const Duration(milliseconds: 100));
 
-Offset _offsetOf(WidgetTester tester) =>
-    tester.widget<StaticBackground>(find.byType(StaticBackground)).offset.value;
+int _tickOf(WidgetTester tester) =>
+    tester.widget<AsciiBackground>(find.byType(AsciiBackground)).tick.value;
 
-/// A second row reading OFF sits on this screen, so the static picker is addressed inside
-/// its own panel rather than by the word alone.
 Finder _inStatic(String label) => find.descendant(
   of: find.ancestor(of: find.text('[ STATIC ]'), matching: find.byType(Panel)),
   matching: find.text(label),
@@ -73,8 +71,6 @@ void main() {
     await db.close();
   });
 
-  /// The binding checks for pending timers after the body, and the driver only cancels its
-  /// own on dispose.
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
@@ -180,7 +176,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('OFF holds the tile still, the way a throttle does', (
+  testWidgets('OFF holds the field still, the way a throttle does', (
     tester,
   ) async {
     await settings.setFlag(SettingsRepository.staticEnabled, false);
@@ -190,14 +186,14 @@ void main() {
     );
     await _ready(tester);
 
-    final parked = _offsetOf(tester);
+    final parked = _tickOf(tester);
     await tester.pump(Effects.staticStep * 4);
-    expect(_offsetOf(tester), parked);
+    expect(_tickOf(tester), parked);
 
     await settings.setFlag(SettingsRepository.staticEnabled, true);
     await _ready(tester);
     await tester.pump(Effects.staticStep);
-    expect(_offsetOf(tester), isNot(parked));
+    expect(_tickOf(tester), greaterThan(parked));
     await unmount(tester);
   });
 
@@ -207,8 +203,6 @@ void main() {
     await tester.pumpWidget(host(const SettingsScreen()));
     await _ready(tester);
 
-    // No --dart-define under `flutter test`, and the stub device channel does not answer
-    // `build`.
     expect(find.text('dev'), findsOneWidget);
     await unmount(tester);
   });
