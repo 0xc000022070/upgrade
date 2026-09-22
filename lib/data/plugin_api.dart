@@ -1,3 +1,5 @@
+import 'package:drift/drift.dart' show Value;
+
 import '../platform/plugins/access.dart';
 import '../platform/plugins/manifest.dart';
 import 'database.dart';
@@ -253,6 +255,7 @@ class PluginProjectApi implements ProjectRepository {
   @override
   Future<String> create({
     required String name,
+    String? iconId,
     String description = '',
     String objective = '',
     ProjectStatus status = ProjectStatus.active,
@@ -263,6 +266,7 @@ class PluginProjectApi implements ProjectRepository {
     'projects',
     () => _base.create(
       name: name,
+      iconId: iconId,
       description: description,
       objective: objective,
       status: status,
@@ -275,6 +279,7 @@ class PluginProjectApi implements ProjectRepository {
   Future<void> edit(
     String id, {
     String? name,
+    Value<String?> iconId = const Value.absent(),
     String? description,
     String? objective,
     ProjectStatus? status,
@@ -286,6 +291,7 @@ class PluginProjectApi implements ProjectRepository {
         ? _base.edit(
             id,
             name: name,
+            iconId: iconId,
             description: description,
             objective: objective,
             status: status,
@@ -294,6 +300,7 @@ class PluginProjectApi implements ProjectRepository {
         : _base.edit(
             id,
             name: name,
+            iconId: iconId,
             description: description,
             objective: objective,
             status: status,

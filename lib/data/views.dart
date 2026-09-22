@@ -64,9 +64,11 @@ class ProjectSummary {
     required this.totalCount,
     required this.nextActionTitle,
     required this.blockedTitle,
+    this.iconId,
   });
 
   final String projectId;
+  final String? iconId;
   final String name;
   final String objective;
   final ProjectStatus status;

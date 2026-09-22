@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers.dart';
 import '../../data/enums.dart';
 import '../../data/views.dart';
+import '../../data/project_icons.dart';
+import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/priority_row.dart';
+import 'project_icon.dart';
 
 class ProjectRow extends ConsumerWidget {
   const ProjectRow({
@@ -32,7 +35,17 @@ class ProjectRow extends ConsumerWidget {
         : '${project.name}  ·  ${project.status.name}';
     final hasObjective = project.objective.trim().isNotEmpty;
     final ink = priorityInk(context, project.priority);
+    final icon = ProjectIconKind.fromId(project.iconId);
     final row = ListRow(
+      leading: icon == null
+          ? null
+          : ProjectIcon(
+              icon,
+              color: dim
+                  ? context.tokens.textMuted
+                  : context.tokens.textSecondary,
+            ),
+      leadingWidth: IconSizes.lg,
       mark: PriorityMark(
         priority: project.priority,
         seed: project.projectId.hashCode,

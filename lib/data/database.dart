@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'dazzle'));
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   /// A step guarded `from >= N` is one the `createTable` calls above already build from
   /// the current definition; adding its columns again below N is an error.
@@ -128,6 +128,9 @@ SELECT id, task_id, 'url', url, created_at FROM links
       }
       if (from < 17) {
         await m.addColumn(tasks, tasks.prompt);
+      }
+      if (from < 18) {
+        await m.addColumn(projects, projects.iconId);
       }
     },
   );
@@ -242,6 +245,7 @@ ORDER BY t.updated_at DESC
 $_withTree
 SELECT p.id           AS project_id,
        p.name         AS name,
+       p.icon_id      AS icon_id,
        p.objective    AS objective,
        p.status       AS status,
        p.priority     AS priority,
@@ -270,6 +274,7 @@ ORDER BY CASE p.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
             (row) => ProjectSummary(
               projectId: row.read<String>('project_id'),
               name: row.read<String>('name'),
+              iconId: row.read<String?>('icon_id'),
               objective: row.read<String>('objective'),
               status: ProjectStatus.values.byName(row.read<String>('status')),
               priority: Priority.values.byName(row.read<String>('priority')),

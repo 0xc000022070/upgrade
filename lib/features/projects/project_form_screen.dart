@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,6 +17,7 @@ import '../../design/components/solid_action_bar.dart';
 import '../../design/spacing.dart';
 import '../screen_scaffold.dart';
 import '../../app/static_surface.dart';
+import 'project_icon_picker.dart';
 
 void openProjectForm(
   BuildContext context, {
@@ -51,6 +53,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
   late ProjectStatus _status;
 
   String? _parent;
+  String? _iconId;
 
   /// Read once: the form cannot add a child to the project it is editing.
   int _below = 0;
@@ -70,6 +73,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
     _objective = TextEditingController(text: project?.objective ?? '');
     _status = project?.status ?? ProjectStatus.active;
     _parent = project?.parentId ?? widget.parentId;
+    _iconId = project?.iconId;
     if (project != null) _countBelow(project.id);
   }
 
@@ -95,6 +99,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
     if (project == null) {
       await repository.create(
         name: name,
+        iconId: _iconId,
         description: _description.text.trim(),
         objective: _objective.text.trim(),
         status: _status,
@@ -104,6 +109,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
       await repository.edit(
         project.id,
         name: name,
+        iconId: Value(_iconId),
         description: _description.text.trim(),
         objective: _objective.text.trim(),
         status: _status,
@@ -171,6 +177,10 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                   controller: _description,
                   hint: 'what it is',
                   maxLines: 3,
+                ),
+                ProjectIconPicker(
+                  value: _iconId,
+                  onChanged: (icon) => setState(() => _iconId = icon),
                 ),
                 FieldPanel(
                   label: 'OBJECTIVE',

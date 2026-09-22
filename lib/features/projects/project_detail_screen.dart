@@ -10,6 +10,7 @@ import '../../data/database.dart';
 import '../../data/enums.dart';
 import '../../data/repositories/path_repository.dart';
 import '../../data/views.dart';
+import '../../data/project_icons.dart';
 import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/action_sheet.dart';
@@ -33,6 +34,7 @@ import '../tasks/selection_bar.dart';
 import '../tasks/task_row.dart';
 import 'project_form_screen.dart';
 import 'project_row.dart';
+import 'project_icon.dart';
 import '../../app/static_surface.dart';
 
 void openProjectDetail(BuildContext context, String projectId) {
@@ -604,14 +606,18 @@ class _HeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ratio = totalCount == 0 ? 0.0 : doneCount / totalCount;
+    final icon = ProjectIconKind.fromId(project.iconId);
     return Panel(
       bodyPadding: const EdgeInsets.all(Spacing.lg),
       child: Row(
         children: [
-          AsciiMascot.compact(
-            colour: context.tokens.textPrimary,
-            accent: context.tokens.accent,
-          ),
+          if (icon != null)
+            ProjectIcon(icon, size: 48, color: context.tokens.accent)
+          else
+            AsciiMascot.compact(
+              colour: context.tokens.textPrimary,
+              accent: context.tokens.accent,
+            ),
           const SizedBox(width: Spacing.lg),
           Expanded(
             child: Column(
