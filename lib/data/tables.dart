@@ -7,6 +7,7 @@ class Projects extends Table {
 
   TextColumn get parentId => text().nullable().references(Projects, #id)();
   TextColumn get name => text()();
+  TextColumn get iconId => text().nullable()();
   TextColumn get description => text()();
 
   TextColumn get objective => text()();

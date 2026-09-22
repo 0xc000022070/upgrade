@@ -12,6 +12,7 @@ import 'package:dazzle/data/repositories/path_repository.dart';
 import 'package:dazzle/data/repositories/shell_tab_repository.dart';
 import 'package:dazzle/data/repositories/settings_repository.dart';
 import 'package:dazzle/data/repositories/task_repository.dart';
+import 'package:dazzle/data/repositories/project_repository.dart';
 
 /// Written out by hand: the migration meets a database it did not create, so no fixture
 /// here may come from the current table definitions.
@@ -232,6 +233,8 @@ const _v16Schema = [
   "ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'",
 ];
 
+const _v17Schema = [..._v16Schema, 'ALTER TABLE tasks ADD COLUMN prompt TEXT'];
+
 /// Drives [QueryExecutor.ensureOpen] to stamp `user_version = 2` and lay down the old
 /// schema, which is what makes the file drift later opens a real v2 database.
 class _V2Database implements QueryExecutorUser {
@@ -267,6 +270,36 @@ void main() {
   });
 
   tearDown(() => dir.delete(recursive: true));
+
+  test('v17 projects keep their data and gain an optional icon', () async {
+    final executor = NativeDatabase(file);
+    await executor.ensureOpen(_V2Database(17, _v17Schema));
+    await executor.runInsert(
+      'INSERT INTO projects (id, name, description, objective, status, '
+      'priority, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        'p1',
+        'Infra',
+        'Existing description',
+        'Keep services running',
+        'active',
+        'high',
+        '2026-09-01T00:00:00.000Z',
+        '2026-09-01T00:00:00.000Z',
+      ],
+    );
+    await executor.close();
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+    final project = (await db.select(db.projects).get()).single;
+    expect(project.name, 'Infra');
+    expect(project.description, 'Existing description');
+    expect(project.iconId, isNull);
+    final repository = ProjectRepository(db, ActivityRepository(db));
+    await repository.edit('p1', iconId: const Value('wolf'));
+    expect((await repository.watchSummary('p1').first)!.iconId, 'wolf');
+    expect((await repository.watchById('p1').first)!.priority, Priority.high);
+  });
 
   /// ISO-8601 UTC, the shape AppDatabase.options stores timestamps in.
   String stamp(int day) =>

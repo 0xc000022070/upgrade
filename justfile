@@ -20,6 +20,7 @@ assets:
     mkdir -p assets/icons/signal assets/textures
     cp "$src"/icons/hl-*.svg assets/icons/
     cp "$src"/icons/signal/hl-*-signal.svg assets/icons/signal/
+    cp -R "$src"/project_emblems assets/
     cp "$src"/textures/noise-fine.png "$src"/textures/grid-8.svg "$src"/textures/scanline-3.png assets/textures/
     echo "assets: $(ls assets/icons/*.svg | wc -l) icons, $(ls assets/icons/signal/*.svg | wc -l) signal, $(ls assets/textures/* | wc -l) textures"
 

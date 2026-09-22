@@ -56,6 +56,7 @@ class ProjectRepository {
 
   Future<String> create({
     required String name,
+    String? iconId,
     String description = '',
     String objective = '',
     ProjectStatus status = ProjectStatus.active,
@@ -73,6 +74,7 @@ class ProjectRepository {
               id: id,
               parentId: Value(parentId),
               name: name,
+              iconId: Value(iconId),
               description: description,
               objective: objective,
               status: status,
@@ -97,6 +99,7 @@ class ProjectRepository {
   Future<void> edit(
     String id, {
     String? name,
+    Value<String?> iconId = const Value.absent(),
     String? description,
     String? objective,
     ProjectStatus? status,
@@ -115,6 +118,7 @@ class ProjectRepository {
       ProjectsCompanion(
         parentId: moving ? Value(parentId as String?) : const Value.absent(),
         name: name == null ? const Value.absent() : Value(name),
+        iconId: iconId,
         description: description == null
             ? const Value.absent()
             : Value(description),
