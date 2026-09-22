@@ -26,7 +26,7 @@ PriorityInk priorityInk(BuildContext context, Priority priority) =>
     switch (priority) {
       Priority.low => PriorityInk(
         title: context.tokens.textMuted,
-        value: context.tokens.textDisabled,
+        value: context.tokens.textMuted,
       ),
       Priority.normal => const PriorityInk(),
       Priority.high => PriorityInk(title: context.tokens.warningMuted),

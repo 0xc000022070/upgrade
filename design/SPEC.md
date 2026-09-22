@@ -416,7 +416,7 @@ Done is also toggled without opening anything, by tapping the row's leading chec
 
 A drop is text plus attachments. It carries `done` and its priority step, and nothing else: no next, no blocked, no pair. Those columns stay in the schema — the row becomes a task the moment it is filed — but no surface reads or writes them while the item is a drop.
 
-Its quick view is the readout with `DONE` and `MOVE` on the footer, and nothing else: no state line, no `BLOCKED BY` panel. Its row on Home carries the checkbox and the dimming that done drives, and no other glyph. Nothing in the app is ever struck through.
+Its quick view is the readout with `DONE` and `MOVE` on the footer, and nothing else: no state line, no `BLOCKED BY` panel. Its row on Home carries the checkbox and the dimming that done drives, and no other glyph. That dimming goes a shade below anything the priority ramp reaches, so a done drop and one parked on the floor are told apart by the ink and not by the checkbox alone. Nothing in the app is ever struck through.
 
 **A goal is optional grouping and not a requirement for state.** A project's `DROPS` panel holds that project's items that have no goal, and they are tasks: the same checkbox, the same checked-and-muted done state, the same blocked line as an item under a goal, the full quick view, a place in the project's and Home's progress numbers, and the right to be `NEXT ACTION`. Filing a Home drop into a project or a goal turns it into a task, and only then do the remaining state blocks appear.
 
@@ -522,7 +522,7 @@ Every item row and every project row takes a horizontal slide. A slide left rais
 
 There are four steps and three of them are counted in Roman numerals. The numeral has a column of its own on the right of the title, in the kicker's mono at the kicker's size, right-aligned so `I` and `III` end on the same edge:
 
-- **The floor only subtracts, and it has no numeral.** The title goes muted, the age and the checkbox go with it, and nothing whatever is added. A row parked here is the quietest thing in the panel, and it is the one step read by what is missing.
+- **The floor only subtracts, and it has no numeral.** The title goes muted and the checkbox goes with it, the age stays where every other step already leaves it, and nothing whatever is added. A row parked here is the quietest live row in the panel, and it is the one step read by what is missing.
 - `I` is the row exactly as it draws otherwise, its numeral in muted ink. It is where a captured item and a new project land.
 - `II` warms: the numeral and the title take the amber at half strength.
 - `III` is that same amber at full strength, on the numeral and on the title.
@@ -535,7 +535,7 @@ There are four steps and three of them are counted in Roman numerals. The numera
 
 **The ramp is amber and it never reaches the accent.** The accent is what the app answers a tap with, and a rank nobody pressed does not get it; the ramp is one hue warming from the body ink through half-strength amber to full, so a panel is read by which lines are warm and how warm they are rather than by four colours that have to be learned. The floor's grey is the same ramp one step colder.
 
-Done still wins: a done row shows its numeral in the disabled ink and stops glitching, whatever its step, because the step says what is worth reading and a done row is not.
+Done still wins, and it wins by going one shade colder than the ramp can reach. A done row takes the disabled ink on its numeral, its title, its age and its checkbox, and stops glitching, whatever its step, because the step says what is worth reading and a done row is not. **The disabled ink is done's and nothing else's**: no step lands on it, the floor stops one shade above it, and a finished row is therefore never read as a quiet one. A fresh row keeps its accent age for as long as it is fresh — that highlight is about the capture that just happened and not about the rank — and the checkbox and the title carry the done state under it.
 
 The row travels under the finger while the drag is on, capped short, and returns over 140ms. **A slide with nowhere to go does not move the row at all** — right at the floor, left at the top — so the end of the scale is felt instead of announced. The recogniser is horizontal only, so the list still scrolls under the same thumb, and the system's own edge gesture keeps the screen edge.
 
@@ -547,7 +547,7 @@ The step is per item, and a bundle does not share it. Mates travel together when
 
 The slide is off while a panel is in selection mode, and the `NEXT ACTION` card does not take it: it is one card and not a list.
 
-**Struck:** a numeral on the floor, a step that grows the type or thickens it, a glitch on anything but the numeral, a slide that cycles from the top back round to the floor, and a drag whose distance picks the step.
+**Struck:** a numeral on the floor, a step that grows the type or thickens it, a glitch on anything but the numeral, a slide that cycles from the top back round to the floor, a drag whose distance picks the step, and a step that dims a row as far down as done.
 
 ### A URL is painted in the field before it is a chip
 
