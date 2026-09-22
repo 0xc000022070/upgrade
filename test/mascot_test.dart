@@ -50,13 +50,10 @@ Future<Duration?> pumpUntilHome(
   return null;
 }
 
-late final AsciiSheet splashSheet;
-
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     await AsciiMascot.preload();
-    splashSheet = await AsciiMascot.sheet('splash');
   });
 
   group('the splash route', () {
@@ -70,23 +67,21 @@ void main() {
       await drain(tester);
     }
 
-    testWidgets('hands the screen to Home after the last frame', (
-      tester,
-    ) async {
+    testWidgets('holds a static mark briefly before Home', (tester) async {
       await mount(tester);
 
       expect(find.byType(AsciiMascot), findsOneWidget);
+      expect(
+        tester.widget<AsciiMascot>(find.byType(AsciiMascot)).animated,
+        isFalse,
+      );
       expect(find.byKey(const Key('home')), findsNothing);
 
       final at = await pumpUntilHome(tester);
 
       expect(at, isNotNull, reason: 'the splash never handed over');
-      expect(
-        at!,
-        greaterThanOrEqualTo(
-          splashSheet.step * splashSheet.frames.length + splashHold,
-        ),
-      );
+      expect(at!, greaterThanOrEqualTo(splashHold));
+      expect(at, lessThan(splashHold + const Duration(milliseconds: 100)));
       expect(find.byType(AsciiMascot), findsNothing);
     });
 
@@ -265,7 +260,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
     });
 
-    testWidgets('the AGENTS empty state runs the idle sheet', (tester) async {
+    testWidgets('the AGENTS empty state shows only host status', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -279,18 +276,14 @@ void main() {
       );
       await drain(tester);
 
-      final mascot = tester.widget<AsciiMascot>(find.byType(AsciiMascot));
-      expect(mascot.state, 'idle');
-      expect(mascot.cellWidth, AsciiMascot.sheetCell);
-      expect(mascot.animated, isTrue);
-      expect(find.text('DAZZLE_'), findsOneWidget);
+      expect(find.byType(AsciiMascot), findsNothing);
       expect(find.text(AgentPanelState.blockedLine), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
     });
 
-    testWidgets('a host that answered with nothing gets the mascot too', (
+    testWidgets('a host that answered with nothing shows no agents', (
       tester,
     ) async {
       const host = Host(
@@ -318,7 +311,7 @@ void main() {
       );
       await drain(tester);
 
-      expect(find.byType(AsciiMascot), findsOneWidget);
+      expect(find.byType(AsciiMascot), findsNothing);
       expect(find.text('NO AGENTS'), findsOneWidget);
       expect(find.text(AgentPanelState.blockedLine), findsNothing);
 

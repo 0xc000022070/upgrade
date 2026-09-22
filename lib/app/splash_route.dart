@@ -65,6 +65,7 @@ class _SplashRouteState extends State<SplashRoute> {
         child: Center(
           child: AsciiMascot.filling(
             state: 'splash',
+            animated: false,
             colour: tokens.textPrimary,
             accent: tokens.accent,
             onDone: _played,

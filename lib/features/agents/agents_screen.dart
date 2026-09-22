@@ -5,7 +5,6 @@ import 'package:path/path.dart' as path;
 import '../../app/static_surface.dart';
 import '../../application/agents.dart';
 import '../../data/repositories/host_repository.dart';
-import '../../design/components/ascii_mascot.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
@@ -78,17 +77,11 @@ class _Feed extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (_empty) {
-      return Column(
-        children: [
-          const _MascotEmpty(),
-          const SizedBox(height: Spacing.xl),
-          Panel(
-            title: 'AGENTS',
-            child: feed.noHost
-                ? Text(AgentPanelState.blockedLine, style: context.tokens.value)
-                : const EmptyState('no agents'),
-          ),
-        ],
+      return Panel(
+        title: 'AGENTS',
+        child: feed.noHost
+            ? Text(AgentPanelState.blockedLine, style: context.tokens.value)
+            : const EmptyState('no agents'),
       );
     }
     final single = feed.outcomes.length == 1;
@@ -158,25 +151,6 @@ class _Feed extends StatelessWidget {
           ),
         ),
     ];
-  }
-}
-
-class _MascotEmpty extends StatelessWidget {
-  const _MascotEmpty();
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.xl),
-      child: Column(
-        children: [
-          AsciiMascot(colour: tokens.textPrimary, accent: tokens.accent),
-          const SizedBox(height: Spacing.lg),
-          Text('DAZZLE_', style: tokens.screenTitle),
-        ],
-      ),
-    );
   }
 }
 
