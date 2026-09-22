@@ -385,7 +385,7 @@ void main() {
     );
   });
 
-  test('a new workspace carries the cwd, the label and no history', () {
+  test('a new workspace carries the cwd, the label and the pane mark', () {
     final request = HerdrRequests.workspaceCreate(
       cwd: "/home/dev/checkout with ' quote",
       label: "label with ' quote",
@@ -395,9 +395,7 @@ void main() {
     expect(request.params, {
       'cwd': "/home/dev/checkout with ' quote",
       'label': "label with ' quote",
-      // The `*` reaches herdr as a pattern and not as whatever the working directory happened
-      // to hold.
-      'env': {'HISTORY_IGNORE': '*', 'HISTIGNORE': '*'},
+      'env': {'DAZZLE_PANE': '1'},
       'focus': false,
     });
     expect(HerdrRequests.workspaceClose('wH').params, const {
