@@ -73,7 +73,6 @@ class _TaskRowState extends ConsumerState<TaskRow> {
   Widget build(BuildContext context) {
     final task = widget.task;
     final ink = priorityInk(context, task.priority);
-    final dim = task.done || task.priority == Priority.low;
     final row = ListRow(
       mark: PriorityMark(
         priority: task.priority,
@@ -83,16 +82,22 @@ class _TaskRowState extends ConsumerState<TaskRow> {
       leading: DazzleIcon(
         task.done ? DazzleIcons.checkboxChecked : DazzleIcons.checkboxEmpty,
         size: IconSizes.check,
-        color: dim ? context.tokens.textDisabled : context.tokens.accent,
+        color: task.done
+            ? context.tokens.textDisabled
+            : task.priority == Priority.low
+            ? context.tokens.textMuted
+            : context.tokens.accent,
         glitch: _glitch,
       ),
       title: task.title,
-      titleColor: task.done ? context.tokens.textMuted : ink.title,
+      titleColor: task.done ? context.tokens.textDisabled : ink.title,
       value: widget.drop || widget.fresh ? relativeAge(task.createdAt) : null,
+      // Fresh outranks done on the age alone: the highlight is about the capture that just
+      // happened, and the checkbox and title still carry the state under it.
       valueColor: widget.fresh
           ? context.tokens.accent
           : task.done
-          ? null
+          ? context.tokens.textDisabled
           : ink.value,
       subtitle: widget.drop || task.blockedReason == null
           ? null

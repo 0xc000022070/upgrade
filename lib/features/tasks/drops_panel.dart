@@ -158,7 +158,7 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
               else
                 ListRow(
                   title: task.title,
-                  titleColor: task.done ? context.tokens.textMuted : null,
+                  titleColor: task.done ? context.tokens.textDisabled : null,
                   value: relativeAge(task.createdAt),
                   valueColor: fresh.contains(task.id)
                       ? context.tokens.accent

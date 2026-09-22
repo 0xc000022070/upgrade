@@ -8,10 +8,13 @@ import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/activity_repository.dart';
 import 'package:dazzle/data/repositories/goal_repository.dart';
 import 'package:dazzle/data/repositories/project_repository.dart';
+import 'package:dazzle/data/enums.dart';
 import 'package:dazzle/data/repositories/task_repository.dart';
+import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/design/components/list_row.dart';
 import 'package:dazzle/design/components/panel.dart';
 import 'package:dazzle/design/effects/glitch.dart';
+import 'package:dazzle/design/icons/dazzle_icon.dart';
 import 'package:dazzle/design/motion.dart';
 import 'package:dazzle/features/projects/project_detail_screen.dart';
 import 'package:dazzle/features/tasks/item_sheet.dart';
@@ -63,6 +66,12 @@ void main() {
       goalId: goalId,
     );
     await tasks.setDone(settled, true);
+    final quiet = await tasks.create(
+      title: 'Backups viejos',
+      projectId: projectId,
+      goalId: goalId,
+    );
+    await tasks.setPriority(quiet, Priority.low);
     await tasks.create(title: 'Sin archivar', projectId: projectId);
   });
 
@@ -139,6 +148,38 @@ void main() {
     expect(await isDoneInDb(tester), isTrue);
     expect(find.byType(GlitchBlocks), findsNothing);
     expect(inGoal('Object storage'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a done row sits a shade below the floor, never level with it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    Finder rowOf(String title) =>
+        find.ancestor(of: inGoal(title), matching: find.byType(ListRow));
+
+    Color titleInk(String title) =>
+        tester.widget<Text>(inGoal(title)).style!.color!;
+
+    Color boxInk(String title) => tester
+        .widget<DazzleIcon>(
+          find
+              .descendant(of: rowOf(title), matching: find.byType(DazzleIcon))
+              .first,
+        )
+        .color;
+
+    expect(titleInk('Redis propio'), DazzleColors.textDisabled);
+    expect(boxInk('Redis propio'), DazzleColors.textDisabled);
+
+    expect(titleInk('Backups viejos'), DazzleColors.textMuted);
+    expect(boxInk('Backups viejos'), DazzleColors.textMuted);
+
+    expect(titleInk('Object storage'), DazzleColors.textPrimary);
+    expect(boxInk('Object storage'), DazzleColors.accent);
 
     await unmount(tester);
   });
