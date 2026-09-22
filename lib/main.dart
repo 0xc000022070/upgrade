@@ -23,6 +23,8 @@ import 'data/repositories/project_repository.dart';
 import 'data/repositories/settings_repository.dart';
 import 'data/repositories/task_repository.dart';
 import 'data/seed.dart';
+import 'design/ascii/grid.dart';
+import 'design/components/ascii_mascot.dart';
 import 'design/icons/dazzle_icon.dart';
 import 'design/typography.dart';
 import 'features/shell/shell_sessions.dart';
@@ -35,20 +37,13 @@ import 'platform/plugins/usage.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // The app is portrait and the screen route is the single exception, widening the set on
-  // the way in and putting it back on the way out. Set here rather than in the manifest so
-  // that route's dispose has something exact to restore.
   await SystemChrome.setPreferredOrientations(const [
     DeviceOrientation.portraitUp,
   ]);
 
-  // Opened and seeded before the first frame so every screen reads a synchronous handle
-  // rather than an AsyncValue of one.
   final boot = <BootStep>[];
 
   final db = AppDatabase();
-  // Drift opens lazily, so the first statement is what actually opens the file and runs
-  // the migration; timing it anywhere else would report a no-op.
   await db.customSelect('SELECT 1').get();
   boot.add(const BootStep('open database', 'ok'));
   boot.add(BootStep('run migrations', 'v${db.schemaVersion}'));
@@ -103,18 +98,15 @@ Future<void> main() async {
   );
   boot.add(const BootStep('load fonts', '${FontFamilies.count}'));
 
-  // The rows that point at these files are read inside builds, so the directory is
-  // resolved here to keep that read synchronous.
+  await AsciiMascot.preload();
+  boot.add(BootStep('load mascot', '${mascotStates.length} states'));
+
   await ImageAttachments.init();
   boot.add(const BootStep('mount attachments', 'ok'));
 
-  // Clips never outlive a run, and the directory is emptied before anything could be read
-  // from it.
   final clips = await ClipStore.open();
   boot.add(const BootStep('clear clips', 'ok'));
 
-  // Beside the clips in the cache, but kept: a card that survived the restart is one
-  // request nobody has to make.
   final previews = await LinkPreviews.open();
   boot.add(const BootStep('mount link previews', 'ok'));
 
@@ -126,8 +118,6 @@ Future<void> main() async {
 
   unawaited(warmGlitchIcons());
 
-  // Read before the first frame rather than from a screen, so the shells the last run left
-  // are dialling while the boot log is still on top. Only the tab rows are awaited.
   final container = ProviderContainer(
     overrides: [
       ...databaseOverrides(db),

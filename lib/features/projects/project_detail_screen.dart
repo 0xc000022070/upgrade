@@ -13,6 +13,7 @@ import '../../data/views.dart';
 import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/action_sheet.dart';
+import '../../design/components/ascii_mascot.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
@@ -23,7 +24,6 @@ import '../../design/effects/glitch.dart';
 import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
-import '../../design/sprite.dart';
 import '../code/workspace_sheet.dart';
 import '../home/capture_bar.dart';
 import '../hosts/hosts_screen.dart';
@@ -38,8 +38,6 @@ import '../../app/static_surface.dart';
 void openProjectDetail(BuildContext context, String projectId) {
   Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute<void>(
-      // The name is how the stack is searched for that route — the alternative is counting
-      // pops, which is wrong the moment anything else is pushed in between.
       settings: RouteSettings(name: projectRouteName(projectId)),
       builder: (_) => inheritPluginScope(
         context,
@@ -80,15 +78,10 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     super.dispose();
   }
 
-  /// The route pushes before the project stream has anything, so firing on initState would
-  /// spend the event on an empty header.
   void _fireOnEntry() {
     if (_entered || MediaQuery.disableAnimationsOf(context)) return;
     _entered = true;
     final push = ModalRoute.of(context)?.animation;
-    // Fired mid-push the event paints over a cross-fade of two routes, and a displaced block
-    // there reads as the transition tearing: on device the first three of the four torn
-    // frames were unusable for that reason.
     if (push != null && push.status != AnimationStatus.completed) {
       _push = push..addStatusListener(_onPush);
       return;
@@ -110,12 +103,8 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     ref.read(navIndexProvider.notifier).state = 1;
   }
 
-  /// The route is found by name rather than by counting pops, and `isFirst` is the floor.
   void _popTo(String projectId) {
     final name = projectRouteName(projectId);
-    // The ancestor is not always on the stack: move a project under a parent the user never
-    // walked into and its crumb names a screen that was never pushed. The predicate records
-    // whether the name was ever on top, so the miss can land on the tab instead of HOME.
     var found = false;
     Navigator.of(context, rootNavigator: true).popUntil((route) {
       found = found || route.settings.name == name;
@@ -200,9 +189,6 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     final rows = goals.valueOrNull ?? const <GoalSummary>[];
     final kids = children.valueOrNull ?? const <ProjectSummary>[];
     final archived = project?.status == ProjectStatus.archived;
-    // Under a hidden ancestor the project keeps its own status — that is what makes
-    // unarchiving the parent restore the subtree as it was — so it is dim and its own
-    // UNARCHIVE is absent rather than offered and inert.
     final ancestorArchived = ancestors.any(
       (crumb) => crumb.status == ProjectStatus.archived,
     );
@@ -215,10 +201,6 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     return Scaffold(
       bottomNavigationBar: project == null || hidden
           ? null
-          // A Scaffold insets its body for the keyboard and leaves the bottom slot where it is, so
-          // on device the field and the CAPTURE block went under the IME. The inset is added here
-          // rather than by moving the mount, so the bar keeps its slot and the panels keep
-          // scrolling under it.
           : Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.viewInsetsOf(context).bottom,
@@ -456,8 +438,6 @@ class _CodePanel extends ConsumerWidget {
   }
 
   Future<void> _link(BuildContext context, WidgetRef ref) async {
-    // A directory already filed elsewhere is not a candidate here, and stealing it silently
-    // would leave the other project's section shorter with nothing said about it.
     final repository = ref.read(pathRepositoryProvider);
     final all = await repository.watchTargets().first;
     final free = await repository.watchUnlinked().first;
@@ -628,7 +608,10 @@ class _HeroCard extends StatelessWidget {
       bodyPadding: const EdgeInsets.all(Spacing.lg),
       child: Row(
         children: [
-          const Sprite(state: 'idle', scale: 2, frame: 0),
+          AsciiMascot.compact(
+            colour: context.tokens.textPrimary,
+            accent: context.tokens.accent,
+          ),
           const SizedBox(width: Spacing.lg),
           Expanded(
             child: Column(

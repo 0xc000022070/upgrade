@@ -1,1 +1,0 @@
-{"cell":48,"states":{"idle":{"frames":2,"fps":2,"loop":true},"looking":{"frames":2,"fps":2,"loop":true},"working":{"frames":4,"fps":8,"loop":true},"success":{"frames":4,"fps":6,"loop":false},"blocked":{"frames":2,"fps":2,"loop":true},"alert":{"frames":2,"fps":4,"loop":true},"sleep":{"frames":3,"fps":2,"loop":true},"splash":{"frames":7,"fps":6,"loop":false}}}

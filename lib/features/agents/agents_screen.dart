@@ -5,6 +5,7 @@ import 'package:path/path.dart' as path;
 import '../../app/static_surface.dart';
 import '../../application/agents.dart';
 import '../../data/repositories/host_repository.dart';
+import '../../design/components/ascii_mascot.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
@@ -12,7 +13,6 @@ import '../../design/components/panel_text_action.dart';
 import '../../design/components/section.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
-import '../../design/sprite.dart';
 import '../../design/tokens.dart';
 import '../../platform/herdr_client.dart';
 import '../home/agent_mark.dart';
@@ -43,8 +43,6 @@ class AgentsScreen extends ConsumerWidget {
           titleTrailing: const PipAffordance(),
           onBack: () => Navigator.of(context).pop(),
           children: [
-            // Same reload blink as the panel: `waiting for host` would replace the workspaces on
-            // every report the watcher pushes.
             state.when(
               skipLoadingOnReload: true,
               loading: () => const Panel(
@@ -93,8 +91,6 @@ class _Feed extends StatelessWidget {
         ],
       );
     }
-    // The host level is collapsed when there is only one, which is the shape every install
-    // has until a second machine is registered.
     final single = feed.outcomes.length == 1;
     return PanelStack(
       children: [
@@ -170,13 +166,14 @@ class _MascotEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Spacing.xl),
       child: Column(
         children: [
-          const Sprite(state: 'idle', scale: 4),
+          AsciiMascot(colour: tokens.textPrimary, accent: tokens.accent),
           const SizedBox(height: Spacing.lg),
-          Text('DAZZLE_', style: context.tokens.screenTitle),
+          Text('DAZZLE_', style: tokens.screenTitle),
         ],
       ),
     );
