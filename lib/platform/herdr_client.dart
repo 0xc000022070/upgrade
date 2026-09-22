@@ -156,10 +156,9 @@ abstract final class HerdrRequests {
   static final _key = RegExp(r'^(enter|esc|up|down|tab|[A-Za-z0-9])$');
   static final _model = RegExp(r'^[a-z0-9][a-z0-9._:-]{0,63}$');
 
-  /// Both names because the shell on the far side is zsh's or bash's, and the ignore lists
-  /// because they are what a host's rc leaves alone — `HISTFILE` is assigned outright by
-  /// every generated rc there is, so a value put here loses to the rc a moment later.
-  static const withoutHistory = {'HISTORY_IGNORE': '*', 'HISTIGNORE': '*'};
+  /// A flag and not a value: every generated rc assigns `HISTFILE` outright after the
+  /// environment is read, so only the rc can undo the rc, and it needs a name to key on.
+  static const paneMark = {'DAZZLE_PANE': '1'};
 
   static const HerdrRequest agentList = (method: 'agent.list', params: {});
 
@@ -168,7 +167,7 @@ abstract final class HerdrRequests {
     required String label,
   }) => (
     method: 'workspace.create',
-    params: {'cwd': cwd, 'label': label, 'env': withoutHistory, 'focus': false},
+    params: {'cwd': cwd, 'label': label, 'env': paneMark, 'focus': false},
   );
 
   static HerdrRequest workspaceClose(String workspace) =>
