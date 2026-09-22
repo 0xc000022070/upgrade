@@ -7,11 +7,13 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import '../application/agent_state.dart';
 import '../application/agents.dart';
 import '../application/alerts.dart';
+import '../application/pin_alerts.dart';
 import '../data/repositories/host_repository.dart';
 import 'alert_notifications.dart';
 import 'herdr_client.dart';
 import 'host_keys.dart';
 import 'keys.dart';
+import 'pin_notifications.dart';
 
 /// The service runs its own isolate. Nothing in this file may reach for a provider, the
 /// database or a widget: what it needs travels through
@@ -338,12 +340,17 @@ void agentWatcherEntry() {
 }
 
 class AgentWatcherHandler extends TaskHandler {
-  AgentWatcherHandler({Ed25519Keys? keys, HerdrClient? client})
-    : _keys = keys ?? const Ed25519Keys(SecurePrivateKeyStore()),
-      _client = client ?? const HerdrClient(keepAlive: watcherKeepAlive);
+  AgentWatcherHandler({
+    Ed25519Keys? keys,
+    HerdrClient? client,
+    PinNotifier? pins,
+  }) : _keys = keys ?? const Ed25519Keys(SecurePrivateKeyStore()),
+       _client = client ?? const HerdrClient(keepAlive: watcherKeepAlive),
+       _pins = pins ?? const PinNotifications();
 
   final Ed25519Keys _keys;
   final HerdrClient _client;
+  final PinNotifier _pins;
 
   final _AlertBook _book = _AlertBook();
   final Map<String, _HostLoop> _loops = {};
@@ -432,6 +439,7 @@ class AgentWatcherHandler extends TaskHandler {
         host: host,
         keys: _keys,
         client: _client,
+        pins: _pins,
         book: _book,
         onReport: _publish,
       )..start();
@@ -489,6 +497,7 @@ class _HostLoop {
     required this.host,
     required this.keys,
     required this.client,
+    required this.pins,
     required this.book,
     required this.onReport,
   });
@@ -496,6 +505,7 @@ class _HostLoop {
   final Host host;
   final Ed25519Keys keys;
   final HerdrClient client;
+  final PinNotifier pins;
   final _AlertBook book;
   final void Function(WatcherReport) onReport;
 
@@ -508,6 +518,10 @@ class _HostLoop {
   Completer<void>? _waiting;
   List<AgentSnapshot> _lastAgents = const [];
   DateTime? _lastGoodAt;
+
+  late final PinShade _shade = PinShade(pins);
+  Timer? _pinTicks;
+  bool _askingPin = false;
 
   bool sameHost(Host other) =>
       other.address == host.address &&
@@ -549,6 +563,7 @@ class _HostLoop {
 
   Future<void> stop() async {
     _stopped = true;
+    _stopPinTicks();
     _session?.close();
     // A loop between retries is asleep in [_wait], and `await _running` would hold the
     // caller there for the rest of that sleep.
@@ -567,6 +582,7 @@ class _HostLoop {
       }
       edges.reset(host.id);
     }
+    await _tellShade(null);
   }
 
   void _log(Object error) => debugPrint('dazzle.herdr ${host.name}: $error');
@@ -649,11 +665,47 @@ class _HostLoop {
     // No reset here. A reconnect inside one service life keeps the set, because the panes
     // did not change while the link was down: resetting re-entered every pane still
     // blocked, which reposted the alert and overwrote an answer the user had already given.
-    await for (final agents in session.watch()) {
-      if (_stopped) return;
-      await _onSnapshot(agents, session);
+    _startPinTicks(session);
+    try {
+      await for (final agents in session.watch()) {
+        if (_stopped) return;
+        await _onSnapshot(agents, session);
+      }
+    } finally {
+      _stopPinTicks();
     }
   }
+
+  void _startPinTicks(HerdrSession session) {
+    _stopPinTicks();
+    _pinTicks = Timer.periodic(
+      pinWatchInterval,
+      (_) => unawaited(_askPin(session)),
+    );
+    unawaited(_askPin(session));
+  }
+
+  void _stopPinTicks() {
+    _pinTicks?.cancel();
+    _pinTicks = null;
+  }
+
+  Future<void> _askPin(HerdrSession session) async {
+    if (_stopped || _askingPin || !identical(_session, session)) return;
+    _askingPin = true;
+    try {
+      final listing = await session.openPinRequests();
+      if (_stopped || !identical(_session, session)) return;
+      await _tellShade(PinRequest.decodeOpen(listing).firstOrNull);
+    } catch (error) {
+      _log(error);
+    } finally {
+      _askingPin = false;
+    }
+  }
+
+  Future<void> _tellShade(PinRequest? held) =>
+      _shade.tell(hostId: host.id, hostName: host.name, held: held);
 
   Future<void> _onSnapshot(
     List<AgentSnapshot> agents,

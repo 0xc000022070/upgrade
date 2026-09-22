@@ -7,6 +7,7 @@ import 'package:dartssh2/dartssh2.dart';
 
 import '../application/agent_kind.dart';
 import '../application/agent_state.dart';
+import '../application/pin_alerts.dart';
 import '../application/reason_lines.dart';
 import 'herdr_socket.dart';
 import 'host_keys.dart';
@@ -580,6 +581,13 @@ class HerdrSession {
     );
     if (result.exitCode != 0) return const [];
     return HerdrClient.parseModels(utf8.decode(result.stdout));
+  }
+
+  Future<String> openPinRequests({Duration within = pinWatchInterval}) async {
+    final result = await _guard(
+      () => _client.runWithResult(pinentryOpenCommand()).timeout(within),
+    );
+    return utf8.decode(result.stdout, allowMalformed: true);
   }
 
   void close() {
