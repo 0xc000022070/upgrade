@@ -171,115 +171,6 @@ String? cwdFromOsc(String payload) {
   return '/${segments.join('/')}';
 }
 
-/// `pin` wants a passphrase; `confirm` and `message` want a yes, and carry the agent's
-/// own labels for the blocks.
-class PinRequest {
-  const PinRequest({
-    required this.id,
-    required this.mode,
-    required this.since,
-    this.desc = '',
-    this.prompt = '',
-    this.error = '',
-    this.ok = '',
-    this.cancel = '',
-    this.stale = false,
-  });
-
-  /// Null for anything that is not a request: an id that is not one, a payload that is not
-  /// base64 or not JSON. A host is trusted to run a shell, not to shape a command, and the
-  /// id is the one thing here that reaches one.
-  static PinRequest? decode(String id, String payload, {DateTime? at}) {
-    if (!pinentryRequestId.hasMatch(id)) return null;
-    try {
-      final json = jsonDecode(utf8.decode(base64Decode(payload)));
-      if (json is! Map<String, Object?>) return null;
-      String field(String key) {
-        final value = json[key];
-        return value is String ? value : '';
-      }
-
-      final mode = field('mode');
-      return PinRequest(
-        id: id,
-        mode: mode.isEmpty ? 'pin' : mode,
-        since: at ?? DateTime.now(),
-        desc: field('desc'),
-        prompt: field('prompt'),
-        error: field('error'),
-        ok: field('ok'),
-        cancel: field('cancel'),
-      );
-    } on FormatException {
-      return null;
-    }
-  }
-
-  /// One per line, the id and the payload with a space between, in the order the host
-  /// listed them. A line that is not a request is skipped rather than fatal, because the
-  /// list is read off a directory a user's processes share.
-  static List<PinRequest> decodeOpen(String listing, {DateTime? at}) {
-    final requests = <PinRequest>[];
-    for (final line in listing.split('\n')) {
-      final space = line.indexOf(' ');
-      if (space <= 0) continue;
-      final request = decode(
-        line.substring(0, space),
-        line.substring(space + 1).trim(),
-        at: at,
-      );
-      if (request != null) requests.add(request);
-    }
-    return requests;
-  }
-
-  final String id;
-  final String mode;
-  final String desc;
-  final String prompt;
-  final String error;
-  final String ok;
-  final String cancel;
-
-  /// When the phone first heard this ask. The host says nothing about its own clock: the
-  /// payload carries the agent's words and the open listing says a request stands, never
-  /// for how much longer. So the count starts where the tab took it, and is never counted
-  /// down to a deadline the phone would be inventing.
-  final DateTime since;
-
-  /// Never a claim that the host's window has run out: it listed the ask as open on the
-  /// last ask, and what the phone does not know is how much of that window is left.
-  final bool stale;
-
-  PinRequest aged() => PinRequest(
-    id: id,
-    mode: mode,
-    since: since,
-    desc: desc,
-    prompt: prompt,
-    error: error,
-    ok: ok,
-    cancel: cancel,
-    stale: true,
-  );
-
-  String get promptLabel => _label(prompt, 'PASSPHRASE');
-
-  /// A confirm carries the agent's own word, with pinentry's `_` mnemonic mark taken off.
-  String get okLabel => _label(ok, mode == 'pin' ? 'UNLOCK' : 'OK');
-
-  String get cancelLabel => _label(cancel, 'CANCEL');
-
-  static String _label(String text, String fallback) {
-    final cleaned = text
-        .replaceAll('_', '')
-        .trim()
-        .replaceAll(RegExp(r':$'), '')
-        .toUpperCase();
-    return cleaned.isEmpty ? fallback : cleaned;
-  }
-}
-
 /// The fifo an answer is written into is guarded by the fifo being there, so a command
 /// that comes back failed is proof the ask was down before the passphrase left the phone:
 /// nothing was written and nothing is waiting on it. A channel that never came back is
@@ -513,9 +404,7 @@ class ShellSessions extends ChangeNotifier {
 
   final PinNotifier? notifier;
 
-  /// The request id each host's notification is up for, so a second tab hearing the same
-  /// request raises nothing and a settled one is withdrawn exactly once.
-  final _notified = <String, String>{};
+  late final PinShade _shade = PinShade(notifier);
 
   final Duration pinRecheck;
 
@@ -1033,32 +922,12 @@ class ShellSessions extends ChangeNotifier {
   /// One notification per host: up while any of its tabs holds a request, replaced when the
   /// request is another, down when none does.
   void _tellShade(Host host) {
-    final notifier = this.notifier;
-    if (notifier == null) return;
     PinRequest? held;
     for (final session in forHost(host.id)) {
       held = session.pin;
       if (held != null) break;
     }
-    final shown = _notified[host.id];
-    if (held == null) {
-      if (shown == null) return;
-      _notified.remove(host.id);
-      unawaited(notifier.withdraw(host.id));
-      return;
-    }
-    if (shown == held.id) return;
-    _notified[host.id] = held.id;
-    unawaited(
-      notifier.raise(
-        hostId: host.id,
-        text: pinNotificationText(
-          host: host.name,
-          desc: held.desc,
-          prompt: held.prompt,
-        ),
-      ),
-    );
+    unawaited(_shade.tell(hostId: host.id, hostName: host.name, held: held));
   }
 
   /// What a bell means to a tab: the host's pinentry may have rung it, so the tab asks the

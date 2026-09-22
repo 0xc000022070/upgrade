@@ -1,8 +1,25 @@
+import 'dart:convert';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/alerts.dart';
 import 'package:dazzle/application/pin_alerts.dart';
 import 'package:dazzle/platform/alert_actions.dart';
+
+class _Shade implements PinNotifier {
+  final raised = <String>[];
+  final withdrawn = <String>[];
+
+  @override
+  Future<void> raise({required String hostId, required String text}) async =>
+      raised.add('$hostId/$text');
+
+  @override
+  Future<void> withdraw(String hostId) async => withdrawn.add(hostId);
+}
+
+PinRequest ask(String id, {String desc = 'the ssh key'}) =>
+    PinRequest(id: id, mode: 'pin', since: DateTime(2026), desc: desc);
 
 void main() {
   group('AUTHORIZATION REQUIRED in the shade', () {
@@ -62,5 +79,66 @@ void main() {
 
       expect(opened, 'h1');
     });
+  });
+
+  group('who takes the notification down', () {
+    test('one ring per id, one withdrawal, and nothing for a repeat', () async {
+      final notifier = _Shade();
+      final shade = PinShade(notifier);
+      Future<void> tell(PinRequest? held) =>
+          shade.tell(hostId: 'h1', hostName: 'nyx', held: held);
+
+      await tell(ask('aaaaaaaaaaaaaaaa'));
+      await tell(ask('aaaaaaaaaaaaaaaa'));
+      expect(notifier.raised, ['h1/NYX · the ssh key']);
+
+      await tell(ask('bbbbbbbbbbbbbbbb', desc: 'another key'));
+      expect(notifier.raised, hasLength(2));
+      expect(notifier.raised.last, 'h1/NYX · another key');
+
+      await tell(null);
+      await tell(null);
+      expect(notifier.withdrawn, ['h1']);
+    });
+
+    test('neither side rescinds what the other put up', () async {
+      final notifier = _Shade();
+      final tabs = PinShade(notifier);
+      final watcher = PinShade(notifier);
+
+      await tabs.tell(
+        hostId: 'h1',
+        hostName: 'nyx',
+        held: ask('cccccccccccccccc'),
+      );
+      await watcher.tell(hostId: 'h1', hostName: 'nyx', held: null);
+
+      expect(notifier.raised, hasLength(1));
+      expect(notifier.withdrawn, isEmpty);
+    });
+
+    test(
+      'a host with no notifier is told nothing and does not throw',
+      () async {
+        await PinShade(null)
+            .tell(hostId: 'h1', hostName: 'nyx', held: ask('dddddddddddddddd'));
+      },
+    );
+  });
+
+  test('the open listing keeps the order the host wrote it in', () {
+    String line(String id, String desc) =>
+        '$id ${base64Encode(utf8.encode(jsonEncode({'desc': desc})))}';
+
+    final open = PinRequest.decodeOpen(
+      [
+        line('eeeeeeeeeeeeeeee', 'first'),
+        'not a request',
+        line('nope', 'refused for its id'),
+        line('ffffffffffffffff', 'second'),
+      ].join('\n'),
+    );
+
+    expect(open.map((request) => request.desc), ['first', 'second']);
   });
 }
