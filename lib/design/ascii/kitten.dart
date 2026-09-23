@@ -10,7 +10,7 @@ const kittenYawRate = 0.013;
 const _maxSteps = 128;
 const _maxDist = 6.5;
 const _surfEps = 0.0015;
-const _bound = 1.65;
+const _bound = 2.05;
 
 const _stepScale = 0.68;
 
@@ -29,23 +29,17 @@ const _shadowK = 12.0;
 const _shadowMin = 0.10;
 
 const _toneBias = 0.35;
-const _toneGain = 4.2;
+const _toneGain = 5.6;
 
-const _grow = 1.57;
-const _lift = -0.505;
+const _bladeFlat = 0.42;
 
-const _eyeAtX = 0.182;
-const _eyeAtY = 0.010;
-const _eyeAtZ = 0.330;
-const _eyeHalfX = 0.126;
-const _eyeHalfY = 0.086;
+const _sparkX = 0.460;
+const _sparkY = -0.080;
+const _sparkZ = 0.395;
 
-/// Deeper than the head is thick: the face is cut through, so what reads as an
-/// eye is the ground behind the figure, not a pocket the key light relights.
-const _eyeHalfZ = 0.90;
-
-const _eyeTiltSin = 0.29552021;
-const _eyeTiltCos = 0.95533649;
+/// Deeper than the mass is thick: the holes are cut through, so what reads as a
+/// gap is the ground behind the figure, not a pocket the key light relights.
+const _voidHalfZ = 0.90;
 
 double _smin(double a, double b, double k) {
   final h = (0.5 + 0.5 * (b - a) / k).clamp(0.0, 1.0);
@@ -169,87 +163,88 @@ double _flatCone(
     ) *
     flat;
 
-double _ears(double px, double py, double pz) {
+double _blades(double px, double py, double pz) {
   final left = _flatCone(
     px,
     py,
     pz,
-    -0.205,
-    0.155,
+    -0.340,
+    0.150,
     0.020,
-    -0.315,
-    1.050,
-    -0.010,
-    0.130,
-    0.008,
-    0.46,
+    -0.060,
+    1.350,
+    -0.040,
+    0.300,
+    0.080,
+    _bladeFlat,
   );
   final right = _flatCone(
     px,
     py,
     pz,
-    0.185,
-    0.140,
+    0.600,
+    0.200,
     0.020,
-    0.400,
-    0.920,
-    -0.010,
-    0.215,
-    0.010,
-    0.46,
+    1.100,
+    1.080,
+    -0.040,
+    0.270,
+    0.080,
+    _bladeFlat,
   );
   return min(left, right);
 }
 
-double _head(double px, double py, double pz) {
-  final cranium = _ellipsoid(px, py - 0.055, pz, 0.450, 0.255, 0.370);
-  final jowls = _ellipsoid(px, py + 0.115, pz - 0.030, 0.520, 0.205, 0.360);
-  var d = _smin(cranium, jowls, 0.160);
-  final chin = _ellipsoid(px, py + 0.290, pz - 0.050, 0.260, 0.125, 0.250);
-  return _smin(d, chin, 0.130);
+double _mass(double px, double py, double pz) {
+  final brow = _ellipsoid(px - 0.100, py + 0.140, pz, 0.900, 0.460, 0.400);
+  final chin = _ellipsoid(
+    px - 0.180,
+    py + 0.545,
+    pz - 0.040,
+    0.740,
+    0.440,
+    0.330,
+  );
+  return _smin(brow, chin, 0.240);
+}
+
+double _cheek(double px, double py, double pz) =>
+    _ellipsoid(px + 0.780, py + 0.400, pz - 0.020, 0.130, 0.360, 0.300);
+
+double _holes(double px, double py, double pz) {
+  final groove = _roundBox(
+    px + 0.425,
+    py + 0.385,
+    pz,
+    0.175,
+    0.330,
+    _voidHalfZ,
+    0.030,
+  );
+  final socket = _ellipsoid(
+    px - 0.460,
+    py + 0.470,
+    pz,
+    0.175,
+    0.260,
+    _voidHalfZ,
+  );
+  return min(groove, socket);
 }
 
 double _whiskers(double px, double py, double pz) {
-  var d = _sphere(px + 0.610, py + 0.070, pz - 0.090, 0.034);
-  d = min(d, _sphere(px + 0.700, py + 0.150, pz - 0.060, 0.029));
-  d = min(d, _sphere(px + 0.575, py + 0.225, pz - 0.085, 0.031));
-  d = min(d, _sphere(px - 0.640, py + 0.290, pz - 0.070, 0.032));
-  return min(d, _sphere(px - 0.725, py + 0.370, pz - 0.045, 0.027));
+  var d = _sphere(px + 1.020, py + 0.520, pz - 0.100, 0.060);
+  d = min(d, _sphere(px + 0.920, py + 0.660, pz - 0.080, 0.050));
+  d = min(d, _sphere(px - 0.860, py + 1.000, pz - 0.080, 0.055));
+  return min(d, _sphere(px - 0.980, py + 1.140, pz - 0.060, 0.050));
 }
 
-double _eyeVoid(
-  double ox,
-  double oy,
-  double oz,
-  double tilt,
-  double hx,
-  double hy,
-) {
-  final rx = ox * _eyeTiltCos - oy * _eyeTiltSin * tilt;
-  final ry = ox * _eyeTiltSin * tilt + oy * _eyeTiltCos;
-  return _ellipsoid(rx, ry, oz, hx, hy, _eyeHalfZ);
-}
-
-double _face(double px, double py, double pz) {
-  var d = _eyeVoid(px + 0.175, py - 0.005, pz, -1.0, 0.120, 0.082);
-  d = min(
-    d,
-    _eyeVoid(px - _eyeAtX, py - _eyeAtY, pz, 1.0, _eyeHalfX, _eyeHalfY),
-  );
-  final bridge = _roundBox(px, py + 0.108, pz, 0.038, 0.066, _eyeHalfZ, 0.010);
-  d = min(d, bridge);
-  final mouth = _roundBox(px, py + 0.240, pz, 0.170, 0.028, _eyeHalfZ, 0.008);
-  return min(d, mouth);
-}
-
-double _shape(double px, double py, double pz) {
-  var d = _smin(_head(px, py, pz), _ears(px, py, pz), 0.055);
-  d = _smax(d, -_face(px, py, pz), 0.016);
+double kittenMap(double px, double py, double pz) {
+  var d = _smin(_mass(px, py, pz), _blades(px, py, pz), 0.100);
+  d = _smax(d, -_holes(px, py, pz), 0.020);
+  d = min(d, _cheek(px, py, pz));
   return min(d, _whiskers(px, py, pz));
 }
-
-double kittenMap(double px, double py, double pz) =>
-    _shape(px / _grow, (py - _lift) / _grow, pz / _grow) * _grow;
 
 class KittenPose {
   const KittenPose({
@@ -472,9 +467,9 @@ KittenFrame renderKitten({
     height: height,
     shade: shade,
     spark: _project(
-      _eyeAtX * _grow,
-      _eyeAtY * _grow + _lift,
-      _eyeAtZ * _grow,
+      _sparkX,
+      _sparkY,
+      _sparkZ,
       angle: angle,
       cx: cx,
       cy: cy,

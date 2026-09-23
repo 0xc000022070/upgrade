@@ -7,11 +7,8 @@ import 'package:dazzle/design/ascii/grid.dart';
 import 'package:dazzle/design/ascii/kitten.dart';
 import 'package:dazzle/design/ascii/noise.dart';
 
-const _cols = 34;
-const _rows = 17;
-
-const _splashCols = 64;
-const _splashRows = 32;
+const _cols = 17;
+const _rows = 10;
 
 const _rowPitch = 1.0;
 
@@ -36,8 +33,6 @@ class _State {
     required this.pose,
     this.pass,
     this.spark = true,
-    this.cols = _cols,
-    this.rows = _rows,
   });
 
   final String name;
@@ -46,8 +41,6 @@ class _State {
   final bool loops;
   final KittenPose Function(int i, int n) pose;
   final _Pass? pass;
-  final int cols;
-  final int rows;
 
   final bool spark;
 }
@@ -84,21 +77,6 @@ void _displace(int i, int n, Float64List shade, int width, int height) {
         row[x] = from < 0 || from >= width ? 0.0 : shade[base + from];
       }
       shade.setRange(base, base + width, row);
-    }
-  }
-}
-
-void _resolve(int i, int n, Float64List shade, int width, int height) {
-  final progress = n < 2 ? 1.0 : i / (n - 1);
-  final crackle = 0.22 * (1.0 - progress);
-  for (var y = 0; y < height; y++) {
-    for (var x = 0; x < width; x++) {
-      final at = y * width + x;
-      if (bayer(x, y) >= progress) {
-        shade[at] = hash01(x * 7 + i * 613, y * 13 + i * 991) < crackle
-            ? 0.30
-            : 0.0;
-      }
     }
   }
 }
@@ -169,25 +147,11 @@ final _states = <_State>[
     ),
     spark: false,
   ),
-  _State(
-    name: 'splash',
-    frames: 10,
-    fps: 8,
-    loops: false,
-    cols: _splashCols,
-    rows: _splashRows,
-    pose: (i, n) {
-      final t = n < 2 ? 1.0 : i / (n - 1);
-      final ease = 1.0 - pow(1.0 - t, 3).toDouble();
-      return KittenPose(yaw: -0.75 * (1.0 - ease), scale: _scale);
-    },
-    pass: _resolve,
-  ),
 ];
 
-AsciiSheet _bake(_State state, {required int cols, required int rows}) {
-  final width = cols * brailleCols;
-  final height = rows * brailleRows;
+AsciiSheet _bake(_State state) {
+  const width = _cols * brailleCols;
+  const height = _rows * brailleRows;
 
   final frames = <AsciiFrame>[];
   for (var i = 0; i < state.frames; i++) {
@@ -200,10 +164,10 @@ AsciiSheet _bake(_State state, {required int cols, required int rows}) {
     );
     state.pass?.call(i, state.frames, rendered.shade, width, height);
 
-    final glyphs = Uint8List(cols * rows);
-    for (var y = 0; y < rows; y++) {
-      for (var x = 0; x < cols; x++) {
-        glyphs[y * cols + x] = brailleCell(rendered.shade, width, x, y);
+    final glyphs = Uint8List(_cols * _rows);
+    for (var y = 0; y < _rows; y++) {
+      for (var x = 0; x < _cols; x++) {
+        glyphs[y * _cols + x] = brailleCell(rendered.shade, width, x, y);
       }
     }
 
@@ -217,8 +181,8 @@ AsciiSheet _bake(_State state, {required int cols, required int rows}) {
     );
   }
   return AsciiSheet(
-    cols: cols,
-    rows: rows,
+    cols: _cols,
+    rows: _rows,
     fps: state.fps,
     loops: state.loops,
     frames: frames,
@@ -230,11 +194,9 @@ void main() {
   final clock = Stopwatch()..start();
 
   for (final state in _states) {
-    final sheet = _bake(state, cols: state.cols, rows: state.rows);
+    final sheet = _bake(state);
     File('${dir.path}/${state.name}.txt').writeAsStringSync(sheet.encode());
-    stdout.writeln(
-      '${state.name}: ${state.frames} frames at ${state.cols}x${state.rows}',
-    );
+    stdout.writeln('${state.name}: ${state.frames} frames at ${_cols}x$_rows');
   }
 
   final idle = _states.firstWhere((s) => s.name == 'idle');
@@ -246,8 +208,6 @@ void main() {
       loops: false,
       pose: (i, n) => idle.pose(0, idle.frames),
     ),
-    cols: 20,
-    rows: 10,
   );
   File('${dir.path}/$mascotCompact.txt').writeAsStringSync(compact.encode());
   stdout.writeln('$mascotCompact: 1 frame');

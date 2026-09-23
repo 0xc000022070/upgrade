@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/app/alerts_boot.dart';
-import 'package:dazzle/app/splash_route.dart';
 import 'package:dazzle/application/agents.dart';
 import 'package:dazzle/application/alerts.dart';
 import 'package:dazzle/data/database.dart';
@@ -36,66 +35,13 @@ Future<void> drain(WidgetTester tester, {Duration step = Duration.zero}) async {
   }
 }
 
-Future<Duration?> pumpUntilHome(
-  WidgetTester tester, {
-  Duration budget = const Duration(seconds: 5),
-  Duration step = const Duration(milliseconds: 25),
-}) async {
-  var elapsed = Duration.zero;
-  while (elapsed <= budget) {
-    if (find.byKey(const Key('home')).evaluate().isNotEmpty) return elapsed;
-    await tester.pump(step);
-    elapsed += step;
-  }
-  return null;
-}
-
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     await AsciiMascot.preload();
   });
 
-  group('the splash route', () {
-    Future<void> mount(WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: testTheme,
-          home: SplashRoute(next: (_) => const Text('HOME', key: Key('home'))),
-        ),
-      );
-      await drain(tester);
-    }
-
-    testWidgets('holds a static mark briefly before Home', (tester) async {
-      await mount(tester);
-
-      expect(find.byType(AsciiMascot), findsOneWidget);
-      expect(
-        tester.widget<AsciiMascot>(find.byType(AsciiMascot)).animated,
-        isFalse,
-      );
-      expect(find.byKey(const Key('home')), findsNothing);
-
-      final at = await pumpUntilHome(tester);
-
-      expect(at, isNotNull, reason: 'the splash never handed over');
-      expect(at!, greaterThanOrEqualTo(splashHold));
-      expect(at, lessThan(splashHold + const Duration(milliseconds: 100)));
-      expect(find.byType(AsciiMascot), findsNothing);
-    });
-
-    testWidgets('is done inside 2.5s', (tester) async {
-      await mount(tester);
-
-      final at = await pumpUntilHome(tester);
-
-      expect(at, isNotNull);
-      expect(at!, lessThan(const Duration(milliseconds: 2500)));
-    });
-  });
-
-  group('a cold OPEN under the splash', () {
+  group('a cold OPEN before there is a navigator', () {
     late AppDatabase db;
 
     setUp(() {
@@ -150,15 +96,10 @@ void main() {
     }
 
     testWidgets('is replayed when Home takes the screen', (tester) async {
-      await tester.pumpWidget(scope(SplashRoute(next: (_) => host())));
-      await drain(tester);
-
-      expect(alertOpenHandler, isNotNull);
+      alertOpenHandler = deferAlertOpen;
       await handleAlertAction(open());
-      await tester.pump();
-      expect(find.byType(AgentsScreen), findsNothing);
 
-      expect(await pumpUntilHome(tester), isNotNull);
+      await tester.pumpWidget(scope(host()));
       await settle(tester);
 
       expect(find.byType(AgentsScreen), findsOneWidget);

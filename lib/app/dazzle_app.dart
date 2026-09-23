@@ -26,7 +26,6 @@ import 'boot.dart';
 import 'keyboard_release.dart';
 import 'nav_shell.dart';
 import 'pip_host.dart';
-import 'splash_route.dart';
 import 'static_surface.dart';
 import 'toast_host.dart';
 
@@ -82,16 +81,9 @@ class DazzleApp extends ConsumerWidget {
           // wherever the user was.
           builder: (context, child) =>
               houseText(context, PipHost(child: child!)),
-          // The splash is the navigator's first route and hands the screen to Home by replacing
-          // itself, so a resume never plays it. `AlertsHost` is inside the route it pushes rather
-          // than around this one: a wrapper here would be part of the route being replaced, and
-          // the watcher reconciliation and the `OPEN` handler would be disposed at the moment
-          // Home appears.
-          home: SplashRoute(
-            next: (context) => AlertsHost(
-              child: ShellWakeHost(
-                child: BootGate(steps: boot, child: const DazzleShell()),
-              ),
+          home: AlertsHost(
+            child: ShellWakeHost(
+              child: BootGate(steps: boot, child: const DazzleShell()),
             ),
           ),
         );

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -17,18 +16,7 @@ class AsciiMascot extends StatefulWidget {
     required this.colour,
     required this.accent,
     this.animated = true,
-    this.onDone,
-  }) : fit = false;
-
-  const AsciiMascot.filling({
-    super.key,
-    required this.state,
-    required this.colour,
-    required this.accent,
-    this.animated = true,
-    this.onDone,
-  }) : cellWidth = sheetCell,
-       fit = true;
+  });
 
   const AsciiMascot.compact({
     super.key,
@@ -36,20 +24,15 @@ class AsciiMascot extends StatefulWidget {
     required this.accent,
   }) : state = mascotCompact,
        cellWidth = compactCell,
-       fit = false,
-       animated = false,
-       onDone = null;
+       animated = false;
 
   final String state;
 
   final double cellWidth;
-  final bool fit;
   final Color colour;
   final Color accent;
 
   final bool animated;
-
-  final VoidCallback? onDone;
 
   static const sheetCell = 7.0;
   static const compactCell = 4.0;
@@ -74,22 +57,12 @@ class AsciiMascot extends StatefulWidget {
   State<AsciiMascot> createState() => _AsciiMascotState();
 }
 
-const _sizeStep = 0.5;
-
 class _AsciiMascotState extends State<AsciiMascot> {
   AsciiSheet? _sheet;
   GlyphAtlas? _atlas;
   double? _builtFor;
-  late double _size = widget.cellWidth;
   Timer? _timer;
-  bool _done = false;
   final _frame = ValueNotifier(0);
-
-  void _finish() {
-    if (_done) return;
-    _done = true;
-    widget.onDone?.call();
-  }
 
   @override
   void initState() {
@@ -104,13 +77,11 @@ class _AsciiMascotState extends State<AsciiMascot> {
     if (widget.state != oldWidget.state) {
       _sheet = null;
       _frame.value = 0;
-      _done = false;
       _adopt(AsciiMascot._ready[widget.state]);
       if (_sheet == null) unawaited(_loadSheet());
     }
     if (widget.animated != oldWidget.animated) _run();
-    if (!widget.fit && widget.cellWidth != oldWidget.cellWidth) {
-      _size = widget.cellWidth;
+    if (widget.cellWidth != oldWidget.cellWidth) {
       unawaited(_loadAtlas(MediaQuery.devicePixelRatioOf(context)));
     }
   }
@@ -119,25 +90,6 @@ class _AsciiMascotState extends State<AsciiMascot> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     unawaited(_loadAtlas(MediaQuery.devicePixelRatioOf(context)));
-  }
-
-  void _fit(BoxConstraints box, AsciiSheet sheet) {
-    final across = box.maxWidth.isFinite
-        ? box.maxWidth / sheet.cols
-        : double.infinity;
-    final down = box.maxHeight.isFinite
-        ? box.maxHeight / (sheet.rows * 2)
-        : double.infinity;
-    final cell = min(across, down);
-    if (!cell.isFinite) return;
-
-    final wanted = (cell / _sizeStep).floorToDouble() * _sizeStep;
-    if (wanted < _sizeStep || wanted == _size) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      setState(() => _size = wanted);
-      unawaited(_loadAtlas(MediaQuery.devicePixelRatioOf(context)));
-    });
   }
 
   Future<void> _loadSheet() async {
@@ -154,12 +106,12 @@ class _AsciiMascotState extends State<AsciiMascot> {
   }
 
   Future<void> _loadAtlas(double pixelRatio) async {
-    final key = pixelRatio * _size;
+    final key = pixelRatio * widget.cellWidth;
     if (_builtFor == key) return;
     _builtFor = key;
     final atlas = await GlyphAtlas.braille(
-      cellWidth: _size,
-      cellHeight: _size * 2,
+      cellWidth: widget.cellWidth,
+      cellHeight: widget.cellWidth * 2,
       pixelRatio: pixelRatio,
     );
     if (!mounted) return;
@@ -171,21 +123,13 @@ class _AsciiMascotState extends State<AsciiMascot> {
     _timer = null;
     final sheet = _sheet;
     if (sheet == null) return;
-    if (!widget.animated || sheet.frames.length < 2) {
-      if (!sheet.loops && widget.onDone != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _finish();
-        });
-      }
-      return;
-    }
+    if (!widget.animated || sheet.frames.length < 2) return;
     _timer = Timer.periodic(sheet.step, (timer) {
       final next = _frame.value + 1;
       if (next >= sheet.frames.length) {
         if (!sheet.loops) {
           timer.cancel();
           _timer = null;
-          _finish();
           return;
         }
         _frame.value = 0;
@@ -206,13 +150,7 @@ class _AsciiMascotState extends State<AsciiMascot> {
   Widget build(BuildContext context) {
     final sheet = _sheet;
     if (sheet == null) return const SizedBox.shrink();
-    if (!widget.fit) return _grid(sheet);
-    return LayoutBuilder(
-      builder: (context, box) {
-        _fit(box, sheet);
-        return _grid(sheet);
-      },
-    );
+    return _grid(sheet);
   }
 
   Widget _grid(AsciiSheet sheet) {
