@@ -25,9 +25,10 @@ final class ScreenLive extends ScreenPhase {
 }
 
 final class ScreenFailed extends ScreenPhase {
-  const ScreenFailed(this.reason);
+  const ScreenFailed(this.reason, {this.editHost = false});
 
   final String reason;
+  final bool editHost;
 }
 
 /// `bgra8888` is the format the framebuffer is already in, so this is an upload and not a
@@ -120,6 +121,7 @@ class HostScreenController extends ChangeNotifier {
         port: host.port,
         user: host.user,
         privateKey: privateKey,
+        vncUsername: host.vncUsername,
         password: host.vncPassword,
         verifier: HostKeyVerifier(
           pinned: _pinned ?? host.hostKey,
@@ -253,10 +255,14 @@ class HostScreenController extends ChangeNotifier {
 
   void _fail(Object error) {
     if (_disposed) return;
-    final failure = asVncFailure(error);
-    _log(failure?.detail ?? error);
+    final failure = asVncFailure(error) ?? VncStreamClosed('$error');
+    _log(failure.detail ?? error);
     _phase = ScreenFailed(
-      failure?.reason(host.name) ?? const VncStreamClosed().reason(host.name),
+      failure.reason(host.name),
+      editHost:
+          failure is VncPasswordNeeded ||
+          failure is VncUsernameNeeded ||
+          failure is VncAuthRejected,
     );
     notifyListeners();
     // The connection is dropped, not kept for the retry: a retry opens a fresh one, and

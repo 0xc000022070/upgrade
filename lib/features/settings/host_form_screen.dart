@@ -49,6 +49,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   late final TextEditingController _address;
   late final TextEditingController _port;
   late final TextEditingController _user;
+  late final TextEditingController _vncUsername;
 
   /// Drawn only while the VNC row is on and saved whether it is or not, so switching the
   /// integration back on brings the same password back.
@@ -85,6 +86,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     _address = TextEditingController(text: host?.address ?? '');
     _port = TextEditingController(text: '${host?.port ?? _defaultPort}');
     _user = TextEditingController(text: host?.user ?? '');
+    _vncUsername = TextEditingController(text: host?.vncUsername ?? '');
     _password = TextEditingController(text: host?.vncPassword ?? '');
     _keyId = host?.keyId;
     _baseKeyId = _keyId;
@@ -126,6 +128,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     _address.dispose();
     _port.dispose();
     _user.dispose();
+    _vncUsername.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -155,6 +158,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     // an untouched new form is still clean.
     if (_port.text.trim() != '${host?.port ?? _defaultPort}') return true;
     if (_user.text.trim() != (host?.user ?? '')) return true;
+    if (_vncUsername.text.trim() != (host?.vncUsername ?? '')) return true;
     if (_password.text != (host?.vncPassword ?? '')) return true;
     if (_keyId != _baseKeyId) return true;
     final base = _baseIntegrations;
@@ -168,6 +172,11 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   /// Blank is no password, not an empty one. Not trimmed: a space is a character a server
   /// would count.
   String? get _vncPassword => _password.text.isEmpty ? null : _password.text;
+
+  String? get _screenUsername {
+    final username = _vncUsername.text.trim();
+    return username.isEmpty ? null : username;
+  }
 
   /// The back arrow and the system gesture are one door. [PopScope] holds the route so both
   /// arrive here and the pop is issued once.
@@ -197,6 +206,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       port: _parsedPort!,
       user: _user.text.trim(),
       keyId: _keyId!,
+      vncUsername: _screenUsername,
       vncPassword: _vncPassword,
     );
     final hosts = ref.read(hostRepositoryProvider);
@@ -352,6 +362,13 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                   ),
                   if (integrations.contains(IntegrationKind.vnc))
                     FieldPanel(
+                      label: '[ VNC USER ]',
+                      controller: _vncUsername,
+                      hint: 'macOS account · blank for classic VNC',
+                      keyboardType: TextInputType.text,
+                    ),
+                  if (integrations.contains(IntegrationKind.vnc))
+                    FieldPanel(
                       label: '[ VNC PASSWORD ]',
                       controller: _password,
                       hint: 'blank when the server offers none',
@@ -368,6 +385,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                   _address,
                   _port,
                   _user,
+                  _vncUsername,
                   _password,
                 ]),
                 builder: (context, _) {

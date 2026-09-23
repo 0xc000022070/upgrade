@@ -419,9 +419,11 @@ void main() {
 
     await tester.tap(find.text('VNC'));
     await tester.pump();
-    expect(find.byType(TextField), findsNWidgets(_Fields.values.length + 1));
-    // Drawn after the integrations block, so it is the field after USER.
-    final password = find.byType(TextField).at(_Fields.user.index + 1);
+    expect(find.byType(TextField), findsNWidgets(_Fields.values.length + 2));
+    // Drawn after the integrations block, so these follow USER.
+    final username = find.byType(TextField).at(_Fields.user.index + 1);
+    final password = find.byType(TextField).at(_Fields.user.index + 2);
+    await tester.enterText(username, 'luisnquin');
     expect(tester.widget<TextField>(password).obscureText, isTrue);
     await tester.enterText(password, 'secret');
     await tester.pump();
@@ -429,7 +431,9 @@ void main() {
     await tester.tap(find.text('CREATE HOST'));
     await _ready(tester);
 
-    expect((await hosts.all()).single.vncPassword, 'secret');
+    final host = (await hosts.all()).single;
+    expect(host.vncUsername, 'luisnquin');
+    expect(host.vncPassword, 'secret');
 
     await unmount(tester);
   });

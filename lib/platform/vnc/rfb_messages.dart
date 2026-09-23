@@ -9,6 +9,7 @@ abstract final class Rfb {
   static const securityInvalid = 0;
   static const securityNone = 1;
   static const securityVncAuth = 2;
+  static const securityAppleDh = 30;
 
   static const messageSetPixelFormat = 0;
   static const messageSetEncodings = 2;

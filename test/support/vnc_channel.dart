@@ -27,13 +27,15 @@ class FakeVncChannel {
 }
 
 /// [securityTypes] is what the server offers; the client takes `None` (1) where it can
-/// and VNC Authentication (2) with a password where it cannot. [challenge] is the 16
-/// bytes a server expecting the password sends, after which every version answers with a
-/// `SecurityResult`; a 3.8 failure is followed by [reason].
+/// and authenticated security where it cannot. [challenge] is the 16 bytes a classic VNC
+/// server sends. Apple DH sends [appleGenerator], [appleModulus], and [applePublic].
 List<int> serverHandshake({
   String version = 'RFB 003.008\n',
   List<int> securityTypes = const [1],
   List<int>? challenge,
+  int? appleGenerator,
+  List<int>? appleModulus,
+  List<int>? applePublic,
   int? securityResult = 0,
   String? reason,
   int width = 1920,
@@ -50,7 +52,17 @@ List<int> serverHandshake({
       ..addAll(securityTypes);
   }
   if (challenge != null) out.addAll(challenge);
-  final answers = version == 'RFB 003.008\n' || challenge != null;
+  if (appleGenerator != null && appleModulus != null && applePublic != null) {
+    if (appleModulus.length != applePublic.length) {
+      throw ArgumentError('Apple DH values must have the same length');
+    }
+    out
+      ..addAll(_u16(appleGenerator))
+      ..addAll(_u16(appleModulus.length))
+      ..addAll(appleModulus)
+      ..addAll(applePublic);
+  }
+  final answers = version != 'RFB 003.003\n' || challenge != null;
   if (answers && securityResult != null) {
     out.addAll(_u32(securityResult));
     if (securityResult != 0 && reason != null) {

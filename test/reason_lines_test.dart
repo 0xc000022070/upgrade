@@ -162,8 +162,9 @@ void main() {
     test('the screen route words its own three beside the ssh ones', () {
       expect(const VncTunnelRefused().reason('NYX'), 'tunnel refused');
       expect(const VncAuthUnsupported().reason('NYX'), 'auth unsupported');
-      expect(const VncPasswordNeeded().reason('NYX'), 'password needed');
-      expect(const VncAuthRejected().reason('NYX'), 'password rejected');
+      expect(const VncUsernameNeeded().reason('NYX'), 'VNC username missing');
+      expect(const VncPasswordNeeded().reason('NYX'), 'VNC password missing');
+      expect(const VncAuthRejected().reason('NYX'), 'VNC credentials rejected');
       expect(const VncStreamClosed().reason('NYX'), 'stream closed');
       expect(const VncUnresolved().reason('NYX'), 'nyx unresolved');
       expect(const VncHostKeyUnverified().reason('NYX'), 'host key unverified');

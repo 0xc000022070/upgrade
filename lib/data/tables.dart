@@ -157,6 +157,7 @@ class Hosts extends Table {
   DateTimeColumn get hostKeyPinnedAt => dateTime().nullable()();
 
   TextColumn get vncPassword => text().nullable()();
+  TextColumn get vncUsername => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
