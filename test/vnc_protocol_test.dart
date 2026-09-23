@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/platform/vnc/apple_auth.dart';
 import 'package:dazzle/platform/vnc/framebuffer.dart';
 import 'package:dazzle/platform/vnc/keysyms.dart';
 import 'package:dazzle/platform/vnc/rect_encoding.dart';
@@ -27,6 +28,8 @@ Uint8List expectedClientHandshake() {
 
 /// Sixteen bytes counting up, the challenge every vector below answers.
 final challenge = List<int>.generate(16, (i) => i);
+final appleModulus = hex('7fffffffffffffffffffffffffffffff');
+final applePublic = hex('0000000000000000000000000000088b');
 
 Uint8List expectedPasswordHandshake(String password) => Uint8List.fromList([
   ...'RFB 003.008\n'.codeUnits,
@@ -58,6 +61,83 @@ void main() {
         vncAuthResponse('pw', challenge),
         hex('858600d9af143c9e6541d3dd92a835d0'),
       );
+    });
+
+    test(
+      'Apple DH returns encrypted credentials followed by its public key',
+      () {
+        final response = appleAuthResponse(
+          username: 'luisnquin',
+          password: 'secret',
+          generator: 3,
+          modulus: appleModulus,
+          serverPublic: applePublic,
+          privateKey: BigInt.from(5),
+          randomBytes: Uint8List.new,
+        );
+
+        expect(response, hasLength(144));
+        expect(response.sublist(128), hex('000000000000000000000000000000f3'));
+        expect(
+          response.sublist(0, 128),
+          hex(
+            '462dd13bbf2ae7c91fca518d03ba3293'
+            '59e512c7d58cca13e249f23f90dd87ba'
+            '59e512c7d58cca13e249f23f90dd87ba'
+            '59e512c7d58cca13e249f23f90dd87ba'
+            'd749ce973373ea41e673997ac94e1b19'
+            '59e512c7d58cca13e249f23f90dd87ba'
+            '59e512c7d58cca13e249f23f90dd87ba'
+            '59e512c7d58cca13e249f23f90dd87ba',
+          ),
+        );
+      },
+    );
+
+    test('a macOS username selects Apple DH over classic VNC auth', () async {
+      final channel = FakeVncChannel();
+      addTearDown(channel.dispose);
+      final client = RfbClient(
+        incoming: channel.stream,
+        outgoing: channel.sink,
+        username: 'luisnquin',
+        password: 'secret',
+      );
+      addTearDown(client.close);
+
+      channel.feed(
+        serverHandshake(
+          version: 'RFB 003.889\n',
+          securityTypes: const [30, 2],
+          appleGenerator: 3,
+          appleModulus: appleModulus,
+          applePublic: applePublic,
+          name: 'rose',
+        ),
+      );
+      final init = await client.handshake();
+
+      expect(init.name, 'rose');
+      await Future<void>.delayed(Duration.zero);
+      expect(channel.sent.sublist(0, 13), [
+        ...'RFB 003.008\n'.codeUnits,
+        Rfb.securityAppleDh,
+      ]);
+      expect(channel.sent, hasLength(13 + 144 + 1 + 20 + 20));
+    });
+
+    test('Apple DH needs an explicit screen username', () async {
+      final channel = FakeVncChannel();
+      addTearDown(channel.dispose);
+      final client = RfbClient(
+        incoming: channel.stream,
+        outgoing: channel.sink,
+        password: 'secret',
+      );
+      addTearDown(client.close);
+
+      channel.feed(serverHandshake(securityTypes: const [30]));
+      await expectLater(client.handshake(), throwsA(isA<VncUsernameNeeded>()));
     });
 
     test(
@@ -120,7 +200,7 @@ void main() {
       );
 
       expect(failure, isA<VncPasswordNeeded>());
-      expect((failure! as VncFailure).reason('rose'), 'password needed');
+      expect((failure! as VncFailure).reason('rose'), 'VNC password missing');
       expect((failure as VncFailure).detail, 'server offers 2');
     });
 
@@ -150,7 +230,10 @@ void main() {
         );
 
         expect(failure, isA<VncAuthRejected>());
-        expect((failure! as VncFailure).reason('rose'), 'password rejected');
+        expect(
+          (failure! as VncFailure).reason('rose'),
+          'VNC credentials rejected',
+        );
         expect((failure as VncFailure).detail, 'Authentication failed');
       },
     );
@@ -230,7 +313,7 @@ void main() {
       );
     });
 
-    test('a security list without None is auth unsupported', () async {
+    test('an unknown security list is auth unsupported', () async {
       final channel = FakeVncChannel();
       addTearDown(channel.dispose);
       final client = RfbClient(
@@ -239,8 +322,7 @@ void main() {
       );
       addTearDown(client.close);
 
-      // 30 and 33 are Apple's own, which this app does not speak.
-      channel.feed(serverHandshake(securityTypes: const [30, 33]));
+      channel.feed(serverHandshake(securityTypes: const [33]));
 
       final failure = await client.handshake().then<Object?>(
         (_) => null,

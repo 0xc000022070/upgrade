@@ -11,8 +11,9 @@ enum ReasonLine {
 
   tunnelRefused('tunnel refused'),
   authUnsupported('auth unsupported'),
-  passwordNeeded('password needed'),
-  passwordRejected('password rejected'),
+  usernameNeeded('VNC username missing'),
+  passwordNeeded('VNC password missing'),
+  passwordRejected('VNC credentials rejected'),
 
   notABundle('not a bundle'),
   newerBundle('newer bundle'),

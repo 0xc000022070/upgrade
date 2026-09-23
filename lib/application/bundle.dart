@@ -154,6 +154,7 @@ class BundleHost {
               'pinnedAt': pin.pinnedAt.toUtc().toIso8601String(),
             },
       'vncPassword': host.vncPassword,
+      'vncUsername': host.vncUsername,
       'integrations': [for (final kind in integrations) kind.wire],
     };
   }
@@ -176,6 +177,7 @@ class BundleHost {
                 pinnedAt: _date(pin['pinnedAt']),
               ),
         vncPassword: json['vncPassword'] as String?,
+        vncUsername: json['vncUsername'] as String?,
       ),
       integrations: {
         for (final wire in json['integrations'] as List)

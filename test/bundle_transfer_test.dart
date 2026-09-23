@@ -33,6 +33,7 @@ Host _rose({String name = 'rose', String keyId = 'k1'}) => Host(
     fingerprint: 'SHA256:rose',
     pinnedAt: DateTime.utc(2026, 9, 2),
   ),
+  vncUsername: 'luis',
   vncPassword: 'hunter2',
 );
 
@@ -168,6 +169,7 @@ void main() {
     final host = bundle.hosts.single;
     expect(host.host.name, 'rose');
     expect(host.host.hostKey?.fingerprint, 'SHA256:rose');
+    expect(host.host.vncUsername, 'luis');
     expect(host.host.vncPassword, 'hunter2');
     expect(host.integrations, {IntegrationKind.herdr});
     expect(bundle.paths.map((p) => p.directory), [
@@ -253,6 +255,7 @@ void main() {
     expect(host.name, 'rose');
     expect(host.hostKey?.fingerprint, 'SHA256:rose');
     expect(host.hostKey?.pinnedAt, DateTime.utc(2026, 9, 2));
+    expect(host.vncUsername, 'luis');
     expect(host.vncPassword, 'hunter2');
     expect(await b.hosts.watchIntegrations('h1').first, {
       IntegrationKind.herdr,

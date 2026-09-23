@@ -68,6 +68,13 @@ final class VncPasswordNeeded extends VncFailure {
   ReasonLine get line => ReasonLine.passwordNeeded;
 }
 
+final class VncUsernameNeeded extends VncFailure {
+  const VncUsernameNeeded([super.detail]);
+
+  @override
+  ReasonLine get line => ReasonLine.usernameNeeded;
+}
+
 final class VncAuthRejected extends VncFailure {
   const VncAuthRejected([super.detail]);
 

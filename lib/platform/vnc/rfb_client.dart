@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'byte_reader.dart';
+import 'apple_auth.dart';
 import 'framebuffer.dart';
 import 'rect_encoding.dart';
 import 'rfb_messages.dart';
@@ -15,15 +16,16 @@ class RfbClient {
   RfbClient({
     required Stream<List<int>> incoming,
     required this._outgoing,
+    this._username,
     this._password,
   }) : // Eagerly, in the constructor body's place: a server that sends its version line the
        // instant the channel opens must not race a reader that has not subscribed yet.
        _reader = ByteReader(incoming);
 
   final StreamSink<List<int>> _outgoing;
+  final String? _username;
 
-  /// Offered only to a server with no `None` on its list. Null means the host row has
-  /// none, which makes such a server `password needed`.
+  /// Offered only to a server with no `None` on its list.
   final String? _password;
   final ByteReader _reader;
   final ZrleDecoder _zrle = ZrleDecoder();
@@ -88,9 +90,17 @@ class RfbClient {
   int _choose(List<int> types) {
     if (types.contains(Rfb.securityNone)) return Rfb.securityNone;
     final offered = 'server offers ${types.join(',')}';
+    if (types.contains(Rfb.securityAppleDh) && _username != null) {
+      if (_password == null) throw VncPasswordNeeded(offered);
+      return Rfb.securityAppleDh;
+    }
     if (types.contains(Rfb.securityVncAuth)) {
       if (_password == null) throw VncPasswordNeeded(offered);
       return Rfb.securityVncAuth;
+    }
+    if (types.contains(Rfb.securityAppleDh)) {
+      if (_password == null) throw VncPasswordNeeded(offered);
+      throw VncUsernameNeeded(offered);
     }
     throw VncAuthUnsupported(offered);
   }
@@ -102,13 +112,36 @@ class RfbClient {
     if (type == Rfb.securityVncAuth) {
       final challenge = await _reader.read(16);
       _send(vncAuthResponse(_password!, challenge));
+    } else if (type == Rfb.securityAppleDh) {
+      final generator = await _reader.readU16();
+      final keyLength = await _reader.readU16();
+      if (keyLength < 16 || keyLength > 512) {
+        throw VncAuthUnsupported('Apple DH key length $keyLength');
+      }
+      final modulus = await _reader.read(keyLength);
+      final serverPublic = await _reader.read(keyLength);
+      try {
+        _send(
+          appleAuthResponse(
+            username: _username!,
+            password: _password!,
+            generator: generator,
+            modulus: modulus,
+            serverPublic: serverPublic,
+          ),
+        );
+      } on FormatException catch (error) {
+        throw VncAuthUnsupported(error.message);
+      }
     }
     final result = await _reader.readU32();
     if (result == 0) return;
     final reason = version == RfbVersion.v3_8
         ? await _readReason()
         : 'security result $result';
-    if (type == Rfb.securityVncAuth) throw VncAuthRejected(reason);
+    if (type == Rfb.securityVncAuth || type == Rfb.securityAppleDh) {
+      throw VncAuthRejected(reason);
+    }
     throw VncAuthUnsupported(reason);
   }
 

@@ -129,6 +129,7 @@ void main() {
             required int port,
             required String user,
             required String privateKey,
+            String? vncUsername,
             String? password,
             HostKeyVerifier? verifier,
           }) async {
@@ -174,6 +175,7 @@ void main() {
               required int port,
               required String user,
               required String privateKey,
+              String? vncUsername,
               String? password,
               HostKeyVerifier? verifier,
             }) async {
@@ -203,6 +205,28 @@ void main() {
     },
   );
 
+  testWidgets('missing VNC credentials point directly to host editing', (
+    tester,
+  ) async {
+    await pumpRoute(
+      tester,
+      open: ({
+        required String address,
+        required int port,
+        required String user,
+        required String privateKey,
+        String? vncUsername,
+        String? password,
+        HostKeyVerifier? verifier,
+      }) async => throw const VncPasswordNeeded('server offers 2'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('VNC password missing'), findsWidgets);
+    expect(find.text('EDIT HOST'), findsWidgets);
+    expect(find.text('RETRY'), findsNothing);
+  });
+
   testWidgets('a host whose private key is gone reads as a rejected key', (
     tester,
   ) async {
@@ -214,6 +238,7 @@ void main() {
         required int port,
         required String user,
         required String privateKey,
+        String? vncUsername,
         String? password,
         HostKeyVerifier? verifier,
       }) async => throw StateError('never asked'),
@@ -582,6 +607,7 @@ void main() {
       required int port,
       required String user,
       required String privateKey,
+      String? vncUsername,
       String? password,
       HostKeyVerifier? verifier,
     }) async {
@@ -633,6 +659,7 @@ VncOpener _liveOpen([void Function(FakeVncConnection)? keep]) =>
       required int port,
       required String user,
       required String privateKey,
+      String? vncUsername,
       String? password,
       HostKeyVerifier? verifier,
     }) async {

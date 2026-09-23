@@ -14,6 +14,7 @@ import '../../platform/gallery.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/vnc/vnc_tunnel.dart';
 import '../hosts/host_key_sheet.dart';
+import '../settings/host_form_screen.dart';
 import 'crop_notice.dart';
 import 'framebuffer_view.dart';
 import 'keys_strip.dart';
@@ -157,6 +158,14 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
     });
   }
 
+  void _editHost() {
+    Navigator.of(context, rootNavigator: true).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => HostFormScreen(host: widget.host),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -172,6 +181,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
                 controller: _controller,
                 notice: _notice,
                 onBack: () => Navigator.of(context).pop(),
+                onEdit: _editHost,
               ),
               Expanded(
                 child: Stack(
@@ -181,6 +191,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
                         controller: _controller,
                         cropping: _cropArmed,
                         onCrop: _onCrop,
+                        onEdit: _editHost,
                       ),
                     ),
                     // Only where the rail itself is: the [Align] hit-tests nothing of its own, so every tap
@@ -238,6 +249,7 @@ class _Crumb extends StatelessWidget {
     required this.controller,
     required this.notice,
     required this.onBack,
+    required this.onEdit,
   });
 
   final Host host;
@@ -245,6 +257,7 @@ class _Crumb extends StatelessWidget {
 
   final String? notice;
   final VoidCallback onBack;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -269,7 +282,7 @@ class _Crumb extends StatelessWidget {
           ),
           if (controller.phase is! ScreenLive) ...[
             const SizedBox(width: Spacing.lg),
-            _State(controller: controller),
+            _State(controller: controller, onEdit: onEdit),
           ] else if (notice != null) ...[
             const SizedBox(width: Spacing.lg),
             Text(
@@ -285,9 +298,10 @@ class _Crumb extends StatelessWidget {
 }
 
 class _State extends StatelessWidget {
-  const _State({required this.controller});
+  const _State({required this.controller, required this.onEdit});
 
   final HostScreenController controller;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -297,7 +311,7 @@ class _State extends StatelessWidget {
       case ScreenLive():
         // Unreachable from [_Crumb], which does not build this while live.
         return const SizedBox.shrink();
-      case ScreenFailed(:final reason):
+      case ScreenFailed(:final reason, :final editHost):
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -308,7 +322,11 @@ class _State extends StatelessWidget {
               ),
             ),
             const SizedBox(width: Spacing.lg),
-            PanelAffordance('RETRY', showIcon: false, onTap: controller.retry),
+            PanelAffordance(
+              editHost ? 'EDIT HOST' : 'RETRY',
+              showIcon: false,
+              onTap: editHost ? onEdit : controller.retry,
+            ),
           ],
         );
     }
@@ -320,22 +338,33 @@ class _Body extends StatelessWidget {
     required this.controller,
     required this.cropping,
     required this.onCrop,
+    required this.onEdit,
   });
 
   final HostScreenController controller;
   final bool cropping;
   final void Function(CropRect rect, CropTarget target) onCrop;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
     if (controller.image == null) {
+      final phase = controller.phase;
       return ScreenGround(
-        child: Text(switch (controller.phase) {
-          ScreenFailed(:final reason) => reason,
-          // A live connection with nothing decoded yet is still waiting on its first update, which
-          // reads the same as dialling.
-          ScreenConnecting() || ScreenLive() => 'CONNECTING',
-        }, style: context.tokens.panelHeader),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(switch (phase) {
+              ScreenFailed(:final reason) => reason,
+              // A live connection with nothing decoded yet is still waiting on its first update.
+              ScreenConnecting() || ScreenLive() => 'CONNECTING',
+            }, style: context.tokens.panelHeader),
+            if (phase case ScreenFailed(editHost: true)) ...[
+              const SizedBox(height: Spacing.lg),
+              PanelAffordance('EDIT HOST', showIcon: false, onTap: onEdit),
+            ],
+          ],
+        ),
       );
     }
     return FramebufferView(

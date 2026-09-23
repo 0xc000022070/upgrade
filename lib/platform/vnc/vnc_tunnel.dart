@@ -25,6 +25,7 @@ class VncTunnel {
     required int port,
     required String user,
     required String privateKey,
+    String? vncUsername,
     String? password,
     HostKeyVerifier? verifier,
   }) async {
@@ -53,6 +54,7 @@ class VncTunnel {
       rfb = RfbClient(
         incoming: opened.stream,
         outgoing: opened.sink,
+        username: vncUsername,
         password: password,
       );
       final init = await guardVnc(rfb.handshake, verifier);
@@ -108,6 +110,7 @@ typedef VncOpener = Future<VncConnection> Function({
   required int port,
   required String user,
   required String privateKey,
+  String? vncUsername,
   String? password,
   HostKeyVerifier? verifier,
 });

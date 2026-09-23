@@ -14,6 +14,7 @@ class Host {
     required this.user,
     required this.keyId,
     this.hostKey,
+    this.vncUsername,
     this.vncPassword,
   });
 
@@ -29,6 +30,7 @@ class Host {
 
   final PinnedHostKey? hostKey;
 
+  final String? vncUsername;
   final String? vncPassword;
 }
 
@@ -119,6 +121,8 @@ class InMemoryHostRepository implements HostRepository {
       user: host.user,
       keyId: host.keyId,
       hostKey: key,
+      vncUsername: host.vncUsername,
+      vncPassword: host.vncPassword,
     );
     _emit();
   }
@@ -200,6 +204,7 @@ class DriftHostRepository implements HostRepository {
             port: Value(host.port),
             user: host.user,
             keyId: host.keyId,
+            vncUsername: Value(host.vncUsername),
             vncPassword: Value(host.vncPassword),
           ),
         );
@@ -269,6 +274,7 @@ Host hostFromRow(HostRow row) => Host(
   user: row.user,
   keyId: row.keyId,
   hostKey: pinnedKeyFromRow(row),
+  vncUsername: row.vncUsername,
   vncPassword: row.vncPassword,
 );
 

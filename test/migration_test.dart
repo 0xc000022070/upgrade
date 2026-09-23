@@ -727,6 +727,7 @@ void main() {
     expect(host.id, 'h1');
     expect(host.address, '100.118.60.77');
     expect(host.port, 22);
+    expect(host.vncUsername, isNull);
     expect(host.vncPassword, isNull);
     expect(
       (await DriftHostRepository(
@@ -743,11 +744,13 @@ void main() {
         port: 357,
         user: host.user,
         keyId: host.keyId,
+        vncUsername: 'luisnquin',
         vncPassword: 'secret',
       ),
     );
     final saved = (await DriftHostRepository(db).all()).single;
     expect(saved.port, 357);
+    expect(saved.vncUsername, 'luisnquin');
     expect(saved.vncPassword, 'secret');
   });
 
