@@ -615,6 +615,140 @@ fn a_job(sandbox: &Sandbox, revision: u64) -> Value {
     })
 }
 
+fn tick_queue(sandbox: &Sandbox) {
+    assert!(Command::new(BINARY)
+        .args(["__tick", SCOPE])
+        .env("DAZZLE_ENGINE_STATE", sandbox.state())
+        .env(
+            "PATH",
+            format!(
+                "{}:{}",
+                sandbox.bin().display(),
+                std::env::var("PATH").unwrap_or_default()
+            )
+        )
+        .status()
+        .unwrap()
+        .success());
+}
+
+#[test]
+fn a_discovered_home_relative_workspace_is_resolved_on_the_host() {
+    let sandbox = Sandbox::new("home-workspace");
+    let owner = sandbox.owner();
+    sandbox.enable(&owner, SCOPE);
+    sandbox.stub("claude", "cat");
+    fs::create_dir_all(sandbox.home().join("Projects/fixture")).unwrap();
+    let mut job = a_job(&sandbox, 0);
+    job["directory"] = json!("~/Projects/fixture");
+    let saved = schedule(&sandbox, &owner, "save", json!({"schedule": job}));
+    assert_eq!(saved["ok"], true, "{saved}");
+    let got = schedule(&sandbox, &owner, "get", json!({"id": "nightly"}));
+    assert_eq!(
+        got["result"]["directory"],
+        sandbox
+            .home()
+            .join("Projects/fixture")
+            .display()
+            .to_string()
+    );
+}
+
+#[test]
+fn immediate_tasks_queue_per_workspace_keep_their_prompt_and_can_be_canceled() {
+    let sandbox = Sandbox::new("queue");
+    let owner = sandbox.owner();
+    sandbox.enable(&owner, SCOPE);
+    sandbox.stub("claude", "while [ ! -f release ]; do sleep 0.05; done; cat");
+    for id in ["first", "second", "third"] {
+        let mut job = a_job(&sandbox, 0);
+        job["id"] = json!(id);
+        job["repeat"] = json!("now");
+        job["prompt"] = json!(id);
+        let saved = schedule(&sandbox, &owner, "save", json!({"schedule": job}));
+        assert_eq!(saved["ok"], true, "{saved}");
+    }
+    let history = schedule(&sandbox, &owner, "history", json!({}));
+    let items = history["result"]["items"].as_array().unwrap();
+    let first = items.iter().find(|r| r["schedule"] == "first").unwrap();
+    let second = items.iter().find(|r| r["schedule"] == "second").unwrap();
+    let third = items.iter().find(|r| r["schedule"] == "third").unwrap();
+    assert_eq!(first["status"], "running");
+    assert_eq!(second["status"], "queued");
+    assert_eq!(third["status"], "queued");
+    let mut edited = a_job(&sandbox, 1);
+    edited["id"] = json!("second");
+    edited["repeat"] = json!("now");
+    edited["prompt"] = json!("changed after enqueue");
+    assert_eq!(
+        schedule(&sandbox, &owner, "save", json!({"schedule": edited}))["ok"],
+        true
+    );
+    assert_eq!(
+        schedule(&sandbox, &owner, "cancel", json!({"id": third["id"]}))["ok"],
+        true
+    );
+    assert_eq!(
+        schedule(&sandbox, &owner, "cancel", json!({"id": first["id"]}))["ok"],
+        true
+    );
+    fs::write(sandbox.work().join("release"), "").unwrap();
+    let mut output = json!({});
+    for _ in 0..100 {
+        tick_queue(&sandbox);
+        output = schedule(&sandbox, &owner, "output", json!({"id": second["id"]}));
+        if output["result"]["status"] == "completed" {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    assert_eq!(output["result"]["status"], "completed", "{output}");
+    assert_eq!(output["result"]["text"], "second");
+    assert_eq!(
+        schedule(&sandbox, &owner, "output", json!({"id": third["id"]}))["result"]["status"],
+        "canceled"
+    );
+    tick_queue(&sandbox);
+    assert_eq!(
+        schedule(&sandbox, &owner, "history", json!({}))["result"]["items"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+}
+
+#[test]
+fn output_exposes_agent_messages_and_warnings_without_hiding_diagnostics() {
+    let sandbox = Sandbox::new("readable-output");
+    let owner = sandbox.owner();
+    sandbox.enable(&owner, SCOPE);
+    sandbox.stub("codex", r#"printf '%s\n' '{"type":"item.completed","item":{"type":"error","message":"Tool unavailable"}}' '{"type":"item.completed","item":{"type":"agent_message","text":"Fixture ready"}}'"#);
+    let mut job = a_job(&sandbox, 0);
+    job["agent"] = json!("codex");
+    job["repeat"] = json!("now");
+    assert_eq!(
+        schedule(&sandbox, &owner, "save", json!({"schedule": job}))["ok"],
+        true
+    );
+    let history = schedule(&sandbox, &owner, "history", json!({}));
+    let id = &history["result"]["items"][0]["id"];
+    let mut output = json!({});
+    for _ in 0..100 {
+        output = schedule(&sandbox, &owner, "output", json!({"id": id}));
+        if output["result"]["status"] == "completed" {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    assert_eq!(output["result"]["summary"], "Fixture ready");
+    assert_eq!(output["result"]["warnings"], json!(["Tool unavailable"]));
+    assert!(output["result"]["text"]
+        .as_str()
+        .unwrap()
+        .contains("item.completed"));
+}
+
 #[test]
 fn a_host_is_asked_what_it_can_do_before_anything_is_scheduled_on_it() {
     let sandbox = Sandbox::isolated("schedule-inspect");
@@ -851,7 +985,7 @@ fn usage_counts_what_the_scope_is_holding() {
     );
 
     let usage = schedule(&sandbox, &owner, "usage", json!({}))["result"].clone();
-    assert_eq!(usage["schema_version"], json!(1));
+    assert_eq!(usage["schema_version"], json!(2));
     assert_eq!(usage["schedules"], json!(1));
     assert_eq!(usage["runs"], json!(0));
     assert_eq!(usage["history_limit"], json!(1000));

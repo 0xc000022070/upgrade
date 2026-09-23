@@ -3,11 +3,16 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../design/components/bracket_label.dart';
+import '../../design/components/action_block.dart';
+import '../../design/components/field_panel.dart';
+import '../../design/components/panel_sheet.dart';
+import '../../design/components/picker_row.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/status_tag.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
+import '../../features/screen_scaffold.dart';
 import 'manifest.dart';
 
 class PluginUiNode {
@@ -30,6 +35,10 @@ class PluginUiNode {
       if (kind is! String ||
           !{
             'screen',
+            'page',
+            'footer',
+            'disclosure',
+            'choice',
             'column',
             'row',
             'stack',
@@ -72,6 +81,8 @@ class PluginUiNode {
         'title',
         'subtitle',
         'caption',
+        'hint',
+        'breadcrumb',
       ]) {
         if (props[field] != null && props[field] is! String) {
           throw PluginException('Invalid UI $field');
@@ -113,7 +124,7 @@ class PluginUiNode {
           throw PluginException('Invalid UI $field');
         }
       }
-      if (kind == 'select') {
+      if (kind == 'select' || kind == 'choice') {
         final values = <String>{};
         final options = uiList(props['options']);
         if (options.length > 256) {
@@ -194,7 +205,13 @@ void synchronizePluginFields(
   Map<String, PluginUiNode> fields(PluginUiNode? root) {
     final result = <String, PluginUiNode>{};
     void visit(PluginUiNode node) {
-      if (const {'input', 'select', 'toggle', 'datetime'}.contains(node.kind)) {
+      if (const {
+        'input',
+        'select',
+        'choice',
+        'toggle',
+        'datetime',
+      }.contains(node.kind)) {
         result[node.key] = node;
       }
       for (final child in node.children) {
@@ -243,11 +260,13 @@ class PluginUi extends StatelessWidget {
     required this.values,
     required this.onEvent,
     this.busy = false,
+    this.onBack,
   });
   final PluginUiNode node;
   final Map<String, Object?> values;
   final ValueChanged<Map<String, Object?>> onEvent;
   final bool busy;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) => _build(context, node);
@@ -297,6 +316,50 @@ class PluginUi extends StatelessWidget {
       _ => CrossAxisAlignment.start,
     };
     Widget result = switch (node.kind) {
+      'page' => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: ScreenScaffold(
+              title: p['title'] as String?,
+              breadcrumb: p['breadcrumb'] as String? ?? '/ TOOLS',
+              onBack: onBack,
+              breadcrumbTrailing: busy
+                  ? Text('CONNECTING', style: context.tokens.rowKicker)
+                  : null,
+              children: [
+                for (final entry in node.children.where(
+                  (entry) => entry.kind != 'footer',
+                )) ...[
+                  child(entry),
+                  SizedBox(height: number('gap', 16).clamp(0, 64)),
+                ],
+              ],
+            ),
+          ),
+          for (final entry in node.children.where(
+            (entry) => entry.kind == 'footer',
+          ))
+            child(entry),
+        ],
+      ),
+      'footer' => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(Spacing.screenEdge),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children(),
+          ),
+        ),
+      ),
+      'disclosure' => _PluginDisclosure(
+        key: ValueKey(node.key),
+        title: p['title'] as String? ?? '',
+        subtitle: p['subtitle'] as String?,
+        children: children(),
+      ),
       'screen' => SafeArea(
         top: false,
         child: Padding(
@@ -375,21 +438,25 @@ class PluginUi extends StatelessWidget {
                       : FontWeight.normal,
                 ),
       ),
-      'button' => OutlinedButton(
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(44, 44),
-          foregroundColor: pluginColor(context.tokens, p['color']),
-          backgroundColor: p['background'] == null
+      'button' => Semantics(
+        button: true,
+        enabled: !busy && p['disabled'] != true && p['enabled'] != false,
+        child: ActionBlock(
+          label: p['text'] as String? ?? '',
+          tone: busy || p['disabled'] == true || p['enabled'] == false
+              ? context.tokens.textMuted
+              : pluginColor(
+                  context.tokens,
+                  p['background'] ?? p['color'],
+                  context.tokens.textSecondary,
+                ),
+          filled: p['background'] != null,
+          onTap: busy || p['disabled'] == true || p['enabled'] == false
               ? null
-              : pluginColor(context.tokens, p['background']),
-          shape: const RoundedRectangleBorder(),
+              : () => action(p['onPress'] as String?),
         ),
-        onPressed: busy || p['disabled'] == true || p['enabled'] == false
-            ? null
-            : () => action(p['onPress'] as String?),
-        child: Text(p['text'] as String? ?? '', style: context.tokens.rowTitle),
       ),
-      'input' || 'select' || 'toggle' || 'datetime' => _PluginField(
+      'input' || 'select' || 'choice' || 'toggle' || 'datetime' => _PluginField(
         key: ValueKey(node.key),
         node: node,
         values: values,
@@ -459,12 +526,15 @@ class PluginUi extends StatelessWidget {
             ? null
             : () => action(p['onPress'] as String?),
       ),
-      'status_tag' => StatusTag(
-        p['label'] as String? ?? '',
-        color: pluginColor(
-          context.tokens,
-          p['color'],
-          context.tokens.textSecondary,
+      'status_tag' => Align(
+        alignment: Alignment.centerLeft,
+        child: StatusTag(
+          p['label'] as String? ?? '',
+          color: pluginColor(
+            context.tokens,
+            p['color'],
+            context.tokens.textSecondary,
+          ),
         ),
       ),
       'bracket_label' => BracketLabel(
@@ -542,27 +612,71 @@ class _PluginFieldState extends State<_PluginField> {
     final p = widget.node.props;
     final label = p['label'] as String? ?? widget.node.key;
     switch (widget.node.kind) {
+      case 'choice':
+        return Panel(
+          title: label,
+          child: Wrap(
+            spacing: Spacing.md,
+            runSpacing: Spacing.md,
+            children: [
+              for (final choice in uiList(
+                p['options'],
+              ).whereType<Map<String, Object?>>())
+                Semantics(
+                  button: true,
+                  selected: choice['value'] == value,
+                  child: ActionBlock(
+                    label: choice['label']! as String,
+                    filled: choice['value'] == value,
+                    tone: choice['value'] == value
+                        ? context.tokens.accent
+                        : null,
+                    onTap: widget.busy ? null : () => change(choice['value']),
+                  ),
+                ),
+            ],
+          ),
+        );
       case 'select':
         final choices = uiList(p['options'])
             .whereType<Map<String, Object?>>()
             .toList();
-        return DropdownButtonFormField<String>(
-          initialValue: choices.any((choice) => choice['value'] == value)
-              ? value
-              : null,
-          isExpanded: true,
-          decoration: InputDecoration(labelText: label),
-          items: [
-            for (final choice in choices)
-              DropdownMenuItem(
-                value: choice['value'] as String?,
-                child: Text(
-                  choice['label'] as String? ?? '',
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-          ],
-          onChanged: widget.busy ? null : change,
+        final selected = choices
+            .where((choice) => choice['value'] == value)
+            .firstOrNull;
+        return Panel(
+          child: ListRow(
+            title: label,
+            subtitle:
+                selected?['label'] as String? ??
+                p['hint'] as String? ??
+                'Choose',
+            node: true,
+            onTap: widget.busy
+                ? null
+                : () async {
+                    FocusScope.of(context).unfocus();
+                    final picked = await showPanelSheet<String>(
+                      context,
+                      title: label,
+                      builder: (context) => PanelSheetBody(
+                        title: label,
+                        children: [
+                          for (final choice in choices)
+                            PickerRow(
+                              label: choice['label']! as String,
+                              selected: choice['value'] == value,
+                              onTap: () => Navigator.pop(
+                                context,
+                                choice['value']! as String,
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                    if (mounted && picked != null) change(picked);
+                  },
+          ),
         );
       case 'toggle':
         return SwitchListTile(
@@ -572,67 +686,115 @@ class _PluginFieldState extends State<_PluginField> {
           onChanged: widget.busy ? null : change,
         );
       case 'datetime':
-        return OutlinedButton(
-          onPressed: widget.busy
-              ? null
-              : () async {
-                  final clockValue = RegExp(r'^([0-2][0-9]):([0-5][0-9])$')
-                      .firstMatch(value);
-                  final date =
-                      (p['mode'] == 'time' &&
-                              clockValue != null &&
-                              int.parse(clockValue[1]!) < 24
-                          ? DateTime(
-                              2026,
-                              1,
-                              1,
-                              int.parse(clockValue[1]!),
-                              int.parse(clockValue[2]!),
-                            )
-                          : DateTime.tryParse(value)) ??
-                      DateTime.now();
-                  DateTime? picked = date;
-                  if (p['mode'] != 'time') {
-                    picked = await showDatePicker(
+        return Panel(
+          child: ListRow(
+            title: label,
+            subtitle: value.isEmpty
+                ? 'Choose date and time'
+                : value.replaceFirst('T', ' · '),
+            node: true,
+            onTap: widget.busy
+                ? null
+                : () async {
+                    final clockValue = RegExp(r'^([0-2][0-9]):([0-5][0-9])$')
+                        .firstMatch(value);
+                    final date =
+                        (p['mode'] == 'time' &&
+                                clockValue != null &&
+                                int.parse(clockValue[1]!) < 24
+                            ? DateTime(
+                                2026,
+                                1,
+                                1,
+                                int.parse(clockValue[1]!),
+                                int.parse(clockValue[2]!),
+                              )
+                            : DateTime.tryParse(value)) ??
+                        DateTime.now();
+                    DateTime? picked = date;
+                    if (p['mode'] != 'time') {
+                      picked = await showDatePicker(
+                        context: context,
+                        initialDate: date,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2100),
+                      );
+                    }
+                    if (picked == null || !context.mounted) return;
+                    final clock = await showTimePicker(
                       context: context,
-                      initialDate: date,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2100),
+                      initialTime: TimeOfDay.fromDateTime(date),
                     );
-                  }
-                  if (picked == null || !context.mounted) return;
-                  final clock = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.fromDateTime(date),
-                  );
-                  if (clock == null || !mounted) return;
-                  final time =
-                      '${clock.hour.toString().padLeft(2, '0')}:${clock.minute.toString().padLeft(2, '0')}';
-                  change(
-                    p['mode'] == 'time'
-                        ? time
-                        : '${picked.toIso8601String().substring(0, 10)}T$time',
-                  );
-                },
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text('$label: ${value.isEmpty ? "CHOOSE" : value}'),
+                    if (clock == null || !mounted) return;
+                    final time =
+                        '${clock.hour.toString().padLeft(2, '0')}:${clock.minute.toString().padLeft(2, '0')}';
+                    change(
+                      p['mode'] == 'time'
+                          ? time
+                          : '${picked.toIso8601String().substring(0, 10)}T$time',
+                    );
+                  },
           ),
         );
       default:
-        return TextField(
-          controller: text,
+        return FieldPanel(
           enabled: !widget.busy,
-          style: context.tokens.prose,
-          minLines: (p['lines'] as num?)?.toInt().clamp(1, 8) ?? 1,
-          maxLines: (p['lines'] as num?)?.toInt().clamp(1, 8) ?? 1,
           maxLength: 16000,
-          decoration: InputDecoration(labelText: label, counterText: ''),
+          label: label,
+          hint: p['hint'] as String? ?? '',
+          controller: text,
+          maxLines: (p['lines'] as num?)?.toInt().clamp(1, 8) ?? 1,
           onChanged: (value) => widget.values[widget.node.key] = value,
-          onSubmitted: (value) => widget.onChange(value),
+          onSubmitted: widget.onChange,
         );
     }
   }
+}
+
+class _PluginDisclosure extends StatefulWidget {
+  const _PluginDisclosure({
+    super.key,
+    required this.title,
+    this.subtitle,
+    required this.children,
+  });
+  final String title;
+  final String? subtitle;
+  final List<Widget> children;
+  @override
+  State<_PluginDisclosure> createState() => _PluginDisclosureState();
+}
+
+class _PluginDisclosureState extends State<_PluginDisclosure> {
+  bool expanded = false;
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Semantics(
+        button: true,
+        expanded: expanded,
+        child: ListRow(
+          title: widget.title,
+          subtitle: widget.subtitle,
+          value: expanded ? 'LESS' : 'MORE',
+          onTap: () => setState(() => expanded = !expanded),
+        ),
+      ),
+      Offstage(
+        offstage: !expanded,
+        child: TickerMode(
+          enabled: expanded,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: widget.children,
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 class _PluginCanvas extends CustomPainter {

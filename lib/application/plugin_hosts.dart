@@ -15,6 +15,7 @@ import '../platform/host_keys.dart';
 import '../platform/plugins/manifest.dart';
 import '../platform/plugins/store.dart';
 import 'agents.dart';
+import 'path_scan.dart';
 
 typedef PluginHostConfirm = Future<bool> Function(
   Host host,
@@ -150,7 +151,8 @@ String pluginHostOwner(InstalledPlugin plugin) => sha256
 /// ones are put back the way the plugin meant them rather than the ABI loosened.
 @visibleForTesting
 Object? wholeNumbers(Object? value) => switch (value) {
-  final double number when number.isFinite && number == number.roundToDouble() =>
+  final double number
+      when number.isFinite && number == number.roundToDouble() =>
     number.toInt(),
   final Map<String, Object?> map => {
     for (final entry in map.entries) entry.key: wholeNumbers(entry.value),
@@ -421,12 +423,36 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
   return PluginHostRegistry(
     {
       'hosts': PluginHostService(
-        operations: const {'list'},
-        invoke: (plugin, operation, args, confirm, check) async => {
-          'items': [
-            for (final host in await hosts.all())
-              {'id': host.id, 'name': host.name},
-          ],
+        operations: const {'list', 'workspaces'},
+        invoke: (plugin, operation, args, confirm, check) async {
+          if (operation == 'workspaces') {
+            final available = await hosts.all();
+            final host = available
+                .where((host) => host.id == args['host'])
+                .firstOrNull;
+            if (host == null) {
+              throw const PluginException('Choose an existing host');
+            }
+            if (!await confirm(host, 'hosts', {'workspaces'})) {
+              throw const PluginException('Workspace access was not granted');
+            }
+            check();
+            final scan = await ref.read(pathScannerProvider)(host);
+            check();
+            return switch (scan) {
+              PathScanFound(:final directories) => {
+                'items': directories.take(200).toList(),
+              },
+              PathScanFailed(:final reason) => throw PluginException(reason),
+              _ => throw const PluginException('Workspace scan did not finish'),
+            };
+          }
+          return {
+            'items': [
+              for (final host in await hosts.all())
+                {'id': host.id, 'name': host.name},
+            ],
+          };
         },
       ),
       'scheduler': PluginHostService(
@@ -441,6 +467,7 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
           'run',
           'history',
           'output',
+          'cancel',
           'usage',
           'pause_scope',
           'resume_scope',

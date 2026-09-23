@@ -189,8 +189,8 @@ void main() {
     );
     await _drain(tester);
 
-    expect(find.text('AGENT SCHEDULES'), findsOneWidget);
-    expect(find.text('AGENT SCHEDULES · AGENT SCHEDULES'), findsNothing);
+    expect(find.text('AGENT TASKS'), findsOneWidget);
+    expect(find.text('AGENT TASKS · AGENT TASKS'), findsNothing);
     expect(find.text('ARCHIVE · PROJECTS'), findsOneWidget);
     expect(tester.takeException(), isNull);
 

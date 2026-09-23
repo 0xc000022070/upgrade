@@ -7,7 +7,7 @@ use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
@@ -25,12 +25,13 @@ pub const OPS: &[&str] = &[
     "run",
     "history",
     "output",
+    "cancel",
     "usage",
     "pause_scope",
     "resume_scope",
 ];
 
-const SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: u32 = 2;
 const MAX_OUTPUT: u64 = 64 * 1024;
 const MAX_HISTORY: usize = 1000;
 const MAX_SCHEDULES: usize = 200;
@@ -84,6 +85,10 @@ struct RunRecord {
     settled: Option<String>,
     #[serde(default)]
     job: Option<String>,
+    #[serde(default)]
+    pending: Option<Job>,
+    #[serde(default)]
+    directory: String,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -176,7 +181,7 @@ impl Store {
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => State::default(),
             Err(err) => return Err(err.into()),
         };
-        if state.version != 0 && state.version != SCHEMA_VERSION {
+        if state.version > SCHEMA_VERSION {
             return Err(EngineError::unsupported(
                 "unsupported scheduler data version",
             ));
@@ -195,12 +200,15 @@ impl Store {
         let file = self.root.join("state.json");
         no_symlink(&file)?;
         let tmp = self.root.join("state.json.tmp");
-        fs::write(
-            &tmp,
-            serde_json::to_vec(&self.state).map_err(|err| EngineError::failed(err.to_string()))?,
-        )?;
+        no_symlink(&tmp)?;
+        let mut output = fs::File::create(&tmp)?;
         fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?;
+        output.write_all(
+            &serde_json::to_vec(&self.state).map_err(|err| EngineError::failed(err.to_string()))?,
+        )?;
+        output.sync_all()?;
         fs::rename(tmp, file)?;
+        fs::File::open(&self.root)?.sync_all()?;
         Ok(())
     }
 
@@ -236,6 +244,9 @@ fn parse_hhmm(value: &str) -> Option<(u32, u32)> {
 /// forward and can happen twice in an autumn. A skipped day is passed over rather than
 /// silently moved, and a doubled one fires on the first of the two.
 fn next_due(job: &Job, now: i64) -> Option<i64> {
+    if job.repeat == "now" {
+        return Some(now);
+    }
     let zone: Tz = job.timezone.parse().ok()?;
     let (hour, minute) = parse_hhmm(&job.time)?;
     let start = if job.repeat == "once" {
@@ -334,11 +345,16 @@ fn validate(value: &Value, now: i64) -> EngineResult<Job> {
     }
 
     let directory = text(value, "directory", 2048)?;
+    let directory = match directory.strip_prefix("~/") {
+        Some(relative) => paths::display(&paths::home()?.join(relative)),
+        None => directory,
+    };
     if !Path::new(&directory).is_absolute() || !Path::new(&directory).is_dir() {
         return Err(EngineError::bad_request(
             "choose an existing absolute repository directory",
         ));
     }
+    let directory = paths::display(&fs::canonicalize(directory)?);
 
     let agent = text(value, "agent", 200)?;
     if agent != "codex" && agent != "claude" {
@@ -361,8 +377,10 @@ fn validate(value: &Value, now: i64) -> EngineResult<Job> {
 
     let repeat = text(value, "repeat", 200)?;
     let time = text(value, "time", 200)?;
-    if (repeat != "daily" && repeat != "once") || parse_hhmm(&time).is_none() {
-        return Err(EngineError::bad_request("choose a daily or one-shot time"));
+    if !["now", "daily", "once"].contains(&repeat.as_str()) || parse_hhmm(&time).is_none() {
+        return Err(EngineError::bad_request(
+            "choose now, daily or a one-shot time",
+        ));
     }
 
     let timezone = text(value, "timezone", 100)?;
@@ -509,7 +527,8 @@ fn probe() -> Value {
     };
 
     json!({
-        "api_version": SCHEMA_VERSION,
+        "api_version": 1,
+        "schema_version": SCHEMA_VERSION,
         "platform": paths::platform(),
         "supported": supported,
         "reason": reason,
@@ -622,6 +641,27 @@ fn timer_active(scope: &str) -> bool {
             Some((true, _))
         )
     }
+}
+
+fn runner_current(scope: &str) -> bool {
+    let Ok(engine) = engine_path() else {
+        return false;
+    };
+    let name = timer_name(scope);
+    let path = if cfg!(target_os = "macos") {
+        paths::home().map(|home| home.join(format!("Library/LaunchAgents/{name}.plist")))
+    } else {
+        unit_dir().map(|dir| dir.join(format!("{name}.service")))
+    };
+    path.ok()
+        .and_then(|path| fs::read_to_string(path).ok())
+        .is_some_and(|unit| {
+            unit.contains(&if cfg!(target_os = "macos") {
+                xml_escape(&engine)
+            } else {
+                unit_escape(&engine)
+            })
+        })
 }
 
 fn write_private(path: &Path, body: &str) -> EngineResult<()> {
@@ -796,6 +836,13 @@ struct Outcome {
 /// A run's outcome is the supervised job's, read back rather than copied. Nothing
 /// writes a run's ending down twice, so there is no pair of records that can disagree.
 fn outcome(record: &RunRecord, state_root: &Path) -> Outcome {
+    if record.pending.is_some() {
+        return Outcome {
+            status: "queued".into(),
+            finished: None,
+            exit_code: None,
+        };
+    }
     if let Some(status) = &record.settled {
         return Outcome {
             status: status.clone(),
@@ -839,10 +886,6 @@ fn outcome(record: &RunRecord, state_root: &Path) -> Outcome {
         finished,
         exit_code: status.code,
     }
-}
-
-fn is_active(status: &str) -> bool {
-    status == "queued" || status == "running"
 }
 
 fn summary(entry: &Entry, full: bool) -> Value {
@@ -903,17 +946,9 @@ fn claim(
             "run history quota reached; existing history is retained",
         ));
     }
-    let active = store
-        .state
-        .runs
-        .iter()
-        .filter(|record| is_active(&outcome(record, &store.state_root).status))
-        .count();
-    if active >= MAX_ACTIVE {
-        return Err(EngineError::denied("two runs are already active"));
-    }
-
-    let missed = automatic && entry.next_due.is_some_and(|due| now - due > MISSED_AFTER);
+    let missed = automatic
+        && entry.job.repeat == "daily"
+        && entry.next_due.is_some_and(|due| now - due > MISSED_AFTER);
     let run_id = run::new_id();
     store.state.runs.push(RunRecord {
         id: run_id.clone(),
@@ -923,10 +958,16 @@ fn claim(
         started: now,
         settled: missed.then(|| "missed".to_owned()),
         job: None,
+        pending: (!missed).then(|| entry.job.clone()),
+        directory: entry.job.directory.clone(),
     });
 
     if automatic {
-        let following = next_due(&entry.job, now);
+        let following = if entry.job.repeat == "now" {
+            None
+        } else {
+            next_due(&entry.job, now)
+        };
         if let Some(entry) = store
             .state
             .schedules
@@ -950,8 +991,10 @@ fn dispatch_run(store: &mut Store, run_id: &str) -> EngineResult<()> {
         .find(|record| record.id == run_id)
         .ok_or_else(|| EngineError::not_found("run is unavailable"))?
         .clone();
-    let entry = store.entry(&record.schedule)?.clone();
-    let job = &entry.job;
+    let job = record
+        .pending
+        .as_ref()
+        .ok_or_else(|| EngineError::bad_request("run is not queued"))?;
 
     let mut argv = if job.agent == "codex" {
         vec!["codex".into(), "exec".into(), "--json".into(), "-".into()]
@@ -980,6 +1023,19 @@ fn dispatch_run(store: &mut Store, run_id: &str) -> EngineResult<()> {
         stdin_file: Some(paths::display(&prompt)),
     };
 
+    // Persist the handoff before spawning. A crash here becomes interrupted, never
+    // a second launch of a task that may already have changed the workspace.
+    if let Some(record) = store
+        .state
+        .runs
+        .iter_mut()
+        .find(|record| record.id == run_id)
+    {
+        record.pending = None;
+        record.job = Some(run_id.to_owned());
+        record.started = now_secs();
+    }
+    store.commit()?;
     let launched = run::launch(&store.state_root, run_id, &spec);
     if let Some(record) = store
         .state
@@ -993,6 +1049,55 @@ fn dispatch_run(store: &mut Store, run_id: &str) -> EngineResult<()> {
         }
     }
     launched.map(|_| ())
+}
+
+fn drain_queue(store: &mut Store) -> EngineResult<()> {
+    if store.state.paused {
+        return Ok(());
+    }
+    let queued: Vec<String> = store
+        .state
+        .runs
+        .iter()
+        .filter(|record| record.pending.is_some())
+        .map(|record| record.id.clone())
+        .collect();
+    for id in queued {
+        let active: Vec<&RunRecord> = store
+            .state
+            .runs
+            .iter()
+            .filter(|record| outcome(record, &store.state_root).status == "running")
+            .collect();
+        if active.len() >= MAX_ACTIVE {
+            break;
+        }
+        let directory = &store
+            .state
+            .runs
+            .iter()
+            .find(|record| record.id == id)
+            .unwrap()
+            .directory;
+        if active.iter().any(|record| {
+            let path = if record.directory.is_empty() {
+                store
+                    .entry(&record.schedule)
+                    .map(|entry| entry.job.directory.as_str())
+                    .unwrap_or("")
+            } else {
+                &record.directory
+            };
+            path == directory
+        }) {
+            continue;
+        }
+        if let Err(failure) = dispatch_run(store, &id) {
+            store.state.error = failure.message;
+        }
+        store.commit()?;
+    }
+    Ok(())
 }
 
 pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value> {
@@ -1009,6 +1114,11 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
             .unwrap_or(false);
         let map = value.as_object_mut().expect("probe answers an object");
         map.insert("installed".into(), json!(installed));
+        map.insert("features".into(), json!(["queue", "cancel", "summary"]));
+        map.insert(
+            "runner_current".into(),
+            json!(installed && runner_current(scope)),
+        );
         map.insert(
             "timer_active".into(),
             json!(installed && timer_active(scope)),
@@ -1036,6 +1146,8 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
         let map = value.as_object_mut().expect("probe answers an object");
         map.insert("installed".into(), json!(true));
         map.insert("timer_active".into(), json!(true));
+        map.insert("runner_current".into(), json!(true));
+        map.insert("features".into(), json!(["queue", "cancel", "summary"]));
         return Ok(value);
     }
 
@@ -1083,6 +1195,11 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
                     .ok_or_else(|| EngineError::bad_request("schedule is required"))?,
                 now,
             )?;
+            if job.repeat == "now" && store.state.paused {
+                return Err(EngineError::denied(
+                    "resume the host queue before starting a task",
+                ));
+            }
             if which(&job.agent).is_none() {
                 return Err(EngineError::not_found(format!(
                     "agent executable is not installed: {}",
@@ -1120,6 +1237,12 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
                 None => store.state.schedules.push(entry),
             }
             store.commit()?;
+            if store.entry(&id)?.job.repeat == "now" && store.entry(&id)?.enabled {
+                let due = store.entry(&id)?.next_due.unwrap_or(now);
+                claim(&mut store, &id, &due.to_string(), now, true)?;
+                store.commit()?;
+                drain_queue(&mut store)?;
+            }
             Ok(json!({ "id": id, "revision": revision }))
         }
         "pause" | "resume" => {
@@ -1152,6 +1275,9 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
         "pause_scope" | "resume_scope" => {
             store.state.paused = op == "pause_scope";
             store.commit()?;
+            if op == "resume_scope" {
+                drain_queue(&mut store)?;
+            }
             Ok(json!({ "paused": store.state.paused }))
         }
         "run" => {
@@ -1159,11 +1285,26 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
             let slot = format!("manual:{}", identifier(arg_str(args, "request_id")?)?);
             let (run_id, fresh) = claim(&mut store, &id, &slot, now, false)?;
             if fresh {
-                let launched = dispatch_run(&mut store, &run_id);
                 store.commit()?;
-                launched?;
+                drain_queue(&mut store)?;
             }
             Ok(json!({ "id": run_id }))
+        }
+        "cancel" => {
+            let id = identifier(arg_str(args, "id")?)?;
+            let record = store
+                .state
+                .runs
+                .iter_mut()
+                .find(|record| record.id == id)
+                .ok_or_else(|| EngineError::not_found("run is unavailable"))?;
+            if record.pending.take().is_some() {
+                record.settled = Some("canceled".into());
+                store.commit()?;
+            } else if let Some(job) = &record.job {
+                run::cancel(&json!({"id": job}), state_root)?;
+            }
+            Ok(json!({"id": id, "cancel_requested": true}))
         }
         "history" => {
             let offset = arg_u64_opt(args, "offset")?.unwrap_or(0) as usize;
@@ -1181,6 +1322,8 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
                     json!({
                         "id": record.id,
                         "title": record.title,
+                        "schedule": record.schedule,
+                        "directory": record.directory,
                         "status": outcome.status,
                         "started": record.started,
                         "started_label": utc_label(record.started),
@@ -1189,7 +1332,9 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
                     })
                 })
                 .collect();
-            Ok(json!({ "items": page, "offset": offset, "more": page.len() == PAGE }))
+            Ok(
+                json!({ "items": page, "offset": offset, "more": page.len() == PAGE, "paused": store.state.paused }),
+            )
         }
         "output" => {
             let id = identifier(arg_str(args, "id")?)?;
@@ -1204,7 +1349,12 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
                 None => (String::new(), 0),
                 Some(job) => read_tail(&run::job_dir(&store.state_root, job)?)?,
             };
-            Ok(json!({ "status": outcome.status, "text": text, "bytes": bytes }))
+            let (summary, warnings) = readable_output(&text);
+            Ok(
+                json!({ "status": outcome.status, "text": text, "bytes": bytes,
+                "summary": summary, "warnings": warnings, "title": record.title,
+                "schedule": record.schedule, "directory": record.directory }),
+            )
         }
         "usage" => {
             let bytes: u64 = fs::read_dir(&store.root)
@@ -1229,6 +1379,44 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
             "{SERVICE} has no op {op}"
         ))),
     }
+}
+
+fn readable_output(text: &str) -> (String, Vec<String>) {
+    let mut messages = Vec::new();
+    let mut warnings = Vec::new();
+    for line in text.lines() {
+        let Ok(value) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
+        if value["type"] == "item.completed" {
+            let item = &value["item"];
+            if item["type"] == "agent_message" {
+                if let Some(text) = item["text"].as_str() {
+                    messages.push(text.to_owned());
+                }
+            } else if item["type"] == "error" {
+                if let Some(message) = item["message"].as_str() {
+                    warnings.push(message.to_owned());
+                }
+            }
+        } else if value["type"] == "result" {
+            if let Some(text) = value["result"].as_str() {
+                messages.push(text.to_owned());
+            }
+            if value["is_error"] == true {
+                warnings.push("Agent reported an error".into());
+            }
+        } else if value["type"] == "error" || value["type"] == "turn.failed" {
+            warnings.push(
+                value["message"]
+                    .as_str()
+                    .or(value["error"]["message"].as_str())
+                    .unwrap_or("Agent reported an error")
+                    .to_owned(),
+            );
+        }
+    }
+    (messages.join("\n\n"), warnings)
 }
 
 /// The end of a run's output, both streams together. The agent's own diagnostics are
@@ -1286,17 +1474,16 @@ pub fn tick(scope: &str) -> i32 {
     let mut error = String::new();
     for (id, stamp) in due {
         match claim(&mut store, &id, &stamp.to_string(), now, true) {
-            Ok((run_id, true)) => {
-                if let Err(failure) = dispatch_run(&mut store, &run_id) {
-                    error = failure.message;
-                }
-            }
+            Ok((_, true)) => {}
             Ok((_, false)) => {}
             Err(failure) => error = failure.message,
         }
     }
     store.state.error = error;
     if store.commit().is_err() {
+        return 1;
+    }
+    if drain_queue(&mut store).is_err() {
         return 1;
     }
     0

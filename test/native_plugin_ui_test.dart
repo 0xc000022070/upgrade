@@ -131,15 +131,20 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(PluginLibraryScreen),
-          matching: find.text('AGENT SCHEDULES'),
+          matching: find.text('AGENT TASKS'),
         ),
       );
       await drainUntil(
         tester,
-        () => find.text('AGENT SCHEDULES_').evaluate().isNotEmpty,
+        () => find.text('REFRESH HOSTS').evaluate().isNotEmpty,
       );
-      expect(find.text('AGENT SCHEDULES_'), findsOneWidget);
-      expect(find.text('NO HOSTS REGISTERED'), findsOneWidget);
+      expect(find.text('REFRESH HOSTS'), findsOneWidget);
+      expect(
+        find.text(
+          'Add and verify a machine in Hosts. Tasks run there while your phone is offline.',
+        ),
+        findsOneWidget,
+      );
       for (
         var i = 0;
         i < 20 && find.byType(DelayedSpinner).evaluate().isNotEmpty;
@@ -168,7 +173,7 @@ void main() {
       expect(failure, isNull);
       expect(disabled, isTrue);
       await drain(tester);
-      expect(find.text('AGENT SCHEDULES_'), findsNothing);
+      expect(find.text('REFRESH HOSTS'), findsNothing);
       expect(
         find.descendant(of: find.byType(NavBar), matching: find.text('TOOLS')),
         findsOneWidget,

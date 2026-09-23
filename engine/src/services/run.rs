@@ -265,7 +265,7 @@ fn status(args: &Value, state_root: &Path) -> EngineResult<Value> {
     Ok(status_value(id, &status))
 }
 
-fn cancel(args: &Value, state_root: &Path) -> EngineResult<Value> {
+pub(crate) fn cancel(args: &Value, state_root: &Path) -> EngineResult<Value> {
     let id = arg_str(args, "id")?;
     let dir = job_dir(state_root, id)?;
     let status = read_status(&dir)?;

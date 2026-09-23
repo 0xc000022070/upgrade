@@ -20,6 +20,9 @@ class DazzleField extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
     this.contentPadding = EdgeInsets.zero,
+    this.enabled = true,
+    this.maxLength,
+    this.semanticLabel,
   });
 
   static const bodyLines = 6;
@@ -47,32 +50,42 @@ class DazzleField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
   final EdgeInsets contentPadding;
+  final bool enabled;
+  final int? maxLength;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      focusNode: focusNode,
-      autofocus: autofocus,
-      minLines: minLines,
-      maxLines: maxLines,
-      style: style ?? context.tokens.rowTitle,
-      cursorColor: context.tokens.accent,
-      cursorWidth: 2,
-      cursorRadius: Radius.zero,
-      keyboardType: keyboardType ?? TextInputType.text,
-      textInputAction: textInputAction,
-      obscureText: obscureText,
-      autocorrect: suggest && !obscureText,
-      enableSuggestions: suggest && !obscureText,
-      onChanged: onChanged,
-      onSubmitted: onSubmitted,
-      decoration: InputDecoration(
-        isDense: true,
-        border: InputBorder.none,
-        contentPadding: contentPadding,
-        hintText: hint,
-        hintStyle: hintStyle ?? context.tokens.rowSubtitle,
+    return Semantics(
+      container: semanticLabel != null,
+      label: semanticLabel,
+      child: TextField(
+        enabled: enabled,
+        maxLength: maxLength,
+        controller: controller,
+        focusNode: focusNode,
+        autofocus: autofocus,
+        minLines: minLines,
+        maxLines: maxLines,
+        style: style ?? context.tokens.rowTitle,
+        cursorColor: context.tokens.accent,
+        cursorWidth: 2,
+        cursorRadius: Radius.zero,
+        keyboardType: keyboardType ?? TextInputType.text,
+        textInputAction: textInputAction,
+        obscureText: obscureText,
+        autocorrect: suggest && !obscureText,
+        enableSuggestions: suggest && !obscureText,
+        onChanged: onChanged,
+        onSubmitted: onSubmitted,
+        decoration: InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          contentPadding: contentPadding,
+          hintText: hint,
+          hintStyle: hintStyle ?? context.tokens.rowSubtitle,
+          counterText: maxLength == null ? null : '',
+        ),
       ),
     );
   }
