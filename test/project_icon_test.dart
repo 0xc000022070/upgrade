@@ -79,20 +79,29 @@ void main() {
         overrides: [...featureTestOverrides(db)],
         child: MaterialApp(theme: testTheme, home: child),
       );
-      Future<void> edit(String label) async {
+      Future<void> edit(String? iconId) async {
         final project = await tester.runAsync(
           () => projects.watchById(id).first,
         );
         await tester.pumpWidget(host(ProjectFormScreen(project: project)));
         await ready(tester);
-        await tester.tap(find.text(label));
+        expect(find.text('WOLF'), findsNothing);
+        await tester.tap(
+          iconId == null
+              ? find.text('NO ICON')
+              : find.byWidgetPredicate(
+                  (widget) =>
+                      widget is ProjectIcon && widget.icon.name == iconId,
+                ),
+        );
+        await tester.ensureVisible(find.text('SAVE'));
         await tester.tap(find.text('SAVE'));
         await ready(tester);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump(const Duration(milliseconds: 1));
       }
 
-      await edit('WOLF');
+      await edit('wolf');
       final summary = (await tester.runAsync(
         () => projects.watchSummary(id).first,
       ))!;
@@ -102,7 +111,7 @@ void main() {
       expect(find.byType(ProjectIcon), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
-      await edit('NO ICON');
+      await edit(null);
       final cleared = await tester.runAsync(() => projects.watchById(id).first);
       expect(cleared!.iconId, isNull);
       expect(tester.takeException(), isNull);

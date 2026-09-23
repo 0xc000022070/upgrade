@@ -60,6 +60,7 @@ class _Choice extends StatelessWidget {
     final tokens = context.tokens;
     final color = selected ? tokens.accent : tokens.textSecondary;
     return Semantics(
+      label: icon?.label,
       selected: selected,
       child: TextButton(
         onPressed: onTap,
@@ -81,11 +82,10 @@ class _Choice extends StatelessWidget {
               ProjectIcon(icon, size: IconSizes.hero, color: color)
             else
               DazzleIcon(DazzleIcons.close, size: IconSizes.hero, color: color),
-            const SizedBox(height: Spacing.sm),
-            Text(
-              icon?.label ?? 'NO ICON',
-              style: tokens.label.copyWith(color: color),
-            ),
+            if (icon == null) ...[
+              const SizedBox(height: Spacing.sm),
+              Text('NO ICON', style: tokens.label.copyWith(color: color)),
+            ],
           ],
         ),
       ),
