@@ -111,8 +111,9 @@ class _PluginPageState extends ConsumerState<PluginPage> {
       context,
       title: 'ALLOW ${widget.plugin.manifest.name.toUpperCase()}?',
       confirmLabel: 'ALLOW',
-      message:
-          '${host.name}\n${host.user}@${host.address}:${host.port}\n\n$service API 1\n${operations.join(', ')}\n\nScheduling setup installs a namespaced host runner and user timer. Existing host jobs remain untouched.\n\nAgent runs use this host account’s CLI permissions. They may read or modify files outside plugin storage.',
+      message: service == 'hosts'
+          ? 'Find workspaces on ${host.name}?\n\nOnly workspace paths are returned to this plugin. No tasks will start.'
+          : '${host.name}\n${host.user}@${host.address}:${host.port}\n\n$service API 1\n${operations.join(', ')}\n\nScheduling setup installs a namespaced host runner and user timer. Existing host jobs remain untouched.\n\nAgent runs use this host account’s CLI permissions. They may read or modify files outside plugin storage.',
     );
     _check();
     return allowed;
@@ -229,33 +230,35 @@ class _PluginPageState extends ConsumerState<PluginPage> {
       },
       child: Scaffold(
         backgroundColor: context.tokens.backgroundPrimary,
-        appBar: AppBar(
-          toolbarHeight: 44,
-          leading: BackButton(
-            onPressed: () {
-              if (_back == null) {
-                Navigator.maybePop(context);
-              } else {
-                _dispatch({
-                  'type': 'action',
-                  'id': _back,
-                  'fields': Map<String, Object?>.of(_values),
-                });
-              }
-            },
-          ),
-          title: Text(
-            widget.plugin.manifest.name.toUpperCase(),
-            style: context.tokens.breadcrumb,
-          ),
-          actions: [
-            if (_busy)
-              const Padding(
-                padding: EdgeInsets.only(right: Spacing.screenEdge),
-                child: SizedBox(width: 12, child: DelayedSpinner()),
+        appBar: _view?.kind == 'page'
+            ? null
+            : AppBar(
+                toolbarHeight: 44,
+                leading: BackButton(
+                  onPressed: () {
+                    if (_back == null) {
+                      Navigator.maybePop(context);
+                    } else {
+                      _dispatch({
+                        'type': 'action',
+                        'id': _back,
+                        'fields': Map<String, Object?>.of(_values),
+                      });
+                    }
+                  },
+                ),
+                title: Text(
+                  widget.plugin.manifest.name.toUpperCase(),
+                  style: context.tokens.breadcrumb,
+                ),
+                actions: [
+                  if (_busy)
+                    const Padding(
+                      padding: EdgeInsets.only(right: Spacing.screenEdge),
+                      child: SizedBox(width: 12, child: DelayedSpinner()),
+                    ),
+                ],
               ),
-          ],
-        ),
         body: Column(
           children: [
             if (_error != null)
@@ -275,6 +278,17 @@ class _PluginPageState extends ConsumerState<PluginPage> {
                   values: _values,
                   onEvent: _dispatch,
                   busy: _busy,
+                  onBack: () {
+                    if (_back == null) {
+                      Navigator.maybePop(context);
+                    } else {
+                      _dispatch({
+                        'type': 'action',
+                        'id': _back,
+                        'fields': Map<String, Object?>.of(_values),
+                      });
+                    }
+                  },
                 ),
               ),
             if (_view == null && !_busy)

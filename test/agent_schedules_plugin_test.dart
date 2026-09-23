@@ -17,7 +17,7 @@ PluginPackage schedulePackage() => PluginPackage(
   ),
   source: File('plugins/agent-schedules/main.luau').readAsStringSync(),
   origin: 'bundled:dazzle.agent-schedules',
-  revision: '1.0.0',
+  revision: '1.1.0',
 );
 
 class ScheduleHarness {
@@ -62,6 +62,7 @@ void main() {
     'supported': true,
     'agents': ['codex', 'claude'],
     'timezone': 'America/Lima',
+    'features': ['queue', 'cancel', 'summary'],
   };
   const row = <String, Object?>{
     'id': 'job1',
@@ -170,7 +171,7 @@ void main() {
       await app.answer('setup', info);
       expect(
         (app.effects.single! as Map<String, Object?>)['operation'],
-        'list',
+        'history',
       );
     },
   );
@@ -277,22 +278,16 @@ void main() {
       await tester.pumpWidget(screen());
       expect(tester.takeException(), isNull);
       final input = find.descendant(
-        of: find.byKey(const ValueKey('title')),
+        of: find.byKey(const ValueKey('prompt')),
         matching: find.byType(TextField),
       );
       await tester.enterText(input, 'Native draft');
       await tester.pumpWidget(screen());
       expect(events, isEmpty);
-      expect(values['title'], 'Native draft');
-      final list = find.byType(Scrollable).last;
-      await tester.scrollUntilVisible(
-        find.text('SAVE SCHEDULE'),
-        250,
-        scrollable: list,
-      );
-      await tester.tap(find.text('SAVE SCHEDULE'));
+      expect(values['prompt'], 'Native draft');
+      await tester.tap(find.text('START TASK'));
       expect(
-        (events.single['fields']! as Map<String, Object?>)['title'],
+        (events.single['fields']! as Map<String, Object?>)['prompt'],
         'Native draft',
       );
       expect(tester.takeException(), isNull);
@@ -305,6 +300,7 @@ void main() {
     () async {
       await ready();
       await app.action('new');
+      await app.action('frequency', {'value': 'daily'});
       final previous = app.view;
       final values = <String, Object?>{};
       synchronizePluginFields(values, null, previous);
@@ -316,7 +312,134 @@ void main() {
       await app.action('frequency', {'value': 'once', 'fields': values});
       synchronizePluginFields(values, previous, app.view);
       expect(values['title'], 'Typed locally');
-      expect(values['when'], '2026-09-13T09:00');
+      expect(values['when'], '');
     },
   );
+
+  test('now is a one-shot task, options retain drafts, and workspace is remembered', () async {
+    await ready();
+    await app.action('new');
+    expect((app.state!['edit']! as Map<String, Object?>)['repeat'], 'now');
+    await app.action('save', {
+      'fields': {'prompt': 'Verify tests', 'directory': '/srv/repo'},
+    });
+    final effect = app.effects.single! as Map<String, Object?>;
+    final job =
+        (effect['args']! as Map<String, Object?>)['schedule']!
+            as Map<String, Object?>;
+    expect(job['repeat'], 'now');
+    expect(job['title'], 'Verify tests');
+    expect(job['timeout'], 14400);
+    await app.answer('saved', {'id': 'new-job', 'revision': 1});
+    expect(app.state!['mode'], 'history');
+    await app.action('new');
+    expect(
+      (app.state!['edit']! as Map<String, Object?>)['directory'],
+      '/srv/repo',
+    );
+    await app.action('back', {
+      'fields': {'prompt': 'Keep this draft'},
+    });
+    await app.action('new');
+    expect(
+      (app.state!['edit']! as Map<String, Object?>)['prompt'],
+      'Keep this draft',
+    );
+  });
+
+  testWidgets(
+    'disclosure keeps input drafts and native picker returns selection',
+    (tester) async {
+      await tester.runAsync(ready);
+      await tester.runAsync(() => app.action('new'));
+      final values = <String, Object?>{};
+      synchronizePluginFields(values, null, app.view);
+      final options = app.view.children.firstWhere(
+        (node) => node.key == 'options',
+      );
+      final compact = PluginUiNode(
+        'column',
+        const {'key': 'test_options'},
+        [
+          PluginUiNode(
+            'disclosure',
+            options.props,
+            options.children
+                .where((node) => node.key == 'title' || node.key == 'agent')
+                .toList(),
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: testTheme,
+          home: Scaffold(
+            body: PluginUi(node: compact, values: values, onEvent: (_) {}),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Agent and options'));
+      await tester.pump();
+      final field = find.descendant(
+        of: find.byKey(const ValueKey('title')),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(field, 'Kept locally');
+      expect(values['title'], 'Kept locally');
+      tester.testTextInput.hide();
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Agent and options'));
+      await tester.pump();
+      expect(values['title'], 'Kept locally');
+      await tester.ensureVisible(find.text('Agent and options'));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Agent and options'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('Agent').last);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Agent').last);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('CLAUDE'), findsOneWidget);
+      await tester.tap(find.text('CLAUDE'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(values['agent'], 'claude');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  for (final scale in [1.0, 1.6, 2.0]) {
+    testWidgets('composer fits 320dp at text scale $scale with keyboard', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(960, 2400);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.runAsync(ready);
+      await tester.runAsync(() => app.action('new'));
+      final values = <String, Object?>{};
+      synchronizePluginFields(values, null, app.view);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: testTheme,
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: const Size(320, 800),
+              textScaler: TextScaler.linear(scale),
+              viewInsets: const EdgeInsets.only(bottom: 280),
+            ),
+            child: Scaffold(
+              body: PluginUi(node: app.view, values: values, onEvent: (_) {}),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.takeException(), isNull);
+      expect(find.text('START TASK').hitTestable(), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
 }

@@ -18,6 +18,8 @@ class FieldPanel extends StatelessWidget {
     this.onSubmitted,
     this.keyboardType,
     this.obscureText = false,
+    this.enabled = true,
+    this.maxLength,
   });
 
   final String label;
@@ -35,6 +37,8 @@ class FieldPanel extends StatelessWidget {
   final TextInputType? keyboardType;
 
   final bool obscureText;
+  final bool enabled;
+  final int? maxLength;
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +51,9 @@ class FieldPanel extends StatelessWidget {
         Spacing.sm,
       ),
       child: DazzleField(
+        enabled: enabled,
+        maxLength: maxLength,
+        semanticLabel: label,
         controller: controller,
         autofocus: autofocus,
         maxLines: maxLines,

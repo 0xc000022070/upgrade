@@ -10,6 +10,7 @@ for name, kind in pairs({
     Spacer = "spacer", Divider = "divider", DateTime = "datetime",
     Panel = "panel", Section = "section", ListRow = "list_row",
     StatusTag = "status_tag", BracketLabel = "bracket_label",
+    Page = "page", Footer = "footer", Disclosure = "disclosure", Choice = "choice",
 }) do
     ui[name] = function(props)
         props = props or {}

@@ -18,7 +18,25 @@ For lower-level use, return `{frame = function(input) ... end}` directly. Its in
 
 `ui.Row {key = "actions", gap = 8, children = {...}}` and `ui.node("row", {key = "actions", gap = 8}, {...})` have identical output. Constructors only build values. Authors can write their own constructors and composition functions without changing Dazzle.
 
-Available constructors: `Screen`, `Column`, `Row`, `Stack`, `Box`, `Text`, `Button`, `Input`, `Select`, `Toggle`, `List`, `Canvas`, `Spacer`, `Divider`, `DateTime`, and, from `ui_api = 2`, `Panel`, `Section`, `ListRow`, `StatusTag`, `BracketLabel`. Raw node kinds are their lowercase names (`panel`, `section`, `list_row`, `status_tag`, `bracket_label`).
+Available constructors: `Screen`, `Column`, `Row`, `Stack`, `Box`, `Text`, `Button`, `Input`, `Select`, `Toggle`, `List`, `Canvas`, `Spacer`, `Divider`, `DateTime`, and, from `ui_api = 2`, `Panel`, `Section`, `ListRow`, `StatusTag`, `BracketLabel`, `Page`, `Footer`, `Disclosure`, `Choice`. Raw node kinds are their lowercase names (`list_row`, `status_tag`, `bracket_label` use underscores).
+
+- `Page` is a scrolling native Dazzle screen with `title`, `breadcrumb`, and optional `gap`. Use it as the root. The host wires its back action to `back(state)`; do not add another app bar. Its children use intrinsic height, not `flex` or nested scrolling lists.
+- `Footer`, directly inside `Page`, stays above the keyboard and system navigation. Put the primary action here.
+- `Disclosure` accepts `title`, optional `subtitle`, and children. Expansion stays native. Collapsed fields remain mounted and are included in action events without extra Luau calls.
+- `Choice` accepts the same options/value/onChange contract as `Select`. It displays wrapping native action blocks for a few frequent choices. `Select` opens the native picker sheet for longer lists.
+- `Button` uses Dazzle's ActionBlock; `Input` uses FieldPanel and labeled native fields. `hint` is optional. Existing constructor/event contracts remain unchanged.
+
+```lua
+ui.Page {key = "compose", title = "New task", children = {
+    ui.Input {key = "instruction", label = "Instruction", value = "", lines = 4},
+    ui.Disclosure {key = "options", title = "Options", children = {
+        ui.Input {key = "model", label = "Model", hint = "Host default", value = ""},
+    }},
+    ui.Footer {key = "actions", children = {
+        ui.Button {key = "start", text = "Start task", background = "accent", onPress = "start"},
+    }},
+}}
+```
 
 - Every node needs a stable, globally unique `key`. Keyed native elements retain editing state; do not generate new keys on every event.
 - `Screen` is the page body, with safe-area handling and vertical layout. `Column` and `Row` accept `gap` and `align` (`start`, `center`, `end`, `stretch`). Child `flex` fills available bounded space. Give a page's scrolling `List` `flex = 1`.
@@ -44,10 +62,10 @@ Declare each alias under `host_capabilities.<alias>` with `api_version = 1`, a `
 
 Current services:
 
-- `hosts`: `list` returns registered host IDs and names.
-- `scheduler`: `inspect`, `setup`, `list`, `get`, `save`, `pause`, `resume`, `run`, `history`, `output`, `usage`, `pause_scope`, `resume_scope`. Arguments include a registered `host` ID. The call reaches that host's `dazzle-engine` over the `schedule/1` service; no code is ever shipped to the machine.
+- `hosts`: `list` returns registered host IDs and names. `workspaces({host})` returns `{items = {"~/Projects/example", ...}}` through the existing host workspace scanner, after native consent. Paths can be absolute or home-relative; the scheduler expands `~/` on the host, then canonicalizes the existing directory. No shell interpolation is used. Declare and grant workspace discovery separately from `list`.
+- `scheduler`: `inspect`, `setup`, `list`, `get`, `save`, `pause`, `resume`, `run`, `history`, `output`, `cancel`, `usage`, `pause_scope`, `resume_scope`. Arguments include a registered `host` ID. The call reaches that host's `dazzle-engine` over the `schedule/1` service; no code is ever shipped to the machine. `inspect.features` advertises `queue`, `cancel`, and `summary`; older engines omit this list.
 
-Host storage is scoped by plugin ID and source origin. No operation accepts another plugin's owner or arbitrary storage path. Each scope has its own versioned SQLite database and run output files. UI state, local dataset usage, and remote scheduler storage are separate measurements.
+Host storage is scoped by plugin ID and source origin. No operation accepts another plugin's owner or arbitrary storage path. Each scope has its own versioned, locked JSON state and run output files. UI state, local dataset usage, and remote scheduler storage are separate measurements.
 
 This API isolation is not an OS sandbox for agent processes. Granting agent execution delegates the host CLI's existing authority, potentially including access to other files and network services. Dazzle states this in the native permission dialog. Plugins without that capability cannot invoke it.
 
@@ -55,11 +73,15 @@ This API isolation is not an OS sandbox for agent processes. Granting agent exec
 
 The built-in Luau plugin is disabled until enabled in Settings. It does not depend on Drops or Projects. On a registered, verified Linux host, setup requires an installed `dazzle-engine` carrying `schedule/1`, systemd user services, login linger, and an installed, authenticated Codex or Claude CLI. A host whose engine is absent, or whose engine does not carry that service, reports the missing capability instead of simulating a schedule. Dazzle never installs the engine; the machine's owner declares it.
 
-Setup writes only the engine's own state for that scope and the systemd user service/timer it arms. It does not enable linger, alter SSH authorization, or replace existing host jobs. The timer checks once per minute. Each run uses a separate transient user service, survives phone disconnection, and uses the host agent's existing permissions and authentication. No permission-bypass flags are added.
+Setup writes only the engine's own state for that scope and the systemd user service/timer it arms. It does not enable linger, alter SSH authorization, or replace existing host jobs. The timer checks once per minute. Each run uses a detached engine supervisor, survives phone disconnection, and uses the host agent's existing permissions and authentication. No permission-bypass flags are added.
 
-Schedules support once or daily execution, IANA timezone, repository directory, prompt, optional model, and timeout. Editing uses optimistic revisions. Occurrences and manual request IDs are deduplicated. Runs over five minutes late are recorded as missed instead of silently replayed. Nonexistent daily times during daylight-saving transitions are skipped; ambiguous times use the first occurrence.
+Tasks support `repeat = "now"`, `"once"`, or `"daily"`, IANA timezone, repository directory, prompt, optional model, and a 60–14400 second timeout. Now submits one task immediately; when both slots or its workspace are occupied, it queues. Queued tasks retain a snapshot of their instruction and settings. Within each plugin scope, at most two agents run concurrently and only one runs per canonical workspace path. This does not lock out other plugins, terminals, or host users. Pending tasks resume on the host timer, with up to a minute between runs. They do not expire while waiting.
 
-Disable revokes the local plugin and requests a host-scope pause. Re-enable does not resume that host scope automatically. Unreachable hosts remain visibly pending and can be retried from Settings, including after removal of an external plugin. Queued workers cancel after scope pause; already-running agents are not killed. Schedules, preferences, and history are retained. Removing a host from Dazzle does not stop its independent timer: pause it before unregistering it.
+Editing uses optimistic revisions. Occurrences and manual request IDs are deduplicated. Daily occurrences first discovered over five minutes late are recorded as missed; one-shot work is retained. Nonexistent daily times during daylight-saving transitions are skipped; ambiguous times use the first occurrence. The launch handoff is recorded before spawning: an interrupted handoff is reported, not automatically replayed.
+
+`cancel({host, id})` cancels a queued run or requests termination from its supervisor. `output` retains raw `text` and adds `summary`, `warnings`, `title`, `directory`, and `schedule`. Summary extraction recognizes Codex agent messages and Claude results; diagnostics remain available. A zero process exit code is not proof that every agent tool succeeded.
+
+Disable revokes the local plugin and requests a host-scope pause. Re-enable does not resume that host scope automatically. Unreachable hosts remain visibly pending and can be retried from Settings, including after removal of an external plugin. Queued tasks stay pending during scope pause; already-running agents are not killed. Schedules, preferences, and history are retained. Removing a host from Dazzle does not stop its independent timer: pause it before unregistering it.
 
 ## Performance and limits
 
@@ -67,4 +89,4 @@ Luau runs on a worker isolate, not the Flutter UI thread. Scroll, typing, native
 
 Each call retains the existing 50 ms script budget and 8 MiB Lua heap limit. Input and output each allow 256 KiB, depth 32, and 4096 values per collection. UI trees allow 2048 nodes, depth 24, 256 choices per select, and 512 drawing commands total. Native input text is limited to 16000 characters. Runtime memory reports include allocated input/output buffer capacity; shared Flutter heap and compiler overhead are not per-plugin heap measurements.
 
-Settings shows script/load time, response size, resident VM memory, dataset calls/bytes/storage, and host API payload bytes, failures, and awaited time for the current app session. Agent schedules reports remote database/log bytes and counts. Host limits: 200 schedules, 1000 retained runs, two active runs per plugin scope, 64 KiB output tail per run, and a 60–14400 second timeout. Quotas refuse new work; they do not silently delete history. Outputs explicitly represent the retained tail, not an unlimited transcript.
+Settings shows script/load time, response size, resident VM memory, dataset calls/bytes/storage, and host API payload bytes, failures, and awaited time for the current app session. Remote storage counts remain available through the optional `usage` API, not the task composer. Host limits: 200 task definitions, 1000 retained runs, two active runs per plugin scope, 64 KiB output tail per run, and a 60–14400 second timeout. Quotas refuse new work; they do not silently delete history. Outputs explicitly represent the retained tail, not an unlimited transcript.
