@@ -1,12 +1,18 @@
 enum ProjectIconKind {
-  bastion('BASTION'),
-  echelon('ECHELON'),
-  relay('RELAY'),
-  cipher('CIPHER'),
-  forge('FORGE'),
+  bastion('SHIELD'),
+  echelon('CHEVRONS'),
+  relay('SPEAR'),
+  cipher('SKULL'),
+  forge('DAGGERS'),
   wolf('WOLF'),
   raven('RAVEN'),
-  viper('VIPER');
+  viper('SNAKE'),
+  summit('MOUNTAINS'),
+  orbit('ORBIT'),
+  tide('ANCHOR'),
+  delta('AIRCRAFT'),
+  nexus('KNOT'),
+  beacon('LIGHTHOUSE');
 
   const ProjectIconKind(this.label);
 
