@@ -22,15 +22,15 @@ bool _pendingOpen = false;
 /// The host of an `AUTHORIZATION REQUIRED` tap that arrived the same way.
 String? _pendingPinHost;
 
-/// The splash owns the screen for the first ~1.8 s of a cold start and [AlertsHost] is
-/// inside the route it pushes, so a tap that launched the app lands in that window with
-/// no handler installed. The splash parks it in the same flag a launch through
-/// `getNotificationAppLaunchDetails` sets, and [AlertsHost] drains it either way.
 void deferAlertOpen() => _pendingOpen = true;
 
 void deferPinOpen(String hostId) => _pendingPinHost = hostId;
 
 Future<void> initAlerts() async {
+  // Boot runs before there is a navigator, so a tap answered in here has nothing to push
+  // on. Parked in the flags [AlertsHost] drains once it mounts over them.
+  alertOpenHandler = deferAlertOpen;
+  pinOpenHandler = deferPinOpen;
   await AgentWatcher.init();
   await AlertNotifications.initialize(
     onResponse: (response) => unawaited(handleAlertAction(response)),

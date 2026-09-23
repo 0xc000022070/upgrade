@@ -124,7 +124,6 @@ const mascotStates = <String>[
   'blocked',
   'alert',
   'sleep',
-  'splash',
 ];
 
 const mascotCompact = 'compact';

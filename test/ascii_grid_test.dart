@@ -103,22 +103,20 @@ void main() {
       }
     });
 
-    test('the two wired states carry the cadence the slots expect', () {
-      final splash = _fromDisk('splash');
-      expect(splash.loops, isFalse);
-      expect(splash.frames.length, greaterThan(1));
-
+    test('the wired state carries the cadence the slot expects', () {
       final idle = _fromDisk('idle');
       expect(idle.loops, isTrue);
+      expect(idle.frames.length, greaterThan(1));
     });
 
-    test('the compact mark is smaller than the sheet and holds one pose', () {
+    test('the compact mark holds one pose on the sheet grid', () {
       final compact = _fromDisk(mascotCompact);
       final idle = _fromDisk('idle');
 
       expect(compact.frames.length, 1);
-      expect(compact.cols, lessThan(idle.cols));
-      expect(compact.rows, lessThan(idle.rows));
+      expect(compact.loops, isFalse);
+      expect(compact.cols, idle.cols);
+      expect(compact.rows, idle.rows);
     });
 
     test('nothing on the grids is outside the braille block', () {
