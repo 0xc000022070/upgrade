@@ -1045,6 +1045,28 @@ void main() {
     await sessions.close(_rose.id, session);
   });
 
+  testWidgets('a second wake inside a second of the first rehomes nothing', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+
+    sessions.wakeAll();
+    await _pumpDial(tester);
+    sessions.wakeAll();
+    await _pumpDial(tester);
+    expect(transport.opened.single.rehomes, 1);
+
+    await tester.pump(shellRehomeSettle);
+    sessions.wakeAll();
+    await _pumpDial(tester);
+    expect(transport.opened.single.rehomes, 2);
+
+    await sessions.close(_rose.id, session);
+  });
+
   testWidgets('a wake is the first of a fresh schedule, not one dial', (
     tester,
   ) async {

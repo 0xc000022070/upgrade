@@ -188,4 +188,27 @@ void main() {
     await sessions.close(rose.id, session);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('a network arriving and the resume behind it rehome once', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(_host(sessions));
+
+    final session = await _live(tester, sessions);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    await pushNetwork(true);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+
+    expect(transport.opened.single.rehomes, 1);
+
+    await sessions.close(rose.id, session);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }

@@ -122,6 +122,10 @@ const shellReconnectDelays = <Duration>[
   Duration(seconds: 30),
 ];
 
+/// The network arriving and the resume behind it are one wake-up of the phone, so a second
+/// rehome landing inside this of the first is the same moment asking twice.
+const shellRehomeSettle = Duration(seconds: 1);
+
 /// Written into the terminal above each new shell. A prompt appearing under a dead
 /// shell's output with no mark between them is a lie about what happened, and the dim SGR
 /// is what every other tool marks its own lines with.
@@ -345,6 +349,9 @@ class ShellSession extends ChangeNotifier {
   /// Cancelled by `STOP`, by a retry and by the tab closing, all three of which are the
   /// user deciding what happens next instead of the schedule.
   Timer? _reconnect;
+
+  bool _rehoming = false;
+  Timer? _rehomed;
 
   bool _retired = false;
 
@@ -726,6 +733,8 @@ class ShellSessions extends ChangeNotifier {
     session._disown();
     session._reconnect?.cancel();
     session._reconnect = null;
+    session._rehomed?.cancel();
+    session._rehomed = null;
     session._stopAsking();
     session.disarm();
     _byHost[hostId]?.remove(session);
@@ -1279,19 +1288,34 @@ class ShellSessions extends ChangeNotifier {
       for (final session in List.of(sessions)) {
         final connection = session.connection;
         if (connection != null && session.state.holdsSession) {
-          if (!rehome) continue;
-          unawaited(
-            connection.rehome().catchError((Object error) {
-              debugPrint(
-                'dazzle.shell ${session.host.name}: rehome failed: $error',
-              );
-            }),
-          );
+          if (rehome) _rehome(session, connection);
           continue;
         }
         wake(session);
       }
     }
+  }
+
+  void _rehome(ShellSession session, ShellConnection connection) {
+    if (session._rehoming || session._rehomed != null) return;
+    session._rehoming = true;
+    unawaited(
+      connection
+          .rehome()
+          .catchError((Object error) {
+            debugPrint(
+              'dazzle.shell ${session.host.name}: rehome failed: $error',
+            );
+          })
+          .whenComplete(() {
+            session._rehoming = false;
+            if (session._closed) return;
+            session._rehomed = Timer(
+              shellRehomeSettle,
+              () => session._rehomed = null,
+            );
+          }),
+    );
   }
 
   /// One tab, as the first step of a fresh schedule: a dial that misses waits two seconds
