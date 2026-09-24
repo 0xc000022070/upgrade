@@ -83,6 +83,20 @@ void main() {
       handle.dispose();
     });
 
+    testWidgets('a screen reader hears the word once, not the drawn one too', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await pumpCell(tester);
+      expect(tester.getSemantics(_cell).label, 'CTRL');
+
+      await pumpCell(tester, repeat: 3);
+      await tester.pumpAndSettle();
+      expect(tester.getSemantics(_cell).label, 'CTRL x3');
+
+      handle.dispose();
+    });
+
     testWidgets('an armed cell is the accent and a bare one is not', (
       tester,
     ) async {

@@ -30,7 +30,7 @@ Future<void> showActionSheet(
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
-    barrierLabel: title,
+    barrierLabel: 'DISMISS $title',
     barrierColor: const Color(0xCC000000),
     transitionDuration: Motion.fast,
     pageBuilder: (context, animation, secondary) {
@@ -67,7 +67,7 @@ Future<String?> promptForText(
   return showGeneralDialog<String>(
     context: context,
     barrierDismissible: true,
-    barrierLabel: title,
+    barrierLabel: 'DISMISS $title',
     barrierColor: const Color(0xCC000000),
     transitionDuration: Motion.fast,
     pageBuilder: (context, animation, secondary) => Padding(

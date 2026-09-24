@@ -27,7 +27,7 @@ Future<T?> showPanelSheet<T>(
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: true,
-    barrierLabel: title,
+    barrierLabel: 'DISMISS $title',
     barrierColor: const Color(0xCC000000),
     transitionDuration: Motion.fast,
     pageBuilder: (context, animation, secondary) => content,

@@ -250,6 +250,7 @@ class _ShellHeaderState extends State<ShellHeader> {
           if (onDiff != null)
             _TabCell(
               key: const ValueKey('shell-tab-diff'),
+              label: 'DIFF',
               icon: DazzleIcons.branch,
               dimmed: !widget.diffReady,
               onTap: widget.diffReady ? onDiff : null,
@@ -606,7 +607,10 @@ class _TabCell extends StatelessWidget {
             // its child takes every pixel its constraints allow, so a cell capped
             // at [_tabMaxWidth] is that wide even when it says `1`.
             if (icon case final icon?)
-              DazzleIcon(icon, size: IconSizes.sm, color: tint)
+              Semantics(
+                label: label,
+                child: DazzleIcon(icon, size: IconSizes.sm, color: tint),
+              )
             else
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: _tabMaxWidth),
