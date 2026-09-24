@@ -57,6 +57,12 @@ bool _isBlockIn(WidgetTester tester, Finder target) {
 bool _isBlock(WidgetTester tester, String label) =>
     _isBlockIn(tester, _inStatic(label));
 
+void _tall(WidgetTester tester) {
+  tester.view.physicalSize = const Size(400, 1600);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
+
 void main() {
   late AppDatabase db;
   late SettingsRepository settings;
@@ -98,6 +104,26 @@ void main() {
     expect(find.text('[ THEME ]'), findsOneWidget);
     expect(find.text('[ BUILD ]'), findsOneWidget);
     expect(find.text('PROJECTS'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('the settings blocks run top to bottom in their fixed order', (
+    tester,
+  ) async {
+    _tall(tester);
+    await tester.pumpWidget(host(const SettingsScreen()));
+    await _ready(tester);
+
+    final tops = [
+      '[ STATIC ]',
+      '[ ALERTS ]',
+      '[ BUNDLE ]',
+      '[ THEME ]',
+      '[ BUILD ]',
+    ].map((title) => tester.getTopLeft(find.text(title)).dy).toList();
+    for (var i = 1; i < tops.length; i++) {
+      expect(tops[i], greaterThan(tops[i - 1]));
+    }
     await unmount(tester);
   });
 
@@ -143,6 +169,7 @@ void main() {
   testWidgets('theme defaults to HOUSE and the picker writes the row', (
     tester,
   ) async {
+    _tall(tester);
     await tester.pumpWidget(host(const SettingsScreen()));
     await _ready(tester);
 
