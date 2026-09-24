@@ -14,6 +14,7 @@ import '../data/repositories/host_repository.dart';
 import '../platform/host_keys.dart';
 import '../platform/plugins/manifest.dart';
 import '../platform/plugins/store.dart';
+import '../platform/ssh_settle.dart';
 import 'agents.dart';
 import 'path_scan.dart';
 
@@ -184,8 +185,6 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
       username: host.user,
       identities: SSHKeyPair.fromPem(privateKey),
       onVerifyHostKey: verifier.verify,
-      handshakeTimeout: const Duration(seconds: 10),
-      authTimeout: const Duration(seconds: 10),
     );
     try {
       await client.authenticated.timeout(const Duration(seconds: 15));
@@ -260,8 +259,7 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
       }
       return result;
     } finally {
-      client.close();
-      socket.close();
+      unawaited(closeSettled(client, socket));
     }
   };
 });

@@ -28,6 +28,8 @@ class RudeSocket implements SSHSocket {
   @override
   Future<void> get done => _done.future;
 
+  bool get closed => _done.isCompleted;
+
   static const _reason = SocketException('Connection reset by peer');
 
   var _reset = false;
@@ -144,6 +146,7 @@ class FakeHost implements ShellHost {
 
   final Object? authError;
   final Object? shellError;
+  Completer<void>? authGate;
   String execOut;
   String execError;
   int? execCode;
@@ -156,6 +159,7 @@ class FakeHost implements ShellHost {
 
   @override
   Future<void> get authenticated async {
+    await authGate?.future;
     final error = authError;
     if (error != null) throw error;
   }
@@ -1046,7 +1050,6 @@ void main() {
         socket,
         user: 'luis',
         privateKey: privateKey,
-        timeout: const Duration(seconds: 1),
         keepAlive: const Duration(seconds: 15),
       );
       socket.reset();
@@ -1056,5 +1059,51 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
     expect(loose, isEmpty);
+  });
+
+  test('a host that has not authenticated by the deadline is reported as no answer', () async {
+    final host = FakeHost()..authGate = Completer<void>();
+    final tunnel = ShellTunnel(
+      timeout: const Duration(milliseconds: 100),
+      dial: ({
+        required String address,
+        required int port,
+        required String user,
+        required String privateKey,
+        HostKeyVerifier? verifier,
+        required Duration timeout,
+        required Duration keepAlive,
+      }) async => host,
+    );
+
+    final kind = await kindOf(() => openOn(tunnel));
+
+    expect(kind, ShellFailureKind.unreachable);
+    expect(host.closed, isTrue);
+  });
+
+  test('closing a host still authenticating waits for it to settle', () async {
+    final keys = Ed25519Keys(MemoryPrivateKeyStore());
+    await keys.generate(id: 'key-1', name: 'dazzle');
+    final privateKey = (await keys.privateKey('key-1'))!;
+
+    final socket = RudeSocket();
+    final host = sshHostOver(
+      socket,
+      user: 'luis',
+      privateKey: privateKey,
+      keepAlive: const Duration(seconds: 15),
+    );
+    var settled = false;
+    final closing = host.close().whenComplete(() => settled = true);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(socket.closed, isFalse);
+    expect(settled, isFalse);
+
+    socket.reset();
+    await closing.timeout(const Duration(seconds: 1));
+
+    expect(socket.closed, isTrue);
   });
 }

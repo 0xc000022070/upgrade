@@ -12,6 +12,7 @@ import '../application/reason_lines.dart';
 import 'herdr_socket.dart';
 import 'host_keys.dart';
 import 'shell/remote_shell.dart';
+import 'ssh_settle.dart';
 
 class AgentSnapshot {
   const AgentSnapshot({
@@ -1280,19 +1281,16 @@ class HerdrClient {
       socket,
       username: user,
       identities: SSHKeyPair.fromPem(privateKey),
-      handshakeTimeout: timeout,
-      authTimeout: timeout,
       keepAliveInterval: keepAlive,
       onVerifyHostKey: verifier?.verify,
     );
     try {
-      await _guard(() => client.authenticated, verifier);
+      await _guard(() => client.authenticated.timeout(timeout), verifier);
       return HerdrSession._(socket, client);
     } on HerdrFailure {
       // A half-open connection is worse than none: the host would count it against the one
       // connection per phone until its own timeout.
-      client.close();
-      socket.close();
+      unawaited(closeSettled(client, socket));
       rethrow;
     }
   }

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dartssh2/dartssh2.dart';
 
 import '../herdr_client.dart';
 import '../host_keys.dart';
+import '../ssh_settle.dart';
 
 class WorkspaceReply {
   const WorkspaceReply({
@@ -52,19 +54,16 @@ class WorkspaceSsh implements WorkspaceRunner {
       socket,
       username: user,
       identities: SSHKeyPair.fromPem(privateKey),
-      handshakeTimeout: timeout,
-      authTimeout: timeout,
       keepAliveInterval: keepAlive,
       onVerifyHostKey: verifier?.verify,
     );
     try {
-      await _guard(() => client.authenticated, verifier);
+      await _guard(() => client.authenticated.timeout(timeout), verifier);
       return WorkspaceSsh._(socket, client);
     } on HerdrFailure {
       // Half-open costs the host a connection until its own timeout, and the phone has one of
       // these per workspace it opens.
-      client.close();
-      socket.close();
+      unawaited(closeSettled(client, socket));
       rethrow;
     }
   }

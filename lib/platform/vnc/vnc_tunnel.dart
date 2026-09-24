@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:dartssh2/dartssh2.dart';
 
 import '../host_keys.dart';
+import '../ssh_settle.dart';
 import 'rfb_client.dart';
 import 'rfb_messages.dart';
 import 'vnc_failure.dart';
@@ -37,15 +40,13 @@ class VncTunnel {
       socket,
       username: user,
       identities: SSHKeyPair.fromPem(privateKey),
-      handshakeTimeout: timeout,
-      authTimeout: timeout,
       keepAliveInterval: keepAlive,
       onVerifyHostKey: verifier?.verify,
     );
     SSHForwardChannel? channel;
     RfbClient? rfb;
     try {
-      await guardVnc(() => client.authenticated, verifier);
+      await guardVnc(() => client.authenticated.timeout(timeout), verifier);
       final opened = await guardVnc(
         () => client.forwardLocal(displayHost, displayPort),
         verifier,
@@ -64,8 +65,7 @@ class VncTunnel {
       // until its own timeout.
       await rfb?.close();
       channel?.destroy();
-      client.close();
-      socket.close();
+      unawaited(closeSettled(client, socket));
       rethrow;
     }
   }

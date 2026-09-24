@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import '../herdr_client.dart';
 import '../host_keys.dart';
+import '../ssh_settle.dart';
 import 'mosh_channel.dart';
 import 'remote_shell.dart';
 import 'shell_connection.dart';
@@ -112,7 +113,11 @@ class ShellTunnel {
       // The host key is checked inside the handshake, which is what [ShellHost.authenticated]
       // is waiting on: a refusal surfaces here as an ssh error, and the verifier is the only
       // thing that knows which of the two refusals it was.
-      await _guard(address, () => host.authenticated, verifier);
+      await _guard(
+        address,
+        () => host.authenticated.timeout(timeout),
+        verifier,
+      );
       final config = SSHPtyConfig(
         type: terminalType,
         width: columns,
@@ -162,7 +167,7 @@ class ShellTunnel {
     } catch (_) {
       // Half-open is worse than none: an ssh connection left behind counts against the host
       // until its own timeout, and there is no reconnect loop to reuse it.
-      await host.close();
+      unawaited(host.close());
       rethrow;
     }
   }
@@ -306,10 +311,14 @@ class ShellTunnel {
       verifier,
     );
     try {
-      await _guard(address, () => host.authenticated, verifier);
+      await _guard(
+        address,
+        () => host.authenticated.timeout(timeout),
+        verifier,
+      );
       return host;
     } catch (_) {
-      await host.close();
+      unawaited(host.close());
       rethrow;
     }
   }
@@ -428,7 +437,6 @@ Future<ShellHost> dialSsh({
     socket,
     user: user,
     privateKey: privateKey,
-    timeout: timeout,
     keepAlive: keepAlive,
     verifier: verifier,
   );
@@ -439,7 +447,6 @@ ShellHost sshHostOver(
   SSHSocket socket, {
   required String user,
   required String privateKey,
-  required Duration timeout,
   required Duration keepAlive,
   HostKeyVerifier? verifier,
 }) => _SshHost(
@@ -448,8 +455,6 @@ ShellHost sshHostOver(
     socket,
     username: user,
     identities: SSHKeyPair.fromPem(privateKey),
-    handshakeTimeout: timeout,
-    authTimeout: timeout,
     keepAliveInterval: keepAlive,
     onVerifyHostKey: verifier?.verify,
   ),
@@ -479,12 +484,7 @@ class _SshHost implements ShellHost {
       _SshExec(await _client.execute(command));
 
   @override
-  Future<void> close() async {
-    _client.close();
-    // Closing a socket the host reset finishes with the reset, and every dial that failed
-    // closes what it opened: unawaited, that error escapes to the zone.
-    await _socket.close().catchError((Object _) {});
-  }
+  Future<void> close() => closeSettled(_client, _socket);
 }
 
 class _SshExec implements ShellExec {
