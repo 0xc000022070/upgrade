@@ -80,7 +80,11 @@ class HostScreenController extends ChangeNotifier {
   StreamSubscription<Framebuffer>? _frames;
 
   ScreenPhase _phase = const ScreenConnecting();
+  final _painted = ValueNotifier<ui.Image?>(null);
   ui.Image? _image;
+  int _frameCount = 0;
+  bool _away = false;
+  bool _stalled = false;
   Framebuffer? _lastFramebuffer;
   Size _framebufferSize = Size.zero;
   Duration? _lastFrame;
@@ -93,6 +97,10 @@ class HostScreenController extends ChangeNotifier {
   ScreenPhase get phase => _phase;
 
   ui.Image? get image => _image;
+  ValueListenable<ui.Image?> get frames => _painted;
+
+  int get frameCount => _frameCount;
+
   Size get framebufferSize => _framebufferSize;
 
   /// The decoded one rather than the newest arrival: a frame that failed to decode was
@@ -103,6 +111,7 @@ class HostScreenController extends ChangeNotifier {
 
   Future<void> connect() async {
     final attempt = ++_attempt;
+    _stalled = false;
     _phase = const ScreenConnecting();
     notifyListeners();
 
@@ -175,25 +184,45 @@ class HostScreenController extends ChangeNotifier {
       return;
     }
     if (image != null) {
-      // The previous frame's 8 MB goes back the moment the next one is ready, rather than when
-      // the next GC gets to it.
-      _image?.dispose();
-      _image = image;
-      _lastFramebuffer = framebuffer;
-      _lastFrame = watch.elapsed;
-      _framebufferSize = Size(
+      final size = Size(
         framebuffer.width.toDouble(),
         framebuffer.height.toDouble(),
       );
-      notifyListeners();
+      final reshaped = _image == null || size != _framebufferSize;
+      final previous = _image;
+      _image = image;
+      _painted.value = image;
+      // The previous frame's 8 MB goes back the moment the next one is ready, rather than when
+      // the next GC gets to it.
+      previous?.dispose();
+      _lastFramebuffer = framebuffer;
+      _lastFrame = watch.elapsed;
+      _frameCount++;
+      _framebufferSize = size;
+      if (reshaped) notifyListeners();
       _log(
         '${framebuffer.width}x${framebuffer.height} in '
         '${watch.elapsedMicroseconds / 1000}ms',
       );
     }
+    if (_away) {
+      _stalled = true;
+      return;
+    }
     // The next request goes as soon as this update is painted, and the client's own 24 fps
     // cap decides whether it waits first.
     await connection.rfb.requestUpdate();
+  }
+
+  void setAway(bool away) {
+    _away = away;
+    if (away || !_stalled) return;
+    _stalled = false;
+    unawaited(
+      _connection?.rfb.requestUpdate().catchError(
+        (Object error) => _log('resume request failed: $error'),
+      ),
+    );
   }
 
   Future<ui.Image?> _decode(Framebuffer framebuffer) async {
@@ -285,6 +314,7 @@ class HostScreenController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     unawaited(_teardown());
+    _painted.dispose();
     _image?.dispose();
     _image = null;
     super.dispose();

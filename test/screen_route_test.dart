@@ -282,6 +282,28 @@ void main() {
     expect(keyboardUp(tester), isFalse);
   });
 
+  testWidgets('a hidden app asks for no update until it is shown again', (
+    tester,
+  ) async {
+    late FakeVncConnection connection;
+    await pumpRoute(tester, open: _liveOpen((c) => connection = c));
+    await settleAsync(tester);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    final before = connection.channel.sent.length;
+    connection.feedFrame();
+    await settleAsync(tester);
+    expect(connection.channel.sent.length, before);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await settleAsync(tester);
+    final after = connection.channel.sent.sublist(before);
+    expect(after, hasLength(10));
+    expect(after.first, Rfb.messageFramebufferUpdateRequest);
+  });
+
   testWidgets('a left drag hides the rail and the handle brings it back', (
     tester,
   ) async {
