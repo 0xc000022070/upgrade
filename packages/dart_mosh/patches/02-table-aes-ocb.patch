@@ -1,0 +1,754 @@
+# aes-ocb on word tables with no allocation per block
+#
+# Against dart_mosh 0.0.4. Regenerate with `just mosh-patches`.
+
+diff --git a/lib/src/crypto/aes_ocb.dart b/lib/src/crypto/aes_ocb.dart
+index b7b8903..2adfcb7 100644
+--- a/lib/src/crypto/aes_ocb.dart
++++ b/lib/src/crypto/aes_ocb.dart
+@@ -1,29 +1,26 @@
+ import 'dart:typed_data';
+ 
+-import 'package:pointycastle/api.dart' show KeyParameter;
+-import 'package:pointycastle/block/aes.dart' show AESEngine;
+-
+ import '../exception.dart';
+ import 'aead.dart';
+ 
+ /// Pure Dart AES-OCB implementation compatible with stock `mosh-server`.
++///
++/// Blocks are carried as four big-endian 32-bit words, which is the shape both
++/// the AES tables and OCB's doubling work in, so no block allocates.
+ class AesOcb implements MoshAead {
+   /// Creates an AES-OCB cipher with a 128, 192, or 256 bit AES [key].
+   AesOcb(
+     Uint8List key, {
+     this.associatedData = const <int>[],
+     this.tagLength = _aesBlockLength,
+-  }) : _aes = _AesBlockCipher(key) {
+-    if (!_validKeyLengths.contains(key.length)) {
+-      throw const MoshException('AES-OCB keys must be 16, 24, or 32 bytes.');
+-    }
++  }) : _aes = _Aes(key) {
+     if (tagLength <= 0 || tagLength > _maxTagLength) {
+       throw const MoshException(
+         'AES-OCB tagLength must be between 1 and 16 bytes.',
+       );
+     }
+-    _lStar = _aes.encryptBlock(Uint8List(_aesBlockLength));
+-    _lDollar = _double(_lStar);
++    _aes.encrypt(_zero(_lStar));
++    _lDollar.setAll(0, _double(_lStar));
+     _lValues.add(_double(_lDollar));
+     _associatedDataHash = _hash(Uint8List.fromList(associatedData));
+   }
+@@ -33,53 +30,58 @@ class AesOcb implements MoshAead {
+ 
+   /// Authentication tag length in bytes.
+   final int tagLength;
+-  final _AesBlockCipher _aes;
+-  final List<Uint8List> _lValues = <Uint8List>[];
+-  late final Uint8List _lStar;
+-  late final Uint8List _lDollar;
+-  late final Uint8List _associatedDataHash;
++  final _Aes _aes;
++  final List<Uint32List> _lValues = <Uint32List>[];
++  final Uint32List _lStar = Uint32List(4);
++  final Uint32List _lDollar = Uint32List(4);
++  late final Uint32List _associatedDataHash;
++
++  final Uint32List _offset = Uint32List(4);
++  final Uint32List _checksum = Uint32List(4);
++  final Uint32List _block = Uint32List(4);
++  final Uint8List _blockBytes = Uint8List(_aesBlockLength);
++  final Uint8List _nonceTop = Uint8List(_aesBlockLength);
++  final Uint8List _stretch = Uint8List(_stretchLength);
++  bool _hasStretch = false;
+ 
+   /// Encrypts [plaintext] and appends an authentication tag.
+   @override
+   Uint8List seal({required Uint8List nonce, required Uint8List plaintext}) {
+     _checkNonce(nonce);
++    _initialOffset(nonce);
++    _zero(_checksum);
+ 
+-    var offset = _initialOffset(nonce);
+-    var checksum = Uint8List(_aesBlockLength);
+-    final ciphertext = BytesBuilder(copy: false);
++    final out = Uint8List(plaintext.length + tagLength);
+     final fullBlocks = plaintext.length ~/ _aesBlockLength;
+-    final remainder = plaintext.length % _aesBlockLength;
++    final block = _block, offset = _offset, checksum = _checksum;
+ 
+     for (var i = 1; i <= fullBlocks; i++) {
+-      offset = _xor(offset, _lSub(_ntz(i)));
+-      final block = plaintext.sublist(
+-        (i - 1) * _aesBlockLength,
+-        i * _aesBlockLength,
+-      );
+-      ciphertext.add(_xor(offset, _aes.encryptBlock(_xor(block, offset))));
+-      checksum = _xor(checksum, block);
++      _xorInto(offset, _lSub(_ntz(i)));
++      final at = (i - 1) * _aesBlockLength;
++      for (var w = 0; w < 4; w++) {
++        final word = _readWord(plaintext, at + w * 4);
++        checksum[w] ^= word;
++        block[w] = word ^ offset[w];
++      }
++      _aes.encrypt(block);
++      for (var w = 0; w < 4; w++) {
++        _writeWord(out, at + w * 4, block[w] ^ offset[w]);
++      }
+     }
+ 
+-    Uint8List tag;
+-    if (remainder > 0) {
+-      final partial = plaintext.sublist(fullBlocks * _aesBlockLength);
+-      final offsetStar = _xor(offset, _lStar);
+-      final pad = _aes.encryptBlock(offsetStar);
+-      ciphertext.add(_xorPrefix(partial, pad));
+-      checksum = _xor(checksum, _pad(partial));
+-      tag = _xor(
+-        _aes.encryptBlock(_xor(_xor(checksum, offsetStar), _lDollar)),
+-        _associatedDataHash,
+-      );
+-    } else {
+-      tag = _xor(
+-        _aes.encryptBlock(_xor(_xor(checksum, offset), _lDollar)),
+-        _associatedDataHash,
+-      );
++    final done = fullBlocks * _aesBlockLength;
++    if (done < plaintext.length) {
++      _xorInto(offset, _lStar);
++      _toBytes(_aes.encrypt(_copy(offset, block)), _blockBytes);
++      final partial = Uint8List.sublistView(plaintext, done);
++      for (var i = 0; i < partial.length; i++) {
++        out[done + i] = partial[i] ^ _blockBytes[i];
++      }
++      _xorPadded(checksum, partial);
+     }
+ 
+-    ciphertext.add(tag.sublist(0, tagLength));
+-    return ciphertext.takeBytes();
++    _writeTag(out, plaintext.length);
++    return out;
+   }
+ 
+   /// Verifies and decrypts [ciphertextWithTag].
+@@ -92,51 +94,60 @@ class AesOcb implements MoshAead {
+     if (ciphertextWithTag.length < tagLength) {
+       throw const MoshException('AES-OCB ciphertext is shorter than its tag.');
+     }
++    _initialOffset(nonce);
++    _zero(_checksum);
+ 
+-    final tagStart = ciphertextWithTag.length - tagLength;
+-    final ciphertext = ciphertextWithTag.sublist(0, tagStart);
+-    final receivedTag = ciphertextWithTag.sublist(tagStart);
+-    var offset = _initialOffset(nonce);
+-    var checksum = Uint8List(_aesBlockLength);
+-    final plaintext = BytesBuilder(copy: false);
+-    final fullBlocks = ciphertext.length ~/ _aesBlockLength;
+-    final remainder = ciphertext.length % _aesBlockLength;
++    final length = ciphertextWithTag.length - tagLength;
++    final plaintext = Uint8List(length);
++    final fullBlocks = length ~/ _aesBlockLength;
++    final block = _block, offset = _offset, checksum = _checksum;
+ 
+     for (var i = 1; i <= fullBlocks; i++) {
+-      offset = _xor(offset, _lSub(_ntz(i)));
+-      final block = ciphertext.sublist(
+-        (i - 1) * _aesBlockLength,
+-        i * _aesBlockLength,
+-      );
+-      final plainBlock = _xor(offset, _aes.decryptBlock(_xor(block, offset)));
+-      plaintext.add(plainBlock);
+-      checksum = _xor(checksum, plainBlock);
++      _xorInto(offset, _lSub(_ntz(i)));
++      final at = (i - 1) * _aesBlockLength;
++      for (var w = 0; w < 4; w++) {
++        block[w] = _readWord(ciphertextWithTag, at + w * 4) ^ offset[w];
++      }
++      _aes.decrypt(block);
++      for (var w = 0; w < 4; w++) {
++        final word = block[w] ^ offset[w];
++        checksum[w] ^= word;
++        _writeWord(plaintext, at + w * 4, word);
++      }
+     }
+ 
+-    Uint8List tag;
+-    if (remainder > 0) {
+-      final partial = ciphertext.sublist(fullBlocks * _aesBlockLength);
+-      final offsetStar = _xor(offset, _lStar);
+-      final pad = _aes.encryptBlock(offsetStar);
+-      final plainPartial = _xorPrefix(partial, pad);
+-      plaintext.add(plainPartial);
+-      checksum = _xor(checksum, _pad(plainPartial));
+-      tag = _xor(
+-        _aes.encryptBlock(_xor(_xor(checksum, offsetStar), _lDollar)),
+-        _associatedDataHash,
+-      );
+-    } else {
+-      tag = _xor(
+-        _aes.encryptBlock(_xor(_xor(checksum, offset), _lDollar)),
+-        _associatedDataHash,
+-      );
++    final done = fullBlocks * _aesBlockLength;
++    if (done < length) {
++      _xorInto(offset, _lStar);
++      _toBytes(_aes.encrypt(_copy(offset, block)), _blockBytes);
++      for (var i = done; i < length; i++) {
++        plaintext[i] = ciphertextWithTag[i] ^ _blockBytes[i - done];
++      }
++      _xorPadded(checksum, Uint8List.sublistView(plaintext, done));
+     }
+ 
+-    if (!_constantTimeEquals(receivedTag, tag.sublist(0, tagLength))) {
++    final tag = Uint8List(_aesBlockLength);
++    _writeTag(tag, 0);
++    var diff = 0;
++    for (var i = 0; i < tagLength; i++) {
++      diff |= tag[i] ^ ciphertextWithTag[length + i];
++    }
++    if (diff != 0) {
+       throw const MoshException('AES-OCB authentication tag check failed.');
+     }
+ 
+-    return plaintext.takeBytes();
++    return plaintext;
++  }
++
++  void _writeTag(Uint8List out, int at) {
++    final block = _block;
++    for (var w = 0; w < 4; w++) {
++      block[w] = _checksum[w] ^ _offset[w] ^ _lDollar[w];
++    }
++    _aes.encrypt(block);
++    _xorInto(block, _associatedDataHash);
++    _toBytes(block, _blockBytes);
++    out.setRange(at, at + tagLength, _blockBytes);
+   }
+ 
+   void _checkNonce(Uint8List nonce) {
+@@ -145,31 +156,35 @@ class AesOcb implements MoshAead {
+     }
+   }
+ 
+-  Uint8List _hash(Uint8List data) {
+-    var sum = Uint8List(_aesBlockLength);
+-    var offset = Uint8List(_aesBlockLength);
++  Uint32List _hash(Uint8List data) {
++    final sum = Uint32List(4);
++    final offset = Uint32List(4);
++    final block = Uint32List(4);
+     final fullBlocks = data.length ~/ _aesBlockLength;
+-    final remainder = data.length % _aesBlockLength;
+ 
+     for (var i = 1; i <= fullBlocks; i++) {
+-      offset = _xor(offset, _lSub(_ntz(i)));
+-      final block = data.sublist(
+-        (i - 1) * _aesBlockLength,
+-        i * _aesBlockLength,
+-      );
+-      sum = _xor(sum, _aes.encryptBlock(_xor(block, offset)));
++      _xorInto(offset, _lSub(_ntz(i)));
++      for (var w = 0; w < 4; w++) {
++        block[w] =
++            _readWord(data, (i - 1) * _aesBlockLength + w * 4) ^ offset[w];
++      }
++      _xorInto(sum, _aes.encrypt(block));
+     }
+ 
+-    if (remainder > 0) {
+-      offset = _xor(offset, _lStar);
+-      final partial = data.sublist(fullBlocks * _aesBlockLength);
+-      sum = _xor(sum, _aes.encryptBlock(_xor(_pad(partial), offset)));
++    final done = fullBlocks * _aesBlockLength;
++    if (done < data.length) {
++      _xorInto(offset, _lStar);
++      _copy(offset, block);
++      _xorPadded(block, Uint8List.sublistView(data, done));
++      _xorInto(sum, _aes.encrypt(block));
+     }
+ 
+     return sum;
+   }
+ 
+-  Uint8List _initialOffset(Uint8List nonce) {
++  /// Consecutive nonces share all but their low six bits, so the stretch, and
++  /// the block cipher call behind it, is kept until the rest of the nonce moves.
++  void _initialOffset(Uint8List nonce) {
+     final formatted = Uint8List(_aesBlockLength);
+     final tagBits = (tagLength * _bitsPerByte) % _blockBits;
+     formatted[0] = tagBits << 1;
+@@ -180,20 +195,37 @@ class AesOcb implements MoshAead {
+         1 << (_lastByteBit - (markerBit % _bitsPerByte));
+ 
+     final bottom = formatted[_lastBlockByte] & _bottomMask;
+-    final top = Uint8List.fromList(formatted);
+-    top[_lastBlockByte] &= _topMask;
+-
+-    final ktop = _aes.encryptBlock(top);
+-    final stretch = Uint8List(_stretchLength);
+-    stretch.setRange(0, _aesBlockLength, ktop);
+-    for (var i = 0; i < _stretchTailLength; i++) {
+-      stretch[_aesBlockLength + i] = ktop[i] ^ ktop[i + 1];
++    formatted[_lastBlockByte] &= _topMask;
++
++    var same = _hasStretch;
++    for (var i = 0; same && i < _aesBlockLength; i++) {
++      same = formatted[i] == _nonceTop[i];
++    }
++    if (!same) {
++      _nonceTop.setAll(0, formatted);
++      final ktop = _toBytes(
++        _aes.encrypt(_fromBytes(formatted, _block)),
++        _blockBytes,
++      );
++      _stretch.setRange(0, _aesBlockLength, ktop);
++      for (var i = 0; i < _stretchTailLength; i++) {
++        _stretch[_aesBlockLength + i] = ktop[i] ^ ktop[i + 1];
++      }
++      _hasStretch = true;
+     }
+ 
+-    return _sliceBits(stretch, bottom, _aesBlockLength);
++    final byteShift = bottom >> 3;
++    final bitShift = bottom & 7;
++    for (var i = 0; i < _aesBlockLength; i++) {
++      formatted[i] =
++          (_stretch[i + byteShift] << bitShift |
++              _stretch[i + byteShift + 1] >> (_bitsPerByte - bitShift)) &
++          _byteMask;
++    }
++    _fromBytes(formatted, _offset);
+   }
+ 
+-  Uint8List _lSub(int index) {
++  Uint32List _lSub(int index) {
+     while (_lValues.length <= index) {
+       _lValues.add(_double(_lValues.last));
+     }
+@@ -201,91 +233,291 @@ class AesOcb implements MoshAead {
+   }
+ }
+ 
+-class _AesBlockCipher {
+-  _AesBlockCipher(Uint8List key) {
+-    final keyParameter = KeyParameter(key);
+-    _encrypt.init(true, keyParameter);
+-    _decrypt.init(false, keyParameter);
++/// Table-driven AES on big-endian words, the layout of the reference
++/// `rijndael-alg-fst` implementation.
++class _Aes {
++  _Aes(Uint8List key) {
++    if (!_validKeyLengths.contains(key.length)) {
++      throw const MoshException('AES-OCB keys must be 16, 24, or 32 bytes.');
++    }
++    final nk = key.length ~/ 4;
++    _rounds = nk + 6;
++    final words = 4 * (_rounds + 1);
++    final ek = Uint32List(words);
++    for (var i = 0; i < nk; i++) {
++      ek[i] = _readWord(key, i * 4);
++    }
++    for (var i = nk; i < words; i++) {
++      var temp = ek[i - 1];
++      if (i % nk == 0) {
++        temp =
++            _subWord(((temp << 8) | (temp >> 24)) & _wordMask) ^
++            (_rcon[i ~/ nk - 1] << 24);
++      } else if (nk > 6 && i % nk == 4) {
++        temp = _subWord(temp);
++      }
++      ek[i] = ek[i - nk] ^ temp;
++    }
++    _enc = ek;
++
++    final dk = Uint32List(words);
++    for (var r = 0; r <= _rounds; r++) {
++      for (var w = 0; w < 4; w++) {
++        final word = ek[4 * (_rounds - r) + w];
++        dk[4 * r + w] = r == 0 || r == _rounds
++            ? word
++            : _td0[_sbox[word >> 24]] ^
++                  _td1[_sbox[(word >> 16) & 0xff]] ^
++                  _td2[_sbox[(word >> 8) & 0xff]] ^
++                  _td3[_sbox[word & 0xff]];
++      }
++    }
++    _dec = dk;
+   }
+ 
+-  final AESEngine _encrypt = AESEngine();
+-  final AESEngine _decrypt = AESEngine();
+-
+-  Uint8List encryptBlock(Uint8List block) => _process(_encrypt, block);
+-
+-  Uint8List decryptBlock(Uint8List block) => _process(_decrypt, block);
++  late final int _rounds;
++  late final Uint32List _enc;
++  late final Uint32List _dec;
++
++  /// Encrypts the four words of [b] in place and returns it.
++  Uint32List encrypt(Uint32List b) {
++    final rk = _enc;
++    final te0 = _te0, te1 = _te1, te2 = _te2, te3 = _te3;
++    var s0 = b[0] ^ rk[0];
++    var s1 = b[1] ^ rk[1];
++    var s2 = b[2] ^ rk[2];
++    var s3 = b[3] ^ rk[3];
++    var k = 4;
++    for (var r = 1; r < _rounds; r++, k += 4) {
++      final t0 =
++          te0[s0 >> 24] ^
++          te1[(s1 >> 16) & 0xff] ^
++          te2[(s2 >> 8) & 0xff] ^
++          te3[s3 & 0xff] ^
++          rk[k];
++      final t1 =
++          te0[s1 >> 24] ^
++          te1[(s2 >> 16) & 0xff] ^
++          te2[(s3 >> 8) & 0xff] ^
++          te3[s0 & 0xff] ^
++          rk[k + 1];
++      final t2 =
++          te0[s2 >> 24] ^
++          te1[(s3 >> 16) & 0xff] ^
++          te2[(s0 >> 8) & 0xff] ^
++          te3[s1 & 0xff] ^
++          rk[k + 2];
++      final t3 =
++          te0[s3 >> 24] ^
++          te1[(s0 >> 16) & 0xff] ^
++          te2[(s1 >> 8) & 0xff] ^
++          te3[s2 & 0xff] ^
++          rk[k + 3];
++      s0 = t0;
++      s1 = t1;
++      s2 = t2;
++      s3 = t3;
++    }
++    final s = _sbox;
++    b[0] = _last(s, s0, s1, s2, s3) ^ rk[k];
++    b[1] = _last(s, s1, s2, s3, s0) ^ rk[k + 1];
++    b[2] = _last(s, s2, s3, s0, s1) ^ rk[k + 2];
++    b[3] = _last(s, s3, s0, s1, s2) ^ rk[k + 3];
++    return b;
++  }
+ 
+-  Uint8List _process(AESEngine engine, Uint8List block) {
+-    if (block.length != _aesBlockLength) {
+-      throw const MoshException('AES block input must be exactly 16 bytes.');
++  /// Decrypts the four words of [b] in place and returns it.
++  Uint32List decrypt(Uint32List b) {
++    final rk = _dec;
++    final td0 = _td0, td1 = _td1, td2 = _td2, td3 = _td3;
++    var s0 = b[0] ^ rk[0];
++    var s1 = b[1] ^ rk[1];
++    var s2 = b[2] ^ rk[2];
++    var s3 = b[3] ^ rk[3];
++    var k = 4;
++    for (var r = 1; r < _rounds; r++, k += 4) {
++      final t0 =
++          td0[s0 >> 24] ^
++          td1[(s3 >> 16) & 0xff] ^
++          td2[(s2 >> 8) & 0xff] ^
++          td3[s1 & 0xff] ^
++          rk[k];
++      final t1 =
++          td0[s1 >> 24] ^
++          td1[(s0 >> 16) & 0xff] ^
++          td2[(s3 >> 8) & 0xff] ^
++          td3[s2 & 0xff] ^
++          rk[k + 1];
++      final t2 =
++          td0[s2 >> 24] ^
++          td1[(s1 >> 16) & 0xff] ^
++          td2[(s0 >> 8) & 0xff] ^
++          td3[s3 & 0xff] ^
++          rk[k + 2];
++      final t3 =
++          td0[s3 >> 24] ^
++          td1[(s2 >> 16) & 0xff] ^
++          td2[(s1 >> 8) & 0xff] ^
++          td3[s0 & 0xff] ^
++          rk[k + 3];
++      s0 = t0;
++      s1 = t1;
++      s2 = t2;
++      s3 = t3;
+     }
+-    final out = Uint8List(_aesBlockLength);
+-    engine.processBlock(block, 0, out, 0);
+-    return out;
++    final s = _inverseSbox;
++    b[0] = _last(s, s0, s3, s2, s1) ^ rk[k];
++    b[1] = _last(s, s1, s0, s3, s2) ^ rk[k + 1];
++    b[2] = _last(s, s2, s1, s0, s3) ^ rk[k + 2];
++    b[3] = _last(s, s3, s2, s1, s0) ^ rk[k + 3];
++    return b;
+   }
+ }
+ 
+-Uint8List _double(Uint8List block) {
+-  var carry = 0;
+-  final out = Uint8List(_aesBlockLength);
+-  for (var i = _lastBlockByte; i >= 0; i--) {
+-    final value = block[i];
+-    out[i] = ((value << 1) & _byteMask) | carry;
+-    carry = (value & _highBit) == 0 ? 0 : 1;
++@pragma('vm:prefer-inline')
++int _last(Uint8List s, int a, int b, int c, int d) =>
++    (s[a >> 24] << 24) |
++    (s[(b >> 16) & 0xff] << 16) |
++    (s[(c >> 8) & 0xff] << 8) |
++    s[d & 0xff];
++
++int _subWord(int w) => _last(_sbox, w, w, w, w);
++
++final Uint8List _sbox = _tables.$1;
++final Uint8List _inverseSbox = _tables.$2;
++final Uint32List _te0 = _tables.$3[0];
++final Uint32List _te1 = _tables.$3[1];
++final Uint32List _te2 = _tables.$3[2];
++final Uint32List _te3 = _tables.$3[3];
++final Uint32List _td0 = _tables.$4[0];
++final Uint32List _td1 = _tables.$4[1];
++final Uint32List _td2 = _tables.$4[2];
++final Uint32List _td3 = _tables.$4[3];
++const List<int> _rcon = [
++  0x01,
++  0x02,
++  0x04,
++  0x08,
++  0x10,
++  0x20,
++  0x40,
++  0x80,
++  0x1b,
++  0x36,
++];
++
++final (Uint8List, Uint8List, List<Uint32List>, List<Uint32List>) _tables =
++    _buildTables();
++
++(Uint8List, Uint8List, List<Uint32List>, List<Uint32List>) _buildTables() {
++  final sbox = Uint8List(256);
++  final inverse = Uint8List(256);
++  int rotl8(int x, int n) => ((x << n) | (x >> (8 - n))) & 0xff;
++  var p = 1, q = 1;
++  do {
++    p = (p ^ (p << 1) ^ ((p & 0x80) != 0 ? 0x1b : 0)) & 0xff;
++    q ^= q << 1;
++    q ^= q << 2;
++    q ^= q << 4;
++    q &= 0xff;
++    if ((q & 0x80) != 0) q ^= 0x09;
++    final x = q ^ rotl8(q, 1) ^ rotl8(q, 2) ^ rotl8(q, 3) ^ rotl8(q, 4);
++    sbox[p] = x ^ 0x63;
++  } while (p != 1);
++  sbox[0] = 0x63;
++  for (var i = 0; i < 256; i++) {
++    inverse[sbox[i]] = i;
+   }
+-  if (carry != 0) {
+-    out[_lastBlockByte] ^= _ocbReductionPolynomial;
+-  }
+-  return out;
+-}
+ 
+-Uint8List _xor(List<int> left, List<int> right) {
+-  if (left.length != right.length) {
+-    throw const MoshException(
+-      'Cannot xor byte strings with different lengths.',
+-    );
++  int mul(int a, int b) {
++    var r = 0;
++    while (b != 0) {
++      if ((b & 1) != 0) r ^= a;
++      a = (a << 1) ^ ((a & 0x80) != 0 ? 0x11b : 0);
++      b >>= 1;
++    }
++    return r;
+   }
+-  final out = Uint8List(left.length);
+-  for (var i = 0; i < left.length; i++) {
+-    out[i] = left[i] ^ right[i];
++
++  int rotr32(int x, int n) => ((x >> n) | (x << (32 - n))) & _wordMask;
++  final te = List.generate(4, (_) => Uint32List(256));
++  final td = List.generate(4, (_) => Uint32List(256));
++  for (var i = 0; i < 256; i++) {
++    final s = sbox[i];
++    final e = (mul(s, 2) << 24) | (s << 16) | (s << 8) | mul(s, 3);
++    final si = inverse[i];
++    final d =
++        (mul(si, 14) << 24) |
++        (mul(si, 9) << 16) |
++        (mul(si, 13) << 8) |
++        mul(si, 11);
++    for (var t = 0; t < 4; t++) {
++      te[t][i] = rotr32(e, 8 * t);
++      td[t][i] = rotr32(d, 8 * t);
++    }
+   }
+-  return out;
++  return (sbox, inverse, te, td);
+ }
+ 
+-Uint8List _xorPrefix(List<int> left, List<int> right) {
+-  if (left.length > right.length) {
+-    throw const MoshException('Cannot xor prefix longer than source.');
+-  }
+-  final out = Uint8List(left.length);
+-  for (var i = 0; i < left.length; i++) {
+-    out[i] = left[i] ^ right[i];
++@pragma('vm:prefer-inline')
++int _readWord(Uint8List b, int at) =>
++    (b[at] << 24) | (b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3];
++
++@pragma('vm:prefer-inline')
++void _writeWord(Uint8List b, int at, int w) {
++  b[at] = w >> 24;
++  b[at + 1] = w >> 16;
++  b[at + 2] = w >> 8;
++  b[at + 3] = w;
++}
++
++Uint32List _fromBytes(Uint8List bytes, Uint32List out) {
++  for (var w = 0; w < 4; w++) {
++    out[w] = _readWord(bytes, w * 4);
+   }
+   return out;
+ }
+ 
+-Uint8List _pad(List<int> bytes) {
+-  if (bytes.length >= _aesBlockLength) {
+-    throw const MoshException('OCB padding is only for partial blocks.');
++Uint8List _toBytes(Uint32List words, Uint8List out) {
++  for (var w = 0; w < 4; w++) {
++    _writeWord(out, w * 4, words[w]);
+   }
+-  final out = Uint8List(_aesBlockLength);
+-  out.setRange(0, bytes.length, bytes);
+-  out[bytes.length] = _highBit;
+   return out;
+ }
+ 
+-Uint8List _sliceBits(Uint8List source, int bitOffset, int length) {
+-  final out = Uint8List(length);
+-  for (var i = 0; i < length * _bitsPerByte; i++) {
+-    final sourceBit = bitOffset + i;
+-    final bit =
+-        (source[sourceBit ~/ _bitsPerByte] >>
+-            (_lastByteBit - (sourceBit % _bitsPerByte))) &
+-        _lowBit;
+-    out[i ~/ _bitsPerByte] |= bit << (_lastByteBit - (i % _bitsPerByte));
++Uint32List _zero(Uint32List b) => b..fillRange(0, 4, 0);
++
++Uint32List _copy(Uint32List from, Uint32List to) => to..setAll(0, from);
++
++@pragma('vm:prefer-inline')
++void _xorInto(Uint32List into, Uint32List other) {
++  into[0] ^= other[0];
++  into[1] ^= other[1];
++  into[2] ^= other[2];
++  into[3] ^= other[3];
++}
++
++/// XORs a partial block, padded with its `10*` marker, into [into].
++void _xorPadded(Uint32List into, Uint8List partial) {
++  final padded = Uint8List(_aesBlockLength);
++  padded.setRange(0, partial.length, partial);
++  padded[partial.length] = _highBit;
++  for (var w = 0; w < 4; w++) {
++    into[w] ^= _readWord(padded, w * 4);
+   }
+-  return out;
+ }
+ 
++Uint32List _double(Uint32List b) {
++  final carry = b[0] >> 31;
++  return Uint32List(4)
++    ..[0] = (b[0] << 1) | (b[1] >> 31)
++    ..[1] = (b[1] << 1) | (b[2] >> 31)
++    ..[2] = (b[2] << 1) | (b[3] >> 31)
++    ..[3] = (b[3] << 1) ^ (carry * _ocbReductionPolynomial);
++}
++
++int _ntz(int value) => (value & -value).bitLength - 1;
++
+ const int _aesBlockLength = 16;
+ const int _aes192KeyLength = 24;
+ const int _aes256KeyLength = 32;
+@@ -297,8 +529,8 @@ const int _lastBlockBit = _blockBits - 1;
+ const int _lastByteBit = _bitsPerByte - 1;
+ const int _lastBlockByte = _aesBlockLength - 1;
+ const int _byteMask = 0xff;
++const int _wordMask = 0xffffffff;
+ const int _highBit = 0x80;
+-const int _lowBit = 0x01;
+ const int _bottomMask = 0x3f;
+ const int _topMask = 0xc0;
+ const int _stretchTailLength = 8;
+@@ -309,27 +541,3 @@ const Set<int> _validKeyLengths = {
+   _aes192KeyLength,
+   _aes256KeyLength,
+ };
+-
+-int _ntz(int value) {
+-  if (value <= 0) {
+-    throw const MoshException('ntz is only defined for positive integers.');
+-  }
+-  var count = 0;
+-  var remaining = value;
+-  while ((remaining & 1) == 0) {
+-    count++;
+-    remaining >>= 1;
+-  }
+-  return count;
+-}
+-
+-bool _constantTimeEquals(List<int> left, List<int> right) {
+-  if (left.length != right.length) {
+-    return false;
+-  }
+-  var diff = 0;
+-  for (var i = 0; i < left.length; i++) {
+-    diff |= left[i] ^ right[i];
+-  }
+-  return diff == 0;
+-}
+diff --git a/lib/src/crypto/packet_cipher.dart b/lib/src/crypto/packet_cipher.dart
+index 84da88d..394bcd1 100644
+--- a/lib/src/crypto/packet_cipher.dart
++++ b/lib/src/crypto/packet_cipher.dart
+@@ -23,12 +23,14 @@ class MoshPacketCipher implements MoshCipher {
+   /// Encrypts a transport packet and prefixes its wire nonce.
+   @override
+   Uint8List encrypt({required int nonce, required Uint8List plaintext}) {
+-    final nonceBytes = MoshNonce(nonce).wireBytes;
++    final framed = MoshNonce(nonce);
+     final encrypted = delegate.seal(
+-      nonce: MoshNonce(nonce).aeadBytes,
++      nonce: framed.aeadBytes,
+       plaintext: plaintext,
+     );
+-    return Uint8List.fromList([...nonceBytes, ...encrypted]);
++    return Uint8List(moshWireNonceLength + encrypted.length)
++      ..setAll(0, framed.wireBytes)
++      ..setAll(moshWireNonceLength, encrypted);
+   }
+ 
+   /// Decrypts a packet produced by `mosh-server`.
+@@ -42,7 +44,7 @@ class MoshPacketCipher implements MoshCipher {
+     final nonce = MoshNonce.fromWire(packet.sublist(0, moshWireNonceLength));
+     return delegate.open(
+       nonce: nonce.aeadBytes,
+-      ciphertextWithTag: packet.sublist(moshWireNonceLength),
++      ciphertextWithTag: Uint8List.sublistView(packet, moshWireNonceLength),
+     );
+   }
+ }
