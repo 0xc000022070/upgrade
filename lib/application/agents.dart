@@ -132,7 +132,7 @@ final hostRepositoryProvider = Provider<HostRepository>(
 );
 
 final privateKeyStoreProvider = Provider<PrivateKeyStore>(
-  (ref) => const SecurePrivateKeyStore(),
+  (ref) => CachingPrivateKeyStore(const SecurePrivateKeyStore()),
 );
 
 final ed25519KeysProvider = Provider(

@@ -68,7 +68,9 @@ List<Override> databaseOverrides(AppDatabase db) => [
   hostRepositoryProvider.overrideWith(
     (ref) => DriftHostRepository(ref.watch(databaseProvider)),
   ),
-  privateKeyStoreProvider.overrideWith((ref) => const SecurePrivateKeyStore()),
+  privateKeyStoreProvider.overrideWith(
+    (ref) => CachingPrivateKeyStore(const SecurePrivateKeyStore()),
+  ),
 ];
 
 final activityRepositoryProvider = Provider(
