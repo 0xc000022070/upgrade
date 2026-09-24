@@ -23,7 +23,9 @@ abstract interface class ShellConnection {
 
   Future<void> close();
 
-  Future<void> rehome();
+  /// A [network] change also drops the SSH control connection under the channel, whose
+  /// socket is bound to the network that went; a plain return keeps it.
+  Future<void> rehome({bool network = false});
 
   Future<bool> terminateRemote(String session, {required bool durableShell});
 

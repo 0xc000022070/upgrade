@@ -29,7 +29,7 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
     _network = Device.networkChanges().listen((up) {
       // Only an arrival. A network going is what put these tabs where they are, and
       // dialling over nothing would spend the fresh schedule for nothing.
-      if (up) ref.read(shellSessionsProvider).wakeAll();
+      if (up) ref.read(shellSessionsProvider).wakeAll(network: true);
     });
   }
 

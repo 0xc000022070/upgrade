@@ -668,14 +668,14 @@ class MoshShellConnection implements ShellConnection {
   }
 
   @override
-  Future<void> rehome() async {
+  Future<void> rehome({bool network = false}) async {
     if (_closed) return;
     _setHealth(ShellConnectionHealth.reconnecting);
     await _mosh.rehome();
     _missedProbes = 0;
     _tickedAt = null;
     _probeState = _mosh.resize(columns, rows);
-    await _dropHost(_host);
+    if (network) await _dropHost(_host);
   }
 
   @override
@@ -915,7 +915,7 @@ class SshShellConnection implements ShellConnection {
   }
 
   @override
-  Future<void> rehome() async {}
+  Future<void> rehome({bool network = false}) async {}
 
   @override
   Future<String?> remoteDirectory(String session) async {

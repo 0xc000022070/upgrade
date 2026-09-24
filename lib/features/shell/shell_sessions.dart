@@ -352,6 +352,8 @@ class ShellSession extends ChangeNotifier {
   DateTime? _due;
 
   bool _rehoming = false;
+  bool _rehomeNetwork = false;
+  bool _networkOwed = false;
   Timer? _rehomed;
 
   bool _retired = false;
@@ -1288,12 +1290,12 @@ class ShellSessions extends ChangeNotifier {
   /// The phone is what calls this — coming back in front, or finding a network — and a tab
   /// still inside its schedule has a timer of its own and is left to it, unless that wait
   /// ran out while the phone slept: then it dials now and goes on from the same step.
-  void wakeAll({bool rehome = true}) {
+  void wakeAll({bool rehome = true, bool network = false}) {
     for (final sessions in _byHost.values) {
       for (final session in List.of(sessions)) {
         final connection = session.connection;
         if (connection != null && session.state.holdsSession) {
-          if (rehome) _rehome(session, connection);
+          if (rehome) _rehome(session, connection, network: network);
           continue;
         }
         final due = session._due;
@@ -1307,12 +1309,24 @@ class ShellSessions extends ChangeNotifier {
     }
   }
 
-  void _rehome(ShellSession session, ShellConnection connection) {
-    if (session._rehoming || session._rehomed != null) return;
+  void _rehome(
+    ShellSession session,
+    ShellConnection connection, {
+    required bool network,
+  }) {
+    final settles = network && !session._rehomeNetwork;
+    if (session._rehoming) {
+      session._networkOwed |= settles;
+      return;
+    }
+    if (session._rehomed != null && !settles) return;
+    session._rehomed?.cancel();
+    session._rehomed = null;
     session._rehoming = true;
+    session._rehomeNetwork = network;
     unawaited(
       connection
-          .rehome()
+          .rehome(network: network)
           .catchError((Object error) {
             debugPrint(
               'dazzle.shell ${session.host.name}: rehome failed: $error',
@@ -1321,6 +1335,12 @@ class ShellSessions extends ChangeNotifier {
           .whenComplete(() {
             session._rehoming = false;
             if (session._closed) return;
+            final live = session.connection;
+            if (session._networkOwed && live != null) {
+              session._networkOwed = false;
+              _rehome(session, live, network: true);
+              return;
+            }
             session._rehomed = Timer(
               shellRehomeSettle,
               () => session._rehomed = null,

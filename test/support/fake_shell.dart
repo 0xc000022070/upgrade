@@ -25,6 +25,7 @@ class FakeShellConnection implements ShellConnection {
   final terminated = <({String session, bool durableShell})>[];
   final directoryRequests = <String>[];
   var rehomes = 0;
+  var networkRehomes = 0;
   String? directory;
 
   @override
@@ -77,7 +78,10 @@ class FakeShellConnection implements ShellConnection {
   }
 
   @override
-  Future<void> rehome() async => rehomes++;
+  Future<void> rehome({bool network = false}) async {
+    rehomes++;
+    if (network) networkRehomes++;
+  }
 
   @override
   Future<String?> remoteDirectory(String session) async {

@@ -160,6 +160,7 @@ void main() {
     await tester.pump();
 
     expect(transport.opened.single.rehomes, 1);
+    expect(transport.opened.single.networkRehomes, 0);
 
     await sessions.close(rose.id, session);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -207,6 +208,7 @@ void main() {
     await tester.pump();
 
     expect(transport.opened.single.rehomes, 1);
+    expect(transport.opened.single.networkRehomes, 1);
 
     await sessions.close(rose.id, session);
     await tester.pumpWidget(const SizedBox.shrink());
