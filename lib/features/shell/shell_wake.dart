@@ -21,6 +21,7 @@ class ShellWakeHost extends ConsumerStatefulWidget {
 
 class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
   StreamSubscription<bool>? _network;
+  var _away = false;
 
   @override
   void initState() {
@@ -40,8 +41,13 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<bool>(appVisibleProvider, (was, now) {
+      if (!now) _away = true;
+    });
     ref.listen<bool>(appForegroundProvider, (was, now) {
-      if (now && was != true) ref.read(shellSessionsProvider).wakeAll();
+      if (!now || was == true) return;
+      ref.read(shellSessionsProvider).wakeAll(rehome: _away);
+      _away = false;
     });
     return widget.child;
   }
