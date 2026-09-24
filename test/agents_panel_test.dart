@@ -320,6 +320,75 @@ void main() {
     expect(container.read(agentsFeedLiveProvider), isFalse);
   });
 
+  testWidgets('a host that hangs does not hold back the one that answered', (
+    tester,
+  ) async {
+    final hosts = InMemoryHostRepository();
+    await hosts.save(hostA);
+    await hosts.save(hostB);
+    await hosts.setIntegration(hostA.id, IntegrationKind.herdr, true);
+    await hosts.setIntegration(hostB.id, IntegrationKind.herdr, true);
+    final privateKeys = MemoryPrivateKeyStore();
+    await privateKeys.write('key-a', 'private-a');
+    await privateKeys.write('key-b', 'private-b');
+    final states = <AgentPanelState>[];
+    final container = ProviderContainer(
+      overrides: [
+        hostRepositoryProvider.overrideWithValue(hosts),
+        privateKeyStoreProvider.overrideWithValue(privateKeys),
+        homeAgentsVisibleProvider.overrideWith((ref) => true),
+        herdrFetchProvider.overrideWithValue(({
+          required String address,
+          required int port,
+          required String user,
+          required String privateKey,
+          HostKeyVerifier? verifier,
+        }) async {
+          if (address == hostB.address) {
+            await Future<void>.delayed(const Duration(seconds: 10));
+            throw const HerdrUnreachable('no answer in 10s');
+          }
+          return [
+            agent(
+              pane: 'wQ:p1',
+              name: 'codex',
+              status: 'working',
+              work: 'host A',
+              sequence: 1,
+            ),
+          ];
+        }),
+      ],
+    );
+    await container.read(herdrHostsProvider.future);
+    final subscription = container.listen(
+      agentsFeedProvider,
+      (_, next) => next.whenData(states.add),
+      fireImmediately: true,
+    );
+
+    var waited = Duration.zero;
+    await tester.pump();
+    while (states.isEmpty && waited < const Duration(seconds: 30)) {
+      await tester.pump(const Duration(seconds: 1));
+      waited += const Duration(seconds: 1);
+    }
+
+    expect(waited, Duration.zero);
+    expect(states.single.outcomes.map((outcome) => outcome.host.id), ['a']);
+    expect(states.single.agents, hasLength(1));
+
+    await tester.pump(const Duration(seconds: 10));
+    final both = states.last;
+    expect(both.outcomes.map((outcome) => outcome.host.id), ['a', 'b']);
+    expect(both.failures.single.kind, AgentOutcomeKind.unreachable);
+    expect(both.agents, hasLength(1));
+
+    subscription.close();
+    container.dispose();
+    await tester.pump(const Duration(seconds: 30));
+  });
+
   test('a name that never resolved is its own outcome', () async {
     final hosts = InMemoryHostRepository();
     await hosts.save(hostA);
