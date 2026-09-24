@@ -6,8 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agent_kind.dart';
 import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/herdr_socket.dart';
+import 'package:dazzle/platform/keys.dart';
 
 import 'support/herdr_link.dart';
+import 'support/tarpit.dart';
 
 void main() {
   test('parses a local herdr agent list fixture', () {
@@ -354,12 +356,15 @@ void main() {
     expect(HerdrClient.isPromptStalled(null), isFalse);
   });
 
-  test('an agent that has not announced itself is waited out, not reported', () {
-    expect(HerdrClient.isAgentPending('agent_not_ready'), isTrue);
-    expect(HerdrClient.isAgentPending('agent_prompt_stalled'), isFalse);
-    expect(HerdrClient.isAgentPending('agent_blocked'), isFalse);
-    expect(HerdrClient.isAgentPending(null), isFalse);
-  });
+  test(
+    'an agent that has not announced itself is waited out, not reported',
+    () {
+      expect(HerdrClient.isAgentPending('agent_not_ready'), isTrue);
+      expect(HerdrClient.isAgentPending('agent_prompt_stalled'), isFalse);
+      expect(HerdrClient.isAgentPending('agent_blocked'), isFalse);
+      expect(HerdrClient.isAgentPending(null), isFalse);
+    },
+  );
 
   test('wait and read target the pane', () {
     const pane = (session: 'lab', pane: 'w1:p2');
@@ -474,5 +479,25 @@ void main() {
       uploadDeadline(2 * 1024 * 1024),
       greaterThan(uploadDeadline(1024 * 1024)),
     );
+  });
+
+  test('a dial that ran out of time does not hang up mid-handshake', () async {
+    final keys = Ed25519Keys(MemoryPrivateKeyStore());
+    await keys.generate(id: 'k1', name: 'test');
+    final privateKey = (await keys.privateKey('k1'))!;
+    final tarpit = await openTarpit();
+
+    await expectLater(
+      const HerdrClient(timeout: Duration(milliseconds: 300)).connect(
+        address: tarpit.address,
+        port: tarpit.port,
+        user: 'luis',
+        privateKey: privateKey,
+      ),
+      throwsA(isA<HerdrUnreachable>()),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(tarpit.closedByPeer.isCompleted, isFalse);
   });
 }

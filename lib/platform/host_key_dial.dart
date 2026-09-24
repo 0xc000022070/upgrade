@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartssh2/dartssh2.dart';
 
 import 'host_keys.dart';
+import 'ssh_settle.dart';
 
 /// The machine took the connection and never presented a key: a port that is not ssh, or
 /// one of the tarpits that accepts a socket and then says nothing.
@@ -42,11 +43,6 @@ Future<void> dialHostKey({
     socket,
     username: user,
     identities: SSHKeyPair.fromPem(privateKey),
-    // The sheet is answered inside this handshake, so dartssh2's own deadline counts the
-    // time the user spends reading a fingerprint and drops the connection under an open
-    // sheet. What it is there for is timed below instead.
-    handshakeTimeout: _openEnded,
-    authTimeout: timeout,
     onVerifyHostKey: (type, fingerprint) async {
       if (!offered.isCompleted) offered.complete();
       try {
@@ -71,17 +67,11 @@ Future<void> dialHostKey({
     await Future.any([offered.future, broken.future])
         .timeout(timeout, onTimeout: () => throw const HostKeySilent());
     await decided.future;
-    // dartssh2 sends NEWKEYS the moment the verifier answers, and closing the socket in
-    // that gap throws inside its own handler, where nothing can catch it.
-    await client.authenticated
-        .timeout(timeout)
-        .then((_) {}, onError: (_, _) {});
   } finally {
-    client.close();
-    socket.close();
+    unawaited(
+      offered.isCompleted
+          ? closeSettled(client, socket)
+          : closeSsh(client, socket),
+    );
   }
 }
-
-/// Long enough that dartssh2's handshake deadline never fires. The dial's own deadline
-/// is armed separately.
-const _openEnded = Duration(days: 1);
