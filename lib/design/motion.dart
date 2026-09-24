@@ -34,6 +34,7 @@ abstract final class Effects {
   static const spinnerStep = Duration(milliseconds: 80);
 
   static const bootLineStep = Duration(milliseconds: 40);
+  static const bootBeats = 6;
   static const bootCap = Duration(milliseconds: 600);
 
   static const tickMin = Duration(seconds: 20);

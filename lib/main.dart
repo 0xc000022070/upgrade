@@ -37,82 +37,37 @@ import 'platform/plugins/usage.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await SystemChrome.setPreferredOrientations(const [
-    DeviceOrientation.portraitUp,
-  ]);
-
   final boot = <BootStep>[];
 
   final db = AppDatabase();
-  await db.customSelect('SELECT 1').get();
+  await (
+    SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]),
+    db.customSelect('SELECT 1').get(),
+  ).wait;
   boot.add(const BootStep('open database', 'ok'));
   boot.add(BootStep('run migrations', 'v${db.schemaVersion}'));
 
-  final support = await getApplicationSupportDirectory();
-  final pluginStore = PluginStore(Directory('${support.path}/plugins'));
-  final packages = await loadBuiltinPlugins();
-  List<InstalledPlugin> pluginCatalog;
-  try {
-    pluginCatalog = await pluginStore.synchronizeBuiltins(
-      packages,
-      adoptEnabled: await SettingsRepository(db)
-          .flag('builtin_auto_enable', orElse: true),
-    );
-  } catch (error) {
-    pluginCatalog = [
-      for (final package in packages)
-        InstalledPlugin(package, package.manifest.permissions, enabled: false),
-    ];
-    boot.add(BootStep('plugin catalog', '$error'));
-  }
-  final usageFile = NativeUsageFile(
-    File('${pluginStore.directory.path}/native_usage.json'),
-  );
-  Map<String, Object?> pluginUsage = {};
-  Object? usageError;
-  try {
-    pluginUsage = await usageFile.read();
-  } catch (error) {
-    usageError = error;
-    boot.add(BootStep('plugin usage', '$error'));
-  }
-  boot.add(
-    BootStep(
-      'load plugins',
-      '${pluginCatalog.where((p) => p.enabled).length} enabled',
-    ),
-  );
-
-  final activity = ActivityRepository(db);
-  await seedDevData(
-    db,
-    projects: ProjectRepository(db, activity),
-    tasks: TaskRepository(db, activity),
-    notes: NoteRepository(db, activity),
-  );
-
-  final projects = await db.count(db.projects);
-  final tasks = await db.count(db.tasks);
-  boot.add(BootStep('count projects/tasks', '$projects/$tasks'));
-  boot.add(const BootStep('load fonts', '${FontFamilies.count}'));
-
-  await AsciiMascot.preload();
-  boot.add(BootStep('load mascot', '${mascotStates.length} states'));
-
-  await ImageAttachments.init();
-  boot.add(const BootStep('mount attachments', 'ok'));
-
-  final clips = await ClipStore.open();
-  boot.add(const BootStep('clear clips', 'ok'));
-
-  final previews = await LinkPreviews.open();
-  boot.add(const BootStep('mount link previews', 'ok'));
-
-  final model = await Device.model();
-  boot.add(BootStep('mounted device ${model ?? 'unknown'}', 'ok'));
-
-  await initAlerts();
-  boot.add(const BootStep('arm alerts', 'ok'));
+  final (plugins, (projects, tasks), _, _, clips, previews, model, _) = await (
+    _loadPlugins(db),
+    _seedAndCount(db),
+    AsciiMascot.preload(),
+    ImageAttachments.init(),
+    ClipStore.open(),
+    LinkPreviews.open(),
+    Device.model(),
+    initAlerts(),
+  ).wait;
+  final (:store, :catalog, :usageFile, :usage, :usageError, :lines) = plugins;
+  boot
+    ..addAll(lines)
+    ..add(BootStep('count projects/tasks', '$projects/$tasks'))
+    ..add(const BootStep('load fonts', '${FontFamilies.count}'))
+    ..add(BootStep('load mascot', '${mascotStates.length} states'))
+    ..add(const BootStep('mount attachments', 'ok'))
+    ..add(const BootStep('clear clips', 'ok'))
+    ..add(const BootStep('mount link previews', 'ok'))
+    ..add(BootStep('mounted device ${model ?? 'unknown'}', 'ok'))
+    ..add(const BootStep('arm alerts', 'ok'));
 
   unawaited(warmGlitchIcons());
 
@@ -120,11 +75,11 @@ Future<void> main() async {
     overrides: [
       ...databaseOverrides(db),
       nativeModulesProvider.overrideWithValue(builtinModules),
-      pluginBootCatalogProvider.overrideWithValue(pluginCatalog),
-      pluginBootUsageProvider.overrideWithValue(pluginUsage),
+      pluginBootCatalogProvider.overrideWithValue(catalog),
+      pluginBootUsageProvider.overrideWithValue(usage),
       pluginBootUsageErrorProvider.overrideWithValue(usageError),
       nativeUsageFileProvider.overrideWith((ref) async => usageFile),
-      pluginStoreProvider.overrideWith((ref) async => pluginStore),
+      pluginStoreProvider.overrideWith((ref) async => store),
       ...alertOverrides(),
       pipSurfaceProvider.overrideWithValue(const PipSurface()),
       clipStoreProvider.overrideWithValue(clips),
@@ -142,4 +97,71 @@ Future<void> main() async {
       child: DazzleApp(boot: boot),
     ),
   );
+}
+
+Future<
+  ({
+    PluginStore store,
+    List<InstalledPlugin> catalog,
+    NativeUsageFile usageFile,
+    Map<String, Object?> usage,
+    Object? usageError,
+    List<BootStep> lines,
+  })
+>
+_loadPlugins(AppDatabase db) async {
+  final lines = <BootStep>[];
+  final support = await getApplicationSupportDirectory();
+  final store = PluginStore(Directory('${support.path}/plugins'));
+  final packages = await loadBuiltinPlugins();
+  List<InstalledPlugin> catalog;
+  try {
+    catalog = await store.synchronizeBuiltins(
+      packages,
+      adoptEnabled: await SettingsRepository(db)
+          .flag('builtin_auto_enable', orElse: true),
+    );
+  } catch (error) {
+    catalog = [
+      for (final package in packages)
+        InstalledPlugin(package, package.manifest.permissions, enabled: false),
+    ];
+    lines.add(BootStep('plugin catalog', '$error'));
+  }
+  final usageFile = NativeUsageFile(
+    File('${store.directory.path}/native_usage.json'),
+  );
+  Map<String, Object?> usage = {};
+  Object? usageError;
+  try {
+    usage = await usageFile.read();
+  } catch (error) {
+    usageError = error;
+    lines.add(BootStep('plugin usage', '$error'));
+  }
+  lines.add(
+    BootStep(
+      'load plugins',
+      '${catalog.where((p) => p.enabled).length} enabled',
+    ),
+  );
+  return (
+    store: store,
+    catalog: catalog,
+    usageFile: usageFile,
+    usage: usage,
+    usageError: usageError,
+    lines: lines,
+  );
+}
+
+Future<(int, int)> _seedAndCount(AppDatabase db) async {
+  final activity = ActivityRepository(db);
+  await seedDevData(
+    db,
+    projects: ProjectRepository(db, activity),
+    tasks: TaskRepository(db, activity),
+    notes: NoteRepository(db, activity),
+  );
+  return (await db.count(db.projects), await db.count(db.tasks));
 }

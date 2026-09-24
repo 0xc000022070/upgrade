@@ -178,9 +178,7 @@ void main() {
     });
 
     test('the boot tear still lands inside the boot cap', () {
-      // main() records six steps and the roll spends one [Effects.bootLineStep] per step,
-      // counting the tick that ends it.
-      final roll = Effects.bootLineStep * 6;
+      final roll = Effects.bootLineStep * Effects.bootBeats;
       expect(roll + Effects.glitchDuration, lessThanOrEqualTo(Effects.bootCap));
     });
   });
