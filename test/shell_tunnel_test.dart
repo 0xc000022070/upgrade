@@ -1124,6 +1124,52 @@ void main() {
     expect(host.closed, isTrue);
   });
 
+  test(
+    'a key sheet held open past the deadline still opens the shell',
+    () async {
+      final host = FakeHost()..authGate = Completer<void>();
+      final tunnel = ShellTunnel(
+        timeout: const Duration(milliseconds: 100),
+        dial:
+            ({
+              required String address,
+              required int port,
+              required String user,
+              required String privateKey,
+              HostKeyVerifier? verifier,
+              required Duration timeout,
+              required Duration keepAlive,
+            }) async {
+              unawaited(
+                verifier!
+                    .verifyFingerprint('ssh-ed25519', 'SHA256:fixture')
+                    .then((_) => host.authGate!.complete()),
+              );
+              return host;
+            },
+      );
+      final verifier = HostKeyVerifier(
+        prompt: (offer, pinned) async {
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          return true;
+        },
+      );
+
+      await tunnel.open(
+        address: 'nyx',
+        port: 357,
+        user: 'luisnquin',
+        privateKey: 'pem',
+        columns: 100,
+        rows: 40,
+        verifier: verifier,
+      );
+
+      expect(verifier.verified?.fingerprint, 'SHA256:fixture');
+      expect(host.closed, isFalse);
+    },
+  );
+
   test('closing a host still authenticating waits for it to settle', () async {
     final keys = Ed25519Keys(MemoryPrivateKeyStore());
     await keys.generate(id: 'key-1', name: 'dazzle');
