@@ -4,10 +4,17 @@ import 'herdr_client.dart';
 import 'host_keys.dart';
 
 class HerdrSessionPool {
-  HerdrSessionPool(this._client, {this.idle = const Duration(seconds: 30)});
+  HerdrSessionPool(
+    this._client, {
+    this.idle = const Duration(seconds: 30),
+    this.now = DateTime.now,
+  });
 
   final HerdrClient _client;
   final Duration idle;
+
+  // Wall time: timers run on the monotonic clock, which stops while the phone sleeps.
+  final DateTime Function() now;
   final _held = <String, _Held>{};
 
   Future<List<AgentSnapshot>> fetch({
@@ -27,10 +34,14 @@ class HerdrSessionPool {
       privateKey.hashCode,
     ].join('\u0000');
 
-    final held = _held[key];
+    var held = _held[key];
+    if (held != null && now().difference(held.usedAt) >= idle) {
+      _drop(key, held);
+      held = null;
+    }
     if (held != null) {
       try {
-        return await held.list();
+        return await held.list(now());
       } catch (_) {
         _drop(key, held);
         // Only a session that had worked is worth a second dial: a host that refused the
@@ -49,10 +60,11 @@ class HerdrSessionPool {
         verifier: verifier,
       ),
       idle,
+      now(),
       () => _drop(key, created),
     );
     try {
-      return await fresh.list();
+      return await fresh.list(now());
     } catch (_) {
       _drop(key, fresh);
       rethrow;
@@ -74,7 +86,7 @@ class HerdrSessionPool {
 }
 
 class _Held {
-  _Held(this._session, this._idle, this._expire) {
+  _Held(this._session, this._idle, this.usedAt, this._expire) {
     _session.then((_) {
       ready = true;
     }, onError: (_) {});
@@ -86,8 +98,10 @@ class _Held {
   final void Function() _expire;
   Timer? _timer;
   bool ready = false;
+  DateTime usedAt;
 
-  Future<List<AgentSnapshot>> list() async {
+  Future<List<AgentSnapshot>> list(DateTime at) async {
+    usedAt = at;
     _arm();
     return (await _session).list();
   }

@@ -83,4 +83,39 @@ void main() {
     await pumpEventQueue();
     pool.close();
   });
+
+  group('a session idle past its window by the wall clock', () {
+    late DateTime at;
+    late _Client client;
+    late HerdrSessionPool pool;
+
+    setUp(() {
+      at = DateTime(2026, 9, 24, 12);
+      client = _Client();
+      pool = HerdrSessionPool(client, now: () => at);
+    });
+
+    tearDown(() => pool.close());
+
+    test('is dialled fresh on the first fetch after a sleep', () async {
+      await _fetch(pool);
+      at = at.add(const Duration(minutes: 5));
+      await _fetch(pool);
+
+      expect(client.sessions, hasLength(2));
+      expect(client.sessions.first.closed, isTrue);
+      expect(client.sessions.last.closed, isFalse);
+    });
+
+    test('is still shared inside its window', () async {
+      await _fetch(pool);
+      at = at.add(const Duration(seconds: 29));
+      await _fetch(pool);
+      at = at.add(const Duration(seconds: 29));
+      await _fetch(pool);
+
+      expect(client.sessions, hasLength(1));
+      expect(client.sessions.single.closed, isFalse);
+    });
+  });
 }
