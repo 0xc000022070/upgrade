@@ -11,6 +11,8 @@ class Framebuffer {
     _fillAlpha(0, pixels.length);
   }
 
+  Framebuffer.wrap(this.width, this.height, this.pixels);
+
   int width;
   int height;
   Uint8List pixels;
