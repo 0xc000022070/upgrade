@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../design/tokens.dart';
@@ -13,6 +14,7 @@ class FramebufferView extends StatefulWidget {
   const FramebufferView({
     super.key,
     required this.image,
+    this.frames,
     required this.framebufferSize,
     required this.onClick,
     required this.onRightClick,
@@ -23,6 +25,7 @@ class FramebufferView extends StatefulWidget {
   });
 
   final ui.Image? image;
+  final ValueListenable<ui.Image?>? frames;
   final Size framebufferSize;
 
   final bool cropping;
@@ -208,12 +211,15 @@ class _FramebufferViewState extends State<FramebufferView> {
           final transform = _transform;
           final picture = ColoredBox(
             color: context.tokens.mediaBackdrop,
-            child: CustomPaint(
-              painter: _FramebufferPainter(
-                image: widget.image,
-                transform: transform,
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: _FramebufferPainter(
+                  image: widget.image,
+                  frames: widget.frames,
+                  transform: transform,
+                ),
+                size: viewport,
               ),
-              size: viewport,
             ),
           );
           if (widget.cropping) {
@@ -373,14 +379,19 @@ class _CropVerbs extends StatelessWidget {
 }
 
 class _FramebufferPainter extends CustomPainter {
-  const _FramebufferPainter({required this.image, required this.transform});
+  _FramebufferPainter({
+    required this.image,
+    required this.frames,
+    required this.transform,
+  }) : super(repaint: frames);
 
   final ui.Image? image;
+  final ValueListenable<ui.Image?>? frames;
   final ScreenTransform transform;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final frame = image;
+    final frame = frames?.value ?? image;
     if (frame == null) return;
     final origin = transform.origin;
     final scaled = transform.scaledSize;
@@ -399,7 +410,7 @@ class _FramebufferPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_FramebufferPainter old) =>
-      old.image != image || old.transform != transform;
+      old.image != image || old.frames != frames || old.transform != transform;
 }
 
 class ScreenGround extends StatelessWidget {

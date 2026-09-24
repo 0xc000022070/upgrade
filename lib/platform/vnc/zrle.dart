@@ -71,13 +71,12 @@ class ZrleDecoder {
     // below read the way RFC 6143 tabulates them.
     if (subencoding == 0) {
       for (var i = 0; i < width * height; i++) {
-        writer.run(1, cursor.cpixel());
+        writer.one(cursor.cpixel());
       }
       return;
     }
     if (subencoding == 1) {
-      final pixel = cursor.cpixel();
-      target.fill(x, y, width, height, pixel.blue, pixel.green, pixel.red);
+      target.fillWord(x, y, width, height, cursor.cpixel());
       return;
     }
     if (subencoding >= 2 && subencoding <= 16) {
@@ -120,7 +119,7 @@ class ZrleDecoder {
         final packed = cursor.u8();
         for (var slot = 0; slot < perByte && column < width; slot++, column++) {
           final shift = 8 - bits * (slot + 1);
-          writer.run(1, palette[(packed >> shift) & mask]);
+          writer.one(palette[(packed >> shift) & mask]);
         }
       }
     }
@@ -148,8 +147,14 @@ class ZrleDecoder {
       final index = cursor.u8();
       // The high bit says a run length follows; without it the index stands for exactly one
       // pixel.
-      final length = index & 0x80 != 0 ? cursor.runLength() : 1;
-      writer.run(length, palette[index & 0x7F]);
+      final pixel = palette[index & 0x7F];
+      if (index & 0x80 == 0) {
+        writer.one(pixel);
+        written++;
+        continue;
+      }
+      final length = cursor.runLength();
+      writer.run(length, pixel);
       written += length;
     }
   }
@@ -176,14 +181,6 @@ class _CollectorSink implements Sink<List<int>> {
   void close() {}
 }
 
-class ZrlePixel {
-  const ZrlePixel(this.blue, this.green, this.red);
-
-  final int blue;
-  final int green;
-  final int red;
-}
-
 class _Cursor {
   _Cursor(this._data);
 
@@ -197,20 +194,22 @@ class _Cursor {
     return _data[_at++];
   }
 
-  ZrlePixel cpixel() {
+  int cpixel() {
     if (_at + ZrleDecoder.cpixelBytes > _data.length) {
       throw VncStreamClosed('zrle rect ended after ${_data.length} bytes');
     }
-    final blue = _data[_at];
-    final green = _data[_at + 1];
-    final red = _data[_at + 2];
+    final pixel = Framebuffer.word(_data[_at], _data[_at + 1], _data[_at + 2]);
     _at += ZrleDecoder.cpixelBytes;
-    return ZrlePixel(blue, green, red);
+    return pixel;
   }
 
-  List<ZrlePixel> palette(int size) => [
-    for (var i = 0; i < size; i++) cpixel(),
-  ];
+  Uint32List palette(int size) {
+    final palette = Uint32List(size);
+    for (var i = 0; i < size; i++) {
+      palette[i] = cpixel();
+    }
+    return palette;
+  }
 
   /// RFC 6143: a length of one plus every 255 read, ended by the first byte below 255.
   int runLength() {
@@ -227,37 +226,46 @@ class _Cursor {
 /// RLE runs are counted in pixels and cross tile rows freely, so the tile's geometry
 /// lives here rather than in each subencoding.
 class _TileWriter {
-  _TileWriter(this._target, this._x, this._y, this._width, this._height);
+  _TileWriter(Framebuffer target, int x, int y, this._width, this._height)
+    : _words = target.words,
+      _stride = target.width,
+      _at = y * target.width + x;
 
-  final Framebuffer _target;
-  final int _x;
-  final int _y;
+  final Uint32List _words;
+  final int _stride;
   final int _width;
   final int _height;
+  int _at;
   int _column = 0;
   int _row = 0;
 
-  void run(int count, ZrlePixel pixel) {
+  void one(int pixel) {
+    if (_row >= _height) {
+      throw VncStreamClosed('zrle run past the tile');
+    }
+    _words[_at + _column] = pixel;
+    if (++_column == _width) {
+      _column = 0;
+      _row++;
+      _at += _stride;
+    }
+  }
+
+  void run(int count, int pixel) {
     var left = count;
     while (left > 0) {
       if (_row >= _height) {
         throw VncStreamClosed('zrle run past the tile');
       }
       final span = (_width - _column).clamp(0, left);
-      _target.fill(
-        _x + _column,
-        _y + _row,
-        span,
-        1,
-        pixel.blue,
-        pixel.green,
-        pixel.red,
-      );
+      final from = _at + _column;
+      _words.fillRange(from, from + span, pixel);
       _column += span;
       left -= span;
       if (_column == _width) {
         _column = 0;
         _row++;
+        _at += _stride;
       }
     }
   }

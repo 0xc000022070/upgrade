@@ -67,6 +67,9 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
 
   bool _railHidden = false;
 
+  late final AppLifecycleListener _lifecycle;
+  int _previewedFrame = 0;
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +79,10 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
       pinHostKey: ref.read(hostRepositoryProvider).pinHostKey,
       prompt: _askHostKey,
       open: widget.open,
+    );
+    _lifecycle = AppLifecycleListener(
+      onHide: () => _controller.setAway(true),
+      onShow: () => _controller.setAway(false),
     );
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     _controller.connect();
@@ -102,12 +109,16 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   Future<void> _writePreview() async {
     final previews = _previews;
     final framebuffer = _controller.lastFramebuffer;
+    final frame = _controller.frameCount;
     if (previews == null || framebuffer == null) return;
+    if (frame == _previewedFrame) return;
+    _previewedFrame = frame;
     await previews.write(widget.host.id, framebuffer);
   }
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _previewTimer?.cancel();
     _noticeTimer?.cancel();
     // The encode runs before the first await, so this reads the framebuffer rather than
@@ -369,6 +380,7 @@ class _Body extends StatelessWidget {
     }
     return FramebufferView(
       image: controller.image,
+      frames: controller.frames,
       framebufferSize: controller.framebufferSize,
       onClick: controller.click,
       onRightClick: controller.rightClick,

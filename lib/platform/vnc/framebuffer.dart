@@ -14,6 +14,11 @@ class Framebuffer {
   int width;
   int height;
   Uint8List pixels;
+  Uint32List? _words;
+
+  /// The same bytes a pixel at a time, as `0xAARRGGBB` on the little-endian hosts this
+  /// runs on.
+  Uint32List get words => _words ??= pixels.buffer.asUint32List();
 
   int get stride => width * Rfb.bytesPerPixel;
 
@@ -26,6 +31,7 @@ class Framebuffer {
     width = newWidth;
     height = newHeight;
     pixels = Uint8List(width * height * Rfb.bytesPerPixel);
+    _words = null;
     _fillAlpha(0, pixels.length);
   }
 
@@ -59,18 +65,19 @@ class Framebuffer {
     }
   }
 
-  void fill(int x, int y, int w, int h, int blue, int green, int red) {
+  void fill(int x, int y, int w, int h, int blue, int green, int red) =>
+      fillWord(x, y, w, h, word(blue, green, red));
+
+  void fillWord(int x, int y, int w, int h, int pixel) {
+    final words = this.words;
     for (var row = 0; row < h; row++) {
-      var at = offsetOf(x, y + row);
-      for (var column = 0; column < w; column++) {
-        pixels[at] = blue;
-        pixels[at + 1] = green;
-        pixels[at + 2] = red;
-        pixels[at + 3] = 0xFF;
-        at += Rfb.bytesPerPixel;
-      }
+      final at = (y + row) * width + x;
+      words.fillRange(at, at + w, pixel);
     }
   }
+
+  static int word(int blue, int green, int red) =>
+      0xFF000000 | red << 16 | green << 8 | blue;
 
   void _fillAlpha(int from, int to) {
     for (var at = from + 3; at < to; at += Rfb.bytesPerPixel) {
