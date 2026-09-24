@@ -34,109 +34,28 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 19;
 
-  /// A step guarded `from >= N` is one the `createTable` calls above already build from
-  /// the current definition; adding its columns again below N is an error.
+  /// Every installed build is at 19, so an older file is rebuilt empty rather than walked
+  /// up steps no install runs any more. The next bump adds its step after this one.
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) async {
-      await m.createAll();
-      await into(settings).insert(
-        SettingsCompanion.insert(key: 'builtin_auto_enable', value: '0'),
-      );
-    },
+    onCreate: _create,
     onUpgrade: (m, from, to) async {
-      if (from < 2) {
+      if (from < 19) {
         for (final table in allTables) {
           await m.drop(table);
         }
-        await m.createAll();
+        await _create(m);
         return;
-      }
-      if (from < 3) {
-        await m.createTable(goals);
-        await m.createTable(links);
-        await m.addColumn(tasks, tasks.goalId);
-        await m.addColumn(tasks, tasks.bundleId);
-      }
-      if (from < 4) {
-        // The old table is left in place rather than dropped, so a rollback to v3 still finds
-        // its rows.
-        await m.createTable(attachments);
-        await customStatement('''
-INSERT INTO attachments (id, item_id, kind, value, created_at)
-SELECT id, task_id, 'url', url, created_at FROM links
-''');
-      }
-      if (from < 5) {
-        await m.createTable(settings);
-      }
-      if (from < 6) {
-        await m.addColumn(projects, projects.parentId);
-      }
-      if (from < 7) {
-        await m.createTable(keys);
-        await m.createTable(hosts);
-        await m.createTable(hostIntegrations);
-      }
-      // 22 is not a guess: it is the port the transport dialled unconditionally in every
-      // build that wrote those rows.
-      if (from == 7) {
-        await m.addColumn(hosts, hosts.port);
-      }
-      if (from < 9) {
-        await m.createTable(paths);
-        await m.createTable(dispatches);
-      }
-      if (from >= 7 && from < 10) {
-        await m.addColumn(hosts, hosts.hostKeyType);
-        await m.addColumn(hosts, hosts.hostKeyFingerprint);
-        await m.addColumn(hosts, hosts.hostKeyPinnedAt);
-      }
-      if (from < 11) {
-        await m.createTable(shellTabs);
-      }
-      if (from >= 9 && from < 12) {
-        await m.addColumn(dispatches, dispatches.agent);
-        await m.addColumn(dispatches, dispatches.model);
-        await m.database.customStatement(
-          'UPDATE dispatches SET agent = coalesce('
-          '(SELECT agent FROM paths WHERE paths.id = dispatches.path_id), '
-          "'claude')",
-        );
-        // The rebuild takes its shape from the current definition, so every column added to
-        // `paths` after this migration has to be named here.
-        await m.alterTable(
-          TableMigration(paths, newColumns: [paths.projectId]),
-        );
-      }
-      if (from >= 7 && from < 13) {
-        await m.addColumn(hosts, hosts.vncPassword);
-      }
-      if (from >= 12 && from < 14) {
-        await m.addColumn(paths, paths.projectId);
-      }
-      // All four columns stay null, so these rows keep the fresh-shell restore older builds
-      // used: their remote process was never in a Dazzle-owned session.
-      if (from >= 11 && from < 15) {
-        await m.addColumn(shellTabs, shellTabs.remoteSession);
-        await m.addColumn(shellTabs, shellTabs.herdrSession);
-        await m.addColumn(shellTabs, shellTabs.herdrPane);
-        await m.addColumn(shellTabs, shellTabs.retiredAt);
-      }
-      if (from < 16) {
-        await m.addColumn(tasks, tasks.priority);
-      }
-      if (from < 17) {
-        await m.addColumn(tasks, tasks.prompt);
-      }
-      if (from < 18) {
-        await m.addColumn(projects, projects.iconId);
-      }
-      if (from >= 7 && from < 19) {
-        await m.addColumn(hosts, hosts.vncUsername);
       }
     },
   );
+
+  Future<void> _create(Migrator m) async {
+    await m.createAll();
+    await into(
+      settings,
+    ).insert(SettingsCompanion.insert(key: 'builtin_auto_enable', value: '0'));
+  }
 
   /// UTC ISO-8601 strings sort lexically, which is what keeps raw-SQL ORDER BY on a
   /// timestamp correct.
