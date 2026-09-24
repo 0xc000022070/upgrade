@@ -1092,6 +1092,44 @@ void main() {
     await sessions.close(_rose.id, session);
   });
 
+  testWidgets('a wait that ran out while the phone slept dials on the wake', (
+    tester,
+  ) async {
+    var clock = DateTime(2026, 9, 24, 8);
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport, now: () => clock);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+
+    transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
+    transport.opened.single.drop();
+    await tester.pump();
+    for (final delay in shellReconnectDelays.take(5)) {
+      clock = clock.add(delay);
+      await tester.pump(delay);
+      await _pumpDial(tester);
+    }
+    expect((session.state as ShellDropped).attempt, 6);
+    final spent = transport.verifiers.length;
+
+    clock = clock.add(const Duration(minutes: 5));
+    sessions.wakeAll();
+    await _pumpDial(tester);
+    var awake = Duration.zero;
+    while (transport.verifiers.length == spent &&
+        awake < shellReconnectDelays.last) {
+      await tester.pump(const Duration(seconds: 1));
+      awake += const Duration(seconds: 1);
+    }
+    await _pumpDial(tester);
+
+    expect(awake, Duration.zero);
+    expect(transport.verifiers, hasLength(spent + 1));
+    expect(session.state, isA<ShellWaiting>());
+
+    await sessions.close(_rose.id, session);
+  });
+
   testWidgets('a live tab and a tab that failed on an answer are not woken', (
     tester,
   ) async {

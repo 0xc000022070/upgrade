@@ -227,6 +227,7 @@ ShellSessions fakeShellSessions(
   Duration pinStale = const Duration(minutes: 5),
   Duration pinAnswerWait = const Duration(seconds: 5),
   PinNotifier? notifier,
+  DateTime Function() now = DateTime.now,
 }) => ShellSessions(
   readPrivateKey: (_) async => privateKey,
   pinHostKey: pinHostKey ?? (_, _) async {},
@@ -236,4 +237,5 @@ ShellSessions fakeShellSessions(
   pinStale: pinStale,
   pinAnswerWait: pinAnswerWait,
   notifier: notifier,
+  now: now,
 );

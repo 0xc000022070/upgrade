@@ -349,6 +349,7 @@ class ShellSession extends ChangeNotifier {
   /// Cancelled by `STOP`, by a retry and by the tab closing, all three of which are the
   /// user deciding what happens next instead of the schedule.
   Timer? _reconnect;
+  DateTime? _due;
 
   bool _rehoming = false;
   Timer? _rehomed;
@@ -407,9 +408,12 @@ class ShellSessions extends ChangeNotifier {
     this.pinStale = const Duration(minutes: 5),
     this.pinAnswerWait = const Duration(seconds: 5),
     this.notifier,
+    this.now = DateTime.now,
   }) : _open = open ?? const ShellTunnel().open;
 
   final PinNotifier? notifier;
+
+  final DateTime Function() now;
 
   late final PinShade _shade = PinShade(notifier);
 
@@ -1282,13 +1286,20 @@ class ShellSessions extends ChangeNotifier {
   }
 
   /// The phone is what calls this — coming back in front, or finding a network — and a tab
-  /// still inside its schedule has a timer of its own and is left to it.
+  /// still inside its schedule has a timer of its own and is left to it, unless that wait
+  /// ran out while the phone slept: then it dials now and goes on from the same step.
   void wakeAll({bool rehome = true}) {
     for (final sessions in _byHost.values) {
       for (final session in List.of(sessions)) {
         final connection = session.connection;
         if (connection != null && session.state.holdsSession) {
           if (rehome) _rehome(session, connection);
+          continue;
+        }
+        final due = session._due;
+        if (session._reconnect != null && due != null && !now().isBefore(due)) {
+          session._reconnect?.cancel();
+          unawaited(_redial(session));
           continue;
         }
         wake(session);
@@ -1348,16 +1359,16 @@ class ShellSessions extends ChangeNotifier {
   void _drop(ShellSession session, int attempt) {
     session.state = ShellDropped(attempt);
     session.changed();
-    session._reconnect = Timer(
-      shellReconnectDelays[attempt - 1],
-      () => unawaited(_redial(session)),
-    );
+    final delay = shellReconnectDelays[attempt - 1];
+    session._due = now().add(delay);
+    session._reconnect = Timer(delay, () => unawaited(_redial(session)));
   }
 
   /// A new shell in the tab that already has one, keeping its terminal. The state is left
   /// on [ShellDropped] across it, which is what keeps the header reading `RECONNECTING`.
   Future<void> _redial(ShellSession session) async {
     session._reconnect = null;
+    session._due = null;
     if (session.state is! ShellDropped) return;
     // Taken before anything closes: closing the old connection completes its exit
     // future, and an exit belonging to the attempt being replaced would otherwise
