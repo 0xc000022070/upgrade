@@ -14,6 +14,7 @@ import '../design/dynamic_tokens.dart';
 import '../design/effects/screen_entry.dart';
 import '../design/theme.dart';
 import '../features/agents/agent_status_bar.dart';
+import '../features/devices/device_float.dart';
 import '../features/home/home_screen.dart';
 import '../features/hosts/hosts_screen.dart';
 import '../features/plugins/plugin_page.dart';
@@ -79,8 +80,9 @@ class DazzleApp extends ConsumerWidget {
           scrollBehavior: const DazzleScrollBehavior(),
           // Over every route rather than inside one: the app goes to the parked window from
           // wherever the user was.
+          navigatorKey: rootNavigatorKey,
           builder: (context, child) =>
-              houseText(context, PipHost(child: child!)),
+              houseText(context, PipHost(child: DeviceFloat(child: child!))),
           home: AlertsHost(
             child: ShellWakeHost(
               child: BootGate(steps: boot, child: const DazzleShell()),

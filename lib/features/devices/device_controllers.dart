@@ -8,6 +8,7 @@ import '../../data/repositories/host_repository.dart';
 import '../../platform/devices/device_link.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
+import 'device_dock.dart';
 
 sealed class DevicesPhase {
   const DevicesPhase();
@@ -32,6 +33,7 @@ final class DevicesFailed extends DevicesPhase {
 class DevicesController extends ChangeNotifier {
   DevicesController({
     required this.host,
+    required this.dock,
     required this._readPrivateKey,
     this.pinHostKey,
     this.prompt,
@@ -39,6 +41,7 @@ class DevicesController extends ChangeNotifier {
   }) : _open = open ?? DeviceSsh.open;
 
   final Host host;
+  final DeviceDock dock;
   final Future<String?> Function(String keyId) _readPrivateKey;
   final Future<void> Function(String hostId, PinnedHostKey key)? pinHostKey;
   final HostKeyPrompt? prompt;
@@ -71,6 +74,11 @@ class DevicesController extends ChangeNotifier {
   }
 
   Future<DeviceLink?> _connect() async {
+    final held = dock.borrow(host.id);
+    if (held != null) {
+      _link = held;
+      return held;
+    }
     final privateKey = await _readPrivateKey(host.keyId);
     if (_disposed) return null;
     if (privateKey == null) {
@@ -95,8 +103,7 @@ class DevicesController extends ChangeNotifier {
       await link.close();
       return null;
     }
-    _link = link;
-    return link;
+    return _link = dock.adopt(host.id, link);
   }
 
   void _fail(Object error) {
@@ -108,14 +115,15 @@ class DevicesController extends ChangeNotifier {
     notifyListeners();
     final link = _link;
     _link = null;
-    unawaited(link?.close());
+    if (link != null) dock.discard(host.id, link);
   }
 
   @override
   void dispose() {
     _disposed = true;
-    unawaited(_link?.close());
+    final link = _link;
     _link = null;
+    if (link != null) dock.release(host.id, link);
     super.dispose();
   }
 }
@@ -130,6 +138,10 @@ final class DeviceWaiting extends DevicePhase {
 
 final class DeviceLive extends DevicePhase {
   const DeviceLive();
+}
+
+final class DevicePaused extends DevicePhase {
+  const DevicePaused();
 }
 
 final class DeviceFailed extends DevicePhase {
@@ -178,27 +190,70 @@ class DeviceScreenController extends ChangeNotifier {
   ui.Image? get image => _image;
   ui.Size get nativeSize => _nativeSize;
 
+  bool _held = false;
+  bool _away = false;
+  int _run = 0;
+
+  bool get held => _held;
+
   void start() {
+    final run = ++_run;
     _phase = const DeviceWaiting();
     notifyListeners();
     _frames = link
         .frames(device)
         .listen(
-          _onFrame,
-          onError: _fail,
-          onDone: () => _fail(const DeviceCaptureFailed('loop ended')),
+          (frame) => _onFrame(frame, run),
+          onError: (Object error) => _fail(error, run),
+          onDone: () => _fail(const DeviceCaptureFailed('loop ended'), run),
           cancelOnError: true,
         );
   }
 
   Future<void> retry() async {
-    await _frames?.cancel();
-    _frames = null;
-    if (_disposed) return;
+    _held = false;
+    await _halt();
+    if (_disposed || _away) return;
     start();
   }
 
-  Future<void> _onFrame(DeviceFrame frame) async {
+  Future<void> pause() async {
+    _held = true;
+    await _halt();
+  }
+
+  void resume() {
+    _held = false;
+    _go();
+  }
+
+  Future<void> setAway(bool away) async {
+    _away = away;
+    if (away) {
+      await _halt();
+    } else {
+      _go();
+    }
+  }
+
+  void _go() {
+    if (_disposed || _held || _away || _frames != null) return;
+    start();
+  }
+
+  Future<void> _halt() async {
+    _run++;
+    final frames = _frames;
+    _frames = null;
+    if (_disposed) return;
+    if (_phase is! DeviceFailed) {
+      _phase = const DevicePaused();
+      notifyListeners();
+    }
+    await frames?.cancel();
+  }
+
+  Future<void> _onFrame(DeviceFrame frame, int run) async {
     final sequence = ++_sequence;
     ui.Image image;
     try {
@@ -211,7 +266,7 @@ class DeviceScreenController extends ChangeNotifier {
       );
       return;
     }
-    if (_disposed || sequence < _shown) {
+    if (_disposed || run != _run || sequence < _shown) {
       image.dispose();
       return;
     }
@@ -261,7 +316,8 @@ class DeviceScreenController extends ChangeNotifier {
 
   /// `cancelOnError` has already cancelled the subscription, and cancelling it a second
   /// time from `RETRY` would wait on a teardown that is not coming.
-  void _fail(Object error) {
+  void _fail(Object error, int run) {
+    if (run != _run) return;
     _frames = null;
     if (_disposed) return;
     debugPrint('dazzle.devices $hostName ${device.id}: $error');

@@ -1371,7 +1371,7 @@ There is one framebuffer, a `Uint8List` sized by `ServerInit` or by a desktop re
 
 ### A host's emulators and simulators are reached through the tools that already drive them
 
-The integration is a `DEVICES` row in the host form's `[ INTEGRATIONS ]`. A device is an Android device or emulator the host's own `adb` lists as `device`, or an iOS simulator `xcrun simctl` lists as booted. Everything rides exec channels on one ssh connection held for as long as a device route is open: no port, no VNC, nothing installed on the host.
+The integration is a `DEVICES` row in the host form's `[ INTEGRATIONS ]`. A device is an Android device or emulator the host's own `adb` lists as `device`, or an iOS simulator `xcrun simctl` lists as booted. Everything rides exec channels on one ssh connection held for as long as the host's list, a device route or a floating device is up: no port, no VNC, nothing installed on the host.
 
 **It is not the desktop cut down to a window.** A window cut out of the VNC picture shows whatever is on top of it, and two emulators on one host open at the same spot, so the picture would be the wrong device half the time and off the display's edge the rest.
 
@@ -1392,6 +1392,14 @@ On Android a tap is `input tap`, a long press is a swipe that does not move for 
 `simctl` has no verb that touches a simulator, so a simulator's route takes no input at all and its crumb says `VIEW ONLY` on the right.
 
 **Not built:** typing. A field on the device is typed into from the host's shell, and the keyboard strip of the screen route is not repeated here.
+
+### A device floats over the app, and a stream only runs while it is being looked at
+
+**`FLOAT` on the crumb parks the device in a tile over every route.** It is the agents window's idea kept inside the app: the system's picture-in-picture belongs to AGENTS, and a device is watched beside the app's own work, not beside another app's. The route pops and the stream carries on into the tile without reconnecting. The tile is a hundred and twenty points wide and as tall as the device's shape makes it, rests in a corner clear of the nav bar and the parked shell, and is dragged to another corner, where it snaps. Its name strip is the device's whole name, and a tap on it switches the tile to the next device in the list the host last gave. A tap on the picture opens the device's route again on the same stream. Its foot carries the stream's state, `N/M` when the host has more than one booted, and a close glyph, which ends the stream and lets the connection go. One device floats at a time: opening another from a host's list replaces it.
+
+**The loop runs only while someone can see it.** `PAUSE` on the crumb or the tile's foot cancels the exec, so the host stops capturing, not only stops sending; the last frame stays, dimmed, under `RESUME`, and the route takes no input. The app going to the background, or into the agents window, pauses it the same way and brings it back on return, unless the user had paused it first. Leaving the device's route with the phone's back or the crumb ends it outright.
+
+**Struck:** the tile outside the app, in the system's picture-in-picture. The system gives that window to one activity, the agents window already has it, and the stream it would carry is the one that should stop when the app is not being looked at.
 
 ## Code
 

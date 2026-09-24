@@ -1,45 +1,54 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/components/panel.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
-import '../../platform/devices/device_link.dart';
 import '../screen/framebuffer_view.dart';
 import 'device_controllers.dart';
+import 'device_dock.dart';
 
-class DeviceScreen extends StatefulWidget {
-  const DeviceScreen({
-    super.key,
-    required this.hostName,
-    required this.link,
-    required this.device,
-  });
+const pausedDim = 0.4;
 
-  final String hostName;
-  final DeviceLink link;
-  final HostDevice device;
-
-  @override
-  State<DeviceScreen> createState() => _DeviceScreenState();
+void openDeviceScreen(BuildContext context) {
+  Navigator.of(
+    context,
+    rootNavigator: true,
+  ).push(MaterialPageRoute<void>(builder: (_) => const DeviceScreen()));
 }
 
-class _DeviceScreenState extends State<DeviceScreen> {
-  late final DeviceScreenController _controller;
+class DeviceScreen extends ConsumerStatefulWidget {
+  const DeviceScreen({super.key});
+
+  @override
+  ConsumerState<DeviceScreen> createState() => _DeviceScreenState();
+}
+
+class _DeviceScreenState extends ConsumerState<DeviceScreen> {
+  late final DeviceDock _dock;
 
   @override
   void initState() {
     super.initState();
-    _controller = DeviceScreenController(
-      hostName: widget.hostName,
-      link: widget.link,
-      device: widget.device,
-    )..start();
+    _dock = ref.read(deviceDockProvider);
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    final dock = _dock;
+    final session = dock.session;
+    scheduleMicrotask(() {
+      if (!dock.floating && dock.session == session) dock.close();
+    });
     super.dispose();
+  }
+
+  void _float() {
+    _dock.float();
+    Navigator.of(context).pop();
   }
 
   @override
@@ -47,19 +56,28 @@ class _DeviceScreenState extends State<DeviceScreen> {
     return Scaffold(
       backgroundColor: context.tokens.mediaBackdrop,
       body: SafeArea(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) => Column(
-            children: [
-              _Crumb(
-                hostName: widget.hostName,
-                controller: _controller,
-                onBack: () => Navigator.of(context).pop(),
+        child: ListenableBuilder(
+          listenable: _dock,
+          builder: (context, _) {
+            final session = _dock.session;
+            if (session == null) return const SizedBox.shrink();
+            return ListenableBuilder(
+              listenable: session.controller,
+              builder: (context, _) => Column(
+                children: [
+                  _Crumb(
+                    hostName: session.host.name,
+                    controller: session.controller,
+                    onBack: () => Navigator.of(context).pop(),
+                    onFloat: _float,
+                  ),
+                  Expanded(child: _Picture(controller: session.controller)),
+                  if (session.device.pressable)
+                    _Keys(controller: session.controller),
+                ],
               ),
-              Expanded(child: _Picture(controller: _controller)),
-              if (widget.device.pressable) _Keys(controller: _controller),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -71,11 +89,13 @@ class _Crumb extends StatelessWidget {
     required this.hostName,
     required this.controller,
     required this.onBack,
+    required this.onFloat,
   });
 
   final String hostName;
   final DeviceScreenController controller;
   final VoidCallback onBack;
+  final VoidCallback onFloat;
 
   @override
   Widget build(BuildContext context) {
@@ -100,38 +120,53 @@ class _Crumb extends StatelessWidget {
             ),
           ),
           const SizedBox(width: Spacing.lg),
-          switch (controller.phase) {
-            DeviceWaiting() => Text(
-              'CONNECTING',
-              style: context.tokens.panelHeader,
-            ),
-            DeviceFailed(:final reason) => Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  reason,
-                  style: context.tokens.panelHeader.copyWith(
-                    color: context.tokens.warning,
-                  ),
-                ),
-                const SizedBox(width: Spacing.lg),
-                PanelAffordance(
-                  'RETRY',
-                  showIcon: false,
-                  onTap: controller.retry,
-                ),
-              ],
-            ),
-            DeviceLive() when !device.pressable => Text(
-              'VIEW ONLY',
-              style: context.tokens.panelHeader,
-            ),
-            DeviceLive() => const SizedBox.shrink(),
-          },
+          ...deviceStateActions(context, controller),
+          const SizedBox(width: Spacing.lg),
+          PanelAffordance('FLOAT', icon: DazzleIcons.pip, onTap: onFloat),
         ],
       ),
     );
   }
+}
+
+List<Widget> deviceStateActions(
+  BuildContext context,
+  DeviceScreenController controller, {
+  bool terse = false,
+}) {
+  final quiet = context.tokens.panelHeader;
+  return switch (controller.phase) {
+    DeviceWaiting() => [Text(terse ? '…' : 'CONNECTING', style: quiet)],
+    DeviceFailed(:final reason) => [
+      if (!terse) ...[
+        Flexible(
+          child: Text(
+            reason,
+            style: quiet.copyWith(color: context.tokens.warning),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: Spacing.lg),
+      ],
+      PanelAffordance('RETRY', showIcon: false, onTap: controller.retry),
+    ],
+    DevicePaused() => [
+      PanelAffordance(
+        'RESUME',
+        showIcon: false,
+        color: context.tokens.accent,
+        onTap: controller.resume,
+      ),
+    ],
+    DeviceLive() => [
+      if (!terse && !controller.device.pressable) ...[
+        Text('VIEW ONLY', style: quiet),
+        const SizedBox(width: Spacing.lg),
+      ],
+      PanelAffordance('PAUSE', showIcon: false, onTap: controller.pause),
+    ],
+  };
 }
 
 class _Picture extends StatefulWidget {
@@ -209,10 +244,13 @@ class _PictureState extends State<_Picture> {
               children: [
                 Positioned.fromRect(
                   rect: rect,
-                  child: RawImage(
-                    image: image,
-                    fit: BoxFit.fill,
-                    filterQuality: FilterQuality.medium,
+                  child: Opacity(
+                    opacity: controller.phase is DeviceLive ? 1 : pausedDim,
+                    child: RawImage(
+                      image: image,
+                      fit: BoxFit.fill,
+                      filterQuality: FilterQuality.medium,
+                    ),
                   ),
                 ),
               ],

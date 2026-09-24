@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agents.dart';
+import 'package:dazzle/application/navigation.dart';
 import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/features/devices/device_controllers.dart';
+import 'package:dazzle/features/devices/device_float.dart';
 import 'package:dazzle/features/devices/devices_screen.dart';
 import 'package:dazzle/features/screen/screen_preview.dart';
 import 'package:dazzle/platform/devices/device_link.dart';
@@ -88,6 +90,8 @@ Future<void> _pump(WidgetTester tester, DeviceLinkOpener open) async {
       ],
       child: MaterialApp(
         theme: testTheme,
+        navigatorKey: rootNavigatorKey,
+        builder: (context, child) => DeviceFloat(child: child!),
         home: DevicesScreen(host: _rose, open: open),
       ),
     ),
@@ -102,6 +106,24 @@ Future<void> _settle(WidgetTester tester) async {
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
+}
+
+Future<void> _openLive(
+  WidgetTester tester,
+  FakeDeviceLink link,
+  String row,
+) async {
+  await tester.tap(find.text(row));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+  link.frameStreams.last.add(_frame());
+  await _settle(tester);
+}
+
+void _lifecycle(WidgetTester tester, List<AppLifecycleState> states) {
+  for (final state in states) {
+    tester.binding.handleAppLifecycleStateChanged(state);
+  }
 }
 
 DeviceFrame _frame({int width = 1080, int height = 2400}) {
@@ -310,5 +332,122 @@ void main() {
     await tester.tapAt(tester.getCenter(find.byType(RawImage)));
     await tester.pump(const Duration(milliseconds: 400));
     expect(link.commands, isEmpty);
+  });
+
+  test('a paused stream stays paused when the app comes back', () async {
+    final link = FakeDeviceLink(const []);
+    final controller = DeviceScreenController(
+      hostName: 'rose',
+      link: link,
+      device: _pixel,
+    )..start();
+    addTearDown(controller.dispose);
+
+    await controller.pause();
+    await controller.setAway(true);
+    await controller.setAway(false);
+    expect(link.frameStreams, hasLength(1));
+    expect(controller.phase, isA<DevicePaused>());
+
+    await controller.setAway(true);
+    controller.resume();
+    expect(link.frameStreams, hasLength(1));
+    await controller.setAway(false);
+    expect(link.frameStreams, hasLength(2));
+    expect(link.frameStreams.last.hasListener, isTrue);
+  });
+
+  testWidgets('a floated device cycles on its name and comes back whole', (
+    tester,
+  ) async {
+    final link = FakeDeviceLink(const [_pixel, _iphone]);
+    await _pump(tester, _opener(link));
+    await _openLive(tester, link, 'pixel_7-api36');
+
+    await tester.tap(find.text('FLOAT'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('/ ROSE PIXEL_7-API36'), findsNothing);
+    expect(find.byKey(const ValueKey('device-float')), findsOneWidget);
+    expect(find.text('1/2'), findsOneWidget);
+    expect(link.frameStreams.single.hasListener, isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('device-float-name')));
+    await tester.pump();
+    expect(link.frameStreams, hasLength(2));
+    expect(link.frameStreams.first.hasListener, isFalse);
+    expect(find.text('IPHONE 17 PRO'), findsOneWidget);
+    expect(find.text('2/2'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('device-float-picture')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('/ ROSE IPHONE 17 PRO'), findsOneWidget);
+    expect(find.byKey(const ValueKey('device-float')), findsNothing);
+    expect(link.frameStreams, hasLength(2));
+
+    await tester.tap(find.text('/ ROSE IPHONE 17 PRO'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(link.frameStreams.last.hasListener, isFalse);
+    expect(find.byKey(const ValueKey('device-float')), findsNothing);
+    expect(link.closed, isFalse);
+  });
+
+  testWidgets('closing the float ends the stream and outlives nothing', (
+    tester,
+  ) async {
+    final link = FakeDeviceLink(const [_pixel]);
+    await _pump(tester, _opener(link));
+    await _openLive(tester, link, 'pixel_7-api36');
+    await tester.tap(find.text('FLOAT'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    await tester.tap(find.byKey(const ValueKey('device-float-close')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('device-float')), findsNothing);
+    expect(link.frameStreams.single.hasListener, isFalse);
+
+    await tester.pumpWidget(const SizedBox());
+    expect(link.closed, isTrue);
+  });
+
+  testWidgets('PAUSE stops the loop, and so does hiding the app', (
+    tester,
+  ) async {
+    addTearDown(() => _lifecycle(tester, const [AppLifecycleState.resumed]));
+    final link = FakeDeviceLink(const [_pixel]);
+    await _pump(tester, _opener(link));
+    await _openLive(tester, link, 'pixel_7-api36');
+
+    await tester.tap(find.text('PAUSE'));
+    await tester.pump();
+    expect(link.frameStreams.single.hasListener, isFalse);
+    await tester.tap(find.text('HOME'));
+    await tester.pump();
+    expect(link.commands, isEmpty);
+
+    await tester.tap(find.text('RESUME'));
+    await tester.pump();
+    expect(link.frameStreams, hasLength(2));
+    link.frameStreams.last.add(_frame());
+    await _settle(tester);
+    expect(find.text('PAUSE'), findsOneWidget);
+
+    _lifecycle(tester, const [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+    ]);
+    await tester.pump();
+    expect(link.frameStreams.last.hasListener, isFalse);
+
+    _lifecycle(tester, const [
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]);
+    await tester.pump();
+    expect(link.frameStreams, hasLength(3));
+    expect(link.frameStreams.last.hasListener, isTrue);
   });
 }
