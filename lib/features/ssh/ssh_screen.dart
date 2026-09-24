@@ -125,7 +125,9 @@ class _HostRow extends StatelessWidget {
       title: host.name.toUpperCase(),
       subtitle: 'ssh, ${host.user}',
       node: true,
-      leading: worst == null ? null : ShellStateDot(state: worst),
+      leading: worst == null
+          ? const SizedBox.shrink()
+          : ShellStateDot(state: worst),
       value: sessions.isEmpty ? null : '${sessions.length} OPEN',
       // A host with sessions lands on the tab it was last left on, which is what the route
       // does with no session named.

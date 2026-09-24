@@ -190,6 +190,31 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a host with no session lines its name up with one that has', (
+    tester,
+  ) async {
+    sized(tester);
+    await seed();
+    shells.stall = false;
+    sessions.open(_nyx);
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    double left(String host, String text) => tester
+        .getTopLeft(
+          find.descendant(
+            of: find.byKey(ValueKey('ssh-host-$host')),
+            matching: find.text(text),
+          ),
+        )
+        .dx;
+
+    expect(left('h1', 'ROSE'), left('h2', 'NYX'));
+    expect(left('h1', 'ssh, luis'), left('h2', 'ssh, luis'));
+
+    await unmount(tester);
+  });
+
   testWidgets('a card opens its own host on its own tab', (tester) async {
     sized(tester);
     await seed();
