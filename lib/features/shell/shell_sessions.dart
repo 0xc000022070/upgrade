@@ -1274,11 +1274,12 @@ class ShellSessions extends ChangeNotifier {
 
   /// The phone is what calls this — coming back in front, or finding a network — and a tab
   /// still inside its schedule has a timer of its own and is left to it.
-  void wakeAll() {
+  void wakeAll({bool rehome = true}) {
     for (final sessions in _byHost.values) {
       for (final session in List.of(sessions)) {
         final connection = session.connection;
         if (connection != null && session.state.holdsSession) {
+          if (!rehome) continue;
           unawaited(
             connection.rehome().catchError((Object error) {
               debugPrint(

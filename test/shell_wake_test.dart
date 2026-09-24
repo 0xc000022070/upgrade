@@ -41,6 +41,14 @@ Future<ShellSession> _waiting(
   return session;
 }
 
+Future<ShellSession> _live(WidgetTester tester, ShellSessions sessions) async {
+  final session = sessions.open(rose)!;
+  await tester.pump();
+  await tester.pump();
+  expect(session.state, isA<ShellLive>());
+  return session;
+}
+
 void main() {
   setUp(stubDeviceChannels);
 
@@ -101,6 +109,75 @@ void main() {
     await tester.pump();
     expect(transport.verifiers, hasLength(spent));
 
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+
+    expect(transport.verifiers, hasLength(spent + 1));
+    expect(session.state, isA<ShellLive>());
+
+    await sessions.close(rose.id, session);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('the shade pulled down over a live tab rehomes nothing', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(_host(sessions));
+
+    final session = await _live(tester, sessions);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+
+    expect(transport.opened.single.rehomes, 0);
+    expect(session.state, isA<ShellLive>());
+
+    await sessions.close(rose.id, session);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('the app coming back from a pocket rehomes a live tab', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(_host(sessions));
+
+    final session = await _live(tester, sessions);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+
+    expect(transport.opened.single.rehomes, 1);
+
+    await sessions.close(rose.id, session);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('the shade pulled down still dials a waiting tab', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(_host(sessions));
+
+    final session = await _waiting(tester, transport, sessions);
+    transport.refuse = null;
+    final spent = transport.verifiers.length;
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     await tester.pump();
