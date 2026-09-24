@@ -108,6 +108,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     // Held rather than read where it is used: `ref` is closed by the time dispose
     // runs, and this is the store the listener has to come off.
     _store = ref.read(shellSessionsProvider);
+    _store.addListener(_onStore);
     // Both notifiers: the strip is drawn from the set, and the header, the exit
     // sheet and the pop that follows the last tab are all drawn from what the tabs
     // themselves report.
@@ -115,6 +116,14 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       store: _store,
       watch: (store) => store.forHost(widget.host.id),
       onChange: _onSessions,
+    );
+    _view = ShellFollower(
+      store: _store,
+      watch: (store) {
+        final active = store.activeFor(widget.host.id);
+        return active == null ? const [] : [active];
+      },
+      onChange: _onView,
     );
     _clips = ref.read(clipStoreProvider);
     _clips.addListener(_onClips);
@@ -151,6 +160,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   @override
   void dispose() {
     _follower.dispose();
+    _view.dispose();
+    _store.removeListener(_onStore);
     _clips.removeListener(_onClips);
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     super.dispose();
@@ -158,6 +169,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 
   late final ShellSessions _store;
   late final ShellFollower _follower;
+  late final ShellFollower _view;
+  Object? _drawn;
 
   late final ClipStore _clips;
 
@@ -176,9 +189,34 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     if (mounted) setState(() {});
   }
 
+  void _onStore() {
+    if (mounted) setState(() {});
+  }
+
+  void _onView() {
+    if (!mounted || _drawnFrom(_store.activeFor(widget.host.id)) == _drawn) {
+      return;
+    }
+    setState(() {});
+  }
+
+  /// Everything the route draws from the active tab but its title, which only the header
+  /// shows, and the header follows every tab on its own.
+  Object? _drawnFrom(ShellSession? session) => session == null
+      ? null
+      : (
+          session,
+          session.state,
+          session.connection,
+          session.repository,
+          session.cwd,
+          StickyModifier.values.where(session.sticky.contains).join(),
+          session.stickyRepeat,
+          session.stickyLocked,
+        );
+
   void _onSessions() {
     if (!mounted) return;
-    setState(() {});
     _withdrawPin();
     if (_pinShown == null) unawaited(_askPins());
     if (_announcing) return;
@@ -695,6 +733,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           builder: (context) {
             final sessions = store.forHost(widget.host.id);
             final active = store.activeFor(widget.host.id);
+            _drawn = _drawnFrom(active);
             final registered =
                 ref.watch(hostsProvider).valueOrNull ?? const <Host>[];
             final known = {
@@ -718,28 +757,34 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      ShellHeader(
-                        host: widget.host,
-                        sessions: sessions,
-                        active: active,
-                        newHosts: newHosts,
-                        onSwitchHost:
-                            widget.onSwitchHost != null && _reachable > 1
-                            ? _openSwitcher
-                            : null,
-                        onSelect: _onSelect,
-                        onNew: _onNew,
-                        onClose: active == null ? null : () => _onClose(active),
-                        onDiff:
-                            diffTargets.isEmpty && active?.connection == null
-                            ? null
-                            : () => _onDiff(active, diffTargets),
-                        diffReady:
-                            active?.repository != null ||
-                            diffTargets.isNotEmpty,
-                        onStop: active == null
-                            ? null
-                            : () => store.stopReconnect(active),
+                      ShellWatcher(
+                        store: store,
+                        watch: (store) => store.forHost(widget.host.id),
+                        builder: (context) => ShellHeader(
+                          host: widget.host,
+                          sessions: sessions,
+                          active: active,
+                          newHosts: newHosts,
+                          onSwitchHost:
+                              widget.onSwitchHost != null && _reachable > 1
+                              ? _openSwitcher
+                              : null,
+                          onSelect: _onSelect,
+                          onNew: _onNew,
+                          onClose: active == null
+                              ? null
+                              : () => _onClose(active),
+                          onDiff:
+                              diffTargets.isEmpty && active?.connection == null
+                              ? null
+                              : () => _onDiff(active, diffTargets),
+                          diffReady:
+                              active?.repository != null ||
+                              diffTargets.isNotEmpty,
+                          onStop: active == null
+                              ? null
+                              : () => store.stopReconnect(active),
+                        ),
                       ),
                       if (state?.failure case final failure?)
                         ShellReasonRow(
