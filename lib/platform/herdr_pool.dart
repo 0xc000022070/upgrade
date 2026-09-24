@@ -39,7 +39,8 @@ class HerdrSessionPool {
       }
     }
 
-    final fresh = _Held(
+    late final _Held created;
+    final fresh = _held[key] ??= created = _Held(
       _client.connect(
         address: address,
         port: port,
@@ -48,9 +49,8 @@ class HerdrSessionPool {
         verifier: verifier,
       ),
       idle,
-      () => _drop(key, _held[key]),
+      () => _drop(key, created),
     );
-    _held[key] = fresh;
     try {
       return await fresh.list();
     } catch (_) {
