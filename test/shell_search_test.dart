@@ -62,6 +62,26 @@ void main() {
       final all = shellHits(terminal, 'mark');
       expect(all.last.line, greaterThan(shellHitCap));
     });
+
+    test('a hit runs over the characters of the line, not over its cells', () {
+      final terminal = Terminal()
+        ..write('ab\x1b[3CFoo\r\n')
+        ..write('漢字 FOO\r\n')
+        ..write('ÉCOLE foo\r\n')
+        ..write('FOOÉ\tfoo\r\n');
+
+      final hits = shellHits(terminal, 'Foo');
+
+      expect(hits.map((hit) => (hit.start, hit.end)), [
+        (2, 5),
+        (3, 6),
+        (6, 9),
+        (0, 3),
+        (4, 7),
+      ]);
+      expect(hits.map((hit) => hit.line), [0, 1, 2, 3, 3]);
+      expect(shellHits(terminal, 'école').single, (line: 2, start: 0, end: 5));
+    });
   });
 
   group('the line under the terminal', () {
