@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/effects/glitch.dart';
@@ -29,3 +30,5 @@ final navGlitchProvider = Provider<NavGlitch>((ref) {
   ref.onDispose(glitch.dispose);
   return glitch;
 });
+
+final rootNavigatorKey = GlobalKey<NavigatorState>();

@@ -14,6 +14,7 @@ import '../../platform/host_keys.dart';
 import '../hosts/host_key_sheet.dart';
 import '../screen_scaffold.dart';
 import 'device_controllers.dart';
+import 'device_dock.dart';
 import 'device_screen.dart';
 
 void openDevices(BuildContext context, Host host) {
@@ -48,6 +49,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
     super.initState();
     _controller = DevicesController(
       host: widget.host,
+      dock: ref.read(deviceDockProvider),
       readPrivateKey: ref.read(ed25519KeysProvider).privateKey,
       pinHostKey: ref.read(hostRepositoryProvider).pinHostKey,
       prompt: _askHostKey,
@@ -69,16 +71,10 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
 
   void _openDevice(HostDevice device) {
     final link = _controller.link;
-    if (link == null) return;
-    Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute<void>(
-        builder: (_) => DeviceScreen(
-          hostName: widget.host.name,
-          link: link,
-          device: device,
-        ),
-      ),
-    );
+    final phase = _controller.phase;
+    if (link == null || phase is! DevicesListed) return;
+    ref.read(deviceDockProvider).open(widget.host, link, device, phase.devices);
+    openDeviceScreen(context);
   }
 
   @override
