@@ -82,6 +82,20 @@ void main() {
 
       expect(thumbnailLines(terminal).first, 'ok');
     });
+
+    test('a gap the cursor moved over keeps the columns apart', () {
+      final terminal = Terminal(maxLines: 100)..resize(40, 4);
+      terminal.write('dazzle 3\x1b[7C1 tab\x1b[3C1 pane');
+
+      expect(thumbnailLines(terminal), ['dazzle 3       1 tab   1 pane']);
+    });
+
+    test('a wide character takes its two cells and no more', () {
+      final terminal = Terminal(maxLines: 100)..resize(20, 4);
+      terminal.write('a漢b');
+
+      expect(thumbnailLines(terminal), ['a漢b']);
+    });
   });
 
   group('the widget', () {
