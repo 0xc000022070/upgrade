@@ -75,7 +75,9 @@ class HerdrSessionPool {
 
 class _Held {
   _Held(this._session, this._idle, this._expire) {
-    _session.then((_) => ready = true, onError: (_) {});
+    _session.then((_) {
+      ready = true;
+    }, onError: (_) {});
     _arm();
   }
 
