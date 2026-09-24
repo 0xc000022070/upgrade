@@ -59,6 +59,12 @@ class HostKeyVerifier {
 
   HostKeyRefusal? _refusal;
   PinnedHostKey? _verified;
+  final _offered = Completer<void>();
+  final _answered = Completer<void>();
+
+  Future<void> get offered => _offered.future;
+
+  Future<void> get answered => _answered.future;
 
   HostKeyRefusal? get refusal => _refusal;
 
@@ -70,6 +76,15 @@ class HostKeyVerifier {
       verifyFingerprint(type, utf8.decode(fingerprint, allowMalformed: true));
 
   Future<bool> verifyFingerprint(String type, String fingerprint) async {
+    if (!_offered.isCompleted) _offered.complete();
+    try {
+      return await _decide(type, fingerprint);
+    } finally {
+      if (!_answered.isCompleted) _answered.complete();
+    }
+  }
+
+  Future<bool> _decide(String type, String fingerprint) async {
     final known = pinned;
     if (known != null) {
       if (known.matches(type, fingerprint)) {

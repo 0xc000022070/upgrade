@@ -113,11 +113,7 @@ class ShellTunnel {
       // The host key is checked inside the handshake, which is what [ShellHost.authenticated]
       // is waiting on: a refusal surfaces here as an ssh error, and the verifier is the only
       // thing that knows which of the two refusals it was.
-      await _guard(
-        address,
-        () => host.authenticated.timeout(timeout),
-        verifier,
-      );
+      await _guard(address, () => _authenticate(host, verifier), verifier);
       final config = SSHPtyConfig(
         type: terminalType,
         width: columns,
@@ -311,16 +307,22 @@ class ShellTunnel {
       verifier,
     );
     try {
-      await _guard(
-        address,
-        () => host.authenticated.timeout(timeout),
-        verifier,
-      );
+      await _guard(address, () => _authenticate(host, verifier), verifier);
       return host;
     } catch (_) {
       unawaited(host.close());
       rethrow;
     }
+  }
+
+  /// The deadline stands down while the key is being answered for: a confirm sheet can
+  /// stay open as long as the user reads it, and authentication gets a fresh deadline after.
+  Future<void> _authenticate(ShellHost host, HostKeyVerifier? verifier) async {
+    final authenticated = host.authenticated;
+    if (verifier == null) return authenticated.timeout(timeout);
+    await Future.any([authenticated, verifier.offered]).timeout(timeout);
+    await Future.any([authenticated, verifier.answered]);
+    await authenticated.timeout(timeout);
   }
 
   Future<T> _guard<T>(
