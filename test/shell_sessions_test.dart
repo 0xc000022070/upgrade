@@ -1045,6 +1045,35 @@ void main() {
     await sessions.close(_rose.id, session);
   });
 
+  testWidgets('a network arriving just after a plain wake still rehomes', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+    final connection = transport.opened.single;
+
+    sessions.wakeAll();
+    sessions.wakeAll(network: true);
+    await _pumpDial(tester);
+    expect(connection.rehomes, 2);
+    expect(connection.networkRehomes, 1);
+
+    await tester.pump(shellRehomeSettle);
+    sessions.wakeAll();
+    await _pumpDial(tester);
+    sessions.wakeAll(network: true);
+    await _pumpDial(tester);
+    sessions.wakeAll(network: true);
+    sessions.wakeAll();
+    await _pumpDial(tester);
+    expect(connection.rehomes, 4);
+    expect(connection.networkRehomes, 2);
+
+    await sessions.close(_rose.id, session);
+  });
+
   testWidgets('a second wake inside a second of the first rehomes nothing', (
     tester,
   ) async {

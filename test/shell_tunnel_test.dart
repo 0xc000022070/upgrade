@@ -146,6 +146,7 @@ class FakeHost implements ShellHost {
 
   final Object? authError;
   final Object? shellError;
+  Object? refuse;
   Completer<void>? authGate;
   String execOut;
   String execError;
@@ -167,6 +168,8 @@ class FakeHost implements ShellHost {
   @override
   Future<ShellExec> execute(String command) async {
     requests.add('exec $command');
+    final error = refuse;
+    if (error != null) throw error;
     return FakeExec(
       out: execAnswer?.call(command) ?? execOut,
       err: execError,
@@ -300,6 +303,31 @@ ShellTunnel moshTunnelTo(
         required int rows,
       }) async {
         if (emitReady) Timer.run(() => channel.emit('\x1b[H\$ '));
+        return channel;
+      },
+);
+
+ShellTunnel moshTunnelOver(
+  List<FakeHost> hosts,
+  FakeMoshChannel channel,
+  int Function() dialled,
+) => ShellTunnel(
+  dial: ({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    HostKeyVerifier? verifier,
+    required Duration timeout,
+    required Duration keepAlive,
+  }) async => hosts[dialled()],
+  moshDialer:
+      ({
+        required MoshServerConfig server,
+        required int columns,
+        required int rows,
+      }) async {
+        Timer.run(() => channel.emit('\$ '));
         return channel;
       },
 );
@@ -608,7 +636,7 @@ void main() {
       expect((reported! as ShellFailure).kind, ShellFailureKind.streamClosed);
     });
 
-    test('Mosh redials its SSH control path after a rehome', () async {
+    test('Mosh redials its SSH control path after a network change', () async {
       const session = 'dazzle123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
@@ -616,28 +644,33 @@ void main() {
       ];
       var dials = 0;
       final channel = FakeMoshChannel();
-      final tunnel = ShellTunnel(
-        dial: ({
-          required String address,
-          required int port,
-          required String user,
-          required String privateKey,
-          HostKeyVerifier? verifier,
-          required Duration timeout,
-          required Duration keepAlive,
-        }) async => hosts[dials++],
-        moshDialer:
-            ({
-              required MoshServerConfig server,
-              required int columns,
-              required int rows,
-            }) async {
-              Timer.run(() => channel.emit('\$ '));
-              return channel;
-            },
-      );
       final connection = await openOn(
-        tunnel,
+        moshTunnelOver(hosts, channel, () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+
+      await connection.rehome(network: true);
+      final result = await connection.exec('pwd');
+
+      expect(result.ok, isTrue);
+      expect(dials, 2);
+      expect(hosts.first.closed, isTrue);
+      expect(hosts.last.requests.last, 'exec pwd');
+      await connection.close();
+    });
+
+    test('a plain return keeps the SSH control path', () async {
+      const session = 'dazzle123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      var dials = 0;
+      final channel = FakeMoshChannel();
+      final connection = await openOn(
+        moshTunnelOver(hosts, channel, () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
         persistentSession: session,
@@ -647,6 +680,15 @@ void main() {
       final result = await connection.exec('pwd');
 
       expect(result.ok, isTrue);
+      expect(channel.rehomes, 1);
+      expect(dials, 1);
+      expect(hosts.first.closed, isFalse);
+      expect(hosts.first.requests.last, 'exec pwd');
+
+      hosts.first.refuse = const SocketException('Connection reset by peer');
+      final again = await connection.exec('pwd');
+
+      expect(again.ok, isTrue);
       expect(dials, 2);
       expect(hosts.first.closed, isTrue);
       expect(hosts.last.requests.last, 'exec pwd');
