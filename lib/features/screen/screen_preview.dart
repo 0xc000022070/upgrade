@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -103,6 +104,19 @@ PreviewFrame cropFrame(Framebuffer framebuffer, CropRect rect) {
     }
   }
   return PreviewFrame(width: width, height: height, rgb: rgb);
+}
+
+Future<Uint8List> _encodeAside(Framebuffer framebuffer) {
+  final width = framebuffer.width;
+  final height = framebuffer.height;
+  final pixels = TransferableTypedData.fromList([framebuffer.pixels]);
+  return Isolate.run(
+    () => encodePng(
+      downsampleFrame(
+        Framebuffer.wrap(width, height, pixels.materialize().asUint8List()),
+      ),
+    ),
+  );
 }
 
 /// Written by hand rather than through `dart:ui`, which can only encode an image it has
@@ -218,7 +232,7 @@ class ScreenPreviews {
   File fileFor(String hostId) => File(p.join(directory.path, '$hostId.png'));
 
   Future<File> write(String hostId, Framebuffer framebuffer) async {
-    final bytes = encodePng(downsampleFrame(framebuffer));
+    final bytes = await _encodeAside(framebuffer);
     if (!directory.existsSync()) {
       await directory.create(recursive: true);
     }
