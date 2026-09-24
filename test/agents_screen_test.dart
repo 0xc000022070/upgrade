@@ -44,6 +44,7 @@ AgentSnapshot agent(
   required String workspace,
   String status = 'working',
   String session = 'default',
+  String? label,
 }) => AgentSnapshot(
   session: session,
   paneId: '$workspace:p1',
@@ -53,6 +54,7 @@ AgentSnapshot agent(
   workspaceId: workspace,
   cwd: '/workspace/dazzle',
   stateChangeSeq: 1,
+  workspaceLabel: label,
 );
 
 void main() {
@@ -229,7 +231,7 @@ void main() {
             host: nyx,
             kind: AgentOutcomeKind.snapshot,
             agents: [
-              agent('claude', workspace: 'wQ'),
+              agent('claude', workspace: 'wK', label: 'dazzle 2'),
               agent('codex', workspace: 'wR'),
             ],
           ),
@@ -238,8 +240,10 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('WQ'), findsOneWidget);
-    expect(find.text('WR'), findsOneWidget);
+    expect(find.text('DAZZLE 2'), findsOneWidget);
+    expect(find.text('wR'), findsOneWidget);
+    expect(find.text('WK'), findsNothing);
+    expect(find.text('WR'), findsNothing);
     expect(find.textContaining('NYX'), findsNothing);
     await unmount(tester);
   });
@@ -263,9 +267,9 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('DEFAULT / WQ'), findsOneWidget);
-    expect(find.text('LAB / WQ'), findsOneWidget);
-    expect(find.text('WQ'), findsNothing);
+    expect(find.text('DEFAULT / wQ'), findsOneWidget);
+    expect(find.text('LAB / wQ'), findsOneWidget);
+    expect(find.text('wQ'), findsNothing);
     await unmount(tester);
   });
 
@@ -281,15 +285,15 @@ void main() {
           HostOutcome(
             host: rose,
             kind: AgentOutcomeKind.snapshot,
-            agents: [agent('codex', workspace: 'wQ')],
+            agents: [agent('codex', workspace: 'wQ', label: '~')],
           ),
         ]),
       ),
     );
     await ready(tester);
 
-    expect(find.text('NYX / WQ'), findsOneWidget);
-    expect(find.text('ROSE / WQ'), findsOneWidget);
+    expect(find.text('NYX / wQ'), findsOneWidget);
+    expect(find.text('ROSE / ~'), findsOneWidget);
     await unmount(tester);
   });
 
@@ -310,7 +314,7 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('NYX / WQ'), findsOneWidget);
+    expect(find.text('NYX / wQ'), findsOneWidget);
     expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('key rejected'), findsOneWidget);
     await unmount(tester);
