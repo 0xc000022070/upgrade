@@ -84,6 +84,27 @@ void main() {
     pool.close();
   });
 
+  testWidgets('a held session that stops answering is redialled in 5 s', (
+    tester,
+  ) async {
+    final client = _Client();
+    final pool = HerdrSessionPool(client);
+    await _fetch(pool);
+    final dead = client.sessions.single..gate = Completer();
+
+    var answered = false;
+    unawaited(_fetch(pool).then((_) => answered = true));
+    await tester.pump(const Duration(seconds: 4, milliseconds: 999));
+    expect(answered, isFalse);
+    await tester.pump(const Duration(milliseconds: 1));
+
+    expect(answered, isTrue);
+    expect(client.sessions, hasLength(2));
+    expect(dead.closed, isTrue);
+    expect(client.sessions.last.closed, isFalse);
+    pool.close();
+  });
+
   group('a session idle past its window by the wall clock', () {
     late DateTime at;
     late _Client client;

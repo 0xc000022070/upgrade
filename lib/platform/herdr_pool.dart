@@ -7,11 +7,16 @@ class HerdrSessionPool {
   HerdrSessionPool(
     this._client, {
     this.idle = const Duration(seconds: 30),
+    this.reuse = const Duration(seconds: 5),
     this.now = DateTime.now,
   });
 
   final HerdrClient _client;
   final Duration idle;
+
+  /// A live session lists in well under a second; one silent this long has lost its socket,
+  /// and TCP takes minutes to say so. Half the poll's beat, so the redial lands in the next.
+  final Duration reuse;
 
   // Wall time: timers run on the monotonic clock, which stops while the phone sleeps.
   final DateTime Function() now;
@@ -41,7 +46,7 @@ class HerdrSessionPool {
     }
     if (held != null) {
       try {
-        return await held.list(now());
+        return await held.list(now(), within: reuse);
       } catch (_) {
         _drop(key, held);
         // Only a session that had worked is worth a second dial: a host that refused the
@@ -100,10 +105,12 @@ class _Held {
   bool ready = false;
   DateTime usedAt;
 
-  Future<List<AgentSnapshot>> list(DateTime at) async {
+  Future<List<AgentSnapshot>> list(DateTime at, {Duration? within}) async {
     usedAt = at;
     _arm();
-    return (await _session).list();
+    final session = await _session;
+    final listed = session.list();
+    return within == null ? listed : listed.timeout(within);
   }
 
   void _arm() {
