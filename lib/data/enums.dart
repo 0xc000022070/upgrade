@@ -74,7 +74,9 @@ class ActivityActionConverter extends TypeConverter<ActivityAction, String> {
 enum IntegrationKind {
   herdr('herdr', 'HERDR'),
 
-  vnc('vnc', 'VNC');
+  vnc('vnc', 'VNC'),
+
+  devices('devices', 'DEVICES');
 
   const IntegrationKind(this.wire, this.label);
 

@@ -21,6 +21,7 @@ import '../../platform/host_key_dial.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/link_probe.dart';
 import '../code/code_list.dart';
+import '../devices/devices_screen.dart';
 import '../screen_scaffold.dart';
 import '../settings/host_form_screen.dart';
 import '../shell/shell_sheet.dart';
@@ -180,6 +181,8 @@ class _HostPanel extends ConsumerWidget {
             _HerdrStateRow(host: host, outcome: outcome),
           _ClipboardRow(host: host),
           _ShellRow(host: host),
+          if (integrations.contains(IntegrationKind.devices))
+            _DevicesRow(host: host),
           if (integrations.contains(IntegrationKind.vnc)) ...[
             const SizedBox(height: Spacing.sm),
             ScreenPreviewTile(host: host),
@@ -249,6 +252,41 @@ class _HerdrStateRowState extends ConsumerState<_HerdrStateRow> {
     } finally {
       if (mounted) setState(() => _retrying = false);
     }
+  }
+}
+
+class _DevicesRow extends StatefulWidget {
+  const _DevicesRow({required this.host});
+
+  final Host host;
+
+  @override
+  State<_DevicesRow> createState() => _DevicesRowState();
+}
+
+class _DevicesRowState extends State<_DevicesRow> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) => setState(() => _down = false),
+      onTap: () => openDevices(context, widget.host),
+      child: SizedBox(
+        height: RowMetrics.minHeight,
+        child: Row(
+          children: [
+            PanelAffordance(
+              'DEVICES',
+              color: _down ? context.tokens.accent : null,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
