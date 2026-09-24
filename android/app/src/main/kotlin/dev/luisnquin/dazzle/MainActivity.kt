@@ -23,16 +23,21 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val power by lazy { getSystemService(Context.POWER_SERVICE) as PowerManager }
+    private val power by lazy { applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager }
     private val connectivity by lazy {
-        getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     }
 
     // One document picker at a time.
     private var pendingDocument: MethodChannel.Result? = null
     private var pendingBytes: ByteArray? = null
 
-    private var pipEvents: EventChannel.EventSink? = null
+    private var warm = false
+
+    override fun provideFlutterEngine(context: Context): FlutterEngine {
+        warm = DazzleEngine.started
+        return DazzleEngine.obtain(context, flutterShellArgs.toArray())
+    }
 
     // The Android 12+ splash fades itself out over the app window it already
     // covers, and measurement put ~130ms of the boot log under that fade.
@@ -41,7 +46,27 @@ class MainActivity : FlutterActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             splashScreen.setOnExitAnimationListener { view -> view.remove() }
         }
+        if (!warm) return
+        DazzleEngine.orientation?.let { super.setRequestedOrientation(it) }
+        super.setFrameworkHandlesBack(DazzleEngine.handlesBack)
+        if (savedInstanceState == null && notificationTap(intent)) {
+            flutterEngine?.activityControlSurface?.onNewIntent(intent)
+        }
     }
+
+    override fun setRequestedOrientation(orientation: Int) {
+        DazzleEngine.orientation = orientation
+        super.setRequestedOrientation(orientation)
+    }
+
+    override fun setFrameworkHandlesBack(frameworkHandlesBack: Boolean) {
+        DazzleEngine.handlesBack = frameworkHandlesBack
+        super.setFrameworkHandlesBack(frameworkHandlesBack)
+    }
+
+    private fun notificationTap(intent: Intent) =
+        intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0 &&
+            (intent.action == "SELECT_NOTIFICATION" || intent.action == "SELECT_FOREGROUND_NOTIFICATION")
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -72,25 +97,35 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
+        DazzleEngine.pip(isInPictureInPictureMode)
+        if (warm) return
+
         EventChannel(messenger, "dev.luisnquin.dazzle/pip/mode")
             .setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
-                    pipEvents = sink
+                    DazzleEngine.pipEvents = sink
                     // Replayed: a subscriber that arrives after the window did
                     // would otherwise draw the whole app into a corner tile.
-                    sink.success(isInPictureInPictureMode)
+                    sink.success(DazzleEngine.inPip)
                 }
 
                 override fun onCancel(arguments: Any?) {
-                    pipEvents = null
+                    DazzleEngine.pipEvents = null
                 }
             })
 
         EventChannel(messenger, "dev.luisnquin.dazzle/device/throttle")
-            .setStreamHandler(ThrottleStreamHandler(this, power))
+            .setStreamHandler(ThrottleStreamHandler(applicationContext, power))
 
         EventChannel(messenger, "dev.luisnquin.dazzle/device/network")
             .setStreamHandler(NetworkStreamHandler(connectivity))
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        super.cleanUpFlutterEngine(flutterEngine)
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+        MethodChannel(messenger, "dev.luisnquin.dazzle/device").setMethodCallHandler(null)
+        MethodChannel(messenger, "dev.luisnquin.dazzle/pip").setMethodCallHandler(null)
     }
 
     private fun pipAvailable() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
@@ -118,7 +153,7 @@ class MainActivity : FlutterActivity() {
         newConfig: Configuration,
     ) {
         super.onPictureInPictureModeChanged(inPip, newConfig)
-        pipEvents?.success(inPip)
+        DazzleEngine.pip(inPip)
     }
 
     private fun saveDocument(name: String, mime: String, bytes: ByteArray, result: MethodChannel.Result) {
@@ -185,6 +220,29 @@ class MainActivity : FlutterActivity() {
             info.versionCode.toLong()
         }
         return mapOf("version" to (info.versionName ?: ""), "code" to code)
+    }
+}
+
+// Swiping the task away used to take the engine with it, and on faraday's PowerVR driver that
+// Vulkan teardown can hang for good while the watcher service keeps the process alive.
+private object DazzleEngine {
+    private var engine: FlutterEngine? = null
+
+    var pipEvents: EventChannel.EventSink? = null
+    var inPip = false
+        private set
+    var orientation: Int? = null
+    var handlesBack = false
+
+    val started get() = engine != null
+
+    fun obtain(context: Context, shellArgs: Array<String>): FlutterEngine =
+        engine ?: FlutterEngine(context.applicationContext, shellArgs).also { engine = it }
+
+    fun pip(mode: Boolean) {
+        if (mode == inPip) return
+        inPip = mode
+        pipEvents?.success(mode)
     }
 }
 
