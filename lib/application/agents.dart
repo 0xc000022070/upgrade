@@ -274,16 +274,37 @@ Stream<AgentPanelState> _pollHosts(
   Ed25519Keys keys,
   _AgentSnapshotCache cache,
   List<Host> hosts,
-) async* {
-  while (true) {
-    yield AgentPanelState(
-      await Future.wait([
-        for (final host in hosts)
-          _poll(fetch, keys, cache.forHost(host.id), host),
-      ]),
-    );
-    await Future<void>.delayed(const Duration(seconds: 10));
+) {
+  // One loop per host: an outcome lands as its host answers, and a host still dialling
+  // keeps the outcome it last reported rather than holding the others back.
+  final latest = <String, HostOutcome>{};
+  var live = true;
+  late final StreamController<AgentPanelState> panel;
+  Future<void> loop(Host host) async {
+    try {
+      while (live) {
+        final outcome = await _poll(fetch, keys, cache.forHost(host.id), host);
+        if (!live) return;
+        latest[host.id] = outcome;
+        panel.add(
+          AgentPanelState([for (final host in hosts) ?latest[host.id]]),
+        );
+        await Future<void>.delayed(const Duration(seconds: 10));
+      }
+    } catch (error, stack) {
+      if (live) panel.addError(error, stack);
+    }
   }
+
+  panel = StreamController(
+    onListen: () {
+      for (final host in hosts) {
+        unawaited(loop(host));
+      }
+    },
+    onCancel: () => live = false,
+  );
+  return panel.stream;
 }
 
 Future<HostOutcome> _poll(
