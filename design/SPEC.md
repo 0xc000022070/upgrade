@@ -1367,6 +1367,32 @@ There is one framebuffer, a `Uint8List` sized by `ServerInit` or by a desktop re
 
 **Struck:** taking a published RFB package. It handles Raw and CopyRect only, and it owns its own socket — which is the one thing this client cannot allow, because the socket here is a channel inside somebody's ssh connection.
 
+## Devices
+
+### A host's emulators and simulators are reached through the tools that already drive them
+
+The integration is a `DEVICES` row in the host form's `[ INTEGRATIONS ]`. A device is an Android device or emulator the host's own `adb` lists as `device`, or an iOS simulator `xcrun simctl` lists as booted. Everything rides exec channels on one ssh connection held for as long as a device route is open: no port, no VNC, nothing installed on the host.
+
+**It is not the desktop cut down to a window.** A window cut out of the VNC picture shows whatever is on top of it, and two emulators on one host open at the same spot, so the picture would be the wrong device half the time and off the display's edge the rest.
+
+### The way in is a row on the host's panel
+
+When the integration is on, a `DEVICES` text action sits under the shell row on the host's panel and pushes `/ <HOST> DEVICES`. The route opens the connection and asks for the list once on arrival; `REFRESH` on the panel header asks again. One row per device: the AVD name, the model, or the simulator's name as the title, over `ANDROID · <serial>` or `IOS · <udid's first eight>`. With none, `NO DEVICES BOOTED`. A connection that fails puts the reason line from the shell's vocabulary where the rows would be, with `RETRY`.
+
+### A device's screen is frames, sent only when they change
+
+A row pushes `/ <HOST> <DEVICE>`: black ground, the frame fitted whole inside it, never cropped or panned. One exec per route runs a loop on the host: capture a PNG — `adb exec-out screencap -p` or `simctl io screenshot` — and **send it only when its checksum differs from the last one sent**, re-encoded where the host has `sips` as a JPEG at quality 60, 1200 px on its long edge, and as the PNG itself where it does not. It waits a fifth of a second between captures, so a screen that animates costs a few frames a second at about fifty kilobytes each, and one that is still costs a two-byte keepalive every two seconds. The keepalive is also how the loop learns the route is gone: its next write fails and it exits and removes its own temporary directory.
+
+Each frame carries the device's own pixel size ahead of the bytes, so a touch lands in device pixels whatever the frame was scaled to. A capture that fails ends the loop with its message, and the crumb reads `stream closed` with `RETRY`.
+
+### An Android device is pressed, and a simulator is only watched
+
+On Android a tap is `input tap`, a long press is a swipe that does not move for 600 ms, and a drag is `input swipe` from where it started to where it ended, over the time it took, clamped between 100 ms and 2 s. Under the picture, `BACK`, `HOME` and `RECENTS` send their key events. Every input is its own exec on the held connection.
+
+`simctl` has no verb that touches a simulator, so a simulator's route takes no input at all and its crumb says `VIEW ONLY` on the right.
+
+**Not built:** typing. A field on the device is typed into from the host's shell, and the keyboard strip of the screen route is not repeated here.
+
 ## Code
 
 ### A registered directory is a primitive of its own, beside the projects
