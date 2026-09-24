@@ -76,6 +76,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                 ),
+                const AlertsSettingsBlock(),
+                const BundlePanel(),
                 Panel(
                   title: '[ THEME ]',
                   bodyPadding: panelRowsPadding,
@@ -95,8 +97,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                 ),
-                const AlertsSettingsBlock(),
-                const BundlePanel(),
                 Panel(
                   title: '[ BUILD ]',
                   child: FutureBuilder<BuildInfo?>(
