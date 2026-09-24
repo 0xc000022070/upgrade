@@ -29,8 +29,9 @@ class _Session implements HerdrSession {
 }
 
 class _Client extends HerdrClient {
-  _Client();
+  _Client({this.refuse = false});
 
+  final bool refuse;
   final sessions = <_Session>[];
 
   @override
@@ -41,6 +42,7 @@ class _Client extends HerdrClient {
     required String privateKey,
     HostKeyVerifier? verifier,
   }) async {
+    if (refuse) throw const HerdrUnreachable('refused');
     final session = _Session(sessions.length);
     sessions.add(session);
     return session;
@@ -72,6 +74,13 @@ void main() {
     expect(client.sessions, hasLength(2));
     expect(first.closed, isTrue);
     expect(client.sessions.last.closed, isFalse);
+    pool.close();
+  });
+
+  test('a refused dial fails the fetch and nothing else', () async {
+    final pool = HerdrSessionPool(_Client(refuse: true));
+    await expectLater(_fetch(pool), throwsA(isA<HerdrUnreachable>()));
+    await pumpEventQueue();
     pool.close();
   });
 }
