@@ -32,6 +32,7 @@ class RecordingHerdrClient extends HerdrClient {
     required String user,
     required String privateKey,
     HostKeyVerifier? verifier,
+    void Function(Future<void> settled)? onSettling,
   }) async {
     verifiers.add(verifier);
     dials.add(address);

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/herdr_pool.dart';
 import 'package:dazzle/platform/host_keys.dart';
+import 'package:dazzle/platform/ssh_settle.dart';
 
 class _Session implements HerdrSession {
   _Session(this.id);
@@ -29,10 +30,13 @@ class _Session implements HerdrSession {
 }
 
 class _Client extends HerdrClient {
-  _Client({this.refuse = false});
+  _Client({this.refuse = false, this.slowAuth = false});
 
   final bool refuse;
+  final bool slowAuth;
   final sessions = <_Session>[];
+  var dials = 0;
+  var settling = 0;
 
   @override
   Future<HerdrSession> connect({
@@ -41,8 +45,18 @@ class _Client extends HerdrClient {
     required String user,
     required String privateKey,
     HostKeyVerifier? verifier,
+    void Function(Future<void> settled)? onSettling,
   }) async {
+    dials++;
     if (refuse) throw const HerdrUnreachable('refused');
+    if (slowAuth) {
+      await Future<void>.delayed(const Duration(seconds: 10));
+      settling++;
+      onSettling?.call(
+        Future<void>.delayed(sshLoginGrace).whenComplete(() => settling--),
+      );
+      throw const HerdrUnreachable('no answer in 10s');
+    }
     final session = _Session(sessions.length);
     sessions.add(session);
     return session;
@@ -103,6 +117,39 @@ void main() {
     expect(dead.closed, isTrue);
     expect(client.sessions.last.closed, isFalse);
     pool.close();
+  });
+
+  testWidgets('no second dial goes out while the first is still settling', (
+    tester,
+  ) async {
+    final client = _Client(slowAuth: true);
+    final pool = HerdrSessionPool(client);
+    final failures = <HerdrFailure>[];
+    var polling = true;
+    unawaited(() async {
+      while (polling) {
+        try {
+          await _fetch(pool);
+        } on HerdrFailure catch (failure) {
+          failures.add(failure);
+        }
+        await Future<void>.delayed(const Duration(seconds: 10));
+      }
+    }());
+    await tester.pump(const Duration(minutes: 2));
+
+    expect(client.dials, 1);
+    expect(client.settling, 1);
+    expect(failures, isNotEmpty);
+    expect(failures.every((failure) => failure is HerdrUnreachable), isTrue);
+
+    await tester.pump(const Duration(seconds: 15));
+    expect(client.settling, 0);
+    expect(client.dials, 2);
+
+    polling = false;
+    pool.close();
+    await tester.pump(sshLoginGrace + const Duration(seconds: 30));
   });
 
   group('a session idle past its window by the wall clock', () {
