@@ -7,6 +7,8 @@ import '../../data/repositories/host_repository.dart';
 import '../../platform/devices/device_link.dart';
 import 'device_controllers.dart';
 
+const floatDecodeWidth = 360;
+
 class DeviceSession {
   DeviceSession({
     required this.host,
@@ -106,13 +108,16 @@ class DeviceDock extends ChangeNotifier {
   }
 
   void float() {
-    if (_session == null) return;
+    final session = _session;
+    if (session == null) return;
     _floating = true;
+    session.controller.decodeWidth = floatDecodeWidth;
     notifyListeners();
   }
 
   void expand() {
     _floating = false;
+    _session?.controller.decodeWidth = null;
     notifyListeners();
   }
 
@@ -134,6 +139,7 @@ class DeviceDock extends ChangeNotifier {
       link: link,
       device: device,
     );
+    if (_floating) controller.decodeWidth = floatDecodeWidth;
     unawaited(controller.setAway(_away));
     return controller;
   }

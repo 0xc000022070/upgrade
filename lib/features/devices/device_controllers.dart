@@ -182,9 +182,10 @@ class DeviceScreenController extends ChangeNotifier {
   ui.Size _nativeSize = ui.Size.zero;
   bool _disposed = false;
 
-  /// Frames decode off the stream's order; a slow decode must not paint over a newer one.
-  int _sequence = 0;
-  int _shown = 0;
+  ({DeviceFrame frame, int run})? _next;
+  bool _decoding = false;
+
+  int? decodeWidth;
 
   DevicePhase get phase => _phase;
   ui.Image? get image => _image;
@@ -253,11 +254,33 @@ class DeviceScreenController extends ChangeNotifier {
     await frames?.cancel();
   }
 
-  Future<void> _onFrame(DeviceFrame frame, int run) async {
-    final sequence = ++_sequence;
+  void _onFrame(DeviceFrame frame, int run) {
+    _next = (frame: frame, run: run);
+    if (!_decoding) unawaited(_decodeLatest());
+  }
+
+  Future<void> _decodeLatest() async {
+    _decoding = true;
+    try {
+      while (!_disposed) {
+        final next = _next;
+        if (next == null) break;
+        _next = null;
+        await _decode(next.frame, next.run);
+      }
+    } finally {
+      _decoding = false;
+    }
+  }
+
+  Future<void> _decode(DeviceFrame frame, int run) async {
+    if (run != _run) return;
     ui.Image image;
     try {
-      final codec = await ui.instantiateImageCodec(frame.bytes);
+      final codec = await ui.instantiateImageCodec(
+        frame.bytes,
+        targetWidth: decodeWidth,
+      );
       image = (await codec.getNextFrame()).image;
       codec.dispose();
     } catch (error) {
@@ -266,11 +289,10 @@ class DeviceScreenController extends ChangeNotifier {
       );
       return;
     }
-    if (_disposed || run != _run || sequence < _shown) {
+    if (_disposed || run != _run) {
       image.dispose();
       return;
     }
-    _shown = sequence;
     _image?.dispose();
     _image = image;
     _nativeSize = ui.Size(frame.width.toDouble(), frame.height.toDouble());

@@ -434,4 +434,10 @@ WHERE t.id = ?1
       detail: payload['detail'] as String?,
     );
   }
+
+  Future<int> count(TableInfo<Table, Object?> table) async {
+    final rows = countAll();
+    final query = selectOnly(table)..addColumns([rows]);
+    return (await query.getSingle()).read(rows)!;
+  }
 }

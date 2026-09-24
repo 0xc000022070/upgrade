@@ -91,11 +91,9 @@ Future<void> main() async {
     notes: NoteRepository(db, activity),
   );
 
-  final projects = await db.select(db.projects).get();
-  final tasks = await db.select(db.tasks).get();
-  boot.add(
-    BootStep('count projects/tasks', '${projects.length}/${tasks.length}'),
-  );
+  final projects = await db.count(db.projects);
+  final tasks = await db.count(db.tasks);
+  boot.add(BootStep('count projects/tasks', '$projects/$tasks'));
   boot.add(const BootStep('load fonts', '${FontFamilies.count}'));
 
   await AsciiMascot.preload();

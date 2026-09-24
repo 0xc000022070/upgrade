@@ -42,9 +42,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncVisible());
   }
 
+  bool _onStage = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final onStage = TickerMode.valuesOf(context).enabled;
+    if (onStage == _onStage) return;
+    _onStage = onStage;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncVisible());
+  }
+
   void _syncVisible() {
     if (mounted) {
-      _visible.state = ref.read(navIndexProvider) == HomeScreen.navIndex;
+      _visible.state =
+          _onStage && ref.read(navIndexProvider) == HomeScreen.navIndex;
     }
   }
 

@@ -160,7 +160,13 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
                       index: index,
                       children: [
                         for (var i = 0; i < screens.length; i++)
-                          ScreenEntry(tick: _entries[i], child: screens[i]),
+                          TickerMode(
+                            enabled: i == index,
+                            child: ScreenEntry(
+                              tick: _entries[i],
+                              child: screens[i],
+                            ),
+                          ),
                       ],
                     ),
                   ),

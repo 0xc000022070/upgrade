@@ -802,6 +802,7 @@ class ShellSessions extends ChangeNotifier {
       session.connection?.write(typedBytes(text, const {}));
     };
     session.terminal.onTitleChange = (title) {
+      if (title == session.title) return;
       session.title = title;
       session.changed();
     };
