@@ -25,13 +25,28 @@ List<String> thumbnailLines(Terminal terminal) {
   final first = (buffer.height - buffer.viewHeight).clamp(0, buffer.height);
   final lines = [
     for (var i = first; i < buffer.height; i++)
-      buffer.lines[i].getText().trimRight(),
+      _cellText(buffer.lines[i]).trimRight(),
   ];
   var last = lines.length;
   while (last > 0 && lines[last - 1].isEmpty) {
     last--;
   }
   return lines.sublist(0, last);
+}
+
+/// getText drops cells nothing was written in, and mosh skips blank runs with cursor
+/// moves, so a gap between two columns would close up. A skipped cell is a space here.
+String _cellText(BufferLine line) {
+  final text = StringBuffer();
+  for (var x = 0; x < line.length; x++) {
+    final code = line.getCodePoint(x);
+    if (code != 0) {
+      text.writeCharCode(code);
+    } else if (x == 0 || line.getWidth(x - 1) < 2) {
+      text.write(' ');
+    }
+  }
+  return text.toString();
 }
 
 /// The tail of [lines], because the newest output and the prompt under it are the part
