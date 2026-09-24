@@ -40,7 +40,9 @@ class _DartMoshChannel implements MoshChannel {
   final MoshSession _session;
 
   @override
-  Stream<Uint8List> get output => _session.stdout.map(Uint8List.fromList);
+  Stream<Uint8List> get output => _session.stdout.map(
+    (bytes) => bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
+  );
 
   @override
   Stream<Object> get errors => _session.errors;

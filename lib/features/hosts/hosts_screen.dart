@@ -63,14 +63,28 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     super.dispose();
   }
 
+  bool _onStage = true;
+  bool _syncQueued = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final onStage = TickerMode.valuesOf(context).enabled;
+    if (onStage == _onStage) return;
+    _onStage = onStage;
+    if (onStage) _syncVisible();
+  }
+
   /// Home writes the same flag from its own listener, so this one only ever raises it, and
   /// it raises it after the frame so it lands last whichever listener the shell called
   /// first.
   void _syncVisible() {
-    if (!mounted) return;
+    if (!mounted || !_onStage || _syncQueued) return;
     if (ref.read(navIndexProvider) != HostsScreen.navIndex) return;
+    _syncQueued = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      _syncQueued = false;
+      if (!mounted || !_onStage) return;
       if (ref.read(navIndexProvider) != HostsScreen.navIndex) return;
       _visible.state = true;
       unawaited(

@@ -86,10 +86,26 @@ class PriorityMark extends StatefulWidget {
   State<PriorityMark> createState() => _PriorityMarkState();
 }
 
-class _PriorityMarkState extends State<PriorityMark> {
+class _PriorityMarkState extends State<PriorityMark>
+    with WidgetsBindingObserver {
   final _glitch = GlitchController();
   Timer? _stagger;
   Timer? _pulse;
+  bool _foreground = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final foreground = state == AppLifecycleState.resumed;
+    if (foreground == _foreground) return;
+    _foreground = foreground;
+    _schedule();
+  }
 
   @override
   void didChangeDependencies() {
@@ -109,6 +125,7 @@ class _PriorityMarkState extends State<PriorityMark> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _stagger?.cancel();
     _pulse?.cancel();
     _glitch.dispose();
@@ -123,7 +140,12 @@ class _PriorityMarkState extends State<PriorityMark> {
     _glitch.stop();
 
     final pulse = widget.dim ? null : priorityPulse(widget.priority);
-    if (pulse == null || MediaQuery.disableAnimationsOf(context)) return;
+    if (pulse == null ||
+        !_foreground ||
+        !TickerMode.valuesOf(context).enabled ||
+        MediaQuery.disableAnimationsOf(context)) {
+      return;
+    }
 
     final beat = pulse.beat;
     _stagger = Timer(

@@ -204,10 +204,19 @@ class DeviceFrameDecoder extends StreamTransformerBase<List<int>, DeviceFrame> {
       onListen: () {
         source = stream.listen(
           (chunk) {
-            buffer
-              ..add(pending)
-              ..add(chunk);
-            pending = buffer.takeBytes();
+            buffer.add(chunk);
+            final expected = header;
+            if (expected != null &&
+                pending.length + buffer.length < expected.length) {
+              return;
+            }
+            final arrived = buffer.takeBytes();
+            pending = pending.isEmpty
+                ? arrived
+                : (BytesBuilder(copy: false)
+                        ..add(pending)
+                        ..add(arrived))
+                      .takeBytes();
             drain();
           },
           onError: out.addError,

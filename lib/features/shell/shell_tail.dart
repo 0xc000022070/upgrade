@@ -59,8 +59,11 @@ class _ShellTailCellState extends State<ShellTailCell> {
     session.controller.removeListener(_onMove);
   }
 
+  bool? _shown;
+
   void _onMove() {
-    if (mounted) setState(() {});
+    if (!mounted || _behind == _shown) return;
+    setState(() {});
   }
 
   bool get _behind {
@@ -86,7 +89,8 @@ class _ShellTailCellState extends State<ShellTailCell> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_behind) return const SizedBox.shrink();
+    final behind = _shown = _behind;
+    if (!behind) return const SizedBox.shrink();
     return Align(
       alignment: AlignmentDirectional.bottomEnd,
       child: Padding(

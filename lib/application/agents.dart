@@ -7,6 +7,7 @@ import '../data/enums.dart';
 import '../data/repositories/host_repository.dart';
 import '../data/repositories/key_repository.dart';
 import '../platform/herdr_client.dart';
+import '../platform/herdr_pool.dart';
 import '../platform/host_key_dial.dart';
 import '../platform/host_keys.dart';
 import 'agent_state.dart';
@@ -204,8 +205,9 @@ typedef HerdrFetch = Future<List<AgentSnapshot>> Function({
 });
 
 final herdrFetchProvider = Provider<HerdrFetch>((ref) {
-  const client = HerdrClient();
-  return client.fetch;
+  final pool = HerdrSessionPool(const HerdrClient());
+  ref.onDispose(pool.close);
+  return pool.fetch;
 });
 
 final hostKeyDialProvider = Provider<HostKeyDial>((ref) => dialHostKey);

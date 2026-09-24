@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 
 import '../tokens.dart';
 import '../motion.dart';
@@ -120,7 +119,7 @@ class KeyboardAccessory extends StatefulWidget {
 }
 
 class _KeyboardAccessoryState extends State<KeyboardAccessory>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   OverlayEntry? _entry;
   OverlayEntry? _scrim;
 
@@ -135,7 +134,8 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
 
   final _hole = ValueNotifier<Rect?>(null);
 
-  late final Ticker _tracker;
+  int _tracking = 0;
+  bool _tracked = false;
   final _holeKey = GlobalKey();
 
   bool _gone = false;
@@ -145,9 +145,8 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
   @override
   void initState() {
     super.initState();
-    // Both eagerly rather than lazily: [_remove] runs from [dispose] and touches them, and
-    // a ticker created while the state is being disposed is an error.
-    _tracker = createTicker((_) => _measure());
+    // Eagerly rather than lazily: [_remove] runs from [dispose] and touches it, and a
+    // ticker created while the state is being disposed is an error.
     _fade = AnimationController(vsync: this, duration: Motion.accessory);
     widget.focus.addListener(_onFocus);
     _fieldFocus.addListener(_onFocus);
@@ -178,7 +177,6 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     widget.focus.removeListener(_onFocus);
     _fieldFocus.removeListener(_onFocus);
     _remove();
-    _tracker.dispose();
     _fade.dispose();
     _strip.dispose();
     _hole.dispose();
@@ -213,7 +211,7 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     _entry = OverlayEntry(builder: _buildStrip);
     overlay.insertAll([_scrim!, _entry!]);
     _fade.forward(from: 0);
-    if (!_tracker.isActive) _tracker.start();
+    if (!_tracked) _track(++_tracking);
     _reserve();
     if (widget.field != null) _fieldFocus.requestFocus();
   }
@@ -229,7 +227,10 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
       final field = widget.field;
       if (field != null) (field.onDismiss ?? field.onCancel)();
     }
-    if (_tracker.isActive) _tracker.stop();
+    if (_tracked) {
+      _tracked = false;
+      _tracking++;
+    }
     if (entry == null) return;
     entry.remove();
     entry.dispose();
@@ -270,6 +271,13 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
   void _swap(bool open) {
     _open = open;
     _strip.value = _resolve();
+  }
+
+  void _track(int generation) {
+    if (generation != _tracking || _gone) return;
+    _tracked = true;
+    _measure();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _track(generation));
   }
 
   void _measure() {
