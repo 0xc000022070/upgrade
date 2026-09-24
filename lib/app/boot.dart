@@ -33,7 +33,7 @@ class BootGate extends StatefulWidget {
 class _BootGateState extends State<BootGate> {
   Timer? _timer;
   Timer? _cut;
-  int _shown = 0;
+  int _beats = 0;
   bool _done = false;
   bool _started = false;
   TimingsCallback? _present;
@@ -49,10 +49,9 @@ class _BootGateState extends State<BootGate> {
       setState(() => _done = true);
       return;
     }
-    // The first line is already on screen when the log opens, and the last tick holds the
-    // finished log for one step: without it the completed log is never a frame, since the
-    // reveal and the cut land together.
-    _shown = 1;
+    // The first beat is already on screen when the log opens, and the last one holds the
+    // finished log: without it the completed log is never a frame, since the reveal and
+    // the tear land together.
     // Counting frames does not work here. A post-frame callback runs after build and paint
     // but before the raster thread has put anything on the display, and on a release cold
     // start the first frames are drawn while the splash window is still on top: measured on
@@ -69,10 +68,10 @@ class _BootGateState extends State<BootGate> {
 
   void _roll() {
     if (!mounted || _done) return;
-    // The 40 ms is a floor, not a budget to divide: a long step list overruns the cap rather
-    // than compressing, and [_cut] ends it there. Not `Timer.periodic`, which keeps its
-    // original schedule — ticks the busy startup isolate makes it miss all fire the moment
-    // it frees up, which on device put the last three lines 17 ms apart.
+    // A longer step list shows more lines a beat rather than taking more beats, so a step
+    // added to startup costs no time. Not `Timer.periodic`, which keeps its original
+    // schedule — ticks the busy startup isolate makes it miss all fire the moment it frees
+    // up, which on device put the last three lines 17 ms apart.
     _tick();
     _cut = Timer(Effects.bootCap, () {
       if (!mounted) return;
@@ -81,11 +80,13 @@ class _BootGateState extends State<BootGate> {
     });
   }
 
+  int get _stride => (widget.steps.length / Effects.bootBeats).ceil();
+
   void _tick() {
     _timer = Timer(Effects.bootLineStep, () {
       if (!mounted) return;
-      setState(() => _shown++);
-      if (_shown > widget.steps.length) {
+      setState(() => _beats++);
+      if (_stride * _beats >= widget.steps.length) {
         _settle();
       } else {
         _tick();
@@ -94,7 +95,7 @@ class _BootGateState extends State<BootGate> {
   }
 
   /// Fired on the log's arrival instead, the tear owns every frame the log has — the roll
-  /// is six 40 ms lines and the glitch is 225 ms — so the eye never sees the clean log the
+  /// is six 40 ms beats and the glitch is 225 ms — so the eye never sees the clean log the
   /// corruption is supposed to be of.
   void _settle() {
     _entry.fire();
@@ -127,7 +128,7 @@ class _BootGateState extends State<BootGate> {
   Widget build(BuildContext context) {
     if (_done) return widget.child;
     return _BootScreen(
-      steps: widget.steps.take(_shown).toList(),
+      steps: widget.steps.take(_stride * (_beats + 1)).toList(),
       entry: _entry,
     );
   }
