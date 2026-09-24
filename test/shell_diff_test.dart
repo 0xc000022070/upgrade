@@ -179,6 +179,24 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('still says DIFF to a screen reader', (tester) async {
+      final handle = tester.ensureSemantics();
+      final sessions = fakeShellSessions(FakeShellTransport());
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+
+      expect(
+        find.descendant(
+          of: find.byKey(_diffCell),
+          matching: find.bySemanticsLabel('DIFF'),
+        ),
+        findsOneWidget,
+      );
+
+      await unmount(tester);
+      handle.dispose();
+    });
+
     testWidgets('is dimmed until the host has named a checkout', (
       tester,
     ) async {

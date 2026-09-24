@@ -119,6 +119,7 @@ class _KeyCellState extends State<KeyCell> {
                 : widget.repeat > 1
                 ? '${widget.label} x${widget.repeat}'
                 : widget.label,
+            excludeSemantics: true,
             child: icon == null
                 ? _RollingLabel(
                     text: label,

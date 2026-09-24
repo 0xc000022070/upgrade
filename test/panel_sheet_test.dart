@@ -54,4 +54,13 @@ void main() {
     );
     expect(prose.dy, lessThan(blocks.dy));
   });
+
+  testWidgets('the scrim is read as a way out, not as the sheet', (
+    tester,
+  ) async {
+    await raise(tester);
+
+    final barrier = tester.widget<ModalBarrier>(find.byType(ModalBarrier).last);
+    expect(barrier.semanticsLabel, 'DISMISS OPEN AGENT');
+  });
 }
