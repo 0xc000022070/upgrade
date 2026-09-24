@@ -21,6 +21,7 @@ class HerdrSessionPool {
   // Wall time: timers run on the monotonic clock, which stops while the phone sleeps.
   final DateTime Function() now;
   final _held = <String, _Held>{};
+  final _settling = <String, Future<void>>{};
 
   Future<List<AgentSnapshot>> fetch({
     required String address,
@@ -55,6 +56,11 @@ class HerdrSessionPool {
       }
     }
 
+    // A failed dial keeps authenticating until sshd lets go, and every one still open counts
+    // against MaxStartups: a second dial while it settles is how the user's own gets dropped.
+    if (_settling.containsKey(key)) {
+      throw const HerdrUnreachable('an earlier dial is still settling');
+    }
     late final _Held created;
     final fresh = _held[key] ??= created = _Held(
       _client.connect(
@@ -63,6 +69,7 @@ class HerdrSessionPool {
         user: user,
         privateKey: privateKey,
         verifier: verifier,
+        onSettling: (settled) => _settle(key, settled),
       ),
       idle,
       now(),
@@ -87,6 +94,13 @@ class HerdrSessionPool {
     if (held == null || !identical(_held[key], held)) return;
     _held.remove(key);
     held.close();
+  }
+
+  void _settle(String key, Future<void> settled) {
+    _settling[key] = settled;
+    settled.whenComplete(() {
+      if (identical(_settling[key], settled)) _settling.remove(key);
+    });
   }
 }
 

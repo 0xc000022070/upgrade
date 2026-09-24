@@ -1272,6 +1272,7 @@ class HerdrClient {
     required String user,
     required String privateKey,
     HostKeyVerifier? verifier,
+    void Function(Future<void> settled)? onSettling,
   }) async {
     final socket = await _guard(
       () => SSHSocket.connect(address, port, timeout: timeout),
@@ -1290,7 +1291,8 @@ class HerdrClient {
     } on HerdrFailure {
       // A half-open connection is worse than none: the host would count it against the one
       // connection per phone until its own timeout.
-      unawaited(closeSettled(client, socket));
+      final settled = closeSettled(client, socket);
+      onSettling?.call(settled);
       rethrow;
     }
   }
