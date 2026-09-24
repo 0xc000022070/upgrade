@@ -1,3 +1,5 @@
+import 'dart:async';
+
 // ignore_for_file: depend_on_referenced_packages
 
 import 'dart:convert';
@@ -37,4 +39,80 @@ void main() {
 
     expect(generated.fingerprint, 'SHA256:$expected');
   });
+
+  group('CachingPrivateKeyStore', () {
+    late _CountingStore inner;
+    late CachingPrivateKeyStore store;
+
+    setUp(() {
+      inner = _CountingStore();
+      store = CachingPrivateKeyStore(inner);
+    });
+
+    test('serves a key from memory after the first read', () async {
+      await inner.write('key-1', 'pem-1');
+
+      for (var n = 0; n < 5; n++) {
+        expect(await store.read('key-1'), 'pem-1');
+      }
+
+      expect(inner.reads, 1);
+    });
+
+    test('a missing key is not remembered as missing', () async {
+      expect(await store.read('key-1'), isNull);
+      await inner.write('key-1', 'pem-1');
+
+      expect(await store.read('key-1'), 'pem-1');
+    });
+
+    test(
+      'a generate, a write and a delete are seen on the next read',
+      () async {
+        final keys = Ed25519Keys(store);
+        await keys.generate(id: 'key-1', name: 'first');
+        final first = await keys.privateKey('key-1');
+
+        await keys.generate(id: 'key-1', name: 'second');
+        final second = await keys.privateKey('key-1');
+        expect(second, isNot(first));
+        expect(second, await inner.read('key-1'));
+
+        await store.write('key-1', 'restored');
+        expect(await keys.privateKey('key-1'), 'restored');
+
+        await keys.delete('key-1');
+        expect(await keys.privateKey('key-1'), isNull);
+        expect(await inner.read('key-1'), isNull);
+      },
+    );
+
+    test(
+      'a read that lands after a delete does not bring the key back',
+      () async {
+        await inner.write('key-1', 'pem-1');
+        inner.gate = Completer();
+        final reading = store.read('key-1');
+        await store.delete('key-1');
+        inner.gate!.complete();
+
+        expect(await reading, 'pem-1');
+        inner.gate = null;
+        expect(await store.read('key-1'), isNull);
+      },
+    );
+  });
+}
+
+class _CountingStore extends MemoryPrivateKeyStore {
+  int reads = 0;
+  Completer<void>? gate;
+
+  @override
+  Future<String?> read(String id) async {
+    reads++;
+    final value = await super.read(id);
+    await gate?.future;
+    return value;
+  }
 }

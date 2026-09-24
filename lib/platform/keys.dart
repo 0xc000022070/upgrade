@@ -44,6 +44,40 @@ class MemoryPrivateKeyStore implements PrivateKeyStore {
   }
 }
 
+/// A keystore read is a platform channel and a decrypt each time; a key read once is
+/// served from memory until this store writes or deletes it.
+class CachingPrivateKeyStore implements PrivateKeyStore {
+  CachingPrivateKeyStore(this._inner);
+
+  final PrivateKeyStore _inner;
+  final Map<String, String> _cached = {};
+  var _changes = 0;
+
+  @override
+  Future<void> write(String id, String privateKey) async {
+    _changes++;
+    await _inner.write(id, privateKey);
+    _cached[id] = privateKey;
+  }
+
+  @override
+  Future<String?> read(String id) async {
+    final cached = _cached[id];
+    if (cached != null) return cached;
+    final before = _changes;
+    final value = await _inner.read(id);
+    if (value != null && before == _changes) _cached[id] = value;
+    return value;
+  }
+
+  @override
+  Future<void> delete(String id) async {
+    _changes++;
+    _cached.remove(id);
+    await _inner.delete(id);
+  }
+}
+
 class GeneratedSshKey {
   const GeneratedSshKey({required this.publicKey, required this.fingerprint});
 
