@@ -128,29 +128,49 @@ class _Feed extends StatelessWidget {
     }
     return [
       for (final workspace in workspaces)
-        Panel(
-          title: [
+        _workspacePanel(
+          context,
+          outcome,
+          groups[workspace]!,
+          parents: [
             if (named) outcome.host.name,
             if (sessions.length > 1) workspace.session,
-            workspace.workspace,
-          ].join(' / ').toUpperCase(),
-          bodyPadding: panelRowsPadding,
-          child: ListRowGroup(
-            children: [
-              for (final agent in groups[workspace]!)
-                ListRow(
-                  leading: AgentMark(agent.agent),
-                  leadingWidth: 24,
-                  title: agentMarkName(agent.agent),
-                  subtitle: '${agent.paneId} · ${path.basename(agent.cwd)}',
-                  value: agent.state.label,
-                  valueColor: agentStateColor(context, agent.state),
-                  onTap: () => onOpen(outcome.host, agent),
-                ),
-            ],
-          ),
+          ],
         ),
     ];
+  }
+
+  Widget _workspacePanel(
+    BuildContext context,
+    HostOutcome outcome,
+    List<AgentSnapshot> agents, {
+    required List<String> parents,
+  }) {
+    final label = agents.first.workspaceLabel;
+    return Panel(
+      title: label == null
+          ? [
+              for (final parent in parents) parent.toUpperCase(),
+              agents.first.workspaceId,
+            ].join(' / ')
+          : [...parents, label].join(' / '),
+      literalTitle: label == null,
+      bodyPadding: panelRowsPadding,
+      child: ListRowGroup(
+        children: [
+          for (final agent in agents)
+            ListRow(
+              leading: AgentMark(agent.agent),
+              leadingWidth: 24,
+              title: agentMarkName(agent.agent),
+              subtitle: '${agent.paneId} · ${path.basename(agent.cwd)}',
+              value: agent.state.label,
+              valueColor: agentStateColor(context, agent.state),
+              onTap: () => onOpen(outcome.host, agent),
+            ),
+        ],
+      ),
+    );
   }
 }
 

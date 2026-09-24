@@ -24,6 +24,7 @@ class AgentSnapshot {
     required this.workspaceId,
     required this.cwd,
     required this.stateChangeSeq,
+    this.workspaceLabel,
   });
 
   /// Not in herdr's own document, which one server answers without saying which; stamped
@@ -38,6 +39,10 @@ class AgentSnapshot {
   final String workspaceId;
   final String cwd;
   final int stateChangeSeq;
+
+  /// Read off `workspace.list` and stamped by the reader, since the agent document carries
+  /// only the id. A refused or unreadable list leaves it null rather than failing the round.
+  final String? workspaceLabel;
 
   bool get blocked => state.blocked;
 
@@ -54,6 +59,7 @@ class AgentSnapshot {
     'workspace_id': workspaceId,
     'cwd': cwd,
     'state_change_seq': stateChangeSeq,
+    if (workspaceLabel != null) 'workspace_label': workspaceLabel,
   };
 
   factory AgentSnapshot.fromJson(Map<String, Object?> json) {
@@ -63,6 +69,8 @@ class AgentSnapshot {
       return value;
     }
 
+    final label = json['workspace_label'];
+    if (label != null && label is! String) throw const HerdrProtocolMismatch();
     return AgentSnapshot(
       session: field<String>('session'),
       paneId: field<String>('pane_id'),
@@ -72,6 +80,7 @@ class AgentSnapshot {
       workspaceId: field<String>('workspace_id'),
       cwd: field<String>('cwd'),
       stateChangeSeq: field<int>('state_change_seq'),
+      workspaceLabel: label as String?,
     );
   }
 }
@@ -162,6 +171,11 @@ abstract final class HerdrRequests {
   static const paneMark = {'DAZZLE_PANE': '1'};
 
   static const HerdrRequest agentList = (method: 'agent.list', params: {});
+
+  static const HerdrRequest workspaceList = (
+    method: 'workspace.list',
+    params: {},
+  );
 
   static HerdrRequest workspaceCreate({
     required String cwd,
@@ -778,9 +792,26 @@ class HerdrSession {
       final reply = await _guard(
         () => _once(link).call(HerdrRequests.agentList.method),
       );
-      agents.addAll(HerdrClient.parseSessionAgents(reply, session: session));
+      final found = HerdrClient.parseSessionAgents(reply, session: session);
+      if (found.isEmpty) continue;
+      agents.addAll(
+        HerdrClient.labelWorkspaces(found, await _workspaceLabels(path)),
+      );
     }
     return agents;
+  }
+
+  Future<Map<String, String>> _workspaceLabels(String path) async {
+    try {
+      final link = await _linkOrNone(path);
+      if (link == null) return const {};
+      final reply = await _guard(
+        () => _once(link).call(HerdrRequests.workspaceList.method),
+      );
+      return HerdrClient.parseWorkspaceLabels(reply);
+    } on HerdrFailure {
+      return const {};
+    }
   }
 
   Future<HerdrReply> _call(String session, HerdrRequest request) =>
@@ -1208,6 +1239,40 @@ class HerdrClient {
           throw const HerdrProtocolMismatch(),
     ];
   }
+
+  static Map<String, String> parseWorkspaceLabels(HerdrReply reply) {
+    if (reply is! HerdrResult) return const {};
+    final result = reply.value;
+    final workspaces = result['type'] == 'workspace_list'
+        ? result['workspaces']
+        : null;
+    if (workspaces is! List<Object?>) return const {};
+    return {
+      for (final workspace in workspaces)
+        if (workspace is Map<String, Object?>)
+          if ((workspace['workspace_id'], workspace['label'])
+              case (final String id, final String label) when label.isNotEmpty)
+            id: label,
+    };
+  }
+
+  static List<AgentSnapshot> labelWorkspaces(
+    List<AgentSnapshot> agents,
+    Map<String, String> labels,
+  ) => [
+    for (final agent in agents)
+      AgentSnapshot(
+        session: agent.session,
+        paneId: agent.paneId,
+        agent: agent.agent,
+        state: agent.state,
+        terminalTitleStripped: agent.terminalTitleStripped,
+        workspaceId: agent.workspaceId,
+        cwd: agent.cwd,
+        stateChangeSeq: agent.stateChangeSeq,
+        workspaceLabel: labels[agent.workspaceId],
+      ),
+  ];
 
   /// A session whose name is not one the app would put on a command line is left out
   /// rather than refused: no command of the app's ever named it either.

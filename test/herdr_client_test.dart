@@ -32,6 +32,60 @@ void main() {
     expect(agents.first.stateChangeSeq, 248);
   });
 
+  test('a workspace is titled by the label herdr lists it under', () {
+    Map<String, Object?> result(String name) =>
+        (jsonDecode(File('test/fixtures/$name').readAsStringSync())
+                as Map<String, Object?>)['result']!
+            as Map<String, Object?>;
+    final labels = HerdrClient.parseWorkspaceLabels(
+      HerdrResult('workspace_list', result('herdr_workspace_list.json')),
+    );
+    final agents = HerdrClient.labelWorkspaces(
+      HerdrClient.parseAgentList(
+        result('herdr_agent_list.json'),
+        session: 'lab',
+      ),
+      labels,
+    );
+
+    expect(labels, {
+      'w1': '~',
+      'wK': 'dazzle',
+      'wP': 'dazzle 2',
+      'wQ': 'dazzle 3',
+    });
+    expect(agents.map((agent) => agent.workspaceLabel).toSet(), {'dazzle 3'});
+    expect(agents.first.workspaceId, 'wQ');
+    expect(agents.first.paneId, 'wQ:p1');
+    expect(agents.first.session, 'lab');
+
+    final carried = AgentSnapshot.fromJson(agents.first.toJson());
+    expect(carried.workspaceLabel, 'dazzle 3');
+  });
+
+  test('a workspace herdr gives no label keeps only its id', () {
+    final agents = HerdrClient.labelWorkspaces(
+      HerdrClient.parseAgentList(agentListResult('wZ:p1'), session: 'lab'),
+      HerdrClient.parseWorkspaceLabels(
+        const HerdrResult('workspace_list', {
+          'type': 'workspace_list',
+          'workspaces': [
+            {'workspace_id': 'wZ', 'label': ''},
+          ],
+        }),
+      ),
+    );
+
+    expect(agents.single.workspaceLabel, isNull);
+    expect(agents.single.toJson().containsKey('workspace_label'), isFalse);
+    expect(
+      HerdrClient.parseWorkspaceLabels(
+        const HerdrRefusal('invalid_request', 'unknown method'),
+      ),
+      isEmpty,
+    );
+  });
+
   String roster(List<(String, {bool running, bool isDefault})> sessions) =>
       jsonEncode({
         'sessions': [
