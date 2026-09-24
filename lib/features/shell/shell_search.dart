@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
@@ -29,18 +30,18 @@ List<ShellHit> shellHits(Terminal terminal, String query) {
   final needle = query.trim().toLowerCase();
   if (needle.isEmpty) return const [];
   final buffer = terminal.buffer;
+  var units = Uint16List(buffer.viewWidth);
   final found = <ShellHit>[];
   // Backwards, because the cap has to cut the oldest hits and not the newest:
   // what is being looked for is usually what has just gone past.
   for (var y = buffer.height - 1; y >= 0 && found.length < shellHitCap; y--) {
-    final text = buffer.lines[y].getText().toLowerCase();
-    var at = text.indexOf(needle);
-    if (at == -1) continue;
-    final line = <ShellHit>[];
-    while (at != -1) {
-      line.add((line: y, start: at, end: at + needle.length));
-      at = text.indexOf(needle, at + needle.length);
-    }
+    final row = buffer.lines[y];
+    if (units.length < row.length) units = Uint16List(row.length);
+    final starts = _starts(row, needle, units);
+    if (starts.isEmpty) continue;
+    final line = [
+      for (final at in starts) (line: y, start: at, end: at + needle.length),
+    ];
     final room = shellHitCap - found.length;
     found.insertAll(
       0,
@@ -48,6 +49,52 @@ List<ShellHit> shellHits(Terminal terminal, String query) {
     );
   }
   return found;
+}
+
+/// Where [needle] starts in the lowercased [BufferLine.getText] of [line].
+List<int> _starts(BufferLine line, String needle, Uint16List units) {
+  final length = line.length;
+  var count = 0;
+  for (var i = 0; i < length; i++) {
+    final codePoint = line.getCodePoint(i);
+    if (codePoint == 0) continue;
+    if (codePoint > 0x7f) {
+      return _textStarts(line.getText().toLowerCase(), needle);
+    }
+    if (i + line.getWidth(i) > length) continue;
+    units[count++] = codePoint >= 0x41 && codePoint <= 0x5a
+        ? codePoint + 0x20
+        : codePoint;
+  }
+  final starts = <int>[];
+  final lead = needle.codeUnitAt(0);
+  var at = 0;
+  while (at + needle.length <= count) {
+    var j = 0;
+    if (units[at] == lead) {
+      j = 1;
+      while (j < needle.length && units[at + j] == needle.codeUnitAt(j)) {
+        j++;
+      }
+    }
+    if (j == needle.length) {
+      starts.add(at);
+      at += needle.length;
+    } else {
+      at++;
+    }
+  }
+  return starts;
+}
+
+List<int> _textStarts(String text, String needle) {
+  final starts = <int>[];
+  var at = text.indexOf(needle);
+  while (at != -1) {
+    starts.add(at);
+    at = text.indexOf(needle, at + needle.length);
+  }
+  return starts;
 }
 
 /// It reads the buffer and never writes to the shell. The field takes the keyboard off
