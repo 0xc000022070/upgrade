@@ -13,7 +13,7 @@ const hostVmDeadPort = 2223;
 
 /// Read from disk rather than pasted in, so the pair cannot drift apart.
 String hostVmPrivateKey() =>
-    File('nix/fixtures/host_vm_test_key').readAsStringSync();
+    File('nix/host-vm/fixtures/host_vm_test_key').readAsStringSync();
 
 Future<String> strangerPrivateKey() async {
   final keys = Ed25519Keys(MemoryPrivateKeyStore());

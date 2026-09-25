@@ -8,7 +8,7 @@ let
   cfg = config.services.dazzle-engine;
 in
 {
-  imports = [ ./engine-options.nix ];
+  imports = [ ./options.nix ];
 
   # There is deliberately no unit here, user or system. The engine is exec'd per
   # call over the ssh connection the phone already holds, so there is nothing to

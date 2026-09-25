@@ -8,7 +8,7 @@ let
   cfg = config.services.dazzle-engine;
 in
 {
-  imports = [ ./engine-options.nix ];
+  imports = [ ./options.nix ];
 
   # No launchd daemon and no launchd agent, for the same reason the NixOS module
   # has no unit: the engine is exec'd per call and exits.

@@ -74,9 +74,9 @@ in
     shell = pkgs.zsh;
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA7Fr1T+6b4F464Ii+inLkt3asc9p6gBPrHRpTiyJLRL test-key"
-      # The `host` tier's key, private half committed beside this file. Kept apart
-      # from `test-key` so the phone's entry goes on working on its own.
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHAVni8THzq+Yi2QvpL4MjM4yHxw/bdoThYcZV3yJLqt dazzle-host-vm-test"
+      # The `host` tier's key. Kept apart from `test-key` so the phone's entry
+      # goes on working on its own.
+      (lib.removeSuffix "\n" (builtins.readFile ./fixtures/host_vm_test_key.pub))
     ];
   };
 
