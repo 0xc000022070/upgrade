@@ -17,6 +17,8 @@ import android.os.Looper
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.view.View
+import android.view.WindowInsets
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -84,6 +86,7 @@ class MainActivity : FlutterActivity() {
                         call.argument<ByteArray>("bytes") ?: ByteArray(0),
                         result)
                     "openDocument" -> openDocument(result)
+                    "ime" -> result.success(imeShown())
                     else -> result.notImplemented()
                 }
             }
@@ -126,6 +129,17 @@ class MainActivity : FlutterActivity() {
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         MethodChannel(messenger, "dev.luisnquin.dazzle/device").setMethodCallHandler(null)
         MethodChannel(messenger, "dev.luisnquin.dazzle/pip").setMethodCallHandler(null)
+    }
+
+    // The embedding swallows insets while it thinks an IME animation runs, and one cut short
+    // leaves it swallowing; the window's own insets go to the view past that listener.
+    private fun imeShown(): Boolean? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+        val view = findViewById<View>(FLUTTER_VIEW_ID) ?: return null
+        val insets = view.rootWindowInsets ?: return null
+        val shown = insets.isVisible(WindowInsets.Type.ime())
+        if (!shown) view.onApplyWindowInsets(insets)
+        return shown
     }
 
     private fun pipAvailable() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&

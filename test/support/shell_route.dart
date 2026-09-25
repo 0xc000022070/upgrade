@@ -26,6 +26,7 @@ Widget app(
   Widget? home,
   AppDatabase? db,
   ThemeData? theme,
+  TransitionBuilder? builder,
 }) => ProviderScope(
   overrides: [
     shellSessionsProvider.overrideWithValue(sessions),
@@ -33,6 +34,7 @@ Widget app(
   ],
   child: MaterialApp(
     theme: theme ?? testTheme,
+    builder: builder,
     home: home ?? const HostShellRoute(host: rose),
   ),
 );

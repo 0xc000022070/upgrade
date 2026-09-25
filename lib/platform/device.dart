@@ -35,6 +35,16 @@ abstract final class Device {
     }
   }
 
+  static Future<bool?> imeShown() async {
+    try {
+      return await _channel.invokeMethod<bool>('ime');
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
   static Future<BuildInfo?> build() async {
     try {
       final info = await _channel.invokeMapMethod<String, Object?>('build');
