@@ -2,54 +2,33 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../design/tokens.dart';
+import '../../design/components/key_bar.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/icons/dazzle_icons.dart';
-import '../../design/spacing.dart';
+import '../../platform/vnc/arming.dart';
 import '../../platform/vnc/keysyms.dart';
+import '../modifier_cell.dart';
 
-class StripKey {
-  const StripKey(this.label, this.keysym, {this.icon});
+typedef _StripKey = ({String label, int keysym, DazzleIcons? icon});
 
-  final String label;
-  final int keysym;
-
-  /// The label stays even where a glyph is drawn: it is what the key is called in a test and
-  /// to a screen reader.
-  final DazzleIcons? icon;
-}
-
-class StripCell {
-  const StripCell.key(StripKey this.key) : modifier = null;
-  const StripCell.modifier(StickyModifier this.modifier) : key = null;
-  const StripCell.gap() : key = null, modifier = null;
-
-  final StripKey? key;
-  final StickyModifier? modifier;
-}
-
-const stripRows = <List<StripCell>>[
-  [
-    StripCell.key(StripKey('ESC', Keysyms.escape)),
-    StripCell.key(StripKey('TAB', Keysyms.tab)),
-    StripCell.modifier(StickyModifier.shift),
-    StripCell.gap(),
-    StripCell.key(StripKey('UP', Keysyms.up, icon: DazzleIcons.arrowUp)),
-    StripCell.key(StripKey('END', Keysyms.end)),
-  ],
-  [
-    StripCell.modifier(StickyModifier.superKey),
-    StripCell.modifier(StickyModifier.ctrl),
-    StripCell.modifier(StickyModifier.alt),
-    StripCell.key(StripKey('LEFT', Keysyms.left, icon: DazzleIcons.arrowLeft)),
-    StripCell.key(StripKey('DOWN', Keysyms.down, icon: DazzleIcons.arrowDown)),
-    StripCell.key(
-      StripKey('RIGHT', Keysyms.right, icon: DazzleIcons.arrowRight),
-    ),
-  ],
+/// `SHIFT` and `SUPER` are here where the terminal's bar has neither: a desktop takes a
+/// shifted click and a compositor chord, and neither comes from the IME.
+const _stripModifiers = <StickyModifier>[
+  StickyModifier.superKey,
+  StickyModifier.ctrl,
+  StickyModifier.alt,
+  StickyModifier.shift,
 ];
 
-DazzleIcons? stickyIcon(StickyModifier modifier) =>
-    modifier == StickyModifier.superKey ? DazzleIcons.superKey : null;
+const _stripKeys = <_StripKey>[
+  (label: 'ESC', keysym: Keysyms.escape, icon: null),
+  (label: 'TAB', keysym: Keysyms.tab, icon: null),
+  (label: 'LEFT', keysym: Keysyms.left, icon: DazzleIcons.arrowLeft),
+  (label: 'UP', keysym: Keysyms.up, icon: DazzleIcons.arrowUp),
+  (label: 'DOWN', keysym: Keysyms.down, icon: DazzleIcons.arrowDown),
+  (label: 'RIGHT', keysym: Keysyms.right, icon: DazzleIcons.arrowRight),
+  (label: 'END', keysym: Keysyms.end, icon: null),
+];
 
 /// A hidden [EditableText] is the only way to a soft keyboard's characters: Android
 /// delivers typing as editing operations on a text field, not as key events, so each
@@ -64,13 +43,10 @@ class KeysLayer extends StatefulWidget {
     required this.onCharacter,
     required this.onKeysym,
     required this.onKeyboardClosed,
-    this.inertModifiers = const {},
   });
 
   final bool stripVisible;
   final bool keyboardOpen;
-
-  final Set<StickyModifier> inertModifiers;
 
   final void Function(String character, Set<StickyModifier> sticky) onCharacter;
   final void Function(int keysym, Set<StickyModifier> sticky) onKeysym;
@@ -90,7 +66,7 @@ class _KeysLayerState extends State<KeysLayer> {
 
   final _focus = FocusNode();
   late final TextEditingController _text = TextEditingController(text: _base);
-  final _sticky = <StickyModifier>{};
+  var _arming = const Arming();
   bool _resetting = false;
 
   @override
@@ -137,15 +113,15 @@ class _KeysLayerState extends State<KeysLayer> {
         // checkmark that sent nothing. What arrives is a newline in the text, and it goes as
         // Return — a keysym, never a character, because `\n` is a C0 control with no keysym.
         if (rune == 0x0A) {
-          _send(() => widget.onKeysym(Keysyms.enter, Set.of(_sticky)));
+          _send(() => widget.onKeysym(Keysyms.enter, _arming.sticky));
           continue;
         }
         final character = String.fromCharCode(rune);
-        _send(() => widget.onCharacter(character, Set.of(_sticky)));
+        _send(() => widget.onCharacter(character, _arming.sticky));
       }
     } else if (value.length < _base.length) {
       for (var i = value.length; i < _base.length; i++) {
-        _send(() => widget.onKeysym(Keysyms.backSpace, Set.of(_sticky)));
+        _send(() => widget.onKeysym(Keysyms.backSpace, _arming.sticky));
       }
     }
     // Back to the sentinel, so the field never grows and the next change is read against the
@@ -158,11 +134,12 @@ class _KeysLayerState extends State<KeysLayer> {
     _resetting = false;
   }
 
-  /// Every send clears the sticky modifiers: they are sticky "for one following key", so the
-  /// key that just went is the one they were for.
+  /// Every key spends the arming, the bar's and the IME's alike: the key that just went is
+  /// one of the keys it was for.
   void _send(VoidCallback body) {
     body();
-    if (_sticky.isNotEmpty) setState(_sticky.clear);
+    final next = _arming.spent();
+    if (!identical(next, _arming)) setState(() => _arming = next);
   }
 
   /// Offstage would take it out of the tree and the keyboard with it. Zero-sized and still
@@ -206,54 +183,26 @@ class _KeysLayerState extends State<KeysLayer> {
   }
 
   Widget _strip() {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.tokens.surfacePrimary,
-        border: Border(top: BorderSide(color: context.tokens.borderSubtle)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final row in stripRows)
-            Row(
-              children: [for (final cell in row) Expanded(child: _cell(cell))],
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _cell(StripCell cell) {
-    final modifier = cell.modifier;
-    if (modifier != null) {
-      if (widget.inertModifiers.contains(modifier)) {
-        return KeyCell(
-          key: ValueKey('key-${modifier.label}'),
-          label: modifier.label,
-          icon: stickyIcon(modifier),
-          inert: true,
-          onTap: () {},
-        );
-      }
-      return KeyCell(
-        key: ValueKey('key-${modifier.label}'),
-        label: modifier.label,
-        icon: stickyIcon(modifier),
-        armed: _sticky.contains(modifier),
-        onTap: () => setState(() {
-          _sticky.contains(modifier)
-              ? _sticky.remove(modifier)
-              : _sticky.add(modifier);
-        }),
-      );
-    }
-    final key = cell.key;
-    if (key == null) return const SizedBox(height: TapTargets.minHeight);
-    return KeyCell(
-      key: ValueKey('key-${key.label}'),
-      label: key.label,
-      icon: key.icon,
-      onTap: () => _send(() => widget.onKeysym(key.keysym, Set.of(_sticky))),
+    return KeyBar(
+      keys: [
+        for (final modifier in _stripModifiers)
+          ModifierCell(
+            key: ValueKey('key-${modifier.label}'),
+            modifier: modifier,
+            arming: _arming,
+            onArming: (next) => setState(() => _arming = next),
+          ),
+        for (final key in _stripKeys)
+          KeyCell(
+            key: ValueKey('key-${key.label}'),
+            label: key.label,
+            icon: key.icon,
+            minWidth: KeyBar.height,
+            padding: KeyBar.cellPadding,
+            onTap: () =>
+                _send(() => widget.onKeysym(key.keysym, _arming.sticky)),
+          ),
+      ],
     );
   }
 }
