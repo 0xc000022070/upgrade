@@ -10,6 +10,7 @@ import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/design/icons/dazzle_icon.dart';
 import 'package:dazzle/design/icons/dazzle_icons.dart';
 import 'package:dazzle/design/spacing.dart';
+import 'package:dazzle/features/code/diff_sheet.dart';
 import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/platform/herdr_client.dart';
@@ -236,6 +237,33 @@ void main() {
       expect(session.cwd, '/home/luis/src/dazzle/lib/features');
       expect(session.repository, '/home/luis/src/dazzle');
       expect(_mark(tester).color, isNot(DazzleColors.textDisabled));
+
+      await unmount(tester);
+    });
+
+    testWidgets('a tap asks again, since a cd on mosh says nothing', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      var here = '/home/luis/src/dazzle';
+      transport.opening = (connection) =>
+          connection.answer = (command, _) =>
+              _says(command.contains('rev-parse') ? '$here\n' : '$here\n\n');
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      final session = sessions.forHost(rose.id).single;
+      expect(session.repository, '/home/luis/src/dazzle');
+
+      here = '/srv/gate';
+      await tester.tap(find.byKey(_diffCell));
+      await ready(tester);
+
+      expect(session.repository, '/srv/gate');
+      expect(
+        tester.widget<DiffSheet>(find.byType(DiffSheet)).directory,
+        '/srv/gate',
+      );
 
       await unmount(tester);
     });

@@ -89,6 +89,9 @@ class _ShellHeaderState extends State<ShellHeader> {
   /// One key rather than one per tab: the active tab is the only one ever asked where it is.
   final _activeTab = GlobalKey();
 
+  final _newMenu = MenuController();
+  var _newMenuOpen = false;
+
   @override
   void initState() {
     super.initState();
@@ -131,163 +134,180 @@ class _ShellHeaderState extends State<ShellHeader> {
     final active = widget.active;
     final onClose = widget.onClose;
     final onDiff = widget.onDiff;
-    return Container(
-      key: const ValueKey('shell-header'),
-      height: _headerHeight,
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: context.tokens.borderSubtle)),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: Spacing.screenEdge),
-          _HostCell(name: host.name, onTap: widget.onSwitchHost),
-          const SizedBox(width: Spacing.md),
-          const CellDivider(),
-          const SizedBox(width: Spacing.sm),
-          // The strip is the one part of the row that gives way: the cells beside it
-          // keep the size of what they hold, and nine shells open scroll inside
-          // whatever is left rather than overflowing the row.
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final session in sessions)
-                    KeyedSubtree(
-                      key: session == active ? _activeTab : null,
-                      child: _TabCell(
-                        key: ValueKey('shell-tab-${session.number}'),
-                        label: shellTabLabel(session.title, session.number),
-                        state: session.state,
-                        active: session == active,
-                        onTap: () => widget.onSelect(session),
-                      ),
-                    ),
-                  if (widget.newHosts.isNotEmpty)
-                    MenuAnchor(
-                      style: MenuStyle(
-                        backgroundColor: WidgetStatePropertyAll(
-                          context.tokens.surfaceSecondary,
-                        ),
-                        surfaceTintColor: const WidgetStatePropertyAll(
-                          Colors.transparent,
-                        ),
-                        shadowColor: const WidgetStatePropertyAll(
-                          Colors.transparent,
-                        ),
-                        elevation: const WidgetStatePropertyAll(0),
-                        padding: const WidgetStatePropertyAll(
-                          EdgeInsets.all(Spacing.sm),
-                        ),
-                        minimumSize: const WidgetStatePropertyAll(Size(200, 0)),
-                        maximumSize: const WidgetStatePropertyAll(
-                          Size(280, 360),
-                        ),
-                        shape: WidgetStatePropertyAll(
-                          RoundedRectangleBorder(
-                            borderRadius: const BorderRadius.all(
-                              Radius.circular(Radii.sharp),
-                            ),
-                            side: BorderSide(
-                              color: context.tokens.borderNormal,
-                            ),
-                          ),
-                        ),
-                      ),
-                      alignmentOffset: const Offset(0, Spacing.sm),
-                      menuChildren: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            Spacing.md,
-                            Spacing.sm,
-                            Spacing.md,
-                            Spacing.sm,
-                          ),
-                          child: Text(
-                            'NEW SHELL ON',
-                            style: context.tokens.label,
-                          ),
-                        ),
-                        for (final host in widget.newHosts)
-                          MenuItemButton(
-                            key: ValueKey('shell-new-host-${host.id}'),
-                            onPressed: () => widget.onNew(host),
-                            style: const ButtonStyle(
-                              minimumSize: WidgetStatePropertyAll(
-                                Size(192, TapTargets.minHeight),
-                              ),
-                              padding: WidgetStatePropertyAll(
-                                EdgeInsetsDirectional.only(
-                                  start: Spacing.md,
-                                  end: Spacing.lg,
-                                ),
-                              ),
-                              shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.all(
-                                    Radius.circular(Radii.sharp),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                DazzleIcon(
-                                  DazzleIcons.hosts,
-                                  size: IconSizes.glyph,
-                                  color: context.tokens.textMuted,
-                                ),
-                                const SizedBox(width: Spacing.md),
-                                Expanded(
-                                  child: Text(
-                                    host.name.toUpperCase(),
-                                    style: context.tokens.rowTitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (host.id == widget.host.id) ...[
-                                  const SizedBox(width: Spacing.md),
-                                  Text('CURRENT', style: context.tokens.label),
-                                ],
-                              ],
-                            ),
-                          ),
-                      ],
-                      builder: (context, controller, child) => _TabCell(
-                        key: const ValueKey('shell-tab-new'),
-                        label: '+',
-                        onTap: controller.isOpen
-                            ? controller.close
-                            : controller.open,
-                      ),
-                    ),
-                ],
-              ),
-            ),
+    // The menu is an overlay rather than a route, so back would pop the sheet under it.
+    return PopScope(
+      canPop: !_newMenuOpen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _newMenu.close();
+      },
+      child: Container(
+        key: const ValueKey('shell-header'),
+        height: _headerHeight,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: context.tokens.borderSubtle),
           ),
-          if (onDiff != null)
-            _TabCell(
-              key: const ValueKey('shell-tab-diff'),
-              label: 'DIFF',
-              icon: DazzleIcons.branch,
-              dimmed: !widget.diffReady,
-              onTap: widget.diffReady ? onDiff : null,
-            ),
-          _Middle(host: host.name, session: active, onStop: widget.onStop),
-          if (onClose != null) ...[
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: Spacing.screenEdge),
+            _HostCell(name: host.name, onTap: widget.onSwitchHost),
             const SizedBox(width: Spacing.md),
             const CellDivider(),
             const SizedBox(width: Spacing.sm),
-            _TabCell(
-              key: const ValueKey('shell-tab-close'),
-              label: '×',
-              onTap: onClose,
+            // The strip is the one part of the row that gives way: the cells beside it
+            // keep the size of what they hold, and nine shells open scroll inside
+            // whatever is left rather than overflowing the row.
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final session in sessions)
+                      KeyedSubtree(
+                        key: session == active ? _activeTab : null,
+                        child: _TabCell(
+                          key: ValueKey('shell-tab-${session.number}'),
+                          label: shellTabLabel(session.title, session.number),
+                          state: session.state,
+                          active: session == active,
+                          onTap: () => widget.onSelect(session),
+                        ),
+                      ),
+                    if (widget.newHosts.isNotEmpty)
+                      MenuAnchor(
+                        controller: _newMenu,
+                        onOpen: () => setState(() => _newMenuOpen = true),
+                        onClose: () => setState(() => _newMenuOpen = false),
+                        style: MenuStyle(
+                          backgroundColor: WidgetStatePropertyAll(
+                            context.tokens.surfaceSecondary,
+                          ),
+                          surfaceTintColor: const WidgetStatePropertyAll(
+                            Colors.transparent,
+                          ),
+                          shadowColor: const WidgetStatePropertyAll(
+                            Colors.transparent,
+                          ),
+                          elevation: const WidgetStatePropertyAll(0),
+                          padding: const WidgetStatePropertyAll(
+                            EdgeInsets.all(Spacing.sm),
+                          ),
+                          minimumSize: const WidgetStatePropertyAll(
+                            Size(200, 0),
+                          ),
+                          maximumSize: const WidgetStatePropertyAll(
+                            Size(280, 360),
+                          ),
+                          shape: WidgetStatePropertyAll(
+                            RoundedRectangleBorder(
+                              borderRadius: const BorderRadius.all(
+                                Radius.circular(Radii.sharp),
+                              ),
+                              side: BorderSide(
+                                color: context.tokens.borderNormal,
+                              ),
+                            ),
+                          ),
+                        ),
+                        alignmentOffset: const Offset(0, Spacing.sm),
+                        menuChildren: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              Spacing.md,
+                              Spacing.sm,
+                              Spacing.md,
+                              Spacing.sm,
+                            ),
+                            child: Text(
+                              'NEW SHELL ON',
+                              style: context.tokens.label,
+                            ),
+                          ),
+                          for (final host in widget.newHosts)
+                            MenuItemButton(
+                              key: ValueKey('shell-new-host-${host.id}'),
+                              onPressed: () => widget.onNew(host),
+                              style: const ButtonStyle(
+                                minimumSize: WidgetStatePropertyAll(
+                                  Size(192, TapTargets.minHeight),
+                                ),
+                                padding: WidgetStatePropertyAll(
+                                  EdgeInsetsDirectional.only(
+                                    start: Spacing.md,
+                                    end: Spacing.lg,
+                                  ),
+                                ),
+                                shape: WidgetStatePropertyAll(
+                                  RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(Radii.sharp),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  DazzleIcon(
+                                    DazzleIcons.hosts,
+                                    size: IconSizes.glyph,
+                                    color: context.tokens.textMuted,
+                                  ),
+                                  const SizedBox(width: Spacing.md),
+                                  Expanded(
+                                    child: Text(
+                                      host.name.toUpperCase(),
+                                      style: context.tokens.rowTitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (host.id == widget.host.id) ...[
+                                    const SizedBox(width: Spacing.md),
+                                    Text(
+                                      'CURRENT',
+                                      style: context.tokens.label,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                        ],
+                        builder: (context, controller, child) => _TabCell(
+                          key: const ValueKey('shell-tab-new'),
+                          label: '+',
+                          onTap: controller.isOpen
+                              ? controller.close
+                              : controller.open,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
+            if (onDiff != null)
+              _TabCell(
+                key: const ValueKey('shell-tab-diff'),
+                label: 'DIFF',
+                icon: DazzleIcons.branch,
+                dimmed: !widget.diffReady,
+                onTap: widget.diffReady ? onDiff : null,
+              ),
+            _Middle(host: host.name, session: active, onStop: widget.onStop),
+            if (onClose != null) ...[
+              const SizedBox(width: Spacing.md),
+              const CellDivider(),
+              const SizedBox(width: Spacing.sm),
+              _TabCell(
+                key: const ValueKey('shell-tab-close'),
+                label: '×',
+                onTap: onClose,
+              ),
+            ],
+            const SizedBox(width: Spacing.screenEdge),
           ],
-          const SizedBox(width: Spacing.screenEdge),
-        ],
+        ),
       ),
     );
   }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/platform/shell/remote_shell.dart';
 import 'package:dazzle/platform/workspace/workspace_commands.dart';
@@ -34,6 +36,11 @@ const _numstat = '''
 -\t-\tassets/logo.png
 0\t12\tlib/gone.dart
 ''';
+
+const _isolatedGit = {
+  'GIT_CONFIG_GLOBAL': '/dev/null',
+  'GIT_CONFIG_NOSYSTEM': '1',
+};
 
 void main() {
   group('status', () {
@@ -275,6 +282,37 @@ void main() {
       expect(overview.status.clean, isTrue);
       expect(overview.worktrees, isEmpty);
       expect(overview.files, isEmpty);
+    });
+  });
+
+  group('the overview from inside the checkout', () {
+    test('a workspace below the top reads every path from the top', () async {
+      final root = await Directory.systemTemp.createTemp('dazzle-ws');
+      addTearDown(() => root.delete(recursive: true));
+      Future<ProcessResult> git(List<String> args) => Process.run(
+        'git',
+        ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args],
+        workingDirectory: root.path,
+        environment: _isolatedGit,
+      );
+      await git(['init', '-q']);
+      await File('${root.path}/a.txt').writeAsString('one\n');
+      await Directory('${root.path}/sub').create();
+      await File('${root.path}/sub/keep').writeAsString('');
+      await git(['add', '.']);
+      await git(['commit', '-q', '-m', 'init']);
+      await File('${root.path}/a.txt').writeAsString('one\ntwo\n');
+      await File('${root.path}/new.txt').writeAsString('x\ny\n');
+
+      final run = await Process.run('sh', [
+        '-c',
+        WorkspaceCommands.overview('${root.path}/sub'),
+      ], environment: _isolatedGit);
+      final files = parseOverview(run.stdout as String).files;
+
+      expect(files.map((f) => f.path), unorderedEquals(['a.txt', 'new.txt']));
+      expect(files.singleWhere((f) => f.path == 'a.txt').added, 1);
+      expect(files.singleWhere((f) => f.path == 'new.txt').added, 2);
     });
   });
 

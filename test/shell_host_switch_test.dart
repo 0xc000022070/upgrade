@@ -203,6 +203,37 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('back with the plus menu open closes the menu, not the shells', (
+    tester,
+  ) async {
+    await hosts.save(_rose);
+    await hosts.save(_nyx);
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    sessions.open(_rose);
+    await ready(tester);
+    await raise(tester);
+    final route = ModalRoute.of(tester.element(header));
+
+    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+    await ready(tester);
+    expect(find.byKey(const ValueKey('shell-new-host-h2')), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await ready(tester);
+
+    expect(find.byKey(const ValueKey('shell-new-host-h2')), findsNothing);
+    expect(ModalRoute.of(tester.element(header)), same(route));
+
+    await tester.binding.handlePopRoute();
+    await ready(tester);
+
+    expect(header, findsNothing);
+
+    await unmount(tester);
+  });
+
   group('a host with no shell yet', () {
     testWidgets('a second host on the list makes the name a cell and is '
         'offered under TAKE OVER', (tester) async {
