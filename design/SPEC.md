@@ -1055,11 +1055,21 @@ A card is a live miniature of its session's terminal on black, hairline bordered
 
 ### The tabs survive a restart, because what is written down is the tab
 
-An ssh channel dies with the process that held it; nothing on the phone can keep one warm across a launch, and a session that claimed to be the same shell would be lying about the state on the remote. What survives is the row: host, number, the remote identity it was on, and whether it was the tab on screen. A multiplexer on the far side is what makes the shell itself survive, and that is the remote's job.
+An ssh channel dies with the process that held it; nothing on the phone can keep one warm across a launch, and a session that claimed to be the same shell would be lying about the state on the remote. What survives is the row: host, number, the remote identity it was on, and whether it was the tab on screen — and beside it, the screen the tab last showed. A multiplexer on the far side is what makes the shell itself survive, and that is the remote's job.
 
 **Startup dials them back.** The rows are read before the first frame and a tab is opened per row, on the host it was on and under the number it had, so the numbering carries on where it stopped rather than restarting at 1. The dials are not awaited — the boot log is on screen while they run — and the log carries `restore shells <n>`, since it reports real work. Each dial is unattended, so a host whose key was never pinned is refused here as it is on a reconnect, and a row whose host was deleted while the app was down is dropped rather than dialled.
 
 The table follows the tab row: opening writes one and makes it active, closing takes it out, switching moves the flag, and a shell that exits clean takes its row with its tab. A tab left on a failed shell keeps its row — it is dialled again next launch, which is the thing the tabs were wanted back for.
+
+### The screen comes back with the tab
+
+A tab dialled back on a blank terminal has lost the one thing the user was looking at: the build log, the error, the command they were halfway through reading. The shell is new, but what the old one printed is on the phone, and it is written down beside the row.
+
+**The terminal is saved whole.** Grid, scrollback, cursor and modes go to a file per tab in the app's own storage, never to the database: a snapshot is as big as the scrollback behind it, and it is a copy of the screen rather than a record anything else reads. It is written when the app leaves the foreground, and again while it is away, once a tab's output has been quiet for a few seconds or has run unsaved for a minute, because the shells keep printing in the background and a process killed an hour later would otherwise come back to the screen it had when the user left. A snapshot that cannot be taken at that moment, output cut mid-sequence, keeps the one before it.
+
+**Restoring draws it before the dial.** The file is read with the row, so the tab opens on the screen it had, and the dial lands under it the way a reconnect does: the modes of the dead program are turned off, the mark is written, the new prompt comes up below the old output. A file that does not read back as a terminal is dropped, and the tab opens blank, the way it would have without one.
+
+**It goes where the row goes.** Closing a tab removes its file, and so does a row dropped at startup because its host is gone. A file with no row beside it is removed when the tabs are read back.
 
 ### A new shell does not inherit the modes of the one that died
 

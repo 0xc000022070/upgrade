@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/pin_alerts.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/data/repositories/shell_tab_repository.dart';
+import 'package:dazzle/data/shell_snapshot_store.dart';
 import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_card.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
@@ -1947,6 +1948,104 @@ void main() {
       expect(sessions.forHost(_rose.id), hasLength(1));
       expect(transport.opened, hasLength(1));
     });
+
+    test('leaving saves each screen and a killed app draws it again', () async {
+      final tabs = InMemoryShellTabRepository();
+      final snapshots = InMemoryShellSnapshotStore();
+      final transport = FakeShellTransport();
+      final before = fakeShellSessions(
+        transport,
+        tabs: tabs,
+        snapshots: snapshots,
+      );
+      before.open(_rose);
+      await _settle();
+      transport.opened.single.emit('build finished\r\n');
+      await _settle();
+      before.leave();
+      await _settle();
+      expect(snapshots.snapshots.keys, [(_rose.id, 1)]);
+
+      final after = fakeShellSessions(
+        FakeShellTransport(),
+        tabs: tabs,
+        snapshots: snapshots,
+      );
+      await after.restore(hosts);
+      await after.forHost(_rose.id).single.terminal.restored;
+      await _settle();
+
+      final text = _text(after.forHost(_rose.id).single.terminal);
+      expect(text, contains('build finished'));
+      expect(
+        text.indexOf('build finished'),
+        lessThan(text.indexOf('-- reconnected --')),
+      );
+    });
+
+    test('output while away is saved once it rests', () async {
+      final snapshots = InMemoryShellSnapshotStore();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(
+        transport,
+        snapshots: snapshots,
+        snapshotQuiet: const Duration(milliseconds: 10),
+      );
+      sessions.open(_rose);
+      await _settle();
+      sessions.leave();
+      await _settle();
+      final left = snapshots.snapshots[(_rose.id, 1)];
+
+      transport.opened.single.emit('tests passed\r\n');
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      final rested = snapshots.snapshots[(_rose.id, 1)];
+      expect(rested, isNot(same(left)));
+
+      sessions.returned();
+      transport.opened.single.emit('back on screen\r\n');
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(snapshots.snapshots[(_rose.id, 1)], same(rested));
+    });
+
+    test('closing a tab drops its screen', () async {
+      final snapshots = InMemoryShellSnapshotStore();
+      final sessions = fakeShellSessions(
+        FakeShellTransport(),
+        snapshots: snapshots,
+      );
+      final session = sessions.open(_rose)!;
+      await _settle();
+      sessions.leave();
+      await _settle();
+      expect(snapshots.snapshots, isNotEmpty);
+
+      await sessions.close(_rose.id, session);
+      await _settle();
+      expect(snapshots.snapshots, isEmpty);
+    });
+
+    test(
+      'a screen that does not read back opens blank and is dropped',
+      () async {
+        final tabs = InMemoryShellTabRepository();
+        await tabs.open(_rose.id, 1);
+        final snapshots = InMemoryShellSnapshotStore()
+          ..snapshots[(_rose.id, 1)] = Uint8List.fromList([1, 2, 3])
+          ..snapshots[(_rose.id, 7)] = Uint8List.fromList([4, 5, 6]);
+
+        final sessions = fakeShellSessions(
+          FakeShellTransport(),
+          tabs: tabs,
+          snapshots: snapshots,
+        );
+        expect(await sessions.restore(hosts), 1);
+        await _settle();
+
+        expect(sessions.forHost(_rose.id).single.terminal, isNotNull);
+        expect(snapshots.snapshots, isEmpty);
+      },
+    );
 
     test('a restored tab dials unattended', () async {
       final tabs = InMemoryShellTabRepository();

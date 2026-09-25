@@ -42,11 +42,15 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
   @override
   Widget build(BuildContext context) {
     ref.listen<bool>(appVisibleProvider, (was, now) {
-      if (!now) _away = true;
+      if (now) return;
+      _away = true;
+      ref.read(shellSessionsProvider).leave();
     });
     ref.listen<bool>(appForegroundProvider, (was, now) {
       if (!now || was == true) return;
-      ref.read(shellSessionsProvider).wakeAll(rehome: _away);
+      ref.read(shellSessionsProvider)
+        ..returned()
+        ..wakeAll(rehome: _away);
       _away = false;
     });
     return widget.child;

@@ -11,6 +11,7 @@ import '../../application/pin_alerts.dart';
 import '../../application/providers.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/shell_tab_repository.dart';
+import '../../data/shell_snapshot_store.dart';
 import '../../design/tokens.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
@@ -371,6 +372,10 @@ class ShellSession extends ChangeNotifier {
 
   bool _retired = false;
 
+  DateTime? _unsavedSince;
+  Timer? _save;
+  Future<void> _saved = Future.value();
+
   /// What a view left behind on the terminal — a mark, an anchor — is released with the
   /// buffer and must not be released again through a listenable that is gone.
   bool get retired => _retired;
@@ -382,6 +387,7 @@ class ShellSession extends ChangeNotifier {
   void dispose() {
     if (_retired) return;
     _retired = true;
+    _save?.cancel();
     focusNode.dispose();
     scrollController.dispose();
     output.dispose();
@@ -418,6 +424,9 @@ class ShellSessions extends ChangeNotifier {
     required this.readPrivateKey,
     required this.pinHostKey,
     this.tabs,
+    this.snapshots,
+    this.snapshotQuiet = const Duration(seconds: 5),
+    this.snapshotCeiling = const Duration(minutes: 1),
     ShellOpener? open,
     this.pinRecheck = const Duration(seconds: 5),
     this.pinStale = const Duration(minutes: 5),
@@ -454,6 +463,14 @@ class ShellSessions extends ChangeNotifier {
   /// Where the open tabs are written down, so a process that is killed can be dialled back
   /// into the shells it had.
   final ShellTabRepository? tabs;
+
+  final ShellSnapshotStore? snapshots;
+
+  final Duration snapshotQuiet;
+
+  final Duration snapshotCeiling;
+
+  bool _away = false;
 
   final _byHost = <String, List<ShellSession>>{};
 
@@ -628,16 +645,12 @@ class ShellSessions extends ChangeNotifier {
     String? remoteSession,
     bool restored = false,
     Future<void>? beforeConnect,
+    Uint8List? snapshot,
   }) {
     final session =
         ShellSession(
             number: number,
-            terminal: TerminalController(
-              config: const TerminalConfig(
-                scrollbackMaxBytes: null,
-                scrollbackMaxLines: shellScrollback,
-              ),
-            ),
+            terminal: _terminal(host.id, number, snapshot),
             host: host,
             remoteSession: remoteSession,
             mark: remoteSession,
@@ -650,6 +663,7 @@ class ShellSessions extends ChangeNotifier {
     _active[host.id] = number;
     _parkedHostId = host.id;
     _wireTerminal(session);
+    session.output.addListener(() => _outputWhileAway(session));
     notifyListeners();
     unawaited(
       _connectAfterPersistence(
@@ -661,6 +675,91 @@ class ShellSessions extends ChangeNotifier {
       ),
     );
     return session;
+  }
+
+  TerminalController _terminal(String hostId, int number, Uint8List? snapshot) {
+    if (snapshot != null) {
+      try {
+        final terminal = TerminalController.fromSnapshot(snapshot);
+        unawaited(
+          terminal.restored.then(
+            (_) {},
+            onError: (Object error) {
+              if (terminal.restoration != RestorationState.failed) return;
+              debugPrint('dazzle.shell snapshot $hostId/$number: $error');
+              unawaited(snapshots?.drop(hostId, number));
+            },
+          ),
+        );
+        return terminal;
+      } catch (error) {
+        debugPrint('dazzle.shell snapshot $hostId/$number: $error');
+        unawaited(snapshots?.drop(hostId, number));
+      }
+    }
+    return TerminalController(
+      config: const TerminalConfig(
+        scrollbackMaxBytes: null,
+        scrollbackMaxLines: shellScrollback,
+      ),
+    );
+  }
+
+  void leave() {
+    _away = true;
+    for (final sessions in _byHost.values) {
+      for (final session in sessions) {
+        _saveScreen(session);
+      }
+    }
+  }
+
+  void returned() {
+    _away = false;
+    for (final sessions in _byHost.values) {
+      for (final session in sessions) {
+        session._save?.cancel();
+        session._save = null;
+      }
+    }
+  }
+
+  void _outputWhileAway(ShellSession session) {
+    if (!_away || snapshots == null || session._closed) return;
+    final since = session._unsavedSince ??= now();
+    session._save?.cancel();
+    session._save = Timer(
+      now().difference(since) >= snapshotCeiling
+          ? Duration.zero
+          : snapshotQuiet,
+      () => _saveScreen(session),
+    );
+  }
+
+  void _saveScreen(ShellSession session) {
+    final store = snapshots;
+    session._save?.cancel();
+    session._save = null;
+    if (store == null || session._closed || session.retired) return;
+    // Older scrollback is still loading, and a snapshot now would keep only what has.
+    if (session.terminal.restoration == RestorationState.restoring) return;
+    final Uint8List bytes;
+    try {
+      bytes = session.terminal.snapshot();
+    } catch (error) {
+      debugPrint('dazzle.shell ${session.host.name}: snapshot: $error');
+      return;
+    }
+    session._unsavedSince = null;
+    final hostId = session.host.id;
+    session._saved = session._saved.then((_) async {
+      if (session._closed) return;
+      try {
+        await store.write(hostId, session.number, bytes);
+      } catch (error) {
+        debugPrint('dazzle.shell ${session.host.name}: snapshot: $error');
+      }
+    });
   }
 
   Future<void> _connectAfterPersistence(
@@ -701,7 +800,11 @@ class ShellSessions extends ChangeNotifier {
     if (store == null || _restored) return 0;
     _restored = true;
     final rows = await store.all();
-    if (rows.isEmpty) return 0;
+    if (rows.isEmpty) {
+      await snapshots?.keepOnly(const {});
+      return 0;
+    }
+    final kept = <(String, int)>{};
     final hosts = {for (final host in await readHosts()) host.id: host};
     var restored = 0;
     for (final row in rows) {
@@ -726,6 +829,7 @@ class ShellSessions extends ChangeNotifier {
       }
       final next = _nextNumber[host.id] ?? 1;
       if (row.number >= next) _nextNumber[host.id] = row.number + 1;
+      kept.add((host.id, row.number));
       _start(
         host,
         row.number,
@@ -733,9 +837,11 @@ class ShellSessions extends ChangeNotifier {
         pane: pane,
         remoteSession: remoteSession,
         restored: true,
+        snapshot: await snapshots?.read(host.id, row.number),
       );
       restored++;
     }
+    await snapshots?.keepOnly(kept);
     // [_start] leaves the last tab opened active, which is the right answer only for
     // the host whose tab was on screen.
     for (final row in rows.where((row) => row.active)) {
@@ -757,9 +863,13 @@ class ShellSessions extends ChangeNotifier {
     session._reconnect = null;
     session._rehomed?.cancel();
     session._rehomed = null;
+    session._save?.cancel();
     session._stopAsking();
     session.disarm();
     _byHost[hostId]?.remove(session);
+    unawaited(
+      session._saved.then((_) => snapshots?.drop(hostId, session.number)),
+    );
     _tellShade(session.host);
     if (_active[hostId] == session.number) {
       final rest = _byHost[hostId];
@@ -1438,6 +1548,8 @@ class ShellSessions extends ChangeNotifier {
   }
 }
 
+final shellSnapshotStoreProvider = Provider<ShellSnapshotStore?>((ref) => null);
+
 /// Nothing disposes it: a session is meant to outlive the route that opened it, and a
 /// provider that let go when its last reader did would close every shell on the way out
 /// of the screen.
@@ -1447,6 +1559,7 @@ final shellSessionsProvider = Provider<ShellSessions>((ref) {
     readPrivateKey: ref.watch(ed25519KeysProvider).privateKey,
     pinHostKey: ref.watch(hostRepositoryProvider).pinHostKey,
     tabs: ref.watch(shellTabRepositoryProvider),
+    snapshots: ref.watch(shellSnapshotStoreProvider),
     notifier: const PinNotifications(),
   );
 });
