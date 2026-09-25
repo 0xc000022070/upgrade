@@ -28,7 +28,7 @@ import 'package:dazzle/platform/host_keys.dart';
 import 'package:dazzle/platform/link_probe.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:dazzle/platform/vnc/framebuffer.dart';
-import 'package:xterm/xterm.dart';
+import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -700,15 +700,21 @@ void main() {
 
   group('the dot on the shell row', () {
     test('takes the worst state of the sessions under it', () {
-      final live = ShellSession(number: 1, terminal: Terminal(), host: _rose)
-        ..state = const ShellLive();
+      final live = ShellSession(
+        number: 1,
+        terminal: TerminalController(),
+        host: _rose,
+      )..state = const ShellLive();
       final connecting = ShellSession(
         number: 2,
-        terminal: Terminal(),
+        terminal: TerminalController(),
         host: _rose,
       )..state = const ShellConnecting();
-      final failed = ShellSession(number: 3, terminal: Terminal(), host: _rose)
-        ..state = const ShellFailed(ShellFailureKind.streamClosed);
+      final failed = ShellSession(
+        number: 3,
+        terminal: TerminalController(),
+        host: _rose,
+      )..state = const ShellFailed(ShellFailureKind.streamClosed);
 
       expect(worstShellState([]), isNull);
       expect(worstShellState([connecting]), isA<ShellConnecting>());

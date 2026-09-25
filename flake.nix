@@ -171,7 +171,15 @@
           };
 
           sdkRoot = "${android.androidsdk}/libexec/android-sdk";
+          ndkRoot = "${sdkRoot}/ndk/28.2.13676358";
           jdk = pkgs.jdk21;
+
+          ghosttySrc = pkgs.fetchFromGitHub {
+            owner = "ghostty-org";
+            repo = "ghostty";
+            rev = "349f026087d948f8f898dca3231ff91438f83ab8";
+            hash = "sha256-0/eonC+DEqnQpkKZP+CkEI9saK90i3/FnMeNmO9NeIw=";
+          };
         in
         {
           default = pkgs.mkShell {
@@ -187,6 +195,7 @@
               pkgs.rustc
               pkgs.clippy
               pkgs.rustfmt
+              pkgs.zig
             ];
 
             # Linux desktop target: flutter drives cmake/ninja/clang against GTK.
@@ -217,7 +226,9 @@
 
             ANDROID_HOME = sdkRoot;
             ANDROID_SDK_ROOT = sdkRoot;
-            ANDROID_NDK_ROOT = "${sdkRoot}/ndk/28.2.13676358";
+            ANDROID_NDK_ROOT = ndkRoot;
+            ANDROID_NDK_HOME = ndkRoot;
+            GHOSTTY_SRC = ghosttySrc;
             JAVA_HOME = "${jdk}";
 
             shellHook = ''

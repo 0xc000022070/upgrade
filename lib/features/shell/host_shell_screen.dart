@@ -27,11 +27,9 @@ import '../hosts/host_key_sheet.dart';
 import 'attach_sheet.dart';
 import 'shell_bar.dart';
 import 'shell_header.dart';
-import 'shell_selection.dart';
 import 'shell_search.dart';
 import 'shell_sessions.dart';
 import 'shell_status.dart';
-import 'shell_tail.dart';
 import 'shell_terminal.dart';
 import 'shell_watcher.dart';
 
@@ -523,9 +521,10 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       // system took away is asked back directly.
       SystemChannels.textInput.invokeMethod<void>('TextInput.show');
     } else {
-      // Also the way out of an inset with nothing under it: taking focus raises a
-      // real keyboard, and a real keyboard reports a fresh inset.
       focus.requestFocus();
+      scheduleMicrotask(
+        () => SystemChannels.textInput.invokeMethod<void>('TextInput.show'),
+      );
     }
   }
 
@@ -812,20 +811,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                                     ..onEnd = _onPinchEnd,
                                 ),
                           },
-                          child: Stack(
-                            // The terminal is the size of the whole area; the affordance
-                            // floats over it. Without this the stack would take the size
-                            // of the affordance, which is nothing at all until there is a
-                            // selection.
-                            fit: StackFit.expand,
-                            children: [
-                              ShellTerminalView(
-                                session: active,
-                                fontSize: fontSize,
-                              ),
-                              ShellSelectionActions(session: active),
-                              ShellTailCell(session: active),
-                            ],
+                          child: ShellTerminalView(
+                            session: active,
+                            fontSize: fontSize,
                           ),
                         ),
                 ),

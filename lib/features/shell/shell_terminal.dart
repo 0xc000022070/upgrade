@@ -1,29 +1,64 @@
+import 'package:flterm/flterm.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
-import 'package:xterm/xterm.dart';
+import 'package:material_ui/material_ui.dart'
+    show TextSelectionTheme, TextSelectionThemeData;
 
+import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../design/typography.dart';
+import 'shell_selection.dart';
 import 'shell_sessions.dart';
-import 'shell_surface.dart';
+import 'shell_tail.dart';
 
-/// One style per size, kept. The view compares styles by identity and lays the whole
-/// buffer out again on a new one, and the route rebuilds far more often than the size
-/// changes.
-final _shellTextStyles = <double, TerminalStyle>{};
+const shellTerminalPadding = EdgeInsets.all(Spacing.md);
 
-TerminalStyle _shellTextStyle(double fontSize) => _shellTextStyles.putIfAbsent(
-  fontSize,
-  () => TerminalStyle(
-    fontSize: fontSize,
-    fontFamily: FontFamilies.mono,
-    fontFamilyFallback: const [FontFamilies.monoSymbols],
-  ),
+const shellGestures = TerminalGestureSettings(
+  wordBoundaries: ' \t"\'`<>()[]{}│',
 );
 
+final _themes =
+    <(TerminalPalette, Color, Color, Color, double), TerminalTheme>{};
+
+TerminalTheme shellTheme(DazzleTokens tokens, double fontSize) {
+  final palette = tokens.terminal;
+  final key = (
+    palette,
+    tokens.terminalSelectionWash,
+    tokens.selectionWash,
+    tokens.selectionWashCurrent,
+    fontSize,
+  );
+  return _themes.putIfAbsent(
+    key,
+    () => TerminalTheme(
+      palette: ColorPalette(
+        ansiColors: palette.ansi,
+        background: palette.background,
+        foreground: palette.foreground,
+      ),
+      cursor: CursorTheme(color: DynamicColor.fixed(palette.cursor)),
+      fontSize: fontSize,
+      fontFamily: FontFamilies.mono,
+      fontFamilyFallback: const [FontFamilies.monoSymbols],
+      selection: SelectionTheme(
+        background: DynamicColor.fixed(tokens.terminalSelectionWash),
+      ),
+      search: SearchTheme(
+        match: SelectionTheme(
+          background: DynamicColor.fixed(tokens.selectionWash),
+        ),
+        selectedMatch: SelectionTheme(
+          background: DynamicColor.fixed(tokens.selectionWashCurrent),
+        ),
+      ),
+    ),
+  );
+}
+
 /// The IME is the terminal's own: it takes text input, and what it produces runs through
-/// the store, which is where the armed modifiers are applied and spent. It comes up
-/// through the bar's KEYBOARD cell and nothing else.
+/// the store, which is where the armed modifiers are applied and spent. A tap focuses the
+/// view without raising it; it comes up through the bar's KEYBOARD cell and nothing else.
 class ShellTerminalView extends StatelessWidget {
   const ShellTerminalView({
     super.key,
@@ -36,20 +71,29 @@ class ShellTerminalView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return TextSelectionTheme(
+      data: TextSelectionThemeData(selectionHandleColor: context.tokens.accent),
+      child: _view(context),
+    );
+  }
+
+  Widget _view(BuildContext context) {
     return TerminalView(
-      session.terminal,
-      key: shellTerminalKey(session),
-      controller: session.controller,
+      key: ObjectKey(session),
+      controller: session.terminal,
       focusNode: session.focusNode,
       scrollController: session.scrollController,
-      theme: context.tokens.terminal,
-      textStyle: _shellTextStyle(fontSize),
-      cursorType: TerminalCursorType.block,
-      // Plain text: the view turns autocorrect and suggestions off itself, and a
-      // keyboard picked for anything else puts the wrong keys under a shell.
-      keyboardType: TextInputType.text,
-      keyboardOnTap: false,
+      theme: shellTheme(context.tokens, fontSize),
       padding: shellTerminalPadding,
+      showKeyboard: false,
+      gestureSettings: shellGestures,
+      overlayBuilder: (context, geometry) => Stack(
+        fit: StackFit.expand,
+        children: [
+          ShellSelectionActions(session: session, geometry: geometry),
+          ShellTailCell(session: session),
+        ],
+      ),
     );
   }
 }

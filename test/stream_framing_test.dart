@@ -2,29 +2,17 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flterm/flterm.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/herdr_socket.dart';
 import 'package:dazzle/platform/vnc/framebuffer.dart';
 import 'package:dazzle/platform/vnc/rfb_client.dart';
 import 'package:dazzle/platform/vnc/rfb_messages.dart';
-import 'package:xterm/xterm.dart';
 
 import 'support/chunking.dart';
 import 'support/herdr_link.dart';
 import 'support/vnc_channel.dart';
-
-class _Writes implements Sink<String> {
-  _Writes(this.terminal);
-
-  final Terminal terminal;
-
-  @override
-  void add(String data) => terminal.write(data);
-
-  @override
-  void close() {}
-}
 
 List<int> _pixelAt(Framebuffer buffer, int x, int y) {
   final at = buffer.offsetOf(x, y);
@@ -176,46 +164,57 @@ void main() {
       '\u00e9\u00e9\u00e9\u00e9\u00e9\r\n',
     );
 
-    /// A chunked utf8 decoder whose sink is the terminal. A per-chunk `utf8.decode` is the
-    /// bug this proves absent.
-    ({Terminal terminal, String? title}) played(Split split) {
-      final terminal = Terminal(maxLines: 100)..resize(40, 10);
-      String? title;
-      terminal.onTitleChange = (seen) => title = seen;
-      final sink = utf8.decoder.startChunkedConversion(_Writes(terminal));
+    /// The chunks go in as they came off the wire: a character or an escape cut between
+    /// two of them is the engine's to hold across the cut.
+    TerminalController played(Split split) {
+      final terminal = TerminalController(
+        config: const TerminalConfig(cols: 40, rows: 10),
+      );
+      addTearDown(terminal.dispose);
       for (final chunk in split.chunks) {
-        sink.add(chunk);
+        terminal.write(chunk);
       }
-      sink.close();
-      return (terminal: terminal, title: title);
+      return terminal;
     }
 
-    List<String> textOf(Terminal terminal) => [
-      for (var line = 0; line < 4; line++)
-        terminal.buffer.lines[line].getText().trimRight(),
-    ];
+    String rendered(TerminalController terminal, FormatterFormat format) {
+      final formatter = terminal.createFormatter(format: format, trim: true);
+      try {
+        return formatter.format();
+      } finally {
+        formatter.dispose();
+      }
+    }
 
     test('the same bytes print the same screen however they are cut', () {
-      final reference = played(splitsOf(transcript).first);
-      final want = textOf(reference.terminal);
-      expect(want.first, 'café 日本語 ──');
+      final want = rendered(
+        played(splitsOf(transcript).first),
+        FormatterFormat.plain,
+      );
+      expect(want.split('\n').first, 'café 日本語 ──');
 
       for (final split in splitsOf(transcript)) {
-        expect(textOf(played(split).terminal), want, reason: split.reason);
+        expect(
+          rendered(played(split), FormatterFormat.plain),
+          want,
+          reason: split.reason,
+        );
       }
     });
 
     test('a colour opened either side of a cut still ends where it ends', () {
-      final reference = played(splitsOf(transcript).first);
-      final line = reference.terminal.buffer.lines[1];
-      final coloured = line.getForeground(0);
-      final plain = line.getForeground(4);
-      expect(coloured, isNot(plain));
+      final want = rendered(
+        played(splitsOf(transcript).first),
+        FormatterFormat.vt,
+      );
+      expect(want, contains('\x1b['));
 
       for (final split in splitsOf(transcript)) {
-        final under = played(split).terminal.buffer.lines[1];
-        expect(under.getForeground(0), coloured, reason: split.reason);
-        expect(under.getForeground(4), plain, reason: split.reason);
+        expect(
+          rendered(played(split), FormatterFormat.vt),
+          want,
+          reason: split.reason,
+        );
       }
     });
 

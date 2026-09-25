@@ -8,7 +8,7 @@ import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_bar.dart';
 import 'package:dazzle/platform/shell/remote_shell.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
-import 'package:xterm/xterm.dart';
+import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -25,7 +25,7 @@ void main() {
     final connection = transport.opened.single;
     final terminal = tester
         .widget<TerminalView>(find.byType(TerminalView))
-        .terminal;
+        .controller;
 
     await tester.drag(
       find.byKey(const ValueKey('bar-CTRL')),
@@ -34,14 +34,14 @@ void main() {
     await ready(tester);
     expect(find.text('CTRL(x2)'), findsOneWidget);
 
-    terminal.textInput('d');
+    terminal.sendText('d');
     await ready(tester);
     expect(find.text('CTRL(x2)'), findsNothing);
     expect(find.text('CTRL'), findsOneWidget);
 
-    terminal.textInput('d');
+    terminal.sendText('d');
     await ready(tester);
-    terminal.textInput('d');
+    terminal.sendText('d');
 
     expect(connection.writes, [
       [0x04],

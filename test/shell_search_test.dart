@@ -6,7 +6,7 @@ import 'package:dazzle/design/tokens.dart';
 import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_search.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:xterm/xterm.dart';
+import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -28,61 +28,6 @@ const _close = ValueKey('shell-find-close');
 
 void main() {
   setUp(stubDeviceChannels);
-
-  group('what a query finds', () {
-    test('a hit is found whatever the case, and a line can hold more than '
-        'one', () {
-      final terminal = Terminal()..write('Hello\r\nhello there hello\r\n');
-
-      final hits = shellHits(terminal, 'hello');
-
-      expect(hits, hasLength(3));
-      expect(hits[0].start, 0);
-      expect(hits[1].line, hits[0].line + 1);
-      expect(hits[1].start, 0);
-      expect(hits[2].line, hits[1].line);
-      expect(hits[2].start, 12);
-      expect(hits[2].end, 17);
-    });
-
-    test('nothing is looked for until something is typed', () {
-      final terminal = Terminal()..write('hello\r\n');
-
-      expect(shellHits(terminal, ''), isEmpty);
-      expect(shellHits(terminal, '   '), isEmpty);
-    });
-
-    test('a query with more hits than the cap keeps the newest', () {
-      final terminal = Terminal(maxLines: 4000)
-        ..write('mark\r\n' * (shellHitCap + 100));
-
-      final hits = shellHits(terminal, 'mark');
-
-      expect(hits, hasLength(shellHitCap));
-      final all = shellHits(terminal, 'mark');
-      expect(all.last.line, greaterThan(shellHitCap));
-    });
-
-    test('a hit runs over the characters of the line, not over its cells', () {
-      final terminal = Terminal()
-        ..write('ab\x1b[3CFoo\r\n')
-        ..write('漢字 FOO\r\n')
-        ..write('ÉCOLE foo\r\n')
-        ..write('FOOÉ\tfoo\r\n');
-
-      final hits = shellHits(terminal, 'Foo');
-
-      expect(hits.map((hit) => (hit.start, hit.end)), [
-        (2, 5),
-        (3, 6),
-        (6, 9),
-        (0, 3),
-        (4, 7),
-      ]);
-      expect(hits.map((hit) => hit.line), [0, 1, 2, 3, 3]);
-      expect(shellHits(terminal, 'école').single, (line: 2, start: 0, end: 5));
-    });
-  });
 
   group('the line under the terminal', () {
     /// No terminal is laid out under it, so nothing moves.
@@ -160,18 +105,15 @@ void main() {
       await tester.enterText(find.byKey(_field), 'one');
       await tester.pump(const Duration(milliseconds: 200));
 
-      final marks = session.controller.highlights;
-      final currentWash = DazzleTokens.house.selectionWashCurrent;
-      final wash = DazzleTokens.house.selectionWash;
-      expect(marks, hasLength(2));
-      expect(marks.where((mark) => mark.color == currentWash), hasLength(1));
-      expect(marks.where((mark) => mark.color == wash), hasLength(1));
-      expect(
-        marks.firstWhere((mark) => mark.color == currentWash).range!.begin.y,
-        greaterThan(
-          marks.firstWhere((mark) => mark.color == wash).range!.begin.y,
-        ),
+      final search = session.terminal.search;
+      int rowOf(Selection match) =>
+          match.start.positionIn(PointTag.screen)!.row;
+      expect(search.totalMatches, 2);
+      final current = search.selectedMatch!;
+      final other = search.matches.singleWhere(
+        (match) => rowOf(match) != rowOf(current),
       );
+      expect(rowOf(current), greaterThan(rowOf(other)));
 
       await tester.pumpWidget(const SizedBox.shrink());
     });
@@ -218,14 +160,15 @@ void main() {
 
       await tester.enterText(find.byKey(_field), 'one');
       await tester.pump(const Duration(milliseconds: 200));
-      expect(session.controller.highlights, isNotEmpty);
+      expect(session.terminal.search.totalMatches, 2);
 
       await tester.tap(find.byKey(_close));
       await tester.pump();
 
       expect(closed, isTrue);
       await tester.pumpWidget(const SizedBox.shrink());
-      expect(session.controller.highlights, isEmpty);
+      await tester.pump();
+      expect(session.terminal.search.totalMatches, 0);
     });
   });
 
@@ -262,23 +205,22 @@ void main() {
       transport.opened.single.emit('needle\r\n${'filler\r\n' * 300}');
       await ready(tester);
 
-      final position = session.tailPosition!;
-      expect(position.extentAfter, 0);
-      final bottom = position.pixels;
+      expect(session.rowsBehind, 0);
 
       await tester.tap(find.byKey(const ValueKey('bar-find')));
       await tester.pump();
       await tester.enterText(find.byKey(_field), 'needle');
       await tester.pump(const Duration(milliseconds: 200));
 
-      expect(session.controller.highlights, hasLength(1));
-      expect(session.scrollController.position.pixels, lessThan(bottom));
+      expect(session.terminal.search.totalMatches, 1);
+      expect(session.rowsBehind, greaterThan(0));
       expect(find.byKey(const ValueKey('shell-tail')), findsOneWidget);
 
       await tester.tap(find.byKey(_close));
       await tester.pump();
       expect(find.byKey(_field), findsNothing);
-      expect(session.controller.highlights, isEmpty);
+      await tester.pump();
+      expect(session.terminal.search.totalMatches, 0);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));

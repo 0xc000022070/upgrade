@@ -182,21 +182,9 @@ review:
 desktop: pub-build
     flutter run -d linux --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}
 
-pub-build: xterm-build mosh-build
+pub-build: mosh-build flterm-build
 
-pub-verify: xterm-verify mosh-verify
-
-# Write upstream's xterm plus packages/xterm/patches into .dart_tool. A no-op when current.
-xterm-build:
-    tool/pub-patches.sh xterm build
-
-# Rewrite packages/xterm/patches from edits made to .dart_tool/xterm.
-xterm-patches:
-    tool/pub-patches.sh xterm generate
-
-# Prove the patches reproduce .dart_tool/xterm exactly.
-xterm-verify:
-    tool/pub-patches.sh xterm verify
+pub-verify: mosh-verify flterm-verify
 
 mosh-build:
     tool/pub-patches.sh dart_mosh build
@@ -206,6 +194,15 @@ mosh-patches:
 
 mosh-verify:
     tool/pub-patches.sh dart_mosh verify
+
+flterm-build:
+    tool/pub-patches.sh flterm build
+
+flterm-patches:
+    tool/pub-patches.sh flterm generate
+
+flterm-verify:
+    tool/pub-patches.sh flterm verify
 
 # The host engine. Its own toolchain and its own tree: nothing under engine/ is
 # Dart, so `just analyze` and `just test` do not reach it and these do.

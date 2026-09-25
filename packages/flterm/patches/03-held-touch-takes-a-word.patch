@@ -1,0 +1,138 @@
+# over a mouse application a held touch takes the word under it, and a touch over a selection is the selection's
+#
+# Against flterm 56a95052776e75816a3ab0c0057c20c850944265. Regenerate with `just flterm-patches`.
+
+diff --git a/lib/src/input/interaction_region.dart b/lib/src/input/interaction_region.dart
+index 159b740..a91c1fc 100644
+--- a/lib/src/input/interaction_region.dart
++++ b/lib/src/input/interaction_region.dart
+@@ -3,7 +3,13 @@ import 'package:flutter/gestures.dart';
+ import 'package:flutter/services.dart';
+ import 'package:flutter/widgets.dart';
+ import 'package:libghostty/libghostty.dart'
+-    show Mods, MouseAction, MouseButton, Position, Selection;
++    show
++        Mods,
++        MouseAction,
++        MouseButton,
++        Position,
++        Selection,
++        SelectionGestureBehaviors;
+ import 'package:meta/meta.dart';
+ 
+ import '../foundation.dart';
+@@ -320,16 +326,20 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+ 
+   void _handleLongPressStart(LongPressStartDetails details) {
+     Focus.maybeOf(context)?.requestFocus();
+-    if (_terminalOwnsInteraction) return;
++    if (_terminalOwnsInteraction && !_reclaimHeldTouch()) return;
+     if (!widget.settings.longPressSelection) {
+       _cancelSelectionPress();
+       return;
+     }
++    // A held finger takes the word under it, the way a phone's text does, and the drag
++    // after grows the selection a word at a time. The tap's press under it is a cell's.
++    _cancelSelectionPress();
+     _startDrag(
+       details.localPosition,
+       rectangle: widget.settings.longPressSelectionShape == .rectangle,
+-      beginPress: _pressCell == null,
++      beginPress: true,
+       timeStamp: _interactionTimeStamp,
++      word: true,
+     );
+     if (widget.settings.touchSelectionHandles && !_selectionHandlesVisible) {
+       _visibleHandleSelectionSnapshot = _selectionSnapshotOf(
+@@ -339,6 +349,19 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+     }
+   }
+ 
++  /// A finger held still is a press for the selection and not a click, which a touch
++  /// only reports on its lift, so the application has been sent nothing yet.
++  bool _reclaimHeldTouch() {
++    final id = _interactionPointer;
++    final pointer = id == null ? null : _activePointers[id];
++    if (pointer == null || pointer.kind != .touch || !pointer.tapCandidate) {
++      return false;
++    }
++    _activePointers.remove(id);
++    _terminalOwnsInteraction = false;
++    return true;
++  }
++
+   bool _handleModifierKey(KeyEvent _) {
+     final drag = _drag;
+     if (drag != null) _updateDrag(drag.localPosition);
+@@ -366,7 +389,18 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+     }
+   }
+ 
+-  void _handleSelectionPress(Offset position, Duration? timeStamp) {
++  /// Every count a word: the tap's press under the hold counts as a click before it.
++  static const _wordPress = SelectionGestureBehaviors(
++    singleClick: .word,
++    doubleClick: .word,
++    tripleClick: .word,
++  );
++
++  void _handleSelectionPress(
++    Offset position,
++    Duration? timeStamp, {
++    bool word = false,
++  }) {
+     final settings = widget.settings;
+     final cell = widget.metrics.cellAt(position);
+     _updateSelection(
+@@ -374,7 +408,7 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+         SelectionPressInput(
+           pixelX: position.dx,
+           pixelY: position.dy,
+-          behaviors: settings.selectionBehaviors,
++          behaviors: word ? _wordPress : settings.selectionBehaviors,
+           wordBoundaries: settings.wordBoundaries,
+           repeatDistance: kDoubleTapSlop,
+           repeatInterval: kDoubleTapTimeout,
+@@ -389,7 +423,11 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+   void _handleTapDown(TapDownDetails details, Duration timeStamp) {
+     _hideSelectionHandles();
+     Focus.maybeOf(context)?.requestFocus();
+-    if (_terminalOwnsInteraction) return;
++    if (_terminalOwnsInteraction) {
++      // The application takes the tap, and lets go of the selection as a tap does.
++      widget.selection.cancelGesture();
++      return;
++    }
+     if (widget.links.handlePress(
+       localPosition: details.localPosition,
+       metrics: widget.metrics,
+@@ -443,7 +481,11 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+ 
+   void _handleTrackedDown(PointerDownEvent event) {
+     if (_activePointers.containsKey(event.pointer)) return;
+-    final tracked = _isMouseTracked();
++    // While a selection is up a touch is the selection's: a tap lets it go, a hold takes
++    // another word, and the application is sent nothing.
++    final tracked =
++        _isMouseTracked() &&
++        !(event.kind == .touch && widget.selection.selection != null);
+     final button = tracked ? _buttonForDownEvent(event) : null;
+     if (_interactionPointer == null) {
+       _interactionPointer = event.pointer;
+@@ -618,6 +660,7 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+     Offset position, {
+     bool rectangle = false,
+     bool beginPress = false,
++    bool word = false,
+     required Duration? timeStamp,
+   }) {
+     final cell = widget.metrics.cellAt(position);
+@@ -629,7 +672,7 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+       fixedRectangle: rectangle,
+       lastRectangle: block,
+     );
+-    if (beginPress) _handleSelectionPress(position, timeStamp);
++    if (beginPress) _handleSelectionPress(position, timeStamp, word: word);
+   }
+ 
+   void _stopAutoScroll() {

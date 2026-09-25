@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:xterm/xterm.dart';
+import 'package:flterm/flterm.dart';
 
 import '../../design/tokens.dart';
 import '../../design/typography.dart';
+import 'shell_engine.dart';
+import 'shell_sessions.dart';
 
 /// A build log scrolling at full speed would otherwise repaint every card on the panel
 /// for every chunk that arrives.
@@ -20,33 +22,13 @@ const thumbnailLineHeight = 11.0;
 /// blank rows under the cursor go with them: a shell's viewport is mostly empty and a
 /// card anchored on its last row is a card of nothing. A blank line between two written
 /// ones is output and stays.
-List<String> thumbnailLines(Terminal terminal) {
-  final buffer = terminal.buffer;
-  final first = (buffer.height - buffer.viewHeight).clamp(0, buffer.height);
-  final lines = [
-    for (var i = first; i < buffer.height; i++)
-      _cellText(buffer.lines[i]).trimRight(),
-  ];
+List<String> thumbnailLines(TerminalController terminal) {
+  final lines = [for (final row in activeRows(terminal)) row.trimRight()];
   var last = lines.length;
   while (last > 0 && lines[last - 1].isEmpty) {
     last--;
   }
   return lines.sublist(0, last);
-}
-
-/// getText drops cells nothing was written in, and mosh skips blank runs with cursor
-/// moves, so a gap between two columns would close up. A skipped cell is a space here.
-String _cellText(BufferLine line) {
-  final text = StringBuffer();
-  for (var x = 0; x < line.length; x++) {
-    final code = line.getCodePoint(x);
-    if (code != 0) {
-      text.writeCharCode(code);
-    } else if (x == 0 || line.getWidth(x - 1) < 2) {
-      text.write(' ');
-    }
-  }
-  return text.toString();
 }
 
 /// The tail of [lines], because the newest output and the prompt under it are the part
@@ -59,9 +41,9 @@ List<String> thumbnailTail(List<String> lines, double height) {
 }
 
 class ShellThumbnail extends StatefulWidget {
-  const ShellThumbnail({super.key, required this.terminal});
+  const ShellThumbnail({super.key, required this.session});
 
-  final Terminal terminal;
+  final ShellSession session;
 
   @override
   State<ShellThumbnail> createState() => _ShellThumbnailState();
@@ -69,27 +51,27 @@ class ShellThumbnail extends StatefulWidget {
 
 class _ShellThumbnailState extends State<ShellThumbnail> {
   Timer? _waiting;
-  late List<String> _lines = thumbnailLines(widget.terminal);
+  late List<String> _lines = thumbnailLines(widget.session.terminal);
 
   @override
   void initState() {
     super.initState();
-    widget.terminal.addListener(_onOutput);
+    widget.session.output.addListener(_onOutput);
   }
 
   @override
   void didUpdateWidget(ShellThumbnail old) {
     super.didUpdateWidget(old);
-    if (old.terminal == widget.terminal) return;
-    old.terminal.removeListener(_onOutput);
-    widget.terminal.addListener(_onOutput);
+    if (old.session == widget.session) return;
+    old.session.output.removeListener(_onOutput);
+    widget.session.output.addListener(_onOutput);
     _catchUp();
   }
 
   @override
   void dispose() {
     _waiting?.cancel();
-    widget.terminal.removeListener(_onOutput);
+    widget.session.output.removeListener(_onOutput);
     super.dispose();
   }
 
@@ -99,8 +81,8 @@ class _ShellThumbnailState extends State<ShellThumbnail> {
 
   void _catchUp() {
     _waiting = null;
-    if (!mounted) return;
-    setState(() => _lines = thumbnailLines(widget.terminal));
+    if (!mounted || widget.session.retired) return;
+    setState(() => _lines = thumbnailLines(widget.session.terminal));
   }
 
   @override

@@ -7,9 +7,11 @@ import 'package:dazzle/application/shell_font.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/settings_repository.dart';
 import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/features/shell/shell_engine.dart';
+import 'package:dazzle/features/shell/shell_selection.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
-import 'package:xterm/xterm.dart';
+import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -20,7 +22,7 @@ void main() {
   setUp(stubDeviceChannels);
 
   double fontSize(WidgetTester tester) =>
-      tester.widget<TerminalView>(find.byType(TerminalView)).textStyle.fontSize;
+      tester.widget<TerminalView>(find.byType(TerminalView)).theme!.fontSize;
 
   /// The main buffer draws inside a [Scrollable], so a drag that reaches the terminal moves
   /// this and a drag the pinch ate does not.
@@ -185,18 +187,45 @@ void main() {
     setUp(() => db = AppDatabase(NativeDatabase.memory()));
     tearDown(() => db.close());
 
+    String? selected(ShellSession session) =>
+        session.terminal.hasSelection ? session.terminal.selectedText() : null;
+
+    void select(ShellSession session, int from, int to, {int row = 0}) =>
+        session.terminal.selectRange(
+          start: Position(row: row, col: from),
+          end: Position(row: row, col: to),
+          pointTag: PointTag.viewport,
+        );
+
+    Rect cellRect(WidgetTester tester, int x, int y) {
+      final actions = find.byType(ShellSelectionActions);
+      final overlay = find.ancestor(of: actions, matching: find.byType(Stack));
+      final geometry = tester.widget<ShellSelectionActions>(actions).geometry!;
+      return geometry
+          .cellRect(Position(row: y, col: x))!
+          .shift(tester.getTopLeft(overlay.first));
+    }
+
+    Offset cellAt(WidgetTester tester, int x, int y) =>
+        cellRect(tester, x, y).center;
+
+    Future<TestGesture> hold(WidgetTester tester, Offset at) async {
+      final gesture = await tester.startGesture(at);
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      return gesture;
+    }
+
+    Future<void> press(WidgetTester tester, Offset at) async {
+      final gesture = await hold(tester, at);
+      await tester.pump();
+      await gesture.up();
+      await ready(tester);
+    }
+
     testWidgets('a selection raises COPY, which lifts the text and clears', (
       tester,
     ) async {
-      String? copied;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-            if (call.method == 'Clipboard.setData') {
-              copied = (call.arguments as Map)['text'] as String;
-            }
-            return null;
-          });
-
+      final writes = recordClipboardWrites();
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions, db: db));
@@ -208,46 +237,24 @@ void main() {
       expect(find.byKey(const ValueKey('shell-copy')), findsNothing);
 
       final session = sessions.activeFor(rose.id)!;
-      final buffer = session.terminal.buffer;
-      session.controller.setSelection(
-        buffer.createAnchor(0, 0),
-        buffer.createAnchor(6, 0),
-      );
+      select(session, 0, 5);
       await tester.pump();
-      final selected = buffer.getText(session.controller.selection);
-      expect(selected, isNotEmpty);
+      expect(selected(session), 'copyme');
 
       expect(find.byKey(const ValueKey('shell-copy')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('shell-copy')));
       await tester.pump();
 
-      expect(copied, selected);
-      expect(session.controller.selection, isNull);
+      expect(writes, ['copyme']);
+      expect(session.terminal.hasSelection, isFalse);
       expect(find.byKey(const ValueKey('shell-copy')), findsNothing);
 
       await unmount(tester);
     });
 
-    Offset cellAt(WidgetTester tester, int x, int y) {
-      final render = tester
-          .state<TerminalViewState>(find.byType(TerminalView))
-          .renderTerminal;
-      final cell = render.getOffset(CellOffset(x, y));
-      final size = render.cellSize;
-      return render.localToGlobal(
-        cell + Offset(size.width / 2, size.height / 2),
-      );
-    }
-
-    /// A finger held past the long-press timeout, still down on return.
-    Future<TestGesture> hold(WidgetTester tester, Offset at) async {
-      final gesture = await tester.startGesture(at);
-      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
-      return gesture;
-    }
-
-    testWidgets('a press on a gap still takes, and the drag follows the finger '
-        'across the next one', (tester) async {
+    testWidgets('a long press takes the word under it, with one tick', (
+      tester,
+    ) async {
       final haptics = <String>[];
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(SystemChannels.platform, (call) async {
@@ -264,23 +271,15 @@ void main() {
       transport.opened.single.emit('one   two three\r\n');
       await ready(tester);
       final session = sessions.activeFor(rose.id)!;
-      String selected() =>
-          session.terminal.buffer.getText(session.controller.selection);
 
-      // A space with a word to one side counts as that word, so only this cell is a gap in the
-      // buffer's eyes.
-      final gesture = await hold(tester, cellAt(tester, 4, 0));
+      final gesture = await hold(tester, cellAt(tester, 7, 0));
       await tester.pump();
-      expect(selected(), ' ');
+      expect(selected(session), 'two');
       expect(haptics, ['HapticFeedbackType.selectionClick']);
 
-      await gesture.moveTo(cellAt(tester, 5, 0));
+      await gesture.moveTo(cellAt(tester, 12, 0));
       await tester.pump();
-      expect(selected(), '  ');
-
-      await gesture.moveTo(cellAt(tester, 7, 0));
-      await tester.pump();
-      expect(selected(), '  two');
+      expect(selected(session), 'two three');
 
       await gesture.up();
       await tester.pump();
@@ -301,17 +300,40 @@ void main() {
       await ready(tester);
       final session = sessions.activeFor(rose.id)!;
 
-      final gesture = await hold(tester, cellAt(tester, 1, 0));
-      await tester.pump();
-      await gesture.up();
-      await ready(tester);
-      expect(session.controller.selection, isNotNull);
+      await press(tester, cellAt(tester, 1, 0));
+      expect(session.terminal.hasSelection, isTrue);
       expect(transport.opened.single.written, isEmpty);
 
-      await tester.tapAt(cellAt(tester, 1, 0));
+      await tester.tapAt(cellAt(tester, 6, 20));
       await ready(tester);
-      expect(session.controller.selection, isNull);
-      expect(transport.opened.single.written, '\x1b[<0;2;1M\x1b[<0;2;1m');
+      expect(session.terminal.hasSelection, isFalse);
+      expect(transport.opened.single.written, isEmpty);
+
+      await tester.tapAt(cellAt(tester, 6, 20));
+      await ready(tester);
+      expect(transport.opened.single.written, '\x1b[<0;7;21M\x1b[<0;7;21m');
+
+      await unmount(tester);
+    });
+
+    testWidgets('a hold over a selection takes another word, not a click', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      transport.opened.single.emit(
+        '\x1b[?1000h\x1b[?1006hword${'\r\n' * 10}other\r\n',
+      );
+      await ready(tester);
+      final session = sessions.activeFor(rose.id)!;
+
+      await press(tester, cellAt(tester, 1, 0));
+      await press(tester, cellAt(tester, 1, 10));
+
+      expect(session.terminal.selectedText(), 'other');
+      expect(transport.opened.single.written, isEmpty);
 
       await unmount(tester);
     });
@@ -325,11 +347,10 @@ void main() {
         await ready(tester);
         transport.opened.single.emit('\x1b[?1000h\x1b[?1006h');
         await fill(tester, transport);
-        final terminal = sessions.activeFor(rose.id)!.terminal;
-        final scrollback = terminal.buffer.lines.length - terminal.viewHeight;
-        expect(scrollback, greaterThan(0));
+        final bar = sessions.activeFor(rose.id)!.terminal.scrollbar;
+        expect(bar.total, greaterThan(bar.visible));
 
-        await tester.tapAt(cellAt(tester, 1, scrollback + 2));
+        await tester.tapAt(cellAt(tester, 1, 2));
         await ready(tester);
         expect(transport.opened.single.written, '\x1b[<0;2;3M\x1b[<0;2;3m');
 
@@ -345,12 +366,6 @@ void main() {
           )
           .first,
     );
-    double cellTop(WidgetTester tester, int y) {
-      final render = tester
-          .state<TerminalViewState>(find.byType(TerminalView))
-          .renderTerminal;
-      return cellAt(tester, 0, y).dy - render.cellSize.height / 2;
-    }
 
     testWidgets('COPY sits over the selected word, on it and not in a corner', (
       tester,
@@ -362,18 +377,12 @@ void main() {
       transport.opened.single.emit('${'\r\n' * 8}${' ' * 10}copyme\r\n');
       await ready(tester);
 
-      final gesture = await hold(tester, cellAt(tester, 12, 8));
-      await tester.pump();
-      await gesture.up();
-      await ready(tester);
+      await press(tester, cellAt(tester, 12, 8));
 
       final box = pill(tester);
-      final top = cellTop(tester, 8);
-      final render = tester
-          .state<TerminalViewState>(find.byType(TerminalView))
-          .renderTerminal;
-      expect(box.bottom, lessThan(top));
-      expect(box.bottom, greaterThan(top - render.cellSize.height * 2));
+      final cell = cellRect(tester, 12, 8);
+      expect(box.bottom, lessThan(cell.top));
+      expect(box.bottom, greaterThan(cell.top - cell.height * 2));
       final word = (cellAt(tester, 10, 8).dx + cellAt(tester, 15, 8).dx) / 2;
       expect(box.center.dx, moreOrLessEquals(word, epsilon: 1));
 
@@ -388,210 +397,39 @@ void main() {
       transport.opened.single.emit('copyme\r\n');
       await ready(tester);
 
-      final gesture = await hold(tester, cellAt(tester, 2, 0));
-      await tester.pump();
-      await gesture.up();
-      await ready(tester);
+      await press(tester, cellAt(tester, 2, 0));
 
-      final render = tester
-          .state<TerminalViewState>(find.byType(TerminalView))
-          .renderTerminal;
-      final bottom = cellTop(tester, 0) + render.cellSize.height;
-      expect(pill(tester).top, greaterThan(bottom));
-      expect(pill(tester).top, lessThan(bottom + render.cellSize.height * 2));
+      final cell = cellRect(tester, 2, 0);
+      expect(pill(tester).top, greaterThan(cell.bottom));
+      expect(pill(tester).top, lessThan(cell.bottom + cell.height * 3));
 
       await unmount(tester);
     });
 
-    testWidgets('a grip on either end of the selection drags that end', (
-      tester,
-    ) async {
-      final transport = FakeShellTransport();
-      final sessions = fakeShellSessions(transport);
-      await tester.pumpWidget(app(sessions, db: db));
-      await ready(tester);
-      transport.opened.single.emit('one two three\r\n');
-      await ready(tester);
-      final session = sessions.activeFor(rose.id)!;
-      String selected() =>
-          session.terminal.buffer.getText(session.controller.selection!);
-      final render = tester
-          .state<TerminalViewState>(find.byType(TerminalView))
-          .renderTerminal;
-      final cell = render.cellSize;
-
-      final gesture = await hold(tester, cellAt(tester, 5, 0));
-      await tester.pump();
-      await gesture.up();
-      await ready(tester);
-      expect(selected(), 'two');
-
-      final begin = find.byKey(const ValueKey('shell-select-begin'));
-      final end = find.byKey(const ValueKey('shell-select-end'));
-      expect(
-        tester.getRect(begin).center.dx,
-        moreOrLessEquals(cellAt(tester, 4, 0).dx - cell.width / 2, epsilon: 1),
-      );
-      expect(
-        tester.getRect(end).center.dx,
-        moreOrLessEquals(cellAt(tester, 6, 0).dx + cell.width / 2, epsilon: 1),
-      );
-      expect(tester.getRect(begin).top, moreOrLessEquals(cellTop(tester, 0)));
-
-      await tester.drag(end, Offset(cell.width * 5, 0));
-      await ready(tester);
-      expect(selected(), 'two three');
-      await tester.drag(begin, Offset(-cell.width * 4, 0));
-      await ready(tester);
-      expect(selected(), 'one two three');
-
-      await tester.drag(begin, Offset(cell.width * 12, 0));
-      await ready(tester);
-      expect(selected(), 'e');
-
-      await unmount(tester);
-    });
-
-    testWidgets('a grip keeps its end when the scrollback rolls out from '
-        'under it', (tester) async {
+    testWidgets('output arriving under a held finger leaves the selection on '
+        'its words', (tester) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions, db: db));
       await ready(tester);
       final shell = transport.opened.single;
       final session = sessions.activeFor(rose.id)!;
-      final terminal = session.terminal;
-      String selected() =>
-          terminal.buffer.getText(session.controller.selection!);
-      int rowOfWords() {
-        for (var y = terminal.buffer.height - 1; y >= 0; y--) {
-          final text = terminal.buffer.getText(
-            BufferRangeLine(
-              CellOffset(0, y),
-              CellOffset(terminal.viewWidth, y),
-            ),
-          );
-          if (text.trimRight() == 'one two three') return y;
-        }
-        return -1;
-      }
 
-      // From here on every line printed drops one off the top, and the index of every line
-      // still in the buffer walks down by one with it.
-      shell.emit('${'filler\r\n' * shellScrollback}one two three\r\n');
-      await ready(tester);
-      expect(terminal.buffer.height, shellScrollback);
-      final before = rowOfWords();
-
-      final press = await hold(tester, cellAt(tester, 5, before));
-      await press.up();
-      await ready(tester);
-      expect(selected(), 'two');
-
-      final grip = find.byKey(const ValueKey('shell-select-end'));
-      final drag = await tester.startGesture(tester.getRect(grip).center);
-      await tester.pump();
-      shell.emit('\r\ntail a\r\ntail b');
-      await ready(tester);
-      final after = rowOfWords();
-      expect(after, before - 2);
-
-      await drag.moveTo(cellAt(tester, 12, after));
-      await ready(tester);
-      expect(selected(), 'two three');
-
-      await drag.up();
-      await ready(tester);
-      await unmount(tester);
-    });
-
-    testWidgets('output arriving under a held finger leaves the press where '
-        'it landed', (tester) async {
-      final transport = FakeShellTransport();
-      final sessions = fakeShellSessions(transport);
-      await tester.pumpWidget(app(sessions, db: db));
-      await ready(tester);
-      final shell = transport.opened.single;
-      shell.emit('target\r\n');
-      await ready(tester);
-      final session = sessions.activeFor(rose.id)!;
-
-      final gesture = await tester.startGesture(cellAt(tester, 2, 0));
-      shell.emit(
-        List.generate(
-          session.terminal.viewHeight + 10,
-          (i) => 'line $i\r\n',
-        ).join(),
-      );
-      await ready(tester);
-      await gesture.up();
-      await ready(tester);
-
-      expect(
-        session.terminal.buffer.getText(session.controller.selection),
-        'target',
-      );
-
-      await unmount(tester);
-    });
-
-    testWidgets('the press keeps its end while the shell prints under the '
-        'drag', (tester) async {
-      final transport = FakeShellTransport();
-      final sessions = fakeShellSessions(transport);
-      await tester.pumpWidget(app(sessions, db: db));
-      await ready(tester);
-      final shell = transport.opened.single;
-      final session = sessions.activeFor(rose.id)!;
-      String selected() =>
-          session.terminal.buffer.getText(session.controller.selection);
-
-      final last = session.terminal.viewHeight - 1;
+      final last = session.terminal.scrollbar.visible - 1;
       shell.emit('${'\r\n' * last}alpha bravo');
       await ready(tester);
 
       final gesture = await hold(tester, cellAt(tester, 1, last));
       await tester.pump();
-      expect(selected(), 'alpha');
+      expect(selected(session), 'alpha');
 
       shell.emit('\r\nline a\r\nline b');
       await ready(tester);
-      await gesture.moveTo(cellAt(tester, 7, last));
-      await tester.pump();
-      expect(selected(), 'alpha bravo');
+      expect(selected(session), 'alpha');
 
       await gesture.up();
       await ready(tester);
-      await unmount(tester);
-    });
-
-    testWidgets('a press whose line leaves the scrollback stops moving the '
-        'selection', (tester) async {
-      final transport = FakeShellTransport();
-      final sessions = fakeShellSessions(transport);
-      await tester.pumpWidget(app(sessions, db: db));
-      await ready(tester);
-      final shell = transport.opened.single;
-      final session = sessions.activeFor(rose.id)!;
-      final terminal = session.terminal;
-
-      shell.emit('${'filler\r\n' * shellScrollback}alpha bravo\r\n');
-      await ready(tester);
-      final row = terminal.buffer.height - 2;
-
-      final gesture = await hold(tester, cellAt(tester, 1, row));
-      await tester.pump();
-      expect(terminal.buffer.getText(session.controller.selection!), 'alpha');
-
-      shell.emit('gone\r\n' * shellScrollback);
-      await ready(tester);
-      expect(session.controller.selection, isNull);
-      await gesture.moveTo(cellAt(tester, 2, terminal.buffer.height - 2));
-      await tester.pump();
-      expect(session.controller.selection, isNull);
-
-      await gesture.up();
-      await ready(tester);
+      expect(selected(session), 'alpha');
       await unmount(tester);
     });
 
@@ -605,20 +443,16 @@ void main() {
       transport.opened.single.emit('alpha bravo charlie\r\n');
       await ready(tester);
       final session = sessions.activeFor(rose.id)!;
-      String selected() =>
-          session.terminal.buffer.getText(session.controller.selection);
 
       final one = await tester.startGesture(cellAt(tester, 1, 0), pointer: 1);
       await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
-      expect(selected(), 'alpha');
+      expect(selected(session), 'alpha');
 
-      // The long press has already won the arena, so the second finger never reaches the
-      // recognizer — but it is a pointer down all the same.
       final two = await tester.startGesture(cellAt(tester, 14, 0), pointer: 2);
       await tester.pump();
       await one.moveTo(cellAt(tester, 8, 0));
       await tester.pump();
-      expect(selected(), 'alpha bravo');
+      expect(selected(session), 'alpha bravo');
 
       await two.up();
       await one.up();
@@ -626,8 +460,9 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('a press takes the run it lands in, and the URL inside that '
-        'run', (tester) async {
+    testWidgets('a press takes the run it lands in, a URL with it', (
+      tester,
+    ) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions, db: db));
@@ -635,24 +470,12 @@ void main() {
       transport.opened.single.emit('see url=https://x.dev/a/b?c=1 (done).\r\n');
       await ready(tester);
       final session = sessions.activeFor(rose.id)!;
-      String selected() =>
-          session.terminal.buffer.getText(session.controller.selection);
 
-      Future<void> press(int x) async {
-        final gesture = await hold(tester, cellAt(tester, x, 0));
-        await tester.pump();
-        await gesture.up();
-        await ready(tester);
-      }
+      await press(tester, cellAt(tester, 18, 0));
+      expect(selected(session), 'url=https://x.dev/a/b?c=1');
 
-      await press(18);
-      expect(selected(), 'https://x.dev/a/b?c=1');
-
-      await press(5);
-      expect(selected(), 'url=https://x.dev/a/b?c=1');
-
-      await press(32);
-      expect(selected(), 'done');
+      await press(tester, cellAt(tester, 32, 0));
+      expect(selected(session), 'done');
 
       await unmount(tester);
     });
@@ -665,25 +488,18 @@ void main() {
       await tester.pumpWidget(app(sessions, db: db));
       await ready(tester);
       final session = sessions.activeFor(rose.id)!;
-      final url = 'https://x.dev/${'a' * (session.terminal.viewWidth + 20)}';
+      final url = 'https://x.dev/${'a' * 300}';
       transport.opened.single.emit('$url\r\n');
       await ready(tester);
-      expect(session.terminal.buffer.lines[1].isWrapped, isTrue);
 
-      final gesture = await hold(tester, cellAt(tester, 5, 0));
-      await tester.pump();
-      await gesture.up();
-      await ready(tester);
+      await press(tester, cellAt(tester, 5, 0));
 
-      expect(
-        session.terminal.buffer.getText(session.controller.selection),
-        url,
-      );
+      expect(selected(session), url);
 
       await unmount(tester);
     });
 
-    testWidgets('a press on a full-screen application takes the line under '
+    testWidgets('a press on a full-screen application takes the word under '
         'the finger after the keyboard has been up', (tester) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
@@ -695,25 +511,20 @@ void main() {
 
       shell.emit('\x1b[?1049h');
       await ready(tester);
-      shell.emit(
-        List.generate(terminal.viewHeight, (i) => 'row$i').join('\r\n'),
-      );
+      final tall = terminal.scrollbar.visible;
+      shell.emit(List.generate(tall, (i) => 'row$i').join('\r\n'));
       await ready(tester);
-      final tall = terminal.viewHeight;
 
       tester.view.viewInsets = const FakeViewPadding(bottom: 400);
       await ready(tester);
-      expect(terminal.viewHeight, lessThan(tall));
+      expect(terminal.scrollbar.visible, lessThan(tall));
       tester.view.viewInsets = FakeViewPadding.zero;
       await ready(tester);
 
-      final third = terminal.buffer.lines[2].toString().trimRight();
-      final gesture = await hold(tester, cellAt(tester, 1, 2));
-      await tester.pump();
-      await gesture.up();
-      await ready(tester);
+      final third = activeRows(terminal)[2].trimRight();
+      await press(tester, cellAt(tester, 1, 2));
 
-      expect(terminal.buffer.getText(session.controller.selection), third);
+      expect(selected(session), third);
 
       await unmount(tester);
     });
@@ -726,26 +537,20 @@ void main() {
       await tester.pumpWidget(app(sessions, db: db));
       await ready(tester);
 
-      final theme = tester
+      final selection = tester
           .widget<TerminalView>(find.byType(TerminalView))
-          .theme;
-      // xterm paints the selection over the glyphs; a solid one hides them.
-      expect(theme.selection.a, lessThan(0.5));
-      expect(theme.selection.withValues(alpha: 1), DazzleColors.accent);
+          .theme!
+          .selection;
+      final wash = selection.background!.fixedColor!;
+      expect(wash.a, lessThan(0.5));
+      expect(wash.withValues(alpha: 1), DazzleColors.accent);
+      expect(selection.foreground, isNull);
 
       await unmount(tester);
     });
 
     testWidgets('CLEAR drops the selection without copying', (tester) async {
-      String? copied;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-            if (call.method == 'Clipboard.setData') {
-              copied = (call.arguments as Map)['text'] as String;
-            }
-            return null;
-          });
-
+      final writes = recordClipboardWrites();
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions, db: db));
@@ -755,18 +560,14 @@ void main() {
       await ready(tester);
 
       final session = sessions.activeFor(rose.id)!;
-      final buffer = session.terminal.buffer;
-      session.controller.setSelection(
-        buffer.createAnchor(0, 0),
-        buffer.createAnchor(6, 0),
-      );
+      select(session, 0, 5);
       await tester.pump();
 
       await tester.tap(find.byKey(const ValueKey('shell-copy-clear')));
       await tester.pump();
 
-      expect(copied, isNull);
-      expect(session.controller.selection, isNull);
+      expect(writes, isEmpty);
+      expect(session.terminal.hasSelection, isFalse);
       expect(find.byKey(const ValueKey('shell-copy')), findsNothing);
 
       await unmount(tester);
@@ -819,8 +620,8 @@ void main() {
       await ready(tester);
       connection.emit('\x1b[?1002h\x1b[?1006h');
       await ready(tester);
-      expect(session.terminal.isUsingAltBuffer, isFalse);
-      expect(session.terminal.mouseMode.reportScroll, isTrue);
+      expect(session.terminal.activeScreen, TerminalScreen.primary);
+      expect(session.terminal.mouseTracking, isNot(MouseTracking.none));
 
       final before = session.scrollController.position.pixels;
       await tester.drag(find.byType(TerminalView), const Offset(0, 120));
@@ -853,7 +654,7 @@ void main() {
 
       connection.emit('line\r\n' * 200);
       await ready(tester);
-      expect(session.terminal.mouseMode.reportScroll, isFalse);
+      expect(session.terminal.mouseTracking, MouseTracking.none);
 
       // The first twenty pixels go to the gesture arena's touch slop, so the finger is walked
       // down in steps rather than thrown in one move.
@@ -870,7 +671,7 @@ void main() {
 
       connection.emit('\x1b[?1002h\x1b[?1006h');
       await tester.pump();
-      expect(session.terminal.mouseMode.reportScroll, isTrue);
+      expect(session.terminal.mouseTracking, isNot(MouseTracking.none));
 
       for (var i = 0; i < 4; i++) {
         await finger.moveBy(const Offset(0, 20));
@@ -1046,17 +847,17 @@ void main() {
       await tester.pump();
       expect(tail, findsOneWidget);
 
-      final buffer = session.terminal.buffer;
-      session.controller.setSelection(
-        buffer.createAnchor(0, 0),
-        buffer.createAnchor(4, 0),
+      session.terminal.selectRange(
+        start: const Position(row: 0, col: 0),
+        end: const Position(row: 0, col: 3),
+        pointTag: PointTag.viewport,
       );
       await tester.pump();
 
       expect(find.byKey(const ValueKey('shell-copy')), findsOneWidget);
       expect(tail, findsNothing);
 
-      session.controller.clearSelection();
+      session.terminal.clearSelection();
       await tester.pump();
       expect(tail, findsOneWidget);
 

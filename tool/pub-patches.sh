@@ -5,8 +5,8 @@ usage() {
   cat <<'EOF'
 pub-patches.sh <package> [command]
 
-An upstream pub package plus the patches under packages/<name>/patches,
-materialised under .dart_tool.
+An upstream package, from pub or from a git ref, plus the patches under
+packages/<name>/patches, materialised under .dart_tool.
 
   build                                  apply the series, if it or the version moved
   verify                                 prove the series reproduces the build exactly
@@ -25,9 +25,12 @@ EOF
 
 pin() {
   case "$1" in
-  xterm) VERSION=4.0.0 RECIPE=xterm ;;
   dart_mosh) VERSION=0.0.4 RECIPE=mosh ;;
-  *) die "no package $1; have: xterm dart_mosh" ;;
+  flterm)
+    VERSION=56a95052776e75816a3ab0c0057c20c850944265 RECIPE=flterm
+    GIT=https://github.com/elias8/libghostty SUBDIR=packages/flterm
+    ;;
+  *) die "no package $1; have: dart_mosh flterm" ;;
   esac
 }
 
@@ -64,8 +67,16 @@ stamp() {
 }
 
 upstream() {
-  [[ -d $UPSTREAM ]] ||
+  [[ -d $UPSTREAM ]] && return 0
+  if [[ -z ${GIT:-} ]]; then
     dart pub unpack "$PACKAGE@$VERSION" --no-resolve --output="$ROOT/.dart_tool" >&2
+    return
+  fi
+  git init -q "$TMP/clone"
+  git -C "$TMP/clone" fetch -q --depth 1 "$GIT" "$VERSION" >&2
+  git -C "$TMP/clone" checkout -q FETCH_HEAD -- "$SUBDIR" >&2
+  cp -r "$TMP/clone/$SUBDIR" "$TMP/upstream"
+  mv -T "$TMP/upstream" "$UPSTREAM" 2>/dev/null || [[ -d $UPSTREAM ]]
 }
 
 assemble() {

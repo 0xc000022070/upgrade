@@ -6,7 +6,7 @@ import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_header.dart';
 import 'package:dazzle/features/shell/shell_status.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
-import 'package:xterm/xterm.dart';
+import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';

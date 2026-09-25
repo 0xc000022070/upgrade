@@ -1,0 +1,56 @@
+# a search refresh that lands while the view lays out tells its listeners after the frame
+#
+# Against flterm 56a95052776e75816a3ab0c0057c20c850944265. Regenerate with `just flterm-patches`.
+
+diff --git a/lib/src/controller/terminal_search_controller.dart b/lib/src/controller/terminal_search_controller.dart
+index 9324f23..829d98f 100644
+--- a/lib/src/controller/terminal_search_controller.dart
++++ b/lib/src/controller/terminal_search_controller.dart
+@@ -1,6 +1,7 @@
+ import 'dart:async';
+ 
+ import 'package:flutter/foundation.dart' hide Key;
++import 'package:flutter/scheduler.dart';
+ import 'package:libghostty/libghostty.dart' hide Listenable, ValueGetter;
+ 
+ /// Controls search for one terminal controller.
+@@ -124,6 +125,7 @@ final class TerminalSearchControllerImpl extends ChangeNotifier
+   var _disposed = false;
+   var _needsFeed = false;
+   var _selecting = false;
++  var _notifyQueued = false;
+ 
+   TerminalSearchControllerImpl(
+     this._terminal,
+@@ -263,13 +265,29 @@ final class TerminalSearchControllerImpl extends ChangeNotifier
+     if (_selecting) return;
+     if (!_shouldRefreshTerminalChange()) return;
+     _needsFeed = true;
+-    notifyListeners();
++    _notifyOutsideLayout();
+     _scheduleWork();
+   }
+ 
+   void _handleViewportChanged() {
+     if (_disposed || !_hasQuery) return;
+-    notifyListeners();
++    _notifyOutsideLayout();
++  }
++
++  /// A resize reaches the terminal while the view lays out, and a listener that rebuilds
++  /// then is a build scheduled mid-frame. That notification waits for the frame to end.
++  void _notifyOutsideLayout() {
++    final scheduler = SchedulerBinding.instance;
++    if (scheduler.schedulerPhase != SchedulerPhase.persistentCallbacks) {
++      notifyListeners();
++      return;
++    }
++    if (_notifyQueued) return;
++    _notifyQueued = true;
++    scheduler.addPostFrameCallback((_) {
++      _notifyQueued = false;
++      if (!_disposed) notifyListeners();
++    });
+   }
+ 
+   void _runWork(int generation) {

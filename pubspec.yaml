@@ -35,17 +35,32 @@ dependencies:
   pinenacl: ^0.6.0
   pointycastle: ^4.0.0
   url_launcher: ^6.3.1
-  xterm: ^4.0.0
+  flterm:
+    git:
+      url: https://github.com/elias8/libghostty
+      ref: 56a95052776e75816a3ab0c0057c20c850944265
+      path: packages/flterm
+  libghostty:
+    git:
+      url: https://github.com/elias8/libghostty
+      ref: 56a95052776e75816a3ab0c0057c20c850944265
+      path: packages/libghostty
+  material_ui: ^1.4.0
   uuid: ^4.6.0
   flutter_local_notifications: ^22.3.0
   flutter_foreground_task: ^11.0.1
   gal: ^2.3.3
 
 dependency_overrides:
-  xterm:
-    path: .dart_tool/xterm
+  libghostty:
+    git:
+      url: https://github.com/elias8/libghostty
+      ref: 56a95052776e75816a3ab0c0057c20c850944265
+      path: packages/libghostty
   dart_mosh:
     path: .dart_tool/dart_mosh
+  flterm:
+    path: .dart_tool/flterm
 
 dev_dependencies:
   flutter_test:
@@ -102,3 +117,8 @@ flutter:
     - family: Symbols Nerd Font Mono
       fonts:
         - asset: assets/fonts/nerd_font_symbols/SymbolsNerdFontMono-Regular.ttf
+
+hooks:
+  user_defines:
+    libghostty:
+      source: compile
