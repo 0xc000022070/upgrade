@@ -67,6 +67,7 @@ build() {
   fi
 
   local tools="${ANDROID_HOME:?run inside the nix dev shell}/build-tools/37.0.0"
+  command -v flutter >/dev/null || die "no flutter on PATH; run inside the nix dev shell"
   mkdir -p "$TREE/.dart_tool"
   find "$TREE" -mindepth 1 -maxdepth 1 ! -name .dart_tool ! -name build -exec rm -rf {} +
   git -C "$ROOT" archive HEAD | tar -x -C "$TREE"
@@ -77,7 +78,8 @@ build() {
     cd "$TREE" &&
       just pub-build && flutter pub get && just gen &&
       DAZZLE_BUILD=$sha just apk-release "$name" "$code"
-  ) >&2
+  ) >&2 || die "the build of $name+$code ($sha) failed"
+  [[ -f $built ]] || die "the build of $name+$code ($sha) left no apk"
 
   local badged cert
   badged=$("$tools/aapt2" dump badging "$built" | sed -n "1s/.*versionCode='\([0-9]*\)'.*/\1/p")
@@ -167,7 +169,7 @@ once() {
   }
 
   local apk
-  apk=$(build)
+  apk=$(build) || return 1
 
   if [[ $ask == ask ]]; then
     local onto ans=""

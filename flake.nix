@@ -180,6 +180,14 @@
             rev = "349f026087d948f8f898dca3231ff91438f83ab8";
             hash = "sha256-0/eonC+DEqnQpkKZP+CkEI9saK90i3/FnMeNmO9NeIw=";
           };
+
+          libghosttyRev = "56a95052776e75816a3ab0c0057c20c850944265";
+          libghosttySrc = pkgs.fetchFromGitHub {
+            owner = "elias8";
+            repo = "libghostty";
+            rev = libghosttyRev;
+            hash = "sha256-Miw8srT1YJ6DJvX0TFKs/3iDtI+HdMCdRBcjhxjymZU=";
+          };
         in
         {
           default = pkgs.mkShell {
@@ -229,6 +237,8 @@
             ANDROID_NDK_ROOT = ndkRoot;
             ANDROID_NDK_HOME = ndkRoot;
             GHOSTTY_SRC = ghosttySrc;
+            LIBGHOSTTY_SRC = libghosttySrc;
+            LIBGHOSTTY_REV = libghosttyRev;
             JAVA_HOME = "${jdk}";
 
             shellHook = ''

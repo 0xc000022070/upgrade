@@ -182,7 +182,7 @@ review:
 desktop: pub-build
     flutter run -d linux --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}
 
-pub-build: mosh-build flterm-build
+pub-build: mosh-build flterm-build libghostty-build
 
 pub-verify: mosh-verify flterm-verify
 
@@ -203,6 +203,18 @@ flterm-patches:
 
 flterm-verify:
     tool/pub-patches.sh flterm verify
+
+libghostty-build:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out=.dart_tool/libghostty
+    [[ $(cat "$out/.stamp" 2>/dev/null) == "${LIBGHOSTTY_REV:?run inside the nix dev shell}" ]] && exit 0
+    rm -rf "$out.tmp"
+    cp -r "$LIBGHOSTTY_SRC/packages/libghostty" "$out.tmp"
+    chmod -R u+w "$out.tmp"
+    echo "$LIBGHOSTTY_REV" >"$out.tmp/.stamp"
+    rm -rf "$out"
+    mv "$out.tmp" "$out"
 
 # The host engine. Its own toolchain and its own tree: nothing under engine/ is
 # Dart, so `just analyze` and `just test` do not reach it and these do.
