@@ -100,8 +100,7 @@ class SshVncConnection implements VncConnection {
   Future<void> close() async {
     await rfb.close();
     _channel.destroy();
-    _client.close();
-    _socket.close();
+    unawaited(closeSsh(_client, _socket));
   }
 }
 
