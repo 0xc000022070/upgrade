@@ -27,6 +27,8 @@ class FakeShellConnection implements ShellConnection {
   final directoryRequests = <String>[];
   var rehomes = 0;
   var networkRehomes = 0;
+  var suspends = 0;
+  var resumes = 0;
   String? directory;
 
   @override
@@ -83,6 +85,12 @@ class FakeShellConnection implements ShellConnection {
     rehomes++;
     if (network) networkRehomes++;
   }
+
+  @override
+  Future<void> suspend() async => suspends++;
+
+  @override
+  Future<void> resume() async => resumes++;
 
   @override
   Future<String?> remoteDirectory(String session) async {
@@ -230,6 +238,7 @@ ShellSessions fakeShellSessions(
   ShellTabRepository? tabs,
   ShellSnapshotStore? snapshots,
   Duration snapshotQuiet = const Duration(seconds: 5),
+  Duration sleepGrace = const Duration(seconds: 10),
   Duration pinRecheck = const Duration(seconds: 5),
   Duration pinStale = const Duration(minutes: 5),
   Duration pinAnswerWait = const Duration(seconds: 5),
@@ -241,6 +250,7 @@ ShellSessions fakeShellSessions(
   tabs: tabs,
   snapshots: snapshots,
   snapshotQuiet: snapshotQuiet,
+  sleepGrace: sleepGrace,
   open: transport.open,
   pinRecheck: pinRecheck,
   pinStale: pinStale,

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agent_state.dart';
 import 'package:dazzle/application/agents.dart';
 import 'package:dazzle/application/alerts.dart';
+import 'package:dazzle/application/pin_alerts.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/platform/agent_watcher.dart';
 import 'package:dazzle/platform/herdr_client.dart';
@@ -39,6 +40,59 @@ class RecordingHerdrClient extends HerdrClient {
     throw failures[address] ??
         const HerdrUnreachable('no machine behind a test');
   }
+}
+
+class _PinRecorder implements PinNotifier {
+  final raised = <String>[];
+
+  @override
+  Future<void> raise({required String hostId, required String text}) async =>
+      raised.add(hostId);
+
+  @override
+  Future<void> withdraw(String hostId) async {}
+}
+
+class _NoWatchSession implements HerdrSession {
+  _NoWatchSession(this.listing);
+
+  final String listing;
+  final _agents = StreamController<List<AgentSnapshot>>();
+  var asked = 0;
+
+  @override
+  Stream<List<AgentSnapshot>> watch() => _agents.stream;
+
+  @override
+  Stream<String> pinRequestChanges() => const Stream.empty();
+
+  @override
+  Future<String> openPinRequests({Duration within = pinWatchInterval}) async {
+    asked++;
+    return listing;
+  }
+
+  @override
+  void close() => unawaited(_agents.close());
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SessionClient extends HerdrClient {
+  _SessionClient(this.session);
+
+  final HerdrSession session;
+
+  @override
+  Future<HerdrSession> connect({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    HostKeyVerifier? verifier,
+    void Function(Future<void> settled)? onSettling,
+  }) async => session;
 }
 
 AgentSnapshot snapshot({
@@ -760,6 +814,32 @@ void main() {
       expect(verifier.refusal, HostKeyRefusal.unverified);
     },
   );
+
+  test('a pin watch that ends falls back to asking', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final store = MemoryPrivateKeyStore();
+    await store.write('k1', 'PRIVATE KEY');
+    final payload = base64Encode(
+      utf8.encode(jsonEncode({'mode': 'pin', 'desc': 'the key'})),
+    );
+    final session = _NoWatchSession('0123456789abcdef $payload\n');
+    final pins = _PinRecorder();
+    final handler = AgentWatcherHandler(
+      keys: Ed25519Keys(store),
+      client: _SessionClient(session),
+      pins: pins,
+    );
+
+    await handler.setHosts(const [host]);
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (pins.raised.isEmpty && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    await handler.onDestroy(DateTime.now(), false);
+
+    expect(session.asked, 1);
+    expect(pins.raised, [host.id]);
+  });
 
   test('a host retry interrupts its backoff', () async {
     TestWidgetsFlutterBinding.ensureInitialized();

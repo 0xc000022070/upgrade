@@ -143,6 +143,14 @@ Allowed, extremely restrained: subtle noise, a slight print or scanner texture, 
 
 100 to 220ms. Short opacity changes, short directional movement, a controlled panel reveal, a subtle signal pulse, interpolated progress, an occasional scan transition. No bouncy springs, no overshoot, no toy movement, no particles, no constant animation, no huge glitch transitions. Motion is there to communicate a change, a connection, new information, a state transition or hierarchy — and nothing else.
 
+### Nothing moves where it cannot be seen
+
+The dot spinner and the mascot run only while the app is in front and the part of the tree they sit in is showing. Behind another route, behind another app or under a locked screen they stop on the frame they had and go on from it on the way back. The terminal's cursor blink rests while the app is not in front and while the terminal does not hold the focus, and a route pushed over a terminal takes the focus with it. Each step of any of them is a frame the phone renders, and one nobody sees is battery for nothing.
+
+### The app asks for sixty frames a second
+
+The surface the app draws on tells the system its content runs at 60 Hz, and the system picks the display rate from that, only where the switch is seamless. Text and a terminal gain nothing past sixty, and on a 120 Hz panel every frame over it is paid for in battery. It is a hint and not a display mode: a mode would hold a variable-rate panel at sixty even when nothing moves, where the panel would otherwise drop far below it, and would stay the mode of whichever display the app started on when a foldable moves to the other one. The system can still go past sixty, for a touch or for another window that asks for more.
+
 ### Every section on every screen is a panel
 
 1px border in `borderNormal`, radius 2, `surfacePrimary` fill, 8px of inner padding. The section header is a strip inside the panel, filled one step lighter than the panel, running the panel's full width with a rule under it: mono 11, uppercase, tracked, `textMuted`, with a right-side affordance in the same style — a count, `VIEW ALL >`, `1 >`, `ALL +`. Panels stack with 8px gaps. There are no bare section headers and no hairline-only separations between sections.
@@ -735,6 +743,10 @@ A socket that opens and then says nothing is its own failure and not silence: th
 
 **The pin travels with the host into the watcher.** A service that rebuilds a host without its pin dials with a verifier that has nobody to ask and refuses the machine on every tick. A pin that appears or changes is a different dial, so the loop already running under the old one is stopped rather than left refusing a machine the user has already stood in front of and trusted.
 
+### Every ssh connection is kept alive once a minute
+
+One interval for every connection the app holds — the shell, the agent client and watcher, the screen, the devices, the workspace, the host-key check, the plugin hosts — and it is sixty seconds, with no setting. It is what keeps the far side and every NAT between from forgetting a connection that is idle, and each one is the radio waking, so it is as long as that allows and set in one place. It does not find a dead link: a keepalive that goes unanswered is not an error, and the next request that fails is what finds it.
+
 ## Agents
 
 ### The panel at the top of Home says what the agents are doing
@@ -815,7 +827,7 @@ Nothing is added to the host for this. The key the app installs is a plain `auth
 
 **The list is an answer to an event, not to a clock.** A held channel per running session subscribes to panes and workspaces appearing, closing and exiting; a held channel per agent pane subscribes to that pane's own status changes, which is a subscription that must name a pane — the session-wide set carries a pane coming and going and never the moment an agent stops at a question, which is the moment the whole panel exists for. An event is a signal that something moved and never the new state: what it does is start a quarter second of quiet, after which one `agent.list` per session runs and the panel is drawn from the answer. A quarter second is there because one user action moves several panes, and a burst of events is one list rather than six. A machine where nothing is happening costs nothing at all, which is what a phone holding an idle connection over a mobile radio should cost.
 
-**The roster is the one thing still asked for on a clock.** No socket method lists sessions, and the socket path of a session is what that listing carries, so the app has to have it before it can reach a server at all. `herdr session list --json` stays a command and runs every thirty seconds: a session starting or stopping is rare, nothing subscribes to it, and thirty seconds is the delay before a session that appeared has its panes watched.
+**The roster is watched from the host, and asked for on a clock only where that cannot run.** No socket method lists sessions, and the socket path of a session is what that listing carries, so the app has to have it before it can reach a server at all. `herdr session list --json` stays a command, and a loop in the shell of one held channel runs it every ten seconds and sends the listing only when it differs from the last one sent, the first always. Each listing that arrives is one round. The loop holds the channel's input open and ends itself when that closes, so a phone that goes away leaves nothing running behind it. A loop that has sent nothing for four minutes sends a beat instead, and a channel that brings neither a listing nor a beat for five minutes is a dead link: the app closes that connection, asks at once, and dials again when that fails. A connection dropped without a close never tells the host its input is gone, and the beat is what ends the loop then — its writes are what make TCP give up on a peer that no longer answers, in minutes rather than never. A host where the watch will not stay up is asked every thirty seconds instead. Ten seconds is the delay before a session that appeared has its panes watched, and a roster that does not move costs the radio nothing.
 
 **A session is a socket, not an environment variable.** Which session a pane lives in decides which socket the request is dialled on, so it never travels inside the request and a pane of one session can never be read on another's server. The pairing of a session and a pane is still what identifies an agent everywhere above this — two sessions on one host can both own a `w1:p1` — and it still travels with the snapshot across the watcher's isolate, into a notification's payload, onto the shell tab an attach opens.
 
@@ -827,7 +839,7 @@ Nothing is added to the host for this. The key the app installs is a plain `auth
 
 Struck: a runtime of the app's own, injected on the host and written in a native language, to make this faster and safer. The daemon it describes is herdr, which is already there and already speaks a protocol; the cost the phone was paying was a process per poll on the host and a wakeup per poll on the radio, and neither is a thing a second daemon removes. It would also be the app installing a binary on a machine whose owner installed a key for it, which is a larger permission than anything else in this document asks for, and every byte it parsed would be one more thing between the user's agents and the screen.
 
-Narrowed to exactly what it rejected, and no further. What stays struck is the daemon and the injection: a host binary that is resident, that listens, that the app puts on a machine of its own accord, or that stands between these panes and this screen. A host binary does exist for plugins, and it is none of those things — it runs when it is called and is gone when it has answered, the user declares and installs it themselves, and nothing on this surface is served by it. The agent panel still reads its events off held channels and still asks for the roster on a thirty-second clock, because a process on the host was never what either of those was waiting on.
+Narrowed to exactly what it rejected, and no further. What stays struck is the daemon and the injection: a host binary that is resident, that listens, that the app puts on a machine of its own accord, or that stands between these panes and this screen. A host binary does exist for plugins, and it is none of those things — it runs when it is called and is gone when it has answered, the user declares and installs it themselves, and nothing on this surface is served by it. The agent panel still reads its events off held channels and has the roster listed by a shell loop that lives and dies with its channel, because a process on the host was never what either of those was waiting on.
 
 ### A pane the app opened carries a mark, and the host decides what the mark means
 
@@ -985,6 +997,10 @@ Struck: a longer timer for a refused key, an hour or a day instead of a minute. 
 
 Struck: a notification asking the user to go and fix the key. The ongoing line already names the host and says what it refused, HOSTS is where a credential is answered, and a second alert about a machine that is not going anywhere is a phone buzzing about the state it was in a minute ago.
 
+### The watcher holds no lock on the phone
+
+The service that carries the watcher keeps the process out of the freezer, and that is all it takes. Its connections sit idle between reports, and a packet arriving wakes the process to read it. It takes no wake lock, which would hold the processor up through every idle minute of the night, and no wifi lock, which turns the radio's power saving off for as long as it is held. An alert still rings on a phone asleep in its deepest idle.
+
 ## Shell
 
 ### A host's shell is the app's own terminal, and several at once
@@ -1141,6 +1157,14 @@ A two-finger pinch scales the type: spread to grow, close to shrink, live while 
 
 One size for every shell on every host, kept in the settings table and read on the next open. It is the user's reading distance, not a property of a host or a tab, so it is not per anything, and there is no row for it in SYS: the gesture is on the surface it changes and the change is visible while it happens, which is the whole of the feedback. One finger stays the terminal's — a drag scrolls the buffer and a long press selects — and the pinch is taken only once two fingers have moved past the tap slop. The phone's own font scale still applies on top.
 
+### Scrollback is compressed between frames
+
+A terminal's scrollback is compressed in bounded steps once its output has been quiet for a quarter of a second. A step runs when no animation holds a frame, and waits for the end of the next frame while one does. With the app away no frame comes, so compression waits for the return. It is never queued as an idle task: Flutter refuses those while an animation holds a frame, and with frames stopped out of sight the refusal posts itself again without end, a busy loop on the main thread for as long as the app is away.
+
+### A run of operators is shaped once while it stays on screen
+
+A run of operator characters — `=>`, `!=`, `//` — goes through the text shaper so its ligatures form, and that is the costliest thing a row rebuild does. A laid-out run is kept by its text, colour, weight and slant and shared by every row that shows it, so a rebuilt row showing a run it had before reuses it instead of shaping it again. A run no row paints any more is kept among the last 256 of those, and a theme change or a change to the system's fonts forgets them all.
+
 ### A press selects where the finger is, and takes the whole thing
 
 **A held finger takes what is under it**, the way a phone's text does, with a tick under the finger when it takes, and the drag after it grows the selection a word at a time. The grips on its ends are the terminal's own, with its magnifier; the cell is resolved by the engine against the line it is on, so output printed under a held finger leaves the selection on the text that was pressed. One finger selects and a second one is a pinch.
@@ -1241,9 +1265,9 @@ One notification per host, on a channel of its own — high importance, with the
 
 **Up while any tab of the host holds the request, down the moment it is settled.** Two tabs that hear the same request are one notification; a request with another id replaces it in place and sounds once more, because it is another ask. Answered on the phone, answered on the computer, given up on by the agent, lost with the link, dropped by a redial or gone with its tab — each takes it down, and it comes down exactly once. The store is what knows all of that, so the store tells the shade. **A notification re-rung at five minutes would wake the phone to say the same thing less certainly than the first time**, so the shade is left where it is: age is something the reader sees when they come to answer, which is the sheet.
 
-**The watcher hears the ask the tabs are not there for.** A tab hears a request because it is on a live connection, and a phone in a pocket has none: the process is gone or its shells are, the ask stands at the computer unheard, and the app finds it on the way in — the one moment a notification was never needed. So the agent watcher lists what each host's pinentry holds open, every fifteen seconds, on the connection it is already holding for that host, and rings the same notification a tab rings. It marks nothing: the listing is a directory read, and the mark is only how a request reaches a tty. It reaches the hosts the watcher reaches and no others, and **it has no switch of its own** — a passphrase ask is not an agent, and the watcher is either up for one of its own kinds or it is not up at all.
+**The watcher hears the ask the tabs are not there for.** A tab hears a request because it is on a live connection, and a phone in a pocket has none: the process is gone or its shells are, the ask stands at the computer unheard, and the app finds it on the way in — the one moment a notification was never needed. So the agent watcher holds a channel per host whose shell lists what pinentry holds open every two seconds and sends the listing only when it changes, with the same beat and the same five minutes of silence, on the connection it is already holding for that host — a host where that will not stay up is asked every fifteen seconds instead — and rings the same notification a tab rings. It marks nothing: the listing is a directory read, and the mark is only how a request reaches a tty. It reaches the hosts the watcher reaches and no others, and **it has no switch of its own** — a passphrase ask is not an agent, and the watcher is either up for one of its own kinds or it is not up at all.
 
-**Each side takes down only what it put up.** The tabs and the watcher read the same directory on the same host, so they cannot disagree about what stands in it, only about when they last looked — five seconds against fifteen. Each keeps its own note of the id it rang for a host and withdraws on its own empty answer; neither rescinds what the other raised. It is one id per host however many are looking, so the shade holds one line, and the tap clears it.
+**Each side takes down only what it put up.** The tabs and the watcher read the same directory on the same host, so they cannot disagree about what stands in it, only about when they last looked — five seconds against two. Each keeps its own note of the id it rang for a host and withdraws on its own empty answer; neither rescinds what the other raised. It is one id per host however many are looking, so the shade holds one line, and the tap clears it.
 
 **The tap is the way to the sheet.** It opens that host's shell, taking the sheet over from another host's if one is up; the passphrase sheet is already standing there, and the sheet stays until the request is settled. A tap that starts the process is parked the way an alert's `OPEN` is and replayed once Home is on screen, on the host it named — a host deleted since opens nothing. There are no `YES`/`NO` here: a passphrase is typed, never tapped, and the answering is the half that wants the activity up. The hearing is not, which is what the watcher is for.
 
@@ -1278,6 +1302,14 @@ Every tab gets a validated random id. The id marks its `mosh-server`, so a proce
 **Close is remote cleanup with a durable retry.** Closing a tab first hides and retires its row, then kills only the `mosh-server` carrying its exact marker. It never addresses a tmux server or session. A failed or interrupted cleanup leaves a tombstone that no restore can draw. The next successful connection to that host retries those exact markers and deletes each row only after cleanup succeeds. A dial that lands after its tab was closed follows the same path before closing its transport.
 
 The shell tab table carries nullable `remote_session`, `herdr_session`, `herdr_pane`, and `retired_at`. Every new tab has a `remote_session` used only as its Mosh cleanup marker. A herdr tab adds a complete session/pane pair; partial pairs are refused. A row written by an older build has no identity. The v14-to-v15 migration leaves every new column null; it never invents one. New rows are written before their first network dial, so Android cannot leave a marked Mosh server whose identity never reached storage.
+
+### A shell out of sight goes quiet
+
+Ten seconds after the app leaves the screen every live Mosh tab closes its UDP socket, stops poking the channel for health, and stops sending. The server keeps the session and the process under it, and nothing reaches the phone, so a pocket costs neither radio nor screen updates nobody will see. The tab's screen is saved before it goes quiet. A tab stops asking its host for passphrase requests too, and a quiet Mosh tab dials no control path to its host until it is back; the watcher is what hears those while the app is away.
+
+**Back on screen, each quiet tab rehomes on a fresh socket.** The server answers with the whole difference from the last state the phone acknowledged, so the screen is current from the first packet, and the health pokes start again. The wake stands in for the rehome a return would otherwise make, so the channel moves once. A dial that lands while the app is away goes quiet as soon as its tab is marked and the stale ones are reaped, and asks for passphrase requests only on the return.
+
+**An SSH tab keeps its channel.** TCP cannot be put down and picked up again, and a shell that could not be resumed is never traded for a quieter pocket; what it costs out of sight is its keepalive.
 
 ### The middle of the shell header is a mark, and the words are behind it
 

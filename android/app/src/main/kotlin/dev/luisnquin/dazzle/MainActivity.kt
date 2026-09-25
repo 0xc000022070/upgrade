@@ -17,7 +17,11 @@ import android.os.Looper
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.view.Surface
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -53,6 +57,43 @@ class MainActivity : FlutterActivity() {
         super.setFrameworkHandlesBack(DazzleEngine.handlesBack)
         if (savedInstanceState == null && notificationTap(intent)) {
             flutterEngine?.activityControlSurface?.onNewIntent(intent)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        hintFrameRate()
+    }
+
+    private var hinted: SurfaceView? = null
+
+    private fun hintFrameRate() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        val flutterView = findViewById<ViewGroup>(FLUTTER_VIEW_ID) ?: return
+        val surfaceView = (0 until flutterView.childCount)
+            .map(flutterView::getChildAt)
+            .filterIsInstance<SurfaceView>()
+            .firstOrNull() ?: return
+        if (surfaceView === hinted) return
+        hinted = surfaceView
+        surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) = hintFrameRate(holder.surface)
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+            override fun surfaceDestroyed(holder: SurfaceHolder) {}
+        })
+        val surface = surfaceView.holder.surface
+        if (surface.isValid) hintFrameRate(surface)
+    }
+
+    private fun hintFrameRate(surface: Surface) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            surface.setFrameRate(
+                FRAME_RATE,
+                Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+                Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS,
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            surface.setFrameRate(FRAME_RATE, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT)
         }
     }
 
@@ -259,6 +300,8 @@ private object DazzleEngine {
         pipEvents?.success(mode)
     }
 }
+
+private const val FRAME_RATE = 60f
 
 private const val SAVE_DOCUMENT = 3901
 private const val OPEN_DOCUMENT = 3902

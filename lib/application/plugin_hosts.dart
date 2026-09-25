@@ -184,6 +184,7 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
       socket,
       username: host.user,
       identities: SSHKeyPair.fromPem(privateKey),
+      keepAliveInterval: sshKeepAlive,
       onVerifyHostKey: verifier.verify,
     );
     try {

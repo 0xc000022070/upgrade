@@ -43,6 +43,7 @@ Future<void> dialHostKey({
     socket,
     username: user,
     identities: SSHKeyPair.fromPem(privateKey),
+    keepAliveInterval: sshKeepAlive,
     onVerifyHostKey: (type, fingerprint) async {
       if (!offered.isCompleted) offered.complete();
       try {

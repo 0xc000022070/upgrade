@@ -209,6 +209,7 @@ class FakeMoshChannel implements MoshChannel {
   final sent = <Uint8List>[];
   final sizes = <({int columns, int rows})>[];
   var rehomes = 0;
+  var suspends = 0;
   var closed = false;
 
   @override
@@ -240,6 +241,9 @@ class FakeMoshChannel implements MoshChannel {
 
   @override
   Future<void> rehome() async => rehomes++;
+
+  @override
+  Future<void> suspend() async => suspends++;
 
   @override
   Future<void> close() async {
@@ -634,6 +638,66 @@ void main() {
 
       expect(reported, isA<ShellFailure>());
       expect((reported! as ShellFailure).kind, ShellFailureKind.streamClosed);
+    });
+
+    test('a suspended Mosh tab goes quiet and rehomes on resume', () async {
+      const session = 'dazzle123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      var dials = 0;
+      final channel = FakeMoshChannel();
+      final connection = await openOn(
+        moshTunnelOver(hosts, channel, () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(connection.close);
+
+      await connection.suspend();
+      final probes = channel.sizes.length;
+      await connection.rehome();
+
+      expect(channel.suspends, 1);
+      expect(channel.rehomes, 0);
+      expect(channel.sizes.length, probes);
+      expect(hosts.first.closed, isTrue);
+
+      await connection.resume();
+      final result = await connection.exec('pwd');
+
+      expect(channel.rehomes, 1);
+      expect(channel.sizes.length, probes + 1);
+      expect(result.ok, isTrue);
+      expect(dials, 2);
+    });
+
+    test('a suspended Mosh tab dials no control path', () async {
+      const session = 'dazzle123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(connection.close);
+
+      await connection.rehome(network: true);
+      final landing = connection.exec('pwd');
+      await connection.suspend();
+
+      await expectLater(landing, throwsStateError);
+      expect(hosts[1].closed, isTrue);
+      await expectLater(connection.exec('pwd'), throwsStateError);
+      expect(dials, 2);
     });
 
     test('Mosh redials its SSH control path after a network change', () async {

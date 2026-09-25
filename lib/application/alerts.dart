@@ -81,7 +81,6 @@ String alertFailureReason(HerdrFailure failure) => switch (failure) {
 
 const alertActionRestore = Duration(seconds: 10);
 
-const watcherKeepAlive = Duration(seconds: 15);
 const watcherMinBackoff = Duration(seconds: 5);
 const watcherMaxBackoff = Duration(seconds: 60);
 

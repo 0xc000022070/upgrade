@@ -68,7 +68,7 @@ typedef ShellDialer = Future<ShellHost> Function({
 class ShellTunnel {
   const ShellTunnel({
     this.timeout = const Duration(seconds: 10),
-    this.keepAlive = const Duration(seconds: 15),
+    this.keepAlive = sshKeepAlive,
     this.moshHealthInterval = const Duration(seconds: 3),
     this.moshGiveUp = const Duration(seconds: 30),
     this.dial = dialSsh,
@@ -600,6 +600,7 @@ class MoshShellConnection implements ShellConnection {
   int rows;
   var _health = ShellConnectionHealth.connected;
   var _closed = false;
+  var _suspended = false;
 
   late final StreamController<ShellConnectionHealth> _healthEvents =
       StreamController<ShellConnectionHealth>.broadcast(
@@ -672,12 +673,37 @@ class MoshShellConnection implements ShellConnection {
   @override
   Future<void> rehome({bool network = false}) async {
     if (_closed) return;
+    if (_suspended) {
+      if (network) await _dropHost(_host);
+      return;
+    }
     _setHealth(ShellConnectionHealth.reconnecting);
     await _mosh.rehome();
     _missedProbes = 0;
     _tickedAt = null;
     _probeState = _mosh.resize(columns, rows);
     if (network) await _dropHost(_host);
+  }
+
+  @override
+  Future<void> suspend() async {
+    if (_closed || _suspended) return;
+    _suspended = true;
+    _healthTimer?.cancel();
+    _healthTimer = null;
+    await _mosh.suspend();
+    await _dropHost(_host);
+  }
+
+  @override
+  Future<void> resume() async {
+    if (_closed || !_suspended) return;
+    _suspended = false;
+    await rehome();
+    if (_ready.isCompleted && !_closed && !_suspended) {
+      _healthTimer?.cancel();
+      _healthTimer = Timer.periodic(healthInterval, (_) => _checkHealth());
+    }
   }
 
   @override
@@ -724,6 +750,7 @@ class MoshShellConnection implements ShellConnection {
   }
 
   Future<ShellHost> _currentHost() async {
+    if (_suspended) throw StateError('Mosh connection is suspended.');
     final current = _host;
     if (current != null) return current;
     final opening = _openingHost;
@@ -732,7 +759,7 @@ class MoshShellConnection implements ShellConnection {
     _openingHost = next;
     try {
       final host = await next;
-      if (_closed) {
+      if (_closed || _suspended) {
         await host.close();
         throw StateError('Mosh connection is closed.');
       }
@@ -918,6 +945,12 @@ class SshShellConnection implements ShellConnection {
 
   @override
   Future<void> rehome({bool network = false}) async {}
+
+  @override
+  Future<void> suspend() async {}
+
+  @override
+  Future<void> resume() async {}
 
   @override
   Future<String?> remoteDirectory(String session) async {
