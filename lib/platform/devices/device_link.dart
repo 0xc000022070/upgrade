@@ -7,6 +7,7 @@ import 'package:dartssh2/dartssh2.dart';
 import '../herdr_client.dart';
 import '../host_keys.dart';
 import '../shell/remote_shell.dart';
+import '../ssh_settle.dart';
 
 enum DeviceKind { android, simulator }
 
@@ -283,8 +284,7 @@ class DeviceSsh implements DeviceLink {
       await _guard(() => client.authenticated, verifier);
       return DeviceSsh._(socket, client);
     } on HerdrFailure {
-      client.close();
-      socket.close();
+      unawaited(closeSsh(client, socket));
       rethrow;
     }
   }
@@ -341,8 +341,7 @@ class DeviceSsh implements DeviceLink {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
-    _client.close();
-    _socket.close();
+    unawaited(closeSsh(_client, _socket));
   }
 }
 

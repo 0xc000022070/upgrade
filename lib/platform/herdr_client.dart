@@ -604,10 +604,7 @@ class HerdrSession {
     return utf8.decode(result.stdout, allowMalformed: true);
   }
 
-  void close() {
-    _client.close();
-    _socket.close();
-  }
+  void close() => unawaited(closeSsh(_client, _socket));
 
   /// `herdr agent start` wants the pane's shell alone at its prompt, and a shell still
   /// sourcing its rc files hands the terminal to every command it runs. herdr refuses with

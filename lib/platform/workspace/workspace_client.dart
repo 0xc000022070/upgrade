@@ -82,8 +82,7 @@ class WorkspaceSsh implements WorkspaceRunner {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
-    _client.close();
-    _socket.close();
+    unawaited(closeSsh(_client, _socket));
   }
 }
 
