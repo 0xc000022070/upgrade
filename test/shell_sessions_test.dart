@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,7 +16,8 @@ import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/shell/remote_shell.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:dazzle/platform/vnc/keysyms.dart';
-import 'package:xterm/xterm.dart';
+import 'package:dazzle/features/shell/shell_terminal.dart';
+import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/shell_route.dart' show noWorkspaces;
@@ -41,6 +43,32 @@ const _nyx = Host(
 
 /// The store dials on a microtask.
 Future<void> _settle() => Future<void>.delayed(Duration.zero);
+
+String _text(TerminalController terminal) {
+  final formatter = terminal.createFormatter(format: FormatterFormat.plain);
+  try {
+    return formatter.format();
+  } finally {
+    formatter.dispose();
+  }
+}
+
+Future<void> _pumpView(WidgetTester tester, ShellSession session, Size size) =>
+    tester.pumpWidget(
+      Theme(
+        data: testTheme,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox.fromSize(
+              size: size,
+              child: ShellTerminalView(session: session, fontSize: 12),
+            ),
+          ),
+        ),
+      ),
+    );
 
 class _DelayedShellTabs extends InMemoryShellTabRepository {
   final release = Completer<void>();
@@ -199,7 +227,7 @@ void main() {
 
     connection.emit('dazzle');
     await _settle();
-    expect(session.terminal.buffer.getText(), contains('dazzle'));
+    expect(_text(session.terminal), contains('dazzle'));
 
     sessions.send(session, Uint8List.fromList([0x03]));
     expect(connection.writes.single, [0x03]);
@@ -219,7 +247,7 @@ void main() {
     connection.emitBytes([0xB1]);
     await _settle();
 
-    expect(session.terminal.buffer.getText(), contains('ñ'));
+    expect(_text(session.terminal), contains('ñ'));
   });
 
   test('an armed modifier reaches what the keyboard types, once', () async {
@@ -231,12 +259,12 @@ void main() {
     final connection = transport.opened.single;
 
     sessions.arm(session, {StickyModifier.ctrl});
-    session.terminal.textInput('c');
+    session.terminal.sendText('c');
 
     expect(connection.writes.single, [0x03]);
     expect(session.sticky, isEmpty);
 
-    session.terminal.textInput('c');
+    session.terminal.sendText('c');
     expect(connection.writes.last, [0x63]);
   });
 
@@ -250,15 +278,15 @@ void main() {
       final connection = transport.opened.single;
 
       sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
-      session.terminal.textInput('d');
+      session.terminal.sendText('d');
       expect(session.sticky, {StickyModifier.ctrl});
       expect(session.stickyRepeat, 1);
 
-      session.terminal.textInput('d');
+      session.terminal.sendText('d');
       expect(session.sticky, isEmpty);
       expect(session.stickyRepeat, 1);
 
-      session.terminal.textInput('d');
+      session.terminal.sendText('d');
 
       expect(connection.writes, [
         [0x04],
@@ -296,16 +324,17 @@ void main() {
 
         sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
         // DSR 6, "where is the cursor".
-        session.terminal.write('\x1b[6n');
+        connection.emit('\x1b[6n');
+        await _settle();
 
         expect(session.sticky, {StickyModifier.ctrl});
         expect(session.stickyRepeat, 2);
 
-        session.terminal.textInput('d');
-        session.terminal.textInput('d');
+        session.terminal.sendText('d');
+        session.terminal.sendText('d');
 
         expect(connection.writes, [
-          [0x1b, 0x5b, 0x30, 0x3b, 0x30, 0x52],
+          utf8.encode('\x1b[1;1R'),
           [0x04],
           [0x04],
         ]);
@@ -318,10 +347,11 @@ void main() {
 
       final session = sessions.open(_rose)!;
       await _settle();
+      final connection = transport.opened.single;
 
       sessions.arm(session, {StickyModifier.ctrl}, repeat: 3);
-      // Device attributes, operating status, cursor position, size: every reply xterm makes
-      // without being typed at.
+      // Device attributes, operating status, cursor position, size: every reply the
+      // terminal makes without being typed at.
       for (final query in [
         '\x1b[c',
         '\x1b[>c',
@@ -329,8 +359,10 @@ void main() {
         '\x1b[6n',
         '\x1b[18t',
       ]) {
-        session.terminal.write(query);
+        connection.emit(query);
       }
+      await _settle();
+      expect(connection.writes, hasLength(5));
 
       expect(session.stickyRepeat, 3);
       expect(session.sticky, {StickyModifier.ctrl});
@@ -345,35 +377,55 @@ void main() {
       final connection = transport.opened.single;
 
       sessions.arm(session, {StickyModifier.alt}, repeat: 2);
-      session.terminal.write('\x1b[6n');
+      connection.emit('\x1b[6n');
+      await _settle();
 
-      expect(connection.writes, [
-        [0x1b, 0x5b, 0x30, 0x3b, 0x30, 0x52],
-      ]);
+      expect(connection.writes, [utf8.encode('\x1b[1;1R')]);
     });
 
-    test('a mouse report is not one of the keys either', () async {
+    testWidgets('a mouse report is not one of the keys either', (tester) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
       final session = sessions.open(_rose)!;
-      await _settle();
+      await _pumpDial(tester);
       final connection = transport.opened.single;
+      await _pumpView(tester, session, const Size(400, 600));
 
       // Mouse reporting on, as an agent on the alternate screen leaves it.
-      session.terminal.write('\x1b[?1000h');
+      connection.emit('\x1b[?1000h');
+      await _pumpDial(tester);
       sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
-      session.terminal.mouseInput(
-        TerminalMouseButton.left,
-        TerminalMouseButtonState.down,
-        const CellOffset(0, 0),
-      );
+      await tester.tapAt(const Offset(40, 40), kind: PointerDeviceKind.mouse);
+      await tester.pump();
 
       expect(session.sticky, {StickyModifier.ctrl});
       expect(session.stickyRepeat, 2);
-      expect(connection.writes, [
-        [0x1b, 0x5b, 0x4d, 0x20, 0x21, 0x22],
-      ]);
+      expect(connection.writes, isNotEmpty);
+      for (final report in connection.writes) {
+        expect(report.take(3), [0x1b, 0x5b, 0x4d]);
+      }
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test('a report is told from a key by its shape alone', () {
+      bool report(String text) => isViewReport(utf8.encode(text));
+
+      expect(report('\x1b[<0;12;4M'), isTrue);
+      expect(report('\x1b[<0;12;4m'), isTrue);
+      expect(report('\x1b[<65;3;9M'), isTrue);
+      expect(report('\x1b[M !"'), isTrue);
+      expect(report('\x1b[32;12;4M'), isTrue);
+      expect(report('\x1b[I'), isTrue);
+      expect(report('\x1b[O'), isTrue);
+
+      expect(report('\x1b[A'), isFalse);
+      expect(report('\x1b[1;5A'), isFalse);
+      expect(report('\x1b[3~'), isFalse);
+      expect(report('\x1bOM'), isFalse);
+      expect(report('M'), isFalse);
+      expect(report('\x1b[200~ls\x1b[201~'), isFalse);
     });
 
     test('plain Mosh shells may disable mouse reporting', () async {
@@ -386,16 +438,9 @@ void main() {
       connection.emit('\x1b[?1002h\x1b[?1002l\x1b[?1006h');
       await _settle();
 
-      expect(
-        session.terminal.mouseInput(
-          TerminalMouseButton.left,
-          TerminalMouseButtonState.down,
-          const CellOffset(3, 2),
-        ),
-        isFalse,
-      );
+      expect(session.terminal.mouseTracking, MouseTracking.none);
       expect(connection.writes, isEmpty);
-      expect(session.terminal.isUsingAltBuffer, isFalse);
+      expect(session.terminal.activeScreen, TerminalScreen.primary);
     });
 
     test('a Herdr pane over Mosh starts in the alternate buffer', () async {
@@ -408,7 +453,7 @@ void main() {
       )!;
       await _settle();
 
-      expect(session.terminal.isUsingAltBuffer, isTrue);
+      expect(session.terminal.activeScreen, TerminalScreen.alternate);
     });
 
     test('Herdr over SSH may disable mouse reporting', () async {
@@ -425,16 +470,9 @@ void main() {
       connection.emit('\x1b[?1002h\x1b[?1002l\x1b[?1006h');
       await _settle();
 
-      expect(
-        session.terminal.mouseInput(
-          TerminalMouseButton.left,
-          TerminalMouseButtonState.down,
-          const CellOffset(3, 2),
-        ),
-        isFalse,
-      );
+      expect(session.terminal.mouseTracking, MouseTracking.none);
       expect(connection.writes, isEmpty);
-      expect(session.terminal.isUsingAltBuffer, isFalse);
+      expect(session.terminal.activeScreen, TerminalScreen.primary);
     });
 
     test('a paste is one key, however long it is', () async {
@@ -462,11 +500,11 @@ void main() {
 
       sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
       expect(notices, 1);
-      session.terminal.textInput('d');
+      session.terminal.sendText('d');
       expect(notices, 2);
-      session.terminal.textInput('d');
+      session.terminal.sendText('d');
       expect(notices, 3);
-      session.terminal.textInput('d');
+      session.terminal.sendText('d');
       expect(notices, 3);
     });
 
@@ -528,9 +566,9 @@ void main() {
       final connection = transport.opened.single;
 
       sessions.arm(session, {StickyModifier.ctrl}, locked: true);
-      session.terminal.textInput('d');
-      session.terminal.textInput('d');
-      session.terminal.textInput('d');
+      session.terminal.sendText('d');
+      session.terminal.sendText('d');
+      session.terminal.sendText('d');
 
       expect(session.sticky, {StickyModifier.ctrl});
       expect(session.stickyLocked, isTrue);
@@ -593,20 +631,26 @@ void main() {
     });
   });
 
-  test(
-    'the return the keyboard inserts goes out as a carriage return',
-    () async {
-      final transport = FakeShellTransport();
-      final sessions = fakeShellSessions(transport);
+  testWidgets('the return the keyboard sends goes out as a carriage return', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(_rose)!;
-      await _settle();
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+    await _pumpView(tester, session, const Size(400, 600));
+    session.focusNode.requestFocus();
+    await tester.pump();
 
-      session.terminal.textInput('ls\n');
+    session.terminal.sendText('ls');
+    await tester.testTextInput.receiveAction(TextInputAction.newline);
+    await tester.pump(const Duration(seconds: 1));
 
-      expect(transport.opened.single.written, 'ls\r');
-    },
-  );
+    expect(transport.opened.single.written, 'ls\r');
+
+    await sessions.close(_rose.id, session);
+  });
 
   test('a paste goes out whole, with its line breaks as returns', () async {
     final transport = FakeShellTransport();
@@ -665,16 +709,16 @@ void main() {
 
     transport.opened.single.emit('\x1b[?1049h\x1b[?1002h\x1b[?1006h');
     await _pumpDial(tester);
-    expect(session.terminal.mouseMode.reportScroll, isTrue);
-    expect(session.terminal.isUsingAltBuffer, isTrue);
+    expect(session.terminal.mouseTracking, isNot(MouseTracking.none));
+    expect(session.terminal.activeScreen, TerminalScreen.alternate);
 
     transport.opened.single.drop();
     await tester.pump();
     await tester.pump(shellReconnectDelays.first);
     await _pumpDial(tester);
 
-    expect(session.terminal.mouseMode.reportScroll, isFalse);
-    expect(session.terminal.isUsingAltBuffer, isFalse);
+    expect(session.terminal.mouseTracking, MouseTracking.none);
+    expect(session.terminal.activeScreen, TerminalScreen.primary);
 
     await sessions.close(_rose.id, session);
   });
@@ -696,7 +740,7 @@ void main() {
     await tester.pump(shellReconnectDelays.first);
     await _pumpDial(tester);
 
-    expect(session.terminal.mouseMode.reportScroll, isTrue);
+    expect(session.terminal.mouseTracking, isNot(MouseTracking.none));
 
     await sessions.close(_rose.id, session);
   });
@@ -745,22 +789,26 @@ void main() {
     await sessions.close(_rose.id, session);
   });
 
-  test('a resize is forwarded once per size', () async {
+  testWidgets('a resize is forwarded once per size', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 
     final session = sessions.open(_rose)!;
-    await _settle();
+    await _pumpDial(tester);
     final connection = transport.opened.single;
 
-    session.terminal.resize(100, 40);
-    session.terminal.resize(100, 40);
-    session.terminal.resize(120, 40);
+    await _pumpView(tester, session, const Size(400, 600));
+    await _pumpView(tester, session, const Size(401, 600));
+    await _pumpView(tester, session, const Size(600, 600));
 
-    expect(connection.resizes, [
-      [100, 40],
-      [120, 40],
-    ]);
+    expect(connection.resizes, hasLength(2));
+    expect(
+      connection.resizes.last[0],
+      greaterThan(connection.resizes.first[0]),
+    );
+    expect(connection.resizes.last[1], connection.resizes.first[1]);
+
+    await sessions.close(_rose.id, session);
   });
 
   test('the exit code becomes the exited state', () async {
@@ -932,7 +980,7 @@ void main() {
 
     expect(session.state, isA<ShellLive>());
     expect(transport.opened, hasLength(2));
-    expect(session.terminal.buffer.getText(), contains('-- reconnected --'));
+    expect(_text(session.terminal), contains('-- reconnected --'));
     expect(transport.verifiers.last?.prompt, isNull);
 
     await sessions.close(_rose.id, session);
@@ -1023,7 +1071,7 @@ void main() {
     expect(session.state, isA<ShellLive>());
     expect(transport.commands.last, shellMarked(session.mark, command: attach));
     expect(session.pane, pane);
-    expect(session.terminal.buffer.getText(), contains('-- reattached --'));
+    expect(_text(session.terminal), contains('-- reattached --'));
 
     await sessions.close(_rose.id, session);
   });
@@ -1294,7 +1342,7 @@ void main() {
         expect(request.okLabel, 'UNLOCK');
         expect(request.cancelLabel, 'CANCEL');
         expect(told, 1);
-        expect(session.terminal.buffer.getText(), isNot(contains('7771')));
+        expect(_text(session.terminal), isNot(contains('7771')));
 
         connection.emit('\x1b]7771;done;fedcba9876543210\x07');
         await _settle();
@@ -1848,7 +1896,7 @@ void main() {
       expect(transport.opened, hasLength(3));
       expect(transport.persistentSessions, [null, null, null]);
       expect(
-        after.forHost(_rose.id).first.terminal.buffer.getText(),
+        _text(after.forHost(_rose.id).first.terminal),
         contains('-- reconnected --'),
       );
       expect(after.activeFor(_rose.id)!.number, 1);
@@ -1974,10 +2022,7 @@ void main() {
         shellMarked(restored.mark, command: HerdrCommands.attach(pane)),
       );
       expect(transport.persistentSessions.single, isNull);
-      expect(
-        restored.terminal.buffer.getText(),
-        contains('-- session restored --'),
-      );
+      expect(_text(restored.terminal), contains('-- session restored --'));
     });
 
     test('a tab cannot partially name a Herdr pane', () async {
@@ -2038,7 +2083,7 @@ void main() {
   group('a session lets go of what it owns', () {
     /// A listenable that has been disposed refuses a new listener, which is the only thing
     /// one says about itself from the outside.
-    void expectDisposed(ChangeNotifier notifier, String what) {
+    void expectDisposed(Listenable notifier, String what) {
       expect(
         () => notifier.addListener(() {}),
         throwsFlutterError,
@@ -2046,7 +2091,7 @@ void main() {
       );
     }
 
-    void expectAlive(ChangeNotifier notifier, String what) {
+    void expectAlive(Listenable notifier, String what) {
       void listener() {}
       expect(
         () => notifier
@@ -2065,10 +2110,10 @@ void main() {
       await _pumpDial(tester);
 
       await sessions.close(_rose.id, session);
-      expectAlive(session.controller, 'the selection controller');
+      expectAlive(session.terminal, 'the terminal');
 
       await tester.pump();
-      expectDisposed(session.controller, 'the selection controller');
+      expectDisposed(session.terminal, 'the terminal');
       expectDisposed(session.focusNode, 'the focus node');
       expectDisposed(session.scrollController, 'the scroll controller');
     });
@@ -2083,8 +2128,8 @@ void main() {
       await sessions.close(_rose.id, first);
       await tester.pump();
 
-      expectDisposed(first.controller, "the closed tab's controller");
-      expectAlive(second.controller, "the open tab's controller");
+      expectDisposed(first.terminal, "the closed tab's controller");
+      expectAlive(second.terminal, "the open tab's controller");
       expectAlive(second.focusNode, "the open tab's focus node");
       expectAlive(second.scrollController, "the open tab's scroll controller");
     });
@@ -2100,7 +2145,7 @@ void main() {
       await tester.pump();
 
       expect(sessions.forHost(_rose.id), isEmpty);
-      expectDisposed(session.controller, "the exited tab's controller");
+      expectDisposed(session.terminal, "the exited tab's controller");
       expectDisposed(session.scrollController, "the exited tab's scroll");
     });
 

@@ -61,9 +61,7 @@ class ShellCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: ShellThumbnail(terminal: session.terminal),
-                  ),
+                  Positioned.fill(child: ShellThumbnail(session: session)),
                   Positioned(
                     right: Spacing.sm,
                     top: Spacing.sm,

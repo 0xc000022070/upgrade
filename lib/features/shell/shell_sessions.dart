@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:xterm/xterm.dart';
+import 'package:flterm/flterm.dart';
 
 import '../../application/agents.dart';
 import '../../application/pin_alerts.dart';
@@ -22,6 +22,8 @@ import '../../platform/shell/shell_tunnel.dart';
 import '../../platform/shell/strip_bytes.dart';
 import '../../platform/workspace/workspace_commands.dart';
 import '../../platform/vnc/keysyms.dart';
+import 'private_osc.dart';
+import 'shell_engine.dart';
 
 /// A build log on the remote is the case this is sized for.
 const shellScrollback = 10000;
@@ -141,6 +143,14 @@ const shellReconnectMarker = '\r\n\x1b[2m-- reconnected --\x1b[0m\r\n';
 const shellModeReset =
     '\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?2004l';
 
+bool isViewReport(Uint8List bytes) {
+  if (bytes.length < 3 || bytes[0] != 0x1b || bytes[1] != 0x5b) return false;
+  final last = bytes.last;
+  if (bytes.length == 3) return last == 0x49 || last == 0x4f;
+  if (bytes[2] == 0x4d) return bytes.length == 6;
+  return last == 0x4d || (bytes[2] == 0x3c && last == 0x6d);
+}
+
 const shellReattachMarker = '\r\n\x1b[2m-- reattached --\x1b[0m\r\n';
 const shellRestoreMarker = '\r\n\x1b[2m-- session restored --\x1b[0m\r\n';
 
@@ -158,17 +168,10 @@ bool shellReconnects(ShellFailureKind kind) =>
 /// request was settled elsewhere. Either way the id comes next.
 const pinentryOsc = '7771';
 
-/// The OSC a shell reports its working directory on, `file://<host>/<path>`, emitted
-/// beside the prompt by a shell configured to and by nothing else. A tab whose shell
-/// never says keeps the directory it was opened at.
-const cwdOsc = '7';
-
-/// The path out of an OSC 7 payload, or null when it is not one. The host part is
-/// dropped: what a host calls itself in a URL is not what the app dialled. The segments
-/// are read rather than the path, which is where the escaping a hook writes comes off. A
-/// payload that names no segment said nothing.
 String? cwdFromOsc(String payload) {
-  final uri = Uri.tryParse(payload.trim());
+  final trimmed = payload.trim();
+  if (trimmed.startsWith('/')) return trimmed;
+  final uri = Uri.tryParse(trimmed);
   if (uri == null || uri.scheme != 'file') return null;
   final segments = uri.pathSegments.where((segment) => segment.isNotEmpty);
   if (segments.isEmpty) return null;
@@ -206,12 +209,9 @@ class ShellSession extends ChangeNotifier {
   /// rather than renumbering the tabs under the user's finger.
   final int number;
 
-  final Terminal terminal;
-
-  /// Owns the selection the view draws. The view makes its own controller when it is not
-  /// handed one, and a selection made in that private controller is one nothing else can
-  /// reach.
-  final TerminalController controller = TerminalController();
+  /// The terminal and everything about it: grid, scrollback, selection and search. It
+  /// outlives every view drawn of it, and a tab with no view still takes output.
+  final TerminalController terminal;
 
   /// One per session and not one for the route: the view opens its text input when its node
   /// takes focus and closes it when the view goes, and two views handed the same node pass
@@ -220,24 +220,16 @@ class ShellSession extends ChangeNotifier {
   /// nothing.
   final FocusNode focusNode = FocusNode(debugLabel: 'shell-terminal');
 
-  final ScrollController scrollController = ScrollController();
+  final TerminalScrollController scrollController = TerminalScrollController();
 
-  /// Null while there is nothing to ask: a tab whose view is not attached yet, one being
-  /// swapped for another, and a position that has not been through a layout have no answer.
-  ScrollPosition? get tailPosition {
-    if (scrollController.positions.length != 1) return null;
-    final position = scrollController.position;
-    if (!position.hasPixels || !position.hasContentDimensions) return null;
-    return position;
+  final ValueNotifier<int> output = ValueNotifier(0);
+
+  int get rowsBehind {
+    final bar = terminal.scrollbar;
+    return bar.total - bar.offset - bar.visible;
   }
 
-  void followTail() {
-    final position = tailPosition;
-    if (position == null) return;
-    if (position.pixels < position.maxScrollExtent) {
-      position.jumpTo(position.maxScrollExtent);
-    }
-  }
+  void followTail() => terminal.scrollToBottom();
 
   ShellConnection? connection;
   ShellState state = const ShellConnecting();
@@ -316,10 +308,31 @@ class ShellSession extends ChangeNotifier {
   StreamSubscription<Uint8List>? _output;
   StreamSubscription<ShellConnectionHealth>? _health;
 
-  /// Decodes the channel across chunk boundaries. A plain [utf8.decode] per chunk would
-  /// mangle any character whose bytes land either side of one, which is every read on a
-  /// busy shell sooner or later.
-  ByteConversionSink? _decoder;
+  /// Watches the channel for the pinentry's OSC on its way into the terminal. Null
+  /// between connections, so a dead one's bytes are not read for a request.
+  PrivateOscScanner? _pinentry;
+
+  bool _feeding = false;
+
+  bool _moshPane = false;
+
+  static final _moshPaneMouse = utf8.encode('\x1b[?1002h\x1b[?1006h');
+
+  void _feed(Uint8List bytes) {
+    _pinentry?.add(bytes);
+    _feeding = true;
+    try {
+      terminal.write(bytes);
+      if (_moshPane && terminal.mouseTracking == MouseTracking.none) {
+        terminal.write(_moshPaneMouse);
+      }
+    } finally {
+      _feeding = false;
+    }
+    output.value++;
+  }
+
+  void _write(String text) => _feed(utf8.encode(text));
 
   /// The last size sent to the remote, so a resize that changes nothing is not forwarded.
   /// The view reports on every layout, including ones where only the pixel size moved.
@@ -362,17 +375,17 @@ class ShellSession extends ChangeNotifier {
   /// buffer and must not be released again through a listenable that is gone.
   bool get retired => _retired;
 
-  /// Lets go of the three listenables the view is handed rather than makes. Called at the
-  /// end of the frame the tab was dropped in, never inside it: a scroll controller disposed
-  /// while a [Scrollable] is still attached fails the detach that view is about to be asked
-  /// for.
+  /// Lets go of what the view is handed rather than makes, the terminal last. Called at
+  /// the end of the frame the tab was dropped in, never inside it: a controller disposed
+  /// while its view is still attached fails the detach that view is about to be asked for.
   @override
   void dispose() {
     if (_retired) return;
     _retired = true;
-    controller.dispose();
     focusNode.dispose();
     scrollController.dispose();
+    output.dispose();
+    terminal.dispose();
     super.dispose();
   }
 
@@ -619,9 +632,11 @@ class ShellSessions extends ChangeNotifier {
     final session =
         ShellSession(
             number: number,
-            terminal: Terminal(
-              maxLines: shellScrollback,
-              colors: DazzleTokens.house.terminal.reportedColors,
+            terminal: TerminalController(
+              config: const TerminalConfig(
+                scrollbackMaxBytes: null,
+                scrollbackMaxLines: shellScrollback,
+              ),
             ),
             host: host,
             remoteSession: remoteSession,
@@ -630,6 +645,7 @@ class ShellSessions extends ChangeNotifier {
           ..command = command
           ..cwd = directory
           ..pane = pane;
+    answerInColours(session.terminal, DazzleTokens.house.terminal);
     _byHost.putIfAbsent(host.id, () => []).add(session);
     _active[host.id] = number;
     _parkedHostId = host.id;
@@ -757,7 +773,7 @@ class ShellSessions extends ChangeNotifier {
     session._output = null;
     unawaited(session._health?.cancel());
     session._health = null;
-    session._decoder = null;
+    session._pinentry = null;
     _retire(session);
     final connection = session.connection;
     session.connection = null;
@@ -798,57 +814,57 @@ class ShellSessions extends ChangeNotifier {
   /// Wired before the connection exists so a fast typist's bytes are not dropped between
   /// the tab appearing and the shell answering.
   void _wireTerminal(ShellSession session) {
-    session.terminal.onOutput = (text) {
+    final terminal = session.terminal;
+    terminal.onOutput = (bytes) {
+      if (session._feeding || isViewReport(bytes)) {
+        session.connection?.write(bytes);
+        return;
+      }
       // Everything the user puts in comes through here: the IME's characters, the
       // terminal's own key handling, and a paste. Which is why the armed set is
       // applied and spent here and not where the bar is.
-      //
-      // A newline goes out as a carriage return. The IME's return key inserts `\n`
-      // and a pasted line break is one too, but the byte a terminal sends for a line
-      // the shell should act on is `0d`.
-      send(session, typedBytes(text.replaceAll('\n', '\r'), session.sticky));
+      send(
+        session,
+        session.sticky.isEmpty
+            ? bytes
+            : typedBytes(
+                utf8.decode(bytes, allowMalformed: true),
+                session.sticky,
+              ),
+      );
     };
-    session.terminal.onReport = (text) {
-      // What the terminal answers on its own: the program asked where the cursor
-      // is, what the terminal is, how big it is, or turned mouse reporting on.
-      // None of it is a key, so an arming neither applies to it — `ALT` would put
-      // an `ESC` in front of a reply and the program would read the wrong answer —
-      // nor is spent by it.
-      session.connection?.write(typedBytes(text, const {}));
-    };
-    session.terminal.onTitleChange = (title) {
+    terminal.onTitleChanged = () {
+      final title = terminal.title;
       if (title == session.title) return;
       session.title = title;
       session.changed();
     };
-    session.terminal.onBell = () => unawaited(_askHost(session));
-    session.terminal.onPrivateOSC = (code, args) {
-      if (code == cwdOsc) {
-        final cwd = args.isEmpty ? null : cwdFromOsc(args.first);
-        if (cwd == null || cwd == session.cwd) return;
-        session.cwd = cwd;
-        session.changed();
-        return;
-      }
-      if (code != pinentryOsc || args.length < 2) return;
-      switch (args.first) {
-        case 'pin' when args.length >= 3:
-          // A second request while one stands replaces it: the fifo the first would be
-          // answered on is gone with the request that made it.
-          final request = PinRequest.decode(args[1], args[2]);
-          if (request == null) return;
-          _setPin(session, request);
-        case 'done':
-          if (session.pin?.id != args[1]) return;
-          _setPin(session, null);
-      }
+    terminal.onBell = () => unawaited(_askHost(session));
+    terminal.onPwdChanged = () {
+      final cwd = cwdFromOsc(terminal.pwd);
+      if (cwd == null || cwd == session.cwd) return;
+      session.cwd = cwd;
+      session.changed();
     };
-    session.terminal.onResize = (columns, rows, _, _) {
+    terminal.onResize = (columns, rows) {
       if (columns == session._columns && rows == session._rows) return;
       session._columns = columns;
       session._rows = rows;
       session.connection?.resize(columns, rows);
     };
+  }
+
+  void _onPinentry(ShellSession session, List<String> args) {
+    if (args.length < 2) return;
+    switch (args.first) {
+      case 'pin' when args.length >= 3:
+        final request = PinRequest.decode(args[1], args[2]);
+        if (request == null) return;
+        _setPin(session, request);
+      case 'done':
+        if (session.pin?.id != args[1]) return;
+        _setPin(session, null);
+    }
   }
 
   /// The armed set is spent here and nowhere else, at the single point every byte passes
@@ -1056,8 +1072,8 @@ class ShellSessions extends ChangeNotifier {
 
     // The size the view has already settled on, when it has: a shell started at the
     // wrong width redraws its prompt at the first resize and the user sees the wrap.
-    final columns = session._columns ?? session.terminal.viewWidth;
-    final rows = session._rows ?? session.terminal.viewHeight;
+    final columns = session._columns ?? session.terminal.config.cols;
+    final rows = session._rows ?? session.terminal.config.rows;
 
     try {
       final connection = await _open(
@@ -1119,26 +1135,27 @@ class ShellSessions extends ChangeNotifier {
       // modes is still there and they are still true. Anything else comes back as a
       // new shell that never asked for them.
       if ((reconnected || restored) && session.pane == null) {
-        session.terminal.write(shellModeReset);
+        session._write(shellModeReset);
         // Leaving the alternate screen restores a cursor that was only saved on the
         // way in, so it is left alone unless the terminal is on it.
-        if (session.terminal.isUsingAltBuffer) {
-          session.terminal.write('\x1b[?1049l');
+        if (session.terminal.activeScreen == TerminalScreen.alternate) {
+          session._write('\x1b[?1049l');
         }
       }
-      if (marker != null) session.terminal.write(marker);
+      if (marker != null) session._write(marker);
       final moshPane =
           connection.transport == ShellTransport.mosh && session.pane != null;
       // A Mosh attach repaints the current screen without replaying the TUI's
       // earlier alternate-buffer transition. Herdr panes are full-screen.
-      if (moshPane) session.terminal.write('\x1b[?1049h');
-      session._decoder = utf8.decoder.startChunkedConversion(
-        _TerminalSink(session.terminal, preserveMouseReporting: moshPane),
+      if (moshPane) session._write('\x1b[?1049h');
+      session._moshPane = moshPane;
+      session._pinentry = PrivateOscScanner(
+        pinentryOsc,
+        (args) => _onPinentry(session, args),
       );
-      session._output = connection.output.listen(
-        (bytes) => session._decoder?.add(bytes),
-        onError: (Object error) => _fail(session, error, attempt),
-      );
+      session._output = connection.output.listen((bytes) {
+        if (identical(session.connection, connection)) session._feed(bytes);
+      }, onError: (Object error) => _fail(session, error, attempt));
       unawaited(_awaitExit(session, connection, attempt));
       unawaited(_mark(session, connection));
       // A request made while this tab had no link, before it opened or across a
@@ -1402,7 +1419,7 @@ class ShellSessions extends ChangeNotifier {
     session._output = null;
     unawaited(session._health?.cancel());
     session._health = null;
-    session._decoder = null;
+    session._pinentry = null;
     final previous = session.connection;
     session.connection = null;
     // The title belonged to the shell that died. The pane outlives it, because the
@@ -1419,25 +1436,6 @@ class ShellSessions extends ChangeNotifier {
     if (session.state is! ShellDropped) return;
     await _connect(session.host, session, reconnected: true);
   }
-}
-
-class _TerminalSink implements Sink<String> {
-  _TerminalSink(this.terminal, {required this.preserveMouseReporting});
-
-  final Terminal terminal;
-  final bool preserveMouseReporting;
-
-  @override
-  void add(String data) {
-    terminal.write(data);
-    if (!preserveMouseReporting) return;
-    terminal
-      ..setMouseMode(MouseMode.upDownScrollDrag)
-      ..setMouseReportMode(MouseReportMode.sgr);
-  }
-
-  @override
-  void close() {}
 }
 
 /// Nothing disposes it: a session is meant to outlive the route that opened it, and a

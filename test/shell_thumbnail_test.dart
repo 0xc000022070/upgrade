@@ -1,18 +1,44 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/features/shell/shell_thumbnail.dart';
-import 'package:xterm/xterm.dart';
+import 'package:flterm/flterm.dart';
 
+import 'support/shell_route.dart' show rose;
 import 'support/themed_app.dart';
 
-Terminal terminalShowing(List<String> lines, {int rows = 4, int columns = 20}) {
-  final terminal = Terminal(maxLines: 100);
-  terminal.resize(columns, rows);
-  terminal.write(lines.join('\r\n'));
+TerminalController terminalSized({int rows = 4, int columns = 20}) {
+  final terminal = TerminalController(
+    config: TerminalConfig(cols: columns, rows: rows),
+  );
+  addTearDown(terminal.dispose);
   return terminal;
 }
+
+void write(TerminalController terminal, String text) =>
+    terminal.write(Uint8List.fromList(utf8.encode(text)));
+
+TerminalController terminalShowing(
+  List<String> lines, {
+  int rows = 4,
+  int columns = 20,
+}) {
+  final terminal = terminalSized(rows: rows, columns: columns);
+  write(terminal, lines.join('\r\n'));
+  return terminal;
+}
+
+void emit(ShellSession session, String text) {
+  write(session.terminal, text);
+  session.output.value++;
+}
+
+ShellSession sessionShowing(List<String> lines) =>
+    ShellSession(number: 1, terminal: terminalShowing(lines), host: rose);
 
 ShellThumbnailPainter painterOf(WidgetTester tester) =>
     tester
@@ -25,7 +51,7 @@ ShellThumbnailPainter painterOf(WidgetTester tester) =>
             .painter
         as ShellThumbnailPainter;
 
-Future<void> pumpThumbnail(WidgetTester tester, Terminal terminal) =>
+Future<void> pumpThumbnail(WidgetTester tester, ShellSession session) =>
     tester.pumpWidget(
       Theme(
         data: testTheme,
@@ -35,7 +61,7 @@ Future<void> pumpThumbnail(WidgetTester tester, Terminal terminal) =>
             child: SizedBox(
               width: 160,
               height: 110,
-              child: ShellThumbnail(terminal: terminal),
+              child: ShellThumbnail(session: session),
             ),
           ),
         ),
@@ -73,7 +99,7 @@ void main() {
       ]);
 
       expect(thumbnailLines(terminal), ['one', 'two', 'three', 'four']);
-      expect(thumbnailLines(terminal).length, terminal.buffer.viewHeight);
+      expect(thumbnailLines(terminal).length, 4);
       expect(thumbnailLines(terminal), isNot(contains('gone')));
     });
 
@@ -84,15 +110,15 @@ void main() {
     });
 
     test('a gap the cursor moved over keeps the columns apart', () {
-      final terminal = Terminal(maxLines: 100)..resize(40, 4);
-      terminal.write('dazzle 3\x1b[7C1 tab\x1b[3C1 pane');
+      final terminal = terminalSized(columns: 40);
+      write(terminal, 'dazzle 3\x1b[7C1 tab\x1b[3C1 pane');
 
       expect(thumbnailLines(terminal), ['dazzle 3       1 tab   1 pane']);
     });
 
     test('a wide character takes its two cells and no more', () {
-      final terminal = Terminal(maxLines: 100)..resize(20, 4);
-      terminal.write('a漢b');
+      final terminal = terminalSized();
+      write(terminal, 'a漢b');
 
       expect(thumbnailLines(terminal), ['a漢b']);
     });
@@ -100,7 +126,7 @@ void main() {
 
   group('the widget', () {
     testWidgets('paints the buffer it was given', (tester) async {
-      await pumpThumbnail(tester, terminalShowing(['one', 'two']));
+      await pumpThumbnail(tester, sessionShowing(['one', 'two']));
 
       expect(painterOf(tester).lines, ['one', 'two']);
     });
@@ -108,10 +134,10 @@ void main() {
     testWidgets('catches up with output on its own clock, not per chunk', (
       tester,
     ) async {
-      final terminal = terminalShowing(['one']);
-      await pumpThumbnail(tester, terminal);
+      final session = sessionShowing(['one']);
+      await pumpThumbnail(tester, session);
 
-      terminal.write('\r\ntwo');
+      emit(session, '\r\ntwo');
       await tester.pump();
       expect(painterOf(tester).lines, [
         'one',
@@ -124,19 +150,19 @@ void main() {
     testWidgets('follows the terminal when the card is given another', (
       tester,
     ) async {
-      await pumpThumbnail(tester, terminalShowing(['first']));
-      await pumpThumbnail(tester, terminalShowing(['second']));
+      await pumpThumbnail(tester, sessionShowing(['first']));
+      await pumpThumbnail(tester, sessionShowing(['second']));
       await tester.pump();
 
       expect(painterOf(tester).lines.first, 'second');
     });
 
     testWidgets('lets go of the terminal it was showing', (tester) async {
-      final terminal = terminalShowing(['one']);
-      await pumpThumbnail(tester, terminal);
+      final session = sessionShowing(['one']);
+      await pumpThumbnail(tester, session);
       await tester.pumpWidget(const SizedBox.shrink());
 
-      terminal.write('\r\ntwo');
+      emit(session, '\r\ntwo');
       await tester.pump(const Duration(milliseconds: 600));
 
       expect(tester.takeException(), isNull);
@@ -244,7 +270,10 @@ void main() {
     testWidgets('an empty buffer paints nothing and does not throw', (
       tester,
     ) async {
-      await pumpThumbnail(tester, Terminal(maxLines: 100));
+      await pumpThumbnail(
+        tester,
+        ShellSession(number: 1, terminal: terminalSized(), host: rose),
+      );
 
       expect(tester.takeException(), isNull);
     });

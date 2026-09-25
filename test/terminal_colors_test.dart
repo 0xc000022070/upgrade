@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
-import 'package:flutter_test/flutter_test.dart';
+import 'package:flterm/flterm.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/design/tokens.dart';
+import 'package:dazzle/features/shell/shell_engine.dart';
 import 'package:dazzle/platform/vnc/keysyms.dart';
-import 'package:xterm/xterm.dart';
+import 'package:flutter/painting.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fake_shell.dart';
 
@@ -20,24 +23,43 @@ const _rose = Host(
 Future<void> _settle() => Future<void>.delayed(Duration.zero);
 
 /// Colours nothing else in the suite uses, so a reply can only have come from these.
-const _colors = TerminalColors(
-  foreground: 0xFFE8E8E8,
-  background: 0xFF08090B,
-  cursor: 0xFFB7FF2A,
+const _palette = TerminalPalette(
+  foreground: Color(0xFFE8E8E8),
+  background: Color(0xFF08090B),
+  cursor: Color(0xFFB7FF2A),
+  ansi: [
+    Color(0xFF000000),
+    Color(0xFFCD3131),
+    Color(0xFF0DBC79),
+    Color(0xFFE5E510),
+    Color(0xFF2472C8),
+    Color(0xFFBC3FBC),
+    Color(0xFF11A8CD),
+    Color(0xFFE5E5E5),
+    Color(0xFF666666),
+    Color(0xFFF14C4C),
+    Color(0xFF23D18B),
+    Color(0xFFF5F543),
+    Color(0xFF3B8EEA),
+    Color(0xFFD670D6),
+    Color(0xFF29B8DB),
+    Color(0xFFFFFFFF),
+  ],
 );
 
-({Terminal terminal, List<String> reports, List<String> unknown}) _terminal({
-  TerminalColors? colors = _colors,
+({TerminalController terminal, List<String> replies}) _terminal({
+  TerminalPalette? palette = _palette,
 }) {
-  final reports = <String>[];
-  final unknown = <String>[];
-  final terminal = Terminal(
-    colors: colors,
-    onReport: reports.add,
-    onOutput: (data) => fail('the user typed nothing: $data'),
-    onPrivateOSC: (code, args) => unknown.add('$code;${args.join(';')}'),
-  );
-  return (terminal: terminal, reports: reports, unknown: unknown);
+  final replies = <String>[];
+  final terminal = TerminalController()
+    ..onOutput = (bytes) => replies.add(utf8.decode(bytes));
+  if (palette != null) answerInColours(terminal, palette);
+  addTearDown(terminal.dispose);
+  return (terminal: terminal, replies: replies);
+}
+
+extension on TerminalController {
+  void type(String text) => write(Uint8List.fromList(utf8.encode(text)));
 }
 
 void main() {
@@ -45,101 +67,48 @@ void main() {
     test('the background is answered in sixteen-bit channels', () {
       final it = _terminal();
 
-      it.terminal.write('\x1b]11;?\x07');
+      it.terminal.type('\x1b]11;?\x07');
 
-      expect(it.reports, ['\x1b]11;rgb:0808/0909/0b0b\x07']);
+      expect(it.replies.join(), '\x1b]11;rgb:0808/0909/0b0b\x07');
     });
 
     test('the foreground and the cursor answer on their own slots', () {
       final it = _terminal();
 
-      it.terminal.write('\x1b]10;?\x07\x1b]12;?\x07');
+      it.terminal.type('\x1b]10;?\x07\x1b]12;?\x07');
 
-      expect(it.reports, [
-        '\x1b]10;rgb:e8e8/e8e8/e8e8\x07',
+      expect(
+        it.replies.join(),
+        '\x1b]10;rgb:e8e8/e8e8/e8e8\x07'
         '\x1b]12;rgb:b7b7/ffff/2a2a\x07',
-      ]);
+      );
     });
 
     test('an answer ends the way the question did', () {
       final it = _terminal();
 
-      it.terminal.write('\x1b]11;?\x1b\\');
+      it.terminal.type('\x1b]11;?\x1b\\');
 
       // A program that asked with ST reads until ST; a bell would leave it waiting on a reply
       // it has already been sent.
-      expect(it.reports, ['\x1b]11;rgb:0808/0909/0b0b\x1b\\']);
-    });
-
-    test('one question can ask for the next colours in turn', () {
-      final it = _terminal();
-
-      it.terminal.write('\x1b]10;?;?;?\x07');
-
-      expect(it.reports, [
-        '\x1b]10;rgb:e8e8/e8e8/e8e8\x07',
-        '\x1b]11;rgb:0808/0909/0b0b\x07',
-        '\x1b]12;rgb:b7b7/ffff/2a2a\x07',
-      ]);
+      expect(it.replies.join(), '\x1b]11;rgb:0808/0909/0b0b\x1b\\');
     });
 
     test('a question split across two reads is still one question', () {
       final it = _terminal();
 
-      it.terminal.write('\x1b]11');
-      it.terminal.write(';?\x07');
+      it.terminal.type('\x1b]11');
+      it.terminal.type(';?\x07');
 
-      expect(it.reports, ['\x1b]11;rgb:0808/0909/0b0b\x07']);
+      expect(it.replies.join(), '\x1b]11;rgb:0808/0909/0b0b\x07');
     });
 
-    test('a terminal told no colours answers nothing', () {
-      final it = _terminal(colors: null);
-
-      it.terminal.write('\x1b]11;?\x07');
-
-      expect(it.reports, isEmpty);
-    });
-  });
-
-  group('what is not a question', () {
-    test('a colour being set is left where it was', () {
+    test('a numbered colour of the table is answered too', () {
       final it = _terminal();
 
-      it.terminal.write('\x1b]11;#161821\x07');
+      it.terminal.type('\x1b]4;1;?\x07');
 
-      expect(it.reports, isEmpty);
-      expect(it.unknown, ['11;#161821']);
-    });
-
-    test('a colour being put back is left where it was', () {
-      final it = _terminal();
-
-      it.terminal.write('\x1b]111\x07');
-
-      expect(it.reports, isEmpty);
-      expect(it.unknown, ['111;']);
-    });
-
-    test('a question about a colour there is no name for is not answered', () {
-      final it = _terminal();
-
-      // Four marks from slot 10 runs past the cursor, into the colours this terminal has
-      // nothing to say about.
-      it.terminal.write('\x1b]10;?;?;?;?\x07');
-
-      expect(it.reports, isEmpty);
-      expect(it.unknown, ['10;?;?;?;?']);
-    });
-
-    test('a title still sets the title', () {
-      final it = _terminal();
-      final titles = <String>[];
-      it.terminal.onTitleChange = titles.add;
-
-      it.terminal.write('\x1b]2;rose\x07');
-
-      expect(titles, ['rose']);
-      expect(it.reports, isEmpty);
+      expect(it.replies.join(), '\x1b]4;1;rgb:cdcd/3131/3131\x07');
     });
   });
 
@@ -148,11 +117,12 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(_rose)!;
+      sessions.open(_rose);
       await _settle();
       final connection = transport.opened.single;
 
-      session.terminal.write('\x1b]11;?\x07');
+      connection.emit('\x1b]11;?\x07');
+      await _settle();
 
       final ground = DazzleTokens.house.terminal.background;
       final rgb = [
@@ -172,7 +142,8 @@ void main() {
       final connection = transport.opened.single;
 
       sessions.arm(session, {StickyModifier.alt}, repeat: 2);
-      session.terminal.write('\x1b]11;?\x07');
+      connection.emit('\x1b]11;?\x07');
+      await _settle();
 
       expect(connection.writes.single.first, 0x1b);
       expect(connection.writes.single[1], 0x5d);

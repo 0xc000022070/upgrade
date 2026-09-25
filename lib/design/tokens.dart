@@ -1,8 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:xterm/xterm.dart';
 
 import 'colors.dart';
 import 'typography.dart';
+
+@immutable
+class TerminalPalette {
+  const TerminalPalette({
+    required this.foreground,
+    required this.background,
+    required this.cursor,
+    required this.ansi,
+  });
+
+  final Color foreground;
+  final Color background;
+  final Color cursor;
+
+  final List<Color> ansi;
+}
 
 @immutable
 class SyntaxPalette {
@@ -134,7 +149,7 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
   final Color diffAddedRun;
   final Color diffRemovedRun;
 
-  final TerminalTheme terminal;
+  final TerminalPalette terminal;
 
   final TextStyle screenTitle;
   final TextStyle breadcrumb;
@@ -211,30 +226,28 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
     pipMeta: DazzleText.pipMeta,
   );
 
-  static const _houseTerminal = TerminalTheme(
-    cursor: DazzleColors.accent,
-    selection: Color(0x55B7FF2A),
+  static const _houseTerminal = TerminalPalette(
     foreground: DazzleColors.textPrimary,
     background: Color(0xFF000000),
-    black: DazzleColors.backgroundPrimary,
-    red: Color(0xFFCD3131),
-    green: DazzleColors.accent,
-    yellow: Color(0xFFE5E510),
-    blue: Color(0xFF2472C8),
-    magenta: Color(0xFFBC3FBC),
-    cyan: Color(0xFF11A8CD),
-    white: DazzleColors.textPrimary,
-    brightBlack: DazzleColors.textDisabled,
-    brightRed: Color(0xFFF14C4C),
-    brightGreen: DazzleColors.accentMuted,
-    brightYellow: Color(0xFFF5F543),
-    brightBlue: Color(0xFF3B8EEA),
-    brightMagenta: Color(0xFFD670D6),
-    brightCyan: Color(0xFF29B8DB),
-    brightWhite: Color(0xFFFFFFFF),
-    searchHitBackground: DazzleColors.accent,
-    searchHitBackgroundCurrent: DazzleColors.accentMuted,
-    searchHitForeground: DazzleColors.backgroundPrimary,
+    cursor: DazzleColors.accent,
+    ansi: [
+      DazzleColors.backgroundPrimary,
+      Color(0xFFCD3131),
+      DazzleColors.accent,
+      Color(0xFFE5E510),
+      Color(0xFF2472C8),
+      Color(0xFFBC3FBC),
+      Color(0xFF11A8CD),
+      DazzleColors.textPrimary,
+      DazzleColors.textDisabled,
+      Color(0xFFF14C4C),
+      DazzleColors.accentMuted,
+      Color(0xFFF5F543),
+      Color(0xFF3B8EEA),
+      Color(0xFFD670D6),
+      Color(0xFF29B8DB),
+      Color(0xFFFFFFFF),
+    ],
   );
 
   @override
@@ -267,7 +280,7 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
     Color? diffCappedGround,
     Color? diffAddedRun,
     Color? diffRemovedRun,
-    TerminalTheme? terminal,
+    TerminalPalette? terminal,
     TextStyle? screenTitle,
     TextStyle? breadcrumb,
     TextStyle? panelHeader,
@@ -414,12 +427,4 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
 
 extension DazzleTokensContext on BuildContext {
   DazzleTokens get tokens => Theme.of(this).extension<DazzleTokens>()!;
-}
-
-extension TerminalThemeReport on TerminalTheme {
-  TerminalColors get reportedColors => TerminalColors(
-    foreground: foreground.toARGB32(),
-    background: background.toARGB32(),
-    cursor: cursor.toARGB32(),
-  );
 }

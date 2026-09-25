@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
-import 'package:xterm/xterm.dart';
+import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -400,36 +400,30 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    bool focused() => tester
-        .widget<TerminalView>(find.byType(TerminalView))
-        .focusNode!
-        .hasFocus;
+    bool raised() => tester.testTextInput.isVisible;
 
     await tester.tap(find.byType(TerminalView));
     await ready(tester);
-    expect(focused(), isFalse);
-    expect(tester.testTextInput.hasAnyClients, isFalse);
+    expect(raised(), isFalse);
 
     transport.opened.single.emit('selectme\r\n');
     await ready(tester);
     final session = sessions.activeFor(rose.id)!;
-    final buffer = session.terminal.buffer;
-    session.controller.setSelection(
-      buffer.createAnchor(0, 0),
-      buffer.createAnchor(8, 0),
+    session.terminal.selectRange(
+      start: const Position(row: 0, col: 0),
+      end: const Position(row: 0, col: 7),
     );
     await tester.pump();
-    expect(session.controller.selection, isNotNull);
+    expect(session.terminal.hasSelection, isTrue);
 
     await tester.tap(find.byType(TerminalView));
     await ready(tester);
-    expect(session.controller.selection, isNull);
-    expect(focused(), isFalse);
+    expect(session.terminal.hasSelection, isFalse);
+    expect(raised(), isFalse);
 
     await tester.tap(find.byKey(const ValueKey('bar-keyboard')));
     await ready(tester);
-    expect(focused(), isTrue);
-    expect(tester.testTextInput.hasAnyClients, isTrue);
+    expect(raised(), isTrue);
 
     await unmount(tester);
   });
