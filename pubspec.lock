@@ -700,11 +700,9 @@ packages:
   libghostty:
     dependency: "direct main"
     description:
-      path: "packages/libghostty"
-      ref: "56a95052776e75816a3ab0c0057c20c850944265"
-      resolved-ref: "56a95052776e75816a3ab0c0057c20c850944265"
-      url: "https://github.com/elias8/libghostty"
-    source: git
+      path: ".dart_tool/libghostty"
+      relative: true
+    source: path
     version: "0.0.12"
   lints:
     dependency: transitive

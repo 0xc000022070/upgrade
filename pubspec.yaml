@@ -36,15 +36,9 @@ dependencies:
   pointycastle: ^4.0.0
   url_launcher: ^6.3.1
   flterm:
-    git:
-      url: https://github.com/elias8/libghostty
-      ref: 56a95052776e75816a3ab0c0057c20c850944265
-      path: packages/flterm
+    path: .dart_tool/flterm
   libghostty:
-    git:
-      url: https://github.com/elias8/libghostty
-      ref: 56a95052776e75816a3ab0c0057c20c850944265
-      path: packages/libghostty
+    path: .dart_tool/libghostty
   material_ui: ^1.4.0
   uuid: ^4.6.0
   flutter_local_notifications: ^22.3.0
@@ -53,14 +47,9 @@ dependencies:
 
 dependency_overrides:
   libghostty:
-    git:
-      url: https://github.com/elias8/libghostty
-      ref: 56a95052776e75816a3ab0c0057c20c850944265
-      path: packages/libghostty
+    path: .dart_tool/libghostty
   dart_mosh:
     path: .dart_tool/dart_mosh
-  flterm:
-    path: .dart_tool/flterm
 
 dev_dependencies:
   flutter_test:
