@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../data/repositories/host_repository.dart';
 import '../../design/tokens.dart';
+import '../../design/components/cell_divider.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel_sheet.dart';
@@ -140,7 +141,9 @@ class _ShellHeaderState extends State<ShellHeader> {
         children: [
           const SizedBox(width: Spacing.screenEdge),
           _HostCell(name: host.name, onTap: widget.onSwitchHost),
-          const SizedBox(width: Spacing.lg),
+          const SizedBox(width: Spacing.md),
+          const CellDivider(),
+          const SizedBox(width: Spacing.sm),
           // The strip is the one part of the row that gives way: the cells beside it
           // keep the size of what they hold, and nine shells open scroll inside
           // whatever is left rather than overflowing the row.
@@ -194,6 +197,18 @@ class _ShellHeaderState extends State<ShellHeader> {
                       ),
                       alignmentOffset: const Offset(0, Spacing.sm),
                       menuChildren: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            Spacing.md,
+                            Spacing.sm,
+                            Spacing.md,
+                            Spacing.sm,
+                          ),
+                          child: Text(
+                            'NEW SHELL ON',
+                            style: context.tokens.label,
+                          ),
+                        ),
                         for (final host in widget.newHosts)
                           MenuItemButton(
                             key: ValueKey('shell-new-host-${host.id}'),
@@ -203,7 +218,10 @@ class _ShellHeaderState extends State<ShellHeader> {
                                 Size(192, TapTargets.minHeight),
                               ),
                               padding: WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(horizontal: Spacing.md),
+                                EdgeInsetsDirectional.only(
+                                  start: Spacing.md,
+                                  end: Spacing.lg,
+                                ),
                               ),
                               shape: WidgetStatePropertyAll(
                                 RoundedRectangleBorder(
@@ -229,8 +247,10 @@ class _ShellHeaderState extends State<ShellHeader> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (host.id == widget.host.id)
+                                if (host.id == widget.host.id) ...[
+                                  const SizedBox(width: Spacing.md),
                                   Text('CURRENT', style: context.tokens.label),
+                                ],
                               ],
                             ),
                           ),
@@ -256,12 +276,16 @@ class _ShellHeaderState extends State<ShellHeader> {
               onTap: widget.diffReady ? onDiff : null,
             ),
           _Middle(host: host.name, session: active, onStop: widget.onStop),
-          if (onClose != null)
+          if (onClose != null) ...[
+            const SizedBox(width: Spacing.md),
+            const CellDivider(),
+            const SizedBox(width: Spacing.sm),
             _TabCell(
               key: const ValueKey('shell-tab-close'),
               label: '×',
               onTap: onClose,
             ),
+          ],
           const SizedBox(width: Spacing.screenEdge),
         ],
       ),
@@ -296,15 +320,22 @@ class _HostCell extends StatelessWidget {
       key: const ValueKey('shell-host-switch'),
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          label,
-          const SizedBox(width: Spacing.sm),
-          DazzleIcon(
-            DazzleIcons.expand,
-            size: IconSizes.affordance,
-            color: context.tokens.textDisabled,
+          Text('ALL SHELLS', style: context.tokens.label),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              label,
+              const SizedBox(width: Spacing.sm),
+              DazzleIcon(
+                DazzleIcons.arrowDown,
+                size: IconSizes.affordance,
+                color: context.tokens.textMuted,
+              ),
+            ],
           ),
         ],
       ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/cell_divider.dart';
+import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_header.dart';
 import 'package:dazzle/features/shell/shell_status.dart';
@@ -135,7 +137,13 @@ void main() {
     await ready(tester);
 
     expect(find.byKey(const ValueKey('shell-new-host-h1')), findsOneWidget);
+    expect(find.text('NEW SHELL ON'), findsOneWidget);
     expect(find.text('CURRENT'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('CURRENT')).dx -
+          tester.getTopRight(find.text('ROSE').last).dx,
+      greaterThanOrEqualTo(Spacing.md),
+    );
 
     await tester.tap(find.byKey(const ValueKey('shell-new-host-h1')));
     await ready(tester);
@@ -149,6 +157,32 @@ void main() {
 
     await unmount(tester);
   });
+
+  testWidgets(
+    'the plus menu keeps CURRENT off its edge at a large text scale',
+    (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.625;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final sessions = fakeShellSessions(FakeShellTransport());
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+
+      await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+      await ready(tester);
+
+      final item = find.byKey(const ValueKey('shell-new-host-h1'));
+      final current = find.text('CURRENT');
+      expect(
+        tester.getTopRight(item).dx - tester.getTopRight(current).dx,
+        greaterThanOrEqualTo(Spacing.lg),
+      );
+
+      await unmount(tester);
+    },
+  );
 
   group('a tab says which shell it is', () {
     test('a shell with no title reads its number', () {
@@ -333,6 +367,16 @@ void main() {
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('shell-tab-close'))).dx,
       lessThan(411),
+    );
+    final rule = find.descendant(
+      of: find.byKey(const ValueKey('shell-header')),
+      matching: find.byType(CellDivider),
+    );
+    expect(
+      tester.getRect(rule.last).right,
+      lessThanOrEqualTo(
+        tester.getRect(find.byKey(const ValueKey('shell-tab-close'))).left,
+      ),
     );
 
     await unmount(tester);

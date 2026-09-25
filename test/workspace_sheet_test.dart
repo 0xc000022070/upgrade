@@ -142,7 +142,7 @@ class FakeRunner implements WorkspaceRunner {
     if (command.contains('--numstat --format=')) {
       return WorkspaceReply(exitCode: 0, stdout: _commitFiles, stderr: '');
     }
-    if (command.contains('git status')) {
+    if (command.contains('status --porcelain')) {
       return WorkspaceReply(
         exitCode: 0,
         stdout: overview ?? _overview,
@@ -375,7 +375,7 @@ void main() {
       tester,
     ) async {
       final runner = FakeRunner()
-        ..answers['git status'] = const WorkspaceReply(
+        ..answers['status --porcelain'] = const WorkspaceReply(
           exitCode: workspaceNoDirectory,
           stdout: '',
           stderr: '',
@@ -394,7 +394,7 @@ void main() {
       tester,
     ) async {
       final runner = FakeRunner()
-        ..answers['git status'] = const WorkspaceReply(
+        ..answers['status --porcelain'] = const WorkspaceReply(
           exitCode: workspaceNoRepository,
           stdout: '',
           stderr: '',
@@ -966,7 +966,9 @@ void main() {
         hasLength(1),
       );
       expect(
-        runner.commands.where((command) => command.contains('git status')),
+        runner.commands.where(
+          (command) => command.contains('status --porcelain'),
+        ),
         hasLength(1),
       );
 
@@ -1189,7 +1191,8 @@ void main() {
         .where(
           (command) =>
               command.contains('--no-color HEAD') ||
-              command.contains('--no-index') ||
+              (command.contains('--no-index') &&
+                  !command.contains('status --porcelain')) ||
               command.contains('--first-parent --format='),
         )
         .length;
@@ -1636,6 +1639,314 @@ void main() {
 
       await unmount(tester);
     });
+
+    Future<FakeRunner> bare(
+      WidgetTester tester, {
+      required FakeRunner runner,
+      Size size = const Size(400, 1600),
+    }) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [privateKeyStoreProvider.overrideWithValue(privateKeys)],
+          child: MaterialApp(
+            theme: testTheme,
+            builder: houseText,
+            home: DiffSheet(
+              host: host,
+              directory: path.directory,
+              open: ({
+                required address,
+                required port,
+                required user,
+                required privateKey,
+                verifier,
+              }) async => runner,
+            ),
+          ),
+        ),
+      );
+      await ready(tester);
+      return runner;
+    }
+
+    String overviewOf(String status, String numstat, [String untracked = '']) =>
+        '$status$workspaceRecord\n$workspaceRecord\n$numstat'
+        '$workspaceRecord\n$untracked';
+
+    const newFile = '''
+diff --git a/notes.md b/notes.md
+new file mode 100644
+--- /dev/null
++++ b/notes.md
+@@ -0,0 +1,3 @@
++first line
++second line
++third line
+''';
+
+    testWidgets('a new file counts its lines in its row and in the sum', (
+      tester,
+    ) async {
+      final runner = FakeRunner(
+        overview: overviewOf(
+          '1 .M N... 100644 100644 100644 aaa bbb lib/main.dart\n? notes.md\n',
+          '3\t1\tlib/main.dart\n',
+          'notes.md:3\n',
+        ),
+      );
+      await bare(tester, runner: runner);
+
+      expect(onSheet(find.text('+6', findRichText: true)), findsOneWidget);
+      await unfold(tester, 'CHANGES');
+      expect(
+        tester.widget<ListRow>(fileRow('notes.md')).valueSpans!.first.text,
+        '+3',
+      );
+
+      await unmount(tester);
+    });
+
+    testWidgets('thousands of changes build only the rows on screen', (
+      tester,
+    ) async {
+      final names = [for (var i = 0; i < 5000; i++) 'node_modules/m$i.js'];
+      final runner = FakeRunner(
+        overview: overviewOf(
+          names.map((name) => '? $name\n').join(),
+          '',
+          names.map((name) => '$name:1\n').join(),
+        ),
+      );
+      await bare(tester, runner: runner);
+      await unfold(tester, 'CHANGES');
+
+      expect(fileRow(names.first), findsOneWidget);
+      expect(fileRow(names.last), findsNothing);
+      expect(onSheet(find.byType(ListRow)).evaluate().length, lessThan(100));
+
+      await unmount(tester);
+    });
+
+    testWidgets('one changed file is opened without being picked', (
+      tester,
+    ) async {
+      final runner = FakeRunner(
+        overview: overviewOf(
+          '1 .M N... 100644 100644 100644 aaa bbb lib/main.dart\n',
+          '3\t1\tlib/main.dart\n',
+        ),
+      );
+      await bare(tester, runner: runner);
+
+      expect(find.text('const port = 357;'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('two files on a phone wait to be picked', (tester) async {
+      await bare(tester, runner: FakeRunner());
+
+      expect(find.text('const port = 357;'), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('unfolded, the first file is open beside the list', (
+      tester,
+    ) async {
+      await bare(tester, runner: FakeRunner(), size: const Size(1200, 1600));
+
+      expect(find.text('const port = 357;'), findsOneWidget);
+      expect(onSheet(find.text('pick a file')), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('unfolded, the sheet takes the width of the screen', (
+      tester,
+    ) async {
+      const unfolded = Size(1200, 1600);
+      await viewer(tester, size: unfolded);
+
+      expect(
+        tester.getSize(find.byType(DiffSheet)).width,
+        unfolded.width - Spacing.screenEdge * 2,
+      );
+
+      await unmount(tester);
+    });
+
+    testWidgets('the walk is inside the file it walks', (tester) async {
+      await viewer(tester);
+
+      final pane = find
+          .ancestor(
+            of: onSheet(find.text('lib/main.dart')),
+            matching: find.byType(Panel),
+          )
+          .first;
+      expect(
+        find.descendant(
+          of: pane,
+          matching: find.byKey(const ValueKey('diff-next-file')),
+        ),
+        findsOneWidget,
+      );
+
+      await unmount(tester);
+    });
+
+    testWidgets('a new file is drawn as the file, marked as new', (
+      tester,
+    ) async {
+      final runner =
+          FakeRunner(overview: overviewOf('? notes.md\n', '', 'notes.md:3\n'))
+            ..answers['--no-index -- /dev/null'] = const WorkspaceReply(
+              exitCode: 0,
+              stdout: newFile,
+              stderr: '',
+            )
+            ..answers['--no-color HEAD'] = const WorkspaceReply(
+              exitCode: 0,
+              stdout: '',
+              stderr: '',
+            );
+      await bare(tester, runner: runner);
+
+      expect(onSheet(find.text('NEW FILE')), findsOneWidget);
+      expect(onSheet(find.text('second line')), findsOneWidget);
+      expect(onSheet(find.text('3')), findsWidgets);
+      expect(onSheet(find.textContaining('@@')), findsNothing);
+      expect(onSheet(find.text('+')), findsNothing);
+      expect(onSheet(find.text('new file mode 100644')), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a deleted file is drawn as the lines it had, marked gone', (
+      tester,
+    ) async {
+      final runner =
+          FakeRunner(
+              overview: overviewOf(
+                '1 D. N... 100644 000000 000000 ccc 0000000 gone.md\n',
+                '0\t2\tgone.md\n',
+              ),
+            )
+            ..answers['--no-color HEAD'] = const WorkspaceReply(
+              exitCode: 0,
+              stdout: '''
+diff --git a/gone.md b/gone.md
+deleted file mode 100644
+--- a/gone.md
++++ /dev/null
+@@ -1,2 +0,0 @@
+-first gone
+-second gone
+''',
+              stderr: '',
+            );
+      await bare(tester, runner: runner);
+
+      expect(onSheet(find.text('DELETED')), findsOneWidget);
+      expect(onSheet(find.text('second gone')), findsOneWidget);
+      expect(onSheet(find.textContaining('@@')), findsNothing);
+      expect(onSheet(find.text('-')), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a rename git split in two shows both sides of its count', (
+      tester,
+    ) async {
+      final runner =
+          FakeRunner(
+              overview: overviewOf(
+                '2 R. N... 100644 100644 100644 aaa aaa R100 lib/b.txt\ta.txt\n',
+                '0\t1\ta.txt\n2\t0\tlib/b.txt\n',
+              ),
+            )
+            ..answers['--no-color HEAD'] = const WorkspaceReply(
+              exitCode: 0,
+              stdout: '''
+diff --git a/a.txt b/a.txt
+deleted file mode 100644
+--- a/a.txt
++++ /dev/null
+@@ -1 +0,0 @@
+-old side
+diff --git a/lib/b.txt b/lib/b.txt
+new file mode 100644
+--- /dev/null
++++ b/lib/b.txt
+@@ -0,0 +1,2 @@
++new side
++more new
+''',
+              stderr: '',
+            );
+      await bare(tester, runner: runner);
+
+      expect(onSheet(find.text('1 FILE')), findsOneWidget);
+      expect(onSheet(find.text('old side')), findsOneWidget);
+      expect(onSheet(find.text('new side')), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('an uncounted file heads its pane with no count', (
+      tester,
+    ) async {
+      await bare(
+        tester,
+        runner: FakeRunner(overview: overviewOf('? blob.bin\n', '')),
+        size: const Size(1200, 1600),
+      );
+
+      final pane = find
+          .ancestor(
+            of: onSheet(find.text('blob.bin')).last,
+            matching: find.byType(Panel),
+          )
+          .first;
+      expect(
+        find.descendant(
+          of: pane,
+          matching: find.textContaining('+0', findRichText: true),
+        ),
+        findsNothing,
+      );
+
+      await unmount(tester);
+    });
+
+    testWidgets('back leaves a file the sheet opened by itself', (
+      tester,
+    ) async {
+      await bare(tester, runner: FakeRunner(), size: const Size(1200, 1600));
+      bool canPop() => tester
+          .widgetList<PopScope<dynamic>>(
+            find.descendant(
+              of: find.byType(DiffSheet),
+              matching: find.byWidgetPredicate((w) => w is PopScope),
+            ),
+          )
+          .first
+          .canPop;
+
+      expect(find.text('const port = 357;'), findsOneWidget);
+      expect(canPop(), isTrue);
+
+      await unfold(tester, 'CHANGES');
+      await tester.tap(fileRow('lib/main.dart'));
+      await ready(tester);
+      expect(canPop(), isFalse);
+
+      await unmount(tester);
+    });
   });
   group('the tracker', () {
     // The default fake lists the same two entries wherever it is asked, so the root is
@@ -1728,7 +2039,7 @@ void main() {
       expect(row(tester, 'main.dart').valueColor, DazzleColors.warning);
 
       expect(
-        runner.commands.where((c) => c.contains('git status')),
+        runner.commands.where((c) => c.contains('status --porcelain')),
         hasLength(1),
       );
       expect(runner.commands.any(writes.hasMatch), isFalse);
@@ -1908,7 +2219,12 @@ void main() {
       expect(find.text('UNTRACKED'), findsOneWidget);
       expect(find.bySemanticsLabel('NEXT'), findsNothing);
       expect(find.bySemanticsLabel('DIFF'), findsOneWidget);
-      expect(runner.commands.any((c) => c.contains('--no-index')), isFalse);
+      expect(
+        runner.commands.any(
+          (c) => c.contains('--no-index') && !c.contains('status --porcelain'),
+        ),
+        isFalse,
+      );
 
       await unmount(tester);
     });

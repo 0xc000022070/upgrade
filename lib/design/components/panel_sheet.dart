@@ -16,11 +16,13 @@ Future<T?> showPanelSheet<T>(
   required String title,
   required WidgetBuilder builder,
   double maxHeightFraction = 0.86,
+  double maxWidth = Layout.columnMax,
 }) {
   final content = inheritPluginScope(
     context,
     _SheetFrame(
       maxHeightFraction: maxHeightFraction,
+      maxWidth: maxWidth,
       child: Builder(builder: builder),
     ),
   );
@@ -88,10 +90,15 @@ Future<bool> confirmSheet(
 }
 
 class _SheetFrame extends StatelessWidget {
-  const _SheetFrame({required this.child, required this.maxHeightFraction});
+  const _SheetFrame({
+    required this.child,
+    required this.maxHeightFraction,
+    required this.maxWidth,
+  });
 
   final Widget child;
   final double maxHeightFraction;
+  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +121,7 @@ class _SheetFrame extends StatelessWidget {
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: Layout.columnMax,
+              maxWidth: maxWidth,
               maxHeight: media.size.height * maxHeightFraction,
             ),
             child: Material(color: const Color(0x00000000), child: child),
