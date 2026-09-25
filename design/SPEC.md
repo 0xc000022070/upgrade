@@ -1341,11 +1341,13 @@ The reason lines are `unreachable`, `unresolved`, `key rejected`, `tunnel refuse
 
 **The rail hides on a drag to the left over it.** It slides off the edge and leaves an 8×44 handle at its vertical centre, `--fg-dim` fill with a 1dp keyline so it separates from a light picture behind it. The hidden rail keeps the footprint the shown rail had as its hit region, transparent except for the handle: a drag to the right starting anywhere in it, or a tap on it, brings it back. That region reaches past the system's own back-gesture edge zone, which would otherwise swallow a drag starting on the handle itself. Pointer drags starting inside that patch belong to the rail and to nothing else on the picture. It is shown on every route entry, the hidden state lives with the route and is not persisted, and there is no timed auto-hide.
 
-### The key strip is two rows of six
+### The key strip is the shell's key bar, one row of 36
 
-Top row `ESC`, `TAB`, `SHIFT`, an empty cell, `↑`, `END`; bottom row `SUPER`, `CTRL`, `ALT`, `←`, `↓`, `→`, so the arrows form an inverted T in the last three columns. The columns share the width equally. The strip's own toggles are not repeated in it; the rail carries them. It sits above the keyboard when the keyboard is up and at the bottom edge when it is not.
+It is the shell's bar, cell for cell: one row of 36, cells sized to their label plus 10 px each side and never narrower than 36, the row scrolling when it is wider than the phone and fading at whichever end has cells behind it. `SUPER`, `CTRL`, `ALT`, `SHIFT`, then `ESC`, `TAB`, `←`, `↑`, `↓`, `→` and `END`. Nothing is pinned: the strip's own toggles are not repeated in it, the rail carries them. It sits above the keyboard when the keyboard is up and at the bottom edge when it is not.
 
-`CTRL`, `ALT` and `SHIFT` are sticky and arm exactly one following key. `SUPER` draws the ⌘-like house glyph with no word beside it; the four arrows draw their own glyphs; everything else is a mono 11 tracked word.
+**Two rows gave the picture away.** Six equal columns across a foldable's inner screen made cells far wider than their words, and the pair stood a hand's height over the framebuffer with the keyboard under it. One row is what the shell already spends, and it leaves the picture the rest.
+
+The four modifiers arm the way the shell's do: a tap for one key, a downward drag for a count to three, a long press to latch, the label rolling to `CTRL(x2)` or `CTRL(∞)`. The arming belongs to the route, and every key spends it, the strip's and the IME's alike. `SHIFT` and `SUPER` are here where the shell's bar has neither: a desktop takes `SHIFT TAB`, a shifted arrow and a compositor chord, and the IME sends none of them. `SUPER` draws the ⌘-like house glyph with no word beside it; the four arrows draw their own glyphs; everything else is a mono 11 tracked word.
 
 **Struck:** `HOME`, `PGUP` and `PGDN`. The user does not use them.
 

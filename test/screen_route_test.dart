@@ -449,9 +449,7 @@ void main() {
     );
   });
 
-  testWidgets('the strip is two rows of six with the arrows in an inverted T', (
-    tester,
-  ) async {
+  testWidgets('the strip is one row of 36, modifiers first', (tester) async {
     await pumpRoute(tester, open: _liveOpen());
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('rail-keys')));
@@ -460,47 +458,105 @@ void main() {
     Rect box(String label) =>
         tester.getRect(find.byKey(ValueKey('key-$label')));
 
-    const top = ['ESC', 'TAB', 'SHIFT', 'UP', 'END'];
-    const bottom = ['SUPER', 'CTRL', 'ALT', 'LEFT', 'DOWN', 'RIGHT'];
+    const order = [
+      'SUPER',
+      'CTRL',
+      'ALT',
+      'SHIFT',
+      'ESC',
+      'TAB',
+      'LEFT',
+      'UP',
+      'DOWN',
+      'RIGHT',
+      'END',
+    ];
+    for (final label in order) {
+      expect(box(label).top, box('SUPER').top, reason: '$label is on the row');
+      expect(box(label).width, greaterThanOrEqualTo(RowMetrics.minHeight));
+    }
+    for (var i = 1; i < order.length; i++) {
+      expect(
+        box(order[i]).left,
+        moreOrLessEquals(box(order[i - 1]).right),
+        reason: '${order[i]} follows ${order[i - 1]}',
+      );
+    }
+    expect(box('SUPER').height, lessThanOrEqualTo(RowMetrics.minHeight));
+  });
 
-    for (final label in top) {
-      expect(
-        box(label).top,
-        box('ESC').top,
-        reason: '$label is on the top row',
-      );
-    }
-    for (final label in bottom) {
-      expect(
-        box(label).top,
-        box('SUPER').top,
-        reason: '$label is on the bottom row',
-      );
-    }
-    expect(box('SUPER').top, greaterThan(box('ESC').top));
+  testWidgets('a drag down on a modifier arms it for two keys', (tester) async {
+    late FakeVncConnection connection;
+    await pumpRoute(tester, open: _liveOpen((c) => connection = c));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rail-keys')));
+    await tester.pumpAndSettle();
 
-    for (final label in [...top, ...bottom]) {
-      expect(
-        box(label).width,
-        moreOrLessEquals(box('ESC').width),
-        reason: '\$label is one cell',
-      );
-    }
-    expect(
-      box('ESC').left + box('ESC').width * 6,
-      moreOrLessEquals(box('END').right),
+    final before = connection.channel.sent.length;
+    await tester.drag(
+      find.byKey(const ValueKey('key-CTRL')),
+      const Offset(0, 40),
     );
+    await tester.pumpAndSettle();
+    expect(find.text('CTRL(x2)'), findsOneWidget);
 
-    expect(box('UP').center.dx, moreOrLessEquals(box('DOWN').center.dx));
-    expect(box('LEFT').center.dx, lessThan(box('DOWN').center.dx));
-    expect(box('RIGHT').center.dx, greaterThan(box('DOWN').center.dx));
-    expect(box('END').center.dx, moreOrLessEquals(box('RIGHT').center.dx));
-    expect(
-      top.where(
-        (label) => (box(label).center.dx - box('LEFT').center.dx).abs() < 1,
-      ),
-      isEmpty,
-    );
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.byKey(const ValueKey('key-TAB')));
+      await tester.pumpAndSettle();
+    }
+
+    expect(keyEvents(connection.channel.sent.sublist(before)), [
+      (Keysyms.control, true),
+      (Keysyms.tab, true),
+      (Keysyms.tab, false),
+      (Keysyms.control, false),
+      (Keysyms.control, true),
+      (Keysyms.tab, true),
+      (Keysyms.tab, false),
+      (Keysyms.control, false),
+      (Keysyms.tab, true),
+      (Keysyms.tab, false),
+    ]);
+    expect(find.text('CTRL'), findsOneWidget);
+  });
+
+  testWidgets('a press latches a modifier until it is tapped off', (
+    tester,
+  ) async {
+    late FakeVncConnection connection;
+    await pumpRoute(tester, open: _liveOpen((c) => connection = c));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rail-keys')));
+    await tester.pumpAndSettle();
+
+    final before = connection.channel.sent.length;
+    await tester.longPress(find.byKey(const ValueKey('key-SHIFT')));
+    await tester.pumpAndSettle();
+    expect(find.text('SHIFT(∞)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('key-TAB')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText), '${_sentinel}a');
+    await tester.pumpAndSettle();
+    expect(find.text('SHIFT(∞)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('key-SHIFT')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('key-TAB')));
+    await tester.pumpAndSettle();
+
+    expect(keyEvents(connection.channel.sent.sublist(before)), [
+      (Keysyms.shift, true),
+      (Keysyms.tab, true),
+      (Keysyms.tab, false),
+      (Keysyms.shift, false),
+      (Keysyms.shift, true),
+      (0x61, true),
+      (0x61, false),
+      (Keysyms.shift, false),
+      (Keysyms.tab, true),
+      (Keysyms.tab, false),
+    ]);
   });
 
   testWidgets('the strip survives the keyboard closing itself', (tester) async {
