@@ -610,6 +610,10 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     ShellSession? active,
     List<({String directory, String label})> targets,
   ) async {
+    if (active != null) {
+      await _store.repositoryFromHost(active).catchError((Object _) => null);
+    }
+    if (!mounted) return;
     final directory =
         active?.repository ??
         (targets.length == 1

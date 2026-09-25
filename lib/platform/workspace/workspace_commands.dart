@@ -19,7 +19,8 @@ const workspaceNoRepository = 21;
 abstract final class WorkspaceCommands {
   static String _enter(String directory) =>
       '${shellCd(directory)} 2>/dev/null || exit $workspaceNoDirectory\n'
-      'git rev-parse --git-dir >/dev/null 2>&1 || exit $workspaceNoRepository\n';
+      'top=\$(git rev-parse --show-toplevel 2>/dev/null) && cd "\$top" '
+      '|| exit $workspaceNoRepository\n';
 
   /// The checkout a directory is inside: a shell three directories deep is still standing
   /// in the whole repository. A directory inside none exits non-zero.
