@@ -33,7 +33,6 @@ class WorkspaceSsh implements WorkspaceRunner {
   WorkspaceSsh._(this._socket, this._client);
 
   static const timeout = Duration(seconds: 10);
-  static const keepAlive = Duration(seconds: 20);
 
   final SSHSocket _socket;
   final SSHClient _client;
@@ -54,7 +53,7 @@ class WorkspaceSsh implements WorkspaceRunner {
       socket,
       username: user,
       identities: SSHKeyPair.fromPem(privateKey),
-      keepAliveInterval: keepAlive,
+      keepAliveInterval: sshKeepAlive,
       onVerifyHostKey: verifier?.verify,
     );
     try {

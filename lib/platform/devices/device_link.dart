@@ -254,7 +254,6 @@ class DeviceSsh implements DeviceLink {
   DeviceSsh._(this._socket, this._client);
 
   static const timeout = Duration(seconds: 10);
-  static const keepAlive = Duration(seconds: 20);
 
   final SSHSocket _socket;
   final SSHClient _client;
@@ -277,7 +276,7 @@ class DeviceSsh implements DeviceLink {
       identities: SSHKeyPair.fromPem(privateKey),
       handshakeTimeout: timeout,
       authTimeout: timeout,
-      keepAliveInterval: keepAlive,
+      keepAliveInterval: sshKeepAlive,
       onVerifyHostKey: verifier?.verify,
     );
     try {

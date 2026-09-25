@@ -16,13 +16,39 @@ class DotSpinner extends StatefulWidget {
   State<DotSpinner> createState() => _DotSpinnerState();
 }
 
-class _DotSpinnerState extends State<DotSpinner> {
+class _DotSpinnerState extends State<DotSpinner> with WidgetsBindingObserver {
   Timer? _timer;
   int _step = 0;
+  bool _foreground = true;
+  bool _visible = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _visible = TickerMode.valuesOf(context).enabled;
+    _sync();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _sync();
+  }
+
+  void _sync() {
+    final run = _foreground && _visible;
+    if (run == (_timer != null)) return;
+    if (!run) {
+      _timer?.cancel();
+      _timer = null;
+      return;
+    }
     _timer = Timer.periodic(Effects.spinnerStep, (_) {
       if (mounted) setState(() => _step++);
     });
@@ -30,6 +56,7 @@ class _DotSpinnerState extends State<DotSpinner> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
   }

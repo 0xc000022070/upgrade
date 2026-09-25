@@ -57,16 +57,19 @@ class AsciiMascot extends StatefulWidget {
   State<AsciiMascot> createState() => _AsciiMascotState();
 }
 
-class _AsciiMascotState extends State<AsciiMascot> {
+class _AsciiMascotState extends State<AsciiMascot> with WidgetsBindingObserver {
   AsciiSheet? _sheet;
   GlyphAtlas? _atlas;
   double? _builtFor;
   Timer? _timer;
   final _frame = ValueNotifier(0);
+  bool _foreground = true;
+  bool _visible = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _adopt(AsciiMascot._ready[widget.state]);
     if (_sheet == null) unawaited(_loadSheet());
   }
@@ -90,6 +93,19 @@ class _AsciiMascotState extends State<AsciiMascot> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     unawaited(_loadAtlas(MediaQuery.devicePixelRatioOf(context)));
+    final visible = TickerMode.valuesOf(context).enabled;
+    if (visible != _visible) {
+      _visible = visible;
+      _run();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final foreground = state == AppLifecycleState.resumed;
+    if (foreground == _foreground) return;
+    _foreground = foreground;
+    _run();
   }
 
   Future<void> _loadSheet() async {
@@ -124,6 +140,7 @@ class _AsciiMascotState extends State<AsciiMascot> {
     final sheet = _sheet;
     if (sheet == null) return;
     if (!widget.animated || sheet.frames.length < 2) return;
+    if (!_foreground || !_visible) return;
     _timer = Timer.periodic(sheet.step, (timer) {
       final next = _frame.value + 1;
       if (next >= sheet.frames.length) {
@@ -141,6 +158,7 @@ class _AsciiMascotState extends State<AsciiMascot> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _frame.dispose();
     super.dispose();

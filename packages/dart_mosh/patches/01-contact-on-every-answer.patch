@@ -1,9 +1,9 @@
-# every packet the server signed is reported, not only the ones carrying a screen
+# every packet the server signed is reported, and a suspend closes the socket until a rehome
 #
 # Against dart_mosh 0.0.4. Regenerate with `just mosh-patches`.
 
 diff --git a/lib/src/session.dart b/lib/src/session.dart
-index 37c8856..dd95d2b 100644
+index 37c8856..3200b79 100644
 --- a/lib/src/session.dart
 +++ b/lib/src/session.dart
 @@ -52,6 +52,7 @@ class MoshSession {
@@ -14,7 +14,15 @@ index 37c8856..dd95d2b 100644
    final _done = Completer<void>();
    final _assembly = MoshFragmentAssembly();
    final _replay = MoshReplayFilter();
-@@ -84,6 +85,11 @@ class MoshSession {
+@@ -64,6 +65,7 @@ class MoshSession {
+   var _closed = false;
+   var _serverShutdown = false;
+   var _rehoming = false;
++  var _suspended = false;
+   var _sendSeq = 0;
+   var _fragmentId = 0;
+   var _assumedAckNum = 0;
+@@ -84,6 +86,11 @@ class MoshSession {
    /// Stream of echo acknowledgement numbers from the server.
    Stream<int> get echoAcks => _echoAcks.stream;
  
@@ -26,7 +34,50 @@ index 37c8856..dd95d2b 100644
    /// Completes when the session is closed.
    Future<void> get done => _done.future;
  
-@@ -180,6 +186,7 @@ class MoshSession {
+@@ -146,6 +153,7 @@ class MoshSession {
+     if (_closed) {
+       throw const MoshException('The Mosh session is closed.');
+     }
++    _suspended = false;
+     if (_rehoming) return;
+     _rehoming = true;
+     try {
+@@ -155,12 +163,16 @@ class MoshSession {
+               ? InternetAddress.anyIPv6
+               : InternetAddress.anyIPv4);
+       final socket = await RawDatagramSocket.bind(bindAddress, localPort);
+-      if (_closed) {
++      if (_closed || _suspended) {
+         socket.close();
+         return;
+       }
+       await _socketSub.cancel();
+       _socket.close();
++      if (_closed || _suspended) {
++        socket.close();
++        return;
++      }
+       _socket = socket;
+       _socketSub = _socket.listen(_handleSocketEvent, onError: _stderr.add);
+       _transmit(_clock.elapsedMilliseconds);
+@@ -170,6 +182,16 @@ class MoshSession {
+     }
+   }
+ 
++  Future<void> suspend() async {
++    if (_closed || _suspended) return;
++    _suspended = true;
++    _timer?.cancel();
++    _timer = null;
++    final socket = _socket;
++    await _socketSub.cancel();
++    socket.close();
++  }
++
+   /// Closes the UDP socket and all streams.
+   Future<void> close() async {
+     if (_closed) return;
+@@ -180,6 +202,7 @@ class MoshSession {
      await _stdout.close();
      await _stderr.close();
      await _echoAcks.close();
@@ -34,7 +85,7 @@ index 37c8856..dd95d2b 100644
      if (!_done.isCompleted) _done.complete();
    }
  
-@@ -217,6 +224,8 @@ class MoshSession {
+@@ -217,6 +240,8 @@ class MoshSession {
        return;
      }
  

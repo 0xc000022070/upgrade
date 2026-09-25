@@ -372,6 +372,8 @@ class ShellSession extends ChangeNotifier {
 
   bool _retired = false;
 
+  ShellConnection? _asleep;
+
   DateTime? _unsavedSince;
   Timer? _save;
   Future<void> _saved = Future.value();
@@ -427,6 +429,7 @@ class ShellSessions extends ChangeNotifier {
     this.snapshots,
     this.snapshotQuiet = const Duration(seconds: 5),
     this.snapshotCeiling = const Duration(minutes: 1),
+    this.sleepGrace = const Duration(seconds: 10),
     ShellOpener? open,
     this.pinRecheck = const Duration(seconds: 5),
     this.pinStale = const Duration(minutes: 5),
@@ -470,7 +473,11 @@ class ShellSessions extends ChangeNotifier {
 
   final Duration snapshotCeiling;
 
+  final Duration sleepGrace;
+
   bool _away = false;
+  bool _sleeping = false;
+  Timer? _sleep;
 
   final _byHost = <String, List<ShellSession>>{};
 
@@ -712,16 +719,69 @@ class ShellSessions extends ChangeNotifier {
         _saveScreen(session);
       }
     }
+    _sleep?.cancel();
+    _sleep = Timer(sleepGrace, _fallAsleep);
   }
 
   void returned() {
     _away = false;
+    _sleeping = false;
+    _sleep?.cancel();
+    _sleep = null;
     for (final sessions in _byHost.values) {
       for (final session in sessions) {
         session._save?.cancel();
         session._save = null;
+        _wakeUp(session);
       }
     }
+  }
+
+  void _fallAsleep() {
+    _sleep = null;
+    if (!_away) return;
+    _sleeping = true;
+    for (final sessions in _byHost.values) {
+      for (final session in sessions) {
+        _suspend(session);
+      }
+    }
+  }
+
+  void _suspend(ShellSession session) {
+    final connection = session.connection;
+    if (connection == null ||
+        session._closed ||
+        !session.state.holdsSession ||
+        identical(session._asleep, connection)) {
+      return;
+    }
+    if (session._unsavedSince != null) _saveScreen(session);
+    session._asleep = connection;
+    session._stopAsking();
+    unawaited(
+      connection.suspend().catchError((Object error) {
+        debugPrint('dazzle.shell ${session.host.name}: suspend: $error');
+      }),
+    );
+  }
+
+  void _wakeUp(ShellSession session) {
+    final connection = session._asleep;
+    session._asleep = null;
+    if (connection == null ||
+        session._closed ||
+        !identical(session.connection, connection)) {
+      return;
+    }
+    session._rehomed?.cancel();
+    session._rehomed = Timer(shellRehomeSettle, () => session._rehomed = null);
+    unawaited(
+      connection.resume().catchError((Object error) {
+        debugPrint('dazzle.shell ${session.host.name}: resume: $error');
+      }),
+    );
+    unawaited(_askHost(session));
   }
 
   void _outputWhileAway(ShellSession session) {
@@ -1084,6 +1144,7 @@ class ShellSessions extends ChangeNotifier {
   /// once, and a tab whose only ask landed while the request stood would keep it after the
   /// computer answered.
   Future<void> _askHost(ShellSession session) async {
+    if (session._asleep != null) return;
     if (session._asking) {
       session._askAgain = true;
       return;
@@ -1113,7 +1174,9 @@ class ShellSessions extends ChangeNotifier {
     } finally {
       session._asking = false;
       session._askAgain = false;
-      if (session.pin != null && session.connection != null) {
+      if (session.pin != null &&
+          session.connection != null &&
+          session._asleep == null) {
         session._reask = Timer(pinRecheck, () => unawaited(_askHost(session)));
       }
     }
@@ -1267,11 +1330,23 @@ class ShellSessions extends ChangeNotifier {
         if (identical(session.connection, connection)) session._feed(bytes);
       }, onError: (Object error) => _fail(session, error, attempt));
       unawaited(_awaitExit(session, connection, attempt));
-      unawaited(_mark(session, connection));
-      // A request made while this tab had no link, before it opened or across a
-      // redial, rang no bell it could hear: the tab asks once as it comes up.
-      unawaited(_askHost(session));
-      unawaited(_reap(host.id, connection));
+      final settled = Future.wait([
+        _mark(session, connection),
+        _reap(host.id, connection),
+      ]);
+      if (_sleeping) {
+        unawaited(
+          settled.then((_) {
+            if (_sleeping && identical(session.connection, connection)) {
+              _suspend(session);
+            }
+          }),
+        );
+      } else {
+        // A request made while this tab had no link, before it opened or across a
+        // redial, rang no bell it could hear: the tab asks once as it comes up.
+        unawaited(_askHost(session));
+      }
       session.changed();
     } catch (error) {
       _fail(session, error, attempt);

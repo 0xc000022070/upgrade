@@ -6,6 +6,8 @@ const pinNotificationTitle = 'AUTHORIZATION REQUIRED';
 
 const pinWatchInterval = Duration(seconds: 15);
 
+const pinWatchStep = Duration(seconds: 2);
+
 const _payloadPrefix = 'pin:';
 
 /// The alert ids sit at 1000 plus thirty bits; this region starts above them and folds

@@ -27,6 +27,10 @@ abstract interface class ShellConnection {
   /// socket is bound to the network that went; a plain return keeps it.
   Future<void> rehome({bool network = false});
 
+  Future<void> suspend();
+
+  Future<void> resume();
+
   Future<bool> terminateRemote(String session, {required bool durableShell});
 
   Future<String?> remoteDirectory(String session);

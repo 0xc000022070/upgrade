@@ -12,6 +12,7 @@ abstract interface class MoshChannel {
   int send(Uint8List bytes);
   int resize(int columns, int rows);
   Future<void> rehome();
+  Future<void> suspend();
   Future<void> close();
 }
 
@@ -64,6 +65,9 @@ class _DartMoshChannel implements MoshChannel {
 
   @override
   Future<void> rehome() => _session.rehome();
+
+  @override
+  Future<void> suspend() => _session.suspend();
 
   @override
   Future<void> close() => _session.close();

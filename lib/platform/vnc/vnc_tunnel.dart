@@ -14,7 +14,7 @@ import 'vnc_failure.dart';
 class VncTunnel {
   const VncTunnel({
     this.timeout = const Duration(seconds: 10),
-    this.keepAlive = const Duration(seconds: 15),
+    this.keepAlive = sshKeepAlive,
   });
 
   static const displayHost = '127.0.0.1';

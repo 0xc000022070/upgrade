@@ -1123,6 +1123,38 @@ void main() {
     await sessions.close(_rose.id, session);
   });
 
+  testWidgets('a tab out of sight past the grace sleeps until the return', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+    final connection = transport.opened.single;
+
+    sessions.leave();
+    await tester.pump(const Duration(seconds: 5));
+    sessions.returned();
+    await tester.pump(const Duration(seconds: 10));
+    expect(connection.suspends, 0);
+
+    sessions.leave();
+    await tester.pump(const Duration(seconds: 10));
+    expect(connection.suspends, 1);
+    final asked = connection.execs.length;
+
+    sessions
+      ..returned()
+      ..wakeAll();
+    await _pumpDial(tester);
+    expect(connection.resumes, 1);
+    expect(connection.rehomes, 0);
+    expect(connection.execs.length, asked + 1);
+    expect(session.state, isA<ShellLive>());
+
+    await sessions.close(_rose.id, session);
+  });
+
   testWidgets('a second wake inside a second of the first rehomes nothing', (
     tester,
   ) async {
@@ -1484,6 +1516,66 @@ void main() {
         await sessions.close(_rose.id, session);
       },
     );
+
+    test('a shell that comes up out of sight asks on the return', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(
+        transport,
+        sleepGrace: const Duration(milliseconds: 10),
+      );
+      sessions.leave();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      expect(connection.execs.map((exec) => exec.command), [
+        pinentryMarkCommand(session.tab),
+      ]);
+      expect(connection.suspends, 1);
+
+      sessions.returned();
+      await _settle();
+      expect(connection.resumes, 1);
+      expect(connection.execs.last.command, pinentryOpenCommand());
+
+      await sessions.close(_rose.id, session);
+    });
+
+    test('a tab holding a request does not ask while asleep', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(
+        transport,
+        sleepGrace: const Duration(milliseconds: 20),
+        pinRecheck: const Duration(milliseconds: 10),
+      );
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+      final payload = base64Encode(
+        utf8.encode(jsonEncode({'mode': 'pin', 'desc': 'the key'})),
+      );
+      int asks() => connection.execs
+          .where((exec) => exec.command == pinentryOpenCommand())
+          .length;
+      connection.answerWith('$id $payload\n');
+      connection.emit('\x07');
+      await _settle();
+      expect(session.pin?.id, id);
+
+      sessions.leave();
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      final asleep = asks();
+      connection.emit('\x07');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(asks(), asleep);
+
+      sessions.returned();
+      await _settle();
+      expect(asks(), greaterThan(asleep));
+
+      await sessions.close(_rose.id, session);
+    });
 
     test('a tab holding a request asks again until it is gone', () async {
       final transport = FakeShellTransport();

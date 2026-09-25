@@ -554,4 +554,75 @@ void main() {
 
     expect(tarpit.closedByPeer.isCompleted, isFalse);
   });
+
+  group('a host change watch', () {
+    test(
+      'sends a listing once, then a beat, and ends with its stdin',
+      () async {
+        final dir = await Directory.systemTemp.createTemp('dazzle-watch');
+        addTearDown(() => dir.delete(recursive: true));
+        final file = File('${dir.path}/listing')..writeAsStringSync('a\nb');
+        final command = hostChangesCommand(
+          'cat ${file.path}',
+          const Duration(seconds: 1),
+          beat: const Duration(seconds: 2),
+        );
+        final process = await Process.start('sh', ['-c', command]);
+        final lines = <String>[];
+        process.stdout
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .listen(lines.add);
+
+        await Future<void>.delayed(const Duration(milliseconds: 3500));
+        expect(lines, ['a', 'b', hostChangesEnd, hostChangesBeat]);
+
+        file.writeAsStringSync('c');
+        await Future<void>.delayed(const Duration(milliseconds: 1500));
+        expect(lines.skip(4), ['c', hostChangesEnd]);
+
+        await process.stdin.close();
+        expect(
+          await process.exitCode.timeout(const Duration(seconds: 3)),
+          isNonZero,
+        );
+      },
+    );
+
+    test('frames listings and drops the beats', () async {
+      final stdout = StreamController<List<int>>();
+      final frames = <String>[];
+      final watch = hostChangeFrames(stdout.stream).listen(frames.add);
+
+      stdout.add(utf8.encode('a\nb\n$hostChangesEnd\n$hostChangesBeat\n'));
+      stdout.add(utf8.encode('$hostChangesEnd\n'));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(frames, ['a\nb', '']);
+      await watch.cancel();
+    });
+
+    test('a host that says nothing past the quiet is a dead link', () async {
+      const quiet = Duration(milliseconds: 300);
+      final stdout = StreamController<List<int>>();
+      var went = 0;
+      final failed = Completer<Object>();
+      final done = Completer<void>();
+      hostChangeFrames(
+        stdout.stream,
+        quiet: quiet,
+        onQuiet: () => went++,
+      ).listen(null, onError: failed.complete, onDone: done.complete);
+
+      for (var beat = 0; beat < 6; beat++) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        stdout.add(utf8.encode('$hostChangesBeat\n'));
+      }
+      expect(went, 0);
+
+      expect(await failed.future, isA<HerdrUnreachable>());
+      await done.future;
+      expect(went, 1);
+    });
+  });
 }

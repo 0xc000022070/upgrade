@@ -66,7 +66,7 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
     if (privateKey == null) {
       throw HerdrKeyRejected('no private key stored for ${target.keyId}');
     }
-    const client = HerdrClient(keepAlive: watcherKeepAlive);
+    const client = HerdrClient();
     final session = await client.connect(
       address: target.address,
       port: target.port,

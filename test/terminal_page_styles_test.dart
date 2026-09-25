@@ -62,4 +62,45 @@ void main() {
     ];
     expect(wrong, isEmpty);
   });
+
+  test('a shaped operator run is laid out once and outlives a sibling row', () {
+    const cols = 20;
+    const rows = 3;
+    final terminal = Terminal(cols: cols, rows: rows);
+    final atlas = Atlas(
+      AtlasConfig(
+        fontSize: 14,
+        fontWeight: FontWeight.normal,
+        fontFamily: 'monospace',
+        fontFamilyFallback: const [],
+        metrics: _metrics,
+        devicePixelRatio: 1.0,
+      ),
+    );
+    final sprites = SpriteBuffer();
+    final state = PaintState(TerminalTheme.dark(), _metrics)
+      ..cols = cols
+      ..rows = rows;
+    final builder = FrameBuilder(atlas, sprites, state)..configure(rows, cols);
+    addTearDown(() {
+      builder.dispose();
+      sprites.dispose();
+      atlas.dispose();
+      terminal.dispose();
+    });
+    void show(String screen) {
+      terminal.write(Uint8List.fromList(utf8.encode(screen)));
+      builder.sync(terminal, terminalDirty: true);
+    }
+
+    show('\x1b[1;1Ha => b\x1b[2;1Hc => d');
+    final runs = sprites.shaped.rows;
+    final shared = runs[1].single.paragraph;
+    expect(runs[0].single.paragraph, same(shared));
+
+    show('\x1b[1;1Ha != b');
+    expect(runs[1].single.paragraph, same(shared));
+    expect(shared.debugDisposed, isFalse);
+    expect(runs[0].single.paragraph, isNot(same(shared)));
+  });
 }

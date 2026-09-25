@@ -604,6 +604,46 @@ class HerdrSession {
     return utf8.decode(result.stdout, allowMalformed: true);
   }
 
+  Stream<String> pinRequestChanges() =>
+      _changes(pinentryOpenCommand(), pinWatchStep);
+
+  Stream<String> rosterChanges() =>
+      _changes(HerdrCommands.sessions(), rosterWatchStep);
+
+  Stream<String> _changes(String command, Duration step) {
+    final out = StreamController<String>();
+    SSHSession? channel;
+    StreamSubscription<String>? frames;
+    var cancelled = false;
+    out
+      ..onListen = () async {
+        try {
+          channel = await _guard(
+            () => _client.execute(hostChangesCommand(command, step)),
+          );
+        } catch (error, stack) {
+          out.addError(error, stack);
+          await out.close();
+          return;
+        }
+        if (cancelled) return channel?.close();
+        frames = hostChangeFrames(channel!.stdout, onQuiet: close).listen(
+          out.add,
+          onError: out.addError,
+          onDone: () {
+            channel?.close();
+            unawaited(out.close());
+          },
+        );
+      }
+      ..onCancel = () async {
+        cancelled = true;
+        await frames?.cancel();
+        channel?.close();
+      };
+    return out.stream;
+  }
+
   void close() => unawaited(closeSsh(_client, _socket));
 
   /// `herdr agent start` wants the pane's shell alone at its prompt, and a shell still
@@ -886,6 +926,7 @@ class _AgentWatch {
   final _statuses = <PaneRef, StreamSubscription<HerdrEvent>>{};
 
   Timer? _beat;
+  StreamSubscription<String>? _rosterChanges;
   Timer? _settle;
   var _busy = false;
   var _again = false;
@@ -896,12 +937,24 @@ class _AgentWatch {
 
   void _start() {
     unawaited(_tick(roster: true));
+    _rosterChanges = _session.rosterChanges().listen(
+      (_) => unawaited(_tick(roster: true)),
+      onError: (Object _) {},
+      onDone: _pollRoster,
+    );
+  }
+
+  void _pollRoster() {
+    _rosterChanges = null;
+    if (_closed) return;
     _beat = Timer.periodic(watchRoster, (_) => unawaited(_tick(roster: true)));
+    unawaited(_tick(roster: true));
   }
 
   Future<void> _stop() async {
     _closed = true;
     _beat?.cancel();
+    await _rosterChanges?.cancel();
     _settle?.cancel();
     final held = [..._panes.values, ..._statuses.values];
     _panes.clear();
@@ -1051,9 +1104,66 @@ const promptAttempts = 3;
 /// that the panel is not waiting on it.
 const watchSettle = Duration(milliseconds: 250);
 
-/// Slow, because the only thing it catches is a herdr session starting or stopping, and
-/// it is the one part of the watch that still costs a process.
 const watchRoster = Duration(seconds: 30);
+
+const rosterWatchStep = Duration(seconds: 10);
+
+const hostChangesEnd = '.';
+
+const hostChangesBeat = '~';
+
+const hostChangesBeatEvery = Duration(minutes: 4);
+
+const hostChangesQuiet = Duration(minutes: 5);
+
+/// stdin goes through fd 3, taken before the `&`: sh hands a background job
+/// /dev/null, and the subshell reading fd 3 ends the loop with the channel.
+String hostChangesCommand(
+  String command,
+  Duration step, {
+  Duration beat = hostChangesBeatEvery,
+}) => underSh(
+  'exec 2>/dev/null 3<&0; (cat <&3 >/dev/null; kill \$\$) & '
+  'sent=; last=; quiet=0; while :; do now=\$($command); '
+  'if [ -z "\$sent" ] || [ "\$now" != "\$last" ]; then '
+  'sent=1; last=\$now; quiet=0; printf "%s\\n$hostChangesEnd\\n" "\$now"; '
+  'else quiet=\$((quiet + ${step.inSeconds})); '
+  'if [ \$quiet -ge ${beat.inSeconds} ]; then quiet=0; echo "$hostChangesBeat"; fi; fi; '
+  'sleep ${step.inSeconds}; done',
+);
+
+Stream<String> hostChangeFrames(
+  Stream<List<int>> stdout, {
+  Duration quiet = hostChangesQuiet,
+  void Function()? onQuiet,
+}) {
+  final frame = <String>[];
+  return stdout
+      .cast<List<int>>()
+      .transform(utf8.decoder)
+      .transform(const LineSplitter())
+      .timeout(
+        quiet,
+        onTimeout: (sink) {
+          onQuiet?.call();
+          sink
+            ..addError(
+              HerdrUnreachable('no word from the host in ${quiet.inMinutes}m'),
+            )
+            ..close();
+        },
+      )
+      .transform(
+        StreamTransformer.fromHandlers(
+          handleData: (line, sink) {
+            if (line == hostChangesBeat) return;
+            if (line != hostChangesEnd) return frame.add(line);
+            sink.add(frame.join('\n'));
+            frame.clear();
+          },
+        ),
+      );
+}
 
 String _directoryLabel(String directory) {
   final parts = directory.split('/').where((part) => part.isNotEmpty).toList();
@@ -1075,7 +1185,7 @@ String _agentName(String label, String workspace) {
 class HerdrClient {
   const HerdrClient({
     this.timeout = const Duration(seconds: 10),
-    this.keepAlive = const Duration(seconds: 15),
+    this.keepAlive = sshKeepAlive,
   });
 
   final Duration timeout;

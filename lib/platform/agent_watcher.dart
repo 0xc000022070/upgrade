@@ -135,8 +135,8 @@ class AgentWatcher {
       foregroundTaskOptions: ForegroundTaskOptions(
         // The watcher is woken by its own ssh streams, not by a timer.
         eventAction: ForegroundTaskEventAction.nothing(),
-        allowWakeLock: true,
-        allowWifiLock: true,
+        allowWakeLock: false,
+        allowWifiLock: false,
         stopWithTask: false,
         allowAutoRestart: true,
       ),
@@ -345,7 +345,7 @@ class AgentWatcherHandler extends TaskHandler {
     HerdrClient? client,
     PinNotifier? pins,
   }) : _keys = keys ?? const Ed25519Keys(SecurePrivateKeyStore()),
-       _client = client ?? const HerdrClient(keepAlive: watcherKeepAlive),
+       _client = client ?? const HerdrClient(),
        _pins = pins ?? const PinNotifications();
 
   final Ed25519Keys _keys;
@@ -521,6 +521,7 @@ class _HostLoop {
 
   late final PinShade _shade = PinShade(pins);
   Timer? _pinTicks;
+  StreamSubscription<String>? _pinChanges;
   bool _askingPin = false;
 
   bool sameHost(Host other) =>
@@ -678,6 +679,20 @@ class _HostLoop {
 
   void _startPinTicks(HerdrSession session) {
     _stopPinTicks();
+    _pinChanges = session.pinRequestChanges().listen(
+      (listing) {
+        if (_stopped || !identical(_session, session)) return;
+        unawaited(_tellShade(PinRequest.decodeOpen(listing).firstOrNull));
+      },
+      onError: (Object error) => _log(error),
+      onDone: () => _pollPins(session),
+    );
+  }
+
+  void _pollPins(HerdrSession session) {
+    _pinChanges = null;
+    if (_stopped || !identical(_session, session)) return;
+    _pinTicks?.cancel();
     _pinTicks = Timer.periodic(
       pinWatchInterval,
       (_) => unawaited(_askPin(session)),
@@ -688,6 +703,8 @@ class _HostLoop {
   void _stopPinTicks() {
     _pinTicks?.cancel();
     _pinTicks = null;
+    unawaited(_pinChanges?.cancel());
+    _pinChanges = null;
   }
 
   Future<void> _askPin(HerdrSession session) async {
