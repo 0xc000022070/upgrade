@@ -153,7 +153,11 @@ WorkspaceOverview parseOverview(String output) {
   return WorkspaceOverview(
     status: status,
     worktrees: parseWorktrees(section(1)),
-    files: mergeFiles(status, parseNumstat(section(2))),
+    files: mergeFiles(
+      status,
+      parseNumstat(section(2)),
+      untracked: parseUntracked(section(3), section(4)),
+    ),
   );
 }
 
@@ -203,11 +207,14 @@ WorkspaceStatus parseStatus(String output) {
       if (renamed) {
         // The two paths are tab-separated, new first.
         final tab = path.indexOf('\t');
+        final copied = line.split(' ')[8].startsWith('C');
         changes.add(
           WorkspaceChange(
             path: tab < 0 ? path : path.substring(0, tab),
-            kind: WorkspaceChangeKind.renamed,
-            origin: tab < 0 ? null : path.substring(tab + 1),
+            kind: copied
+                ? WorkspaceChangeKind.added
+                : WorkspaceChangeKind.renamed,
+            origin: tab < 0 || copied ? null : path.substring(tab + 1),
           ),
         );
       } else {
@@ -262,24 +269,56 @@ List<Worktree> parseWorktrees(String output) {
   return worktrees;
 }
 
-/// A rename is reported here as `old => new` inside the path, which is left as git wrote
-/// it: the status section already carries the pair split apart.
 List<WorkspaceFile> parseNumstat(String output) {
   final files = <WorkspaceFile>[];
   for (final line in _lines(output)) {
     final fields = line.split('\t');
     if (fields.length < 3) continue;
+    final (path, origin) = _renamePaths(fields.sublist(2).join('\t'));
     files.add(
       WorkspaceFile(
-        path: fields.sublist(2).join('\t'),
-        kind: WorkspaceChangeKind.modified,
+        path: path,
+        kind: origin == null
+            ? WorkspaceChangeKind.modified
+            : WorkspaceChangeKind.renamed,
         added: int.tryParse(fields[0]),
         removed: int.tryParse(fields[1]),
+        origin: origin,
       ),
     );
   }
   return files;
 }
+
+(String, String?) _renamePaths(String field) {
+  final brace = RegExp(r'^(.*)\{(.*) => (.*)\}(.*)$').firstMatch(field);
+  if (brace != null) {
+    String join(String middle) =>
+        '${brace[1]}$middle${brace[4]}'.replaceAll('//', '/');
+    return (join(brace[3]!), join(brace[2]!));
+  }
+  final arrow = field.indexOf(' => ');
+  if (arrow < 0) return (field, null);
+  return (field.substring(arrow + ' => '.length), field.substring(0, arrow));
+}
+
+List<WorkspaceFile> parseUntracked(String counts, String empty) => [
+  for (final line in _lines(counts))
+    if (line.lastIndexOf(':') case final colon when colon > 0)
+      WorkspaceFile(
+        path: line.substring(0, colon),
+        kind: WorkspaceChangeKind.untracked,
+        added: int.tryParse(line.substring(colon + 1)),
+        removed: 0,
+      ),
+  for (final path in _lines(empty))
+    WorkspaceFile(
+      path: path,
+      kind: WorkspaceChangeKind.untracked,
+      added: 0,
+      removed: 0,
+    ),
+];
 
 /// A subject carrying [workspaceField] is not a subject git could have been given, so
 /// everything past the fourth separator is the subject whole.
@@ -309,12 +348,13 @@ List<WorkspaceChange> parseNameStatus(String output) {
     final fields = line.split('\t');
     if (fields.length < 2) continue;
     final kind = _kindOf(fields[0]);
-    final renamed = kind == WorkspaceChangeKind.renamed && fields.length >= 3;
+    final paired = kind == WorkspaceChangeKind.renamed && fields.length >= 3;
+    final copied = fields[0].startsWith('C');
     changes.add(
       WorkspaceChange(
-        path: renamed ? fields[2] : fields[1],
-        kind: kind,
-        origin: renamed ? fields[1] : null,
+        path: paired ? fields[2] : fields[1],
+        kind: copied ? WorkspaceChangeKind.added : kind,
+        origin: paired && !copied ? fields[1] : null,
       ),
     );
   }
@@ -340,22 +380,38 @@ List<WorkspaceFile> parseCommitFiles(String output) {
 /// deletion instead of as a file with only removals.
 List<WorkspaceFile> mergeFiles(
   WorkspaceStatus status,
-  List<WorkspaceFile> numstat,
-) {
+  List<WorkspaceFile> numstat, {
+  List<WorkspaceFile> untracked = const [],
+}) {
   final kinds = <String, WorkspaceChange>{
     for (final change in status.changes) change.path: change,
   };
+  final rows = {for (final file in numstat) file.path: file};
+  final split = <String, WorkspaceFile>{
+    for (final change in status.changes)
+      if ((change.origin, rows[change.path]?.origin) case (final origin?, null)
+          when rows.containsKey(change.path) &&
+              rows.containsKey(origin) &&
+              !kinds.containsKey(origin))
+        change.path: rows[origin]!,
+  };
+  final gone = split.values.map((file) => file.path).toSet();
   final files = <WorkspaceFile>[
     for (final file in numstat)
-      WorkspaceFile(
-        path: file.path,
-        kind: kinds[file.path]?.kind ?? file.kind,
-        added: file.added,
-        removed: file.removed,
-        origin: kinds[file.path]?.origin,
-      ),
+      if (!gone.contains(file.path))
+        WorkspaceFile(
+          path: file.path,
+          kind: kinds[file.path]?.kind ?? file.kind,
+          added: file.added,
+          removed: switch ((file.removed, split[file.path])) {
+            (final removed?, final origin?) => removed + (origin.removed ?? 0),
+            (final removed, _) => removed,
+          },
+          origin: kinds[file.path]?.origin ?? file.origin,
+        ),
   ];
   final counted = files.map((file) => file.path).toSet();
+  final counts = {for (final file in untracked) file.path: file};
   for (final change in status.changes) {
     if (change.kind != WorkspaceChangeKind.untracked) continue;
     if (counted.contains(change.path)) continue;
@@ -363,8 +419,8 @@ List<WorkspaceFile> mergeFiles(
       WorkspaceFile(
         path: change.path,
         kind: WorkspaceChangeKind.untracked,
-        added: null,
-        removed: null,
+        added: counts[change.path]?.added,
+        removed: counts[change.path]?.removed,
       ),
     );
   }

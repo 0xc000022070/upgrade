@@ -16,6 +16,7 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/section.dart';
+import '../../design/components/status_tag.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
@@ -58,6 +59,7 @@ Future<void> _sheet(BuildContext context, String label, WidgetBuilder builder) {
     context,
     title: label.toUpperCase(),
     maxHeightFraction: 0.9,
+    maxWidth: double.infinity,
     builder: builder,
   );
 }
@@ -126,6 +128,13 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   bool _changesOpen = false;
   bool _historyOpen = false;
 
+  bool _autoPicked = false;
+
+  bool _fileAuto = false;
+
+  List<DiffLine>? _plainFrom;
+  List<DiffLine>? _plain;
+
   @override
   void initState() {
     super.initState();
@@ -167,6 +176,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
         _filesFailed = _controller.phase == WorkspacePhase.failed;
       }
     });
+    _autoPick();
     if (_controller.phase != WorkspacePhase.ready) return;
     if (_commits == null) _loadCommits();
     if (_source == null && _bundling == null) {
@@ -207,6 +217,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       _lines = null;
       _bundle = null;
       _bundling = null;
+      _autoPicked = false;
     });
     if (commit == null) {
       _onWorkspace();
@@ -219,14 +230,33 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       _files = files;
       _filesFailed = files == null;
     });
+    _autoPick();
+  }
+
+  void _autoPick() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final files = _files;
+      if (!mounted || _autoPicked) return;
+      if (_file != null) {
+        _autoPicked = true;
+        return;
+      }
+      if (files == null || files.isEmpty) return;
+      _autoPicked = true;
+      final room = MediaQuery.sizeOf(context).width - Spacing.screenEdge * 2;
+      if (files.length == 1 || room >= Layout.columnMax) {
+        _pick(files.first, auto: true);
+      }
+    });
   }
 
   /// Not a future: the answer is usually already here, and only a file the one command did
   /// not carry costs a round trip.
-  void _pick(WorkspaceFile file) {
-    final cached = _bundle?[file.path];
+  void _pick(WorkspaceFile file, {bool auto = false}) {
+    final cached = _bundled(_bundle, file);
     setState(() {
       _file = file;
+      _fileAuto = auto;
       _lines = cached;
       _diffFailed = false;
       _changesOpen = false;
@@ -246,7 +276,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
     // The one command may still be in flight, in which case it is the answer and asking for
     // the file beside it would be the round trip this is for.
     final bundle = await _bundling;
-    var lines = bundle?[file.path];
+    var lines = _bundled(bundle, file);
     lines ??= source == null
         ? await _controller.diff(file)
         : await _controller.commitDiff(source.sha, file.path);
@@ -255,6 +285,17 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       _lines = lines;
       _diffFailed = lines == null;
     });
+  }
+
+  List<DiffLine>? _bundled(
+    Map<String, List<DiffLine>>? bundle,
+    WorkspaceFile file,
+  ) {
+    final lines = bundle?[file.path];
+    final before = file.origin == null ? null : bundle?[file.origin];
+    if (lines == null || before == null) return lines;
+    if (_files?.any((row) => row.path == file.origin) ?? true) return lines;
+    return [...before, ...lines];
   }
 
   int? _picked;
@@ -288,7 +329,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   }
 
   void _back() {
-    if (_file != null) {
+    if (_file != null && !_fileAuto) {
       setState(() {
         _file = null;
         _lines = null;
@@ -303,7 +344,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   Widget build(BuildContext context) {
     final tall = _file != null || _changesOpen || _historyOpen;
     return PopScope(
-      canPop: _file == null,
+      canPop: _file == null || _fileAuto,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _back();
       },
@@ -435,45 +476,47 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       onHeaderTap: () => setState(() => _changesOpen = !_changesOpen),
       bodyPadding: EdgeInsets.zero,
       bodyFlexible: true,
-      child: !_changesOpen
-          ? null
-          : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-              child: switch ((files, _filesFailed)) {
-                (null, false) => const Padding(
-                  padding: EdgeInsets.all(Spacing.panelPadding),
-                  child: EmptyState('loading…'),
-                ),
-                (null, true) => Padding(
-                  padding: const EdgeInsets.all(Spacing.panelPadding),
-                  child: EmptyState(_controller.reason ?? 'could not read it'),
-                ),
-                (final rows?, _) when rows.isEmpty => const Padding(
-                  padding: EdgeInsets.all(Spacing.panelPadding),
-                  child: EmptyState('nothing changed'),
-                ),
-                (final rows?, _) => Padding(
-                  padding: panelRowsPadding,
-                  child: ListRowGroup(
-                    children: [
-                      for (final file in rows)
-                        ListRow(
-                          key: ValueKey('diff-file-${file.path}'),
-                          kicker: fileKindWord(file),
-                          title: file.path,
-                          literalTitle: true,
-                          subtitle: file.origin,
-                          titleColor: file.path == _file?.path
-                              ? context.tokens.accent
-                              : null,
-                          valueSpans: fileCountSpans(context, file),
-                          onTap: () => _pick(file),
-                        ),
-                    ],
-                  ),
-                ),
-              },
-            ),
+      child: switch ((_changesOpen, files, _filesFailed)) {
+        (false, _, _) => null,
+        (_, final rows?, _) when rows.isNotEmpty => ListView.separated(
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(
+            vertical: Spacing.sm,
+            horizontal: Spacing.panelPadding,
+          ),
+          itemCount: rows.length,
+          separatorBuilder: (context, _) => Container(
+            height: Borders.hairline,
+            color: context.tokens.borderSubtle,
+          ),
+          itemBuilder: (context, index) {
+            final file = rows[index];
+            return ListRow(
+              key: ValueKey('diff-file-${file.path}'),
+              kicker: fileKindWord(file),
+              title: file.path,
+              literalTitle: true,
+              subtitle: file.origin,
+              titleColor: file.path == _file?.path
+                  ? context.tokens.accent
+                  : null,
+              valueSpans: fileCountSpans(context, file),
+              onTap: () => _pick(file),
+            );
+          },
+        ),
+        (_, final rows, final failed) => SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+          child: Padding(
+            padding: const EdgeInsets.all(Spacing.panelPadding),
+            child: EmptyState(switch ((rows, failed)) {
+              (null, false) => 'loading…',
+              (null, true) => _controller.reason ?? 'could not read it',
+              _ => 'nothing changed',
+            }),
+          ),
+        ),
+      },
     );
   }
 
@@ -539,19 +582,12 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
           ? const Panel(title: 'DIFF', child: EmptyState('pick a file'))
           : const SizedBox.shrink();
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(child: _pane(file, wide: wide)),
-        const SizedBox(height: Spacing.panelGap),
-        _walkBar(file),
-      ],
-    );
+    return _pane(file, wide: wide);
   }
 
   Widget _walkBar(WorkspaceFile file) {
     final picked = _picked;
-    final lines = _lines;
+    final lines = identical(_plainFrom, _lines) ? _plain ?? _lines : _lines;
     if (picked != null && lines != null && picked < lines.length) {
       return _pickedBar(lines[picked]);
     }
@@ -642,14 +678,30 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
     );
   }
 
+  List<DiffLine>? _plainOf(WorkspaceFile file, List<DiffLine> lines) {
+    if (identical(lines, _plainFrom)) return _plain;
+    _plainFrom = lines;
+    return _plain = plainFile(file, lines);
+  }
+
   Widget _pane(WorkspaceFile file, {required bool wide}) {
+    final lines = _lines;
+    final plain = lines == null ? null : _plainOf(file, lines);
+    final tag = plain == null
+        ? null
+        : file.kind == WorkspaceChangeKind.deleted
+        ? StatusTag('DELETED', color: context.tokens.warning)
+        : StatusTag('NEW FILE', color: context.tokens.accent);
     return Panel(
       // The path and not its last segment: two files of the same name in two directories are
       // the ordinary case in a repository.
       title: file.path,
       literalTitle: true,
+      leading: tag,
       affordance: wide
-          ? _Stat(added: file.added ?? 0, removed: file.removed ?? 0)
+          ? file.binary
+                ? null
+                : _Stat(added: file.added!, removed: file.removed!)
           : PanelAffordance(
               'CLOSE',
               key: const ValueKey('diff-close-file'),
@@ -662,29 +714,76 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
             ),
       bodyPadding: EdgeInsets.zero,
       bodyFlexible: true,
-      child: switch ((_lines, _diffFailed)) {
-        (null, false) => const Padding(
-          padding: EdgeInsets.all(Spacing.panelPadding),
-          child: EmptyState('loading…'),
-        ),
-        (null, true) => const Padding(
-          padding: EdgeInsets.all(Spacing.panelPadding),
-          child: EmptyState('could not read it'),
-        ),
-        (final rows?, _) when rows.isEmpty => const Padding(
-          padding: EdgeInsets.all(Spacing.panelPadding),
-          child: EmptyState('no textual change'),
-        ),
-        (final rows?, _) => _DiffBody(
-          lines: rows,
-          language: languageOf(file.path),
-          jumps: _jumps,
-          picked: _picked,
-          onPick: (row) => setState(() => _picked = row),
-        ),
-      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: switch ((lines, _diffFailed)) {
+              (null, false) => const Padding(
+                padding: EdgeInsets.all(Spacing.panelPadding),
+                child: EmptyState('loading…'),
+              ),
+              (null, true) => const Padding(
+                padding: EdgeInsets.all(Spacing.panelPadding),
+                child: EmptyState('could not read it'),
+              ),
+              (final rows?, _) when rows.isEmpty => const Padding(
+                padding: EdgeInsets.all(Spacing.panelPadding),
+                child: EmptyState('no textual change'),
+              ),
+              (final rows?, _) => _DiffBody(
+                lines: plain ?? rows,
+                single: plain != null,
+                language: languageOf(file.path),
+                jumps: _jumps,
+                picked: _picked,
+                onPick: (row) => setState(() => _picked = row),
+              ),
+            },
+          ),
+          Container(
+            height: Borders.hairline,
+            color: context.tokens.borderNormal,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(Spacing.sm),
+            child: _walkBar(file),
+          ),
+        ],
+      ),
     );
   }
+}
+
+List<DiffLine>? plainFile(WorkspaceFile file, List<DiffLine> lines) {
+  final side = switch (file.kind) {
+    WorkspaceChangeKind.untracked ||
+    WorkspaceChangeKind.added => DiffLineKind.added,
+    WorkspaceChangeKind.deleted => DiffLineKind.removed,
+    _ => null,
+  };
+  if (side == null) return null;
+  final plain = <DiffLine>[];
+  for (final line in lines) {
+    if (line.kind == DiffLineKind.meta || line.kind == DiffLineKind.hunk) {
+      continue;
+    }
+    if (line.kind == DiffLineKind.capped) {
+      plain.add(line);
+    } else if (line.kind == side) {
+      plain.add(
+        DiffLine(
+          DiffLineKind.context,
+          line.text,
+          oldLine: line.oldLine,
+          newLine: line.newLine,
+        ),
+      );
+    } else {
+      return null;
+    }
+  }
+  return plain.isEmpty ? null : plain;
 }
 
 class _Rail extends StatelessWidget {
@@ -782,9 +881,12 @@ class _DiffBody extends StatefulWidget {
     required this.picked,
     required this.onPick,
     this.language,
+    this.single = false,
   });
 
   final List<DiffLine> lines;
+
+  final bool single;
 
   final DiffJumps jumps;
 
@@ -903,7 +1005,7 @@ class _DiffBodyState extends State<_DiffBody> {
     final advance = _charAdvance(context);
     final row = _DiffBody.rowHeight(context);
     final gutter = _gutterWidth(highest, advance);
-    final lead = _DiffRow.lead(gutter, advance);
+    final lead = _DiffRow.lead(gutter, advance, single: widget.single);
     final text = widest * advance + Spacing.panelPadding;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -956,6 +1058,7 @@ class _DiffBodyState extends State<_DiffBody> {
                                 child: _DiffRow(
                                   line: line,
                                   gutter: gutter,
+                                  single: widget.single,
                                   language: widget.language,
                                   shift: _shift,
                                   travel: travel,
@@ -979,6 +1082,7 @@ class _DiffBodyState extends State<_DiffBody> {
                             rowAt: (row) => _DiffRow(
                               line: _drawn[row],
                               gutter: gutter,
+                              single: widget.single,
                               language: widget.language,
                               shift: _shift,
                               travel: travel,
@@ -1087,10 +1191,12 @@ class _DiffRow extends StatelessWidget {
     this.language,
     this.changed,
     this.picked = false,
+    this.single = false,
   });
 
   final DiffLine line;
   final double gutter;
+  final bool single;
   final SyntaxLanguage? language;
 
   final ValueListenable<double> shift;
@@ -1104,8 +1210,11 @@ class _DiffRow extends StatelessWidget {
 
   final bool picked;
 
-  static double lead(double gutter, double advance) =>
-      gutter * 2 + Spacing.md * 3 + Borders.hairline + advance + Spacing.sm;
+  static double lead(double gutter, double advance, {bool single = false}) =>
+      (single ? gutter + Spacing.md * 2 : gutter * 2 + Spacing.md * 3) +
+      Borders.hairline +
+      advance +
+      Spacing.sm;
 
   @override
   Widget build(BuildContext context) {
@@ -1156,20 +1265,22 @@ class _DiffRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: gutter,
-            child: Text(
-              '${line.oldLine ?? ''}',
-              style: numbers,
-              textAlign: TextAlign.right,
-              maxLines: 1,
+          if (!single) ...[
+            SizedBox(
+              width: gutter,
+              child: Text(
+                '${line.oldLine ?? ''}',
+                style: numbers,
+                textAlign: TextAlign.right,
+                maxLines: 1,
+              ),
             ),
-          ),
-          const SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
+          ],
           SizedBox(
             width: gutter,
             child: Text(
-              '${line.newLine ?? ''}',
+              '${(single ? line.newLine ?? line.oldLine : line.newLine) ?? ''}',
               style: numbers,
               textAlign: TextAlign.right,
               maxLines: 1,
@@ -1299,8 +1410,7 @@ class _DiffRow extends StatelessWidget {
 }
 
 List<TextSpan> fileCountSpans(BuildContext context, WorkspaceFile file) {
-  if (file.untracked) return const [TextSpan(text: 'NEW')];
-  if (file.binary) return const [TextSpan(text: 'BINARY')];
+  if (file.binary) return [TextSpan(text: file.untracked ? 'NEW' : 'BINARY')];
   return [
     _countSpan('+${file.added}', context.tokens.accent, file.added),
     const TextSpan(text: ' '),

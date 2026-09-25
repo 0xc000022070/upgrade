@@ -30,12 +30,39 @@ abstract final class WorkspaceCommands {
 
   static String overview(String directory) => underSh(
     '${_enter(directory)}'
-    'git status --porcelain=v2 --branch\n'
+    'git -c core.quotePath=false status --porcelain=v2 --branch '
+    '--untracked-files=all\n'
     "printf '\\036\\n'\n"
     'git worktree list --porcelain\n'
     "printf '\\036\\n'\n"
-    'git diff --numstat HEAD\n',
+    'git -c core.quotePath=false diff --numstat HEAD\n'
+    'rc=\$?\n'
+    "printf '\\036\\n'\n"
+    '$_cap'
+    '${_untracked('-c')}'
+    "printf '\\036\\n'\n"
+    '${_untracked('-L')}'
+    'exit \$rc\n',
   );
+
+  /// BSD `head` has no `-z`, so a Mac host caps with perl, and a host with neither is not
+  /// capped at all.
+  static const _cap =
+      "if printf 'a\\0' | head -z -n 1 >/dev/null 2>&1; then "
+      'cap() { head -z -n $untrackedCounted; }\n'
+      'elif command -v perl >/dev/null 2>&1; then '
+      "cap() { perl -0ne 'print if \$. <= $untrackedCounted'; }\n"
+      'else cap() { cat; }\n'
+      'fi\n';
+
+  static String _untracked(String flag) =>
+      'git -c core.quotePath=false ls-files -z --others --exclude-standard | '
+      'cap | '
+      'xargs -0 -r git --literal-pathspecs -c core.quotePath=false '
+      "grep --no-index -I $flag '' -- "
+      '2>/dev/null\n';
+
+  static const untrackedCounted = 200;
 
   /// `head` cuts bytes and will cut a line in half; the reader is told what the cap was
   /// and drops the file it landed in rather than drawing half of one.

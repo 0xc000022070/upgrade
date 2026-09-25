@@ -114,6 +114,39 @@ void main() {
       expect(files.first.removed, 1);
       expect(files[1].binary, isTrue);
     });
+
+    test('a rename is split into the path and where it came from', () {
+      final files = parseNumstat(
+        '1\t0\tlib/{a.txt => c.txt}\n'
+        '0\t0\t{old => new}/x.dart\n'
+        '2\t2\tlib/{ => sub}/y.dart\n'
+        '4\t0\tREADME => docs/README\n',
+      );
+      expect(files.map((f) => f.path), [
+        'lib/c.txt',
+        'new/x.dart',
+        'lib/sub/y.dart',
+        'docs/README',
+      ]);
+      expect(files.map((f) => f.origin), [
+        'lib/a.txt',
+        'old/x.dart',
+        'lib/y.dart',
+        'README',
+      ]);
+      expect(files.first.kind, WorkspaceChangeKind.renamed);
+    });
+
+    test('an untracked count splits on its last colon', () {
+      final files = parseUntracked(
+        '\ncafé.txt:2\nwe:ird.txt:1\n',
+        '\nempty.txt\n',
+      );
+      expect(files.map((f) => f.path), ['café.txt', 'we:ird.txt', 'empty.txt']);
+      expect(files.map((f) => f.added), [2, 1, 0]);
+      expect(files.map((f) => f.removed), [0, 0, 0]);
+      expect(files.every((f) => f.untracked), isTrue);
+    });
   });
 
   group('the change list', () {
@@ -132,6 +165,81 @@ void main() {
       expect(scratch.binary, isTrue);
     });
 
+    test('an untracked file takes the lines it was counted with', () {
+      final files = mergeFiles(
+        parseStatus(_status),
+        parseNumstat(_numstat),
+        untracked: parseUntracked('scratch.txt:7\n', ''),
+      );
+      final scratch = files.singleWhere((f) => f.path == 'scratch.txt');
+      expect(scratch.untracked, isTrue);
+      expect(scratch.added, 7);
+      expect(scratch.removed, 0);
+    });
+
+    test('a rename in numstat lands on the row status split apart', () {
+      final files = mergeFiles(
+        parseStatus(_status),
+        parseNumstat('0\t0\tlib/{old name.dart => new name.dart}\n'),
+      );
+      final renamed = files.singleWhere((f) => f.path == 'lib/new name.dart');
+      expect(renamed.kind, WorkspaceChangeKind.renamed);
+      expect(renamed.origin, 'old name.dart');
+      expect(renamed.added, 0);
+    });
+
+    test('a rename numstat split in two is the one row status paired', () {
+      final files = mergeFiles(
+        parseStatus(_status),
+        parseNumstat('0\t20\told name.dart\n31\t0\tlib/new name.dart\n'),
+      );
+      final renamed = files.singleWhere((f) => f.path == 'lib/new name.dart');
+      expect(renamed.kind, WorkspaceChangeKind.renamed);
+      expect(renamed.origin, 'old name.dart');
+      expect((renamed.added, renamed.removed), (31, 20));
+      expect(files.where((f) => f.path == 'old name.dart'), isEmpty);
+    });
+
+    test('a copy is an added file and leaves its source a row', () {
+      final files = mergeFiles(
+        parseStatus(
+          '1 M. N... 100644 100644 100644 0ff3bbb 3078105 x\n'
+          '2 C. N... 100644 100644 100644 0ff3bbb 0ff3bbb C100 y\tx\n',
+        ),
+        parseNumstat('1\t0\tx\n20\t0\ty\n'),
+      );
+      expect(
+        [for (final f in files) (f.path, f.kind, f.added, f.origin)],
+        [
+          ('x', WorkspaceChangeKind.modified, 1, null),
+          ('y', WorkspaceChangeKind.added, 20, null),
+        ],
+      );
+    });
+
+    test('a rename whose old path is back is not joined to it', () {
+      final files = mergeFiles(
+        parseStatus(
+          '2 R. N... 100644 100644 100644 0ff3bbb 0ff3bbb R100 y\tx\n'
+          '? x\n',
+        ),
+        parseNumstat('0\t20\tx\n20\t0\ty\n'),
+      );
+      expect(files.map((f) => f.path), containsAll(['x', 'y']));
+      expect(files.singleWhere((f) => f.path == 'y').removed, 0);
+    });
+
+    test('an untracked file git would not count is still a row', () {
+      final files = mergeFiles(
+        parseStatus('? blob.bin\n? café.txt\n'),
+        const [],
+        untracked: parseUntracked('café.txt:3\n', ''),
+      );
+      expect(files.map((f) => f.path), ['blob.bin', 'café.txt']);
+      expect(files.first.binary, isTrue);
+      expect(files.last.added, 3);
+    });
+
     test('a file counted once is not appended twice', () {
       final status = parseStatus('? scratch.txt\n');
       final files = mergeFiles(status, parseNumstat('1\t0\tscratch.txt\n'));
@@ -147,6 +255,17 @@ void main() {
       expect(overview.status.branch, 'main');
       expect(overview.worktrees, hasLength(2));
       expect(overview.files.map((f) => f.path), contains('scratch.txt'));
+    });
+
+    test('the last two sections count the untracked files', () {
+      final overview = parseOverview(
+        '$_status$workspaceRecord\n$_worktrees$workspaceRecord\n$_numstat'
+        '$workspaceRecord\nscratch.txt:3\n$workspaceRecord\n',
+      );
+      final scratch = overview.files.singleWhere(
+        (f) => f.path == 'scratch.txt',
+      );
+      expect(scratch.added, 3);
     });
 
     test('a clean checkout with no siblings parses to empty lists', () {
@@ -439,12 +558,35 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
       }
     });
 
-    test('the overview asks three questions and marks the joins', () {
+    test('the overview asks five questions and marks the joins', () {
       final command = WorkspaceCommands.overview('~/src/dazzle');
-      expect(command, contains('git status --porcelain=v2 --branch'));
+      expect(command, contains('status --porcelain=v2 --branch'));
+      expect(command, contains('--untracked-files=all'));
       expect(command, contains('git worktree list --porcelain'));
-      expect(command, contains('git diff --numstat HEAD'));
-      expect(r"\036".allMatches(command), hasLength(2));
+      expect(command, contains('diff --numstat HEAD'));
+      expect(command, contains('ls-files -z --others --exclude-standard'));
+      expect(command, contains('grep --no-index -I -c'));
+      expect(command, contains('grep --no-index -I -L'));
+      expect(
+        'xargs -0 -r git --literal-pathspecs'.allMatches(command),
+        hasLength(2),
+      );
+      expect(
+        [
+          for (final f in parseUntracked('*:2\n:(top)x:1\n', ''))
+            (f.path, f.added),
+        ],
+        [('*', 2), (':(top)x', 1)],
+      );
+      expect(r"\036".allMatches(command), hasLength(4));
+    });
+
+    test('the untracked cap falls back when head cannot split on NUL', () {
+      final command = WorkspaceCommands.overview('~/src/dazzle');
+      expect(command, contains('head -z -n 200'));
+      expect(command, contains('perl -0ne'));
+      expect(command, contains('cap() { cat; }'));
+      expect('| cap |'.allMatches(command), hasLength(2));
     });
 
     test('a missing directory and a plain directory get their own codes', () {

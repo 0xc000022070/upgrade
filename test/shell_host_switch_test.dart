@@ -104,6 +104,10 @@ void main() {
 
     expect(find.text('NYX'), findsOneWidget);
     expect(switcher, findsOneWidget);
+    expect(
+      find.descendant(of: switcher, matching: find.text('ALL SHELLS')),
+      findsOneWidget,
+    );
 
     await tester.tap(switcher);
     await ready(tester);
