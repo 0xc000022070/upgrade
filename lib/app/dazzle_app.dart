@@ -81,8 +81,12 @@ class DazzleApp extends ConsumerWidget {
           // Over every route rather than inside one: the app goes to the parked window from
           // wherever the user was.
           navigatorKey: rootNavigatorKey,
-          builder: (context, child) =>
-              houseText(context, PipHost(child: DeviceFloat(child: child!))),
+          builder: (context, child) => KeyboardRelease(
+            child: houseText(
+              context,
+              PipHost(child: DeviceFloat(child: child!)),
+            ),
+          ),
           home: AlertsHost(
             child: ShellWakeHost(
               child: BootGate(steps: boot, child: const DazzleShell()),
@@ -144,56 +148,49 @@ class _DazzleShellState extends ConsumerState<DazzleShell> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _systemBars(context.tokens.brightness),
-      child: KeyboardRelease(
-        child: AutonomousTicks(
-          onTick: () => glitch.fire(ref.read(navIndexProvider)),
-          child: Scaffold(
-            backgroundColor: context.tokens.backgroundPrimary,
-            resizeToAvoidBottomInset: true,
-            body: StaticSurface(
-              // The stack is the body's, not the Scaffold's, so a toast lands over the
-              // screen's own header and leaves the bottom of the app alone.
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: IndexedStack(
-                      index: index,
-                      children: [
-                        for (var i = 0; i < screens.length; i++)
-                          TickerMode(
-                            enabled: i == index,
-                            child: ScreenEntry(
-                              tick: _entries[i],
-                              child: screens[i],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    child: ToastHost(),
-                  ),
-                ],
-              ),
-            ),
-            bottomNavigationBar: Column(
-              mainAxisSize: MainAxisSize.min,
+      child: AutonomousTicks(
+        onTick: () => glitch.fire(ref.read(navIndexProvider)),
+        child: Scaffold(
+          backgroundColor: context.tokens.backgroundPrimary,
+          resizeToAvoidBottomInset: true,
+          body: StaticSurface(
+            // The stack is the body's, not the Scaffold's, so a toast lands over the
+            // screen's own header and leaves the bottom of the app alone.
+            child: Stack(
               children: [
-                const AgentStatusBar(),
-                const ParkedShellBar(),
-                NavBar(
-                  visibleIndices: visibleIndices,
-                  contributedLabel: pinned?.contribution.title.toUpperCase(),
-                  currentIndex: index,
-                  onSelected: (next) =>
-                      ref.read(navIndexProvider.notifier).state = next,
-                  glitch: glitch.controllers,
+                Positioned.fill(
+                  child: IndexedStack(
+                    index: index,
+                    children: [
+                      for (var i = 0; i < screens.length; i++)
+                        TickerMode(
+                          enabled: i == index,
+                          child: ScreenEntry(
+                            tick: _entries[i],
+                            child: screens[i],
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
+                const Positioned(left: 0, right: 0, top: 0, child: ToastHost()),
               ],
             ),
+          ),
+          bottomNavigationBar: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const AgentStatusBar(),
+              const ParkedShellBar(),
+              NavBar(
+                visibleIndices: visibleIndices,
+                contributedLabel: pinned?.contribution.title.toUpperCase(),
+                currentIndex: index,
+                onSelected: (next) =>
+                    ref.read(navIndexProvider.notifier).state = next,
+                glitch: glitch.controllers,
+              ),
+            ],
           ),
         ),
       ),

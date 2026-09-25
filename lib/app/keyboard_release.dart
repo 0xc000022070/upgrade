@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../platform/device.dart';
+
 /// Android reports the IME as a bottom view inset and the whole app lays out above it. A
-/// window stopped with the keyboard still up — turning the screen off is the ordinary
-/// way — can come back with the inset standing and no keyboard under it, and nothing in
-/// the tree can clear it: the number is the view's, and only a new process or a keyboard
-/// that really goes up and down again replaces it. So the keyboard goes down before the
-/// window stops, which leaves the system nothing to restore.
+/// window stopped with the keyboard still up (turning the screen off is the ordinary
+/// way) can come back with the inset standing and no keyboard under it, and the embedding
+/// ignores every inset after an IME animation it never saw end. So the keyboard goes down
+/// before the window stops, and an inset the window disowns once it holds still is drawn
+/// as none until the number moves.
 class KeyboardRelease extends StatefulWidget {
   const KeyboardRelease({super.key, required this.child});
 
@@ -22,6 +26,10 @@ class _KeyboardReleaseState extends State<KeyboardRelease>
   /// when the app itself made sure nothing is under it.
   bool _released = false;
 
+  double? _stale;
+
+  Timer? _settle;
+
   @override
   void initState() {
     super.initState();
@@ -31,6 +39,7 @@ class _KeyboardReleaseState extends State<KeyboardRelease>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _settle?.cancel();
     super.dispose();
   }
 
@@ -51,6 +60,27 @@ class _KeyboardReleaseState extends State<KeyboardRelease>
     }
   }
 
+  @override
+  void didChangeMetrics() {
+    if (_stale != null && _viewBottom != _stale) _stale = null;
+    _settle?.cancel();
+    _settle = Timer(const Duration(milliseconds: 400), _verify);
+  }
+
+  Future<void> _verify() async {
+    if (!mounted) return;
+    final bottom = _viewBottom;
+    if (bottom <= 0 || bottom == _stale) return;
+    final shown = await Device.imeShown();
+    if (!mounted || shown != false || _viewBottom != bottom) return;
+    setState(() => _stale = bottom);
+  }
+
+  double get _viewBottom {
+    final view = View.of(context);
+    return view.viewInsets.bottom / view.devicePixelRatio;
+  }
+
   void _release() {
     if (_released) return;
     _released = true;
@@ -67,6 +97,7 @@ class _KeyboardReleaseState extends State<KeyboardRelease>
     // After the frame: focus settles first, so a field that comes back autofocused is read
     // as asking for the keyboard rather than as an inset nobody claimed.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_verify());
       if (!mounted || _typing) return;
       if (View.of(context).viewInsets.bottom <= 0) return;
       // Whether a keyboard is really under it or the number is a leftover, the same call is
@@ -86,5 +117,17 @@ class _KeyboardReleaseState extends State<KeyboardRelease>
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final disowned = _stale != null && media.viewInsets.bottom == _stale;
+    return MediaQuery(
+      data: disowned
+          ? media.copyWith(
+              viewInsets: media.viewInsets.copyWith(bottom: 0),
+              padding: media.padding.copyWith(bottom: media.viewPadding.bottom),
+            )
+          : media,
+      child: widget.child,
+    );
+  }
 }
