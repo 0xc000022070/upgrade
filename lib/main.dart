@@ -23,6 +23,7 @@ import 'data/repositories/project_repository.dart';
 import 'data/repositories/settings_repository.dart';
 import 'data/repositories/task_repository.dart';
 import 'data/seed.dart';
+import 'data/shell_snapshot_store.dart';
 import 'design/ascii/grid.dart';
 import 'design/components/ascii_mascot.dart';
 import 'design/icons/dazzle_icon.dart';
@@ -47,13 +48,24 @@ Future<void> main() async {
   boot.add(const BootStep('open database', 'ok'));
   boot.add(BootStep('run migrations', 'v${db.schemaVersion}'));
 
-  final (plugins, (projects, tasks), _, _, clips, previews, model, _) = await (
+  final (
+    plugins,
+    (projects, tasks),
+    _,
+    _,
+    clips,
+    previews,
+    snapshots,
+    model,
+    _,
+  ) = await (
     _loadPlugins(db),
     _seedAndCount(db),
     AsciiMascot.preload(),
     ImageAttachments.init(),
     ClipStore.open(),
     LinkPreviews.open(),
+    FileShellSnapshotStore.open(),
     Device.model(),
     initAlerts(),
   ).wait;
@@ -84,6 +96,7 @@ Future<void> main() async {
       pipSurfaceProvider.overrideWithValue(const PipSurface()),
       clipStoreProvider.overrideWithValue(clips),
       linkPreviewsProvider.overrideWithValue(previews),
+      shellSnapshotStoreProvider.overrideWithValue(snapshots),
     ],
   );
   final shells = await container
