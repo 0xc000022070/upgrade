@@ -1,6 +1,4 @@
--- A page is never told its viewport width, so the board is drawn at what the
--- narrowest phone leaves rather than at the canvas node's own default of 240.
-local BOARD_WIDTH = 328
+local BOARD_WIDTH = 4096
 local NOTE_WIDTH = 132
 local NOTE_HEIGHT = 64
 local LINE_CHARS = 17
@@ -139,6 +137,7 @@ local function removeNote(state, id)
         end
     end
     state.objects = kept
+    state.drafts["o:" .. state.boardId .. ":" .. id] = nil
     if state.selected == id then state.selected = "" end
     if state.linkFrom == id then state.linkFrom = "" end
 end
@@ -299,10 +298,12 @@ local function open(state, id, name)
     state.objects = readObjects(id)
     state.selected = ""
     state.linkFrom = ""
+    state.tool = "select"
     state.mode = "board"
 end
 
 local function update(state, event)
+    state.drafts = state.drafts or {}
     if event.type == "mount" then
         state.boards = readBoards()
         return state
@@ -310,6 +311,13 @@ local function update(state, event)
     if event.type ~= "action" then return state end
     local values = event.fields or {}
     local args = event.args or {}
+    local selected = find(state.objects, state.selected)
+    if selected then
+        local draft = values["note_" .. selected.id]
+        if draft ~= nil then
+            state.drafts[selected.key] = draft ~= selected.text and draft or nil
+        end
+    end
     state.message = ""
     if event.id == "new_board" then
         local name = "BOARD " .. tostring(#state.boards + 1)
@@ -337,6 +345,7 @@ local function update(state, event)
             for index, object in ipairs(objects) do
                 if index > MAX_DELETES then break end
                 dazzle.data.delete("boards", object.key, object.revision)
+                state.drafts[object.key] = nil
             end
             dazzle.data.delete("boards", "b:" .. args.id, board.revision)
         end
@@ -353,13 +362,19 @@ local function update(state, event)
     elseif event.id == "tool" then
         state.tool = args.tool
         state.linkFrom = ""
+    elseif event.id == "close_note" then
+        state.selected = ""
+        state.linkFrom = ""
+        state.tool = "select"
     elseif event.id == "tap" then
         return tap(state, event)
     elseif event.id == "save_note" then
         local object = find(state.objects, state.selected)
         if object then
-            object.text = clean(values.note or "")
+            object.text = clean(values["note_" .. object.id] or values.note
+                or state.drafts[object.key] or object.text)
             store(object)
+            state.drafts[object.key] = nil
         else
             state.message = "Select a note before writing on it."
         end
@@ -373,15 +388,12 @@ local function update(state, event)
     return state
 end
 
--- The host pads a button and a page is never told how wide it is, so five tools
--- across one row leave too little for the word inside them.
 local TOOLS = {
-    {{id = "select", text = "PICK"}, {id = "note", text = "NOTE"}, {id = "move", text = "MOVE"}},
-    {{id = "link", text = "LINK"}, {id = "erase", text = "WIPE"}},
+    {id = "select", text = "SELECT"}, {id = "note", text = "+ NOTE"}, {id = "link", text = "LINK"},
 }
 
 local HINTS = {
-    select = "Tap a note to select it.",
+    select = "Tap a note to edit. Drag to pan; pinch to zoom.",
     note = "Tap the board to place a note.",
     move = "Tap where the selected note should go.",
     link = "Tap two notes to link them.",
@@ -411,39 +423,43 @@ local function boardsView(state)
     }
 end
 
-local function toolRow(state, index)
+local function toolRow(state)
     local tools = {}
-    for _, tool in ipairs(TOOLS[index]) do
+    for _, tool in ipairs(TOOLS) do
         table.insert(tools, ui.Button {key = "t_" .. tool.id, text = tool.text, onPress = "tool",
             args = {tool = tool.id}, flex = 1,
             color = state.tool == tool.id and "background" or "muted",
             background = state.tool == tool.id and "accent" or nil})
     end
-    return ui.Row {key = "tools" .. tostring(index), gap = 6, children = tools}
+    return ui.Row {key = "tools", gap = 6, children = tools}
 end
 
 local function boardView(state)
     local selected = find(state.objects, state.selected)
     local height = surfaceHeight(state.objects)
-    return {
-        toolRow(state, 1),
-        ui.Spacer {key = "tools_gap", height = 6},
-        toolRow(state, 2),
+    local children = {
+        toolRow(state),
         ui.Spacer {key = "tools_space", height = 8},
         label("hint", HINTS[state.tool] or "", "muted", 11),
-        ui.Input {key = "note", lines = 2,
-            label = selected and "Note" or "Note · select one on the board",
-            value = selected and selected.text or ""},
-        ui.Row {key = "note_actions", gap = 8, children = {
-            button("save_note", "SAVE", "save_note", nil, selected ~= nil),
-            button("erase_note", "ERASE", "erase_note"),
-        }},
         ui.Spacer {key = "surface_space", height = 10},
-        ui.List {key = "surface", flex = 1, children = {
-            ui.Canvas {key = "board", width = BOARD_WIDTH, height = height,
-                onPress = "tap", commands = drawing(state, height)},
-        }},
+        ui.Canvas {key = "board_" .. state.boardId, width = BOARD_WIDTH, height = height,
+            interactive = true, flex = 1, onPress = "tap", commands = drawing(state, height)},
     }
+    if selected then
+        table.insert(children, ui.Input {key = "note_" .. selected.id, lines = 2,
+            label = "Note", value = state.drafts[selected.key] or selected.text})
+        table.insert(children, ui.Row {key = "note_actions", gap = 8, children = {
+            button("save_note", "SAVE", "save_note", nil, true),
+            button("close_note", "CLOSE", "close_note"),
+        }})
+        table.insert(children, ui.Disclosure {key = "note_more", title = "Note actions", children = {
+            ui.Row {key = "note_secondary", gap = 8, children = {
+                button("move_note", "MOVE", "tool", {tool = "move"}),
+                button("erase_note", "DELETE NOTE", "erase_note"),
+            }},
+        }})
+    end
+    return children
 end
 
 local function view(state)
@@ -468,9 +484,14 @@ end
 return ui.app {
     init = function()
         return {mode = "boards", boards = {}, boardId = "", boardName = "", objects = {},
-            selected = "", linkFrom = "", tool = "select", message = ""}
+            selected = "", linkFrom = "", tool = "select", message = "", drafts = {}}
     end,
     update = update,
     view = view,
-    back = function(state) if state.mode == "board" then return "boards" end end,
+    back = function(state)
+        if state.mode == "board" then
+            if state.selected ~= "" or state.tool ~= "select" then return "close_note" end
+            return "boards"
+        end
+    end,
 }

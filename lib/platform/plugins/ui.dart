@@ -470,19 +470,22 @@ class PluginUi extends StatelessWidget {
         separatorBuilder: (_, index) =>
             SizedBox(height: number('gap', 8).clamp(0, 64)),
       ),
-      'canvas' => GestureDetector(
-        onTapUp: p['onPress'] == null
-            ? null
-            : (event) => action(
-                p['onPress'] as String?,
-                position: event.localPosition,
+      'canvas' => _canvas(
+        node,
+        GestureDetector(
+          onTapUp: p['onPress'] == null
+              ? null
+              : (event) => action(
+                  p['onPress'] as String?,
+                  position: event.localPosition,
+                ),
+          child: RepaintBoundary(
+            child: SizedBox(
+              height: number('height', 96).clamp(0, 4096),
+              width: number('width', 240).clamp(0, 4096),
+              child: CustomPaint(
+                painter: _PluginCanvas(uiList(p['commands']), context.tokens),
               ),
-        child: RepaintBoundary(
-          child: SizedBox(
-            height: number('height', 96).clamp(0, 4096),
-            width: number('width', 240).clamp(0, 4096),
-            child: CustomPaint(
-              painter: _PluginCanvas(uiList(p['commands']), context.tokens),
             ),
           ),
         ),
@@ -554,6 +557,17 @@ class PluginUi extends StatelessWidget {
       );
     }
     return KeyedSubtree(key: ValueKey(node.key), child: result);
+  }
+
+  Widget _canvas(PluginUiNode node, Widget painting) {
+    if (node.props['interactive'] != true) return painting;
+    return InteractiveViewer(
+      key: ValueKey('${node.key}:viewport'),
+      constrained: false,
+      minScale: 0.5,
+      maxScale: 3,
+      child: painting,
+    );
   }
 }
 

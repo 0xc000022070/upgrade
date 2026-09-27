@@ -8,6 +8,9 @@ import 'package:dazzle_luau/data_api.dart';
 import 'package:dazzle_luau/dazzle_luau.dart';
 import 'package:dazzle_luau/ui_sdk.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+
+import 'support/themed_app.dart';
 
 PluginPackage boardPackage() => PluginPackage(
   manifest: PluginManifest.parse(
@@ -23,6 +26,7 @@ class BoardHarness {
   final LuauWorker worker;
   final PluginPackage package;
   Map<String, Object?>? state;
+  String? back;
   late PluginUiNode view;
   Future<void> send(Map<String, Object?> event) async {
     final plugin = InstalledPlugin(package, package.manifest.permissions);
@@ -38,6 +42,7 @@ class BoardHarness {
     );
     final response = result.value! as Map<String, Object?>;
     state = response['state']! as Map<String, Object?>;
+    back = response['back'] as String?;
     view = PluginUiNode.parse(response['view'], allowCanvas: true);
   }
 
@@ -220,9 +225,176 @@ void main() {
     expect(surface(app.view).props['height'], placed);
     expect(
       walk(app.view).where((entry) => entry.kind == 'input').map((e) => e.key),
-      contains('note'),
+      isEmpty,
     );
   });
+
+  test(
+    'canvas fills the viewport and editor appears only for selection',
+    () async {
+      await opened();
+      expect(surface(app.view).props['interactive'], isTrue);
+      expect(surface(app.view).props['flex'], 1);
+      expect(surface(app.view).props['width'], 4096);
+      expect(app.back, 'boards');
+      expect(walk(app.view).where((entry) => entry.kind == 'input'), isEmpty);
+      await app.tool('note');
+      await app.tap(800, 100, 'wide-note');
+      expect(app.back, 'close_note');
+      final drawn = commands(app.view)
+          .firstWhere((entry) => entry['op'] == 'text');
+      expect(drawn['x'], 800 - 132 / 2 + 8);
+      expect(
+        walk(app.view).where((entry) => entry.key == 'note_wide-note'),
+        hasLength(1),
+      );
+      final secondary = walk(app.view)
+          .firstWhere((entry) => entry.key == 'note_more');
+      expect(secondary.kind, 'disclosure');
+      expect(walk(secondary).any((entry) => entry.key == 'erase_note'), isTrue);
+      await app.action('close_note');
+      expect(app.state!['selected'], '');
+      expect(app.state!['tool'], 'select');
+      expect(app.back, 'boards');
+      expect(walk(app.view).where((entry) => entry.kind == 'input'), isEmpty);
+    },
+  );
+
+  test('each note has its own editor field and saved text', () async {
+    await opened();
+    await app.tool('note');
+    await app.tap(80, 100, 'first');
+    await app.action('save_note', {
+      'fields': {'note_first': 'First note'},
+    });
+    await app.tap(240, 100, 'second');
+    expect(
+      walk(app.view).where((entry) => entry.kind == 'input').single.key,
+      'note_second',
+    );
+    await app.action('save_note', {
+      'fields': {'note_first': 'First note', 'note_second': 'Second note'},
+    });
+    expect(
+      commands(app.view)
+          .where((entry) => entry['op'] == 'text')
+          .map((entry) => entry['text']),
+      ['First note', 'Second note'],
+    );
+  });
+
+  test(
+    'closing and changing selection retain drafts without saving them',
+    () async {
+      await opened();
+      await app.tool('note');
+      await app.tap(80, 100, 'first');
+      await app.action('tap', {
+        'token': 'second',
+        'position': {'x': 240, 'y': 100},
+        'fields': {'note_first': 'First draft'},
+      });
+      await app.action('close_note', {
+        'fields': {'note_second': 'Second draft'},
+      });
+      await app.tap(80, 100, 'select-first');
+      expect(
+        walk(app.view)
+            .where((entry) => entry.kind == 'input')
+            .single
+            .props['value'],
+        'First draft',
+      );
+      await app.action('boards', {
+        'fields': {'note_first': 'Revised first draft'},
+      });
+      await app.action('open_board', {
+        'args': {'id': app.state!['boardId']},
+      });
+      expect(
+        commands(app.view)
+            .where((entry) => entry['op'] == 'text')
+            .map((entry) => entry['text']),
+        ['EMPTY', 'EMPTY'],
+      );
+      await app.tap(80, 100, 'select-first-again');
+      expect(
+        walk(app.view)
+            .where((entry) => entry.kind == 'input')
+            .single
+            .props['value'],
+        'Revised first draft',
+      );
+      await app.tap(240, 100, 'select-second');
+      expect(
+        walk(app.view)
+            .where((entry) => entry.kind == 'input')
+            .single
+            .props['value'],
+        'Second draft',
+      );
+      await app.action('save_note', {
+        'fields': {'note_second': 'Second saved'},
+      });
+      expect((app.state!['drafts']! as Map<String, Object?>).values, [
+        'Revised first draft',
+      ]);
+      await app.tap(80, 100, 'select-first-delete');
+      await app.action('erase_note');
+      expect(app.state!['drafts'], isEmpty);
+    },
+  );
+
+  testWidgets(
+    'interactive canvas fills narrow and wide viewports and preserves tap coordinates',
+    (tester) async {
+      for (final width in [360.0, 850.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 800));
+        final events = <Map<String, Object?>>[];
+        const canvas = PluginUiNode('canvas', {
+          'key': 'board',
+          'width': 4096,
+          'height': 1200,
+          'interactive': true,
+          'flex': 1,
+          'onPress': 'tap',
+          'commands': <Object?>[],
+        }, []);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: testTheme,
+            home: Scaffold(
+              body: PluginUi(
+                node: const PluginUiNode(
+                  'screen',
+                  {'key': 'screen', 'padding': 16},
+                  [canvas],
+                ),
+                values: {},
+                busy: false,
+                onEvent: events.add,
+              ),
+            ),
+          ),
+        );
+        expect(tester.takeException(), isNull);
+        final viewport = find.byType(InteractiveViewer);
+        expect(tester.getSize(viewport).width, width - 32);
+        final origin = tester.getTopLeft(viewport);
+        await tester.tapAt(origin + const Offset(100, 100));
+        expect(events.single['position'], {'x': 100.0, 'y': 100.0});
+        events.clear();
+        await tester.drag(viewport, const Offset(-80, -120));
+        await tester.pumpAndSettle();
+        await tester.tapAt(origin + const Offset(100, 100));
+        final position = events.single['position']! as Map<String, Object?>;
+        expect(position['x'], greaterThan(100));
+        expect(position['y'], greaterThan(100));
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+      await tester.binding.setSurfaceSize(null);
+    },
+  );
 
   test('moving with nothing selected explains itself', () async {
     await opened();

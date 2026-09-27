@@ -31,6 +31,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/native_plugins.dart';
 import 'support/platform_channels.dart';
 import 'agent_schedules_plugin_test.dart' show schedulePackage;
+import 'board_plugin_test.dart' show boardPackage;
 import 'support/themed_app.dart';
 
 Future<void> drain(WidgetTester tester) async {
@@ -79,6 +80,7 @@ void main() {
       builtinFixture('drops'),
       builtinFixture('projects'),
       schedulePackage(),
+      boardPackage(),
     ], adoptEnabled: false);
     container = ProviderContainer(
       overrides: [
@@ -184,6 +186,44 @@ void main() {
       await drain(tester);
     },
   );
+
+  testWidgets('Board Back returns through its list to the Tools tab', (
+    tester,
+  ) async {
+    await tester.runAsync(
+      () => container
+          .read(pluginsProvider.notifier)
+          .setEnabled('dazzle.board', true),
+    );
+    await tester.pumpWidget(host(const DazzleShell()));
+    await drain(tester);
+    await tester.tap(find.text('TOOLS'));
+    await drain(tester);
+    await tester.tap(find.text('BOARD'));
+    await drainUntil(
+      tester,
+      () => find.text('+ NEW BOARD').evaluate().isNotEmpty,
+    );
+    await tester.tap(find.text('+ NEW BOARD'));
+    await drainUntil(tester, () => find.text('BOARDS').evaluate().isNotEmpty);
+
+    await tester.binding.handlePopRoute();
+    await drainUntil(
+      tester,
+      () => find.text('+ NEW BOARD').evaluate().isNotEmpty,
+    );
+    expect(find.byType(PluginPage), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await drain(tester);
+    expect(find.byType(PluginPage), findsNothing);
+    expect(container.read(navIndexProvider), 4);
+    expect(find.byType(PluginLibraryScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.runAsync(closeContainer);
+    await drain(tester);
+  });
 
   testWidgets(
     'real surfaces withdraw, stale routes close, and records return intact',
