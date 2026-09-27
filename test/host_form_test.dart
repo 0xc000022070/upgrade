@@ -12,9 +12,9 @@ import 'package:dazzle/data/enums.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/data/repositories/key_repository.dart';
 import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/components/picker_row.dart';
 import 'package:dazzle/design/components/solid_action_bar.dart';
 import 'package:dazzle/features/settings/host_form_screen.dart';
+import 'package:dazzle/features/settings/key_form_screen.dart';
 import 'package:dazzle/features/hosts/hosts_screen.dart';
 import 'package:dazzle/features/screen/screen_preview.dart';
 import 'package:dazzle/platform/host_key_dial.dart';
@@ -114,6 +114,26 @@ void main() {
 
   Finder field(_Fields which) => find.byType(TextField).at(which.index);
 
+  testWidgets('key creation explains setup and keeps submit visible', (
+    tester,
+  ) async {
+    await open(tester, const NewKeyScreen());
+    expect(find.textContaining('Ed25519 SSH key'), findsOneWidget);
+    expect(find.text('CREATE KEY'), findsOneWidget);
+    expect(
+      tester.widget<SolidActionBar>(find.byType(SolidActionBar)).enabled,
+      isFalse,
+    );
+    expect(tester.widget<TextField>(find.byType(TextField)).autofocus, isFalse);
+    await tester.enterText(find.byType(TextField), 'workstation');
+    await tester.pump();
+    expect(
+      tester.widget<SolidActionBar>(find.byType(SolidActionBar)).enabled,
+      isTrue,
+    );
+    await unmount(tester);
+  });
+
   String textIn(WidgetTester tester, _Fields which) =>
       tester.widget<TextField>(field(which)).controller?.text ?? '';
 
@@ -125,19 +145,20 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('one key is preselected and the bar says what is missing', (
+  testWidgets('one key is preselected and validation leaves a stable action', (
     tester,
   ) async {
     await keys.save(_key('key-1', 'faraday'));
     await open(tester, const HostFormScreen());
 
-    // The selected picker row is the only one that paints its label on the background
-    // colour, behind the `// ` marker.
-    expect(find.text('// '), findsOneWidget);
-    final row = tester.widget<Text>(find.text('FARADAY'));
-    expect(row.style?.color, DazzleColors.backgroundPrimary);
-
-    expect(label(tester), 'NAME MISSING');
+    expect(
+      tester
+          .widget<DropdownButton<String>>(find.byType(DropdownButton<String>))
+          .value,
+      'key-1',
+    );
+    expect(label(tester), 'CREATE HOST');
+    expect(find.text('NAME MISSING'), findsOneWidget);
     expect(fill(tester), DazzleColors.textDisabled);
 
     await tester.tap(find.byType(SolidActionBar));
@@ -155,11 +176,13 @@ void main() {
 
     await tester.enterText(field(_Fields.name), 'nyx');
     await tester.pump();
-    expect(label(tester), 'ADDRESS MISSING');
+    expect(label(tester), 'CREATE HOST');
+    expect(find.text('ADDRESS MISSING'), findsOneWidget);
 
     await tester.enterText(field(_Fields.address), '100.64.0.1');
     await tester.pump();
-    expect(label(tester), 'USER MISSING');
+    expect(label(tester), 'CREATE HOST');
+    expect(find.text('USER MISSING'), findsOneWidget);
 
     await tester.enterText(field(_Fields.user), 'luis');
     await tester.pump();
@@ -261,12 +284,14 @@ void main() {
     });
 
     await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('NYX'));
+    await _sheet(tester);
     await tester.tap(find.text('EDIT'));
     await _ready(tester);
     expect(
       tester
-          .widgetList<PickerRow>(find.byType(PickerRow))
-          .where((row) => row.label == 'VNC' && row.selected),
+          .widgetList<SwitchListTile>(find.byType(SwitchListTile))
+          .where((row) => (row.title as Text).data == 'VNC' && row.value),
       hasLength(1),
     );
 
@@ -283,12 +308,15 @@ void main() {
     expect(find.text('// '), findsNothing);
     await fillFields(tester);
 
-    expect(label(tester), 'KEY MISSING');
+    expect(label(tester), 'CREATE HOST');
+    expect(find.text('KEY MISSING'), findsOneWidget);
     await tester.tap(find.byType(SolidActionBar));
     await _ready(tester);
     expect(await hosts.all(), isEmpty);
 
-    await tester.tap(find.text('ROSE'));
+    await tester.tap(find.byType(DropdownButton<String>));
+    await _sheet(tester);
+    await tester.tap(find.text('rose').last);
     await tester.pump();
     expect(label(tester), 'CREATE HOST');
 
@@ -301,8 +329,10 @@ void main() {
     await open(tester, const HostFormScreen());
     await fillFields(tester);
 
-    expect(find.text('NO KEYS · NEW + IN SYS'), findsOneWidget);
-    expect(label(tester), 'KEY MISSING');
+    expect(find.text('CREATE AN SSH KEY BELOW TO CONNECT.'), findsOneWidget);
+    expect(find.text('CREATE SSH KEY'), findsOneWidget);
+    expect(label(tester), 'CREATE HOST');
+    expect(find.text('KEY MISSING'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -320,7 +350,7 @@ void main() {
     await _sheet(tester);
     expect(find.text('DISCARD HOST?'), findsOneWidget);
 
-    await tester.tap(find.text('CANCEL'));
+    await tester.tap(find.text('CANCEL').last);
     await _sheet(tester);
     expect(find.text('NEW HOST'), findsWidgets);
     expect(textIn(tester, _Fields.name), 'nyx');
@@ -376,7 +406,8 @@ void main() {
     for (final typed in ['', 'abc', '70000', '0', '-1']) {
       await tester.enterText(field(_Fields.port), typed);
       await tester.pump();
-      expect(label(tester), 'PORT MISSING', reason: 'port `$typed`');
+      expect(label(tester), 'CREATE HOST', reason: 'port `$typed`');
+      expect(find.text('PORT MISSING'), findsOneWidget);
       expect(fill(tester), DazzleColors.textDisabled);
     }
 

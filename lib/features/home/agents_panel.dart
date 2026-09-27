@@ -133,8 +133,6 @@ class _AgentsBody extends StatelessWidget {
         if (failures.isNotEmpty && (active.isNotEmpty || answered))
           const SizedBox(height: Spacing.md),
         if (active.isNotEmpty) ...[
-          const _ColumnLabels(),
-          const SizedBox(height: Spacing.sm),
           for (final row in active.take(3))
             _AgentRow(row.agent, onTap: () => onOpen(row.host, row.agent)),
           const SizedBox(height: Spacing.md),
@@ -170,19 +168,6 @@ class _SetupLine extends StatelessWidget {
   );
 }
 
-class _ColumnLabels extends StatelessWidget {
-  const _ColumnLabels();
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(flex: 4, child: Text('AGENT', style: context.tokens.label)),
-      Expanded(flex: 3, child: Text('STATUS', style: context.tokens.label)),
-      Expanded(flex: 4, child: Text('WORK', style: context.tokens.label)),
-    ],
-  );
-}
-
 class _AgentRow extends StatelessWidget {
   const _AgentRow(this.agent, {required this.onTap});
 
@@ -197,29 +182,32 @@ class _AgentRow extends StatelessWidget {
       onTap: onTap,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 4,
-              child: Row(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: Spacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                agent.terminalTitleStripped.isEmpty
+                    ? '${agentMarkName(agent.agent)} session'
+                    : agent.terminalTitleStripped,
+                style: context.tokens.rowTitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: Spacing.sm),
+              Row(
                 children: [
                   AgentMark(agent.agent),
                   const SizedBox(width: Spacing.md),
                   Expanded(
                     child: Text(
                       agentMarkName(agent.agent),
-                      style: context.tokens.rowTitle,
+                      style: context.tokens.rowSubtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 3,
-              child: Row(
-                children: [
                   Container(
                     width: 6,
                     height: 6,
@@ -229,27 +217,16 @@ class _AgentRow extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: Spacing.sm),
-                  Flexible(
-                    child: Text(
-                      agent.state.label,
-                      style: context.tokens.value.copyWith(color: statusColor),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  Text(
+                    agent.state.label,
+                    style: context.tokens.value.copyWith(color: statusColor),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
-            ),
-            Expanded(
-              flex: 4,
-              child: Text(
-                agent.terminalTitleStripped,
-                style: context.tokens.rowSubtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

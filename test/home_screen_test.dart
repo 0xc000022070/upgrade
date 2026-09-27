@@ -38,12 +38,15 @@ Finder _toast(String text) =>
 
 /// The checkbox target is an overlay over the row's first 40px, not a wrapper around the
 /// glyph.
-Future<void> _tapBox(WidgetTester tester, String title) => tester.tapAt(
-  tester.getTopLeft(
-        find.ancestor(of: find.text(title), matching: find.byType(ListRow)),
-      ) +
-      const Offset(12, 12),
-);
+Future<void> _tapBox(WidgetTester tester, String title) async {
+  final row = find.ancestor(
+    of: find.text(title),
+    matching: find.byType(ListRow),
+  );
+  await tester.ensureVisible(row);
+  await tester.pump();
+  await tester.tapAt(tester.getTopLeft(row) + const Offset(12, 12));
+}
 
 Future<void> _drain(
   WidgetTester tester, {
@@ -312,6 +315,9 @@ void main() {
   testWidgets('completions past the second fold the older toasts away', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(600, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     const titles = ['primero', 'segundo', 'tercero', 'cuarto'];
     for (final title in titles) {
       await tasks.capture(title);

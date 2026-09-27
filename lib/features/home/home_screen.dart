@@ -13,6 +13,7 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/tokens.dart';
+import '../../design/spacing.dart';
 import '../../platform/plugins/contributions.dart';
 import '../screen_scaffold.dart';
 import '../tasks/selection_bar.dart';
@@ -111,11 +112,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       children: [
         Expanded(
           child: ScreenScaffold(
+            maxContentWidth: 1100,
             breadcrumbTrailing: HomeActions(beforeOpen: _leave),
             children: [
-              PanelStack(
+              _HomeColumns(
                 children: [
-                  const AgentsPanel(),
                   if (placementState.isLoading && catalog.widgets.isNotEmpty)
                     const Panel(title: '[ PLUGINS ]', child: DelayedSpinner()),
                   if (placementState.hasError)
@@ -163,6 +164,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ],
     );
   }
+}
+
+class _HomeColumns extends StatelessWidget {
+  const _HomeColumns({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final wide = constraints.maxWidth >= 760 && children.isNotEmpty;
+      return Wrap(
+        spacing: Spacing.panelGap,
+        runSpacing: Spacing.panelGap,
+        children: [
+          SizedBox(
+            width: wide ? 300 : constraints.maxWidth,
+            child: const AgentsPanel(),
+          ),
+          SizedBox(
+            width: wide
+                ? constraints.maxWidth - 300 - Spacing.panelGap
+                : constraints.maxWidth,
+            child: PanelStack(children: children),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _PlacedPluginWidget extends StatelessWidget {

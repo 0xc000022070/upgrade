@@ -18,6 +18,8 @@ import 'package:dazzle/application/drop_selection.dart';
 import 'package:dazzle/features/home/capture_bar.dart';
 import 'package:dazzle/features/tasks/selection_bar.dart';
 import 'package:dazzle/features/home/home_screen.dart';
+import 'package:dazzle/features/home/agents_panel.dart';
+import 'package:dazzle/features/tasks/drops_panel.dart';
 import 'package:dazzle/features/screen_scaffold.dart';
 
 import 'support/platform_channels.dart';
@@ -109,6 +111,29 @@ void main() {
     expect(panel.center.dx, 450, reason: 'centred, not left-aligned');
 
     expect(tester.getRect(find.byType(Scrollable)).width, 900);
+    await unmount(tester);
+  });
+
+  testWidgets('home places work beside agents on wide displays', (
+    tester,
+  ) async {
+    resize(tester, 900);
+    await tester.pumpWidget(host(const Scaffold(body: HomeScreen())));
+    await _ready(tester);
+
+    final agents = tester.getRect(find.byType(AgentsPanel));
+    final drops = tester.getRect(find.byType(DropsPanel));
+    expect(drops.left, greaterThan(agents.right));
+    expect(drops.top, agents.top);
+    expect(tester.takeException(), isNull);
+
+    resize(tester, 360);
+    await _ready(tester);
+    expect(
+      tester.getTopLeft(find.byType(DropsPanel)).dy,
+      greaterThan(tester.getBottomLeft(find.byType(AgentsPanel)).dy),
+    );
+    expect(tester.takeException(), isNull);
     await unmount(tester);
   });
 

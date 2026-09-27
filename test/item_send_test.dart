@@ -268,6 +268,43 @@ void main() {
       readImage: readImage ?? (path) async => Uint8List.fromList([1, 2, 3]),
     );
 
+    test(
+      'reviewed message replaces composed text without duplicating URLs',
+      () async {
+        String? outgoing;
+        final state =
+            await sender(({
+              required address,
+              required port,
+              required user,
+              required privateKey,
+              required kind,
+              required directory,
+              required prompt,
+              images = const <RemoteFile>[],
+              model,
+              verifier,
+            }) async {
+              outgoing = prompt;
+              return const SpawnRefused(SpawnRefusal.noSession);
+            })(
+              target: _target(),
+              itemId: await onlyTaskId(),
+              kind: const ClaudeKind(),
+              title: 'Original title',
+              prompt: 'Original prompt',
+              links: const ['https://a.example'],
+              message: 'Reviewed instructions\n\nhttps://a.example',
+              imagePaths: const ['/data/photo.png'],
+            );
+        expect(state, isA<SendFailed>());
+        expect(
+          outgoing,
+          'Reviewed instructions\n\nhttps://a.example\n\n/tmp/dazzle/photo.png',
+        );
+      },
+    );
+
     test('a pane id is a row, and the row says where it went', () async {
       final calls = <_Call>[];
       final verifiers = <HostKeyVerifier?>[];
@@ -703,6 +740,7 @@ void main() {
       expect(find.text('SEND TO'), findsNothing);
       expect(find.text('AGENT'), findsOneWidget);
       expect(find.text('MODEL'), findsOneWidget);
+      expect(find.byKey(const ValueKey('send-message')), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
@@ -794,12 +832,33 @@ void main() {
       await tester.tap(find.text('SONNET'));
       await _drain(tester);
 
+      final message = find.byKey(const ValueKey('send-message'));
+      expect(
+        tester.widget<DazzleField>(message).controller.text,
+        'read the gate log\n\nhttps://a.example',
+      );
+      await tester.enterText(
+        message,
+        'Review the revised log\n\nhttps://a.example',
+      );
+      await tester.binding.handlePopRoute();
+      await _drain(tester);
+      expect(find.text('SEND TO'), findsOneWidget);
+      await tester.tap(find.text('NYX / DAZZLE'));
+      await _drain(tester);
+      expect(
+        tester.widget<DazzleField>(message).controller.text,
+        'Review the revised log\n\nhttps://a.example',
+      );
+      await tester.tap(find.text('SONNET'));
+      await _drain(tester);
+
       await tester.tap(find.text('SEND'));
       await _drain(tester);
 
       expect(seenKind, 'claude');
       expect(seenModel, 'sonnet');
-      expect(seen, 'read the gate log\n\nhttps://a.example');
+      expect(seen, 'Review the revised log\n\nhttps://a.example');
       expect(find.text('SENT · wQ:p7'), findsOneWidget);
       expect(find.text('CLOSE'), findsOneWidget);
 
@@ -941,6 +1000,11 @@ void main() {
       await tester.tap(find.text('PROMPT'));
       await _drain(tester);
       expect(find.text('SAVE'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await _drain(tester);
+      expect(find.text('SAVE'), findsOneWidget);
+      expect(find.text('SEND'), findsNothing);
 
       await tester.enterText(find.byType(DazzleField), 'read lib/auth first');
       await tester.tap(find.text('SAVE'));

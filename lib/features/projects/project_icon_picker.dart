@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../data/project_icons.dart';
 import '../../design/components/panel.dart';
+import '../../design/components/panel_sheet.dart';
+import '../../design/components/picker_row.dart';
 import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
@@ -21,25 +23,39 @@ class ProjectIconPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Panel(
     title: 'PROJECT ICON',
-    child: LayoutBuilder(
-      builder: (context, constraints) => Wrap(
-        spacing: Spacing.md,
-        runSpacing: Spacing.md,
-        children: [
-          for (final icon in <ProjectIconKind?>[
-            null,
-            ...ProjectIconKind.values,
-          ])
-            SizedBox(
-              width: (constraints.maxWidth - Spacing.md * 2) / 3,
-              child: _Choice(
-                icon: icon,
-                selected: ProjectIconKind.fromId(value) == icon,
-                onTap: () => onChanged(icon?.name),
-              ),
-            ),
-        ],
+    bodyPadding: panelRowsPadding,
+    child: PickerRow(
+      label: ProjectIconKind.fromId(value)?.label.toUpperCase() ?? 'NO ICON',
+      value: 'CHANGE',
+      onTap: () => showPanelSheet<void>(
+        context,
+        title: 'PROJECT ICON',
+        builder: (context) => PanelSheetBody(
+          title: 'PROJECT ICON',
+          children: [_choices(context)],
+        ),
       ),
+    ),
+  );
+
+  Widget _choices(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => Wrap(
+      spacing: Spacing.md,
+      runSpacing: Spacing.md,
+      children: [
+        for (final icon in <ProjectIconKind?>[null, ...ProjectIconKind.values])
+          SizedBox(
+            width: (constraints.maxWidth - Spacing.md * 2) / 3,
+            child: _Choice(
+              icon: icon,
+              selected: ProjectIconKind.fromId(value) == icon,
+              onTap: () {
+                onChanged(icon?.name);
+                Navigator.of(context).pop();
+              },
+            ),
+          ),
+      ],
     ),
   );
 }

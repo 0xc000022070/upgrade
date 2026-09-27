@@ -11,7 +11,7 @@ DazzleTokens dazzleTokensFromScheme(ColorScheme scheme) {
 
   final textPrimary = scheme.onSurface;
   final textSecondary = scheme.onSurfaceVariant;
-  final textMuted = scheme.onSurfaceVariant.withValues(alpha: 0.7);
+  final textMuted = scheme.onSurfaceVariant;
   final textDisabled = scheme.onSurface.withValues(alpha: 0.38);
   final accent = scheme.primary;
 

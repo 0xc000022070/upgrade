@@ -162,8 +162,15 @@ class _Feed extends StatelessWidget {
             ListRow(
               leading: AgentMark(agent.agent),
               leadingWidth: 24,
-              title: agentMarkName(agent.agent),
-              subtitle: '${agent.paneId} · ${path.basename(agent.cwd)}',
+              title: agent.terminalTitleStripped.trim().isEmpty
+                  ? '${agentMarkName(agent.agent)} session'
+                  : agent.terminalTitleStripped.trim(),
+              titleMaxLines: 2,
+              subtitle:
+                  '${agentMarkName(agent.agent)} · ${path.basename(agent.cwd)} · ${outcome.host.name}',
+              caption: agent.blocked
+                  ? 'Needs attention · tap to open terminal'
+                  : '${agent.session} · ${agent.paneId}',
               value: agent.state.label,
               valueColor: agentStateColor(context, agent.state),
               onTap: () => onOpen(outcome.host, agent),

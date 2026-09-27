@@ -66,15 +66,19 @@ void main() {
 
   tearDown(() => db.close());
 
-  Widget host({bool hidable = false}) => ProviderScope(
-    overrides: [...featureTestOverrides(db)],
-    child: MaterialApp(
-      theme: testTheme,
-      home: Scaffold(
-        body: CaptureBar(scope: DropSelection.homeScope, hidable: hidable),
-      ),
-    ),
-  );
+  Widget host({bool hidable = false, VoidCallback? onNavigate}) =>
+      ProviderScope(
+        overrides: [...featureTestOverrides(db)],
+        child: MaterialApp(
+          theme: testTheme,
+          home: Scaffold(
+            body: CaptureBar(scope: DropSelection.homeScope, hidable: hidable),
+            bottomNavigationBar: onNavigate == null
+                ? null
+                : TextButton(onPressed: onNavigate, child: const Text('Hosts')),
+          ),
+        ),
+      );
 
   Offset header(WidgetTester tester) {
     final rect = tester.getRect(
@@ -144,6 +148,90 @@ void main() {
     expect(_glyph(ToolbarGlyph.link), findsOneWidget);
     expect(_glyph(ToolbarGlyph.target), findsNothing);
 
+    await unmount(tester);
+  });
+
+  testWidgets(
+    'closing the IME removes the accessory without losing the draft',
+    (tester) async {
+      addTearDown(tester.view.resetViewInsets);
+      var navigations = 0;
+      await tester.pumpWidget(host(onNavigate: () => navigations++));
+      await _ready(tester);
+      await tester.enterText(_capture, 'Keep this draft');
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await _ready(tester);
+      expect(find.byType(KeyboardToolbar), findsOneWidget);
+
+      tester.view.viewInsets = const FakeViewPadding();
+      await _ready(tester);
+
+      expect(find.byType(KeyboardToolbar), findsNothing);
+      expect(KeyboardAccessory.reservedHeight.value, 0);
+      expect(tester.widget<TextField>(_capture).focusNode!.hasFocus, isFalse);
+      expect(
+        tester.widget<TextField>(_capture).controller!.text,
+        'Keep this draft',
+      );
+      await tester.tap(find.text('Hosts'));
+      await _ready(tester);
+      expect(navigations, 1);
+      await tester.tap(_capture);
+      await _ready(tester);
+      expect(find.byType(KeyboardToolbar), findsOneWidget);
+      await unmount(tester);
+    },
+  );
+
+  testWidgets('IME dismissal preserves attached links with the capture draft', (
+    tester,
+  ) async {
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    await tester.enterText(_capture, 'Keep attachment');
+    await _ready(tester);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await _ready(tester);
+    await tester.tap(_glyph(ToolbarGlyph.link));
+    await _ready(tester);
+    await tester.enterText(_line, 'https://example.com');
+    await _ready(tester);
+    await tester.tap(find.text('ATTACH'));
+    await _ready(tester);
+    expect(_line, findsNothing);
+    expect(find.text('[ example.com ]'), findsOneWidget);
+
+    tester.view.viewInsets = const FakeViewPadding();
+    await _ready(tester);
+    expect(find.byType(KeyboardToolbar), findsNothing);
+    await tester.tap(_capture);
+    await _ready(tester);
+    expect(find.text('[ example.com ]'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(_capture).controller!.text,
+      'Keep attachment',
+    );
+    await unmount(tester);
+  });
+
+  testWidgets('Back dismisses the accessory with a hardware keyboard', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    await tester.enterText(_capture, 'Keep this draft');
+    await _ready(tester);
+
+    await tester.binding.handlePopRoute();
+    await _ready(tester);
+
+    expect(find.byType(KeyboardToolbar), findsNothing);
+    expect(KeyboardAccessory.reservedHeight.value, 0);
+    expect(
+      tester.widget<TextField>(_capture).controller!.text,
+      'Keep this draft',
+    );
     await unmount(tester);
   });
 

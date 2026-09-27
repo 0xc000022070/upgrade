@@ -10,6 +10,7 @@ import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/data/repositories/key_repository.dart';
 import 'package:dazzle/design/colors.dart';
+import 'package:dazzle/design/components/solid_action_bar.dart';
 import 'package:dazzle/features/settings/host_form_screen.dart';
 import 'package:dazzle/features/settings/key_detail_screen.dart';
 import 'package:dazzle/platform/keys.dart';
@@ -107,7 +108,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('host save requires selecting a key', (tester) async {
+  testWidgets('host save requires an available SSH key', (tester) async {
     // The `[ PORT ]` field pushed the action bar past the bottom of the default 800x600
     // surface, and a [ListView] never builds what it does not show.
     tester.view.physicalSize = const Size(400, 1800);
@@ -122,13 +123,28 @@ void main() {
     await tester.enterText(fields.at(3), 'luis');
     await tester.pump();
 
-    expect(find.text('CREATE HOST'), findsNothing);
+    expect(find.text('CREATE HOST'), findsOneWidget);
+    expect(
+      tester.widget<SolidActionBar>(find.byType(SolidActionBar)).enabled,
+      isFalse,
+    );
+    expect(find.text('KEY MISSING'), findsOneWidget);
+    await tester.tap(find.text('CREATE HOST'));
+    await tester.pump();
     expect(await hosts.all(), isEmpty);
 
     await keys.save(managedKey);
     await _ready(tester);
-    await tester.tap(find.text('FARADAY'));
-    await tester.pump();
+    expect(
+      tester
+          .widget<DropdownButton<String>>(find.byType(DropdownButton<String>))
+          .value,
+      managedKey.id,
+    );
+    expect(
+      tester.widget<SolidActionBar>(find.byType(SolidActionBar)).enabled,
+      isTrue,
+    );
     expect(find.text('CREATE HOST'), findsOneWidget);
     await tester.tap(find.text('CREATE HOST'));
     await _ready(tester);

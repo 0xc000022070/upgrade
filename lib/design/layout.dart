@@ -7,16 +7,22 @@ import 'package:flutter/widgets.dart';
 abstract final class Layout {
   static const columnMax = 600.0;
 
-  static double gutterFor(double width) => math.max(0, (width - columnMax) / 2);
+  static double gutterFor(double width, {double maxWidth = columnMax}) =>
+      math.max(0, (width - maxWidth) / 2);
 }
 
 /// Unconditional at every width, only the constraint moves. A wrapper inserted above
 /// 600dp and removed below changes the element tree on the resize, and every [State]
 /// under it is discarded and rebuilt.
 class ContentColumn extends StatelessWidget {
-  const ContentColumn({super.key, required this.child});
+  const ContentColumn({
+    super.key,
+    required this.child,
+    this.maxWidth = Layout.columnMax,
+  });
 
   final Widget child;
+  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +31,7 @@ class ContentColumn extends StatelessWidget {
       // child's own and leaves the width alone.
       heightFactor: 1,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: Layout.columnMax),
+        constraints: BoxConstraints(maxWidth: maxWidth),
         child: child,
       ),
     );

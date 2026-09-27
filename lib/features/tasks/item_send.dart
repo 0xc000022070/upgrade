@@ -12,6 +12,7 @@ import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/path_repository.dart';
 import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
+import '../../design/components/dazzle_field.dart';
 import '../../design/components/dot_spinner.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
@@ -62,6 +63,14 @@ class _SendFlowState extends ConsumerState<SendFlow> {
   AgentKind _kind = AgentKind.all.first;
   String? _model;
   PathScan _models = const PathScanLoading();
+  final _message = TextEditingController();
+  bool _messageReady = false;
+
+  @override
+  void dispose() {
+    _message.dispose();
+    super.dispose();
+  }
 
   /// The host and kind [_models] was fetched for, so a rebuild does not refetch what it
   /// already has.
@@ -140,7 +149,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
 
   Future<void> _send(PathTarget target) async {
     final task = ref.read(taskProvider(widget.taskId)).valueOrNull;
-    if (task == null) return;
+    if (task == null || !_messageReady || _message.text.trim().isEmpty) return;
     // Read once here: a send is one message, and re-reading it inside the transport would
     // let an edit land halfway through.
     final attachments =
@@ -154,6 +163,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
       itemId: widget.taskId,
       title: task.title,
       prompt: task.prompt,
+      message: _message.text,
       links: [
         for (final attachment in attachments)
           if (attachment.kind == AttachmentKind.url) attachment.value,
@@ -171,14 +181,39 @@ class _SendFlowState extends ConsumerState<SendFlow> {
 
   @override
   Widget build(BuildContext context) {
-    switch (_step ?? _opening(_linked())) {
+    final step = _step ?? _opening(_linked());
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _back(step);
+      },
+      child: _body(step),
+    );
+  }
+
+  void _back(_Step step) {
+    if (step is _Dispatch && step.state is SendSending) return;
+    if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+      FocusScope.of(context).unfocus();
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    if (step is _Dispatch && step.state == null) {
+      setState(() => _step = const _Pick());
+    } else {
+      widget.onExit();
+    }
+  }
+
+  Widget _body(_Step step) {
+    switch (step) {
       case _Pick():
         return PanelSheetBody(
           title: 'SEND TO',
           affordance: PanelAffordance(
             'BACK',
             icon: DazzleIcons.back,
-            onTap: widget.onExit,
+            onTap: () => _back(step),
           ),
           children: [_picker()],
         );
@@ -188,9 +223,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           affordance: PanelAffordance(
             'BACK',
             icon: DazzleIcons.back,
-            onTap: () => dispatch.state == null
-                ? setState(() => _step = const _Pick())
-                : widget.onExit(),
+            onTap: () => _back(dispatch),
           ),
           children: _dispatchBody(dispatch),
         );
@@ -267,7 +300,55 @@ class _SendFlowState extends ConsumerState<SendFlow> {
       return [_status(dispatch.target, state)];
     }
     _ensureModels(dispatch.target);
+    final task = ref.watch(taskProvider(widget.taskId)).valueOrNull;
+    final attachmentState = ref.watch(itemAttachmentsProvider(widget.taskId));
+    final attachments = attachmentState.valueOrNull;
+    if (!_messageReady && task != null && attachments != null) {
+      _message.text = sendPrompt(
+        title: task.title,
+        prompt: task.prompt,
+        links: [
+          for (final attachment in attachments)
+            if (attachment.kind == AttachmentKind.url) attachment.value,
+        ],
+      );
+      _messageReady = true;
+    }
+    final imageCount =
+        attachments
+            ?.where((attachment) => attachment.kind == AttachmentKind.image)
+            .length ??
+        0;
     return [
+      SheetField(
+        label: 'DESTINATION',
+        child: Text(
+          '${dispatch.target.host.name}\n${dispatch.target.path.directory}',
+          style: context.tokens.value,
+        ),
+      ),
+      const SheetRule(),
+      SheetField(
+        label: 'MESSAGE',
+        child: DazzleField(
+          key: const ValueKey('send-message'),
+          semanticLabel: 'Message to agent',
+          controller: _message,
+          enabled: _messageReady,
+          minLines: 3,
+          maxLines: 6,
+          hint: attachmentState.hasError
+              ? 'Could not load attachments. Go back and retry.'
+              : 'Loading message…',
+          onChanged: (_) => setState(() {}),
+        ),
+      ),
+      if (imageCount > 0)
+        Text(
+          '$imageCount image${imageCount == 1 ? '' : 's'} will be uploaded. Remote paths are added to the message.',
+          style: context.tokens.rowSubtitle,
+        ),
+      const SheetRule(),
       Text('AGENT', style: context.tokens.panelHeader),
       const SizedBox(height: Spacing.sm),
       Row(
@@ -304,7 +385,9 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           label: 'SEND',
           filled: true,
           tone: context.tokens.accent,
-          onTap: () => _send(dispatch.target),
+          onTap: _messageReady && _message.text.trim().isNotEmpty
+              ? () => _send(dispatch.target)
+              : null,
         ),
       ),
     ];

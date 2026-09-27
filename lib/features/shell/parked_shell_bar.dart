@@ -74,10 +74,14 @@ class _Bar extends StatelessWidget {
                 children: [
                   ShellStateDot(state: session.state),
                   const SizedBox(width: Spacing.md),
-                  Text(
-                    '${session.host.name.toUpperCase()} ${session.number}',
-                    style: context.tokens.panelHeader.copyWith(
-                      color: context.tokens.textPrimary,
+                  Flexible(
+                    child: Text(
+                      '${session.host.name.toUpperCase()} ${session.number}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.tokens.panelHeader.copyWith(
+                        color: context.tokens.textPrimary,
+                      ),
                     ),
                   ),
                   if (others > 0) ...[

@@ -55,17 +55,19 @@ class _SessionsPanel extends ConsumerWidget {
           children: [
             Panel(
               title: 'ACTIVE SESSIONS',
-              child: SizedBox(
-                height: shellCardStripHeight,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.zero,
-                  itemCount: cards.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: Spacing.md),
-                  itemBuilder: (context, index) {
-                    final (host, session) = cards[index];
-                    return ShellCard(host: host, session: session);
-                  },
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var index = 0; index < cards.length; index++) ...[
+                      if (index > 0) const SizedBox(width: Spacing.md),
+                      ShellCard(
+                        host: cards[index].$1,
+                        session: cards[index].$2,
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -123,7 +125,7 @@ class _HostRow extends StatelessWidget {
     return ListRow(
       key: ValueKey('ssh-host-${host.id}'),
       title: host.name.toUpperCase(),
-      subtitle: 'ssh, ${host.user}',
+      subtitle: '${host.user}@${host.address}:${host.port}',
       node: true,
       leading: worst == null
           ? const SizedBox.shrink()

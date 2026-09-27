@@ -119,7 +119,7 @@ class KeyboardAccessory extends StatefulWidget {
 }
 
 class _KeyboardAccessoryState extends State<KeyboardAccessory>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   OverlayEntry? _entry;
   OverlayEntry? _scrim;
 
@@ -139,12 +139,14 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
   final _holeKey = GlobalKey();
 
   bool _gone = false;
+  bool _keyboardShown = false;
 
   late final AnimationController _fade;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Eagerly rather than lazily: [_remove] runs from [dispose] and touches it, and a
     // ticker created while the state is being disposed is an error.
     _fade = AnimationController(vsync: this, duration: Motion.accessory);
@@ -174,6 +176,7 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     // [State.mounted] is still true inside dispose — the element is cleared after it
     // returns — so this is what says the entry is gone.
     _gone = true;
+    WidgetsBinding.instance.removeObserver(this);
     widget.focus.removeListener(_onFocus);
     _fieldFocus.removeListener(_onFocus);
     _remove();
@@ -182,6 +185,20 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     _hole.dispose();
     _fieldFocus.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (_entry == null || !mounted) return;
+    final shown = View.of(context).viewInsets.bottom > 0;
+    final dismissed = _keyboardShown && !shown;
+    _keyboardShown = shown;
+    if (!dismissed) return;
+    // Android Back can close the IME without releasing the field's focus.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _entry == null) return;
+      if (View.of(context).viewInsets.bottom == 0) _dismiss();
+    });
   }
 
   void _onFocus() {
@@ -202,6 +219,7 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     if (_entry != null) return;
     final overlay = Overlay.maybeOf(context, rootOverlay: true);
     if (overlay == null) return;
+    _keyboardShown = View.of(context).viewInsets.bottom > 0;
     _open = false;
     _strip.value = _resolve();
     _measure();
@@ -222,6 +240,7 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
     _entry = null;
     _scrim = null;
     _open = false;
+    _keyboardShown = false;
     if (!_gone) {
       _strip.value = null;
       final field = widget.field;
@@ -377,8 +396,17 @@ class _KeyboardAccessoryState extends State<KeyboardAccessory>
   }
 
   @override
-  Widget build(BuildContext context) =>
-      KeyedSubtree(key: _holeKey, child: widget.child);
+  Widget build(BuildContext context) => ValueListenableBuilder<_Strip?>(
+    valueListenable: _strip,
+    builder: (context, strip, child) => PopScope(
+      canPop: strip == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && strip != null) _dismiss();
+      },
+      child: child!,
+    ),
+    child: KeyedSubtree(key: _holeKey, child: widget.child),
+  );
 }
 
 class _ScrimPane extends StatelessWidget {

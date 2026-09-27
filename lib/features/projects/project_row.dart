@@ -51,13 +51,21 @@ class ProjectRow extends ConsumerWidget {
         seed: project.projectId.hashCode,
         dim: dim,
       ),
-      kicker: hasObjective ? named.toUpperCase() : null,
-      title: hasObjective ? project.objective : named,
+      title: hasObjective ? named.toUpperCase() : named,
+      titleMaxLines: 2,
+      metadataBelow: true,
       titleColor: dim ? context.tokens.textMuted : ink.title,
-      subtitle: blocked ? '[ BLOCKED BY ] ${project.lead}' : null,
-      subtitleColor: context.tokens.warning,
-      caption: !blocked && showLead ? project.lead : null,
-      progress: project.ratio,
+      subtitle: blocked
+          ? '[ BLOCKED BY ] ${project.lead}'
+          : hasObjective
+          ? project.objective
+          : null,
+      subtitleColor: blocked ? context.tokens.warning : null,
+      caption: blocked
+          ? (hasObjective ? project.objective : null)
+          : showLead
+          ? project.lead
+          : null,
       value: '${project.doneCount}/${project.totalCount}  ${project.percent}%',
       valueStrong: true,
       valueColor: dim

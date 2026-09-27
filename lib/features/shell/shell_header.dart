@@ -27,7 +27,7 @@ const _tabMaxWidth = 88.0;
 /// Everything else on the row is fixed, and on a 411 px phone what is left over holds two
 /// tab cells and the plus only while the name stops here. Past this a name is read from
 /// the switcher, not from the header.
-const _hostMaxWidth = 112.0;
+const _hostMaxWidth = 80.0;
 
 /// A login shell's title is who and where — `luis@nyx: ~/Projects/dazzle` — and the where
 /// is the half that tells two tabs apart. A title with a space in it is a sentence the
@@ -143,7 +143,7 @@ class _ShellHeaderState extends State<ShellHeader> {
       child: Container(
         key: const ValueKey('shell-header'),
         height: _headerHeight,
-        decoration: BoxDecoration(
+        foregroundDecoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(color: context.tokens.borderSubtle),
           ),
@@ -169,7 +169,12 @@ class _ShellHeaderState extends State<ShellHeader> {
                         key: session == active ? _activeTab : null,
                         child: _TabCell(
                           key: ValueKey('shell-tab-${session.number}'),
-                          label: shellTabLabel(session.title, session.number),
+                          label: shellTabLabel(
+                            session.title?.trim().isNotEmpty == true
+                                ? session.title
+                                : session.repository ?? session.cwd,
+                            session.number,
+                          ),
                           state: session.state,
                           active: session == active,
                           onTap: () => widget.onSelect(session),
@@ -336,28 +341,37 @@ class _HostCell extends StatelessWidget {
       ),
     );
     if (onTap == null) return label;
-    return GestureDetector(
-      key: const ValueKey('shell-host-switch'),
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('ALL SHELLS', style: context.tokens.label),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              label,
-              const SizedBox(width: Spacing.sm),
-              DazzleIcon(
-                DazzleIcons.arrowDown,
-                size: IconSizes.affordance,
-                color: context.tokens.textMuted,
-              ),
-            ],
+    return Tooltip(
+      message: 'All shells · $name',
+      excludeFromSemantics: true,
+      child: Semantics(
+        label: 'All shells, current host $name',
+        button: true,
+        onTap: onTap,
+        excludeSemantics: true,
+        child: GestureDetector(
+          key: const ValueKey('shell-host-switch'),
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: TapTargets.minHeight,
+              minWidth: TapTargets.minHeight,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                label,
+                const SizedBox(width: Spacing.sm),
+                DazzleIcon(
+                  DazzleIcons.arrowDown,
+                  size: IconSizes.affordance,
+                  color: context.tokens.textMuted,
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }

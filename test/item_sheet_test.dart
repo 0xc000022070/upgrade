@@ -95,6 +95,21 @@ void main() {
     return rows!.firstWhere((task) => task.id == id);
   }
 
+  testWidgets('system Back from Move returns to item details', (tester) async {
+    final task = await tasks.capture('Keep this sheet open');
+    await tester.pumpWidget(host(task));
+    await _ready(tester);
+    await tester.tap(find.text('MOVE'));
+    await _ready(tester);
+    expect(find.text('MOVE TO'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await _ready(tester);
+    expect(find.text('MOVE TO'), findsNothing);
+    expect(find.text('Keep this sheet open'), findsOneWidget);
+    expect(find.text('EDIT'), findsOneWidget);
+    await unmount(tester);
+  });
+
   testWidgets('empty filing choices explain plugin and project prerequisites', (
     tester,
   ) async {
@@ -239,6 +254,9 @@ void main() {
 
     expect(find.text('DONE'), findsOneWidget);
     expect(find.text('MARK NEXT'), findsOneWidget);
+    expect(find.text('DELETE'), findsNothing);
+    await tester.tap(find.text('MORE'));
+    await _ready(tester);
     expect(find.text('GROUP WITH'), findsOneWidget);
     expect(find.text('BLOCK'), findsOneWidget);
     expect(find.text('DELETE'), findsOneWidget);
@@ -270,6 +288,8 @@ void main() {
     await tester.pumpWidget(host(task));
     await _ready(tester);
 
+    await tester.tap(find.text('MORE'));
+    await _ready(tester);
     await tester.tap(find.text('GROUP WITH'));
     await _ready(tester);
     expect(find.text('GROUP WITH'), findsOneWidget);
@@ -350,6 +370,8 @@ void main() {
     await tester.pumpWidget(host(task));
     await _ready(tester);
 
+    await tester.tap(find.text('MORE'));
+    await _ready(tester);
     await tester.tap(find.text('COPY'));
     await _ready(tester);
 
@@ -373,6 +395,8 @@ void main() {
     await _ready(tester);
 
     expect(find.text('INFRA PERSONAL / DROPS'), findsOneWidget);
+    await tester.tap(find.text('MORE'));
+    await _ready(tester);
     for (final verb in ['DONE', 'MARK NEXT', 'MOVE', 'GROUP WITH', 'BLOCK']) {
       expect(find.text(verb), findsOneWidget, reason: '$verb is a task verb');
     }
@@ -438,6 +462,8 @@ void main() {
     await tester.pumpWidget(host(task));
     await _ready(tester);
 
+    await tester.tap(find.text('MORE'));
+    await _ready(tester);
     await tester.tap(find.text('BLOCK'));
     await _ready(tester);
     expect(find.byType(Dialog), findsNothing);

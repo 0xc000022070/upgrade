@@ -13,16 +13,16 @@ import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
-import '../../design/components/field_panel.dart';
+import '../../design/components/dazzle_field.dart';
 import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
-import '../../design/components/picker_row.dart';
 import '../../design/components/section.dart';
 import '../../design/components/solid_action_bar.dart';
 import '../../design/spacing.dart';
 import '../../platform/host_keys.dart';
 import '../hosts/host_key_sheet.dart';
+import 'key_form_screen.dart';
 import '../screen/screen_preview.dart';
 import '../screen_scaffold.dart';
 
@@ -45,6 +45,7 @@ class HostFormScreen extends ConsumerStatefulWidget {
 const _defaultPort = 22;
 
 class _HostFormScreenState extends ConsumerState<HostFormScreen> {
+  late final String _draftId;
   late final TextEditingController _name;
   late final TextEditingController _address;
   late final TextEditingController _port;
@@ -56,6 +57,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   late final TextEditingController _password;
   String? _keyId;
   bool _submitting = false;
+  String? _saveError;
 
   bool _verifying = false;
 
@@ -82,6 +84,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     super.initState();
     _hostKey = widget.host?.hostKey;
     final host = widget.host;
+    _draftId = host?.id ?? const Uuid().v4();
     _name = TextEditingController(text: host?.name ?? '');
     _address = TextEditingController(text: host?.address ?? '');
     _port = TextEditingController(text: '${host?.port ?? _defaultPort}');
@@ -181,7 +184,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   /// The back arrow and the system gesture are one door. [PopScope] holds the route so both
   /// arrive here and the pop is issued once.
   Future<void> _handleBack() async {
-    if (_asking) return;
+    if (_asking || _submitting) return;
     if (_leaving || !_dirty) {
       Navigator.of(context).pop();
       return;
@@ -197,10 +200,14 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_valid || _submitting) return;
-    setState(() => _submitting = true);
+    if (!_valid || _submitting || _integrations == null) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _submitting = true;
+      _saveError = null;
+    });
     final host = Host(
-      id: widget.host?.id ?? const Uuid().v4(),
+      id: _draftId,
       name: _name.text.trim(),
       address: _address.text.trim(),
       port: _parsedPort!,
@@ -209,20 +216,32 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       vncUsername: _screenUsername,
       vncPassword: _vncPassword,
     );
-    final hosts = ref.read(hostRepositoryProvider);
-    await hosts.save(host);
-    // The switches are local until here because a new host has no id to hang them on until
-    // it is saved.
-    final integrations = _integrations;
-    if (integrations != null) {
-      for (final kind in IntegrationKind.values) {
-        await hosts.setIntegration(host.id, kind, integrations.contains(kind));
+    try {
+      final hosts = ref.read(hostRepositoryProvider);
+      await hosts.save(host);
+      // The switches are local until here because a new host has no id to hang them on until
+      // it is saved.
+      final integrations = _integrations;
+      if (integrations != null) {
+        for (final kind in IntegrationKind.values) {
+          await hosts.setIntegration(
+            host.id,
+            kind,
+            integrations.contains(kind),
+          );
+        }
       }
-    }
-    if (_hostKey == null) await _verifyHostKey(host);
-    if (mounted) {
-      _leaving = true;
-      Navigator.of(context).pop();
+      if (_hostKey == null) await _verifyHostKey(host);
+      if (mounted) {
+        _leaving = true;
+        Navigator.of(context).pop();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _saveError = 'Could not save host. Try again.');
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -302,6 +321,51 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       },
       child: Scaffold(
         resizeToAvoidBottomInset: true,
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(Spacing.screenEdge),
+            child: ListenableBuilder(
+              listenable: Listenable.merge([_name, _address, _port, _user]),
+              builder: (context, _) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_saveError != null || _missing != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Spacing.sm),
+                      child: Text(
+                        _saveError ?? _missing!,
+                        style: context.tokens.label,
+                      ),
+                    ),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: _submitting ? null : _handleBack,
+                        child: const Text('CANCEL'),
+                      ),
+                      const SizedBox(width: Spacing.md),
+                      Expanded(
+                        child: SolidActionBar(
+                          label: _verifying
+                              ? 'VERIFYING'
+                              : _submitting
+                              ? 'SAVING'
+                              : widget.host == null
+                              ? 'CREATE HOST'
+                              : 'SAVE',
+                          enabled: _valid && loaded && !_submitting,
+                          onTap: _submit,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
         body: StaticSurface(
           child: ScreenScaffold(
             title: widget.host == null ? 'NEW HOST' : 'HOST',
@@ -310,67 +374,127 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
             children: [
               PanelStack(
                 children: [
-                  FieldPanel(label: '[ NAME ]', controller: _name),
-                  FieldPanel(label: '[ ADDRESS ]', controller: _address),
-                  FieldPanel(
-                    label: '[ PORT ]',
-                    controller: _port,
-                    keyboardType: TextInputType.number,
+                  Panel(
+                    title: 'CONNECTION',
+                    child: Column(
+                      children: [
+                        _HostField(
+                          label: 'NAME',
+                          controller: _name,
+                          enabled: !_submitting,
+                        ),
+                        _HostField(
+                          label: 'ADDRESS',
+                          controller: _address,
+                          enabled: !_submitting,
+                          hint: 'IP address or hostname',
+                        ),
+                        _HostField(
+                          label: 'PORT',
+                          controller: _port,
+                          enabled: !_submitting,
+                          keyboardType: TextInputType.number,
+                        ),
+                        _HostField(
+                          label: 'USER',
+                          controller: _user,
+                          enabled: !_submitting,
+                        ),
+                      ],
+                    ),
                   ),
-                  FieldPanel(label: '[ USER ]', controller: _user),
                   Panel(
                     title: '[ KEY ]',
                     bodyPadding: panelRowsPadding,
                     child: AsyncSection<List<ManagedKey>>(
                       value: keys,
-                      empty: 'no keys · new + in sys',
+                      empty: 'Create an SSH key below to connect.',
                       builder: (items) => Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          for (final key in items)
-                            PickerRow(
-                              label: key.name.toUpperCase(),
-                              subtitle: key.fingerprint,
-                              selected: key.id == _keyId,
-                              onTap: () => setState(() => _keyId = key.id),
+                          DropdownButton<String>(
+                            isExpanded: true,
+                            value: items.any((key) => key.id == _keyId)
+                                ? _keyId
+                                : null,
+                            hint: const Text('Choose SSH key'),
+                            style: context.tokens.value,
+                            dropdownColor: context.tokens.surfacePrimary,
+                            items: [
+                              for (final key in items)
+                                DropdownMenuItem(
+                                  value: key.id,
+                                  child: Text(key.name),
+                                ),
+                            ],
+                            onChanged: _submitting
+                                ? null
+                                : (id) => setState(() => _keyId = id),
+                          ),
+                          for (final key in items.where(
+                            (key) => key.id == _keyId,
+                          ))
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: Spacing.md,
+                              ),
+                              child: Meta(key.fingerprint, maxLines: 2),
                             ),
                         ],
                       ),
                     ),
                   ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      onPressed: _submitting ? null : () => openNewKey(context),
+                      child: const Text('CREATE SSH KEY'),
+                    ),
+                  ),
                   Panel(
                     title: '[ INTEGRATIONS ]',
                     bodyPadding: panelRowsPadding,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final kind in IntegrationKind.values)
-                          PickerRow(
-                            label: kind.label,
-                            value: 'OFF',
-                            selected: integrations.contains(kind),
-                            onTap: loaded
-                                ? () => setState(() {
-                                    if (!integrations.remove(kind)) {
-                                      integrations.add(kind);
-                                    }
-                                  })
-                                : () {},
-                          ),
-                      ],
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final kind in IntegrationKind.values)
+                            SwitchListTile.adaptive(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                kind.label,
+                                style: context.tokens.rowTitle,
+                              ),
+                              activeThumbColor: context.tokens.accent,
+                              value: integrations.contains(kind),
+                              onChanged: loaded && !_submitting
+                                  ? (enabled) => setState(() {
+                                      if (enabled) {
+                                        integrations.add(kind);
+                                      } else {
+                                        integrations.remove(kind);
+                                      }
+                                    })
+                                  : null,
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                   if (integrations.contains(IntegrationKind.vnc))
-                    FieldPanel(
-                      label: '[ VNC USER ]',
+                    _HostField(
+                      label: 'VNC USER',
                       controller: _vncUsername,
+                      enabled: !_submitting,
                       hint: 'macOS account · blank for classic VNC',
                       keyboardType: TextInputType.text,
                     ),
                   if (integrations.contains(IntegrationKind.vnc))
-                    FieldPanel(
-                      label: '[ VNC PASSWORD ]',
+                    _HostField(
+                      label: 'VNC PASSWORD',
                       controller: _password,
+                      enabled: !_submitting,
                       hint: 'blank when the server offers none',
                       obscureText: true,
                       keyboardType: TextInputType.visiblePassword,
@@ -378,34 +502,19 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                   if (_hostKey != null) _hostKeyPanel(_hostKey!),
                 ],
               ),
-              const SizedBox(height: Spacing.xl),
-              ListenableBuilder(
-                listenable: Listenable.merge([
-                  _name,
-                  _address,
-                  _port,
-                  _user,
-                  _vncUsername,
-                  _password,
-                ]),
-                builder: (context, _) {
-                  final missing = _missing;
-                  return SolidActionBar(
-                    label: _verifying
-                        ? 'VERIFYING'
-                        : missing ??
-                              (widget.host == null ? 'CREATE HOST' : 'SAVE'),
-                    enabled: missing == null,
-                    onTap: _submit,
-                  );
-                },
-              ),
               if (widget.host != null) ...[
                 const SizedBox(height: Spacing.md),
-                SolidActionBar(
-                  label: 'DELETE HOST',
-                  tone: context.tokens.warning,
-                  onTap: _delete,
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: _submitting ? null : _delete,
+                    child: Text(
+                      'DELETE HOST',
+                      style: context.tokens.label.copyWith(
+                        color: context.tokens.warning,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ],
@@ -453,6 +562,45 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     await ref.read(hostRepositoryProvider).forgetHostKey(host.id);
     if (mounted) setState(() => _hostKey = null);
   }
+}
+
+class _HostField extends StatelessWidget {
+  const _HostField({
+    required this.label,
+    required this.controller,
+    this.hint = '',
+    this.keyboardType,
+    this.obscureText = false,
+    this.enabled = true,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String hint;
+  final TextInputType? keyboardType;
+  final bool obscureText;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(label, style: context.tokens.label),
+        DazzleField(
+          semanticLabel: label,
+          controller: controller,
+          enabled: enabled,
+          hint: hint,
+          obscureText: obscureText,
+          keyboardType: keyboardType,
+          textInputAction: TextInputAction.next,
+          contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
+        ),
+      ],
+    ),
+  );
 }
 
 class _KeyMetaRow extends StatelessWidget {

@@ -1,10 +1,10 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/alerts.dart';
 import '../../application/providers.dart';
 import '../../design/components/panel.dart';
-import '../../design/components/picker_row.dart';
+import '../../design/tokens.dart';
 import '../../platform/agent_watcher.dart';
 
 class AlertsSettingsBlock extends ConsumerWidget {
@@ -45,15 +45,29 @@ class AlertsSettingsBlock extends ConsumerWidget {
             Consumer(
               builder: (context, ref, _) {
                 final row = ref.watch(alertsRowProvider(kind));
-                return PickerRow(
-                  label: kind.label,
-                  value: 'OFF',
-                  subtitle: row.subtitle,
-                  selected: row == AlertsRow.on,
-                  dim: !row.interactive,
-                  onTap: row.interactive
-                      ? () => _toggle(ref, kind, row)
-                      : () {},
+                return Material(
+                  type: MaterialType.transparency,
+                  child: SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      kind.label,
+                      style: context.tokens.rowTitle.copyWith(
+                        color: row.interactive
+                            ? context.tokens.textPrimary
+                            : context.tokens.textMuted,
+                      ),
+                    ),
+                    subtitle: row.subtitle == null
+                        ? null
+                        : Text(
+                            row.subtitle!,
+                            style: context.tokens.rowSubtitle,
+                          ),
+                    value: row == AlertsRow.on,
+                    onChanged: row.interactive
+                        ? (_) => _toggle(ref, kind, row)
+                        : null,
+                  ),
                 );
               },
             ),

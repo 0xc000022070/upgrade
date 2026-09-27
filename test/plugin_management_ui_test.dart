@@ -192,6 +192,11 @@ void main() {
     expect(find.text('AGENT TASKS'), findsOneWidget);
     expect(find.text('AGENT TASKS · AGENT TASKS'), findsNothing);
     expect(find.text('ARCHIVE · PROJECTS'), findsOneWidget);
+    final launchers = tester.widgetList<ListRow>(find.byType(ListRow));
+    expect(launchers, hasLength(3));
+    expect(launchers.every((row) => row.node && row.onTap != null), isTrue);
+    expect(find.text(schedules.manifest.purpose), findsOneWidget);
+    expect(find.text(projects.manifest.purpose), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -248,6 +253,46 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
+
+  testWidgets(
+    'empty browse opens source form directly and Back returns to browse',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(420, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._catalogOverrides(db, const []),
+            ..._marketplaceOverrides(),
+          ],
+          child: MaterialApp(
+            theme: testTheme,
+            home: const PluginManagementScreen(),
+          ),
+        ),
+      );
+      await _drain(tester);
+      await tester.tap(find.text('BROWSE'));
+      await _drain(tester);
+      expect(
+        find.text('No plugins to browse. Add a source to load its catalog.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('ADD SOURCE'));
+      await _drain(tester);
+      expect(find.byType(TextField), findsNWidgets(2));
+      await tester.binding.handlePopRoute();
+      await _drain(tester);
+      expect(
+        find.text('No plugins to browse. Add a source to load its catalog.'),
+        findsOneWidget,
+      );
+      expect(find.byType(TextField), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
 
   testWidgets('sources are added and removed under SOURCES', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 1400));

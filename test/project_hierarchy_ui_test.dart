@@ -204,6 +204,10 @@ void main() {
       await _ready(tester);
 
       expect(find.text('[ PARENT ]'), findsOneWidget);
+      await tester.ensureVisible(find.text('CHANGE').last);
+      await _ready(tester);
+      await tester.tap(find.text('CHANGE').last);
+      await _ready(tester);
       expect(find.text('NONE'), findsOneWidget);
       expect(find.text('INFRA'), findsWidgets);
       expect(find.text('DOTFILES'), findsOneWidget);
@@ -221,6 +225,10 @@ void main() {
       );
       await _ready(tester);
 
+      await tester.ensureVisible(find.text('CHANGE').last);
+      await _ready(tester);
+      await tester.tap(find.text('CHANGE').last);
+      await _ready(tester);
       expect(find.text('INFRA / HOMELAB'), findsOneWidget);
       expect(find.text('INFRA'), findsWidgets);
       await unmount(tester);
@@ -352,7 +360,7 @@ void main() {
       );
       await tester.tap(find.text('DELETE PROJECT'));
       await _ready(tester);
-      expect(find.text('CONFIRM DELETE'), findsOneWidget);
+      expect(find.text('DELETE PROJECT?'), findsOneWidget);
       await unmount(tester);
     });
   });

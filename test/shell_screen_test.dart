@@ -31,6 +31,18 @@ Future<void> openInfo(WidgetTester tester) async {
 void main() {
   setUp(stubDeviceChannels);
 
+  testWidgets('terminal keeps pinch without a font settings control', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    await tester.pumpWidget(app(fakeShellSessions(transport)));
+    await ready(tester);
+    expect(find.byKey(const ValueKey('shell-text-size')), findsNothing);
+    expect(find.text('Aa'), findsNothing);
+    expect(find.byKey(const ValueKey('shell-pinch')), findsOneWidget);
+    await unmount(tester);
+  });
+
   testWidgets('a shell that has not answered is marked, and the mark says '
       'CONNECTING', (tester) async {
     final transport = FakeShellTransport()..stall = true;

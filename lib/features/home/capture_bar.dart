@@ -25,6 +25,7 @@ import '../../application/attachment_files.dart';
 import '../tasks/item_pickers.dart';
 import '../../application/urls.dart';
 import '../tasks/url_highlight_controller.dart';
+import 'capture_draft.dart';
 
 const _title = 'CAPTURE / QUICK ADD';
 
@@ -57,11 +58,13 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   /// glyph is the icon still on screen.
   final _glitch = GlitchController();
 
-  ItemTarget _target = const ItemTarget.drops();
+  late CaptureDraft _draft;
+  ItemTarget get _target => _draft.target;
+  set _target(ItemTarget value) => _draft.target = value;
 
   /// Attached before the item exists, so they are held here and written with it in a single
   /// transaction.
-  final _pending = <NewAttachment>[];
+  List<NewAttachment> get _pending => _draft.attachments;
 
   /// It outlives each opening of the line: the strip is an overlay and reads it a frame
   /// late, so a controller disposed on close would be read after it was gone.
@@ -71,7 +74,35 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   int? _aim;
 
   @override
+  void initState() {
+    super.initState();
+    _draft = ref.read(captureDraftProvider(widget.scope));
+    _controller.value = _draft.text;
+    _controller.addListener(_rememberText);
+    _draft.addListener(_restoreText);
+  }
+
+  void _rememberText() => _draft.text = _controller.value;
+  void _restoreText() {
+    if (_controller.value != _draft.text) _controller.value = _draft.text;
+  }
+
+  @override
+  void didUpdateWidget(CaptureBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scope == widget.scope) return;
+    _focus.unfocus();
+    _draft.removeListener(_restoreText);
+    _draft = ref.read(captureDraftProvider(widget.scope));
+    _draft.addListener(_restoreText);
+    _controller.value = _draft.text;
+    _linkField.clear();
+    _linkOpen = false;
+  }
+
+  @override
   void dispose() {
+    _draft.removeListener(_restoreText);
     _controller.dispose();
     _linkField.dispose();
     _focus.dispose();

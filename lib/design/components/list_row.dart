@@ -34,6 +34,9 @@ class ListRow extends StatelessWidget {
     this.mark,
     this.subtitleColor,
     this.decode = false,
+    this.titleMaxLines = 1,
+    this.metadataBelow = false,
+    this.minHeight = RowMetrics.minHeight,
   }) : assert(value == null || valueSpans == null, 'one value column');
 
   final String? kicker;
@@ -81,6 +84,9 @@ class ListRow extends StatelessWidget {
 
   final Color? subtitleColor;
   final bool decode;
+  final int titleMaxLines;
+  final bool metadataBelow;
+  final double minHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -128,14 +134,14 @@ class ListRow extends StatelessWidget {
             child: literalTitle
                 ? PathLine(title, style: titleStyle, decode: decode)
                 : SignalText(
-                    line.text,
+                    titleMaxLines == 1 ? line.text : title,
                     style: titleStyle,
                     decodeOnEntry: decode,
-                    maxLines: 1,
+                    maxLines: titleMaxLines,
                     overflow: TextOverflow.ellipsis,
                   ),
           ),
-          if (!literalTitle && line.more > 0)
+          if (!literalTitle && titleMaxLines == 1 && line.more > 0)
             SizedBox(
               height: titleLine,
               child: Center(child: LineCount(line.more)),
@@ -162,10 +168,29 @@ class ListRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
+      if (metadataBelow)
+        indented(
+          Wrap(
+            spacing: Spacing.lg,
+            runSpacing: Spacing.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ?mark,
+              if (value != null || valueSpans != null)
+                Text.rich(
+                  valueSpans == null
+                      ? TextSpan(text: value)
+                      : TextSpan(children: valueSpans),
+                  style: context.tokens.value.copyWith(color: valueColor),
+                ),
+              ?trailing,
+            ],
+          ),
+        ),
     ];
 
     final content = ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: RowMetrics.minHeight),
+      constraints: BoxConstraints(minHeight: minHeight),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: RowMetrics.padding),
         child: Row(
@@ -182,7 +207,10 @@ class ListRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (mark != null) ...[const SizedBox(width: Spacing.lg), mark!],
+            if (mark != null && !metadataBelow) ...[
+              const SizedBox(width: Spacing.lg),
+              mark!,
+            ],
             if (progress != null) ...[
               const SizedBox(width: Spacing.lg),
               SizedBox(
@@ -190,7 +218,7 @@ class ListRow extends StatelessWidget {
                 child: ProgressBar(value: progress!),
               ),
             ],
-            if (value != null || valueSpans != null) ...[
+            if (!metadataBelow && (value != null || valueSpans != null)) ...[
               const SizedBox(width: Spacing.lg),
               Text.rich(
                 valueSpans == null
@@ -212,7 +240,7 @@ class ListRow extends StatelessWidget {
                 color: context.tokens.textDisabled,
               ),
             ],
-            if (trailing != null) ...[
+            if (trailing != null && !metadataBelow) ...[
               const SizedBox(width: Spacing.sm),
               trailing!,
             ],

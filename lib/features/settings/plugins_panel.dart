@@ -765,11 +765,21 @@ class _BrowseSheet extends ConsumerWidget {
                     ),
                   ),
                 ),
-              if (data.entries.isEmpty && data.failedSources.isEmpty)
+              if (data.entries.isEmpty && data.failedSources.isEmpty) ...[
                 Text(
-                  'NO ENTRIES. ADD A SOURCE UNDER SOURCES.',
+                  'No plugins to browse. Add a source to load its catalog.',
                   style: context.tokens.rowSubtitle,
                 ),
+                const SizedBox(height: Spacing.md),
+                ActionBlock(
+                  label: 'ADD SOURCE',
+                  onTap: () => showPanelSheet<void>(
+                    context,
+                    title: 'SOURCES',
+                    builder: (_) => const _SourcesSheet(),
+                  ),
+                ),
+              ],
               for (final browseEntry in data.entries)
                 ListRow(
                   title: browseEntry.entry.id,

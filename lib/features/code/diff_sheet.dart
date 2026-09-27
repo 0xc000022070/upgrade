@@ -598,7 +598,10 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
     final hunks = (_lines ?? const <DiffLine>[])
         .where((line) => line.kind == DiffLineKind.hunk)
         .length;
-    return Row(
+    return Wrap(
+      spacing: Spacing.md,
+      runSpacing: Spacing.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         ActionBlock(
           key: const ValueKey('diff-prev-file'),
@@ -608,7 +611,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
               ? context.tokens.textDisabled
               : context.tokens.textSecondary,
         ),
-        const SizedBox(width: Spacing.md),
         ActionBlock(
           key: const ValueKey('diff-next-file'),
           label: 'NEXT',
@@ -617,7 +619,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
               ? context.tokens.textDisabled
               : context.tokens.textSecondary,
         ),
-        const SizedBox(width: Spacing.xl),
         ActionBlock(
           key: const ValueKey('diff-next-hunk'),
           label: 'HUNK',
@@ -626,7 +627,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
               ? context.tokens.textSecondary
               : context.tokens.textDisabled,
         ),
-        const Spacer(),
         if (at >= 0)
           Text(
             'FILE ${at + 1} / ${files.length}',
@@ -640,7 +640,10 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
 
   Widget _pickedBar(DiffLine line) {
     final number = line.newLine ?? line.oldLine;
-    return Row(
+    return Wrap(
+      spacing: Spacing.md,
+      runSpacing: Spacing.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         ActionBlock(
           key: const ValueKey('diff-copy-line'),
@@ -655,13 +658,11 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
             if (mounted) setState(() => _picked = null);
           },
         ),
-        const SizedBox(width: Spacing.md),
         ActionBlock(
           key: const ValueKey('diff-drop-line'),
           label: 'LET GO',
           onTap: () => setState(() => _picked = null),
         ),
-        const Spacer(),
         if (number != null)
           Text(
             // A removed line's number is in the file before the change, and the line that replaced
