@@ -7,16 +7,10 @@ import 'shell_sheet.dart';
 import 'shell_sessions.dart';
 import 'shell_status.dart';
 import 'shell_thumbnail.dart';
+import 'shell_header.dart';
 
 const shellCardWidth = 160.0;
 const shellCardHeight = 110.0;
-
-/// Two lines of caption, whether or not the shell named itself: a card that grows when
-/// its title arrives would move every card beside it.
-const shellCardCaptionHeight = 28.0;
-
-const shellCardStripHeight =
-    shellCardHeight + Spacing.md + shellCardCaptionHeight;
 
 class ShellCard extends StatelessWidget {
   const ShellCard({super.key, required this.host, required this.session});
@@ -36,7 +30,10 @@ class ShellCard extends StatelessWidget {
   }
 
   Widget _build(BuildContext context) {
-    final title = session.title;
+    final title = session.title?.trim().isNotEmpty == true
+        ? shellTabLabel(session.title, session.number)
+        : session.cwd?.split('/').where((part) => part.isNotEmpty).lastOrNull ??
+              'Shell ${session.number}';
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       // The card names the tab, so the route opens on it rather than on whichever one
@@ -75,18 +72,17 @@ class ShellCard extends StatelessWidget {
             ),
             const SizedBox(height: Spacing.md),
             Text(
-              '${host.name.toUpperCase()} ${session.number}',
-              style: context.tokens.panelHeader,
+              title,
+              style: context.tokens.rowTitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            if (title != null)
-              Text(
-                title,
-                style: context.tokens.rowKicker,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+            Text(
+              '${host.name} · shell ${session.number}',
+              style: context.tokens.rowSubtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),

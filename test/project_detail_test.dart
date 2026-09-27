@@ -17,7 +17,10 @@ import 'package:dazzle/design/components/panel.dart';
 import 'package:dazzle/features/projects/project_detail_screen.dart';
 import 'package:dazzle/features/projects/project_form_screen.dart';
 import 'package:dazzle/features/projects/projects_screen.dart';
+import 'package:dazzle/features/projects/project_task_filter.dart';
 import 'package:dazzle/features/tasks/selection_bar.dart';
+import 'package:dazzle/features/home/capture_bar.dart';
+import 'package:dazzle/features/home/capture_draft.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -77,6 +80,160 @@ void main() {
     await tester.tap(find.text(text).last);
     await _ready(tester);
   }
+
+  test(
+    'project filters combine task state and case-insensitive search',
+    () async {
+      final id = await tasks.create(title: 'Repair terminal');
+      final task = (await tasks.watchById(id).first)!;
+      expect(ProjectTaskFilter.open.matches(task, ' TERMINAL '), isTrue);
+      expect(ProjectTaskFilter.next.matches(task, ''), isFalse);
+      expect(
+        ProjectTaskFilter.next.matches(task.copyWith(isNext: true), ''),
+        isTrue,
+      );
+      final blocked = task.copyWith(
+        blockedReason: const Value('Awaiting host'),
+      );
+      expect(ProjectTaskFilter.blocked.matches(blocked, 'HOST'), isTrue);
+      expect(ProjectTaskFilter.blocked.matches(task, ''), isFalse);
+      expect(
+        ProjectTaskFilter.done.matches(task.copyWith(done: true), ''),
+        isTrue,
+      );
+      expect(
+        ProjectTaskFilter.open.matches(task.copyWith(done: true), ''),
+        isFalse,
+      );
+    },
+  );
+
+  testWidgets('project search filters open tasks and exposes completed work', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(420, 1600);
+    addTearDown(tester.view.reset);
+    final id = await projects.create(name: 'Searchable');
+    await tasks.create(title: 'Repair capture navigation', projectId: id);
+    final done = await tasks.create(
+      title: 'Completed terminal cleanup',
+      projectId: id,
+    );
+    await tasks.setDone(done, true);
+    await tester.pumpWidget(host(ProjectDetailScreen(projectId: id)));
+    await _ready(tester);
+    expect(find.text('Repair capture navigation'), findsOneWidget);
+    expect(find.text('Completed terminal cleanup'), findsNothing);
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('project-task-search')),
+        matching: find.byType(TextField),
+      ),
+      'missing',
+    );
+    await _ready(tester);
+    expect(find.text('Repair capture navigation'), findsNothing);
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('project-task-search')),
+        matching: find.byType(TextField),
+      ),
+      'terminal',
+    );
+    await tester.tap(find.widgetWithText(ChoiceChip, 'DONE'));
+    await _ready(tester);
+    expect(find.text('Completed terminal cleanup'), findsOneWidget);
+    expect(find.text('Repair capture navigation'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('wide projects keep the list beside selected project details', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1400);
+    addTearDown(tester.view.reset);
+    await projects.create(name: 'First project');
+    final second = await projects.create(name: 'Second project');
+    await tester.pumpWidget(host(const ProjectsScreen()));
+    await _ready(tester);
+    expect(find.byType(ProjectDetailScreen), findsOneWidget);
+    await tester.tap(find.text('Second project'));
+    await _ready(tester);
+    expect(
+      tester
+          .widget<ProjectDetailScreen>(find.byType(ProjectDetailScreen))
+          .projectId,
+      second,
+    );
+    expect(find.text('First project'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await unmount(tester);
+  });
+
+  testWidgets(
+    'project capture drafts survive switching and folding without mixing targets',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1400);
+      addTearDown(tester.view.reset);
+      final first = await projects.create(name: 'First draft');
+      await projects.create(name: 'Second draft');
+      await tester.pumpWidget(host(const ProjectsScreen()));
+      await _ready(tester);
+      await tester.tap(find.text('First draft'));
+      await _ready(tester);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ProjectsScreen)),
+      );
+      container
+          .read(captureDraftProvider(first))
+          .attachments
+          .add(const NewAttachment.url('https://example.com/draft'));
+      Finder capture() => find.descendant(
+        of: find.byType(CaptureBar),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(capture(), 'Keep this project draft');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await _ready(tester);
+      await tester.tap(find.text('Second draft'));
+      await _ready(tester);
+      expect(tester.widget<TextField>(capture()).controller!.text, isEmpty);
+      await tester.tap(find.text('First draft'));
+      await _ready(tester);
+      expect(
+        tester.widget<TextField>(capture()).controller!.text,
+        'Keep this project draft',
+      );
+      tester.view.physicalSize = const Size(420, 1400);
+      await _ready(tester);
+      expect(find.byType(CaptureBar), findsNothing);
+      await tester.tap(find.text('First draft'));
+      await _ready(tester);
+      expect(
+        tester.widget<TextField>(capture()).controller!.text,
+        'Keep this project draft',
+      );
+      await tester.tap(capture());
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await _ready(tester);
+      final captured = (await tester.runAsync(() => db.select(db.tasks).get()))!
+          .single;
+      expect(captured.projectId, first);
+      expect(captured.title, 'Keep this project draft');
+      expect(
+        (await tester.runAsync(() => db.select(db.attachments).get()))!
+            .single
+            .value,
+        'https://example.com/draft',
+      );
+      expect(container.read(captureDraftProvider(first)).text.text, isEmpty);
+      expect(container.read(captureDraftProvider(first)).attachments, isEmpty);
+      await unmount(tester);
+    },
+  );
 
   testWidgets('a project with no objective has no OBJECTIVE panel', (
     tester,
@@ -197,7 +354,13 @@ void main() {
     await tapText(tester, 'NEW');
     expect(find.text('NEW GOAL'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).first, 'Object storage');
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('new-goal')),
+        matching: find.byType(TextField),
+      ),
+      'Object storage',
+    );
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 
@@ -221,7 +384,10 @@ void main() {
     expect(find.text('RENAME GOAL'), findsOneWidget);
     expect(find.text('Storage'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).first, 'Almacenamiento');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Storage'),
+      'Almacenamiento',
+    );
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 

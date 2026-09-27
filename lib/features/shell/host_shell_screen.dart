@@ -445,8 +445,10 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                 for (final session in sessions)
                   ListRow(
                     key: ValueKey('shell-switch-${host.id}-${session.number}'),
-                    title: '${host.name.toUpperCase()} ${session.number}',
-                    subtitle: session.title,
+                    title: session.title?.trim().isNotEmpty == true
+                        ? shellTabLabel(session.title, session.number)
+                        : 'Shell ${session.number}',
+                    subtitle: '${host.name} · ${session.cwd ?? host.user}',
                     leading: ShellStateDot(state: session.state),
                     value: identical(session, _store.activeFor(widget.host.id))
                         ? 'ON SCREEN'

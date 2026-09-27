@@ -35,6 +35,7 @@ import '../tasks/task_row.dart';
 import 'project_form_screen.dart';
 import 'project_row.dart';
 import 'project_icon.dart';
+import 'project_task_filter.dart';
 import '../../app/static_surface.dart';
 
 void openProjectDetail(BuildContext context, String projectId) {
@@ -53,9 +54,14 @@ void openProjectDetail(BuildContext context, String projectId) {
 String projectRouteName(String projectId) => 'project/$projectId';
 
 class ProjectDetailScreen extends ConsumerStatefulWidget {
-  const ProjectDetailScreen({super.key, required this.projectId});
+  const ProjectDetailScreen({
+    super.key,
+    required this.projectId,
+    this.onProjectSelected,
+  });
 
   final String projectId;
+  final ValueChanged<String>? onProjectSelected;
 
   @override
   ConsumerState<ProjectDetailScreen> createState() =>
@@ -65,6 +71,8 @@ class ProjectDetailScreen extends ConsumerStatefulWidget {
 class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   bool _creating = false;
   String? _renaming;
+  final _search = TextEditingController();
+  ProjectTaskFilter _filter = ProjectTaskFilter.open;
 
   final _entry = GlitchController();
   bool _entered = false;
@@ -74,6 +82,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
 
   @override
   void dispose() {
+    _search.dispose();
     _push?.removeStatusListener(_onPush);
     _entry.dispose();
     _landing.dispose();
@@ -101,11 +110,16 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   }
 
   void _popToProjectsTab() {
+    if (widget.onProjectSelected != null) return;
     Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);
     ref.read(navIndexProvider.notifier).state = 1;
   }
 
   void _popTo(String projectId) {
+    if (widget.onProjectSelected case final select?) {
+      select(projectId);
+      return;
+    }
     final name = projectRouteName(projectId);
     var found = false;
     Navigator.of(context, rootNavigator: true).popUntil((route) {
@@ -219,7 +233,12 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         child: ScreenScaffold(
           title: project?.name.toUpperCase() ?? 'PROJECT',
           breadcrumbSegments: [
-            CrumbSegment('PROJECTS', onTap: () => _popToProjectsTab()),
+            CrumbSegment(
+              'PROJECTS',
+              onTap: widget.onProjectSelected == null
+                  ? _popToProjectsTab
+                  : null,
+            ),
             for (final crumb in ancestors)
               CrumbSegment(
                 crumb.name.toUpperCase(),
@@ -234,7 +253,11 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     PanelAffordance(
                       'EDIT',
                       icon: DazzleIcons.edit,
-                      onTap: () => openProjectForm(context, project: project),
+                      onTap: () => openProjectForm(
+                        context,
+                        project: project,
+                        closeDetailOnDelete: widget.onProjectSelected == null,
+                      ),
                     ),
                     if (!ancestorArchived) ...[
                       const SizedBox(width: Spacing.lg),
@@ -312,14 +335,47 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                                 key: ValueKey(child.projectId),
                                 project: child,
                                 dim: hidden,
-                                onTap: () =>
-                                    openProjectDetail(context, child.projectId),
+                                onTap: () => widget.onProjectSelected != null
+                                    ? widget.onProjectSelected!(child.projectId)
+                                    : openProjectDetail(
+                                        context,
+                                        child.projectId,
+                                      ),
                               ),
                           ],
                         ),
                       ),
                     ),
                 ],
+                Panel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DazzleField(
+                        key: const ValueKey('project-task-search'),
+                        controller: _search,
+                        hint: 'Search tasks',
+                        semanticLabel: 'Search project tasks',
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: Spacing.md,
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      Wrap(
+                        spacing: Spacing.sm,
+                        children: [
+                          for (final filter in ProjectTaskFilter.values)
+                            ChoiceChip(
+                              label: Text(filter.name.toUpperCase()),
+                              selected: _filter == filter,
+                              onSelected: (_) =>
+                                  setState(() => _filter = filter),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
                 Panel(
                   title: 'GOALS',
                   affordance: Row(
@@ -367,12 +423,18 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     _GoalPanel(
                       key: ValueKey(goal.goalId),
                       goal: goal,
+                      filter: _filter,
+                      query: _search.text,
                       onHeaderLongPress: () => _goalActions(goal),
                     ),
                 DropsPanel(
                   scope: widget.projectId,
-                  drops: drops,
-                  empty: 'nothing unfiled here',
+                  drops: drops.whenData(
+                    (items) => items
+                        .where((task) => _filter.matches(task, _search.text))
+                        .toList(),
+                  ),
+                  empty: 'no ${_filter.name} drops match',
                   stateful: true,
                   landing: _landing,
                 ),
@@ -505,10 +567,14 @@ class _GoalPanel extends ConsumerWidget {
     super.key,
     required this.goal,
     required this.onHeaderLongPress,
+    required this.filter,
+    required this.query,
   });
 
   final GoalSummary goal;
   final VoidCallback onHeaderLongPress;
+  final ProjectTaskFilter filter;
+  final String query;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -522,8 +588,11 @@ class _GoalPanel extends ConsumerWidget {
       onHeaderLongPress: onHeaderLongPress,
       bodyPadding: panelRowsPadding,
       child: AsyncSection(
-        value: tasks,
-        empty: 'nothing under this goal',
+        value: tasks.whenData(
+          (items) =>
+              items.where((task) => filter.matches(task, query)).toList(),
+        ),
+        empty: 'no ${filter.name} tasks match',
         builder: (items) => ListRowGroup(
           children: [
             for (final task in items)

@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/agents.dart';
 import '../../application/navigation.dart';
+import '../../app/static_surface.dart';
 import '../../data/enums.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/key_repository.dart';
@@ -14,6 +15,7 @@ import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/components/segment_switch.dart';
+import '../../design/components/section.dart';
 import '../../design/components/toolbar_icon_action.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
@@ -47,6 +49,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
   /// be put down on the way out or a screen that is gone leaves the poller running.
   late final StateController<bool> _visible;
   int _segment = 0;
+  String? _selectedHostId;
 
   @override
   void initState() {
@@ -106,10 +109,9 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
         key.id: key.name,
     };
 
-    final hostList = hosts.valueOrNull ?? const <Host>[];
-
     return ScreenScaffold(
       title: 'HOSTS',
+      maxContentWidth: 1100,
       breadcrumbTrailing: ToolbarIconAction(
         label: 'MANAGE SSH KEYS',
         icon: DazzleIcons.sshKey,
@@ -124,15 +126,55 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
         if (_segment == 1)
           const CodeList()
         else ...[
-          PanelStack(
-            children: [
-              for (final host in hostList)
-                _HostPanel(
-                  host: host,
-                  keyName: keyNames[host.keyId],
-                  outcome: _outcomeFor(feed, host.id),
-                ),
-            ],
+          AsyncSection<List<Host>>(
+            value: hosts,
+            empty: 'Add a host to connect to your computer.',
+            builder: (items) => LayoutBuilder(
+              builder: (context, constraints) {
+                final wide = constraints.maxWidth >= 720;
+                final selected = items.firstWhere(
+                  (host) => host.id == _selectedHostId,
+                  orElse: () => items.first,
+                );
+                final list = PanelStack(
+                  children: [
+                    for (final host in items)
+                      _HostSummary(
+                        host: host,
+                        selected: wide && host.id == selected.id,
+                        onTap: () {
+                          if (wide) {
+                            setState(() => _selectedHostId = host.id);
+                          } else {
+                            Navigator.of(context, rootNavigator: true).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => _HostDetail(hostId: host.id),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                  ],
+                );
+                if (!wide) return list;
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 2, child: list),
+                    const SizedBox(width: Spacing.lg),
+                    Expanded(
+                      flex: 3,
+                      child: _HostPanel(
+                        key: ValueKey(selected.id),
+                        host: selected,
+                        keyName: keyNames[selected.keyId],
+                        outcome: _outcomeFor(feed, selected.id),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
           PanelTextAction(
             label: 'ADD HOST',
@@ -140,6 +182,88 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _HostSummary extends ConsumerWidget {
+  const _HostSummary({
+    required this.host,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Host host;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final probes = ref.watch(linkProbesProvider);
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Panel(
+          border: selected ? context.tokens.accent : null,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(host.name.toUpperCase(), style: context.tokens.rowTitle),
+              const SizedBox(height: Spacing.sm),
+              Text('${host.address}:${host.port}', style: context.tokens.value),
+              const SizedBox(height: Spacing.sm),
+              AnimatedBuilder(
+                animation: probes,
+                builder: (context, _) => Text(
+                  '${host.user} · ${linkWord(probes.forHost(host.id))}',
+                  style: context.tokens.label,
+                ),
+              ),
+              const SizedBox(height: Spacing.sm),
+              const PanelAffordance('DETAILS'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HostDetail extends ConsumerWidget {
+  const _HostDetail({required this.hostId});
+
+  final String hostId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hosts = ref.watch(hostsProvider);
+    final keys =
+        ref.watch(managedKeysProvider).valueOrNull ?? const <ManagedKey>[];
+    final feed = ref.watch(agentsFeedProvider).valueOrNull;
+    final matches = hosts.valueOrNull?.where((host) => host.id == hostId);
+    final host = matches == null || matches.isEmpty ? null : matches.first;
+    final keyNames = {for (final key in keys) key.id: key.name};
+    return Scaffold(
+      body: StaticSurface(
+        child: ScreenScaffold(
+          title: host?.name.toUpperCase() ?? 'HOST',
+          breadcrumb: '/ DAZZLE / HOSTS',
+          onBack: () => Navigator.of(context).pop(),
+          children: [
+            if (host != null)
+              _HostPanel(
+                host: host,
+                keyName: keyNames[host.keyId],
+                outcome: _outcomeFor(feed, host.id),
+              )
+            else
+              const EmptyState('Host no longer available.'),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -153,6 +277,7 @@ HostOutcome? _outcomeFor(AgentPanelState? feed, String hostId) {
 
 class _HostPanel extends ConsumerWidget {
   const _HostPanel({
+    super.key,
     required this.host,
     required this.keyName,
     required this.outcome,

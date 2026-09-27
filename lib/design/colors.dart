@@ -12,7 +12,7 @@ abstract final class DazzleColors {
 
   static const textPrimary = Color(0xFFE8E8E3);
   static const textSecondary = Color(0xFF9A9FA6);
-  static const textMuted = Color(0xFF6F767F);
+  static const textMuted = Color(0xFF9299A2);
   static const textDisabled = Color(0xFF50555C);
 
   static const accent = Color(0xFFB7FF2A);

@@ -18,6 +18,7 @@ class ScreenScaffold extends StatelessWidget {
     this.titleTrailing,
     this.onBack,
     this.header,
+    this.maxContentWidth = Layout.columnMax,
     this.padding = const EdgeInsets.fromLTRB(
       Spacing.screenEdge,
       Spacing.lg,
@@ -43,6 +44,7 @@ class ScreenScaffold extends StatelessWidget {
   final VoidCallback? onBack;
 
   final Widget? header;
+  final double maxContentWidth;
 
   final EdgeInsets padding;
 
@@ -101,7 +103,10 @@ class ScreenScaffold extends StatelessWidget {
               padding +
               EdgeInsets.only(bottom: systemBottom) +
               EdgeInsets.symmetric(
-                horizontal: Layout.gutterFor(constraints.maxWidth),
+                horizontal: Layout.gutterFor(
+                  constraints.maxWidth,
+                  maxWidth: maxContentWidth,
+                ),
               ),
           children: [
             // The gap under the row is given back, so taking a tap target's height keeps the

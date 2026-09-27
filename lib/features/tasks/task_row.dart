@@ -90,6 +90,8 @@ class _TaskRowState extends ConsumerState<TaskRow> {
         glitch: _glitch,
       ),
       title: task.title,
+      titleMaxLines: 2,
+      minHeight: TapTargets.minHeight,
       titleColor: task.done ? context.tokens.textDisabled : ink.title,
       value: widget.drop || widget.fresh ? relativeAge(task.createdAt) : null,
       // Fresh outranks done on the age alone: the highlight is about the capture that just
@@ -128,10 +130,6 @@ class _TaskRowState extends ConsumerState<TaskRow> {
       onLeadingTap: _toggle,
     );
 
-    return PrioritySlide(
-      priority: task.priority,
-      onChanged: _step,
-      child: row,
-    );
+    return PrioritySlide(priority: task.priority, onChanged: _step, child: row);
   }
 }

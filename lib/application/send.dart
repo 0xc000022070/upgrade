@@ -124,6 +124,7 @@ class Sender {
     required List<String> links,
     required AgentKind kind,
     String? prompt,
+    String? message,
     List<String> imagePaths = const [],
     String? model,
   }) async {
@@ -160,12 +161,18 @@ class Sender {
         model: model,
         directory: target.path.directory,
         images: images,
-        prompt: sendPrompt(
-          title: title,
-          links: links,
-          prompt: prompt,
-          images: images,
-        ),
+        prompt: message == null
+            ? sendPrompt(
+                title: title,
+                links: links,
+                prompt: prompt,
+                images: images,
+              )
+            : [
+                message,
+                if (images.isNotEmpty)
+                  images.map((image) => image.remotePath).join('\n'),
+              ].join('\n\n'),
         verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
       );
     } on HerdrFailure catch (error) {

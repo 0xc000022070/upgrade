@@ -94,6 +94,7 @@ void main() {
   });
 
   testWidgets('a second host makes the name a way to it', (tester) async {
+    final semantics = tester.ensureSemantics();
     await tester.pumpWidget(app());
     await ready(tester);
 
@@ -106,8 +107,15 @@ void main() {
     expect(switcher, findsOneWidget);
     expect(
       find.descendant(of: switcher, matching: find.text('ALL SHELLS')),
+      findsNothing,
+    );
+    expect(find.byTooltip('All shells · nyx'), findsOneWidget);
+    expect(tester.getSize(switcher).height, 44);
+    expect(
+      find.bySemanticsLabel('All shells, current host nyx'),
       findsOneWidget,
     );
+    semantics.dispose();
 
     await tester.tap(switcher);
     await ready(tester);
@@ -119,6 +127,39 @@ void main() {
 
     await unmount(tester);
   });
+
+  for (final width in [400.0, 900.0]) {
+    testWidgets('long host switcher stays compact at width $width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const named = Host(
+        id: 'long',
+        name: 'DAZZLE DEVELOPMENT HOST',
+        address: '100.64.0.3',
+        port: 22,
+        user: 'dev',
+        keyId: 'key-1',
+      );
+      await tester.pumpWidget(app());
+      await ready(tester);
+      sessions.open(_rose);
+      sessions.open(named);
+      await ready(tester);
+      await raise(tester);
+      expect(tester.getSize(switcher).width, lessThanOrEqualTo(106));
+      expect(tester.getSize(switcher).height, 44);
+      expect(
+        find.byTooltip('All shells · DAZZLE DEVELOPMENT HOST'),
+        findsOneWidget,
+      );
+      expect(find.text('ALL SHELLS'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await unmount(tester);
+    });
+  }
 
   testWidgets('picking another host swaps the sheet without leaving it', (
     tester,

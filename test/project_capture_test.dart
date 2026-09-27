@@ -32,6 +32,11 @@ Finder _glyph(ToolbarGlyph glyph) => find.byWidgetPredicate(
   (widget) => widget is Icon && widget.icon == glyph.icon,
 );
 
+Finder get _captureField => find.descendant(
+  of: find.byType(CaptureBar),
+  matching: find.byType(TextField),
+);
+
 void main() {
   late AppDatabase db;
   late ProjectRepository projects;
@@ -66,17 +71,14 @@ void main() {
     await _ready(tester);
 
     expect(find.byType(CaptureBar), findsOneWidget);
-    await tester.tap(find.byType(TextField));
+    await tester.tap(_captureField);
     await _ready(tester);
 
     expect(_glyph(ToolbarGlyph.more), findsNothing);
     expect(_glyph(ToolbarGlyph.target), findsNothing);
     expect(find.text('[ INFRA PERSONAL ]'), findsNothing);
 
-    await tester.enterText(
-      find.byType(TextField),
-      'Read https://docs.flutter.dev',
-    );
+    await tester.enterText(_captureField, 'Read https://docs.flutter.dev');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 
@@ -90,10 +92,7 @@ void main() {
     expect(taskRows.single.title, 'Read https://docs.flutter.dev');
     expect(attachmentRows, isEmpty);
     expect(find.byType(KeyboardToolbar), findsNothing);
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
-      isEmpty,
-    );
+    expect(tester.widget<TextField>(_captureField).controller!.text, isEmpty);
 
     await unmount(tester);
   });
@@ -123,7 +122,7 @@ void main() {
     await tester.pumpWidget(host(projectId));
     await _ready(tester);
 
-    await tester.enterText(find.byType(TextField), 'comprar cable USB-C');
+    await tester.enterText(_captureField, 'comprar cable USB-C');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _ready(tester);
 
@@ -171,7 +170,7 @@ void main() {
     expect(tester.widget<GlitchPanel>(header).controller, same(landing));
     expect(landing.idle, isTrue);
 
-    await tester.enterText(find.byType(TextField), 'comprar cable USB-C');
+    await tester.enterText(_captureField, 'comprar cable USB-C');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
 

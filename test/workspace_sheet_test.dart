@@ -940,6 +940,28 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('diff navigation wraps at a narrow width with larger text', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await viewer(tester, size: const Size(400, 1600));
+      expect(
+        onSheet(find.byKey(const ValueKey('diff-prev-file'))),
+        findsOneWidget,
+      );
+      expect(
+        onSheet(find.byKey(const ValueKey('diff-next-file'))),
+        findsOneWidget,
+      );
+      expect(
+        onSheet(find.byKey(const ValueKey('diff-next-hunk'))),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await unmount(tester);
+    });
+
     testWidgets('opens on the working tree with the history beside it', (
       tester,
     ) async {

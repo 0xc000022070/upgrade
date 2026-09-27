@@ -9,6 +9,37 @@ import 'package:dazzle/design/spacing.dart';
 import 'support/themed_app.dart';
 
 void main() {
+  testWidgets('multiline rows keep metadata below the full title', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: testTheme,
+        home: const Scaffold(
+          body: SizedBox(
+            width: 300,
+            child: ListRow(
+              title: 'First line\nSecond line',
+              titleMaxLines: 2,
+              metadataBelow: true,
+              mark: Text('HIGH'),
+              value: '2h',
+              trailing: Text('SENT'),
+            ),
+          ),
+        ),
+      ),
+    );
+    final title = find.text('First line\nSecond line');
+    expect(title, findsOneWidget);
+    for (final label in ['HIGH', '2h', 'SENT']) {
+      expect(
+        tester.getTopLeft(find.text(label)).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(title).dy),
+      );
+    }
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('the glyph on a row sits on the line it marks', (tester) async {
     /// Both are box positions rather than ink, so the fallback face a test renders with
     /// cannot move them.

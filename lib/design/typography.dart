@@ -26,7 +26,7 @@ abstract final class DazzleText {
 
   static const breadcrumb = TextStyle(
     fontFamily: FontFamilies.mono,
-    fontSize: 10,
+    fontSize: 11,
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.5,
@@ -35,16 +35,16 @@ abstract final class DazzleText {
 
   static const panelHeader = TextStyle(
     fontFamily: FontFamilies.mono,
-    fontSize: 10,
+    fontSize: 11,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    letterSpacing: 1.5,
+    letterSpacing: 0.8,
     color: DazzleColors.textMuted,
   );
 
   static const rowKicker = TextStyle(
     fontFamily: FontFamilies.mono,
-    fontSize: 9,
+    fontSize: 11,
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.8,
@@ -53,7 +53,7 @@ abstract final class DazzleText {
 
   static const rowTitle = TextStyle(
     fontFamily: FontFamilies.mono,
-    fontSize: 12,
+    fontSize: 14,
     height: 1.3,
     fontWeight: FontWeight.w400,
     color: DazzleColors.textPrimary,
@@ -61,7 +61,7 @@ abstract final class DazzleText {
 
   static const rowTitleLead = TextStyle(
     fontFamily: FontFamilies.mono,
-    fontSize: 13,
+    fontSize: 15,
     height: 1.3,
     fontWeight: FontWeight.w400,
     color: DazzleColors.textPrimary,
@@ -69,7 +69,7 @@ abstract final class DazzleText {
 
   static const rowSubtitle = TextStyle(
     fontFamily: FontFamilies.mono,
-    fontSize: 10,
+    fontSize: 12,
     height: 1.3,
     fontWeight: FontWeight.w400,
     color: DazzleColors.textMuted,
@@ -77,7 +77,7 @@ abstract final class DazzleText {
 
   static const value = TextStyle(
     fontFamily: FontFamilies.mono,
-    fontSize: 10,
+    fontSize: 12,
     height: 1.3,
     fontWeight: FontWeight.w400,
     color: DazzleColors.textMuted,
@@ -85,7 +85,7 @@ abstract final class DazzleText {
 
   static const valueStrong = TextStyle(
     fontFamily: FontFamilies.mono,
-    fontSize: 10,
+    fontSize: 12,
     height: 1.3,
     fontWeight: FontWeight.w500,
     color: DazzleColors.textPrimary,
@@ -93,7 +93,7 @@ abstract final class DazzleText {
 
   static const label = TextStyle(
     fontFamily: FontFamilies.mono,
-    fontSize: 9,
+    fontSize: 11,
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.8,
@@ -120,7 +120,7 @@ abstract final class DazzleText {
 
   static const noteBody = TextStyle(
     fontFamily: FontFamilies.mono,
-    fontSize: 11,
+    fontSize: 14,
     height: 1.45,
     fontWeight: FontWeight.w400,
     color: DazzleColors.textPrimary,
@@ -144,7 +144,7 @@ abstract final class DazzleText {
 
   static const prose = TextStyle(
     fontFamily: FontFamilies.ui,
-    fontSize: 12,
+    fontSize: 14,
     height: 1.45,
     fontWeight: FontWeight.w400,
     color: DazzleColors.textSecondary,

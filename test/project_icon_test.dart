@@ -85,7 +85,9 @@ void main() {
         );
         await tester.pumpWidget(host(ProjectFormScreen(project: project)));
         await ready(tester);
-        expect(find.text('WOLF'), findsNothing);
+        expect(find.byType(ProjectIcon), findsNothing);
+        await tester.tap(find.text('CHANGE').first);
+        await ready(tester);
         await tester.tap(
           iconId == null
               ? find.text('NO ICON')
@@ -94,6 +96,7 @@ void main() {
                       widget is ProjectIcon && widget.icon.name == iconId,
                 ),
         );
+        await ready(tester);
         await tester.ensureVisible(find.text('SAVE'));
         await tester.tap(find.text('SAVE'));
         await ready(tester);

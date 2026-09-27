@@ -262,6 +262,20 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: _mode is _Item || _mode is _Send,
+      onPopInvokedWithResult: (didPop, result) {
+        if (KeyboardAccessory.reservedHeight.value > 0) return;
+        if (!didPop && _mode is! _Send) {
+          _promptFocus.unfocus();
+          setState(() => _mode = const _Item());
+        }
+      },
+      child: _body(context),
+    );
+  }
+
+  Widget _body(BuildContext context) {
     final task = ref.watch(taskProvider(widget.taskId)).valueOrNull;
     final location = ref.watch(itemLocationProvider(widget.taskId)).valueOrNull;
 
@@ -395,6 +409,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
 
     return [
       _title(task),
+      const SizedBox(height: Spacing.md),
+      _footer(task),
       if (task.prompt case final prompt?) ...[
         const SheetRule(),
         SheetField(
@@ -520,8 +536,6 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           ),
         ),
       ],
-      const SizedBox(height: Spacing.lg),
-      _footer(task),
     ];
   }
 
@@ -707,60 +721,82 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
 
   Widget _footer(Task task) {
     final tasks = ref.read(taskRepositoryProvider);
-    return Wrap(
-      spacing: Spacing.md,
-      runSpacing: Spacing.md,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        ActionBlock(
-          label: task.done ? 'UNDO' : 'DONE',
-          tone: context.tokens.accent,
-          filled: !task.done,
-          onTap: () => tasks.setDone(task.id, !task.done),
+        Wrap(
+          spacing: Spacing.md,
+          runSpacing: Spacing.md,
+          children: [
+            ActionBlock(
+              label: task.done ? 'UNDO' : 'DONE',
+              tone: context.tokens.accent,
+              filled: !task.done,
+              onTap: () => tasks.setDone(task.id, !task.done),
+            ),
+            ActionBlock(label: 'SEND', onTap: () => _toPicker(const _Send())),
+            ActionBlock(label: 'EDIT', onTap: () => _startEdit(task)),
+            ActionBlock(
+              label: _deleteRevealed ? 'LESS' : 'MORE',
+              onTap: () => setState(() => _deleteRevealed = !_deleteRevealed),
+            ),
+          ],
         ),
-        if (!_isDrop(task)) ...[
-          ActionBlock(
-            label: task.isNext ? 'CLEAR NEXT' : 'MARK NEXT',
-            tone: task.isNext
-                ? context.tokens.accentMuted
-                : context.tokens.textSecondary,
-            onTap: () =>
-                task.isNext ? tasks.unsetNext(task.id) : tasks.setNext(task.id),
+        const SizedBox(height: Spacing.md),
+        ListRowGroup(
+          children: [
+            ListRow(title: 'MOVE', onTap: () => _toPicker(const _Move())),
+            ListRow(
+              title: task.prompt == null ? 'PROMPT' : 'EDIT PROMPT',
+              onTap: () => _toPrompt(task),
+            ),
+            if (!_isDrop(task)) ...[
+              ListRow(
+                title: task.isNext ? 'CLEAR NEXT' : 'MARK NEXT',
+                onTap: () => task.isNext
+                    ? tasks.unsetNext(task.id)
+                    : tasks.setNext(task.id),
+              ),
+            ],
+          ],
+        ),
+        if (_deleteRevealed) ...[
+          const SizedBox(height: Spacing.md),
+          Wrap(
+            spacing: Spacing.md,
+            runSpacing: Spacing.md,
+            children: [
+              if (_isDrop(task))
+                FlashActionBlock(
+                  label: 'COPY',
+                  flashLabel: 'COPIED',
+                  onTap: () => _copyText(task),
+                ),
+              if (!_isDrop(task)) ...[
+                ActionBlock(
+                  label: task.bundleId == null ? 'GROUP WITH' : 'LEAVE GROUP',
+                  onTap: () => task.bundleId == null
+                      ? _toPicker(const _Pair())
+                      : tasks.unpair(task.id),
+                ),
+                ActionBlock(
+                  label: task.blockedReason == null ? 'BLOCK' : 'UNBLOCK',
+                  tone: context.tokens.warning,
+                  onTap: () => task.blockedReason == null
+                      ? _startEdit(task, line: _Line.reason)
+                      : tasks.unblock(task.id),
+                ),
+              ],
+              InlineConfirmBlock(
+                label: 'DELETE',
+                confirmLabel: 'CONFIRM',
+                compact: true,
+                onConfirmed: _delete,
+              ),
+            ],
           ),
         ],
-        if (_isDrop(task))
-          FlashActionBlock(
-            label: 'COPY',
-            flashLabel: 'COPIED',
-            onTap: () => _copyText(task),
-          ),
-        ActionBlock(label: 'MOVE', onTap: () => _toPicker(const _Move())),
-        ActionBlock(
-          label: task.prompt == null ? 'PROMPT' : 'EDIT PROMPT',
-          onTap: () => _toPrompt(task),
-        ),
-        ActionBlock(label: 'SEND', onTap: () => _toPicker(const _Send())),
-        if (!_isDrop(task)) ...[
-          ActionBlock(
-            label: task.bundleId == null ? 'GROUP WITH' : 'LEAVE GROUP',
-            onTap: () => task.bundleId == null
-                ? _toPicker(const _Pair())
-                : tasks.unpair(task.id),
-          ),
-          ActionBlock(
-            label: task.blockedReason == null ? 'BLOCK' : 'UNBLOCK',
-            tone: context.tokens.warning,
-            onTap: () => task.blockedReason == null
-                ? _startEdit(task, line: _Line.reason)
-                : tasks.unblock(task.id),
-          ),
-        ],
-        if (!_isDrop(task) || _deleteRevealed)
-          InlineConfirmBlock(
-            label: 'DELETE',
-            confirmLabel: 'CONFIRM',
-            compact: true,
-            onConfirmed: _delete,
-          ),
       ],
     );
   }

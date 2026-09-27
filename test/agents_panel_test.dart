@@ -494,7 +494,11 @@ void main() {
     ], receivedAt: DateTime(2026));
     await tester.pumpWidget(host(state));
 
-    expect(find.text('AGENT'), findsOneWidget);
+    expect(find.text('AGENT'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('newer work')).dy,
+      lessThan(tester.getTopLeft(find.text('CODEX')).dy),
+    );
     expect(find.text('WORKING'), findsOneWidget);
     expect(find.text('BLOCKED'), findsOneWidget);
     expect(find.text('idle work'), findsNothing);

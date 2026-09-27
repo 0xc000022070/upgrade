@@ -7,9 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/app/static_surface.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/settings_repository.dart';
-import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/design/components/ascii_background.dart';
-import 'package:dazzle/design/components/panel.dart';
 import 'package:dazzle/design/motion.dart';
 import 'package:dazzle/features/home/home_screen.dart';
 import 'package:dazzle/features/settings/settings_screen.dart';
@@ -35,27 +33,14 @@ Future<void> _ready(WidgetTester tester) =>
 int _tickOf(WidgetTester tester) =>
     tester.widget<AsciiBackground>(find.byType(AsciiBackground)).tick.value;
 
-Finder _inStatic(String label) => find.descendant(
-  of: find.ancestor(of: find.text('[ STATIC ]'), matching: find.byType(Panel)),
-  matching: find.text(label),
-);
+bool _animationEnabled(WidgetTester tester) => tester
+    .widget<SwitchListTile>(
+      find.widgetWithText(SwitchListTile, 'Background animation'),
+    )
+    .value;
 
-Finder _inTheme(String label) => find.descendant(
-  of: find.ancestor(of: find.text('[ THEME ]'), matching: find.byType(Panel)),
-  matching: find.text(label),
-);
-
-bool _isBlockIn(WidgetTester tester, Finder target) {
-  final container = tester.widgetList<Container>(
-    find.ancestor(of: target, matching: find.byType(Container)),
-  );
-  return container.any(
-    (box) => (box.decoration as BoxDecoration?)?.color == DazzleColors.accent,
-  );
-}
-
-bool _isBlock(WidgetTester tester, String label) =>
-    _isBlockIn(tester, _inStatic(label));
+bool _themeSelected(WidgetTester tester, String label) =>
+    tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, label)).selected;
 
 void _tall(WidgetTester tester) {
   tester.view.physicalSize = const Size(400, 1600);
@@ -100,8 +85,8 @@ void main() {
 
     expect(find.text('SETTINGS'), findsOneWidget);
     expect(find.text('/ DAZZLE / SYS'), findsOneWidget);
-    expect(find.text('[ STATIC ]'), findsOneWidget);
-    expect(find.text('[ THEME ]'), findsOneWidget);
+    expect(find.text('[ BACKGROUND ]'), findsOneWidget);
+    expect(find.text('[ APPEARANCE ]'), findsOneWidget);
     expect(find.text('[ BUILD ]'), findsOneWidget);
     expect(find.text('PROJECTS'), findsNothing);
     await unmount(tester);
@@ -115,10 +100,10 @@ void main() {
     await _ready(tester);
 
     final tops = [
-      '[ STATIC ]',
+      '[ BACKGROUND ]',
       '[ ALERTS ]',
       '[ BUNDLE ]',
-      '[ THEME ]',
+      '[ APPEARANCE ]',
       '[ BUILD ]',
     ].map((title) => tester.getTopLeft(find.text(title)).dy).toList();
     for (var i = 1; i < tops.length; i++) {
@@ -127,54 +112,53 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('static defaults to ON and the picker writes the row', (
-    tester,
-  ) async {
-    await tester.pumpWidget(host(const SettingsScreen()));
-    await _ready(tester);
+  testWidgets(
+    'background animation defaults on and the switch writes the row',
+    (tester) async {
+      await tester.pumpWidget(host(const SettingsScreen()));
+      await _ready(tester);
 
-    expect(_isBlock(tester, 'ON'), isTrue);
-    expect(_isBlock(tester, 'OFF'), isFalse);
-    expect(
-      await (db.select(
-        db.settings,
-      )..where((s) => s.key.equals(SettingsRepository.staticEnabled))).get(),
-      isEmpty,
-    );
+      expect(_animationEnabled(tester), isTrue);
+      expect(
+        await (db.select(
+          db.settings,
+        )..where((s) => s.key.equals(SettingsRepository.staticEnabled))).get(),
+        isEmpty,
+      );
 
-    await tester.tap(_inStatic('OFF'));
-    await _ready(tester);
+      await tester.tap(find.text('Background animation'));
+      await _ready(tester);
 
-    expect(_isBlock(tester, 'OFF'), isTrue);
-    expect(_isBlock(tester, 'ON'), isFalse);
-    expect(
-      await settings.flag(SettingsRepository.staticEnabled, orElse: true),
-      isFalse,
-    );
+      expect(_animationEnabled(tester), isFalse);
+      expect(
+        await settings.flag(SettingsRepository.staticEnabled, orElse: true),
+        isFalse,
+      );
 
-    await tester.tap(_inStatic('ON'));
-    await _ready(tester);
+      await tester.tap(find.text('Background animation'));
+      await _ready(tester);
 
-    expect(_isBlock(tester, 'ON'), isTrue);
-    expect(
-      await (db.select(
-        db.settings,
-      )..where((s) => s.key.equals(SettingsRepository.staticEnabled))).get(),
-      hasLength(1),
-      reason: 'the preference is one upserted row, not one row per tap',
-    );
-    await unmount(tester);
-  });
+      expect(_animationEnabled(tester), isTrue);
+      expect(
+        await (db.select(
+          db.settings,
+        )..where((s) => s.key.equals(SettingsRepository.staticEnabled))).get(),
+        hasLength(1),
+        reason: 'the preference is one upserted row, not one row per tap',
+      );
+      await unmount(tester);
+    },
+  );
 
-  testWidgets('theme defaults to HOUSE and the picker writes the row', (
+  testWidgets('appearance defaults to Dazzle dark and choices persist', (
     tester,
   ) async {
     _tall(tester);
     await tester.pumpWidget(host(const SettingsScreen()));
     await _ready(tester);
 
-    expect(_isBlockIn(tester, _inTheme('HOUSE')), isTrue);
-    expect(_isBlockIn(tester, _inTheme('SYSTEM')), isFalse);
+    expect(_themeSelected(tester, 'Dazzle dark'), isTrue);
+    expect(_themeSelected(tester, 'System'), isFalse);
     expect(
       await (db.select(
         db.settings,
@@ -182,20 +166,20 @@ void main() {
       isEmpty,
     );
 
-    await tester.tap(_inTheme('SYSTEM'));
+    await tester.tap(find.text('System'));
     await _ready(tester);
 
-    expect(_isBlockIn(tester, _inTheme('SYSTEM')), isTrue);
-    expect(_isBlockIn(tester, _inTheme('HOUSE')), isFalse);
+    expect(_themeSelected(tester, 'System'), isTrue);
+    expect(_themeSelected(tester, 'Dazzle dark'), isFalse);
     expect(
       await settings.flag(SettingsRepository.themeSystem, orElse: false),
       isTrue,
     );
 
-    await tester.tap(_inTheme('HOUSE'));
+    await tester.tap(find.text('Dazzle dark'));
     await _ready(tester);
 
-    expect(_isBlockIn(tester, _inTheme('HOUSE')), isTrue);
+    expect(_themeSelected(tester, 'Dazzle dark'), isTrue);
     expect(
       await settings.flag(SettingsRepository.themeSystem, orElse: false),
       isFalse,
@@ -231,6 +215,33 @@ void main() {
     await _ready(tester);
 
     expect(find.text('dev'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('settings controls fit narrow screens with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      host(
+        const MediaQuery(
+          data: MediaQueryData(
+            size: Size(320, 1600),
+            textScaler: TextScaler.linear(1.6),
+          ),
+          child: SettingsScreen(),
+        ),
+      ),
+    );
+    await _ready(tester);
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text('System'));
+    await tester.tap(find.text('System'));
+    await _ready(tester);
+    expect(_themeSelected(tester, 'System'), isTrue);
+    expect(tester.takeException(), isNull);
     await unmount(tester);
   });
 }

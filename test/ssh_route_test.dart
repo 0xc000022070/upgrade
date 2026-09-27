@@ -52,14 +52,22 @@ void main() {
 
   tearDown(() => db.close());
 
-  Widget app() => ProviderScope(
+  Widget app({double textScale = 1}) => ProviderScope(
     overrides: [
       ...featureTestOverrides(db),
       keyRepositoryProvider.overrideWithValue(keys),
       hostRepositoryProvider.overrideWithValue(hosts),
       shellSessionsProvider.overrideWithValue(sessions),
     ],
-    child: MaterialApp(theme: testTheme, home: SshScreen()),
+    child: MaterialApp(
+      theme: testTheme,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
+      home: SshScreen(),
+    ),
   );
 
   /// The grain runs off a ticker that never settles, so a test that ends with the tree
@@ -101,8 +109,8 @@ void main() {
 
     expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('NYX'), findsOneWidget);
-    expect(find.text('ssh, luis'), findsNWidgets(2));
-    expect(find.text('100.64.0.1:22'), findsNothing);
+    expect(find.text('luis@100.64.0.1:22'), findsOneWidget);
+    expect(find.text('luis@100.64.0.2:357'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -135,8 +143,8 @@ void main() {
     expect(find.byKey(const ValueKey('shell-card-h1-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-card-h2-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-card-h2-2')), findsOneWidget);
-    expect(find.text('ROSE 1'), findsOneWidget);
-    expect(find.text('NYX 2'), findsOneWidget);
+    expect(find.text('rose · shell 1'), findsOneWidget);
+    expect(find.text('nyx · shell 2'), findsOneWidget);
     expect(find.text('1 OPEN'), findsOneWidget);
     expect(find.text('2 OPEN'), findsOneWidget);
 
@@ -174,6 +182,26 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets(
+    'session cards prefer task titles and fall back to their directory',
+    (tester) async {
+      sized(tester);
+      await seed();
+      shells.stall = false;
+      final first = sessions.open(_rose)!;
+      first.title = 'Fix reconnect';
+      final second = sessions.open(_nyx)!;
+      second.cwd = '/home/dev/Projects/dazzle';
+      await tester.pumpWidget(app());
+      await ready(tester);
+      expect(find.text('Fix reconnect'), findsOneWidget);
+      expect(find.text('dazzle'), findsOneWidget);
+      expect(find.text('rose · shell 1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await unmount(tester);
+    },
+  );
+
   testWidgets('the card keeps its first line clear of the dot', (tester) async {
     sized(tester);
     await seed();
@@ -187,6 +215,21 @@ void main() {
 
     expect(card.right - dot.right, lessThan(dot.left - card.left));
 
+    await unmount(tester);
+  });
+
+  testWidgets('session captions use their natural height at large text sizes', (
+    tester,
+  ) async {
+    sized(tester);
+    await seed();
+    shells.stall = false;
+    sessions.open(_rose)!.title = 'A long terminal task title';
+    await tester.pumpWidget(app(textScale: 2));
+    await ready(tester);
+    expect(find.text('A long terminal task title'), findsOneWidget);
+    expect(find.text('rose · shell 1'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await unmount(tester);
   });
 
@@ -210,7 +253,7 @@ void main() {
         .dx;
 
     expect(left('h1', 'ROSE'), left('h2', 'NYX'));
-    expect(left('h1', 'ssh, luis'), left('h2', 'ssh, luis'));
+    expect(left('h1', 'luis@100.64.0.1:22'), left('h2', 'luis@100.64.0.2:357'));
 
     await unmount(tester);
   });

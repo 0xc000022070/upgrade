@@ -15,9 +15,9 @@ import 'package:dazzle/design/components/list_row.dart';
 import 'package:dazzle/design/components/panel.dart';
 import 'package:dazzle/design/effects/glitch.dart';
 import 'package:dazzle/design/icons/dazzle_icon.dart';
-import 'package:dazzle/design/motion.dart';
 import 'package:dazzle/features/projects/project_detail_screen.dart';
 import 'package:dazzle/features/tasks/item_sheet.dart';
+import 'package:dazzle/features/tasks/task_row.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -77,6 +77,47 @@ void main() {
 
   tearDown(() => db.close());
 
+  testWidgets('drops keep short rows compact and let long titles wrap', (
+    tester,
+  ) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final task = await tester.runAsync(
+      () => (db.select(
+        db.tasks,
+      )..where((row) => row.id.equals(openTaskId))).getSingle(),
+    );
+    for (final width in [360.0, 840.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      for (final title in ['Short drop', 'First line\nSecond line']) {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [...featureTestOverrides(db)],
+            child: MaterialApp(
+              theme: testTheme,
+              home: Scaffold(
+                body: TaskRow(task: task!.copyWith(title: title), drop: true),
+              ),
+            ),
+          ),
+        );
+        await _ready(tester);
+        final row = tester.widget<ListRow>(find.byType(ListRow));
+        expect(row.metadataBelow, isFalse);
+        expect(row.titleMaxLines, 2);
+        expect(row.value, isNotNull);
+        expect(
+          tester.getSize(find.byType(ListRow)).height,
+          title == 'Short drop' ? 44.0 : lessThanOrEqualTo(64.0),
+        );
+        expect(find.text(title), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
   Widget host({bool reduceMotion = false}) => ProviderScope(
     overrides: [...featureTestOverrides(db)],
     child: MediaQuery(
@@ -117,7 +158,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  testWidgets('the toggled row keeps its place under the goal', (tester) async {
+  testWidgets('completed goal tasks leave Open and remain available in Done', (
+    tester,
+  ) async {
     await tester.pumpWidget(host());
     await _ready(tester);
     expect(inGoal('Object storage'), findsOneWidget);
@@ -126,13 +169,19 @@ void main() {
     await _drain(tester);
 
     expect(await isDoneInDb(tester), isTrue);
-    expect(inGoal('Object storage'), findsOneWidget);
-    expect(find.byType(GlitchBlocks), findsOneWidget);
-
-    await tester.pump(Effects.glitchDuration);
-    await _drain(tester);
+    expect(inGoal('Object storage'), findsNothing);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'DONE'));
+    await _ready(tester);
     expect(inGoal('Object storage'), findsOneWidget);
     expect(find.byType(GlitchBlocks), findsNothing);
+
+    await tapCheckbox(tester, 'Object storage');
+    await _drain(tester);
+    expect(await isDoneInDb(tester), isFalse);
+    expect(inGoal('Object storage'), findsNothing);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'OPEN'));
+    await _ready(tester);
+    expect(inGoal('Object storage'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -147,6 +196,9 @@ void main() {
 
     expect(await isDoneInDb(tester), isTrue);
     expect(find.byType(GlitchBlocks), findsNothing);
+    expect(inGoal('Object storage'), findsNothing);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'DONE'));
+    await _ready(tester);
     expect(inGoal('Object storage'), findsOneWidget);
 
     await unmount(tester);
@@ -172,14 +224,16 @@ void main() {
         )
         .color;
 
-    expect(titleInk('Redis propio'), DazzleColors.textDisabled);
-    expect(boxInk('Redis propio'), DazzleColors.textDisabled);
-
     expect(titleInk('Backups viejos'), DazzleColors.textMuted);
     expect(boxInk('Backups viejos'), DazzleColors.textMuted);
 
     expect(titleInk('Object storage'), DazzleColors.textPrimary);
     expect(boxInk('Object storage'), DazzleColors.accent);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'DONE'));
+    await _ready(tester);
+    expect(titleInk('Redis propio'), DazzleColors.textDisabled);
+    expect(boxInk('Redis propio'), DazzleColors.textDisabled);
 
     await unmount(tester);
   });

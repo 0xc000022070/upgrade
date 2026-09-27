@@ -5,7 +5,6 @@ import '../../app/static_surface.dart';
 import '../../application/providers.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../design/components/panel.dart';
-import '../../design/components/picker_row.dart';
 import '../../design/tokens.dart';
 import '../../platform/device.dart';
 import '../screen_scaffold.dart';
@@ -58,41 +57,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             PanelStack(
               children: [
                 Panel(
-                  title: '[ STATIC ]',
+                  title: '[ BACKGROUND ]',
                   bodyPadding: panelRowsPadding,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      PickerRow(
-                        label: 'ON',
-                        selected: enabled,
-                        onTap: () => _setStatic(true),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        'Background animation',
+                        style: context.tokens.rowTitle,
                       ),
-                      PickerRow(
-                        label: 'OFF',
-                        selected: !enabled,
-                        onTap: () => _setStatic(false),
+                      subtitle: Text(
+                        'Animate the background texture.',
+                        style: context.tokens.rowSubtitle,
                       ),
-                    ],
+                      value: enabled,
+                      onChanged: _setStatic,
+                    ),
                   ),
                 ),
                 const AlertsSettingsBlock(),
                 const BundlePanel(),
                 Panel(
-                  title: '[ THEME ]',
-                  bodyPadding: panelRowsPadding,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  title: '[ APPEARANCE ]',
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      PickerRow(
-                        label: 'HOUSE',
+                      ChoiceChip(
+                        label: const Text('Dazzle dark'),
                         selected: !themeSystem,
-                        onTap: () => _setThemeSystem(false),
+                        onSelected: (_) => _setThemeSystem(false),
                       ),
-                      PickerRow(
-                        label: 'SYSTEM',
+                      ChoiceChip(
+                        label: const Text('System'),
                         selected: themeSystem,
-                        onTap: () => _setThemeSystem(true),
+                        onSelected: (_) => _setThemeSystem(true),
                       ),
                     ],
                   ),

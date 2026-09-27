@@ -2,10 +2,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/providers.dart';
+import '../../application/native_plugins.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/spacing.dart';
+import '../../design/tokens.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../screen_scaffold.dart';
 import 'project_detail_screen.dart';
@@ -21,10 +23,64 @@ class ProjectsScreen extends ConsumerStatefulWidget {
 
 class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   bool _showArchived = false;
+  String? _selected;
+  bool _wide = false;
 
   @override
   Widget build(BuildContext context) {
-    return ScreenScaffold(title: 'PROJECTS', children: [_board()]);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _wide = constraints.maxWidth >= 840;
+        if (!_wide) {
+          return ScreenScaffold(title: 'PROJECTS', children: [_board()]);
+        }
+        final projects = ref.watch(projectSummariesProvider).valueOrNull;
+        final allProjects = ref.watch(projectsProvider).valueOrNull;
+        final selectionExists =
+            _selected != null &&
+            (allProjects == null ||
+                allProjects.any((project) => project.id == _selected));
+        final selected =
+            (selectionExists ? _selected : null) ??
+            (projects?.isNotEmpty == true ? projects!.first.projectId : null);
+        return Row(
+          children: [
+            SizedBox(
+              width: 300,
+              child: ScreenScaffold(title: 'PROJECTS', children: [_board()]),
+            ),
+            Container(width: 1, color: context.tokens.borderNormal),
+            Expanded(
+              child: selected == null
+                  ? Center(
+                      child: Text(
+                        'Choose or create a project',
+                        style: context.tokens.rowTitle,
+                      ),
+                    )
+                  : inheritPluginScope(
+                      context,
+                      ProjectDetailScreen(
+                        key: ValueKey(selected),
+                        projectId: selected,
+                        onProjectSelected: (id) =>
+                            setState(() => _selected = id),
+                      ),
+                      surface: 'project.detail',
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _open(String id) {
+    if (_wide) {
+      setState(() => _selected = id);
+    } else {
+      openProjectDetail(context, id);
+    }
   }
 
   Widget _board() {
@@ -61,7 +117,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                   ProjectRow(
                     project: project,
                     showLead: true,
-                    onTap: () => openProjectDetail(context, project.projectId),
+                    onTap: () => _open(project.projectId),
                   ),
               ],
             ),
@@ -84,8 +140,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                         ProjectRow(
                           project: project,
                           dim: true,
-                          onTap: () =>
-                              openProjectDetail(context, project.projectId),
+                          onTap: () => _open(project.projectId),
                         ),
                     ],
                   ),

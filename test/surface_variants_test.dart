@@ -11,6 +11,8 @@ import 'package:dazzle/design/layout.dart';
 import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/design/tokens.dart';
 import 'package:dazzle/features/home/home_screen.dart';
+import 'package:dazzle/features/home/agents_panel.dart';
+import 'package:dazzle/features/tasks/drops_panel.dart';
 import 'package:dazzle/features/settings/settings_screen.dart';
 
 import 'support/native_plugins.dart';
@@ -139,7 +141,16 @@ void main() {
     await settle(tester);
 
     expect(find.bySemanticsLabel('SETTINGS'), findsOneWidget);
-    expectCappedAndCentred(tester, surface);
+    final agents = tester.getRect(find.byType(AgentsPanel));
+    final drops = tester.getRect(find.byType(DropsPanel));
+    if (surface.width >= 792) {
+      expect(drops.left, greaterThan(agents.right));
+      expect(drops.top, agents.top);
+    } else {
+      expect(drops.top, greaterThan(agents.bottom));
+      expect(drops.width, surface.width - 2 * Spacing.screenEdge);
+    }
+    expect(tester.takeException(), isNull);
     await unmount(tester);
   }, variant: surfaces);
 
@@ -150,7 +161,7 @@ void main() {
     await tester.pumpWidget(host(const SettingsScreen()));
     await settle(tester);
 
-    expect(find.text('[ THEME ]'), findsOneWidget);
+    expect(find.text('[ APPEARANCE ]'), findsOneWidget);
     expect(find.text('[ BUILD ]'), findsOneWidget);
     expectCappedAndCentred(tester, surface);
     await unmount(tester);

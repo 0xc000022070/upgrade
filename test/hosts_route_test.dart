@@ -127,22 +127,35 @@ void main() {
     return db.close();
   });
 
-  Widget app(Widget child, {int index = 0, List<Override> extra = const []}) =>
-      ProviderScope(
-        overrides: [
-          ...extra,
-          navIndexProvider.overrideWith((ref) => index),
-          ...featureTestOverrides(db),
-          keyRepositoryProvider.overrideWithValue(keys),
-          hostRepositoryProvider.overrideWithValue(hosts),
-          privateKeyStoreProvider.overrideWithValue(privateKeys),
-          screenPreviewsProvider.overrideWith((ref) async => previews),
-          shellSessionsProvider.overrideWithValue(sessions),
-          linkProbesProvider.overrideWithValue(probes),
-          hostKeyDialProvider.overrideWith((ref) => dial),
-        ],
-        child: MaterialApp(theme: testTheme, home: child),
-      );
+  Widget app(
+    Widget child, {
+    int index = 0,
+    List<Override> extra = const [],
+    TextScaler? scaler,
+  }) => ProviderScope(
+    overrides: [
+      ...extra,
+      navIndexProvider.overrideWith((ref) => index),
+      ...featureTestOverrides(db),
+      keyRepositoryProvider.overrideWithValue(keys),
+      hostRepositoryProvider.overrideWithValue(hosts),
+      privateKeyStoreProvider.overrideWithValue(privateKeys),
+      screenPreviewsProvider.overrideWith((ref) async => previews),
+      shellSessionsProvider.overrideWithValue(sessions),
+      linkProbesProvider.overrideWithValue(probes),
+      hostKeyDialProvider.overrideWith((ref) => dial),
+    ],
+    child: MaterialApp(
+      theme: testTheme,
+      home: child,
+      builder: scaler == null
+          ? null
+          : (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(textScaler: scaler),
+              child: child!,
+            ),
+    ),
+  );
 
   /// The grain runs off a ticker that never settles, so a test that ends with the tree
   /// mounted leaves a pending timer and hangs the file.
@@ -172,6 +185,12 @@ void main() {
     await hosts.setIntegration(_nyx.id, IntegrationKind.vnc, true);
   }
 
+  Future<void> details(WidgetTester tester, String host) async {
+    await tester.tap(find.text(host));
+    await ready(tester);
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+
   testWidgets('every host is listed with its metadata and tokens', (
     tester,
   ) async {
@@ -186,16 +205,56 @@ void main() {
     expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('100.64.0.1:22'), findsOneWidget);
     expect(find.text('100.64.0.2:357'), findsOneWidget);
-    expect(find.text('luis'), findsNWidgets(2));
-    expect(find.text('faraday'), findsNWidgets(2));
-    expect(find.text('HERDR'), findsOneWidget);
-    expect(find.text('HERDR  VNC'), findsOneWidget);
+    expect(find.text('DETAILS'), findsNWidgets(2));
+    expect(find.text('INTEGRATIONS'), findsNothing);
+    expect(find.byType(ScreenPreviewTile), findsNothing);
     expect(find.text('ADD HOST'), findsOneWidget);
 
     await unmount(tester);
   });
 
   const labelColumn = 96.0;
+
+  testWidgets('wide hosts keep list and selected details side by side', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+    await tester.pumpWidget(app(const HostsScreen()));
+    await ready(tester);
+    expect(find.text('DETAILS'), findsNWidgets(2));
+    expect(find.text('INTEGRATIONS'), findsOneWidget);
+    expect(find.byType(ScreenPreviewTile), findsNothing);
+    expect(tester.getTopLeft(find.text('INTEGRATIONS')).dx, greaterThan(350));
+    await tester.tap(find.text('NYX'));
+    await ready(tester);
+    expect(find.byType(ScreenPreviewTile), findsOneWidget);
+    expect(
+      Navigator.of(tester.element(find.text('ADD HOST'))).canPop(),
+      isFalse,
+    );
+    await unmount(tester);
+  });
+
+  testWidgets('narrow details return to the compact host list', (tester) async {
+    tester.view.physicalSize = const Size(400, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await seed();
+    await tester.pumpWidget(app(const HostsScreen()));
+    await ready(tester);
+    await details(tester, 'NYX');
+    expect(find.text('INTEGRATIONS'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await ready(tester);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    expect(find.text('DETAILS'), findsNWidgets(2));
+    expect(find.text('INTEGRATIONS'), findsNothing);
+    await unmount(tester);
+  });
 
   testWidgets('a metadata label is given the width its words take', (
     tester,
@@ -208,19 +267,9 @@ void main() {
     /// Measured from the two left edges, which are box positions rather than ink, so the
     /// fallback font a test renders with cannot move them.
     Future<double> reach([TextScaler? scaler]) async {
-      await tester.pumpWidget(
-        app(
-          scaler == null
-              ? const HostsScreen()
-              : Builder(
-                  builder: (context) => MediaQuery(
-                    data: MediaQuery.of(context).copyWith(textScaler: scaler),
-                    child: const HostsScreen(),
-                  ),
-                ),
-        ),
-      );
+      await tester.pumpWidget(app(const HostsScreen(), scaler: scaler));
       await ready(tester);
+      await details(tester, 'ROSE');
       final label = tester.getRect(find.text('INTEGRATIONS').first).left;
       final value = tester.getRect(find.text('HERDR')).left;
       await unmount(tester);
@@ -249,7 +298,8 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    expect(find.text('SHELL'), findsNWidgets(2));
+    await details(tester, 'ROSE');
+    expect(find.text('SHELL'), findsOneWidget);
 
     final row = find.ancestor(
       of: find.text('SHELL').first,
@@ -282,6 +332,7 @@ void main() {
     expect(find.text('SHELLS'), findsNothing);
     expect(find.text('ACTIVE SESSIONS'), findsNothing);
     expect(find.byKey(const ValueKey('shell-card-h1-1')), findsNothing);
+    await details(tester, 'ROSE');
     expect(find.text('SHELL · 1 OPEN'), findsOneWidget);
 
     await unmount(tester);
@@ -311,9 +362,10 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('OPENSSH_9.9 · 120 MS'), findsOneWidget);
-    expect(find.text('REFUSED'), findsOneWidget);
+    expect(find.text('luis · OPENSSH_9.9 · 120 MS'), findsOneWidget);
+    expect(find.text('luis · REFUSED'), findsOneWidget);
     expect(probed, ['100.64.0.1:22', '100.64.0.2:357']);
+    await details(tester, 'NYX');
 
     final row = find.ancestor(
       of: find.text('REFUSED'),
@@ -356,7 +408,8 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('HERDR STATUS'), findsNWidgets(2));
+    await details(tester, 'ROSE');
+    expect(find.text('HERDR STATUS'), findsOneWidget);
     expect(find.text('rose unreachable'), findsOneWidget);
     expect(find.text('RETRY'), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-row-dot-h1')), findsNothing);
@@ -399,6 +452,7 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
+    await details(tester, 'NYX');
     expect(find.text('VERIFY'), findsOneWidget);
 
     await unmount(tester);
@@ -431,6 +485,7 @@ void main() {
 
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
+    await details(tester, 'NYX');
     await tester.tap(find.text('VERIFY'));
     await ready(tester);
 
@@ -495,13 +550,14 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('VERIFY'), findsNWidgets(2));
+    await details(tester, 'ROSE');
+    expect(find.text('VERIFY'), findsOneWidget);
     await tester.tap(find.text('VERIFY').first);
     await ready(tester);
 
     expect(asked, 1);
     expect(find.text('VERIFYING'), findsNothing);
-    expect(find.text('VERIFY'), findsOneWidget);
+    expect(find.text('VERIFY'), findsNothing);
 
     await unmount(tester);
   });
@@ -519,8 +575,9 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
+    await details(tester, 'ROSE');
     expect(find.text('SHELL · 2 OPEN'), findsOneWidget);
-    expect(find.text('SHELL'), findsOneWidget);
+    expect(find.text('SHELL'), findsNothing);
 
     await unmount(tester);
   });
@@ -538,6 +595,7 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
+    await details(tester, 'ROSE');
     final panel = find
         .ancestor(of: find.text('CLIPBOARD'), matching: find.byType(Panel))
         .first;
@@ -586,6 +644,7 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
+    await details(tester, 'NYX');
     expect(find.byType(ScreenPreviewTile), findsOneWidget);
     expect(find.text('NO FRAME YET'), findsOneWidget);
     expect(find.text('SCREEN'), findsOneWidget);
@@ -601,6 +660,7 @@ void main() {
     await tester.runAsync(() => previews.write(_nyx.id, Framebuffer(640, 360)));
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
+    await details(tester, 'NYX');
 
     expect(find.byType(ScreenPreviewTile), findsOneWidget);
     expect(find.text('NO FRAME YET'), findsNothing);
@@ -629,6 +689,7 @@ void main() {
     await seed();
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
+    await details(tester, 'NYX');
     expect(find.text('NO FRAME YET'), findsOneWidget);
 
     await tester.runAsync(() => previews.write(_nyx.id, Framebuffer(640, 360)));
@@ -692,7 +753,7 @@ void main() {
     expect(find.text('nyx'), findsNothing);
     expect(find.text('faraday'), findsNothing);
     expect(find.text('[ ALERTS ]'), findsOneWidget);
-    expect(find.text('[ STATIC ]'), findsOneWidget);
+    expect(find.text('[ BACKGROUND ]'), findsOneWidget);
     expect(find.text('[ BUILD ]'), findsOneWidget);
 
     await unmount(tester);

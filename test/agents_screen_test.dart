@@ -45,12 +45,13 @@ AgentSnapshot agent(
   String status = 'working',
   String session = 'default',
   String? label,
+  String title = 'work',
 }) => AgentSnapshot(
   session: session,
   paneId: '$workspace:p1',
   agent: name,
   state: AgentState.of(status),
-  terminalTitleStripped: 'work',
+  terminalTitleStripped: title,
   workspaceId: workspace,
   cwd: '/workspace/dazzle',
   stateChangeSeq: 1,
@@ -126,10 +127,41 @@ void main() {
     );
     await ready(tester);
 
-    await tester.tap(find.widgetWithText(ListRow, 'CLAUDE'));
+    await tester.tap(find.widgetWithText(ListRow, 'CLAUDE · dazzle · Rose'));
 
     expect(opened, [(rose, claude)]);
 
+    await unmount(tester);
+  });
+
+  testWidgets('task titles lead and blocked agents explain the next action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        AgentPanelState([
+          HostOutcome(
+            host: nyx,
+            kind: AgentOutcomeKind.snapshot,
+            agents: [
+              agent(
+                'claude',
+                workspace: 'w1',
+                status: 'blocked',
+                title: 'Fix terminal reconnect',
+              ),
+              agent('codex', workspace: 'w2', title: ''),
+            ],
+          ),
+        ]),
+      ),
+    );
+    await ready(tester);
+    final rows = tester.widgetList<ListRow>(find.byType(ListRow)).toList();
+    expect(rows.first.title, 'Fix terminal reconnect');
+    expect(rows.first.titleMaxLines, 2);
+    expect(find.text('Needs attention · tap to open terminal'), findsOneWidget);
+    expect(find.text('CODEX session'), findsOneWidget);
     await unmount(tester);
   });
 
@@ -347,7 +379,7 @@ void main() {
     expect(find.text('G'), findsOneWidget);
     expect(find.text('?'), findsNothing);
     expect(find.text('C'), findsNothing);
-    expect(find.text('GIZMO'), findsOneWidget);
+    expect(find.text('GIZMO · dazzle · Nyx'), findsOneWidget);
     await unmount(tester);
   });
 
@@ -395,7 +427,7 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('?'), findsNWidgets(2));
+    expect(find.text('? · dazzle · Nyx'), findsOneWidget);
     expect(
       find.descendant(of: find.byType(AgentMark), matching: find.text('?')),
       findsOneWidget,

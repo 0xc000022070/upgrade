@@ -61,7 +61,7 @@ class LinkPreviewCard extends StatelessWidget {
                     Text(
                       preview.description!,
                       style: tokens.rowSubtitle,
-                      maxLines: 4,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -88,8 +88,8 @@ class _Thumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: LinkPreviewCard.imageRatio,
+    return SizedBox(
+      height: 100,
       child: Image.network(
         url,
         fit: BoxFit.cover,

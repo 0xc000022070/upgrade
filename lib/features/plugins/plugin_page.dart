@@ -8,6 +8,7 @@ import '../../application/plugins.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/tokens.dart';
 import '../../design/components/dot_spinner.dart';
+import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/panel_text_action.dart';
@@ -328,13 +329,24 @@ class PluginLibraryScreen extends ConsumerWidget {
                       ),
                     ),
                   for (final page in pages)
-                    PanelTextAction(
-                      label: _pageLabel(page),
-                      onTap: () => _openPage(context, page),
+                    Semantics(
+                      button: true,
+                      child: ListRow(
+                        title: _pageLabel(page),
+                        titleMaxLines: 2,
+                        subtitle: page.owner.manifest.purpose,
+                        node: true,
+                        onTap: () => _openPage(context, page),
+                      ),
                     ),
-                  PanelTextAction(
-                    label: 'MANAGE PLUGINS',
-                    onTap: () => openPluginManagement(context),
+                  Semantics(
+                    button: true,
+                    child: ListRow(
+                      title: 'MANAGE PLUGINS',
+                      titleMaxLines: 2,
+                      node: true,
+                      onTap: () => openPluginManagement(context),
+                    ),
                   ),
                 ],
               ),
