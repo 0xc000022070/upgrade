@@ -2,7 +2,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/tokens.dart';
-import '../../design/layout.dart';
 import '../../design/spacing.dart';
 import 'shell_sheet.dart';
 import 'shell_sessions.dart';
@@ -63,7 +62,9 @@ class _Bar extends StatelessWidget {
             ),
           ),
         ),
-        child: ContentColumn(
+        child: SafeArea(
+          top: false,
+          bottom: false,
           child: SizedBox(
             height: parkedShellBarHeight,
             child: Padding(
@@ -72,34 +73,39 @@ class _Bar extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  ShellStateDot(state: session.state),
-                  const SizedBox(width: Spacing.md),
-                  Flexible(
-                    child: Text(
-                      '${session.host.name.toUpperCase()} ${session.number}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.tokens.panelHeader.copyWith(
-                        color: context.tokens.textPrimary,
-                      ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        ShellStateDot(state: session.state),
+                        const SizedBox(width: Spacing.md),
+                        Flexible(
+                          child: Text(
+                            '${session.host.name.toUpperCase()} ${session.number}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.tokens.panelHeader.copyWith(
+                              color: context.tokens.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (others > 0) ...[
+                          const SizedBox(width: Spacing.md),
+                          Text('+$others', style: context.tokens.panelHeader),
+                        ],
+                        if (title != null) ...[
+                          const SizedBox(width: Spacing.md),
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: context.tokens.rowKicker,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  if (others > 0) ...[
-                    const SizedBox(width: Spacing.md),
-                    Text('+$others', style: context.tokens.panelHeader),
-                  ],
-                  if (title != null) ...[
-                    const SizedBox(width: Spacing.md),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: context.tokens.rowKicker,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ] else
-                    const Spacer(),
                   const SizedBox(width: Spacing.md),
                   Text(
                     'TAP TO RESUME',

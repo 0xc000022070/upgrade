@@ -11,6 +11,7 @@ import 'package:dazzle/application/agents.dart';
 import 'package:dazzle/application/navigation.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/features/shell/parked_shell_bar.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/platform/herdr_client.dart';
@@ -74,6 +75,36 @@ void main() {
 
   final bar = find.byKey(const ValueKey('parked-shell'));
   final header = find.byKey(const ValueKey('shell-header'));
+
+  for (final width in [360.0, 900.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('resume aligns with bar edge at width $width scale $scale', (
+        tester,
+      ) async {
+        tester.view.physicalSize = Size(width, 1200);
+        tester.view.devicePixelRatio = 1;
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.view.reset);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pumpWidget(app());
+        await ready(tester);
+        sessions.open(_rose);
+        await ready(tester);
+
+        expect(tester.getSize(bar).width, width);
+        expect(
+          tester.getTopRight(find.text('TAP TO RESUME')).dx,
+          closeTo(width - Spacing.screenEdge, 0.01),
+        );
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(find.text('TAP TO RESUME'));
+        await ready(tester);
+        expect(header, findsOneWidget);
+        await unmount(tester);
+      });
+    }
+  }
 
   testWidgets('nothing open, no bar', (tester) async {
     await tester.pumpWidget(app());
