@@ -22,9 +22,13 @@ const _barKeys = <_BarKey>[
   (label: 'END', keysym: Keysyms.end, icon: null),
 ];
 
-/// No `SHIFT`, which the soft keyboard already applies to what it sends, and no `SUPER`,
-/// which belongs to a compositor and not to a terminal.
-const _barModifiers = <StickyModifier>[StickyModifier.ctrl, StickyModifier.alt];
+/// `SHIFT` only reaches the arrows and `TAB`: the soft keyboard already applies its own to
+/// what it types. No `SUPER`, which belongs to a compositor and not to a terminal.
+const _barModifiers = <StickyModifier>[
+  StickyModifier.ctrl,
+  StickyModifier.alt,
+  StickyModifier.shift,
+];
 
 /// Controlled from the outside on purpose. The armed set belongs to the session, because
 /// the modifiers have to reach characters the IME types straight into the terminal, which

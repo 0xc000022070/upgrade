@@ -41,6 +41,14 @@ void main() {
       ]);
     });
 
+    test('SHIFT with TAB sends the back-tab', () {
+      expect(stripBytes(Keysyms.tab, armed(StickyModifier.shift)), [
+        0x1b,
+        0x5b,
+        0x5a,
+      ]);
+    });
+
     test('SUPER is worth nothing, armed or pressed', () {
       expect(stripBytes(Keysyms.superKey, none()), isNull);
       expect(stripBytes(Keysyms.escape, armed(StickyModifier.superKey)), [

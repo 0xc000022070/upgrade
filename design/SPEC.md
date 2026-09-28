@@ -1127,7 +1127,9 @@ Every sentence a failure is worded with is written once — the five ssh lines, 
 
 ### The key bar is one row of 36, and it keeps its last cell
 
-A bar at the bottom of the route, always drawn, above the IME when it is open, landscape included. Cells sized to their label plus 10 px each side, never narrower than 36, the hit area the full row height. `FIND` is at the head, then `CTRL`, `ALT`, `ESC`, `TAB`, the four arrows and `END` in the strip's marks and the strip's mono. The bar's keys go through the byte table — `ESC` `1b`, `TAB` `09`, arrows `1b 5b 41..44`, `END` `1b 5b 46`, Return `0d`, backspace `7f` — and `CTRL` turns the next letter into its control byte while `ALT` prefixes it with `1b`.
+A bar at the bottom of the route, always drawn, above the IME when it is open, landscape included. Cells sized to their label plus 10 px each side, never narrower than 36, the hit area the full row height. `FIND` is at the head, then `CTRL`, `ALT`, `SHIFT`, `ESC`, `TAB`, the four arrows and `END` in the strip's marks and the strip's mono. The bar's keys go through the byte table — `ESC` `1b`, `TAB` `09`, arrows `1b 5b 41..44`, `END` `1b 5b 46`, Return `0d`, backspace `7f` — and `CTRL` turns the next letter into its control byte while `ALT` prefixes it with `1b`.
+
+**`SHIFT` is for the keys the IME has no shifted form of.** A shifted arrow goes as `1b 5b 31 3b 32 41..44` and `SHIFT TAB` as `1b 5b 5a`, which is what an agent's TUI reads as a mode switch or a history walk. On a typed character it does nothing: the soft keyboard has already chosen the capital.
 
 **The IME belongs to the terminal.** The view takes text input itself through a focus node the route owns, and the keyboard toggle focuses and unfocuses it. Because a modifier has to reach characters the IME types straight into the terminal, the armed set lives on the session and is applied where the terminal's output becomes bytes.
 
@@ -1135,7 +1137,7 @@ A bar at the bottom of the route, always drawn, above the IME when it is open, l
 
 **A row that goes on says so.** Whichever end of the scrolling half still has cells behind it is drawn over with a short fade into the bar's own surface, so a cell is cut by a gradient rather than by an edge that looks like the end of the row. A bar whose keys all fit fades at neither end, and the fades take no taps: the cell under one is pressed through it.
 
-**Struck:** a `PASTE` cell. The phone's text clipboard reaches the terminal through the IME, and a bar that hides its own cells is not fixed by putting another cell on it. **Struck:** `SUPER` and `SHIFT` on this bar.
+**Struck:** a `PASTE` cell. The phone's text clipboard reaches the terminal through the IME, and a bar that hides its own cells is not fixed by putting another cell on it. **Struck:** `SUPER` on this bar, which belongs to a compositor and not to a terminal.
 
 ### A modifier is armed for one key, for a count, or until it is let go
 
@@ -1379,7 +1381,7 @@ It is the shell's bar, cell for cell: one row of 36, cells sized to their label 
 
 **Two rows gave the picture away.** Six equal columns across a foldable's inner screen made cells far wider than their words, and the pair stood a hand's height over the framebuffer with the keyboard under it. One row is what the shell already spends, and it leaves the picture the rest.
 
-The four modifiers arm the way the shell's do: a tap for one key, a downward drag for a count to three, a long press to latch, the label rolling to `CTRL(x2)` or `CTRL(∞)`. The arming belongs to the route, and every key spends it, the strip's and the IME's alike. `SHIFT` and `SUPER` are here where the shell's bar has neither: a desktop takes `SHIFT TAB`, a shifted arrow and a compositor chord, and the IME sends none of them. `SUPER` draws the ⌘-like house glyph with no word beside it; the four arrows draw their own glyphs; everything else is a mono 11 tracked word.
+The four modifiers arm the way the shell's do: a tap for one key, a downward drag for a count to three, a long press to latch, the label rolling to `CTRL(x2)` or `CTRL(∞)`. The arming belongs to the route, and every key spends it, the strip's and the IME's alike. `SUPER` is here where the shell's bar has none: a desktop takes a compositor chord, and the IME sends none. `SUPER` draws the ⌘-like house glyph with no word beside it; the four arrows draw their own glyphs; everything else is a mono 11 tracked word.
 
 **Struck:** `HOME`, `PGUP` and `PGDN`. The user does not use them.
 
