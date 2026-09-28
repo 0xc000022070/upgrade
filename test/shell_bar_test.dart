@@ -129,13 +129,27 @@ void main() {
       ]);
     });
 
-    testWidgets('the bar carries no SUPER and no SHIFT', (tester) async {
+    testWidgets('the bar carries SHIFT and no SUPER', (tester) async {
       await pumpBar(tester);
 
       expect(find.byKey(const ValueKey('bar-SUPER')), findsNothing);
-      expect(find.byKey(const ValueKey('bar-SHIFT')), findsNothing);
+      expect(find.byKey(const ValueKey('bar-SHIFT')), findsOneWidget);
       expect(find.byKey(const ValueKey('bar-CTRL')), findsOneWidget);
       expect(find.byKey(const ValueKey('bar-ALT')), findsOneWidget);
+    });
+
+    testWidgets('an armed SHIFT sends the shifted arrow and back-tab', (
+      tester,
+    ) async {
+      final record = await pumpBar(tester, sticky: {StickyModifier.shift});
+
+      await tapCell(tester, 'UP');
+      await tapCell(tester, 'TAB');
+
+      expect(record.sent, [
+        [0x1b, 0x5b, 0x31, 0x3b, 0x32, 0x41],
+        [0x1b, 0x5b, 0x5a],
+      ]);
     });
 
     testWidgets('a key never touches the armed set: the store spends it', (
@@ -471,7 +485,7 @@ void main() {
       // half of the bar, where a drag is not a scroll.
       await tester.drag(
         find.byKey(const ValueKey('bar-find')),
-        const Offset(-400, 0),
+        const Offset(-600, 0),
       );
       await tester.pumpAndSettle();
 
@@ -503,7 +517,7 @@ void main() {
       await tester.tapAt(fade.center);
       await tester.pump();
 
-      expect(record.sent, isNotEmpty);
+      expect(record.sent.isNotEmpty || record.armed.isNotEmpty, isTrue);
     });
   });
 

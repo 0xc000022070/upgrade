@@ -11,8 +11,8 @@ import '../modifier_cell.dart';
 
 typedef _StripKey = ({String label, int keysym, DazzleIcons? icon});
 
-/// `SHIFT` and `SUPER` are here where the terminal's bar has neither: a desktop takes a
-/// shifted click and a compositor chord, and neither comes from the IME.
+/// `SUPER` is here where the terminal's bar has none: a desktop takes a compositor chord,
+/// and that never comes from the IME.
 const _stripModifiers = <StickyModifier>[
   StickyModifier.superKey,
   StickyModifier.ctrl,

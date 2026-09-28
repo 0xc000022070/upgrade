@@ -37,7 +37,7 @@ List<int>? _keyBody(int keysym, Set<StickyModifier> sticky) {
     case Keysyms.escape:
       return [0x1b];
     case Keysyms.tab:
-      return [0x09];
+      return sticky.contains(StickyModifier.shift) ? [..._csi, 0x5a] : [0x09];
     case Keysyms.enter:
       // Carriage return, not a newline: the pty turns it into whatever the remote's line
       // discipline wants.
