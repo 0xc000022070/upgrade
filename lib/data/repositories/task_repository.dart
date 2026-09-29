@@ -65,6 +65,9 @@ class TaskRepository {
         .map(withBundlesAdjacent);
   }
 
+  Stream<List<SearchHit>> watchSearch({required bool filed}) =>
+      _db.watchSearchHits(filed: filed);
+
   Stream<Task?> watchById(String id) => (_db.select(
     _db.tasks,
   )..where((t) => t.id.equals(id))).watchSingleOrNull();

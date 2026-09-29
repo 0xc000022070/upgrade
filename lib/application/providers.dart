@@ -150,6 +150,12 @@ final dropsProvider = StreamProvider<List<Task>>(
   dependencies: [taskRepositoryProvider],
 );
 
+final searchHitsProvider = StreamProvider.autoDispose<List<SearchHit>>((ref) {
+  final filed =
+      ref.watch(nativeSurfaceOwnerProvider('capture.targets')) != null;
+  return ref.watch(taskRepositoryProvider).watchSearch(filed: filed);
+}, dependencies: [taskRepositoryProvider]);
+
 final pathTargetsProvider = StreamProvider<List<PathTarget>>(
   (ref) => ref.watch(pathRepositoryProvider).watchTargets(),
   dependencies: [pathRepositoryProvider],

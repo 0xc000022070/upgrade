@@ -122,6 +122,12 @@ class PluginTaskApi implements TaskRepository {
   Stream<Task?> watchById(String id) =>
       _gate.watch('items', () => _base.watchById(id));
   @override
+  Stream<List<SearchHit>> watchSearch({required bool filed}) => _gate.watch(
+    'items',
+    () => _base.watchSearch(filed: filed),
+    also: ['attachments', 'host.capture_targets', 'host.dispatch'],
+  );
+  @override
   Stream<List<Task>> watchMates(String id) =>
       _gate.watch('items', () => _base.watchMates(id));
   @override

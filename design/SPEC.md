@@ -345,7 +345,7 @@ Where the figure lands is solved and not computed from the grid: a cell with one
 
 **Every tab owns its glyph rather than borrowing one.** A destination is a place, and a glyph shared with an action says the place is that action. `HOME` is a house the roof is carried down into, open on the right, with the local endpoint inside it — a roof over a detached baseline was drawn first and reads as two objects rather than a place. `HOSTS` is two stacked rack units carrying a system node each — machines, not a page of text. `SSH` is a prompt caret with the cursor block inline after it, because what is behind that tab is a terminal and nothing about a terminal is an abstract coupling. `TOOLS` is a bay of docked slots holding unlike modules, which is what a destination filled by plugin pages is.
 
-**Struck:** an `ACTIVITY` tab and a `SEARCH` tab. Activity events keep being written and nothing draws them; search, if it returns, returns as a field on Projects rather than as a place to go.
+**Struck:** an `ACTIVITY` tab and a `SEARCH` tab. Activity events keep being written and nothing draws them; search is a screen Home pushes, not a tab to live on.
 
 ### Home is the agents first, then the next thing, then the work
 
@@ -353,7 +353,7 @@ The panels, in order: `AGENTS`, because what the machines are doing is the most 
 
 There is no suggestion fallback under `NEXT ACTION` — a panel that guesses at the next thing reads as a mock, and the one thing this screen must not be is a mock.
 
-**Home has no screen title.** The breadcrumb line is the whole header, with `SYS` as its right-hand action. `TODAY_` and its cursor are gone: the panel under the crumb already says what the screen is.
+**Home has no screen title.** The breadcrumb line is the whole header, with the search glyph, then plugins and `SYS`, as its right-hand actions. `TODAY_` and its cursor are gone: the panel under the crumb already says what the screen is.
 
 **Struck:** a `PROJECTS` panel on Home, and with it a `VIEW ALL` and a `NEW +` there. A project is reached through its tab, and a new one is made from that tab's own `NEW +`.
 
@@ -555,6 +555,20 @@ Home's `DROPS` and a project's `DROPS` both have this. A row under a goal keeps 
 **Struck:** escaping a rule the user typed. A drop whose own text is a line of three dashes reads as two drops after a paste, and every fix for that — doubling the dashes, fencing each entry, prefixing every line — puts a syntax in front of text whose whole point is that it comes out the way it went in. What is on the clipboard is read by a person and never parsed back.
 
 **Struck:** a bullet or a number leading each drop. It is unambiguous and it is a list the user did not write: the first line of every drop comes out altered, and the alteration has to be picked off by hand wherever the text is going.
+
+### Search finds any item, from Home, and narrows it with marks
+
+The search glyph in Home's breadcrumb row pushes `SEARCH` over Home with no nav bar, the keyboard already up on a field at the top. It reaches every item the phone holds — Home drops, a project's drops and the items under goals — newest first, and an item under a hidden project is absent here as it is from Home. With Projects off it reaches the unfiled ones only, because a filed item's place is Projects' to say.
+
+**The field matches words, not a phrase.** Every word typed has to appear somewhere in the item's text, its prompt or one of its links, in any order and any case. An empty field with no mark lit lists everything.
+
+**Under the field is a row of marks**: `ATTACHMENT`, `IMAGE`, `LINK`, `PROMPT`, `SENT`, `OPEN`, `DONE`, in the tracked uppercase of a panel header. A tap lights one in the accent and a second puts it out, and every lit mark has to hold along with the words. `OPEN` and `DONE` put each other out, since both lit would match nothing. Each mark carries the number the list would hold with it flipped, so a mark that would empty the list stands in the disabled ink and does not take a tap.
+
+The hits sit in one `ITEMS` panel with the count on its header. A hit is the same row the item has in its own list — checkbox, priority, tags, the slide — with its place under the title as the crumb the quick view carries, `DROPS` or `INFRA / REDUCE SAAS`, and a tap opens the quick view over the search. `NO MATCH` stands when the words and marks leave nothing, `NOTHING CAPTURED` when there is nothing to search.
+
+**Struck:** typed filters, `has:image` and the like. The colon is a trip to the symbol layer of a phone keyboard, and a syntax hides its own vocabulary until someone reads about it. The marks show everything search knows, one tap each, and leave the field for words. Both at once would be two states for one filter that have to agree.
+
+**Struck:** search as a field on Projects. Most of what is searched for is a drop, and drops live on Home.
 
 ### A slide sets how important a row is, and a numeral carries it
 
