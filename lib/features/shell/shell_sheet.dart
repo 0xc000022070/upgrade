@@ -22,9 +22,10 @@ void openHostShell(
   String? directory,
   PaneRef? pane,
   ShellLaunch? launch,
+  bool openNew = false,
 }) {
   final container = ProviderScope.containerOf(context, listen: false);
-  final fresh = command != null || launch != null;
+  final fresh = openNew || command != null || launch != null;
   if (fresh && !container.read(shellSessionsProvider).canOpen(host.id)) {
     // Raised before the push: the sheet covers the strip, and landing on the last tab
     // would pass for the new one.
@@ -56,6 +57,7 @@ void openHostShell(
     directory: directory,
     pane: pane,
     launch: launch,
+    openNew: openNew,
   );
   _openShellRoutes[navigator] = route;
   unawaited(
@@ -67,16 +69,18 @@ void openHostShell(
   );
 }
 
-/// A host with shells resumes its last tab; one without asks how to start its first.
+/// A host with a shell still running resumes its last tab; one whose tabs have all
+/// exited, or that has none, asks how to start one. Exited tabs stay on the strip.
 Future<void> pickHostShell(
   BuildContext context,
   ShellSessions store,
   Host host,
 ) async {
-  if (store.forHost(host.id).isNotEmpty) return openHostShell(context, host);
+  final running = store.forHost(host.id).any((s) => s.state is! ShellExited);
+  if (running) return openHostShell(context, host);
   final pick = await showLaunchPicker(context, host);
   if (pick == null || !context.mounted) return;
-  openHostShell(context, host, launch: pick.launch);
+  openHostShell(context, host, launch: pick.launch, openNew: true);
 }
 
 class ShellSheetRoute extends DragSheetRoute<void> {
@@ -87,6 +91,7 @@ class ShellSheetRoute extends DragSheetRoute<void> {
     this.directory,
     this.pane,
     this.launch,
+    this.openNew = false,
   });
 
   final Host host;
@@ -102,6 +107,8 @@ class ShellSheetRoute extends DragSheetRoute<void> {
   final PaneRef? pane;
 
   final ShellLaunch? launch;
+
+  final bool openNew;
 
   @override
   Key get frameKey => const ValueKey('shell-sheet');
@@ -121,6 +128,7 @@ class ShellSheetRoute extends DragSheetRoute<void> {
       directory: directory,
       pane: pane,
       launch: launch,
+      openNew: openNew,
     );
   }
 }
@@ -136,6 +144,7 @@ class _SheetContents extends StatefulWidget {
     this.directory,
     this.pane,
     this.launch,
+    this.openNew = false,
   });
 
   final Host host;
@@ -144,6 +153,7 @@ class _SheetContents extends StatefulWidget {
   final String? directory;
   final PaneRef? pane;
   final ShellLaunch? launch;
+  final bool openNew;
 
   @override
   State<_SheetContents> createState() => _SheetContentsState();
@@ -152,7 +162,7 @@ class _SheetContents extends StatefulWidget {
 class _SheetContentsState extends State<_SheetContents> {
   late Host _host = widget.host;
   late ShellSession? _session = widget.session;
-  late var _openNew = widget.launch != null;
+  late var _openNew = widget.openNew || widget.launch != null;
   late ShellLaunch? _openLaunch = widget.launch;
 
   void _switchTo(Host host, ShellSession? session) {

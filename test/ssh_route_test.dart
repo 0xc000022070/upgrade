@@ -310,6 +310,33 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets(
+    'a host whose only tab exited asks again and keeps the dead tab',
+    (tester) async {
+      sized(tester);
+      await seed();
+      shells.stall = false;
+      final dead = sessions.open(_nyx)!;
+      await tester.pumpWidget(app());
+      await ready(tester);
+      shells.opened.last.exit(1);
+      await ready(tester);
+      expect(dead.state, isA<ShellExited>());
+
+      await tester.tap(find.byKey(const ValueKey('ssh-host-h2')));
+      await ready(tester);
+      expect(find.text('NEW SHELL ON NYX'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('launch-shell')));
+      await ready(tester);
+
+      expect(sessions.forHost(_nyx.id), hasLength(2));
+      expect(sessions.forHost(_nyx.id).first, same(dead));
+      expect(sessions.activeFor(_nyx.id)?.number, 2);
+
+      await unmount(tester);
+    },
+  );
+
   testWidgets('no host is the panel saying so, not an empty screen', (
     tester,
   ) async {
