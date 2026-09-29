@@ -449,7 +449,7 @@ class _ShellRowState extends ConsumerState<_ShellRow> {
       onTapDown: (_) => setState(() => _down = true),
       onTapCancel: () => setState(() => _down = false),
       onTapUp: (_) => setState(() => _down = false),
-      onTap: () => openHostShell(context, widget.host),
+      onTap: () => pickHostShell(context, store, widget.host),
       child: SizedBox(
         height: RowMetrics.minHeight,
         child: ShellWatcher(

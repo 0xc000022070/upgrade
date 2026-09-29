@@ -131,9 +131,7 @@ class _HostRow extends StatelessWidget {
           ? const SizedBox.shrink()
           : ShellStateDot(state: worst),
       value: sessions.isEmpty ? null : '${sessions.length} OPEN',
-      // A host with sessions lands on the tab it was last left on, which is what the route
-      // does with no session named.
-      onTap: () => openHostShell(context, host),
+      onTap: () => pickHostShell(context, store, host),
     );
   }
 }
