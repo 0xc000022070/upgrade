@@ -47,9 +47,27 @@ class AppDatabase extends _$AppDatabase {
         await _create(m);
         return;
       }
-      if (from < 20) await m.addColumn(shellTabs, shellTabs.launch);
+      if (from < 20 && !await _hasColumn(shellTabs, shellTabs.launch)) {
+        await m.addColumn(shellTabs, shellTabs.launch);
+      }
     },
   );
+
+  /// Drift runs onUpgrade on a downgrade too and only restamps the version, so a file
+  /// an older build opened can be stamped below a column it already has.
+  Future<bool> _hasColumn(
+    TableInfo<Table, Object?> table,
+    GeneratedColumn<Object> column,
+  ) async {
+    final rows = await customSelect(
+      'SELECT 1 FROM pragma_table_info(?) WHERE name = ?',
+      variables: [
+        Variable.withString(table.actualTableName),
+        Variable.withString(column.name),
+      ],
+    ).get();
+    return rows.isNotEmpty;
+  }
 
   Future<void> _create(Migrator m) async {
     await m.createAll();
