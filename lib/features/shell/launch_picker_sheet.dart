@@ -135,43 +135,50 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
 
   List<Widget> _herdr(LaunchTargets targets) {
     if (!targets.hasHerdr) return [const _Absent('NOT ON THIS HOST')];
-    final withWorkspaces = {
-      for (final entry in targets.workspaces) entry.session,
-    };
-    final rows = <Widget>[
-      for (final workspace in targets.workspaces)
-        ListRow(
-          key: ValueKey('launch-herdr-${workspace.session}-${workspace.id}'),
-          leading: const LaunchLogo(herdrLogo),
-          leadingWidth: _logo,
-          title: workspace.label,
-          literalTitle: true,
-          subtitle: workspace.session,
-          value: workspace.status?.toUpperCase(),
-          valueColor: workspace.status == 'working'
-              ? context.tokens.accent
-              : null,
-          onTap: () =>
-              _pick(HerdrLaunch(workspace.session, workspace: workspace.id)),
-        ),
+    final running = [
       for (final session in targets.herdrSessions)
-        if (!withWorkspaces.contains(session.name))
-          ListRow(
-            key: ValueKey('launch-herdr-${session.name}'),
-            leading: LaunchLogo(
-              herdrLogo,
-              color: session.running ? null : context.tokens.textMuted,
-            ),
-            leadingWidth: _logo,
-            title: session.name,
-            literalTitle: true,
-            subtitle: session.running ? 'session' : 'stopped',
-            value: session.running ? 'ATTACH' : 'START',
-            onTap: () => _pick(HerdrLaunch(session.name)),
-          ),
+        if (session.running) session.name,
     ];
-    if (rows.isEmpty) return [const _Absent('NO SESSIONS')];
-    return [ListRowGroup(children: rows)];
+    return [
+      ListRowGroup(
+        children: [
+          for (final session in running)
+            _herdrRow(session, [
+              for (final entry in targets.workspaces)
+                if (entry.session == session) entry,
+            ]),
+          if (running.isEmpty)
+            ListRow(
+              key: const ValueKey('launch-herdr-default'),
+              leading: const LaunchLogo(herdrLogo),
+              leadingWidth: _logo,
+              title: 'herdr',
+              literalTitle: true,
+              subtitle: 'not running',
+              value: 'START',
+              onTap: () => _pick(HerdrLaunch('default')),
+            ),
+        ],
+      ),
+    ];
+  }
+
+  Widget _herdrRow(String session, List<HerdrWorkspaceEntry> workspaces) {
+    final working = workspaces.where((w) => w.status == 'working').length;
+    return ListRow(
+      key: ValueKey('launch-herdr-$session'),
+      leading: const LaunchLogo(herdrLogo),
+      leadingWidth: _logo,
+      title: session == 'default' ? 'herdr' : session,
+      literalTitle: true,
+      subtitle: [
+        '${workspaces.length} space${workspaces.length == 1 ? '' : 's'}',
+        if (working > 0) '$working working',
+      ].join(' · '),
+      value: 'ATTACH',
+      valueColor: working > 0 ? context.tokens.accent : null,
+      onTap: () => _pick(HerdrLaunch(session)),
+    );
   }
 
   List<Widget> _tmux(LaunchTargets targets) {

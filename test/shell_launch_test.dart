@@ -15,25 +15,15 @@ void main() {
     expect(ShellLaunch.parse('screen:0'), isNull);
     expect(ShellLaunch.parse('tmux'), isNull);
     expect(() => TmuxLaunch('a b'), throwsArgumentError);
-    expect(() => HerdrLaunch('hub', workspace: 'w1;x'), throwsArgumentError);
+    expect(() => HerdrLaunch('a b'), throwsArgumentError);
   });
 
   test('tmux attaches or creates by name', () {
     expect(TmuxLaunch('work').command, "exec tmux new-session -A -s 'work'");
   });
 
-  test('herdr focuses the workspace once, and the tag forgets it', () {
-    final launch = HerdrLaunch('hub', workspace: 'w1H');
-    expect(
-      launch.command,
-      "HERDR_SESSION='hub' herdr workspace focus 'w1H' >/dev/null 2>&1; "
-      "exec herdr --session 'hub'",
-    );
-    expect(launch.tag, 'herdr:hub');
-    expect(
-      ShellLaunch.parse(launch.tag)!.command,
-      "exec herdr --session 'hub'",
-    );
+  test('herdr attaches by session, the unnamed one without a flag', () {
+    expect(HerdrLaunch('hub').command, "exec herdr --session 'hub'");
     expect(HerdrLaunch('default').command, 'exec herdr');
   });
 

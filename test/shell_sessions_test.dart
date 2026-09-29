@@ -814,6 +814,26 @@ void main() {
     await sessions.close(_rose.id, session);
   });
 
+  testWidgets('a size the view settles on mid-dial reaches the remote', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport()..stall = true;
+    final sessions = fakeShellSessions(transport);
+
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+    await _pumpView(tester, session, const Size(600, 600));
+    transport.land();
+    await _pumpDial(tester);
+
+    final dialed = transport.sizes.single;
+    final connection = transport.opened.single;
+    expect(connection.resizes, hasLength(1));
+    expect(connection.resizes.single, isNot(dialed));
+
+    await sessions.close(_rose.id, session);
+  });
+
   test('the exit code becomes the exited state', () async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
