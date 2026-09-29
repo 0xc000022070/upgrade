@@ -10,6 +10,7 @@ import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_sheet.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 
+import 'launch_scan.dart';
 import 'themed_app.dart';
 
 const rose = Host(
@@ -31,6 +32,7 @@ Widget app(
   overrides: [
     shellSessionsProvider.overrideWithValue(sessions),
     if (db != null) databaseProvider.overrideWithValue(db) else noWorkspaces,
+    noLaunchTargets,
   ],
   child: MaterialApp(
     theme: theme ?? testTheme,
@@ -66,6 +68,8 @@ Future<void> openNewShell(WidgetTester tester, {String hostId = 'h1'}) async {
   await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
   await ready(tester);
   await tester.tap(find.byKey(ValueKey('shell-new-host-$hostId')));
+  await ready(tester);
+  await tester.tap(find.byKey(const ValueKey('launch-shell')));
   await ready(tester);
 }
 

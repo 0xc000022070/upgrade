@@ -19,6 +19,7 @@ import '../../platform/pin_notifications.dart';
 import '../../platform/shell/host_clipboard.dart';
 import '../../platform/shell/remote_shell.dart';
 import '../../platform/shell/shell_connection.dart';
+import '../../platform/shell/shell_launch.dart';
 import '../../platform/shell/shell_tunnel.dart';
 import '../../platform/shell/strip_bytes.dart';
 import '../../platform/workspace/workspace_commands.dart';
@@ -618,6 +619,7 @@ class ShellSessions extends ChangeNotifier {
     String? command,
     String? directory,
     PaneRef? pane,
+    ShellLaunch? launch,
   }) {
     if (!canOpen(host.id)) return null;
     final number = _nextNumber[host.id] ?? 1;
@@ -629,12 +631,13 @@ class ShellSessions extends ChangeNotifier {
       remoteSession: remoteSession,
       herdrSession: pane?.session,
       herdrPane: pane?.pane,
+      launch: launch?.tag,
     );
     return _start(
       host,
       number,
       prompt: prompt,
-      command: command,
+      command: command ?? launch?.command,
       directory: directory,
       pane: pane,
       remoteSession: remoteSession,
@@ -881,9 +884,11 @@ class ShellSessions extends ChangeNotifier {
       final pane = row.herdrSession != null && row.herdrPane != null
           ? (session: row.herdrSession!, pane: row.herdrPane!)
           : null;
+      final launch = ShellLaunch.parse(row.launch);
       if ((remoteSession != null &&
               !durableShellSession.hasMatch(remoteSession)) ||
-          (hasHerdrIdentity && (pane == null || !HerdrCommands.isPane(pane)))) {
+          (hasHerdrIdentity && (pane == null || !HerdrCommands.isPane(pane))) ||
+          (row.launch != null && launch == null)) {
         await store.close(row.hostId, row.number);
         continue;
       }
@@ -893,7 +898,7 @@ class ShellSessions extends ChangeNotifier {
       _start(
         host,
         row.number,
-        command: pane == null ? null : HerdrCommands.attach(pane),
+        command: pane == null ? launch?.command : HerdrCommands.attach(pane),
         pane: pane,
         remoteSession: remoteSession,
         restored: true,

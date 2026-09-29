@@ -11,6 +11,7 @@ class ShellTab {
     this.remoteSession,
     this.herdrSession,
     this.herdrPane,
+    this.launch,
     this.retiredAt,
   });
 
@@ -21,6 +22,7 @@ class ShellTab {
   final String? remoteSession;
   final String? herdrSession;
   final String? herdrPane;
+  final String? launch;
   final DateTime? retiredAt;
 }
 
@@ -33,6 +35,7 @@ abstract class ShellTabRepository {
     String? remoteSession,
     String? herdrSession,
     String? herdrPane,
+    String? launch,
     DateTime? openedAt,
   });
 
@@ -67,6 +70,7 @@ class DriftShellTabRepository implements ShellTabRepository {
     String? remoteSession,
     String? herdrSession,
     String? herdrPane,
+    String? launch,
     DateTime? openedAt,
   }) async {
     _validateIdentity(remoteSession, herdrSession, herdrPane);
@@ -82,6 +86,7 @@ class DriftShellTabRepository implements ShellTabRepository {
             remoteSession: Value(remoteSession),
             herdrSession: Value(herdrSession),
             herdrPane: Value(herdrPane),
+            launch: Value(launch),
             retiredAt: const Value(null),
           ),
         );
@@ -137,6 +142,7 @@ class DriftShellTabRepository implements ShellTabRepository {
     remoteSession: row.remoteSession,
     herdrSession: row.herdrSession,
     herdrPane: row.herdrPane,
+    launch: row.launch,
     retiredAt: row.retiredAt,
   );
 }
@@ -155,6 +161,7 @@ class InMemoryShellTabRepository implements ShellTabRepository {
     String? remoteSession,
     String? herdrSession,
     String? herdrPane,
+    String? launch,
     DateTime? openedAt,
   }) async {
     _validateIdentity(remoteSession, herdrSession, herdrPane);
@@ -168,6 +175,7 @@ class InMemoryShellTabRepository implements ShellTabRepository {
         remoteSession: remoteSession,
         herdrSession: herdrSession,
         herdrPane: herdrPane,
+        launch: launch,
       ),
     );
     await activate(hostId, number);
@@ -191,6 +199,7 @@ class InMemoryShellTabRepository implements ShellTabRepository {
         remoteSession: tab.remoteSession,
         herdrSession: tab.herdrSession,
         herdrPane: tab.herdrPane,
+        launch: tab.launch,
         retiredAt: DateTime.now(),
       );
     }
@@ -215,6 +224,7 @@ class InMemoryShellTabRepository implements ShellTabRepository {
         remoteSession: tab.remoteSession,
         herdrSession: tab.herdrSession,
         herdrPane: tab.herdrPane,
+        launch: tab.launch,
         retiredAt: tab.retiredAt,
       );
     }

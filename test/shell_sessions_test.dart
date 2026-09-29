@@ -82,6 +82,7 @@ class _DelayedShellTabs extends InMemoryShellTabRepository {
     String? remoteSession,
     String? herdrSession,
     String? herdrPane,
+    String? launch,
     DateTime? openedAt,
   }) async {
     started = true;
@@ -92,6 +93,7 @@ class _DelayedShellTabs extends InMemoryShellTabRepository {
       remoteSession: remoteSession,
       herdrSession: herdrSession,
       herdrPane: herdrPane,
+      launch: launch,
       openedAt: openedAt,
     );
   }

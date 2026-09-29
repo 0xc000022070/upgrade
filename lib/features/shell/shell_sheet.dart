@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/components/drag_sheet.dart';
 import '../../platform/herdr_client.dart';
+import '../../platform/shell/shell_launch.dart';
 import 'host_shell_screen.dart';
 import 'shell_sessions.dart';
 
@@ -112,6 +113,7 @@ class _SheetContentsState extends State<_SheetContents> {
   late Host _host = widget.host;
   late ShellSession? _session = widget.session;
   var _openNew = false;
+  ShellLaunch? _openLaunch;
 
   void _switchTo(Host host, ShellSession? session) {
     if (host.id == _host.id) return;
@@ -122,12 +124,13 @@ class _SheetContentsState extends State<_SheetContents> {
     });
   }
 
-  void _openOn(Host host) {
+  void _openOn(Host host, ShellLaunch? launch) {
     if (host.id == _host.id) return;
     setState(() {
       _host = host;
       _session = null;
       _openNew = true;
+      _openLaunch = launch;
     });
   }
 
@@ -138,6 +141,7 @@ class _SheetContentsState extends State<_SheetContents> {
       host: _host,
       session: _session,
       openNew: _openNew,
+      openLaunch: _openLaunch,
       // Only the host the sheet opened on is the one they were meant for: switching
       // hosts carries nothing of the directory or the agent it came from.
       command: _host.id == widget.host.id ? widget.command : null,
