@@ -90,4 +90,24 @@ void main() {
     expect((await db.select(db.shellTabs).getSingle()).launch, 'tmux:0');
     expect(await _userVersion(db), 20);
   });
+
+  test('a v19 stamp over an existing launch column opens at 20', () async {
+    final first = AppDatabase(NativeDatabase(file));
+    await first.customStatement(
+      "INSERT INTO shell_tabs (host_id, number, active, opened_at, "
+      "remote_session, launch) VALUES ('h1', 3, 1, "
+      "'2026-09-29T00:00:00.000Z', 'm0123456789abcdef', 'tmux:0')",
+    );
+    await first.customStatement('PRAGMA user_version = 19');
+    await first.close();
+
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+
+    final row = await db.select(db.shellTabs).getSingle();
+    expect(row.number, 3);
+    expect(row.remoteSession, 'm0123456789abcdef');
+    expect(row.launch, 'tmux:0');
+    expect(await _userVersion(db), 20);
+  });
 }
