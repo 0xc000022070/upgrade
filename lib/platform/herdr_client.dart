@@ -605,7 +605,9 @@ class HerdrSession {
     var sessions = const <SessionEntry>[];
     if (roster.exitCode == 0) {
       try {
-        sessions = HerdrClient.parseSessions(utf8.decode(roster.stdout));
+        sessions = HerdrClient.parseSessions(
+          utf8.decode(roster.stdout, allowMalformed: true),
+        );
       } on HerdrProtocolMismatch {
         sessions = const [];
       }
@@ -619,7 +621,7 @@ class HerdrSession {
       workspaces.addAll(
         LaunchCommands.parseWorkspaces(
           session.name,
-          utf8.decode(listed.stdout),
+          utf8.decode(listed.stdout, allowMalformed: true),
         ),
       );
     }
@@ -630,7 +632,9 @@ class HerdrSession {
       herdrSessions: sessions,
       workspaces: workspaces,
       tmux: tmux.exitCode == 0
-          ? LaunchCommands.parseTmux(utf8.decode(tmux.stdout))
+          ? LaunchCommands.parseTmux(
+              utf8.decode(tmux.stdout, allowMalformed: true),
+            )
           : const [],
       hasHerdr: hasHerdr,
       hasTmux: tmux.exitCode != 127,

@@ -44,7 +44,12 @@ class LaunchScanner {
   final Ed25519Keys keys;
 
   Future<LaunchScan> call(Host host, {HostKeyVerifier? verifier}) async {
-    final privateKey = await keys.privateKey(host.keyId);
+    final privateKey = await keys.privateKey(host.keyId).catchError((
+      Object error,
+    ) {
+      debugPrint('dazzle.launch ${host.name}: $error');
+      return null;
+    });
     if (privateKey == null) {
       return LaunchScanFailed(ReasonLine.keyRejected.words);
     }
@@ -61,6 +66,9 @@ class LaunchScanner {
     } on HerdrFailure catch (error) {
       debugPrint('dazzle.launch ${host.name}: ${error.detail ?? error}');
       return LaunchScanFailed(error.reason(host.name));
+    } catch (error) {
+      debugPrint('dazzle.launch ${host.name}: $error');
+      return LaunchScanFailed(ReasonLine.protocolMismatch.words);
     }
   }
 }
