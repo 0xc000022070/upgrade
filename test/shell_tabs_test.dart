@@ -248,6 +248,35 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a host with neither tool still opens a login shell', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+
+    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+    await ready(tester);
+    await tester.tap(find.byKey(const ValueKey('shell-new-host-h1')));
+    await ready(tester);
+
+    expect(find.text('HERDR'), findsOneWidget);
+    expect(find.text('TMUX'), findsOneWidget);
+    expect(find.text('NOT ON THIS HOST'), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('launch-herdr-default')), findsNothing);
+    expect(find.byKey(const ValueKey('launch-tmux-new')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('launch-shell')));
+    await ready(tester);
+
+    expect(sessions.activeFor(rose.id)?.number, 2);
+    expect(transport.commands.last, isNot(contains('tmux')));
+    expect(transport.commands.last, isNot(contains('herdr')));
+
+    await unmount(tester);
+  });
+
   testWidgets(
     'the plus menu keeps CURRENT off its edge at a large text scale',
     (tester) async {
