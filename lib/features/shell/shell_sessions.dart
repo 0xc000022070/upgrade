@@ -1264,16 +1264,12 @@ class ShellSessions extends ChangeNotifier {
         command: shellMarked(session.mark, command: session.command),
         tabSession: session.tab,
         persistentSession: null,
-        verifier: HostKeyVerifier(
-          pinned: _pinnedThisRun[host.id] ?? host.hostKey,
+        verifier: verifierFor(
+          host,
           // Null on a reconnect and on anything else that arrives without a route in
           // front of the user, which is what makes those refuse an unpinned host
           // instead of asking nobody.
           prompt: prompt,
-          pin: (key) async {
-            _pinnedThisRun[host.id] = key;
-            await pinHostKey(host.id, key);
-          },
         ),
       );
       if (!attempt.isCurrent) {
@@ -1484,6 +1480,16 @@ class ShellSessions extends ChangeNotifier {
     if (detail == null || !error.kind.line.names) return detail;
     return '${host.user}@${host.address}:${host.port} · $detail';
   }
+
+  HostKeyVerifier verifierFor(Host host, {HostKeyPrompt? prompt}) =>
+      HostKeyVerifier(
+        pinned: _pinnedThisRun[host.id] ?? host.hostKey,
+        prompt: prompt,
+        pin: (key) async {
+          _pinnedThisRun[host.id] = key;
+          await pinHostKey(host.id, key);
+        },
+      );
 
   /// Holds every wake until the returned callback is called. Raised with the passphrase and
   /// host key sheets: a reconnect underneath one would take the shell the question belongs

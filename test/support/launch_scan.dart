@@ -1,3 +1,4 @@
+import 'package:dazzle/platform/host_keys.dart';
 import 'package:dazzle/platform/keys.dart';
 import 'package:dazzle/application/launch_scan.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
@@ -10,7 +11,7 @@ final class FixedLaunchScanner implements LaunchScanner {
   LaunchScan scan;
 
   @override
-  Future<LaunchScan> call(Host host) async => scan;
+  Future<LaunchScan> call(Host host, {HostKeyVerifier? verifier}) async => scan;
 
   @override
   LaunchFetch get fetch => throw UnimplementedError();

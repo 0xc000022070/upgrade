@@ -317,13 +317,8 @@ class ShellTunnel {
 
   /// The deadline stands down while the key is being answered for: a confirm sheet can
   /// stay open as long as the user reads it, and authentication gets a fresh deadline after.
-  Future<void> _authenticate(ShellHost host, HostKeyVerifier? verifier) async {
-    final authenticated = host.authenticated;
-    if (verifier == null) return authenticated.timeout(timeout);
-    await Future.any([authenticated, verifier.offered]).timeout(timeout);
-    await Future.any([authenticated, verifier.answered]);
-    await authenticated.timeout(timeout);
-  }
+  Future<void> _authenticate(ShellHost host, HostKeyVerifier? verifier) =>
+      authenticatedWithin(host.authenticated, verifier, timeout);
 
   Future<T> _guard<T>(
     String address,

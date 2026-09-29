@@ -13,7 +13,10 @@ import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
+import '../../platform/host_keys.dart';
 import '../../platform/shell/shell_launch.dart';
+import '../hosts/host_key_sheet.dart';
+import 'shell_sessions.dart';
 
 class LaunchPick {
   const LaunchPick(this.launch);
@@ -71,8 +74,27 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
 
   Future<void> _load() async {
     setState(() => _scan = const LaunchScanLoading());
-    final scan = await ref.read(launchScannerProvider)(widget.host);
+    final store = ref.read(shellSessionsProvider);
+    final scan = await ref.read(launchScannerProvider)(
+      widget.host,
+      verifier: store.verifierFor(widget.host, prompt: _askHostKey),
+    );
     if (mounted) setState(() => _scan = scan);
+  }
+
+  Future<bool> _askHostKey(HostKeyOffer offer, PinnedHostKey? pinned) async {
+    if (!mounted) return false;
+    final release = ref.read(shellSessionsProvider).hold();
+    try {
+      return await askHostKey(
+        context,
+        host: widget.host,
+        offer: offer,
+        pinned: pinned,
+      );
+    } finally {
+      release();
+    }
   }
 
   void _pick(ShellLaunch? launch) => Navigator.pop(context, LaunchPick(launch));
