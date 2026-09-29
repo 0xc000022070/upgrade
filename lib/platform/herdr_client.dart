@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
+import 'package:flutter/foundation.dart';
 
 import '../application/agent_kind.dart';
 import '../application/agent_state.dart';
@@ -431,6 +432,9 @@ final class HerdrProtocolMismatch extends HerdrFailure {
 class HerdrSession {
   HerdrSession._(this._socket, this._client);
 
+  @visibleForTesting
+  HerdrSession.over(this._socket, this._client);
+
   final SSHSocket _socket;
   final SSHClient _client;
 
@@ -590,7 +594,10 @@ class HerdrSession {
     return HerdrClient.parsePaths(utf8.decode(result.stdout));
   }
 
-  Future<LaunchTargets> launchTargets() async {
+  Future<LaunchTargets> launchTargets({Duration within = launchScanDeadline}) =>
+      _guard(() => _launchTargets().timeout(within));
+
+  Future<LaunchTargets> _launchTargets() async {
     final roster = await _guard(
       () => _client.runWithResult(HerdrCommands.sessions()),
     );
@@ -1106,6 +1113,8 @@ class _AgentWatch {
 }
 
 const spawnDeadline = Duration(seconds: 45);
+
+const launchScanDeadline = Duration(seconds: 15);
 
 /// Sized to the payload rather than flat, because one window cannot be both: short
 /// enough to catch a stall and long enough for a picture.
