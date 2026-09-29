@@ -1,3 +1,4 @@
+import 'support/launch_scan.dart';
 import 'support/native_plugins.dart';
 
 import 'package:drift/native.dart';
@@ -58,6 +59,7 @@ void main() {
       keyRepositoryProvider.overrideWithValue(keys),
       hostRepositoryProvider.overrideWithValue(hosts),
       shellSessionsProvider.overrideWithValue(sessions),
+      noLaunchTargets,
     ],
     child: MaterialApp(
       theme: testTheme,
@@ -291,6 +293,9 @@ void main() {
     await ready(tester);
 
     await tester.tap(find.byKey(const ValueKey('ssh-host-h2')));
+    await ready(tester);
+    expect(find.text('NEW SHELL ON NYX'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('launch-shell')));
     await ready(tester);
 
     expect(

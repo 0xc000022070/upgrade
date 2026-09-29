@@ -7,6 +7,7 @@ import '../../design/components/drag_sheet.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/shell/shell_launch.dart';
 import 'host_shell_screen.dart';
+import 'launch_picker_sheet.dart';
 import 'shell_sessions.dart';
 
 final _openShellRoutes = Expando<ShellSheetRoute>();
@@ -18,6 +19,7 @@ void openHostShell(
   String? command,
   String? directory,
   PaneRef? pane,
+  ShellLaunch? launch,
 }) {
   final navigator = Navigator.of(context, rootNavigator: true);
   final up = _openShellRoutes[navigator];
@@ -34,6 +36,7 @@ void openHostShell(
     command: command,
     directory: directory,
     pane: pane,
+    launch: launch,
   );
   _openShellRoutes[navigator] = route;
   unawaited(
@@ -45,6 +48,18 @@ void openHostShell(
   );
 }
 
+/// A host with shells resumes its last tab; one without asks how to start its first.
+Future<void> pickHostShell(
+  BuildContext context,
+  ShellSessions store,
+  Host host,
+) async {
+  if (store.forHost(host.id).isNotEmpty) return openHostShell(context, host);
+  final pick = await showLaunchPicker(context, host);
+  if (pick == null || !context.mounted) return;
+  openHostShell(context, host, launch: pick.launch);
+}
+
 class ShellSheetRoute extends DragSheetRoute<void> {
   ShellSheetRoute({
     required this.host,
@@ -52,6 +67,7 @@ class ShellSheetRoute extends DragSheetRoute<void> {
     this.command,
     this.directory,
     this.pane,
+    this.launch,
   });
 
   final Host host;
@@ -65,6 +81,8 @@ class ShellSheetRoute extends DragSheetRoute<void> {
 
   /// Remembered on the tab so the next tap on that agent finds it.
   final PaneRef? pane;
+
+  final ShellLaunch? launch;
 
   @override
   Key get frameKey => const ValueKey('shell-sheet');
@@ -83,6 +101,7 @@ class ShellSheetRoute extends DragSheetRoute<void> {
       command: command,
       directory: directory,
       pane: pane,
+      launch: launch,
     );
   }
 }
@@ -97,6 +116,7 @@ class _SheetContents extends StatefulWidget {
     this.command,
     this.directory,
     this.pane,
+    this.launch,
   });
 
   final Host host;
@@ -104,6 +124,7 @@ class _SheetContents extends StatefulWidget {
   final String? command;
   final String? directory;
   final PaneRef? pane;
+  final ShellLaunch? launch;
 
   @override
   State<_SheetContents> createState() => _SheetContentsState();
@@ -112,8 +133,8 @@ class _SheetContents extends StatefulWidget {
 class _SheetContentsState extends State<_SheetContents> {
   late Host _host = widget.host;
   late ShellSession? _session = widget.session;
-  var _openNew = false;
-  ShellLaunch? _openLaunch;
+  late var _openNew = widget.launch != null;
+  late ShellLaunch? _openLaunch = widget.launch;
 
   void _switchTo(Host host, ShellSession? session) {
     if (host.id == _host.id) return;

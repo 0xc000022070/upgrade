@@ -1,3 +1,4 @@
+import 'support/launch_scan.dart';
 import 'support/native_plugins.dart';
 
 import 'dart:async';
@@ -142,6 +143,7 @@ void main() {
       privateKeyStoreProvider.overrideWithValue(privateKeys),
       screenPreviewsProvider.overrideWith((ref) async => previews),
       shellSessionsProvider.overrideWithValue(sessions),
+      noLaunchTargets,
       linkProbesProvider.overrideWithValue(probes),
       hostKeyDialProvider.overrideWith((ref) => dial),
     ],
@@ -306,6 +308,9 @@ void main() {
       matching: find.byType(GestureDetector),
     );
     await tester.tapAt(tester.getCenter(row.first));
+    await ready(tester);
+    expect(find.text('NEW SHELL ON ROSE'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('launch-shell')));
     await ready(tester);
 
     expect(
