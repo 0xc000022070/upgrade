@@ -1,3 +1,4 @@
+import 'database.dart';
 import 'enums.dart';
 
 class NextAction {
@@ -157,4 +158,22 @@ class ItemTarget {
 
   @override
   int get hashCode => Object.hash(projectId, goalId);
+}
+
+class SearchHit {
+  const SearchHit({
+    required this.task,
+    required this.location,
+    required this.images,
+    required this.links,
+    required this.sent,
+  });
+
+  final Task task;
+
+  final ItemLocation location;
+  final int images;
+
+  final List<String> links;
+  final bool sent;
 }

@@ -12,10 +12,13 @@ import '../../design/components/dot_spinner.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_text_action.dart';
+import '../../design/components/toolbar_icon_action.dart';
+import '../../design/icons/dazzle_icons.dart';
 import '../../design/tokens.dart';
 import '../../design/spacing.dart';
 import '../../platform/plugins/contributions.dart';
 import '../screen_scaffold.dart';
+import '../tasks/item_search_screen.dart';
 import '../tasks/selection_bar.dart';
 import '../plugins/plugin_management_screen.dart';
 import 'agents_panel.dart';
@@ -81,6 +84,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _syncVisible();
     });
     final catalog = ref.watch(pluginContributionCatalogProvider);
+    final drops = ref.watch(nativeSurfaceOwnerProvider('home.layout')) != null;
     final placementState = ref.watch(pluginPlacementsProvider);
     final placements = placementState.valueOrNull;
     final selecting = ref
@@ -113,7 +117,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Expanded(
           child: ScreenScaffold(
             maxContentWidth: 1100,
-            breadcrumbTrailing: HomeActions(beforeOpen: _leave),
+            breadcrumbTrailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (drops)
+                  ToolbarIconAction(
+                    label: 'SEARCH',
+                    icon: DazzleIcons.search,
+                    onTap: () {
+                      _leave();
+                      openItemSearch(context);
+                    },
+                  ),
+                if (drops) const SizedBox(width: Spacing.sm),
+                HomeActions(beforeOpen: _leave),
+              ],
+            ),
             children: [
               _HomeColumns(
                 children: [

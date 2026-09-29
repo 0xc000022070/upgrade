@@ -22,6 +22,7 @@ class TaskRow extends ConsumerStatefulWidget {
     required this.task,
     this.drop = false,
     this.fresh = false,
+    this.place,
     this.onTap,
     this.onLongPress,
     this.onDoneChanged,
@@ -35,6 +36,8 @@ class TaskRow extends ConsumerStatefulWidget {
   final bool drop;
 
   final bool fresh;
+
+  final String? place;
 
   final VoidCallback? onTap;
 
@@ -73,6 +76,11 @@ class _TaskRowState extends ConsumerState<TaskRow> {
   Widget build(BuildContext context) {
     final task = widget.task;
     final ink = priorityInk(context, task.priority);
+    final blocked = !widget.drop && task.blockedReason != null;
+    final subtitle = [
+      ?widget.place,
+      if (blocked) '[ BLOCKED BY ] ${task.blockedReason}',
+    ].join(' · ');
     final row = ListRow(
       mark: PriorityMark(
         priority: task.priority,
@@ -101,10 +109,8 @@ class _TaskRowState extends ConsumerState<TaskRow> {
           : task.done
           ? context.tokens.textDisabled
           : ink.value,
-      subtitle: widget.drop || task.blockedReason == null
-          ? null
-          : '[ BLOCKED BY ] ${task.blockedReason}',
-      subtitleColor: context.tokens.warning,
+      subtitle: subtitle.isEmpty ? null : subtitle,
+      subtitleColor: blocked ? context.tokens.warning : null,
       // The arrow wins when a row is both flagged and sent: one flagged row per screen is the
       // mark the eye is looking for, and the tag is history.
       trailing: trailingWithLinks(

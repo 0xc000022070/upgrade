@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import 'bundles.dart';
 import 'enums.dart';
 import 'tables.dart';
 import 'views.dart';
@@ -355,6 +356,51 @@ WHERE t.id = ?1
         rows.first.read<String?>('project_name'),
         rows.first.read<String?>('goal_title'),
       );
+    });
+  }
+
+  /// Every item a list could show, newest first. Items under a hidden project are gone
+  /// the way they are from Home; with [filed] off only the unfiled ones are.
+  Stream<List<SearchHit>> watchSearchHits({required bool filed}) {
+    return customSelect(
+      """
+$_withVisibility
+SELECT t.*,
+       p.name  AS search_project,
+       g.title AS search_goal,
+       (SELECT COUNT(*) FROM attachments a
+         WHERE a.item_id = t.id AND a.kind = 'image') AS search_images,
+       (SELECT group_concat(a.value, char(10)) FROM attachments a
+         WHERE a.item_id = t.id AND a.kind = 'url') AS search_links,
+       EXISTS (SELECT 1 FROM dispatches d WHERE d.item_id = t.id) AS search_sent
+FROM tasks t
+LEFT JOIN projects p ON p.id = t.project_id
+LEFT JOIN goals g ON g.id = t.goal_id
+WHERE t.project_id IS NULL OR (?1 AND ${_visible('t.project_id')})
+ORDER BY t.created_at DESC
+""",
+      variables: [Variable<bool>(filed)],
+      readsFrom: {tasks, projects, goals, attachments, dispatches},
+    ).watch().map((rows) {
+      final hits = {
+        for (final row in rows)
+          row.read<String>('id'): SearchHit(
+            task: tasks.map(row.data),
+            location: ItemLocation(
+              row.read<String?>('search_project'),
+              row.read<String?>('search_goal'),
+            ),
+            images: row.read<int>('search_images'),
+            links: row.read<String?>('search_links')?.split('\n') ?? const [],
+            sent: row.read<bool>('search_sent'),
+          ),
+      };
+      return [
+        for (final task in withBundlesAdjacent([
+          for (final hit in hits.values) hit.task,
+        ]))
+          hits[task.id]!,
+      ];
     });
   }
 
