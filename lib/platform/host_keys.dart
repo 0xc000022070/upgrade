@@ -130,6 +130,17 @@ class HostKeyVerifier {
   }
 }
 
+Future<void> authenticatedWithin(
+  Future<void> authenticated,
+  HostKeyVerifier? verifier,
+  Duration timeout,
+) async {
+  if (verifier == null) return authenticated.timeout(timeout);
+  await Future.any([authenticated, verifier.offered]).timeout(timeout);
+  await Future.any([authenticated, verifier.answered]);
+  await authenticated.timeout(timeout);
+}
+
 extension HostKeyRefusalLine on HostKeyRefusal {
   ReasonLine get line => switch (this) {
     HostKeyRefusal.unverified => ReasonLine.hostKeyUnverified,

@@ -43,7 +43,7 @@ class LaunchScanner {
   final LaunchFetch fetch;
   final Ed25519Keys keys;
 
-  Future<LaunchScan> call(Host host) async {
+  Future<LaunchScan> call(Host host, {HostKeyVerifier? verifier}) async {
     final privateKey = await keys.privateKey(host.keyId);
     if (privateKey == null) {
       return LaunchScanFailed(ReasonLine.keyRejected.words);
@@ -55,7 +55,7 @@ class LaunchScanner {
           port: host.port,
           user: host.user,
           privateKey: privateKey,
-          verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
+          verifier: verifier ?? HostKeyVerifier.pinnedOnly(host.hostKey),
         ),
       );
     } on HerdrFailure catch (error) {

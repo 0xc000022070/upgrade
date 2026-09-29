@@ -1508,7 +1508,10 @@ class HerdrClient {
       onVerifyHostKey: verifier?.verify,
     );
     try {
-      await _guard(() => client.authenticated.timeout(timeout), verifier);
+      await _guard(
+        () => authenticatedWithin(client.authenticated, verifier, timeout),
+        verifier,
+      );
       return HerdrSession._(socket, client);
     } on HerdrFailure {
       // A half-open connection is worse than none: the host would count it against the one
