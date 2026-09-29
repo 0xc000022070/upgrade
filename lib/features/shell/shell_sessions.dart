@@ -1298,8 +1298,13 @@ class ShellSessions extends ChangeNotifier {
       session._detail = null;
       session.clipboard = null;
       session._probing = null;
-      session._columns = columns;
-      session._rows = rows;
+      final settledColumns = session._columns ?? columns;
+      final settledRows = session._rows ?? rows;
+      if (settledColumns != columns || settledRows != rows) {
+        connection.resize(settledColumns, settledRows);
+      }
+      session._columns = settledColumns;
+      session._rows = settledRows;
       session.state = ShellLive(connection.transport);
       session._health = connection.health.listen(
         (health) => _onHealth(session, connection, attempt, health),

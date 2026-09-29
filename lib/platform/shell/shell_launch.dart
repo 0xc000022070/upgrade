@@ -49,45 +49,29 @@ final class TmuxLaunch extends ShellLaunch {
 }
 
 final class HerdrLaunch extends ShellLaunch {
-  HerdrLaunch(this.session, {this.workspace}) {
+  HerdrLaunch(this.session) {
     if (!HerdrCommands.isSessionName(session)) {
       throw ArgumentError.value(session);
     }
-    final workspace = this.workspace;
-    if (workspace != null && !_workspace.hasMatch(workspace)) {
-      throw ArgumentError.value(workspace);
-    }
   }
 
-  static final _workspace = RegExp(r'^[A-Za-z0-9]+$');
-
   final String session;
-  final String? workspace;
 
   @override
   String get tag => 'herdr:$session';
 
   @override
-  String get command {
-    final quoted = shellQuote(session);
-    // The roster names the unnamed session `default`, which is not a name `--session` takes.
-    final attach = session == 'default'
-        ? 'exec herdr'
-        : 'exec herdr --session $quoted';
-    final workspace = this.workspace;
-    if (workspace == null) return attach;
-    return 'HERDR_SESSION=$quoted herdr workspace focus '
-        '${shellQuote(workspace)} >/dev/null 2>&1; $attach';
-  }
+  String get command => session == 'default'
+      // The roster names the unnamed session `default`, which is not a name `--session` takes.
+      ? 'exec herdr'
+      : 'exec herdr --session ${shellQuote(session)}';
 
   @override
   bool operator ==(Object other) =>
-      other is HerdrLaunch &&
-      other.session == session &&
-      other.workspace == workspace;
+      other is HerdrLaunch && other.session == session;
 
   @override
-  int get hashCode => Object.hash(session, workspace);
+  int get hashCode => session.hashCode;
 }
 
 class HerdrWorkspaceEntry {
@@ -144,6 +128,8 @@ class LaunchTargets {
 }
 
 abstract final class LaunchCommands {
+  static final _workspace = RegExp(r'^[A-Za-z0-9]+$');
+
   static const tmuxFormat =
       '#{session_name}\t#{session_windows}\t#{session_attached}';
 
@@ -189,7 +175,7 @@ abstract final class LaunchCommands {
       for (final entry in list)
         if (entry
             case {'workspace_id': final String id, 'label': final String label}
-            when HerdrLaunch._workspace.hasMatch(id))
+            when _workspace.hasMatch(id))
           HerdrWorkspaceEntry(
             session: session,
             id: id,

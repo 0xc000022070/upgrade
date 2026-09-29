@@ -10,6 +10,7 @@ import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_header.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/features/shell/shell_status.dart';
+import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:dazzle/platform/shell/shell_launch.dart';
 import 'package:flterm/flterm.dart';
@@ -166,7 +167,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a tmux pick runs tmux in the tab and keeps it on the row', (
+  testWidgets('the sheet offers the live herdr hub once and runs a tmux pick', (
     tester,
   ) async {
     final transport = FakeShellTransport();
@@ -180,10 +181,38 @@ void main() {
             FixedLaunchScanner(
               const LaunchScanFound(
                 LaunchTargets(
-                  herdrSessions: [],
-                  workspaces: [],
+                  herdrSessions: [
+                    SessionEntry(
+                      name: 'hub',
+                      running: true,
+                      isDefault: false,
+                      socketPath: '/h/hub.sock',
+                    ),
+                    SessionEntry(
+                      name: 'hyprland',
+                      running: false,
+                      isDefault: false,
+                      socketPath: '/h/hyprland.sock',
+                    ),
+                  ],
+                  workspaces: [
+                    HerdrWorkspaceEntry(
+                      session: 'hub',
+                      id: 'w1',
+                      label: 'repbit',
+                      status: 'idle',
+                      focused: false,
+                    ),
+                    HerdrWorkspaceEntry(
+                      session: 'hub',
+                      id: 'w2',
+                      label: 'dazzle',
+                      status: 'working',
+                      focused: true,
+                    ),
+                  ],
                   tmux: [TmuxSessionEntry(name: '0', windows: 2, attached: 1)],
-                  hasHerdr: false,
+                  hasHerdr: true,
                   hasTmux: true,
                 ),
               ),
@@ -203,7 +232,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('shell-new-host-h1')));
     await ready(tester);
 
-    expect(find.text('NOT ON THIS HOST'), findsOneWidget);
+    expect(find.byKey(const ValueKey('launch-herdr-hub')), findsOneWidget);
+    expect(find.text('2 spaces · 1 working'), findsOneWidget);
+    expect(find.text('hyprland'), findsNothing);
+    expect(find.text('dazzle'), findsNothing);
     expect(find.text('ATTACHED'), findsOneWidget);
     expect(find.text('tmux 1'), findsOneWidget);
 
