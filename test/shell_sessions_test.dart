@@ -2238,6 +2238,64 @@ void main() {
       expect(_text(restored.terminal), contains('-- session restored --'));
     });
 
+    test('a killed app reruns the tmux or herdr start it had', () async {
+      final tabs = InMemoryShellTabRepository();
+      await tabs.open(_rose.id, 1, launch: 'tmux:tests-restore');
+      await tabs.open(_rose.id, 2, launch: 'herdr:work');
+      await tabs.open(_rose.id, 3, launch: 'herdr:default');
+
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, tabs: tabs);
+      expect(await sessions.restore(hosts), 3);
+      await _settle();
+
+      final restored = sessions.forHost(_rose.id);
+      expect(restored.map((session) => session.command), [
+        "exec tmux new-session -A -s 'tests-restore'",
+        "exec herdr --session 'work'",
+        'exec herdr',
+      ]);
+      expect(transport.commands, [
+        for (final session in restored)
+          shellMarked(session.mark, command: session.command),
+      ]);
+      expect((await tabs.all()).map((tab) => tab.launch), [
+        'tmux:tests-restore',
+        'herdr:work',
+        'herdr:default',
+      ]);
+    });
+
+    testWidgets('a restored tmux tab redials into the same session', (
+      tester,
+    ) async {
+      final tabs = InMemoryShellTabRepository();
+      await tabs.open(_rose.id, 1, launch: 'tmux:tests-restore');
+
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport, tabs: tabs);
+      await sessions.restore(hosts);
+      await _pumpDial(tester);
+      final session = sessions.forHost(_rose.id).single;
+
+      transport.opened.single.drop();
+      await tester.pump();
+      await tester.pump(shellReconnectDelays.first);
+      await _pumpDial(tester);
+
+      expect(session.state, isA<ShellLive>());
+      expect(transport.commands, hasLength(2));
+      expect(
+        transport.commands.last,
+        shellMarked(
+          session.mark,
+          command: "exec tmux new-session -A -s 'tests-restore'",
+        ),
+      );
+
+      await sessions.close(_rose.id, session);
+    });
+
     test('a tab cannot partially name a Herdr pane', () async {
       final tabs = InMemoryShellTabRepository();
 
