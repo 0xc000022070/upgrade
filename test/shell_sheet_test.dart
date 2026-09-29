@@ -6,6 +6,7 @@ import 'package:dazzle/features/shell/shell_sheet.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 
 import 'support/fake_shell.dart';
+import 'support/launch_scan.dart';
 import 'support/platform_channels.dart';
 import 'support/shell_route.dart' show noWorkspaces, openNewShell;
 import 'support/themed_app.dart';
@@ -42,6 +43,7 @@ void main() {
     overrides: [
       shellSessionsProvider.overrideWithValue(sessions),
       noWorkspaces,
+      noLaunchTargets,
     ],
     child: MaterialApp(theme: testTheme, home: _Launcher()),
   );

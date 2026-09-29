@@ -21,12 +21,14 @@ import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
+import '../../platform/shell/shell_launch.dart';
 import '../../platform/vnc/keysyms.dart';
 import '../code/diff_sheet.dart';
 import '../hosts/host_key_sheet.dart';
 import 'attach_sheet.dart';
 import 'shell_bar.dart';
 import 'shell_header.dart';
+import 'launch_picker_sheet.dart';
 import 'shell_search.dart';
 import 'shell_sessions.dart';
 import 'shell_status.dart';
@@ -44,6 +46,7 @@ class HostShellRoute extends ConsumerStatefulWidget {
     this.onSwitchHost,
     this.onOpenHost,
     this.openNew = false,
+    this.openLaunch,
   });
 
   final Host host;
@@ -53,11 +56,13 @@ class HostShellRoute extends ConsumerStatefulWidget {
   /// header's host name a label.
   final void Function(Host host, ShellSession? session)? onSwitchHost;
 
-  final ValueChanged<Host>? onOpenHost;
+  final void Function(Host host, ShellLaunch? launch)? onOpenHost;
 
   /// Opens a fresh tab during this route's first frame even when the host already has
   /// sessions. Used after the sheet changes host through `+`.
   final bool openNew;
+
+  final ShellLaunch? openLaunch;
 
   /// Null opens the host's last active tab, or its first shell when there is none.
   final ShellSession? session;
@@ -148,7 +153,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           pane: widget.pane,
         );
       } else if (widget.openNew && sessions.canOpen(widget.host.id)) {
-        sessions.open(widget.host, prompt: _askHostKey);
+        sessions.open(
+          widget.host,
+          prompt: _askHostKey,
+          launch: widget.openLaunch,
+        );
       } else if (sessions.forHost(widget.host.id).isEmpty) {
         sessions.open(widget.host, prompt: _askHostKey);
       }
@@ -565,12 +574,15 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     });
   }
 
-  void _onNew(Host host) {
+  Future<void> _onNew(Host host) async {
+    final pick = await showLaunchPicker(context, host);
+    if (!mounted || pick == null) return;
     if (host.id == widget.host.id) {
-      _store.open(widget.host, prompt: _askHostKey);
+      if (!_store.canOpen(host.id)) return;
+      _store.open(widget.host, prompt: _askHostKey, launch: pick.launch);
       return;
     }
-    widget.onOpenHost?.call(host);
+    widget.onOpenHost?.call(host, pick.launch);
   }
 
   List<({String directory, String label})> _diffTargets() {

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/data/database.dart';
@@ -64,5 +65,29 @@ void main() {
       const Setting(key: 'builtin_auto_enable', value: '0'),
     ]);
     expect(await _userVersion(db), db.schemaVersion);
+  });
+  test('a v19 shell tab keeps its row and gains a null launch', () async {
+    final first = AppDatabase(NativeDatabase(file));
+    await first.customStatement('ALTER TABLE shell_tabs DROP COLUMN launch');
+    await first.customStatement(
+      "INSERT INTO shell_tabs (host_id, number, active, opened_at, "
+      "remote_session) VALUES ('h1', 3, 1, '2026-09-29T00:00:00.000Z', "
+      "'m0123456789abcdef')",
+    );
+    await first.customStatement('PRAGMA user_version = 19');
+    await first.close();
+
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+
+    final rows = await db.select(db.shellTabs).get();
+    expect(rows.single.number, 3);
+    expect(rows.single.remoteSession, 'm0123456789abcdef');
+    expect(rows.single.launch, isNull);
+    await (db.update(db.shellTabs)..where((t) => t.number.equals(3))).write(
+      const ShellTabsCompanion(launch: Value('tmux:0')),
+    );
+    expect((await db.select(db.shellTabs).getSingle()).launch, 'tmux:0');
+    expect(await _userVersion(db), 20);
   });
 }

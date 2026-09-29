@@ -217,6 +217,8 @@ class ShellTabs extends Table {
   TextColumn get herdrSession => text().nullable()();
   TextColumn get herdrPane => text().nullable()();
 
+  TextColumn get launch => text().nullable()();
+
   DateTimeColumn get retiredAt => dateTime().nullable()();
 
   @override

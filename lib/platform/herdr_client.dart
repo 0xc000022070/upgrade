@@ -12,6 +12,7 @@ import '../application/reason_lines.dart';
 import 'herdr_socket.dart';
 import 'host_keys.dart';
 import 'shell/remote_shell.dart';
+import 'shell/shell_launch.dart';
 import 'ssh_settle.dart';
 
 class AgentSnapshot {
@@ -587,6 +588,46 @@ class HerdrSession {
     );
     if (result.exitCode != 0) return const [];
     return HerdrClient.parsePaths(utf8.decode(result.stdout));
+  }
+
+  Future<LaunchTargets> launchTargets() async {
+    final roster = await _guard(
+      () => _client.runWithResult(HerdrCommands.sessions()),
+    );
+    final hasHerdr = roster.exitCode != 127;
+    var sessions = const <SessionEntry>[];
+    if (roster.exitCode == 0) {
+      try {
+        sessions = HerdrClient.parseSessions(utf8.decode(roster.stdout));
+      } on HerdrProtocolMismatch {
+        sessions = const [];
+      }
+    }
+    final workspaces = <HerdrWorkspaceEntry>[];
+    for (final session in sessions.where((session) => session.running)) {
+      final listed = await _guard(
+        () => _client.runWithResult(LaunchCommands.workspaces(session.name)),
+      );
+      if (listed.exitCode != 0) continue;
+      workspaces.addAll(
+        LaunchCommands.parseWorkspaces(
+          session.name,
+          utf8.decode(listed.stdout),
+        ),
+      );
+    }
+    final tmux = await _guard(
+      () => _client.runWithResult(LaunchCommands.tmuxSessions()),
+    );
+    return LaunchTargets(
+      herdrSessions: sessions,
+      workspaces: workspaces,
+      tmux: tmux.exitCode == 0
+          ? LaunchCommands.parseTmux(utf8.decode(tmux.stdout))
+          : const [],
+      hasHerdr: hasHerdr,
+      hasTmux: tmux.exitCode != 127,
+    );
   }
 
   Future<List<String>> models(AgentKind kind) async {
@@ -1506,6 +1547,27 @@ class HerdrClient {
     );
     try {
       return await session.paths();
+    } finally {
+      session.close();
+    }
+  }
+
+  Future<LaunchTargets> fetchLaunchTargets({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    HostKeyVerifier? verifier,
+  }) async {
+    final session = await connect(
+      address: address,
+      port: port,
+      user: user,
+      privateKey: privateKey,
+      verifier: verifier,
+    );
+    try {
+      return await session.launchTargets();
     } finally {
       session.close();
     }

@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/application/launch_scan.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/design/components/cell_divider.dart';
 import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_header.dart';
+import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/features/shell/shell_status.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
+import 'package:dazzle/platform/shell/shell_launch.dart';
 import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
+import 'support/launch_scan.dart';
 import 'support/platform_channels.dart';
 import 'support/shell_route.dart';
+import 'support/themed_app.dart';
 
 String labelOfTab(WidgetTester tester, int number) => tester
     .widget<Text>(
@@ -147,6 +153,8 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('shell-new-host-h1')));
     await ready(tester);
+    await tester.tap(find.byKey(const ValueKey('launch-shell')));
+    await ready(tester);
 
     expect(find.byKey(const ValueKey('shell-tab-2')), findsOneWidget);
     expect(sessions.activeFor(rose.id)?.number, 2);
@@ -154,6 +162,56 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('shell-tab-1')));
     await ready(tester);
     expect(sessions.activeFor(rose.id)?.number, 1);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a tmux pick runs tmux in the tab and keeps it on the row', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          shellSessionsProvider.overrideWithValue(sessions),
+          noWorkspaces,
+          launchScannerProvider.overrideWithValue(
+            FixedLaunchScanner(
+              const LaunchScanFound(
+                LaunchTargets(
+                  herdrSessions: [],
+                  workspaces: [],
+                  tmux: [TmuxSessionEntry(name: '0', windows: 2, attached: 1)],
+                  hasHerdr: false,
+                  hasTmux: true,
+                ),
+              ),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: testTheme,
+          home: const HostShellRoute(host: rose),
+        ),
+      ),
+    );
+    await ready(tester);
+
+    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+    await ready(tester);
+    await tester.tap(find.byKey(const ValueKey('shell-new-host-h1')));
+    await ready(tester);
+
+    expect(find.text('NOT ON THIS HOST'), findsOneWidget);
+    expect(find.text('ATTACHED'), findsOneWidget);
+    expect(find.text('tmux 1'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('launch-tmux-new')));
+    await ready(tester);
+
+    expect(sessions.activeFor(rose.id)?.number, 2);
+    expect(transport.commands.last, contains("tmux new-session -A -s '1'"));
 
     await unmount(tester);
   });

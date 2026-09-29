@@ -11,6 +11,7 @@ import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 
 import 'support/fake_shell.dart';
+import 'support/launch_scan.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
@@ -51,6 +52,7 @@ void main() {
       ...featureTestOverrides(db),
       hostRepositoryProvider.overrideWithValue(hosts),
       shellSessionsProvider.overrideWithValue(sessions),
+      noLaunchTargets,
     ],
     child: MaterialApp(theme: testTheme, home: DazzleShell()),
   );
@@ -234,6 +236,9 @@ void main() {
     expect(find.byKey(const ValueKey('shell-new-host-h2')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('shell-new-host-h2')));
+    await ready(tester);
+    expect(find.text('NEW SHELL ON NYX'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('launch-shell')));
     await ready(tester);
 
     expect(sessions.forHost(_nyx.id), hasLength(2));
