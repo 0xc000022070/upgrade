@@ -9,6 +9,7 @@ import 'package:dazzle/application/agents.dart';
 import 'package:dazzle/data/database.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
+import 'package:dazzle/features/shell/shell_sheet.dart';
 
 import 'support/fake_shell.dart';
 import 'support/launch_scan.dart';
@@ -276,6 +277,56 @@ void main() {
     await ready(tester);
 
     expect(header, findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a host at the tab limit is left out of the plus menu', (
+    tester,
+  ) async {
+    await hosts.save(_rose);
+    await hosts.save(_nyx);
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    for (var i = 0; i < maxShellSessions; i++) {
+      sessions.open(_nyx);
+    }
+    sessions.open(_rose);
+    await ready(tester);
+    await raise(tester);
+
+    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+    await ready(tester);
+
+    expect(find.byKey(const ValueKey('shell-new-host-h1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-new-host-h2')), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a command for a host at the tab limit says so and stays put', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    for (var i = 0; i < maxShellSessions; i++) {
+      sessions.open(_nyx);
+    }
+    await ready(tester);
+
+    openHostShell(
+      tester.element(find.byType(DazzleShell)),
+      _nyx,
+      command: 'cd /srv',
+    );
+    await ready(tester);
+
+    expect(header, findsNothing);
+    expect(sessions.forHost(_nyx.id), hasLength(maxShellSessions));
+    expect(find.text('TAB LIMIT'), findsOneWidget);
+    expect(find.text('nyx'), findsOneWidget);
 
     await unmount(tester);
   });

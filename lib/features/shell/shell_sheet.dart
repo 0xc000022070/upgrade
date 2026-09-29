@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/toasts.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/components/drag_sheet.dart';
 import '../../platform/herdr_client.dart';
@@ -21,6 +23,23 @@ void openHostShell(
   PaneRef? pane,
   ShellLaunch? launch,
 }) {
+  final container = ProviderScope.containerOf(context, listen: false);
+  final fresh = command != null || launch != null;
+  if (fresh && !container.read(shellSessionsProvider).canOpen(host.id)) {
+    // Raised before the push: the sheet covers the strip, and landing on the last tab
+    // would pass for the new one.
+    container
+        .read(toastQueueProvider.notifier)
+        .raise(
+          Toast(
+            id: 'tab-limit:${host.id}',
+            verb: 'TAB LIMIT',
+            subject: host.name,
+          ),
+        );
+    return;
+  }
+
   final navigator = Navigator.of(context, rootNavigator: true);
   final up = _openShellRoutes[navigator];
   if (up != null && up.isActive) {
