@@ -6,6 +6,8 @@ import 'package:dazzle/application/reason_lines.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/keys.dart';
+import 'package:dazzle/platform/host_keys.dart';
+import 'package:dazzle/platform/shell/shell_launch.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final class _StalledClient implements SSHClient {
@@ -89,4 +91,52 @@ void main() {
       expect(socket.closed, isTrue);
     },
   );
+
+  const host = Host(
+    id: 'h',
+    name: 'VM',
+    address: '127.0.0.1',
+    port: 22,
+    user: 'dev',
+    keyId: 'k',
+  );
+
+  test('a fetch that throws something unmapped fails the scan', () async {
+    final store = MemoryPrivateKeyStore();
+    await store.write('k', 'private');
+    Future<LaunchTargets> fetch({
+      required String address,
+      required int port,
+      required String user,
+      required String privateKey,
+      HostKeyVerifier? verifier,
+    }) => throw const FormatException('Unexpected extension byte');
+    final scan = await LaunchScanner(fetch: fetch, keys: Ed25519Keys(store))(
+      host,
+    );
+    expect(scan, isA<LaunchScanFailed>());
+    expect((scan as LaunchScanFailed).reason, 'protocol mismatch');
+  });
+
+  test('a keystore that throws fails the scan as a key problem', () async {
+    final scan = await LaunchScanner(
+      fetch: _unreached,
+      keys: Ed25519Keys(_ThrowingStore()),
+    )(host);
+    expect(scan, isA<LaunchScanFailed>());
+    expect((scan as LaunchScanFailed).reason, 'key rejected');
+  });
+}
+
+Future<LaunchTargets> _unreached({
+  required String address,
+  required int port,
+  required String user,
+  required String privateKey,
+  HostKeyVerifier? verifier,
+}) => throw StateError('fetched without a key');
+
+class _ThrowingStore extends MemoryPrivateKeyStore {
+  @override
+  Future<String?> read(String id) async => throw StateError('keystore locked');
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dazzle/platform/shell/shell_launch.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -46,6 +48,20 @@ void main() {
       hasTmux: true,
     );
     expect(targets.nextTmuxName, '2');
+  });
+
+  test('a tmux name with bytes that are not UTF-8 is dropped, not thrown', () {
+    final source = utf8.decode([
+      ...utf8.encode('utf8'),
+      0xff,
+      ...utf8.encode('\t1\t0\nwork\t2\t0\n'),
+    ], allowMalformed: true);
+    expect(
+      [for (final e in LaunchCommands.parseTmux(source)) e.name],
+      ['work'],
+    );
+    expect(ShellLaunch.isTmuxName('utf8\u{FFFD}'), isFalse);
+    expect(() => utf8.decode([0xff]), throwsFormatException);
   });
 
   test('herdr workspaces parse off workspace list', () {
