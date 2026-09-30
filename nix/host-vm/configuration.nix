@@ -10,26 +10,37 @@ let
   cfg = config.dazzleHost;
   full = cfg.name == "full";
 
-  codexFixture = pkgs.codex.overrideAttrs (old: {
-    pname = "codex-fixture";
-    cargoBuildType = "debug";
-    cargoBuildFlags = [
-      "--package"
-      "codex-cli"
-      "--bin"
-      "codex"
-    ];
-    cargoCheckFlags = [
-      "--package"
-      "codex-cli"
-      "--bin"
-      "codex"
-    ];
-    patches = (old.patches or [ ]) ++ [
-      ./patches/codex/mock-chatgpt-subscription.patch
-      ./patches/codex/mock-api-streaming.patch
-    ];
-  });
+  codexMockPort = 18733;
+  codexMockUrl = "http://127.0.0.1:${toString codexMockPort}/backend-api/";
+
+  # Codex never checks the id_token signature, and a last_refresh this far out
+  # keeps it from ever refreshing against OpenAI.
+  codexAuth =
+    let
+      claims = builtins.toJSON {
+        email = "fixture@localhost";
+        "https://api.openai.com/auth" = {
+          chatgpt_plan_type = "pro";
+          chatgpt_user_id = "fixture-user";
+          chatgpt_account_id = "fixture-account";
+        };
+      };
+    in
+    pkgs.runCommand "codex-auth.json" { nativeBuildInputs = [ pkgs.jq ]; } ''
+      b64() { printf '%s' "$1" | base64 -w0 | tr '+/' '-_' | tr -d '='; }
+      jwt="$(b64 '{"alg":"none","typ":"JWT"}').$(b64 ${lib.escapeShellArg claims}).fixture"
+      jq -n --arg jwt "$jwt" '{
+        auth_mode: "chatgpt",
+        OPENAI_API_KEY: null,
+        tokens: {
+          id_token: $jwt,
+          access_token: "fixture-access-token",
+          refresh_token: "fixture-refresh-token",
+          account_id: "fixture-account"
+        },
+        last_refresh: "2099-01-01T00:00:00Z"
+      }' > $out
+    '';
 
   moshForwards = map (port: {
     from = "host";
@@ -125,7 +136,7 @@ in
     pkgs.mosh
     pkgs.ripgrep
   ]
-  ++ lib.optional cfg.codex codexFixture
+  ++ lib.optional cfg.codex pkgs.codex
   ++ lib.optional cfg.herdr pkgs.herdr
   ++ [ (lib.hiPrio pinnedMosh) ];
 
@@ -156,6 +167,34 @@ in
     }) declaredConfigs
   );
 
+  environment.etc."codex/config.toml" = lib.mkIf cfg.codex {
+    source = (pkgs.formats.toml { }).generate "codex-config.toml" {
+      chatgpt_base_url = codexMockUrl;
+      model_provider = "fixture";
+      model_providers.fixture = {
+        name = "Fixture";
+        base_url = "${codexMockUrl}codex";
+        wire_api = "responses";
+        requires_openai_auth = true;
+        supports_websockets = false;
+      };
+      features = {
+        apps = false;
+        code_mode_host = false;
+      };
+    };
+  };
+
+  systemd.services.codex-mock = lib.mkIf cfg.codex {
+    description = "Mock of the OpenAI backend codex talks to";
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      ExecStart = "${pkgs.perl}/bin/perl ${./codex-mock.pl} ${toString codexMockPort}";
+      DynamicUser = true;
+      Restart = "on-failure";
+    };
+  };
+
   systemd.services.dazzle-host-fixture = {
     description = "Seed the Dazzle remote host fixture";
     wantedBy = [ "multi-user.target" ];
@@ -170,6 +209,11 @@ in
         printf '%s\n' "PROMPT='%n@%m:%~%# '" > /home/dev/.zshrc
       fi
 
+      ${lib.optionalString cfg.codex ''
+        if [ ! -e /home/dev/.codex/auth.json ]; then
+          install -D -m 600 ${codexAuth} /home/dev/.codex/auth.json
+        fi
+      ''}
       project=/home/dev/Projects/fixture
       if [ ! -d "$project/.git" ]; then
         mkdir -p "$project"

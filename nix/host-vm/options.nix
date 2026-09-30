@@ -16,7 +16,7 @@
     };
     engine = lib.mkEnableOption "the Dazzle engine";
     herdr = lib.mkEnableOption "herdr";
-    codex = lib.mkEnableOption "the patched codex fixture";
+    codex = lib.mkEnableOption "codex against a local mock of the OpenAI backend";
     declaredHooks = lib.mkEnableOption "agent configs linked into the store";
   };
 }
