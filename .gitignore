@@ -68,3 +68,5 @@ result-*
 
 # Rust build output for the host engine
 /engine/target/
+
+/test/shards/
