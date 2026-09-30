@@ -119,14 +119,27 @@ class AgentEdges {
     final was = _panes[hostId] ?? const <String>{};
     final now = <String>{};
     final entered = <AgentSnapshot>[];
+    final quiet = <String>{};
     for (final agent in agents) {
       if (!kind.holds(agent)) continue;
       now.add(agent.edgeId);
-      if (!was.contains(agent.edgeId)) entered.add(agent);
+      if (was.contains(agent.edgeId)) continue;
+      entered.add(agent);
+      // An approval that ran out leaves the same pane asking the same thing in its
+      // terminal, so the replacement is posted without sound.
+      if (agent.approval == null &&
+          was.any(
+            (edge) =>
+                edge != agent.paneId &&
+                AgentSnapshot.paneOfEdge(edge) == agent.paneId,
+          )) {
+        quiet.add(agent.edgeId);
+      }
     }
     _panes[hostId] = now;
     return AgentDelta(
       entered: entered,
+      quiet: quiet,
       left: [
         for (final pane in was)
           if (!now.contains(pane)) pane,
@@ -138,10 +151,16 @@ class AgentEdges {
 }
 
 class AgentDelta {
-  const AgentDelta({required this.entered, required this.left});
+  const AgentDelta({
+    required this.entered,
+    required this.left,
+    this.quiet = const {},
+  });
 
   final List<AgentSnapshot> entered;
   final List<String> left;
+
+  final Set<String> quiet;
 
   bool get isEmpty => entered.isEmpty && left.isEmpty;
 }

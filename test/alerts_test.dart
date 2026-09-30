@@ -101,8 +101,12 @@ AgentSnapshot snapshot({
   String status = 'blocked',
   String title = 'ALLOW touch probe.txt?',
   String session = 'default',
+  String? approval,
 }) => AgentSnapshot(
   session: session,
+  approval: approval == null
+      ? null
+      : AgentApproval(id: approval, tool: 'Bash', summary: 'rm -rf build'),
   paneId: pane,
   agent: agent,
   state: AgentState.of(status),
@@ -216,6 +220,33 @@ void main() {
       expect(edges.apply('h1', [snapshot()]).entered, hasLength(1));
       expect(edges.apply('h2', [snapshot()]).entered, hasLength(1));
       expect(edges.panesOn('h1'), {'wQ:p1'});
+    });
+
+    test('an approval running out settles quietly into the question', () {
+      final edges = blockedEdges();
+      expect(
+        edges.apply('h1', [snapshot(approval: 'a1')]).entered,
+        hasLength(1),
+      );
+
+      final expired = edges.apply('h1', [snapshot()]);
+      expect(expired.left, ['wQ:p1#a1']);
+      expect(expired.entered.map((agent) => agent.edgeId), ['wQ:p1']);
+      expect(expired.quiet, {'wQ:p1'}, reason: 'nothing new happened');
+    });
+
+    test('a new approval on the same pane still alerts', () {
+      final edges = blockedEdges();
+      edges.apply('h1', [snapshot(approval: 'a1')]);
+
+      final next = edges.apply('h1', [snapshot(approval: 'a2')]);
+      expect(next.entered.map((agent) => agent.edgeId), ['wQ:p1#a2']);
+      expect(next.quiet, isEmpty);
+
+      edges.apply('h1', [snapshot()]);
+      final asked = edges.apply('h1', [snapshot(approval: 'a3')]);
+      expect(asked.entered.map((agent) => agent.edgeId), ['wQ:p1#a3']);
+      expect(asked.quiet, isEmpty);
     });
   });
 

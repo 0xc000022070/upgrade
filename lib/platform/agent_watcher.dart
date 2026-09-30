@@ -873,7 +873,12 @@ class _HostLoop {
         await AlertNotifications.cancel(kindNotificationId(kind, _key, edge));
       }
       for (final snapshot in delta.entered) {
-        await _post(kind, snapshot, session);
+        await _post(
+          kind,
+          snapshot,
+          session,
+          quiet: delta.quiet.contains(snapshot.edgeId),
+        );
       }
     }
     _report(AgentOutcomeKind.snapshot);
@@ -882,8 +887,9 @@ class _HostLoop {
   Future<void> _post(
     AlertKind kind,
     AgentSnapshot snapshot,
-    HerdrSession? session,
-  ) async {
+    HerdrSession? session, {
+    bool quiet = false,
+  }) async {
     final target = AlertTarget.forHost(host, snapshot, channel: _key);
     if (kind == AlertKind.done) {
       return AlertNotifications.done(target: target, snapshot: snapshot);
@@ -895,6 +901,7 @@ class _HostLoop {
       target: target,
       snapshot: snapshot,
       tail: tail,
+      quiet: quiet,
     );
   }
 
