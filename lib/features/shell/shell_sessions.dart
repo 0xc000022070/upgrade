@@ -266,6 +266,8 @@ class ShellSession extends ChangeNotifier {
   /// bare shell.
   PaneRef? pane;
 
+  ShellLaunch? launch;
+
   /// What the bar has armed, waiting for the next key or character. It lives here rather
   /// than in the bar because the IME types straight into the terminal, where the bar is not
   /// in the path, and because switching tabs has to switch the armed set with the session.
@@ -640,6 +642,7 @@ class ShellSessions extends ChangeNotifier {
       command: command ?? launch?.command,
       directory: directory,
       pane: pane,
+      launch: launch,
       remoteSession: remoteSession,
       beforeConnect: persisted,
     );
@@ -652,6 +655,7 @@ class ShellSessions extends ChangeNotifier {
     String? command,
     String? directory,
     PaneRef? pane,
+    ShellLaunch? launch,
     String? remoteSession,
     bool restored = false,
     Future<void>? beforeConnect,
@@ -667,7 +671,8 @@ class ShellSessions extends ChangeNotifier {
           )
           ..command = command
           ..cwd = directory
-          ..pane = pane;
+          ..pane = pane
+          ..launch = launch;
     answerInColours(session.terminal, DazzleTokens.house.terminal);
     _byHost.putIfAbsent(host.id, () => []).add(session);
     _active[host.id] = number;
@@ -900,6 +905,7 @@ class ShellSessions extends ChangeNotifier {
         row.number,
         command: pane == null ? launch?.command : HerdrCommands.attach(pane),
         pane: pane,
+        launch: launch,
         remoteSession: remoteSession,
         restored: true,
         snapshot: await snapshots?.read(host.id, row.number),

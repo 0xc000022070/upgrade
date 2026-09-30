@@ -175,7 +175,7 @@ class _ShellHeaderState extends State<ShellHeader> {
                                 : session.repository ?? session.cwd,
                             session.number,
                           ),
-                          state: session.state,
+                          session: session,
                           active: session == active,
                           onTap: () => widget.onSelect(session),
                         ),
@@ -608,7 +608,7 @@ class _TabCell extends StatelessWidget {
     this.label,
     this.icon,
     required this.onTap,
-    this.state,
+    this.session,
     this.active = false,
     this.dimmed = false,
     this.tint,
@@ -620,7 +620,7 @@ class _TabCell extends StatelessWidget {
 
   final bool dimmed;
 
-  final ShellState? state;
+  final ShellSession? session;
 
   final bool active;
   final VoidCallback? onTap;
@@ -664,8 +664,8 @@ class _TabCell extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (state case final state?) ...[
-              ShellStateDot(state: state),
+            if (session case final session?) ...[
+              ShellStateMark(session: session),
               const SizedBox(width: Spacing.sm),
             ],
             // The cap is on the word and not on the cell: a Container that aligns

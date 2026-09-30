@@ -1,6 +1,10 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../design/spacing.dart';
 import '../../design/tokens.dart';
+import '../../platform/shell/shell_launch.dart';
+import 'launch_picker_sheet.dart';
 import 'shell_sessions.dart';
 
 const shellDotSize = 6.0;
@@ -18,16 +22,10 @@ ShellState? worstShellState(List<ShellSession> sessions) {
   return sessions.first.state;
 }
 
-class ShellStateDot extends StatelessWidget {
-  const ShellStateDot({super.key, required this.state});
-
-  final ShellState state;
-
-  @override
-  Widget build(BuildContext context) {
-    // A session on its way up is not lit yet: the accent means there is a shell on the
-    // other end, and until it answers there is not.
-    final color = switch (state) {
+// A session on its way up is not lit yet: the accent means there is a shell on the
+// other end, and until it answers there is not.
+Color shellStateColor(BuildContext context, ShellState state) =>
+    switch (state) {
       ShellLive() => context.tokens.accent,
       ShellFailed() || ShellDisconnected() => context.tokens.warning,
       // A dropped session is neither: there is no shell on the other end and the store
@@ -38,10 +36,44 @@ class ShellStateDot extends StatelessWidget {
       ShellWaiting() ||
       ShellExited() => context.tokens.textMuted,
     };
-    return Container(
-      width: shellDotSize,
-      height: shellDotSize,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+
+class ShellStateDot extends StatelessWidget {
+  const ShellStateDot({super.key, required this.state});
+
+  final ShellState state;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: shellDotSize,
+    height: shellDotSize,
+    decoration: BoxDecoration(
+      color: shellStateColor(context, state),
+      shape: BoxShape.circle,
+    ),
+  );
+}
+
+/// The state dot, or for a tab opened on tmux or herdr that program's logo drawn in the
+/// dot's colour. A pane attached from the agents panel is a herdr tab too.
+class ShellStateMark extends StatelessWidget {
+  const ShellStateMark({super.key, required this.session});
+
+  final ShellSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final logo = switch (session.launch) {
+      TmuxLaunch() => tmuxLogo,
+      HerdrLaunch() => herdrLogo,
+      null when session.pane != null => herdrLogo,
+      null => null,
+    };
+    if (logo == null) return ShellStateDot(state: session.state);
+    return SvgPicture.asset(
+      logo,
+      width: IconSizes.glyph,
+      height: IconSizes.glyph,
+      theme: SvgTheme(currentColor: shellStateColor(context, session.state)),
     );
   }
 }

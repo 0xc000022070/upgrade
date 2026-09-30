@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:dazzle/application/launch_scan.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/design/colors.dart';
@@ -391,6 +392,41 @@ void main() {
         tester.getSize(find.byKey(const ValueKey('shell-tab-1'))).width,
         lessThan(60),
       );
+
+      await unmount(tester);
+    });
+
+    testWidgets('a tmux or herdr tab wears its logo where the dot was', (
+      tester,
+    ) async {
+      const named = Host(
+        id: 'h1',
+        name: 'NYX',
+        address: '100.64.0.1',
+        port: 22,
+        user: 'luis',
+        keyId: 'key-1',
+      );
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      sessions.open(named, launch: TmuxLaunch('main'));
+      sessions.open(named, launch: HerdrLaunch('default'));
+      sessions.open(named);
+      await tester.pumpWidget(
+        app(sessions, home: const HostShellRoute(host: named)),
+      );
+      await ready(tester);
+
+      Finder inTab(int number, Type type) => find.descendant(
+        of: find.byKey(ValueKey('shell-tab-$number')),
+        matching: find.byType(type),
+      );
+      for (final number in [1, 2]) {
+        expect(inTab(number, SvgPicture), findsOneWidget);
+        expect(inTab(number, ShellStateDot), findsNothing);
+      }
+      expect(inTab(3, SvgPicture), findsNothing);
+      expect(inTab(3, ShellStateDot), findsOneWidget);
 
       await unmount(tester);
     });

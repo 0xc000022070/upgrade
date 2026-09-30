@@ -1113,7 +1113,7 @@ The header is one row of 44: the host name at the left, a rule, then the tab cel
 
 **A tab is named by the shell in it.** It takes the title its shell set, shortened for the room a tab has: the `user@host:` a login shell puts in front is dropped, a remainder that is one path is cut to its last segment, and what is left is drawn in the shell's own case and cut off by the width of the cell. A shell that has not named itself keeps its number. The number is still what the app calls it — the card, the switcher and the parked bar all read `NYX 2`, and a tab's key is its number.
 
-**A tab carries its state**, the same dot the cards carry, in front of the word: a tab that dropped, gave up or exited is seen without being visited. It is the one thing on a tab that changes with nobody touching it.
+**A tab carries its state**, the same dot the cards carry, in front of the word: a tab that dropped, gave up or exited is seen without being visited. A tab opened on tmux or herdr, or on a pane attached from the agents panel, draws that program's logo in place of the dot, in the colour the dot would have been, so what the tab is and how it stands read from one mark. It is the one thing on a tab that changes with nobody touching it.
 
 **The tab in use is on the screen.** The strip scrolls, and a tab going active — by a tap, by being opened, or by the one beside it closing — is brought into view. A strip that scrolled the shell the user is typing in off its own edge is how a tab is lost.
 
