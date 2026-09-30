@@ -891,7 +891,7 @@ Under the workspaces, one panel per host the engine answers for, titled `INBOX` 
 
 **The approval sits under it.** A session blocked on an approval carries a bar at the bottom with the line and `ALLOW` and `DENY`; a question without an approval carries the line alone. A session linked to a herdr pane carries `OPEN PANE`, which is the tap on a herdr row.
 
-**An agent with no transcript the engine can read says so.** OpenCode keeps its conversation in its own store, and the conversation says `NO TRANSCRIPT` under the session's state rather than drawing an empty chat. A session that has not named its transcript yet says `no transcript yet` until it does, and is asked again like any other.
+**An agent with no transcript the engine can read says so.** OpenCode keeps its conversation in its own store, and the conversation says `NO TRANSCRIPT` under the session's state rather than drawing an empty chat. A session that has not named its transcript yet says `no transcript yet` until it does, and is asked again like any other. A read the host refuses for any other reason, the file unreadable for a moment, is not an answer about the transcript: the reason stands on the session's `LINK` line, the conversation keeps what it already holds, and the next ask tries again.
 
 **Struck:** sending a prompt from the conversation. Typing into an agent is the terminal's, and the pane is one tap away.
 

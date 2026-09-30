@@ -194,25 +194,82 @@ pub fn read(args: &Value, sessions: &[(String, String, Option<String>)]) -> Engi
     };
     let file = fs::File::open(path)?;
 
+    let mut reader = BufReader::new(file);
+    let mut line = Vec::new();
     let mut items = Vec::new();
     let mut last = after;
-    for (index, line) in BufReader::new(file).lines().enumerate() {
+    for index in 0.. {
+        line.clear();
+        if !matches!(reader.read_until(b'\n', &mut line), Ok(read) if read > 0) {
+            break;
+        }
         if after.is_some_and(|after| index as u64 <= after) {
             continue;
         }
-        let Ok(line) = line else {
-            break;
-        };
-        // A record the agent is still writing has no newline yet; it is read whole
-        // on the next call rather than half now.
-        let Ok(record) = serde_json::from_str::<Value>(&line) else {
-            break;
-        };
-        parse(index, &record, &mut items);
+        let complete = line.last() == Some(&b'\n');
+        match serde_json::from_str::<Value>(&String::from_utf8_lossy(&line)) {
+            Ok(record) => parse(index, &record, &mut items),
+            // A record the agent is still writing has no newline yet; it is read whole
+            // on the next call rather than half now.
+            Err(_) if !complete => break,
+            Err(_) => {}
+        }
         last = Some(index as u64);
         if items.len() >= limit {
             break;
         }
     }
     Ok(json!({ "session": key, "items": items, "last": last }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn said(text: &str) -> String {
+        json!({ "type": "user", "message": { "content": text } }).to_string()
+    }
+
+    fn read_file(name: &str, body: &[u8], after: Option<u64>) -> Value {
+        let file = format!("dazzle-transcript-unit-{}-{name}.jsonl", std::process::id());
+        let path = std::env::temp_dir().join(file);
+        fs::write(&path, body).unwrap();
+        let sessions = [("claude:s".to_owned(), "claude".to_owned(), Some(path.display().to_string()))];
+        let args = match after {
+            Some(after) => json!({ "session": "claude:s", "after": after }),
+            None => json!({ "session": "claude:s" }),
+        };
+        let answer = read(&args, &sessions).unwrap();
+        fs::remove_file(&path).unwrap();
+        answer
+    }
+
+    fn texts(answer: &Value) -> Vec<&str> {
+        answer["items"].as_array().unwrap().iter().map(|item| item["text"].as_str().unwrap()).collect()
+    }
+
+    #[test]
+    fn a_bad_complete_line_is_skipped_and_the_rest_is_read() {
+        let mut body = format!("{}\n{{\"type\": \"user\", \"mess\n\n", said("one")).into_bytes();
+        body.extend_from_slice(b"{\"type\": \"user\", \"message\": {\"content\": \"\xff\xfe\"}}\n");
+        body.extend_from_slice(b"\xc3\x28 not json\n");
+        body.extend_from_slice(format!("{}\n", said("two")).as_bytes());
+        let answer = read_file("bad-lines", &body, None);
+        assert_eq!(texts(&answer), vec!["one", "\u{fffd}\u{fffd}", "two"]);
+        assert_eq!(answer["last"], json!(5));
+    }
+
+    #[test]
+    fn a_partial_last_line_waits_for_the_next_call() {
+        let whole = said("three");
+        let body = format!("{}\n{}", said("one"), &whole[..whole.len() - 4]);
+        let answer = read_file("partial", body.as_bytes(), None);
+        assert_eq!(texts(&answer), vec!["one"]);
+        assert_eq!(answer["last"], json!(0));
+
+        let body = format!("{}\n{whole}", said("one"));
+        let answer = read_file("unterminated", body.as_bytes(), Some(0));
+        assert_eq!(texts(&answer), vec!["three"]);
+        assert_eq!(answer["last"], json!(1));
+    }
 }
