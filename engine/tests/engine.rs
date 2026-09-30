@@ -1422,6 +1422,93 @@ fn an_approval_taken_at_the_terminal_releases_the_hook_silently() {
     assert_eq!(late["error"]["kind"], json!("not_found"));
 }
 
+fn seed_agents(sandbox: &Sandbox, owner: &str, sessions: Value) -> PathBuf {
+    let root = sandbox.state().join(owner).join("agents");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(
+        root.join("state.json"),
+        json!({ "version": 1, "generation": 1, "sessions": sessions }).to_string(),
+    )
+    .unwrap();
+    root
+}
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
+}
+
+#[test]
+fn an_allow_after_the_minute_is_refused_and_leaves_nothing_behind() {
+    let sandbox = Sandbox::new("agents-late-allow");
+    let owner = sandbox.owner();
+    let now = now_ms();
+    let root = seed_agents(
+        &sandbox,
+        &owner,
+        json!([{
+            "key": "claude:s1", "agent": "claude", "session_id": "s1", "state": "blocked",
+            "started": now - 70_000, "updated": now - 70_000,
+            "approval": {
+                "id": "1-2", "tool": "Bash", "summary": "ls",
+                "created": now - 70_000, "expires": now - 10_000, "pid": std::process::id(),
+            },
+        }]),
+    );
+
+    let late = sandbox.agents(&owner, "answer", json!({ "id": "1-2", "decision": "allow" }));
+    assert_eq!(late["error"]["kind"], json!("not_found"), "{late}");
+    assert!(!root.join("answers").join("1-2").exists(), "an orphan answer was left");
+}
+
+#[test]
+fn a_session_nothing_has_touched_for_a_day_is_not_live() {
+    let sandbox = Sandbox::new("agents-stale");
+    let owner = sandbox.owner();
+    let old = now_ms() - 25 * 60 * 60 * 1000;
+    let root = seed_agents(
+        &sandbox,
+        &owner,
+        json!([{
+            "key": "codex:gone", "agent": "codex", "session_id": "gone", "state": "blocked",
+            "started": old, "updated": old,
+        }]),
+    );
+
+    let watch = sandbox.agents(&owner, "watch", json!({}));
+    assert_eq!(watch["result"]["sessions"], json!([]), "{watch}");
+
+    sandbox.hook(
+        "claude",
+        json!({ "hook_event_name": "SessionStart", "session_id": "s1" }),
+    );
+    let stored = fs::read_to_string(root.join("state.json")).unwrap();
+    assert!(!stored.contains("codex:gone"), "{stored}");
+}
+
+#[test]
+fn a_permission_request_bigger_than_a_megabyte_still_reaches_the_phone() {
+    let sandbox = Sandbox::new("agents-big-input");
+    let owner = sandbox.owner();
+    let hook = sandbox.spawn_hook(
+        "claude",
+        json!({
+            "hook_event_name": "PermissionRequest",
+            "session_id": "s1",
+            "tool_name": "Write",
+            "tool_input": { "file_path": "/w/big.txt", "content": "x".repeat(3 * 1024 * 1024) },
+        }),
+    );
+    let approval = pending_approval(&sandbox, &owner, "claude:s1");
+    assert_eq!(approval["summary"], json!("/w/big.txt"));
+    let answer = sandbox.agents(&owner, "answer", json!({ "id": approval["id"], "decision": "allow" }));
+    assert_eq!(answer["ok"], json!(true), "{answer}");
+    let output = hook.wait_with_output().unwrap();
+    assert!(output.status.success());
+}
+
 #[test]
 fn watch_holds_until_something_changes() {
     let sandbox = Sandbox::new("agents-longpoll");

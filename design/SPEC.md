@@ -865,7 +865,7 @@ herdr reads a pane and guesses what the agent in it is doing from the screen. It
 
 **The watch is a question held on the host, not an event stream.** `watch` names the generation the phone last saw and a wait, and the engine answers when the state moves past it or the wait runs out, at most thirty seconds. That is one exec and one answer per change on a quiet machine, and nothing on the host outlives a phone that went away but the wait it had already asked for.
 
-**A session is the agent's, not the pane's.** Its key is the agent and the id the agent gave it, and it carries the directory, the first prompt of the turn, the last thing the agent said when it stopped, and the herdr pane or tmux pane the hook ran in when its environment says so. A subagent's events are its parent's business and never end the parent's turn. A session that ended stays readable on the host for a day and is not drawn.
+**A session is the agent's, not the pane's.** Its key is the agent and the id the agent gave it, and it carries the directory, the first prompt of the turn, the last thing the agent said when it stopped, and the herdr pane or tmux pane the hook ran in when its environment says so. A subagent's events are its parent's business and never end the parent's turn. A session the agent has said nothing about for a day is gone from the host, ended or not; one that ended stays readable until then and is not drawn.
 
 **Struck:** the engine deciding what an agent's state is from anything but the agent's own event. herdr already does the reading from the screen; a second reader would be a second guess.
 
