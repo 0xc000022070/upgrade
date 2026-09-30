@@ -19,6 +19,7 @@ class ScreenScaffold extends StatelessWidget {
     this.onBack,
     this.header,
     this.maxContentWidth = Layout.columnMax,
+    this.fill = false,
     this.padding = const EdgeInsets.fromLTRB(
       Spacing.screenEdge,
       Spacing.lg,
@@ -45,6 +46,8 @@ class ScreenScaffold extends StatelessWidget {
 
   final Widget? header;
   final double maxContentWidth;
+
+  final bool fill;
 
   final EdgeInsets padding;
 
@@ -95,11 +98,8 @@ class ScreenScaffold extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: LayoutBuilder(
-        builder: (context, constraints) => ListView(
-          // Centred by widening the scroll view's padding, not by narrowing the scroll view: a
-          // capped ListView leaves the margins dead to a drag, and on a near-square display the
-          // margins are a third of the screen.
-          padding:
+        builder: (context, constraints) {
+          final insets =
               padding +
               EdgeInsets.only(bottom: systemBottom) +
               EdgeInsets.symmetric(
@@ -107,8 +107,8 @@ class ScreenScaffold extends StatelessWidget {
                   constraints.maxWidth,
                   maxWidth: maxContentWidth,
                 ),
-              ),
-          children: [
+              );
+          final head = [
             // The gap under the row is given back, so taking a tap target's height keeps the
             // header's rhythm.
             SizedBox(
@@ -155,9 +155,23 @@ class ScreenScaffold extends StatelessWidget {
             ),
             const SizedBox(height: Spacing.lg),
             ?header,
-            ...children,
-          ],
-        ),
+          ];
+          if (fill) {
+            return Padding(
+              padding: insets,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ...head,
+                  Expanded(child: children.single),
+                ],
+              ),
+            );
+          }
+          // Centred by padding, not by narrowing the ListView: its margins stay live to a drag,
+          // and on a near-square display they are a third of the screen.
+          return ListView(padding: insets, children: [...head, ...children]);
+        },
       ),
     );
   }

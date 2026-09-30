@@ -25,6 +25,7 @@ class DropsPanel extends ConsumerStatefulWidget {
     this.stateful = false,
     this.landing,
     this.onCompleted,
+    this.height,
   });
 
   final String scope;
@@ -37,6 +38,8 @@ class DropsPanel extends ConsumerStatefulWidget {
   final GlitchController? landing;
 
   final ValueChanged<Task>? onCompleted;
+
+  final double? height;
 
   @override
   ConsumerState<DropsPanel> createState() => _DropsPanelState();
@@ -98,6 +101,11 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
     final freshNotifier = ref.read(freshDropsProvider.notifier);
     _fresh = freshNotifier;
     final fresh = ref.watch(freshDropsProvider).idsIn(widget.scope);
+    final height = widget.height;
+    Widget scrolls(Widget body) =>
+        height == null ? body : SingleChildScrollView(child: body);
+    Widget fits(Widget panel) =>
+        height == null || !_showDone ? panel : Flexible(child: panel);
 
     // The ids that left are the ones this panel drew and no longer draws. An id it has never
     // drawn is not gone, it has not arrived, and both sets are written by something that
@@ -134,82 +142,97 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
         ],
       ),
       bodyPadding: panelRowsPadding,
+      bodyFlexible: height != null,
       headerGlitch: widget.landing,
-      child: AsyncSection(
-        value: visibleDrops,
-        empty: widget.empty,
-        builder: (items) => ListRowGroup(
-          children: [
-            for (final task in items)
-              if (!selecting)
-                TaskRow(
-                  key: ValueKey(task.id),
-                  task: task,
-                  drop: !widget.stateful,
-                  fresh: fresh.contains(task.id),
-                  onTap: widget.stateful ? null : () => _open(task.id),
-                  onLongPress: () => _hold(task.id, fresh),
-                  onDoneChanged: (done) {
-                    if (!done) return;
-                    freshNotifier.forget(widget.scope, {task.id});
-                    widget.onCompleted?.call(task);
-                  },
-                )
-              else
-                ListRow(
-                  title: task.title,
-                  titleColor: task.done ? context.tokens.textDisabled : null,
-                  value: relativeAge(task.createdAt),
-                  valueColor: fresh.contains(task.id)
-                      ? context.tokens.accent
-                      : null,
-                  leading: _SelectionBox(checked: selection.holds(task.id)),
-                  leadingWidth: _SelectionBox.width,
-                  onTap: () => notifier.toggle(task.id),
-                  onLongPress: null,
-                  trailing: null,
-                ),
-          ],
+      child: scrolls(
+        AsyncSection(
+          value: visibleDrops,
+          empty: widget.empty,
+          builder: (items) => ListRowGroup(
+            children: [
+              for (final task in items)
+                if (!selecting)
+                  TaskRow(
+                    key: ValueKey(task.id),
+                    task: task,
+                    drop: !widget.stateful,
+                    fresh: fresh.contains(task.id),
+                    onTap: widget.stateful ? null : () => _open(task.id),
+                    onLongPress: () => _hold(task.id, fresh),
+                    onDoneChanged: (done) {
+                      if (!done) return;
+                      freshNotifier.forget(widget.scope, {task.id});
+                      widget.onCompleted?.call(task);
+                    },
+                  )
+                else
+                  ListRow(
+                    title: task.title,
+                    titleColor: task.done ? context.tokens.textDisabled : null,
+                    value: relativeAge(task.createdAt),
+                    valueColor: fresh.contains(task.id)
+                        ? context.tokens.accent
+                        : null,
+                    leading: _SelectionBox(checked: selection.holds(task.id)),
+                    leadingWidth: _SelectionBox.width,
+                    onTap: () => notifier.toggle(task.id),
+                    onLongPress: null,
+                    trailing: null,
+                  ),
+            ],
+          ),
         ),
       ),
     );
 
     final panels = PanelStack(
       children: [
-        panel,
+        if (height == null) panel else Flexible(child: panel),
         if (doneRows.isNotEmpty)
-          Panel(
-            title: 'DONE',
-            affordance: PanelAffordance(
-              '${doneRows.length}',
-              icon: _showDone ? DazzleIcons.collapse : DazzleIcons.expand,
+          fits(
+            Panel(
+              title: 'DONE',
+              affordance: PanelAffordance(
+                '${doneRows.length}',
+                icon: _showDone ? DazzleIcons.collapse : DazzleIcons.expand,
+              ),
+              onHeaderTap: () => setState(() => _showDone = !_showDone),
+              bodyPadding: panelRowsPadding,
+              bodyFlexible: height != null,
+              child: !_showDone
+                  ? null
+                  : scrolls(
+                      ListRowGroup(
+                        children: [
+                          for (final task in doneRows)
+                            TaskRow(
+                              key: ValueKey('done-${task.id}'),
+                              task: task,
+                              drop: true,
+                              onTap: () => _open(task.id),
+                            ),
+                        ],
+                      ),
+                    ),
             ),
-            onHeaderTap: () => setState(() => _showDone = !_showDone),
-            bodyPadding: panelRowsPadding,
-            child: !_showDone
-                ? null
-                : ListRowGroup(
-                    children: [
-                      for (final task in doneRows)
-                        TaskRow(
-                          key: ValueKey('done-${task.id}'),
-                          task: task,
-                          drop: true,
-                          onTap: () => _open(task.id),
-                        ),
-                    ],
-                  ),
           ),
       ],
     );
 
-    if (!selecting) return panels;
+    final bounded = height == null
+        ? panels
+        : ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: height),
+            child: panels,
+          );
+
+    if (!selecting) return bounded;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) notifier.clear();
       },
-      child: panels,
+      child: bounded,
     );
   }
 }
