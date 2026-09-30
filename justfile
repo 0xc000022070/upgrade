@@ -83,8 +83,14 @@ host-vm-down:
     #!/usr/bin/env bash
     set -euo pipefail
     # Matched on qemu's own `-name`: the nix runner execs into qemu.
-    pkill -f 'qemu-system-.* -name dazzle-host' || true
+    pkill -f 'qemu-system-.* -name dazzle-host( |$)' || true
     echo "host vm: down"
+
+host-scenario name:
+    nix run .#host-up-{{name}}
+
+host-scenario-down name:
+    pkill -f 'qemu-system-.* -name dazzle-host-{{name}}( |$)' || true
 
 build_name := `sed -n 's/^version:[[:space:]]*\([^+[:space:]]\{1,\}\).*$/\1/p' pubspec.yaml`
 build_code := `git rev-list --count HEAD 2>/dev/null || echo 1`
