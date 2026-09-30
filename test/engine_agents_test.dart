@@ -222,7 +222,7 @@ void main() {
 
     expect(target.engine, isFalse);
     expect(target.channel, host.id);
-    expect(target.hostKey, isNull);
+    expect(target.hostKey, host.hostKey);
   });
 
   test('the watcher keeps which ways each host is heard', () {
