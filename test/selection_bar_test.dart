@@ -178,6 +178,9 @@ void main() {
   });
 
   testWidgets('the bar stays put when the panel scrolls off', (tester) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     for (var i = 0; i < 20; i++) {
       await tasks.capture('drop numero $i');
     }
@@ -213,6 +216,40 @@ void main() {
 
     await unmount(tester);
   });
+
+  testWidgets(
+    'unfolded, the rows scroll under a DROPS header that holds still',
+    (tester) async {
+      tester.view.physicalSize = const Size(1000, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      for (var i = 0; i < 20; i++) {
+        await tasks.capture('drop numero $i');
+      }
+      final project = await projects.create(name: 'Infra personal');
+      await tasks.setNext(
+        await tasks.create(projectId: project, title: 'Object storage'),
+      );
+
+      await tester.pumpWidget(host());
+      await _ready(tester);
+      final header = tester.getRect(find.text('DROPS'));
+      expect(find.text('NEXT ACTION').hitTestable(), findsOneWidget);
+
+      await tester.dragUntilVisible(
+        find.text('drop numero 0'),
+        find.text('drop numero 19'),
+        const Offset(0, -120),
+      );
+      await _ready(tester);
+
+      expect(tester.getRect(find.text('DROPS')), header);
+      expect(find.text('drop numero 0').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await unmount(tester);
+    },
+  );
 
   testWidgets('the bar verbs move and delete the checked set', (tester) async {
     final project = await projects.create(name: 'Infra personal');

@@ -361,6 +361,10 @@ There is no suggestion fallback under `NEXT ACTION` — a panel that guesses at 
 
 **Leaving a screen is leaving it.** A tab switch clears the selection and the fresh set of the tab being left, exactly as a route push does, and coming back starts clean.
 
+### Unfolded, the columns scroll and the page does not
+
+Wide enough for two columns, `AGENTS` sits in a narrow one on the left and the cards in the rest. The crumb line stays where it is, and each column scrolls under it on its own, so a drag down the drops never carries the agents or the header away with it. The `DROPS` card is as tall as its rows and never taller than the room the other cards leave in the column, so a card under it is on the screen without a scroll: past that its header holds still and its rows scroll inside the frame, which ends a gap above the capture bar rather than being cut by it. A collapsed `DONE` under it stays a header strip at the foot of the frame; opened, the two share the height. On a screen too short for the card to show more than a couple of rows, the column scrolls the card whole instead. Folded, Home is one page as before, `AGENTS` over the cards, and a fold or an unfold keeps both panels as they were.
+
 ### The capture bar is a panel, pinned above the nav
 
 Header strip `CAPTURE / QUICK ADD`, then the field line with a mono placeholder and the accent target glyph on the right. Submitting creates a drop; it never submits empty text. The form closes itself the moment the item is in.

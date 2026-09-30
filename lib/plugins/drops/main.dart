@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/home/drops_home_surface.dart';
 import '../../features/home/home_feedback.dart';
+import '../../features/home/home_card_viewport.dart';
 import '../../features/home/capture_bar.dart';
 import '../../features/tasks/drops_panel.dart';
 import '../../platform/plugins/module.dart';
@@ -37,6 +38,7 @@ class _DropsContribution extends ConsumerWidget {
     scope: DropSelection.homeScope,
     drops: ref.watch(dropsProvider),
     onCompleted: (task) => offerUndoDone(ref, task),
+    height: HomeCardViewport.maybeOf(context),
   );
 }
 
