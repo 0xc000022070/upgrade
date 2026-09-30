@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:material_ui/material_ui.dart'
     show TextSelectionTheme, TextSelectionThemeData;
 
+import '../../design/components/dot_spinner.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../design/typography.dart';
@@ -73,7 +74,13 @@ class ShellTerminalView extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextSelectionTheme(
       data: TextSelectionThemeData(selectionHandleColor: context.tokens.accent),
-      child: _view(context),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          _view(context),
+          IgnorePointer(child: ShellLoading(session: session)),
+        ],
+      ),
     );
   }
 
@@ -96,6 +103,30 @@ class ShellTerminalView extends StatelessWidget {
       ),
     );
   }
+}
+
+class ShellLoading extends StatelessWidget {
+  const ShellLoading({super.key, required this.session});
+
+  final ShellSession session;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([session, session.painted]),
+    builder: (context, _) {
+      final dialling = switch (session.state) {
+        ShellConnecting() || ShellLive() => !session.painted.value,
+        _ => false,
+      };
+      if (!dialling) return const SizedBox.shrink();
+      return Center(
+        child: DelayedSpinner(
+          key: ObjectKey(session),
+          alignment: Alignment.center,
+        ),
+      );
+    },
+  );
 }
 
 /// [ScaleGestureRecognizer] wins the arena the moment a single finger passes pan slop,

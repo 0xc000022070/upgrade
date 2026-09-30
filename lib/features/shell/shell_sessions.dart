@@ -226,6 +226,10 @@ class ShellSession extends ChangeNotifier {
 
   final ValueNotifier<int> output = ValueNotifier(0);
 
+  /// The host's own bytes, not [output], which also counts what the app writes. A tab
+  /// restored on its saved screen starts painted.
+  final ValueNotifier<bool> painted = ValueNotifier(false);
+
   int get rowsBehind {
     final bar = terminal.scrollbar;
     return bar.total - bar.offset - bar.visible;
@@ -396,6 +400,7 @@ class ShellSession extends ChangeNotifier {
     focusNode.dispose();
     scrollController.dispose();
     output.dispose();
+    painted.dispose();
     terminal.dispose();
     super.dispose();
   }
@@ -673,6 +678,7 @@ class ShellSessions extends ChangeNotifier {
           ..cwd = directory
           ..pane = pane
           ..launch = launch;
+    session.painted.value = snapshot != null;
     answerInColours(session.terminal, DazzleTokens.house.terminal);
     _byHost.putIfAbsent(host.id, () => []).add(session);
     _active[host.id] = number;
@@ -1339,7 +1345,10 @@ class ShellSessions extends ChangeNotifier {
         (args) => _onPinentry(session, args),
       );
       session._output = connection.output.listen((bytes) {
-        if (identical(session.connection, connection)) session._feed(bytes);
+        if (identical(session.connection, connection)) {
+          session.painted.value = true;
+          session._feed(bytes);
+        }
       }, onError: (Object error) => _fail(session, error, attempt));
       unawaited(_awaitExit(session, connection, attempt));
       final settled = Future.wait([

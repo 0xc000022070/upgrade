@@ -88,7 +88,9 @@ class _DotSpinnerState extends State<DotSpinner> with WidgetsBindingObserver {
 }
 
 class DelayedSpinner extends StatefulWidget {
-  const DelayedSpinner({super.key});
+  const DelayedSpinner({super.key, this.alignment = Alignment.centerLeft});
+
+  final Alignment alignment;
 
   @override
   State<DelayedSpinner> createState() => _DelayedSpinnerState();
@@ -115,9 +117,9 @@ class _DelayedSpinnerState extends State<DelayedSpinner> {
   @override
   Widget build(BuildContext context) {
     if (!_visible) return const SizedBox(height: 12);
-    return const SizedBox(
+    return SizedBox(
       height: 12,
-      child: Align(alignment: Alignment.centerLeft, child: DotSpinner()),
+      child: Align(alignment: widget.alignment, child: const DotSpinner()),
     );
   }
 }
