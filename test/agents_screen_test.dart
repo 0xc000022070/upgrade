@@ -169,7 +169,7 @@ void main() {
     await tester.pumpWidget(host(const AgentPanelState.noHost()));
     await ready(tester);
 
-    expect(find.text('TURN HERDR ON IN A HOST'), findsOneWidget);
+    expect(find.text('TURN AGENTS ON IN A HOST'), findsOneWidget);
     expect(find.text('WORKSPACES'), findsNothing);
     // Swapping the scope's overrides in place leaves the provider holding the value it
     // already had.
@@ -203,7 +203,7 @@ void main() {
         const AgentPanelState([
           HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
         ]),
-        retry: (host) {
+        retry: (host, {source = AgentSource.herdr}) {
           requested = host;
           return retried.future;
         },
@@ -238,7 +238,7 @@ void main() {
         const AgentPanelState([
           HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
         ]),
-        retry: (_) => Future.error(
+        retry: (_, {source = AgentSource.herdr}) => Future.error(
           StateError('private key material must not reach the screen'),
         ),
       ),

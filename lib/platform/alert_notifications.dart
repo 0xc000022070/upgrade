@@ -87,10 +87,33 @@ class AlertNotifications {
     ),
   ];
 
-  static List<AndroidNotificationAction> _actionsFor(AlertKind kind) =>
-      kind == AlertKind.done ? _openOnly : _actions;
+  static List<AndroidNotificationAction> get _approvalActions => const [
+    AndroidNotificationAction(
+      alertActionYes,
+      'ALLOW',
+      cancelNotification: false,
+    ),
+    AndroidNotificationAction(alertActionNo, 'DENY', cancelNotification: false),
+    AndroidNotificationAction(
+      alertActionOpen,
+      'OPEN',
+      showsUserInterface: true,
+      cancelNotification: false,
+    ),
+  ];
+
+  static List<AndroidNotificationAction> _actionsFor(
+    AlertKind kind,
+    AlertTarget target,
+  ) => switch ((kind, target)) {
+    (AlertKind.done, _) => _openOnly,
+    (_, AlertTarget(approvalId: _?)) => _approvalActions,
+    (_, AlertTarget(engine: true)) => _openOnly,
+    _ => _actions,
+  };
 
   static AndroidNotificationDetails _details({
+    required AlertTarget target,
     required String title,
     required String text,
     String? tail,
@@ -112,7 +135,7 @@ class AlertNotifications {
       styleInformation: tail == null
           ? null
           : BigTextStyleInformation('$body\n\n$tail', contentTitle: title),
-      actions: withActions ? _actionsFor(kind) : const [],
+      actions: withActions ? _actionsFor(kind, target) : const [],
     );
   }
 
@@ -129,6 +152,7 @@ class AlertNotifications {
       body: text,
       notificationDetails: NotificationDetails(
         android: _details(
+          target: target,
           title: title,
           text: text,
           tail: tail,
@@ -151,6 +175,7 @@ class AlertNotifications {
       body: text,
       notificationDetails: NotificationDetails(
         android: _details(
+          target: target,
           title: title,
           text: text,
           withActions: true,
@@ -178,6 +203,7 @@ class AlertNotifications {
       body: line == null ? text : '$text\n$line',
       notificationDetails: NotificationDetails(
         android: _details(
+          target: target,
           title: title,
           text: text,
           tail: tail,

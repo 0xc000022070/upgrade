@@ -8,6 +8,7 @@ enum ReasonLine {
   hostKeyChanged('host key changed'),
 
   protocolMismatch('protocol mismatch'),
+  noEngine('no engine'),
 
   tunnelRefused('tunnel refused'),
   authUnsupported('auth unsupported'),

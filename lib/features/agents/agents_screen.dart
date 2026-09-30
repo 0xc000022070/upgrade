@@ -84,15 +84,60 @@ class _Feed extends StatelessWidget {
             : const EmptyState('no agents'),
       );
     }
-    final single = feed.outcomes.length == 1;
+    final single =
+        {for (final outcome in feed.outcomes) outcome.host.id}.length == 1;
+    final herdr = feed.outcomes.where(
+      (outcome) => outcome.source == AgentSource.herdr,
+    );
+    final engine = feed.outcomes.where(
+      (outcome) => outcome.source == AgentSource.engine,
+    );
     return PanelStack(
       children: [
-        for (final outcome in feed.outcomes)
+        for (final outcome in herdr)
           if (!outcome.ok)
             _FailureLine(outcome: outcome, named: !single)
           else
             ..._workspacePanels(context, outcome, named: !single),
+        for (final outcome in engine)
+          if (!outcome.ok)
+            _FailureLine(outcome: outcome, named: !single)
+          else
+            _inboxPanel(context, outcome, named: !single),
       ],
+    );
+  }
+
+  Widget _inboxPanel(
+    BuildContext context,
+    HostOutcome outcome, {
+    required bool named,
+  }) {
+    final sessions = [...outcome.agents]
+      ..sort((a, b) => b.stateChangeSeq.compareTo(a.stateChangeSeq));
+    return Panel(
+      title: inboxTitle(outcome.host, named: named),
+      bodyPadding: sessions.isEmpty
+          ? const EdgeInsets.all(Spacing.panelPadding)
+          : panelRowsPadding,
+      child: sessions.isEmpty
+          ? const EmptyState('no sessions')
+          : ListRowGroup(
+              children: [
+                for (final agent in sessions)
+                  ListRow(
+                    leading: AgentMark(agent.agent),
+                    leadingWidth: 24,
+                    title: inboxLine(agent),
+                    titleMaxLines: 2,
+                    subtitle:
+                        '${agentMarkName(agent.agent)} · ${path.basename(agent.cwd)} · ${outcome.host.name}',
+                    value: agent.state.label,
+                    valueColor: agentStateColor(context, agent.state),
+                    onTap: () => onOpen(outcome.host, agent),
+                  ),
+              ],
+            ),
     );
   }
 
@@ -211,12 +256,16 @@ class _FailureLineState extends ConsumerState<_FailureLine> {
     final outcome = _retried ?? widget.outcome;
     final timestamp = outcome.lastGoodAt;
     return Panel(
-      title: widget.named ? outcome.host.name.toUpperCase() : 'AGENTS',
+      title: outcome.source == AgentSource.engine
+          ? inboxTitle(outcome.host, named: widget.named)
+          : widget.named
+          ? outcome.host.name.toUpperCase()
+          : 'AGENTS',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _DiagnosticRow(
-            label: 'HERDR',
+            label: outcome.source == AgentSource.engine ? 'AGENTS' : 'HERDR',
             value: outcome.ok ? 'connected' : outcome.reason,
           ),
           _DiagnosticRow(
@@ -253,7 +302,10 @@ class _FailureLineState extends ConsumerState<_FailureLine> {
     });
     try {
       final host = widget.outcome.host;
-      final outcome = await ref.read(agentRetryProvider)(host);
+      final outcome = await ref.read(agentRetryProvider)(
+        host,
+        source: widget.outcome.source,
+      );
       if (!mounted || widget.outcome.host.id != host.id) return;
       setState(() => _retried = outcome);
     } catch (_) {
@@ -294,6 +346,17 @@ class _DiagnosticRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String inboxTitle(Host host, {required bool named}) =>
+    named ? '${host.name.toUpperCase()} / INBOX' : 'INBOX';
+
+String inboxLine(AgentSnapshot agent) {
+  final line =
+      agent.approval?.line ?? agent.question ?? agent.terminalTitleStripped;
+  return line.trim().isEmpty
+      ? '${agentMarkName(agent.agent)} session'
+      : line.trim();
 }
 
 String _agentTarget(Host host) {

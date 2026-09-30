@@ -6,7 +6,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../application/alerts.dart';
 import '../application/pin_alerts.dart';
 import 'alert_notifications.dart';
+import 'engine_agents.dart';
 import 'herdr_client.dart';
+import 'host_keys.dart';
 import 'keys.dart';
 
 /// Android delivers an action tap to this app's background isolate when the activity is
@@ -58,7 +60,11 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
 
   // The state line goes up before the connection is dialled: an unreachable host takes
   // ten seconds to say so.
-  await redraw(line: alertSentLine(yes: yes), withActions: false);
+  final approval = target.approvalId;
+  await redraw(
+    line: alertSentLine(yes: yes, approval: approval != null),
+    withActions: false,
+  );
 
   try {
     final privateKey = await const Ed25519Keys(SecurePrivateKeyStore())
@@ -72,12 +78,29 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
       port: target.port,
       user: target.user,
       privateKey: privateKey,
+      verifier: approval == null
+          ? null
+          : HostKeyVerifier.pinnedOnly(target.hostKey),
     );
     try {
-      await session.sendKeys(target.pane, answerKeys(target.agent, yes: yes));
+      if (approval != null) {
+        await EngineAgents(
+          session,
+          owner: target.user,
+        ).answer(approval, allow: yes);
+      } else {
+        await session.sendKeys(target.pane, answerKeys(target.agent, yes: yes));
+      }
     } finally {
       session.close();
     }
+  } on EngineRefused catch (error) {
+    debugPrint('dazzle.engine ${target.address}: $error');
+    await redraw(
+      line: alertFailedLine(error.notFound ? 'ALREADY ANSWERED' : 'REFUSED'),
+      withActions: false,
+    );
+    return;
   } on HerdrFailure catch (error) {
     debugPrint('dazzle.herdr ${target.address}: ${error.detail ?? error}');
     await redraw(

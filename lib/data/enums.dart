@@ -74,6 +74,8 @@ class ActivityActionConverter extends TypeConverter<ActivityAction, String> {
 enum IntegrationKind {
   herdr('herdr', 'HERDR'),
 
+  agents('agents', 'AGENTS'),
+
   vnc('vnc', 'VNC'),
 
   devices('devices', 'DEVICES');

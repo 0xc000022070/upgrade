@@ -10,6 +10,7 @@ import '../application/alerts.dart';
 import '../application/pin_alerts.dart';
 import '../data/repositories/host_repository.dart';
 import 'alert_notifications.dart';
+import 'engine_agents.dart';
 import 'herdr_client.dart';
 import 'host_keys.dart';
 import 'keys.dart';
@@ -34,10 +35,15 @@ const _kindsKey = 'dazzle.watcher.kinds';
 /// snapshots, which is what produces the alert on an emulator with no key on the host.
 const _fakeWatch = bool.fromEnvironment('DAZZLE_FAKE_WATCH');
 
-String encodeWatcherHosts(List<Host> hosts) => jsonEncode([
+String encodeWatcherHosts(
+  List<Host> hosts, {
+  Map<String, Set<AgentSource>> sources = const {},
+}) => jsonEncode([
   for (final host in hosts)
     {
       'id': host.id,
+      if (sources[host.id] case final named?)
+        'sources': [for (final source in named) source.name],
       'name': host.name,
       'address': host.address,
       'port': host.port,
@@ -53,6 +59,42 @@ String encodeWatcherHosts(List<Host> hosts) => jsonEncode([
         },
     },
 ]);
+
+Map<String, Set<AgentSource>> decodeWatcherSources(String? raw) {
+  if (raw == null || raw.isEmpty) return const {};
+  try {
+    final json = jsonDecode(raw);
+    if (json is! List<Object?>) return const {};
+    return {
+      for (final row in json)
+        if (row case {
+          'id': final String id,
+          'sources': final List<Object?> named,
+        })
+          id: {
+            for (final source in AgentSource.values)
+              if (named.contains(source.name)) source,
+          },
+    };
+  } catch (_) {
+    return const {};
+  }
+}
+
+Set<AgentSource> _sourcesOf(Map<String, Set<AgentSource>> sources, Host host) =>
+    sources[host.id] ?? const {AgentSource.herdr};
+
+({List<Host> hosts, Map<String, Set<AgentSource>> sources}) watcherHostsOf(
+  List<AgentChannel> channels,
+) {
+  final hosts = <String, Host>{};
+  final sources = <String, Set<AgentSource>>{};
+  for (final (:host, :source) in channels) {
+    hosts[host.id] = host;
+    sources.putIfAbsent(host.id, () => {}).add(source);
+  }
+  return (hosts: hosts.values.toList(), sources: sources);
+}
 
 List<Host> decodeWatcherHosts(String? raw) {
   if (raw == null || raw.isEmpty) return const [];
@@ -152,8 +194,12 @@ class AgentWatcher {
     return asked == NotificationPermission.granted;
   }
 
-  static Future<void> start(List<Host> hosts, Set<AlertKind> kinds) async {
-    await _save(hosts, kinds);
+  static Future<void> start(
+    List<Host> hosts,
+    Set<AlertKind> kinds, {
+    Map<String, Set<AgentSource>> sources = const {},
+  }) async {
+    await _save(hosts, kinds, sources);
     if (await FlutterForegroundTask.isRunningService) {
       FlutterForegroundTask.sendDataToTask(_reloadHosts);
       return;
@@ -169,17 +215,25 @@ class AgentWatcher {
     }
   }
 
-  static Future<void> setHosts(List<Host> hosts, Set<AlertKind> kinds) async {
-    await _save(hosts, kinds);
+  static Future<void> setHosts(
+    List<Host> hosts,
+    Set<AlertKind> kinds, {
+    Map<String, Set<AgentSource>> sources = const {},
+  }) async {
+    await _save(hosts, kinds, sources);
     if (await FlutterForegroundTask.isRunningService) {
       FlutterForegroundTask.sendDataToTask(_reloadHosts);
     }
   }
 
-  static Future<void> _save(List<Host> hosts, Set<AlertKind> kinds) async {
+  static Future<void> _save(
+    List<Host> hosts,
+    Set<AlertKind> kinds,
+    Map<String, Set<AgentSource>> sources,
+  ) async {
     await FlutterForegroundTask.saveData(
       key: _hostsKey,
-      value: encodeWatcherHosts(hosts),
+      value: encodeWatcherHosts(hosts, sources: sources),
     );
     await FlutterForegroundTask.saveData(
       key: _kindsKey,
@@ -187,7 +241,10 @@ class AgentWatcher {
     );
   }
 
-  static Future<HostOutcome> retry(Host host) async {
+  static Future<HostOutcome> retry(
+    Host host, {
+    AgentSource source = AgentSource.herdr,
+  }) async {
     final requestId =
         '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}-'
         '${(_retryRequests++).toRadixString(36)}';
@@ -196,13 +253,17 @@ class AgentWatcher {
         .where((report) => report != null)
         .cast<WatcherReport>()
         .firstWhere(
-          (report) => report.hostId == host.id && report.requestId == requestId,
+          (report) =>
+              report.hostId == host.id &&
+              report.source == source &&
+              report.requestId == requestId,
         )
         .timeout(const Duration(seconds: 20));
     FlutterForegroundTask.sendDataToTask(
       jsonEncode({
         'command': _retryHost,
         'host_id': host.id,
+        'source': source.name,
         'request_id': requestId,
       }),
     );
@@ -257,14 +318,14 @@ class AgentWatcher {
   }
 
   static Stream<AgentPanelState?> feed(
-    Stream<List<Host>> hosts, {
+    Stream<List<AgentChannel>> channels, {
     Stream<Object>? data,
     Stream<bool>? running,
   }) {
     final controller = StreamController<AgentPanelState?>();
     final reports = <String, WatcherReport>{};
     final subscriptions = <StreamSubscription<Object?>>[];
-    var known = <Host>[];
+    var known = <AgentChannel>[];
 
     void emit() {
       if (reports.isEmpty) {
@@ -272,9 +333,10 @@ class AgentWatcher {
         return;
       }
       controller.add(
-        AgentPanelState([
-          for (final host in known)
-            if (reports[host.id] case final report?) report.toOutcome(host),
+        AgentPanelState.linked([
+          for (final (:host, :source) in known)
+            if (reports[channelKey(host.id, source)] case final report?)
+              report.toOutcome(host),
         ]),
       );
     }
@@ -282,10 +344,12 @@ class AgentWatcher {
     controller
       ..onListen = () {
         subscriptions.add(
-          hosts.listen((list) {
+          channels.listen((list) {
             known = list;
             reports.removeWhere(
-              (hostId, _) => !list.any((host) => host.id == hostId),
+              (key, _) => !list.any(
+                (channel) => channelKey(channel.host.id, channel.source) == key,
+              ),
             );
             emit();
           }),
@@ -294,7 +358,7 @@ class AgentWatcher {
           (data ?? taskData()).listen((message) {
             final report = _decodeReport(message);
             if (report == null) return;
-            reports[report.hostId] = report;
+            reports[report.key] = report;
             emit();
           }),
         );
@@ -357,7 +421,7 @@ class AgentWatcherHandler extends TaskHandler {
   final Map<String, WatcherReport> _reports = {};
 
   String? _persistent;
-  List<Host> _hosts = const [];
+  List<AgentChannel> _channels = const [];
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) =>
@@ -384,6 +448,11 @@ class AgentWatcherHandler extends TaskHandler {
       retryHost(
         message['host_id']! as String,
         message['request_id']! as String,
+        source:
+            AgentSource.values
+                .where((value) => value.name == message['source'])
+                .firstOrNull ??
+            AgentSource.herdr,
       );
     } catch (_) {}
   }
@@ -400,7 +469,10 @@ class AgentWatcherHandler extends TaskHandler {
     final hosts = await FlutterForegroundTask.getData<String>(key: _hostsKey);
     final kinds = await FlutterForegroundTask.getData<String>(key: _kindsKey);
     await setKinds(decodeWatcherKinds(kinds));
-    await setHosts(decodeWatcherHosts(hosts));
+    await setHosts(
+      decodeWatcherHosts(hosts),
+      sources: decodeWatcherSources(hosts),
+    );
   }
 
   @visibleForTesting
@@ -408,13 +480,11 @@ class AgentWatcherHandler extends TaskHandler {
     for (final kind in AlertKind.values) {
       if (kinds.contains(kind) || !_book.kinds.contains(kind)) continue;
       final edges = _book.edges[kind]!;
-      for (final host in _hosts) {
-        for (final pane in edges.panesOn(host.id)) {
-          await AlertNotifications.cancel(
-            kindNotificationId(kind, host.id, pane),
-          );
+      for (final key in _loops.keys) {
+        for (final edge in edges.panesOn(key)) {
+          await AlertNotifications.cancel(kindNotificationId(kind, key, edge));
         }
-        edges.reset(host.id);
+        edges.reset(key);
       }
     }
     _book.kinds = kinds;
@@ -423,20 +493,32 @@ class AgentWatcherHandler extends TaskHandler {
   /// Public only so a test can reach the loops without the store the isolate reads them
   /// from, which is a plugin channel no test binding answers.
   @visibleForTesting
-  Future<void> setHosts(List<Host> hosts) async {
-    _hosts = hosts;
-    final wanted = {for (final host in hosts) host.id: host};
-    for (final id in _loops.keys.toList()) {
-      if (wanted.containsKey(id)) continue;
-      await _loops.remove(id)!.stop();
-      _reports.remove(id);
+  Future<void> setHosts(
+    List<Host> hosts, {
+    Map<String, Set<AgentSource>> sources = const {},
+  }) async {
+    _channels = [
+      for (final host in hosts)
+        for (final source in AgentSource.values)
+          if (_sourcesOf(sources, host).contains(source))
+            (host: host, source: source),
+    ];
+    final wanted = {
+      for (final channel in _channels)
+        channelKey(channel.host.id, channel.source): channel,
+    };
+    for (final key in _loops.keys.toList()) {
+      if (wanted.containsKey(key)) continue;
+      await _loops.remove(key)!.stop();
+      _reports.remove(key);
     }
-    for (final host in hosts) {
-      final existing = _loops[host.id];
+    for (final MapEntry(:key, value: (:host, :source)) in wanted.entries) {
+      final existing = _loops[key];
       if (existing != null && existing.sameHost(host)) continue;
       await existing?.stop();
-      _loops[host.id] = _HostLoop(
+      _loops[key] = _HostLoop(
         host: host,
+        source: source,
         keys: _keys,
         client: _client,
         pins: _pins,
@@ -448,12 +530,16 @@ class AgentWatcherHandler extends TaskHandler {
   }
 
   @visibleForTesting
-  void retryHost(String hostId, String requestId) {
-    _loops[hostId]?.retry(requestId);
+  void retryHost(
+    String hostId,
+    String requestId, {
+    AgentSource source = AgentSource.herdr,
+  }) {
+    _loops[channelKey(hostId, source)]?.retry(requestId);
   }
 
   void _publish(WatcherReport report) {
-    _reports[report.hostId] = report;
+    _reports[report.key] = report;
     FlutterForegroundTask.sendDataToMain(jsonEncode(report.toJson()));
     _redrawPersistent();
   }
@@ -461,18 +547,20 @@ class AgentWatcherHandler extends TaskHandler {
   void _redrawPersistent() {
     final outcomes = <HostOutcome>[];
     final retries = <String, Duration>{};
-    for (final host in _hosts) {
-      final report = _reports[host.id];
+    final hosts = <String, Host>{};
+    for (final (:host, :source) in _channels) {
+      hosts[host.id] = host;
+      final report = _reports[channelKey(host.id, source)];
       if (report == null) continue;
       outcomes.add(report.toOutcome(host));
       if (report.retryIn case final retry?) retries[host.id] = retry;
     }
     final text = outcomes.isEmpty
         ? watcherNotificationText([
-            for (final host in _hosts)
+            for (final host in hosts.values)
               HostOutcome(host: host, kind: AgentOutcomeKind.snapshot),
           ])
-        : watcherNotificationText(outcomes, retries: retries);
+        : watcherNotificationText(linkAgents(outcomes), retries: retries);
     // Most of what a host reports does not move the line, and posting it again is a binder
     // call and a redraw of a row in the shade that already reads that way.
     if (text == _persistent) return;
@@ -490,11 +578,14 @@ class _AlertBook {
   };
 
   Set<AlertKind> kinds = const {};
+
+  final Map<String, Set<String>> claimed = {};
 }
 
 class _HostLoop {
   _HostLoop({
     required this.host,
+    required this.source,
     required this.keys,
     required this.client,
     required this.pins,
@@ -503,6 +594,7 @@ class _HostLoop {
   });
 
   final Host host;
+  final AgentSource source;
   final Ed25519Keys keys;
   final HerdrClient client;
   final PinNotifier pins;
@@ -518,6 +610,12 @@ class _HostLoop {
   Completer<void>? _waiting;
   List<AgentSnapshot> _lastAgents = const [];
   DateTime? _lastGoodAt;
+
+  String get _key => channelKey(host.id, source);
+
+  bool get _engine => source == AgentSource.engine;
+
+  static const _engineWait = Duration(seconds: 25);
 
   late final PinShade _shade = PinShade(pins);
   Timer? _pinTicks;
@@ -576,17 +674,20 @@ class _HostLoop {
     // state that posted it, and a watcher that is going away cannot.
     for (final kind in AlertKind.values) {
       final edges = book.edges[kind]!;
-      for (final pane in edges.panesOn(host.id)) {
-        await AlertNotifications.cancel(
-          kindNotificationId(kind, host.id, pane),
-        );
+      for (final edge in edges.panesOn(_key)) {
+        await AlertNotifications.cancel(kindNotificationId(kind, _key, edge));
       }
-      edges.reset(host.id);
+      edges.reset(_key);
     }
-    await _tellShade(null);
+    if (_engine) {
+      book.claimed.remove(host.id);
+    } else {
+      await _tellShade(null);
+    }
   }
 
-  void _log(Object error) => debugPrint('dazzle.herdr ${host.name}: $error');
+  void _log(Object error) =>
+      debugPrint('dazzle.${source.name} ${host.name}: $error');
 
   /// Every wait this loop takes goes through it: the service is torn down by Android's
   /// `onDestroy`, which is on a clock, and a loop asleep in its own backoff carries the
@@ -614,6 +715,14 @@ class _HostLoop {
         if (!interrupted) {
           _log(error.detail ?? error);
           _reportFailure(kind, protocol: _protocolOf(error));
+        }
+      } on EngineRefused catch (error) {
+        kind = AgentOutcomeKind.protocolMismatch;
+        interrupted = _interrupting;
+        _interrupting = false;
+        if (!interrupted) {
+          _log(error);
+          _reportFailure(kind);
         }
       } catch (error) {
         interrupted = _interrupting;
@@ -663,6 +772,7 @@ class _HostLoop {
       verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
     );
     _session = session;
+    if (_engine) return _watchEngine(session);
     // No reset here. A reconnect inside one service life keeps the set, because the panes
     // did not change while the link was down: resetting re-entered every pane still
     // blocked, which reposted the alert and overwrote an answer the user had already given.
@@ -674,6 +784,24 @@ class _HostLoop {
       }
     } finally {
       _stopPinTicks();
+    }
+  }
+
+  Future<void> _watchEngine(HerdrSession session) async {
+    final engine = EngineAgents(session, owner: host.user);
+    int? generation;
+    while (!_stopped && identical(_session, session)) {
+      final seen = await engine.watch(
+        generation: generation,
+        wait: generation == null ? Duration.zero : _engineWait,
+      );
+      if (_stopped) return;
+      if (seen.generation == generation) continue;
+      generation = seen.generation;
+      book.claimed[host.id] = {
+        for (final agent in seen.agents) ?agent.herdrPane,
+      };
+      await _onSnapshot(seen.agents, null);
     }
   }
 
@@ -733,13 +861,16 @@ class _HostLoop {
     // The backoff is per outage: a connection that carried a snapshot has earned the next
     // one its full start.
     _backoff.reset();
+    final claimed = _engine ? const <String>{} : book.claimed[host.id] ?? {};
+    final alerting = [
+      for (final agent in agents)
+        if (!claimed.contains(agent.paneId)) agent,
+    ];
     for (final kind in AlertKind.values) {
       if (!book.kinds.contains(kind)) continue;
-      final delta = book.edges[kind]!.apply(host.id, agents);
-      for (final pane in delta.left) {
-        await AlertNotifications.cancel(
-          kindNotificationId(kind, host.id, pane),
-        );
+      final delta = book.edges[kind]!.apply(_key, alerting);
+      for (final edge in delta.left) {
+        await AlertNotifications.cancel(kindNotificationId(kind, _key, edge));
       }
       for (final snapshot in delta.entered) {
         await _post(kind, snapshot, session);
@@ -753,11 +884,13 @@ class _HostLoop {
     AgentSnapshot snapshot,
     HerdrSession? session,
   ) async {
-    final target = AlertTarget.forHost(host, snapshot);
+    final target = AlertTarget.forHost(host, snapshot, channel: _key);
     if (kind == AlertKind.done) {
       return AlertNotifications.done(target: target, snapshot: snapshot);
     }
-    final tail = session == null ? null : await session.read(snapshot.pane);
+    final tail = session == null || _engine
+        ? null
+        : await session.read(snapshot.pane);
     return AlertNotifications.alert(
       target: target,
       snapshot: snapshot,
@@ -771,6 +904,7 @@ class _HostLoop {
     onReport(
       WatcherReport(
         hostId: host.id,
+        source: source,
         kind: kind,
         // A host that blinks does not empty the panel, so the last good agents ride along with
         // the failure.
@@ -869,6 +1003,7 @@ AgentOutcomeKind _kindOf(HerdrFailure error) => switch (error) {
   HerdrProtocolMismatch() => AgentOutcomeKind.protocolMismatch,
   HerdrUnresolved() => AgentOutcomeKind.unresolved,
   HerdrUnreachable() => AgentOutcomeKind.unreachable,
+  EngineMissing() => AgentOutcomeKind.noEngine,
   HerdrHostKeyUnverified() => AgentOutcomeKind.hostKeyUnverified,
   HerdrHostKeyChanged() => AgentOutcomeKind.hostKeyChanged,
 };

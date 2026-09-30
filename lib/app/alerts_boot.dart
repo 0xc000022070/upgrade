@@ -6,13 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/agents.dart';
 import '../application/alerts.dart';
 import '../application/pin_alerts.dart';
-import '../data/enums.dart';
-import '../data/repositories/host_repository.dart';
 import '../features/agents/agents_screen.dart';
 import '../features/shell/shell_sheet.dart';
 import '../platform/agent_watcher.dart';
 import '../platform/alert_actions.dart';
 import '../platform/alert_notifications.dart';
+import '../platform/herdr_client.dart';
 import '../platform/pin_notifications.dart';
 
 /// Set when the process was started by an `OPEN` tap on an alert, so a cold launch
@@ -54,16 +53,14 @@ Future<void> initAlerts() async {
 List<Override> alertOverrides() => [
   agentRetryProvider.overrideWith((ref) {
     final foreground = foregroundAgentRetry(ref);
-    return (host) async {
-      if (!await AgentWatcher.running) return foreground(host);
-      return AgentWatcher.retry(host);
+    return (host, {source = AgentSource.herdr}) async {
+      if (!await AgentWatcher.running) return foreground(host, source: source);
+      return AgentWatcher.retry(host, source: source);
     };
   }),
   watcherFeedProvider.overrideWith(
     (ref) => AgentWatcher.feed(
-      ref
-          .watch(hostRepositoryProvider)
-          .watchWithIntegration(IntegrationKind.herdr),
+      watchAgentChannels(ref.watch(hostRepositoryProvider)),
     ),
   ),
 ];
@@ -94,7 +91,7 @@ class _AlertsHostState extends ConsumerState<AlertsHost> {
     // every rebuild, including the ones neither provider caused.
     ref.listenManual(alertsWantedProvider, (_, _) => _sync());
     ref.listenManual(
-      herdrHostsProvider,
+      agentChannelsProvider,
       (_, _) => _sync(),
       fireImmediately: true,
     );
@@ -135,14 +132,19 @@ class _AlertsHostState extends ConsumerState<AlertsHost> {
 
   void _sync() {
     final kinds = ref.read(alertsWantedProvider);
-    final hosts = ref.read(herdrHostsProvider).valueOrNull ?? const <Host>[];
+    final (:hosts, :sources) = watcherHostsOf(
+      ref.read(agentChannelsProvider).valueOrNull ?? const [],
+    );
     final next = kinds.isEmpty || hosts.isEmpty
         ? ''
-        : '${encodeWatcherKinds(kinds)}${encodeWatcherHosts(hosts)}';
+        : '${encodeWatcherKinds(kinds)}'
+              '${encodeWatcherHosts(hosts, sources: sources)}';
     if (next == _applied) return;
     _applied = next;
     unawaited(
-      next.isEmpty ? AgentWatcher.stop() : AgentWatcher.start(hosts, kinds),
+      next.isEmpty
+          ? AgentWatcher.stop()
+          : AgentWatcher.start(hosts, kinds, sources: sources),
     );
   }
 

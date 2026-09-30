@@ -144,7 +144,7 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    await container.read(herdrHostsProvider.future);
+    await container.read(agentChannelsProvider.future);
     final state = await container.read(agentsFeedProvider.future);
 
     expect(state.noHost, isTrue);
@@ -178,7 +178,7 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
-      await container.read(herdrHostsProvider.future);
+      await container.read(agentChannelsProvider.future);
       final subscription = container.listen(agentsFeedProvider, (_, _) {});
       addTearDown(subscription.close);
 
@@ -232,7 +232,7 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    await container.read(herdrHostsProvider.future);
+    await container.read(agentChannelsProvider.future);
     final subscription = container.listen(
       agentsFeedProvider,
       (_, next) => next.whenData(states.add),
@@ -298,7 +298,7 @@ void main() {
     );
     addTearDown(container.dispose);
     container.read(homeAgentsVisibleProvider.notifier).state = true;
-    await container.read(herdrHostsProvider.future);
+    await container.read(agentChannelsProvider.future);
     final subscription = container.listen(agentsFeedProvider, (_, _) {});
     addTearDown(subscription.close);
     await _waitFor(
@@ -360,7 +360,7 @@ void main() {
         }),
       ],
     );
-    await container.read(herdrHostsProvider.future);
+    await container.read(agentChannelsProvider.future);
     final subscription = container.listen(
       agentsFeedProvider,
       (_, next) => next.whenData(states.add),
@@ -413,7 +413,7 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    await container.read(herdrHostsProvider.future);
+    await container.read(agentChannelsProvider.future);
     final subscription = container.listen(
       agentsFeedProvider,
       (_, next) => next.whenData(states.add),
@@ -668,7 +668,7 @@ void main() {
   ) async {
     await tester.pumpWidget(host(const AgentPanelState.noHost()));
 
-    final action = find.text('TURN HERDR ON IN A HOST');
+    final action = find.text('TURN AGENTS ON IN A HOST');
     final container = ProviderScope.containerOf(
       tester.element(find.byType(AgentsPanel)),
     );

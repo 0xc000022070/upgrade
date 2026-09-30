@@ -16,6 +16,33 @@ import 'shell/remote_shell.dart';
 import 'shell/shell_launch.dart';
 import 'ssh_settle.dart';
 
+enum AgentSource { herdr, engine }
+
+class AgentApproval {
+  const AgentApproval({
+    required this.id,
+    required this.tool,
+    required this.summary,
+  });
+
+  final String id;
+  final String tool;
+  final String summary;
+
+  String get line => summary.isEmpty ? tool : '$tool · $summary';
+
+  Map<String, Object?> toJson() => {'id': id, 'tool': tool, 'summary': summary};
+
+  static AgentApproval? fromJson(Object? json) {
+    if (json is! Map<String, Object?>) return null;
+    final id = json['id'];
+    final tool = json['tool'];
+    final summary = json['summary'];
+    if (id is! String || tool is! String || summary is! String) return null;
+    return AgentApproval(id: id, tool: tool, summary: summary);
+  }
+}
+
 class AgentSnapshot {
   const AgentSnapshot({
     required this.session,
@@ -27,6 +54,12 @@ class AgentSnapshot {
     required this.cwd,
     required this.stateChangeSeq,
     this.workspaceLabel,
+    this.source = AgentSource.herdr,
+    this.approval,
+    this.question,
+    this.message,
+    this.herdrPane,
+    this.link,
   });
 
   /// Not in herdr's own document, which one server answers without saying which; stamped
@@ -46,6 +79,43 @@ class AgentSnapshot {
   /// only the id. A refused or unreadable list leaves it null rather than failing the round.
   final String? workspaceLabel;
 
+  final AgentSource source;
+
+  final AgentApproval? approval;
+  final String? question;
+  final String? message;
+
+  final String? herdrPane;
+
+  final PaneRef? link;
+
+  bool get engine => source == AgentSource.engine;
+
+  String get edgeId =>
+      approval == null ? paneId : '$paneId$edgeSeparator${approval!.id}';
+
+  static const edgeSeparator = '#';
+
+  static String paneOfEdge(String edge) => edge.split(edgeSeparator).first;
+
+  AgentSnapshot linkedTo(PaneRef? pane) => AgentSnapshot(
+    session: session,
+    paneId: paneId,
+    agent: agent,
+    state: state,
+    terminalTitleStripped: terminalTitleStripped,
+    workspaceId: workspaceId,
+    cwd: cwd,
+    stateChangeSeq: stateChangeSeq,
+    workspaceLabel: workspaceLabel,
+    source: source,
+    approval: approval,
+    question: question,
+    message: message,
+    herdrPane: herdrPane,
+    link: pane,
+  );
+
   bool get blocked => state.blocked;
 
   bool get done => state.done;
@@ -62,6 +132,11 @@ class AgentSnapshot {
     'cwd': cwd,
     'state_change_seq': stateChangeSeq,
     if (workspaceLabel != null) 'workspace_label': workspaceLabel,
+    if (source != AgentSource.herdr) 'source': source.name,
+    if (approval != null) 'approval': approval!.toJson(),
+    if (question != null) 'question': question,
+    if (message != null) 'message': message,
+    if (herdrPane != null) 'herdr_pane': herdrPane,
   };
 
   factory AgentSnapshot.fromJson(Map<String, Object?> json) {
@@ -73,6 +148,8 @@ class AgentSnapshot {
 
     final label = json['workspace_label'];
     if (label != null && label is! String) throw const HerdrProtocolMismatch();
+    String? optional(String name) =>
+        json[name] is String ? json[name]! as String : null;
     return AgentSnapshot(
       session: field<String>('session'),
       paneId: field<String>('pane_id'),
@@ -83,6 +160,15 @@ class AgentSnapshot {
       cwd: field<String>('cwd'),
       stateChangeSeq: field<int>('state_change_seq'),
       workspaceLabel: label as String?,
+      source:
+          AgentSource.values
+              .where((value) => value.name == json['source'])
+              .firstOrNull ??
+          AgentSource.herdr,
+      approval: AgentApproval.fromJson(json['approval']),
+      question: optional('question'),
+      message: optional('message'),
+      herdrPane: optional('herdr_pane'),
     );
   }
 }
@@ -413,6 +499,13 @@ final class HerdrHostKeyChanged extends HerdrFailure {
   ReasonLine get line => ReasonLine.hostKeyChanged;
 }
 
+final class EngineMissing extends HerdrFailure {
+  const EngineMissing([super.detail]);
+
+  @override
+  ReasonLine get line => ReasonLine.noEngine;
+}
+
 final class HerdrProtocolMismatch extends HerdrFailure {
   const HerdrProtocolMismatch([this.protocol, super.detail]);
 
@@ -445,6 +538,29 @@ class HerdrSession {
   /// servers for a fresh list. The roster is re-read on its own slow beat, since no socket
   /// method lists sessions. The stream ends on a dropped connection.
   Stream<List<AgentSnapshot>> watch() => _AgentWatch(this).stream;
+
+  Future<Object?> engine(
+    Map<String, Object?> request, {
+    Duration? within,
+  }) async {
+    final result = await _runWithStdin(
+      'dazzle-engine',
+      Uint8List.fromList(utf8.encode(jsonEncode(request))),
+      within: within,
+    );
+    final said = utf8.decode(result.stderr, allowMalformed: true).trim();
+    if (result.exitCode == 127 || said.endsWith('not found')) {
+      throw EngineMissing(said);
+    }
+    try {
+      return jsonDecode(utf8.decode(result.stdout));
+    } on FormatException {
+      throw HerdrProtocolMismatch(
+        null,
+        said.isEmpty ? 'engine said nothing' : said,
+      );
+    }
+  }
 
   Future<List<AgentSnapshot>> list() async {
     final roster = await _roster();

@@ -19,6 +19,8 @@ import '../../design/components/section.dart';
 import '../../design/components/toolbar_icon_action.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
+import '../../platform/engine_agents.dart';
+import '../../platform/herdr_client.dart';
 import '../../platform/host_key_dial.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/link_probe.dart';
@@ -30,6 +32,7 @@ import '../shell/shell_sheet.dart';
 import '../shell/shell_sessions.dart';
 import '../shell/shell_status.dart';
 import '../shell/shell_watcher.dart';
+import 'hook_sheet.dart';
 import 'host_key_sheet.dart';
 import 'keys_screen.dart';
 import 'link_probes.dart';
@@ -168,7 +171,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
                         key: ValueKey(selected.id),
                         host: selected,
                         keyName: keyNames[selected.keyId],
-                        outcome: _outcomeFor(feed, selected.id),
+                        feed: feed,
                       ),
                     ),
                   ],
@@ -254,11 +257,7 @@ class _HostDetail extends ConsumerWidget {
           onBack: () => Navigator.of(context).pop(),
           children: [
             if (host != null)
-              _HostPanel(
-                host: host,
-                keyName: keyNames[host.keyId],
-                outcome: _outcomeFor(feed, host.id),
-              )
+              _HostPanel(host: host, keyName: keyNames[host.keyId], feed: feed)
             else
               const EmptyState('Host no longer available.'),
           ],
@@ -268,9 +267,13 @@ class _HostDetail extends ConsumerWidget {
   }
 }
 
-HostOutcome? _outcomeFor(AgentPanelState? feed, String hostId) {
+HostOutcome? _outcomeFor(
+  AgentPanelState? feed,
+  String hostId,
+  AgentSource source,
+) {
   for (final outcome in feed?.outcomes ?? const <HostOutcome>[]) {
-    if (outcome.host.id == hostId) return outcome;
+    if (outcome.host.id == hostId && outcome.source == source) return outcome;
   }
   return null;
 }
@@ -280,15 +283,17 @@ class _HostPanel extends ConsumerWidget {
     super.key,
     required this.host,
     required this.keyName,
-    required this.outcome,
+    required this.feed,
   });
 
   final Host host;
   final String? keyName;
-  final HostOutcome? outcome;
+  final AgentPanelState? feed;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final herdr = _outcomeFor(feed, host.id, AgentSource.herdr);
+    final engine = _outcomeFor(feed, host.id, AgentSource.engine);
     final integrations =
         ref.watch(hostIntegrationsProvider(host.id)).valueOrNull ??
         const <IntegrationKind>{};
@@ -310,14 +315,26 @@ class _HostPanel extends ConsumerWidget {
           _MetaRow('ADDRESS', '${host.address}:${host.port}'),
           _MetaRow('USER', host.user),
           _MetaRow('KEY', keyName ?? '—'),
-          _LinkRow(host: host, outcome: outcome),
+          _LinkRow(host: host, outcome: herdr ?? engine),
           _MetaRow(
             'INTEGRATIONS',
             on.isEmpty ? 'NONE' : on.join('  '),
             strong: on.isNotEmpty,
           ),
           if (integrations.contains(IntegrationKind.herdr))
-            _HerdrStateRow(host: host, outcome: outcome),
+            _AgentStateRow(
+              host: host,
+              source: AgentSource.herdr,
+              outcome: herdr,
+            ),
+          if (integrations.contains(IntegrationKind.agents)) ...[
+            _AgentStateRow(
+              host: host,
+              source: AgentSource.engine,
+              outcome: engine,
+            ),
+            _HookRows(key: ValueKey('hooks-${host.id}'), host: host),
+          ],
           _ClipboardRow(host: host),
           _ShellRow(host: host),
           if (integrations.contains(IntegrationKind.devices))
@@ -333,23 +350,28 @@ class _HostPanel extends ConsumerWidget {
   }
 }
 
-class _HerdrStateRow extends ConsumerStatefulWidget {
-  const _HerdrStateRow({required this.host, required this.outcome});
+class _AgentStateRow extends ConsumerStatefulWidget {
+  const _AgentStateRow({
+    required this.host,
+    required this.source,
+    required this.outcome,
+  });
 
   final Host host;
+  final AgentSource source;
   final HostOutcome? outcome;
 
   @override
-  ConsumerState<_HerdrStateRow> createState() => _HerdrStateRowState();
+  ConsumerState<_AgentStateRow> createState() => _AgentStateRowState();
 }
 
-class _HerdrStateRowState extends ConsumerState<_HerdrStateRow> {
+class _AgentStateRowState extends ConsumerState<_AgentStateRow> {
   HostOutcome? _retried;
   bool _retrying = false;
   bool _retryFailed = false;
 
   @override
-  void didUpdateWidget(_HerdrStateRow oldWidget) {
+  void didUpdateWidget(_AgentStateRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.outcome != widget.outcome ||
         oldWidget.host.id != widget.host.id) {
@@ -363,7 +385,10 @@ class _HerdrStateRowState extends ConsumerState<_HerdrStateRow> {
     final outcome = _retried ?? widget.outcome;
     final failed = outcome != null && !outcome.ok;
     return _MetaRow(
-      'HERDR STATUS',
+      switch (widget.source) {
+        AgentSource.herdr => 'HERDR STATUS',
+        AgentSource.engine => 'AGENTS STATUS',
+      },
       _retryFailed ? 'retry failed' : _stateLine(outcome),
       color: failed ? context.tokens.warning : null,
       trailing: failed && outcome.kind.retryable
@@ -383,7 +408,10 @@ class _HerdrStateRowState extends ConsumerState<_HerdrStateRow> {
     });
     try {
       final host = widget.host;
-      final outcome = await ref.read(agentRetryProvider)(host);
+      final outcome = await ref.read(agentRetryProvider)(
+        host,
+        source: widget.source,
+      );
       if (!mounted || widget.host.id != host.id) return;
       setState(() => _retried = outcome);
     } catch (_) {
@@ -391,6 +419,111 @@ class _HerdrStateRowState extends ConsumerState<_HerdrStateRow> {
     } finally {
       if (mounted) setState(() => _retrying = false);
     }
+  }
+}
+
+class _HookRows extends ConsumerStatefulWidget {
+  const _HookRows({super.key, required this.host});
+
+  final Host host;
+
+  @override
+  ConsumerState<_HookRows> createState() => _HookRowsState();
+}
+
+class _HookRowsState extends ConsumerState<_HookRows> {
+  List<HookStatus>? _hooks;
+  String? _failure;
+  String? _installing;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<T> _withEngine<T>(Future<T> Function(EngineAgents engine) body) async {
+    final engine = await ref.read(engineOpenProvider)(widget.host);
+    try {
+      return await body(engine);
+    } finally {
+      engine.session.close();
+    }
+  }
+
+  String _failureLine(Object error) => switch (error) {
+    HerdrFailure() => error.line.on(widget.host.name),
+    EngineRefused() => error.kind.replaceAll('_', ' '),
+    _ => 'failed',
+  };
+
+  Future<void> _load() async {
+    try {
+      final hooks = await _withEngine((engine) => engine.hooks());
+      if (mounted) {
+        setState(() {
+          _hooks = hooks;
+          _failure = null;
+        });
+      }
+    } catch (error) {
+      debugPrint('dazzle.engine ${widget.host.name} hooks: $error');
+      if (mounted) setState(() => _failure = _failureLine(error));
+    }
+  }
+
+  Future<void> _offer(HookStatus status) async {
+    if (!await showHookSheet(context, status) || !mounted) return;
+    setState(() => _installing = status.agent);
+    try {
+      await _withEngine((engine) => engine.install(status.agent));
+      await _load();
+    } catch (error) {
+      debugPrint('dazzle.engine ${widget.host.name} install: $error');
+      if (mounted) setState(() => _failure = _failureLine(error));
+    } finally {
+      if (mounted) setState(() => _installing = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hooks = _hooks;
+    if (hooks == null) {
+      return _MetaRow(
+        'HOOKS',
+        _failure ?? 'ASKING',
+        color: _failure == null ? null : context.tokens.warning,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final status in hooks)
+          _MetaRow(
+            '${status.agent.toUpperCase()} HOOKS',
+            status.installed
+                ? 'INSTALLED'
+                : status.writable
+                ? 'not installed'
+                : 'not writable',
+            strong: status.installed,
+            trailing: status.installed
+                ? null
+                : PanelAffordance(
+                    _installing == status.agent
+                        ? 'INSTALLING'
+                        : status.writable
+                        ? 'INSTALL'
+                        : 'SHOW',
+                    showIcon: false,
+                    onTap: _installing == null ? () => _offer(status) : null,
+                  ),
+          ),
+        if (_failure != null)
+          _MetaRow('HOOKS', _failure!, color: context.tokens.warning),
+      ],
+    );
   }
 }
 

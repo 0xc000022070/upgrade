@@ -19,6 +19,8 @@ response on stdout, and exits. Nothing is resident and nothing listens.
 
     echo '{\"service\":\"lifecycle\",\"op\":\"probe\"}' | dazzle-engine
 
+  hook <agent>  report an agent's hook event (claude, codex, opencode); the
+                agent runs this, not a person
   --version   print the engine and protocol version as JSON
   --help      print this
 
@@ -62,6 +64,13 @@ fn main() {
                 std::process::exit(2);
             };
             std::process::exit(services::schedule::tick(scope));
+        }
+        Some("hook") => {
+            let Some(agent) = args.get(1) else {
+                eprintln!("hook wants an agent kind");
+                std::process::exit(0);
+            };
+            std::process::exit(services::agents::hook(agent));
         }
         Some("--help" | "-h") => {
             print!("{USAGE}");

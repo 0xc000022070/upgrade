@@ -105,12 +105,8 @@ impl Sandbox {
             Some(existing) => format!("{}:{}", self.bin().display(), existing.to_string_lossy()),
             None => self.bin().display().to_string(),
         };
-        let mut command = Command::new(BINARY);
+        let mut command = self.command(&path);
         command
-            .env("DAZZLE_ENGINE_STATE", self.state())
-            .env("HOME", self.home())
-            .env("XDG_CONFIG_HOME", self.home().join("config"))
-            .env("PATH", path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -137,6 +133,52 @@ impl Sandbox {
             String::from_utf8_lossy(&output.stderr)
         );
         serde_json::from_slice(&output.stdout).expect("the engine answered with JSON")
+    }
+
+    fn command(&self, path: &str) -> Command {
+        let mut command = Command::new(BINARY);
+        command
+            .env("DAZZLE_ENGINE_STATE", self.state())
+            .env("HOME", self.home())
+            .env("XDG_CONFIG_HOME", self.home().join("config"))
+            .env("PATH", path);
+        for key in [
+            "CLAUDE_CONFIG_DIR",
+            "CODEX_HOME",
+            "HERDR_PANE_ID",
+            "HERDR_SOCKET_PATH",
+            "TMUX_PANE",
+        ] {
+            command.env_remove(key);
+        }
+        command
+    }
+
+    fn spawn_hook(&self, agent: &str, event: Value) -> std::process::Child {
+        let mut command = self.command(&self.bin().display().to_string());
+        command
+            .args(["hook", agent])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = command.spawn().unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(event.to_string().as_bytes())
+            .unwrap();
+        child
+    }
+
+    fn hook(&self, agent: &str, event: Value) -> String {
+        let output = self.spawn_hook(agent, event).wait_with_output().unwrap();
+        assert!(output.status.success(), "the hook failed its agent");
+        String::from_utf8(output.stdout).unwrap()
+    }
+
+    fn agents(&self, owner: &str, op: &str, args: Value) -> Value {
+        self.call(json!({ "service": "agents/1", "op": op, "owner": owner, "args": args }))
     }
 
     fn owner(&self) -> String {
@@ -196,7 +238,10 @@ fn probe_answers_without_an_owner_and_names_only_what_is_built() {
         .iter()
         .map(|s| s["name"].as_str().unwrap())
         .collect();
-    assert_eq!(names, vec!["lifecycle", "fs/1", "run/1", "schedule/1"]);
+    assert_eq!(
+        names,
+        vec!["lifecycle", "fs/1", "run/1", "schedule/1", "agents/1"]
+    );
     for absent in ["git/1", "kv/1", "batch/1"] {
         assert!(!names.contains(&absent), "{absent} is named but not built");
     }
@@ -1204,4 +1249,312 @@ fn the_timer_ticks_against_the_same_state_the_service_wrote() {
     let items = history["result"]["items"].as_array().unwrap();
     assert_eq!(items.len(), 1, "got {history}");
     assert_eq!(items[0]["title"], json!("Nightly sweep"));
+}
+
+fn session_of<'a>(watch: &'a Value, key: &str) -> &'a Value {
+    watch["result"]["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|session| session["key"] == json!(key))
+        .unwrap_or_else(|| panic!("no session {key} in {watch}"))
+}
+
+#[test]
+fn an_agent_hook_is_what_the_phone_watches() {
+    let sandbox = Sandbox::new("agents-watch");
+    let owner = sandbox.owner();
+    let start = json!({ "hook_event_name": "SessionStart", "session_id": "s1", "cwd": "/w" });
+    assert_eq!(sandbox.hook("claude", start), "");
+    sandbox.hook(
+        "claude",
+        json!({ "hook_event_name": "UserPromptSubmit", "session_id": "s1", "prompt": "fix the build" }),
+    );
+
+    let watch = sandbox.agents(&owner, "watch", json!({}));
+    let session = session_of(&watch, "claude:s1");
+    assert_eq!(session["state"], json!("working"));
+    assert_eq!(session["prompt"], json!("fix the build"));
+    assert_eq!(session["cwd"], json!("/w"));
+
+    sandbox.hook(
+        "claude",
+        json!({ "hook_event_name": "Stop", "session_id": "s1", "last_assistant_message": "done, 3 tests fixed" }),
+    );
+    let watch = sandbox.agents(&owner, "watch", json!({}));
+    let session = session_of(&watch, "claude:s1");
+    assert_eq!(session["state"], json!("done"));
+    assert_eq!(session["message"], json!("done, 3 tests fixed"));
+}
+
+#[test]
+fn a_subagent_does_not_end_its_parent_turn() {
+    let sandbox = Sandbox::new("agents-subagent");
+    let owner = sandbox.owner();
+    sandbox.hook(
+        "claude",
+        json!({ "hook_event_name": "UserPromptSubmit", "session_id": "s1", "prompt": "go" }),
+    );
+    sandbox.hook(
+        "claude",
+        json!({ "hook_event_name": "Stop", "session_id": "s1", "agent_id": "a1" }),
+    );
+    let watch = sandbox.agents(&owner, "watch", json!({}));
+    assert_eq!(session_of(&watch, "claude:s1")["state"], json!("working"));
+}
+
+#[test]
+fn a_hook_given_garbage_leaves_its_agent_alone() {
+    let sandbox = Sandbox::new("agents-garbage");
+    let mut command = sandbox.command(&sandbox.bin().display().to_string());
+    let mut child = command
+        .args(["hook", "claude"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(b"not json").unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(output.status.success());
+    assert!(output.stdout.is_empty());
+}
+
+fn pending_approval(sandbox: &Sandbox, owner: &str, key: &str) -> Value {
+    for _ in 0..100 {
+        let watch = sandbox.agents(owner, "watch", json!({}));
+        let approval = watch["result"]["sessions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|session| session["key"] == json!(key))
+            .map(|session| session["approval"].clone())
+            .unwrap_or(Value::Null);
+        if !approval.is_null() {
+            return approval;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    panic!("the approval never showed");
+}
+
+#[test]
+fn an_approval_answered_on_the_phone_is_the_agent_decision() {
+    let sandbox = Sandbox::new("agents-approve");
+    let owner = sandbox.owner();
+    let hook = sandbox.spawn_hook(
+        "claude",
+        json!({
+            "hook_event_name": "PermissionRequest",
+            "session_id": "s1",
+            "tool_name": "Bash",
+            "tool_input": { "command": "rm -rf build", "description": "clean" },
+        }),
+    );
+
+    let approval = pending_approval(&sandbox, &owner, "claude:s1");
+    assert_eq!(approval["tool"], json!("Bash"));
+    assert_eq!(approval["summary"], json!("rm -rf build"));
+    let watch = sandbox.agents(&owner, "watch", json!({}));
+    assert_eq!(session_of(&watch, "claude:s1")["state"], json!("blocked"));
+
+    let answer = sandbox.agents(
+        &owner,
+        "answer",
+        json!({ "id": approval["id"], "decision": "deny" }),
+    );
+    assert_eq!(answer["ok"], json!(true), "{answer}");
+
+    let output = hook.wait_with_output().unwrap();
+    assert!(output.status.success());
+    let decision: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        decision["hookSpecificOutput"]["hookEventName"],
+        json!("PermissionRequest")
+    );
+    assert_eq!(
+        decision["hookSpecificOutput"]["decision"]["behavior"],
+        json!("deny")
+    );
+
+    let watch = sandbox.agents(&owner, "watch", json!({}));
+    let session = session_of(&watch, "claude:s1");
+    assert_eq!(session["state"], json!("working"));
+    assert!(session["approval"].is_null());
+
+    let again = sandbox.agents(
+        &owner,
+        "answer",
+        json!({ "id": approval["id"], "decision": "allow" }),
+    );
+    assert_eq!(again["error"]["kind"], json!("not_found"));
+}
+
+#[test]
+fn an_approval_taken_at_the_terminal_releases_the_hook_silently() {
+    let sandbox = Sandbox::new("agents-terminal");
+    let owner = sandbox.owner();
+    let hook = sandbox.spawn_hook(
+        "codex",
+        json!({
+            "hook_event_name": "PermissionRequest",
+            "session_id": "s2",
+            "turn_id": "t1",
+            "tool_name": "shell",
+            "tool_input": { "command": "cargo test" },
+        }),
+    );
+    let approval = pending_approval(&sandbox, &owner, "codex:s2");
+
+    sandbox.hook(
+        "codex",
+        json!({ "hook_event_name": "PostToolUse", "session_id": "s2" }),
+    );
+    let output = hook.wait_with_output().unwrap();
+    assert!(output.status.success());
+    assert!(output.stdout.is_empty(), "the hook answered for the terminal");
+
+    let late = sandbox.agents(
+        &owner,
+        "answer",
+        json!({ "id": approval["id"], "decision": "allow" }),
+    );
+    assert_eq!(late["error"]["kind"], json!("not_found"));
+}
+
+#[test]
+fn watch_holds_until_something_changes() {
+    let sandbox = Sandbox::new("agents-longpoll");
+    let owner = sandbox.owner();
+    sandbox.hook(
+        "claude",
+        json!({ "hook_event_name": "SessionStart", "session_id": "s1" }),
+    );
+    let first = sandbox.agents(&owner, "watch", json!({}));
+    let generation = first["result"]["generation"].clone();
+
+    let started = std::time::Instant::now();
+    let held = sandbox.agents(
+        &owner,
+        "watch",
+        json!({ "generation": generation, "wait_ms": 400 }),
+    );
+    assert!(started.elapsed() >= std::time::Duration::from_millis(350));
+    assert_eq!(held["result"]["generation"], generation);
+
+    let stale = sandbox.agents(&owner, "watch", json!({ "generation": 0, "wait_ms": 5000 }));
+    assert_eq!(stale["result"]["generation"], generation);
+}
+
+#[test]
+fn a_transcript_reads_as_a_conversation() {
+    let sandbox = Sandbox::new("agents-transcript");
+    let owner = sandbox.owner();
+    let path = sandbox.work().join("s1.jsonl");
+    let lines = [
+        json!({ "type": "user", "message": { "role": "user", "content": "run the tests" } }),
+        json!({ "type": "assistant", "message": { "content": [
+            { "type": "thinking", "thinking": "hm" },
+            { "type": "text", "text": "Running them." },
+            { "type": "tool_use", "id": "tu1", "name": "Bash", "input": { "command": "cargo test" } },
+        ] } }),
+        json!({ "type": "user", "isSidechain": true, "message": { "content": "a subagent's prompt" } }),
+        json!({ "type": "user", "message": { "content": [
+            { "type": "tool_result", "tool_use_id": "tu1", "content": "ok", "is_error": false },
+        ] } }),
+    ];
+    let body: String = lines.iter().map(|line| format!("{line}\n")).collect();
+    fs::write(&path, body).unwrap();
+    sandbox.hook(
+        "claude",
+        json!({ "hook_event_name": "SessionStart", "session_id": "s1", "transcript_path": path }),
+    );
+
+    let answer = sandbox.agents(&owner, "transcript", json!({ "session": "claude:s1" }));
+    let items = answer["result"]["items"].as_array().unwrap();
+    let kinds: Vec<&str> = items.iter().map(|item| item["kind"].as_str().unwrap()).collect();
+    assert_eq!(kinds, vec!["user", "assistant", "tool", "result"]);
+    assert_eq!(items[2]["tool"], json!("Bash"));
+    assert_eq!(items[2]["text"], json!("cargo test"));
+    assert_eq!(items[3]["tool_id"], json!("tu1"));
+    assert_eq!(answer["result"]["last"], json!(3));
+
+    let appended = json!({ "type": "assistant", "message": { "content": [{ "type": "text", "text": "All green." }] } });
+    let mut file = fs::OpenOptions::new().append(true).open(&path).unwrap();
+    writeln!(file, "{appended}").unwrap();
+    let next = sandbox.agents(
+        &owner,
+        "transcript",
+        json!({ "session": "claude:s1", "after": 3 }),
+    );
+    let items = next["result"]["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["text"], json!("All green."));
+}
+
+#[test]
+fn install_adds_the_hooks_beside_the_user_own_and_teardown_takes_only_them() {
+    let sandbox = Sandbox::new("agents-install");
+    let owner = sandbox.owner();
+    let settings = sandbox.home().join(".claude/settings.json");
+    fs::create_dir_all(settings.parent().unwrap()).unwrap();
+    let mine = json!({ "hooks": [{ "type": "command", "command": "notify-send hi" }] });
+    fs::write(
+        &settings,
+        json!({ "model": "opus", "hooks": { "Stop": [mine] } }).to_string(),
+    )
+    .unwrap();
+
+    let before = sandbox.agents(&owner, "hooks", json!({}));
+    let claude = &before["result"]["agents"][0];
+    assert_eq!(claude["agent"], json!("claude"));
+    assert_eq!(claude["installed"], json!(false));
+    assert_eq!(claude["writable"], json!(true));
+
+    let installed = sandbox.agents(&owner, "install", json!({ "agent": "claude" }));
+    assert_eq!(installed["ok"], json!(true), "{installed}");
+    let written: Value = serde_json::from_str(&fs::read_to_string(&settings).unwrap()).unwrap();
+    assert_eq!(written["model"], json!("opus"));
+    assert_eq!(written["hooks"]["Stop"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        written["hooks"]["PermissionRequest"][0]["hooks"][0]["command"],
+        json!("dazzle-engine hook claude")
+    );
+
+    sandbox.agents(&owner, "install", json!({ "agent": "claude" }));
+    let twice: Value = serde_json::from_str(&fs::read_to_string(&settings).unwrap()).unwrap();
+    assert_eq!(twice["hooks"]["Stop"].as_array().unwrap().len(), 2);
+
+    let after = sandbox.agents(&owner, "hooks", json!({}));
+    assert_eq!(after["result"]["agents"][0]["installed"], json!(true));
+
+    let teardown = sandbox.call(json!({
+        "service": "lifecycle", "op": "teardown", "owner": owner
+    }));
+    assert_eq!(teardown["result"]["hooks_removed"].as_array().unwrap().len(), 1);
+    let left: Value = serde_json::from_str(&fs::read_to_string(&settings).unwrap()).unwrap();
+    assert_eq!(left["hooks"], json!({ "Stop": [mine] }));
+}
+
+#[test]
+fn a_config_a_declaration_owns_is_shown_rather_than_written() {
+    let sandbox = Sandbox::new("agents-readonly");
+    let owner = sandbox.owner();
+    let store = sandbox.work().join("hooks.json");
+    fs::write(&store, "{}").unwrap();
+    fs::create_dir_all(sandbox.home().join(".codex")).unwrap();
+    std::os::unix::fs::symlink(&store, sandbox.home().join(".codex/hooks.json")).unwrap();
+
+    let hooks = sandbox.agents(&owner, "hooks", json!({}));
+    let codex = &hooks["result"]["agents"][1];
+    assert_eq!(codex["agent"], json!("codex"));
+    assert_eq!(codex["writable"], json!(false));
+    assert_eq!(
+        codex["entries"]["hooks"]["PermissionRequest"][0]["hooks"][0]["command"],
+        json!("dazzle-engine hook codex")
+    );
+
+    let refused = sandbox.agents(&owner, "install", json!({ "agent": "codex" }));
+    assert_eq!(refused["error"]["kind"], json!("denied"));
+    assert_eq!(fs::read_to_string(&store).unwrap(), "{}");
 }

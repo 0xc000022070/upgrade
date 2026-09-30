@@ -1,7 +1,7 @@
 use crate::paths;
 use crate::policy::Policy;
 use crate::protocol::{EngineError, EngineResult, ENGINE_VERSION, PROTOCOL_VERSION};
-use crate::services::{fs as fs_service, run as run_service, schedule as schedule_service};
+use crate::services::{agents as agents_service, fs as fs_service, run as run_service, schedule as schedule_service};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
@@ -37,6 +37,7 @@ fn probe(state_root: &Path, owner: &str, policy: &Policy) -> Value {
         (fs_service::SERVICE, fs_service::OPS),
         (run_service::SERVICE, run_service::OPS),
         (schedule_service::SERVICE, schedule_service::OPS),
+        (agents_service::SERVICE, agents_service::OPS),
     ]
     .iter()
     .map(|(name, ops)| {
@@ -73,6 +74,7 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
     // state directory is already gone, and that is exactly the state this has to be
     // able to clear rather than the one it refuses to look at.
     let timers_removed = schedule_service::remove_timers();
+    let hooks_removed = agents_service::remove_hooks();
 
     if !state_root.exists() {
         return Ok(json!({
@@ -81,6 +83,7 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
             "jobs_removed": 0,
             "jobs_signalled": 0,
             "timers_removed": timers_removed,
+            "hooks_removed": hooks_removed,
         }));
     }
 
@@ -109,5 +112,6 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
         "jobs_removed": jobs_removed,
         "jobs_signalled": jobs_signalled,
         "timers_removed": timers_removed,
+        "hooks_removed": hooks_removed,
     }))
 }

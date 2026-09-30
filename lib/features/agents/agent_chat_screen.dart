@@ -1,0 +1,380 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../app/static_surface.dart';
+import '../../application/agents.dart';
+import '../../data/repositories/host_repository.dart';
+import '../../design/components/action_block.dart';
+import '../../design/components/meta.dart';
+import '../../design/components/panel.dart';
+import '../../design/components/panel_text_action.dart';
+import '../../design/components/section.dart';
+import '../../design/icons/dazzle_icons.dart';
+import '../../design/spacing.dart';
+import '../../design/tokens.dart';
+import '../../platform/engine_agents.dart';
+import '../../platform/herdr_client.dart';
+import '../home/agent_mark.dart';
+import '../screen_scaffold.dart';
+import 'agent_shell.dart';
+
+void openAgentChat(BuildContext context, Host host, AgentSnapshot agent) {
+  Navigator.of(context, rootNavigator: true).push(
+    MaterialPageRoute<void>(
+      builder: (_) => AgentChatScreen(host: host, agent: agent),
+    ),
+  );
+}
+
+class AgentChatScreen extends ConsumerStatefulWidget {
+  const AgentChatScreen({super.key, required this.host, required this.agent});
+
+  final Host host;
+
+  final AgentSnapshot agent;
+
+  static const interval = Duration(seconds: 3);
+
+  @override
+  ConsumerState<AgentChatScreen> createState() => _AgentChatScreenState();
+}
+
+class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
+  static const _pageLimit = 200;
+  static const _pagesPerTick = 20;
+  static const _kept = 400;
+
+  late final EngineOpen _open = ref.read(engineOpenProvider);
+  Future<EngineAgents>? _engine;
+  Timer? _timer;
+  bool _asking = false;
+  bool _gone = false;
+
+  late AgentSnapshot? _session = widget.agent;
+  final List<TranscriptItem> _items = [];
+  bool _cut = false;
+  int? _last;
+  bool _noTranscript = false;
+  bool _unnamed = false;
+  String? _failure;
+  String? _answering;
+  String? _answerLine;
+
+  String get _key => widget.agent.paneId;
+
+  void _drop() {
+    final engine = _engine;
+    _engine = null;
+    unawaited(
+      engine?.then((engine) => engine.session.close(), onError: (_) {}),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_tick());
+    _timer = Timer.periodic(AgentChatScreen.interval, (_) => _tick());
+  }
+
+  @override
+  void dispose() {
+    _gone = true;
+    _timer?.cancel();
+    _drop();
+    super.dispose();
+  }
+
+  Future<void> _tick() async {
+    if (_asking || _gone) return;
+    _asking = true;
+    try {
+      final engine = await (_engine ??= _open(widget.host));
+      if (_gone) return;
+      final watched = await engine.watch();
+      final session = watched.agents
+          .where((agent) => agent.paneId == _key)
+          .firstOrNull;
+      final fresh = <TranscriptItem>[];
+      var last = _last;
+      var unnamed = false;
+      if (!_noTranscript) {
+        try {
+          for (var page = 0; page < _pagesPerTick; page++) {
+            final read = await engine.transcript(_key, after: last);
+            fresh.addAll(read.items);
+            if (read.last == last || read.items.length < _pageLimit) {
+              last = read.last;
+              break;
+            }
+            last = read.last;
+          }
+        } on EngineRefused catch (error) {
+          if (error.notFound) {
+            unnamed = true;
+          } else {
+            _noTranscript = true;
+          }
+        }
+      }
+      if (_gone || !mounted) return;
+      setState(() {
+        _session = session;
+        _last = last;
+        _unnamed = unnamed;
+        _items.addAll(fresh);
+        if (_items.length > _kept) {
+          _items.removeRange(0, _items.length - _kept);
+          _cut = true;
+        }
+        _failure = null;
+      });
+    } catch (error) {
+      debugPrint('dazzle.engine ${widget.host.name} chat: $error');
+      _drop();
+      if (_gone || !mounted) return;
+      setState(
+        () => _failure = switch (error) {
+          HerdrFailure() => error.line.on(widget.host.name),
+          EngineRefused() => error.kind.replaceAll('_', ' '),
+          _ => 'failed',
+        },
+      );
+    } finally {
+      _asking = false;
+    }
+  }
+
+  Future<void> _answer(AgentApproval approval, {required bool allow}) async {
+    setState(() {
+      _answering = approval.id;
+      _answerLine = null;
+    });
+    try {
+      final engine = await (_engine ??= _open(widget.host));
+      await engine.answer(approval.id, allow: allow);
+      if (mounted) setState(() => _answerLine = allow ? 'ALLOWED' : 'DENIED');
+    } on EngineRefused catch (error) {
+      if (mounted) {
+        setState(
+          () => _answerLine = error.notFound ? 'ALREADY ANSWERED' : 'REFUSED',
+        );
+      }
+    } catch (error) {
+      debugPrint('dazzle.engine ${widget.host.name} answer: $error');
+      if (mounted) setState(() => _answerLine = 'FAILED');
+    } finally {
+      if (mounted) setState(() => _answering = null);
+    }
+    unawaited(_tick());
+  }
+
+  PaneRef? _link(AgentPanelState? feed) {
+    for (final outcome in feed?.outcomes ?? const <HostOutcome>[]) {
+      if (outcome.host.id != widget.host.id ||
+          outcome.source != AgentSource.engine) {
+        continue;
+      }
+      for (final agent in outcome.agents) {
+        if (agent.paneId == _key) return agent.link;
+      }
+    }
+    return widget.agent.link;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = _session;
+    final link = _link(ref.watch(agentsFeedProvider).valueOrNull);
+    final bar = _bar(context, session, link);
+    return Scaffold(
+      bottomNavigationBar: bar,
+      body: StaticSurface(
+        child: ScreenScaffold(
+          title: agentMarkName(widget.agent.agent),
+          breadcrumb: '/ DAZZLE / AGENTS',
+          onBack: () => Navigator.of(context).pop(),
+          children: [
+            PanelStack(
+              children: [
+                Panel(
+                  title: 'SESSION',
+                  bodyPadding: panelRowsPadding,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _Row(
+                        'STATE',
+                        session?.state.label ?? 'ENDED',
+                        color: session == null
+                            ? context.tokens.textMuted
+                            : agentStateColor(context, session.state),
+                      ),
+                      _Row('DIRECTORY', widget.agent.cwd),
+                      _Row('HOST', widget.host.name),
+                      if (_failure != null)
+                        _Row('LINK', _failure!, color: context.tokens.warning),
+                    ],
+                  ),
+                ),
+                Panel(
+                  title: 'CONVERSATION',
+                  child: _noTranscript
+                      ? const EmptyState('NO TRANSCRIPT')
+                      : _items.isEmpty
+                      ? EmptyState(
+                          _unnamed
+                              ? 'no transcript yet'
+                              : _last == null
+                              ? 'waiting for host'
+                              : 'nothing yet',
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (_cut) const Meta('earlier lines cut'),
+                            for (final item in _items)
+                              _Item(item, agent: widget.agent.agent),
+                          ],
+                        ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget? _bar(BuildContext context, AgentSnapshot? session, PaneRef? link) {
+    final approval = session?.approval;
+    final question = session?.question;
+    if (approval == null && question == null && link == null) return null;
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: context.tokens.surfacePrimary,
+          border: Border(
+            top: BorderSide(
+              color: context.tokens.borderSubtle,
+              width: Borders.hairline,
+            ),
+          ),
+        ),
+        padding: const EdgeInsets.all(Spacing.panelPadding),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (approval != null) ...[
+              Text(
+                approval.line,
+                style: context.tokens.value,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (_answerLine != null) Meta(_answerLine!),
+              const SizedBox(height: Spacing.sm),
+              Row(
+                children: [
+                  Expanded(
+                    child: ActionBlock(
+                      label: 'DENY',
+                      tone: context.tokens.warning,
+                      onTap: _answering == null
+                          ? () => _answer(approval, allow: false)
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: Spacing.md),
+                  Expanded(
+                    child: ActionBlock(
+                      label: 'ALLOW',
+                      tone: context.tokens.accent,
+                      filled: true,
+                      onTap: _answering == null
+                          ? () => _answer(approval, allow: true)
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            ] else if (question != null)
+              Text(question, style: context.tokens.value, maxLines: 4),
+            if (link != null)
+              PanelTextAction(
+                label: 'OPEN PANE',
+                icon: DazzleIcons.forward,
+                onTap: () => openAgentPane(context, ref, widget.host, link),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row(this.label, this.value, {this.color});
+
+  final String label;
+  final String value;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: RowMetrics.minHeight),
+      child: Row(
+        children: [
+          SizedBox(width: 96, child: Text(label, style: context.tokens.label)),
+          const SizedBox(width: Spacing.md),
+          Expanded(child: Meta(value, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+class _Item extends StatelessWidget {
+  const _Item(this.item, {required this.agent});
+
+  final TranscriptItem item;
+  final String agent;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final (label, style, maxLines) = switch (item.kind) {
+      'user' => ('YOU', tokens.prose.copyWith(color: tokens.accent), null),
+      'assistant' => (agentMarkName(agent), tokens.prose, null),
+      'tool' => ((item.tool ?? 'TOOL').toUpperCase(), tokens.value, 6),
+      _ => (
+        item.error ? 'ERROR' : 'RESULT',
+        tokens.value.copyWith(
+          color: item.error ? tokens.warning : tokens.textMuted,
+        ),
+        6,
+      ),
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(label, style: tokens.label),
+          const SizedBox(height: Spacing.xs),
+          Text(
+            item.text,
+            style: style,
+            maxLines: maxLines,
+            overflow: maxLines == null ? null : TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}

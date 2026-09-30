@@ -1,3 +1,4 @@
+pub mod agents;
 pub mod fs;
 pub mod lifecycle;
 pub mod run;
@@ -34,6 +35,7 @@ pub fn dispatch(request: &Request, policy: &Policy) -> EngineResult<Value> {
             std::fs::create_dir_all(run::jobs_root(&state_root))?;
             schedule::dispatch(&request.op, &request.args, &state_root)
         }
+        agents::SERVICE => agents::dispatch(&request.op, &request.args, &state_root),
         other => Err(EngineError::unsupported(format!(
             "this engine carries no service {other}; ask lifecycle probe for what it has"
         ))),
