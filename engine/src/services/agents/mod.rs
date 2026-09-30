@@ -21,10 +21,10 @@ pub const OPS: &[&str] = &["watch", "answer", "transcript", "hooks", "install"];
 pub const KINDS: &[&str] = &["claude", "codex", "opencode"];
 
 const SCHEMA_VERSION: u32 = 1;
-const MAX_HOOK_INPUT: u64 = 1024 * 1024;
+const MAX_HOOK_INPUT: u64 = 64 * 1024 * 1024;
 const APPROVAL_WAIT_MS: u64 = 60_000;
 const MAX_WATCH_WAIT_MS: u64 = 30_000;
-const ENDED_KEPT_MS: u64 = 24 * 60 * 60 * 1000;
+const SESSION_KEPT_MS: u64 = 24 * 60 * 60 * 1000;
 const MAX_SESSIONS: usize = 64;
 const SUMMARY_CHARS: usize = 256;
 const LINE_CHARS: usize = 280;
@@ -135,7 +135,7 @@ impl Store {
         let now = now_millis();
         self.state
             .sessions
-            .retain(|session| session.state != "ended" || now.saturating_sub(session.updated) < ENDED_KEPT_MS);
+            .retain(|session| now.saturating_sub(session.updated) < SESSION_KEPT_MS);
         self.state.sessions.sort_by_key(|session| std::cmp::Reverse(session.updated));
         self.state.sessions.truncate(MAX_SESSIONS);
         self.state.version = SCHEMA_VERSION;
@@ -233,7 +233,7 @@ fn snapshot(state: &State) -> Value {
     let sessions: Vec<Value> = state
         .sessions
         .iter()
-        .filter(|session| session.state != "ended" || now.saturating_sub(session.updated) < ENDED_KEPT_MS)
+        .filter(|session| now.saturating_sub(session.updated) < SESSION_KEPT_MS)
         .map(view)
         .collect();
     json!({ "generation": state.generation, "now": now, "sessions": sessions })
@@ -262,11 +262,12 @@ fn answer(args: &Value, root: &Path) -> EngineResult<Value> {
         return Err(EngineError::bad_request("id is not an approval id"));
     }
     let store = Store::open(root)?;
+    let now = now_millis();
     let waiting = store.state.sessions.iter().any(|session| {
         session
             .approval
             .as_ref()
-            .is_some_and(|approval| approval.id == id && alive(approval.pid))
+            .is_some_and(|approval| approval.id == id && now < approval.expires && alive(approval.pid))
     });
     if !waiting {
         return Err(EngineError::not_found("the approval is no longer waiting"));
@@ -428,13 +429,23 @@ fn print_decision(decision: &str) {
     println!("{output}");
 }
 
+fn read_hook_input() -> EngineResult<Value> {
+    let mut stdin = std::io::stdin().lock();
+    let mut raw = Vec::new();
+    (&mut stdin).take(MAX_HOOK_INPUT).read_to_end(&mut raw)?;
+    if std::io::copy(&mut stdin, &mut std::io::sink())? > 0 {
+        return Err(EngineError::bad_request(format!(
+            "the hook input is over {MAX_HOOK_INPUT} bytes"
+        )));
+    }
+    Ok(serde_json::from_slice(&raw)?)
+}
+
 fn run_hook(agent: &str) -> EngineResult<()> {
     if !KINDS.contains(&agent) {
         return Err(EngineError::bad_request(format!("no agent kind {agent}")));
     }
-    let mut raw = String::new();
-    std::io::stdin().lock().take(MAX_HOOK_INPUT).read_to_string(&mut raw)?;
-    let input: Value = serde_json::from_str(&raw)?;
+    let input = read_hook_input()?;
     if input.get("agent_id").is_some_and(|value| !value.is_null()) {
         return Ok(());
     }
@@ -483,13 +494,13 @@ fn still_pending(root: &Path, key: &str, approval: &Approval) -> bool {
         .is_some_and(|state| state.sessions.iter().any(|session| holds(session, key, approval)))
 }
 
-fn close_approval(root: &Path, key: &str, approval: &Approval, decision: Option<&str>) {
-    let Ok(mut store) = Store::open(root) else {
-        return;
-    };
-    let Some(session) = store.session(key).filter(|session| holds(session, key, approval)) else {
-        return;
-    };
+fn close_approval(root: &Path, key: &str, approval: &Approval) -> Option<&'static str> {
+    let answer_file = answers_dir(root).join(&approval.id);
+    let store = Store::open(root);
+    let decision = read_answer(&answer_file).flatten();
+    let _ = fs::remove_file(&answer_file);
+    let mut store = store.ok()?;
+    let session = store.session(key).filter(|session| holds(session, key, approval))?;
     session.approval = None;
     session.updated = now_millis();
     match decision {
@@ -497,6 +508,7 @@ fn close_approval(root: &Path, key: &str, approval: &Approval, decision: Option<
         None => session.question = Some(approval.summary.clone()),
     }
     let _ = store.commit();
+    decision
 }
 
 /// Printing nothing when the wait ends unanswered is the agent's cue to put its
@@ -504,28 +516,44 @@ fn close_approval(root: &Path, key: &str, approval: &Approval, decision: Option<
 fn await_answer(root: &Path, key: &str, approval: &Approval) -> Option<&'static str> {
     let answer_file = answers_dir(root).join(&approval.id);
     let parent = unsafe { libc::getppid() };
-    let decision = loop {
-        if let Some(decision) = read_answer(&answer_file) {
-            break decision;
-        }
-        if now_millis() >= approval.expires || unsafe { libc::getppid() } != parent {
-            break None;
-        }
-        if !still_pending(root, key, approval) {
-            let _ = fs::remove_file(&answer_file);
-            return None;
-        }
+    while !answer_file.exists()
+        && now_millis() < approval.expires
+        && unsafe { libc::getppid() } == parent
+        && still_pending(root, key, approval)
+    {
         std::thread::sleep(POLL);
-    };
-    let _ = fs::remove_file(&answer_file);
-    close_approval(root, key, approval, decision);
-    decision
+    }
+    close_approval(root, key, approval)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{cut, summarize};
+    use super::{answers_dir, close_approval, cut, new_session, request_approval, summarize, Store};
+    use crate::util::now_millis;
     use serde_json::json;
+
+    #[test]
+    fn an_answer_that_lands_as_the_wait_ends_is_taken_under_the_lock() {
+        let root = std::env::temp_dir().join(format!("dazzle-agents-close-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let mut store = Store::open(&root).unwrap();
+        let mut session = new_session("claude:s1", "claude", "s1", now_millis());
+        let approval = request_approval(&mut session, &json!({ "tool_name": "Bash" }));
+        store.state.sessions.push(session);
+        store.commit().unwrap();
+        drop(store);
+        let answer_file = answers_dir(&root).join(&approval.id);
+        std::fs::create_dir_all(answers_dir(&root)).unwrap();
+        std::fs::write(&answer_file, "allow").unwrap();
+
+        assert_eq!(close_approval(&root, "claude:s1", &approval), Some("allow"));
+
+        assert!(!answer_file.exists(), "an orphan answer was left");
+        let store = Store::open(&root).unwrap();
+        assert_eq!(store.state.sessions[0].state, "working");
+        drop(store);
+        let _ = std::fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn a_summary_is_the_argument_a_person_reads() {
