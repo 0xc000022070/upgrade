@@ -9,6 +9,7 @@ enum ReasonLine {
 
   protocolMismatch('protocol mismatch'),
   noEngine('no engine'),
+  noHerdr('no herdr'),
 
   tunnelRefused('tunnel refused'),
   authUnsupported('auth unsupported'),

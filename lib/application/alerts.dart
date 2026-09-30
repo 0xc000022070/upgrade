@@ -82,6 +82,7 @@ String alertFailureReason(HerdrFailure failure) => switch (failure) {
   HerdrUnresolved() => 'UNRESOLVED',
   HerdrUnreachable() => 'UNREACHABLE',
   EngineMissing() => 'NO ENGINE',
+  HerdrMissing() => 'NO HERDR',
   HerdrHostKeyUnverified() => 'HOST KEY UNVERIFIED',
   HerdrHostKeyChanged() => 'HOST KEY CHANGED',
 };

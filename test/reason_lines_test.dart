@@ -89,6 +89,15 @@ void main() {
       );
     });
 
+    test('a host with no herdr on its path', () {
+      const line = 'no herdr';
+      expect(const HerdrMissing().reason('NYX'), line);
+      expect(
+        const HostOutcome(host: nyx, kind: AgentOutcomeKind.noHerdr).reason,
+        line,
+      );
+    });
+
     test('a snapshot is not a failure and has no line', () {
       expect(
         const HostOutcome(host: nyx, kind: AgentOutcomeKind.snapshot).reason,

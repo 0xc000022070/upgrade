@@ -506,6 +506,13 @@ final class EngineMissing extends HerdrFailure {
   ReasonLine get line => ReasonLine.noEngine;
 }
 
+final class HerdrMissing extends HerdrFailure {
+  const HerdrMissing([super.detail]);
+
+  @override
+  ReasonLine get line => ReasonLine.noHerdr;
+}
+
 final class HerdrProtocolMismatch extends HerdrFailure {
   const HerdrProtocolMismatch([this.protocol, super.detail]);
 
@@ -970,6 +977,9 @@ class HerdrSession {
     final result = await _guard(
       () => _client.runWithResult(HerdrCommands.sessions()),
     );
+    if (result.exitCode == 127) {
+      throw HerdrMissing(utf8.decode(result.output).trim());
+    }
     if (result.exitCode != 0) {
       throw HerdrProtocolMismatch(null, utf8.decode(result.output).trim());
     }
