@@ -31,12 +31,9 @@ let
     ];
   });
 
-  # Loopback and not 0.0.0.0: nyx runs its own mosh-server on 60001:60999, and a
-  # wildcard bind on a port one of those holds fails the whole netdev, so the guest
-  # would not boot while the user had a session up.
   moshForwards = map (port: {
     from = "host";
-    host.address = cfg.mosh.address;
+    host.address = "0.0.0.0";
     host.port = port;
     guest.port = port;
     proto = "udp";
@@ -45,7 +42,15 @@ let
   pinnedMosh = pkgs.writeShellScriptBin "mosh-server" ''
     if [ "''${1-}" = new ]; then
       shift
-      exec ${pkgs.mosh}/bin/mosh-server new -p ${toString cfg.mosh.from}:${toString cfg.mosh.to} "$@"
+      kept=()
+      while [ $# -gt 0 ] && [ "$1" != -- ]; do
+        case "$1" in
+          -p) shift; [ $# -gt 0 ] && shift ;;
+          -p*) shift ;;
+          *) kept+=("$1"); shift ;;
+        esac
+      done
+      exec ${pkgs.mosh}/bin/mosh-server new "''${kept[@]}" -p ${toString cfg.mosh.from}:${toString cfg.mosh.to} "$@"
     fi
     exec ${pkgs.mosh}/bin/mosh-server "$@"
   '';
@@ -122,7 +127,7 @@ in
   ]
   ++ lib.optional cfg.codex codexFixture
   ++ lib.optional cfg.herdr pkgs.herdr
-  ++ lib.optional (!full) (lib.hiPrio pinnedMosh);
+  ++ [ (lib.hiPrio pinnedMosh) ];
 
   # tmpfiles makes a missing parent root's, and home-manager's are the user's.
   systemd.tmpfiles.settings.dazzle-declared-hooks = lib.mkIf cfg.declaredHooks (

@@ -19,7 +19,6 @@
       ];
 
       system = "x86_64-linux";
-      pkgs = import nixpkgs { inherit system; };
 
       engineModule =
         path:
@@ -33,14 +32,36 @@
 
       hostScenarios = import ./nix/host-vm/scenarios.nix;
       hostName = name: if name == "full" then "dazzle-host" else "dazzle-host-${name}";
-      hostTools = lib.concatMapAttrs (
-        name: scenario:
-        import ./nix/host-vm/tools.nix {
-          inherit pkgs name;
-          inherit (scenario) sshPort;
-          nixos = self.nixosConfigurations.${hostName name};
-        }
-      ) hostScenarios;
+      guestSystems = {
+        x86_64-linux = "x86_64-linux";
+        aarch64-darwin = "aarch64-linux";
+      };
+      guest =
+        hostSystem: name: scenario:
+        lib.nixosSystem {
+          system = guestSystems.${hostSystem};
+          modules = [
+            ./nix/host-vm/configuration.nix
+            self.nixosModules.dazzle-engine
+            {
+              dazzleHost = scenario // {
+                inherit name;
+              };
+              virtualisation.host.pkgs = nixpkgs.legacyPackages.${hostSystem};
+            }
+          ];
+        };
+      hostTools =
+        hostSystem:
+        lib.concatMapAttrs (
+          name: scenario:
+          import ./nix/host-vm/tools.nix {
+            pkgs = nixpkgs.legacyPackages.${hostSystem};
+            inherit name;
+            inherit (scenario) sshPort;
+            nixos = guest hostSystem name scenario;
+          }
+        ) hostScenarios;
 
       app = pkg: description: {
         type = "app";
@@ -51,42 +72,32 @@
     {
       packages = lib.recursiveUpdate (lib.genAttrs engineSystems (system: {
         engine = nixpkgs.legacyPackages.${system}.callPackage ./nix/engine/package.nix { };
-      })) { ${system} = hostTools; };
+      })) (lib.mapAttrs (hostSystem: _: hostTools hostSystem) guestSystems);
 
-      apps.${system} = lib.concatMapAttrs (
-        name: _:
+      apps = lib.mapAttrs (
+        hostSystem: _:
         let
-          suffix = if name == "full" then "" else "-${name}";
+          tools = hostTools hostSystem;
         in
-        {
-          "host-vm${suffix}" =
-            app hostTools."host-vm-runner${suffix}"
-              "Run the ${name} remote host fixture for Dazzle";
-          "host-up${suffix}" =
-            app hostTools."host-up${suffix}"
-              "Boot the ${name} remote host fixture detached";
-          "host-ssh${suffix}" =
-            app hostTools."host-ssh${suffix}"
-              "Run a command on the ${name} remote host fixture";
-        }
-      ) hostScenarios;
+        lib.concatMapAttrs (
+          name: _:
+          let
+            suffix = if name == "full" then "" else "-${name}";
+          in
+          {
+            "host-vm${suffix}" =
+              app tools."host-vm-runner${suffix}"
+                "Run the ${name} remote host fixture for Dazzle";
+            "host-up${suffix}" = app tools."host-up${suffix}" "Boot the ${name} remote host fixture detached";
+            "host-ssh${suffix}" =
+              app tools."host-ssh${suffix}"
+                "Run a command on the ${name} remote host fixture";
+          }
+        ) hostScenarios
+      ) guestSystems;
 
       nixosConfigurations = lib.mapAttrs' (
-        name: scenario:
-        lib.nameValuePair (hostName name) (
-          lib.nixosSystem {
-            inherit system;
-            modules = [
-              ./nix/host-vm/configuration.nix
-              self.nixosModules.dazzle-engine
-              {
-                dazzleHost = scenario // {
-                  inherit name;
-                };
-              }
-            ];
-          }
-        )
+        name: scenario: lib.nameValuePair (hostName name) (guest system name scenario)
       ) hostScenarios;
 
       # The engine is declared by the owner of a machine, never installed by the

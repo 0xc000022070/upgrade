@@ -1,9 +1,6 @@
 default:
     @just --list
 
-# A guest half-booted answers the port and not the handshake.
-host_vm_probe := "bash -c 'exec 3<>/dev/tcp/127.0.0.1/2222 && head -c 3 <&3 | grep -q SSH' 2>/dev/null"
-
 # Regenerate drift / build_runner output. Not committed; run after schema edits.
 gen:
     flutter pub run build_runner build
@@ -56,27 +53,7 @@ test-all *args:
 
 # The fixture VM, up and answering. Idempotent, so it is safe in front of any recipe.
 host-vm:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if {{ host_vm_probe }}; then echo "host vm: up"; exit 0; fi
-    log="${TMPDIR:-/tmp}/dazzle-host-vm.log"
-    echo "host vm: booting, log $log"
-    # setsid: a guest that died with the recipe would be booted again per test file.
-    nohup setsid --wait nix run .#host-vm -- -nographic </dev/null >"$log" 2>&1 &
-    vm=$!
-    for _ in $(seq 1 180); do
-        if {{ host_vm_probe }}; then echo "host vm: up"; exit 0; fi
-        # qemu gives up on a port it cannot forward in under a second, so a dead
-        # guest is told from a slow one rather than waited out for six minutes.
-        if ! kill -0 "$vm" 2>/dev/null; then
-            echo "host vm: the guest exited while booting; see $log" >&2
-            tail -n 3 "$log" >&2
-            exit 1
-        fi
-        sleep 2
-    done
-    echo "host vm: no sshd on 2222 after six minutes; see $log" >&2
-    exit 1
+    nix run .#host-up
 
 # Stop the fixture VM. The disk image is kept: a test pins the host key in it.
 host-vm-down:
