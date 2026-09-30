@@ -230,6 +230,9 @@ class ShellSession extends ChangeNotifier {
   /// restored on its saved screen starts painted.
   final ValueNotifier<bool> painted = ValueNotifier(false);
 
+  bool get awaitingHost =>
+      !painted.value && (state is ShellConnecting || state is ShellLive);
+
   int get rowsBehind {
     final bar = terminal.scrollbar;
     return bar.total - bar.offset - bar.visible;

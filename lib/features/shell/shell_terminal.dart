@@ -114,11 +114,7 @@ class ShellLoading extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: Listenable.merge([session, session.painted]),
     builder: (context, _) {
-      final dialling = switch (session.state) {
-        ShellConnecting() || ShellLive() => !session.painted.value,
-        _ => false,
-      };
-      if (!dialling) return const SizedBox.shrink();
+      if (!session.awaitingHost) return const SizedBox.shrink();
       return Center(
         child: DelayedSpinner(
           key: ObjectKey(session),

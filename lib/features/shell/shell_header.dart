@@ -8,6 +8,7 @@ import '../../design/components/key_cell.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/panel_text_action.dart';
+import '../../design/components/scan_sweep.dart';
 import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/motion.dart';
@@ -661,35 +662,68 @@ class _TabCell extends StatelessWidget {
                 : BorderSide.none,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (session case final session?) ...[
-              ShellStateMark(session: session),
-              const SizedBox(width: Spacing.sm),
-            ],
-            // The cap is on the word and not on the cell: a Container that aligns
-            // its child takes every pixel its constraints allow, so a cell capped
-            // at [_tabMaxWidth] is that wide even when it says `1`.
-            if (icon case final icon?)
-              Semantics(
-                label: label,
-                child: DazzleIcon(icon, size: IconSizes.sm, color: tint),
-              )
-            else
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: _tabMaxWidth),
-                child: Text(
-                  label!,
-                  style: context.tokens.panelHeader.copyWith(color: tint),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
+        child: _TabScan(
+          session: session,
+          active: active,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (session case final session?) ...[
+                ShellStateMark(session: session),
+                const SizedBox(width: Spacing.sm),
+              ],
+              // The cap is on the word and not on the cell: a Container that aligns
+              // its child takes every pixel its constraints allow, so a cell capped
+              // at [_tabMaxWidth] is that wide even when it says `1`.
+              if (icon case final icon?)
+                Semantics(
+                  label: label,
+                  child: DazzleIcon(icon, size: IconSizes.sm, color: tint),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: _tabMaxWidth),
+                  child: Text(
+                    label!,
+                    style: context.tokens.panelHeader.copyWith(color: tint),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _TabScan extends StatelessWidget {
+  const _TabScan({
+    required this.session,
+    required this.active,
+    required this.child,
+  });
+
+  final ShellSession? session;
+  final bool active;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final session = this.session;
+    if (session == null) return child;
+    return ListenableBuilder(
+      listenable: Listenable.merge([session, session.painted]),
+      builder: (context, child) => session.awaitingHost
+          ? ScanSweep(
+              base: context.tokens.textDisabled,
+              lit: active ? context.tokens.accent : context.tokens.textPrimary,
+              child: child!,
+            )
+          : child!,
+      child: child,
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:dazzle/application/launch_scan.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/design/components/cell_divider.dart';
+import 'package:dazzle/design/components/scan_sweep.dart';
 import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_header.dart';
@@ -87,6 +88,28 @@ void main() {
 
     expect(find.text('MOSH'), findsNothing);
     expect(find.byKey(const ValueKey('shell-tab-info')), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a tab the host has not drawn on sweeps until it does', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+
+    final sweep = find.descendant(
+      of: find.byKey(const ValueKey('shell-tab-1')),
+      matching: find.byType(ScanSweep),
+    );
+    expect(sweep, findsOneWidget);
+
+    transport.opened.single.emit('\$ ');
+    await ready(tester);
+    expect(sweep, findsNothing);
+    expect(labelOfTab(tester, 1), '1');
 
     await unmount(tester);
   });

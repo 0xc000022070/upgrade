@@ -1125,6 +1125,8 @@ The header is one row of 44: the host name at the left, a rule, then the tab cel
 
 A tab that is dialling, or is up and has not had a byte from the host, is a black page and a cursor, which reads the same as a shell that hung. The dot spinner stands in the middle of the terminal until the host's first bytes land, under the same 200ms rule as every other wait, so a dial that answers at once never shows it. It takes no touches and hides nothing: the cursor and anything written under it are the terminal's as before.
 
+**The tab sweeps while it waits.** Its mark and its name drop to `textDisabled` and a ten-pixel band in the tab's lit ink — the accent on the tab on screen, `textPrimary` on the others — steps across them left to right and starts again, twelve steps of the spinner's 80ms. It is a flipbook like every other effect here, and it is the one way a tab off screen says it is still coming up. The band is hard-edged, a cursor passing over the letters and not a glow. It ends on the same bytes the spinner does, and under reduce-motion the tab is drawn plain.
+
 It is the host's bytes that end it, not the terminal's: the modes and the mark the app writes into a fresh terminal on its own are not an answer. A tab restored on its saved screen never shows it, because it opens on something to read and the dial lands under it the way a reconnect does, and a reconnect on a tab the host already drew on never shows it either. A tab that failed, exited or is waiting drops it — the reason row says why, and a waiting tab is not working.
 
 ### SSH is the tab for what is running
