@@ -298,6 +298,9 @@ fn text(value: &Value, key: &str) -> Option<String> {
 }
 
 fn summarize(input: &Value) -> String {
+    if let Some(question) = input.pointer("/questions/0").and_then(|first| text(first, "question")) {
+        return cut(&question, SUMMARY_CHARS);
+    }
     for key in ["command", "file_path", "path", "url", "pattern", "query", "description"] {
         if let Some(value) = text(input, key) {
             return cut(&value, SUMMARY_CHARS);
@@ -559,6 +562,7 @@ mod tests {
     fn a_summary_is_the_argument_a_person_reads() {
         assert_eq!(summarize(&json!({ "command": "rm -rf build", "description": "x" })), "rm -rf build");
         assert_eq!(summarize(&json!({ "file_path": "/a/b.rs", "old_string": "x" })), "/a/b.rs");
+        assert_eq!(summarize(&json!({ "questions": [{ "question": "Ship it?", "options": [] }] })), "Ship it?");
         assert_eq!(summarize(&json!({ "other": 1 })), "{\"other\":1}");
     }
 
