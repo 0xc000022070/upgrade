@@ -10,6 +10,7 @@ import 'package:dazzle/application/pin_alerts.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/data/repositories/shell_tab_repository.dart';
 import 'package:dazzle/data/shell_snapshot_store.dart';
+import 'package:dazzle/design/components/dot_spinner.dart';
 import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_card.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
@@ -168,6 +169,48 @@ void main() {
     await _settle();
 
     expect(transport.opened.single.written, isEmpty);
+  });
+
+  testWidgets('the spinner holds the page until the host draws on it', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport()..stall = true;
+    final sessions = fakeShellSessions(transport);
+
+    final session = sessions.open(_rose)!;
+    await _pumpView(tester, session, const Size(400, 600));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(DotSpinner), findsNothing);
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(find.byType(DotSpinner), findsOneWidget);
+
+    transport.land();
+    await _pumpDial(tester);
+    expect(session.state, isA<ShellLive>());
+    expect(find.byType(DotSpinner), findsOneWidget);
+
+    transport.opened.single.emit('\$ ');
+    await _pumpDial(tester);
+    expect(find.byType(DotSpinner), findsNothing);
+
+    await sessions.close(_rose.id, session);
+  });
+
+  testWidgets('a dial that fails takes the spinner with it', (tester) async {
+    final transport = FakeShellTransport()..stall = true;
+    final sessions = fakeShellSessions(transport);
+
+    final session = sessions.open(_rose)!;
+    await _pumpView(tester, session, const Size(400, 600));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.byType(DotSpinner), findsOneWidget);
+
+    session.state = const ShellFailed(ShellFailureKind.keyRejected);
+    session.changed();
+    await tester.pump();
+    expect(find.byType(DotSpinner), findsNothing);
+
+    await sessions.close(_rose.id, session);
   });
 
   test('the ninth session is the last one a host can open', () async {

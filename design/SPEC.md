@@ -1121,6 +1121,12 @@ The header is one row of 44: the host name at the left, a rule, then the tab cel
 
 **The tab in use is on the screen.** The strip scrolls, and a tab going active — by a tap, by being opened, or by the one beside it closing — is brought into view. A strip that scrolled the shell the user is typing in off its own edge is how a tab is lost.
 
+### A tab the host has not drawn on yet carries the spinner
+
+A tab that is dialling, or is up and has not had a byte from the host, is a black page and a cursor, which reads the same as a shell that hung. The dot spinner stands in the middle of the terminal until the host's first bytes land, under the same 200ms rule as every other wait, so a dial that answers at once never shows it. It takes no touches and hides nothing: the cursor and anything written under it are the terminal's as before.
+
+It is the host's bytes that end it, not the terminal's: the modes and the mark the app writes into a fresh terminal on its own are not an answer. A tab restored on its saved screen never shows it, because it opens on something to read and the dial lands under it the way a reconnect does, and a reconnect on a tab the host already drew on never shows it either. A tab that failed, exited or is waiting drops it — the reason row says why, and a waiting tab is not working.
+
 ### SSH is the tab for what is running
 
 `ACTIVE SESSIONS` on top, one card per session across every host, in host order then tab order, drawn only while something is open: an empty shelf is worse than the list starting at the top. Under it the host list, each row `ssh, <user>` and never the address, counting its own sessions.
