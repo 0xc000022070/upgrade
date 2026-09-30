@@ -769,6 +769,27 @@ void main() {
     expect(AlertTarget.decode('{'), isNull);
   });
 
+  test('a herdr alert carries the pin its answer is dialled against', () {
+    final pinned = Host(
+      id: host.id,
+      name: host.name,
+      address: host.address,
+      port: host.port,
+      user: host.user,
+      keyId: host.keyId,
+      hostKey: PinnedHostKey(
+        type: 'ssh-ed25519',
+        fingerprint: 'SHA256:nyx',
+        pinnedAt: DateTime.fromMillisecondsSinceEpoch(1750000000000),
+      ),
+    );
+    final target = AlertTarget.forHost(pinned, snapshot(), channel: host.id);
+    final decoded = AlertTarget.decode(target.encode())!;
+
+    expect(decoded.engine, isFalse);
+    expect(decoded.hostKey?.fingerprint, 'SHA256:nyx');
+  });
+
   test('a watcher report round-trips between the isolates', () {
     final report = WatcherReport(
       hostId: 'h1',

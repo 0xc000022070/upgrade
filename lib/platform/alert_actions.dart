@@ -78,9 +78,7 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
       port: target.port,
       user: target.user,
       privateKey: privateKey,
-      verifier: approval == null
-          ? null
-          : HostKeyVerifier.pinnedOnly(target.hostKey),
+      verifier: HostKeyVerifier.pinnedOnly(target.hostKey),
     );
     try {
       if (approval != null) {

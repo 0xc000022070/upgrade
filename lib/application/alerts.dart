@@ -204,7 +204,7 @@ class AlertTarget {
     channel: channel,
     edge: snapshot.edgeId,
     approvalId: snapshot.approval?.id,
-    hostKey: channel == null || channel == host.id ? null : host.hostKey,
+    hostKey: host.hostKey,
   );
 
   String get title => AlertKind.blocked.title(agent);
