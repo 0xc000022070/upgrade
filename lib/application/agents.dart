@@ -22,6 +22,7 @@ enum AgentOutcomeKind {
   keyRejected,
   protocolMismatch,
   noEngine,
+  noHerdr,
 
   hostKeyUnverified,
 
@@ -64,6 +65,7 @@ class HostOutcome {
     AgentOutcomeKind.keyRejected => ReasonLine.keyRejected,
     AgentOutcomeKind.protocolMismatch => ReasonLine.protocolMismatch,
     AgentOutcomeKind.noEngine => ReasonLine.noEngine,
+    AgentOutcomeKind.noHerdr => ReasonLine.noHerdr,
     AgentOutcomeKind.hostKeyUnverified => ReasonLine.hostKeyUnverified,
     AgentOutcomeKind.hostKeyChanged => ReasonLine.hostKeyChanged,
   };
@@ -91,6 +93,7 @@ class HostOutcome {
     AgentOutcomeKind.keyRejected => 'check SSH key in HOSTS',
     AgentOutcomeKind.protocolMismatch => '$_word protocol is not supported',
     AgentOutcomeKind.noEngine => 'install dazzle-engine on the host',
+    AgentOutcomeKind.noHerdr => 'install herdr on the host',
     AgentOutcomeKind.hostKeyUnverified => 'verify host key in HOSTS',
     AgentOutcomeKind.hostKeyChanged => 'host key changed; verify in HOSTS',
   };
@@ -537,6 +540,7 @@ Future<HostOutcome> _poll(
       HerdrUnresolved() => failure(AgentOutcomeKind.unresolved),
       HerdrUnreachable() => failure(AgentOutcomeKind.unreachable),
       EngineMissing() => failure(AgentOutcomeKind.noEngine),
+      HerdrMissing() => failure(AgentOutcomeKind.noHerdr),
       HerdrHostKeyUnverified() => failure(AgentOutcomeKind.hostKeyUnverified),
       HerdrHostKeyChanged() => failure(AgentOutcomeKind.hostKeyChanged),
     };
