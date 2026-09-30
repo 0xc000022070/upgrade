@@ -97,39 +97,18 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
       final session = watched.agents
           .where((agent) => agent.paneId == _key)
           .firstOrNull;
-      final fresh = <TranscriptItem>[];
-      var last = _last;
-      var unnamed = false;
-      if (!_noTranscript) {
-        try {
-          for (var page = 0; page < _pagesPerTick; page++) {
-            final read = await engine.transcript(_key, after: last);
-            fresh.addAll(read.items);
-            if (read.last == last || read.items.length < _pageLimit) {
-              last = read.last;
-              break;
-            }
-            last = read.last;
-          }
-        } on EngineRefused catch (error) {
-          if (error.notFound) {
-            unnamed = true;
-          } else {
-            _noTranscript = true;
-          }
-        }
-      }
+      final read = await _read(engine);
       if (_gone || !mounted) return;
       setState(() {
         _session = session;
-        _last = last;
-        _unnamed = unnamed;
-        _items.addAll(fresh);
+        _last = read.last;
+        _unnamed = read.unnamed;
+        _items.addAll(read.fresh);
         if (_items.length > _kept) {
           _items.removeRange(0, _items.length - _kept);
           _cut = true;
         }
-        _failure = null;
+        _failure = read.failure;
       });
     } catch (error) {
       debugPrint('dazzle.engine ${widget.host.name} chat: $error');
@@ -138,13 +117,46 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
       setState(
         () => _failure = switch (error) {
           HerdrFailure() => error.line.on(widget.host.name),
-          EngineRefused() => error.kind.replaceAll('_', ' '),
+          EngineRefused() => _refusal(error),
           _ => 'failed',
         },
       );
     } finally {
       _asking = false;
     }
+  }
+
+  static String _refusal(EngineRefused error) =>
+      error.kind.replaceAll('_', ' ');
+
+  Future<
+    ({List<TranscriptItem> fresh, int? last, bool unnamed, String? failure})
+  >
+  _read(EngineAgents engine) async {
+    final fresh = <TranscriptItem>[];
+    var last = _last;
+    if (_noTranscript) {
+      return (fresh: fresh, last: last, unnamed: false, failure: null);
+    }
+    try {
+      for (var page = 0; page < _pagesPerTick; page++) {
+        final read = await engine.transcript(_key, after: last);
+        fresh.addAll(read.items);
+        final done = read.last == last || read.items.length < _pageLimit;
+        last = read.last;
+        if (done) break;
+      }
+    } on EngineRefused catch (error) {
+      _noTranscript = error.kind == 'unsupported';
+      final settled = error.notFound || _noTranscript;
+      return (
+        fresh: fresh,
+        last: last,
+        unnamed: error.notFound,
+        failure: settled ? null : _refusal(error),
+      );
+    }
+    return (fresh: fresh, last: last, unnamed: false, failure: null);
   }
 
   Future<void> _answer(AgentApproval approval, {required bool allow}) async {
