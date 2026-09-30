@@ -1,5 +1,6 @@
 use crate::paths;
 use crate::protocol::{EngineError, EngineResult};
+use serde::Serialize;
 use serde_json::{json, Map, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -111,6 +112,7 @@ const answerable = (event) => {{
 }};
 
 export const DazzleAgents = async ({{ client, $, directory }}) => {{
+  let queue = Promise.resolve();
   const report = async (input) => {{
     const out = await $`{MARK} opencode < ${{new Response(JSON.stringify({{ cwd: directory, ...input }}))}}`.quiet().nothrow();
     return out.text();
@@ -129,7 +131,9 @@ export const DazzleAgents = async ({{ client, $, directory }}) => {{
     event: async ({{ event }}) => {{
       const input = answerable(event);
       if (!input?.session_id) return;
-      const pending = report(input).then(async (text) => {{
+      const reported = queue.then(() => report(input));
+      if (input.hook_event_name !== "PermissionRequest") queue = reported.catch(() => "");
+      const pending = reported.then(async (text) => {{
         if (input.hook_event_name !== "PermissionRequest" || !text.trim()) return;
         const behavior = JSON.parse(text).hookSpecificOutput?.decision?.behavior;
         if (behavior) await reply(event, behavior);
@@ -155,14 +159,56 @@ fn is_ours(entry: &Value, agent: &str) -> bool {
         })
 }
 
-fn read_json(path: &Path) -> EngineResult<Value> {
+fn read_raw(path: &Path) -> EngineResult<String> {
     match fs::read_to_string(path) {
-        Ok(raw) if raw.trim().is_empty() => Ok(json!({})),
-        Ok(raw) => serde_json::from_str(&raw)
-            .map_err(|err| EngineError::failed(format!("{} is not JSON: {err}", paths::display(path)))),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(json!({})),
+        Ok(raw) => Ok(raw),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
         Err(err) => Err(err.into()),
     }
+}
+
+fn parse(raw: &str, path: &Path) -> EngineResult<Value> {
+    if raw.trim().is_empty() {
+        return Ok(json!({}));
+    }
+    serde_json::from_str(raw)
+        .map_err(|err| EngineError::failed(format!("{} is not JSON: {err}", paths::display(path))))
+}
+
+fn read_json(path: &Path) -> EngineResult<Value> {
+    parse(&read_raw(path)?, path)
+}
+
+fn indent(raw: &str) -> &str {
+    raw.lines()
+        .skip(1)
+        .map(|line| &line[..line.len() - line.trim_start_matches([' ', '\t']).len()])
+        .find(|indent| !indent.is_empty())
+        .unwrap_or("  ")
+}
+
+fn render(config: &Value, original: &str) -> EngineResult<String> {
+    let mut out = Vec::new();
+    let formatter = serde_json::ser::PrettyFormatter::with_indent(indent(original).as_bytes());
+    config
+        .serialize(&mut serde_json::Serializer::with_formatter(&mut out, formatter))
+        .map_err(|err| EngineError::failed(err.to_string()))?;
+    let mut raw = String::from_utf8_lossy(&out).into_owned();
+    if original.is_empty() || original.ends_with('\n') {
+        raw.push('\n');
+    }
+    Ok(raw)
+}
+
+fn claim(agent: &str, path: &Path) -> EngineResult<()> {
+    let foreign = agent == "opencode" && path.exists() && !installed(agent, path);
+    if foreign || !writable(path) {
+        return Err(EngineError::denied(format!(
+            "{} is not the engine's to write; add the entries to your own config",
+            paths::display(path)
+        )));
+    }
+    Ok(())
 }
 
 fn installed(agent: &str, path: &Path) -> bool {
@@ -214,7 +260,7 @@ pub fn describe() -> EngineResult<Value> {
                 "agent": agent,
                 "config_path": paths::display(&path),
                 "installed": installed(agent, &path),
-                "writable": writable(&path),
+                "writable": claim(agent, &path).is_ok(),
                 "entries": manual(agent),
             }))
         })
@@ -260,20 +306,12 @@ pub fn install(agent: &str) -> EngineResult<Value> {
         return Err(EngineError::bad_request(format!("no agent kind {agent}")));
     }
     let path = config_path(agent)?;
-    if !writable(&path) {
-        return Err(EngineError::denied(format!(
-            "{} is not the engine's to write; add the entries to your own config",
-            paths::display(&path)
-        )));
-    }
+    claim(agent, &path)?;
     let contents = match agent {
         "opencode" => plugin(),
         _ => {
-            let config = merged(agent, read_json(&path)?)?;
-            let mut raw = serde_json::to_string_pretty(&config)
-                .map_err(|err| EngineError::failed(err.to_string()))?;
-            raw.push('\n');
-            raw
+            let raw = read_raw(&path)?;
+            render(&merged(agent, parse(&raw, &path)?)?, &raw)?
         }
     };
     write_atomic(&path, &contents)?;
@@ -296,10 +334,12 @@ pub fn remove_all() -> Vec<String> {
         let done = if *agent == "opencode" {
             fs::remove_file(&path).is_ok()
         } else {
-            read_json(&path).ok().and_then(|config| stripped(agent, config)).is_some_and(|config| {
-                serde_json::to_string_pretty(&config)
+            read_raw(&path).is_ok_and(|raw| {
+                parse(&raw, &path)
                     .ok()
-                    .is_some_and(|raw| write_atomic(&path, &(raw + "\n")).is_ok())
+                    .and_then(|config| stripped(agent, config))
+                    .and_then(|config| render(&config, &raw).ok())
+                    .is_some_and(|contents| write_atomic(&path, &contents).is_ok())
             })
         };
         if done {
@@ -324,12 +364,122 @@ fn installed_any(agent: &str, path: &Path) -> bool {
 }
 
 fn stripped(agent: &str, mut config: Value) -> Option<Value> {
-    let hooks = config.get_mut("hooks")?.as_object_mut()?;
-    for list in hooks.values_mut() {
-        if let Value::Array(list) = list {
+    let root = config.as_object_mut()?;
+    let hooks = root.get_mut("hooks")?.as_object_mut()?;
+    let before = hooks.len();
+    hooks.retain(|_, list| match list {
+        Value::Array(list) if list.iter().any(|entry| is_ours(entry, agent)) => {
             list.retain(|entry| !is_ours(entry, agent));
+            !list.is_empty()
         }
+        _ => true,
+    });
+    if hooks.is_empty() && before > 0 {
+        root.retain(|key, _| key != "hooks");
     }
-    hooks.retain(|_, list| list.as_array().is_none_or(|list| !list.is_empty()));
     Some(config)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{claim, merged, parse, plugin, render, stripped, PLUGIN_MARK};
+    use crate::protocol::ErrorKind;
+    use serde_json::{json, Value};
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("dazzle-hooks-unit-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn round_trip(agent: &str, original: &str) -> (String, String) {
+        let path = Path::new("settings.json");
+        let installed = render(&merged(agent, parse(original, path).unwrap()).unwrap(), original).unwrap();
+        let removed = render(&stripped(agent, parse(&installed, path).unwrap()).unwrap(), &installed).unwrap();
+        (installed, removed)
+    }
+
+    #[test]
+    fn install_and_teardown_keep_the_user_key_order_and_indent() {
+        let original = "{\n    \"zeta\": 1,\n    \"alpha\": {\n        \"b\": 1,\n        \"a\": 2\n    }\n}\n";
+        let (installed, removed) = round_trip("claude", original);
+        let keys: Vec<String> = serde_json::from_str::<serde_json::Map<String, Value>>(&installed)
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect();
+        assert_eq!(keys, vec!["zeta", "alpha", "hooks"]);
+        assert!(installed.starts_with("{\n    \"zeta\": 1,\n    \"alpha\": {\n        \"b\": 1,"), "{installed}");
+        assert_eq!(removed, original);
+    }
+
+    #[test]
+    fn a_file_without_a_trailing_newline_keeps_none() {
+        let original = "{\n  \"model\": \"opus\"\n}";
+        let (_, removed) = round_trip("codex", original);
+        assert_eq!(removed, original);
+    }
+
+    #[test]
+    fn teardown_leaves_the_user_own_empty_lists_and_adds_no_hooks_object() {
+        let config = json!({ "hooks": { "PreToolUse": [], "Stop": [{ "hooks": [{ "type": "command", "command": "mine" }] }] } });
+        let back = stripped("claude", merged("claude", config.clone()).unwrap()).unwrap();
+        assert_eq!(back, config);
+
+        let bare = json!({ "model": "opus" });
+        assert_eq!(stripped("claude", merged("claude", bare.clone()).unwrap()).unwrap(), bare);
+    }
+
+    #[test]
+    fn an_opencode_plugin_the_engine_did_not_write_is_refused() {
+        let dir = scratch("claim");
+        let foreign = dir.join("foreign.js");
+        std::fs::write(&foreign, "export const Mine = async () => ({});\n").unwrap();
+        let refused = claim("opencode", &foreign).unwrap_err();
+        assert_eq!(refused.kind, ErrorKind::Denied);
+
+        let ours = dir.join("ours.js");
+        std::fs::write(&ours, format!("{PLUGIN_MARK}\nold\n")).unwrap();
+        assert!(claim("opencode", &ours).is_ok());
+        assert!(claim("opencode", &dir.join("absent.js")).is_ok());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    const HARNESS: &str = r#"
+const { DazzleAgents } = await import(process.argv[2]);
+const log = [];
+const $ = (_strings, body) => ({ quiet: () => ({ nothrow: async () => {
+  const name = JSON.parse(await body.text()).hook_event_name;
+  log.push(`start ${name}`);
+  await new Promise((done) => setTimeout(done, name === "UserPromptSubmit" ? 80 : 0));
+  log.push(`end ${name}`);
+  return { text: () => "" };
+} }) });
+const hooks = await DazzleAgents({ client: {}, $, directory: "/w" });
+hooks.event({ event: { type: "session.status", properties: { sessionID: "s", status: { type: "busy" } } } });
+hooks.event({ event: { type: "permission.asked", properties: { id: "p1", sessionID: "s", permission: "bash", patterns: ["ls"] } } });
+await new Promise((done) => setTimeout(done, 300));
+console.log(JSON.stringify(log));
+"#;
+
+    /// Skipped where no node is on PATH, as in the nix build sandbox.
+    #[test]
+    fn the_opencode_plugin_reports_events_in_the_order_they_came() {
+        let dir = scratch("plugin-order");
+        std::fs::write(dir.join("dazzle.mjs"), plugin()).unwrap();
+        std::fs::write(dir.join("harness.mjs"), HARNESS).unwrap();
+        let Ok(output) = Command::new("node").arg(dir.join("harness.mjs")).arg(dir.join("dazzle.mjs")).output() else {
+            return;
+        };
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        let log: Vec<String> = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(
+            log,
+            vec!["start UserPromptSubmit", "end UserPromptSubmit", "start PermissionRequest", "end PermissionRequest"]
+        );
+    }
 }
