@@ -120,6 +120,7 @@ class AlertNotifications {
     required bool withActions,
     String? line,
     AlertKind kind = AlertKind.blocked,
+    bool quiet = false,
   }) {
     final body = line == null ? text : '$text\n$line';
     return AndroidNotificationDetails(
@@ -132,6 +133,7 @@ class AlertNotifications {
       // user's own decision, not a tap.
       ongoing: false,
       autoCancel: false,
+      silent: quiet,
       styleInformation: tail == null
           ? null
           : BigTextStyleInformation('$body\n\n$tail', contentTitle: title),
@@ -143,6 +145,7 @@ class AlertNotifications {
     required AlertTarget target,
     required AgentSnapshot snapshot,
     String? tail,
+    bool quiet = false,
   }) {
     final title = alertTitle(snapshot);
     final text = alertText(snapshot);
@@ -157,6 +160,7 @@ class AlertNotifications {
           text: text,
           tail: tail,
           withActions: true,
+          quiet: quiet,
         ),
       ),
       payload: target.encode(),
