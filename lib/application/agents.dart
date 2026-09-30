@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/enums.dart';
 import '../data/repositories/host_repository.dart';
 import '../data/repositories/key_repository.dart';
+import '../platform/engine_agents.dart';
 import '../platform/herdr_client.dart';
 import '../platform/herdr_pool.dart';
 import '../platform/host_key_dial.dart';
@@ -20,6 +21,7 @@ enum AgentOutcomeKind {
   unresolved,
   keyRejected,
   protocolMismatch,
+  noEngine,
 
   hostKeyUnverified,
 
@@ -40,10 +42,14 @@ class HostOutcome {
     this.agents = const [],
     this.lastGoodAt,
     this.protocol,
+    this.source = AgentSource.herdr,
   });
 
   final Host host;
   final AgentOutcomeKind kind;
+  final AgentSource source;
+
+  String get key => channelKey(host.id, source);
 
   final List<AgentSnapshot> agents;
   final DateTime? lastGoodAt;
@@ -57,6 +63,7 @@ class HostOutcome {
     AgentOutcomeKind.unresolved => ReasonLine.unresolved,
     AgentOutcomeKind.keyRejected => ReasonLine.keyRejected,
     AgentOutcomeKind.protocolMismatch => ReasonLine.protocolMismatch,
+    AgentOutcomeKind.noEngine => ReasonLine.noEngine,
     AgentOutcomeKind.hostKeyUnverified => ReasonLine.hostKeyUnverified,
     AgentOutcomeKind.hostKeyChanged => ReasonLine.hostKeyChanged,
   };
@@ -75,25 +82,79 @@ class HostOutcome {
     return '${host.name.toLowerCase()} · $reason';
   }
 
+  String get _word => source == AgentSource.herdr ? 'HERDR' : 'AGENTS';
+
   String get diagnostic => switch (kind) {
     AgentOutcomeKind.snapshot => 'agent integration available',
-    AgentOutcomeKind.unreachable => 'HERDR check could not reach host',
-    AgentOutcomeKind.unresolved => 'HERDR host name did not resolve',
+    AgentOutcomeKind.unreachable => '$_word check could not reach host',
+    AgentOutcomeKind.unresolved => '$_word host name did not resolve',
     AgentOutcomeKind.keyRejected => 'check SSH key in HOSTS',
-    AgentOutcomeKind.protocolMismatch => 'HERDR protocol is not supported',
+    AgentOutcomeKind.protocolMismatch => '$_word protocol is not supported',
+    AgentOutcomeKind.noEngine => 'install dazzle-engine on the host',
     AgentOutcomeKind.hostKeyUnverified => 'verify host key in HOSTS',
     AgentOutcomeKind.hostKeyChanged => 'host key changed; verify in HOSTS',
   };
 }
 
+typedef AgentChannel = ({Host host, AgentSource source});
+
+String channelKey(String hostId, AgentSource source) =>
+    source == AgentSource.herdr ? hostId : '$hostId/${source.name}';
+
+List<HostOutcome> linkAgents(List<HostOutcome> outcomes) {
+  final claimed = <String, Set<String>>{};
+  final panes = <String, Map<String, PaneRef>>{};
+  for (final outcome in outcomes) {
+    if (outcome.source != AgentSource.herdr) continue;
+    final byPane = panes.putIfAbsent(outcome.host.id, () => {});
+    for (final agent in outcome.agents) {
+      byPane[agent.paneId] = agent.pane;
+    }
+  }
+  for (final outcome in outcomes) {
+    if (outcome.source != AgentSource.engine) continue;
+    for (final agent in outcome.agents) {
+      final pane = agent.herdrPane;
+      if (pane != null && panes[outcome.host.id]?[pane] != null) {
+        claimed.putIfAbsent(outcome.host.id, () => {}).add(pane);
+      }
+    }
+  }
+  if (claimed.isEmpty) return outcomes;
+  return [
+    for (final outcome in outcomes)
+      HostOutcome(
+        host: outcome.host,
+        kind: outcome.kind,
+        source: outcome.source,
+        lastGoodAt: outcome.lastGoodAt,
+        protocol: outcome.protocol,
+        agents: switch (outcome.source) {
+          AgentSource.herdr => [
+            for (final agent in outcome.agents)
+              if (!(claimed[outcome.host.id]?.contains(agent.paneId) ?? false))
+                agent,
+          ],
+          AgentSource.engine => [
+            for (final agent in outcome.agents)
+              agent.linkedTo(panes[outcome.host.id]?[agent.herdrPane]),
+          ],
+        },
+      ),
+  ];
+}
+
 class AgentPanelState {
   const AgentPanelState(this.outcomes);
+
+  AgentPanelState.linked(List<HostOutcome> outcomes)
+    : outcomes = linkAgents(outcomes);
 
   const AgentPanelState.noHost() : outcomes = const [];
 
   final List<HostOutcome> outcomes;
 
-  static const blockedLine = 'TURN HERDR ON IN A HOST';
+  static const blockedLine = 'TURN AGENTS ON IN A HOST';
 
   String get tally => agentTally(outcomes);
 
@@ -153,6 +214,58 @@ final herdrHostsProvider = StreamProvider<List<Host>>(
       .watchWithIntegration(IntegrationKind.herdr),
 );
 
+final engineHostsProvider = StreamProvider<List<Host>>(
+  (ref) => ref
+      .watch(hostRepositoryProvider)
+      .watchWithIntegration(IntegrationKind.agents),
+);
+
+Stream<List<AgentChannel>> watchAgentChannels(HostRepository repository) {
+  late final StreamController<List<AgentChannel>> controller;
+  final subscriptions = <StreamSubscription<List<Host>>>[];
+  List<Host>? herdr;
+  List<Host>? engine;
+  void emit() {
+    if (herdr == null || engine == null) return;
+    controller.add([
+      for (final host in herdr!) (host: host, source: AgentSource.herdr),
+      for (final host in engine!) (host: host, source: AgentSource.engine),
+    ]);
+  }
+
+  controller = StreamController(
+    onListen: () {
+      subscriptions
+        ..add(
+          repository.watchWithIntegration(IntegrationKind.herdr).listen((
+            hosts,
+          ) {
+            herdr = hosts;
+            emit();
+          }, onError: controller.addError),
+        )
+        ..add(
+          repository.watchWithIntegration(IntegrationKind.agents).listen((
+            hosts,
+          ) {
+            engine = hosts;
+            emit();
+          }, onError: controller.addError),
+        );
+    },
+    onCancel: () {
+      for (final subscription in subscriptions) {
+        unawaited(subscription.cancel());
+      }
+    },
+  );
+  return controller.stream;
+}
+
+final agentChannelsProvider = StreamProvider<List<AgentChannel>>(
+  (ref) => watchAgentChannels(ref.watch(hostRepositoryProvider)),
+);
+
 final hostIntegrationsProvider =
     StreamProvider.family<Set<IntegrationKind>, String>(
       (ref, hostId) =>
@@ -210,13 +323,58 @@ final herdrFetchProvider = Provider<HerdrFetch>((ref) {
   return pool.fetch;
 });
 
+final engineFetchProvider = Provider<HerdrFetch>((ref) {
+  const client = HerdrClient();
+  return ({
+    required address,
+    required port,
+    required user,
+    required privateKey,
+    verifier,
+  }) async {
+    final session = await client.connect(
+      address: address,
+      port: port,
+      user: user,
+      privateKey: privateKey,
+      verifier: verifier,
+    );
+    try {
+      return (await EngineAgents(session, owner: user).watch()).agents;
+    } finally {
+      session.close();
+    }
+  };
+});
+
+typedef EngineOpen = Future<EngineAgents> Function(Host host);
+
+final engineOpenProvider = Provider<EngineOpen>((ref) {
+  const client = HerdrClient();
+  final keys = ref.read(ed25519KeysProvider);
+  return (host) async {
+    final privateKey = await keys.privateKey(host.keyId);
+    if (privateKey == null) {
+      throw HerdrKeyRejected('no private key stored for ${host.keyId}');
+    }
+    final session = await client.connect(
+      address: host.address,
+      port: host.port,
+      user: host.user,
+      privateKey: privateKey,
+      verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
+    );
+    return EngineAgents(session, owner: host.user);
+  };
+});
+
 final hostKeyDialProvider = Provider<HostKeyDial>((ref) => dialHostKey);
 
 class _AgentSnapshotCache {
   final Map<String, _CachedSnapshot> _hosts = {};
 
-  _CachedSnapshot forHost(String hostId) =>
-      _hosts.putIfAbsent(hostId, _CachedSnapshot.new);
+  _CachedSnapshot forChannel(String key) =>
+      _hosts.putIfAbsent(key, _CachedSnapshot.new);
 }
 
 class _CachedSnapshot {
@@ -226,13 +384,24 @@ class _CachedSnapshot {
 
 final _agentSnapshotCacheProvider = Provider((ref) => _AgentSnapshotCache());
 
-typedef AgentRetry = Future<HostOutcome> Function(Host host);
+typedef AgentRetry = Future<HostOutcome> Function(
+  Host host, {
+  AgentSource source,
+});
+
+typedef _Fetches = ({HerdrFetch herdr, HerdrFetch engine});
+
+_Fetches _fetches(Ref ref) => (
+  herdr: ref.read(herdrFetchProvider),
+  engine: ref.read(engineFetchProvider),
+);
 
 AgentRetry foregroundAgentRetry(Ref ref) {
-  final fetch = ref.read(herdrFetchProvider);
+  final fetches = _fetches(ref);
   final keys = ref.read(ed25519KeysProvider);
   final cache = ref.read(_agentSnapshotCacheProvider);
-  return (host) => _poll(fetch, keys, cache.forHost(host.id), host);
+  return (host, {source = AgentSource.herdr}) =>
+      _poll(fetches, keys, cache, (host: host, source: source));
 }
 
 final agentRetryProvider = Provider<AgentRetry>(foregroundAgentRetry);
@@ -254,40 +423,43 @@ final agentsFeedProvider = StreamProvider<AgentPanelState>((ref) {
   final watched = ref.watch(watcherFeedProvider).valueOrNull;
   if (watched != null) return Stream.value(watched);
   if (!ref.watch(agentsFeedLiveProvider)) return const Stream.empty();
-  final hosts = ref.watch(herdrHostsProvider);
+  final channels = ref.watch(agentChannelsProvider);
   // Read before the generator body, which does not run until something listens: by
   // then watcherFeedProvider has emitted and the ref is outdated.
-  final fetch = ref.read(herdrFetchProvider);
+  final fetches = _fetches(ref);
   final keys = ref.read(ed25519KeysProvider);
   final cache = ref.read(_agentSnapshotCacheProvider);
-  return hosts.when(
+  return channels.when(
     data: (list) => list.isEmpty
         ? Stream.value(const AgentPanelState.noHost())
-        : _pollHosts(fetch, keys, cache, list),
+        : _pollHosts(fetches, keys, cache, list),
     loading: () => const Stream.empty(),
     error: (_, _) => const Stream.empty(),
   );
 });
 
 Stream<AgentPanelState> _pollHosts(
-  HerdrFetch fetch,
+  _Fetches fetches,
   Ed25519Keys keys,
   _AgentSnapshotCache cache,
-  List<Host> hosts,
+  List<AgentChannel> channels,
 ) {
   // One loop per host: an outcome lands as its host answers, and a host still dialling
   // keeps the outcome it last reported rather than holding the others back.
   final latest = <String, HostOutcome>{};
   var live = true;
   late final StreamController<AgentPanelState> panel;
-  Future<void> loop(Host host) async {
+  Future<void> loop(AgentChannel channel) async {
     try {
       while (live) {
-        final outcome = await _poll(fetch, keys, cache.forHost(host.id), host);
+        final outcome = await _poll(fetches, keys, cache, channel);
         if (!live) return;
-        latest[host.id] = outcome;
+        latest[outcome.key] = outcome;
         panel.add(
-          AgentPanelState([for (final host in hosts) ?latest[host.id]]),
+          AgentPanelState.linked([
+            for (final channel in channels)
+              ?latest[channelKey(channel.host.id, channel.source)],
+          ]),
         );
         await Future<void>.delayed(const Duration(seconds: 10));
       }
@@ -298,8 +470,8 @@ Stream<AgentPanelState> _pollHosts(
 
   panel = StreamController(
     onListen: () {
-      for (final host in hosts) {
-        unawaited(loop(host));
+      for (final channel in channels) {
+        unawaited(loop(channel));
       }
     },
     onCancel: () => live = false,
@@ -308,14 +480,21 @@ Stream<AgentPanelState> _pollHosts(
 }
 
 Future<HostOutcome> _poll(
-  HerdrFetch fetch,
+  _Fetches fetches,
   Ed25519Keys keys,
-  _CachedSnapshot cache,
-  Host host,
+  _AgentSnapshotCache caches,
+  AgentChannel channel,
 ) async {
+  final (:host, :source) = channel;
+  final cache = caches.forChannel(channelKey(host.id, source));
+  final fetch = switch (source) {
+    AgentSource.herdr => fetches.herdr,
+    AgentSource.engine => fetches.engine,
+  };
   HostOutcome failure(AgentOutcomeKind kind, {int? protocol}) => HostOutcome(
     host: host,
     kind: kind,
+    source: source,
     agents: cache.agents,
     lastGoodAt: cache.receivedAt,
     protocol: protocol,
@@ -343,6 +522,7 @@ Future<HostOutcome> _poll(
     return HostOutcome(
       host: host,
       kind: AgentOutcomeKind.snapshot,
+      source: source,
       agents: agents,
       lastGoodAt: cache.receivedAt,
     );
@@ -356,9 +536,13 @@ Future<HostOutcome> _poll(
       ),
       HerdrUnresolved() => failure(AgentOutcomeKind.unresolved),
       HerdrUnreachable() => failure(AgentOutcomeKind.unreachable),
+      EngineMissing() => failure(AgentOutcomeKind.noEngine),
       HerdrHostKeyUnverified() => failure(AgentOutcomeKind.hostKeyUnverified),
       HerdrHostKeyChanged() => failure(AgentOutcomeKind.hostKeyChanged),
     };
+  } on EngineRefused catch (error) {
+    log(error);
+    return failure(AgentOutcomeKind.protocolMismatch);
   }
 }
 

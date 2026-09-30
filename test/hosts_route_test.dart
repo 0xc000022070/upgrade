@@ -23,6 +23,7 @@ import 'package:dazzle/features/screen/screen_preview.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/features/shell/shell_status.dart';
 import 'package:dazzle/features/settings/settings_screen.dart';
+import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/keys.dart';
 import 'package:dazzle/platform/host_key_dial.dart';
 import 'package:dazzle/platform/host_keys.dart';
@@ -404,7 +405,10 @@ void main() {
         index: HostsScreen.navIndex,
         extra: [
           agentsFeedProvider.overrideWith((ref) => Stream.value(failed)),
-          agentRetryProvider.overrideWithValue((host) {
+          agentRetryProvider.overrideWithValue((
+            host, {
+            source = AgentSource.herdr,
+          }) {
             requested = host;
             return retried.future;
           }),

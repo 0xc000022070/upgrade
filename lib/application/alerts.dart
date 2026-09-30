@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/host_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../platform/herdr_client.dart';
+import '../platform/host_keys.dart';
 import 'agent_kind.dart';
 import 'agents.dart';
 import 'providers.dart';
@@ -64,9 +65,14 @@ List<String> answerKeys(String agent, {required bool yes}) {
 String alertTitle(AgentSnapshot snapshot) =>
     AlertKind.blocked.title(snapshot.agent);
 
-String alertText(AgentSnapshot snapshot) => snapshot.terminalTitleStripped;
+String alertText(AgentSnapshot snapshot) =>
+    snapshot.approval?.line ??
+    snapshot.question ??
+    (snapshot.engine && snapshot.done ? snapshot.message : null) ??
+    snapshot.terminalTitleStripped;
 
-String alertSentLine({required bool yes}) => 'SENT · ${yes ? 'YES' : 'NO'}';
+String alertSentLine({required bool yes, bool approval = false}) =>
+    'SENT · ${approval ? (yes ? 'ALLOW' : 'DENY') : (yes ? 'YES' : 'NO')}';
 
 String alertFailedLine(String reason) => 'FAILED · $reason';
 
@@ -75,6 +81,7 @@ String alertFailureReason(HerdrFailure failure) => switch (failure) {
   HerdrProtocolMismatch(:final protocol) => 'PROTOCOL ${protocol ?? '?'}',
   HerdrUnresolved() => 'UNRESOLVED',
   HerdrUnreachable() => 'UNREACHABLE',
+  EngineMissing() => 'NO ENGINE',
   HerdrHostKeyUnverified() => 'HOST KEY UNVERIFIED',
   HerdrHostKeyChanged() => 'HOST KEY CHANGED',
 };
@@ -113,8 +120,8 @@ class AgentEdges {
     final entered = <AgentSnapshot>[];
     for (final agent in agents) {
       if (!kind.holds(agent)) continue;
-      now.add(agent.paneId);
-      if (!was.contains(agent.paneId)) entered.add(agent);
+      now.add(agent.edgeId);
+      if (!was.contains(agent.edgeId)) entered.add(agent);
     }
     _panes[hostId] = now;
     return AgentDelta(
@@ -151,7 +158,12 @@ class AlertTarget {
     required this.paneId,
     required this.agent,
     required this.text,
-  });
+    String? channel,
+    String? edge,
+    this.approvalId,
+    this.hostKey,
+  }) : channel = channel ?? hostId,
+       edge = edge ?? paneId;
 
   final String hostId;
   final String address;
@@ -165,7 +177,20 @@ class AlertTarget {
 
   final String text;
 
-  factory AlertTarget.forHost(Host host, AgentSnapshot snapshot) => AlertTarget(
+  final String channel;
+  final String edge;
+
+  final String? approvalId;
+
+  final PinnedHostKey? hostKey;
+
+  bool get engine => channel != hostId;
+
+  factory AlertTarget.forHost(
+    Host host,
+    AgentSnapshot snapshot, {
+    String? channel,
+  }) => AlertTarget(
     hostId: host.id,
     address: host.address,
     port: host.port,
@@ -175,6 +200,10 @@ class AlertTarget {
     paneId: snapshot.paneId,
     agent: snapshot.agent,
     text: alertText(snapshot),
+    channel: channel,
+    edge: snapshot.edgeId,
+    approvalId: snapshot.approval?.id,
+    hostKey: channel == null || channel == host.id ? null : host.hostKey,
   );
 
   String get title => AlertKind.blocked.title(agent);
@@ -182,7 +211,7 @@ class AlertTarget {
   PaneRef get pane => (session: session, pane: paneId);
 
   int notificationIdFor(AlertKind kind) =>
-      kindNotificationId(kind, hostId, paneId);
+      kindNotificationId(kind, channel, edge);
 
   int get notificationId => notificationIdFor(AlertKind.blocked);
 
@@ -196,6 +225,15 @@ class AlertTarget {
     'pane_id': paneId,
     'agent': agent,
     'text': text,
+    if (channel != hostId) 'channel': channel,
+    if (edge != paneId) 'edge': edge,
+    'approval_id': ?approvalId,
+    if (hostKey case final key?)
+      'host_key': {
+        'type': key.type,
+        'fingerprint': key.fingerprint,
+        'pinned_at': key.pinnedAt.toIso8601String(),
+      },
   });
 
   static AlertTarget? decode(String? payload) {
@@ -213,6 +251,22 @@ class AlertTarget {
         paneId: json['pane_id']! as String,
         agent: json['agent']! as String,
         text: json['text']! as String,
+        channel: json['channel'] as String?,
+        edge: json['edge'] as String?,
+        approvalId: json['approval_id'] as String?,
+        hostKey: switch (json['host_key']) {
+          {
+            'type': final String type,
+            'fingerprint': final String fingerprint,
+            'pinned_at': final String at,
+          } =>
+            PinnedHostKey(
+              type: type,
+              fingerprint: fingerprint,
+              pinnedAt: DateTime.parse(at),
+            ),
+          _ => null,
+        },
       );
     } catch (_) {
       return null;
@@ -224,6 +278,7 @@ class WatcherReport {
   const WatcherReport({
     required this.hostId,
     required this.kind,
+    this.source = AgentSource.herdr,
     this.agents = const [],
     this.lastGoodAt,
     this.protocol,
@@ -232,6 +287,9 @@ class WatcherReport {
   });
 
   final String hostId;
+  final AgentSource source;
+
+  String get key => channelKey(hostId, source);
   final AgentOutcomeKind kind;
   final List<AgentSnapshot> agents;
   final DateTime? lastGoodAt;
@@ -242,6 +300,7 @@ class WatcherReport {
 
   Map<String, Object?> toJson() => {
     'host_id': hostId,
+    if (source != AgentSource.herdr) 'source': source.name,
     'kind': kind.name,
     'agents': [for (final agent in agents) agent.toJson()],
     'last_good_at': lastGoodAt?.millisecondsSinceEpoch,
@@ -261,6 +320,11 @@ class WatcherReport {
     final retry = json['retry_ms'];
     return WatcherReport(
       hostId: hostId,
+      source:
+          AgentSource.values
+              .where((value) => value.name == json['source'])
+              .firstOrNull ??
+          AgentSource.herdr,
       kind: kind,
       agents: [
         if (agents is List<Object?>)
@@ -281,6 +345,7 @@ class WatcherReport {
   HostOutcome toOutcome(Host host) => HostOutcome(
     host: host,
     kind: kind,
+    source: source,
     agents: agents,
     lastGoodAt: lastGoodAt,
     protocol: protocol,
@@ -331,8 +396,8 @@ final alertsEnabledProvider = StreamProvider.family<bool, AlertKind>(
 final alertsDeniedProvider = StateProvider<Set<AlertKind>>((ref) => const {});
 
 final alertsRowProvider = Provider.family<AlertsRow, AlertKind>((ref, kind) {
-  final hosts = ref.watch(herdrHostsProvider).valueOrNull ?? const [];
-  if (hosts.isEmpty) return AlertsRow.noHost;
+  final channels = ref.watch(agentChannelsProvider).valueOrNull ?? const [];
+  if (channels.isEmpty) return AlertsRow.noHost;
   if (ref.watch(alertsDeniedProvider).contains(kind)) return AlertsRow.denied;
   return (ref.watch(alertsEnabledProvider(kind)).valueOrNull ?? false)
       ? AlertsRow.on

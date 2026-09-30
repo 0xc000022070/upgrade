@@ -10,6 +10,7 @@ import '../../platform/herdr_client.dart';
 import '../shell/shell_sessions.dart';
 import '../shell/shell_sheet.dart';
 import '../ssh/ssh_screen.dart';
+import 'agent_chat_screen.dart';
 
 typedef AgentOpen = void Function(Host host, AgentSnapshot agent);
 
@@ -26,20 +27,33 @@ void openAgentShell(
   Host host,
   AgentSnapshot agent,
 ) {
-  final held = ref.read(shellSessionsProvider).holding(host.id, agent.pane);
+  if (agent.engine) {
+    openAgentChat(context, host, agent);
+    return;
+  }
+  openAgentPane(context, ref, host, agent.pane);
+}
+
+void openAgentPane(
+  BuildContext context,
+  WidgetRef ref,
+  Host host,
+  PaneRef pane,
+) {
+  final held = ref.read(shellSessionsProvider).holding(host.id, pane);
   if (held != null) {
     ref.read(navIndexProvider.notifier).state = SshScreen.navIndex;
     openHostShell(context, host, session: held);
     return;
   }
-  unawaited(_confirmAndOpenAgentShell(context, ref, host, agent));
+  unawaited(_confirmAndOpenAgentShell(context, ref, host, pane));
 }
 
 Future<void> _confirmAndOpenAgentShell(
   BuildContext context,
   WidgetRef ref,
   Host host,
-  AgentSnapshot agent,
+  PaneRef pane,
 ) async {
   final confirmed = await confirmSheet(
     context,
@@ -54,7 +68,7 @@ Future<void> _confirmAndOpenAgentShell(
   openHostShell(
     context,
     host,
-    command: HerdrCommands.attach(agent.pane, takeover: true),
-    pane: agent.pane,
+    command: HerdrCommands.attach(pane, takeover: true),
+    pane: pane,
   );
 }

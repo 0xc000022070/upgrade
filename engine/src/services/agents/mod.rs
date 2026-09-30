@@ -1,0 +1,542 @@
+mod hooks;
+mod transcript;
+
+use crate::owner;
+use crate::paths;
+use crate::protocol::{arg_str, arg_u64_opt, EngineError, EngineResult};
+use crate::util::now_millis;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::fs;
+use std::io::{Read, Write};
+use std::os::unix::fs::PermissionsExt;
+use std::os::unix::io::AsRawFd;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+
+pub use hooks::remove_all as remove_hooks;
+
+pub const SERVICE: &str = "agents/1";
+pub const OPS: &[&str] = &["watch", "answer", "transcript", "hooks", "install"];
+pub const KINDS: &[&str] = &["claude", "codex", "opencode"];
+
+const SCHEMA_VERSION: u32 = 1;
+const MAX_HOOK_INPUT: u64 = 1024 * 1024;
+const APPROVAL_WAIT_MS: u64 = 60_000;
+const MAX_WATCH_WAIT_MS: u64 = 30_000;
+const ENDED_KEPT_MS: u64 = 24 * 60 * 60 * 1000;
+const MAX_SESSIONS: usize = 64;
+const SUMMARY_CHARS: usize = 256;
+const LINE_CHARS: usize = 280;
+const POLL: Duration = Duration::from_millis(150);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Approval {
+    id: String,
+    tool: String,
+    summary: String,
+    created: u64,
+    expires: u64,
+    pid: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Session {
+    key: String,
+    agent: String,
+    session_id: String,
+    state: String,
+    started: u64,
+    updated: u64,
+    #[serde(default)]
+    cwd: Option<String>,
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    prompt: Option<String>,
+    #[serde(default)]
+    message: Option<String>,
+    #[serde(default)]
+    transcript: Option<String>,
+    #[serde(default)]
+    model: Option<String>,
+    #[serde(default)]
+    approval: Option<Approval>,
+    #[serde(default)]
+    question: Option<String>,
+    #[serde(default)]
+    herdr_pane: Option<String>,
+    #[serde(default)]
+    herdr_socket: Option<String>,
+    #[serde(default)]
+    tmux_pane: Option<String>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct State {
+    version: u32,
+    generation: u64,
+    sessions: Vec<Session>,
+}
+
+pub fn root(state_root: &Path) -> PathBuf {
+    state_root.join("agents")
+}
+
+fn answers_dir(root: &Path) -> PathBuf {
+    root.join("answers")
+}
+
+fn read_state(root: &Path) -> EngineResult<State> {
+    match fs::read_to_string(root.join("state.json")) {
+        Ok(raw) => {
+            let state: State = serde_json::from_str(&raw)
+                .map_err(|err| EngineError::failed(format!("the agent state is unreadable: {err}")))?;
+            if state.version > SCHEMA_VERSION {
+                return Err(EngineError::unsupported("unsupported agent data version"));
+            }
+            Ok(state)
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(State::default()),
+        Err(err) => Err(err.into()),
+    }
+}
+
+struct Store {
+    root: PathBuf,
+    lock: fs::File,
+    state: State,
+}
+
+impl Store {
+    fn open(root: &Path) -> EngineResult<Self> {
+        fs::create_dir_all(root)?;
+        fs::set_permissions(root, fs::Permissions::from_mode(0o700))?;
+        let lock = fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(root.join("lock"))?;
+        if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX) } == -1 {
+            return Err(EngineError::failed(format!(
+                "the agent state could not be locked: {}",
+                std::io::Error::last_os_error()
+            )));
+        }
+        let state = read_state(root)?;
+        Ok(Self {
+            root: root.to_path_buf(),
+            lock,
+            state,
+        })
+    }
+
+    fn commit(&mut self) -> EngineResult<()> {
+        let now = now_millis();
+        self.state
+            .sessions
+            .retain(|session| session.state != "ended" || now.saturating_sub(session.updated) < ENDED_KEPT_MS);
+        self.state.sessions.sort_by_key(|session| std::cmp::Reverse(session.updated));
+        self.state.sessions.truncate(MAX_SESSIONS);
+        self.state.version = SCHEMA_VERSION;
+        self.state.generation += 1;
+
+        let tmp = self.root.join("state.json.tmp");
+        let mut output = fs::File::create(&tmp)?;
+        fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?;
+        output.write_all(
+            &serde_json::to_vec(&self.state).map_err(|err| EngineError::failed(err.to_string()))?,
+        )?;
+        output.sync_all()?;
+        fs::rename(tmp, self.root.join("state.json"))?;
+        Ok(())
+    }
+
+    fn session(&mut self, key: &str) -> Option<&mut Session> {
+        self.state.sessions.iter_mut().find(|session| session.key == key)
+    }
+}
+
+impl Drop for Store {
+    fn drop(&mut self) {
+        unsafe { libc::flock(self.lock.as_raw_fd(), libc::LOCK_UN) };
+    }
+}
+
+pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value> {
+    let root = root(state_root);
+    match op {
+        "watch" => watch(args, &root),
+        "answer" => answer(args, &root),
+        "transcript" => transcript::read(args, &read_state(&root)?.sessions_by_key()),
+        "hooks" => hooks::describe(),
+        "install" => hooks::install(arg_str(args, "agent")?),
+        _ => Err(EngineError::unsupported(format!("{SERVICE} has no op {op}"))),
+    }
+}
+
+impl State {
+    fn sessions_by_key(&self) -> Vec<(String, String, Option<String>)> {
+        self.sessions
+            .iter()
+            .map(|session| (session.key.clone(), session.agent.clone(), session.transcript.clone()))
+            .collect()
+    }
+}
+
+fn alive(pid: i32) -> bool {
+    pid > 0
+        && (unsafe { libc::kill(pid, 0) } == 0
+            || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM))
+}
+
+fn view(session: &Session) -> Value {
+    let approval = session
+        .approval
+        .as_ref()
+        .filter(|approval| alive(approval.pid));
+    json!({
+        "key": session.key,
+        "agent": session.agent,
+        "session_id": session.session_id,
+        "state": session.state,
+        "started": session.started,
+        "updated": session.updated,
+        "cwd": session.cwd,
+        "title": session.title,
+        "prompt": session.prompt,
+        "message": session.message,
+        "model": session.model,
+        "has_transcript": session.transcript.is_some(),
+        "approval": approval.map(|approval| json!({
+            "id": approval.id,
+            "tool": approval.tool,
+            "summary": approval.summary,
+            "created": approval.created,
+            "expires": approval.expires,
+        })),
+        "question": session.question.clone().or_else(|| {
+            session
+                .approval
+                .as_ref()
+                .filter(|approval| !alive(approval.pid))
+                .map(|approval| approval.summary.clone())
+        }),
+        "herdr_pane": session.herdr_pane,
+        "herdr_socket": session.herdr_socket,
+        "tmux_pane": session.tmux_pane,
+    })
+}
+
+fn snapshot(state: &State) -> Value {
+    let now = now_millis();
+    let sessions: Vec<Value> = state
+        .sessions
+        .iter()
+        .filter(|session| session.state != "ended" || now.saturating_sub(session.updated) < ENDED_KEPT_MS)
+        .map(view)
+        .collect();
+    json!({ "generation": state.generation, "now": now, "sessions": sessions })
+}
+
+fn watch(args: &Value, root: &Path) -> EngineResult<Value> {
+    let seen = arg_u64_opt(args, "generation")?;
+    let wait = arg_u64_opt(args, "wait_ms")?.unwrap_or(0).min(MAX_WATCH_WAIT_MS);
+    let deadline = now_millis() + wait;
+    loop {
+        let state = read_state(root)?;
+        if seen != Some(state.generation) || now_millis() >= deadline {
+            return Ok(snapshot(&state));
+        }
+        std::thread::sleep(POLL);
+    }
+}
+
+fn answer(args: &Value, root: &Path) -> EngineResult<Value> {
+    let id = arg_str(args, "id")?;
+    let decision = arg_str(args, "decision")?;
+    if decision != "allow" && decision != "deny" {
+        return Err(EngineError::bad_request("decision must be allow or deny"));
+    }
+    if id.is_empty() || !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return Err(EngineError::bad_request("id is not an approval id"));
+    }
+    let store = Store::open(root)?;
+    let waiting = store.state.sessions.iter().any(|session| {
+        session
+            .approval
+            .as_ref()
+            .is_some_and(|approval| approval.id == id && alive(approval.pid))
+    });
+    if !waiting {
+        return Err(EngineError::not_found("the approval is no longer waiting"));
+    }
+    let dir = answers_dir(root);
+    fs::create_dir_all(&dir)?;
+    let tmp = dir.join(format!("{id}.tmp"));
+    fs::write(&tmp, decision)?;
+    fs::rename(tmp, dir.join(id))?;
+    Ok(json!({ "id": id, "decision": decision }))
+}
+
+fn cut(text: &str, limit: usize) -> String {
+    let trimmed = text.trim();
+    match trimmed.char_indices().nth(limit) {
+        Some((index, _)) => format!("{}…", &trimmed[..index]),
+        None => trimmed.to_owned(),
+    }
+}
+
+fn text(value: &Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
+fn summarize(input: &Value) -> String {
+    for key in ["command", "file_path", "path", "url", "pattern", "query", "description"] {
+        if let Some(value) = text(input, key) {
+            return cut(&value, SUMMARY_CHARS);
+        }
+    }
+    match input {
+        Value::Null => String::new(),
+        Value::String(value) => cut(value, SUMMARY_CHARS),
+        other => cut(&other.to_string(), SUMMARY_CHARS),
+    }
+}
+
+fn env_text(key: &str) -> Option<String> {
+    std::env::var(key).ok().filter(|value| !value.is_empty())
+}
+
+pub fn hook(agent: &str) -> i32 {
+    if let Err(err) = run_hook(agent) {
+        eprintln!("dazzle-engine hook: {err}");
+    }
+    0
+}
+
+fn new_session(key: &str, agent: &str, session_id: &str, now: u64) -> Session {
+    Session {
+        key: key.to_owned(),
+        agent: agent.to_owned(),
+        session_id: session_id.to_owned(),
+        state: "idle".to_owned(),
+        started: now,
+        updated: now,
+        cwd: None,
+        title: None,
+        prompt: None,
+        message: None,
+        transcript: None,
+        model: None,
+        approval: None,
+        question: None,
+        herdr_pane: None,
+        herdr_socket: None,
+        tmux_pane: None,
+    }
+}
+
+fn note_context(session: &mut Session, input: &Value) {
+    if let Some(cwd) = text(input, "cwd") {
+        session.cwd = Some(cwd);
+    }
+    if let Some(path) = text(input, "transcript_path") {
+        session.transcript = Some(path);
+    }
+    if let Some(model) = text(input, "model") {
+        session.model = Some(model);
+    }
+    if let Some(title) = text(input, "session_title") {
+        session.title = Some(cut(&title, LINE_CHARS));
+    }
+    session.herdr_pane = env_text("HERDR_PANE_ID").or(session.herdr_pane.take());
+    session.herdr_socket = env_text("HERDR_SOCKET_PATH").or(session.herdr_socket.take());
+    session.tmux_pane = env_text("TMUX_PANE").or(session.tmux_pane.take());
+}
+
+fn settle_state(session: &mut Session, state: &str) {
+    session.state = state.to_owned();
+    session.approval = None;
+    session.question = None;
+}
+
+fn request_approval(session: &mut Session, input: &Value) -> Approval {
+    let tool = text(input, "tool_name").unwrap_or_else(|| "tool".to_owned());
+    let summary = summarize(input.get("tool_input").unwrap_or(&Value::Null));
+    let created = now_millis();
+    let pending = Approval {
+        id: format!("{created}-{}", std::process::id()),
+        tool,
+        summary,
+        created,
+        expires: created + APPROVAL_WAIT_MS,
+        pid: std::process::id() as i32,
+    };
+    session.state = "blocked".to_owned();
+    session.question = None;
+    session.approval = Some(pending.clone());
+    pending
+}
+
+fn apply_event(session: &mut Session, event: &str, input: &Value) -> Option<Option<Approval>> {
+    match event {
+        "SessionStart" => settle_state(session, "idle"),
+        "UserPromptSubmit" => {
+            settle_state(session, "working");
+            if let Some(prompt) = text(input, "prompt") {
+                session.prompt = Some(cut(&prompt, LINE_CHARS));
+            }
+        }
+        "PreToolUse" | "PostToolUse" | "PostToolUseFailure" => settle_state(session, "working"),
+        "PermissionRequest" => return Some(Some(request_approval(session, input))),
+        "Notification" => {
+            let kind = text(input, "notification_type").unwrap_or_default();
+            if matches!(kind.as_str(), "elicitation_dialog" | "agent_needs_input") {
+                session.state = "blocked".to_owned();
+                session.question = text(input, "message").map(|value| cut(&value, SUMMARY_CHARS));
+            }
+        }
+        "Stop" | "StopFailure" => {
+            settle_state(session, "done");
+            if let Some(message) = text(input, "last_assistant_message") {
+                session.message = Some(cut(&message, LINE_CHARS));
+            }
+        }
+        "SessionEnd" => settle_state(session, "ended"),
+        _ => return None,
+    }
+    Some(None)
+}
+
+fn print_decision(decision: &str) {
+    let mut decided = json!({ "behavior": decision });
+    if decision == "deny" {
+        decided["message"] = json!("Denied from Dazzle");
+    }
+    let output = json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PermissionRequest",
+            "decision": decided,
+        }
+    });
+    println!("{output}");
+}
+
+fn run_hook(agent: &str) -> EngineResult<()> {
+    if !KINDS.contains(&agent) {
+        return Err(EngineError::bad_request(format!("no agent kind {agent}")));
+    }
+    let mut raw = String::new();
+    std::io::stdin().lock().take(MAX_HOOK_INPUT).read_to_string(&mut raw)?;
+    let input: Value = serde_json::from_str(&raw)?;
+    if input.get("agent_id").is_some_and(|value| !value.is_null()) {
+        return Ok(());
+    }
+    let (Some(event), Some(session_id)) = (text(&input, "hook_event_name"), text(&input, "session_id")) else {
+        return Ok(());
+    };
+    let root = root(&paths::state_root(&owner::account()?)?);
+    let key = format!("{agent}:{session_id}");
+
+    let mut store = Store::open(&root)?;
+    let now = now_millis();
+    if store.session(&key).is_none() {
+        store.state.sessions.push(new_session(&key, agent, &session_id, now));
+    }
+    let session = store.session(&key).expect("the session was just inserted");
+    session.updated = now;
+    note_context(session, &input);
+    let Some(approval) = apply_event(session, &event, &input) else {
+        return Ok(());
+    };
+    store.commit()?;
+    drop(store);
+
+    if let Some(decision) = approval.and_then(|approval| await_answer(&root, &key, &approval)) {
+        print_decision(decision);
+    }
+    Ok(())
+}
+
+fn read_answer(answer_file: &Path) -> Option<Option<&'static str>> {
+    let raw = fs::read_to_string(answer_file).ok()?;
+    Some(match raw.trim() {
+        "allow" => Some("allow"),
+        "deny" => Some("deny"),
+        _ => None,
+    })
+}
+
+fn holds(session: &Session, key: &str, approval: &Approval) -> bool {
+    session.key == key && session.approval.as_ref().is_some_and(|pending| pending.id == approval.id)
+}
+
+fn still_pending(root: &Path, key: &str, approval: &Approval) -> bool {
+    read_state(root)
+        .ok()
+        .is_some_and(|state| state.sessions.iter().any(|session| holds(session, key, approval)))
+}
+
+fn close_approval(root: &Path, key: &str, approval: &Approval, decision: Option<&str>) {
+    let Ok(mut store) = Store::open(root) else {
+        return;
+    };
+    let Some(session) = store.session(key).filter(|session| holds(session, key, approval)) else {
+        return;
+    };
+    session.approval = None;
+    session.updated = now_millis();
+    match decision {
+        Some(_) => session.state = "working".to_owned(),
+        None => session.question = Some(approval.summary.clone()),
+    }
+    let _ = store.commit();
+}
+
+/// Printing nothing when the wait ends unanswered is the agent's cue to put its
+/// own prompt up in the terminal.
+fn await_answer(root: &Path, key: &str, approval: &Approval) -> Option<&'static str> {
+    let answer_file = answers_dir(root).join(&approval.id);
+    let parent = unsafe { libc::getppid() };
+    let decision = loop {
+        if let Some(decision) = read_answer(&answer_file) {
+            break decision;
+        }
+        if now_millis() >= approval.expires || unsafe { libc::getppid() } != parent {
+            break None;
+        }
+        if !still_pending(root, key, approval) {
+            let _ = fs::remove_file(&answer_file);
+            return None;
+        }
+        std::thread::sleep(POLL);
+    };
+    let _ = fs::remove_file(&answer_file);
+    close_approval(root, key, approval, decision);
+    decision
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{cut, summarize};
+    use serde_json::json;
+
+    #[test]
+    fn a_summary_is_the_argument_a_person_reads() {
+        assert_eq!(summarize(&json!({ "command": "rm -rf build", "description": "x" })), "rm -rf build");
+        assert_eq!(summarize(&json!({ "file_path": "/a/b.rs", "old_string": "x" })), "/a/b.rs");
+        assert_eq!(summarize(&json!({ "other": 1 })), "{\"other\":1}");
+    }
+
+    #[test]
+    fn a_cut_never_splits_a_character() {
+        assert_eq!(cut("ñññ", 2), "ññ…");
+        assert_eq!(cut("  ab  ", 5), "ab");
+    }
+}

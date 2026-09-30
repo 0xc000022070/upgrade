@@ -349,7 +349,11 @@ void main() {
           alertsEnabledProvider.overrideWith(
             (ref, kind) => Stream.value(alerts.contains(kind)),
           ),
-          herdrHostsProvider.overrideWith((ref) => Stream.value(hosts)),
+          agentChannelsProvider.overrideWith(
+            (ref) => Stream.value([
+              for (final host in hosts) (host: host, source: AgentSource.herdr),
+            ]),
+          ),
           if (denied.isNotEmpty)
             alertsDeniedProvider.overrideWith((ref) => denied),
         ],
@@ -360,7 +364,7 @@ void main() {
 
     Future<AlertsRow> row(ProviderContainer container, AlertKind kind) async {
       await container.read(alertsEnabledProvider(kind).future);
-      await container.read(herdrHostsProvider.future);
+      await container.read(agentChannelsProvider.future);
       return container.read(alertsRowProvider(kind));
     }
 
@@ -498,7 +502,7 @@ void main() {
     );
 
     test('drops the service\'s last word once the service is gone', () async {
-      final hosts = StreamController<List<Host>>();
+      final hosts = StreamController<List<AgentChannel>>();
       final data = StreamController<Object>();
       final running = StreamController<bool>();
       addTearDown(hosts.close);
@@ -513,7 +517,7 @@ void main() {
       ).listen(seen.add);
       addTearDown(subscription.cancel);
 
-      hosts.add(const [host]);
+      hosts.add(const [(host: host, source: AgentSource.herdr)]);
       data.add(report(AgentOutcomeKind.unreachable));
       await pump();
       expect(seen.last?.outcomes.single.kind, AgentOutcomeKind.unreachable);

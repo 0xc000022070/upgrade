@@ -188,9 +188,7 @@ class _AgentRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                agent.terminalTitleStripped.isEmpty
-                    ? '${agentMarkName(agent.agent)} session'
-                    : agent.terminalTitleStripped,
+                inboxLine(agent),
                 style: context.tokens.rowTitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
