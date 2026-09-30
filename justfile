@@ -32,7 +32,18 @@ fmt:
 
 # The suite, or the paths named. The `host` tier stays out; see `just test-host`.
 test *args: pub-build
-    flutter test -j {{ num_cpus() }} --exclude-tags host {{ args }}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "{{ args }}" ]; then
+      exec flutter test -j {{ num_cpus() }} --exclude-tags host {{ args }}
+    fi
+    tool/test-shards.sh $(( {{ num_cpus() }} - 1 ))
+    flutter test -j {{ num_cpus() }} test/shards/*.dart
+
+# The tests that pump no widget: the quick loop.
+test-unit: pub-build
+    tool/test-shards.sh $(( {{ num_cpus() }} - 1 ))
+    flutter test test/shards/unit.dart
 
 # `-j 1` because every one of these dials the same guest, and scoped to test/host
 # because `--tags` loads every file it is pointed at before it can see none is tagged.
