@@ -6,6 +6,7 @@
 }:
 
 let
+  inherit (pkgs) lib;
   full = name == "full";
   suffix = if full then "" else "-${name}";
   port = toString sshPort;
@@ -45,6 +46,8 @@ in
     name = "dazzle-host-up${suffix}";
     runtimeInputs = [
       pkgs.coreutils
+    ]
+    ++ lib.optionals pkgs.stdenv.isLinux [
       pkgs.procps
       pkgs.util-linux
     ];
@@ -56,7 +59,7 @@ in
       log="''${TMPDIR:-/tmp}/${vmName}.log"
       echo "${vmName}: booting, log $log"
       NIX_DISK_IMAGE="$state_dir/host-vm${suffix}.qcow2" \
-        nohup setsid ${runner} -nographic </dev/null >"$log" 2>&1 &
+        nohup ${lib.optionalString pkgs.stdenv.isLinux "setsid "}${runner} -nographic </dev/null >"$log" 2>&1 &
       vm=$!
       for _ in $(seq 1 180); do
         if probe; then echo "${vmName}: up on ${port}"; exit 0; fi

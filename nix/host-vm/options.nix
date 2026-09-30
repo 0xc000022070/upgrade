@@ -13,10 +13,6 @@
         type = lib.types.port;
         default = config.dazzleHost.mosh.from + 15;
       };
-      address = lib.mkOption {
-        type = lib.types.str;
-        default = "0.0.0.0";
-      };
     };
     engine = lib.mkEnableOption "the Dazzle engine";
     herdr = lib.mkEnableOption "herdr";

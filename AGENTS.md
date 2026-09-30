@@ -16,8 +16,10 @@ The development phone is `pixel_7-api36`, not Faraday. Its Dazzle host entry is:
 - user: `dev`
 - key: `test-key`
 
-SSH uses TCP 2222. Mosh uses UDP 60000-61000. If the development host's
-Tailscale address changes, update the phone entry before connecting.
+SSH uses TCP 2222. Mosh uses UDP 60920-60935: every guest's `mosh-server` is
+pinned to its own sixteen ports, whatever range the app asks for. If the
+development host's Tailscale address changes, update the phone entry before
+connecting.
 
 ## Host scenarios
 
@@ -29,11 +31,17 @@ so a pinned host key survives a reboot.
 
 | name       | ssh  | mosh UDP    | engine | herdr | agent configs      |
 |------------|------|-------------|--------|-------|--------------------|
-| `bare`     | 2223 | 61100-61115 | no     | no    | none               |
-| `herdr`    | 2224 | 61120-61135 | no     | yes   | none               |
-| `engine`   | 2225 | 61140-61155 | yes    | no    | writable           |
-| `declared` | 2226 | 61160-61175 | yes    | no    | links to the store |
+| `bare`     | 2223 | 60936-60951 | no     | no    | none               |
+| `herdr`    | 2224 | 60952-60967 | no     | yes   | none               |
+| `engine`   | 2225 | 60968-60983 | yes    | no    | writable           |
+| `declared` | 2226 | 60984-60999 | yes    | no    | links to the store |
 
 Name the phone entry `SCENARIO <NAME>`, address `100.118.60.77:<ssh>`, user
-`dev`, and key `test-key`. The full VM's Mosh forwards are loopback-only, so
-a Mosh tab from the emulator reaches only the scenario guests.
+`dev`, and key `test-key`.
+
+## On rose
+
+The same apps exist for `aarch64-darwin`, where they boot an `aarch64-linux`
+guest under HVF. Building that guest needs an `aarch64-linux` builder, which
+rose does not have yet, so this path has never booted. Once it does, point the
+phone entries at rose's Tailscale address, `100.64.94.121`.
