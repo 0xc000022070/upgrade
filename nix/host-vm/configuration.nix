@@ -1,4 +1,5 @@
 {
+  config,
   lib,
   modulesPath,
   pkgs,
@@ -6,6 +7,9 @@
 }:
 
 let
+  cfg = config.dazzleHost;
+  full = cfg.name == "full";
+
   codexFixture = pkgs.codex.overrideAttrs (old: {
     pname = "codex-fixture";
     cargoBuildType = "debug";
@@ -32,22 +36,38 @@ let
   # would not boot while the user had a session up.
   moshForwards = map (port: {
     from = "host";
-    host.address = "127.0.0.1";
+    host.address = cfg.mosh.address;
     host.port = port;
     guest.port = port;
     proto = "udp";
-  }) (lib.range 60000 61000);
+  }) (lib.range cfg.mosh.from cfg.mosh.to);
+
+  pinnedMosh = pkgs.writeShellScriptBin "mosh-server" ''
+    if [ "''${1-}" = new ]; then
+      shift
+      exec ${pkgs.mosh}/bin/mosh-server new -p ${toString cfg.mosh.from}:${toString cfg.mosh.to} "$@"
+    fi
+    exec ${pkgs.mosh}/bin/mosh-server "$@"
+  '';
+
+  declaredConfigs = {
+    ".claude/settings.json" = pkgs.writeText "settings.json" (builtins.toJSON { model = "sonnet"; });
+    ".codex/hooks.json" = pkgs.writeText "hooks.json" (builtins.toJSON { hooks = { }; });
+    ".config/opencode/plugins/dazzle.js" = pkgs.writeText "dazzle.js" "export default {}\n";
+  };
 in
 {
-  imports = [ "${modulesPath}/virtualisation/qemu-vm.nix" ];
+  imports = [
+    "${modulesPath}/virtualisation/qemu-vm.nix"
+    ./options.nix
+  ];
 
   networking = {
-    hostName = "dazzle-host";
+    hostName = if full then "dazzle-host" else "dazzle-host-${cfg.name}";
     firewall.allowedTCPPorts = [ 22 ];
     firewall.allowedUDPPortRanges = [
       {
-        from = 60000;
-        to = 61000;
+        inherit (cfg.mosh) from to;
       }
     ];
     firewall.extraCommands = ''
@@ -65,7 +85,7 @@ in
   # miss: without it the user's systemd instance stops at logout, and the engine
   # reports the host unsupported rather than installing a timer that would only run
   # while somebody happened to be logged in.
-  services.dazzle-engine.enable = true;
+  services.dazzle-engine.enable = cfg.engine;
   users.users.dev = {
     isNormalUser = true;
     linger = true;
@@ -96,12 +116,40 @@ in
   '';
 
   environment.systemPackages = [
-    codexFixture
     pkgs.git
-    pkgs.herdr
     pkgs.mosh
     pkgs.ripgrep
-  ];
+  ]
+  ++ lib.optional cfg.codex codexFixture
+  ++ lib.optional cfg.herdr pkgs.herdr
+  ++ lib.optional (!full) (lib.hiPrio pinnedMosh);
+
+  # tmpfiles makes a missing parent root's, and home-manager's are the user's.
+  systemd.tmpfiles.settings.dazzle-declared-hooks = lib.mkIf cfg.declaredHooks (
+    lib.genAttrs
+      (map (dir: "/home/dev/${dir}") [
+        ".claude"
+        ".codex"
+        ".config"
+        ".config/opencode"
+        ".config/opencode/plugins"
+      ])
+      (_: {
+        d = {
+          user = "dev";
+          group = "users";
+          mode = "0755";
+        };
+      })
+    // lib.mapAttrs' (path: file: {
+      name = "/home/dev/${path}";
+      value."L+" = {
+        argument = "${file}";
+        user = "dev";
+        group = "users";
+      };
+    }) declaredConfigs
+  );
 
   systemd.services.dazzle-host-fixture = {
     description = "Seed the Dazzle remote host fixture";
@@ -132,7 +180,7 @@ in
 
   virtualisation = {
     cores = 2;
-    memorySize = 2048;
+    memorySize = if full then 2048 else 1024;
     diskSize = 8192;
     graphics = false;
     useNixStoreImage = true;
@@ -146,7 +194,7 @@ in
       {
         from = "host";
         host.address = "0.0.0.0";
-        host.port = 2222;
+        host.port = cfg.sshPort;
         guest.port = 22;
       }
     ]

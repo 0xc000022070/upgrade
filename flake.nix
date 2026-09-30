@@ -31,10 +31,16 @@
               self.packages.${pkgs.stdenv.hostPlatform.system}.engine;
         };
 
-      hostTools = import ./nix/host-vm/tools.nix {
-        inherit pkgs;
-        nixos = self.nixosConfigurations.dazzle-host;
-      };
+      hostScenarios = import ./nix/host-vm/scenarios.nix;
+      hostName = name: if name == "full" then "dazzle-host" else "dazzle-host-${name}";
+      hostTools = lib.concatMapAttrs (
+        name: scenario:
+        import ./nix/host-vm/tools.nix {
+          inherit pkgs name;
+          inherit (scenario) sshPort;
+          nixos = self.nixosConfigurations.${hostName name};
+        }
+      ) hostScenarios;
 
       app = pkg: description: {
         type = "app";
@@ -47,18 +53,41 @@
         engine = nixpkgs.legacyPackages.${system}.callPackage ./nix/engine/package.nix { };
       })) { ${system} = hostTools; };
 
-      apps.${system} = {
-        host-vm = app hostTools.host-vm-runner "Run a remote host fixture for Dazzle";
-        host-ssh = app hostTools.host-ssh "Run a command on the Dazzle remote host fixture";
-      };
+      apps.${system} = lib.concatMapAttrs (
+        name: _:
+        let
+          suffix = if name == "full" then "" else "-${name}";
+        in
+        {
+          "host-vm${suffix}" =
+            app hostTools."host-vm-runner${suffix}"
+              "Run the ${name} remote host fixture for Dazzle";
+          "host-up${suffix}" =
+            app hostTools."host-up${suffix}"
+              "Boot the ${name} remote host fixture detached";
+          "host-ssh${suffix}" =
+            app hostTools."host-ssh${suffix}"
+              "Run a command on the ${name} remote host fixture";
+        }
+      ) hostScenarios;
 
-      nixosConfigurations.dazzle-host = lib.nixosSystem {
-        inherit system;
-        modules = [
-          ./nix/host-vm/configuration.nix
-          self.nixosModules.dazzle-engine
-        ];
-      };
+      nixosConfigurations = lib.mapAttrs' (
+        name: scenario:
+        lib.nameValuePair (hostName name) (
+          lib.nixosSystem {
+            inherit system;
+            modules = [
+              ./nix/host-vm/configuration.nix
+              self.nixosModules.dazzle-engine
+              {
+                dazzleHost = scenario // {
+                  inherit name;
+                };
+              }
+            ];
+          }
+        )
+      ) hostScenarios;
 
       # The engine is declared by the owner of a machine, never installed by the
       # app, so the modules are the only supported way onto a host.

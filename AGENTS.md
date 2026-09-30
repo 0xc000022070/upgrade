@@ -18,3 +18,22 @@ The development phone is `pixel_7-api36`, not Faraday. Its Dazzle host entry is:
 
 SSH uses TCP 2222. Mosh uses UDP 60000-61000. If the development host's
 Tailscale address changes, update the phone entry before connecting.
+
+## Host scenarios
+
+`nix/host-vm/scenarios.nix` declares one guest per kind of machine the app has
+to meet. Boot one with `just host-scenario <name>`, stop it with
+`just host-scenario-down <name>`, and run commands with
+`nix run .#host-ssh-<name> -- <command>`. Each guest keeps its own disk image,
+so a pinned host key survives a reboot.
+
+| name       | ssh  | mosh UDP    | engine | herdr | agent configs      |
+|------------|------|-------------|--------|-------|--------------------|
+| `bare`     | 2223 | 61100-61115 | no     | no    | none               |
+| `herdr`    | 2224 | 61120-61135 | no     | yes   | none               |
+| `engine`   | 2225 | 61140-61155 | yes    | no    | writable           |
+| `declared` | 2226 | 61160-61175 | yes    | no    | links to the store |
+
+Name the phone entry `SCENARIO <NAME>`, address `100.118.60.77:<ssh>`, user
+`dev`, and key `test-key`. The full VM's Mosh forwards are loopback-only, so
+a Mosh tab from the emulator reaches only the scenario guests.
