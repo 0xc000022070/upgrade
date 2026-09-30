@@ -897,7 +897,7 @@ Under the workspaces, one panel per host the engine answers for, titled `INBOX` 
 
 ### The hooks go in when the user is standing where they matter, and never behind their back
 
-A hook is a line in the agent's own configuration, which is a file the user owns. With `AGENTS` on, the host's panel on HOSTS lists each agent kind with whether its hooks are in: `INSTALLED`, or `INSTALL` behind a sheet that names the file and what will be added to it and waits for a confirm. The engine merges its entries beside whatever is there and touches nothing else; OpenCode takes a plugin file of the engine's own.
+A hook is a line in the agent's own configuration, which is a file the user owns. With `AGENTS` on, the host's panel on HOSTS lists each agent kind with whether its hooks are in: `INSTALLED`, or `INSTALL` behind a sheet that names the file and what will be added to it and waits for a confirm. The engine merges its entries beside whatever is there and touches nothing else; OpenCode takes a plugin file of the engine's own. A plugin file at that path the engine did not write is not its to replace: it is reported as not writable, and the sheet shows the plugin with `COPY` like any other declaration.
 
 **A file a declaration owns is shown, not written.** A configuration that is a link into a store — home-manager, a Nix module, anything the user rebuilds from — is read-only in every way that matters, and a write to it is undone at the next switch. The engine reports it as not writable, and the sheet shows the path and the exact entries with `COPY`, for the user to put in their own declaration.
 
