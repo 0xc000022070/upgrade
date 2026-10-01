@@ -2,7 +2,7 @@
 name = "dazzle-engine"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.85"
+rust-version = "1.89"
 description = "The host side of a Dazzle plugin: one binary, exec'd per call."
 license = "MIT"
 
@@ -13,7 +13,7 @@ path = "src/main.rs"
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 chrono-tz = "0.10"
-libc = "0.2"
+nix = { version = "0.31.3", default-features = false, features = ["user", "signal", "process", "fs"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"

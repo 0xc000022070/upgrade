@@ -2,6 +2,8 @@ use crate::paths;
 use crate::policy::Policy;
 use crate::protocol::{EngineError, EngineResult, ENGINE_VERSION, PROTOCOL_VERSION};
 use crate::services::{agents as agents_service, fs as fs_service, run as run_service, schedule as schedule_service};
+use nix::sys::signal::{killpg, Signal};
+use nix::unistd::Pid;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
@@ -97,7 +99,7 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
             if let Ok(status) = run_service::read_status(&entry.path()) {
                 if status.state == "running" || status.state == "starting" {
                     if let Some(pgid) = status.pgid {
-                        unsafe { libc::kill(-pgid, libc::SIGTERM) };
+                        let _ = killpg(Pid::from_raw(pgid), Signal::SIGTERM);
                         jobs_signalled += 1;
                     }
                 }

@@ -4,6 +4,9 @@ use crate::protocol::{
     arg_bool, arg_str, arg_str_list, arg_str_opt, arg_u64_opt, EngineError, EngineResult,
 };
 use crate::util::now_millis;
+use nix::errno::Errno;
+use nix::sys::signal::{kill, killpg, Signal};
+use nix::unistd::{setsid, Pid};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::fs;
@@ -179,14 +182,6 @@ pub fn launch(state_root: &Path, id: &str, spec: &JobSpec) -> EngineResult<PathB
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    unsafe {
-        supervisor.pre_exec(|| {
-            if libc::setsid() == -1 {
-                return Err(std::io::Error::last_os_error());
-            }
-            Ok(())
-        });
-    }
     supervisor
         .spawn()
         .map_err(|err| EngineError::failed(format!("the supervisor did not start: {err}")))?;
@@ -233,9 +228,7 @@ pub fn liveness_checked(dir: &Path, mut status: JobStatus) -> JobStatus {
     // kill(pid, 0) asks whether the process is still there without touching it. A job
     // that is gone with nothing recorded lost its supervisor, which is not the same
     // answer as an exit and is not reported as one.
-    if unsafe { libc::kill(pid, 0) } == -1
-        && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
-    {
+    if kill(Pid::from_raw(pid), None) == Err(Errno::ESRCH) {
         status.state = "lost".into();
         status.error = Some("the supervisor stopped without recording an exit".into());
         let _ = write_status(dir, &status);
@@ -276,7 +269,7 @@ pub(crate) fn cancel(args: &Value, state_root: &Path) -> EngineResult<Value> {
     // labels the job cancelled rather than reporting a bare signal.
     fs::write(dir.join("cancel"), b"")?;
     if let Some(pgid) = status.pgid {
-        unsafe { libc::kill(-pgid, libc::SIGTERM) };
+        let _ = killpg(Pid::from_raw(pgid), Signal::SIGTERM);
     }
     Ok(json!({ "id": id, "state": "cancelling", "cancelled": true }))
 }
@@ -446,6 +439,13 @@ pub fn supervise(dir: &Path) -> i32 {
         1
     };
 
+    // A session of its own, so the caller hanging up does not take the job with it.
+    if let Err(err) = setsid() {
+        return failed(format!(
+            "the supervisor could not leave the caller's session: {err}"
+        ));
+    }
+
     let (Ok(stdout), Ok(stderr)) = (
         fs::File::create(dir.join("stdout")),
         fs::File::create(dir.join("stderr")),
@@ -475,14 +475,7 @@ pub fn supervise(dir: &Path) -> i32 {
     }
     // Its own process group, so cancelling reaches what the child itself started and
     // not the supervisor sending the signal.
-    unsafe {
-        command.pre_exec(|| {
-            if libc::setpgid(0, 0) == -1 {
-                return Err(std::io::Error::last_os_error());
-            }
-            Ok(())
-        });
-    }
+    command.process_group(0);
 
     let mut child = match command.spawn() {
         Ok(child) => child,
@@ -517,14 +510,14 @@ pub fn supervise(dir: &Path) -> i32 {
         let now = now_millis();
         if !cancelled && cancel_marker.exists() {
             cancelled = true;
-            unsafe { libc::kill(-pid, libc::SIGTERM) };
+            let _ = killpg(Pid::from_raw(pid), Signal::SIGTERM);
             signalled_at = Some(now);
         }
         if !timed_out {
             if let Some(timeout) = spec.timeout_ms {
                 if now.saturating_sub(started) >= timeout {
                     timed_out = true;
-                    unsafe { libc::kill(-pid, libc::SIGTERM) };
+                    let _ = killpg(Pid::from_raw(pid), Signal::SIGTERM);
                     signalled_at = Some(now);
                 }
             }
@@ -533,7 +526,7 @@ pub fn supervise(dir: &Path) -> i32 {
         // on a job the user already cancelled.
         if let Some(at) = signalled_at {
             if now.saturating_sub(at) >= 5_000 {
-                unsafe { libc::kill(-pid, libc::SIGKILL) };
+                let _ = killpg(Pid::from_raw(pid), Signal::SIGKILL);
                 signalled_at = None;
             }
         }
