@@ -26,10 +26,28 @@ index 7f4df97..af959ef 100644
  
  /// Row-retained shaped text runs.
 diff --git a/lib/src/rendering/frame_builder.dart b/lib/src/rendering/frame_builder.dart
-index fe7af46..7511d45 100644
+index fe7af46..bf134e0 100644
 --- a/lib/src/rendering/frame_builder.dart
 +++ b/lib/src/rendering/frame_builder.dart
-@@ -60,6 +60,7 @@ class FrameBuilder {
+@@ -11,6 +11,7 @@ import '../links/link_snapshot.dart';
+ import 'atlas/atlas.dart';
+ import 'atlas/sprite_buffer.dart';
+ import 'cell_content_resolver.dart';
++import 'kitty_virtual_placements.dart';
+ import 'paint_state.dart';
+ 
+ part 'frame_cursor.dart';
+@@ -51,6 +52,9 @@ class FrameBuilder {
+     _cursorBuilder = _CursorFrameBuilder(_state, content);
+   }
+ 
++  /// Render state of the last [sync], valid until the next one.
++  RenderState get renderState => _renderState;
++
+   /// Reconfigures sprite storage for the current grid size.
+   void configure(int rows, int cols) {
+     _sprites.configure(rows, cols);
+@@ -60,6 +64,7 @@ class FrameBuilder {
  
    /// Releases the owned libghostty iterators.
    void dispose() {
@@ -37,7 +55,7 @@ index fe7af46..7511d45 100644
      _cells.dispose();
      _rows.dispose();
      _renderState.dispose();
-@@ -68,6 +69,11 @@ class FrameBuilder {
+@@ -68,6 +73,11 @@ class FrameBuilder {
    /// Rebuilds every visible row on the next sync.
    void markAllRowsDirty() => _dirtyRows.markAll();
  
@@ -50,7 +68,7 @@ index fe7af46..7511d45 100644
    void markBlinkRowsDirty() {
      for (var row = 0; row < _blinkRows.length; row++) {
 diff --git a/lib/src/rendering/frame_rows.dart b/lib/src/rendering/frame_rows.dart
-index 4bad3b5..50c6266 100644
+index 4bad3b5..6bbc4e2 100644
 --- a/lib/src/rendering/frame_rows.dart
 +++ b/lib/src/rendering/frame_rows.dart
 @@ -52,6 +52,7 @@ final class _RowBuilder {
@@ -90,7 +108,17 @@ index 4bad3b5..50c6266 100644
      cells.reset(rows);
  
      while (cells.next() && _column < _state.cols) {
-@@ -373,16 +379,20 @@ final class _RowBuilder {
+@@ -287,7 +293,8 @@ final class _RowBuilder {
+     required int span,
+     required int glyphSpan,
+   }) {
+-    if (!cell.hasText) {
++    // A Kitty placeholder's image is its glyph; ghostty shapes it as a blank.
++    if (!cell.hasText || cell.codepoint == kittyPlaceholder) {
+       _flushForeground();
+       return;
+     }
+@@ -373,16 +380,20 @@ final class _RowBuilder {
              (theme.fontSize * _italicOverhangFontSizeFactor).ceilToDouble(),
            )
          : 0.0;
@@ -118,7 +146,7 @@ index 4bad3b5..50c6266 100644
          offset: Offset(
            textX,
            _y + _metrics.baseline - paragraph.alphabeticBaseline,
-@@ -715,3 +725,50 @@ final class _SearchHighlights {
+@@ -715,3 +726,50 @@ final class _SearchHighlights {
      }
    }
  }
@@ -223,10 +251,18 @@ index 7608c91..461846c 100644
    void debugFillProperties(DiagnosticPropertiesBuilder properties) {
      super.debugFillProperties(properties);
 diff --git a/lib/src/rendering/terminal_surface.dart b/lib/src/rendering/terminal_surface.dart
-index 6b2ae93..1175999 100644
+index 6b2ae93..068c35b 100644
 --- a/lib/src/rendering/terminal_surface.dart
 +++ b/lib/src/rendering/terminal_surface.dart
-@@ -194,6 +194,11 @@ final class TerminalSurface {
+@@ -173,6 +173,7 @@ final class TerminalSurface {
+   void dispose() {
+     if (_disposed) return;
+     _disposed = true;
++    _kittyPlacementCache.dispose();
+     _kittyImageCache.dispose();
+     _frameBuilder.dispose();
+     _sprites.dispose();
+@@ -194,6 +195,11 @@ final class TerminalSurface {
      _paint(canvas);
    }
  
@@ -238,3 +274,16 @@ index 6b2ae93..1175999 100644
    void invalidateGeometry() {
      _submitGeometry = true;
      _needsTerminalSync = true;
+@@ -400,7 +406,11 @@ final class TerminalSurface {
+       linkSnapshot: _linkSnapshot,
+     );
+     final graphics = KittyGraphics.of(terminal);
+-    if (!_kittyPlacementCache.sync(graphics, geometryDirty: terminalDirty)) {
++    if (!_kittyPlacementCache.sync(
++      graphics,
++      geometryDirty: terminalDirty,
++      cells: _frameBuilder.renderState,
++    )) {
+       return;
+     }
+     _kittyBelowBackground.clear();
