@@ -155,7 +155,7 @@ fn place(out: &mut Vec<u8>, placement: &Placement) {
     out.extend_from_slice(b"\x1b\\");
 }
 
-const MAX_KEYS: usize = 256;
+pub(super) const MAX_KEYS: usize = 256;
 const MAX_IDS: usize = 1024;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]

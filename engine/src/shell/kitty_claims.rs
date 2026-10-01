@@ -124,13 +124,14 @@ impl Claims {
     }
 
     fn theirs(&mut self, reply: Reply) -> bool {
+        let matching = |settled: bool| {
+            self.open
+                .iter()
+                .position(|claim| claim.theirs.is_some() == settled && reply.answers(claim.reply))
+        };
         let found = reply
             .expected()
-            .then(|| {
-                self.open
-                    .iter()
-                    .position(|claim| reply.answers(claim.reply))
-            })
+            .then(|| matching(false).or_else(|| matching(true)))
             .flatten();
         found.is_some_and(|at| self.open.remove(at).settle())
     }
@@ -249,6 +250,27 @@ mod tests {
         let input = b"\x1b_GI=8;ENOENT: image not found\x1b\\\x1b_Gi=5,I=7;OK\x1b\\";
         assert_eq!(answer(&mut claims, input), input);
         assert_eq!(claims.open.len(), 2);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_fresh_claim_is_answered_before_a_settled_one_with_its_id() {
+        let dir = testing::scratch("kitty-claims", "fresh");
+        let first = dir.join("tty-graphics-protocol-7");
+        let second = dir.join("tty-graphics-protocol-8");
+        fs::write(&first, b"png").unwrap();
+        let mut claims = Claims::default();
+        let start = Instant::now();
+        claims.hold(reply(1), object(&first), start);
+        fs::remove_file(&first).unwrap();
+        claims.expire(start + SETTLE);
+        fs::write(&second, b"png").unwrap();
+        claims.hold(reply(1), object(&second), start + SETTLE);
+        assert_eq!(
+            answer(&mut claims, b"\x1b_Gi=1;OK\x1b\\"),
+            b"\x1b_Gi=1;OK\x1b\\"
+        );
+        assert!(!second.exists());
         fs::remove_dir_all(&dir).unwrap();
     }
 
