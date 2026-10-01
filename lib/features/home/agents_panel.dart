@@ -118,7 +118,7 @@ class _AgentsBody extends StatelessWidget {
     final blocked = data.agents.where((agent) => agent.blocked).length;
     // Every host failed, so there is no snapshot behind the panel and a `0 idle · 0 blocked`
     // footer would read as "nothing is running" rather than "nobody answered".
-    final answered = failures.length < data.outcomes.length;
+    final answered = data.answered;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
