@@ -156,7 +156,7 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
   }
 
   List<Widget> _herdr(LaunchTargets targets) {
-    if (!targets.hasHerdr) return [const _Absent('NOT ON THIS HOST')];
+    if (!targets.hasHerdr) return [_absent('herdr', herdrLogo)];
     final running = [
       for (final session in targets.herdrSessions)
         if (session.running) session.name,
@@ -185,6 +185,24 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
     ];
   }
 
+  Widget _absent(String tool, String logo) {
+    final muted = context.tokens.textMuted;
+    return ListRowGroup(
+      children: [
+        ListRow(
+          key: ValueKey('launch-$tool-absent'),
+          leading: LaunchLogo(logo, color: muted),
+          leadingWidth: _logo,
+          title: tool,
+          literalTitle: true,
+          titleColor: muted,
+          subtitle: 'not on this host',
+          subtitleColor: muted,
+        ),
+      ],
+    );
+  }
+
   Widget _herdrRow(String session, List<HerdrWorkspaceEntry> workspaces) {
     final working = workspaces.where((w) => w.status == 'working').length;
     return ListRow(
@@ -204,7 +222,7 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
   }
 
   List<Widget> _tmux(LaunchTargets targets) {
-    if (!targets.hasTmux) return [const _Absent('NOT ON THIS HOST')];
+    if (!targets.hasTmux) return [_absent('tmux', tmuxLogo)];
     final next = targets.nextTmuxName;
     return [
       ListRowGroup(
@@ -260,16 +278,4 @@ class _Section extends StatelessWidget {
       ),
     );
   }
-}
-
-class _Absent extends StatelessWidget {
-  const _Absent(this.words);
-
-  final String words;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-    child: Text(words, style: context.tokens.panelHeader),
-  );
 }
