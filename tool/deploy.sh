@@ -75,6 +75,9 @@ build() {
 
   local built="$TREE/build/app/outputs/flutter-apk/app-release.apk"
   rm -f "$built"
+  # AGP's incremental compressReleaseAssets fails with "already contains entry" when the
+  # asset set changes between runs; packing from scratch costs seconds.
+  rm -rf "$TREE/build/app/intermediates/compressed_assets"
   (
     cd "$TREE" &&
       just pub-build && flutter pub get && just gen &&
