@@ -221,6 +221,29 @@ void main() {
     });
   });
 
+  group('host systems', () {
+    test('a host starts with none and keeps the one it learns', () async {
+      await key('k1');
+      await host('h1');
+      expect((await hosts.all()).single.system, isNull);
+
+      await hosts.recordSystem('h1', HostSystem.darwin);
+
+      expect((await hosts.all()).single.system, HostSystem.darwin);
+      expect((await db.select(db.hosts).getSingle()).system, 'darwin');
+    });
+
+    test('editing a host leaves its system alone', () async {
+      await key('k1');
+      await host('h1', name: 'nyx');
+      await hosts.recordSystem('h1', HostSystem.nixos);
+
+      await host('h1', name: 'nyx.tailnet');
+
+      expect((await hosts.all()).single.system, HostSystem.nixos);
+    });
+  });
+
   group('integrations', () {
     test('a host starts with none', () async {
       await key('k1');

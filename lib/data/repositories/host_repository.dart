@@ -16,6 +16,7 @@ class Host {
     this.hostKey,
     this.vncUsername,
     this.vncPassword,
+    this.system,
   });
 
   final String id;
@@ -32,6 +33,8 @@ class Host {
 
   final String? vncUsername;
   final String? vncPassword;
+
+  final HostSystem? system;
 }
 
 abstract interface class HostRepository {
@@ -51,6 +54,8 @@ abstract interface class HostRepository {
   Future<void> pinHostKey(String hostId, PinnedHostKey key);
 
   Future<void> forgetHostKey(String hostId);
+
+  Future<void> recordSystem(String hostId, HostSystem system);
 }
 
 class InMemoryHostRepository implements HostRepository {
@@ -79,6 +84,10 @@ class InMemoryHostRepository implements HostRepository {
 
   @override
   Future<void> save(Host host) async {
+    final known = _hosts.where((item) => item.id == host.id).firstOrNull;
+    if (known?.system != null && host.system == null) {
+      host = _copy(host, system: known!.system);
+    }
     _hosts.removeWhere((item) => item.id == host.id);
     _hosts.add(host);
     _emit();
@@ -109,23 +118,36 @@ class InMemoryHostRepository implements HostRepository {
   @override
   Future<void> forgetHostKey(String hostId) async => _rewriteKey(hostId, null);
 
-  void _rewriteKey(String hostId, PinnedHostKey? key) {
+  @override
+  Future<void> recordSystem(String hostId, HostSystem system) async =>
+      _rewrite(hostId, (host) => _copy(host, system: system));
+
+  void _rewriteKey(String hostId, PinnedHostKey? key) =>
+      _rewrite(hostId, (host) => _copy(host, hostKey: () => key));
+
+  void _rewrite(String hostId, Host Function(Host host) change) {
     final index = _hosts.indexWhere((host) => host.id == hostId);
     if (index < 0) return;
-    final host = _hosts[index];
-    _hosts[index] = Host(
-      id: host.id,
-      name: host.name,
-      address: host.address,
-      port: host.port,
-      user: host.user,
-      keyId: host.keyId,
-      hostKey: key,
-      vncUsername: host.vncUsername,
-      vncPassword: host.vncPassword,
-    );
+    _hosts[index] = change(_hosts[index]);
     _emit();
   }
+
+  Host _copy(
+    Host host, {
+    PinnedHostKey? Function()? hostKey,
+    HostSystem? system,
+  }) => Host(
+    id: host.id,
+    name: host.name,
+    address: host.address,
+    port: host.port,
+    user: host.user,
+    keyId: host.keyId,
+    hostKey: hostKey == null ? host.hostKey : hostKey(),
+    vncUsername: host.vncUsername,
+    vncPassword: host.vncPassword,
+    system: system ?? host.system,
+  );
 
   Set<IntegrationKind> _kinds(String hostId) =>
       _integrations[hostId] ?? const {};
@@ -264,6 +286,13 @@ class DriftHostRepository implements HostRepository {
       ),
     );
   }
+
+  @override
+  Future<void> recordSystem(String hostId, HostSystem system) {
+    return (_db.update(_db.hosts)..where((h) => h.id.equals(hostId))).write(
+      HostsCompanion(system: Value(system.wire)),
+    );
+  }
 }
 
 Host hostFromRow(HostRow row) => Host(
@@ -276,6 +305,7 @@ Host hostFromRow(HostRow row) => Host(
   hostKey: pinnedKeyFromRow(row),
   vncUsername: row.vncUsername,
   vncPassword: row.vncPassword,
+  system: HostSystem.fromWire(row.system),
 );
 
 PinnedHostKey? pinnedKeyFromRow(HostRow row) {

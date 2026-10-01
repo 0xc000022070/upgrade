@@ -729,6 +729,14 @@ Under the host panels, a `KEYS` panel: a row per key, name over the shortened fi
 
 Nothing on this tab edits in place. The form is the one editor. SYS keeps `[ STATIC ]`, `[ ALERTS ]` and `[ BUILD ]` and has no host or key block of its own.
 
+### A host is drawn with the mark of the system it runs
+
+A list of machines that are all the same name in the same face reads as one machine repeated. Each host carries a mark for its operating system: the NixOS snowflake, the Apple apple for macOS, and for anything else a single rack unit. It sits before the name on the host's card in `MACHINES` and in its panel's header strip, as the leading glyph of its row in the SSH host list beside the state dot, and before the name on its group's label in the tab strip.
+
+A scoped exception to never shipping a third-party mark, like the agents' marks, and narrower than theirs: the two vendor marks are redrawn in the house stroke, caps and joins, with every curve faceted into straight runs, in `currentColor` and never the vendor's colours. They are `hl-system-nixos` and `hl-system-darwin` in the icon index under their own heading, and nothing else in the family borrows from them. The rack unit is the family's own `hl-system-server`, one unit where `hosts` draws two.
+
+**The system is learned from the host, never typed.** The first time a shell to a host goes live in a run, a second channel on the same connection asks `uname -s` and reads `/etc/os-release`: `Darwin` is macOS, Linux with `ID=nixos` is NixOS, and every other answer is the rack unit. The answer is written to `hosts.system`, a nullable column with no backfill, so a host no shell has reached yet draws the rack unit until one does. An exec that fails is no answer and is asked again on the next shell. The form has no field for it: a picker would be a second source that can disagree with the machine, and the link probe cannot answer it, since it reads the banner and never authenticates.
+
 ### `LINK` says whether the machine answers at all
 
 A metadata row above the shell row on each host panel. `—` before the first probe, `PROBING` while one is out, `<software> · <n> MS` when the machine answered — `OPENSSH_9.9 · 120 MS`, the software token taken off the identification string and uppercased — or the failure word in warning: `NO ROUTE`, `UNRESOLVED`, `REFUSED`, `NO BANNER`.
@@ -1109,7 +1117,7 @@ The cost is one row on the tabs, and only while a shell is running. The terminal
 
 ### The tab strip holds every host's shells, grouped by host
 
-The strip is every session on every host, one group per host with a shell, the way a browser groups its tabs. A group is its label — the host's name in the label face on a `surfaceSecondary` block, primary for the host in front and muted for the rest — followed by its tabs, and a `borderNormal` rule two hairlines thick runs under the label and every tab in it, with the active tab's accent drawn over it. **A host's shells are never apart**: a group holds all of them and nothing else.
+The strip is every session on every host, one group per host with a shell, the way a browser groups its tabs. A group is its label — the host's system mark and its name in the label face on a `surfaceSecondary` block, primary for the host in front and muted for the rest — followed by its tabs, and a `borderNormal` rule two hairlines thick runs under the label and every tab in it, with the active tab's accent drawn over it. **A host's shells are never apart**: a group holds all of them and nothing else.
 
 Groups come on demand. There is no host cell at the head of the header: a host gets its group when its first shell opens, at the end of the strip, and loses it when its last one closes. The `+` after the last group is how a shell is opened on any host, the one in front or any other.
 

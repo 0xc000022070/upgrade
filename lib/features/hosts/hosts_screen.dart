@@ -35,6 +35,7 @@ import '../shell/shell_watcher.dart';
 import 'hook_sheet.dart';
 import 'host_key_sheet.dart';
 import 'keys_screen.dart';
+import 'host_mark.dart';
 import 'link_probes.dart';
 import 'preview_tile.dart';
 
@@ -214,7 +215,18 @@ class _HostSummary extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(host.name.toUpperCase(), style: context.tokens.rowTitle),
+              Row(
+                children: [
+                  HostMark(host.system),
+                  const SizedBox(width: Spacing.sm),
+                  Expanded(
+                    child: Text(
+                      host.name.toUpperCase(),
+                      style: context.tokens.rowTitle,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: Spacing.sm),
               Text('${host.address}:${host.port}', style: context.tokens.value),
               const SizedBox(height: Spacing.sm),
@@ -303,6 +315,7 @@ class _HostPanel extends ConsumerWidget {
         .toList();
     return Panel(
       title: host.name,
+      leading: HostMark(host.system),
       affordance: PanelAffordance(
         'EDIT',
         icon: DazzleIcons.edit,

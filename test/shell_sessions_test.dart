@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/pin_alerts.dart';
+import 'package:dazzle/data/enums.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/data/repositories/shell_tab_repository.dart';
 import 'package:dazzle/data/shell_snapshot_store.dart';
@@ -15,6 +16,7 @@ import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_card.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/platform/herdr_client.dart';
+import 'package:dazzle/platform/shell/host_system.dart';
 import 'package:dazzle/platform/shell/remote_shell.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:dazzle/platform/vnc/keysyms.dart';
@@ -45,6 +47,10 @@ const _nyx = Host(
 
 /// The store dials on a microtask.
 Future<void> _settle() => Future<void>.delayed(Duration.zero);
+
+int _systemProbes(FakeShellConnection connection) => connection.execs
+    .where((exec) => exec.command.contains(systemProbeScript))
+    .length;
 
 String _text(TerminalController terminal) {
   final formatter = terminal.createFormatter(format: FormatterFormat.plain);
@@ -169,6 +175,72 @@ void main() {
     await _settle();
 
     expect(transport.opened.single.written, isEmpty);
+  });
+
+  test('a live shell asks its host what system it runs, once', () async {
+    final transport = FakeShellTransport()
+      ..opening = (connection) =>
+          connection.answerWith('Linux\nNAME=NixOS\nID=nixos\n');
+    final recorded = <(String, HostSystem)>[];
+    final sessions = fakeShellSessions(
+      transport,
+      recordSystem: (hostId, system) async => recorded.add((hostId, system)),
+    );
+
+    sessions.open(_rose);
+    sessions.open(_rose);
+    await _settle();
+    await _settle();
+
+    expect(recorded, [('h1', HostSystem.nixos)]);
+    expect(transport.opened.map(_systemProbes), [1, 0]);
+  });
+
+  test('a known system is not written again', () async {
+    final transport = FakeShellTransport()
+      ..opening = (connection) => connection.answerWith('Darwin\n');
+    final recorded = <(String, HostSystem)>[];
+    final sessions = fakeShellSessions(
+      transport,
+      recordSystem: (hostId, system) async => recorded.add((hostId, system)),
+    );
+
+    sessions.open(
+      const Host(
+        id: 'h1',
+        name: 'rose',
+        address: '100.64.0.1',
+        port: 22,
+        user: 'luis',
+        keyId: 'key-1',
+        system: HostSystem.darwin,
+      ),
+    );
+    await _settle();
+    await _settle();
+
+    expect(_systemProbes(transport.opened.single), 1);
+    expect(recorded, isEmpty);
+  });
+
+  test('a probe that fails is asked again on the next shell', () async {
+    final transport = FakeShellTransport()
+      ..opening = (connection) => connection.answerWith('', exitCode: 1);
+    final recorded = <(String, HostSystem)>[];
+    final sessions = fakeShellSessions(
+      transport,
+      recordSystem: (hostId, system) async => recorded.add((hostId, system)),
+    );
+
+    sessions.open(_rose);
+    await _settle();
+    await _settle();
+    sessions.open(_rose);
+    await _settle();
+    await _settle();
+
+    expect(transport.opened.map(_systemProbes), [1, 1]);
+    expect(recorded, isEmpty);
   });
 
   testWidgets('the spinner holds the page until the host draws on it', (

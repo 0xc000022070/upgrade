@@ -33,7 +33,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'dazzle'));
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 22;
 
   /// Every installed build is at 19, so an older file is rebuilt empty rather than walked
   /// up steps no install runs any more. The next bump adds its step after this one.
@@ -53,6 +53,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 21 && !await _hasColumn(shellTabs, shellTabs.position)) {
         await m.addColumn(shellTabs, shellTabs.position);
+      }
+      if (from < 22 && !await _hasColumn(hosts, hosts.system)) {
+        await m.addColumn(hosts, hosts.system);
       }
     },
   );
