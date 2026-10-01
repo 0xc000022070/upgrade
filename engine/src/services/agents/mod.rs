@@ -5,12 +5,14 @@ use crate::owner;
 use crate::paths;
 use crate::protocol::{arg_str, arg_u64_opt, EngineError, EngineResult};
 use crate::util::now_millis;
+use nix::errno::Errno;
+use nix::sys::signal::kill;
+use nix::unistd::{getppid, Pid};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs;
 use std::io::{Read, Write};
 use std::os::unix::fs::PermissionsExt;
-use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -153,7 +155,7 @@ fn read_state(root: &Path) -> EngineResult<State> {
 
 struct Store {
     root: PathBuf,
-    lock: fs::File,
+    _lock: fs::File,
     state: State,
 }
 
@@ -166,16 +168,15 @@ impl Store {
             .truncate(false)
             .write(true)
             .open(root.join("lock"))?;
-        if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX) } == -1 {
+        if let Err(err) = lock.lock() {
             return Err(EngineError::failed(format!(
-                "the agent state could not be locked: {}",
-                std::io::Error::last_os_error()
+                "the agent state could not be locked: {err}"
             )));
         }
         let state = read_state(root)?;
         Ok(Self {
             root: root.to_path_buf(),
-            lock,
+            _lock: lock,
             state,
         })
     }
@@ -206,12 +207,6 @@ impl Store {
     }
 }
 
-impl Drop for Store {
-    fn drop(&mut self) {
-        unsafe { libc::flock(self.lock.as_raw_fd(), libc::LOCK_UN) };
-    }
-}
-
 pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value> {
     let root = root(state_root);
     match op {
@@ -235,8 +230,7 @@ impl State {
 
 fn alive(pid: i32) -> bool {
     pid > 0
-        && (unsafe { libc::kill(pid, 0) } == 0
-            || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM))
+        && matches!(kill(Pid::from_raw(pid), None), Ok(()) | Err(Errno::EPERM))
 }
 
 fn view(session: &Session) -> Value {
@@ -567,10 +561,10 @@ fn close_approval(root: &Path, key: &str, approval: &Approval) -> Option<&'stati
 /// own prompt up in the terminal.
 fn await_answer(root: &Path, key: &str, approval: &Approval) -> Option<&'static str> {
     let answer_file = answers_dir(root).join(&approval.id);
-    let parent = unsafe { libc::getppid() };
+    let parent = getppid();
     while !answer_file.exists()
         && now_millis() < approval.expires
-        && unsafe { libc::getppid() } == parent
+        && getppid() == parent
         && still_pending(root, key, approval)
     {
         std::thread::sleep(POLL);

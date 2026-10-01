@@ -4,12 +4,12 @@ use crate::services::run;
 use crate::util::now_millis;
 use chrono::{LocalResult, NaiveDate, TimeZone, Utc};
 use chrono_tz::Tz;
+use nix::unistd::getuid;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::os::unix::fs::PermissionsExt;
-use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -149,7 +149,7 @@ fn no_symlink(path: &Path) -> EngineResult<()> {
 struct Store {
     root: PathBuf,
     state_root: PathBuf,
-    lock: fs::File,
+    _lock: fs::File,
     state: State,
 }
 
@@ -165,10 +165,9 @@ impl Store {
             .truncate(false)
             .write(true)
             .open(root.join("lock"))?;
-        if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX) } == -1 {
+        if let Err(err) = lock.lock() {
             return Err(EngineError::failed(format!(
-                "the scheduler state could not be locked: {}",
-                std::io::Error::last_os_error()
+                "the scheduler state could not be locked: {err}"
             )));
         }
 
@@ -190,7 +189,7 @@ impl Store {
         Ok(Self {
             root,
             state_root: state_root.to_path_buf(),
-            lock,
+            _lock: lock,
             state,
         })
     }
@@ -218,12 +217,6 @@ impl Store {
             .iter()
             .find(|entry| entry.job.id == id)
             .ok_or_else(|| EngineError::not_found("schedule is unavailable"))
-    }
-}
-
-impl Drop for Store {
-    fn drop(&mut self) {
-        unsafe { libc::flock(self.lock.as_raw_fd(), libc::LOCK_UN) };
     }
 }
 
@@ -504,7 +497,7 @@ fn probe() -> Value {
                 "loginctl",
                 &[
                     "show-user",
-                    &unsafe { libc::getuid() }.to_string(),
+                    &getuid().to_string(),
                     "--property=Linger",
                     "--value",
                 ],
@@ -580,7 +573,7 @@ fn mine(name: &str) -> bool {
 /// platform cannot fail on the other's branch: it can only have no opinion about it.
 pub(crate) fn remove_launchd_timers(dir: &Path) -> Vec<String> {
     let mut removed = Vec::new();
-    let target = format!("gui/{}", unsafe { libc::getuid() });
+    let target = format!("gui/{}", getuid());
     for entry in fs::read_dir(dir).into_iter().flatten().flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
         let Some(label) = name.strip_suffix(".plist").filter(|label| mine(label)) else {
@@ -781,7 +774,7 @@ fn install_timer(scope: &str) -> EngineResult<()> {
         let plist = agent_plist(&name, &engine, scope, &state, install_path().as_deref());
         let path = paths::home()?.join(format!("Library/LaunchAgents/{name}.plist"));
         write_private(&path, &plist)?;
-        let target = format!("gui/{}", unsafe { libc::getuid() });
+        let target = format!("gui/{}", getuid());
         // bootout first, so a reinstall replaces the agent instead of failing on the
         // label already being loaded.
         let _ = Command::new("launchctl")

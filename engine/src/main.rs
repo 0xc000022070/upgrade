@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod owner;
 mod paths;
 mod policy;

@@ -1,42 +1,22 @@
 use crate::protocol::{EngineError, EngineResult};
-use std::ffi::CStr;
+use nix::unistd::{geteuid, User};
 use std::path::PathBuf;
 
-/// `getpwuid` keeps its result in a static buffer and is not reentrant. The engine
-/// answers one request on one thread and exits, so the borrow never outlives a call.
-fn passwd_field<T>(read: impl FnOnce(&libc::passwd) -> T) -> Option<T> {
-    unsafe {
-        let entry = libc::getpwuid(libc::geteuid());
-        if entry.is_null() {
-            None
-        } else {
-            Some(read(&*entry))
-        }
-    }
-}
-
-fn c_str_to_string(raw: *const libc::c_char) -> Option<String> {
-    if raw.is_null() {
-        return None;
-    }
-    unsafe { CStr::from_ptr(raw) }
-        .to_str()
-        .ok()
-        .map(str::to_owned)
+fn passwd_entry() -> Option<User> {
+    User::from_uid(geteuid()).ok().flatten()
 }
 
 pub fn passwd_home() -> Option<PathBuf> {
-    passwd_field(|entry| c_str_to_string(entry.pw_dir))
-        .flatten()
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from)
+    passwd_entry()
+        .map(|entry| entry.dir)
+        .filter(|dir| !dir.as_os_str().is_empty())
 }
 
 /// The account the engine is running as, taken from the password database rather
 /// than the environment: `USER` is inherited and a caller could have set it.
 pub fn account() -> EngineResult<String> {
-    passwd_field(|entry| c_str_to_string(entry.pw_name))
-        .flatten()
+    passwd_entry()
+        .map(|entry| entry.name)
         .filter(|value| !value.is_empty())
         .ok_or_else(|| EngineError::failed("this uid has no entry in the password database"))
 }

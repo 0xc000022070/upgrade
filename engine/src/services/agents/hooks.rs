@@ -1,5 +1,6 @@
 use crate::paths;
 use crate::protocol::{EngineError, EngineResult};
+use nix::unistd::{access, AccessFlags};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 use std::fs;
@@ -238,10 +239,7 @@ fn writable(path: &Path) -> bool {
             None => return false,
         }
     };
-    let Ok(c_path) = std::ffi::CString::new(target.as_os_str().as_encoded_bytes()) else {
-        return false;
-    };
-    unsafe { libc::access(c_path.as_ptr(), libc::W_OK) == 0 }
+    access(&target, AccessFlags::W_OK).is_ok()
 }
 
 fn manual(agent: &str) -> Value {
