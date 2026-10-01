@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../data/enums.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/tokens.dart';
 import '../../design/components/cell_divider.dart';
@@ -14,6 +15,7 @@ import '../../design/icons/dazzle_icons.dart';
 import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import '../../platform/shell/shell_connection.dart';
+import '../hosts/host_mark.dart';
 import 'shell_sessions.dart';
 import 'shell_status.dart';
 
@@ -225,6 +227,7 @@ class _ShellHeaderState extends State<ShellHeader> {
             child: _GroupCell(
               key: ValueKey('shell-group-label-${group.id}'),
               name: group.name,
+              system: group.system,
               front: front,
               hidden: sessions.length - shown.length,
               onTap: () => widget.onFold(group),
@@ -359,12 +362,14 @@ class _GroupCell extends StatelessWidget {
   const _GroupCell({
     super.key,
     required this.name,
+    required this.system,
     required this.front,
     required this.hidden,
     required this.onTap,
   });
 
   final String name;
+  final HostSystem? system;
   final bool front;
   final int hidden;
   final VoidCallback onTap;
@@ -401,8 +406,13 @@ class _GroupCell extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                HostMark(system, size: IconSizes.affordance, color: ink),
+                const SizedBox(width: Spacing.xs),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _groupMaxWidth),
+                  constraints: const BoxConstraints(
+                    maxWidth:
+                        _groupMaxWidth - IconSizes.affordance - Spacing.xs,
+                  ),
                   child: Text(
                     name.toUpperCase(),
                     style: context.tokens.label.copyWith(color: ink),

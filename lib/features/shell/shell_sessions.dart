@@ -9,6 +9,7 @@ import 'package:flterm/flterm.dart';
 import '../../application/agents.dart';
 import '../../application/pin_alerts.dart';
 import '../../application/providers.dart';
+import '../../data/enums.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/shell_tab_repository.dart';
 import '../../data/shell_snapshot_store.dart';
@@ -17,6 +18,7 @@ import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/pin_notifications.dart';
 import '../../platform/shell/host_clipboard.dart';
+import '../../platform/shell/host_system.dart';
 import '../../platform/shell/remote_shell.dart';
 import '../../platform/shell/shell_connection.dart';
 import '../../platform/shell/shell_launch.dart';
@@ -441,6 +443,7 @@ class ShellSessions extends ChangeNotifier {
   ShellSessions({
     required this.readPrivateKey,
     required this.pinHostKey,
+    this.recordSystem,
     this.tabs,
     this.snapshots,
     this.snapshotQuiet = const Duration(seconds: 5),
@@ -474,6 +477,10 @@ class ShellSessions extends ChangeNotifier {
   final Future<String?> Function(String keyId) readPrivateKey;
 
   final Future<void> Function(String hostId, PinnedHostKey key) pinHostKey;
+
+  final Future<void> Function(String hostId, HostSystem system)? recordSystem;
+
+  final _systemAsked = <String>{};
 
   /// Injectable only so the store can be driven without a host to answer it; null
   /// everywhere but a test.
@@ -1124,6 +1131,19 @@ class ShellSessions extends ChangeNotifier {
     session.changed();
   }
 
+  void _learnSystem(Host host, ShellConnection connection) {
+    final record = recordSystem;
+    if (record == null || !_systemAsked.add(host.id)) return;
+    unawaited(() async {
+      final system = await probeSystem(connection);
+      if (system == null) {
+        _systemAsked.remove(host.id);
+        return;
+      }
+      if (system != host.system) await record(host.id, system);
+    }());
+  }
+
   /// Asked once per connection and kept on it. Every caller in the meantime shares the one
   /// probe in flight.
   Future<HostClipboard> clipboardFor(ShellSession session) {
@@ -1362,6 +1382,7 @@ class ShellSessions extends ChangeNotifier {
       session._columns = settledColumns;
       session._rows = settledRows;
       session.state = ShellLive(connection.transport);
+      _learnSystem(host, connection);
       session._health = connection.health.listen(
         (health) => _onHealth(session, connection, attempt, health),
       );
@@ -1712,6 +1733,7 @@ final shellSessionsProvider = Provider<ShellSessions>((ref) {
   return ShellSessions(
     readPrivateKey: ref.watch(ed25519KeysProvider).privateKey,
     pinHostKey: ref.watch(hostRepositoryProvider).pinHostKey,
+    recordSystem: ref.watch(hostRepositoryProvider).recordSystem,
     tabs: ref.watch(shellTabRepositoryProvider),
     snapshots: ref.watch(shellSnapshotStoreProvider),
     notifier: const PinNotifications(),

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dazzle/data/repositories/shell_tab_repository.dart';
 import 'package:dazzle/data/shell_snapshot_store.dart';
 import 'package:dazzle/application/pin_alerts.dart';
+import 'package:dazzle/data/enums.dart';
 import 'package:dazzle/features/shell/shell_sessions.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:dazzle/platform/host_keys.dart';
@@ -244,6 +245,7 @@ ShellSessions fakeShellSessions(
   Duration pinAnswerWait = const Duration(seconds: 5),
   PinNotifier? notifier,
   DateTime Function() now = DateTime.now,
+  Future<void> Function(String hostId, HostSystem system)? recordSystem,
 }) => ShellSessions(
   readPrivateKey: (_) async => privateKey,
   pinHostKey: pinHostKey ?? (_, _) async {},
@@ -257,4 +259,5 @@ ShellSessions fakeShellSessions(
   pinAnswerWait: pinAnswerWait,
   notifier: notifier,
   now: now,
+  recordSystem: recordSystem,
 );

@@ -7,6 +7,7 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/spacing.dart';
+import '../hosts/host_mark.dart';
 import '../screen_scaffold.dart';
 import '../shell/shell_sheet.dart';
 import '../shell/shell_card.dart';
@@ -127,9 +128,17 @@ class _HostRow extends StatelessWidget {
       title: host.name.toUpperCase(),
       subtitle: '${host.user}@${host.address}:${host.port}',
       node: true,
-      leading: worst == null
-          ? const SizedBox.shrink()
-          : ShellStateDot(state: worst),
+      leadingWidth: shellDotSize + Spacing.sm + IconSizes.sm,
+      leading: Row(
+        children: [
+          SizedBox(
+            width: shellDotSize,
+            child: worst == null ? null : ShellStateDot(state: worst),
+          ),
+          const SizedBox(width: Spacing.sm),
+          HostMark(host.system),
+        ],
+      ),
       value: sessions.isEmpty ? null : '${sessions.length} OPEN',
       onTap: () => pickHostShell(context, store, host),
     );
