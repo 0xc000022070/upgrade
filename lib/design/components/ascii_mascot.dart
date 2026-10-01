@@ -45,6 +45,15 @@ class AsciiMascot extends StatefulWidget {
   static final _sheets = <String, Future<AsciiSheet>>{};
   static final _ready = <String, AsciiSheet>{};
 
+  /// A load first started inside a widget test is bound to its fake clock and never
+  /// completes under a real one, so a later suite in the same isolate must start over.
+  @visibleForTesting
+  static void forget() {
+    rootBundle.clear();
+    _sheets.clear();
+    _ready.clear();
+  }
+
   static Future<AsciiSheet> sheet(String state) => _sheets[state] ??= rootBundle
       .loadString(mascotAsset(state))
       .then((source) {

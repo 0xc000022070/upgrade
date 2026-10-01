@@ -38,6 +38,7 @@ Future<void> drain(WidgetTester tester, {Duration step = Duration.zero}) async {
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
+    AsciiMascot.forget();
     await AsciiMascot.preload();
   });
 
