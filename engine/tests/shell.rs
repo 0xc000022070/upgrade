@@ -594,3 +594,197 @@ fn an_image_sent_by_file_is_redrawn_after_a_keyframe() {
         miniz_oxide::inflate::decompress_to_vec_zlib(&base64_decode(&replay[start..end])).unwrap();
     assert_eq!(pixels, [10, 20, 30]);
 }
+
+fn shell_server(sandbox: &Sandbox) -> u32 {
+    let root = sandbox.root.to_string_lossy().into_owned();
+    fs::read_dir("/proc")
+        .unwrap()
+        .flatten()
+        .filter_map(|entry| entry.file_name().to_str()?.parse().ok())
+        .find(|pid: &u32| {
+            fs::read(format!("/proc/{pid}/cmdline")).is_ok_and(|cmdline| {
+                let cmdline = String::from_utf8_lossy(&cmdline);
+                cmdline.contains("__shell") && cmdline.contains(&root)
+            })
+        })
+        .expect("the shell server is running")
+}
+
+fn cpu_time(pid: u32) -> Duration {
+    let schedstat = fs::read_to_string(format!("/proc/{pid}/schedstat")).unwrap();
+    Duration::from_nanos(schedstat.split(' ').next().unwrap().parse().unwrap())
+}
+
+fn take_pty_bytes(client: &mut Client) -> (usize, bool) {
+    let (bytes, _, exited) = take_records(client);
+    (bytes, exited)
+}
+
+fn take_records(client: &mut Client) -> (usize, Vec<usize>, bool) {
+    let mut bytes = 0;
+    let mut snapshots = Vec::new();
+    let mut exited = false;
+    for record in client.records.drain(..) {
+        match record {
+            Record::Pty(body) => bytes += body.len(),
+            Record::Snapshot(body) => {
+                bytes += body.len();
+                snapshots.push(body.len());
+            }
+            Record::Exit(_) => exited = true,
+        }
+    }
+    (bytes, snapshots, exited)
+}
+
+fn drive(name: &str, script: &str) {
+    let sandbox = Sandbox::new(name);
+    let fixture = sandbox.root.join("fixture");
+    let script = script.replace("$FIXTURE", fixture.to_str().unwrap());
+    if script.contains(fixture.to_str().unwrap()) {
+        fs::write(&fixture, tui_frames(1000)).unwrap();
+    }
+    let started = sandbox.start(
+        name,
+        json!({ "command": ["/bin/sh", "-c", format!("sleep 0.5; {script}")] }),
+    );
+    let mut client = Client::connect(&started);
+    client
+        .socket
+        .set_read_timeout(Some(Duration::from_millis(1)))
+        .unwrap();
+    let server = shell_server(&sandbox);
+    let cpu_before = cpu_time(server);
+    let deadline = Instant::now() + Duration::from_secs(300);
+    let produced = Command::new("/bin/sh")
+        .args(["-c", &script])
+        .output()
+        .unwrap()
+        .stdout
+        .len();
+    let mut first: Option<Instant> = None;
+    let mut total = 0;
+    let mut keyframes = Vec::new();
+    loop {
+        assert!(Instant::now() < deadline, "{name} never finished");
+        client.send();
+        client.receive();
+        let (bytes, snapshots, exited) = take_records(&mut client);
+        keyframes.extend(snapshots);
+        if bytes > 0 && first.is_none() {
+            first = Some(Instant::now());
+        }
+        total += bytes;
+        if exited {
+            break;
+        }
+    }
+    let began = first.unwrap();
+    let wall = began.elapsed();
+    let cpu = cpu_time(server) - cpu_before;
+    client.send();
+    let mb = produced as f64 / 1e6;
+    println!(
+        "PERF {name:<10} {mb:>7.1} MB, {:>5.1} MB sent  wall {:>7.0} ms  {:>6.1} MB/s  server cpu {:>7.0} ms  {:>5.1} ms/MB  keyframes {} of {:.0} KB avg",
+        total as f64 / 1e6,
+        wall.as_secs_f64() * 1e3,
+        mb / wall.as_secs_f64(),
+        cpu.as_secs_f64() * 1e3,
+        cpu.as_secs_f64() * 1e3 / mb,
+        keyframes.len(),
+        keyframes.iter().sum::<usize>() as f64 / keyframes.len().max(1) as f64 / 1e3,
+    );
+}
+
+fn tui_frames(frames: usize) -> Vec<u8> {
+    let mut out = Vec::new();
+    for frame in 0..frames {
+        out.extend_from_slice(b"\x1b[H");
+        for row in 0..24 {
+            out.extend_from_slice(format!("\x1b[{};1H", row + 1).as_bytes());
+            for col in 0..80 {
+                let colour = (frame + row + col) % 256;
+                let glyph = b'!' + ((frame * 7 + row * 3 + col) % 90) as u8;
+                out.extend_from_slice(format!("\x1b[38;5;{colour}m").as_bytes());
+                out.push(glyph);
+            }
+        }
+    }
+    out
+}
+
+#[test]
+#[ignore = "a measurement, run with --ignored --nocapture"]
+fn perf_lines() {
+    drive("lines", "seq 1 3000000");
+}
+
+#[test]
+#[ignore = "a measurement, run with --ignored --nocapture"]
+fn perf_wrapped() {
+    drive(
+        "wrapped",
+        "head -c 24000000 /dev/zero | tr '\\0' a | fold -w 200",
+    );
+}
+
+#[test]
+#[ignore = "a measurement, run with --ignored --nocapture"]
+fn perf_tui() {
+    drive("tui", "cat $FIXTURE");
+}
+
+#[test]
+#[ignore = "a measurement, run with --ignored --nocapture"]
+fn perf_keystroke_round_trip() {
+    let sandbox = Sandbox::new("latency");
+    let started = sandbox.start(
+        "latency",
+        json!({ "command": ["/bin/sh", "-c", "exec cat"] }),
+    );
+    let mut client = Client::connect(&started);
+    client
+        .socket
+        .set_read_timeout(Some(Duration::from_millis(1)))
+        .unwrap();
+    client.until("first contact", |c| c.input_ack == c.input.len() as u64);
+    let server = shell_server(&sandbox);
+    let mut samples = Vec::new();
+    let cpu_before = cpu_time(server);
+    for _ in 0..300 {
+        client.records.clear();
+        client.type_in("x");
+        let typed = Instant::now();
+        client.send();
+        loop {
+            assert!(typed.elapsed() < PATIENCE, "the echo never came");
+            client.receive();
+            if take_pty_bytes(&mut client).0 > 0 {
+                break;
+            }
+        }
+        samples.push(typed.elapsed());
+    }
+    let cpu = cpu_time(server) - cpu_before;
+    samples.sort();
+    let at = |q: f64| samples[((samples.len() - 1) as f64 * q) as usize].as_secs_f64() * 1e6;
+    println!(
+        "PERF echo  p50 {:.0} us  p90 {:.0} us  p99 {:.0} us  server cpu {:.0} us/key",
+        at(0.5),
+        at(0.9),
+        at(0.99),
+        cpu.as_secs_f64() * 1e6 / samples.len() as f64,
+    );
+
+    let idle = cpu_time(server);
+    let begin = Instant::now();
+    while begin.elapsed() < Duration::from_secs(5) {
+        client.send();
+        std::thread::sleep(Duration::from_millis(100));
+        client.receive();
+    }
+    println!(
+        "PERF idle  server cpu {:.2} ms/s with a packet every 100 ms",
+        (cpu_time(server) - idle).as_secs_f64() * 1e3 / begin.elapsed().as_secs_f64()
+    );
+}
