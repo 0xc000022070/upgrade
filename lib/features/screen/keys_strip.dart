@@ -9,7 +9,12 @@ import '../../platform/vnc/arming.dart';
 import '../../platform/vnc/keysyms.dart';
 import '../modifier_cell.dart';
 
-typedef _StripKey = ({String label, int keysym, DazzleIcons? icon});
+typedef _StripKey = ({
+  String label,
+  int keysym,
+  DazzleIcons? icon,
+  bool repeats,
+});
 
 /// `SUPER` is here where the terminal's bar has none: a desktop takes a compositor chord,
 /// and that never comes from the IME.
@@ -21,13 +26,28 @@ const _stripModifiers = <StickyModifier>[
 ];
 
 const _stripKeys = <_StripKey>[
-  (label: 'ESC', keysym: Keysyms.escape, icon: null),
-  (label: 'TAB', keysym: Keysyms.tab, icon: null),
-  (label: 'LEFT', keysym: Keysyms.left, icon: DazzleIcons.arrowLeft),
-  (label: 'UP', keysym: Keysyms.up, icon: DazzleIcons.arrowUp),
-  (label: 'DOWN', keysym: Keysyms.down, icon: DazzleIcons.arrowDown),
-  (label: 'RIGHT', keysym: Keysyms.right, icon: DazzleIcons.arrowRight),
-  (label: 'END', keysym: Keysyms.end, icon: null),
+  (label: 'ESC', keysym: Keysyms.escape, icon: null, repeats: false),
+  (label: 'TAB', keysym: Keysyms.tab, icon: null, repeats: false),
+  (
+    label: 'LEFT',
+    keysym: Keysyms.left,
+    icon: DazzleIcons.arrowLeft,
+    repeats: true,
+  ),
+  (label: 'UP', keysym: Keysyms.up, icon: DazzleIcons.arrowUp, repeats: true),
+  (
+    label: 'DOWN',
+    keysym: Keysyms.down,
+    icon: DazzleIcons.arrowDown,
+    repeats: true,
+  ),
+  (
+    label: 'RIGHT',
+    keysym: Keysyms.right,
+    icon: DazzleIcons.arrowRight,
+    repeats: true,
+  ),
+  (label: 'END', keysym: Keysyms.end, icon: null, repeats: false),
 ];
 
 /// A hidden [EditableText] is the only way to a soft keyboard's characters: Android
@@ -197,6 +217,7 @@ class _KeysLayerState extends State<KeysLayer> {
             key: ValueKey('key-${key.label}'),
             label: key.label,
             icon: key.icon,
+            repeats: key.repeats,
             minWidth: KeyBar.height,
             padding: KeyBar.cellPadding,
             onTap: () =>

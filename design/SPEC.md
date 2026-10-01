@@ -1217,6 +1217,10 @@ A bar at the bottom of the route, always drawn, above the IME when it is open, l
 
 A tap arms a modifier for exactly one key and then clears it: a soft keyboard cannot hold two keys at once, and that is the rule a modifier cell answers to by default. The chords that end a program are not one key, and a session at a REPL is not a count, so the cell has three answers and the gesture says which.
 
+### An arrow held down repeats, at the pace a keyboard does
+
+A press on an arrow that stays down sends the arrow, waits 400 ms, and then sends it again every 50 ms until the finger lifts, which is twenty a second — the delay and the rate Android gives its own keys. A tap still sends exactly one. Only the four arrows repeat: a held `ESC`, `TAB` or `END` is almost never meant twice, and a held modifier already means a latch. A drag that turns into a scroll of the row, or a pointer lost to the system, stops the repeat at once. An armed modifier is spent by each arrow that goes, so `SHIFT` for one key shifts the first and not the rest.
+
 **A downward drag sets a count.** One drag arms the cell at two, another takes it to three, which is the cap; an upward drag walks it back down and past two disarms it. **A long press latches it**, and a tap on a latched cell lets it go — the same tap that arms an unlatched one. A downward drag on a latched cell does nothing, there being nothing above forever, and an upward drag releases it whole. No cell is added to a bar the phone already scrolls, and a user who never drags never sees a count.
 
 **The label rolls to say so.** The cell reads `CTRL(x2)` for a count and `CTRL(∞)` for a latch, arriving on a 140 ms downward roll — the old word leaving through the floor, the new one coming in through the ceiling — in the same accent an armed modifier already draws in. A latch replaces a count, and releasing goes back to the bare word.
@@ -1455,7 +1459,7 @@ It is the shell's bar, cell for cell: one row of 36, cells sized to their label 
 
 **Two rows gave the picture away.** Six equal columns across a foldable's inner screen made cells far wider than their words, and the pair stood a hand's height over the framebuffer with the keyboard under it. One row is what the shell already spends, and it leaves the picture the rest.
 
-The four modifiers arm the way the shell's do: a tap for one key, a downward drag for a count to three, a long press to latch, the label rolling to `CTRL(x2)` or `CTRL(∞)`. The arming belongs to the route, and every key spends it, the strip's and the IME's alike. `SUPER` is here where the shell's bar has none: a desktop takes a compositor chord, and the IME sends none. `SUPER` draws the ⌘-like house glyph with no word beside it; the four arrows draw their own glyphs; everything else is a mono 11 tracked word.
+The four modifiers arm the way the shell's do: a tap for one key, a downward drag for a count to three, a long press to latch, the label rolling to `CTRL(x2)` or `CTRL(∞)`. The arming belongs to the route, and every key spends it, the strip's and the IME's alike. `SUPER` is here where the shell's bar has none: a desktop takes a compositor chord, and the IME sends none. `SUPER` draws the ⌘-like house glyph with no word beside it; the four arrows draw their own glyphs; everything else is a mono 11 tracked word. A held arrow repeats the way the shell's does.
 
 **Struck:** `HOME`, `PGUP` and `PGDN`. The user does not use them.
 

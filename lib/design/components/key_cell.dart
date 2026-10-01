@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
@@ -17,6 +19,7 @@ class KeyCell extends StatefulWidget {
     this.inert = false,
     this.repeat = 1,
     this.locked = false,
+    this.repeats = false,
     this.onFlick,
     this.onLongPress,
     this.minWidth,
@@ -35,6 +38,8 @@ class KeyCell extends StatefulWidget {
 
   final bool locked;
 
+  final bool repeats;
+
   final void Function(int step)? onFlick;
 
   final VoidCallback? onLongPress;
@@ -52,6 +57,33 @@ class KeyCell extends StatefulWidget {
 class _KeyCellState extends State<KeyCell> {
   bool _down = false;
   double _travel = 0;
+  Timer? _repeat;
+  bool _repeated = false;
+
+  @override
+  void dispose() {
+    _repeat?.cancel();
+    super.dispose();
+  }
+
+  /// Reads [KeyCell.onTap] on every beat rather than once, so a rebuild that spent the
+  /// arming reaches the keys that follow.
+  void _press() {
+    setState(() => _down = true);
+    if (!widget.repeats) return;
+    _repeated = false;
+    _repeat = Timer(Gestures.repeatDelay, () {
+      _repeated = true;
+      widget.onTap();
+      _repeat = Timer.periodic(Gestures.repeatInterval, (_) => widget.onTap());
+    });
+  }
+
+  void _release() {
+    _repeat?.cancel();
+    _repeat = null;
+    setState(() => _down = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,10 +102,14 @@ class _KeyCellState extends State<KeyCell> {
         : widget.label;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: widget.inert ? null : (_) => setState(() => _down = true),
-      onTapCancel: widget.inert ? null : () => setState(() => _down = false),
-      onTapUp: widget.inert ? null : (_) => setState(() => _down = false),
-      onTap: widget.inert ? null : widget.onTap,
+      onTapDown: widget.inert ? null : (_) => _press(),
+      onTapCancel: widget.inert ? null : _release,
+      onTapUp: widget.inert ? null : (_) => _release(),
+      onTap: widget.inert
+          ? null
+          : () {
+              if (!_repeated) widget.onTap();
+            },
       onLongPress: hold,
       // The drag and the hold share the tap's detector so the three share one arena entry: a
       // finger that moves or stays takes it and the tap under it is cancelled, rather than
