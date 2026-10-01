@@ -29,6 +29,8 @@ android {
         release {
             // TODO: a real signing config. Debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
