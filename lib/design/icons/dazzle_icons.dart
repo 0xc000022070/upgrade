@@ -35,6 +35,7 @@ enum DazzleIcons {
   forward('forward'),
   goal('goal'),
   home('home'),
+  image('image'),
   hosts('hosts'),
   inbox('inbox'),
   keyboard('keyboard'),
