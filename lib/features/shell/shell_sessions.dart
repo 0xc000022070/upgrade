@@ -233,6 +233,11 @@ class ShellSession extends ChangeNotifier {
   bool get awaitingHost =>
       !painted.value && (state is ShellConnecting || state is ShellLive);
 
+  bool get recovering => switch (state) {
+    ShellDropped() || ShellReconnecting() || ShellDisconnected() => true,
+    _ => false,
+  };
+
   int get rowsBehind {
     final bar = terminal.scrollbar;
     return bar.total - bar.offset - bar.visible;

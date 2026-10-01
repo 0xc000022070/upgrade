@@ -716,13 +716,16 @@ class _TabScan extends StatelessWidget {
     if (session == null) return child;
     return ListenableBuilder(
       listenable: Listenable.merge([session, session.painted]),
-      builder: (context, child) => session.awaitingHost
-          ? ScanSweep(
-              base: context.tokens.textDisabled,
-              lit: active ? context.tokens.accent : context.tokens.textPrimary,
-              child: child!,
-            )
-          : child!,
+      builder: (context, child) {
+        final tokens = context.tokens;
+        final lit = switch ((session.recovering, session.awaitingHost)) {
+          (true, _) => tokens.warning,
+          (_, true) => active ? tokens.accent : tokens.textPrimary,
+          _ => null,
+        };
+        if (lit == null) return child!;
+        return ScanSweep(base: tokens.textDisabled, lit: lit, child: child!);
+      },
       child: child,
     );
   }

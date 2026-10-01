@@ -6,7 +6,9 @@ import 'package:dazzle/application/launch_scan.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/design/colors.dart';
 import 'package:dazzle/design/components/cell_divider.dart';
+import 'package:dazzle/design/components/dot_spinner.dart';
 import 'package:dazzle/design/components/scan_sweep.dart';
+import 'package:dazzle/design/motion.dart';
 import 'package:dazzle/design/spacing.dart';
 import 'package:dazzle/features/shell/host_shell_screen.dart';
 import 'package:dazzle/features/shell/shell_header.dart';
@@ -110,6 +112,60 @@ void main() {
     await ready(tester);
     expect(sweep, findsNothing);
     expect(labelOfTab(tester, 1), '1');
+
+    await unmount(tester);
+  });
+
+  testWidgets('a tab sweeps in the warning ink while its link comes back', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    transport.opened.single.emit('\$ ');
+    await ready(tester);
+
+    final sweep = find.descendant(
+      of: find.byKey(const ValueKey('shell-tab-1')),
+      matching: find.byType(ScanSweep),
+    );
+    expect(sweep, findsNothing);
+
+    for (final health in const [
+      ShellConnectionHealth.reconnecting,
+      ShellConnectionHealth.disconnected,
+    ]) {
+      transport.opened.single.setHealth(health);
+      await tester.pump();
+      await tester.pump();
+      expect(tester.widget<ScanSweep>(sweep).lit, DazzleColors.warning);
+      final band = find.descendant(
+        of: sweep,
+        matching: find.byType(ShaderMask),
+      );
+      if (health == ShellConnectionHealth.reconnecting) {
+        expect(band, findsNothing);
+        await tester.pump(Effects.spinnerThreshold);
+      }
+      expect(band, findsOneWidget);
+      expect(find.byType(DelayedSpinner), findsNothing);
+    }
+
+    transport.opened.single.setHealth(ShellConnectionHealth.connected);
+    await tester.pump();
+    await tester.pump();
+    expect(sweep, findsNothing);
+
+    transport.opened.single.drop();
+    await tester.pump();
+    await tester.pump();
+    expect(tester.widget<ScanSweep>(sweep).lit, DazzleColors.warning);
+    expect(find.byType(DelayedSpinner), findsNothing);
+
+    await tester.pump(shellReconnectDelays.first);
+    await ready(tester);
+    expect(sweep, findsNothing);
 
     await unmount(tester);
   });

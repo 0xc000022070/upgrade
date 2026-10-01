@@ -5,7 +5,8 @@ import 'package:flutter/widgets.dart';
 import '../motion.dart';
 
 /// Repaints [child] in [base] with a hard-edged band of [lit] stepping across it, left to
-/// right and round again.
+/// right and round again. It holds off for the spinner's threshold, so a wait that ends
+/// at once is never drawn.
 class ScanSweep extends StatefulWidget {
   const ScanSweep({
     super.key,
@@ -27,6 +28,8 @@ class ScanSweep extends StatefulWidget {
 
 class _ScanSweepState extends State<ScanSweep> with WidgetsBindingObserver {
   Timer? _timer;
+  Timer? _hold;
+  bool _due = false;
   int _step = 0;
   bool _foreground = true;
   bool _visible = true;
@@ -36,6 +39,11 @@ class _ScanSweepState extends State<ScanSweep> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _hold = Timer(Effects.spinnerThreshold, () {
+      if (!mounted) return;
+      setState(() => _due = true);
+      _sync();
+    });
   }
 
   @override
@@ -53,7 +61,7 @@ class _ScanSweepState extends State<ScanSweep> with WidgetsBindingObserver {
   }
 
   void _sync() {
-    final run = _foreground && _visible && !_still;
+    final run = _due && _foreground && _visible && !_still;
     if (run == (_timer != null)) return;
     if (!run) {
       _timer?.cancel();
@@ -68,13 +76,14 @@ class _ScanSweepState extends State<ScanSweep> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _hold?.cancel();
     _timer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_still) return widget.child;
+    if (_still || !_due) return widget.child;
     return ShaderMask(
       blendMode: BlendMode.srcIn,
       shaderCallback: (bounds) {
