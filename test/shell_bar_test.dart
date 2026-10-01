@@ -516,12 +516,10 @@ void main() {
       await pumpBar(tester);
 
       final esc = tester.getSize(find.byKey(const ValueKey('bar-ESC'))).width;
-      final attach = tester
-          .getSize(find.byKey(const ValueKey('bar-ATTACH')))
-          .width;
+      final ctrl = tester.getSize(find.byKey(const ValueKey('bar-CTRL'))).width;
 
-      expect(attach, greaterThan(esc));
-      for (final label in ['CTRL', 'ESC', 'UP', 'END', 'keyboard']) {
+      expect(ctrl, greaterThan(esc));
+      for (final label in ['CTRL', 'ESC', 'UP', 'END', 'ATTACH', 'keyboard']) {
         expect(
           tester.getSize(find.byKey(ValueKey('bar-$label'))).width,
           greaterThanOrEqualTo(36),
@@ -669,18 +667,20 @@ void main() {
       expect(record.attaches, 1);
     });
 
-    testWidgets('ATTACH is on the bar with nothing held, unmarked', (
+    testWidgets('ATTACH is a picture in grey with nothing held', (
       tester,
     ) async {
       await pumpBar(tester);
-      expect(find.text('ATTACH'), findsOneWidget);
-      expect(find.text('ATTACH!'), findsNothing);
+      expect(find.bySemanticsLabel('ATTACH'), findsOneWidget);
+      expect(iconTintOf(tester, 'ATTACH'), DazzleColors.textSecondary);
     });
 
-    testWidgets('ATTACH carries the mark and opens the sheet', (tester) async {
+    testWidgets('ATTACH reads accent while held and opens the sheet', (
+      tester,
+    ) async {
       final record = await pumpBar(tester, clipCount: 3);
 
-      expect(find.text('ATTACH!'), findsOneWidget);
+      expect(iconTintOf(tester, 'ATTACH'), DazzleColors.accent);
       expect(find.textContaining('3'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('bar-ATTACH')));
       await tester.pump();

@@ -142,7 +142,9 @@ class ShellBar extends StatelessWidget {
           ),
         KeyCell(
           key: const ValueKey('bar-ATTACH'),
-          label: clipCount == 0 ? 'ATTACH' : 'ATTACH!',
+          label: 'ATTACH',
+          icon: DazzleIcons.image,
+          armed: clipCount > 0,
           minWidth: KeyBar.height,
           padding: KeyBar.cellPadding,
           onTap: () => onAttach?.call(),
