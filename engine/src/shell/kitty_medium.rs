@@ -253,11 +253,15 @@ impl Command<'_> {
             size,
             limit: IMAGE_BYTES,
         };
+        let reply = match self.number(b'q').unwrap_or(0) {
+            0 => self.reply(),
+            _ => Reply::default(),
+        };
         files.read(
             self.medium,
             Path::new(OsStr::from_bytes(&path)),
             span,
-            self.reply(),
+            reply,
         )
     }
 
@@ -380,14 +384,19 @@ impl Files for HostFiles {
         reply: Reply,
     ) -> Result<Vec<u8>, Refusal> {
         let (bytes, left) = match medium {
-            Medium::File => read_file(path, span, |_| Ok(false)),
-            Medium::TemporaryFile => read_file(path, span, |real| self.temporary(real)),
+            Medium::File => read_file(path, span, 0, |_| Ok(false)),
+            Medium::TemporaryFile => read_file(path, span, 0, |real| self.temporary(real)),
             Medium::SharedMemory => read_shared_memory(path, span),
         }?;
         if let Some(object) = left {
+            let reply = if bytes.is_ok() {
+                reply
+            } else {
+                Reply::default()
+            };
             self.claims.hold(reply, object, Instant::now());
         }
-        Ok(bytes)
+        bytes
     }
 }
 
@@ -421,7 +430,7 @@ fn read_shared_memory(name: &Path, span: Span) -> Result<Taken, Refusal> {
         return Err("not a shared memory name".into());
     }
     let path = Path::new("/dev/shm").join(OsStr::from_bytes(&name[1..]));
-    read_file(&path, span, |_| Ok(true))
+    read_file(&path, span, libc::O_NOFOLLOW, |_| Ok(true))
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -429,17 +438,18 @@ fn read_shared_memory(_: &Path, _: Span) -> Result<Taken, Refusal> {
     Err("shared memory is not readable on this host".into())
 }
 
-type Taken = (Vec<u8>, Option<Object>);
+type Taken = (Result<Vec<u8>, Refusal>, Option<Object>);
 
 fn read_file(
     path: &Path,
     span: Span,
+    flags: libc::c_int,
     consumed: impl FnOnce(&Path) -> Result<bool, String>,
 ) -> Result<Taken, Refusal> {
     // Non-blocking, so a fifo named here cannot stall the server in open(2).
     let mut file = OpenOptions::new()
         .read(true)
-        .custom_flags(libc::O_NONBLOCK | libc::O_NOCTTY)
+        .custom_flags(libc::O_NONBLOCK | libc::O_NOCTTY | flags)
         .open(path)
         .map_err(|err| Refusal {
             missing: err.kind() == io::ErrorKind::NotFound,
@@ -454,16 +464,13 @@ fn read_file(
         return Err("not a file images are read from".into());
     }
     if !consumed(&real)? {
-        return Ok((read_span(&mut file, span)?, None));
+        return Ok((read_span(&mut file, span), None));
     }
     let metadata = file.metadata().map_err(|err| err.to_string())?;
-    match read_span(&mut file, span) {
-        Ok(bytes) => Ok((bytes, Some(Object::new(real, &metadata)))),
-        Err(refusal) => {
-            let _ = fs::remove_file(&real);
-            Err(refusal)
-        }
-    }
+    Ok((
+        read_span(&mut file, span),
+        Some(Object::new(real, &metadata)),
+    ))
 }
 
 #[cfg(target_os = "linux")]
@@ -615,6 +622,11 @@ mod tests {
             .map(|c| c.split(';').nth(1).unwrap())
             .collect();
         assert_eq!(base64_decode(payload.as_bytes()).unwrap(), bytes);
+        let framing = forward.len() - payload.len() - commands[0].find(';').unwrap();
+        assert!(
+            framing <= (commands.len() - 1) * 32,
+            "mirror::transmission_bytes allows 32 a chunk"
+        );
     }
 
     #[test]
@@ -863,8 +875,18 @@ mod tests {
         assert!(host
             .read(Medium::TemporaryFile, &oversized, cramped, reply)
             .is_err());
-        assert!(!oversized.exists(), "a file that cannot be read still goes");
-        assert!(host.claims.deadline().is_none());
+        assert!(
+            oversized.exists(),
+            "another terminal may still read it whole"
+        );
+        let mut out = Vec::new();
+        host.claims.answer(b"\x1b_Gi=7;OK\x1b\\", &mut out);
+        assert!(
+            oversized.exists(),
+            "no answer comes for a read that failed here"
+        );
+        host.claims.expire(host.claims.deadline().unwrap());
+        assert!(!oversized.exists());
         fs::remove_dir_all(&temp).unwrap();
         fs::remove_dir_all(&elsewhere).unwrap();
     }
@@ -893,6 +915,23 @@ mod tests {
         );
         drop(host.claims);
         assert!(!path.exists());
+
+        let target = scratch("shm-target").join("thesis.tex");
+        fs::write(&target, b"words").unwrap();
+        std::os::unix::fs::symlink(&target, &path).unwrap();
+        let mut host = HostFiles::default();
+        assert!(host
+            .read(Medium::SharedMemory, &shm, span(0, None), Reply::default())
+            .is_err());
+        drop(host.claims);
+        fs::remove_file(&path).unwrap();
+        assert_eq!(
+            fs::read(&target).unwrap(),
+            b"words",
+            "a link is not followed out of /dev/shm"
+        );
+        fs::remove_dir_all(target.parent().unwrap()).unwrap();
+
         let mut host = HostFiles::default();
         let climbing = Path::new("/../tmp/x");
         assert!(host

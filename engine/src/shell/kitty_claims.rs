@@ -22,7 +22,7 @@ impl Reply {
         if claim.number != 0 {
             self.number == claim.number
         } else {
-            self.id == claim.id
+            claim.id != 0 && self.number == 0 && self.id == claim.id
         }
     }
 }
@@ -234,6 +234,21 @@ mod tests {
             b"\x1b_Gi=3,I=9;OK\x1b\\"
         );
         assert!(claims.deadline().is_none());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn an_answer_to_another_command_is_not_taken_for_ours() {
+        let dir = testing::scratch("kitty-claims", "another");
+        let path = dir.join("tty-graphics-protocol-6");
+        fs::write(&path, b"png").unwrap();
+        let mut claims = Claims::default();
+        claims.hold(Reply::default(), object(&path), Instant::now());
+        claims.hold(reply(5), object(&path), Instant::now());
+        fs::remove_file(&path).unwrap();
+        let input = b"\x1b_GI=8;ENOENT: image not found\x1b\\\x1b_Gi=5,I=7;OK\x1b\\";
+        assert_eq!(answer(&mut claims, input), input);
+        assert_eq!(claims.open.len(), 2);
         fs::remove_dir_all(&dir).unwrap();
     }
 

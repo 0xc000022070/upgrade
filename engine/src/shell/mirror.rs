@@ -15,12 +15,19 @@ pub struct Mirror {
     keyframe_len: u64,
 }
 
+/// The most a transmission of the largest image may carry: its base64, the framing of every
+/// 4096-byte chunk, and room for the first chunk's keys.
+fn transmission_bytes(image_bytes: u64) -> u64 {
+    let encoded = image_bytes.div_ceil(3) * 4;
+    encoded + encoded.div_ceil(4096) * 32 + (1 << 16)
+}
+
 impl Mirror {
     pub fn new(size: Size, options: &Options) -> Result<Self, VtError> {
         Ok(Self {
             terminal: Terminal::new(size, options)?,
             stream: Stream::default(),
-            transmissions: Transmissions::new(options.image_bytes / 3 * 4 + (1 << 16)),
+            transmissions: Transmissions::new(transmission_bytes(options.image_bytes)),
             keyframe_due: false,
             pending_images: false,
             status: None,
@@ -292,5 +299,33 @@ mod tests {
         assert!(mirror.stream().backlog(0) > MIN_BACKLOG);
         mirror.relieve(0, true).unwrap();
         assert_eq!(mirror.stream().base(), base);
+    }
+
+    #[test]
+    fn the_largest_image_media_sends_stays_one_transmission() {
+        let image_bytes = crate::shell::IMAGE_BYTES;
+        let mut seen = Transmissions::new(transmission_bytes(image_bytes));
+        let encoded = image_bytes.div_ceil(3) * 4;
+        let chunks = encoded.div_ceil(4096);
+        let payload = vec![b'A'; 4096];
+        for index in 0..chunks {
+            let keys = match index {
+                0 => "a=T,f=100,i=4294967295,q=2,m=1",
+                _ if index == chunks - 1 => "q=2,m=0",
+                _ => "q=2,m=1",
+            };
+            let len = (encoded - index * 4096).min(4096) as usize;
+            seen.feed(
+                &[
+                    format!("\x1b_G{keys};").as_bytes(),
+                    &payload[..len],
+                    b"\x1b\\",
+                ]
+                .concat(),
+            );
+            if index < chunks - 1 {
+                assert!(seen.open(), "cut at chunk {index} of {chunks}");
+            }
+        }
     }
 }
