@@ -93,14 +93,15 @@ impl Media {
                 State::Ground => self.ground(&bytes[at..], forward),
                 State::Escape => self.introducer(bytes[at], b'_', State::Apc, forward),
                 State::Apc => self.introducer(bytes[at], b'G', State::Keys, forward),
-                State::Keys | State::Payload => self.body(bytes[at], forward),
+                State::Keys => self.body(bytes[at], forward),
+                State::Payload => self.payload(&bytes[at..], forward),
                 State::End => self.end(bytes[at], files, forward, replies),
             };
         }
     }
 
     fn ground(&mut self, rest: &[u8], forward: &mut Vec<u8>) -> usize {
-        let Some(n) = rest.iter().position(|&b| b == ESC) else {
+        let Some(n) = memchr::memchr(ESC, rest) else {
             forward.extend_from_slice(rest);
             return rest.len();
         };
@@ -118,6 +119,21 @@ impl Media {
         self.held.push(byte);
         self.state = next;
         1
+    }
+
+    fn payload(&mut self, rest: &[u8], forward: &mut Vec<u8>) -> usize {
+        let plain = memchr::memchr3(ESC, CAN, SUB, rest).unwrap_or(rest.len());
+        if plain == 0 {
+            return self.body(rest[0], forward);
+        }
+        let room = MAX_COMMAND - self.held.len();
+        if plain > room {
+            self.held.extend_from_slice(&rest[..=room]);
+            self.release(forward);
+            return room + 1;
+        }
+        self.held.extend_from_slice(&rest[..plain]);
+        plain
     }
 
     fn body(&mut self, byte: u8, forward: &mut Vec<u8>) -> usize {
@@ -672,6 +688,8 @@ mod tests {
         assert_eq!(forward, input);
         assert!(replies.is_empty());
         assert!(files.asked.is_empty());
+        let bytes: Vec<&[u8]> = input.chunks(1).collect();
+        assert_eq!(run(&mut files, &bytes), (forward, replies));
     }
 
     #[test]

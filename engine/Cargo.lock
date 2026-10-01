@@ -176,6 +176,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "libc",
+ "memchr",
  "miniz_oxide 0.8.9",
  "nix",
  "ocb3",

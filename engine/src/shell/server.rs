@@ -50,6 +50,8 @@ pub struct Server {
     files: HostFiles,
     pty: Option<Pty>,
     pty_eof: bool,
+    pty_buf: Box<[u8]>,
+    forward: Vec<u8>,
     pending: VecDeque<u8>,
     key_file: PathBuf,
     timing: Timing,
@@ -78,6 +80,8 @@ impl Server {
             files: HostFiles::default(),
             pty: Some(pty),
             pty_eof: false,
+            pty_buf: vec![0; 64 * 1024].into_boxed_slice(),
+            forward: Vec::new(),
             pending: VecDeque::new(),
             key_file,
             timing,
@@ -225,21 +229,24 @@ impl Server {
         let Some(pty) = self.pty.as_mut() else {
             return;
         };
-        let mut buf = vec![0u8; 64 * 1024];
         let mut taken = 0;
-        let (mut forward, mut replies) = (Vec::new(), Vec::new());
+        let mut replies = Vec::new();
         while taken < budget {
-            match pty.read(&mut buf) {
+            match pty.read(&mut self.pty_buf) {
                 Ok(0) => {
                     self.pty_eof = true;
                     break;
                 }
                 Ok(n) => {
                     taken += n;
-                    forward.clear();
-                    self.media
-                        .feed(&buf[..n], &mut self.files, &mut forward, &mut replies);
-                    self.mirror.output(&forward);
+                    self.forward.clear();
+                    self.media.feed(
+                        &self.pty_buf[..n],
+                        &mut self.files,
+                        &mut self.forward,
+                        &mut replies,
+                    );
+                    self.mirror.output(&self.forward);
                 }
                 Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
                 Err(_) => break,

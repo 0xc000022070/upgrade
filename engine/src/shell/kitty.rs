@@ -204,13 +204,25 @@ impl Transmissions {
         self.ids.retain(|&id| keep(id));
     }
 
-    pub fn feed(&mut self, bytes: &[u8]) {
-        for &byte in bytes {
-            self.step(byte);
+    pub fn feed(&mut self, mut bytes: &[u8]) {
+        while let Some(&byte) = bytes.first() {
+            let plain = match self.scan {
+                Scan::Ground | Scan::Payload => {
+                    memchr::memchr3(0x1b, 0x18, 0x1a, bytes).unwrap_or(bytes.len())
+                }
+                _ => 0,
+            };
+            let taken = if plain > 0 {
+                plain
+            } else {
+                self.step(byte);
+                1
+            };
             if self.open {
-                self.carried += 1;
+                self.carried += taken as u64;
                 self.open = self.carried <= self.limit;
             }
+            bytes = &bytes[taken..];
         }
     }
 
@@ -318,6 +330,28 @@ mod tests {
         assert!(seen.open());
         seen.feed(&[b'A'; 32]);
         assert!(!seen.open());
+    }
+
+    #[test]
+    fn every_split_sees_what_the_whole_sees() {
+        let stream: &[u8] = b"text\x1b_Ga=t,i=4,m=1;AAAA\x1b\\\x1b_Gm=1;AA\x18x\x1b_Gi=5;\x1b\\\
+            \x1b_Ga=T,i=6,m=1;AAAAAAAAAAAAAAAAAAAA\x1b\\\x1b_Gm=0;A\x1a\x1b_Ga=t,i=7,m=1;AAAA";
+        for limit in [8, 24, 1 << 20] {
+            let seen = |chunks: &[&[u8]]| {
+                let mut seen = Transmissions::new(limit);
+                for chunk in chunks {
+                    seen.feed(chunk);
+                }
+                (seen.open(), seen.ids().to_vec())
+            };
+            let whole = seen(&[stream]);
+            let bytes: Vec<&[u8]> = stream.chunks(1).collect();
+            assert_eq!(seen(&bytes), whole, "{limit}");
+            for split in 0..=stream.len() {
+                let (a, b) = stream.split_at(split);
+                assert_eq!(seen(&[a, b]), whole, "{limit} {split}");
+            }
+        }
     }
 
     #[test]
