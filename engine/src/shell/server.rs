@@ -113,7 +113,7 @@ impl Server {
             }
             self.serve_pty(&ready);
             self.files.claims.expire(now);
-            let stalled = self.files.claims.stalled(now);
+            let stalled = self.files.claims.stalled(self.heard(now));
             self.pending.extend(stalled);
             self.reap(now);
             self.transmit(now);
