@@ -67,7 +67,13 @@ impl Stream {
         }
         let start = (offset - self.base) as usize;
         let len = max.min(self.bytes.len() - start);
-        let bytes = self.bytes.range(start..start + len).copied().collect();
+        let end = start + len;
+        let (front, back) = self.bytes.as_slices();
+        let mut bytes = Vec::with_capacity(len);
+        bytes.extend_from_slice(&front[start.min(front.len())..end.min(front.len())]);
+        bytes.extend_from_slice(
+            &back[start.saturating_sub(front.len())..end.saturating_sub(front.len())],
+        );
         Some((bytes, self.keyframe == Some(offset)))
     }
 }
@@ -85,6 +91,26 @@ mod tests {
         assert_eq!(stream.read(2, 2), Some((b"ll".to_vec(), false)));
         assert_eq!(stream.read(1, 2), None);
         assert_eq!(stream.read(5, 2), None);
+    }
+
+    #[test]
+    fn a_read_spans_the_ring_wrapping_around() {
+        let mut stream = Stream::default();
+        stream.bytes.reserve_exact(8);
+        let capacity = stream.bytes.capacity() as u64;
+        let filler: Vec<u8> = (0..capacity as u8).collect();
+        stream.append(&filler);
+        stream.release(capacity - 2);
+        stream.append(b"xyz");
+        assert!(!stream.bytes.as_slices().1.is_empty());
+        let tail = [&filler[filler.len() - 2..], b"xyz"].concat();
+        for start in capacity - 2..capacity + 3 {
+            for max in [1, 2, 3, 10] {
+                let at = (start - (capacity - 2)) as usize;
+                let want = &tail[at..(at + max).min(tail.len())];
+                assert_eq!(stream.read(start, max), Some((want.to_vec(), false)));
+            }
+        }
     }
 
     #[test]
