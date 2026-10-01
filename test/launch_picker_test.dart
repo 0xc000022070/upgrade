@@ -100,7 +100,7 @@ void main() {
         find.byKey(const ValueKey('launch-herdr-default')),
         findsOneWidget,
       );
-      expect(find.byKey(const ValueKey('launch-tmux-0')), findsOneWidget);
+      expect(find.byKey(const ValueKey('launch-tmux:0')), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('launch-shell')));
       await ready(tester);

@@ -211,15 +211,17 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
         children: [
           for (final session in targets.tmux)
             ListRow(
-              key: ValueKey('launch-tmux-${session.name}'),
+              key: ValueKey('launch-${session.launch.tag}'),
               leading: const LaunchLogo(tmuxLogo),
               leadingWidth: _logo,
               title: session.name,
               literalTitle: true,
-              subtitle:
-                  '${session.windows} window${session.windows == 1 ? '' : 's'}',
+              subtitle: [
+                '${session.windows} window${session.windows == 1 ? '' : 's'}',
+                ?session.socketDir,
+              ].join(' · '),
               value: session.attached > 0 ? 'ATTACHED' : null,
-              onTap: () => _pick(TmuxLaunch(session.name)),
+              onTap: () => _pick(session.launch),
             ),
           ListRow(
             key: const ValueKey('launch-tmux-new'),
