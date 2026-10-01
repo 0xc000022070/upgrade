@@ -1,12 +1,15 @@
+use super::kitty::Transmissions;
 use super::stream::Stream;
 use super::vt::{Options, Terminal, VtError};
-use super::wire::{record, Size, RECORD_EXIT, RECORD_PTY, RECORD_SNAPSHOT};
+use super::wire::{record, Size, RECORD_EXIT, RECORD_HEADER, RECORD_PTY, RECORD_SNAPSHOT};
 
 const MIN_BACKLOG: u64 = 1 << 20;
 
 pub struct Mirror {
     terminal: Terminal,
     stream: Stream,
+    transmissions: Transmissions,
+    keyframe_due: bool,
     pending_images: bool,
     status: Option<i32>,
     keyframe_len: u64,
@@ -17,6 +20,8 @@ impl Mirror {
         Ok(Self {
             terminal: Terminal::new(size, options)?,
             stream: Stream::default(),
+            transmissions: Transmissions::new(options.image_bytes / 3 * 4 + (1 << 16)),
+            keyframe_due: false,
             pending_images: false,
             status: None,
             keyframe_len: 0,
@@ -33,6 +38,10 @@ impl Mirror {
         }
         self.terminal.write(bytes);
         self.stream.append(&record(RECORD_PTY, bytes));
+        self.transmissions.feed(bytes);
+        if self.keyframe_due && !self.transmissions.open() {
+            let _ = self.keyframe();
+        }
         if self.pending_images && self.terminal.at_ground() {
             self.pending_images = false;
             self.append_images();
@@ -54,6 +63,10 @@ impl Mirror {
     }
 
     pub fn keyframe(&mut self) -> Result<(), VtError> {
+        self.keyframe_due = self.transmissions.open();
+        if self.keyframe_due {
+            return Ok(());
+        }
         let snapshot = match self.terminal.snapshot() {
             Ok(snapshot) => snapshot,
             Err(err) => {
@@ -96,9 +109,12 @@ impl Mirror {
     }
 
     fn append_images(&mut self) {
-        let replay = self.terminal.image_replay();
-        if !replay.is_empty() {
-            self.stream.append(&record(RECORD_PTY, &replay));
+        let terminal = &self.terminal;
+        self.transmissions.retain(|id| terminal.holds_image(id));
+        let replay = record(RECORD_PTY, &terminal.image_replay(self.transmissions.ids()));
+        if replay.len() > RECORD_HEADER {
+            self.keyframe_len += replay.len() as u64;
+            self.stream.append(&replay);
         }
     }
 }
@@ -106,7 +122,6 @@ impl Mirror {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::shell::wire::RECORD_HEADER;
 
     const SIZE: Size = Size {
         cols: 20,
@@ -116,12 +131,16 @@ mod tests {
     };
 
     fn mirror() -> Mirror {
+        mirror_holding(1 << 20)
+    }
+
+    fn mirror_holding(image_bytes: u64) -> Mirror {
         Mirror::new(
             SIZE,
             &Options {
                 scrollback_lines: 100,
                 scrollback_bytes: 1 << 20,
-                image_bytes: 1 << 20,
+                image_bytes,
             },
         )
         .unwrap()
@@ -210,5 +229,68 @@ mod tests {
         assert_eq!(absent.stream().backlog(0), 0);
         absent.catch_up(0).unwrap();
         assert_eq!(kinds(&absent), vec![RECORD_SNAPSHOT]);
+    }
+
+    fn large_image() -> Vec<Vec<u8>> {
+        let mut seed = 1u32;
+        let pixels: Vec<u8> = (0..480 * 600 * 4)
+            .map(|_| {
+                seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+                (seed >> 16) as u8
+            })
+            .collect();
+        let encoded = crate::util::base64_encode(&pixels);
+        let chunks: Vec<&[u8]> = encoded.as_bytes().chunks(4096).collect();
+        let last = chunks.len() - 1;
+        let mut commands: Vec<Vec<u8>> = chunks
+            .iter()
+            .enumerate()
+            .map(|(index, chunk)| {
+                let more = u8::from(index != last);
+                let keys = if index == 0 {
+                    format!("a=t,f=32,s=480,v=600,i=9,q=2,m={more}")
+                } else {
+                    format!("m={more}")
+                };
+                [format!("\x1b_G{keys};").as_bytes(), chunk, b"\x1b\\"].concat()
+            })
+            .collect();
+        commands.push(b"\x1b_Ga=p,i=9,c=4,r=2,C=1,q=2\x1b\\".to_vec());
+        commands
+    }
+
+    #[test]
+    fn a_keyframe_waits_for_the_last_chunk_and_then_carries_the_image() {
+        let mut mirror = mirror_holding(16 << 20);
+        let commands = large_image();
+        let (head, tail) = commands.split_at(commands.len() / 2);
+        for command in head {
+            mirror.output(command);
+        }
+        mirror.keyframe().unwrap();
+        assert!(!kinds(&mirror).contains(&RECORD_SNAPSHOT));
+        for command in tail {
+            mirror.output(command);
+        }
+        assert_eq!(
+            kinds(&mirror),
+            vec![RECORD_SNAPSHOT, RECORD_PTY, RECORD_PTY]
+        );
+        let records = records(&mirror);
+        assert!(records[1].1.starts_with(b"\x1b_Ga=t"));
+        assert_eq!(records[2].1, commands[commands.len() - 1]);
+    }
+
+    #[test]
+    fn a_keyframe_carrying_a_large_image_is_not_cut_short_again() {
+        let mut mirror = mirror_holding(16 << 20);
+        for command in large_image() {
+            mirror.output(&command);
+        }
+        mirror.relieve(0, true).unwrap();
+        let base = mirror.stream().base();
+        assert!(mirror.stream().backlog(0) > MIN_BACKLOG);
+        mirror.relieve(0, true).unwrap();
+        assert_eq!(mirror.stream().base(), base);
     }
 }
