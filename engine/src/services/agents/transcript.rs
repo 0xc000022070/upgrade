@@ -3,20 +3,12 @@ use serde_json::{json, Value};
 use std::fs;
 use std::io::{BufRead, BufReader};
 
-use super::{cut, summarize};
+use super::{cut, summarize, typed};
 
 const DEFAULT_LIMIT: u64 = 200;
 const MAX_LIMIT: u64 = 500;
 const TEXT_CHARS: usize = 4000;
 const RESULT_CHARS: usize = 1200;
-
-const CODEX_INJECTED: &[&str] = &[
-    "# AGENTS.md instructions",
-    "<environment_context>",
-    "<permissions instructions>",
-    "<user_instructions>",
-    "<turn_aborted>",
-];
 
 fn item(index: usize, kind: &str, text: &str, limit: usize) -> Value {
     json!({ "index": index, "kind": kind, "text": cut(text, limit) })
@@ -50,6 +42,12 @@ fn block_text(block: &Value) -> &str {
     block.get("text").and_then(Value::as_str).unwrap_or("")
 }
 
+fn claude_said(index: usize, text: &str, out: &mut Vec<Value>) {
+    if let Some(text) = typed("claude", text) {
+        push_text(index, "user", &text, out);
+    }
+}
+
 fn claude_user_block(index: usize, block: &Value, out: &mut Vec<Value>) {
     match block.get("type").and_then(Value::as_str) {
         Some("tool_result") => {
@@ -59,7 +57,7 @@ fn claude_user_block(index: usize, block: &Value, out: &mut Vec<Value>) {
             result["error"] = json!(block.get("is_error").and_then(Value::as_bool) == Some(true));
             out.push(result);
         }
-        Some("text") => push_text(index, "user", block_text(block), out),
+        Some("text") => claude_said(index, block_text(block), out),
         _ => {}
     }
 }
@@ -83,7 +81,7 @@ fn flag(record: &Value, key: &str) -> bool {
 }
 
 fn claude(index: usize, record: &Value, out: &mut Vec<Value>) {
-    if flag(record, "isSidechain") || flag(record, "isMeta") {
+    if flag(record, "isSidechain") || flag(record, "isMeta") || flag(record, "isCompactSummary") {
         return;
     }
     let kind = record.get("type").and_then(Value::as_str).unwrap_or("");
@@ -91,7 +89,7 @@ fn claude(index: usize, record: &Value, out: &mut Vec<Value>) {
         return;
     };
     match (kind, content) {
-        ("user", Value::String(text)) => push_text(index, "user", text, out),
+        ("user", Value::String(text)) => claude_said(index, text, out),
         ("user", Value::Array(blocks)) => {
             for block in blocks {
                 claude_user_block(index, block, out);
@@ -135,8 +133,7 @@ fn codex(index: usize, record: &Value, out: &mut Vec<Value>) {
             match payload.get("role").and_then(Value::as_str) {
                 Some("user") => {
                     let text = joined(content, &["input_text"]);
-                    let trimmed = text.trim_start();
-                    if !trimmed.is_empty() && !CODEX_INJECTED.iter().any(|mark| trimmed.starts_with(mark)) {
+                    if let Some(text) = typed("codex", &text) {
                         out.push(item(index, "user", &text, TEXT_CHARS));
                     }
                 }
@@ -271,5 +268,15 @@ mod tests {
         let answer = read_file("unterminated", body.as_bytes(), Some(0));
         assert_eq!(texts(&answer), vec!["three"]);
         assert_eq!(answer["last"], json!(1));
+    }
+
+    #[test]
+    fn a_harness_turn_is_not_read_as_the_user() {
+        let body = format!(
+            "{}\n{}\n",
+            said("<task-notification>\n<task-id>x</task-id>"),
+            said("<command-name>/commit</command-name>\n<command-args>now</command-args>")
+        );
+        assert_eq!(texts(&read_file("injected", body.as_bytes(), None)), vec!["/commit now"]);
     }
 }
