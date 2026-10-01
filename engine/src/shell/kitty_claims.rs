@@ -188,19 +188,26 @@ impl Claims {
             }
             rest = &rest[end..];
         }
-        let split =
-            find(rest, b"\x1b_G").filter(|&at| !self.open.is_empty() && rest.len() - at <= PARTIAL);
+        let untouched = rest.len() == joined.len();
+        let split = positions(rest, b"\x1b_G")
+            .next_back()
+            .filter(|&at| !self.open.is_empty() && rest.len() - at <= PARTIAL);
         let (passed, held) = rest.split_at(split.unwrap_or(rest.len()));
         out.extend_from_slice(passed);
         self.partial = held.to_vec();
         self.partial_since = split.map(|at| match at {
-            0 => self.partial_since.unwrap_or(now),
+            0 if untouched => self.partial_since.unwrap_or(now),
             _ => now,
         });
     }
 
-    pub fn stalled(&mut self, now: Instant) -> Vec<u8> {
-        match self.partial_since {
+    pub fn stalled(&mut self, now: Option<Instant>) -> Vec<u8> {
+        let Some(now) = now else {
+            self.partial_since = None;
+            return Vec::new();
+        };
+        let held = !self.partial.is_empty();
+        match held.then(|| *self.partial_since.get_or_insert(now)) {
             Some(since) if now >= since + GRACE => {
                 self.partial_since = None;
                 std::mem::take(&mut self.partial)
@@ -251,8 +258,9 @@ impl Drop for Claims {
 }
 
 fn next_reply(bytes: &[u8]) -> Option<(usize, usize, Reply)> {
-    let start = find(bytes, b"\x1b_G")?;
-    let end = start + find(&bytes[start..], b"\x1b\\")? + 2;
+    let first = positions(bytes, b"\x1b_G").next()?;
+    let end = first + positions(&bytes[first..], b"\x1b\\").next()? + 2;
+    let start = first + positions(&bytes[first..end], b"\x1b_G").next_back()?;
     let body = &bytes[start + 3..end - 2];
     let keys = body.split(|&b| b == b';').next().unwrap_or_default();
     let mut reply = Reply::default();
@@ -267,10 +275,15 @@ fn next_reply(bytes: &[u8]) -> Option<(usize, usize, Reply)> {
     Some((start, end, reply))
 }
 
-fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+fn positions<'a>(
+    haystack: &'a [u8],
+    needle: &'a [u8],
+) -> impl DoubleEndedIterator<Item = usize> + 'a {
     haystack
         .windows(needle.len())
-        .position(|window| window == needle)
+        .enumerate()
+        .filter(move |(_, window)| *window == needle)
+        .map(|(at, _)| at)
 }
 
 #[cfg(test)]
@@ -521,9 +534,64 @@ mod tests {
         let mut out = Vec::new();
         claims.answer(b"\x1b_Gi=3", &mut out, start);
         assert!(out.is_empty());
-        assert!(claims.stalled(start).is_empty());
+        assert!(claims.stalled(Some(start)).is_empty());
         assert_eq!(claims.deadline(), Some(start + GRACE));
-        assert_eq!(claims.stalled(start + GRACE), b"\x1b_Gi=3");
+        assert_eq!(claims.stalled(Some(start + GRACE)), b"\x1b_Gi=3");
+        drop(claims);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn held(name: &str, steps: &[(&[u8], u64)], stalls: &[(Option<u64>, &[u8])]) {
+        let dir = testing::scratch("kitty-claims", name);
+        let path = dir.join("tty-graphics-protocol-3");
+        fs::write(&path, b"png").unwrap();
+        let mut claims = Claims::default();
+        let start = Instant::now();
+        let at = |ms: u64| start + Duration::from_millis(ms);
+        claims.hold(reply(3), object(&path), start);
+        claims.hold(reply(4), object(&path), start);
+        for &(input, ms) in steps {
+            claims.answer(input, &mut Vec::new(), at(ms));
+        }
+        for &(ms, flushed) in stalls {
+            assert_eq!(claims.stalled(ms.map(at)), flushed, "at {ms:?}");
+        }
+        drop(claims);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_second_split_reply_gets_its_own_wait() {
+        let steps: [(&[u8], u64); 2] = [(b"\x1b_Gi=3;O", 0), (b"K\x1b\\\x1b_Gi=4;O", 900)];
+        held(
+            "second",
+            &steps,
+            &[(Some(1000), b""), (Some(1900), b"\x1b_Gi=4;O")],
+        );
+    }
+
+    #[test]
+    fn a_held_reply_waits_out_backpressure() {
+        let stalls: [(Option<u64>, &[u8]); 3] =
+            [(None, b""), (Some(1000), b""), (Some(2000), b"\x1b_Gi=3;O")];
+        held("backed-up-tail", &[(b"\x1b_Gi=3;O", 0)], &stalls);
+    }
+
+    #[test]
+    fn stray_graphics_bytes_do_not_swallow_the_next_reply() {
+        let dir = testing::scratch("kitty-claims", "stray");
+        let path = dir.join("tty-graphics-protocol-5");
+        fs::write(&path, b"png").unwrap();
+        let mut claims = Claims::default();
+        claims.hold(reply(5), object(&path), Instant::now());
+        assert_eq!(answer(&mut claims, b"\x1b_Gx\x1b_Gi=5;O"), b"\x1b_Gx");
+        assert_eq!(answer(&mut claims, b"K\x1b\\"), b"\x1b_Gi=5;OK\x1b\\");
+        assert!(!path.exists());
+        fs::write(&path, b"png").unwrap();
+        claims.hold(reply(5), object(&path), Instant::now());
+        answer(&mut claims, b"\x1b_Gx");
+        answer(&mut claims, b"\x1b_Gi=5;OK\x1b\\");
+        assert!(!path.exists(), "the reply after the stray bytes is matched");
         drop(claims);
         fs::remove_dir_all(&dir).unwrap();
     }
