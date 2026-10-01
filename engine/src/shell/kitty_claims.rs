@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 const SETTLE: Duration = Duration::from_secs(5);
 const FORGET: Duration = Duration::from_secs(60);
 const GRACE: Duration = Duration::from_secs(1);
+const PARTIAL: usize = 512;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Reply {
@@ -88,6 +89,8 @@ impl Claim {
 pub struct Claims {
     open: Vec<Claim>,
     cuts: Vec<Cut>,
+    partial: Vec<u8>,
+    partial_since: Option<Instant>,
 }
 
 struct Cut {
@@ -108,6 +111,8 @@ impl Cut {
             self.reached = self.reached.max(ack);
         } else if let Some(now) = now {
             self.jumped.get_or_insert(now);
+        } else {
+            self.jumped = None;
         }
     }
 }
@@ -171,8 +176,9 @@ impl Claims {
         });
     }
 
-    pub fn answer(&mut self, input: &[u8], out: &mut Vec<u8>) {
-        let mut rest = input;
+    pub fn answer(&mut self, input: &[u8], out: &mut Vec<u8>, now: Instant) {
+        let joined = [std::mem::take(&mut self.partial).as_slice(), input].concat();
+        let mut rest = joined.as_slice();
         while let Some((start, end, reply)) =
             (!self.open.is_empty()).then(|| next_reply(rest)).flatten()
         {
@@ -182,7 +188,25 @@ impl Claims {
             }
             rest = &rest[end..];
         }
-        out.extend_from_slice(rest);
+        let split =
+            find(rest, b"\x1b_G").filter(|&at| !self.open.is_empty() && rest.len() - at <= PARTIAL);
+        let (passed, held) = rest.split_at(split.unwrap_or(rest.len()));
+        out.extend_from_slice(passed);
+        self.partial = held.to_vec();
+        self.partial_since = split.map(|at| match at {
+            0 => self.partial_since.unwrap_or(now),
+            _ => now,
+        });
+    }
+
+    pub fn stalled(&mut self, now: Instant) -> Vec<u8> {
+        match self.partial_since {
+            Some(since) if now >= since + GRACE => {
+                self.partial_since = None;
+                std::mem::take(&mut self.partial)
+            }
+            _ => Vec::new(),
+        }
     }
 
     pub fn expire(&mut self, now: Instant) {
@@ -198,7 +222,11 @@ impl Claims {
     }
 
     pub fn deadline(&self) -> Option<Instant> {
-        self.open.iter().map(Claim::deadline).min()
+        self.open
+            .iter()
+            .map(Claim::deadline)
+            .chain(self.partial_since.map(|since| since + GRACE))
+            .min()
     }
 
     fn theirs(&mut self, reply: Reply) -> bool {
@@ -260,7 +288,7 @@ mod tests {
 
     fn answer(claims: &mut Claims, input: &[u8]) -> Vec<u8> {
         let mut out = Vec::new();
-        claims.answer(input, &mut out);
+        claims.answer(input, &mut out, Instant::now());
         out
     }
 
@@ -463,6 +491,44 @@ mod tests {
     }
 
     #[test]
+    fn backpressure_after_the_jump_restarts_the_grace() {
+        let acks = [(13, Some(0)), (13, None), (13, Some(1500))];
+        assert!(owed("backed-up-late", (10, 0), None, &acks, ((0, 12), 0)));
+    }
+
+    #[test]
+    fn a_reply_split_across_packets_is_still_matched() {
+        let dir = testing::scratch("kitty-claims", "split");
+        let path = dir.join("tty-graphics-protocol-3");
+        fs::write(&path, b"png").unwrap();
+        let mut claims = Claims::default();
+        claims.hold(reply(3), object(&path), Instant::now());
+        assert_eq!(answer(&mut claims, b"x\x1b_Gi=3;O"), b"x");
+        assert_eq!(answer(&mut claims, b"K\x1b\\y"), b"\x1b_Gi=3;OK\x1b\\y");
+        assert!(!path.exists());
+        drop(claims);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_split_that_never_ends_reaches_the_shell() {
+        let dir = testing::scratch("kitty-claims", "stalled");
+        let path = dir.join("tty-graphics-protocol-3");
+        fs::write(&path, b"png").unwrap();
+        let mut claims = Claims::default();
+        let start = Instant::now();
+        claims.hold(reply(3), object(&path), start);
+        let mut out = Vec::new();
+        claims.answer(b"\x1b_Gi=3", &mut out, start);
+        assert!(out.is_empty());
+        assert!(claims.stalled(start).is_empty());
+        assert_eq!(claims.deadline(), Some(start + GRACE));
+        assert_eq!(claims.stalled(start + GRACE), b"\x1b_Gi=3");
+        drop(claims);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn a_claim_is_stamped_where_its_own_command_ends() {
         let late = Some(GRACE.as_millis() as u64);
         let acks = [(101, Some(0)), (101, late)];
@@ -494,7 +560,7 @@ mod tests {
     }
 
     #[test]
-    fn keystrokes_and_split_answers_pass_untouched() {
+    fn keystrokes_and_unnumbered_answers_pass_untouched() {
         let mut claims = Claims::default();
         assert_eq!(
             answer(&mut claims, b"\x1b_Gi=1;OK\x1b\\"),
@@ -504,7 +570,7 @@ mod tests {
         let path = dir.join("tty-graphics-protocol-4");
         fs::write(&path, b"png").unwrap();
         claims.hold(reply(1), object(&path), Instant::now());
-        for input in [&b"\x1b"[..], b"\x1b_Gi=1;O", b"K\x1b\\", b"\x1b_G;OK\x1b\\"] {
+        for input in [&b"\x1b"[..], b"\x1b_G;OK\x1b\\"] {
             assert_eq!(answer(&mut claims, input), input);
         }
         assert!(path.exists());
