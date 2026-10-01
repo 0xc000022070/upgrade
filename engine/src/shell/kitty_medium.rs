@@ -1,3 +1,4 @@
+use super::kitty::MAX_KEYS;
 use super::kitty_claims::{Claims, Object, Reply};
 use super::IMAGE_BYTES;
 use crate::util::{base64_decode, base64_encode};
@@ -205,6 +206,7 @@ impl Media {
 struct Command<'a> {
     keys: Vec<(u8, &'a [u8])>,
     medium: Medium,
+    direct_keys: Vec<u8>,
 }
 
 fn command(keys: &[u8]) -> Option<Command<'_>> {
@@ -215,7 +217,8 @@ fn command(keys: &[u8]) -> Option<Command<'_>> {
             _ => None,
         })
         .collect::<Option<Vec<_>>>()?;
-    let command = Command {
+    let mut command = Command {
+        direct_keys: Vec::new(),
         medium: match value(&keys, b't')? {
             b"f" => Medium::File,
             b"t" => Medium::TemporaryFile,
@@ -227,7 +230,9 @@ fn command(keys: &[u8]) -> Option<Command<'_>> {
     for key in *b"iIpqmSOsvf" {
         command.number(key)?;
     }
-    (command.number(b'm')? == 0).then_some(command)
+    command.direct_keys = command.normal_keys();
+    let fits = command.direct_keys.len() + b",m=1".len() <= MAX_KEYS;
+    (command.number(b'm')? == 0 && fits).then_some(command)
 }
 
 fn value<'a>(keys: &[(u8, &'a [u8])], key: u8) -> Option<&'a [u8]> {
@@ -281,37 +286,48 @@ impl Command<'_> {
     }
 
     fn direct(&self, bytes: &[u8], out: &mut Vec<u8>) {
-        let keys = self.direct_keys();
+        let keys = &self.direct_keys;
         let encoded = base64_encode(bytes);
         let chunks: Vec<&[u8]> = encoded.as_bytes().chunks(CHUNK).collect();
         if chunks.len() <= 1 {
-            write_command(out, &keys, encoded.as_bytes());
+            write_command(out, keys, encoded.as_bytes());
             return;
         }
-        let quiet = value(&self.keys, b'q');
+        let quiet = self.number(b'q').unwrap_or(0);
         let last = chunks.len() - 1;
         for (index, chunk) in chunks.into_iter().enumerate() {
             let mut control = if index == 0 {
                 [&keys[..], b","].concat()
             } else {
-                quiet.map(|q| [b"q=", q, b","].concat()).unwrap_or_default()
+                match quiet {
+                    0 => Vec::new(),
+                    q => format!("q={q},").into_bytes(),
+                }
             };
             control.extend_from_slice(if index == last { b"m=0" } else { b"m=1" });
             write_command(out, &control, chunk);
         }
     }
 
-    fn direct_keys(&self) -> Vec<u8> {
+    fn normal_keys(&self) -> Vec<u8> {
         let mut keys = Vec::new();
-        for (key, value) in &self.keys {
-            if matches!(key, b'S' | b'O' | b'm') {
+        for (at, (key, value)) in self.keys.iter().enumerate() {
+            let later = self.keys[at + 1..].iter().any(|(k, _)| k == key);
+            if later || matches!(key, b'S' | b'O' | b'm') {
                 continue;
             }
             if !keys.is_empty() {
                 keys.push(b',');
             }
             keys.extend_from_slice(&[*key, b'=']);
-            keys.extend_from_slice(if *key == b't' { b"d" } else { value });
+            let number = std::str::from_utf8(value)
+                .ok()
+                .and_then(|text| text.parse::<i128>().ok());
+            match (key, number) {
+                (b't', _) => keys.push(b'd'),
+                (_, Some(number)) => keys.extend_from_slice(number.to_string().as_bytes()),
+                (_, None) => keys.extend_from_slice(value),
+            }
         }
         keys
     }
@@ -514,6 +530,7 @@ fn read_span(file: &mut File, span: Span) -> Result<Vec<u8>, Refusal> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::shell::kitty::Transmissions;
     use crate::shell::testing;
     use crate::util::now_millis;
     use std::collections::HashMap;
@@ -627,6 +644,34 @@ mod tests {
             framing <= (commands.len() - 1) * 32,
             "mirror::transmission_bytes allows 32 a chunk"
         );
+    }
+
+    #[test]
+    fn padded_keys_are_sent_on_plain_so_the_transmission_stays_seen() {
+        let bytes = vec![9u8; CHUNK * 2];
+        let mut files = fake("/big", &bytes);
+        let padded = format!(
+            "a=T,t=f,i=1,i=+2,s=0{},z=-03,q=000{}1",
+            "0".repeat(300),
+            "0".repeat(200)
+        );
+        let (forward, _) = run(&mut files, &[&cmd(&padded, "/big")]);
+        let out = text(&forward);
+        let commands: Vec<&str> = out.split("\x1b\\").filter(|c| !c.is_empty()).collect();
+        assert!(commands[0].starts_with("\x1b_Ga=T,t=d,i=2,s=0,z=-3,q=1,m=1;"));
+        assert!(commands[1].starts_with("\x1b_Gq=1,m=1;"));
+        let mut seen = Transmissions::new(u64::MAX);
+        for command in &commands[..commands.len() - 1] {
+            seen.feed(command.as_bytes());
+            seen.feed(b"\x1b\\");
+            assert!(seen.open());
+        }
+
+        let long = format!("a=T,t=f,o={}", "z".repeat(MAX_KEYS));
+        let input = cmd(&long, "/big");
+        let (forward, replies) = run(&mut files, &[&input]);
+        assert_eq!(forward, input, "keys too long to track pass untouched");
+        assert!(replies.is_empty());
     }
 
     #[test]
