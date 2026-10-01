@@ -193,7 +193,8 @@ impl Media {
         };
         match command(keys) {
             Some(command) => match command.read(payload, files) {
-                Ok(bytes) => command.direct(&bytes, forward),
+                Ok(bytes) if command.fits => command.direct(&bytes, forward),
+                Ok(_) => command.refuse(&too_long(), replies),
                 Err(refusal) => command.refuse(&refusal, replies),
             },
             None => forward.extend_from_slice(&self.held),
@@ -207,6 +208,7 @@ struct Command<'a> {
     keys: Vec<(u8, &'a [u8])>,
     medium: Medium,
     direct_keys: Vec<u8>,
+    fits: bool,
 }
 
 fn command(keys: &[u8]) -> Option<Command<'_>> {
@@ -219,6 +221,7 @@ fn command(keys: &[u8]) -> Option<Command<'_>> {
         .collect::<Option<Vec<_>>>()?;
     let mut command = Command {
         direct_keys: Vec::new(),
+        fits: false,
         medium: match value(&keys, b't')? {
             b"f" => Medium::File,
             b"t" => Medium::TemporaryFile,
@@ -231,8 +234,16 @@ fn command(keys: &[u8]) -> Option<Command<'_>> {
         command.number(key)?;
     }
     command.direct_keys = command.normal_keys();
-    let fits = command.direct_keys.len() + b",m=1".len() <= MAX_KEYS;
-    (command.number(b'm')? == 0 && fits).then_some(command)
+    command.fits = command.direct_keys.len() + b",m=1".len() <= MAX_KEYS;
+    (command.number(b'm')? == 0).then_some(command)
+}
+
+fn too_long() -> Refusal {
+    Refusal {
+        code: "EINVAL",
+        reason: "the keys are too long".into(),
+        missing: false,
+    }
 }
 
 fn value<'a>(keys: &[(u8, &'a [u8])], key: u8) -> Option<&'a [u8]> {
@@ -258,10 +269,11 @@ impl Command<'_> {
             size,
             limit: IMAGE_BYTES,
         };
-        let reply = match self.number(b'q').unwrap_or(0) {
-            0 => self.reply(),
-            _ => Reply::default(),
-        };
+        let reply = self.reply();
+        let fits = |n: u64| u32::try_from(n).is_ok();
+        let answered =
+            self.fits && self.number(b'q') == Some(0) && fits(reply.id) && fits(reply.number);
+        let reply = if answered { reply } else { Reply::default() };
         files.read(
             self.medium,
             Path::new(OsStr::from_bytes(&path)),
@@ -539,6 +551,7 @@ mod tests {
     struct FakeFiles {
         files: HashMap<PathBuf, Vec<u8>>,
         asked: Vec<(Medium, PathBuf, Span)>,
+        claimed: Vec<Reply>,
     }
 
     impl Files for FakeFiles {
@@ -547,9 +560,10 @@ mod tests {
             medium: Medium,
             path: &Path,
             span: Span,
-            _: Reply,
+            reply: Reply,
         ) -> Result<Vec<u8>, Refusal> {
             self.asked.push((medium, path.to_owned(), span));
+            self.claimed.push(reply);
             let bytes = self.files.get(path).ok_or(Refusal {
                 missing: true,
                 ..Refusal::from("No such file or directory")
@@ -667,11 +681,19 @@ mod tests {
             assert!(seen.open());
         }
 
-        let long = format!("a=T,t=f,o={}", "z".repeat(MAX_KEYS));
-        let input = cmd(&long, "/big");
-        let (forward, replies) = run(&mut files, &[&input]);
-        assert_eq!(forward, input, "keys too long to track pass untouched");
-        assert!(replies.is_empty());
+        let long = format!("a=T,t=t,i=3,o={}", "z".repeat(MAX_KEYS));
+        let (forward, replies) = run(&mut files, &[&cmd(&long, "/big")]);
+        assert!(forward.is_empty(), "keys too long to track are not sent on");
+        assert_eq!(
+            text(&replies),
+            "\x1b_Gi=3;EINVAL: the keys are too long\x1b\\"
+        );
+        assert_eq!(
+            files.asked.len(),
+            2,
+            "the object is still read, so it is dropped"
+        );
+        assert_eq!(files.claimed[1], Reply::default());
     }
 
     #[test]
@@ -723,6 +745,19 @@ mod tests {
         assert_eq!(
             text(&replies),
             "\x1b_GI=5;EBADF: No such file or directory\x1b\\"
+        );
+    }
+
+    #[test]
+    fn only_a_command_the_phone_answers_is_claimed_with_its_ids() {
+        let mut files = fake("/f", b"png");
+        for keys in ["i=5", "i=5,q=1", "i=4294967296", "I=4294967296"] {
+            run(&mut files, &[&cmd(&format!("a=T,t=t,{keys}"), "/f")]);
+        }
+        let five = Reply { id: 5, number: 0 };
+        assert_eq!(
+            files.claimed,
+            [five, Reply::default(), Reply::default(), Reply::default()]
         );
     }
 

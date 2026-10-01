@@ -39,12 +39,18 @@ impl Mirror {
         &self.stream
     }
 
-    pub fn output(&mut self, bytes: &[u8]) {
+    pub fn take_cuts(&mut self) -> Vec<(u64, u64)> {
+        self.stream.take_cuts()
+    }
+
+    /// Where the stream holds these bytes up to, or nothing when a stale stream drops them.
+    pub fn output(&mut self, bytes: &[u8]) -> Option<u64> {
         if bytes.is_empty() {
-            return;
+            return None;
         }
         self.terminal.write(bytes);
         self.stream.append(&record(RECORD_PTY, bytes));
+        let sent = (!self.stream.is_stale()).then(|| self.stream.end());
         self.transmissions.feed(bytes);
         if self.keyframe_due && !self.transmissions.open() {
             let _ = self.keyframe();
@@ -53,6 +59,7 @@ impl Mirror {
             self.pending_images = false;
             self.append_images();
         }
+        sent
     }
 
     pub fn exited(&mut self, status: i32) {
@@ -224,15 +231,16 @@ mod tests {
     #[test]
     fn a_flood_is_cut_short_for_a_live_phone_and_dropped_for_an_absent_one() {
         let mut live = mirror();
-        live.output(&vec![b'x'; 2 << 20]);
+        let sent = live.output(&vec![b'x'; 2 << 20]).unwrap();
         live.relieve(0, true).unwrap();
+        assert_eq!(live.take_cuts(), vec![(0, sent)]);
         assert_eq!(kinds(&live), vec![RECORD_SNAPSHOT]);
 
         let mut absent = mirror();
         absent.output(&vec![b'x'; 2 << 20]);
         absent.relieve(0, false).unwrap();
         assert!(absent.stream().is_stale());
-        absent.output(b"more");
+        assert_eq!(absent.output(b"more"), None, "a stale stream drops it");
         assert_eq!(absent.stream().backlog(0), 0);
         absent.catch_up(0).unwrap();
         assert_eq!(kinds(&absent), vec![RECORD_SNAPSHOT]);

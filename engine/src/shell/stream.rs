@@ -6,6 +6,7 @@ pub struct Stream {
     bytes: VecDeque<u8>,
     keyframe: Option<u64>,
     stale: bool,
+    cuts: Vec<(u64, u64)>,
 }
 
 impl Stream {
@@ -31,7 +32,18 @@ impl Stream {
         }
     }
 
+    pub fn take_cuts(&mut self) -> Vec<(u64, u64)> {
+        std::mem::take(&mut self.cuts)
+    }
+
+    fn cut(&mut self) {
+        if !self.bytes.is_empty() {
+            self.cuts.push((self.base, self.end()));
+        }
+    }
+
     pub fn append_keyframe(&mut self, bytes: &[u8]) {
+        self.cut();
         self.base = self.end();
         self.bytes.clear();
         self.bytes.extend(bytes);
@@ -40,6 +52,7 @@ impl Stream {
     }
 
     pub fn go_stale(&mut self) {
+        self.cut();
         self.base = self.end();
         self.bytes.clear();
         self.keyframe = None;
@@ -119,6 +132,7 @@ mod tests {
         stream.append(b"old");
         stream.append_keyframe(b"KF");
         assert_eq!(stream.base(), 3);
+        assert_eq!(stream.take_cuts(), vec![(0, 3)]);
         assert_eq!(stream.read(3, 10), Some((b"KF".to_vec(), true)));
         assert!(stream.serves(0), "a phone behind a keyframe jumps to it");
         stream.release(4);
@@ -134,6 +148,7 @@ mod tests {
         let mut stream = Stream::default();
         stream.append(b"abc");
         stream.go_stale();
+        assert_eq!(stream.take_cuts(), vec![(0, 3)]);
         stream.append(b"lost");
         assert_eq!(stream.end(), 3);
         assert!(!stream.serves(3));
