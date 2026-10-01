@@ -721,18 +721,27 @@ class HerdrSession {
       _guard(() => _launchTargets().timeout(within));
 
   Future<LaunchTargets> _launchTargets() async {
-    final roster = await _guard(
-      () => _client.runWithResult(HerdrCommands.sessions()),
+    final probe = await _guard(
+      () => _client.runWithResult(LaunchCommands.present(), stderr: false),
     );
-    final hasHerdr = roster.exitCode != 127;
+    final present = LaunchCommands.parsePresent(
+      utf8.decode(probe.stdout, allowMalformed: true),
+    );
+    final hasHerdr = present.contains('herdr');
+    final hasTmux = present.contains('tmux');
     var sessions = const <SessionEntry>[];
-    if (roster.exitCode == 0) {
-      try {
-        sessions = HerdrClient.parseSessions(
-          utf8.decode(roster.stdout, allowMalformed: true),
-        );
-      } on HerdrProtocolMismatch {
-        sessions = const [];
+    if (hasHerdr) {
+      final roster = await _guard(
+        () => _client.runWithResult(HerdrCommands.sessions()),
+      );
+      if (roster.exitCode == 0) {
+        try {
+          sessions = HerdrClient.parseSessions(
+            utf8.decode(roster.stdout, allowMalformed: true),
+          );
+        } on HerdrProtocolMismatch {
+          sessions = const [];
+        }
       }
     }
     final workspaces = <HerdrWorkspaceEntry>[];
@@ -748,19 +757,21 @@ class HerdrSession {
         ),
       );
     }
-    final tmux = await _guard(
-      () => _client.runWithResult(LaunchCommands.tmuxSessions()),
-    );
+    final tmux = hasTmux
+        ? await _guard(
+            () => _client.runWithResult(LaunchCommands.tmuxSessions()),
+          )
+        : null;
     return LaunchTargets(
       herdrSessions: sessions,
       workspaces: workspaces,
-      tmux: tmux.exitCode == 0
+      tmux: tmux != null && tmux.exitCode == 0
           ? LaunchCommands.parseTmux(
               utf8.decode(tmux.stdout, allowMalformed: true),
             )
           : const [],
       hasHerdr: hasHerdr,
-      hasTmux: tmux.exitCode != 127,
+      hasTmux: hasTmux,
     );
   }
 

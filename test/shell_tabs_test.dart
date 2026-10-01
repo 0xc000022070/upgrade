@@ -356,7 +356,11 @@ void main() {
 
     expect(find.text('HERDR'), findsOneWidget);
     expect(find.text('TMUX'), findsOneWidget);
-    expect(find.text('NOT ON THIS HOST'), findsNWidgets(2));
+    expect(find.text('not on this host'), findsNWidgets(2));
+    await tester.tap(find.byKey(const ValueKey('launch-herdr-absent')));
+    await tester.tap(find.byKey(const ValueKey('launch-tmux-absent')));
+    await ready(tester);
+    expect(find.text('LOGIN SHELL'), findsOneWidget);
     expect(find.byKey(const ValueKey('launch-herdr-default')), findsNothing);
     expect(find.byKey(const ValueKey('launch-tmux-new')), findsNothing);
 

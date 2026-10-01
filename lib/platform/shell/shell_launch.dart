@@ -171,8 +171,16 @@ abstract final class LaunchCommands {
   static const tmuxFormat =
       '#{session_name}\t#{session_windows}\t#{session_attached}';
 
+  /// Presence is read off stdout: Tailscale SSH on a Mac reports every exit as 0, so a
+  /// missing binary's 127 never reaches the phone.
+  static String present() => underSh(
+    'for c in herdr tmux; do command -v "\$c" >/dev/null 2>&1 && echo "\$c"; done; exit 0',
+  );
+
+  static Set<String> parsePresent(String source) =>
+      const LineSplitter().convert(source).map((line) => line.trim()).toSet();
+
   static String tmuxSessions() => underSh(
-    'command -v tmux >/dev/null 2>&1 || exit 127; '
     'tmux list-sessions -F ${shellQuote('\t$tmuxFormat')} 2>/dev/null; '
     'u=\$(id -u); own="\${TMUX_TMPDIR:-/tmp}/tmux-\$u/default"; '
     'for s in "/tmp/tmux-\$u/default" '

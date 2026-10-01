@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:dazzle/application/launch_scan.dart';
@@ -29,6 +30,34 @@ final class _StalledClient implements SSHClient {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+final class _ZeroExitClient implements SSHClient {
+  final commands = <String>[];
+
+  @override
+  Future<SSHRunResult> runWithResult(
+    String command, {
+    bool runInPty = false,
+    bool stdout = true,
+    bool stderr = true,
+    Map<String, String>? environment,
+  }) async {
+    commands.add(command);
+    return SSHRunResult(
+      output: Uint8List(0),
+      stdout: Uint8List(0),
+      stderr: Uint8List(0),
+      exitCode: 0,
+      exitSignal: null,
+    );
+  }
+
+  @override
+  Future<void> close() async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 final class _HeldSocket implements SSHSocket {
   var closed = false;
 
@@ -40,6 +69,17 @@ final class _HeldSocket implements SSHSocket {
 }
 
 void main() {
+  test('a host that reports every exit as 0 has neither tool', () async {
+    final client = _ZeroExitClient();
+    final session = HerdrSession.over(_HeldSocket(), client);
+    final targets = await session.launchTargets();
+    session.close();
+
+    expect(targets.hasHerdr, isFalse);
+    expect(targets.hasTmux, isFalse);
+    expect(client.commands, [LaunchCommands.present()]);
+  });
+
   test(
     'a host whose herdr never answers fails the scan and is hung up on',
     () async {
