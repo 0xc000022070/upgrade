@@ -54,15 +54,13 @@ pub struct Cursor {
 
 pub fn replay(images: &[Image], placements: &[Placement], cursor: Cursor) -> Vec<u8> {
     let mut out = Vec::new();
-    let mut sent: Vec<u32> = Vec::new();
+    for image in images {
+        transmit(&mut out, image);
+    }
     let mut moved = false;
     for placement in placements {
-        let Some(image) = images.iter().find(|image| image.id == placement.image_id) else {
+        if !images.iter().any(|image| image.id == placement.image_id) {
             continue;
-        };
-        if !sent.contains(&image.id) {
-            transmit(&mut out, image);
-            sent.push(image.id);
         }
         if let Anchor::Cell { col, row } = placement.anchor {
             out.extend_from_slice(format!("\x1b[{};{}H", row + 1, col + 1).as_bytes());
@@ -157,6 +155,116 @@ fn place(out: &mut Vec<u8>, placement: &Placement) {
     out.extend_from_slice(b"\x1b\\");
 }
 
+const MAX_KEYS: usize = 256;
+const MAX_IDS: usize = 1024;
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+enum Scan {
+    #[default]
+    Ground,
+    Escape,
+    Apc,
+    Keys,
+    Payload,
+}
+
+/// A chunked transmission is one no keyframe may cut, and its id is kept because the
+/// terminal hands out a stored image by id alone.
+#[derive(Debug)]
+pub struct Transmissions {
+    scan: Scan,
+    keys: Vec<u8>,
+    ids: Vec<u32>,
+    open: bool,
+    carried: u64,
+    limit: u64,
+}
+
+impl Transmissions {
+    pub fn new(limit: u64) -> Self {
+        Self {
+            scan: Scan::Ground,
+            keys: Vec::new(),
+            ids: Vec::new(),
+            open: false,
+            carried: 0,
+            limit,
+        }
+    }
+
+    pub fn open(&self) -> bool {
+        self.open
+    }
+
+    pub fn ids(&self) -> &[u32] {
+        &self.ids
+    }
+
+    pub fn retain(&mut self, keep: impl Fn(u32) -> bool) {
+        self.ids.retain(|&id| keep(id));
+    }
+
+    pub fn feed(&mut self, bytes: &[u8]) {
+        for &byte in bytes {
+            self.step(byte);
+            if self.open {
+                self.carried += 1;
+                self.open = self.carried <= self.limit;
+            }
+        }
+    }
+
+    fn step(&mut self, byte: u8) {
+        self.scan = match (self.scan, byte) {
+            (_, 0x18 | 0x1a) => Scan::Ground,
+            (Scan::Keys, 0x1b | b';') => {
+                self.close_keys();
+                if byte == b';' {
+                    Scan::Payload
+                } else {
+                    Scan::Escape
+                }
+            }
+            (Scan::Keys, _) if self.keys.len() >= MAX_KEYS => Scan::Ground,
+            (Scan::Keys, _) => {
+                self.keys.push(byte);
+                Scan::Keys
+            }
+            (_, 0x1b) => Scan::Escape,
+            (Scan::Payload, _) => Scan::Payload,
+            (Scan::Escape, b'_') => Scan::Apc,
+            (Scan::Apc, b'G') => {
+                self.keys.clear();
+                Scan::Keys
+            }
+            _ => Scan::Ground,
+        };
+    }
+
+    fn close_keys(&mut self) {
+        let key = |name: u8| {
+            self.keys
+                .split(|&b| b == b',')
+                .rev()
+                .find_map(|pair| pair.strip_prefix(&[name, b'='][..]))
+        };
+        let more = key(b'm').is_some_and(|value| value == b"1");
+        let transmits = matches!(key(b'a'), None | Some(b"t" | b"T"));
+        let id = key(b'i').and_then(|value| std::str::from_utf8(value).ok()?.parse::<u32>().ok());
+        if let (false, true, Some(id @ 1..)) = (self.open, transmits, id) {
+            self.ids.retain(|&known| known != id);
+            if self.ids.len() >= MAX_IDS {
+                self.ids.remove(0);
+            }
+            self.ids.push(id);
+        }
+        if more && !self.open {
+            self.carried = 0;
+        }
+        self.open = more;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,9 +298,44 @@ mod tests {
     }
 
     #[test]
-    fn nothing_placed_writes_nothing() {
+    fn a_transmission_is_open_from_its_first_chunk_to_its_last() {
+        let mut seen = Transmissions::new(1 << 20);
+        seen.feed(b"text\x1b_Ga=t,i=4,f=32,s=1,v=1,m=1;AAAA\x1b\\");
+        assert!(seen.open());
+        seen.feed(b"\x1b_Gm=1;AA");
+        seen.feed(b"AA\x1b\\\x1b_Gq=2,m");
+        assert!(seen.open());
+        seen.feed(b"=0;AAAA\x1b\\");
+        assert!(!seen.open());
+        seen.feed(b"\x1b_Ga=p,i=4,C=1\x1b\\\x1b]0;m=1;\x07");
+        assert!(!seen.open());
+    }
+
+    #[test]
+    fn a_transmission_that_never_ends_is_given_up_on() {
+        let mut seen = Transmissions::new(16);
+        seen.feed(b"\x1b_Ga=t,m=1;AAAA\x1b\\");
+        assert!(seen.open());
+        seen.feed(&[b'A'; 32]);
+        assert!(!seen.open());
+    }
+
+    #[test]
+    fn an_image_not_placed_yet_is_still_sent() {
         let images = [image(1, Format::Rgba, vec![0; 4])];
-        assert!(replay(&images, &[], Cursor { col: 0, row: 0 }).is_empty());
+        let out = text(&replay(&images, &[], Cursor { col: 0, row: 0 }));
+        assert!(out.starts_with("\x1b_Ga=t,f=32,s=1,v=1,i=1,"));
+        assert!(!out.contains("a=p"));
+    }
+
+    #[test]
+    fn transmitted_ids_are_kept_and_continuations_add_none() {
+        let mut seen = Transmissions::new(1 << 20);
+        seen.feed(b"\x1b_Ga=t,i=4,m=1;AAAA\x1b\\\x1b_Gi=5,m=0;AAAA\x1b\\");
+        seen.feed(b"\x1b_Ga=p,i=6\x1b\\\x1b_Ga=T,i=7;AAAA\x1b\\\x1b_Gi=4;AAAA\x1b\\");
+        assert_eq!(seen.ids(), [7, 4]);
+        seen.retain(|id| id != 7);
+        assert_eq!(seen.ids(), [4]);
     }
 
     #[test]

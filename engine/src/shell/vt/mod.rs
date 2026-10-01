@@ -136,12 +136,33 @@ impl Terminal {
         result == ffi::SUCCESS && config.value
     }
 
-    pub fn image_replay(&self) -> Vec<u8> {
-        let (images, placements) = self.graphics();
-        if placements.is_empty() {
-            return Vec::new();
+    pub fn image_replay(&self, unplaced: &[u32]) -> Vec<u8> {
+        let (mut images, placements) = self.graphics();
+        for &id in unplaced {
+            if images.iter().any(|image| image.id == id) {
+                continue;
+            }
+            if let Some(image) = self
+                .stored_image(id)
+                .and_then(|image| copy_image(image, id))
+            {
+                images.push(image);
+            }
         }
         kitty::replay(&images, &placements, self.cursor())
+    }
+
+    pub fn holds_image(&self, id: u32) -> bool {
+        self.stored_image(id).is_some()
+    }
+
+    fn stored_image(&self, id: u32) -> Option<ffi::GhosttyKittyGraphicsImage> {
+        let graphics = self.get::<Graphics>(ffi::DATA_KITTY_GRAPHICS)?;
+        if graphics.0.is_null() {
+            return None;
+        }
+        let image = unsafe { ffi::ghostty_kitty_graphics_image(graphics.0, id) };
+        (!image.is_null()).then_some(image)
     }
 
     fn graphics(&self) -> (Vec<kitty::Image>, Vec<kitty::Placement>) {
@@ -420,10 +441,21 @@ mod tests {
     fn a_placed_image_is_replayed() {
         let mut vt = terminal();
         vt.write(b"\x1b[2;3H\x1b_Ga=T,f=32,s=1,v=1,i=4,q=2;/wAA/w==\x1b\\\x1b[5;1H");
-        let replay = String::from_utf8(vt.image_replay()).unwrap();
+        let replay = String::from_utf8(vt.image_replay(&[])).unwrap();
         assert!(replay.contains("a=t,f=32,s=1,v=1,i=4"), "{replay:?}");
         assert!(replay.contains("\x1b[2;3H\x1b_Ga=p,i=4"), "{replay:?}");
         assert!(replay.ends_with("\x1b[5;1H"), "{replay:?}");
+    }
+
+    #[test]
+    fn an_image_not_placed_yet_is_replayed_by_id() {
+        let mut vt = terminal();
+        vt.write(b"\x1b_Ga=t,f=32,s=1,v=1,i=6,q=2;/wAA/w==\x1b\\");
+        let replay = String::from_utf8(vt.image_replay(&[6, 7])).unwrap();
+        assert!(replay.contains("a=t,f=32,s=1,v=1,i=6"), "{replay:?}");
+        assert!(!replay.contains("a=p"), "{replay:?}");
+        assert!(vt.holds_image(6));
+        assert!(!vt.holds_image(7));
     }
 
     #[test]
@@ -443,7 +475,7 @@ mod tests {
             crate::util::base64_encode(&encoded)
         );
         vt.write(command.as_bytes());
-        let replay = String::from_utf8(vt.image_replay()).unwrap();
+        let replay = String::from_utf8(vt.image_replay(&[])).unwrap();
         assert!(replay.contains("f=32,s=1,v=1,i=8"), "{replay:?}");
     }
 }
