@@ -115,6 +115,9 @@ impl Server {
             self.files.claims.expire(now);
             self.reap(now);
             self.transmit(now);
+            for cut in self.mirror.take_cuts() {
+                self.files.claims.cut(cut);
+            }
         }
     }
 
@@ -214,6 +217,7 @@ impl Server {
                 }
             }
         }
+        self.files.claims.acked(self.link.ack());
         self.mirror.release(self.link.ack());
         let _ = if directives.keyframe {
             self.mirror.keyframe()
@@ -246,7 +250,8 @@ impl Server {
                         &mut self.forward,
                         &mut replies,
                     );
-                    self.mirror.output(&self.forward);
+                    let sent = self.mirror.output(&self.forward);
+                    self.files.claims.sent(sent);
                 }
                 Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
                 Err(_) => break,

@@ -55,6 +55,7 @@ struct Claim {
     object: Object,
     since: Instant,
     theirs: Option<bool>,
+    sent: Option<u64>,
 }
 
 impl Claim {
@@ -84,6 +85,20 @@ impl Claim {
 #[derive(Default)]
 pub struct Claims {
     open: Vec<Claim>,
+    cuts: Vec<Cut>,
+}
+
+struct Cut {
+    reached: u64,
+    to: u64,
+}
+
+impl Cut {
+    fn holds(&self, claim: &Claim) -> bool {
+        claim
+            .sent
+            .is_some_and(|at| self.reached < at && at <= self.to)
+    }
 }
 
 impl Claims {
@@ -93,6 +108,37 @@ impl Claims {
             object,
             since: now,
             theirs: None,
+            sent: None,
+        });
+    }
+
+    pub fn sent(&mut self, at: Option<u64>) {
+        for claim in self.open.iter_mut().filter(|claim| claim.sent.is_none()) {
+            claim.sent = Some(at.unwrap_or_default());
+            if at.is_none() {
+                claim.reply = Reply::default();
+            }
+        }
+    }
+
+    pub fn cut(&mut self, (from, to): (u64, u64)) {
+        let cut = Cut { reached: from, to };
+        if self.open.iter().any(|claim| cut.holds(claim)) {
+            self.cuts.push(cut);
+        }
+    }
+
+    pub fn acked(&mut self, ack: u64) {
+        let open = &mut self.open;
+        self.cuts.retain_mut(|cut| {
+            if ack < cut.to {
+                cut.reached = cut.reached.max(ack);
+                return true;
+            }
+            for claim in open.iter_mut().filter(|claim| cut.holds(claim)) {
+                claim.reply = Reply::default();
+            }
+            false
         });
     }
 
@@ -117,6 +163,9 @@ impl Claims {
             }
         }
         self.open.retain(|claim| now < claim.since + FORGET);
+        let open = &self.open;
+        self.cuts
+            .retain(|cut| open.iter().any(|claim| cut.holds(claim)));
     }
 
     pub fn deadline(&self) -> Option<Instant> {
@@ -124,14 +173,13 @@ impl Claims {
     }
 
     fn theirs(&mut self, reply: Reply) -> bool {
-        let matching = |settled: bool| {
-            self.open
-                .iter()
-                .position(|claim| claim.theirs.is_some() == settled && reply.answers(claim.reply))
-        };
         let found = reply
             .expected()
-            .then(|| matching(false).or_else(|| matching(true)))
+            .then(|| {
+                self.open
+                    .iter()
+                    .position(|claim| reply.answers(claim.reply))
+            })
             .flatten();
         found.is_some_and(|at| self.open.remove(at).settle())
     }
@@ -254,23 +302,56 @@ mod tests {
     }
 
     #[test]
-    fn a_fresh_claim_is_answered_before_a_settled_one_with_its_id() {
-        let dir = testing::scratch("kitty-claims", "fresh");
+    fn a_late_answer_goes_to_the_older_claim_with_its_id() {
+        let dir = testing::scratch("kitty-claims", "late");
         let first = dir.join("tty-graphics-protocol-7");
         let second = dir.join("tty-graphics-protocol-8");
         fs::write(&first, b"png").unwrap();
         let mut claims = Claims::default();
         let start = Instant::now();
         claims.hold(reply(1), object(&first), start);
+        claims.sent(Some(10));
         fs::remove_file(&first).unwrap();
         claims.expire(start + SETTLE);
         fs::write(&second, b"png").unwrap();
         claims.hold(reply(1), object(&second), start + SETTLE);
-        assert_eq!(
-            answer(&mut claims, b"\x1b_Gi=1;OK\x1b\\"),
-            b"\x1b_Gi=1;OK\x1b\\"
-        );
+        claims.sent(Some(20));
+        assert_eq!(answer(&mut claims, b"\x1b_Gi=1;ENOENT\x1b\\"), b"");
+        assert!(second.exists());
+        let ok = b"\x1b_Gi=1;OK\x1b\\";
+        assert_eq!(answer(&mut claims, ok), ok);
         assert!(!second.exists());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_command_cut_before_the_phone_got_it_is_owed_no_answer() {
+        let dir = testing::scratch("kitty-claims", "cut");
+        let paths: Vec<PathBuf> = (9..13)
+            .map(|n| dir.join(format!("tty-graphics-protocol-{n}")))
+            .collect();
+        for path in &paths {
+            fs::write(path, b"png").unwrap();
+        }
+        let mut claims = Claims::default();
+        let start = Instant::now();
+        claims.hold(reply(2), object(&paths[0]), start);
+        claims.sent(Some(5));
+        claims.hold(reply(1), object(&paths[1]), start);
+        claims.sent(Some(10));
+        claims.cut((0, 12));
+        claims.acked(6);
+        claims.acked(12);
+        claims.hold(reply(1), object(&paths[2]), start);
+        claims.sent(None);
+        claims.hold(reply(1), object(&paths[3]), start);
+        claims.sent(Some(30));
+        let ok = b"\x1b_Gi=2;OK\x1b\\\x1b_Gi=1;OK\x1b\\";
+        assert_eq!(answer(&mut claims, ok), ok);
+        assert!(!paths[0].exists(), "the phone got it before the cut");
+        assert!(paths[1].exists() && paths[2].exists());
+        assert!(!paths[3].exists());
+        drop(claims);
         fs::remove_dir_all(&dir).unwrap();
     }
 
