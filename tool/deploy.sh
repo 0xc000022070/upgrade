@@ -18,8 +18,9 @@ other key can only land by uninstalling, and the handsets hold real data.
   once [device...]            install on the handsets named, or on every one
                               attached; a handset at or past HEAD is left alone
   watch [device...]           once now, then once more each time HEAD moves.
-                              Each build rings and asks here first; an n
-                              shelves it, silence for thirty seconds installs.
+                              Each new HEAD rings and asks here while it
+                              builds; an n shelves it, silence for thirty
+                              seconds installs.
 EOF
 }
 
@@ -169,14 +170,28 @@ once() {
   }
 
   local apk
-  apk=$(build) || return 1
-
-  if [[ $ask == ask ]]; then
-    local onto ans=""
+  if [[ $ask != ask ]]; then
+    apk=$(build) || return 1
+  else
+    local onto asking answer="$OUT/answer" log="$OUT/build.log"
     onto=$(printf '%s\n' "${pending[@]}" | cut -f1 | paste -sd' ')
+    rm -f "$answer"
+    say "building $name+$code ($sha); its log is $log"
     printf '\a'
-    read -r -t 30 -p "deploy: $name+$code ($sha) onto $onto. Install? [Y/n, yes in 30s] " ans </dev/tty || echo
-    [[ $ans != [nN]* ]] || {
+    (
+      ans=""
+      read -r -t 30 -p "deploy: $name+$code ($sha) onto $onto. Install? [Y/n, yes in 30s] " ans </dev/tty || echo
+      printf '%s\n' "$ans" >"$answer"
+    ) &
+    asking=$!
+    if ! apk=$(build 2>"$log"); then
+      kill "$asking" 2>/dev/null || true
+      echo
+      tail -n 20 "$log" >&2
+      return 1
+    fi
+    wait "$asking" || true
+    [[ $(cat "$answer" 2>/dev/null) != [nN]* ]] || {
       say "left on the shelf: $apk"
       return 0
     }
