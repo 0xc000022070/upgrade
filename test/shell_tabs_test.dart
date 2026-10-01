@@ -235,7 +235,15 @@ void main() {
                       focused: true,
                     ),
                   ],
-                  tmux: [TmuxSessionEntry(name: '0', windows: 2, attached: 1)],
+                  tmux: [
+                    TmuxSessionEntry(name: '0', windows: 2, attached: 1),
+                    TmuxSessionEntry(
+                      name: 'drop',
+                      windows: 1,
+                      attached: 0,
+                      socket: '/tmp/tmux-1000/default',
+                    ),
+                  ],
                   hasHerdr: true,
                   hasTmux: true,
                 ),
@@ -262,6 +270,11 @@ void main() {
     expect(find.text('dazzle'), findsNothing);
     expect(find.text('ATTACHED'), findsOneWidget);
     expect(find.text('tmux 1'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('launch-tmux:drop@/tmp/tmux-1000/default')),
+      findsOneWidget,
+    );
+    expect(find.text('1 window · /tmp'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('launch-tmux-new')));
     await ready(tester);
