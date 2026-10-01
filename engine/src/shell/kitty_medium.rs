@@ -61,6 +61,8 @@ pub trait Files {
         span: Span,
         reply: Reply,
     ) -> Result<Vec<u8>, Refusal>;
+
+    fn placed(&mut self, at: usize);
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -192,11 +194,14 @@ impl Media {
             None => (body, &[][..]),
         };
         match command(keys) {
-            Some(command) => match command.read(payload, files) {
-                Ok(bytes) if command.fits => command.direct(&bytes, forward),
-                Ok(_) => command.refuse(&too_long(), replies),
-                Err(refusal) => command.refuse(&refusal, replies),
-            },
+            Some(command) => {
+                match command.read(payload, files) {
+                    Ok(bytes) if command.fits => command.direct(&bytes, forward),
+                    Ok(_) => command.refuse(&too_long(), replies),
+                    Err(refusal) => command.refuse(&refusal, replies),
+                }
+                files.placed(forward.len());
+            }
             None => forward.extend_from_slice(&self.held),
         }
         self.held.clear();
@@ -426,6 +431,10 @@ impl Files for HostFiles {
         }
         bytes
     }
+
+    fn placed(&mut self, at: usize) {
+        self.claims.placed(at);
+    }
 }
 
 impl HostFiles {
@@ -552,6 +561,7 @@ mod tests {
         files: HashMap<PathBuf, Vec<u8>>,
         asked: Vec<(Medium, PathBuf, Span)>,
         claimed: Vec<Reply>,
+        placed: Vec<usize>,
     }
 
     impl Files for FakeFiles {
@@ -578,6 +588,10 @@ mod tests {
             }
             let end = span.size.map_or(bytes.len(), |size| start + size as usize);
             Ok(bytes[start..end].to_vec())
+        }
+
+        fn placed(&mut self, at: usize) {
+            self.placed.push(at);
         }
     }
 
@@ -759,6 +773,16 @@ mod tests {
             files.claimed,
             [five, Reply::default(), Reply::default(), Reply::default()]
         );
+    }
+
+    #[test]
+    fn a_command_is_placed_where_its_own_bytes_end() {
+        let mut files = fake("/f", b"png");
+        let (forward, _) = run(
+            &mut files,
+            &[&[&cmd("a=T,t=f,i=5", "/f")[..], b"tail"].concat()],
+        );
+        assert_eq!(files.placed, [forward.len() - b"tail".len()]);
     }
 
     #[test]
