@@ -689,4 +689,129 @@ void main() {
       expect(record.sent, isEmpty);
     });
   });
+
+  group('the stick, upright', () {
+    const up = [0x1b, 0x5b, 0x41];
+    const right = [0x1b, 0x5b, 0x43];
+    const down = [0x1b, 0x5b, 0x42];
+    final stick = find.byKey(const ValueKey('bar-ARROWS'));
+
+    Future<BarRecord> pumpUpright(
+      WidgetTester tester, {
+      Set<StickyModifier> sticky = const {},
+    }) async {
+      tester.view.physicalSize = const Size(360, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      return pumpBar(tester, sticky: sticky);
+    }
+
+    testWidgets('takes the four arrow cells off the row', (tester) async {
+      await pumpUpright(tester);
+
+      expect(stick, findsOneWidget);
+      for (final label in ['LEFT', 'UP', 'DOWN', 'RIGHT']) {
+        expect(find.byKey(ValueKey('bar-$label')), findsNothing, reason: label);
+      }
+      expect(find.byKey(const ValueKey('bar-END')), findsOneWidget);
+      expect(
+        tester.getTopRight(stick).dx,
+        lessThanOrEqualTo(
+          tester.getTopLeft(find.byKey(const ValueKey('bar-ATTACH'))).dx,
+        ),
+      );
+    });
+
+    testWidgets('is not drawn on its side', (tester) async {
+      await pumpBar(tester);
+
+      expect(stick, findsNothing);
+      expect(find.byKey(const ValueKey('bar-UP')), findsOneWidget);
+    });
+
+    testWidgets('a tap sends nothing', (tester) async {
+      final record = await pumpUpright(tester);
+
+      await tester.tap(stick);
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(record.sent, isEmpty);
+    });
+
+    testWidgets('a push sends its arrow, then repeats until the lift', (
+      tester,
+    ) async {
+      final record = await pumpUpright(tester);
+      final press = await tester.startGesture(tester.getCenter(stick));
+
+      await press.moveBy(const Offset(0, -16));
+      await tester.pump();
+      expect(record.sent, [up]);
+
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(record.sent, [up]);
+
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(record.sent, List.filled(5, up));
+
+      await press.up();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(record.sent, List.filled(5, up));
+    });
+
+    testWidgets('back at the centre it stops', (tester) async {
+      final record = await pumpUpright(tester);
+      final press = await tester.startGesture(tester.getCenter(stick));
+
+      await press.moveBy(const Offset(16, 0));
+      await press.moveBy(const Offset(-14, 0));
+      await tester.pump(const Duration(seconds: 1));
+      await press.up();
+
+      expect(record.sent, [right]);
+    });
+
+    testWidgets('a swing to another arm sends that arrow and waits again', (
+      tester,
+    ) async {
+      final record = await pumpUpright(tester);
+      final press = await tester.startGesture(tester.getCenter(stick));
+
+      await press.moveBy(const Offset(16, 0));
+      await tester.pump(const Duration(milliseconds: 300));
+      await press.moveBy(const Offset(-16, 30));
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(record.sent, [right, down]);
+
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(record.sent, [right, down, down]);
+      await press.up();
+    });
+
+    testWidgets('a thumb near the diagonal keeps the arm it holds', (
+      tester,
+    ) async {
+      final record = await pumpUpright(tester);
+      final press = await tester.startGesture(tester.getCenter(stick));
+
+      await press.moveBy(const Offset(20, 0));
+      await press.moveBy(const Offset(0, 24));
+      await tester.pump();
+      await press.up();
+
+      expect(record.sent, [right]);
+    });
+
+    testWidgets('an armed SHIFT goes with the arrow', (tester) async {
+      final record = await pumpUpright(tester, sticky: {StickyModifier.shift});
+      final press = await tester.startGesture(tester.getCenter(stick));
+
+      await press.moveBy(const Offset(0, -16));
+      await press.up();
+
+      expect(record.sent, [
+        [0x1b, 0x5b, 0x31, 0x3b, 0x32, 0x41],
+      ]);
+    });
+  });
 }
