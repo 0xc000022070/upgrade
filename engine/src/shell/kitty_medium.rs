@@ -962,7 +962,7 @@ mod tests {
         assert_eq!(read.unwrap(), b"pixels");
         assert!(named.exists(), "another terminal may still read it");
         let mut out = Vec::new();
-        host.claims.answer(b"\x1b_Gi=7;OK\x1b\\", &mut out);
+        host.claims.answer(b"\x1b_Gi=7;OK\x1b\\", &mut out, Instant::now());
         assert_eq!(out, b"\x1b_Gi=7;OK\x1b\\");
         assert!(
             !named.exists(),
@@ -984,7 +984,7 @@ mod tests {
             "another terminal may still read it whole"
         );
         let mut out = Vec::new();
-        host.claims.answer(b"\x1b_Gi=7;OK\x1b\\", &mut out);
+        host.claims.answer(b"\x1b_Gi=7;OK\x1b\\", &mut out, Instant::now());
         assert!(
             oversized.exists(),
             "no answer comes for a read that failed here"

@@ -113,6 +113,8 @@ impl Server {
             }
             self.serve_pty(&ready);
             self.files.claims.expire(now);
+            let stalled = self.files.claims.stalled(now);
+            self.pending.extend(stalled);
             self.reap(now);
             self.transmit(now);
             self.cut(now);
@@ -223,7 +225,7 @@ impl Server {
                 let fresh = self.input.accept(*offset, bytes);
                 if self.pty.is_some() {
                     let mut answered = Vec::new();
-                    self.files.claims.answer(fresh, &mut answered);
+                    self.files.claims.answer(fresh, &mut answered, now);
                     self.pending.extend(answered);
                 }
             }
