@@ -55,6 +55,8 @@ abstract final class IconSizes {
 abstract final class Gestures {
   static const flick = 8.0;
 
+  static const stick = 12.0;
+
   static const repeatDelay = Duration(milliseconds: 400);
 
   static const repeatInterval = Duration(milliseconds: 50);

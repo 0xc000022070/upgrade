@@ -1241,6 +1241,18 @@ A tap arms a modifier for exactly one key and then clears it: a soft keyboard ca
 
 A press on an arrow that stays down sends the arrow, waits 400 ms, and then sends it again every 50 ms until the finger lifts, which is twenty a second — the delay and the rate Android gives its own keys. A tap still sends exactly one. Only the four arrows repeat: a held `ESC`, `TAB` or `END` is almost never meant twice, and a held modifier already means a latch. A drag that turns into a scroll of the row, or a pointer lost to the system, stops the repeat at once. An armed modifier is spent by each arrow that goes, so `SHIFT` for one key shifts the first and not the rest.
 
+### Upright, the four arrows are one stick
+
+In portrait the row cannot hold its own arrows: on a phone only `←` showed before the rule, and `↑`, `↓`, `→` and `END` sat behind a scroll. So upright the four arrow cells leave the row and one cell takes their place on the pinned side, before `ATTACH`, drawing the four arrow glyphs in a cross. On its side the bar keeps the four cells, which are easier to find and to tap one at a time.
+
+**A push holds an arrow.** A finger that lands on the stick and moves 12 px from where it landed sends the arrow it points at, waits 400 ms and repeats every 50 ms, the pace a held arrow cell keeps; the held arm draws in the accent. Swinging to another arm sends that arrow and starts the wait again, the way a second key pressed on a keyboard does. Coming back within 6 px of the landing stops it, and so do the lift and a pointer lost to the system. A tap sends nothing.
+
+**No diagonals.** A terminal has four arrows, so the axis the push leans on decides. Leaving the held arm for the other axis takes 1.4 times the travel on the new axis that the held one has, so a thumb near the diagonal does not flicker between two arrows.
+
+**The stick takes the pointer the moment it lands.** Neither the route nor the bar gets a drag that starts on it. Each arrow it sends spends the arming like any other key.
+
+The screen's key strip keeps its four arrow cells: nothing is pinned there.
+
 **A downward drag sets a count.** One drag arms the cell at two, another takes it to three, which is the cap; an upward drag walks it back down and past two disarms it. **A long press latches it**, and a tap on a latched cell lets it go — the same tap that arms an unlatched one. A downward drag on a latched cell does nothing, there being nothing above forever, and an upward drag releases it whole. No cell is added to a bar the phone already scrolls, and a user who never drags never sees a count.
 
 **The label rolls to say so.** The cell reads `CTRL(x2)` for a count and `CTRL(∞)` for a latch, arriving on a 140 ms downward roll — the old word leaving through the floor, the new one coming in through the ceiling — in the same accent an armed modifier already draws in. A latch replaces a count, and releasing goes back to the bare word.

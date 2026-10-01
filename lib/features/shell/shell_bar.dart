@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
+import '../../design/components/arrow_stick.dart';
 import '../../design/components/key_bar.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/icons/dazzle_icons.dart';
@@ -11,6 +12,13 @@ import '../../platform/vnc/keysyms.dart';
 import '../modifier_cell.dart';
 
 typedef _BarKey = ({String label, int keysym, DazzleIcons? icon, bool repeats});
+
+const _stickKeysyms = {
+  AxisDirection.up: Keysyms.up,
+  AxisDirection.down: Keysyms.down,
+  AxisDirection.left: Keysyms.left,
+  AxisDirection.right: Keysyms.right,
+};
 
 const _barKeys = <_BarKey>[
   (label: 'ESC', keysym: Keysyms.escape, icon: null, repeats: false),
@@ -94,6 +102,7 @@ class ShellBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final stick = MediaQuery.orientationOf(context) == Orientation.portrait;
     return KeyBar(
       keys: [
         KeyCell(
@@ -113,17 +122,24 @@ class ShellBar extends StatelessWidget {
             onArming: _onArming,
           ),
         for (final key in _barKeys)
-          KeyCell(
-            key: ValueKey('bar-${key.label}'),
-            label: key.label,
-            icon: key.icon,
-            repeats: key.repeats,
-            minWidth: KeyBar.height,
-            padding: KeyBar.cellPadding,
-            onTap: () => _send(key.keysym),
-          ),
+          if (!stick || !_stickKeysyms.containsValue(key.keysym))
+            KeyCell(
+              key: ValueKey('bar-${key.label}'),
+              label: key.label,
+              icon: key.icon,
+              repeats: key.repeats,
+              minWidth: KeyBar.height,
+              padding: KeyBar.cellPadding,
+              onTap: () => _send(key.keysym),
+            ),
       ],
       pinned: [
+        if (stick)
+          ArrowStick(
+            key: const ValueKey('bar-ARROWS'),
+            height: KeyBar.height,
+            onArrow: (direction) => _send(_stickKeysyms[direction]!),
+          ),
         KeyCell(
           key: const ValueKey('bar-ATTACH'),
           label: clipCount == 0 ? 'ATTACH' : 'ATTACH!',
