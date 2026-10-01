@@ -74,30 +74,32 @@ void main() {
 
   final bar = find.byKey(const ValueKey('parked-shell'));
   final header = find.byKey(const ValueKey('shell-header'));
-  final switcher = find.byKey(const ValueKey('shell-host-switch'));
+  Finder tab(Host host, int number) =>
+      find.byKey(ValueKey('shell-tab-${host.id}-$number'));
+  Finder label(Host host) =>
+      find.byKey(ValueKey('shell-group-label-${host.id}'));
 
   Future<void> raise(WidgetTester tester) async {
     await tester.tap(bar);
     await ready(tester);
   }
 
-  testWidgets('one host with shells leaves the name a label', (tester) async {
-    await tester.pumpWidget(app());
+  Future<void> carry(WidgetTester tester, Finder what, Offset by) async {
+    final gesture = await tester.startGesture(tester.getCenter(what));
+    await tester.pump(const Duration(milliseconds: 600));
+    for (var i = 0; i < 10; i++) {
+      await gesture.moveBy(by / 10);
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await gesture.up();
     await ready(tester);
+  }
 
-    sessions.open(_rose);
-    await ready(tester);
-    await raise(tester);
-
-    expect(header, findsOneWidget);
-    expect(find.text('ROSE'), findsOneWidget);
-    expect(switcher, findsNothing);
-
-    await unmount(tester);
-  });
-
-  testWidgets('a second host makes the name a way to it', (tester) async {
-    final semantics = tester.ensureSemantics();
+  testWidgets('every host with a shell has a group, in the order opened', (
+    tester,
+  ) async {
+    await hosts.save(_rose);
+    await hosts.save(_nyx);
     await tester.pumpWidget(app());
     await ready(tester);
 
@@ -106,65 +108,65 @@ void main() {
     await ready(tester);
     await raise(tester);
 
-    expect(find.text('NYX'), findsOneWidget);
-    expect(switcher, findsOneWidget);
+    expect(header, findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-host-switch')), findsNothing);
+    expect(label(_rose), findsOneWidget);
+    expect(label(_nyx), findsOneWidget);
+    expect(tab(_rose, 1), findsOneWidget);
+    expect(tab(_nyx, 1), findsOneWidget);
     expect(
-      find.descendant(of: switcher, matching: find.text('ALL SHELLS')),
-      findsNothing,
+      tester.getCenter(tab(_rose, 1)).dx,
+      lessThan(tester.getCenter(label(_nyx)).dx),
     );
-    expect(find.byTooltip('All shells · nyx'), findsOneWidget);
-    expect(tester.getSize(switcher).height, 44);
-    expect(
-      find.bySemanticsLabel('All shells, current host nyx'),
-      findsOneWidget,
-    );
-    semantics.dispose();
-
-    await tester.tap(switcher);
-    await ready(tester);
-
-    expect(find.text('SHELLS'), findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-switch-h1-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-switch-h2-1')), findsOneWidget);
-    expect(find.text('ON SCREEN'), findsOneWidget);
+    expect(tester.takeException(), isNull);
 
     await unmount(tester);
   });
 
-  for (final width in [400.0, 900.0]) {
-    testWidgets('long host switcher stays compact at width $width', (
-      tester,
-    ) async {
-      tester.view.physicalSize = Size(width, 1200);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      const named = Host(
-        id: 'long',
-        name: 'DAZZLE DEVELOPMENT HOST',
-        address: '100.64.0.3',
-        port: 22,
-        user: 'dev',
-        keyId: 'key-1',
-      );
-      await tester.pumpWidget(app());
-      await ready(tester);
-      sessions.open(_rose);
-      sessions.open(named);
-      await ready(tester);
-      await raise(tester);
-      expect(tester.getSize(switcher).width, lessThanOrEqualTo(106));
-      expect(tester.getSize(switcher).height, 44);
-      expect(
-        find.byTooltip('All shells · DAZZLE DEVELOPMENT HOST'),
-        findsOneWidget,
-      );
-      expect(find.text('ALL SHELLS'), findsNothing);
-      expect(tester.takeException(), isNull);
-      await unmount(tester);
-    });
-  }
+  testWidgets('a host with no shell has no group', (tester) async {
+    await hosts.save(_rose);
+    await hosts.save(_nyx);
+    await tester.pumpWidget(app());
+    await ready(tester);
 
-  testWidgets('picking another host swaps the sheet without leaving it', (
+    sessions.open(_rose);
+    await ready(tester);
+    await raise(tester);
+
+    expect(label(_rose), findsOneWidget);
+    expect(label(_nyx), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a long host name stays within its label at phone width', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const named = Host(
+      id: 'long',
+      name: 'DAZZLE DEVELOPMENT HOST',
+      address: '100.64.0.3',
+      port: 22,
+      user: 'dev',
+      keyId: 'key-1',
+    );
+    await tester.pumpWidget(app());
+    await ready(tester);
+    sessions.open(_rose);
+    sessions.open(named);
+    await ready(tester);
+    await raise(tester);
+
+    expect(tester.getSize(label(named)).width, lessThanOrEqualTo(100));
+    expect(tester.takeException(), isNull);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a tab on another host swaps the sheet without leaving it', (
     tester,
   ) async {
     await tester.pumpWidget(app());
@@ -176,23 +178,107 @@ void main() {
     await raise(tester);
     final route = ModalRoute.of(tester.element(header));
 
-    await tester.tap(switcher);
-    await ready(tester);
-    await tester.tap(find.byKey(const ValueKey('shell-switch-h1-1')));
+    await tester.tap(tab(_rose, 1));
     await ready(tester);
 
-    expect(find.text('ROSE'), findsOneWidget);
-    expect(find.text('NYX'), findsNothing);
     expect(ModalRoute.of(tester.element(header)), same(route));
+    expect(sessions.parked!.host.id, _rose.id);
     await tester.drag(header, const Offset(0, 400));
     await ready(tester);
     expect(header, findsNothing);
-    expect(bar, findsOneWidget);
+    expect(find.text('ROSE 1'), findsOneWidget);
 
     await unmount(tester);
   });
 
-  testWidgets('picking a tab on the host in front activates it', (
+  testWidgets('a tab on the host in front activates it', (tester) async {
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    sessions.open(_rose);
+    sessions.open(_nyx);
+    sessions.open(_nyx);
+    await ready(tester);
+    await raise(tester);
+    expect(sessions.activeFor(_nyx.id)!.number, 2);
+
+    await tester.tap(tab(_nyx, 1));
+    await ready(tester);
+
+    expect(sessions.activeFor(_nyx.id)!.number, 1);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a label folds its group and a second tap unfolds it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    sessions.open(_rose);
+    sessions.open(_rose);
+    sessions.open(_nyx);
+    sessions.open(_nyx);
+    await ready(tester);
+    await raise(tester);
+
+    await tester.tap(label(_rose));
+    await ready(tester);
+    expect(tab(_rose, 1), findsNothing);
+    expect(tab(_rose, 2), findsNothing);
+    expect(
+      find.descendant(of: label(_rose), matching: find.text('+2')),
+      findsOneWidget,
+    );
+
+    await tester.tap(label(_nyx));
+    await ready(tester);
+    expect(tab(_nyx, 1), findsNothing);
+    expect(tab(_nyx, 2), findsOneWidget, reason: 'the tab on screen stays');
+    expect(
+      find.descendant(of: label(_nyx), matching: find.text('+1')),
+      findsOneWidget,
+    );
+
+    await tester.tap(label(_rose));
+    await ready(tester);
+    expect(tab(_rose, 1), findsOneWidget);
+    expect(tab(_rose, 2), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a group that goes with its last tab forgets its fold', (
+    tester,
+  ) async {
+    final rose = sessions.open(_rose)!;
+    sessions.fold(_rose.id, folded: true);
+    await sessions.close(_rose.id, rose);
+    expect(sessions.isFolded(_rose.id), isFalse);
+    expect(sessions.openHosts, isEmpty);
+  });
+
+  testWidgets('a long press carries a tab within its group', (tester) async {
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    sessions.open(_nyx);
+    sessions.open(_nyx);
+    sessions.open(_nyx);
+    await ready(tester);
+    await raise(tester);
+
+    final step =
+        tester.getCenter(tab(_nyx, 3)) - tester.getCenter(tab(_nyx, 1));
+    await carry(tester, tab(_nyx, 1), step + const Offset(20, 0));
+
+    expect([for (final s in sessions.forHost(_nyx.id)) s.number], [2, 3, 1]);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a long press on a label carries the whole group', (
     tester,
   ) async {
     await tester.pumpWidget(app());
@@ -203,15 +289,16 @@ void main() {
     sessions.open(_nyx);
     await ready(tester);
     await raise(tester);
-    expect(find.byKey(const ValueKey('shell-tab-2')), findsOneWidget);
 
-    await tester.tap(switcher);
-    await ready(tester);
-    await tester.tap(find.byKey(const ValueKey('shell-switch-h2-1')));
-    await ready(tester);
+    final step =
+        tester.getTopRight(tab(_nyx, 2)) - tester.getCenter(label(_rose));
+    await carry(tester, label(_rose), step + const Offset(20, 0));
 
-    expect(find.text('NYX'), findsOneWidget);
-    expect(sessions.activeFor(_nyx.id)!.number, 1);
+    expect(
+      [for (final (host, _) in sessions.openHosts) host.id],
+      [_nyx.id, _rose.id],
+    );
+    expect([for (final s in sessions.forHost(_nyx.id)) s.number], [1, 2]);
 
     await unmount(tester);
   });
@@ -244,7 +331,38 @@ void main() {
 
     expect(sessions.forHost(_nyx.id), hasLength(2));
     expect(sessions.activeFor(_nyx.id)!.number, 2);
-    expect(find.text('NYX'), findsOneWidget);
+    expect(tab(_nyx, 2), findsOneWidget);
+    expect(ModalRoute.of(tester.element(header)), same(route));
+
+    await unmount(tester);
+  });
+
+  testWidgets('a first shell from the plus menu starts its host\'s group', (
+    tester,
+  ) async {
+    await hosts.save(_rose);
+    await hosts.save(_nyx);
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    sessions.open(_rose);
+    await ready(tester);
+    await raise(tester);
+    final route = ModalRoute.of(tester.element(header));
+
+    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+    await ready(tester);
+    await tester.tap(find.byKey(const ValueKey('shell-new-host-h2')));
+    await ready(tester);
+    await tester.tap(find.byKey(const ValueKey('launch-shell')));
+    await ready(tester);
+
+    expect(sessions.forHost(_nyx.id), hasLength(1));
+    expect(label(_nyx), findsOneWidget);
+    expect(
+      tester.getCenter(label(_rose)).dx,
+      lessThan(tester.getCenter(label(_nyx)).dx),
+    );
     expect(ModalRoute.of(tester.element(header)), same(route));
 
     await unmount(tester);
@@ -327,100 +445,6 @@ void main() {
     expect(sessions.forHost(_nyx.id), hasLength(maxShellSessions));
     expect(find.text('TAB LIMIT'), findsOneWidget);
     expect(find.text('nyx'), findsOneWidget);
-
-    await unmount(tester);
-  });
-
-  group('a host with no shell yet', () {
-    testWidgets('a second host on the list makes the name a cell and is '
-        'offered under TAKE OVER', (tester) async {
-      await hosts.save(_rose);
-      await hosts.save(_nyx);
-      await tester.pumpWidget(app());
-      await ready(tester);
-
-      sessions.open(_rose);
-      await ready(tester);
-      await raise(tester);
-
-      expect(switcher, findsOneWidget);
-      await tester.tap(switcher);
-      await ready(tester);
-
-      expect(find.text('TAKE OVER'), findsOneWidget);
-      expect(find.byKey(const ValueKey('shell-take-h2')), findsOneWidget);
-      expect(find.byKey(const ValueKey('shell-switch-h1-1')), findsOneWidget);
-      expect(find.byKey(const ValueKey('shell-take-h1')), findsNothing);
-
-      await unmount(tester);
-    });
-
-    testWidgets('taking one over opens its shell in the same sheet', (
-      tester,
-    ) async {
-      await hosts.save(_rose);
-      await hosts.save(_nyx);
-      await tester.pumpWidget(app());
-      await ready(tester);
-
-      sessions.open(_rose);
-      await ready(tester);
-      await raise(tester);
-      final route = ModalRoute.of(tester.element(header));
-
-      await tester.tap(switcher);
-      await ready(tester);
-      await tester.tap(find.byKey(const ValueKey('shell-take-h2')));
-      await ready(tester);
-
-      expect(sessions.forHost(_nyx.id), hasLength(1));
-      expect(find.text('NYX'), findsOneWidget);
-      expect(ModalRoute.of(tester.element(header)), same(route));
-
-      await tester.drag(header, const Offset(0, 400));
-      await ready(tester);
-      expect(header, findsNothing);
-      expect(bar, findsOneWidget);
-
-      await unmount(tester);
-    });
-
-    testWidgets('one host and nothing else leaves the name a label', (
-      tester,
-    ) async {
-      await hosts.save(_rose);
-      await tester.pumpWidget(app());
-      await ready(tester);
-
-      sessions.open(_rose);
-      await ready(tester);
-      await raise(tester);
-
-      expect(switcher, findsNothing);
-
-      await unmount(tester);
-    });
-  });
-
-  testWidgets('the host the sheet switched to is the one the bar names', (
-    tester,
-  ) async {
-    await tester.pumpWidget(app());
-    await ready(tester);
-
-    sessions.open(_rose);
-    sessions.open(_nyx);
-    await ready(tester);
-    await raise(tester);
-    await tester.tap(switcher);
-    await ready(tester);
-    await tester.tap(find.byKey(const ValueKey('shell-switch-h1-1')));
-    await ready(tester);
-    await tester.drag(header, const Offset(0, 400));
-    await ready(tester);
-
-    expect(find.text('ROSE 1'), findsOneWidget);
-    expect(find.text('+1'), findsOneWidget);
 
     await unmount(tester);
   });

@@ -12,6 +12,7 @@ class ShellTab {
     this.herdrSession,
     this.herdrPane,
     this.launch,
+    this.position,
     this.retiredAt,
   });
 
@@ -23,6 +24,7 @@ class ShellTab {
   final String? herdrSession;
   final String? herdrPane;
   final String? launch;
+  final int? position;
   final DateTime? retiredAt;
 }
 
@@ -46,6 +48,7 @@ abstract class ShellTabRepository {
   Future<List<ShellTab>> retired(String hostId);
 
   Future<void> activate(String hostId, int number);
+  Future<void> order(List<(String, int)> strip);
 }
 
 class DriftShellTabRepository implements ShellTabRepository {
@@ -58,7 +61,13 @@ class DriftShellTabRepository implements ShellTabRepository {
     final rows =
         await (_db.select(_db.shellTabs)
               ..where((t) => t.retiredAt.isNull())
-              ..orderBy([(t) => OrderingTerm(expression: t.openedAt)]))
+              ..orderBy([
+                (t) => OrderingTerm(
+                  expression: t.position,
+                  nulls: NullsOrder.last,
+                ),
+                (t) => OrderingTerm(expression: t.openedAt),
+              ]))
             .get();
     return [for (final row in rows) _tab(row)];
   }
@@ -129,6 +138,17 @@ class DriftShellTabRepository implements ShellTabRepository {
         .write(const ShellTabsCompanion(active: Value(true)));
   }
 
+  @override
+  Future<void> order(List<(String, int)> strip) {
+    return _db.transaction(() async {
+      for (final (index, (hostId, number)) in strip.indexed) {
+        await (_db.update(_db.shellTabs)
+              ..where((t) => t.hostId.equals(hostId) & t.number.equals(number)))
+            .write(ShellTabsCompanion(position: Value(index)));
+      }
+    });
+  }
+
   Future<void> _clear(String hostId) {
     return (_db.update(_db.shellTabs)..where((t) => t.hostId.equals(hostId)))
         .write(const ShellTabsCompanion(active: Value(false)));
@@ -143,6 +163,7 @@ class DriftShellTabRepository implements ShellTabRepository {
     herdrSession: row.herdrSession,
     herdrPane: row.herdrPane,
     launch: row.launch,
+    position: row.position,
     retiredAt: row.retiredAt,
   );
 }
@@ -151,8 +172,16 @@ class InMemoryShellTabRepository implements ShellTabRepository {
   final _tabs = <ShellTab>[];
 
   @override
-  Future<List<ShellTab>> all() async =>
-      List.unmodifiable(_tabs.where((tab) => tab.retiredAt == null));
+  Future<List<ShellTab>> all() async {
+    final open = _tabs.where((tab) => tab.retiredAt == null).indexed.toList()
+      ..sort((a, b) {
+        final placed = (a.$2.position ?? 1 << 30).compareTo(
+          b.$2.position ?? 1 << 30,
+        );
+        return placed != 0 ? placed : a.$1.compareTo(b.$1);
+      });
+    return List.unmodifiable([for (final (_, tab) in open) tab]);
+  }
 
   @override
   Future<void> open(
@@ -200,6 +229,7 @@ class InMemoryShellTabRepository implements ShellTabRepository {
         herdrSession: tab.herdrSession,
         herdrPane: tab.herdrPane,
         launch: tab.launch,
+        position: tab.position,
         retiredAt: DateTime.now(),
       );
     }
@@ -225,6 +255,28 @@ class InMemoryShellTabRepository implements ShellTabRepository {
         herdrSession: tab.herdrSession,
         herdrPane: tab.herdrPane,
         launch: tab.launch,
+        position: tab.position,
+        retiredAt: tab.retiredAt,
+      );
+    }
+  }
+
+  @override
+  Future<void> order(List<(String, int)> strip) async {
+    for (var i = 0; i < _tabs.length; i++) {
+      final tab = _tabs[i];
+      final index = strip.indexOf((tab.hostId, tab.number));
+      if (index == -1) continue;
+      _tabs[i] = ShellTab(
+        hostId: tab.hostId,
+        number: tab.number,
+        active: tab.active,
+        openedAt: tab.openedAt,
+        remoteSession: tab.remoteSession,
+        herdrSession: tab.herdrSession,
+        herdrPane: tab.herdrPane,
+        launch: tab.launch,
+        position: index,
         retiredAt: tab.retiredAt,
       );
     }

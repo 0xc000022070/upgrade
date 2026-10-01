@@ -88,10 +88,10 @@ void main() {
       const ShellTabsCompanion(launch: Value('tmux:0')),
     );
     expect((await db.select(db.shellTabs).getSingle()).launch, 'tmux:0');
-    expect(await _userVersion(db), 20);
+    expect(await _userVersion(db), 21);
   });
 
-  test('a v19 stamp over an existing launch column opens at 20', () async {
+  test('a v19 stamp over an existing launch column opens at 21', () async {
     final first = AppDatabase(NativeDatabase(file));
     await first.customStatement(
       "INSERT INTO shell_tabs (host_id, number, active, opened_at, "
@@ -108,6 +108,31 @@ void main() {
     expect(row.number, 3);
     expect(row.remoteSession, 'm0123456789abcdef');
     expect(row.launch, 'tmux:0');
-    expect(await _userVersion(db), 20);
+    expect(await _userVersion(db), 21);
+  });
+
+  test('a v20 shell tab keeps its row and gains a null position', () async {
+    final first = AppDatabase(NativeDatabase(file));
+    await first.customStatement('ALTER TABLE shell_tabs DROP COLUMN position');
+    await first.customStatement(
+      "INSERT INTO shell_tabs (host_id, number, active, opened_at, "
+      "remote_session, launch) VALUES ('h1', 3, 1, "
+      "'2026-09-29T00:00:00.000Z', 'm0123456789abcdef', 'tmux:0')",
+    );
+    await first.customStatement('PRAGMA user_version = 20');
+    await first.close();
+
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+
+    final row = await db.select(db.shellTabs).getSingle();
+    expect(row.number, 3);
+    expect(row.launch, 'tmux:0');
+    expect(row.position, isNull);
+    await (db.update(db.shellTabs)..where((t) => t.number.equals(3))).write(
+      const ShellTabsCompanion(position: Value(0)),
+    );
+    expect((await db.select(db.shellTabs).getSingle()).position, 0);
+    expect(await _userVersion(db), 21);
   });
 }

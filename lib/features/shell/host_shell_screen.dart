@@ -31,7 +31,6 @@ import 'shell_header.dart';
 import 'launch_picker_sheet.dart';
 import 'shell_search.dart';
 import 'shell_sessions.dart';
-import 'shell_status.dart';
 import 'shell_terminal.dart';
 import 'shell_watcher.dart';
 
@@ -439,77 +438,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     return answer ?? false;
   }
 
-  Future<void> _openSwitcher() async {
-    final hosts = _store.openHosts;
-    final idle = _idleHosts;
-    final chosen = await showPanelSheet<(Host, ShellSession?)>(
-      context,
-      title: 'SHELLS',
-      builder: (context) => PanelSheetBody(
-        title: 'SHELLS',
-        children: [
-          ListRowGroup(
-            children: [
-              for (final (host, sessions) in hosts)
-                for (final session in sessions)
-                  ListRow(
-                    key: ValueKey('shell-switch-${host.id}-${session.number}'),
-                    title: session.title?.trim().isNotEmpty == true
-                        ? shellTabLabel(session.title, session.number)
-                        : 'Shell ${session.number}',
-                    subtitle: '${host.name} · ${session.cwd ?? host.user}',
-                    leading: ShellStateDot(state: session.state),
-                    value: identical(session, _store.activeFor(widget.host.id))
-                        ? 'ON SCREEN'
-                        : null,
-                    onTap: () => Navigator.of(context).pop((host, session)),
-                  ),
-            ],
-          ),
-          if (idle.isNotEmpty) ...[
-            const SheetRule(),
-            Text('TAKE OVER', style: context.tokens.panelHeader),
-            const SizedBox(height: Spacing.sm),
-            ListRowGroup(
-              children: [
-                for (final host in idle)
-                  ListRow(
-                    key: ValueKey('shell-take-${host.id}'),
-                    title: host.name.toUpperCase(),
-                    subtitle: 'ssh, ${host.user}',
-                    onTap: () => Navigator.of(context).pop((host, null)),
-                  ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-    if (!mounted || chosen == null) return;
-    final (host, session) = chosen;
-    if (host.id == widget.host.id) {
-      if (session != null) _store.activate(host.id, session);
-      return;
-    }
-    // A host with no tab named opens its first one where it lands: the unknown-key
-    // sheet it may raise belongs to the host being dialled, not to this one, which
-    // is about to go.
-    widget.onSwitchHost?.call(host, session);
-  }
-
-  int get _reachable => {
-    for (final (host, _) in _store.openHosts) host.id,
-    for (final host in ref.watch(hostsProvider).valueOrNull ?? const <Host>[])
-      host.id,
-  }.length;
-
-  List<Host> get _idleHosts {
-    final open = {for (final (host, _) in _store.openHosts) host.id};
-    return [
-      for (final host in ref.read(hostsProvider).valueOrNull ?? const <Host>[])
-        if (!open.contains(host.id)) host,
-    ];
-  }
+  List<(Host, List<ShellSession>)> _groups(ShellSessions store) => [
+    for (final (host, sessions) in store.openHosts)
+      if (widget.onSwitchHost != null || host.id == widget.host.id)
+        (host, sessions),
+  ];
 
   /// Whether the IME is up: an inset the system reports *and* a view focused to have raised
   /// it. Neither alone is the answer. Focus alone parts company with the truth when the
@@ -552,8 +485,12 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     _store.send(session, bytes);
   }
 
-  void _onSelect(ShellSession session) {
-    _store.activate(widget.host.id, session);
+  void _onSelect(Host host, ShellSession session) {
+    if (host.id == widget.host.id) {
+      _store.activate(host.id, session);
+      return;
+    }
+    widget.onSwitchHost?.call(host, session);
   }
 
   /// Called from build with the tab about to be drawn. When it is not the one drawn last,
@@ -748,7 +685,6 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       body: SafeArea(
         child: Builder(
           builder: (context) {
-            final sessions = store.forHost(widget.host.id);
             final active = store.activeFor(widget.host.id);
             _drawn = _drawnFrom(active);
             final registered =
@@ -776,17 +712,24 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                     children: [
                       ShellWatcher(
                         store: store,
-                        watch: (store) => store.forHost(widget.host.id),
+                        watch: (store) => [
+                          for (final (_, sessions) in _groups(store))
+                            ...sessions,
+                        ],
                         builder: (context) => ShellHeader(
                           host: widget.host,
-                          sessions: sessions,
+                          groups: _groups(store),
                           active: active,
                           newHosts: newHosts,
-                          onSwitchHost:
-                              widget.onSwitchHost != null && _reachable > 1
-                              ? _openSwitcher
-                              : null,
+                          folded: (host) => store.isFolded(host.id),
                           onSelect: _onSelect,
+                          onFold: (host) => store.fold(
+                            host.id,
+                            folded: !store.isFolded(host.id),
+                          ),
+                          onMoveTab: (host, from, to) =>
+                              store.moveTab(host.id, from, to),
+                          onMoveGroup: store.moveGroup,
                           onNew: _onNew,
                           onClose: active == null
                               ? null

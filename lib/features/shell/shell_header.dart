@@ -25,10 +25,7 @@ const _detailHeight = 56.0;
 
 const _tabMaxWidth = 88.0;
 
-/// Everything else on the row is fixed, and on a 411 px phone what is left over holds two
-/// tab cells and the plus only while the name stops here. Past this a name is read from
-/// the switcher, not from the header.
-const _hostMaxWidth = 80.0;
+const _groupMaxWidth = 80.0;
 
 /// A login shell's title is who and where — `luis@nyx: ~/Projects/dazzle` — and the where
 /// is the half that tells two tabs apart. A title with a space in it is a sentence the
@@ -51,25 +48,31 @@ class ShellHeader extends StatefulWidget {
   const ShellHeader({
     super.key,
     required this.host,
-    required this.sessions,
+    required this.groups,
     required this.active,
     required this.newHosts,
-    required this.onSwitchHost,
+    required this.folded,
     required this.onSelect,
+    required this.onFold,
+    required this.onMoveTab,
+    required this.onMoveGroup,
     required this.onNew,
     required this.onClose,
     required this.onStop,
     required this.onDiff,
     this.diffReady = false,
   });
-
   final Host host;
-  final List<ShellSession> sessions;
+  final List<(Host, List<ShellSession>)> groups;
   final ShellSession? active;
   final List<Host> newHosts;
 
-  final VoidCallback? onSwitchHost;
-  final void Function(ShellSession session) onSelect;
+  final bool Function(Host host) folded;
+
+  final void Function(Host host, ShellSession session) onSelect;
+  final ValueChanged<Host> onFold;
+  final void Function(Host host, int from, int to) onMoveTab;
+  final void Function(int from, int to) onMoveGroup;
   final ValueChanged<Host> onNew;
   final VoidCallback? onClose;
   final VoidCallback? onStop;
@@ -106,12 +109,12 @@ class _ShellHeaderState extends State<ShellHeader> {
   @override
   void didUpdateWidget(ShellHeader old) {
     super.didUpdateWidget(old);
-    if (old.active == widget.active &&
-        old.sessions.length == widget.sessions.length) {
-      return;
-    }
+    if (old.active == widget.active && _count(old) == _count(widget)) return;
     _revealActive(Motion.fast);
   }
+
+  int _count(ShellHeader header) =>
+      header.groups.fold(0, (total, group) => total + group.$2.length);
 
   /// After the frame that lays the strip out: a tab the build put there has no box to bring
   /// into view until it has been through a layout.
@@ -128,10 +131,12 @@ class _ShellHeaderState extends State<ShellHeader> {
     });
   }
 
+  Widget _lifted(Widget child, int index, Animation<double> animation) =>
+      ColoredBox(color: context.tokens.surfaceSecondary, child: child);
+
   @override
   Widget build(BuildContext context) {
     final host = widget.host;
-    final sessions = widget.sessions;
     final active = widget.active;
     final onClose = widget.onClose;
     final onDiff = widget.onDiff;
@@ -151,145 +156,23 @@ class _ShellHeaderState extends State<ShellHeader> {
         ),
         child: Row(
           children: [
-            const SizedBox(width: Spacing.screenEdge),
-            _HostCell(name: host.name, onTap: widget.onSwitchHost),
-            const SizedBox(width: Spacing.md),
-            const CellDivider(),
-            const SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.screenEdge - Spacing.sm),
             // The strip is the one part of the row that gives way: the cells beside it
             // keep the size of what they hold, and nine shells open scroll inside
             // whatever is left rather than overflowing the row.
             Expanded(
-              child: SingleChildScrollView(
+              child: ReorderableListView(
+                key: const ValueKey('shell-strip'),
                 scrollDirection: Axis.horizontal,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final session in sessions)
-                      KeyedSubtree(
-                        key: session == active ? _activeTab : null,
-                        child: _TabCell(
-                          key: ValueKey('shell-tab-${session.number}'),
-                          label: shellTabLabel(
-                            session.title?.trim().isNotEmpty == true
-                                ? session.title
-                                : session.repository ?? session.cwd,
-                            session.number,
-                          ),
-                          session: session,
-                          active: session == active,
-                          onTap: () => widget.onSelect(session),
-                        ),
-                      ),
-                    if (widget.newHosts.isNotEmpty)
-                      MenuAnchor(
-                        controller: _newMenu,
-                        onOpen: () => setState(() => _newMenuOpen = true),
-                        onClose: () => setState(() => _newMenuOpen = false),
-                        style: MenuStyle(
-                          backgroundColor: WidgetStatePropertyAll(
-                            context.tokens.surfaceSecondary,
-                          ),
-                          surfaceTintColor: const WidgetStatePropertyAll(
-                            Colors.transparent,
-                          ),
-                          shadowColor: const WidgetStatePropertyAll(
-                            Colors.transparent,
-                          ),
-                          elevation: const WidgetStatePropertyAll(0),
-                          padding: const WidgetStatePropertyAll(
-                            EdgeInsets.all(Spacing.sm),
-                          ),
-                          minimumSize: const WidgetStatePropertyAll(
-                            Size(200, 0),
-                          ),
-                          maximumSize: const WidgetStatePropertyAll(
-                            Size(280, 360),
-                          ),
-                          shape: WidgetStatePropertyAll(
-                            RoundedRectangleBorder(
-                              borderRadius: const BorderRadius.all(
-                                Radius.circular(Radii.sharp),
-                              ),
-                              side: BorderSide(
-                                color: context.tokens.borderNormal,
-                              ),
-                            ),
-                          ),
-                        ),
-                        alignmentOffset: const Offset(0, Spacing.sm),
-                        menuChildren: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              Spacing.md,
-                              Spacing.sm,
-                              Spacing.md,
-                              Spacing.sm,
-                            ),
-                            child: Text(
-                              'NEW SHELL ON',
-                              style: context.tokens.label,
-                            ),
-                          ),
-                          for (final host in widget.newHosts)
-                            MenuItemButton(
-                              key: ValueKey('shell-new-host-${host.id}'),
-                              onPressed: () => widget.onNew(host),
-                              style: const ButtonStyle(
-                                minimumSize: WidgetStatePropertyAll(
-                                  Size(192, TapTargets.minHeight),
-                                ),
-                                padding: WidgetStatePropertyAll(
-                                  EdgeInsetsDirectional.only(
-                                    start: Spacing.md,
-                                    end: Spacing.lg,
-                                  ),
-                                ),
-                                shape: WidgetStatePropertyAll(
-                                  RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(Radii.sharp),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  DazzleIcon(
-                                    DazzleIcons.hosts,
-                                    size: IconSizes.glyph,
-                                    color: context.tokens.textMuted,
-                                  ),
-                                  const SizedBox(width: Spacing.md),
-                                  Expanded(
-                                    child: Text(
-                                      host.name.toUpperCase(),
-                                      style: context.tokens.rowTitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  if (host.id == widget.host.id) ...[
-                                    const SizedBox(width: Spacing.md),
-                                    Text(
-                                      'CURRENT',
-                                      style: context.tokens.label,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                        ],
-                        builder: (context, controller, child) => _TabCell(
-                          key: const ValueKey('shell-tab-new'),
-                          label: '+',
-                          onTap: controller.isOpen
-                              ? controller.close
-                              : controller.open,
-                        ),
-                      ),
-                  ],
-                ),
+                buildDefaultDragHandles: false,
+                proxyDecorator: _lifted,
+                onReorderItem: widget.onMoveGroup,
+                footer: widget.newHosts.isEmpty ? null : _plus(context),
+                children: [
+                  for (final (index, (group, sessions))
+                      in widget.groups.indexed)
+                    _group(context, index, group, sessions),
+                ],
               ),
             ),
             if (onDiff != null)
@@ -317,58 +200,226 @@ class _ShellHeaderState extends State<ShellHeader> {
       ),
     );
   }
+
+  Widget _group(
+    BuildContext context,
+    int index,
+    Host group,
+    List<ShellSession> sessions,
+  ) {
+    final folded = widget.folded(group);
+    final front = group.id == widget.host.id;
+    final shown = [
+      for (final session in sessions)
+        if (!folded || (front && session == widget.active)) session,
+    ];
+    return Padding(
+      key: ValueKey('shell-group-${group.id}'),
+      padding: const EdgeInsets.only(right: Spacing.sm),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ReorderableDelayedDragStartListener(
+            index: index,
+            child: _GroupCell(
+              key: ValueKey('shell-group-label-${group.id}'),
+              name: group.name,
+              front: front,
+              hidden: sessions.length - shown.length,
+              onTap: () => widget.onFold(group),
+            ),
+          ),
+          ReorderableListView(
+            scrollDirection: Axis.horizontal,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            proxyDecorator: _lifted,
+            // Folded, the list holds only what is shown, so a move among it would not
+            // say where the tab goes among the ones that are not.
+            onReorderItem: (from, to) {
+              if (folded) return;
+              widget.onMoveTab(group, from, to);
+            },
+            children: [
+              for (final (slot, session) in shown.indexed)
+                ReorderableDelayedDragStartListener(
+                  key: ValueKey('shell-tab-${group.id}-${session.number}'),
+                  index: slot,
+                  enabled: !folded,
+                  child: KeyedSubtree(
+                    key: session == widget.active ? _activeTab : null,
+                    child: _TabCell(
+                      label: shellTabLabel(
+                        session.title?.trim().isNotEmpty == true
+                            ? session.title
+                            : session.repository ?? session.cwd,
+                        session.number,
+                      ),
+                      session: session,
+                      grouped: true,
+                      active: session == widget.active,
+                      onTap: () => widget.onSelect(group, session),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _plus(BuildContext context) {
+    return MenuAnchor(
+      key: const ValueKey('shell-strip-plus'),
+      controller: _newMenu,
+      onOpen: () => setState(() => _newMenuOpen = true),
+      onClose: () => setState(() => _newMenuOpen = false),
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(
+          context.tokens.surfaceSecondary,
+        ),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(0),
+        padding: const WidgetStatePropertyAll(EdgeInsets.all(Spacing.sm)),
+        minimumSize: const WidgetStatePropertyAll(Size(200, 0)),
+        maximumSize: const WidgetStatePropertyAll(Size(280, 360)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: const BorderRadius.all(Radius.circular(Radii.sharp)),
+            side: BorderSide(color: context.tokens.borderNormal),
+          ),
+        ),
+      ),
+      alignmentOffset: const Offset(0, Spacing.sm),
+      menuChildren: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.md,
+            Spacing.sm,
+            Spacing.md,
+            Spacing.sm,
+          ),
+          child: Text('NEW SHELL ON', style: context.tokens.label),
+        ),
+        for (final host in widget.newHosts)
+          MenuItemButton(
+            key: ValueKey('shell-new-host-${host.id}'),
+            onPressed: () => widget.onNew(host),
+            style: const ButtonStyle(
+              minimumSize: WidgetStatePropertyAll(
+                Size(192, TapTargets.minHeight),
+              ),
+              padding: WidgetStatePropertyAll(
+                EdgeInsetsDirectional.only(start: Spacing.md, end: Spacing.lg),
+              ),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(Radii.sharp)),
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                DazzleIcon(
+                  DazzleIcons.hosts,
+                  size: IconSizes.glyph,
+                  color: context.tokens.textMuted,
+                ),
+                const SizedBox(width: Spacing.md),
+                Expanded(
+                  child: Text(
+                    host.name.toUpperCase(),
+                    style: context.tokens.rowTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (host.id == widget.host.id) ...[
+                  const SizedBox(width: Spacing.md),
+                  Text('CURRENT', style: context.tokens.label),
+                ],
+              ],
+            ),
+          ),
+      ],
+      builder: (context, controller, child) => _TabCell(
+        key: const ValueKey('shell-tab-new'),
+        label: '+',
+        onTap: controller.isOpen ? controller.close : controller.open,
+      ),
+    );
+  }
 }
 
-class _HostCell extends StatelessWidget {
-  const _HostCell({required this.name, required this.onTap});
+class _GroupCell extends StatelessWidget {
+  const _GroupCell({
+    super.key,
+    required this.name,
+    required this.front,
+    required this.hidden,
+    required this.onTap,
+  });
 
   final String name;
-  final VoidCallback? onTap;
+  final bool front;
+  final int hidden;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    // The cap is on the name and not on the cell, as the tabs cap their word: the
-    // cell is as wide as what it holds, and a short name costs the strip nothing.
-    final label = ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: _hostMaxWidth),
-      child: Text(
-        name.toUpperCase(),
-        style: context.tokens.panelHeader.copyWith(
-          color: context.tokens.textPrimary,
-        ),
-        maxLines: 1,
-        softWrap: false,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-    if (onTap == null) return label;
-    return Tooltip(
-      message: 'All shells · $name',
-      excludeFromSemantics: true,
-      child: Semantics(
-        label: 'All shells, current host $name',
-        button: true,
+    final ink = front ? context.tokens.textPrimary : context.tokens.textMuted;
+    return Semantics(
+      label: hidden > 0 ? '$name, $hidden tabs folded' : name,
+      button: true,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        excludeSemantics: true,
-        child: GestureDetector(
-          key: const ValueKey('shell-host-switch'),
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: TapTargets.minHeight,
-              minWidth: TapTargets.minHeight,
+        child: Container(
+          constraints: const BoxConstraints(minWidth: TapTargets.minHeight),
+          padding: const EdgeInsets.symmetric(horizontal: Spacing.xs),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: context.tokens.borderNormal,
+                width: Borders.hairline * 2,
+              ),
             ),
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.sm,
+              vertical: Spacing.xs,
+            ),
+            color: context.tokens.surfaceSecondary,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                label,
-                const SizedBox(width: Spacing.sm),
-                DazzleIcon(
-                  DazzleIcons.arrowDown,
-                  size: IconSizes.affordance,
-                  color: context.tokens.textMuted,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: _groupMaxWidth),
+                  child: Text(
+                    name.toUpperCase(),
+                    style: context.tokens.label.copyWith(color: ink),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                if (hidden > 0) ...[
+                  const SizedBox(width: Spacing.xs),
+                  Text(
+                    '+$hidden',
+                    style: context.tokens.label.copyWith(
+                      color: context.tokens.textMuted,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -611,6 +662,7 @@ class _TabCell extends StatelessWidget {
     required this.onTap,
     this.session,
     this.active = false,
+    this.grouped = false,
     this.dimmed = false,
     this.tint,
   }) : assert(label != null || icon != null, 'a word or a mark, not neither');
@@ -624,6 +676,7 @@ class _TabCell extends StatelessWidget {
   final ShellSession? session;
 
   final bool active;
+  final bool grouped;
   final VoidCallback? onTap;
 
   /// What the cell is drawn in, when what it is drawn in is not the cell's own business:
@@ -654,9 +707,11 @@ class _TabCell extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           border: Border(
-            bottom: active
+            bottom: active || grouped
                 ? BorderSide(
-                    color: context.tokens.accent,
+                    color: active
+                        ? context.tokens.accent
+                        : context.tokens.borderNormal,
                     width: Borders.hairline * 2,
                   )
                 : BorderSide.none,
