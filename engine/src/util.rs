@@ -25,6 +25,25 @@ pub fn base64_encode(input: &[u8]) -> String {
     out
 }
 
+pub fn base64_decode(input: &[u8]) -> Option<Vec<u8>> {
+    let input = input
+        .strip_suffix(b"==")
+        .or_else(|| input.strip_suffix(b"="))
+        .unwrap_or(input);
+    let mut out = Vec::with_capacity(input.len() * 3 / 4);
+    let (mut acc, mut bits) = (0u32, 0u32);
+    for &byte in input {
+        let value = ALPHABET.iter().position(|&c| c == byte)? as u32;
+        acc = (acc << 6 | value) & 0xff_ffff;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((acc >> bits) as u8);
+        }
+    }
+    (bits < 6).then_some(out)
+}
+
 pub fn epoch_secs(time: SystemTime) -> u64 {
     time.duration_since(UNIX_EPOCH)
         .map(|value| value.as_secs())
@@ -40,7 +59,7 @@ pub fn now_millis() -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::base64_encode;
+    use super::{base64_decode, base64_encode};
 
     #[test]
     fn base64_matches_rfc_4648_vectors() {
@@ -51,5 +70,15 @@ mod tests {
         assert_eq!(base64_encode(b"foob"), "Zm9vYg==");
         assert_eq!(base64_encode(b"fooba"), "Zm9vYmE=");
         assert_eq!(base64_encode(b"foobar"), "Zm9vYmFy");
+    }
+
+    #[test]
+    fn base64_decodes_with_or_without_padding() {
+        assert_eq!(base64_decode(b"").unwrap(), b"");
+        assert_eq!(base64_decode(b"Zg==").unwrap(), b"f");
+        assert_eq!(base64_decode(b"Zm8").unwrap(), b"fo");
+        assert_eq!(base64_decode(b"Zm9vYmFy").unwrap(), b"foobar");
+        assert_eq!(base64_decode(b"Z"), None);
+        assert_eq!(base64_decode(b"Zm9v\n"), None);
     }
 }

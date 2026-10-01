@@ -106,7 +106,7 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path, policy: &Policy) -> E
     }
 }
 
-fn env_pairs(args: &Value) -> EngineResult<Vec<(String, String)>> {
+pub fn env_pairs(args: &Value) -> EngineResult<Vec<(String, String)>> {
     let Some(value) = args.get("env") else {
         return Ok(Vec::new());
     };

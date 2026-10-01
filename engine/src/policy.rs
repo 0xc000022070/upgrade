@@ -2,7 +2,20 @@ use crate::paths;
 use crate::protocol::{EngineError, EngineResult};
 use serde::Deserialize;
 use std::collections::BTreeSet;
+use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
+
+const SHELL_PORTS: PortRange = PortRange {
+    from: 60001,
+    to: 60999,
+};
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PortRange {
+    from: u16,
+    to: u16,
+}
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -11,12 +24,15 @@ struct ConfigFile {
     deny_capabilities: Vec<String>,
     #[serde(default, rename = "denyExec")]
     deny_exec: Vec<String>,
+    #[serde(default, rename = "shellPorts")]
+    shell_ports: Option<PortRange>,
 }
 
 #[derive(Debug, Default)]
 pub struct Policy {
     deny_capabilities: BTreeSet<String>,
     deny_exec: BTreeSet<String>,
+    shell_ports: Vec<PortRange>,
     sources: Vec<PathBuf>,
 }
 
@@ -46,6 +62,7 @@ impl Policy {
             })?;
             policy.deny_capabilities.extend(parsed.deny_capabilities);
             policy.deny_exec.extend(parsed.deny_exec);
+            policy.shell_ports.extend(parsed.shell_ports);
             policy.sources.push(candidate);
         }
         Ok(policy)
@@ -57,6 +74,17 @@ impl Policy {
 
     pub fn denied_exec(&self) -> Vec<&str> {
         self.deny_exec.iter().map(String::as_str).collect()
+    }
+
+    pub fn shell_ports(&self) -> Option<RangeInclusive<u16>> {
+        let ranges = if self.shell_ports.is_empty() {
+            &[SHELL_PORTS][..]
+        } else {
+            &self.shell_ports[..]
+        };
+        let from = ranges.iter().map(|range| range.from).max()?.max(1);
+        let to = ranges.iter().map(|range| range.to).min()?;
+        (from <= to).then_some(from..=to)
     }
 
     pub fn sources(&self) -> Vec<String> {

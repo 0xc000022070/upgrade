@@ -1,10 +1,12 @@
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 mod owner;
 mod paths;
 mod policy;
 mod protocol;
 mod services;
+#[allow(unsafe_code)]
+mod shell;
 mod util;
 
 use protocol::{EngineError, EngineResult, Request, Response};
@@ -17,7 +19,8 @@ const USAGE: &str = "\
 dazzle-engine — the host side of a Dazzle plugin.
 
 It is exec'd per call: it reads one JSON request on stdin, writes one JSON
-response on stdout, and exits. Nothing is resident and nothing listens.
+response on stdout, and exits. The one thing that stays is a shell/1 server:
+it listens on UDP for its own tab until the shell ends or is stopped.
 
     echo '{\"service\":\"lifecycle\",\"op\":\"probe\"}' | dazzle-engine
 
@@ -28,6 +31,8 @@ response on stdout, and exits. Nothing is resident and nothing listens.
 
 Configuration is read from /etc/dazzle-engine/config.json and the per-user file
 beside it. Their denyCapabilities and denyExec lists are unioned, never replaced.
+shellPorts {from, to} bounds the UDP ports shell/1 listens on; every file's
+range is intersected, and the default is 60001-60999.
 ";
 
 fn read_request() -> EngineResult<Request> {
@@ -59,6 +64,13 @@ fn main() {
                 std::process::exit(2);
             };
             std::process::exit(services::run::supervise(&PathBuf::from(dir)));
+        }
+        Some("__shell") => {
+            let Some(dir) = args.get(1) else {
+                eprintln!("__shell wants a tab directory");
+                std::process::exit(2);
+            };
+            std::process::exit(shell::serve(&PathBuf::from(dir)));
         }
         Some("__tick") => {
             let Some(scope) = args.get(1) else {

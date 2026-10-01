@@ -240,7 +240,7 @@ fn probe_answers_without_an_owner_and_names_only_what_is_built() {
         .collect();
     assert_eq!(
         names,
-        vec!["lifecycle", "fs/1", "run/1", "schedule/1", "agents/1"]
+        vec!["lifecycle", "fs/1", "run/1", "schedule/1", "agents/1", "shell/1"]
     );
     for absent in ["git/1", "kv/1", "batch/1"] {
         assert!(!names.contains(&absent), "{absent} is named but not built");

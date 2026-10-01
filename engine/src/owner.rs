@@ -12,6 +12,12 @@ pub fn passwd_home() -> Option<PathBuf> {
         .filter(|dir| !dir.as_os_str().is_empty())
 }
 
+pub fn passwd_shell() -> Option<String> {
+    passwd_entry()
+        .and_then(|entry| entry.shell.into_os_string().into_string().ok())
+        .filter(|value| !value.is_empty())
+}
+
 /// The account the engine is running as, taken from the password database rather
 /// than the environment: `USER` is inherited and a caller could have set it.
 pub fn account() -> EngineResult<String> {

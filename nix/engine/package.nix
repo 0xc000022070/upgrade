@@ -1,8 +1,12 @@
 {
   lib,
+  callPackage,
   rustPlatform,
 }:
 
+let
+  ghosttyVt = callPackage ./libghostty-vt.nix { };
+in
 rustPlatform.buildRustPackage {
   pname = "dazzle-engine";
   version = "0.1.0";
@@ -14,11 +18,14 @@ rustPlatform.buildRustPackage {
     fileset = lib.fileset.unions [
       ../../engine/Cargo.toml
       ../../engine/Cargo.lock
+      ../../engine/build.rs
       ../../engine/src
     ];
   };
 
   cargoLock.lockFile = ../../engine/Cargo.lock;
+
+  env.GHOSTTY_VT_LIB_DIR = "${ghosttyVt.dev}/lib";
 
   meta = {
     description = "The host side of a Dazzle plugin: one binary, exec'd per call";
