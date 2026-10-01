@@ -769,13 +769,19 @@ One interval for every connection the app holds — the shell, the agent client 
 
 ### The panel at the top of Home says what the agents are doing
 
-Header `AGENTS`, a count, `VIEW ALL >`. Column labels `AGENT`, `STATUS`, `WORK`. One row per working or blocked agent, most recently changed first, at most three: a 24px bordered mono glyph box, the agent's name, a 6px status dot with the status word — accent for working, warning for blocked, `--fg-dim` for idle — and the pane's stripped terminal title as the work, on one line, ellipsised. A footer line reads `N idle · N blocked`, the blocked count in warning when it is not zero. When nothing is working or blocked the rows collapse to that footer alone.
+Header `AGENTS`, a count, `VIEW ALL >`. Column labels `AGENT`, `STATUS`, `WORK`. One row per working or blocked agent, most recently changed first, at most three: a 24px bordered mono glyph box, the agent's name, a 6px status dot with the status word in the state's colour — and the pane's stripped terminal title as the work, on one line, ellipsised. A footer line reads `N idle · N blocked`, the blocked count in danger when it is not zero. When nothing is working or blocked the rows collapse to that footer alone.
 
 **The panel never assumes a host.** Until some host has an agent integration switched on — `HERDR`, `AGENTS`, or both — the panel is blocked: one dim line, `NO HOST · SET IN SYS`, no rows, no footer, and not a single connection opened. Every host with it on is polled concurrently, rows merge across hosts, and a host that fails contributes its own dim line while the others still draw rows.
 
 A host that is unreachable, has no key installed, or answers a protocol the app does not speak shows one dim line with the reason — `nyx unreachable`, `key rejected`, `protocol N` — and keeps the last good snapshot's age on the right, `12s ago`. It never blocks the rest of Home.
 
 `VIEW ALL` pushes an `AGENTS` route with no nav bar listing every agent, idle included, grouped by host and then by workspace — the host level collapsing when only one host has the integration on — each row adding the pane id and the directory's basename as a subtitle. What the engine hears is not grouped by workspace, because a session it hears has none: it is the inbox, below the workspaces.
+
+### An agent state is drawn in the colour herdr gives it
+
+The phone sits beside herdr's own sidebar, so a state reads in the same hue on both: working in `warning`, herdr's yellow; blocked in `danger`, herdr's red; idle and unknown in `--fg-dim`; done in `--fg`. It holds on every surface that colours a state — the Home panel's dot and word, its footer count, the picture-in-picture window's headline and state words, and the mark on the agent status bar.
+
+A link that failed or went down is drawn in `danger` too. Blocked and down both mean the user has to act, and the reason text says which. The accent is never a state colour: it is the app's own voice, and a lime blocked row beside herdr's red one told the reader two different things about the same pane.
 
 ### Each agent is drawn as its own mark
 
@@ -787,7 +793,7 @@ The box keeps its 24px border. Inside it the agent's official mark is reduced to
 
 **Struck:** a question mark for an unplaceable name. It is the same box for every one of them, and a list with two unknown agents on it drew two identical boxes and told the reader nothing.
 
-**Struck:** a colour per agent. It reads well enough on its own and it costs the thing the panel is for — the accent is the one colour here that is asking the user for something, and a row of six hues beside it is six things competing with the only one that means anything. The mark carries the identity and the name is written beside it.
+**Struck:** a colour per agent. It reads well enough on its own and it costs the thing the panel is for — the state colours are the only hues here and each one means something, and a row of six more beside them is six things competing with the two that do. The mark carries the identity and the name is written beside it.
 
 The name itself stays plain text as the server reports it, uppercased.
 

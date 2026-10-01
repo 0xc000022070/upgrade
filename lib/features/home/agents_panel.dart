@@ -247,7 +247,7 @@ class _Footer extends StatelessWidget {
           style: context.tokens.value.copyWith(
             color: blocked == 0
                 ? context.tokens.textMuted
-                : context.tokens.warning,
+                : context.tokens.danger,
           ),
         ),
       ],
