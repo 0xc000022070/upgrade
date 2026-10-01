@@ -1,3 +1,4 @@
+use super::kitty_claims::{Claims, Object, Reply};
 use super::IMAGE_BYTES;
 use crate::util::{base64_decode, base64_encode};
 use std::ffi::OsStr;
@@ -6,6 +7,7 @@ use std::io::{self, Read, Seek, SeekFrom};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 const ESC: u8 = 0x1b;
 const CAN: u8 = 0x18;
@@ -31,6 +33,7 @@ pub struct Span {
 pub struct Refusal {
     pub code: &'static str,
     pub reason: String,
+    pub missing: bool,
 }
 
 impl From<String> for Refusal {
@@ -38,6 +41,7 @@ impl From<String> for Refusal {
         Self {
             code: "EBADF",
             reason,
+            missing: false,
         }
     }
 }
@@ -49,7 +53,13 @@ impl From<&str> for Refusal {
 }
 
 pub trait Files {
-    fn read(&mut self, medium: Medium, path: &Path, span: Span) -> Result<Vec<u8>, Refusal>;
+    fn read(
+        &mut self,
+        medium: Medium,
+        path: &Path,
+        span: Span,
+        reply: Reply,
+    ) -> Result<Vec<u8>, Refusal>;
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -227,7 +237,12 @@ impl Command<'_> {
             size,
             limit: IMAGE_BYTES,
         };
-        files.read(self.medium, Path::new(OsStr::from_bytes(&path)), span)
+        files.read(
+            self.medium,
+            Path::new(OsStr::from_bytes(&path)),
+            span,
+            self.reply(),
+        )
     }
 
     fn shared_memory_size(&self) -> Option<u64> {
@@ -281,11 +296,18 @@ impl Command<'_> {
         keys
     }
 
+    fn reply(&self) -> Reply {
+        Reply {
+            id: self.number(b'i').unwrap_or(0),
+            number: self.number(b'I').unwrap_or(0),
+        }
+    }
+
     fn refuse(&self, refusal: &Refusal, out: &mut Vec<u8>) {
         let quiet = self.number(b'q').unwrap_or(0);
-        let id = self.number(b'i').unwrap_or(0);
-        let number = self.number(b'I').unwrap_or(0);
-        if quiet >= 2 || (id == 0 && number == 0) {
+        let Reply { id, number } = self.reply();
+        let taken_elsewhere = refusal.missing && self.medium != Medium::File;
+        if quiet >= 2 || (id == 0 && number == 0) || taken_elsewhere {
             return;
         }
         let mut keys = Vec::new();
@@ -317,6 +339,7 @@ fn write_command(out: &mut Vec<u8>, keys: &[u8], payload: &[u8]) {
 
 pub struct HostFiles {
     temp_dirs: Vec<PathBuf>,
+    pub claims: Claims,
 }
 
 impl Default for HostFiles {
@@ -325,17 +348,30 @@ impl Default for HostFiles {
         let mut temp_dirs = vec![PathBuf::from("/tmp"), PathBuf::from("/dev/shm")];
         temp_dirs.extend(fs::canonicalize(&temp).ok());
         temp_dirs.push(temp);
-        Self { temp_dirs }
+        Self {
+            temp_dirs,
+            claims: Claims::default(),
+        }
     }
 }
 
 impl Files for HostFiles {
-    fn read(&mut self, medium: Medium, path: &Path, span: Span) -> Result<Vec<u8>, Refusal> {
-        match medium {
+    fn read(
+        &mut self,
+        medium: Medium,
+        path: &Path,
+        span: Span,
+        reply: Reply,
+    ) -> Result<Vec<u8>, Refusal> {
+        let (bytes, left) = match medium {
             Medium::File => read_file(path, span, |_| Ok(false)),
             Medium::TemporaryFile => read_file(path, span, |real| self.temporary(real)),
             Medium::SharedMemory => read_shared_memory(path, span),
+        }?;
+        if let Some(object) = left {
+            self.claims.hold(reply, object, Instant::now());
         }
+        Ok(bytes)
     }
 }
 
@@ -357,7 +393,7 @@ impl HostFiles {
 }
 
 #[cfg(target_os = "linux")]
-fn read_shared_memory(name: &Path, span: Span) -> Result<Vec<u8>, Refusal> {
+fn read_shared_memory(name: &Path, span: Span) -> Result<Taken, Refusal> {
     let name = name.as_os_str().as_bytes();
     let valid = name.len() > 1
         && name.len() <= 255
@@ -373,21 +409,26 @@ fn read_shared_memory(name: &Path, span: Span) -> Result<Vec<u8>, Refusal> {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn read_shared_memory(_: &Path, _: Span) -> Result<Vec<u8>, Refusal> {
+fn read_shared_memory(_: &Path, _: Span) -> Result<Taken, Refusal> {
     Err("shared memory is not readable on this host".into())
 }
+
+type Taken = (Vec<u8>, Option<Object>);
 
 fn read_file(
     path: &Path,
     span: Span,
-    remove: impl FnOnce(&Path) -> Result<bool, String>,
-) -> Result<Vec<u8>, Refusal> {
+    consumed: impl FnOnce(&Path) -> Result<bool, String>,
+) -> Result<Taken, Refusal> {
     // Non-blocking, so a fifo named here cannot stall the server in open(2).
     let mut file = OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NONBLOCK | libc::O_NOCTTY)
         .open(path)
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| Refusal {
+            missing: err.kind() == io::ErrorKind::NotFound,
+            ..Refusal::from(err.to_string())
+        })?;
     let real = real_path(&file, path).map_err(|err| err.to_string())?;
     let real_text = real.as_os_str().as_bytes();
     let blocked = real_text.starts_with(b"/proc/")
@@ -396,12 +437,14 @@ fn read_file(
     if blocked {
         return Err("not a file images are read from".into());
     }
-    let remove = remove(&real)?;
-    let read = read_span(&mut file, span);
-    if remove {
-        let _ = fs::remove_file(&real);
-    }
-    read
+    let left = match consumed(&real)? {
+        true => Some(Object::new(
+            real,
+            &file.metadata().map_err(|err| err.to_string())?,
+        )),
+        false => None,
+    };
+    Ok((read_span(&mut file, span)?, left))
 }
 
 #[cfg(target_os = "linux")]
@@ -429,6 +472,7 @@ fn read_span(file: &mut File, span: Span) -> Result<Vec<u8>, Refusal> {
         return Err(Refusal {
             code: "EFBIG",
             reason: format!("larger than the {} bytes an image may be", span.limit),
+            missing: false,
         });
     }
     if size > available {
@@ -455,14 +499,24 @@ mod tests {
     }
 
     impl Files for FakeFiles {
-        fn read(&mut self, medium: Medium, path: &Path, span: Span) -> Result<Vec<u8>, Refusal> {
+        fn read(
+            &mut self,
+            medium: Medium,
+            path: &Path,
+            span: Span,
+            _: Reply,
+        ) -> Result<Vec<u8>, Refusal> {
             self.asked.push((medium, path.to_owned(), span));
-            let bytes = self.files.get(path).ok_or("No such file or directory")?;
+            let bytes = self.files.get(path).ok_or(Refusal {
+                missing: true,
+                ..Refusal::from("No such file or directory")
+            })?;
             let start = span.offset as usize;
             if span.size.is_some_and(|size| size > span.limit) {
                 return Err(Refusal {
                     code: "EFBIG",
                     reason: "too large".into(),
+                    missing: false,
                 });
             }
             let end = span.size.map_or(bytes.len(), |size| start + size as usize);
@@ -559,6 +613,18 @@ mod tests {
     }
 
     #[test]
+    fn a_temporary_object_already_gone_was_answered_by_whoever_took_it() {
+        let mut files = FakeFiles::default();
+        for medium in ["t", "s"] {
+            let keys = format!("a=T,i=8,t={medium},f=100");
+            let (forward, replies) =
+                run(&mut files, &[&cmd(&keys, "/tmp/tty-graphics-protocol-9")]);
+            assert!(forward.is_empty());
+            assert!(replies.is_empty(), "{medium}");
+        }
+    }
+
+    #[test]
     fn a_file_past_the_cap_is_answered_efbig_and_goes_no_further() {
         let mut files = fake("/big", b"x");
         let keys = format!("a=T,i=6,t=f,S={}", IMAGE_BYTES + 1);
@@ -649,21 +715,29 @@ mod tests {
         fs::write(&path, b"0123456789").unwrap();
         let mut host = HostFiles::default();
         assert_eq!(
-            host.read(Medium::File, &path, span(2, Some(3))).unwrap(),
+            host.read(Medium::File, &path, span(2, Some(3)), Reply::default())
+                .unwrap(),
             b"234"
         );
         assert_eq!(
-            host.read(Medium::File, &path, span(8, None)).unwrap(),
+            host.read(Medium::File, &path, span(8, None), Reply::default())
+                .unwrap(),
             b"89"
         );
-        assert!(host.read(Medium::File, &path, span(8, Some(3))).is_err());
-        assert!(host.read(Medium::File, &path, span(11, None)).is_err());
+        assert!(host
+            .read(Medium::File, &path, span(8, Some(3)), Reply::default())
+            .is_err());
+        assert!(host
+            .read(Medium::File, &path, span(11, None), Reply::default())
+            .is_err());
         let limited = Span {
             limit: 4,
             ..span(0, None)
         };
         assert_eq!(
-            host.read(Medium::File, &path, limited).unwrap_err().code,
+            host.read(Medium::File, &path, limited, Reply::default())
+                .unwrap_err()
+                .code,
             "EFBIG"
         );
         let asked = Span {
@@ -671,18 +745,27 @@ mod tests {
             ..span(0, Some(5))
         };
         assert_eq!(
-            host.read(Medium::File, &path, asked).unwrap_err().code,
+            host.read(Medium::File, &path, asked, Reply::default())
+                .unwrap_err()
+                .code,
             "EFBIG"
         );
         assert_eq!(
-            host.read(Medium::File, &path, span(8, Some(3)))
+            host.read(Medium::File, &path, span(8, Some(3)), Reply::default())
                 .unwrap_err()
                 .code,
             "EBADF"
         );
-        assert!(host.read(Medium::File, &dir, span(0, None)).is_err());
         assert!(host
-            .read(Medium::File, Path::new("/proc/self/status"), span(0, None))
+            .read(Medium::File, &dir, span(0, None), Reply::default())
+            .is_err());
+        assert!(host
+            .read(
+                Medium::File,
+                Path::new("/proc/self/status"),
+                span(0, None),
+                Reply::default()
+            )
             .is_err());
         assert!(path.exists(), "a plain file is left alone");
         fs::remove_dir_all(&dir).unwrap();
@@ -694,10 +777,16 @@ mod tests {
         let elsewhere = scratch("elsewhere");
         let mut host = HostFiles {
             temp_dirs: vec![fs::canonicalize(&temp).unwrap()],
+            claims: Claims::default(),
         };
         let outside = elsewhere.join("tty-graphics-protocol-1");
         fs::write(&outside, b"x").unwrap();
-        let refused = host.read(Medium::TemporaryFile, &outside, span(0, None));
+        let refused = host.read(
+            Medium::TemporaryFile,
+            &outside,
+            span(0, None),
+            Reply::default(),
+        );
         assert!(refused
             .unwrap_err()
             .reason
@@ -707,22 +796,35 @@ mod tests {
         let unnamed = temp.join("thumb.png");
         fs::write(&unnamed, b"x").unwrap();
         assert!(host
-            .read(Medium::TemporaryFile, &unnamed, span(0, None))
+            .read(
+                Medium::TemporaryFile,
+                &unnamed,
+                span(0, None),
+                Reply::default()
+            )
             .is_err());
         assert!(unnamed.exists());
 
         let named = temp.join("tty-graphics-protocol-2");
         fs::write(&named, b"pixels").unwrap();
-        let read = host.read(Medium::TemporaryFile, &named, span(0, None));
+        let reply = Reply { id: 7, number: 0 };
+        let read = host.read(Medium::TemporaryFile, &named, span(0, None), reply);
         assert_eq!(read.unwrap(), b"pixels");
-        assert!(!named.exists(), "a temporary file goes once read");
+        assert!(named.exists(), "another terminal may still read it");
+        let mut out = Vec::new();
+        host.claims.answer(b"\x1b_Gi=7;OK\x1b\\", &mut out);
+        assert_eq!(out, b"\x1b_Gi=7;OK\x1b\\");
+        assert!(
+            !named.exists(),
+            "nobody else took it, so it goes with the answer"
+        );
         fs::remove_dir_all(&temp).unwrap();
         fs::remove_dir_all(&elsewhere).unwrap();
     }
 
     #[cfg(target_os = "linux")]
     #[test]
-    fn shared_memory_is_read_and_unlinked() {
+    fn shared_memory_is_read_and_unlinked_once_settled() {
         let name = format!(
             "dazzle-kitty-medium-{}-{}",
             std::process::id(),
@@ -733,14 +835,26 @@ mod tests {
         let mut host = HostFiles::default();
         let shm = PathBuf::from(format!("/{name}"));
         assert_eq!(
-            host.read(Medium::SharedMemory, &shm, span(0, Some(3)))
-                .unwrap(),
+            host.read(
+                Medium::SharedMemory,
+                &shm,
+                span(0, Some(3)),
+                Reply::default()
+            )
+            .unwrap(),
             b"rgb"
         );
+        drop(host.claims);
         assert!(!path.exists());
+        let mut host = HostFiles::default();
         let climbing = Path::new("/../tmp/x");
         assert!(host
-            .read(Medium::SharedMemory, climbing, span(0, None))
+            .read(
+                Medium::SharedMemory,
+                climbing,
+                span(0, None),
+                Reply::default()
+            )
             .is_err());
     }
 }

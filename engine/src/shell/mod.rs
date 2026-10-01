@@ -2,6 +2,7 @@ mod control;
 mod endpoint;
 mod input;
 mod kitty;
+mod kitty_claims;
 mod kitty_medium;
 mod launch;
 mod link;
