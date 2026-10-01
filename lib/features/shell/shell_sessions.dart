@@ -554,6 +554,42 @@ class ShellSessions extends ChangeNotifier {
     unawaited(tabs?.activate(hostId, session.number));
   }
 
+  final _folded = <String>{};
+
+  bool isFolded(String hostId) => _folded.contains(hostId);
+
+  void fold(String hostId, {required bool folded}) {
+    if (!(folded ? _folded.add(hostId) : _folded.remove(hostId))) return;
+    notifyListeners();
+  }
+
+  void moveTab(String hostId, int from, int to) {
+    final sessions = _byHost[hostId];
+    if (sessions == null || from == to) return;
+    sessions.insert(to, sessions.removeAt(from));
+    _placed();
+  }
+
+  void moveGroup(int from, int to) {
+    final groups = _byHost.entries.toList();
+    if (from == to) return;
+    groups.insert(to, groups.removeAt(from));
+    _byHost
+      ..clear()
+      ..addEntries(groups);
+    _placed();
+  }
+
+  void _placed() {
+    notifyListeners();
+    unawaited(
+      tabs?.order([
+        for (final MapEntry(key: hostId, value: sessions) in _byHost.entries)
+          for (final session in sessions) (hostId, session.number),
+      ]),
+    );
+  }
+
   bool canOpen(String hostId) =>
       (_byHost[hostId]?.length ?? 0) < maxShellSessions;
 
@@ -952,6 +988,10 @@ class ShellSessions extends ChangeNotifier {
     session._stopAsking();
     session.disarm();
     _byHost[hostId]?.remove(session);
+    if (_byHost[hostId]?.isEmpty ?? false) {
+      _byHost.remove(hostId);
+      _folded.remove(hostId);
+    }
     unawaited(
       session._saved.then((_) => snapshots?.drop(hostId, session.number)),
     );

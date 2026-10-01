@@ -2060,6 +2060,37 @@ void main() {
       expect(after.activeFor(_rose.id)!.number, 1);
     });
 
+    test('moved tabs and groups come back where they were put', () async {
+      final tabs = InMemoryShellTabRepository();
+      final before = fakeShellSessions(FakeShellTransport(), tabs: tabs);
+      before.open(_rose);
+      before.open(_nyx);
+      before.open(_nyx);
+      before.open(_nyx);
+      before.moveTab(_nyx.id, 0, 2);
+      before.moveGroup(1, 0);
+      await _settle();
+      before.open(_nyx);
+      before.open(_rose);
+      await _settle();
+
+      final after = fakeShellSessions(FakeShellTransport(), tabs: tabs);
+      await after.restore(hosts);
+
+      expect(
+        [for (final (host, _) in after.openHosts) host.id],
+        [_nyx.id, _rose.id],
+      );
+      expect(after.forHost(_nyx.id).map((session) => session.number), [
+        2,
+        3,
+        1,
+        4,
+      ]);
+      expect(after.forHost(_rose.id).map((session) => session.number), [1, 2]);
+      await _settle();
+    });
+
     test('numbering carries on past the tabs that came back', () async {
       final tabs = InMemoryShellTabRepository();
       final before = fakeShellSessions(FakeShellTransport(), tabs: tabs);

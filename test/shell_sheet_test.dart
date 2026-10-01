@@ -133,7 +133,8 @@ void main() {
 
     expect(sheet, findsOneWidget);
     expect(find.text('NYX'), findsOneWidget);
-    expect(find.text('ROSE'), findsNothing);
+    expect(find.text('ROSE'), findsOneWidget, reason: 'its group stays');
+    expect(sessions.parked!.host.id, _nyx.id);
 
     await unmount(tester);
   });
@@ -217,7 +218,7 @@ void main() {
 
     await openNewShell(tester);
 
-    expect(find.byKey(const ValueKey('shell-tab-2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-tab-h1-2')), findsOneWidget);
     expect(find.text('ROSE'), findsOneWidget);
 
     await unmount(tester);

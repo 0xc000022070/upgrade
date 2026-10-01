@@ -28,7 +28,7 @@ import 'support/themed_app.dart';
 String labelOfTab(WidgetTester tester, int number) => tester
     .widget<Text>(
       find.descendant(
-        of: find.byKey(ValueKey('shell-tab-$number')),
+        of: find.byKey(ValueKey('shell-tab-h1-$number')),
         matching: find.byType(Text),
       ),
     )
@@ -39,7 +39,7 @@ Color? dotOfTab(WidgetTester tester, int number) =>
                 .widget<Container>(
                   find.descendant(
                     of: find.descendant(
-                      of: find.byKey(ValueKey('shell-tab-$number')),
+                      of: find.byKey(ValueKey('shell-tab-h1-$number')),
                       matching: find.byType(ShellStateDot),
                     ),
                     matching: find.byType(Container),
@@ -103,7 +103,7 @@ void main() {
     await ready(tester);
 
     final sweep = find.descendant(
-      of: find.byKey(const ValueKey('shell-tab-1')),
+      of: find.byKey(const ValueKey('shell-tab-h1-1')),
       matching: find.byType(ScanSweep),
     );
     expect(sweep, findsOneWidget);
@@ -127,7 +127,7 @@ void main() {
     await ready(tester);
 
     final sweep = find.descendant(
-      of: find.byKey(const ValueKey('shell-tab-1')),
+      of: find.byKey(const ValueKey('shell-tab-h1-1')),
       matching: find.byType(ScanSweep),
     );
     expect(sweep, findsNothing);
@@ -217,8 +217,8 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    expect(find.byKey(const ValueKey('shell-tab-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-tab-2')), findsNothing);
+    expect(find.byKey(const ValueKey('shell-tab-h1-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-tab-h1-2')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
     await ready(tester);
@@ -237,10 +237,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('launch-shell')));
     await ready(tester);
 
-    expect(find.byKey(const ValueKey('shell-tab-2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-tab-h1-2')), findsOneWidget);
     expect(sessions.activeFor(rose.id)?.number, 2);
 
-    await tester.tap(find.byKey(const ValueKey('shell-tab-1')));
+    await tester.tap(find.byKey(const ValueKey('shell-tab-h1-1')));
     await ready(tester);
     expect(sessions.activeFor(rose.id)?.number, 1);
 
@@ -443,7 +443,7 @@ void main() {
       await ready(tester);
 
       expect(
-        tester.getSize(find.byKey(const ValueKey('shell-tab-1'))).width,
+        tester.getSize(find.byKey(const ValueKey('shell-tab-h1-1'))).width,
         lessThan(411 * 0.55),
       );
       expect(tester.takeException(), isNull);
@@ -481,7 +481,7 @@ void main() {
       await ready(tester);
 
       expect(
-        tester.getSize(find.byKey(const ValueKey('shell-tab-1'))).width,
+        tester.getSize(find.byKey(const ValueKey('shell-tab-h1-1'))).width,
         lessThan(60),
       );
 
@@ -510,7 +510,7 @@ void main() {
       await ready(tester);
 
       Finder inTab(int number, Type type) => find.descendant(
-        of: find.byKey(ValueKey('shell-tab-$number')),
+        of: find.byKey(ValueKey('shell-tab-h1-$number')),
         matching: find.byType(type),
       );
       for (final number in [1, 2]) {
@@ -546,16 +546,11 @@ void main() {
 
       // Against the strip's own viewport and not the screen — a cell the strip has clipped is
       // still inside the phone.
-      final strip = tester.getRect(
-        find.descendant(
-          of: find.byKey(const ValueKey('shell-header')),
-          matching: find.byType(SingleChildScrollView),
-        ),
-      );
+      final strip = tester.getRect(find.byKey(const ValueKey('shell-strip')));
       expect(strip.right, lessThanOrEqualTo(411.0));
       for (final cell in const [
-        'shell-tab-1',
-        'shell-tab-2',
+        'shell-tab-h1-1',
+        'shell-tab-h1-2',
         'shell-tab-new',
       ]) {
         final rect = tester.getRect(find.byKey(ValueKey(cell)));
@@ -584,7 +579,9 @@ void main() {
       sessions.open(rose);
       await ready(tester);
 
-      final ninth = tester.getRect(find.byKey(const ValueKey('shell-tab-9')));
+      final ninth = tester.getRect(
+        find.byKey(const ValueKey('shell-tab-h1-9')),
+      );
       expect(ninth.left, greaterThanOrEqualTo(0));
       expect(ninth.right, lessThanOrEqualTo(411));
 
@@ -604,7 +601,7 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    expect(find.byKey(const ValueKey('shell-tab-9')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-tab-h1-9')), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-tab-new')), findsNothing);
     expect(tester.takeException(), isNull);
     expect(
@@ -727,7 +724,7 @@ void main() {
       expect(transport.opened[1].written, 'b');
       expect(transport.opened[0].written, 'a');
 
-      await tester.tap(find.byKey(const ValueKey('shell-tab-1')));
+      await tester.tap(find.byKey(const ValueKey('shell-tab-h1-1')));
       await ready(tester);
       expect(connected(tester), isTrue);
       await type(tester, 'c');
