@@ -16,6 +16,15 @@ impl Reply {
     fn expected(self) -> bool {
         self.id != 0 || self.number != 0
     }
+
+    /// A command sent with only `I=` is answered with the id the terminal assigned as well.
+    fn answers(self, claim: Reply) -> bool {
+        if claim.number != 0 {
+            self.number == claim.number
+        } else {
+            self.id == claim.id
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,7 +126,11 @@ impl Claims {
     fn theirs(&mut self, reply: Reply) -> bool {
         let found = reply
             .expected()
-            .then(|| self.open.iter().position(|claim| claim.reply == reply))
+            .then(|| {
+                self.open
+                    .iter()
+                    .position(|claim| reply.answers(claim.reply))
+            })
             .flatten();
         found.is_some_and(|at| self.open.remove(at).settle())
     }
@@ -205,6 +218,22 @@ mod tests {
             answer(&mut claims, b"\x1b_Gi=4;OK\x1b\\"),
             b"\x1b_Gi=4;OK\x1b\\"
         );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_numbered_command_is_answered_with_the_assigned_id_too() {
+        let dir = testing::scratch("kitty-claims", "numbered");
+        let path = dir.join("tty-graphics-protocol-5");
+        fs::write(&path, b"png").unwrap();
+        let mut claims = Claims::default();
+        claims.hold(Reply { id: 0, number: 8 }, object(&path), Instant::now());
+        fs::remove_file(&path).unwrap();
+        assert_eq!(
+            answer(&mut claims, b"\x1b_Gi=3,I=9;OK\x1b\\\x1b_Gi=3,I=8;OK\x1b\\"),
+            b"\x1b_Gi=3,I=9;OK\x1b\\"
+        );
+        assert!(claims.deadline().is_none());
         fs::remove_dir_all(&dir).unwrap();
     }
 

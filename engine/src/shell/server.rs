@@ -252,6 +252,9 @@ impl Server {
                 Err(_) => break,
             }
         }
+        if self.forward.capacity() > self.pty_buf.len() * 2 {
+            self.forward = Vec::new();
+        }
         self.pending.extend(replies);
     }
 

@@ -126,7 +126,7 @@ impl Media {
         if plain == 0 {
             return self.body(rest[0], forward);
         }
-        let room = MAX_COMMAND - self.held.len();
+        let room = MAX_COMMAND.saturating_sub(self.held.len());
         if plain > room {
             self.held.extend_from_slice(&rest[..=room]);
             self.release(forward);
@@ -453,14 +453,17 @@ fn read_file(
     if blocked {
         return Err("not a file images are read from".into());
     }
-    let left = match consumed(&real)? {
-        true => Some(Object::new(
-            real,
-            &file.metadata().map_err(|err| err.to_string())?,
-        )),
-        false => None,
-    };
-    Ok((read_span(&mut file, span)?, left))
+    if !consumed(&real)? {
+        return Ok((read_span(&mut file, span)?, None));
+    }
+    let metadata = file.metadata().map_err(|err| err.to_string())?;
+    match read_span(&mut file, span) {
+        Ok(bytes) => Ok((bytes, Some(Object::new(real, &metadata)))),
+        Err(refusal) => {
+            let _ = fs::remove_file(&real);
+            Err(refusal)
+        }
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -690,6 +693,19 @@ mod tests {
         assert!(files.asked.is_empty());
         let bytes: Vec<&[u8]> = input.chunks(1).collect();
         assert_eq!(run(&mut files, &bytes), (forward, replies));
+
+        let mut input = b"\x1b_Ga=T,t=f,x=".to_vec();
+        input.resize(MAX_COMMAND, b'a');
+        input.extend_from_slice(b";AAAA\x1b\\after");
+        let (forward, replies) = run(&mut files, &[&input]);
+        assert_eq!(
+            forward, input,
+            "keys filling the cap leave no room for a payload"
+        );
+        assert!(replies.is_empty());
+        let bytes: Vec<&[u8]> = input.chunks(1).collect();
+        assert_eq!(run(&mut files, &bytes), (forward, replies));
+        assert!(files.asked.is_empty());
     }
 
     #[test]
@@ -836,6 +852,19 @@ mod tests {
             !named.exists(),
             "nobody else took it, so it goes with the answer"
         );
+
+        let oversized = temp.join("tty-graphics-protocol-3");
+        fs::write(&oversized, b"pixels").unwrap();
+        let cramped = Span {
+            offset: 0,
+            size: None,
+            limit: 2,
+        };
+        assert!(host
+            .read(Medium::TemporaryFile, &oversized, cramped, reply)
+            .is_err());
+        assert!(!oversized.exists(), "a file that cannot be read still goes");
+        assert!(host.claims.deadline().is_none());
         fs::remove_dir_all(&temp).unwrap();
         fs::remove_dir_all(&elsewhere).unwrap();
     }
