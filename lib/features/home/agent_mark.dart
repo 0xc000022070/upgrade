@@ -22,8 +22,8 @@ String agentMarkLetter(String agent) {
 
 Color agentStateColor(BuildContext context, AgentState state) =>
     switch (state) {
-      WorkingState() => context.tokens.accent,
-      BlockedState() => context.tokens.warning,
+      WorkingState() => context.tokens.warning,
+      BlockedState() => context.tokens.danger,
       DoneState() => context.tokens.textPrimary,
       IdleState() || UnknownState() => context.tokens.textMuted,
     };

@@ -93,9 +93,8 @@ class AgentStatusBar extends ConsumerWidget {
   }
 
   Color _tint(BuildContext context, AgentStates states, {required bool down}) {
-    if (states.blocked > 0) return context.tokens.accent;
-    if (down) return context.tokens.warning;
-    if (states.working > 0) return context.tokens.textPrimary;
+    if (states.blocked > 0 || down) return context.tokens.danger;
+    if (states.working > 0) return context.tokens.warning;
     return context.tokens.textMuted;
   }
 }

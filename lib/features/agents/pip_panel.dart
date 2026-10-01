@@ -88,7 +88,11 @@ class PipPanel extends ConsumerWidget {
     final blocked = outcomes.any(
       (outcome) => outcome.agents.any((agent) => agent.state.blocked),
     );
-    return blocked ? context.tokens.accent : context.tokens.textPrimary;
+    if (blocked) return context.tokens.danger;
+    final working = outcomes.any(
+      (outcome) => outcome.agents.any((agent) => agent.state.active),
+    );
+    return working ? context.tokens.warning : context.tokens.textPrimary;
   }
 
   List<_Row> _listed(List<HostOutcome> outcomes) {
@@ -287,7 +291,7 @@ class _AgentLine extends StatelessWidget {
           Text(
             row.agent.state.label,
             style: context.tokens.pipState.copyWith(
-              color: blocked ? context.tokens.accent : null,
+              color: agentStateColor(context, row.agent.state),
               fontWeight: blocked ? FontWeight.w500 : null,
             ),
           ),

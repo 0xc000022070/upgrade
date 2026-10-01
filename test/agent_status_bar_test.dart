@@ -229,32 +229,36 @@ void main() {
   });
 
   group('the mark', () {
-    testWidgets('is the plain one while the work is only running', (
+    testWidgets('takes herdr\'s working hue while the work is only running', (
       tester,
     ) async {
       await pumpBar(tester, [
         answering([agent('claude', 'working')]),
       ]);
 
-      expect(mark(tester), DazzleColors.textPrimary);
+      expect(mark(tester), DazzleColors.warning);
     });
 
-    testWidgets('warns when a host has stopped answering', (tester) async {
+    testWidgets('turns danger when a host has stopped answering', (
+      tester,
+    ) async {
       await pumpBar(tester, [
         const HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
         answering([agent('claude', 'working')], on: rose),
       ]);
 
-      expect(mark(tester), DazzleColors.warning);
+      expect(mark(tester), DazzleColors.danger);
     });
 
-    testWidgets('goes to blocked over a host being down', (tester) async {
+    testWidgets('reads blocked in herdr\'s red beside a host being down', (
+      tester,
+    ) async {
       await pumpBar(tester, [
         const HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
         answering([agent('claude', 'blocked')], on: rose),
       ]);
 
-      expect(mark(tester), DazzleColors.accent);
+      expect(mark(tester), DazzleColors.danger);
     });
 
     testWidgets('grows by what the line beside it grew by', (tester) async {
