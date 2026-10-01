@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 const SETTLE: Duration = Duration::from_secs(5);
 const FORGET: Duration = Duration::from_secs(60);
+const GRACE: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Reply {
@@ -55,6 +56,7 @@ struct Claim {
     object: Object,
     since: Instant,
     theirs: Option<bool>,
+    placed: Option<usize>,
     sent: Option<u64>,
 }
 
@@ -91,6 +93,7 @@ pub struct Claims {
 struct Cut {
     reached: u64,
     to: u64,
+    jumped: Option<Instant>,
 }
 
 impl Cut {
@@ -98,6 +101,14 @@ impl Cut {
         claim
             .sent
             .is_some_and(|at| self.reached < at && at <= self.to)
+    }
+
+    fn heard(&mut self, ack: u64, now: Option<Instant>) {
+        if ack <= self.to {
+            self.reached = self.reached.max(ack);
+        } else if let Some(now) = now {
+            self.jumped.get_or_insert(now);
+        }
     }
 }
 
@@ -108,37 +119,55 @@ impl Claims {
             object,
             since: now,
             theirs: None,
+            placed: None,
             sent: None,
         });
     }
 
-    pub fn sent(&mut self, at: Option<u64>) {
+    pub fn placed(&mut self, at: usize) {
         for claim in self.open.iter_mut().filter(|claim| claim.sent.is_none()) {
-            claim.sent = Some(at.unwrap_or_default());
-            if at.is_none() {
+            claim.placed.get_or_insert(at);
+        }
+    }
+
+    /// Stamps the claims of `len` forwarded bytes with where their own command ends in the
+    /// stream, which holds those bytes up to `end`.
+    pub fn sent(&mut self, end: Option<u64>, len: usize) {
+        for claim in self.open.iter_mut().filter(|claim| claim.sent.is_none()) {
+            let after = len - claim.placed.unwrap_or(len).min(len);
+            claim.sent = Some(end.map_or(0, |end| end - after as u64));
+            if end.is_none() {
                 claim.reply = Reply::default();
             }
         }
     }
 
-    pub fn cut(&mut self, (from, to): (u64, u64)) {
-        let cut = Cut { reached: from, to };
+    pub fn cut(&mut self, (from, to): (u64, u64), ack: u64, now: Option<Instant>) {
+        let mut cut = Cut {
+            reached: from,
+            to,
+            jumped: None,
+        };
+        cut.heard(ack, now);
         if self.open.iter().any(|claim| cut.holds(claim)) {
             self.cuts.push(cut);
         }
     }
 
-    pub fn acked(&mut self, ack: u64) {
+    pub fn acked(&mut self, ack: u64, now: Option<Instant>) {
         let open = &mut self.open;
         self.cuts.retain_mut(|cut| {
-            if ack < cut.to {
-                cut.reached = cut.reached.max(ack);
-                return true;
+            cut.heard(ack, now);
+            let settled = cut
+                .jumped
+                .zip(now)
+                .is_some_and(|(jumped, now)| now >= jumped + GRACE);
+            if settled {
+                for claim in open.iter_mut().filter(|claim| cut.holds(claim)) {
+                    claim.reply = Reply::default();
+                }
             }
-            for claim in open.iter_mut().filter(|claim| cut.holds(claim)) {
-                claim.reply = Reply::default();
-            }
-            false
+            !settled
         });
     }
 
@@ -310,12 +339,12 @@ mod tests {
         let mut claims = Claims::default();
         let start = Instant::now();
         claims.hold(reply(1), object(&first), start);
-        claims.sent(Some(10));
+        claims.sent(Some(10), 0);
         fs::remove_file(&first).unwrap();
         claims.expire(start + SETTLE);
         fs::write(&second, b"png").unwrap();
         claims.hold(reply(1), object(&second), start + SETTLE);
-        claims.sent(Some(20));
+        claims.sent(Some(20), 0);
         assert_eq!(answer(&mut claims, b"\x1b_Gi=1;ENOENT\x1b\\"), b"");
         assert!(second.exists());
         let ok = b"\x1b_Gi=1;OK\x1b\\";
@@ -335,17 +364,19 @@ mod tests {
         }
         let mut claims = Claims::default();
         let start = Instant::now();
+        let at = Some(start);
         claims.hold(reply(2), object(&paths[0]), start);
-        claims.sent(Some(5));
+        claims.sent(Some(5), 0);
         claims.hold(reply(1), object(&paths[1]), start);
-        claims.sent(Some(10));
-        claims.cut((0, 12));
-        claims.acked(6);
-        claims.acked(12);
+        claims.sent(Some(10), 0);
+        claims.cut((0, 12), 0, at);
+        claims.acked(6, at);
+        claims.acked(13, at);
+        claims.acked(13, Some(start + GRACE));
         claims.hold(reply(1), object(&paths[2]), start);
-        claims.sent(None);
+        claims.sent(None, 0);
         claims.hold(reply(1), object(&paths[3]), start);
-        claims.sent(Some(30));
+        claims.sent(Some(30), 0);
         let ok = b"\x1b_Gi=2;OK\x1b\\\x1b_Gi=1;OK\x1b\\";
         assert_eq!(answer(&mut claims, ok), ok);
         assert!(!paths[0].exists(), "the phone got it before the cut");
@@ -353,6 +384,89 @@ mod tests {
         assert!(!paths[3].exists());
         drop(claims);
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn owed(
+        name: &str,
+        sent: (u64, usize),
+        placed: Option<usize>,
+        acks: &[(u64, Option<u64>)],
+        cut: ((u64, u64), u64),
+    ) -> bool {
+        let dir = testing::scratch("kitty-claims", name);
+        let path = dir.join("tty-graphics-protocol-3");
+        fs::write(&path, b"png").unwrap();
+        let mut claims = Claims::default();
+        let start = Instant::now();
+        let at = |ms: Option<u64>| ms.map(|ms| start + Duration::from_millis(ms));
+        claims.hold(reply(3), object(&path), start);
+        if let Some(placed) = placed {
+            claims.placed(placed);
+        }
+        claims.sent(Some(sent.0), sent.1);
+        claims.cut(cut.0, cut.1, Some(start));
+        for &(ack, ms) in acks {
+            claims.acked(ack, at(ms));
+        }
+        answer(&mut claims, b"\x1b_Gi=3;OK\x1b\\");
+        let owed = !path.exists();
+        drop(claims);
+        fs::remove_dir_all(&dir).unwrap();
+        owed
+    }
+
+    #[test]
+    fn a_phone_that_acked_the_whole_cut_got_its_command() {
+        let late = Some(GRACE.as_millis() as u64);
+        assert!(owed(
+            "whole",
+            (12, 0),
+            None,
+            &[(12, Some(0)), (20, Some(0)), (20, late)],
+            ((0, 12), 0)
+        ));
+    }
+
+    #[test]
+    fn an_answer_just_behind_the_jump_is_still_owed() {
+        assert!(owed(
+            "behind",
+            (10, 0),
+            None,
+            &[(13, Some(0))],
+            ((0, 12), 0)
+        ));
+    }
+
+    #[test]
+    fn a_cut_heard_after_the_jump_still_settles_on_time() {
+        let late = Some(GRACE.as_millis() as u64);
+        assert!(!owed(
+            "heard-late",
+            (10, 0),
+            None,
+            &[(13, late)],
+            ((0, 12), 13)
+        ));
+    }
+
+    #[test]
+    fn a_backed_up_phone_starts_no_grace() {
+        let late = Some(GRACE.as_millis() as u64);
+        assert!(owed(
+            "backed-up",
+            (10, 0),
+            None,
+            &[(13, None), (13, late)],
+            ((0, 12), 0)
+        ));
+    }
+
+    #[test]
+    fn a_claim_is_stamped_where_its_own_command_ends() {
+        let late = Some(GRACE.as_millis() as u64);
+        let acks = [(101, Some(0)), (101, late)];
+        assert!(owed("placed", (100, 50), Some(10), &acks, ((0, 100), 70)));
     }
 
     #[test]

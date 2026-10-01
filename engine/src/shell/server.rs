@@ -115,9 +115,7 @@ impl Server {
             self.files.claims.expire(now);
             self.reap(now);
             self.transmit(now);
-            for cut in self.mirror.take_cuts() {
-                self.files.claims.cut(cut);
-            }
+            self.cut(now);
         }
     }
 
@@ -171,6 +169,17 @@ impl Server {
         }
     }
 
+    fn heard(&self, now: Instant) -> Option<Instant> {
+        (self.pending.len() < PENDING_INPUT).then_some(now)
+    }
+
+    fn cut(&mut self, now: Instant) {
+        let (ack, heard) = (self.link.ack(), self.heard(now));
+        for cut in self.mirror.take_cuts() {
+            self.files.claims.cut(cut, ack, heard);
+        }
+    }
+
     fn settled(&self, now: Instant) -> Option<Ending> {
         if !self.contacted && now.duration_since(self.started) >= self.timing.first_contact {
             return Some(Ending::Abandoned);
@@ -207,8 +216,10 @@ impl Server {
                 let _ = pty.resize(size);
             }
         }
+        let heard = self.heard(now);
+        self.files.claims.acked(self.link.ack(), heard);
         if let Some((offset, bytes)) = &packet.input {
-            if self.pending.len() < PENDING_INPUT {
+            if heard.is_some() {
                 let fresh = self.input.accept(*offset, bytes);
                 if self.pty.is_some() {
                     let mut answered = Vec::new();
@@ -217,13 +228,13 @@ impl Server {
                 }
             }
         }
-        self.files.claims.acked(self.link.ack());
         self.mirror.release(self.link.ack());
         let _ = if directives.keyframe {
             self.mirror.keyframe()
         } else {
             self.mirror.catch_up(self.link.ack())
         };
+        self.cut(now);
         if directives.close {
             self.ending = Some(Ending::Closed);
         }
@@ -251,7 +262,7 @@ impl Server {
                         &mut replies,
                     );
                     let sent = self.mirror.output(&self.forward);
-                    self.files.claims.sent(sent);
+                    self.files.claims.sent(sent, self.forward.len());
                 }
                 Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
                 Err(_) => break,
