@@ -6,12 +6,8 @@ let
   ndkRoot = "${sdkRoot}/ndk/28.2.13676358";
   jdk = pkgs.jdk21;
 
-  ghosttySrc = pkgs.fetchFromGitHub {
-    owner = "ghostty-org";
-    repo = "ghostty";
-    rev = "349f026087d948f8f898dca3231ff91438f83ab8";
-    hash = "sha256-0/eonC+DEqnQpkKZP+CkEI9saK90i3/FnMeNmO9NeIw=";
-  };
+  ghosttySrc = pkgs.callPackage ./ghostty-src.nix { };
+  ghosttyVt = pkgs.callPackage ./engine/libghostty-vt.nix { };
 
   libghosttyRev = "56a95052776e75816a3ab0c0057c20c850944265";
   libghosttySrc = pkgs.fetchFromGitHub {
@@ -66,6 +62,8 @@ pkgs.mkShell {
   ANDROID_NDK_ROOT = ndkRoot;
   ANDROID_NDK_HOME = ndkRoot;
   GHOSTTY_SRC = ghosttySrc;
+  GHOSTTY_VT_LIB_DIR = "${ghosttyVt.dev}/lib";
+  GHOSTTY_VT_INCLUDE_DIR = "${ghosttyVt.dev}/include";
   LIBGHOSTTY_SRC = libghosttySrc;
   LIBGHOSTTY_REV = libghosttyRev;
   JAVA_HOME = "${jdk}";

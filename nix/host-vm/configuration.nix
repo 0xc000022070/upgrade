@@ -101,7 +101,12 @@ in
   # miss: without it the user's systemd instance stops at logout, and the engine
   # reports the host unsupported rather than installing a timer that would only run
   # while somebody happened to be logged in.
-  services.dazzle-engine.enable = cfg.engine;
+  services.dazzle-engine = {
+    enable = cfg.engine;
+    shellPorts = {
+      inherit (cfg.mosh) from to;
+    };
+  };
   users.users.dev = {
     isNormalUser = true;
     linger = true;
@@ -138,6 +143,10 @@ in
   ]
   ++ lib.optional cfg.codex pkgs.codex
   ++ lib.optional cfg.herdr pkgs.herdr
+  ++ lib.optionals full [
+    pkgs.ranger
+    pkgs.tmux
+  ]
   ++ [ (lib.hiPrio pinnedMosh) ];
 
   # tmpfiles makes a missing parent root's, and home-manager's are the user's.

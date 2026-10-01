@@ -5,15 +5,21 @@ edition = "2021"
 rust-version = "1.89"
 description = "The host side of a Dazzle plugin: one binary, exec'd per call."
 license = "MIT"
+build = "build.rs"
 
 [[bin]]
 name = "dazzle-engine"
 path = "src/main.rs"
 
 [dependencies]
+aes = "0.8"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 chrono-tz = "0.10"
+libc = "0.2"
+miniz_oxide = "0.8"
 nix = { version = "0.31.3", default-features = false, features = ["user", "signal", "process", "fs"] }
+ocb3 = "0.1"
+png = "0.17"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"

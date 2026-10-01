@@ -18,11 +18,17 @@ in
         Install the Dazzle engine on this machine and write the configuration it
         reads.
 
-        The engine is not a daemon. Nothing is resident and nothing listens: the
-        phone execs the binary over an ssh connection it already holds, and that
-        process reads one request, writes one answer and exits. Enabling this
-        puts the binary on PATH and writes /etc/dazzle-engine/config.json. It
-        starts nothing, and there is no unit to enable.
+        The engine is not a daemon. The phone execs the binary over an ssh
+        connection it already holds, and that process reads one request, writes
+        one answer and exits. Enabling this puts the binary on PATH and writes
+        /etc/dazzle-engine/config.json. It starts nothing, and there is no unit to
+        enable.
+
+        The one thing that outlives a call is a shell/1 server, started by one: a
+        terminal session the phone reaches over UDP in place of ssh or mosh. It
+        runs as the account that started it, listens on one port of shellPorts for
+        that one tab, and exits when its shell ends or it is stopped. A server no
+        phone ever reaches leaves after a minute.
 
         The engine is installed here because the owner of this machine declared
         it. The app never puts it there, and on a machine where this is off, a
@@ -102,15 +108,41 @@ in
       '';
     };
 
+    shellPorts = lib.mkOption {
+      type = lib.types.nullOr (
+        lib.types.submodule {
+          options = {
+            from = lib.mkOption { type = lib.types.port; };
+            to = lib.mkOption { type = lib.types.port; };
+          };
+        }
+      );
+      default = null;
+      example = {
+        from = 60001;
+        to = 60999;
+      };
+      description = ''
+        The UDP ports a shell/1 server may listen on, one port per running tab.
+        Left null, the engine uses 60001-60999, the range mosh uses.
+
+        The engine intersects the ranges of every config file it reads, so a
+        home-manager install can narrow this and never widen it.
+      '';
+    };
+
     configFile = lib.mkOption {
       type = lib.types.path;
       internal = true;
       readOnly = true;
       # The key names are the ones the engine deserializes, and it rejects a
       # file carrying any other key.
-      default = format.generate "dazzle-engine-config.json" {
-        inherit (cfg) denyCapabilities denyExec;
-      };
+      default = format.generate "dazzle-engine-config.json" (
+        {
+          inherit (cfg) denyCapabilities denyExec;
+        }
+        // lib.optionalAttrs (cfg.shellPorts != null) { inherit (cfg) shellPorts; }
+      );
       description = "The rendered /etc/dazzle-engine/config.json.";
     };
   };

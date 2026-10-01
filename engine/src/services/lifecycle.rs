@@ -1,7 +1,9 @@
 use crate::paths;
 use crate::policy::Policy;
 use crate::protocol::{EngineError, EngineResult, ENGINE_VERSION, PROTOCOL_VERSION};
-use crate::services::{agents as agents_service, fs as fs_service, run as run_service, schedule as schedule_service};
+use crate::services::{
+    agents as agents_service, fs as fs_service, run as run_service, schedule as schedule_service,
+};
 use nix::sys::signal::{killpg, Signal};
 use nix::unistd::Pid;
 use serde_json::{json, Value};
@@ -40,6 +42,7 @@ fn probe(state_root: &Path, owner: &str, policy: &Policy) -> Value {
         (run_service::SERVICE, run_service::OPS),
         (schedule_service::SERVICE, schedule_service::OPS),
         (agents_service::SERVICE, agents_service::OPS),
+        (crate::shell::SERVICE, crate::shell::OPS),
     ]
     .iter()
     .map(|(name, ops)| {
@@ -65,6 +68,7 @@ fn probe(state_root: &Path, owner: &str, policy: &Policy) -> Value {
         "services": services,
         "deny_capabilities": policy.denied_capabilities(),
         "deny_exec": policy.denied_exec(),
+        "shell_ports": policy.shell_ports().map(|ports| json!({ "from": ports.start(), "to": ports.end() })),
         "config": policy.sources(),
     })
 }
@@ -77,6 +81,7 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
     // able to clear rather than the one it refuses to look at.
     let timers_removed = schedule_service::remove_timers();
     let hooks_removed = agents_service::remove_hooks();
+    let shells_stopped = crate::shell::stop_all(state_root);
 
     if !state_root.exists() {
         return Ok(json!({
@@ -86,6 +91,7 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
             "jobs_signalled": 0,
             "timers_removed": timers_removed,
             "hooks_removed": hooks_removed,
+            "shells_stopped": shells_stopped,
         }));
     }
 
@@ -115,5 +121,6 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
         "jobs_signalled": jobs_signalled,
         "timers_removed": timers_removed,
         "hooks_removed": hooks_removed,
+            "shells_stopped": shells_stopped,
     }))
 }
