@@ -1,0 +1,815 @@
+# Draw Kitty virtual placements from Unicode placeholder cells
+#
+# Against flterm 56a95052776e75816a3ab0c0057c20c850944265. Regenerate with `just flterm-patches`.
+
+diff --git a/lib/src/rendering/frame_cursor.dart b/lib/src/rendering/frame_cursor.dart
+index c79a01a..7a38f39 100644
+--- a/lib/src/rendering/frame_cursor.dart
++++ b/lib/src/rendering/frame_cursor.dart
+@@ -78,6 +78,7 @@ final class _CursorFrameBuilder {
+     }
+     final style = cell.style;
+     if (cell.content.isEmpty ||
++        cell.content.runes.first == kittyPlaceholder ||
+         style.invisible ||
+         (style.blink && !_state.blinkVisible)) {
+       return null;
+diff --git a/lib/src/rendering/kitty_placement_cache.dart b/lib/src/rendering/kitty_placement_cache.dart
+index 9353e65..9d450df 100644
+--- a/lib/src/rendering/kitty_placement_cache.dart
++++ b/lib/src/rendering/kitty_placement_cache.dart
+@@ -4,6 +4,7 @@ import 'package:libghostty/libghostty.dart';
+ import 'package:meta/meta.dart';
+ 
+ import 'kitty_image_cache.dart';
++import 'kitty_virtual_placements.dart';
+ import 'paint_state.dart';
+ 
+ /// Caches paint-safe snapshots of Kitty graphics placements.
+@@ -16,6 +17,8 @@ final class KittyPlacementCache {
+   final KittyImageCache _images;
+   final Set<int> _liveImageIds = {};
+   final List<KittyPlacementSnapshot> _snapshots = [];
++  final List<KittyVirtualRun> _virtualRuns = [];
++  KittyVirtualScanner? _virtualScanner;
+   _SnapshotKey? _key;
+ 
+   KittyPlacementCache({required this._state, required this._images});
+@@ -29,8 +32,15 @@ final class KittyPlacementCache {
+   /// [geometryDirty] must be true after terminal mutations that can change
+   /// placement render information without changing Kitty storage generation.
+   ///
++  /// [cells] is the render state the frame was just built from; virtual
++  /// placements are drawn from the placeholder cells it holds.
++  ///
+   /// Returns whether callers must rebuild their paint-order buckets.
+-  bool sync(KittyGraphics? graphics, {required bool geometryDirty}) {
++  bool sync(
++    KittyGraphics? graphics, {
++    required bool geometryDirty,
++    RenderState? cells,
++  }) {
+     if (graphics == null) {
+       final changed = _key != null || _snapshots.isNotEmpty;
+       _clear();
+@@ -51,7 +61,7 @@ final class KittyPlacementCache {
+     if (!geometryDirty && _key == key) return false;
+ 
+     final (:nextSnapshots, :nextLiveImageIds, :replacementPending) =
+-        _collectSnapshots(graphics, key);
++        _collectSnapshots(graphics, key, cells);
+ 
+     if (nextSnapshots.length > 1) nextSnapshots.sort(_compareZ);
+     // Animated clients often replace every image before its decode completes.
+@@ -73,9 +83,15 @@ final class KittyPlacementCache {
+     return true;
+   }
+ 
++  void dispose() {
++    _virtualScanner?.dispose();
++    _virtualScanner = null;
++  }
++
+   void _clear() {
+     _snapshots.clear();
+     _liveImageIds.clear();
++    _virtualRuns.clear();
+   }
+ 
+   ({
+@@ -83,12 +99,19 @@ final class KittyPlacementCache {
+     Set<int> nextLiveImageIds,
+     bool replacementPending,
+   })
+-  _collectSnapshots(KittyGraphics graphics, _SnapshotKey key) {
++  _collectSnapshots(
++    KittyGraphics graphics,
++    _SnapshotKey key,
++    RenderState? cells,
++  ) {
+     final nextSnapshots = <KittyPlacementSnapshot>[];
+     final nextLiveImageIds = <int>{};
+     var replacementPending = false;
+-    for (final placement in graphics.placements()) {
++    final placements = graphics.placements();
++    var anyVirtual = false;
++    for (final placement in placements) {
+       nextLiveImageIds.add(placement.imageId);
++      anyVirtual |= placement.isVirtual;
+ 
+       final info = placement.renderInfo;
+       if (!info.viewportVisible) continue;
+@@ -124,6 +147,65 @@ final class KittyPlacementCache {
+         ),
+       );
+     }
++
++    _virtualRuns.clear();
++    if (anyVirtual && cells != null) {
++      (_virtualScanner ??= KittyVirtualScanner()).scan(
++        cells,
++        key.rows,
++        _virtualRuns,
++      );
++    }
++    final cellWidthPx = (key.cellWidth * key.devicePixelRatio).round();
++    final cellHeightPx = (key.cellHeight * key.devicePixelRatio).round();
++    if (cellWidthPx == 0 || cellHeightPx == 0) _virtualRuns.clear();
++    for (final run in _virtualRuns) {
++      final placement = kittyPlaceholderTarget(
++        placements,
++        run.imageId,
++        run.placementId,
++      );
++      if (placement == null) continue;
++      final image = graphics.image(run.imageId);
++      if (image == null) continue;
++      final slice = kittyVirtualSlice(
++        run: run,
++        placement: placement,
++        imageWidth: image.width,
++        imageHeight: image.height,
++        cellWidthPx: cellWidthPx,
++        cellHeightPx: cellHeightPx,
++      );
++      if (slice == null) continue;
++
++      final imageGeneration = image.generation;
++      final entry = _images.lookup(image, generation: imageGeneration);
++      replacementPending |=
++          entry is KittyImagePending ||
++          (entry is KittyImageReady && entry.generation != imageGeneration);
++      nextSnapshots.add(
++        KittyPlacementSnapshot(
++          imageId: run.imageId,
++          imageGeneration: imageGeneration,
++          dst: Rect.fromLTWH(
++            run.viewportCol * key.cellWidth +
++                slice.offsetX / key.devicePixelRatio,
++            run.viewportRow * key.cellHeight +
++                slice.offsetY / key.devicePixelRatio,
++            slice.destWidth / key.devicePixelRatio,
++            slice.destHeight / key.devicePixelRatio,
++          ),
++          src: Rect.fromLTWH(
++            slice.sourceX.toDouble(),
++            slice.sourceY.toDouble(),
++            slice.sourceWidth.toDouble(),
++            slice.sourceHeight.toDouble(),
++          ),
++          // ghostty draws every virtual placement just below text.
++          z: -1,
++        ),
++      );
++    }
+     return (
+       nextSnapshots: nextSnapshots,
+       nextLiveImageIds: nextLiveImageIds,
+diff --git a/lib/src/rendering/kitty_virtual_placements.dart b/lib/src/rendering/kitty_virtual_placements.dart
+new file mode 100644
+index 0000000..00624e3
+--- /dev/null
++++ b/lib/src/rendering/kitty_virtual_placements.dart
+@@ -0,0 +1,642 @@
++import 'package:libghostty/libghostty.dart';
++import 'package:meta/meta.dart';
++
++/// Codepoint of the Kitty graphics Unicode placeholder.
++const kittyPlaceholder = 0x10EEEE;
++
++/// One horizontal run of placeholder cells that show consecutive columns of
++/// the same image row.
++///
++/// Mirrors ghostty's `graphics_unicode.Placement`: a run never spans rows.
++@immutable
++final class KittyVirtualRun {
++  final int viewportRow;
++  final int viewportCol;
++  final int width;
++  final int imageId;
++
++  /// Zero when the cells carry no underline colour.
++  final int placementId;
++
++  /// Image grid row this run shows.
++  final int imageRow;
++
++  /// Image grid column shown by the run's first cell.
++  final int imageCol;
++
++  const KittyVirtualRun({
++    required this.viewportRow,
++    required this.viewportCol,
++    required this.width,
++    required this.imageId,
++    required this.placementId,
++    required this.imageRow,
++    required this.imageCol,
++  });
++
++  @override
++  int get hashCode => Object.hash(
++    viewportRow,
++    viewportCol,
++    width,
++    imageId,
++    placementId,
++    imageRow,
++    imageCol,
++  );
++
++  @override
++  bool operator ==(Object other) =>
++      other is KittyVirtualRun &&
++      other.viewportRow == viewportRow &&
++      other.viewportCol == viewportCol &&
++      other.width == width &&
++      other.imageId == imageId &&
++      other.placementId == placementId &&
++      other.imageRow == imageRow &&
++      other.imageCol == imageCol;
++
++  @override
++  String toString() =>
++      'KittyVirtualRun(row: $viewportRow, col: $viewportCol, width: $width, '
++      'image: $imageId, placement: $placementId, '
++      'imageRow: $imageRow, imageCol: $imageCol)';
++}
++
++/// The part of an image one [KittyVirtualRun] draws, in physical pixels.
++///
++/// Offsets are from the top-left of the run's first cell.
++typedef KittyVirtualSlice = ({
++  int offsetX,
++  int offsetY,
++  int sourceX,
++  int sourceY,
++  int sourceWidth,
++  int sourceHeight,
++  int destWidth,
++  int destHeight,
++});
++
++/// Collects placeholder runs from the rows of a render state.
++///
++/// Only rows libghostty flags as holding a placeholder are walked cell by cell.
++final class KittyVirtualScanner {
++  final RowIterator _rows = RowIterator();
++  final CellIterator _cells = CellIterator();
++
++  void dispose() {
++    _cells.dispose();
++    _rows.dispose();
++  }
++
++  /// Appends every run in the first [maxRows] viewport rows of [state] to
++  /// [out].
++  void scan(RenderState state, int maxRows, List<KittyVirtualRun> out) {
++    _rows.reset(state);
++    while (_rows.next()) {
++      final row = _rows.index;
++      if (row >= maxRows) break;
++      if (!_rows.hasKittyVirtualPlaceholder) continue;
++      _cells.reset(_rows);
++      _scanRow(row, out);
++    }
++  }
++
++  void _scanRow(int row, List<KittyVirtualRun> out) {
++    _PartialRun? run;
++    while (_cells.next()) {
++      if (_cells.codepoint != kittyPlaceholder) {
++        if (run != null) out.add(run.complete(row));
++        run = null;
++        continue;
++      }
++      final cell = _PartialRun.parse(_cells);
++      if (run != null && run.append(cell)) continue;
++      if (run != null) out.add(run.complete(row));
++      run = cell
++        ..imageRow ??= 0
++        ..imageCol ??= 0;
++    }
++    if (run != null) out.add(run.complete(row));
++  }
++}
++
++/// Placement data carried by one placeholder cell, before missing diacritics
++/// are resolved against the run to its left.
++final class _PartialRun {
++  final int col;
++  final int imageIdLow;
++  final int? imageIdHigh;
++  final int? placementId;
++  int? imageRow;
++  int? imageCol;
++  var width = 1;
++
++  _PartialRun({
++    required this.col,
++    required this.imageIdLow,
++    required this.imageIdHigh,
++    required this.placementId,
++    required this.imageRow,
++    required this.imageCol,
++  });
++
++  factory _PartialRun.parse(CellIterator cells) {
++    final style = cells.style;
++    final underline = style.underlineColor;
++    final placementId = underline == null ? 0 : _colorToId(underline);
++    int? imageRow, imageCol, imageIdHigh;
++    if (cells.graphemeLength > 1) {
++      // Invalid diacritics count as absent, as in ghostty and kitty.
++      final marks = cells.content.runes.skip(1).iterator;
++      if (marks.moveNext()) {
++        imageRow = kittyDiacriticIndex(marks.current);
++        if (marks.moveNext()) {
++          imageCol = kittyDiacriticIndex(marks.current);
++          if (marks.moveNext()) {
++            final high = kittyDiacriticIndex(marks.current);
++            if (high != null && high <= 0xFF) imageIdHigh = high;
++          }
++        }
++      }
++    }
++    return _PartialRun(
++      col: cells.col,
++      imageIdLow: _colorToId(style.foreground),
++      imageIdHigh: imageIdHigh,
++      placementId: placementId == 0 ? null : placementId,
++      imageRow: imageRow,
++      imageCol: imageCol,
++    );
++  }
++
++  bool append(_PartialRun next) {
++    final appendable =
++        imageIdLow == next.imageIdLow &&
++        placementId == next.placementId &&
++        (next.imageRow == null || next.imageRow == imageRow) &&
++        (next.imageCol == null || next.imageCol == imageCol! + width) &&
++        (next.imageIdHigh == null || next.imageIdHigh == imageIdHigh);
++    if (appendable) width++;
++    return appendable;
++  }
++
++  KittyVirtualRun complete(int row) => KittyVirtualRun(
++    viewportRow: row,
++    viewportCol: col,
++    width: width,
++    imageId: imageIdLow | (imageIdHigh ?? 0) << 24,
++    placementId: placementId ?? 0,
++    imageRow: imageRow ?? 0,
++    imageCol: imageCol ?? 0,
++  );
++
++  static int _colorToId(CellColor color) => switch (color) {
++    DefaultColor() => 0,
++    PaletteColor(:final index) => index,
++    RgbColor(:final r, :final g, :final b) => r << 16 | g << 8 | b,
++  };
++}
++
++/// Picks the placement whose grid a placeholder run refers to.
++///
++/// An explicit [placementId] must match exactly. Otherwise the image's virtual
++/// placement with the lowest id wins.
++KittyPlacement? kittyPlaceholderTarget(
++  Iterable<KittyPlacement> placements,
++  int imageId,
++  int placementId,
++) {
++  KittyPlacement? best;
++  for (final placement in placements) {
++    if (placement.imageId != imageId) continue;
++    if (placementId != 0) {
++      if (placement.placementId == placementId) return placement;
++      continue;
++    }
++    if (!placement.isVirtual) continue;
++    if (best == null || placement.placementId < best.placementId) {
++      best = placement;
++    }
++  }
++  return best;
++}
++
++/// Fits an image into its placement grid, preserving aspect ratio and
++/// centring it, and returns the slice that [run] draws.
++///
++/// A port of ghostty's `Placement.renderPlacement`; returns null when the run
++/// covers only the letterbox around the image.
++KittyVirtualSlice? kittyVirtualSlice({
++  required KittyVirtualRun run,
++  required KittyPlacement placement,
++  required int imageWidth,
++  required int imageHeight,
++  required int cellWidthPx,
++  required int cellHeightPx,
++}) {
++  var gridRows = placement.rows;
++  var gridCols = placement.columns;
++  if (gridRows == 0)
++    gridRows = (imageHeight + cellHeightPx - 1) ~/ cellHeightPx;
++  if (gridCols == 0) gridCols = (imageWidth + cellWidthPx - 1) ~/ cellWidthPx;
++  if (gridRows == 0 || gridCols == 0) return null;
++
++  final imgWidth = imageWidth.toDouble();
++  final imgHeight = imageHeight.toDouble();
++  final gridHeightPx = (gridRows * cellHeightPx).toDouble();
++  final gridWidthPx = (gridCols * cellWidthPx).toDouble();
++
++  double scale;
++  var padX = 0.0, padY = 0.0;
++  if (imgWidth * gridHeightPx > imgHeight * gridWidthPx) {
++    scale = gridWidthPx / (imgWidth < 1 ? 1 : imgWidth);
++    padY = (gridHeightPx - imgHeight * scale) / 2;
++  } else {
++    scale = gridHeightPx / (imgHeight < 1 ? 1 : imgHeight);
++    padX = (gridWidthPx - imgWidth * scale) / 2;
++  }
++
++  // The image's own pixel space, widened by the letterbox.
++  final scaledPadX = padX / scale;
++  final scaledPadY = padY / scale;
++  final scaledWidth = imgWidth + scaledPadX * 2;
++  final scaledHeight = imgHeight + scaledPadY * 2;
++
++  var srcWidth = scaledWidth * (run.width / gridCols);
++  var srcHeight = scaledHeight * (1 / gridRows);
++  var srcX = scaledWidth * (run.imageCol / gridCols);
++  var srcY = scaledHeight * (run.imageRow / gridRows);
++
++  var destOffsetX = 0.0, destOffsetY = 0.0;
++  var destWidth = (run.width * cellWidthPx).toDouble();
++  var destHeight = cellHeightPx.toDouble();
++
++  if (srcY < scaledPadY) {
++    final offset = scaledPadY - srcY;
++    srcHeight -= offset;
++    destOffsetY = offset;
++    destHeight -= offset * scale;
++    srcY = 0;
++    if (srcHeight > imgHeight) {
++      srcHeight = imgHeight;
++      destHeight = imgHeight * scale;
++    }
++  } else if (srcY + srcHeight > scaledHeight - scaledPadY) {
++    srcY -= scaledPadY;
++    srcHeight = scaledHeight - scaledPadY - srcY - scaledPadY;
++    destHeight = srcHeight * scale;
++  } else {
++    srcY -= scaledPadY;
++  }
++
++  if (srcX < scaledPadX) {
++    final offset = scaledPadX - srcX;
++    srcWidth -= offset;
++    destOffsetX = offset;
++    destWidth -= offset * scale;
++    srcX = 0;
++    if (srcWidth > imgWidth) {
++      srcWidth = imgWidth;
++      destWidth = imgWidth * scale;
++    }
++  } else if (srcX + srcWidth > scaledWidth - scaledPadX) {
++    srcX -= scaledPadX;
++    srcWidth = scaledWidth - scaledPadX - srcX - scaledPadX;
++    destWidth = srcWidth * scale;
++  } else {
++    srcX -= scaledPadX;
++  }
++
++  if (srcWidth <= 0 || srcHeight <= 0) return null;
++  final slice = (
++    offsetX: (destOffsetX * scale).round(),
++    offsetY: (destOffsetY * scale).round(),
++    sourceX: srcX.round(),
++    sourceY: srcY.round(),
++    sourceWidth: srcWidth.round(),
++    sourceHeight: srcHeight.round(),
++    destWidth: destWidth.round(),
++    destHeight: destHeight.round(),
++  );
++  if (slice.destWidth == 0 || slice.destHeight == 0) return null;
++  return slice;
++}
++
++/// Row, column, or image-id byte encoded by a placeholder diacritic, or null
++/// when [codepoint] is not one.
++int? kittyDiacriticIndex(int codepoint) {
++  var low = 0, high = _diacritics.length - 1;
++  while (low <= high) {
++    final mid = (low + high) >> 1;
++    final value = _diacritics[mid];
++    if (value == codepoint) return mid;
++    if (value < codepoint) {
++      low = mid + 1;
++    } else {
++      high = mid - 1;
++    }
++  }
++  return null;
++}
++
++/// Kitty's rowcolumn-diacritics.txt; an entry's index is the value it encodes.
++const _diacritics = <int>[
++  0x0305,
++  0x030D,
++  0x030E,
++  0x0310,
++  0x0312,
++  0x033D,
++  0x033E,
++  0x033F,
++  0x0346,
++  0x034A,
++  0x034B,
++  0x034C,
++  0x0350,
++  0x0351,
++  0x0352,
++  0x0357,
++  0x035B,
++  0x0363,
++  0x0364,
++  0x0365,
++  0x0366,
++  0x0367,
++  0x0368,
++  0x0369,
++  0x036A,
++  0x036B,
++  0x036C,
++  0x036D,
++  0x036E,
++  0x036F,
++  0x0483,
++  0x0484,
++  0x0485,
++  0x0486,
++  0x0487,
++  0x0592,
++  0x0593,
++  0x0594,
++  0x0595,
++  0x0597,
++  0x0598,
++  0x0599,
++  0x059C,
++  0x059D,
++  0x059E,
++  0x059F,
++  0x05A0,
++  0x05A1,
++  0x05A8,
++  0x05A9,
++  0x05AB,
++  0x05AC,
++  0x05AF,
++  0x05C4,
++  0x0610,
++  0x0611,
++  0x0612,
++  0x0613,
++  0x0614,
++  0x0615,
++  0x0616,
++  0x0617,
++  0x0657,
++  0x0658,
++  0x0659,
++  0x065A,
++  0x065B,
++  0x065D,
++  0x065E,
++  0x06D6,
++  0x06D7,
++  0x06D8,
++  0x06D9,
++  0x06DA,
++  0x06DB,
++  0x06DC,
++  0x06DF,
++  0x06E0,
++  0x06E1,
++  0x06E2,
++  0x06E4,
++  0x06E7,
++  0x06E8,
++  0x06EB,
++  0x06EC,
++  0x0730,
++  0x0732,
++  0x0733,
++  0x0735,
++  0x0736,
++  0x073A,
++  0x073D,
++  0x073F,
++  0x0740,
++  0x0741,
++  0x0743,
++  0x0745,
++  0x0747,
++  0x0749,
++  0x074A,
++  0x07EB,
++  0x07EC,
++  0x07ED,
++  0x07EE,
++  0x07EF,
++  0x07F0,
++  0x07F1,
++  0x07F3,
++  0x0816,
++  0x0817,
++  0x0818,
++  0x0819,
++  0x081B,
++  0x081C,
++  0x081D,
++  0x081E,
++  0x081F,
++  0x0820,
++  0x0821,
++  0x0822,
++  0x0823,
++  0x0825,
++  0x0826,
++  0x0827,
++  0x0829,
++  0x082A,
++  0x082B,
++  0x082C,
++  0x082D,
++  0x0951,
++  0x0953,
++  0x0954,
++  0x0F82,
++  0x0F83,
++  0x0F86,
++  0x0F87,
++  0x135D,
++  0x135E,
++  0x135F,
++  0x17DD,
++  0x193A,
++  0x1A17,
++  0x1A75,
++  0x1A76,
++  0x1A77,
++  0x1A78,
++  0x1A79,
++  0x1A7A,
++  0x1A7B,
++  0x1A7C,
++  0x1B6B,
++  0x1B6D,
++  0x1B6E,
++  0x1B6F,
++  0x1B70,
++  0x1B71,
++  0x1B72,
++  0x1B73,
++  0x1CD0,
++  0x1CD1,
++  0x1CD2,
++  0x1CDA,
++  0x1CDB,
++  0x1CE0,
++  0x1DC0,
++  0x1DC1,
++  0x1DC3,
++  0x1DC4,
++  0x1DC5,
++  0x1DC6,
++  0x1DC7,
++  0x1DC8,
++  0x1DC9,
++  0x1DCB,
++  0x1DCC,
++  0x1DD1,
++  0x1DD2,
++  0x1DD3,
++  0x1DD4,
++  0x1DD5,
++  0x1DD6,
++  0x1DD7,
++  0x1DD8,
++  0x1DD9,
++  0x1DDA,
++  0x1DDB,
++  0x1DDC,
++  0x1DDD,
++  0x1DDE,
++  0x1DDF,
++  0x1DE0,
++  0x1DE1,
++  0x1DE2,
++  0x1DE3,
++  0x1DE4,
++  0x1DE5,
++  0x1DE6,
++  0x1DFE,
++  0x20D0,
++  0x20D1,
++  0x20D4,
++  0x20D5,
++  0x20D6,
++  0x20D7,
++  0x20DB,
++  0x20DC,
++  0x20E1,
++  0x20E7,
++  0x20E9,
++  0x20F0,
++  0x2CEF,
++  0x2CF0,
++  0x2CF1,
++  0x2DE0,
++  0x2DE1,
++  0x2DE2,
++  0x2DE3,
++  0x2DE4,
++  0x2DE5,
++  0x2DE6,
++  0x2DE7,
++  0x2DE8,
++  0x2DE9,
++  0x2DEA,
++  0x2DEB,
++  0x2DEC,
++  0x2DED,
++  0x2DEE,
++  0x2DEF,
++  0x2DF0,
++  0x2DF1,
++  0x2DF2,
++  0x2DF3,
++  0x2DF4,
++  0x2DF5,
++  0x2DF6,
++  0x2DF7,
++  0x2DF8,
++  0x2DF9,
++  0x2DFA,
++  0x2DFB,
++  0x2DFC,
++  0x2DFD,
++  0x2DFE,
++  0x2DFF,
++  0xA66F,
++  0xA67C,
++  0xA67D,
++  0xA6F0,
++  0xA6F1,
++  0xA8E0,
++  0xA8E1,
++  0xA8E2,
++  0xA8E3,
++  0xA8E4,
++  0xA8E5,
++  0xA8E6,
++  0xA8E7,
++  0xA8E8,
++  0xA8E9,
++  0xA8EA,
++  0xA8EB,
++  0xA8EC,
++  0xA8ED,
++  0xA8EE,
++  0xA8EF,
++  0xA8F0,
++  0xA8F1,
++  0xAAB0,
++  0xAAB2,
++  0xAAB3,
++  0xAAB7,
++  0xAAB8,
++  0xAABE,
++  0xAABF,
++  0xAAC1,
++  0xFE20,
++  0xFE21,
++  0xFE22,
++  0xFE23,
++  0xFE24,
++  0xFE25,
++  0xFE26,
++  0x10A0F,
++  0x10A38,
++  0x1D185,
++  0x1D186,
++  0x1D187,
++  0x1D188,
++  0x1D189,
++  0x1D1AA,
++  0x1D1AB,
++  0x1D1AC,
++  0x1D1AD,
++  0x1D242,
++  0x1D243,
++  0x1D244,
++];
