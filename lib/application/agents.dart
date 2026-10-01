@@ -167,8 +167,24 @@ class AgentPanelState {
     for (final outcome in outcomes) ...outcome.agents,
   ];
 
-  List<HostOutcome> get failures =>
-      outcomes.where((outcome) => !outcome.ok).toList();
+  /// One per host and line: herdr and the engine are two channels to one machine, and a
+  /// machine that is down fails both in the same words.
+  List<HostOutcome> get failures {
+    final byLine = <(String, String), HostOutcome>{};
+    for (final outcome in outcomes) {
+      if (outcome.ok) continue;
+      final key = (outcome.host.id, outcome.namedReason);
+      final kept = byLine[key];
+      final at = outcome.lastGoodAt;
+      if (kept == null ||
+          (at != null && (kept.lastGoodAt?.isBefore(at) ?? true))) {
+        byLine[key] = outcome;
+      }
+    }
+    return byLine.values.toList();
+  }
+
+  bool get answered => outcomes.any((outcome) => outcome.ok);
 
   DateTime? get lastGoodAt {
     DateTime? newest;

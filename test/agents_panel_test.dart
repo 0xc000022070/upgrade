@@ -466,6 +466,31 @@ void main() {
     expect(find.text('b · key rejected'), findsOneWidget);
   });
 
+  testWidgets('a host down on herdr and the engine is said once', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 9, 30, 20, 19);
+    final state = AgentPanelState([
+      HostOutcome(
+        host: hostA,
+        kind: AgentOutcomeKind.unreachable,
+        lastGoodAt: now.subtract(const Duration(minutes: 1)),
+      ),
+      HostOutcome(
+        host: hostA,
+        kind: AgentOutcomeKind.unreachable,
+        source: AgentSource.engine,
+        lastGoodAt: now.subtract(const Duration(seconds: 50)),
+      ),
+    ]);
+    await tester.pumpWidget(host(state, now: now));
+
+    expect(state.failures, hasLength(1));
+    expect(find.text('a unreachable'), findsOneWidget);
+    expect(find.text('50s ago'), findsOneWidget);
+    expect(find.textContaining('idle ·'), findsNothing);
+  });
+
   testWidgets('shows working and blocked rows ordered by latest change', (
     tester,
   ) async {
