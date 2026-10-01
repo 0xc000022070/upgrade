@@ -24,6 +24,7 @@ import '../../platform/shell/shell_connection.dart';
 import '../../platform/shell/shell_launch.dart';
 import '../../platform/shell/shell_tunnel.dart';
 import '../../platform/shell/strip_bytes.dart';
+import '../../platform/shell/udp_path.dart';
 import '../../platform/workspace/workspace_commands.dart';
 import '../../platform/vnc/keysyms.dart';
 import 'private_osc.dart';
@@ -199,11 +200,12 @@ String _newMark() =>
 class ShellSession extends ChangeNotifier {
   ShellSession({
     required this.number,
-    required this.terminal,
+    required TerminalController terminal,
     required this.host,
     this.remoteSession,
     String? mark,
-  }) : mark = mark ?? _newMark();
+  }) : mark = mark ?? _newMark(),
+       _terminal = ValueNotifier(terminal);
 
   /// Mutable because the store is handed a fresh [Host] on every open and retry, and a
   /// reconnect fired by a timer has nobody to hand it one.
@@ -215,7 +217,11 @@ class ShellSession extends ChangeNotifier {
 
   /// The terminal and everything about it: grid, scrollback, selection and search. It
   /// outlives every view drawn of it, and a tab with no view still takes output.
-  final TerminalController terminal;
+  TerminalController get terminal => _terminal.value;
+
+  ValueListenable<TerminalController> get terminals => _terminal;
+
+  final ValueNotifier<TerminalController> _terminal;
 
   /// One per session and not one for the route: the view opens its text input when its node
   /// takes focus and closes it when the view goes, and two views handed the same node pass
@@ -324,6 +330,7 @@ class ShellSession extends ChangeNotifier {
   /// Cancelled and dropped on every close and every retry: a stale listener would write a
   /// dead connection's bytes into a live terminal.
   StreamSubscription<Uint8List>? _output;
+  StreamSubscription<Uint8List>? _snapshots;
   StreamSubscription<ShellConnectionHealth>? _health;
 
   /// Watches the channel for the pinentry's OSC on its way into the terminal. Null
@@ -356,6 +363,29 @@ class ShellSession extends ChangeNotifier {
   /// The view reports on every layout, including ones where only the pixel size moved.
   int? _columns;
   int? _rows;
+
+  int _cellWidthPx = 0;
+  int _cellHeightPx = 0;
+
+  void measuredCell(int widthPx, int heightPx) {
+    if (widthPx == _cellWidthPx && heightPx == _cellHeightPx) return;
+    _cellWidthPx = widthPx;
+    _cellHeightPx = heightPx;
+    final columns = _columns;
+    final rows = _rows;
+    final link = connection;
+    if (link == null || link.transport != ShellTransport.engine) return;
+    if (columns != null && rows != null) {
+      link.resize(
+        columns,
+        rows,
+        widthPx: columns * widthPx,
+        heightPx: rows * heightPx,
+      );
+    }
+  }
+
+  String? _heldMarker;
 
   /// Held across the waits between dials: a schedule that runs out shows what the last one
   /// hit, not the drop that started it.
@@ -412,6 +442,7 @@ class ShellSession extends ChangeNotifier {
     output.dispose();
     painted.dispose();
     terminal.dispose();
+    _terminal.dispose();
     super.dispose();
   }
 
@@ -455,7 +486,9 @@ class ShellSessions extends ChangeNotifier {
     this.pinAnswerWait = const Duration(seconds: 5),
     this.notifier,
     this.now = DateTime.now,
-  }) : _open = open ?? const ShellTunnel().open;
+    UdpVerdicts? udpVerdicts,
+  }) : _override = open,
+       udpVerdicts = udpVerdicts ?? UdpVerdicts();
 
   final PinNotifier? notifier;
 
@@ -484,7 +517,12 @@ class ShellSessions extends ChangeNotifier {
 
   /// Injectable only so the store can be driven without a host to answer it; null
   /// everywhere but a test.
-  final ShellOpener _open;
+  final ShellOpener? _override;
+
+  late final ShellOpener _open =
+      _override ?? ShellTunnel(udpVerdicts: udpVerdicts).open;
+
+  final UdpVerdicts udpVerdicts;
 
   /// Where the open tabs are written down, so a process that is killed can be dialled back
   /// into the shells it had.
@@ -777,6 +815,45 @@ class ShellSessions extends ChangeNotifier {
     );
   }
 
+  void _replaceTerminal(ShellSession session, Uint8List bytes) {
+    if (session._closed || session.retired) return;
+    final TerminalController next;
+    try {
+      next = TerminalController.fromSnapshot(
+        bytes,
+        preserveSnapshotColors: false,
+      );
+    } catch (error) {
+      debugPrint('dazzle.shell ${session.host.name}: host snapshot: $error');
+      return;
+    }
+    unawaited(
+      next.restored.then(
+        (_) {},
+        onError: (Object error) => debugPrint(
+          'dazzle.shell ${session.host.name}: host snapshot: $error',
+        ),
+      ),
+    );
+    final previous = session.terminal
+      ..onOutput = null
+      ..onTitleChanged = null
+      ..onBell = null
+      ..onPwdChanged = null
+      ..onResize = null;
+    answerInColours(next, DazzleTokens.house.terminal);
+    session._terminal.value = next;
+    _wireTerminal(session);
+    final marker = session._heldMarker;
+    session._heldMarker = null;
+    if (marker != null) session._write(marker);
+    WidgetsBinding.instance
+      ..addPostFrameCallback((_) => previous.dispose())
+      ..ensureVisualUpdate();
+    session.painted.value = true;
+    session.output.value++;
+  }
+
   void leave() {
     _away = true;
     for (final sessions in _byHost.values) {
@@ -1013,6 +1090,8 @@ class ShellSessions extends ChangeNotifier {
     notifyListeners();
     unawaited(session._output?.cancel());
     session._output = null;
+    unawaited(session._snapshots?.cancel());
+    session._snapshots = null;
     unawaited(session._health?.cancel());
     session._health = null;
     session._pinentry = null;
@@ -1092,7 +1171,12 @@ class ShellSessions extends ChangeNotifier {
       if (columns == session._columns && rows == session._rows) return;
       session._columns = columns;
       session._rows = rows;
-      session.connection?.resize(columns, rows);
+      session.connection?.resize(
+        columns,
+        rows,
+        widthPx: columns * session._cellWidthPx,
+        heightPx: rows * session._cellHeightPx,
+      );
     };
   }
 
@@ -1376,8 +1460,15 @@ class ShellSessions extends ChangeNotifier {
       session._probing = null;
       final settledColumns = session._columns ?? columns;
       final settledRows = session._rows ?? rows;
-      if (settledColumns != columns || settledRows != rows) {
-        connection.resize(settledColumns, settledRows);
+      if (settledColumns != columns ||
+          settledRows != rows ||
+          session._cellWidthPx != 0) {
+        connection.resize(
+          settledColumns,
+          settledRows,
+          widthPx: settledColumns * session._cellWidthPx,
+          heightPx: settledRows * session._cellHeightPx,
+        );
       }
       session._columns = settledColumns;
       session._rows = settledRows;
@@ -1394,7 +1485,8 @@ class ShellSessions extends ChangeNotifier {
       // A pane is the one thing that survives the link, so the program that set the
       // modes is still there and they are still true. Anything else comes back as a
       // new shell that never asked for them.
-      if ((reconnected || restored) && session.pane == null) {
+      final engine = connection.transport == ShellTransport.engine;
+      if ((reconnected || restored) && session.pane == null && !engine) {
         session._write(shellModeReset);
         // Leaving the alternate screen restores a cursor that was only saved on the
         // way in, so it is left alone unless the terminal is on it.
@@ -1402,7 +1494,8 @@ class ShellSessions extends ChangeNotifier {
           session._write('\x1b[?1049l');
         }
       }
-      if (marker != null) session._write(marker);
+      session._heldMarker = engine ? marker : null;
+      if (marker != null && !engine) session._write(marker);
       final moshPane =
           connection.transport == ShellTransport.mosh && session.pane != null;
       // A Mosh attach repaints the current screen without replaying the TUI's
@@ -1413,6 +1506,11 @@ class ShellSessions extends ChangeNotifier {
         pinentryOsc,
         (args) => _onPinentry(session, args),
       );
+      session._snapshots = connection.snapshots.listen((bytes) {
+        if (identical(session.connection, connection)) {
+          _replaceTerminal(session, bytes);
+        }
+      }, onError: (Object _) {});
       session._output = connection.output.listen((bytes) {
         if (identical(session.connection, connection)) {
           session.painted.value = true;
@@ -1593,6 +1691,7 @@ class ShellSessions extends ChangeNotifier {
   /// still inside its schedule has a timer of its own and is left to it, unless that wait
   /// ran out while the phone slept: then it dials now and goes on from the same step.
   void wakeAll({bool rehome = true, bool network = false}) {
+    if (network) udpVerdicts.clearAll();
     for (final sessions in _byHost.values) {
       for (final session in List.of(sessions)) {
         final connection = session.connection;
@@ -1702,6 +1801,8 @@ class ShellSessions extends ChangeNotifier {
     // running.
     unawaited(session._output?.cancel());
     session._output = null;
+    unawaited(session._snapshots?.cancel());
+    session._snapshots = null;
     unawaited(session._health?.cancel());
     session._health = null;
     session._pinentry = null;

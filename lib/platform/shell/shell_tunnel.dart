@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -9,9 +10,11 @@ import 'package:flutter/foundation.dart';
 import '../herdr_client.dart';
 import '../host_keys.dart';
 import '../ssh_settle.dart';
+import 'engine_channel.dart';
 import 'mosh_channel.dart';
 import 'remote_shell.dart';
 import 'shell_connection.dart';
+import 'udp_path.dart';
 
 abstract interface class ShellHost {
   Future<void> get authenticated;
@@ -66,14 +69,16 @@ typedef ShellDialer = Future<ShellHost> Function({
 /// before its prompt: a host whose rc asks which session to open eats the line's first
 /// character, and no delay fixes it because the reader is what runs first.
 class ShellTunnel {
-  const ShellTunnel({
+  ShellTunnel({
     this.timeout = const Duration(seconds: 10),
     this.keepAlive = sshKeepAlive,
     this.moshHealthInterval = const Duration(seconds: 3),
     this.moshGiveUp = const Duration(seconds: 30),
     this.dial = dialSsh,
     this.moshDialer = dialMosh,
-  });
+    this.engineDialer = dialEngine,
+    UdpVerdicts? udpVerdicts,
+  }) : udpVerdicts = udpVerdicts ?? UdpVerdicts();
 
   static const terminalType = 'xterm-256color';
 
@@ -83,6 +88,9 @@ class ShellTunnel {
   final Duration moshGiveUp;
   final ShellDialer dial;
   final MoshDialer moshDialer;
+  final EngineDialer engineDialer;
+
+  final UdpVerdicts udpVerdicts;
 
   Future<ShellConnection> open({
     required String address,
@@ -132,21 +140,42 @@ class ShellTunnel {
             );
       final tab = tabSession;
       if (tab != null && durableShellSession.hasMatch(tab)) {
-        final mosh = await _openMosh(
-          host: host,
-          address: address,
-          port: port,
-          user: user,
-          privateKey: privateKey,
-          columns: columns,
-          rows: rows,
-          command: run ?? 'exec \$SHELL -l',
-          tabSession: tab,
-          continuity: durable?.continuity ?? ShellContinuity.plain,
-          tmux: durable?.tmux,
-          verifier: verifier,
-        );
-        if (mosh != null) return mosh;
+        if (udpVerdicts.silent(address)) {
+          _log(address, 'udp silent, ssh until the verdict lapses');
+        } else {
+          final engine = await _openEngine(
+            host: host,
+            address: address,
+            port: port,
+            user: user,
+            privateKey: privateKey,
+            columns: columns,
+            rows: rows,
+            command: run ?? 'exec \$SHELL -l',
+            tabSession: tab,
+            continuity: durable?.continuity ?? ShellContinuity.plain,
+            tmux: durable?.tmux,
+            verifier: verifier,
+          );
+          if (engine != null) return engine;
+          final mosh = udpVerdicts.silent(address)
+              ? null
+              : await _openMosh(
+                  host: host,
+                  address: address,
+                  port: port,
+                  user: user,
+                  privateKey: privateKey,
+                  columns: columns,
+                  rows: rows,
+                  command: run ?? 'exec \$SHELL -l',
+                  tabSession: tab,
+                  continuity: durable?.continuity ?? ShellContinuity.plain,
+                  tmux: durable?.tmux,
+                  verifier: verifier,
+                );
+          if (mosh != null) return mosh;
+        }
       }
       final pty = await _guard(
         address,
@@ -189,6 +218,108 @@ class ShellTunnel {
         resumed ? ShellContinuity.resumed : ShellContinuity.started,
       );
     } catch (_) {
+      return null;
+    }
+  }
+
+  Future<EngineShellConnection?> _openEngine({
+    required ShellHost host,
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    required int columns,
+    required int rows,
+    required String command,
+    required String tabSession,
+    required ShellContinuity continuity,
+    required String? tmux,
+    required HostKeyVerifier? verifier,
+  }) async {
+    var started = false;
+    EngineShellConnection? connection;
+    try {
+      final start = await _engineCall(
+        (command, stdin) =>
+            _exec(host, command, stdin: stdin, timeout: timeout),
+        owner: user,
+        tab: tabSession,
+        op: 'start',
+        args: {
+          'tab': tabSession,
+          'cols': columns,
+          'rows': rows,
+          'width_px': 0,
+          'height_px': 0,
+          'term': terminalType,
+          'command': ['sh', '-c', command],
+          'resume': true,
+        },
+      );
+      if (start == null) {
+        _log(address, 'engine: no shell/1, falling back');
+        return null;
+      }
+      final resumed = start['resumed'] == true;
+      started = !resumed;
+      final udpPort = start['port'];
+      final key = start['key'];
+      if (udpPort is! int || key is! String) {
+        throw FormatException('engine start answered $start');
+      }
+      final channel = await engineDialer(
+        host: address,
+        port: udpPort,
+        key: key,
+        columns: columns,
+        rows: rows,
+      );
+      final trusted = verifier?.verified ?? verifier?.pinned;
+      connection = EngineShellConnection(
+        host,
+        channel,
+        address: address,
+        owner: user,
+        tab: tabSession,
+        columns: columns,
+        rows: rows,
+        continuity: resumed ? ShellContinuity.resumed : continuity,
+        tmux: tmux,
+        redial: () => _redial(
+          address: address,
+          port: port,
+          user: user,
+          privateKey: privateKey,
+          verifier: trusted == null
+              ? null
+              : HostKeyVerifier.pinnedOnly(trusted),
+        ),
+        healthInterval: moshHealthInterval,
+        giveUp: moshGiveUp,
+      );
+      await channel.firstContact;
+      await connection.ready.timeout(timeout);
+      udpVerdicts.clear(address);
+      _log(
+        address,
+        'engine $udpPort on ${columns}x$rows${resumed ? ', resumed' : ''}',
+      );
+      return connection;
+    } catch (error) {
+      if (!_silent(address, error)) _log(address, 'engine fallback: $error');
+      await connection?.abandon();
+      if (started) {
+        try {
+          await _engineCall(
+            (command, stdin) =>
+                _exec(host, command, stdin: stdin, timeout: timeout),
+            owner: user,
+            tab: tabSession,
+            op: 'stop',
+            args: {'tab': tabSession},
+          );
+        } catch (_) {}
+      }
       return null;
     }
   }
@@ -258,11 +389,13 @@ class ShellTunnel {
         healthInterval: moshHealthInterval,
         giveUp: moshGiveUp,
       );
+      await channel.firstContact;
       await connection.ready.timeout(timeout);
+      udpVerdicts.clear(address);
       _log(address, 'mosh ${server.port} on ${columns}x$rows');
       return connection;
     } catch (error) {
-      _log(address, 'mosh fallback: $error');
+      if (!_silent(address, error)) _log(address, 'mosh fallback: $error');
       await connection?.abandon();
       if (serverPath != null) {
         try {
@@ -271,6 +404,13 @@ class ShellTunnel {
       }
       return null;
     }
+  }
+
+  bool _silent(String address, Object error) {
+    if (error is! UdpSilent) return false;
+    udpVerdicts.record(address);
+    _log(address, '$error; ssh for ${UdpSilent.spell(udpVerdicts.ttl)}');
+    return true;
   }
 
   Future<String?> _moshServer(ShellHost host) async {
@@ -615,6 +755,9 @@ class MoshShellConnection implements ShellConnection {
   Stream<Uint8List> get output => _out.stream;
 
   @override
+  Stream<Uint8List> get snapshots => const Stream.empty();
+
+  @override
   Stream<ShellConnectionHealth> get health => _healthEvents.stream;
 
   @override
@@ -627,7 +770,7 @@ class MoshShellConnection implements ShellConnection {
   }
 
   @override
-  void resize(int columns, int rows) {
+  void resize(int columns, int rows, {int widthPx = 0, int heightPx = 0}) {
     if (_closed) return;
     this.columns = columns;
     this.rows = rows;
@@ -866,6 +1009,373 @@ class MoshShellConnection implements ShellConnection {
   }
 }
 
+Future<Map<String, Object?>?> _engineCall(
+  Future<ExecResult> Function(String command, Uint8List stdin) run, {
+  required String owner,
+  required String tab,
+  required String op,
+  required Map<String, Object?> args,
+}) async {
+  final result = await run(
+    '$moshTabVariable=${shellQuote(tab)} dazzle-engine',
+    Uint8List.fromList(
+      utf8.encode(
+        jsonEncode({
+          'service': 'shell/1',
+          'op': op,
+          'owner': owner,
+          'args': args,
+        }),
+      ),
+    ),
+  );
+  final Object? reply;
+  try {
+    reply = jsonDecode(result.out);
+  } on FormatException {
+    return null;
+  }
+  if (reply is! Map<String, Object?> || reply['ok'] != true) return null;
+  final body = reply['result'];
+  return body is Map<String, Object?> ? body : null;
+}
+
+class EngineShellConnection implements ShellConnection {
+  EngineShellConnection(
+    ShellHost host,
+    this._engine, {
+    required this.address,
+    required this.owner,
+    required this.tab,
+    required this.columns,
+    required this.rows,
+    required this.continuity,
+    required this.tmux,
+    required this.redial,
+    this.healthInterval = const Duration(seconds: 3),
+    this.giveUp = const Duration(seconds: 30),
+  }) : _host = host {
+    _reading.add(_engine.events.listen(_emit));
+    _reading.add(
+      _engine.errors.listen((error) => _log(address, 'engine: $error')),
+    );
+    _reading.add(_engine.contacts.listen((_) => _contact()));
+  }
+
+  final String address;
+  final String owner;
+  final String tab;
+  final EngineChannel _engine;
+  final Future<ShellHost> Function() redial;
+  final Duration healthInterval;
+  final Duration giveUp;
+  final String? tmux;
+  ShellHost? _host;
+  Future<ShellHost>? _openingHost;
+
+  @override
+  final ShellContinuity continuity;
+
+  @override
+  ShellTransport get transport => ShellTransport.engine;
+
+  final _reading = <StreamSubscription<void>>[];
+  final _pending = <EngineEvent>[];
+  final _exit = Completer<int?>();
+  final _ready = Completer<void>();
+  final _ticking = Stopwatch()..start();
+  Timer? _healthTimer;
+  var _probing = false;
+  int? _tickedAt;
+  var _missedProbes = 0;
+  int columns;
+  int rows;
+  var _health = ShellConnectionHealth.connected;
+  var _closed = false;
+  var _suspended = false;
+
+  late final StreamController<ShellConnectionHealth> _healthEvents =
+      StreamController<ShellConnectionHealth>.broadcast(
+        onListen: () => scheduleMicrotask(() {
+          if (!_healthEvents.isClosed) _healthEvents.add(_health);
+        }),
+      );
+
+  late final StreamController<EngineEvent> _frames =
+      StreamController<EngineEvent>.broadcast(
+        onListen: () => scheduleMicrotask(_drain),
+      );
+
+  Future<void> get ready => _ready.future;
+
+  @override
+  Stream<Uint8List> get output => _frames.stream
+      .where((event) => event is EnginePty)
+      .map((event) => (event as EnginePty).bytes);
+
+  @override
+  Stream<Uint8List> get snapshots => _frames.stream
+      .where((event) => event is EngineSnapshot)
+      .map((event) => (event as EngineSnapshot).bytes);
+
+  @override
+  Stream<ShellConnectionHealth> get health => _healthEvents.stream;
+
+  @override
+  Future<int?> get exitCode => _exit.future;
+
+  @override
+  void write(Uint8List bytes) {
+    if (_closed) return;
+    _engine.send(bytes);
+  }
+
+  @override
+  void resize(int columns, int rows, {int widthPx = 0, int heightPx = 0}) {
+    if (_closed) return;
+    this.columns = columns;
+    this.rows = rows;
+    _engine.resize(columns, rows, widthPx: widthPx, heightPx: heightPx);
+  }
+
+  @override
+  Future<ExecResult> exec(
+    String command, {
+    Uint8List? stdin,
+    Duration? timeout,
+  }) =>
+      _withHost((host) => _exec(host, command, stdin: stdin, timeout: timeout));
+
+  @override
+  Future<bool> terminateRemote(
+    String session, {
+    required bool durableShell,
+  }) async {
+    if (!durableShellSession.hasMatch(session)) return false;
+    if (session == tab) await _engine.close(end: true);
+    final stopped = await _engineCall(
+      (command, stdin) => exec(command, stdin: stdin),
+      owner: owner,
+      tab: session,
+      op: 'stop',
+      args: {'tab': session},
+    );
+    final swept = await exec(moshServerCleanupCommand(session));
+    if (!swept.ok) return false;
+    if (stopped == null) _log(address, 'engine: no stop for $session, swept');
+    final path = tmux;
+    if (!durableShell || path == null) return true;
+    return (await exec(durableShellTerminateCommand(path, session))).ok;
+  }
+
+  @override
+  Future<String?> remoteDirectory(String session) async {
+    final path = tmux;
+    if (path == null || !durableShellSession.hasMatch(session)) return null;
+    final result = await exec(durableShellDirectoryCommand(path, session));
+    if (!result.ok) return null;
+    final directory = result.out.trim();
+    return directory.startsWith('/') ? directory : null;
+  }
+
+  @override
+  Future<void> rehome({bool network = false}) async {
+    if (_closed) return;
+    if (_suspended) {
+      if (network) await _dropHost(_host);
+      return;
+    }
+    _setHealth(ShellConnectionHealth.reconnecting);
+    await _engine.rehome();
+    _missedProbes = 0;
+    _tickedAt = null;
+    _probing = true;
+    if (network) await _dropHost(_host);
+  }
+
+  @override
+  Future<void> suspend() async {
+    if (_closed || _suspended) return;
+    _suspended = true;
+    _healthTimer?.cancel();
+    _healthTimer = null;
+    await _engine.suspend();
+    await _dropHost(_host);
+  }
+
+  @override
+  Future<void> resume() async {
+    if (_closed || !_suspended) return;
+    _suspended = false;
+    await rehome();
+    if (_ready.isCompleted && !_closed && !_suspended) {
+      _healthTimer?.cancel();
+      _healthTimer = Timer.periodic(healthInterval, (_) => _checkHealth());
+    }
+  }
+
+  @override
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    _healthTimer?.cancel();
+    _setHealth(ShellConnectionHealth.disconnected);
+    for (final subscription in _reading) {
+      await subscription.cancel();
+    }
+    await _engine.close();
+    await _dropHost(_host);
+    _finish(null);
+    if (!_ready.isCompleted) _ready.complete();
+    await _frames.close();
+    await _healthEvents.close();
+  }
+
+  Future<void> abandon() async {
+    if (_closed) return;
+    _closed = true;
+    _healthTimer?.cancel();
+    for (final subscription in _reading) {
+      await subscription.cancel();
+    }
+    await _engine.close();
+    _finish(null);
+    if (!_ready.isCompleted) _ready.complete();
+    await _frames.close();
+    await _healthEvents.close();
+  }
+
+  Future<T> _withHost<T>(Future<T> Function(ShellHost host) body) async {
+    var host = await _currentHost();
+    try {
+      return await body(host);
+    } catch (_) {
+      await _dropHost(host);
+      host = await _currentHost();
+      return body(host);
+    }
+  }
+
+  Future<ShellHost> _currentHost() async {
+    if (_suspended) throw StateError('Engine connection is suspended.');
+    final current = _host;
+    if (current != null) return current;
+    final opening = _openingHost;
+    if (opening != null) return opening;
+    final next = redial();
+    _openingHost = next;
+    try {
+      final host = await next;
+      if (_closed || _suspended) {
+        await host.close();
+        throw StateError('Engine connection is closed.');
+      }
+      _host = host;
+      return host;
+    } finally {
+      _openingHost = null;
+    }
+  }
+
+  Future<void> _dropHost(ShellHost? host) async {
+    if (host == null) return;
+    if (identical(_host, host)) _host = null;
+    try {
+      await host.close();
+    } catch (_) {}
+  }
+
+  void _emit(EngineEvent event) {
+    if (_closed) return;
+    _contact();
+    if (!_ready.isCompleted) {
+      _ready.complete();
+      _healthTimer = Timer.periodic(healthInterval, (_) => _checkHealth());
+    }
+    if (event is EngineExit) {
+      scheduleMicrotask(() => _finish(event.status));
+      return;
+    }
+    _pending.add(event);
+    _drain();
+  }
+
+  void _drain() {
+    if (_frames.isClosed || !_frames.hasListener) return;
+    for (final event in _pending) {
+      _frames.add(event);
+    }
+    _pending.clear();
+  }
+
+  void _finish(int? code) {
+    if (!_closed) _setHealth(ShellConnectionHealth.disconnected);
+    if (!_exit.isCompleted) _exit.complete(code);
+  }
+
+  void _contact() {
+    _probing = false;
+    _missedProbes = 0;
+    _setHealth(ShellConnectionHealth.connected);
+  }
+
+  int get _probesToGiveUp {
+    final probes = giveUp.inMicroseconds ~/ healthInterval.inMicroseconds;
+    return probes < 3 ? 3 : probes;
+  }
+
+  void _checkHealth() {
+    if (_closed) return;
+    final now = _ticking.elapsedMicroseconds;
+    final previous = _tickedAt;
+    _tickedAt = now;
+    if (!_probing) {
+      _probing = true;
+      _engine.poke();
+      return;
+    }
+    if (previous != null &&
+        now - previous < healthInterval.inMicroseconds ~/ 2) {
+      return;
+    }
+    _missedProbes++;
+    _engine.poke();
+    if (_missedProbes >= _probesToGiveUp) {
+      _abandonSilentChannel();
+      return;
+    }
+    _setHealth(
+      _missedProbes >= 3
+          ? ShellConnectionHealth.disconnected
+          : ShellConnectionHealth.reconnecting,
+    );
+  }
+
+  void _abandonSilentChannel() {
+    _healthTimer?.cancel();
+    _healthTimer = null;
+    _setHealth(ShellConnectionHealth.disconnected);
+    _log(
+      address,
+      'engine: no answer in ${giveUp.inSeconds}s, dropping the channel',
+    );
+    if (!_frames.isClosed) {
+      _frames.addError(
+        const ShellFailure(
+          ShellFailureKind.streamClosed,
+          detail: 'the engine channel stopped answering',
+        ),
+      );
+    }
+  }
+
+  void _setHealth(ShellConnectionHealth health) {
+    if (_health == health) return;
+    _health = health;
+    if (!_healthEvents.isClosed) _healthEvents.add(health);
+  }
+}
+
 class SshShellConnection implements ShellConnection {
   SshShellConnection(
     this._host,
@@ -909,13 +1419,17 @@ class SshShellConnection implements ShellConnection {
   Stream<Uint8List> get output => _out.stream;
 
   @override
+  Stream<Uint8List> get snapshots => const Stream.empty();
+
+  @override
   Future<int?> get exitCode => _exit.future;
 
   @override
   void write(Uint8List bytes) => _pty.write(bytes);
 
   @override
-  void resize(int columns, int rows) => _pty.resizeTerminal(columns, rows);
+  void resize(int columns, int rows, {int widthPx = 0, int heightPx = 0}) =>
+      _pty.resizeTerminal(columns, rows);
 
   @override
   Future<ExecResult> exec(

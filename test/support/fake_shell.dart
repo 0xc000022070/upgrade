@@ -17,11 +17,13 @@ class FakeShellConnection implements ShellConnection {
   });
 
   final _output = StreamController<Uint8List>.broadcast();
+  final _snapshots = StreamController<Uint8List>.broadcast();
   final _health = StreamController<ShellConnectionHealth>.broadcast();
   final _exit = Completer<int?>();
 
   final writes = <Uint8List>[];
   final resizes = <List<int>>[];
+  final pixels = <List<int>>[];
   var closed = false;
   var terminateRemoteResult = true;
   final terminated = <({String session, bool durableShell})>[];
@@ -53,13 +55,19 @@ class FakeShellConnection implements ShellConnection {
   Stream<Uint8List> get output => _output.stream;
 
   @override
+  Stream<Uint8List> get snapshots => _snapshots.stream;
+
+  @override
   Stream<ShellConnectionHealth> get health => _health.stream;
 
   @override
   void write(Uint8List bytes) => writes.add(bytes);
 
   @override
-  void resize(int columns, int rows) => resizes.add([columns, rows]);
+  void resize(int columns, int rows, {int widthPx = 0, int heightPx = 0}) {
+    resizes.add([columns, rows]);
+    pixels.add([widthPx, heightPx]);
+  }
 
   @override
   Future<int?> get exitCode => _exit.future;
@@ -131,6 +139,8 @@ class FakeShellConnection implements ShellConnection {
   void emit(String text) => emitBytes(utf8.encode(text));
 
   void emitBytes(List<int> bytes) => _output.add(Uint8List.fromList(bytes));
+
+  void emitSnapshot(Uint8List bytes) => _snapshots.add(bytes);
 
   /// The stream errors and the connection is never told, which is what a phone leaving wifi
   /// looks like.

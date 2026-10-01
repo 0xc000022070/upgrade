@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:flterm/flterm.dart';
 
 import '../../design/tokens.dart';
 import '../../design/components/key_cell.dart';
@@ -41,16 +42,31 @@ class _ShellTailCellState extends State<ShellTailCell> {
     super.dispose();
   }
 
+  TerminalController? _bound;
+
   void _listen(ShellSession session) {
     session.scrollController.addListener(_onMove);
     session.output.addListener(_onMove);
-    session.terminal.addListener(_onMove);
+    session.terminals.addListener(_onTerminal);
+    _bind(session.terminal);
   }
 
   void _unlisten(ShellSession session) {
     session.scrollController.removeListener(_onMove);
     session.output.removeListener(_onMove);
-    session.terminal.removeListener(_onMove);
+    session.terminals.removeListener(_onTerminal);
+    _bound?.removeListener(_onMove);
+    _bound = null;
+  }
+
+  void _onTerminal() {
+    _bind(widget.session.terminal);
+    _onMove();
+  }
+
+  void _bind(TerminalController terminal) {
+    _bound?.removeListener(_onMove);
+    _bound = terminal..addListener(_onMove);
   }
 
   bool? _shown;

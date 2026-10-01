@@ -10,7 +10,7 @@ import 'package:dazzle/platform/shell/shell_tunnel.dart';
 import 'fixture.dart';
 
 void main() {
-  const tunnel = ShellTunnel();
+  final tunnel = ShellTunnel();
 
   late String key;
 
