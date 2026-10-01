@@ -140,13 +140,13 @@ once() {
   read -r name code sha <<<"$(stamp)"
 
   local targets
-  targets=$(resolve "$@")
+  targets=$(resolve "$@") || return 1
   if [[ -z $targets ]]; then
     local idle
     idle=$(handsets | awk -F'\t' '$2 !~ /^attached\// && $4 > 0 { printf "%s%s (%s)", sep, $1, $2; sep = ", " }')
     [[ -n $idle ]] || idle="none it can reach"
     warn "no handset attached; name one to dial it: $idle"
-    return 0
+    return 1
   fi
 
   local pending=() label serial pkg have
@@ -214,8 +214,13 @@ watch() {
   while :; do
     head=$(git -C "$ROOT" rev-parse HEAD)
     if [[ $head != "$seen" ]]; then
-      seen=$head
-      (once ask "$@") || warn "that round failed; the next commit gets another"
+      if (once ask "$@"); then
+        seen=$head
+      else
+        warn "that round failed; retrying the current commit in 30s"
+        sleep 30
+        continue
+      fi
     fi
     sleep 5
   done
