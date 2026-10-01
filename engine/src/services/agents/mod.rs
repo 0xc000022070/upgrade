@@ -30,6 +30,55 @@ const SUMMARY_CHARS: usize = 256;
 const LINE_CHARS: usize = 280;
 const POLL: Duration = Duration::from_millis(150);
 
+const CLAUDE_INJECTED: &[&str] = &[
+    "<task-notification>",
+    "<teammate-message",
+    "Another Claude session sent a message:",
+    "<local-command-stdout>",
+    "<local-command-stderr>",
+    "<local-command-caveat>",
+    "<bash-stdout>",
+    "<bash-stderr>",
+    "<system-reminder>",
+];
+
+const CODEX_INJECTED: &[&str] = &[
+    "# AGENTS.md instructions",
+    "<environment_context>",
+    "<permissions instructions>",
+    "<user_instructions>",
+    "<turn_aborted>",
+];
+
+fn tagged<'a>(text: &'a str, tag: &str) -> Option<&'a str> {
+    let open = format!("<{tag}>");
+    let start = text.find(&open)? + open.len();
+    let end = start + text[start..].find(&format!("</{tag}>"))?;
+    Some(text[start..end].trim())
+}
+
+fn typed(agent: &str, text: &str) -> Option<String> {
+    let trimmed = text.trim_start();
+    if agent == "claude" && trimmed.starts_with("<command-") {
+        if let Some(name) = tagged(trimmed, "command-name") {
+            let args = tagged(trimmed, "command-args").unwrap_or("");
+            return Some(format!("{name} {args}").trim_end().to_owned());
+        }
+    }
+    if agent == "claude" && trimmed.starts_with("<bash-input>") {
+        if let Some(command) = tagged(trimmed, "bash-input") {
+            return Some(format!("! {command}"));
+        }
+    }
+    let marks = match agent {
+        "claude" => CLAUDE_INJECTED,
+        "codex" => CODEX_INJECTED,
+        _ => &[],
+    };
+    let injected = trimmed.is_empty() || marks.iter().any(|mark| trimmed.starts_with(mark));
+    (!injected).then(|| text.to_owned())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Approval {
     id: String,
@@ -393,7 +442,7 @@ fn apply_event(session: &mut Session, event: &str, input: &Value) -> Option<Opti
         "SessionStart" => settle_state(session, "idle"),
         "UserPromptSubmit" => {
             settle_state(session, "working");
-            if let Some(prompt) = text(input, "prompt") {
+            if let Some(prompt) = text(input, "prompt").and_then(|prompt| typed(&session.agent, &prompt)) {
                 session.prompt = Some(cut(&prompt, LINE_CHARS));
             }
         }
@@ -531,7 +580,10 @@ fn await_answer(root: &Path, key: &str, approval: &Approval) -> Option<&'static 
 
 #[cfg(test)]
 mod tests {
-    use super::{answers_dir, close_approval, cut, new_session, request_approval, summarize, Store};
+    use super::{
+        answers_dir, apply_event, close_approval, cut, new_session, request_approval, summarize, typed,
+        Store,
+    };
     use crate::util::now_millis;
     use serde_json::json;
 
@@ -570,5 +622,33 @@ mod tests {
     fn a_cut_never_splits_a_character() {
         assert_eq!(cut("ñññ", 2), "ññ…");
         assert_eq!(cut("  ab  ", 5), "ab");
+    }
+
+    #[test]
+    fn a_harness_turn_keeps_the_prompt_a_person_typed() {
+        let mut session = new_session("claude:s1", "claude", "s1", now_millis());
+        apply_event(&mut session, "UserPromptSubmit", &json!({ "prompt": "fix the tab strip" }));
+        let notice = "<task-notification>\n<task-id>b1yu0brus</task-id>";
+        apply_event(&mut session, "UserPromptSubmit", &json!({ "prompt": notice }));
+
+        assert_eq!(session.prompt.as_deref(), Some("fix the tab strip"));
+        assert_eq!(session.state, "working");
+    }
+
+    #[test]
+    fn only_what_a_person_typed_is_their_turn() {
+        assert_eq!(typed("claude", "  <task-notification>x").as_deref(), None);
+        let teammate = "Another Claude session sent a message:\n<teammate-message>";
+        assert_eq!(typed("claude", teammate).as_deref(), None);
+        let command = "<command-message>commit</command-message>\n<command-name>/commit</command-name>\n\
+            <command-args>only the engine</command-args>";
+        assert_eq!(typed("claude", command).as_deref(), Some("/commit only the engine"));
+        assert_eq!(typed("claude", "<command-name>/clear</command-name>").as_deref(), Some("/clear"));
+        assert_eq!(typed("claude", "<bash-input>ls</bash-input>").as_deref(), Some("! ls"));
+        let lookalike = "<command-foo> why does this parse";
+        assert_eq!(typed("claude", lookalike).as_deref(), Some(lookalike));
+        assert_eq!(typed("codex", "<environment_context>").as_deref(), None);
+        let typed_tag = "<system-reminder> is a tag";
+        assert_eq!(typed("codex", typed_tag).as_deref(), Some(typed_tag));
     }
 }
