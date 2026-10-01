@@ -108,6 +108,7 @@ impl Server {
                 }
             }
             self.serve_pty(&ready);
+            self.files.claims.expire(now);
             self.reap(now);
             self.transmit(now);
         }
@@ -182,6 +183,7 @@ impl Server {
             self.link.deadline(now, self.mirror.stream()),
             (!self.contacted).then(|| self.started + self.timing.first_contact),
             self.ended_at.map(|at| at + self.timing.linger),
+            self.files.claims.deadline(),
         ]
         .into_iter()
         .flatten()
@@ -202,7 +204,9 @@ impl Server {
             if self.pending.len() < PENDING_INPUT {
                 let fresh = self.input.accept(*offset, bytes);
                 if self.pty.is_some() {
-                    self.pending.extend(fresh);
+                    let mut answered = Vec::new();
+                    self.files.claims.answer(fresh, &mut answered);
+                    self.pending.extend(answered);
                 }
             }
         }
