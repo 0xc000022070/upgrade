@@ -431,6 +431,68 @@ void main() {
     });
   });
 
+  group('an arrow held down', () {
+    const up = [0x1b, 0x5b, 0x41];
+
+    testWidgets('waits, then goes twenty a second until the lift', (
+      tester,
+    ) async {
+      final record = await pumpBar(tester);
+      final press = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('bar-UP'))),
+      );
+
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(record.sent, isEmpty);
+
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(record.sent, [up]);
+
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(record.sent, List.filled(5, up));
+
+      await press.up();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(record.sent, List.filled(5, up));
+    });
+
+    testWidgets('a scroll of the row stops it', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final record = await pumpBar(tester);
+      await tester.ensureVisible(find.byKey(const ValueKey('bar-UP')));
+      await tester.pumpAndSettle();
+      final press = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('bar-UP'))),
+      );
+
+      await tester.pump(const Duration(milliseconds: 510));
+      expect(record.sent, [up]);
+
+      await press.moveBy(const Offset(-80, 0));
+      await tester.pump(const Duration(milliseconds: 200));
+      await press.up();
+      await tester.pumpAndSettle();
+
+      expect(record.sent, [up]);
+    });
+
+    testWidgets('the other keys do not repeat', (tester) async {
+      final record = await pumpBar(tester);
+      final press = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('bar-TAB'))),
+      );
+
+      await tester.pump(const Duration(seconds: 1));
+      await press.up();
+      await tester.pump();
+
+      expect(record.sent, [
+        [0x09],
+      ]);
+    });
+  });
+
   group('the room it takes', () {
     testWidgets('the bar is one short row and every cell fills it', (
       tester,
