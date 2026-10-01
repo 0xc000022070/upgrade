@@ -15,9 +15,11 @@ abstract interface class ShellConnection {
 
   Stream<Uint8List> get output;
 
+  Stream<Uint8List> get snapshots;
+
   void write(Uint8List bytes);
 
-  void resize(int columns, int rows);
+  void resize(int columns, int rows, {int widthPx = 0, int heightPx = 0});
 
   Future<int?> get exitCode;
 
@@ -48,7 +50,7 @@ abstract interface class ShellConnection {
 
 enum ShellContinuity { plain, started, resumed }
 
-enum ShellTransport { ssh, mosh }
+enum ShellTransport { ssh, mosh, engine }
 
 enum ShellConnectionHealth { connected, reconnecting, disconnected }
 

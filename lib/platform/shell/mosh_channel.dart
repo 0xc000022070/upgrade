@@ -1,12 +1,17 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dart_mosh/dart_mosh.dart';
+
+import 'udp_path.dart';
 
 abstract interface class MoshChannel {
   Stream<Uint8List> get output;
   Stream<Object> get errors;
   Stream<int> get echoAcks;
   Stream<void> get contacts;
+
+  Future<void> get firstContact;
   Future<void> get done;
 
   int send(Uint8List bytes);
@@ -26,6 +31,7 @@ Future<MoshChannel> dialMosh({
   required MoshServerConfig server,
   required int columns,
   required int rows,
+  Duration contactWindow = const Duration(seconds: 4),
 }) async => _DartMoshChannel(
   await MoshSession.connect(
     server: server,
@@ -33,12 +39,27 @@ Future<MoshChannel> dialMosh({
     columns: columns,
     rows: rows,
   ),
+  server: server,
+  contactWindow: contactWindow,
 );
 
 class _DartMoshChannel implements MoshChannel {
-  const _DartMoshChannel(this._session);
+  _DartMoshChannel(
+    this._session, {
+    required MoshServerConfig server,
+    required Duration contactWindow,
+  }) {
+    _heard = _session.contacts.listen((_) {
+      _contact.hear();
+      unawaited(_heard?.cancel());
+      _heard = null;
+    });
+    _contact.arm(contactWindow, address: server.host, port: server.port);
+  }
 
   final MoshSession _session;
+  final _contact = UdpContact();
+  StreamSubscription<void>? _heard;
 
   @override
   Stream<Uint8List> get output => _session.stdout.map(
@@ -53,6 +74,9 @@ class _DartMoshChannel implements MoshChannel {
 
   @override
   Stream<void> get contacts => _session.contacts;
+
+  @override
+  Future<void> get firstContact => _contact.future;
 
   @override
   Future<void> get done => _session.done;
@@ -70,5 +94,10 @@ class _DartMoshChannel implements MoshChannel {
   Future<void> suspend() => _session.suspend();
 
   @override
-  Future<void> close() => _session.close();
+  Future<void> close() {
+    _contact.cancel();
+    unawaited(_heard?.cancel());
+    _heard = null;
+    return _session.close();
+  }
 }

@@ -85,21 +85,34 @@ class ShellTerminalView extends StatelessWidget {
   }
 
   Widget _view(BuildContext context) {
-    return TerminalView(
-      key: ObjectKey(session),
-      controller: session.terminal,
-      focusNode: session.focusNode,
-      scrollController: session.scrollController,
-      theme: shellTheme(context.tokens, fontSize),
-      padding: shellTerminalPadding,
-      showKeyboard: false,
-      gestureSettings: shellGestures,
-      overlayBuilder: (context, geometry) => Stack(
-        fit: StackFit.expand,
-        children: [
-          ShellSelectionActions(session: session, geometry: geometry),
-          ShellTailCell(session: session),
-        ],
+    return ValueListenableBuilder(
+      valueListenable: session.terminals,
+      builder: (context, terminal, _) => TerminalView(
+        key: ObjectKey(session),
+        controller: terminal,
+        focusNode: session.focusNode,
+        scrollController: session.scrollController,
+        theme: shellTheme(context.tokens, fontSize),
+        padding: shellTerminalPadding,
+        showKeyboard: false,
+        gestureSettings: shellGestures,
+        overlayBuilder: (context, geometry) {
+          final cell = geometry.cellRect(const Position(row: 0, col: 0));
+          if (cell != null) {
+            final ratio = MediaQuery.devicePixelRatioOf(context);
+            session.measuredCell(
+              (cell.width * ratio).round(),
+              (cell.height * ratio).round(),
+            );
+          }
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              ShellSelectionActions(session: session, geometry: geometry),
+              ShellTailCell(session: session),
+            ],
+          );
+        },
       ),
     );
   }

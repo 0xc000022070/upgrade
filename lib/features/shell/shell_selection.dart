@@ -31,27 +31,42 @@ class ShellSelectionActions extends StatefulWidget {
 class _SelectionActionsState extends State<ShellSelectionActions> {
   bool _selected = false;
 
+  TerminalController? _bound;
+
   @override
   void initState() {
     super.initState();
     _selected = widget.session.terminal.hasSelection;
-    widget.session.terminal.addListener(_onTerminal);
+    widget.session.terminals.addListener(_onSwap);
+    _bind(widget.session.terminal);
   }
 
   @override
   void didUpdateWidget(ShellSelectionActions old) {
     super.didUpdateWidget(old);
     if (old.session != widget.session) {
-      old.session.terminal.removeListener(_onTerminal);
-      widget.session.terminal.addListener(_onTerminal);
+      old.session.terminals.removeListener(_onSwap);
+      widget.session.terminals.addListener(_onSwap);
+      _bind(widget.session.terminal);
       _selected = widget.session.terminal.hasSelection;
     }
   }
 
   @override
   void dispose() {
-    widget.session.terminal.removeListener(_onTerminal);
+    widget.session.terminals.removeListener(_onSwap);
+    _bound?.removeListener(_onTerminal);
     super.dispose();
+  }
+
+  void _bind(TerminalController terminal) {
+    _bound?.removeListener(_onTerminal);
+    _bound = terminal..addListener(_onTerminal);
+  }
+
+  void _onSwap() {
+    _bind(widget.session.terminal);
+    _onTerminal();
   }
 
   /// The tick under the finger that says the press took: the highlight comes a frame later

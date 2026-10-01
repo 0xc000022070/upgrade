@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flterm/flterm.dart';
 import 'package:flutter/material.dart';
 
 import '../../design/tokens.dart';
@@ -36,10 +37,13 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
 
   bool _landing = false;
 
+  TerminalController? _bound;
+
   @override
   void initState() {
     super.initState();
-    widget.session.terminal.search.addListener(_onSearch);
+    widget.session.terminals.addListener(_onSwap);
+    _bind(widget.session.terminal);
   }
 
   @override
@@ -47,7 +51,8 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
     super.didUpdateWidget(old);
     if (old.session != widget.session) {
       _leave(old.session);
-      widget.session.terminal.search.addListener(_onSearch);
+      widget.session.terminals.addListener(_onSwap);
+      _bind(widget.session.terminal);
       _run();
     }
   }
@@ -59,7 +64,9 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
     // notification sent while the tree is being taken down reaches views that can no
     // longer be marked dirty. A tab that went took its search with it.
     final session = widget.session;
-    session.terminal.search.removeListener(_onSearch);
+    session.terminals.removeListener(_onSwap);
+    _bound?.search.removeListener(_onSearch);
+    _bound = null;
     scheduleMicrotask(() {
       if (!session.retired) session.terminal.search.clear();
     });
@@ -68,9 +75,20 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
   }
 
   void _leave(ShellSession session) {
-    session.terminal.search
-      ..removeListener(_onSearch)
-      ..clear();
+    session.terminals.removeListener(_onSwap);
+    _bound?.search.removeListener(_onSearch);
+    _bound = null;
+    session.terminal.search.clear();
+  }
+
+  void _bind(TerminalController terminal) {
+    _bound?.search.removeListener(_onSearch);
+    _bound = terminal..search.addListener(_onSearch);
+  }
+
+  void _onSwap() {
+    _bind(widget.session.terminal);
+    _run();
   }
 
   void _onSearch() {

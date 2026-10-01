@@ -1,14 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dart_mosh/dart_mosh.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dazzle/platform/shell/engine_channel.dart';
 import 'package:dazzle/platform/shell/mosh_channel.dart';
 import 'package:dazzle/platform/shell/shell_connection.dart';
 import 'package:dazzle/platform/shell/remote_shell.dart';
 import 'package:dazzle/platform/shell/shell_tunnel.dart';
+import 'package:dazzle/platform/shell/udp_path.dart';
 import 'package:dazzle/platform/host_keys.dart';
 import 'package:dazzle/platform/keys.dart';
 
@@ -98,7 +101,11 @@ class FakePty implements ShellPty {
 }
 
 class FakeExec implements ShellExec {
-  FakeExec({this.out = '', this.err = '', this.reported = 0});
+  FakeExec({this.out = '', this.err = '', this.reported = 0, this.answerInput});
+
+  final String Function(String stdin)? answerInput;
+  final _input = BytesBuilder();
+  final _answer = StreamController<Uint8List>();
 
   final _done = Completer<void>();
   final String out;
@@ -106,7 +113,9 @@ class FakeExec implements ShellExec {
   final int? reported;
 
   @override
-  Stream<Uint8List> get stdout => out.isEmpty
+  Stream<Uint8List> get stdout => answerInput != null
+      ? _answer.stream
+      : out.isEmpty
       ? const Stream.empty()
       : Stream.value(Uint8List.fromList(out.codeUnits));
 
@@ -122,10 +131,16 @@ class FakeExec implements ShellExec {
   int? get exitCode => reported;
 
   @override
-  void write(Uint8List bytes) {}
+  void write(Uint8List bytes) => _input.add(bytes);
 
   @override
   Future<void> closeStdin() async {
+    final answer = answerInput;
+    if (answer != null && !_answer.isClosed) {
+      final said = answer(utf8.decode(_input.takeBytes()));
+      if (said.isNotEmpty) _answer.add(Uint8List.fromList(utf8.encode(said)));
+      unawaited(_answer.close());
+    }
     if (!_done.isCompleted) _done.complete();
   }
 
@@ -154,6 +169,9 @@ class FakeHost implements ShellHost {
   String Function(String command)? execAnswer;
   int? Function(String command)? execCodeAnswer;
 
+  String Function(String command, String stdin)? execInputAnswer;
+  final inputs = <String>[];
+
   final requests = <String>[];
   final pty = FakePty();
   bool closed = false;
@@ -170,10 +188,17 @@ class FakeHost implements ShellHost {
     requests.add('exec $command');
     final error = refuse;
     if (error != null) throw error;
+    final inputAnswer = execInputAnswer;
     return FakeExec(
       out: execAnswer?.call(command) ?? execOut,
       err: execError,
       reported: execCodeAnswer?.call(command) ?? execCode,
+      answerInput: inputAnswer == null
+          ? null
+          : (stdin) {
+              inputs.add(stdin);
+              return inputAnswer(command, stdin);
+            },
     );
   }
 
@@ -225,6 +250,9 @@ class FakeMoshChannel implements MoshChannel {
   Stream<void> get contacts => _contacts.stream;
 
   @override
+  Future<void> firstContact = Future<void>.value();
+
+  @override
   Future<void> get done => _done.future;
 
   @override
@@ -261,6 +289,12 @@ class FakeMoshChannel implements MoshChannel {
   void acknowledge(int state) => _echoAcks.add(state);
 
   void contact() => _contacts.add(null);
+
+  void fallSilent([Duration window = const Duration(milliseconds: 20)]) =>
+      firstContact = Future<void>.delayed(
+        window,
+        () => throw UdpSilent(address: '10.0.0.7', port: 60990, window: window),
+      );
 }
 
 ShellTunnel tunnelTo(FakeHost host, {Object? dialError}) => ShellTunnel(
@@ -1257,5 +1291,650 @@ void main() {
     await closing.timeout(const Duration(seconds: 1));
 
     expect(socket.closed, isTrue);
+  });
+
+  group('the engine', engineTests);
+}
+
+class FakeEngineChannel implements EngineChannel {
+  final _events = StreamController<EngineEvent>.broadcast();
+  final _errors = StreamController<Object>.broadcast();
+  final _contacts = StreamController<void>.broadcast();
+
+  final sent = <Uint8List>[];
+  final sizes = <({int columns, int rows, int widthPx, int heightPx})>[];
+  var pokes = 0;
+  var rehomes = 0;
+  var suspends = 0;
+  var closed = false;
+  var ended = false;
+
+  @override
+  Stream<EngineEvent> get events => _events.stream;
+
+  @override
+  Stream<Object> get errors => _errors.stream;
+
+  @override
+  Stream<void> get contacts => _contacts.stream;
+
+  @override
+  Future<void> firstContact = Future<void>.value();
+
+  @override
+  void send(Uint8List bytes) => sent.add(bytes);
+
+  @override
+  void resize(int columns, int rows, {int widthPx = 0, int heightPx = 0}) =>
+      sizes.add((
+        columns: columns,
+        rows: rows,
+        widthPx: widthPx,
+        heightPx: heightPx,
+      ));
+
+  @override
+  void poke() => pokes++;
+
+  @override
+  Future<void> rehome() async => rehomes++;
+
+  @override
+  Future<void> suspend() async => suspends++;
+
+  @override
+  Future<void> close({bool end = false}) async {
+    ended |= end;
+    if (closed) return;
+    closed = true;
+    await _events.close();
+    await _errors.close();
+    await _contacts.close();
+  }
+
+  void emit(EngineEvent event) => _events.add(event);
+
+  void contact() => _contacts.add(null);
+
+  void fallSilent([Duration window = const Duration(milliseconds: 20)]) =>
+      firstContact = Future<void>.delayed(
+        window,
+        () => throw UdpSilent(address: '10.0.0.7', port: 60990, window: window),
+      );
+}
+
+const _engineKey = 'AAECAwQFBgcICQoLDA0ODw';
+
+String Function(String, String) engineHostAnswer({
+  String start =
+      '{"ok":true,"result":{"port":60990,"key":"$_engineKey","pid":42}}',
+}) => (command, stdin) {
+  if (!command.endsWith('dazzle-engine')) return moshHostAnswer(command);
+  final request = jsonDecode(stdin) as Map<String, Object?>;
+  return switch (request['op']) {
+    'start' => start,
+    'stop' => '{"ok":true,"result":{"stopped":true}}',
+    _ => '',
+  };
+};
+
+ShellTunnel engineTunnelTo(
+  FakeHost host,
+  FakeEngineChannel engine,
+  FakeMoshChannel mosh, {
+  Duration timeout = const Duration(seconds: 10),
+  bool emitReady = true,
+  List<({String host, int port, String key})>? dialled,
+  UdpVerdicts? verdicts,
+  FakeEngineChannel Function()? next,
+  FakeHost Function()? nextHost,
+  void Function()? onMosh,
+}) => ShellTunnel(
+  timeout: timeout,
+  udpVerdicts: verdicts,
+  dial: ({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    HostKeyVerifier? verifier,
+    required Duration timeout,
+    required Duration keepAlive,
+  }) async => nextHost?.call() ?? host,
+  engineDialer:
+      ({
+        required String host,
+        required int port,
+        required String key,
+        required int columns,
+        required int rows,
+      }) async {
+        dialled?.add((host: host, port: port, key: key));
+        final channel = next?.call() ?? engine;
+        if (emitReady) {
+          Timer.run(() => channel.emit(EnginePty(utf8.encode('\$ '))));
+        }
+        return channel;
+      },
+  moshDialer:
+      ({
+        required MoshServerConfig server,
+        required int columns,
+        required int rows,
+      }) async {
+        onMosh?.call();
+        Timer.run(() => mosh.emit('\$ '));
+        return mosh;
+      },
+);
+
+List<Map<String, Object?>> engineRequests(FakeHost host) => [
+  for (final input in host.inputs)
+    if (input.isNotEmpty) jsonDecode(input) as Map<String, Object?>,
+];
+
+void engineTests() {
+  const session = 'dazzle123';
+
+  test('an engine that knows shell/1 carries the tab and Mosh is never '
+      'probed', () async {
+    final host = FakeHost()..execInputAnswer = engineHostAnswer();
+    final engine = FakeEngineChannel();
+    final dialled = <({String host, int port, String key})>[];
+    final connection = await openOn(
+      engineTunnelTo(host, engine, FakeMoshChannel(), dialled: dialled),
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+    );
+    addTearDown(connection.close);
+
+    expect(connection, isA<EngineShellConnection>());
+    expect(connection.transport, ShellTransport.engine);
+    expect(host.requests, ["exec $moshTabVariable='dazzle123' dazzle-engine"]);
+    expect(engineRequests(host).single, {
+      'service': 'shell/1',
+      'op': 'start',
+      'owner': 'luisnquin',
+      'args': {
+        'tab': session,
+        'cols': 100,
+        'rows': 40,
+        'width_px': 0,
+        'height_px': 0,
+        'term': 'xterm-256color',
+        'command': ['sh', '-c', 'exec \$SHELL -l'],
+        'resume': true,
+      },
+    });
+    expect(dialled.single, (host: 'nyx', port: 60990, key: _engineKey));
+
+    connection.write(Uint8List.fromList([0x6c, 0x73, 0x0d]));
+    connection.resize(91, 37, widthPx: 1820, heightPx: 1554);
+    await connection.rehome();
+    expect(engine.sent.single, [0x6c, 0x73, 0x0d]);
+    expect(engine.sizes.single, (
+      columns: 91,
+      rows: 37,
+      widthPx: 1820,
+      heightPx: 1554,
+    ));
+    expect(engine.rehomes, 1);
+  });
+
+  test('a durable tab hands its tmux attach to the engine', () async {
+    final host = FakeHost()
+      ..execAnswer = moshHostAnswer
+      ..execInputAnswer = engineHostAnswer();
+    final connection = await openOn(
+      engineTunnelTo(host, FakeEngineChannel(), FakeMoshChannel()),
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+      persistentSession: session,
+    );
+    addTearDown(connection.close);
+
+    expect(connection.continuity, ShellContinuity.started);
+    final args = engineRequests(host).single['args'] as Map<String, Object?>;
+    expect((args['command'] as List<Object?>).last, contains(_tmuxPath));
+  });
+
+  for (final (name, start) in [
+    ('not installed', ''),
+    ('too old to know shell/1', '{"ok":false,"error":{"kind":"unsupported"}}'),
+    ('refusing the owner', '{"ok":false,"error":{"kind":"denied"}}'),
+    ('answering garbage', 'dazzle-engine: command not found'),
+  ]) {
+    test('an engine $name falls back to Mosh and stops nothing', () async {
+      final host = FakeHost()..execInputAnswer = engineHostAnswer(start: start);
+      final engine = FakeEngineChannel();
+      final connection = await openOn(
+        engineTunnelTo(host, engine, FakeMoshChannel()),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      );
+      addTearDown(connection.close);
+
+      expect(connection, isA<MoshShellConnection>());
+      expect(engineRequests(host).map((request) => request['op']), ['start']);
+      expect(host.requests, contains('exec ${moshServerProbeCommand()}'));
+    });
+  }
+
+  test(
+    'a shell that never answers is stopped and Mosh takes the tab',
+    () async {
+      final host = FakeHost()..execInputAnswer = engineHostAnswer();
+      final engine = FakeEngineChannel();
+      final connection = await openOn(
+        engineTunnelTo(
+          host,
+          engine,
+          FakeMoshChannel(),
+          timeout: const Duration(milliseconds: 50),
+          emitReady: false,
+        ),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      );
+      addTearDown(connection.close);
+
+      expect(connection, isA<MoshShellConnection>());
+      expect(engine.closed, isTrue);
+      expect(engine.ended, isFalse);
+      expect(engineRequests(host).map((request) => request['op']), [
+        'start',
+        'stop',
+      ]);
+      expect(engineRequests(host).last['args'], {'tab': session});
+    },
+  );
+
+  test('a live server for the tab is resumed, and a fallback leaves it running', () async {
+    const resumed =
+        '{"ok":true,"result":{"port":60991,"key":"$_engineKey","pid":7,"resumed":true}}';
+    final host = FakeHost()..execInputAnswer = engineHostAnswer(start: resumed);
+    final live = await openOn(
+      engineTunnelTo(host, FakeEngineChannel(), FakeMoshChannel()),
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+    );
+    addTearDown(live.close);
+    expect(live, isA<EngineShellConnection>());
+    expect(live.continuity, ShellContinuity.resumed);
+
+    final silent = FakeHost()
+      ..execInputAnswer = engineHostAnswer(start: resumed);
+    final fallback = await openOn(
+      engineTunnelTo(
+        silent,
+        FakeEngineChannel(),
+        FakeMoshChannel(),
+        timeout: const Duration(milliseconds: 50),
+        emitReady: false,
+      ),
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+    );
+    addTearDown(fallback.close);
+    expect(fallback, isA<MoshShellConnection>());
+    expect(engineRequests(silent).map((request) => request['op']), ['start']);
+  });
+
+  test('a tab without a session id never asks the engine', () async {
+    final host = FakeHost()..execInputAnswer = engineHostAnswer();
+    final connection = await openOn(
+      engineTunnelTo(host, FakeEngineChannel(), FakeMoshChannel()),
+    );
+    addTearDown(connection.close);
+
+    expect(connection, isA<SshShellConnection>());
+    expect(host.inputs, isEmpty);
+  });
+
+  test('snapshots and pty bytes arrive in the order the stream had them, '
+      'and an exit ends the shell with its status', () async {
+    final host = FakeHost()..execInputAnswer = engineHostAnswer();
+    final engine = FakeEngineChannel();
+    final connection = await openOn(
+      engineTunnelTo(host, engine, FakeMoshChannel()),
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+    );
+    addTearDown(connection.close);
+
+    final seen = <String>[];
+    connection.snapshots.listen(
+      (bytes) => seen.add('snap ${utf8.decode(bytes)}'),
+    );
+    connection.output.listen((bytes) => seen.add('pty ${utf8.decode(bytes)}'));
+    engine
+      ..emit(EngineSnapshot(utf8.encode('A')))
+      ..emit(EnginePty(utf8.encode('b')))
+      ..emit(EngineSnapshot(utf8.encode('C')))
+      ..emit(EngineExit(-9));
+
+    expect(await connection.exitCode, -9);
+    expect(seen, ['pty \$ ', 'snap A', 'pty b', 'snap C']);
+  });
+
+  test('closing the tab stops the shell and sweeps the mark', () async {
+    final host = FakeHost()..execInputAnswer = engineHostAnswer();
+    final engine = FakeEngineChannel();
+    final connection = await openOn(
+      engineTunnelTo(host, engine, FakeMoshChannel()),
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+    );
+
+    expect(
+      await connection.terminateRemote(session, durableShell: false),
+      isTrue,
+    );
+    expect(engine.ended, isTrue);
+    expect(engineRequests(host).last, {
+      'service': 'shell/1',
+      'op': 'stop',
+      'owner': 'luisnquin',
+      'args': {'tab': session},
+    });
+    expect(host.requests.last, 'exec ${moshServerCleanupCommand(session)}');
+    await connection.close();
+  });
+
+  test('a retired tab is stopped without touching the live channel', () async {
+    final host = FakeHost()..execInputAnswer = engineHostAnswer();
+    final engine = FakeEngineChannel();
+    final connection = await openOn(
+      engineTunnelTo(host, engine, FakeMoshChannel()),
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+    );
+    addTearDown(connection.close);
+
+    expect(
+      await connection.terminateRemote('dazzle456', durableShell: false),
+      isTrue,
+    );
+    expect(engine.ended, isFalse);
+    expect(engineRequests(host).last['args'], {'tab': 'dazzle456'});
+  });
+
+  test('a stop the engine refuses falls to the marker sweep', () async {
+    final host = FakeHost()..execInputAnswer = engineHostAnswer();
+    final connection = await openOn(
+      engineTunnelTo(host, FakeEngineChannel(), FakeMoshChannel()),
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+    );
+    addTearDown(connection.close);
+    host.execInputAnswer = (command, stdin) => command.endsWith('dazzle-engine')
+        ? '{"ok":false,"error":{"kind":"failed","message":"no"}}'
+        : '';
+
+    expect(
+      await connection.terminateRemote('dazzle456', durableShell: false),
+      isTrue,
+    );
+    expect(host.requests.last, 'exec ${moshServerCleanupCommand('dazzle456')}');
+
+    host.execCodeAnswer = (command) =>
+        command.endsWith('dazzle-engine') ? 0 : 1;
+    expect(
+      await connection.terminateRemote('dazzle456', durableShell: false),
+      isFalse,
+    );
+  });
+
+  test('a silent channel is probed, then reconnecting, then dropped', () async {
+    final host = FakeHost()..execInputAnswer = engineHostAnswer();
+    final engine = FakeEngineChannel();
+    final tunnel = ShellTunnel(
+      moshHealthInterval: const Duration(milliseconds: 10),
+      moshGiveUp: const Duration(milliseconds: 40),
+      dial: ({
+        required String address,
+        required int port,
+        required String user,
+        required String privateKey,
+        HostKeyVerifier? verifier,
+        required Duration timeout,
+        required Duration keepAlive,
+      }) async => host,
+      engineDialer:
+          ({
+            required String host,
+            required int port,
+            required String key,
+            required int columns,
+            required int rows,
+          }) async {
+            Timer.run(() => engine.emit(EnginePty(utf8.encode('\$ '))));
+            return engine;
+          },
+    );
+    final connection = await openOn(
+      tunnel,
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+    );
+    addTearDown(connection.close);
+    final health = <ShellConnectionHealth>[];
+    connection.health.listen(health.add);
+    final failure = Completer<Object>();
+    connection.output.listen((_) {}, onError: failure.complete);
+
+    final error = await failure.future.timeout(const Duration(seconds: 2));
+    expect(error, isA<ShellFailure>());
+    expect(engine.pokes, greaterThan(1));
+    expect(health, contains(ShellConnectionHealth.reconnecting));
+    expect(health.last, ShellConnectionHealth.disconnected);
+  });
+
+  test('a suspended connection resumes through a rehome', () async {
+    final host = FakeHost()..execInputAnswer = engineHostAnswer();
+    final engine = FakeEngineChannel();
+    final connection = await openOn(
+      engineTunnelTo(host, engine, FakeMoshChannel()),
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+    );
+    addTearDown(connection.close);
+
+    await connection.suspend();
+    expect(engine.suspends, 1);
+    expect(host.closed, isTrue);
+    await connection.resume();
+    expect(engine.rehomes, 1);
+  });
+
+  group('a silent UDP path', () {
+    var clock = DateTime(2026, 10, 1);
+    late UdpVerdicts verdicts;
+    setUp(() {
+      clock = DateTime(2026, 10, 1);
+      verdicts = UdpVerdicts(now: () => clock);
+    });
+
+    List<Object?> ops(FakeHost host) => [
+      for (final request in engineRequests(host)) request['op'],
+    ];
+
+    test('a silent engine skips Mosh and lands on SSH inside the window, '
+        'not the dial timeout', () async {
+      final host = FakeHost()..execInputAnswer = engineHostAnswer();
+      final engine = FakeEngineChannel()..fallSilent();
+      var moshed = 0;
+      final watch = Stopwatch()..start();
+      final connection = await openOn(
+        engineTunnelTo(
+          host,
+          engine,
+          FakeMoshChannel(),
+          emitReady: false,
+          verdicts: verdicts,
+          onMosh: () => moshed++,
+        ),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      );
+      addTearDown(connection.close);
+
+      expect(connection, isA<SshShellConnection>());
+      expect(connection.transport, ShellTransport.ssh);
+      expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
+      expect(moshed, 0);
+      expect(
+        host.requests,
+        isNot(contains('exec ${moshServerProbeCommand()}')),
+      );
+      expect(ops(host), ['start', 'stop']);
+      expect(engine.closed, isTrue);
+      expect(verdicts.silent('nyx'), isTrue);
+    });
+
+    test('a refused engine still tries Mosh and leaves no verdict', () async {
+      final host = FakeHost()
+        ..execInputAnswer = engineHostAnswer(
+          start: '{"ok":false,"error":{"kind":"denied"}}',
+        );
+      final connection = await openOn(
+        engineTunnelTo(
+          host,
+          FakeEngineChannel(),
+          FakeMoshChannel(),
+          verdicts: verdicts,
+        ),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      );
+      addTearDown(connection.close);
+
+      expect(connection, isA<MoshShellConnection>());
+      expect(verdicts.silent('nyx'), isFalse);
+    });
+
+    test('an engine that answered once and then missed the deadline is not '
+        'silent', () async {
+      final host = FakeHost()..execInputAnswer = engineHostAnswer();
+      final connection = await openOn(
+        engineTunnelTo(
+          host,
+          FakeEngineChannel(),
+          FakeMoshChannel(),
+          timeout: const Duration(milliseconds: 50),
+          emitReady: false,
+          verdicts: verdicts,
+        ),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      );
+      addTearDown(connection.close);
+
+      expect(connection, isA<MoshShellConnection>());
+      expect(verdicts.silent('nyx'), isFalse);
+    });
+
+    test(
+      'the verdict keeps both UDP transports away until it lapses',
+      () async {
+        final hosts = [
+          for (var i = 0; i < 3; i++)
+            FakeHost()..execInputAnswer = engineHostAnswer(),
+        ];
+        var hosted = 0;
+        final engines = [
+          FakeEngineChannel()..fallSilent(),
+          FakeEngineChannel(),
+        ];
+        var dialled = 0;
+        var moshed = 0;
+        final tunnel = engineTunnelTo(
+          hosts.first,
+          engines.first,
+          FakeMoshChannel(),
+          verdicts: verdicts,
+          next: () => engines[dialled++],
+          nextHost: () => hosts[hosted++],
+          onMosh: () => moshed++,
+        );
+        Future<ShellConnection> open() async {
+          final connection = await openOn(
+            tunnel,
+            command: 'exec \$SHELL -l',
+            tabSession: session,
+          );
+          addTearDown(connection.close);
+          return connection;
+        }
+
+        expect(await open(), isA<SshShellConnection>());
+        clock = clock.add(const Duration(minutes: 4, seconds: 59));
+        expect(await open(), isA<SshShellConnection>());
+        expect(ops(hosts[0]), ['start', 'stop']);
+        expect(ops(hosts[1]), isEmpty);
+        expect(
+          hosts[1].requests,
+          isNot(contains('exec ${moshServerProbeCommand()}')),
+        );
+        expect(moshed, 0);
+
+        clock = clock.add(const Duration(seconds: 1));
+        expect(await open(), isA<EngineShellConnection>());
+        expect(ops(hosts[2]), ['start']);
+        expect(dialled, 2);
+      },
+    );
+
+    test('a UDP transport that comes up clears the verdict', () async {
+      final host = FakeHost()..execInputAnswer = engineHostAnswer();
+      final engine = FakeEngineChannel();
+      final connection = await openOn(
+        engineTunnelTo(
+          host,
+          engine,
+          FakeMoshChannel(),
+          verdicts: verdicts,
+          next: () {
+            verdicts.record('nyx');
+            return engine;
+          },
+        ),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      );
+      addTearDown(connection.close);
+
+      expect(connection, isA<EngineShellConnection>());
+      expect(verdicts.silent('nyx'), isFalse);
+    });
+
+    test(
+      'a silent Mosh after an engine that refused records the verdict',
+      () async {
+        final host = FakeHost()
+          ..execInputAnswer = engineHostAnswer(
+            start: '{"ok":false,"error":{"kind":"unsupported"}}',
+          );
+        final mosh = FakeMoshChannel()..fallSilent();
+        final connection = await openOn(
+          engineTunnelTo(host, FakeEngineChannel(), mosh, verdicts: verdicts),
+          command: 'exec \$SHELL -l',
+          tabSession: session,
+        );
+        addTearDown(connection.close);
+
+        expect(connection, isA<SshShellConnection>());
+        expect(mosh.closed, isTrue);
+        expect(verdicts.silent('nyx'), isTrue);
+      },
+    );
+
+    test('the verdict is spelled once, with the path and the lease', () {
+      expect(
+        '${const UdpSilent(address: '10.0.0.7', port: 60990, window: Duration(seconds: 4))}'
+            '; ssh for ${UdpSilent.spell(const Duration(minutes: 5))}',
+        'udp silent to 10.0.0.7:60990 after 4s; ssh for 5m',
+      );
+    });
   });
 }

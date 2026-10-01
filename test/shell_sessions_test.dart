@@ -61,6 +61,13 @@ String _text(TerminalController terminal) {
   }
 }
 
+Future<void> _restored(WidgetTester tester, ShellSession session) async {
+  for (var i = 0; i < 100; i++) {
+    if (session.terminal.restoration != RestorationState.restoring) return;
+    await tester.pump(const Duration(milliseconds: 10));
+  }
+}
+
 Future<void> _pumpView(WidgetTester tester, ShellSession session, Size size) =>
     tester.pumpWidget(
       Theme(
@@ -350,6 +357,36 @@ void main() {
     sessions.send(session, Uint8List.fromList([0x03]));
     expect(connection.writes.single, [0x03]);
   });
+
+  test(
+    'a snapshot replaces the terminal and later bytes land on the new one',
+    () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+
+      final session = sessions.open(_rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+      final first = session.terminal;
+      connection.emit('stale');
+      await _settle();
+
+      final source = TerminalController()..write(utf8.encode('restored'));
+      final snapshot = source.snapshot();
+      source.dispose();
+      connection.emitSnapshot(snapshot);
+      await _settle();
+      await session.terminal.restored;
+
+      expect(session.terminal, isNot(same(first)));
+      expect(_text(session.terminal), contains('restored'));
+      expect(_text(session.terminal), isNot(contains('stale')));
+
+      connection.emit(' after');
+      await _settle();
+      expect(_text(session.terminal), contains('restored after'));
+    },
+  );
 
   test('a character split across two reads survives the boundary', () async {
     final transport = FakeShellTransport();
@@ -1122,6 +1159,91 @@ void main() {
     expect(transport.verifiers.last?.prompt, isNull);
 
     await sessions.close(_rose.id, session);
+  });
+
+  testWidgets('an engine tab writes its reconnect line into the screen that '
+      'replaces it', (tester) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.engine;
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+
+    transport.opened.single.drop();
+    await tester.pump();
+    await tester.pump(shellReconnectDelays.first);
+    await _pumpDial(tester);
+
+    expect(transport.opened, hasLength(2));
+    expect(_text(session.terminal), isNot(contains('-- reconnected --')));
+
+    final source = TerminalController()..write(utf8.encode('restored'));
+    final snapshot = source.snapshot();
+    source.dispose();
+    transport.opened.last.emitSnapshot(snapshot);
+    await tester.pump();
+    await _restored(tester, session);
+
+    expect(_text(session.terminal), contains('restored'));
+    expect(_text(session.terminal), contains('-- reconnected --'));
+
+    final again = TerminalController()..write(utf8.encode('later'));
+    final second = again.snapshot();
+    again.dispose();
+    transport.opened.last.emitSnapshot(second);
+    await tester.pump();
+    await _restored(tester, session);
+    expect(_text(session.terminal), isNot(contains('-- reconnected --')));
+
+    await sessions.close(_rose.id, session);
+  });
+
+  test('a measured cell gives an engine pty its pixel size', () async {
+    final transport = FakeShellTransport()..transport = ShellTransport.engine;
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _settle();
+    final connection = transport.opened.single;
+    final opened = connection.resizes.length;
+
+    session.measuredCell(20, 42);
+    session.measuredCell(20, 42);
+    expect(connection.resizes.length, opened + 1);
+    final [columns, rows] = connection.resizes.last;
+    expect(connection.pixels.last, [columns * 20, rows * 42]);
+  });
+
+  testWidgets('the view measures its cells and a resize carries the pixels', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.engine;
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _pumpDial(tester);
+    final connection = transport.opened.single;
+
+    await _pumpView(tester, session, const Size(400, 600));
+    await _pumpView(tester, session, const Size(600, 600));
+
+    final [columns, rows] = connection.resizes.last;
+    final [width, height] = connection.pixels.last;
+    expect(width, greaterThan(0));
+    expect(height, greaterThan(0));
+    expect(width % columns, 0);
+    expect(height % rows, 0);
+
+    await sessions.close(_rose.id, session);
+  });
+
+  test('a measured cell leaves a Mosh link alone', () async {
+    final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(_rose)!;
+    await _settle();
+    final connection = transport.opened.single;
+    final opened = connection.resizes.length;
+
+    session.measuredCell(20, 42);
+    expect(connection.resizes, hasLength(opened));
   });
 
   testWidgets(
