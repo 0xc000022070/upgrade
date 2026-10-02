@@ -46,8 +46,11 @@ class _PinRecorder implements PinNotifier {
   final raised = <String>[];
 
   @override
-  Future<void> raise({required String hostId, required String text}) async =>
-      raised.add(hostId);
+  Future<void> raise({
+    required String hostId,
+    required String askId,
+    required String text,
+  }) async => raised.add(hostId);
 
   @override
   Future<void> withdraw(String hostId) async {}
@@ -77,6 +80,41 @@ class _NoWatchSession implements HerdrSession {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _EngineSession extends _NoWatchSession {
+  _EngineSession(super.listing);
+
+  final _held = Completer<Object?>();
+
+  @override
+  Future<Object?> engine(Map<String, Object?> request, {Duration? within}) =>
+      _held.future;
+
+  @override
+  void close() {
+    _held.future.ignore();
+    if (!_held.isCompleted) {
+      _held.completeError(const HerdrUnreachable('closed'));
+    }
+    super.close();
+  }
+}
+
+class _FreshSessionClient extends HerdrClient {
+  _FreshSessionClient(this.next);
+
+  final HerdrSession Function() next;
+
+  @override
+  Future<HerdrSession> connect({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    HostKeyVerifier? verifier,
+    void Function(Future<void> settled)? onSettling,
+  }) async => next();
 }
 
 class _SessionClient extends HerdrClient {
@@ -895,6 +933,52 @@ void main() {
 
     expect(session.asked, 1);
     expect(pins.raised, [host.id]);
+  });
+
+  test('a host watched through the engine lists the pinentry, once', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final store = MemoryPrivateKeyStore();
+    await store.write('k1', 'PRIVATE KEY');
+    final payload = base64Encode(
+      utf8.encode(jsonEncode({'mode': 'pin', 'desc': 'the key'})),
+    );
+    final sessions = <_EngineSession>[];
+    final pins = _PinRecorder();
+    final handler = AgentWatcherHandler(
+      keys: Ed25519Keys(store),
+      client: _FreshSessionClient(() {
+        final session = _EngineSession('0123456789abcdef $payload\n');
+        sessions.add(session);
+        return session;
+      }),
+      pins: pins,
+    );
+
+    await handler.setHosts(
+      const [host],
+      sources: {
+        host.id: {AgentSource.herdr, AgentSource.engine},
+      },
+    );
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (pins.raised.isEmpty && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    await handler.setHosts(
+      const [host],
+      sources: {
+        host.id: {AgentSource.engine},
+      },
+    );
+    final again = DateTime.now().add(const Duration(seconds: 5));
+    while (pins.raised.length < 2 && DateTime.now().isBefore(again)) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    await handler.onDestroy(DateTime.now(), false);
+
+    expect(sessions.fold(0, (sum, session) => sum + session.asked), 2);
+    expect(pins.raised, [host.id, host.id]);
   });
 
   test('a host retry interrupts its backoff', () async {

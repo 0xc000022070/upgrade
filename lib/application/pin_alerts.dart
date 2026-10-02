@@ -80,7 +80,11 @@ PinFacts? pinFacts(String desc) {
 }
 
 abstract interface class PinNotifier {
-  Future<void> raise({required String hostId, required String text});
+  Future<void> raise({
+    required String hostId,
+    required String askId,
+    required String text,
+  });
   Future<void> withdraw(String hostId);
 }
 
@@ -109,6 +113,7 @@ class PinShade {
     _rang[hostId] = held.id;
     await notifier.raise(
       hostId: hostId,
+      askId: held.id,
       text: pinNotificationText(
         host: hostName,
         desc: held.desc,

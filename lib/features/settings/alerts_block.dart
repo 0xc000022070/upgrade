@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:dazzle_shade/dazzle_shade.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +9,7 @@ import '../../application/providers.dart';
 import '../../design/components/panel.dart';
 import '../../design/tokens.dart';
 import '../../platform/agent_watcher.dart';
+import '../../platform/pin_notifications.dart';
 
 class AlertsSettingsBlock extends ConsumerWidget {
   const AlertsSettingsBlock({super.key, this.requestPermission});
@@ -71,7 +75,74 @@ class AlertsSettingsBlock extends ConsumerWidget {
                 );
               },
             ),
+          const _DndRow(),
         ],
+      ),
+    );
+  }
+}
+
+class _DndRow extends StatefulWidget {
+  const _DndRow();
+
+  @override
+  State<_DndRow> createState() => _DndRowState();
+}
+
+class _DndRowState extends State<_DndRow> with WidgetsBindingObserver {
+  bool _granted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_refresh());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_refresh());
+  }
+
+  Future<void> _refresh() async {
+    final granted = await _ask(DazzleShade.dndAccess) ?? false;
+    if (granted && !_granted) await PinNotifications.createChannel();
+    if (mounted && granted != _granted) setState(() => _granted = granted);
+  }
+
+  static Future<T?> _ask<T>(Future<T> Function() call) async {
+    try {
+      return await call();
+    } on Object catch (error) {
+      debugPrint('dazzle.dnd: $error');
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        title: Text(
+          'PASSPHRASES IN DO NOT DISTURB',
+          style: context.tokens.rowTitle,
+        ),
+        subtitle: _granted
+            ? null
+            : Text(
+                'SILENT UNDER DO NOT DISTURB',
+                style: context.tokens.rowSubtitle,
+              ),
+        value: _granted,
+        onChanged: (_) => unawaited(_ask(DazzleShade.askDndAccess)),
       ),
     );
   }

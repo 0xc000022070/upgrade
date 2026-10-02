@@ -11,8 +11,11 @@ class _Shade implements PinNotifier {
   final withdrawn = <String>[];
 
   @override
-  Future<void> raise({required String hostId, required String text}) async =>
-      raised.add('$hostId/$text');
+  Future<void> raise({
+    required String hostId,
+    required String askId,
+    required String text,
+  }) async => raised.add('$hostId/$text');
 
   @override
   Future<void> withdraw(String hostId) async => withdrawn.add(hostId);

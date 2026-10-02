@@ -3058,7 +3058,11 @@ class _Shade implements PinNotifier {
   final events = <String>[];
 
   @override
-  Future<void> raise({required String hostId, required String text}) async {
+  Future<void> raise({
+    required String hostId,
+    required String askId,
+    required String text,
+  }) async {
     events.add('up $hostId $text');
   }
 

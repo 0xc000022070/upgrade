@@ -230,6 +230,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  dazzle_shade:
+    dependency: "direct main"
+    description:
+      path: "packages/dazzle_shade"
+      relative: true
+    source: path
+    version: "0.1.0"
   dbus:
     dependency: transitive
     description:

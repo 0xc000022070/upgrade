@@ -424,8 +424,10 @@ class AgentWatcherHandler extends TaskHandler {
   List<AgentChannel> _channels = const [];
 
   @override
-  Future<void> onStart(DateTime timestamp, TaskStarter starter) =>
-      _reloadFromStore();
+  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
+    await PinNotifications.createChannel();
+    await _reloadFromStore();
+  }
 
   @override
   void onRepeatEvent(DateTime timestamp) {}
@@ -514,7 +516,14 @@ class AgentWatcherHandler extends TaskHandler {
     }
     for (final MapEntry(:key, value: (:host, :source)) in wanted.entries) {
       final existing = _loops[key];
-      if (existing != null && existing.sameHost(host)) continue;
+      final watchesPins =
+          AgentSource.values.firstWhere(_sourcesOf(sources, host).contains) ==
+          source;
+      if (existing != null &&
+          existing.sameHost(host) &&
+          existing.watchesPins == watchesPins) {
+        continue;
+      }
       await existing?.stop();
       _loops[key] = _HostLoop(
         host: host,
@@ -522,6 +531,7 @@ class AgentWatcherHandler extends TaskHandler {
         keys: _keys,
         client: _client,
         pins: _pins,
+        watchesPins: watchesPins,
         book: _book,
         onReport: _publish,
       )..start();
@@ -589,6 +599,7 @@ class _HostLoop {
     required this.keys,
     required this.client,
     required this.pins,
+    required this.watchesPins,
     required this.book,
     required this.onReport,
   });
@@ -598,6 +609,7 @@ class _HostLoop {
   final Ed25519Keys keys;
   final HerdrClient client;
   final PinNotifier pins;
+  final bool watchesPins;
   final _AlertBook book;
   final void Function(WatcherReport) onReport;
 
@@ -679,11 +691,8 @@ class _HostLoop {
       }
       edges.reset(_key);
     }
-    if (_engine) {
-      book.claimed.remove(host.id);
-    } else {
-      await _tellShade(null);
-    }
+    if (_engine) book.claimed.remove(host.id);
+    if (watchesPins) await _tellShade(null);
   }
 
   void _log(Object error) =>
@@ -772,12 +781,12 @@ class _HostLoop {
       verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
     );
     _session = session;
-    if (_engine) return _watchEngine(session);
     // No reset here. A reconnect inside one service life keeps the set, because the panes
     // did not change while the link was down: resetting re-entered every pane still
     // blocked, which reposted the alert and overwrote an answer the user had already given.
-    _startPinTicks(session);
+    if (watchesPins) _startPinTicks(session);
     try {
+      if (_engine) return await _watchEngine(session);
       await for (final agents in session.watch()) {
         if (_stopped) return;
         await _onSnapshot(agents, session);

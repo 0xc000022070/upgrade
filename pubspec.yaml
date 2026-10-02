@@ -12,6 +12,8 @@ dependencies:
     path: packages/dazzle_luau
   dazzle_highlight:
     path: packages/dazzle_highlight
+  dazzle_shade:
+    path: packages/dazzle_shade
   crypto: ^3.0.7
   pub_semver: ^2.2.1
   toml: ^0.18.0
