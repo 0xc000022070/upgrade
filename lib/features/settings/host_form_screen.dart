@@ -15,6 +15,7 @@ import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/dazzle_field.dart';
 import '../../design/components/meta.dart';
+import '../../design/components/meta_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/section.dart';
@@ -531,9 +532,9 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _KeyMetaRow('TYPE', key.type.toUpperCase()),
-          _KeyMetaRow('FINGERPRINT', key.fingerprint, maxLines: 3),
-          _KeyMetaRow('PINNED', relativeAge(key.pinnedAt.toUtc())),
+          MetaRow('TYPE', key.type.toUpperCase()),
+          MetaRow('FINGERPRINT', key.fingerprint, maxLines: 3),
+          MetaRow('PINNED', relativeAge(key.pinnedAt.toUtc())),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
             child: Align(
@@ -601,26 +602,4 @@ class _HostField extends StatelessWidget {
       ],
     ),
   );
-}
-
-class _KeyMetaRow extends StatelessWidget {
-  const _KeyMetaRow(this.label, this.value, {this.maxLines = 1});
-
-  final String label;
-  final String value;
-  final int maxLines;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(width: 108, child: Text(label, style: context.tokens.label)),
-          Expanded(child: Meta(value, maxLines: maxLines)),
-        ],
-      ),
-    );
-  }
 }

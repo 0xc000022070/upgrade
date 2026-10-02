@@ -141,4 +141,53 @@ void main() {
 
     expect(open.map((request) => request.desc), ['first', 'second']);
   });
+
+  group('gpg-agent descriptions', () {
+    test('an OpenPGP unlock splits into the sentence and its key', () {
+      final facts = pinFacts(
+        'Please enter the passphrase to unlock the OpenPGP secret key:\n'
+        '"Luis Quiñones <luis@example.com>"\n'
+        '255-bit EDDSA key, ID D6FC92FD3A094AF8,\n'
+        'created 2024-01-16.\n',
+      );
+      expect(
+        facts?.lead,
+        'Please enter the passphrase to unlock the OpenPGP secret key:',
+      );
+      expect(facts?.facts, [
+        ('KEY', 'Luis Quiñones <luis@example.com>'),
+        ('TYPE', '255-bit EDDSA'),
+        ('ID', 'D6FC92FD3A094AF8'),
+        ('CREATED', '2024-01-16'),
+      ]);
+    });
+
+    test('a subkey names its main key', () {
+      final facts = pinFacts(
+        'Please enter the passphrase to unlock the OpenPGP secret key:\n'
+        '"A <a@b.c>"\n3072-bit RSA key, ID 0123ABCD0123ABCD,\n'
+        'created 2020-02-02 (main key ID 89ef89ef89ef89ef).\n',
+      );
+      expect(facts?.facts, contains(('MAIN KEY', '89EF89EF89EF89EF')));
+      expect(facts?.facts.last, ('CREATED', '2020-02-02'));
+    });
+
+    test('an ssh key gives its fingerprint and comment', () {
+      final facts = pinFacts(
+        'Please enter the passphrase for the ssh key\n'
+        '  SHA256:abc+/def\n  (luis@nyx)',
+      );
+      expect(facts?.lead, 'Please enter the passphrase for the ssh key:');
+      expect(facts?.facts, [
+        ('FINGERPRINT', 'SHA256:abc+/def'),
+        ('COMMENT', 'luis@nyx'),
+      ]);
+    });
+
+    test('anything else is left as said', () {
+      expect(pinFacts('Bitte geben Sie die Passphrase ein'), isNull);
+      expect(pinFacts('the ssh key'), isNull);
+      expect(pinFacts(''), isNull);
+    });
+  });
 }

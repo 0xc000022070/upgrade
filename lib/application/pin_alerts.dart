@@ -38,6 +38,47 @@ String pinNotificationText({
   return said.isEmpty ? name : '$name · $said';
 }
 
+typedef PinFacts = ({String lead, List<(String, String)> facts});
+
+final _openpgpDesc = RegExp(
+  r'^(.+?:) "([^"]*)" (\d+)-bit (\S+) key, ID ([0-9A-Fa-f]+), '
+  r'created (\S+?)(?: \(main key ID ([0-9A-Fa-f]+)\))?\.?$',
+);
+
+final _sshDesc = RegExp(r'^(.+? ssh key) (\S+)(?: \((.*)\))?$');
+
+/// gpg-agent's English descriptions, split into the sentence and the key it names. Any
+/// other wording, a translated agent's included, gives null and is shown as said.
+PinFacts? pinFacts(String desc) {
+  final flat = desc.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final openpgp = _openpgpDesc.firstMatch(flat);
+  if (openpgp != null) {
+    final main = openpgp[7];
+    return (
+      lead: openpgp[1]!,
+      facts: [
+        ('KEY', openpgp[2]!),
+        ('TYPE', '${openpgp[3]}-bit ${openpgp[4]}'),
+        ('ID', openpgp[5]!.toUpperCase()),
+        if (main != null) ('MAIN KEY', main.toUpperCase()),
+        ('CREATED', openpgp[6]!),
+      ],
+    );
+  }
+  final ssh = _sshDesc.firstMatch(flat);
+  if (ssh != null) {
+    final comment = ssh[3]?.trim() ?? '';
+    return (
+      lead: '${ssh[1]}:',
+      facts: [
+        ('FINGERPRINT', ssh[2]!),
+        if (comment.isNotEmpty) ('COMMENT', comment),
+      ],
+    );
+  }
+  return null;
+}
+
 abstract interface class PinNotifier {
   Future<void> raise({required String hostId, required String text});
   Future<void> withdraw(String hostId);

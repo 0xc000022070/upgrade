@@ -17,6 +17,7 @@ import '../../design/components/action_block.dart';
 import '../../design/components/drag_sheet.dart';
 import '../../design/components/field_panel.dart';
 import '../../design/components/list_row.dart';
+import '../../design/components/meta_row.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
 import '../../platform/herdr_client.dart';
@@ -847,7 +848,13 @@ class _PinSheetState extends State<_PinSheet> {
         Text('SHELL ${widget.number}', style: context.tokens.label),
         if (request.desc.isNotEmpty) ...[
           const SizedBox(height: Spacing.sm),
-          Text(request.desc, style: context.tokens.prose),
+          if (pinFacts(request.desc) case final parsed?) ...[
+            Text(parsed.lead, style: context.tokens.prose),
+            const SizedBox(height: Spacing.sm),
+            for (final (label, value) in parsed.facts)
+              MetaRow(label, value, maxLines: 2),
+          ] else
+            Text(request.desc, style: context.tokens.prose),
         ],
         if (request.error.isNotEmpty) ...[
           const SizedBox(height: Spacing.sm),
