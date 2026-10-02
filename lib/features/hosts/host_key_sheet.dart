@@ -41,7 +41,7 @@ Future<bool> askHostKey(
           const SizedBox(height: Spacing.md),
           Text(
             'VERIFY THE OFFERED FINGERPRINT OUTSIDE DAZZLE BEFORE REPLACING.',
-            style: context.tokens.prose,
+            style: context.tokens.label.copyWith(color: context.tokens.warning),
           ),
         ] else ...[
           Text('KEY TYPE', style: context.tokens.label),

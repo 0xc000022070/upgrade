@@ -48,8 +48,15 @@ class AgentsScreen extends ConsumerWidget {
                 title: 'WORKSPACES',
                 child: EmptyState('waiting for host'),
               ),
-              error: (error, _) =>
-                  Panel(title: 'WORKSPACES', child: Text('error: $error')),
+              error: (error, _) => Panel(
+                title: 'WORKSPACES',
+                child: Text(
+                  'error: $error',
+                  style: context.tokens.prose.copyWith(
+                    color: context.tokens.danger,
+                  ),
+                ),
+              ),
               data: (feed) => _Feed(
                 feed,
                 onOpen:

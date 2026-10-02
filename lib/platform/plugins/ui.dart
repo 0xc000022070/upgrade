@@ -695,7 +695,7 @@ class _PluginFieldState extends State<_PluginField> {
       case 'toggle':
         return SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: Text(label),
+          title: Text(label, style: context.tokens.rowTitle),
           value: widget.values[widget.node.key] == true,
           onChanged: widget.busy ? null : change,
         );

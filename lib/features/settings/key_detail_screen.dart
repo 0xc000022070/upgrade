@@ -62,8 +62,14 @@ class KeyDetailScreen extends ConsumerWidget {
           children: [
             PanelStack(
               children: [
-                Panel(title: '[ NAME ]', child: Text(keyRecord.name)),
-                const Panel(title: '[ TYPE ]', child: Text('ed25519')),
+                Panel(
+                  title: '[ NAME ]',
+                  child: Text(keyRecord.name, style: context.tokens.rowTitle),
+                ),
+                Panel(
+                  title: '[ TYPE ]',
+                  child: Text('ed25519', style: context.tokens.rowTitle),
+                ),
                 Panel(
                   title: '[ PUBLIC ]',
                   affordance: PanelAffordance(
