@@ -164,7 +164,10 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     final aspect = native.isEmpty ? 9 / 20 : native.width / native.height;
     final size = collapsed
         ? const Size.square(deviceBubbleSize)
-        : Size(_width, deviceStripHeight + _width / aspect);
+        : Size(
+            _width,
+            (session == null ? deviceStripHeight : 0) + _width / aspect,
+          );
     final left = Spacing.screenEdge;
     final right = screen.width - size.width - Spacing.screenEdge;
     final minTop = media.padding.top + Spacing.lg;
@@ -190,8 +193,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
             screen.height -
             minTop -
             media.padding.bottom -
-            deviceFloatClearance -
-            deviceStripHeight;
+            deviceFloatClearance;
         final widest = math.max(
           deviceFloatMinWidth,
           math.min(screen.width * deviceFloatMaxShare, tallest * aspect),
@@ -243,6 +245,11 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     }
 
     final controller = session?.controller;
+    final strip = _Strip(
+      dock: _dock,
+      hosts: ref.watch(deviceHostsProvider).valueOrNull,
+      onSelect: _select,
+    );
     return Stack(
       children: [
         if (dragging)
@@ -277,26 +284,21 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
             child: collapsed
                 ? const _Bubble()
                 : _Frame(
-                    child: Column(
-                      children: [
-                        _Strip(
-                          dock: _dock,
-                          hosts: ref.watch(deviceHostsProvider).valueOrNull,
-                          onSelect: _select,
-                        ),
-                        Expanded(
-                          child: controller == null
-                              ? _Waiting(dock: _dock)
-                              : _Tile(
-                                  controller: controller,
-                                  overlay: _overlay,
-                                  onExpand: _expand,
-                                  onCollapse: _collapse,
-                                  onClose: _close,
-                                ),
-                        ),
-                      ],
-                    ),
+                    child: controller == null
+                        ? Column(
+                            children: [
+                              strip,
+                              Expanded(child: _Waiting(dock: _dock)),
+                            ],
+                          )
+                        : _Tile(
+                            controller: controller,
+                            strip: strip,
+                            overlay: _overlay,
+                            onExpand: _expand,
+                            onCollapse: _collapse,
+                            onClose: _close,
+                          ),
                   ),
           ),
         ),
@@ -471,6 +473,7 @@ class _Waiting extends StatelessWidget {
 class _Tile extends StatelessWidget {
   const _Tile({
     required this.controller,
+    required this.strip,
     required this.overlay,
     required this.onExpand,
     required this.onCollapse,
@@ -478,6 +481,7 @@ class _Tile extends StatelessWidget {
   });
 
   final DeviceScreenController controller;
+  final Widget strip;
   final bool overlay;
   final VoidCallback onExpand;
   final VoidCallback onCollapse;
@@ -500,27 +504,13 @@ class _Tile extends StatelessWidget {
             ColoredBox(
               key: const ValueKey('device-float-overlay'),
               color: context.tokens.scrim,
-              child: Padding(
-                padding: const EdgeInsets.all(Spacing.sm),
-                child: Column(
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: Column(
+                children: [
+                  ColoredBox(
+                    color: context.tokens.surfaceSecondary,
+                    child: Row(
                       children: [
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.all(Spacing.sm),
-                            child: Text(
-                              controller.device.name.toUpperCase(),
-                              style: context.tokens.panelHeader.copyWith(
-                                color: context.tokens.textPrimary,
-                                letterSpacing: 0,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
+                        Expanded(child: strip),
                         _Glyph(
                           key: const ValueKey('device-float-close'),
                           icon: DazzleIcons.close,
@@ -528,35 +518,44 @@ class _Tile extends StatelessWidget {
                         ),
                       ],
                     ),
-                    Expanded(
-                      child: Center(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: deviceStateActions(
-                            context,
-                            controller,
-                            terse: true,
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(Spacing.sm),
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: deviceStateActions(
+                                  context,
+                                  controller,
+                                  terse: true,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          Row(
+                            children: [
+                              _Glyph(
+                                key: const ValueKey('device-float-expand'),
+                                icon: DazzleIcons.expand,
+                                onTap: onExpand,
+                              ),
+                              const Spacer(),
+                              _Glyph(
+                                key: const ValueKey('device-float-collapse'),
+                                icon: DazzleIcons.collapse,
+                                onTap: onCollapse,
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    Row(
-                      children: [
-                        _Glyph(
-                          key: const ValueKey('device-float-expand'),
-                          icon: DazzleIcons.expand,
-                          onTap: onExpand,
-                        ),
-                        const Spacer(),
-                        _Glyph(
-                          key: const ValueKey('device-float-collapse'),
-                          icon: DazzleIcons.collapse,
-                          onTap: onCollapse,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
         ],

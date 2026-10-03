@@ -89,6 +89,7 @@ List<int> _header(String line) => latin1.encode('$line\n');
 
 const _floatKey = ValueKey('device-float');
 const _overlayKey = ValueKey('device-float-overlay');
+const _stripKey = ValueKey('device-float-strip');
 
 Future<void> _pump(
   WidgetTester tester,
@@ -144,6 +145,12 @@ Future<void> _live(WidgetTester tester, FakeDeviceLink link) async {
 Future<void> _tapKey(WidgetTester tester, Key key) async {
   await tester.tap(find.byKey(key));
   await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
+Future<void> _dismiss(WidgetTester tester) async {
+  final scrim = tester.getRect(find.byKey(_overlayKey));
+  await tester.tapAt(scrim.centerLeft + const Offset(4, 0));
   await tester.pump(const Duration(milliseconds: 400));
 }
 
@@ -270,6 +277,8 @@ void main() {
     await _pump(tester, _opener(link));
 
     expect(find.byKey(_floatKey), findsOneWidget);
+    expect(find.byKey(_stripKey), findsNothing);
+    await _tapKey(tester, _floatKey);
     expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('pixel_7-api36'), findsOneWidget);
     expect(link.frameStreams.single.hasListener, isTrue);
@@ -284,6 +293,7 @@ void main() {
     expect(link.frameStreams.last.hasListener, isTrue);
 
     link.devices = const [];
+    await _tapKey(tester, _floatKey);
     await tester.ensureVisible(find.text('ROSE'));
     await tester.pump();
     await tester.tap(find.text('ROSE'));
@@ -315,7 +325,7 @@ void main() {
 
     await tester.tap(find.text('ROSE'));
     await _settle(tester);
-    expect(find.text('pixel_7-api36'), findsOneWidget);
+    expect(find.byKey(_stripKey), findsNothing);
     expect(link.frameStreams.single.hasListener, isTrue);
   });
 
@@ -336,6 +346,7 @@ void main() {
     await _live(tester, rose);
 
     const plus = ValueKey('device-strip-plus');
+    await _tapKey(tester, _floatKey);
     await tester.ensureVisible(find.byKey(plus));
     await tester.pump();
     await tester.tap(find.text('+'));
@@ -452,11 +463,11 @@ void main() {
 
     await _tapKey(tester, _floatKey);
     expect(find.byKey(_overlayKey), findsOneWidget);
-    expect(find.text('PIXEL_7-API36'), findsOneWidget);
+    expect(find.byKey(_stripKey), findsOneWidget);
 
-    await tester.tap(find.text('PIXEL_7-API36'));
-    await tester.pump(const Duration(milliseconds: 400));
+    await _dismiss(tester);
     expect(find.byKey(_overlayKey), findsNothing);
+    expect(find.byKey(_stripKey), findsNothing);
 
     await _tapKey(tester, _floatKey);
     await tester.tap(find.text('PAUSE'));
@@ -464,8 +475,7 @@ void main() {
     expect(link.frameStreams.single.hasListener, isFalse);
     expect(find.text('RESUME'), findsOneWidget);
 
-    await tester.tap(find.text('PIXEL_7-API36'));
-    await tester.pump(const Duration(milliseconds: 400));
+    await _dismiss(tester);
     expect(find.byKey(const ValueKey('device-float-paused')), findsOneWidget);
 
     await _tapKey(tester, _floatKey);
