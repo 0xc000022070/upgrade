@@ -3,13 +3,18 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agents.dart';
 import 'package:dazzle/application/navigation.dart';
 import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/design/dynamic_tokens.dart';
 import 'package:dazzle/design/effects/glitch.dart';
+import 'package:dazzle/design/icons/dazzle_icon.dart';
+import 'package:dazzle/design/theme.dart';
+import 'package:dazzle/design/tokens.dart';
 import 'package:dazzle/features/devices/device_controllers.dart';
 import 'package:dazzle/features/devices/device_dock.dart';
 import 'package:dazzle/features/devices/device_float.dart';
@@ -97,6 +102,7 @@ Future<void> _pump(
   WidgetTester tester,
   DeviceLinkOpener open, {
   List<Host> hosts = const [_rose],
+  ThemeData? theme,
 }) async {
   stubDeviceChannels();
   final store = MemoryPrivateKeyStore();
@@ -110,7 +116,7 @@ Future<void> _pump(
         deviceHostsProvider.overrideWith((ref) => Stream.value(hosts)),
       ],
       child: MaterialApp(
-        theme: testTheme,
+        theme: theme ?? testTheme,
         navigatorKey: rootNavigatorKey,
         builder: (context, child) => DeviceFloat(child: child!),
         home: Consumer(
@@ -329,7 +335,7 @@ void main() {
     expect(find.byKey(_bubbleKey), findsNothing);
     expect(find.byKey(_barKey), findsOneWidget);
     expect(find.text('ROSE'), findsOneWidget);
-    expect(find.text('pixel_7-api36'), findsOneWidget);
+    expect(find.text('pixel_\u200B7-api36'), findsOneWidget);
     expect(find.text('+  NO OTHER HOST HAS DEVICES ON'), findsOneWidget);
     expect(link.frameStreams, isEmpty);
 
@@ -779,5 +785,152 @@ void main() {
     await tester.pump();
     expect(link.frameStreams, hasLength(3));
     expect(link.frameStreams.last.hasListener, isTrue);
+  });
+
+  group('under a light theme the float keeps the house ink', () {
+    const house = DazzleTokens.house;
+    final light = dazzleTokensFromScheme(
+      ColorScheme.fromSeed(
+        seedColor: Colors.indigo,
+        brightness: Brightness.light,
+      ),
+    );
+    final theme = DazzleTheme.build(light);
+    final inks = {
+      house.textPrimary,
+      house.textMuted,
+      house.accent,
+      house.warning,
+    };
+
+    Color icon(WidgetTester tester, Finder under) => tester
+        .widget<DazzleIcon>(
+          find.descendant(of: under, matching: find.byType(DazzleIcon)),
+        )
+        .color;
+
+    Color? ink(Element text) =>
+        (text.renderObject! as RenderParagraph).text.style?.color;
+
+    Future<FakeDeviceLink> window(WidgetTester tester) async {
+      final link = FakeDeviceLink(const [_pixel]);
+      await _pump(tester, _opener(link), theme: theme);
+      await _pick(tester, _pixel);
+      return link;
+    }
+
+    test('the light ink is not the house ink', () {
+      expect(light.textPrimary, isNot(house.textPrimary));
+      expect(light.textMuted, isNot(house.textMuted));
+    });
+
+    testWidgets('on the bubble', (tester) async {
+      await _pump(
+        tester,
+        _opener(FakeDeviceLink(const [_pixel])),
+        theme: theme,
+      );
+      expect(icon(tester, find.byKey(_bubbleKey)), house.textPrimary);
+    });
+
+    testWidgets('on the window before its first frame', (tester) async {
+      await window(tester);
+      final state = find.descendant(
+        of: find.byKey(_floatKey),
+        matching: find.text('CONNECTING'),
+      );
+      expect(inks, contains(ink(state.evaluate().single)));
+    });
+
+    testWidgets('on the overlay', (tester) async {
+      final link = await window(tester);
+      await _live(tester, link);
+      await _tapKey(tester, _floatKey);
+      final overlay = find.byKey(_overlayKey);
+      final glyphs = find.descendant(
+        of: overlay,
+        matching: find.byType(DazzleIcon),
+      );
+      final words = find.descendant(
+        of: overlay,
+        matching: find.byType(RichText),
+      );
+      expect(glyphs, findsNWidgets(2));
+      expect(words, findsAtLeastNWidgets(2));
+      for (final glyph in tester.widgetList<DazzleIcon>(glyphs)) {
+        expect(inks, contains(glyph.color));
+      }
+      for (final word in words.evaluate()) {
+        expect(inks, contains(ink(word)));
+      }
+    });
+
+    testWidgets('on the paused mark', (tester) async {
+      final link = await window(tester);
+      await _live(tester, link);
+      await _tapKey(tester, _floatKey);
+      await tester.tap(find.text('PAUSE'));
+      await tester.pump();
+      await _dismiss(tester);
+      final bar = tester.widget<ColoredBox>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('device-float-paused')),
+              matching: find.byType(ColoredBox),
+            )
+            .first,
+      );
+      expect(bar.color, house.textPrimary);
+    });
+
+    testWidgets('on the close target, cold and hot', (tester) async {
+      final link = await window(tester);
+      await _live(tester, link);
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(_floatKey)),
+      );
+      await gesture.moveBy(const Offset(-20, 0));
+      await gesture.moveBy(const Offset(-20, 0));
+      await tester.pump();
+      final target = find.byKey(const ValueKey('device-float-target'));
+      expect(icon(tester, target), house.textMuted);
+      await gesture.moveTo(tester.getCenter(target));
+      await tester.pump();
+      expect(icon(tester, target), house.accent);
+      await gesture.up();
+      await tester.pump();
+    });
+  });
+
+  testWidgets('a long device name breaks after an underscore', (tester) async {
+    const raw = 'medium_phone_API_36_with_a_long_name';
+    const long = HostDevice(
+      kind: DeviceKind.android,
+      id: 'emulator-5556',
+      name: raw,
+    );
+    final semantics = tester.ensureSemantics();
+    await _pump(tester, _opener(FakeDeviceLink(const [long])));
+    await _open(tester);
+    final paragraph = tester.renderObject<RenderParagraph>(
+      find.descendant(
+        of: find.byKey(const ValueKey('device-tab-h1-emulator-5556')),
+        matching: find.byType(RichText),
+      ),
+    );
+    final shown = paragraph.text.toPlainText();
+    final tops = {
+      for (final box in paragraph.getBoxesForSelection(
+        TextSelection(baseOffset: 0, extentOffset: shown.length),
+      ))
+        box.top,
+    }.toList()..sort();
+    expect(tops, hasLength(2));
+    final second = paragraph
+        .getPositionForOffset(Offset(0, tops[1] + 1))
+        .offset;
+    expect(shown.substring(0, second).replaceAll('\u200B', ''), endsWith('_'));
+    expect(find.bySemanticsLabel(raw), findsOneWidget);
+    semantics.dispose();
   });
 }

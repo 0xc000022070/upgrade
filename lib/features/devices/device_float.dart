@@ -331,7 +331,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
       top: target.dy - deviceCloseTarget / 2,
       width: deviceCloseTarget,
       height: deviceCloseTarget,
-      child: _CloseTarget(hot: _overClose),
+      child: _OnMedia(child: _CloseTarget(hot: _overClose)),
     );
   }
 
@@ -660,7 +660,8 @@ class _ListRow extends StatelessWidget {
             ),
           ),
           child: Text(
-            label,
+            label.replaceAll('_', '_\u200B'),
+            semanticsLabel: label,
             style: context.tokens.rowTitle.copyWith(color: tint),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -867,8 +868,29 @@ class _Frame extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(Borders.hairline),
-        child: ClipRect(child: child),
+        child: ClipRect(child: _OnMedia(child: child)),
       ),
+    );
+  }
+}
+
+/// The media ground is black in every theme, so what sits on it takes the house ink.
+class _OnMedia extends StatelessWidget {
+  const _OnMedia({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        extensions: [
+          ...theme.extensions.values.where((e) => e is! DazzleTokens),
+          DazzleTokens.house,
+        ],
+      ),
+      child: child,
     );
   }
 }
