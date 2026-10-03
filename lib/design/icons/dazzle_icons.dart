@@ -41,6 +41,7 @@ enum DazzleIcons {
   keyboard('keyboard'),
   keys('keys'),
   message('message'),
+  minimize('minimize'),
   more('more'),
   note('note'),
   pending('pending'),

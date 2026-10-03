@@ -562,6 +562,7 @@ void main() {
     expect(find.byKey(_bubbleKey), findsOneWidget);
     expect(find.byType(RawImage), findsNothing);
     expect(link.frameStreams.single.hasListener, isFalse);
+    expect(link.closed, isFalse);
 
     await _pick(tester, _pixel);
     expect(find.byKey(_barKey), findsNothing);
@@ -645,6 +646,51 @@ void main() {
     expect(link.frameStreams.last.hasListener, isFalse);
     expect(link.closed, isTrue);
   });
+
+  testWidgets(
+    'minimize is apart from END, and every control is a full target',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final link = FakeDeviceLink(const [_pixel]);
+      await _pump(tester, _opener(link));
+      expect(
+        tester.getSemantics(find.byKey(_bubbleKey)),
+        isSemantics(label: 'DEVICES', isButton: true),
+      );
+
+      await _open(tester);
+      await _tapKey(tester, const ValueKey('device-list-outside'));
+      expect(find.byKey(_barKey), findsNothing);
+      expect(find.byKey(_bubbleKey), findsOneWidget);
+
+      await _open(tester);
+      await _tapKey(tester, const ValueKey('device-list-minimize'));
+      expect(find.byKey(_bubbleKey), findsOneWidget);
+      expect(link.closed, isFalse);
+
+      await _pick(tester, _pixel);
+      await _live(tester, link);
+      await _tapKey(tester, _floatKey);
+      for (final key in const [
+        'device-float-expand',
+        'device-float-collapse',
+        'device-float-close',
+      ]) {
+        final size = tester.getSize(find.byKey(ValueKey(key)));
+        expect(size.width, greaterThanOrEqualTo(44), reason: key);
+        expect(size.height, greaterThanOrEqualTo(44), reason: key);
+      }
+      expect(find.bySemanticsLabel('MINIMIZE'), findsOneWidget);
+      expect(find.bySemanticsLabel('FULL SCREEN'), findsOneWidget);
+      expect(find.bySemanticsLabel('END'), findsOneWidget);
+
+      await _tapKey(tester, const ValueKey('device-float-collapse'));
+      expect(find.byKey(_bubbleKey), findsOneWidget);
+      expect(link.frameStreams.single.hasListener, isFalse);
+      expect(link.closed, isFalse);
+      semantics.dispose();
+    },
+  );
 
   testWidgets('a pinch resizes the float within its bounds', (tester) async {
     final link = FakeDeviceLink(const [_pixel]);

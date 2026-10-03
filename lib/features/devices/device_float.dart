@@ -261,6 +261,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
                 setState(() => _menu = false);
                 _dock.select(group, device);
               },
+              onFold: () => setState(() => _menu = false),
               handle: _handle(
                 media,
                 key: const ValueKey('device-list-handle'),
@@ -279,9 +280,13 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
               media,
               key: const ValueKey('device-float-bubble'),
               onTap: () => setState(() => _menu = true),
-              child: const _Frame(
-                child: Center(
-                  child: _PhoneMark(size: IconSizes.lg, pulse: true),
+              child: Semantics(
+                button: true,
+                label: 'DEVICES',
+                child: const _Frame(
+                  child: Center(
+                    child: _PhoneMark(size: IconSizes.lg, pulse: true),
+                  ),
                 ),
               ),
             ),
@@ -291,6 +296,14 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     final otherSide = _right ? null : Spacing.screenEdge;
     return Stack(
       children: [
+        if (_menu && at == null)
+          Positioned.fill(
+            child: GestureDetector(
+              key: const ValueKey('device-list-outside'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _menu = false),
+            ),
+          ),
         if (at != null) _closeTarget(media),
         if (at != null)
           Positioned(key: slot, left: at.dx, top: at.dy, child: shown)
@@ -418,12 +431,14 @@ class _DeviceList extends StatelessWidget {
     required this.dock,
     required this.hosts,
     required this.onSelect,
+    required this.onFold,
     required this.handle,
   });
 
   final DeviceDock dock;
   final List<Host>? hosts;
   final void Function(DevicesController, HostDevice) onSelect;
+  final VoidCallback onFold;
   final Widget handle;
 
   @override
@@ -468,9 +483,10 @@ class _DeviceList extends StatelessWidget {
                   ),
                 ),
                 _Glyph(
-                  key: const ValueKey('device-list-close'),
-                  icon: DazzleIcons.close,
-                  onTap: dock.close,
+                  key: const ValueKey('device-list-minimize'),
+                  icon: DazzleIcons.minimize,
+                  label: 'MINIMIZE',
+                  onTap: onFold,
                 ),
               ],
             ),
@@ -523,21 +539,32 @@ class _DeviceList extends StatelessWidget {
                 ),
               ),
             ),
-            child: more.isEmpty
-                ? const _ListRow(label: '+  NO OTHER HOST HAS DEVICES ON')
-                : HostMenu(
-                    key: const ValueKey('device-list-plus'),
-                    title: 'DEVICES ON',
-                    hosts: more,
-                    itemKey: (host) => 'device-new-host-${host.id}',
-                    onPick: dock.show,
-                    builder: (context, controller, _) => _ListRow(
-                      label: '+  HOST',
-                      onTap: controller.isOpen
-                          ? controller.close
-                          : controller.open,
-                    ),
-                  ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: more.isEmpty
+                      ? const _ListRow(label: '+  NO OTHER HOST HAS DEVICES ON')
+                      : HostMenu(
+                          key: const ValueKey('device-list-plus'),
+                          title: 'DEVICES ON',
+                          hosts: more,
+                          itemKey: (host) => 'device-new-host-${host.id}',
+                          onPick: dock.show,
+                          builder: (context, controller, _) => _ListRow(
+                            label: '+  HOST',
+                            onTap: controller.isOpen
+                                ? controller.close
+                                : controller.open,
+                          ),
+                        ),
+                ),
+                _Word(
+                  key: const ValueKey('device-list-close'),
+                  label: 'END',
+                  onTap: dock.close,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -612,26 +639,30 @@ class _ListRow extends StatelessWidget {
             : onTap == null
             ? context.tokens.textDisabled
             : context.tokens.textPrimary);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-        alignment: Alignment.centerLeft,
-        decoration: BoxDecoration(
-          border: Border(
-            left: BorderSide(
-              color: active ? context.tokens.accent : Colors.transparent,
-              width: Borders.hairline * 2,
+    return Semantics(
+      button: onTap != null,
+      selected: active,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
+          padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+          alignment: Alignment.centerLeft,
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: active ? context.tokens.accent : Colors.transparent,
+                width: Borders.hairline * 2,
+              ),
             ),
           ),
-        ),
-        child: Text(
-          label,
-          style: context.tokens.rowTitle.copyWith(color: tint),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+          child: Text(
+            label,
+            style: context.tokens.rowTitle.copyWith(color: tint),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ),
     );
@@ -716,47 +747,56 @@ class _Tile extends StatelessWidget {
             ColoredBox(
               key: const ValueKey('device-float-overlay'),
               color: context.tokens.scrim,
-              child: Padding(
-                padding: const EdgeInsets.all(Spacing.sm),
-                child: Column(
-                  children: [
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: _Glyph(
-                        key: const ValueKey('device-float-close'),
-                        icon: DazzleIcons.close,
-                        onTap: onClose,
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  const tallest = TapTargets.minHeight * 3;
+                  final controls = Column(
+                    children: [
+                      Row(
+                        children: [
+                          _Glyph(
+                            key: const ValueKey('device-float-expand'),
+                            icon: DazzleIcons.expand,
+                            label: 'FULL SCREEN',
+                            onTap: onExpand,
+                          ),
+                          const Spacer(),
+                          _Glyph(
+                            key: const ValueKey('device-float-collapse'),
+                            icon: DazzleIcons.minimize,
+                            label: 'MINIMIZE',
+                            onTap: onCollapse,
+                          ),
+                        ],
                       ),
-                    ),
-                    Expanded(
-                      child: Center(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: deviceStateActions(
-                            context,
-                            controller,
-                            terse: true,
+                      Expanded(
+                        child: Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: deviceStateActions(
+                              context,
+                              controller,
+                              terse: true,
+                            ),
                           ),
                         ),
                       ),
+                      _Word(
+                        key: const ValueKey('device-float-close'),
+                        label: 'END',
+                        onTap: onClose,
+                      ),
+                    ],
+                  );
+                  if (box.maxHeight >= tallest) return controls;
+                  return FittedBox(
+                    child: SizedBox(
+                      width: math.max(box.maxWidth, TapTargets.minHeight * 2),
+                      height: tallest,
+                      child: controls,
                     ),
-                    Row(
-                      children: [
-                        _Glyph(
-                          key: const ValueKey('device-float-expand'),
-                          icon: DazzleIcons.expand,
-                          onTap: onExpand,
-                        ),
-                        const Spacer(),
-                        _Glyph(
-                          key: const ValueKey('device-float-collapse'),
-                          icon: DazzleIcons.collapse,
-                          onTap: onCollapse,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
         ],
@@ -841,22 +881,69 @@ class _PausedMark extends StatelessWidget {
 }
 
 class _Glyph extends StatelessWidget {
-  const _Glyph({super.key, required this.icon, required this.onTap});
+  const _Glyph({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final DazzleIcons icon;
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(Spacing.sm),
-        child: DazzleIcon(
-          icon,
-          size: IconSizes.glyph,
-          color: context.tokens.textPrimary,
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox.square(
+          dimension: TapTargets.minHeight,
+          child: Center(
+            child: DazzleIcon(
+              icon,
+              size: IconSizes.sm,
+              color: context.tokens.textPrimary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Word extends StatelessWidget {
+  const _Word({super.key, required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      excludeSemantics: true,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(
+            minWidth: TapTargets.minHeight,
+            minHeight: TapTargets.minHeight,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: context.tokens.panelHeader.copyWith(
+              color: context.tokens.textMuted,
+            ),
+          ),
         ),
       ),
     );
