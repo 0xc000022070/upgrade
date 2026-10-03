@@ -10,8 +10,8 @@ import 'package:dazzle/application/navigation.dart';
 import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/features/devices/device_controllers.dart';
+import 'package:dazzle/features/devices/device_dock.dart';
 import 'package:dazzle/features/devices/device_float.dart';
-import 'package:dazzle/features/devices/devices_screen.dart';
 import 'package:dazzle/features/screen/screen_preview.dart';
 import 'package:dazzle/platform/devices/device_link.dart';
 import 'package:dazzle/platform/herdr_client.dart';
@@ -25,6 +25,15 @@ const _rose = Host(
   id: 'h1',
   name: 'rose',
   address: '10.0.2.2',
+  port: 22,
+  user: 'luisnquin',
+  keyId: 'k1',
+);
+
+const _nyx = Host(
+  id: 'h2',
+  name: 'nyx',
+  address: '10.0.2.3',
   port: 22,
   user: 'luisnquin',
   keyId: 'k1',
@@ -78,7 +87,14 @@ DeviceLinkOpener _opener(FakeDeviceLink link) =>
 
 List<int> _header(String line) => latin1.encode('$line\n');
 
-Future<void> _pump(WidgetTester tester, DeviceLinkOpener open) async {
+const _floatKey = ValueKey('device-float');
+const _overlayKey = ValueKey('device-float-overlay');
+
+Future<void> _pump(
+  WidgetTester tester,
+  DeviceLinkOpener open, {
+  List<Host> hosts = const [_rose],
+}) async {
   stubDeviceChannels();
   final store = MemoryPrivateKeyStore();
   await store.write(_rose.keyId, 'PRIVATE');
@@ -87,17 +103,29 @@ Future<void> _pump(WidgetTester tester, DeviceLinkOpener open) async {
       overrides: [
         privateKeyStoreProvider.overrideWithValue(store),
         staticEnabledProvider.overrideWith((ref) => Stream.value(false)),
+        deviceLinkOpenerProvider.overrideWithValue(open),
+        deviceHostsProvider.overrideWith((ref) => Stream.value(hosts)),
       ],
       child: MaterialApp(
         theme: testTheme,
         navigatorKey: rootNavigatorKey,
         builder: (context, child) => DeviceFloat(child: child!),
-        home: DevicesScreen(host: _rose, open: open),
+        home: Consumer(
+          builder: (context, ref, _) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () => ref.read(deviceDockProvider).show(_rose),
+                child: const Text('DEVICES'),
+              ),
+            ),
+          ),
+        ),
       ),
     ),
   );
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 300));
+  await tester.tap(find.text('DEVICES'));
+  await _settle(tester);
 }
 
 Future<void> _settle(WidgetTester tester) async {
@@ -108,16 +136,21 @@ Future<void> _settle(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 400));
 }
 
-Future<void> _openLive(
-  WidgetTester tester,
-  FakeDeviceLink link,
-  String row,
-) async {
-  await tester.tap(find.text(row));
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 400));
+Future<void> _live(WidgetTester tester, FakeDeviceLink link) async {
   link.frameStreams.last.add(_frame());
   await _settle(tester);
+}
+
+Future<void> _tapKey(WidgetTester tester, Key key) async {
+  await tester.tap(find.byKey(key));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
+Future<void> _expand(WidgetTester tester) async {
+  await _tapKey(tester, _floatKey);
+  await _tapKey(tester, const ValueKey('device-float-expand'));
+  await tester.pump(const Duration(seconds: 1));
 }
 
 void _lifecycle(WidgetTester tester, List<AppLifecycleState> states) {
@@ -148,8 +181,6 @@ void main() {
     ]);
     expect(devices[1].kind, DeviceKind.simulator);
     expect(devices[1].pressable, isFalse);
-    expect(deviceSubtitle(devices[1]), 'IOS · 0A1B2C3D');
-    expect(deviceSubtitle(devices[0]), 'ANDROID · emulator-5554');
   });
 
   test('frames survive being cut anywhere and keepalives vanish', () async {
@@ -232,30 +263,39 @@ void main() {
     ]);
   });
 
-  testWidgets('each booted device is a row, and none reads NO DEVICES BOOTED', (
+  testWidgets('DEVICES opens the window on the host\'s first booted device', (
     tester,
   ) async {
     final link = FakeDeviceLink(const [_pixel, _iphone]);
     await _pump(tester, _opener(link));
 
+    expect(find.byKey(_floatKey), findsOneWidget);
+    expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('pixel_7-api36'), findsOneWidget);
-    expect(find.text('ANDROID · emulator-5554'), findsOneWidget);
-    expect(find.text('iPhone 17 Pro'), findsOneWidget);
-    expect(find.text('IOS · 0A1B2C3D'), findsOneWidget);
+    expect(link.frameStreams.single.hasListener, isTrue);
+
+    final iphone = find.byKey(ValueKey('device-tab-h1-${_iphone.id}'));
+    await tester.ensureVisible(iphone);
+    await tester.pump();
+    await tester.tap(iphone);
+    await tester.pump();
+    expect(link.frameStreams, hasLength(2));
+    expect(link.frameStreams.first.hasListener, isFalse);
+    expect(link.frameStreams.last.hasListener, isTrue);
 
     link.devices = const [];
-    await tester.tap(find.text('REFRESH'));
+    await tester.ensureVisible(find.text('ROSE'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('NO DEVICES BOOTED'), findsOneWidget);
+    await tester.tap(find.text('ROSE'));
+    await _settle(tester);
+    expect(find.text('NONE'), findsOneWidget);
+    expect(link.frameStreams.last.hasListener, isTrue);
 
     await tester.pumpWidget(const SizedBox());
     expect(link.closed, isTrue);
   });
 
-  testWidgets('a connection that fails says why and offers RETRY', (
-    tester,
-  ) async {
+  testWidgets('a connection that fails says why on the window', (tester) async {
     final link = FakeDeviceLink(const [_pixel]);
     var calls = 0;
     Future<DeviceLink> open({
@@ -271,11 +311,59 @@ void main() {
 
     await _pump(tester, open);
     expect(find.text('rose unreachable'), findsOneWidget);
+    expect(link.frameStreams, isEmpty);
 
-    await tester.tap(find.text('RETRY'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('ROSE'));
+    await _settle(tester);
     expect(find.text('pixel_7-api36'), findsOneWidget);
+    expect(link.frameStreams.single.hasListener, isTrue);
+  });
+
+  testWidgets('+ adds a host, and its first device takes the stream', (
+    tester,
+  ) async {
+    final rose = FakeDeviceLink(const [_pixel]);
+    final nyx = FakeDeviceLink(const [_iphone]);
+    Future<DeviceLink> open({
+      required String address,
+      required int port,
+      required String user,
+      required String privateKey,
+      HostKeyVerifier? verifier,
+    }) async => address == _nyx.address ? nyx : rose;
+
+    await _pump(tester, open, hosts: const [_rose, _nyx]);
+    await _live(tester, rose);
+
+    const plus = ValueKey('device-strip-plus');
+    await tester.ensureVisible(find.byKey(plus));
+    await tester.pump();
+    await tester.tap(find.text('+'));
+    await tester.pump();
+    expect(find.text('DEVICES ON'), findsOneWidget);
+    expect(find.byKey(const ValueKey('device-new-host-h1')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('device-new-host-h2')));
+    await _settle(tester);
+
+    expect(find.text('NYX'), findsOneWidget);
+    expect(rose.frameStreams.single.hasListener, isFalse);
+    expect(nyx.frameStreams.single.hasListener, isTrue);
+    expect(rose.closed, isFalse);
+    expect(find.byKey(plus), findsNothing);
+
+    final pixel = find.byKey(ValueKey('device-tab-h1-${_pixel.id}'));
+    await tester.ensureVisible(pixel);
+    await tester.pump();
+    await tester.tap(pixel);
+    await tester.pump();
+    expect(rose.frameStreams, hasLength(2));
+    expect(rose.frameStreams.last.hasListener, isTrue);
+    expect(nyx.frameStreams.single.hasListener, isFalse);
+    expect(nyx.closed, isFalse);
+
+    await tester.pumpWidget(const SizedBox());
+    expect(rose.closed, isTrue);
+    expect(nyx.closed, isTrue);
   });
 
   testWidgets('a tap on the picture lands in device pixels', (tester) async {
@@ -284,15 +372,13 @@ void main() {
     addTearDown(tester.view.reset);
     final link = FakeDeviceLink(const [_pixel]);
     await _pump(tester, _opener(link));
-    await tester.tap(find.text('pixel_7-api36'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-
-    link.frameStreams.single.add(_frame());
-    await _settle(tester);
+    await _live(tester, link);
+    await _expand(tester);
     expect(find.text('BACK'), findsOneWidget);
     expect(find.text('VIEW ONLY'), findsNothing);
 
+    link.frameStreams.single.add(_frame());
+    await _settle(tester);
     final picture = tester.getRect(find.byType(RawImage));
     await tester.tapAt(picture.center);
     await tester.pump(const Duration(milliseconds: 400));
@@ -315,17 +401,16 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('/ ROSE PIXEL_7-API36'), findsNothing);
-    expect(link.frameStreams.last.hasListener, isFalse);
+    expect(find.byKey(_floatKey), findsOneWidget);
+    expect(link.frameStreams.last.hasListener, isTrue);
   });
 
   testWidgets('a simulator is only watched', (tester) async {
     final link = FakeDeviceLink(const [_iphone]);
     await _pump(tester, _opener(link));
-    await tester.tap(find.text('iPhone 17 Pro'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
     link.frameStreams.single.add(_frame(width: 1206, height: 2622));
     await _settle(tester);
+    await _expand(tester);
 
     expect(find.text('VIEW ONLY'), findsOneWidget);
     expect(find.text('BACK'), findsNothing);
@@ -357,42 +442,23 @@ void main() {
     expect(link.frameStreams.last.hasListener, isTrue);
   });
 
-  Future<void> float(WidgetTester tester) async {
-    await tester.tap(find.text('FLOAT'));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-  }
-
-  Future<void> tapFloat(WidgetTester tester, ValueKey<String> key) async {
-    await tester.tap(find.byKey(key));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-  }
-
-  const floatKey = ValueKey('device-float');
-  const overlayKey = ValueKey('device-float-overlay');
-
   testWidgets('a float keeps its controls down until tapped', (tester) async {
     final link = FakeDeviceLink(const [_pixel, _iphone]);
     await _pump(tester, _opener(link));
-    await _openLive(tester, link, 'pixel_7-api36');
-    await float(tester);
+    await _live(tester, link);
 
-    expect(find.text('/ ROSE PIXEL_7-API36'), findsNothing);
-    expect(find.byKey(floatKey), findsOneWidget);
-    expect(find.byKey(overlayKey), findsNothing);
+    expect(find.byKey(_overlayKey), findsNothing);
     expect(find.text('PAUSE'), findsNothing);
-    expect(link.frameStreams.single.hasListener, isTrue);
 
-    await tapFloat(tester, floatKey);
-    expect(find.byKey(overlayKey), findsOneWidget);
+    await _tapKey(tester, _floatKey);
+    expect(find.byKey(_overlayKey), findsOneWidget);
     expect(find.text('PIXEL_7-API36'), findsOneWidget);
 
     await tester.tap(find.text('PIXEL_7-API36'));
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byKey(overlayKey), findsNothing);
+    expect(find.byKey(_overlayKey), findsNothing);
 
-    await tapFloat(tester, floatKey);
+    await _tapKey(tester, _floatKey);
     await tester.tap(find.text('PAUSE'));
     await tester.pump();
     expect(link.frameStreams.single.hasListener, isFalse);
@@ -402,49 +468,61 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byKey(const ValueKey('device-float-paused')), findsOneWidget);
 
-    await tapFloat(tester, floatKey);
+    await _tapKey(tester, _floatKey);
     await tester.tap(find.text('RESUME'));
     await tester.pump();
     expect(link.frameStreams, hasLength(2));
 
-    await tapFloat(tester, const ValueKey('device-float-expand'));
+    await _tapKey(tester, const ValueKey('device-float-expand'));
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('/ ROSE PIXEL_7-API36'), findsOneWidget);
-    expect(find.byKey(floatKey), findsNothing);
+    expect(find.byKey(_floatKey), findsNothing);
     expect(link.frameStreams, hasLength(2));
 
     await tester.tap(find.text('/ ROSE PIXEL_7-API36'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    expect(link.frameStreams.last.hasListener, isFalse);
-    expect(find.byKey(floatKey), findsNothing);
+    expect(find.byKey(_floatKey), findsOneWidget);
+    expect(link.frameStreams, hasLength(2));
+    expect(link.frameStreams.last.hasListener, isTrue);
     expect(link.closed, isFalse);
   });
 
-  testWidgets('a collapsed float keeps streaming and opens again', (
+  testWidgets('a collapsed float is a device mark, paused till opened', (
     tester,
   ) async {
     final link = FakeDeviceLink(const [_pixel]);
     await _pump(tester, _opener(link));
-    await _openLive(tester, link, 'pixel_7-api36');
-    await float(tester);
+    await _live(tester, link);
 
-    await tapFloat(tester, floatKey);
-    await tapFloat(tester, const ValueKey('device-float-collapse'));
+    await _tapKey(tester, _floatKey);
+    await _tapKey(tester, const ValueKey('device-float-collapse'));
     final bubble = find.byKey(const ValueKey('device-float-bubble'));
     expect(bubble, findsOneWidget);
     expect(tester.getSize(bubble).width, deviceBubbleSize);
-    expect(link.frameStreams.single.hasListener, isTrue);
+    expect(find.byType(RawImage), findsNothing);
+    expect(link.frameStreams.single.hasListener, isFalse);
 
-    await tapFloat(tester, floatKey);
+    await _tapKey(tester, _floatKey);
     expect(bubble, findsNothing);
-    expect(find.byKey(overlayKey), findsNothing);
-    expect(link.frameStreams.single.hasListener, isTrue);
+    expect(find.byKey(_overlayKey), findsNothing);
+    expect(link.frameStreams, hasLength(2));
+    expect(link.frameStreams.last.hasListener, isTrue);
 
-    await tester.drag(find.byKey(floatKey), const Offset(400, 0));
+    await tester.drag(find.byKey(_floatKey), const Offset(400, 0));
     await tester.pump(const Duration(milliseconds: 400));
     expect(bubble, findsOneWidget);
-    expect(link.frameStreams.single.hasListener, isTrue);
+    expect(link.frameStreams.last.hasListener, isFalse);
+
+    await _tapKey(tester, _floatKey);
+    await _live(tester, link);
+    await _tapKey(tester, _floatKey);
+    await tester.tap(find.text('PAUSE'));
+    await tester.pump();
+    await _tapKey(tester, const ValueKey('device-float-collapse'));
+    await _tapKey(tester, _floatKey);
+    expect(link.frameStreams, hasLength(3));
+    expect(find.byKey(const ValueKey('device-float-paused')), findsOneWidget);
   });
 
   testWidgets('a float closes from its controls or on the target', (
@@ -452,10 +530,9 @@ void main() {
   ) async {
     final link = FakeDeviceLink(const [_pixel]);
     await _pump(tester, _opener(link));
-    await _openLive(tester, link, 'pixel_7-api36');
-    await float(tester);
+    await _live(tester, link);
 
-    final from = tester.getCenter(find.byKey(floatKey));
+    final from = tester.getCenter(find.byKey(_floatKey));
     final gesture = await tester.startGesture(from);
     await gesture.moveBy(const Offset(-20, 0));
     await gesture.moveBy(const Offset(-20, 0));
@@ -466,32 +543,28 @@ void main() {
     await tester.pump();
     await gesture.up();
     await tester.pump();
-    expect(find.byKey(floatKey), findsNothing);
+    expect(find.byKey(_floatKey), findsNothing);
     expect(link.frameStreams.single.hasListener, isFalse);
+    expect(link.closed, isTrue);
 
-    await tester.tap(find.text('pixel_7-api36'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    link.frameStreams.last.add(_frame());
+    link.closed = false;
+    await tester.tap(find.text('DEVICES'));
     await _settle(tester);
-    await float(tester);
-    await tapFloat(tester, floatKey);
-    await tapFloat(tester, const ValueKey('device-float-close'));
-    expect(find.byKey(floatKey), findsNothing);
+    await _live(tester, link);
+    await _tapKey(tester, _floatKey);
+    await _tapKey(tester, const ValueKey('device-float-close'));
+    expect(find.byKey(_floatKey), findsNothing);
     expect(link.frameStreams.last.hasListener, isFalse);
-
-    await tester.pumpWidget(const SizedBox());
     expect(link.closed, isTrue);
   });
 
   testWidgets('a pinch resizes the float within its bounds', (tester) async {
     final link = FakeDeviceLink(const [_pixel]);
     await _pump(tester, _opener(link));
-    await _openLive(tester, link, 'pixel_7-api36');
-    await float(tester);
+    await _live(tester, link);
 
     Future<void> pinch(double spread) async {
-      final center = tester.getCenter(find.byKey(floatKey));
+      final center = tester.getCenter(find.byKey(_floatKey));
       final a = await tester.startGesture(center - const Offset(40, 0));
       final b = await tester.startGesture(center + const Offset(40, 0));
       await tester.pump();
@@ -505,18 +578,18 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
     }
 
-    expect(tester.getSize(find.byKey(floatKey)).width, deviceFloatWidth);
+    expect(tester.getSize(find.byKey(_floatKey)).width, deviceFloatWidth);
     await pinch(40);
-    final grown = tester.getSize(find.byKey(floatKey)).width;
+    final grown = tester.getSize(find.byKey(_floatKey)).width;
     expect(grown, greaterThan(deviceFloatWidth));
     await pinch(4000);
-    final widest = tester.getRect(find.byKey(floatKey));
+    final widest = tester.getRect(find.byKey(_floatKey));
     expect(widest.width, lessThan(800 * deviceFloatMaxShare));
     expect(widest.width, greaterThan(grown));
     expect(widest.bottom, lessThan(600 - deviceFloatClearance + 1));
     await pinch(-60);
     await pinch(-60);
-    expect(tester.getSize(find.byKey(floatKey)).width, deviceFloatMinWidth);
+    expect(tester.getSize(find.byKey(_floatKey)).width, deviceFloatMinWidth);
   });
 
   testWidgets('PAUSE stops the loop, and so does hiding the app', (
@@ -525,7 +598,8 @@ void main() {
     addTearDown(() => _lifecycle(tester, const [AppLifecycleState.resumed]));
     final link = FakeDeviceLink(const [_pixel]);
     await _pump(tester, _opener(link));
-    await _openLive(tester, link, 'pixel_7-api36');
+    await _live(tester, link);
+    await _expand(tester);
 
     await tester.tap(find.text('PAUSE'));
     await tester.pump();

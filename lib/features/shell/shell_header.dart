@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/enums.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/tokens.dart';
 import '../../design/components/cell_divider.dart';
@@ -15,7 +14,7 @@ import '../../design/icons/dazzle_icons.dart';
 import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import '../../platform/shell/shell_connection.dart';
-import '../hosts/host_mark.dart';
+import '../hosts/host_strip.dart';
 import 'shell_sessions.dart';
 import 'shell_status.dart';
 
@@ -26,8 +25,6 @@ const _reasonHeight = 32.0;
 const _detailHeight = 56.0;
 
 const _tabMaxWidth = 88.0;
-
-const _groupMaxWidth = 80.0;
 
 /// A login shell's title is who and where — `luis@nyx: ~/Projects/dazzle` — and the where
 /// is the half that tells two tabs apart. A title with a space in it is a sentence the
@@ -224,7 +221,7 @@ class _ShellHeaderState extends State<ShellHeader> {
         children: [
           ReorderableDelayedDragStartListener(
             index: index,
-            child: _GroupCell(
+            child: HostGroupCell(
               key: ValueKey('shell-group-label-${group.id}'),
               name: group.name,
               system: group.system,
@@ -275,165 +272,20 @@ class _ShellHeaderState extends State<ShellHeader> {
   }
 
   Widget _plus(BuildContext context) {
-    return MenuAnchor(
+    return HostMenu(
       key: const ValueKey('shell-strip-plus'),
+      title: 'NEW SHELL ON',
+      hosts: widget.newHosts,
+      current: widget.host.id,
+      itemKey: (host) => 'shell-new-host-${host.id}',
+      onPick: widget.onNew,
       controller: _newMenu,
       onOpen: () => setState(() => _newMenuOpen = true),
       onClose: () => setState(() => _newMenuOpen = false),
-      style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(
-          context.tokens.surfaceSecondary,
-        ),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-        shadowColor: const WidgetStatePropertyAll(Colors.transparent),
-        elevation: const WidgetStatePropertyAll(0),
-        padding: const WidgetStatePropertyAll(EdgeInsets.all(Spacing.sm)),
-        minimumSize: const WidgetStatePropertyAll(Size(200, 0)),
-        maximumSize: const WidgetStatePropertyAll(Size(280, 360)),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: const BorderRadius.all(Radius.circular(Radii.sharp)),
-            side: BorderSide(color: context.tokens.borderNormal),
-          ),
-        ),
-      ),
-      alignmentOffset: const Offset(0, Spacing.sm),
-      menuChildren: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Spacing.md,
-            Spacing.sm,
-            Spacing.md,
-            Spacing.sm,
-          ),
-          child: Text('NEW SHELL ON', style: context.tokens.label),
-        ),
-        for (final host in widget.newHosts)
-          MenuItemButton(
-            key: ValueKey('shell-new-host-${host.id}'),
-            onPressed: () => widget.onNew(host),
-            style: const ButtonStyle(
-              minimumSize: WidgetStatePropertyAll(
-                Size(192, TapTargets.minHeight),
-              ),
-              padding: WidgetStatePropertyAll(
-                EdgeInsetsDirectional.only(start: Spacing.md, end: Spacing.lg),
-              ),
-              shape: WidgetStatePropertyAll(
-                RoundedRectangleBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(Radii.sharp)),
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                DazzleIcon(
-                  DazzleIcons.hosts,
-                  size: IconSizes.glyph,
-                  color: context.tokens.textMuted,
-                ),
-                const SizedBox(width: Spacing.md),
-                Expanded(
-                  child: Text(
-                    host.name.toUpperCase(),
-                    style: context.tokens.rowTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (host.id == widget.host.id) ...[
-                  const SizedBox(width: Spacing.md),
-                  Text('CURRENT', style: context.tokens.label),
-                ],
-              ],
-            ),
-          ),
-      ],
       builder: (context, controller, child) => _TabCell(
         key: const ValueKey('shell-tab-new'),
         label: '+',
         onTap: controller.isOpen ? controller.close : controller.open,
-      ),
-    );
-  }
-}
-
-class _GroupCell extends StatelessWidget {
-  const _GroupCell({
-    super.key,
-    required this.name,
-    required this.system,
-    required this.front,
-    required this.hidden,
-    required this.onTap,
-  });
-
-  final String name;
-  final HostSystem? system;
-  final bool front;
-  final int hidden;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ink = front ? context.tokens.textPrimary : context.tokens.textMuted;
-    return Semantics(
-      label: hidden > 0 ? '$name, $hidden tabs folded' : name,
-      button: true,
-      onTap: onTap,
-      excludeSemantics: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minWidth: TapTargets.minHeight),
-          padding: const EdgeInsets.symmetric(horizontal: Spacing.xs),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: context.tokens.borderNormal,
-                width: Borders.hairline * 2,
-              ),
-            ),
-          ),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Spacing.sm,
-              vertical: Spacing.xs,
-            ),
-            color: context.tokens.surfaceSecondary,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                HostMark(system, size: IconSizes.affordance, color: ink),
-                const SizedBox(width: Spacing.xs),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth:
-                        _groupMaxWidth - IconSizes.affordance - Spacing.xs,
-                  ),
-                  child: Text(
-                    name.toUpperCase(),
-                    style: context.tokens.label.copyWith(color: ink),
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (hidden > 0) ...[
-                  const SizedBox(width: Spacing.xs),
-                  Text(
-                    '+$hidden',
-                    style: context.tokens.label.copyWith(
-                      color: context.tokens.textMuted,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

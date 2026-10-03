@@ -55,6 +55,7 @@ const glitchIcons = [
   DazzleIcons.checkboxChecked,
   DazzleIcons.checkboxEmpty,
   DazzleIcons.submit,
+  DazzleIcons.device,
 ];
 
 /// flutter_svg keys its cache on the asset/colour pair, so the first play of a sequence

@@ -1,10 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/components/panel.dart';
-import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../screen/framebuffer_view.dart';
@@ -12,13 +9,6 @@ import 'device_controllers.dart';
 import 'device_dock.dart';
 
 const pausedDim = 0.4;
-
-void openDeviceScreen(BuildContext context) {
-  Navigator.of(
-    context,
-    rootNavigator: true,
-  ).push(MaterialPageRoute<void>(builder: (_) => const DeviceScreen()));
-}
 
 class DeviceScreen extends ConsumerStatefulWidget {
   const DeviceScreen({super.key});
@@ -37,47 +27,36 @@ class _DeviceScreenState extends ConsumerState<DeviceScreen> {
   }
 
   @override
-  void dispose() {
-    final dock = _dock;
-    final session = dock.session;
-    scheduleMicrotask(() {
-      if (!dock.floating && dock.session == session) dock.close();
-    });
-    super.dispose();
-  }
-
-  void _float() {
-    _dock.float();
-    Navigator.of(context).pop();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.tokens.mediaBackdrop,
-      body: SafeArea(
-        child: ListenableBuilder(
-          listenable: _dock,
-          builder: (context, _) {
-            final session = _dock.session;
-            if (session == null) return const SizedBox.shrink();
-            return ListenableBuilder(
-              listenable: session.controller,
-              builder: (context, _) => Column(
-                children: [
-                  _Crumb(
-                    hostName: session.host.name,
-                    controller: session.controller,
-                    onBack: () => Navigator.of(context).pop(),
-                    onFloat: _float,
-                  ),
-                  Expanded(child: _Picture(controller: session.controller)),
-                  if (session.device.pressable)
-                    _Keys(controller: session.controller),
-                ],
-              ),
-            );
-          },
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _dock.float();
+      },
+      child: Scaffold(
+        backgroundColor: context.tokens.mediaBackdrop,
+        body: SafeArea(
+          child: ListenableBuilder(
+            listenable: _dock,
+            builder: (context, _) {
+              final session = _dock.session;
+              if (session == null) return const SizedBox.shrink();
+              return ListenableBuilder(
+                listenable: session.controller,
+                builder: (context, _) => Column(
+                  children: [
+                    _Crumb(
+                      hostName: session.host.name,
+                      controller: session.controller,
+                      onBack: () => Navigator.of(context).pop(),
+                    ),
+                    Expanded(child: _Picture(controller: session.controller)),
+                    if (session.device.pressable)
+                      _Keys(controller: session.controller),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -89,13 +68,11 @@ class _Crumb extends StatelessWidget {
     required this.hostName,
     required this.controller,
     required this.onBack,
-    required this.onFloat,
   });
 
   final String hostName;
   final DeviceScreenController controller;
   final VoidCallback onBack;
-  final VoidCallback onFloat;
 
   @override
   Widget build(BuildContext context) {
@@ -121,8 +98,6 @@ class _Crumb extends StatelessWidget {
           ),
           const SizedBox(width: Spacing.lg),
           ...deviceStateActions(context, controller),
-          const SizedBox(width: Spacing.lg),
-          PanelAffordance('FLOAT', icon: DazzleIcons.pip, onTap: onFloat),
         ],
       ),
     );

@@ -25,7 +25,7 @@ import '../../platform/host_key_dial.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/link_probe.dart';
 import '../code/code_list.dart';
-import '../devices/devices_screen.dart';
+import '../devices/device_dock.dart';
 import '../screen_scaffold.dart';
 import '../settings/host_form_screen.dart';
 import '../shell/shell_sheet.dart';
@@ -540,16 +540,16 @@ class _HookRowsState extends ConsumerState<_HookRows> {
   }
 }
 
-class _DevicesRow extends StatefulWidget {
+class _DevicesRow extends ConsumerStatefulWidget {
   const _DevicesRow({required this.host});
 
   final Host host;
 
   @override
-  State<_DevicesRow> createState() => _DevicesRowState();
+  ConsumerState<_DevicesRow> createState() => _DevicesRowState();
 }
 
-class _DevicesRowState extends State<_DevicesRow> {
+class _DevicesRowState extends ConsumerState<_DevicesRow> {
   bool _down = false;
 
   @override
@@ -559,7 +559,7 @@ class _DevicesRowState extends State<_DevicesRow> {
       onTapDown: (_) => setState(() => _down = true),
       onTapCancel: () => setState(() => _down = false),
       onTapUp: (_) => setState(() => _down = false),
-      onTap: () => openDevices(context, widget.host),
+      onTap: () => ref.read(deviceDockProvider).show(widget.host),
       child: SizedBox(
         height: RowMetrics.minHeight,
         child: Row(

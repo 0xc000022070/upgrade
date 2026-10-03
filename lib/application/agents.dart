@@ -239,6 +239,12 @@ final engineHostsProvider = StreamProvider<List<Host>>(
       .watchWithIntegration(IntegrationKind.agents),
 );
 
+final deviceHostsProvider = StreamProvider<List<Host>>(
+  (ref) => ref
+      .watch(hostRepositoryProvider)
+      .watchWithIntegration(IntegrationKind.devices),
+);
+
 Stream<List<AgentChannel>> watchAgentChannels(HostRepository repository) {
   late final StreamController<List<AgentChannel>> controller;
   final subscriptions = <StreamSubscription<List<Host>>>[];

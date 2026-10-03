@@ -3,12 +3,17 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/agents.dart';
 import '../../application/navigation.dart';
 import '../../application/pip.dart';
+import '../../data/repositories/host_repository.dart';
+import '../../design/effects/glitch.dart';
 import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
+import '../../platform/devices/device_link.dart';
+import '../hosts/host_strip.dart';
 import 'device_controllers.dart';
 import 'device_dock.dart';
 import 'device_screen.dart';
@@ -19,8 +24,10 @@ const deviceFloatMaxShare = 0.6;
 const deviceBubbleSize = 56.0;
 const deviceFloatClearance = 112.0;
 const deviceCloseTarget = 48.0;
+const deviceStripHeight = TapTargets.minHeight;
 const _glide = Duration(milliseconds: 220);
 const _decodeStep = 120;
+const _tabMaxWidth = 88.0;
 
 class DeviceFloat extends ConsumerStatefulWidget {
   const DeviceFloat({super.key, required this.child});
@@ -36,15 +43,6 @@ class _DeviceFloatState extends ConsumerState<DeviceFloat> {
   late final AppLifecycleListener _lifecycle;
   bool _hidden = false;
   bool _inPip = false;
-
-  bool _right = true;
-  double? _top;
-  double _width = deviceFloatWidth;
-  double _pinchFrom = deviceFloatWidth;
-  Offset? _dragAt;
-  bool _gesturing = false;
-  bool _overClose = false;
-  bool _overlay = false;
 
   @override
   void initState() {
@@ -67,6 +65,50 @@ class _DeviceFloatState extends ConsumerState<DeviceFloat> {
     super.dispose();
   }
 
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<AsyncValue<bool>>(pipModeProvider, (_, next) {
+      _inPip = next.valueOrNull ?? false;
+      _dock.setAway(_hidden || _inPip);
+    });
+    // Above the navigator there is no overlay for the strip's menu to open in.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        widget.child,
+        Overlay(
+          initialEntries: [OverlayEntry(builder: (_) => const _FloatLayer())],
+        ),
+      ],
+    );
+  }
+}
+
+class _FloatLayer extends ConsumerStatefulWidget {
+  const _FloatLayer();
+
+  @override
+  ConsumerState<_FloatLayer> createState() => _FloatLayerState();
+}
+
+class _FloatLayerState extends ConsumerState<_FloatLayer> {
+  late final DeviceDock _dock;
+
+  bool _right = true;
+  double? _top;
+  double _width = deviceFloatWidth;
+  double _pinchFrom = deviceFloatWidth;
+  Offset? _dragAt;
+  bool _gesturing = false;
+  bool _overClose = false;
+  bool _overlay = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _dock = ref.read(deviceDockProvider);
+  }
+
   void _expand() {
     final navigator = rootNavigatorKey.currentState;
     if (navigator == null) return;
@@ -87,43 +129,42 @@ class _DeviceFloatState extends ConsumerState<DeviceFloat> {
     _dock.close();
   }
 
+  void _select(DevicesController group, HostDevice device) {
+    setState(() => _overlay = false);
+    _dock.select(group, device);
+  }
+
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<bool>>(pipModeProvider, (_, next) {
-      _inPip = next.valueOrNull ?? false;
-      _dock.setAway(_hidden || _inPip);
-    });
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        widget.child,
-        ListenableBuilder(
-          listenable: _dock,
-          builder: (context, _) {
-            final session = _dock.session;
-            if (session == null || !_dock.floating) {
-              _overlay = false;
-              return const SizedBox.shrink();
-            }
-            return ListenableBuilder(
-              listenable: session.controller,
-              builder: (context, _) => _place(context, session),
-            );
-          },
-        ),
-      ],
+    return ListenableBuilder(
+      listenable: _dock,
+      builder: (context, _) {
+        final session = _dock.session;
+        if (!_dock.floating || (session == null && _dock.groups.isEmpty)) {
+          _overlay = false;
+          return const SizedBox.shrink();
+        }
+        if (session == null) {
+          _overlay = false;
+          return _place(context, null);
+        }
+        return ListenableBuilder(
+          listenable: session.controller,
+          builder: (context, _) => _place(context, session),
+        );
+      },
     );
   }
 
-  Widget _place(BuildContext context, DeviceSession session) {
+  Widget _place(BuildContext context, DeviceSession? session) {
     final media = MediaQuery.of(context);
     final screen = media.size;
     final collapsed = _dock.collapsed;
-    final native = session.controller.nativeSize;
+    final native = session?.controller.nativeSize ?? Size.zero;
     final aspect = native.isEmpty ? 9 / 20 : native.width / native.height;
     final size = collapsed
         ? const Size.square(deviceBubbleSize)
-        : Size(_width, _width / aspect);
+        : Size(_width, deviceStripHeight + _width / aspect);
     final left = Spacing.screenEdge;
     final right = screen.width - size.width - Spacing.screenEdge;
     final minTop = media.padding.top + Spacing.lg;
@@ -149,7 +190,8 @@ class _DeviceFloatState extends ConsumerState<DeviceFloat> {
             screen.height -
             minTop -
             media.padding.bottom -
-            deviceFloatClearance;
+            deviceFloatClearance -
+            deviceStripHeight;
         final widest = math.max(
           deviceFloatMinWidth,
           math.min(screen.width * deviceFloatMaxShare, tallest * aspect),
@@ -200,6 +242,7 @@ class _DeviceFloatState extends ConsumerState<DeviceFloat> {
       if (!collapsed && (pastLeft || pastRight)) _dock.collapse(true);
     }
 
+    final controller = session?.controller;
     return Stack(
       children: [
         if (dragging)
@@ -222,6 +265,8 @@ class _DeviceFloatState extends ConsumerState<DeviceFloat> {
             behavior: HitTestBehavior.opaque,
             onTap: collapsed
                 ? () => _dock.collapse(false)
+                : controller == null
+                ? null
                 : () => setState(() => _overlay = !_overlay),
             onScaleStart: (_) => setState(() {
               _gesturing = true;
@@ -230,17 +275,195 @@ class _DeviceFloatState extends ConsumerState<DeviceFloat> {
             onScaleUpdate: onScaleUpdate,
             onScaleEnd: onScaleEnd,
             child: collapsed
-                ? _Bubble(controller: session.controller)
-                : _Tile(
-                    controller: session.controller,
-                    overlay: _overlay,
-                    onExpand: _expand,
-                    onCollapse: _collapse,
-                    onClose: _close,
+                ? const _Bubble()
+                : _Frame(
+                    child: Column(
+                      children: [
+                        _Strip(
+                          dock: _dock,
+                          hosts: ref.watch(deviceHostsProvider).valueOrNull,
+                          onSelect: _select,
+                        ),
+                        Expanded(
+                          child: controller == null
+                              ? _Waiting(dock: _dock)
+                              : _Tile(
+                                  controller: controller,
+                                  overlay: _overlay,
+                                  onExpand: _expand,
+                                  onCollapse: _collapse,
+                                  onClose: _close,
+                                ),
+                        ),
+                      ],
+                    ),
                   ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _Strip extends StatelessWidget {
+  const _Strip({
+    required this.dock,
+    required this.hosts,
+    required this.onSelect,
+  });
+
+  final DeviceDock dock;
+  final List<Host>? hosts;
+  final void Function(DevicesController group, HostDevice device) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final session = dock.session;
+    final groups = dock.groups;
+    final shown = {for (final group in groups) group.host.id};
+    final more = [
+      for (final host in hosts ?? const <Host>[])
+        if (!shown.contains(host.id)) host,
+    ];
+    return Container(
+      key: const ValueKey('device-float-strip'),
+      height: deviceStripHeight,
+      color: context.tokens.surfaceSecondary,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.xs),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final group in groups) ...[
+              HostGroupCell(
+                key: ValueKey('device-group-${group.host.id}'),
+                name: group.host.name,
+                system: group.host.system,
+                front: session?.host.id == group.host.id,
+                tint: group.phase is DevicesFailed
+                    ? context.tokens.warning
+                    : null,
+                onTap: () => dock.show(group.host),
+              ),
+              ...switch (group.phase) {
+                DevicesLoading() => [const _StripTab(label: '…')],
+                DevicesFailed() => const <Widget>[],
+                DevicesListed(:final devices) when devices.isEmpty => [
+                  const _StripTab(label: 'NONE'),
+                ],
+                DevicesListed(:final devices) => [
+                  for (final device in devices)
+                    _StripTab(
+                      key: ValueKey('device-tab-${group.host.id}-${device.id}'),
+                      label: device.name,
+                      active:
+                          session?.host.id == group.host.id &&
+                          session?.device.id == device.id,
+                      onTap: () => onSelect(group, device),
+                    ),
+                ],
+              },
+              const SizedBox(width: Spacing.sm),
+            ],
+            if (more.isNotEmpty)
+              HostMenu(
+                key: const ValueKey('device-strip-plus'),
+                title: 'DEVICES ON',
+                hosts: more,
+                itemKey: (host) => 'device-new-host-${host.id}',
+                onPick: dock.show,
+                builder: (context, controller, _) => _StripTab(
+                  label: '+',
+                  onTap: controller.isOpen ? controller.close : controller.open,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StripTab extends StatelessWidget {
+  const _StripTab({
+    super.key,
+    required this.label,
+    this.active = false,
+    this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = active
+        ? context.tokens.accent
+        : onTap == null
+        ? context.tokens.textDisabled
+        : context.tokens.textMuted;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minWidth: TapTargets.minHeight),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: active
+                  ? context.tokens.accent
+                  : context.tokens.borderNormal,
+              width: Borders.hairline * 2,
+            ),
+          ),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _tabMaxWidth),
+          child: Text(
+            label,
+            style: context.tokens.panelHeader.copyWith(color: tint),
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Waiting extends StatelessWidget {
+  const _Waiting({required this.dock});
+
+  final DeviceDock dock;
+
+  @override
+  Widget build(BuildContext context) {
+    final phase = dock.asked?.phase;
+    final (words, warn) = switch (phase) {
+      DevicesFailed(:final reason) => (reason, true),
+      DevicesListed(:final devices) when devices.isEmpty => (
+        'NO DEVICES BOOTED',
+        false,
+      ),
+      _ => ('CONNECTING', false),
+    };
+    return Padding(
+      padding: const EdgeInsets.all(Spacing.sm),
+      child: Center(
+        child: Text(
+          words,
+          key: const ValueKey('device-float-waiting'),
+          textAlign: TextAlign.center,
+          style: context.tokens.panelHeader.copyWith(
+            color: warn ? context.tokens.warning : null,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -262,11 +485,11 @@ class _Tile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Frame(
+    return ClipRect(
       child: Stack(
         fit: StackFit.expand,
         children: [
-          _Live(controller: controller, fit: BoxFit.contain),
+          _Live(controller: controller),
           if (!overlay && controller.phase is DevicePaused)
             const Positioned(
               top: Spacing.md,
@@ -342,22 +565,39 @@ class _Tile extends StatelessWidget {
   }
 }
 
-class _Bubble extends StatelessWidget {
-  const _Bubble({required this.controller});
+class _Bubble extends StatefulWidget {
+  const _Bubble();
 
-  final DeviceScreenController controller;
+  @override
+  State<_Bubble> createState() => _BubbleState();
+}
+
+class _BubbleState extends State<_Bubble> {
+  final _glitch = GlitchController();
+
+  @override
+  void initState() {
+    super.initState();
+    _glitch.fire();
+  }
+
+  @override
+  void dispose() {
+    _glitch.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return _Frame(
       key: const ValueKey('device-float-bubble'),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          _Live(controller: controller, fit: BoxFit.cover),
-          if (controller.phase is DevicePaused)
-            const Center(child: _PausedMark()),
-        ],
+      child: Center(
+        child: DazzleIcon(
+          DazzleIcons.device,
+          size: IconSizes.lg,
+          color: context.tokens.textPrimary,
+          glitch: _glitch,
+        ),
       ),
     );
   }
@@ -387,10 +627,9 @@ class _Frame extends StatelessWidget {
 }
 
 class _Live extends StatelessWidget {
-  const _Live({required this.controller, required this.fit});
+  const _Live({required this.controller});
 
   final DeviceScreenController controller;
-  final BoxFit fit;
 
   @override
   Widget build(BuildContext context) {
@@ -400,7 +639,7 @@ class _Live extends StatelessWidget {
       opacity: controller.phase is DeviceLive ? 1 : pausedDim,
       child: RawImage(
         image: image,
-        fit: fit,
+        fit: BoxFit.contain,
         filterQuality: FilterQuality.medium,
       ),
     );
