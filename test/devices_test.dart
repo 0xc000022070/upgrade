@@ -789,6 +789,30 @@ void main() {
     expect(link.frameStreams.last.hasListener, isTrue);
   });
 
+  testWidgets('a window left by BACK streams again when the app comes back', (
+    tester,
+  ) async {
+    addTearDown(() => _lifecycle(tester, const [AppLifecycleState.resumed]));
+    final link = FakeDeviceLink(const [_pixel]);
+    await _pump(tester, _opener(link));
+    await _pick(tester, _pixel);
+    await _live(tester, link);
+
+    _lifecycle(tester, const [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+      AppLifecycleState.paused,
+      AppLifecycleState.detached,
+    ]);
+    await tester.pump();
+    expect(link.frameStreams.single.hasListener, isFalse);
+
+    _lifecycle(tester, const [AppLifecycleState.resumed]);
+    await tester.pump();
+    expect(link.frameStreams, hasLength(2));
+    expect(link.frameStreams.last.hasListener, isTrue);
+  });
+
   group('a connection the phone dropped', () {
     late List<FakeDeviceLink> links;
     late int dials;

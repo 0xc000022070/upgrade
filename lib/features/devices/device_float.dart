@@ -42,29 +42,22 @@ class DeviceFloat extends ConsumerStatefulWidget {
 
 class _DeviceFloatState extends ConsumerState<DeviceFloat> {
   late final DeviceDock _dock;
-  late final AppLifecycleListener _lifecycle;
-  bool _hidden = false;
+  late bool _hidden = !ref.read(appVisibleProvider);
   bool _inPip = false;
 
   @override
   void initState() {
     super.initState();
     _dock = ref.read(deviceDockProvider);
-    _lifecycle = AppLifecycleListener(
-      onHide: () => _setHidden(true),
-      onShow: () => _setHidden(false),
+    ref.listenManual<bool>(
+      appVisibleProvider,
+      (_, visible) => _setHidden(!visible),
     );
   }
 
   void _setHidden(bool hidden) {
     _hidden = hidden;
     _dock.setAway(_hidden || _inPip);
-  }
-
-  @override
-  void dispose() {
-    _lifecycle.dispose();
-    super.dispose();
   }
 
   @override

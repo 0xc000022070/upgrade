@@ -67,7 +67,6 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
 
   bool _railHidden = false;
 
-  late final AppLifecycleListener _lifecycle;
   bool _away = false;
   int _previewedFrame = 0;
 
@@ -81,19 +80,13 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
       prompt: _askHostKey,
       open: widget.open,
     );
-    _lifecycle = AppLifecycleListener(
-      onHide: () {
-        _away = true;
-        _previewTimer?.cancel();
-        _previewTimer = null;
-        _controller.setAway(true);
-      },
-      onShow: () {
-        _away = false;
-        _previewEvery();
-        _controller.setAway(false);
-      },
-    );
+    ref.listenManual<bool>(appVisibleProvider, (_, visible) {
+      _away = !visible;
+      _previewTimer?.cancel();
+      _previewTimer = null;
+      if (visible) _previewEvery();
+      _controller.setAway(_away);
+    });
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     _controller.connect();
     unawaited(_openPreviews());
@@ -133,7 +126,6 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
 
   @override
   void dispose() {
-    _lifecycle.dispose();
     _previewTimer?.cancel();
     _noticeTimer?.cancel();
     // The encode runs before the first await, so this reads the framebuffer rather than
