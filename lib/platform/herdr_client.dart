@@ -785,7 +785,7 @@ class HerdrSession {
 
   Future<String> openPinRequests({Duration within = pinWatchInterval}) async {
     final result = await _guard(
-      () => _client.runWithResult(pinentryOpenCommand()).timeout(within),
+      () => _runWithStdin(pinentryOpenCommand(), Uint8List(0), within: within),
     );
     return utf8.decode(result.stdout, allowMalformed: true);
   }
@@ -812,12 +812,12 @@ class HerdrSession {
           await out.close();
           return;
         }
-        if (cancelled) return channel?.close();
+        if (cancelled) return endExec(channel!);
         frames = hostChangeFrames(channel!.stdout, onQuiet: close).listen(
           out.add,
           onError: out.addError,
           onDone: () {
-            channel?.close();
+            endExec(channel!);
             unawaited(out.close());
           },
         );
@@ -825,7 +825,7 @@ class HerdrSession {
       ..onCancel = () async {
         cancelled = true;
         await frames?.cancel();
-        channel?.close();
+        if (channel case final channel?) endExec(channel);
       };
     return out.stream;
   }

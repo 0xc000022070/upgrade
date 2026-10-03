@@ -189,81 +189,94 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
     );
     try {
       await client.authenticated.timeout(const Duration(seconds: 15));
-      final session = await client
-          .execute('dazzle-engine')
-          .timeout(const Duration(seconds: 10));
-      final output = BytesBuilder(copy: false);
-      final errors = BytesBuilder(copy: false);
-      void append(BytesBuilder buffer, Uint8List bytes, int limit) {
-        if (buffer.length + bytes.length > limit) {
-          session.close();
-          throw const PluginException('Host response exceeds its limit');
-        }
-        buffer.add(bytes);
-      }
-
-      final exchange = Future.wait<void>([
-        session.stdout.forEach((bytes) => append(output, bytes, 512 * 1024)),
-        session.stderr.forEach((bytes) => append(errors, bytes, 16 * 1024)),
-      ]);
-      session.stdin.add(
-        Uint8List.fromList(
-          utf8.encode(
-            jsonEncode({
-              'service': 'schedule/1',
-              'op': operation,
-              'owner': host.user,
-              'args': wholeNumbers({...args, 'scope': scope}),
-            }),
-          ),
-        ),
-      );
-      await session.stdin.close();
-      await exchange.timeout(const Duration(seconds: 45));
-      await session.done.timeout(const Duration(seconds: 5));
-      final raw = utf8.decode(output.takeBytes());
-      final Object? response;
-      try {
-        response = jsonDecode(raw);
-      } on FormatException {
-        final complaint = utf8
-            .decode(errors.takeBytes(), allowMalformed: true)
-            .trim();
-        // A machine with no engine answers over the shell instead: 127 and a line of its own.
-        if (session.exitCode == 127 || complaint.endsWith('not found')) {
-          throw const PluginException(
-            'This host has no dazzle-engine installed',
-          );
-        }
-        throw PluginException('Host engine did not answer. $complaint');
-      }
-      if (response is! Map<String, Object?>) {
-        throw const PluginException('Invalid engine response');
-      }
-      if (response['ok'] != true) {
-        final error = response['error'];
-        final failure = error is Map<String, Object?>
-            ? error
-            : const <String, Object?>{};
-        final message = failure['message'] is String
-            ? failure['message']! as String
-            : 'Host scheduling failed';
-        throw PluginException(
-          failure['kind'] == 'unsupported'
-              ? "This host's engine does not carry scheduling. $message"
-              : message,
-        );
-      }
-      final result = response['result'];
-      if (result is! Map<String, Object?>) {
-        throw const PluginException('Invalid engine result');
-      }
-      return result;
+      return await scheduleOver(client, host.user, scope, operation, args);
     } finally {
       unawaited(closeSettled(client, socket));
     }
   };
 });
+
+@visibleForTesting
+Future<Map<String, Object?>> scheduleOver(
+  SSHClient client,
+  String owner,
+  String scope,
+  String operation,
+  Map<String, Object?> args,
+) async {
+  final session = await client
+      .execute('dazzle-engine')
+      .timeout(const Duration(seconds: 10));
+  try {
+    final output = BytesBuilder(copy: false);
+    final errors = BytesBuilder(copy: false);
+    void append(BytesBuilder buffer, Uint8List bytes, int limit) {
+      if (buffer.length + bytes.length > limit) {
+        endExec(session);
+        throw const PluginException('Host response exceeds its limit');
+      }
+      buffer.add(bytes);
+    }
+
+    final exchange = Future.wait<void>([
+      session.stdout.forEach((bytes) => append(output, bytes, 512 * 1024)),
+      session.stderr.forEach((bytes) => append(errors, bytes, 16 * 1024)),
+    ]);
+    session.stdin.add(
+      Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({
+            'service': 'schedule/1',
+            'op': operation,
+            'owner': owner,
+            'args': wholeNumbers({...args, 'scope': scope}),
+          }),
+        ),
+      ),
+    );
+    await session.stdin.close();
+    await exchange.timeout(const Duration(seconds: 45));
+    await session.done.timeout(const Duration(seconds: 5));
+    final raw = utf8.decode(output.takeBytes());
+    final Object? response;
+    try {
+      response = jsonDecode(raw);
+    } on FormatException {
+      final complaint = utf8
+          .decode(errors.takeBytes(), allowMalformed: true)
+          .trim();
+      // A machine with no engine answers over the shell instead: 127 and a line of its own.
+      if (session.exitCode == 127 || complaint.endsWith('not found')) {
+        throw const PluginException('This host has no dazzle-engine installed');
+      }
+      throw PluginException('Host engine did not answer. $complaint');
+    }
+    if (response is! Map<String, Object?>) {
+      throw const PluginException('Invalid engine response');
+    }
+    if (response['ok'] != true) {
+      final error = response['error'];
+      final failure = error is Map<String, Object?>
+          ? error
+          : const <String, Object?>{};
+      final message = failure['message'] is String
+          ? failure['message']! as String
+          : 'Host scheduling failed';
+      throw PluginException(
+        failure['kind'] == 'unsupported'
+            ? "This host's engine does not carry scheduling. $message"
+            : message,
+      );
+    }
+    final result = response['result'];
+    if (result is! Map<String, Object?>) {
+      throw const PluginException('Invalid engine result');
+    }
+    return result;
+  } finally {
+    endExec(session);
+  }
+}
 
 class SchedulerBinding {
   const SchedulerBinding({this.configured = false, this.pending = false});
