@@ -262,14 +262,11 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
                 _dock.select(group, device);
               },
               onFold: () => setState(() => _menu = false),
-              handle: _handle(
+              grip: (child) => _handle(
                 media,
                 key: const ValueKey('device-list-handle'),
                 onTap: () => setState(() => _menu = false),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: Spacing.sm),
-                  child: Center(child: _PhoneMark(size: IconSizes.sm)),
-                ),
+                child: child,
               ),
             ),
           )
@@ -432,14 +429,14 @@ class _DeviceList extends StatelessWidget {
     required this.hosts,
     required this.onSelect,
     required this.onFold,
-    required this.handle,
+    required this.grip,
   });
 
   final DeviceDock dock;
   final List<Host>? hosts;
   final void Function(DevicesController, HostDevice) onSelect;
   final VoidCallback onFold;
-  final Widget handle;
+  final Widget Function(Widget child) grip;
 
   @override
   Widget build(BuildContext context) {
@@ -461,34 +458,39 @@ class _DeviceList extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            height: TapTargets.minHeight,
-            decoration: BoxDecoration(
-              color: tokens.surfaceSecondary,
-              border: Border(
-                bottom: BorderSide(
-                  color: tokens.borderNormal,
-                  width: Borders.hairline,
-                ),
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                handle,
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('DEVICES', style: tokens.panelHeader),
+          grip(
+            Container(
+              height: TapTargets.minHeight,
+              decoration: BoxDecoration(
+                color: tokens.surfaceSecondary,
+                border: Border(
+                  bottom: BorderSide(
+                    color: tokens.borderNormal,
+                    width: Borders.hairline,
                   ),
                 ),
-                _Glyph(
-                  key: const ValueKey('device-list-minimize'),
-                  icon: DazzleIcons.minimize,
-                  label: 'MINIMIZE',
-                  onTap: onFold,
-                ),
-              ],
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: Spacing.sm),
+                    child: Center(child: _PhoneMark(size: IconSizes.sm)),
+                  ),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('DEVICES', style: tokens.panelHeader),
+                    ),
+                  ),
+                  _Glyph(
+                    key: const ValueKey('device-list-minimize'),
+                    icon: DazzleIcons.minimize,
+                    label: 'MINIMIZE',
+                    onTap: onFold,
+                  ),
+                ],
+              ),
             ),
           ),
           Flexible(

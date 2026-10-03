@@ -626,7 +626,9 @@ void main() {
 
     await reopen();
     await _open(tester);
-    await dropOnTarget(find.byKey(const ValueKey('device-list-handle')));
+    await dropOnTarget(
+      find.descendant(of: find.byKey(_barKey), matching: find.text('DEVICES')),
+    );
     expect(find.byKey(_barKey), findsNothing);
     expect(link.closed, isTrue);
 
