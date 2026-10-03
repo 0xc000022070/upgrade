@@ -624,6 +624,9 @@ class _SshHost implements ShellHost {
   Future<void> close() => closeSettled(_client, _socket);
 }
 
+@visibleForTesting
+ShellExec sshExecOver(SSHSession session) => _SshExec(session);
+
 class _SshExec implements ShellExec {
   _SshExec(this._session);
 
@@ -648,7 +651,7 @@ class _SshExec implements ShellExec {
   Future<void> closeStdin() => _session.stdin.close();
 
   @override
-  void close() => _session.close();
+  void close() => endExec(_session);
 }
 
 class _SshPty implements ShellPty {

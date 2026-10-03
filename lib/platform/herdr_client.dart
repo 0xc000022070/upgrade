@@ -972,7 +972,7 @@ class HerdrSession {
         stderr: stderr,
       );
     } finally {
-      session.close();
+      endExec(session);
     }
   }
 
