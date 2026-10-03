@@ -49,6 +49,8 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   late final EngineOpen _open = ref.read(engineOpenProvider);
   Future<EngineAgents>? _engine;
   Timer? _timer;
+  late bool _visible = ref.read(appVisibleProvider);
+  bool _onStage = true;
   bool _asking = false;
   bool _gone = false;
 
@@ -75,6 +77,25 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   @override
   void initState() {
     super.initState();
+    ref.listenManual<bool>(appVisibleProvider, (_, visible) {
+      _visible = visible;
+      _sync();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _onStage = TickerMode.valuesOf(context).enabled;
+    _sync();
+  }
+
+  void _sync() {
+    final run = _visible && _onStage;
+    if (run == (_timer != null)) return;
+    _timer?.cancel();
+    _timer = null;
+    if (!run) return;
     unawaited(_tick());
     _timer = Timer.periodic(AgentChatScreen.interval, (_) => _tick());
   }

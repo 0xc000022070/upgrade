@@ -283,24 +283,43 @@ class AgentWatcher {
   /// them is the one that called stop.
   static final _stops = StreamController<void>.broadcast();
 
+  /// Polls only while [visible] last said true, reading once as soon as it does; without
+  /// [visible] it polls for as long as it is listened to.
   static Stream<bool> serviceLiveness({
     Duration period = watcherLivenessPeriod,
+    Stream<bool>? visible,
+    Future<bool> Function()? isRunning,
   }) {
+    final read = isRunning ?? () => FlutterForegroundTask.isRunningService;
     late StreamController<bool> controller;
     StreamSubscription<void>? stops;
+    StreamSubscription<bool>? seen;
     Timer? timer;
     var live = true;
+    Future<void> check() async {
+      final running = await read();
+      if (live) controller.add(running);
+    }
+
+    void poll(bool on) {
+      if (on == (timer != null)) return;
+      timer?.cancel();
+      timer = null;
+      if (!on) return;
+      unawaited(check());
+      timer = Timer.periodic(period, (_) => check());
+    }
+
     controller = StreamController<bool>(
       onListen: () {
         stops = _stops.stream.listen((_) => controller.add(false));
-        timer = Timer.periodic(period, (_) async {
-          final running = await FlutterForegroundTask.isRunningService;
-          if (live) controller.add(running);
-        });
+        if (visible == null) return poll(true);
+        seen = visible.listen(poll);
       },
       onCancel: () async {
         live = false;
         timer?.cancel();
+        await seen?.cancel();
         await stops?.cancel();
       },
     );

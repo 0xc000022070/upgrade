@@ -68,6 +68,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   bool _railHidden = false;
 
   late final AppLifecycleListener _lifecycle;
+  bool _away = false;
   int _previewedFrame = 0;
 
   @override
@@ -81,8 +82,17 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
       open: widget.open,
     );
     _lifecycle = AppLifecycleListener(
-      onHide: () => _controller.setAway(true),
-      onShow: () => _controller.setAway(false),
+      onHide: () {
+        _away = true;
+        _previewTimer?.cancel();
+        _previewTimer = null;
+        _controller.setAway(true);
+      },
+      onShow: () {
+        _away = false;
+        _previewEvery();
+        _controller.setAway(false);
+      },
     );
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     _controller.connect();
@@ -100,10 +110,15 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
       final previews = await ref.read(screenPreviewsProvider.future);
       if (!mounted) return;
       _previews = previews;
-      _previewTimer = Timer.periodic(previewInterval, (_) => _writePreview());
+      _previewEvery();
     } catch (error) {
       debugPrint('dazzle.vnc ${widget.host.name}: no preview store: $error');
     }
+  }
+
+  void _previewEvery() {
+    if (_away || _previews == null || _previewTimer != null) return;
+    _previewTimer = Timer.periodic(previewInterval, (_) => _writePreview());
   }
 
   Future<void> _writePreview() async {

@@ -24,6 +24,7 @@ class _AutonomousTicksState extends State<AutonomousTicks>
   Timer? _timer;
   bool _foreground = true;
   bool _reduceMotion = false;
+  bool _onStage = true;
 
   @override
   void initState() {
@@ -35,6 +36,7 @@ class _AutonomousTicksState extends State<AutonomousTicks>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _reduceMotion = MediaQuery.disableAnimationsOf(context);
+    _onStage = TickerMode.valuesOf(context).enabled;
     _sync();
   }
 
@@ -44,8 +46,10 @@ class _AutonomousTicksState extends State<AutonomousTicks>
     _sync();
   }
 
+  bool get _run => _foreground && _onStage && !_reduceMotion;
+
   void _sync() {
-    final run = _foreground && !_reduceMotion;
+    final run = _run;
     if (run == (_timer != null)) return;
     if (run) {
       _schedule();
@@ -64,7 +68,7 @@ class _AutonomousTicksState extends State<AutonomousTicks>
       () {
         _timer = null;
         widget.onTick();
-        if (mounted && _foreground && !_reduceMotion) _schedule();
+        if (mounted && _run) _schedule();
       },
     );
   }

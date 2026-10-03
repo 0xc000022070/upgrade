@@ -310,6 +310,11 @@ class AppLifecycleReading extends StateNotifier<bool>
 
   final bool Function(AppLifecycleState state) reads;
 
+  Stream<bool> get readings async* {
+    yield state;
+    yield* stream;
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     this.state = reads(state);

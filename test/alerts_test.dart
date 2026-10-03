@@ -599,6 +599,36 @@ void main() {
       await pump();
       expect(seen.last?.outcomes.single.kind, AgentOutcomeKind.snapshot);
     });
+
+    testWidgets('asks after the service only while the app is seen', (
+      tester,
+    ) async {
+      final visible = StreamController<bool>();
+      addTearDown(visible.close);
+      var asked = 0;
+      final subscription = AgentWatcher.serviceLiveness(
+        visible: visible.stream,
+        isRunning: () async {
+          asked++;
+          return true;
+        },
+      ).listen((_) {});
+      addTearDown(subscription.cancel);
+
+      visible.add(false);
+      await tester.pump(watcherLivenessPeriod * 6);
+      expect(asked, 0);
+
+      visible.add(true);
+      await tester.pump();
+      expect(asked, 1);
+      await tester.pump(watcherLivenessPeriod * 2);
+      expect(asked, 3);
+
+      visible.add(false);
+      await tester.pump(watcherLivenessPeriod * 6);
+      expect(asked, 3);
+    });
   });
 
   group('the remote surface', () {

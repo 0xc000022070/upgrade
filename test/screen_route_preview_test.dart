@@ -194,4 +194,75 @@ void main() {
       0x0A,
     ], reason: 'a png, by its signature');
   });
+
+  testWidgets('no preview is stored while the app is hidden', (tester) async {
+    final root = Directory.systemTemp.createTempSync('dazzle-screen');
+    addTearDown(() => root.deleteSync(recursive: true));
+    final previews = ScreenPreviews(Directory('${root.path}/screens'));
+    addTearDown(previews.dispose);
+    final written = <String>[];
+    final changes = previews.changes.listen(written.add);
+    addTearDown(changes.cancel);
+    final keys = MemoryPrivateKeyStore();
+    await keys.write(_nyx.keyId, 'PRIVATE');
+
+    late _FakeConnection connection;
+    await tester.runAsync(() async {
+      connection = await _FakeConnection.open(width: 640, height: 360);
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          privateKeyStoreProvider.overrideWithValue(keys),
+          screenPreviewsProvider.overrideWith((ref) async => previews),
+        ],
+        child: MaterialApp(
+          theme: testTheme,
+          home: HostScreenRoute(host: _nyx, open: _opener(connection)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Future<void> paint(int x) async {
+      connection.feedPixel(x, 0, const [0x11, 0x22, 0x33, 0x00]);
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 60)),
+      );
+      await tester.pump();
+    }
+
+    Future<void> settleWrites() async {
+      for (var i = 0; i < 40; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
+    }
+
+    await paint(0);
+    await tester.pump(previewInterval);
+    await settleWrites();
+    expect(written, <String>[_nyx.id]);
+
+    tester.binding
+      ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+      ..handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await paint(1);
+    await tester.pump(previewInterval * 3);
+    await settleWrites();
+    expect(written, <String>[_nyx.id]);
+
+    tester.binding
+      ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+      ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump(previewInterval);
+    await settleWrites();
+    expect(written, <String>[_nyx.id, _nyx.id]);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
 }

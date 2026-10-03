@@ -61,6 +61,9 @@ List<Override> alertOverrides() => [
   watcherFeedProvider.overrideWith(
     (ref) => AgentWatcher.feed(
       watchAgentChannels(ref.watch(hostRepositoryProvider)),
+      running: AgentWatcher.serviceLiveness(
+        visible: ref.watch(appVisibleProvider.notifier).readings,
+      ),
     ),
   ),
 ];

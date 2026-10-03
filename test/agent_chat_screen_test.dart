@@ -1,5 +1,7 @@
 import 'support/native_plugins.dart';
 
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,6 +50,7 @@ class _Engine implements EngineAgents {
 
   final List<Object> reads;
   var asked = 0;
+  var watched = 0;
 
   @override
   final HerdrSession session = _Session();
@@ -59,7 +62,10 @@ class _Engine implements EngineAgents {
   Future<EngineWatch> watch({
     int? generation,
     Duration wait = Duration.zero,
-  }) async => (generation: 1, agents: [claude]);
+  }) async {
+    watched++;
+    return (generation: 1, agents: [claude]);
+  }
 
   @override
   Future<TranscriptPage> transcript(String key, {int? after}) async {
@@ -153,6 +159,39 @@ void main() {
 
     expect(engine.asked, 1);
     expect(find.text('NO TRANSCRIPT'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('the chat asks only while it is on screen', (tester) async {
+    final engine = _Engine([(items: const <TranscriptItem>[], last: null)]);
+    await open(tester, engine);
+    final opened = engine.watched;
+    expect(opened, greaterThan(0));
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump(const Duration(seconds: 30));
+    expect(engine.watched, opened);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(engine.watched, opened + 1);
+
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    unawaited(
+      navigator.push(
+        MaterialPageRoute<void>(builder: (_) => const SizedBox.expand()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    final covered = engine.watched;
+    await tester.pump(const Duration(seconds: 30));
+    expect(engine.watched, covered);
+
+    navigator.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(engine.watched, covered + 1);
     await unmount(tester);
   });
 }
