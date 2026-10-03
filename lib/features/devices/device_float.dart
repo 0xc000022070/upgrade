@@ -12,7 +12,6 @@ import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
-import '../../platform/devices/device_link.dart';
 import '../hosts/host_strip.dart';
 import 'device_controllers.dart';
 import 'device_dock.dart';
@@ -21,13 +20,13 @@ import 'device_screen.dart';
 const deviceFloatWidth = 120.0;
 const deviceFloatMinWidth = 100.0;
 const deviceFloatMaxShare = 0.6;
-const deviceBubbleSize = 56.0;
 const deviceFloatClearance = 112.0;
 const deviceCloseTarget = 48.0;
 const deviceStripHeight = TapTargets.minHeight;
 const _glide = Duration(milliseconds: 220);
 const _decodeStep = 120;
 const _tabMaxWidth = 88.0;
+const _reasonMaxWidth = 160.0;
 
 class DeviceFloat extends ConsumerStatefulWidget {
   const DeviceFloat({super.key, required this.child});
@@ -71,7 +70,7 @@ class _DeviceFloatState extends ConsumerState<DeviceFloat> {
       _inPip = next.valueOrNull ?? false;
       _dock.setAway(_hidden || _inPip);
     });
-    // Above the navigator there is no overlay for the strip's menu to open in.
+    // Above the navigator there is no overlay for the bar's menu to open in.
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -93,12 +92,14 @@ class _FloatLayer extends ConsumerStatefulWidget {
 
 class _FloatLayerState extends ConsumerState<_FloatLayer> {
   late final DeviceDock _dock;
+  final _barKey = GlobalKey();
 
   bool _right = true;
   double? _top;
   double _width = deviceFloatWidth;
   double _pinchFrom = deviceFloatWidth;
   Offset? _dragAt;
+  Size _dragSize = Size.zero;
   bool _gesturing = false;
   bool _overClose = false;
   bool _overlay = false;
@@ -129,9 +130,50 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     _dock.close();
   }
 
-  void _select(DevicesController group, HostDevice device) {
-    setState(() => _overlay = false);
-    _dock.select(group, device);
+  Offset _target(MediaQueryData media) => Offset(
+    media.size.width / 2,
+    media.size.height - media.padding.bottom - deviceFloatClearance / 2,
+  );
+
+  double _clampTop(MediaQueryData media, double height) {
+    final minTop = media.padding.top + Spacing.lg;
+    final maxTop = math.max(
+      minTop,
+      media.size.height - height - media.padding.bottom - deviceFloatClearance,
+    );
+    return (_top ?? maxTop).clamp(minTop, maxTop);
+  }
+
+  void _drag(Offset delta, MediaQueryData media, {Offset? pointer}) {
+    final moved = _dragAt! + delta;
+    final center = pointer ?? moved + _dragSize.center(Offset.zero);
+    setState(() {
+      _dragAt = moved;
+      _overlay = false;
+      _overClose = (center - _target(media)).distance < deviceCloseTarget;
+    });
+  }
+
+  bool _drop(MediaQueryData media) {
+    final dropped = _dragAt;
+    if (dropped == null) return false;
+    if (_overClose) {
+      setState(() {
+        _gesturing = false;
+        _dragAt = null;
+        _overClose = false;
+      });
+      _dock.close();
+      return false;
+    }
+    final center = dropped + _dragSize.center(Offset.zero);
+    setState(() {
+      _right = center.dx > media.size.width / 2;
+      _top = dropped.dy;
+      _dragAt = null;
+      _gesturing = false;
+    });
+    return center.dx < 0 || center.dx > media.size.width;
   }
 
   @override
@@ -144,9 +186,9 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
           _overlay = false;
           return const SizedBox.shrink();
         }
-        if (session == null) {
+        if (session == null || _dock.collapsed) {
           _overlay = false;
-          return _place(context, null);
+          return _placeBar(context);
         }
         return ListenableBuilder(
           listenable: session.controller,
@@ -156,42 +198,85 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     );
   }
 
-  Widget _place(BuildContext context, DeviceSession? session) {
+  Widget _placeBar(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final top = _clampTop(media, deviceStripHeight);
+    final at = _dragAt;
+    final bar = ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: media.size.width - Spacing.screenEdge * 2,
+      ),
+      child: _Bar(
+        key: _barKey,
+        dock: _dock,
+        hosts: ref.watch(deviceHostsProvider).valueOrNull,
+        handle: GestureDetector(
+          key: const ValueKey('device-bar-handle'),
+          behavior: HitTestBehavior.opaque,
+          onPanStart: (_) {
+            final box = _barKey.currentContext?.findRenderObject();
+            if (box is! RenderBox) return;
+            setState(() {
+              _gesturing = true;
+              _dragSize = box.size;
+              _dragAt = box.localToGlobal(Offset.zero);
+            });
+          },
+          onPanUpdate: (details) {
+            if (_dragAt == null) return;
+            _drag(details.delta, media, pointer: details.globalPosition);
+          },
+          onPanEnd: (_) => _drop(media),
+          child: const _BarMark(),
+        ),
+      ),
+    );
+    const slot = ValueKey('device-bar-slot');
+    return Stack(
+      children: [
+        if (at != null) _closeTarget(media),
+        if (at != null)
+          Positioned(key: slot, left: at.dx, top: at.dy, child: bar)
+        else if (_right)
+          Positioned(key: slot, right: Spacing.screenEdge, top: top, child: bar)
+        else
+          Positioned(key: slot, left: Spacing.screenEdge, top: top, child: bar),
+      ],
+    );
+  }
+
+  Widget _closeTarget(MediaQueryData media) {
+    final target = _target(media);
+    return Positioned(
+      left: target.dx - deviceCloseTarget / 2,
+      top: target.dy - deviceCloseTarget / 2,
+      width: deviceCloseTarget,
+      height: deviceCloseTarget,
+      child: _CloseTarget(hot: _overClose),
+    );
+  }
+
+  Widget _place(BuildContext context, DeviceSession session) {
     final media = MediaQuery.of(context);
     final screen = media.size;
-    final collapsed = _dock.collapsed;
-    final native = session?.controller.nativeSize ?? Size.zero;
+    final controller = session.controller;
+    final native = controller.nativeSize;
     final aspect = native.isEmpty ? 9 / 20 : native.width / native.height;
-    final size = collapsed
-        ? const Size.square(deviceBubbleSize)
-        : Size(
-            _width,
-            (session == null ? deviceStripHeight : 0) + _width / aspect,
-          );
-    final left = Spacing.screenEdge;
-    final right = screen.width - size.width - Spacing.screenEdge;
-    final minTop = media.padding.top + Spacing.lg;
-    final maxTop = math.max(
-      minTop,
-      screen.height - size.height - media.padding.bottom - deviceFloatClearance,
-    );
+    final size = Size(_width, _width / aspect);
     final resting = Offset(
-      _right ? right : left,
-      (_top ?? maxTop).clamp(minTop, maxTop),
+      _right
+          ? screen.width - size.width - Spacing.screenEdge
+          : Spacing.screenEdge,
+      _clampTop(media, size.height),
     );
     final at = _dragAt ?? resting;
-    final target = Offset(
-      screen.width / 2,
-      screen.height - media.padding.bottom - deviceFloatClearance / 2,
-    );
-    final dragging = _dragAt != null;
 
     void onScaleUpdate(ScaleUpdateDetails details) {
       if (details.pointerCount > 1) {
-        if (collapsed) return;
         final tallest =
             screen.height -
-            minTop -
+            media.padding.top -
+            Spacing.lg -
             media.padding.bottom -
             deviceFloatClearance;
         final widest = math.max(
@@ -206,61 +291,26 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
         });
         return;
       }
-      final moved = (_dragAt ?? resting) + details.focalPointDelta;
-      final center = moved + size.center(Offset.zero);
-      setState(() {
-        _dragAt = moved;
-        _overlay = false;
-        _overClose = (center - target).distance < deviceCloseTarget;
-      });
+      _dragAt ??= resting;
+      _dragSize = size;
+      _drag(details.focalPointDelta, media);
     }
 
     void onScaleEnd(ScaleEndDetails details) {
       final pixels = (_width * media.devicePixelRatio / _decodeStep).ceil();
       _dock.decodeAt(math.max(floatDecodeWidth, pixels * _decodeStep));
-      final dropped = _dragAt;
-      if (dropped == null) {
+      if (_dragAt == null) {
         setState(() => _gesturing = false);
         return;
       }
-      if (_overClose) {
-        setState(() {
-          _gesturing = false;
-          _dragAt = null;
-          _overClose = false;
-        });
-        _dock.close();
-        return;
-      }
-      final center = dropped + size.center(Offset.zero);
-      final pastLeft = center.dx < 0;
-      final pastRight = center.dx > screen.width;
-      setState(() {
-        _right = center.dx > screen.width / 2;
-        _top = dropped.dy;
-        _dragAt = null;
-        _gesturing = false;
-      });
-      if (!collapsed && (pastLeft || pastRight)) _dock.collapse(true);
+      if (_drop(media)) _dock.collapse(true);
     }
 
-    final controller = session?.controller;
-    final strip = _Strip(
-      dock: _dock,
-      hosts: ref.watch(deviceHostsProvider).valueOrNull,
-      onSelect: _select,
-    );
     return Stack(
       children: [
-        if (dragging)
-          Positioned(
-            left: target.dx - deviceCloseTarget / 2,
-            top: target.dy - deviceCloseTarget / 2,
-            width: deviceCloseTarget,
-            height: deviceCloseTarget,
-            child: _CloseTarget(hot: _overClose),
-          ),
+        if (_dragAt != null) _closeTarget(media),
         AnimatedPositioned(
+          key: const ValueKey('device-float-slot'),
           duration: _gesturing ? Duration.zero : _glide,
           curve: Curves.easeOutCubic,
           left: at.dx,
@@ -270,36 +320,22 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
           child: GestureDetector(
             key: const ValueKey('device-float'),
             behavior: HitTestBehavior.opaque,
-            onTap: collapsed
-                ? () => _dock.collapse(false)
-                : controller == null
-                ? null
-                : () => setState(() => _overlay = !_overlay),
+            onTap: () => setState(() => _overlay = !_overlay),
             onScaleStart: (_) => setState(() {
               _gesturing = true;
               _pinchFrom = _width;
             }),
             onScaleUpdate: onScaleUpdate,
             onScaleEnd: onScaleEnd,
-            child: collapsed
-                ? const _Bubble()
-                : _Frame(
-                    child: controller == null
-                        ? Column(
-                            children: [
-                              strip,
-                              Expanded(child: _Waiting(dock: _dock)),
-                            ],
-                          )
-                        : _Tile(
-                            controller: controller,
-                            strip: strip,
-                            overlay: _overlay,
-                            onExpand: _expand,
-                            onCollapse: _collapse,
-                            onClose: _close,
-                          ),
-                  ),
+            child: _Frame(
+              child: _Tile(
+                controller: controller,
+                overlay: _overlay,
+                onExpand: _expand,
+                onCollapse: _collapse,
+                onClose: _close,
+              ),
+            ),
           ),
         ),
       ],
@@ -307,16 +343,17 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   }
 }
 
-class _Strip extends StatelessWidget {
-  const _Strip({
+class _Bar extends StatelessWidget {
+  const _Bar({
+    super.key,
     required this.dock,
     required this.hosts,
-    required this.onSelect,
+    required this.handle,
   });
 
   final DeviceDock dock;
   final List<Host>? hosts;
-  final void Function(DevicesController group, HostDevice device) onSelect;
+  final Widget handle;
 
   @override
   Widget build(BuildContext context) {
@@ -328,59 +365,126 @@ class _Strip extends StatelessWidget {
         if (!shown.contains(host.id)) host,
     ];
     return Container(
-      key: const ValueKey('device-float-strip'),
+      key: const ValueKey('device-bar'),
       height: deviceStripHeight,
-      color: context.tokens.surfaceSecondary,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.xs),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final group in groups) ...[
-              HostGroupCell(
-                key: ValueKey('device-group-${group.host.id}'),
-                name: group.host.name,
-                system: group.host.system,
-                front: session?.host.id == group.host.id,
-                tint: group.phase is DevicesFailed
-                    ? context.tokens.warning
-                    : null,
-                onTap: () => dock.show(group.host),
-              ),
-              ...switch (group.phase) {
-                DevicesLoading() => [const _StripTab(label: '…')],
-                DevicesFailed() => const <Widget>[],
-                DevicesListed(:final devices) when devices.isEmpty => [
-                  const _StripTab(label: 'NONE'),
-                ],
-                DevicesListed(:final devices) => [
-                  for (final device in devices)
-                    _StripTab(
-                      key: ValueKey('device-tab-${group.host.id}-${device.id}'),
-                      label: device.name,
-                      active:
-                          session?.host.id == group.host.id &&
-                          session?.device.id == device.id,
-                      onTap: () => onSelect(group, device),
+      decoration: BoxDecoration(
+        color: context.tokens.surfaceSecondary,
+        border: Border.all(
+          color: context.tokens.borderNormal,
+          width: Borders.hairline,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          handle,
+          Flexible(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final group in groups) ...[
+                    HostGroupCell(
+                      key: ValueKey('device-group-${group.host.id}'),
+                      name: group.host.name,
+                      system: group.host.system,
+                      front: session?.host.id == group.host.id,
+                      tint: group.phase is DevicesFailed
+                          ? context.tokens.warning
+                          : null,
+                      onTap: () => dock.show(group.host),
+                    ),
+                    ...switch (group.phase) {
+                      DevicesLoading() => [const _StripTab(label: '…')],
+                      DevicesFailed(:final reason) => [
+                        _StripTab(
+                          label: reason,
+                          color: context.tokens.warning,
+                          maxWidth: _reasonMaxWidth,
+                        ),
+                      ],
+                      DevicesListed(:final devices) when devices.isEmpty => [
+                        const _StripTab(label: 'NONE'),
+                      ],
+                      DevicesListed(:final devices) => [
+                        for (final device in devices)
+                          _StripTab(
+                            key: ValueKey(
+                              'device-tab-${group.host.id}-${device.id}',
+                            ),
+                            label: device.name,
+                            active:
+                                session?.host.id == group.host.id &&
+                                session?.device.id == device.id,
+                            onTap: () => dock.select(group, device),
+                          ),
+                      ],
+                    },
+                    const SizedBox(width: Spacing.sm),
+                  ],
+                  if (more.isNotEmpty)
+                    HostMenu(
+                      key: const ValueKey('device-strip-plus'),
+                      title: 'DEVICES ON',
+                      hosts: more,
+                      itemKey: (host) => 'device-new-host-${host.id}',
+                      onPick: dock.show,
+                      builder: (context, controller, _) => _StripTab(
+                        label: '+',
+                        onTap: controller.isOpen
+                            ? controller.close
+                            : controller.open,
+                      ),
                     ),
                 ],
-              },
-              const SizedBox(width: Spacing.sm),
-            ],
-            if (more.isNotEmpty)
-              HostMenu(
-                key: const ValueKey('device-strip-plus'),
-                title: 'DEVICES ON',
-                hosts: more,
-                itemKey: (host) => 'device-new-host-${host.id}',
-                onPick: dock.show,
-                builder: (context, controller, _) => _StripTab(
-                  label: '+',
-                  onTap: controller.isOpen ? controller.close : controller.open,
-                ),
               ),
-          ],
+            ),
+          ),
+          _Glyph(
+            key: const ValueKey('device-bar-close'),
+            icon: DazzleIcons.close,
+            onTap: dock.close,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BarMark extends StatefulWidget {
+  const _BarMark();
+
+  @override
+  State<_BarMark> createState() => _BarMarkState();
+}
+
+class _BarMarkState extends State<_BarMark> {
+  final _glitch = GlitchController();
+
+  @override
+  void initState() {
+    super.initState();
+    _glitch.fire();
+  }
+
+  @override
+  void dispose() {
+    _glitch.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+      child: Center(
+        child: DazzleIcon(
+          DazzleIcons.phone,
+          size: IconSizes.sm,
+          color: context.tokens.textPrimary,
+          glitch: _glitch,
         ),
       ),
     );
@@ -393,19 +497,25 @@ class _StripTab extends StatelessWidget {
     required this.label,
     this.active = false,
     this.onTap,
+    this.color,
+    this.maxWidth = _tabMaxWidth,
   });
 
   final String label;
   final bool active;
   final VoidCallback? onTap;
+  final Color? color;
+  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
-    final tint = active
-        ? context.tokens.accent
-        : onTap == null
-        ? context.tokens.textDisabled
-        : context.tokens.textMuted;
+    final tint =
+        color ??
+        (active
+            ? context.tokens.accent
+            : onTap == null
+            ? context.tokens.textDisabled
+            : context.tokens.textMuted);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -424,7 +534,7 @@ class _StripTab extends StatelessWidget {
           ),
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _tabMaxWidth),
+          constraints: BoxConstraints(maxWidth: maxWidth),
           child: Text(
             label,
             style: context.tokens.panelHeader.copyWith(color: tint),
@@ -438,42 +548,9 @@ class _StripTab extends StatelessWidget {
   }
 }
 
-class _Waiting extends StatelessWidget {
-  const _Waiting({required this.dock});
-
-  final DeviceDock dock;
-
-  @override
-  Widget build(BuildContext context) {
-    final phase = dock.asked?.phase;
-    final (words, warn) = switch (phase) {
-      DevicesFailed(:final reason) => (reason, true),
-      DevicesListed(:final devices) when devices.isEmpty => (
-        'NO DEVICES BOOTED',
-        false,
-      ),
-      _ => ('CONNECTING', false),
-    };
-    return Padding(
-      padding: const EdgeInsets.all(Spacing.sm),
-      child: Center(
-        child: Text(
-          words,
-          key: const ValueKey('device-float-waiting'),
-          textAlign: TextAlign.center,
-          style: context.tokens.panelHeader.copyWith(
-            color: warn ? context.tokens.warning : null,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _Tile extends StatelessWidget {
   const _Tile({
     required this.controller,
-    required this.strip,
     required this.overlay,
     required this.onExpand,
     required this.onCollapse,
@@ -481,7 +558,6 @@ class _Tile extends StatelessWidget {
   });
 
   final DeviceScreenController controller;
-  final Widget strip;
   final bool overlay;
   final VoidCallback onExpand;
   final VoidCallback onCollapse;
@@ -504,58 +580,47 @@ class _Tile extends StatelessWidget {
             ColoredBox(
               key: const ValueKey('device-float-overlay'),
               color: context.tokens.scrim,
-              child: Column(
-                children: [
-                  ColoredBox(
-                    color: context.tokens.surfaceSecondary,
-                    child: Row(
+              child: Padding(
+                padding: const EdgeInsets.all(Spacing.sm),
+                child: Column(
+                  children: [
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _Glyph(
+                        key: const ValueKey('device-float-close'),
+                        icon: DazzleIcons.close,
+                        onTap: onClose,
+                      ),
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: deviceStateActions(
+                            context,
+                            controller,
+                            terse: true,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Row(
                       children: [
-                        Expanded(child: strip),
                         _Glyph(
-                          key: const ValueKey('device-float-close'),
-                          icon: DazzleIcons.close,
-                          onTap: onClose,
+                          key: const ValueKey('device-float-expand'),
+                          icon: DazzleIcons.expand,
+                          onTap: onExpand,
+                        ),
+                        const Spacer(),
+                        _Glyph(
+                          key: const ValueKey('device-float-collapse'),
+                          icon: DazzleIcons.collapse,
+                          onTap: onCollapse,
                         ),
                       ],
                     ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(Spacing.sm),
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: deviceStateActions(
-                                  context,
-                                  controller,
-                                  terse: true,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              _Glyph(
-                                key: const ValueKey('device-float-expand'),
-                                icon: DazzleIcons.expand,
-                                onTap: onExpand,
-                              ),
-                              const Spacer(),
-                              _Glyph(
-                                key: const ValueKey('device-float-collapse'),
-                                icon: DazzleIcons.collapse,
-                                onTap: onCollapse,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
         ],
@@ -564,46 +629,42 @@ class _Tile extends StatelessWidget {
   }
 }
 
-class _Bubble extends StatefulWidget {
-  const _Bubble();
+class _Live extends StatelessWidget {
+  const _Live({required this.controller});
 
-  @override
-  State<_Bubble> createState() => _BubbleState();
-}
-
-class _BubbleState extends State<_Bubble> {
-  final _glitch = GlitchController();
-
-  @override
-  void initState() {
-    super.initState();
-    _glitch.fire();
-  }
-
-  @override
-  void dispose() {
-    _glitch.dispose();
-    super.dispose();
-  }
+  final DeviceScreenController controller;
 
   @override
   Widget build(BuildContext context) {
-    return _Frame(
-      key: const ValueKey('device-float-bubble'),
-      child: Center(
-        child: DazzleIcon(
-          DazzleIcons.device,
-          size: IconSizes.lg,
-          color: context.tokens.textPrimary,
-          glitch: _glitch,
+    final image = controller.image;
+    if (image == null) {
+      final failed = controller.phase;
+      return Padding(
+        padding: const EdgeInsets.all(Spacing.sm),
+        child: Center(
+          child: Text(
+            failed is DeviceFailed ? failed.reason : 'CONNECTING',
+            textAlign: TextAlign.center,
+            style: context.tokens.panelHeader.copyWith(
+              color: failed is DeviceFailed ? context.tokens.warning : null,
+            ),
+          ),
         ),
+      );
+    }
+    return Opacity(
+      opacity: controller.phase is DeviceLive ? 1 : pausedDim,
+      child: RawImage(
+        image: image,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.medium,
       ),
     );
   }
 }
 
 class _Frame extends StatelessWidget {
-  const _Frame({super.key, required this.child});
+  const _Frame({required this.child});
 
   final Widget child;
 
@@ -620,26 +681,6 @@ class _Frame extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(Borders.hairline),
         child: ClipRect(child: child),
-      ),
-    );
-  }
-}
-
-class _Live extends StatelessWidget {
-  const _Live({required this.controller});
-
-  final DeviceScreenController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final image = controller.image;
-    if (image == null) return const SizedBox.expand();
-    return Opacity(
-      opacity: controller.phase is DeviceLive ? 1 : pausedDim,
-      child: RawImage(
-        image: image,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.medium,
       ),
     );
   }

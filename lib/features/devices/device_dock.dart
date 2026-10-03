@@ -45,8 +45,6 @@ class DeviceDock extends ChangeNotifier {
   final DeviceGroupFactory _group;
   final _leases = <String, _Lease>{};
   final _groups = <DevicesController>[];
-  String? _claim;
-  DevicesController? _asked;
   DeviceSession? _session;
   bool _floating = false;
   bool _collapsed = false;
@@ -58,7 +56,6 @@ class DeviceDock extends ChangeNotifier {
   List<DevicesController> get groups => List.unmodifiable(_groups);
   bool get floating => _floating;
   bool get collapsed => _collapsed;
-  DevicesController? get asked => _asked;
 
   DeviceLink? borrow(String hostId) {
     final lease = _leases[hostId];
@@ -96,29 +93,12 @@ class DeviceDock extends ChangeNotifier {
     final group = held ?? _group(host, this);
     if (held == null) {
       _groups.add(group);
-      group.addListener(() => _listed(group));
+      group.addListener(notifyListeners);
     }
-    _claim = host.id;
-    _asked = group;
     _floating = true;
-    _collapse(false);
+    _collapse(true);
     notifyListeners();
     unawaited(group.refresh());
-  }
-
-  void _listed(DevicesController group) {
-    if (_claim == group.host.id && group.phase is! DevicesLoading) {
-      _claim = null;
-      final phase = group.phase;
-      if (phase is DevicesListed && phase.devices.isNotEmpty) {
-        final session = _session;
-        if (session == null || session.host.id != group.host.id) {
-          select(group, phase.devices.first);
-          return;
-        }
-      }
-    }
-    notifyListeners();
   }
 
   DevicesController? _groupOf(String hostId) {
@@ -135,6 +115,7 @@ class DeviceDock extends ChangeNotifier {
     if (current != null &&
         current.host.id == group.host.id &&
         current.device.id == device.id) {
+      collapse(false);
       return;
     }
     if (current != null &&
@@ -145,6 +126,7 @@ class DeviceDock extends ChangeNotifier {
       _end();
       borrow(group.host.id);
     }
+    _collapsed = false;
     _session = DeviceSession(
       host: group.host,
       link: link,
@@ -187,8 +169,6 @@ class DeviceDock extends ChangeNotifier {
 
   void close() {
     _end();
-    _claim = null;
-    _asked = null;
     for (final group in _groups) {
       group.dispose();
     }

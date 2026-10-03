@@ -44,6 +44,7 @@ enum DazzleIcons {
   more('more'),
   note('note'),
   pending('pending'),
+  phone('phone'),
   pin('pin'),
   pip('pip'),
   plugins('plugins'),
