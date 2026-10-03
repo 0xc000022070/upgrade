@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
+import 'package:flutter/foundation.dart';
 
 import '../herdr_client.dart';
 import '../host_keys.dart';
@@ -253,6 +254,9 @@ typedef DeviceLinkOpener = Future<DeviceLink> Function({
 class DeviceSsh implements DeviceLink {
   DeviceSsh._(this._socket, this._client);
 
+  @visibleForTesting
+  DeviceSsh.over(this._socket, this._client);
+
   static const timeout = Duration(seconds: 10);
 
   final SSHSocket _socket;
@@ -309,7 +313,7 @@ class DeviceSsh implements DeviceLink {
             () => _client.execute(DeviceCommands.frames(device)),
           );
           if (cancelled) {
-            opened.close();
+            endExec(opened);
             return;
           }
           session = opened;
@@ -325,7 +329,7 @@ class DeviceSsh implements DeviceLink {
       onCancel: () async {
         cancelled = true;
         await inner?.cancel();
-        session?.close();
+        if (session case final session?) endExec(session);
       },
     );
     return out.stream;

@@ -19,3 +19,12 @@ Future<void> closeSsh(SSHClient client, SSHSocket socket) async {
   client.close();
   await socket.close().catchError((Object _) {});
 }
+
+void endExec(SSHSession session) {
+  try {
+    session.kill(SSHSignal.TERM);
+  } catch (_) {
+    // ignored: a terminated channel cannot take a signal, and destroy still runs
+  }
+  session.channel.destroy();
+}
