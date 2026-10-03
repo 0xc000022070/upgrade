@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
+import '../../platform/devices/device_link.dart';
 import '../hosts/host_strip.dart';
 import 'device_controllers.dart';
 import 'device_dock.dart';
@@ -27,6 +29,8 @@ const _glide = Duration(milliseconds: 220);
 const _decodeStep = 120;
 const _tabMaxWidth = 88.0;
 const _reasonMaxWidth = 160.0;
+const deviceBubbleSize = 56.0;
+const _bubblePulse = Duration(milliseconds: 2600);
 
 class DeviceFloat extends ConsumerStatefulWidget {
   const DeviceFloat({super.key, required this.child});
@@ -103,6 +107,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   bool _gesturing = false;
   bool _overClose = false;
   bool _overlay = false;
+  bool _menu = false;
 
   @override
   void initState() {
@@ -184,12 +189,14 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
         final session = _dock.session;
         if (!_dock.floating || (session == null && _dock.groups.isEmpty)) {
           _overlay = false;
+          _menu = false;
           return const SizedBox.shrink();
         }
         if (session == null || _dock.collapsed) {
           _overlay = false;
-          return _placeBar(context);
+          return _placeRest(context);
         }
+        _menu = false;
         return ListenableBuilder(
           listenable: session.controller,
           builder: (context, _) => _place(context, session),
@@ -198,39 +205,79 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     );
   }
 
-  Widget _placeBar(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final top = _clampTop(media, deviceStripHeight);
-    final at = _dragAt;
-    final bar = ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: media.size.width - Spacing.screenEdge * 2,
-      ),
-      child: _Bar(
-        key: _barKey,
-        dock: _dock,
-        hosts: ref.watch(deviceHostsProvider).valueOrNull,
-        handle: GestureDetector(
-          key: const ValueKey('device-bar-handle'),
-          behavior: HitTestBehavior.opaque,
-          onPanStart: (_) {
-            final box = _barKey.currentContext?.findRenderObject();
-            if (box is! RenderBox) return;
-            setState(() {
-              _gesturing = true;
-              _dragSize = box.size;
-              _dragAt = box.localToGlobal(Offset.zero);
-            });
-          },
-          onPanUpdate: (details) {
-            if (_dragAt == null) return;
-            _drag(details.delta, media, pointer: details.globalPosition);
-          },
-          onPanEnd: (_) => _drop(media),
-          child: const _BarMark(),
-        ),
-      ),
+  Widget _handle(
+    MediaQueryData media, {
+    required Key key,
+    required VoidCallback onTap,
+    required Widget child,
+  }) {
+    return GestureDetector(
+      key: key,
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      onPanStart: (_) {
+        final box = _barKey.currentContext?.findRenderObject();
+        if (box is! RenderBox) return;
+        setState(() {
+          _gesturing = true;
+          _dragSize = box.size;
+          _dragAt = box.localToGlobal(Offset.zero);
+        });
+      },
+      onPanUpdate: (details) {
+        if (_dragAt == null) return;
+        _drag(details.delta, media, pointer: details.globalPosition);
+      },
+      onPanEnd: (_) => _drop(media),
+      child: child,
     );
+  }
+
+  Widget _placeRest(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final top = _clampTop(
+      media,
+      _menu ? deviceStripHeight : deviceBubbleSize,
+    );
+    final at = _dragAt;
+    final bar = _menu
+        ? ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: media.size.width - Spacing.screenEdge * 2,
+            ),
+            child: _Bar(
+              key: _barKey,
+              dock: _dock,
+              hosts: ref.watch(deviceHostsProvider).valueOrNull,
+              onSelect: (group, device) {
+                setState(() => _menu = false);
+                _dock.select(group, device);
+              },
+              handle: _handle(
+                media,
+                key: const ValueKey('device-bar-handle'),
+                onTap: () => setState(() => _menu = false),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: Spacing.sm),
+                  child: Center(child: _PhoneMark(size: IconSizes.sm)),
+                ),
+              ),
+            ),
+          )
+        : SizedBox.square(
+            key: _barKey,
+            dimension: deviceBubbleSize,
+            child: _handle(
+              media,
+              key: const ValueKey('device-float-bubble'),
+              onTap: () => setState(() => _menu = true),
+              child: const _Frame(
+                child: Center(
+                  child: _PhoneMark(size: IconSizes.lg, pulse: true),
+                ),
+              ),
+            ),
+          );
     const slot = ValueKey('device-bar-slot');
     return Stack(
       children: [
@@ -348,11 +395,13 @@ class _Bar extends StatelessWidget {
     super.key,
     required this.dock,
     required this.hosts,
+    required this.onSelect,
     required this.handle,
   });
 
   final DeviceDock dock;
   final List<Host>? hosts;
+  final void Function(DevicesController, HostDevice) onSelect;
   final Widget handle;
 
   @override
@@ -418,7 +467,7 @@ class _Bar extends StatelessWidget {
                             active:
                                 session?.host.id == group.host.id &&
                                 session?.device.id == device.id,
-                            onTap: () => dock.select(group, device),
+                            onTap: () => onSelect(group, device),
                           ),
                       ],
                     },
@@ -453,40 +502,48 @@ class _Bar extends StatelessWidget {
   }
 }
 
-class _BarMark extends StatefulWidget {
-  const _BarMark();
+class _PhoneMark extends StatefulWidget {
+  const _PhoneMark({required this.size, this.pulse = false});
+
+  final double size;
+  final bool pulse;
 
   @override
-  State<_BarMark> createState() => _BarMarkState();
+  State<_PhoneMark> createState() => _PhoneMarkState();
 }
 
-class _BarMarkState extends State<_BarMark> {
+class _PhoneMarkState extends State<_PhoneMark> {
   final _glitch = GlitchController();
+  Timer? _pulse;
 
   @override
   void initState() {
     super.initState();
     _glitch.fire();
+    if (widget.pulse) {
+      _pulse = Timer.periodic(_bubblePulse, (_) {
+        final lifecycle = WidgetsBinding.instance.lifecycleState;
+        if (lifecycle == null || lifecycle == AppLifecycleState.resumed) {
+          _glitch.fire();
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
+    _pulse?.cancel();
     _glitch.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
-      child: Center(
-        child: DazzleIcon(
-          DazzleIcons.phone,
-          size: IconSizes.sm,
-          color: context.tokens.textPrimary,
-          glitch: _glitch,
-        ),
-      ),
+    return DazzleIcon(
+      DazzleIcons.phone,
+      size: widget.size,
+      color: context.tokens.textPrimary,
+      glitch: _glitch,
     );
   }
 }

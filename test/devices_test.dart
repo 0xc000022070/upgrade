@@ -9,6 +9,7 @@ import 'package:dazzle/application/agents.dart';
 import 'package:dazzle/application/navigation.dart';
 import 'package:dazzle/application/providers.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
+import 'package:dazzle/design/effects/glitch.dart';
 import 'package:dazzle/features/devices/device_controllers.dart';
 import 'package:dazzle/features/devices/device_dock.dart';
 import 'package:dazzle/features/devices/device_float.dart';
@@ -90,6 +91,7 @@ List<int> _header(String line) => latin1.encode('$line\n');
 const _floatKey = ValueKey('device-float');
 const _overlayKey = ValueKey('device-float-overlay');
 const _barKey = ValueKey('device-bar');
+const _bubbleKey = ValueKey('device-float-bubble');
 
 Future<void> _pump(
   WidgetTester tester,
@@ -148,11 +150,14 @@ Future<void> _tapKey(WidgetTester tester, Key key) async {
   await tester.pump(const Duration(milliseconds: 400));
 }
 
+Future<void> _open(WidgetTester tester) => _tapKey(tester, _bubbleKey);
+
 Future<void> _pick(
   WidgetTester tester,
   HostDevice device, {
   String host = 'h1',
 }) async {
+  if (find.byKey(_bubbleKey).evaluate().isNotEmpty) await _open(tester);
   final tab = find.byKey(ValueKey('device-tab-$host-${device.id}'));
   await tester.ensureVisible(tab);
   await tester.pump();
@@ -294,8 +299,23 @@ void main() {
     final link = FakeDeviceLink(const [_pixel, _iphone]);
     await _pump(tester, _opener(link));
 
-    expect(find.byKey(_barKey), findsOneWidget);
+    expect(find.byKey(_bubbleKey), findsOneWidget);
+    expect(find.byKey(_barKey), findsNothing);
     expect(find.byKey(_floatKey), findsNothing);
+    final tear = find.descendant(
+      of: find.byKey(_bubbleKey),
+      matching: find.byType(GlitchBlocks),
+    );
+    expect(tear, findsNothing);
+    var tore = false;
+    for (var i = 0; i < 60 && !tore; i++) {
+      await tester.pump(const Duration(milliseconds: 45));
+      tore = tear.evaluate().isNotEmpty;
+    }
+    expect(tore, isTrue);
+    await _open(tester);
+    expect(find.byKey(_bubbleKey), findsNothing);
+    expect(find.byKey(_barKey), findsOneWidget);
     expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('pixel_7-api36'), findsOneWidget);
     expect(link.frameStreams, isEmpty);
@@ -306,8 +326,13 @@ void main() {
     expect(link.frameStreams.single.hasListener, isTrue);
 
     await _fold(tester);
-    expect(find.byKey(_barKey), findsOneWidget);
+    expect(find.byKey(_bubbleKey), findsOneWidget);
     expect(link.frameStreams.single.hasListener, isFalse);
+
+    await _open(tester);
+    await _tapKey(tester, const ValueKey('device-bar-handle'));
+    expect(find.byKey(_barKey), findsNothing);
+    expect(find.byKey(_bubbleKey), findsOneWidget);
 
     await _pick(tester, _iphone);
     expect(find.byKey(_barKey), findsNothing);
@@ -316,6 +341,7 @@ void main() {
 
     await _fold(tester);
     link.devices = const [];
+    await _open(tester);
     await tester.tap(find.text('ROSE'));
     await _settle(tester);
     expect(find.text('NONE'), findsOneWidget);
@@ -339,6 +365,7 @@ void main() {
     }
 
     await _pump(tester, open);
+    await _open(tester);
     expect(find.text('rose unreachable'), findsOneWidget);
     expect(link.frameStreams, isEmpty);
 
@@ -366,6 +393,7 @@ void main() {
     await _pick(tester, _pixel);
     await _live(tester, rose);
     await _fold(tester);
+    await _open(tester);
 
     const plus = ValueKey('device-strip-plus');
     await tester.ensureVisible(find.byKey(plus));
@@ -529,7 +557,7 @@ void main() {
     await _live(tester, link);
 
     await _fold(tester);
-    expect(find.byKey(_barKey), findsOneWidget);
+    expect(find.byKey(_bubbleKey), findsOneWidget);
     expect(find.byType(RawImage), findsNothing);
     expect(link.frameStreams.single.hasListener, isFalse);
 
@@ -541,7 +569,7 @@ void main() {
 
     await tester.drag(find.byKey(_floatKey), const Offset(400, 0));
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byKey(_barKey), findsOneWidget);
+    expect(find.byKey(_bubbleKey), findsOneWidget);
     expect(link.frameStreams.last.hasListener, isFalse);
 
     await _pick(tester, _pixel);
@@ -589,11 +617,18 @@ void main() {
     expect(link.closed, isTrue);
 
     await reopen();
+    await dropOnTarget(find.byKey(_bubbleKey));
+    expect(find.byKey(_bubbleKey), findsNothing);
+    expect(link.closed, isTrue);
+
+    await reopen();
+    await _open(tester);
     await dropOnTarget(find.byKey(const ValueKey('device-bar-handle')));
     expect(find.byKey(_barKey), findsNothing);
     expect(link.closed, isTrue);
 
     await reopen();
+    await _open(tester);
     await _tapKey(tester, const ValueKey('device-bar-close'));
     expect(find.byKey(_barKey), findsNothing);
     expect(link.closed, isTrue);
