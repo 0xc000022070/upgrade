@@ -14,6 +14,7 @@ import '../../design/icons/dazzle_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../platform/devices/device_link.dart';
+import '../hosts/host_mark.dart';
 import '../hosts/host_strip.dart';
 import 'device_controllers.dart';
 import 'device_dock.dart';
@@ -24,11 +25,9 @@ const deviceFloatMinWidth = 100.0;
 const deviceFloatMaxShare = 0.6;
 const deviceFloatClearance = 112.0;
 const deviceCloseTarget = 48.0;
-const deviceStripHeight = TapTargets.minHeight;
 const _glide = Duration(milliseconds: 220);
 const _decodeStep = 120;
-const _tabMaxWidth = 88.0;
-const _reasonMaxWidth = 160.0;
+const deviceListWidth = 280.0;
 const deviceBubbleSize = 56.0;
 const _bubblePulse = Duration(milliseconds: 2600);
 
@@ -235,17 +234,26 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
 
   Widget _placeRest(BuildContext context) {
     final media = MediaQuery.of(context);
-    final top = _clampTop(
-      media,
-      _menu ? deviceStripHeight : deviceBubbleSize,
-    );
+    final screen = media.size;
+    final top = _clampTop(media, deviceBubbleSize);
+    final bottom = top + deviceBubbleSize;
+    final upward = top + deviceBubbleSize / 2 > screen.height / 2;
+    final roof = media.padding.top + Spacing.lg;
+    final floor = screen.height - media.padding.bottom - deviceFloatClearance;
     final at = _dragAt;
-    final bar = _menu
+    final shown = _menu
         ? ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: media.size.width - Spacing.screenEdge * 2,
+              maxWidth: math.min(
+                deviceListWidth,
+                screen.width - Spacing.screenEdge * 2,
+              ),
+              maxHeight: math.max(
+                deviceBubbleSize,
+                upward ? bottom - roof : floor - top,
+              ),
             ),
-            child: _Bar(
+            child: _DeviceList(
               key: _barKey,
               dock: _dock,
               hosts: ref.watch(deviceHostsProvider).valueOrNull,
@@ -255,7 +263,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
               },
               handle: _handle(
                 media,
-                key: const ValueKey('device-bar-handle'),
+                key: const ValueKey('device-list-handle'),
                 onTap: () => setState(() => _menu = false),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: Spacing.sm),
@@ -278,16 +286,30 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
               ),
             ),
           );
-    const slot = ValueKey('device-bar-slot');
+    const slot = ValueKey('device-rest-slot');
+    final side = _right ? Spacing.screenEdge : null;
+    final otherSide = _right ? null : Spacing.screenEdge;
     return Stack(
       children: [
         if (at != null) _closeTarget(media),
         if (at != null)
-          Positioned(key: slot, left: at.dx, top: at.dy, child: bar)
-        else if (_right)
-          Positioned(key: slot, right: Spacing.screenEdge, top: top, child: bar)
+          Positioned(key: slot, left: at.dx, top: at.dy, child: shown)
+        else if (_menu && upward)
+          Positioned(
+            key: slot,
+            right: side,
+            left: otherSide,
+            bottom: screen.height - bottom,
+            child: shown,
+          )
         else
-          Positioned(key: slot, left: Spacing.screenEdge, top: top, child: bar),
+          Positioned(
+            key: slot,
+            right: side,
+            left: otherSide,
+            top: top,
+            child: shown,
+          ),
       ],
     );
   }
@@ -390,8 +412,8 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   }
 }
 
-class _Bar extends StatelessWidget {
-  const _Bar({
+class _DeviceList extends StatelessWidget {
+  const _DeviceList({
     super.key,
     required this.dock,
     required this.hosts,
@@ -413,53 +435,69 @@ class _Bar extends StatelessWidget {
       for (final host in hosts ?? const <Host>[])
         if (!shown.contains(host.id)) host,
     ];
+    final tokens = context.tokens;
     return Container(
-      key: const ValueKey('device-bar'),
-      height: deviceStripHeight,
+      key: const ValueKey('device-list'),
       decoration: BoxDecoration(
-        color: context.tokens.surfaceSecondary,
-        border: Border.all(
-          color: context.tokens.borderNormal,
-          width: Borders.hairline,
-        ),
+        color: tokens.surfacePrimary,
+        border: Border.all(color: tokens.borderNormal, width: Borders.hairline),
       ),
-      child: Row(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          handle,
+          Container(
+            height: TapTargets.minHeight,
+            decoration: BoxDecoration(
+              color: tokens.surfaceSecondary,
+              border: Border(
+                bottom: BorderSide(
+                  color: tokens.borderNormal,
+                  width: Borders.hairline,
+                ),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                handle,
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('DEVICES', style: tokens.panelHeader),
+                  ),
+                ),
+                _Glyph(
+                  key: const ValueKey('device-list-close'),
+                  icon: DazzleIcons.close,
+                  onTap: dock.close,
+                ),
+              ],
+            ),
+          ),
           Flexible(
             child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (final group in groups) ...[
-                    HostGroupCell(
+                    _HostRow(
                       key: ValueKey('device-group-${group.host.id}'),
-                      name: group.host.name,
-                      system: group.host.system,
-                      front: session?.host.id == group.host.id,
-                      tint: group.phase is DevicesFailed
-                          ? context.tokens.warning
-                          : null,
+                      host: group.host,
+                      failed: group.phase is DevicesFailed,
                       onTap: () => dock.show(group.host),
                     ),
                     ...switch (group.phase) {
-                      DevicesLoading() => [const _StripTab(label: '…')],
+                      DevicesLoading() => [const _ListRow(label: '…')],
                       DevicesFailed(:final reason) => [
-                        _StripTab(
-                          label: reason,
-                          color: context.tokens.warning,
-                          maxWidth: _reasonMaxWidth,
-                        ),
+                        _ListRow(label: reason, color: tokens.warning),
                       ],
                       DevicesListed(:final devices) when devices.isEmpty => [
-                        const _StripTab(label: 'NONE'),
+                        const _ListRow(label: 'NONE'),
                       ],
                       DevicesListed(:final devices) => [
                         for (final device in devices)
-                          _StripTab(
+                          _ListRow(
                             key: ValueKey(
                               'device-tab-${group.host.id}-${device.id}',
                             ),
@@ -471,32 +509,130 @@ class _Bar extends StatelessWidget {
                           ),
                       ],
                     },
-                    const SizedBox(width: Spacing.sm),
                   ],
-                  if (more.isNotEmpty)
-                    HostMenu(
-                      key: const ValueKey('device-strip-plus'),
-                      title: 'DEVICES ON',
-                      hosts: more,
-                      itemKey: (host) => 'device-new-host-${host.id}',
-                      onPick: dock.show,
-                      builder: (context, controller, _) => _StripTab(
-                        label: '+',
-                        onTap: controller.isOpen
-                            ? controller.close
-                            : controller.open,
-                      ),
-                    ),
                 ],
               ),
             ),
           ),
-          _Glyph(
-            key: const ValueKey('device-bar-close'),
-            icon: DazzleIcons.close,
-            onTap: dock.close,
+          DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: tokens.borderNormal,
+                  width: Borders.hairline,
+                ),
+              ),
+            ),
+            child: more.isEmpty
+                ? const _ListRow(label: '+  NO OTHER HOST HAS DEVICES ON')
+                : HostMenu(
+                    key: const ValueKey('device-list-plus'),
+                    title: 'DEVICES ON',
+                    hosts: more,
+                    itemKey: (host) => 'device-new-host-${host.id}',
+                    onPick: dock.show,
+                    builder: (context, controller, _) => _ListRow(
+                      label: '+  HOST',
+                      onTap: controller.isOpen
+                          ? controller.close
+                          : controller.open,
+                    ),
+                  ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HostRow extends StatelessWidget {
+  const _HostRow({
+    super.key,
+    required this.host,
+    required this.failed,
+    required this.onTap,
+  });
+
+  final Host host;
+  final bool failed;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = failed ? context.tokens.warning : context.tokens.textMuted;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          Spacing.md,
+          Spacing.md,
+          Spacing.md,
+          Spacing.xs,
+        ),
+        child: Row(
+          children: [
+            HostMark(host.system, size: IconSizes.affordance, color: ink),
+            const SizedBox(width: Spacing.xs),
+            Expanded(
+              child: Text(
+                host.name.toUpperCase(),
+                style: context.tokens.label.copyWith(color: ink),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ListRow extends StatelessWidget {
+  const _ListRow({
+    super.key,
+    required this.label,
+    this.active = false,
+    this.onTap,
+    this.color,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback? onTap;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint =
+        color ??
+        (active
+            ? context.tokens.accent
+            : onTap == null
+            ? context.tokens.textDisabled
+            : context.tokens.textPrimary);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+        alignment: Alignment.centerLeft,
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: active ? context.tokens.accent : Colors.transparent,
+              width: Borders.hairline * 2,
+            ),
+          ),
+        ),
+        child: Text(
+          label,
+          style: context.tokens.rowTitle.copyWith(color: tint),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
     );
   }
@@ -544,63 +680,6 @@ class _PhoneMarkState extends State<_PhoneMark> {
       size: widget.size,
       color: context.tokens.textPrimary,
       glitch: _glitch,
-    );
-  }
-}
-
-class _StripTab extends StatelessWidget {
-  const _StripTab({
-    super.key,
-    required this.label,
-    this.active = false,
-    this.onTap,
-    this.color,
-    this.maxWidth = _tabMaxWidth,
-  });
-
-  final String label;
-  final bool active;
-  final VoidCallback? onTap;
-  final Color? color;
-  final double maxWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    final tint =
-        color ??
-        (active
-            ? context.tokens.accent
-            : onTap == null
-            ? context.tokens.textDisabled
-            : context.tokens.textMuted);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minWidth: TapTargets.minHeight),
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: active
-                  ? context.tokens.accent
-                  : context.tokens.borderNormal,
-              width: Borders.hairline * 2,
-            ),
-          ),
-        ),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: Text(
-            label,
-            style: context.tokens.panelHeader.copyWith(color: tint),
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ),
     );
   }
 }

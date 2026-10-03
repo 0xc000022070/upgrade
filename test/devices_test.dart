@@ -90,7 +90,7 @@ List<int> _header(String line) => latin1.encode('$line\n');
 
 const _floatKey = ValueKey('device-float');
 const _overlayKey = ValueKey('device-float-overlay');
-const _barKey = ValueKey('device-bar');
+const _barKey = ValueKey('device-list');
 const _bubbleKey = ValueKey('device-float-bubble');
 
 Future<void> _pump(
@@ -318,6 +318,7 @@ void main() {
     expect(find.byKey(_barKey), findsOneWidget);
     expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('pixel_7-api36'), findsOneWidget);
+    expect(find.text('+  NO OTHER HOST HAS DEVICES ON'), findsOneWidget);
     expect(link.frameStreams, isEmpty);
 
     await _pick(tester, _pixel);
@@ -330,7 +331,7 @@ void main() {
     expect(link.frameStreams.single.hasListener, isFalse);
 
     await _open(tester);
-    await _tapKey(tester, const ValueKey('device-bar-handle'));
+    await _tapKey(tester, const ValueKey('device-list-handle'));
     expect(find.byKey(_barKey), findsNothing);
     expect(find.byKey(_bubbleKey), findsOneWidget);
 
@@ -395,10 +396,10 @@ void main() {
     await _fold(tester);
     await _open(tester);
 
-    const plus = ValueKey('device-strip-plus');
+    const plus = ValueKey('device-list-plus');
     await tester.ensureVisible(find.byKey(plus));
     await tester.pump();
-    await tester.tap(find.text('+'));
+    await tester.tap(find.byKey(plus));
     await tester.pump();
     expect(find.text('DEVICES ON'), findsOneWidget);
     expect(find.byKey(const ValueKey('device-new-host-h1')), findsNothing);
@@ -407,6 +408,7 @@ void main() {
 
     expect(find.text('NYX'), findsOneWidget);
     expect(find.byKey(plus), findsNothing);
+    expect(find.text('+  NO OTHER HOST HAS DEVICES ON'), findsOneWidget);
     expect(nyx.frameStreams, isEmpty);
 
     await _pick(tester, _iphone, host: 'h2');
@@ -623,13 +625,13 @@ void main() {
 
     await reopen();
     await _open(tester);
-    await dropOnTarget(find.byKey(const ValueKey('device-bar-handle')));
+    await dropOnTarget(find.byKey(const ValueKey('device-list-handle')));
     expect(find.byKey(_barKey), findsNothing);
     expect(link.closed, isTrue);
 
     await reopen();
     await _open(tester);
-    await _tapKey(tester, const ValueKey('device-bar-close'));
+    await _tapKey(tester, const ValueKey('device-list-close'));
     expect(find.byKey(_barKey), findsNothing);
     expect(link.closed, isTrue);
 
