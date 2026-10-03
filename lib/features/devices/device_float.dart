@@ -681,7 +681,7 @@ class _PhoneMark extends StatefulWidget {
   State<_PhoneMark> createState() => _PhoneMarkState();
 }
 
-class _PhoneMarkState extends State<_PhoneMark> {
+class _PhoneMarkState extends State<_PhoneMark> with WidgetsBindingObserver {
   final _glitch = GlitchController();
   Timer? _pulse;
 
@@ -689,18 +689,27 @@ class _PhoneMarkState extends State<_PhoneMark> {
   void initState() {
     super.initState();
     _glitch.fire();
-    if (widget.pulse) {
-      _pulse = Timer.periodic(_bubblePulse, (_) {
-        final lifecycle = WidgetsBinding.instance.lifecycleState;
-        if (lifecycle == null || lifecycle == AppLifecycleState.resumed) {
-          _glitch.fire();
-        }
-      });
-    }
+    if (!widget.pulse) return;
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle == null || lifecycle == AppLifecycleState.resumed) _beat();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _pulse?.cancel();
+    _pulse = null;
+    if (state == AppLifecycleState.resumed) return _beat();
+    _glitch.stop();
+  }
+
+  void _beat() {
+    _pulse = Timer.periodic(_bubblePulse, (_) => _glitch.fire());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pulse?.cancel();
     _glitch.dispose();
     super.dispose();

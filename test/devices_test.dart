@@ -313,6 +313,18 @@ void main() {
       tore = tear.evaluate().isNotEmpty;
     }
     expect(tore, isTrue);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    for (var i = 0; i < 180; i++) {
+      await tester.pump(const Duration(milliseconds: 45));
+      expect(tear, findsNothing);
+    }
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    tore = false;
+    for (var i = 0; i < 60 && !tore; i++) {
+      await tester.pump(const Duration(milliseconds: 45));
+      tore = tear.evaluate().isNotEmpty;
+    }
+    expect(tore, isTrue);
     await _open(tester);
     expect(find.byKey(_bubbleKey), findsNothing);
     expect(find.byKey(_barKey), findsOneWidget);
