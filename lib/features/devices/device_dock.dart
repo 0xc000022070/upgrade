@@ -13,13 +13,11 @@ class DeviceSession {
   DeviceSession({
     required this.host,
     required this.link,
-    required this.devices,
     required this.controller,
   });
 
   final Host host;
   final DeviceLink link;
-  final List<HostDevice> devices;
   DeviceScreenController controller;
 
   HostDevice get device => controller.device;
@@ -36,11 +34,14 @@ class DeviceDock extends ChangeNotifier {
   final _leases = <String, _Lease>{};
   DeviceSession? _session;
   bool _floating = false;
+  bool _collapsed = false;
+  int _decodeWidth = floatDecodeWidth;
   bool _away = false;
   bool _disposed = false;
 
   DeviceSession? get session => _session;
   bool get floating => _floating;
+  bool get collapsed => _collapsed;
 
   DeviceLink? borrow(String hostId) {
     final lease = _leases[hostId];
@@ -73,12 +74,7 @@ class DeviceDock extends ChangeNotifier {
     unawaited(link.close());
   }
 
-  DeviceScreenController open(
-    Host host,
-    DeviceLink link,
-    HostDevice device,
-    List<HostDevice> devices,
-  ) {
+  DeviceScreenController open(Host host, DeviceLink link, HostDevice device) {
     final current = _session;
     if (current != null && current.host.id == host.id && current.link == link) {
       current.controller.dispose();
@@ -89,7 +85,6 @@ class DeviceDock extends ChangeNotifier {
     _session = DeviceSession(
       host: host,
       link: link,
-      devices: devices,
       controller: _start(host, link, device),
     );
     _floating = false;
@@ -97,26 +92,29 @@ class DeviceDock extends ChangeNotifier {
     return _session!.controller;
   }
 
-  void next() {
-    final session = _session;
-    if (session == null || session.devices.length < 2) return;
-    final at = session.devices.indexOf(session.device);
-    final device = session.devices[(at + 1) % session.devices.length];
-    session.controller.dispose();
-    session.controller = _start(session.host, session.link, device);
-    notifyListeners();
-  }
-
   void float() {
     final session = _session;
     if (session == null) return;
     _floating = true;
-    session.controller.decodeWidth = floatDecodeWidth;
+    _collapsed = false;
+    session.controller.decodeWidth = _decodeWidth;
     notifyListeners();
+  }
+
+  void collapse(bool collapsed) {
+    if (_collapsed == collapsed) return;
+    _collapsed = collapsed;
+    notifyListeners();
+  }
+
+  void decodeAt(int width) {
+    _decodeWidth = width;
+    if (_floating) _session?.controller.decodeWidth = width;
   }
 
   void expand() {
     _floating = false;
+    _collapsed = false;
     _session?.controller.decodeWidth = null;
     notifyListeners();
   }
@@ -124,6 +122,7 @@ class DeviceDock extends ChangeNotifier {
   void close() {
     _end();
     _floating = false;
+    _collapsed = false;
     if (!_disposed) notifyListeners();
   }
 
@@ -139,7 +138,7 @@ class DeviceDock extends ChangeNotifier {
       link: link,
       device: device,
     );
-    if (_floating) controller.decodeWidth = floatDecodeWidth;
+    if (_floating) controller.decodeWidth = _decodeWidth;
     unawaited(controller.setAway(_away));
     return controller;
   }

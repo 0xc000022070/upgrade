@@ -73,7 +73,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
     final link = _controller.link;
     final phase = _controller.phase;
     if (link == null || phase is! DevicesListed) return;
-    ref.read(deviceDockProvider).open(widget.host, link, device, phase.devices);
+    ref.read(deviceDockProvider).open(widget.host, link, device);
     openDeviceScreen(context);
   }
 

@@ -357,60 +357,166 @@ void main() {
     expect(link.frameStreams.last.hasListener, isTrue);
   });
 
-  testWidgets('a floated device cycles on its name and comes back whole', (
-    tester,
-  ) async {
-    final link = FakeDeviceLink(const [_pixel, _iphone]);
-    await _pump(tester, _opener(link));
-    await _openLive(tester, link, 'pixel_7-api36');
-
+  Future<void> float(WidgetTester tester) async {
     await tester.tap(find.text('FLOAT'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
+  }
+
+  Future<void> tapFloat(WidgetTester tester, ValueKey<String> key) async {
+    await tester.tap(find.byKey(key));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
+  const floatKey = ValueKey('device-float');
+  const overlayKey = ValueKey('device-float-overlay');
+
+  testWidgets('a float keeps its controls down until tapped', (tester) async {
+    final link = FakeDeviceLink(const [_pixel, _iphone]);
+    await _pump(tester, _opener(link));
+    await _openLive(tester, link, 'pixel_7-api36');
+    await float(tester);
+
     expect(find.text('/ ROSE PIXEL_7-API36'), findsNothing);
-    expect(find.byKey(const ValueKey('device-float')), findsOneWidget);
-    expect(find.text('1/2'), findsOneWidget);
+    expect(find.byKey(floatKey), findsOneWidget);
+    expect(find.byKey(overlayKey), findsNothing);
+    expect(find.text('PAUSE'), findsNothing);
     expect(link.frameStreams.single.hasListener, isTrue);
 
-    await tester.tap(find.byKey(const ValueKey('device-float-name')));
+    await tapFloat(tester, floatKey);
+    expect(find.byKey(overlayKey), findsOneWidget);
+    expect(find.text('PIXEL_7-API36'), findsOneWidget);
+
+    await tester.tap(find.text('PIXEL_7-API36'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(overlayKey), findsNothing);
+
+    await tapFloat(tester, floatKey);
+    await tester.tap(find.text('PAUSE'));
+    await tester.pump();
+    expect(link.frameStreams.single.hasListener, isFalse);
+    expect(find.text('RESUME'), findsOneWidget);
+
+    await tester.tap(find.text('PIXEL_7-API36'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const ValueKey('device-float-paused')), findsOneWidget);
+
+    await tapFloat(tester, floatKey);
+    await tester.tap(find.text('RESUME'));
     await tester.pump();
     expect(link.frameStreams, hasLength(2));
-    expect(link.frameStreams.first.hasListener, isFalse);
-    expect(find.text('IPHONE 17 PRO'), findsOneWidget);
-    expect(find.text('2/2'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('device-float-picture')));
-    await tester.pump();
+    await tapFloat(tester, const ValueKey('device-float-expand'));
     await tester.pump(const Duration(seconds: 1));
-    expect(find.text('/ ROSE IPHONE 17 PRO'), findsOneWidget);
-    expect(find.byKey(const ValueKey('device-float')), findsNothing);
+    expect(find.text('/ ROSE PIXEL_7-API36'), findsOneWidget);
+    expect(find.byKey(floatKey), findsNothing);
     expect(link.frameStreams, hasLength(2));
 
-    await tester.tap(find.text('/ ROSE IPHONE 17 PRO'));
+    await tester.tap(find.text('/ ROSE PIXEL_7-API36'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(link.frameStreams.last.hasListener, isFalse);
-    expect(find.byKey(const ValueKey('device-float')), findsNothing);
+    expect(find.byKey(floatKey), findsNothing);
     expect(link.closed, isFalse);
   });
 
-  testWidgets('closing the float ends the stream and outlives nothing', (
+  testWidgets('a collapsed float keeps streaming and opens again', (
     tester,
   ) async {
     final link = FakeDeviceLink(const [_pixel]);
     await _pump(tester, _opener(link));
     await _openLive(tester, link, 'pixel_7-api36');
-    await tester.tap(find.text('FLOAT'));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
+    await float(tester);
 
-    await tester.tap(find.byKey(const ValueKey('device-float-close')));
+    await tapFloat(tester, floatKey);
+    await tapFloat(tester, const ValueKey('device-float-collapse'));
+    final bubble = find.byKey(const ValueKey('device-float-bubble'));
+    expect(bubble, findsOneWidget);
+    expect(tester.getSize(bubble).width, deviceBubbleSize);
+    expect(link.frameStreams.single.hasListener, isTrue);
+
+    await tapFloat(tester, floatKey);
+    expect(bubble, findsNothing);
+    expect(find.byKey(overlayKey), findsNothing);
+    expect(link.frameStreams.single.hasListener, isTrue);
+
+    await tester.drag(find.byKey(floatKey), const Offset(400, 0));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(bubble, findsOneWidget);
+    expect(link.frameStreams.single.hasListener, isTrue);
+  });
+
+  testWidgets('a float closes from its controls or on the target', (
+    tester,
+  ) async {
+    final link = FakeDeviceLink(const [_pixel]);
+    await _pump(tester, _opener(link));
+    await _openLive(tester, link, 'pixel_7-api36');
+    await float(tester);
+
+    final from = tester.getCenter(find.byKey(floatKey));
+    final gesture = await tester.startGesture(from);
+    await gesture.moveBy(const Offset(-20, 0));
+    await gesture.moveBy(const Offset(-20, 0));
     await tester.pump();
-    expect(find.byKey(const ValueKey('device-float')), findsNothing);
+    final target = find.byKey(const ValueKey('device-float-target'));
+    expect(target, findsOneWidget);
+    await gesture.moveTo(tester.getCenter(target));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    expect(find.byKey(floatKey), findsNothing);
     expect(link.frameStreams.single.hasListener, isFalse);
+
+    await tester.tap(find.text('pixel_7-api36'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    link.frameStreams.last.add(_frame());
+    await _settle(tester);
+    await float(tester);
+    await tapFloat(tester, floatKey);
+    await tapFloat(tester, const ValueKey('device-float-close'));
+    expect(find.byKey(floatKey), findsNothing);
+    expect(link.frameStreams.last.hasListener, isFalse);
 
     await tester.pumpWidget(const SizedBox());
     expect(link.closed, isTrue);
+  });
+
+  testWidgets('a pinch resizes the float within its bounds', (tester) async {
+    final link = FakeDeviceLink(const [_pixel]);
+    await _pump(tester, _opener(link));
+    await _openLive(tester, link, 'pixel_7-api36');
+    await float(tester);
+
+    Future<void> pinch(double spread) async {
+      final center = tester.getCenter(find.byKey(floatKey));
+      final a = await tester.startGesture(center - const Offset(40, 0));
+      final b = await tester.startGesture(center + const Offset(40, 0));
+      await tester.pump();
+      for (var i = 0; i < 10; i++) {
+        await a.moveBy(Offset(-spread / 20, 0));
+        await b.moveBy(Offset(spread / 20, 0));
+        await tester.pump();
+      }
+      await a.up();
+      await b.up();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    expect(tester.getSize(find.byKey(floatKey)).width, deviceFloatWidth);
+    await pinch(40);
+    final grown = tester.getSize(find.byKey(floatKey)).width;
+    expect(grown, greaterThan(deviceFloatWidth));
+    await pinch(4000);
+    final widest = tester.getRect(find.byKey(floatKey));
+    expect(widest.width, lessThan(800 * deviceFloatMaxShare));
+    expect(widest.width, greaterThan(grown));
+    expect(widest.bottom, lessThan(600 - deviceFloatClearance + 1));
+    await pinch(-60);
+    await pinch(-60);
+    expect(tester.getSize(find.byKey(floatKey)).width, deviceFloatMinWidth);
   });
 
   testWidgets('PAUSE stops the loop, and so does hiding the app', (
