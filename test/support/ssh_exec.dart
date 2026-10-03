@@ -47,6 +47,9 @@ final class FakeExecSession implements SSHSession {
   int? get exitCode => null;
 
   @override
+  SSHSessionExitSignal? get exitSignal => null;
+
+  @override
   void kill(SSHSignal signal) {
     if (gone) throw StateError('channel is closed');
     signals.add(signal);
@@ -66,6 +69,11 @@ final class FakeExecClient implements SSHClient {
   final opened = Completer<void>();
   var hold = Completer<void>()..complete();
 
+  int? closedAt;
+
+  @override
+  Future<void> close() async => closedAt = session.signals.length;
+
   @override
   Future<SSHSession> execute(
     String command, {
@@ -83,6 +91,9 @@ final class FakeExecClient implements SSHClient {
 }
 
 final class FakeExecSocket implements SSHSocket {
+  @override
+  Future<void> close() async {}
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

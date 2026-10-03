@@ -45,6 +45,43 @@ void main() {
     });
   });
 
+  group('a closed host session', () {
+    test('ends a read still running before it drops the link', () async {
+      final session = FakeExecSession();
+      session.input.stream.listen(null);
+      final client = FakeExecClient(session);
+      final herdr = HerdrSession.over(FakeExecSocket(), client);
+      final read = herdr.openPinRequests(within: const Duration(seconds: 30));
+      await client.opened.future;
+      await pumpEventQueue();
+
+      herdr.close();
+      session.exited.complete();
+      await Future.wait([session.out.close(), session.err.close()]);
+      await read;
+
+      expect(client.closedAt, 1);
+      expect(session.signals.first, SSHSignal.TERM);
+      expect(session.destroyed, greaterThan(0));
+    });
+
+    test('ends a watch still running before it drops the link', () async {
+      final session = FakeExecSession();
+      final client = FakeExecClient(session);
+      final herdr = HerdrSession.over(FakeExecSocket(), client);
+      final changes = herdr.rosterChanges().listen(null);
+      await client.opened.future;
+      await pumpEventQueue();
+
+      herdr.close();
+
+      expect(client.closedAt, 1);
+      expect(session.signals, [SSHSignal.TERM]);
+      expect(session.destroyed, 1);
+      await changes.cancel();
+    });
+  });
+
   test('a pin read past its deadline ends the command it started', () async {
     final session = FakeExecSession();
     final herdr = HerdrSession.over(FakeExecSocket(), FakeExecClient(session));

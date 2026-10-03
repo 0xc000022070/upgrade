@@ -539,6 +539,7 @@ class HerdrSession {
   final SSHClient _client;
 
   final _sockets = <String, String>{};
+  final _execs = <SSHSession>{};
 
   /// One channel per running session reports panes arriving and leaving, one more per
   /// agent pane reports that pane's status transitions, and either kind of event asks the
@@ -804,20 +805,18 @@ class HerdrSession {
     out
       ..onListen = () async {
         try {
-          channel = await _guard(
-            () => _client.execute(hostChangesCommand(command, step)),
-          );
+          channel = await _exec(hostChangesCommand(command, step));
         } catch (error, stack) {
           out.addError(error, stack);
           await out.close();
           return;
         }
-        if (cancelled) return endExec(channel!);
+        if (cancelled) return _end(channel!);
         frames = hostChangeFrames(channel!.stdout, onQuiet: close).listen(
           out.add,
           onError: out.addError,
           onDone: () {
-            endExec(channel!);
+            _end(channel!);
             unawaited(out.close());
           },
         );
@@ -825,12 +824,29 @@ class HerdrSession {
       ..onCancel = () async {
         cancelled = true;
         await frames?.cancel();
-        if (channel case final channel?) endExec(channel);
+        if (channel case final channel?) _end(channel);
       };
     return out.stream;
   }
 
-  void close() => unawaited(closeSsh(_client, _socket));
+  /// A closed connection leaves a running exec to sshd, which hands it to init.
+  void close() {
+    for (final exec in [..._execs]) {
+      _end(exec);
+    }
+    unawaited(closeSsh(_client, _socket));
+  }
+
+  Future<SSHSession> _exec(String command) async {
+    final session = await _guard(() => _client.execute(command));
+    _execs.add(session);
+    return session;
+  }
+
+  void _end(SSHSession session) {
+    _execs.remove(session);
+    endExec(session);
+  }
 
   /// `herdr agent start` wants the pane's shell alone at its prompt, and a shell still
   /// sourcing its rc files hands the terminal to every command it runs. herdr refuses with
@@ -946,7 +962,7 @@ class HerdrSession {
     Uint8List stdin, {
     Duration? within,
   }) async {
-    final session = await _guard(() => _client.execute(command));
+    final session = await _exec(command);
     try {
       final out = BytesBuilder(copy: false);
       final err = BytesBuilder(copy: false);
@@ -972,7 +988,7 @@ class HerdrSession {
         stderr: stderr,
       );
     } finally {
-      endExec(session);
+      _end(session);
     }
   }
 
