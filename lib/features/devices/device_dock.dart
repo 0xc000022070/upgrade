@@ -14,16 +14,12 @@ import 'device_controllers.dart';
 const floatDecodeWidth = 360;
 
 class DeviceSession {
-  DeviceSession({
-    required this.host,
-    required this.link,
-    required this.controller,
-  });
+  DeviceSession({required this.host, required this.controller});
 
   final Host host;
-  final DeviceLink link;
   DeviceScreenController controller;
 
+  DeviceLink get link => controller.link;
   HostDevice get device => controller.device;
 }
 
@@ -60,6 +56,10 @@ class DeviceDock extends ChangeNotifier {
   DeviceLink? borrow(String hostId) {
     final lease = _leases[hostId];
     if (lease == null) return null;
+    if (lease.link.closed) {
+      discard(hostId, lease.link);
+      return null;
+    }
     lease.count++;
     return lease.link;
   }
@@ -129,7 +129,6 @@ class DeviceDock extends ChangeNotifier {
     _collapsed = false;
     _session = DeviceSession(
       host: group.host,
-      link: link,
       controller: _start(group.host, link, device),
     );
     notifyListeners();
@@ -181,18 +180,39 @@ class DeviceDock extends ChangeNotifier {
   void setAway(bool away) {
     if (_away == away) return;
     _away = away;
+    if (!away) revive();
     unawaited(_session?.controller.setAway(_away || _collapsed));
   }
 
+  void revive() {
+    for (final group in _groups) {
+      group.revive();
+    }
+  }
+
   DeviceScreenController _start(Host host, DeviceLink link, HostDevice device) {
-    final controller = DeviceScreenController(
+    late final DeviceScreenController controller;
+    controller = DeviceScreenController(
       hostName: host.name,
       link: link,
       device: device,
+      reopen: (dead) => _reopen(host, controller, dead),
     );
     if (_floating) controller.decodeWidth = _decodeWidth;
     unawaited(controller.setAway(_away || _collapsed));
     return controller;
+  }
+
+  Future<DeviceLink?> _reopen(
+    Host host,
+    DeviceScreenController controller,
+    DeviceLink dead,
+  ) async {
+    final group = _groupOf(host.id);
+    if (group == null) return null;
+    final fresh = await group.reconnect(dead);
+    if (fresh == null || _session?.controller != controller) return null;
+    return borrow(host.id);
   }
 
   void _end() {

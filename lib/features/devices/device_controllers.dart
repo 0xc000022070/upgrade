@@ -53,15 +53,21 @@ class DevicesController extends ChangeNotifier {
   bool _disposed = false;
   int _attempt = 0;
 
+  Future<DeviceLink?>? _dialling;
+
   DevicesPhase get phase => _phase;
-  DeviceLink? get link => _link;
+  DeviceLink? get link => _link?.closed ?? true ? null : _link;
+
+  void revive() {
+    if (_link?.closed ?? false) unawaited(refresh());
+  }
 
   Future<void> refresh() async {
     final attempt = ++_attempt;
     _phase = const DevicesLoading();
     notifyListeners();
     try {
-      final link = _link ?? await _connect();
+      final link = _live() ?? await _connect();
       if (link == null || _disposed || attempt != _attempt) return;
       final devices = await link.list();
       if (_disposed || attempt != _attempt) return;
@@ -73,7 +79,25 @@ class DevicesController extends ChangeNotifier {
     }
   }
 
-  Future<DeviceLink?> _connect() async {
+  Future<DeviceLink?> reconnect(DeviceLink dead) async {
+    if (_link == dead) _link = null;
+    dock.discard(host.id, dead);
+    final link = _live() ?? await _connect();
+    return _disposed ? null : link;
+  }
+
+  DeviceLink? _live() {
+    final link = _link;
+    if (link == null || !link.closed) return link;
+    _link = null;
+    dock.discard(host.id, link);
+    return null;
+  }
+
+  Future<DeviceLink?> _connect() =>
+      _dialling ??= _dial().whenComplete(() => _dialling = null);
+
+  Future<DeviceLink?> _dial() async {
     final held = dock.borrow(host.id);
     if (held != null) {
       _link = held;
@@ -164,8 +188,9 @@ enum DeviceKey {
 class DeviceScreenController extends ChangeNotifier {
   DeviceScreenController({
     required this.hostName,
-    required this.link,
+    required this._link,
     required this.device,
+    this.reopen,
   });
 
   static const longPress = Duration(milliseconds: 600);
@@ -173,8 +198,11 @@ class DeviceScreenController extends ChangeNotifier {
   static const longestDrag = Duration(seconds: 2);
 
   final String hostName;
-  final DeviceLink link;
   final HostDevice device;
+  final Future<DeviceLink?> Function(DeviceLink dead)? reopen;
+
+  DeviceLink _link;
+  DeviceLink get link => _link;
 
   StreamSubscription<DeviceFrame>? _frames;
   DevicePhase _phase = const DeviceWaiting();
@@ -193,6 +221,9 @@ class DeviceScreenController extends ChangeNotifier {
 
   bool _held = false;
   bool _away = false;
+  bool _lost = false;
+  bool _returned = false;
+  bool _reopening = false;
   int _run = 0;
 
   bool get held => _held;
@@ -201,7 +232,7 @@ class DeviceScreenController extends ChangeNotifier {
     final run = ++_run;
     _phase = const DeviceWaiting();
     notifyListeners();
-    _frames = link
+    _frames = _link
         .frames(device)
         .listen(
           (frame) => _onFrame(frame, run),
@@ -212,10 +243,11 @@ class DeviceScreenController extends ChangeNotifier {
   }
 
   Future<void> retry() async {
+    if (_reopening) return;
     _held = false;
     await _halt();
     if (_disposed || _away) return;
-    start();
+    _lost || _link.closed ? await _relive() : start();
   }
 
   Future<void> pause() async {
@@ -229,6 +261,7 @@ class DeviceScreenController extends ChangeNotifier {
   }
 
   Future<void> setAway(bool away) async {
+    _returned = _away && !away;
     _away = away;
     if (away) {
       await _halt();
@@ -238,8 +271,36 @@ class DeviceScreenController extends ChangeNotifier {
   }
 
   void _go() {
-    if (_disposed || _held || _away || _frames != null) return;
-    start();
+    if (_disposed || _held || _away || _frames != null || _reopening) return;
+    if (_link.closed) _lost = true;
+    _lost ? unawaited(_relive()) : start();
+  }
+
+  Future<void> _relive() async {
+    final reopen = this.reopen;
+    if (reopen == null) return start();
+    final run = ++_run;
+    _returned = false;
+    _reopening = true;
+    _phase = const DeviceWaiting();
+    notifyListeners();
+    final DeviceLink? fresh;
+    try {
+      fresh = await reopen(_link);
+    } catch (error) {
+      _fail(error, run);
+      return;
+    } finally {
+      _reopening = false;
+    }
+    if (_disposed) return;
+    if (fresh == null) {
+      _fail(const HerdrUnreachable('nothing to reopen'), run);
+      return;
+    }
+    _link = fresh;
+    _lost = false;
+    if (!_held && !_away && _frames == null) start();
   }
 
   Future<void> _halt() async {
@@ -295,6 +356,7 @@ class DeviceScreenController extends ChangeNotifier {
     }
     _image?.dispose();
     _image = image;
+    _returned = false;
     _nativeSize = ui.Size(frame.width.toDouble(), frame.height.toDouble());
     _phase = const DeviceLive();
     notifyListeners();
@@ -330,7 +392,7 @@ class DeviceScreenController extends ChangeNotifier {
   void _send(String command) {
     if (!device.pressable || _phase is! DeviceLive) return;
     unawaited(
-      link.run(command).catchError((Object error) {
+      _link.run(command).catchError((Object error) {
         debugPrint('dazzle.devices $hostName ${device.id}: input: $error');
       }),
     );
@@ -343,8 +405,14 @@ class DeviceScreenController extends ChangeNotifier {
     _frames = null;
     if (_disposed) return;
     debugPrint('dazzle.devices $hostName ${device.id}: $error');
+    final failure = asHerdrFailure(error);
+    _lost = failure is HerdrUnreachable;
+    if (_lost && _returned && reopen != null) {
+      unawaited(_relive());
+      return;
+    }
     _phase = DeviceFailed(
-      asHerdrFailure(error)?.reason(hostName) ?? ReasonLine.streamClosed.words,
+      failure?.reason(hostName) ?? ReasonLine.streamClosed.words,
     );
     notifyListeners();
   }

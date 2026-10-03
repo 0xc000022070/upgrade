@@ -276,7 +276,10 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
             child: _handle(
               media,
               key: const ValueKey('device-float-bubble'),
-              onTap: () => setState(() => _menu = true),
+              onTap: () {
+                _dock.revive();
+                setState(() => _menu = true);
+              },
               child: Semantics(
                 button: true,
                 label: 'DEVICES',
@@ -755,6 +758,13 @@ class _Tile extends StatelessWidget {
               right: Spacing.md,
               child: _PausedMark(),
             ),
+          if (!overlay && controller.image != null)
+            if (controller.phase case DeviceFailed(:final reason))
+              Positioned(
+                top: Spacing.md,
+                right: Spacing.md,
+                child: _FailedMark(reason: reason),
+              ),
           if (overlay)
             ColoredBox(
               key: const ValueKey('device-float-overlay'),
@@ -891,6 +901,25 @@ class _OnMedia extends StatelessWidget {
         ],
       ),
       child: child,
+    );
+  }
+}
+
+class _FailedMark extends StatelessWidget {
+  const _FailedMark({required this.reason});
+
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      key: const ValueKey('device-float-failed'),
+      label: reason,
+      child: DazzleIcon(
+        DazzleIcons.failed,
+        size: IconSizes.glyph,
+        color: context.tokens.warning,
+      ),
     );
   }
 }

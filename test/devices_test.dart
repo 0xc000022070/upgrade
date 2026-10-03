@@ -63,7 +63,6 @@ class FakeDeviceLink implements DeviceLink {
   List<HostDevice> devices;
   final commands = <String>[];
   final frameStreams = <StreamController<DeviceFrame>>[];
-  bool closed = false;
 
   @override
   Future<List<HostDevice>> list() async => devices;
@@ -77,6 +76,9 @@ class FakeDeviceLink implements DeviceLink {
 
   @override
   Future<void> run(String command) async => commands.add(command);
+
+  @override
+  bool closed = false;
 
   @override
   Future<void> close() async => closed = true;
@@ -785,6 +787,163 @@ void main() {
     await tester.pump();
     expect(link.frameStreams, hasLength(3));
     expect(link.frameStreams.last.hasListener, isTrue);
+  });
+
+  group('a connection the phone dropped', () {
+    late List<FakeDeviceLink> links;
+    late int dials;
+
+    Future<void> window(WidgetTester tester) async {
+      links = [
+        FakeDeviceLink(const [_pixel]),
+        FakeDeviceLink(const [_pixel]),
+      ];
+      dials = 0;
+      Future<DeviceLink> open({
+        required String address,
+        required int port,
+        required String user,
+        required String privateKey,
+        HostKeyVerifier? verifier,
+      }) async => links[dials++];
+
+      await _pump(tester, open);
+      await _pick(tester, _pixel);
+      await _live(tester, links.first);
+    }
+
+    void hide(WidgetTester tester) => _lifecycle(tester, const [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+    ]);
+
+    void show(WidgetTester tester) => _lifecycle(tester, const [
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]);
+
+    testWidgets('while the app was hidden is dialled again on return', (
+      tester,
+    ) async {
+      addTearDown(() => show(tester));
+      await window(tester);
+      hide(tester);
+      await tester.pump();
+      links.first.closed = true;
+      show(tester);
+      await _settle(tester);
+
+      expect(dials, 2);
+      expect(links.first.frameStreams, hasLength(1));
+      expect(links.last.frameStreams.single.hasListener, isTrue);
+    });
+
+    testWidgets('and only noticed on return is dialled again once', (
+      tester,
+    ) async {
+      addTearDown(() => show(tester));
+      await window(tester);
+      hide(tester);
+      await tester.pump();
+      show(tester);
+      await tester.pump();
+      links.first.frameStreams.last.addError(const HerdrUnreachable('103'));
+      await _settle(tester);
+
+      expect(dials, 2);
+      expect(links.last.frameStreams.single.hasListener, isTrue);
+
+      links.last.frameStreams.last.addError(const HerdrUnreachable('103'));
+      await _settle(tester);
+      expect(dials, 2);
+      expect(find.byKey(const ValueKey('device-float-failed')), findsOneWidget);
+    });
+
+    testWidgets('is marked on the frozen frame, and RETRY dials again', (
+      tester,
+    ) async {
+      await window(tester);
+      links.first.frameStreams.last.addError(const HerdrUnreachable('103'));
+      await _settle(tester);
+      expect(find.byKey(const ValueKey('device-float-failed')), findsOneWidget);
+      expect(dials, 1);
+
+      await _tapKey(tester, _floatKey);
+      await tester.tap(find.text('RETRY'));
+      await _settle(tester);
+
+      expect(dials, 2);
+      expect(links.last.frameStreams.single.hasListener, isTrue);
+    });
+
+    testWidgets('before the first frame of a new window is not redialled', (
+      tester,
+    ) async {
+      links = [
+        FakeDeviceLink(const [_pixel]),
+        FakeDeviceLink(const [_pixel]),
+      ];
+      dials = 0;
+      Future<DeviceLink> open({
+        required String address,
+        required int port,
+        required String user,
+        required String privateKey,
+        HostKeyVerifier? verifier,
+      }) async => links[dials++];
+
+      await _pump(tester, open);
+      await _pick(tester, _pixel);
+      links.first.frameStreams.last.addError(const HerdrUnreachable('103'));
+      await _settle(tester);
+
+      expect(dials, 1);
+      expect(links.first.frameStreams, hasLength(1));
+    });
+
+    testWidgets('is not what a failed capture is, so RETRY keeps the link', (
+      tester,
+    ) async {
+      await window(tester);
+      links.first.frameStreams.last.addError(const DeviceCaptureFailed('x'));
+      await _settle(tester);
+
+      await _tapKey(tester, _floatKey);
+      await tester.tap(find.text('RETRY'));
+      await _settle(tester);
+
+      expect(dials, 1);
+      expect(links.first.frameStreams, hasLength(2));
+    });
+
+    testWidgets('under the bubble alone is dialled again on return', (
+      tester,
+    ) async {
+      addTearDown(() => show(tester));
+      links = [
+        FakeDeviceLink(const [_pixel]),
+        FakeDeviceLink(const [_pixel]),
+      ];
+      dials = 0;
+      Future<DeviceLink> open({
+        required String address,
+        required int port,
+        required String user,
+        required String privateKey,
+        HostKeyVerifier? verifier,
+      }) async => links[dials++];
+
+      await _pump(tester, open);
+      hide(tester);
+      await tester.pump();
+      links.first.closed = true;
+      show(tester);
+      await _settle(tester);
+      await _pick(tester, _pixel);
+
+      expect(dials, 2);
+      expect(links.last.frameStreams.single.hasListener, isTrue);
+    });
   });
 
   group('under a light theme the float keeps the house ink', () {

@@ -240,6 +240,8 @@ abstract interface class DeviceLink {
 
   Future<void> run(String command);
 
+  bool get closed;
+
   Future<void> close();
 }
 
@@ -339,6 +341,9 @@ class DeviceSsh implements DeviceLink {
   Future<void> run(String command) async {
     await _guard(() => _client.runWithResult(command));
   }
+
+  @override
+  bool get closed => _closed || _client.isClosed;
 
   @override
   Future<void> close() async {
