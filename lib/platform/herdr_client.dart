@@ -1113,8 +1113,10 @@ class HerdrSession {
     }
   }
 
-  Future<HerdrReply> _call(String session, HerdrRequest request) =>
-      _guard(() => _api(session).call(request.method, request.params));
+  Future<HerdrReply> _call(String session, HerdrRequest request) async {
+    if (!_sockets.containsKey(session)) await _roster();
+    return _guard(() => _api(session).call(request.method, request.params));
+  }
 
   HerdrApi _api(String session) {
     final path = _sockets[session];
