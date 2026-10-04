@@ -4,12 +4,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/platform/herdr_client.dart';
 import 'package:dazzle/platform/herdr_pool.dart';
 import 'package:dazzle/platform/host_keys.dart';
+import 'package:dazzle/platform/host_links.dart';
 import 'package:dazzle/platform/ssh_settle.dart';
 
-class _Session implements HerdrSession {
-  _Session(this.id);
+import 'support/host_links.dart';
 
-  final int id;
+class _Session implements HerdrSession {
+  _Session(this.lease);
+
+  final HostLease lease;
   bool broken = false;
   bool closed = false;
   Completer<List<AgentSnapshot>>? gate;
@@ -23,113 +26,134 @@ class _Session implements HerdrSession {
   }
 
   @override
-  Future<void> close() async => closed = true;
+  void close() {
+    closed = true;
+    lease.release();
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _Client extends HerdrClient {
-  _Client({this.refuse = false, this.slowAuth = false});
+final _pin = PinnedHostKey(
+  type: 'ssh-ed25519',
+  fingerprint: 'SHA256:vm',
+  pinnedAt: DateTime(2026),
+);
 
-  final bool refuse;
-  final bool slowAuth;
+class _Rig {
+  _Rig({FakeDial? dial, DateTime Function()? now}) : dial = dial ?? FakeDial() {
+    links = HostLinks(dial: this.dial.call, now: now ?? DateTime.now);
+    pool = HerdrSessionPool(
+      links,
+      borrow: (lease) {
+        final session = _Session(lease);
+        sessions.add(session);
+        return session;
+      },
+      now: now ?? DateTime.now,
+    );
+  }
+
+  final FakeDial dial;
+  late final HostLinks links;
+  late final HerdrSessionPool pool;
   final sessions = <_Session>[];
-  var dials = 0;
-  var settling = 0;
 
-  @override
-  Future<HerdrSession> connect({
-    required String address,
-    required int port,
-    required String user,
-    required String privateKey,
-    HostKeyVerifier? verifier,
-    void Function(Future<void> settled)? onSettling,
-  }) async {
-    dials++;
-    if (refuse) throw const HerdrUnreachable('refused');
-    if (slowAuth) {
-      await Future<void>.delayed(const Duration(seconds: 10));
-      settling++;
-      onSettling?.call(
-        Future<void>.delayed(sshLoginGrace).whenComplete(() => settling--),
-      );
-      throw const HerdrUnreachable('no answer in 10s');
-    }
-    final session = _Session(sessions.length);
-    sessions.add(session);
-    return session;
+  Future<List<AgentSnapshot>> fetch() => pool.fetch(
+    address: '10.0.0.2',
+    port: 22,
+    user: 'luisnquin',
+    privateKey: 'key',
+    verifier: HostKeyVerifier.pinnedOnly(_pin),
+  );
+
+  void close() {
+    pool.close();
+    links.close();
   }
 }
 
-Future<List<AgentSnapshot>> _fetch(HerdrSessionPool pool) => pool.fetch(
-  address: '10.0.0.2',
-  port: 22,
-  user: 'luisnquin',
-  privateKey: 'key',
-);
-
 void main() {
   test('two fetches failing on one session redial once between them', () async {
-    final client = _Client();
-    final pool = HerdrSessionPool(client);
-    await _fetch(pool);
-    final first = client.sessions.single..gate = Completer();
+    final rig = _Rig();
+    await rig.fetch();
+    final first = rig.sessions.single..gate = Completer();
 
-    final a = _fetch(pool);
-    final b = _fetch(pool);
+    final a = rig.fetch();
+    final b = rig.fetch();
     await pumpEventQueue();
     first
       ..broken = true
       ..gate!.completeError(const HerdrUnreachable('dropped'));
     await Future.wait([a, b]);
 
-    expect(client.sessions, hasLength(2));
+    expect(rig.sessions, hasLength(2));
     expect(first.closed, isTrue);
-    expect(client.sessions.last.closed, isFalse);
-    pool.close();
+    expect(rig.sessions.last.closed, isFalse);
+    rig.close();
   });
 
   test('a refused dial fails the fetch and nothing else', () async {
-    final pool = HerdrSessionPool(_Client(refuse: true));
-    await expectLater(_fetch(pool), throwsA(isA<HerdrUnreachable>()));
+    final rig = _Rig(dial: FakeDial(refuse: true));
+    await expectLater(rig.fetch(), throwsA(isA<HerdrUnreachable>()));
     await pumpEventQueue();
-    pool.close();
+    rig.close();
   });
 
-  testWidgets('a held session that stops answering is redialled in 5 s', (
+  testWidgets(
+    'a held session that stops answering on a dead link is redialled once the ping goes unanswered',
+    (tester) async {
+      final rig = _Rig();
+      await rig.fetch();
+      final dead = rig.sessions.single..gate = Completer();
+      rig.dial.clients.single.pong = Completer();
+
+      var answered = false;
+      unawaited(rig.fetch().then((_) => answered = true));
+      await tester.pump(const Duration(seconds: 6, milliseconds: 999));
+      expect(answered, isFalse);
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(answered, isTrue);
+      expect(rig.dial.dials, 2);
+      expect(rig.dial.clients.first.isClosed, isTrue);
+      expect(dead.closed, isTrue);
+      expect(rig.sessions.last.closed, isFalse);
+      rig.close();
+    },
+  );
+
+  testWidgets(
+    'a held session that stops answering on a live link is replaced over the same link',
+    (tester) async {
+      final rig = _Rig();
+      await rig.fetch();
+      final dead = rig.sessions.single..gate = Completer();
+
+      var answered = false;
+      unawaited(rig.fetch().then((_) => answered = true));
+      await tester.pump(const Duration(seconds: 5));
+
+      expect(answered, isTrue);
+      expect(rig.dial.dials, 1);
+      expect(rig.dial.clients.single.isClosed, isFalse);
+      expect(dead.closed, isTrue);
+      expect(rig.sessions, hasLength(2));
+      rig.close();
+    },
+  );
+
+  testWidgets('a dial still settling fails the fetch without a second dial', (
     tester,
   ) async {
-    final client = _Client();
-    final pool = HerdrSessionPool(client);
-    await _fetch(pool);
-    final dead = client.sessions.single..gate = Completer();
-
-    var answered = false;
-    unawaited(_fetch(pool).then((_) => answered = true));
-    await tester.pump(const Duration(seconds: 4, milliseconds: 999));
-    expect(answered, isFalse);
-    await tester.pump(const Duration(milliseconds: 1));
-
-    expect(answered, isTrue);
-    expect(client.sessions, hasLength(2));
-    expect(dead.closed, isTrue);
-    expect(client.sessions.last.closed, isFalse);
-    pool.close();
-  });
-
-  testWidgets('no second dial goes out while the first is still settling', (
-    tester,
-  ) async {
-    final client = _Client(slowAuth: true);
-    final pool = HerdrSessionPool(client);
+    final rig = _Rig(dial: FakeDial(slowAuth: true));
     final failures = <HerdrFailure>[];
     var polling = true;
     unawaited(() async {
       while (polling) {
         try {
-          await _fetch(pool);
+          await rig.fetch();
         } on HerdrFailure catch (failure) {
           failures.add(failure);
         }
@@ -138,52 +162,80 @@ void main() {
     }());
     await tester.pump(const Duration(minutes: 2));
 
-    expect(client.dials, 1);
-    expect(client.settling, 1);
+    expect(rig.dial.dials, 1);
     expect(failures, isNotEmpty);
     expect(failures.every((failure) => failure is HerdrUnreachable), isTrue);
 
-    await tester.pump(const Duration(seconds: 15));
-    expect(client.settling, 0);
-    expect(client.dials, 2);
-
     polling = false;
-    pool.close();
+    rig.close();
     await tester.pump(sshLoginGrace + const Duration(seconds: 30));
   });
 
   group('a session idle past its window by the wall clock', () {
     late DateTime at;
-    late _Client client;
-    late HerdrSessionPool pool;
+    late _Rig rig;
 
     setUp(() {
       at = DateTime(2026, 9, 24, 12);
-      client = _Client();
-      pool = HerdrSessionPool(client, now: () => at);
+      rig = _Rig(now: () => at);
     });
 
-    tearDown(() => pool.close());
+    tearDown(() => rig.close());
 
-    test('is dialled fresh on the first fetch after a sleep', () async {
-      await _fetch(pool);
+    test('is replaced on the first fetch after a sleep', () async {
+      await rig.fetch();
       at = at.add(const Duration(minutes: 5));
-      await _fetch(pool);
+      await rig.fetch();
 
-      expect(client.sessions, hasLength(2));
-      expect(client.sessions.first.closed, isTrue);
-      expect(client.sessions.last.closed, isFalse);
+      expect(rig.sessions, hasLength(2));
+      expect(rig.sessions.first.closed, isTrue);
+      expect(rig.sessions.last.closed, isFalse);
+      expect(rig.dial.dials, 1);
+      expect(rig.dial.clients.single.pings, 1);
+      expect(rig.sessions.last.lease.client, same(rig.dial.clients.single));
+    });
+
+    testWidgets('waits out an unanswered ping, then dials once', (
+      tester,
+    ) async {
+      await rig.fetch();
+      rig.dial.clients.single.pong = Completer();
+      at = at.add(const Duration(minutes: 5));
+      var answered = false;
+      unawaited(rig.fetch().then((_) => answered = true));
+
+      await tester.pump(const Duration(seconds: 1, milliseconds: 999));
+      expect(answered, isFalse);
+      expect(rig.dial.dials, 1);
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(answered, isTrue);
+      expect(rig.dial.dials, 2);
+      expect(rig.dial.clients.first.isClosed, isTrue);
+      expect(rig.sessions.last.lease.client, same(rig.dial.clients.last));
+      rig.close();
+    });
+
+    test('is dialled fresh when its link does not answer the ping', () async {
+      await rig.fetch();
+      rig.dial.clients.single.pingError = StateError('gone');
+      at = at.add(const Duration(minutes: 5));
+      await rig.fetch();
+
+      expect(rig.dial.dials, 2);
+      expect(rig.dial.clients.first.isClosed, isTrue);
+      expect(rig.dial.clients.last.isClosed, isFalse);
     });
 
     test('is still shared inside its window', () async {
-      await _fetch(pool);
+      await rig.fetch();
       at = at.add(const Duration(seconds: 29));
-      await _fetch(pool);
+      await rig.fetch();
       at = at.add(const Duration(seconds: 29));
-      await _fetch(pool);
+      await rig.fetch();
 
-      expect(client.sessions, hasLength(1));
-      expect(client.sessions.single.closed, isFalse);
+      expect(rig.sessions, hasLength(1));
+      expect(rig.sessions.single.closed, isFalse);
     });
   });
 }

@@ -5,8 +5,11 @@ import 'package:dartssh2/dartssh2.dart';
 // ignore: implementation_imports
 import 'package:dartssh2/src/ssh_channel.dart';
 import 'package:dazzle/platform/devices/device_link.dart';
+import 'package:dazzle/platform/host_links.dart';
 import 'package:dazzle/platform/ssh_settle.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/ssh_exec.dart';
 
 const _pixel = HostDevice(
   kind: DeviceKind.android,
@@ -76,6 +79,19 @@ final class _Client implements SSHClient {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+final class _Refusing implements SSHClient {
+  @override
+  Future<SSHSession> execute(
+    String command, {
+    SSHPtyConfig? pty,
+    SSHX11Config? x11,
+    Map<String, String>? environment,
+  }) async => throw StateError('channel refused');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 final class _Socket implements SSHSocket {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -110,6 +126,52 @@ void main() {
     await _flush();
     expect(session.signals, [SSHSignal.TERM]);
     expect(session.destroyed, 1);
+  });
+
+  test('a borrowed link closed ends its loop and its listing, never the connection', () async {
+    final client = FakeRunClient((_) => null);
+    var released = 0;
+    final link = DeviceSsh.borrowed(HostLease(client, () => released++));
+    link.frames(_pixel).listen((_) {}, onError: (_) {});
+    unawaited(link.list().then((_) {}, onError: (_) {}));
+    await pumpEventQueue();
+    expect(client.sessions, hasLength(2));
+
+    await link.close();
+    await link.close();
+
+    for (final exec in client.sessions) {
+      expect(exec.signals, [SSHSignal.TERM]);
+      expect(exec.destroyed, 1);
+    }
+    expect(released, 1);
+    expect(client.closed, isFalse);
+  });
+
+  test('a borrowed link reads closed once the shared connection is', () async {
+    final client = FakeRunClient((_) => null);
+    final link = DeviceSsh.borrowed(HostLease(client, () {}));
+    expect(link.closed, isFalse);
+    await client.close();
+    expect(link.closed, isTrue);
+  });
+
+  test('a listing ends its command once it has answered', () async {
+    final client = FakeRunClient(
+      (_) => (exitCode: 0, stdout: 'A emulator-5554 pixel\n', stderr: ''),
+    );
+    final link = DeviceSsh.borrowed(HostLease(client, () {}));
+    expect(await link.list(), [_pixel]);
+    expect(client.sessions.single.destroyed, 1);
+  });
+
+  test('a listing that fails on a borrowed link suspects the link', () async {
+    var suspected = 0;
+    final link = DeviceSsh.borrowed(
+      HostLease(_Refusing(), () {}, () => suspected++),
+    );
+    await expectLater(link.list(), throwsA(anything));
+    expect(suspected, 1);
   });
 
   test('a loop that already exited is still torn down, quietly', () {

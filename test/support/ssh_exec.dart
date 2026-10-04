@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
@@ -43,8 +44,10 @@ final class FakeExecSession implements SSHSession {
   @override
   Future<void> get done => exited.future;
 
+  int? code;
+
   @override
-  int? get exitCode => null;
+  int? get exitCode => code;
 
   @override
   SSHSessionExitSignal? get exitSignal => null;
@@ -93,6 +96,49 @@ final class FakeExecClient implements SSHClient {
 final class FakeExecSocket implements SSHSocket {
   @override
   Future<void> close() async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+typedef FakeRunReply = ({int exitCode, String stdout, String stderr});
+
+final class FakeRunClient implements SSHClient {
+  FakeRunClient(this.reply);
+
+  final FakeRunReply? Function(String command) reply;
+  final commands = <String>[];
+  final sessions = <FakeExecSession>[];
+  var closed = false;
+
+  @override
+  bool get isClosed => closed;
+
+  @override
+  Future<void> close() async => closed = true;
+
+  @override
+  Future<SSHSession> execute(
+    String command, {
+    SSHPtyConfig? pty,
+    SSHX11Config? x11,
+    Map<String, String>? environment,
+  }) async {
+    commands.add(command);
+    final session = FakeExecSession();
+    sessions.add(session);
+    session.input.stream.listen(null);
+    final answer = reply(command);
+    if (answer != null) {
+      session.out.add(Uint8List.fromList(utf8.encode(answer.stdout)));
+      session.err.add(Uint8List.fromList(utf8.encode(answer.stderr)));
+      session.code = answer.exitCode;
+      unawaited(session.out.close());
+      unawaited(session.err.close());
+      session.exited.complete();
+    }
+    return session;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

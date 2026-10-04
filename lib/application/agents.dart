@@ -9,6 +9,7 @@ import '../data/repositories/key_repository.dart';
 import '../platform/engine_agents.dart';
 import '../platform/herdr_client.dart';
 import '../platform/herdr_pool.dart';
+import '../platform/host_links.dart';
 import '../platform/host_key_dial.dart';
 import '../platform/host_keys.dart';
 import 'agent_state.dart';
@@ -347,14 +348,20 @@ typedef HerdrFetch = Future<List<AgentSnapshot>> Function({
   HostKeyVerifier? verifier,
 });
 
+final hostLinksProvider = Provider<HostLinks>((ref) {
+  final links = HostLinks();
+  ref.onDispose(links.close);
+  return links;
+});
+
 final herdrFetchProvider = Provider<HerdrFetch>((ref) {
-  final pool = HerdrSessionPool(const HerdrClient());
+  final pool = HerdrSessionPool(ref.read(hostLinksProvider));
   ref.onDispose(pool.close);
   return pool.fetch;
 });
 
 final engineFetchProvider = Provider<HerdrFetch>((ref) {
-  const client = HerdrClient();
+  final links = ref.read(hostLinksProvider);
   return ({
     required address,
     required port,
@@ -362,12 +369,14 @@ final engineFetchProvider = Provider<HerdrFetch>((ref) {
     required privateKey,
     verifier,
   }) async {
-    final session = await client.connect(
-      address: address,
-      port: port,
-      user: user,
-      privateKey: privateKey,
-      verifier: verifier,
+    final session = HerdrSession.borrowed(
+      await links.lease(
+        address: address,
+        port: port,
+        user: user,
+        privateKey: privateKey,
+        verifier: verifier,
+      ),
     );
     try {
       return (await EngineAgents(session, owner: user).watch()).agents;
@@ -380,19 +389,21 @@ final engineFetchProvider = Provider<HerdrFetch>((ref) {
 typedef EngineOpen = Future<EngineAgents> Function(Host host);
 
 final engineOpenProvider = Provider<EngineOpen>((ref) {
-  const client = HerdrClient();
+  final links = ref.read(hostLinksProvider);
   final keys = ref.read(ed25519KeysProvider);
   return (host) async {
     final privateKey = await keys.privateKey(host.keyId);
     if (privateKey == null) {
       throw HerdrKeyRejected('no private key stored for ${host.keyId}');
     }
-    final session = await client.connect(
-      address: host.address,
-      port: host.port,
-      user: host.user,
-      privateKey: privateKey,
-      verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
+    final session = HerdrSession.borrowed(
+      await links.lease(
+        address: host.address,
+        port: host.port,
+        user: host.user,
+        privateKey: privateKey,
+        verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
+      ),
     );
     return EngineAgents(session, owner: host.user);
   };

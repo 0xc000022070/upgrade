@@ -235,9 +235,24 @@ class DeviceDock extends ChangeNotifier {
   }
 }
 
-final deviceLinkOpenerProvider = Provider<DeviceLinkOpener>(
-  (ref) => DeviceSsh.open,
-);
+final deviceLinkOpenerProvider = Provider<DeviceLinkOpener>((ref) {
+  final links = ref.read(hostLinksProvider);
+  return ({
+    required address,
+    required port,
+    required user,
+    required privateKey,
+    verifier,
+  }) async => DeviceSsh.borrowed(
+    await links.lease(
+      address: address,
+      port: port,
+      user: user,
+      privateKey: privateKey,
+      verifier: verifier,
+    ),
+  );
+});
 
 final deviceDockProvider = Provider<DeviceDock>((ref) {
   final keys = ref.read(ed25519KeysProvider);

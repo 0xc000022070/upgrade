@@ -1,6 +1,3 @@
-import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:dartssh2/dartssh2.dart';
 import 'package:dazzle/application/launch_scan.dart';
 import 'package:dazzle/application/reason_lines.dart';
@@ -11,52 +8,7 @@ import 'package:dazzle/platform/host_keys.dart';
 import 'package:dazzle/platform/shell/shell_launch.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-final class _StalledClient implements SSHClient {
-  var closed = false;
-
-  @override
-  Future<SSHRunResult> runWithResult(
-    String command, {
-    bool runInPty = false,
-    bool stdout = true,
-    bool stderr = true,
-    Map<String, String>? environment,
-  }) => Completer<SSHRunResult>().future;
-
-  @override
-  Future<void> close() async => closed = true;
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-final class _ZeroExitClient implements SSHClient {
-  final commands = <String>[];
-
-  @override
-  Future<SSHRunResult> runWithResult(
-    String command, {
-    bool runInPty = false,
-    bool stdout = true,
-    bool stderr = true,
-    Map<String, String>? environment,
-  }) async {
-    commands.add(command);
-    return SSHRunResult(
-      output: Uint8List(0),
-      stdout: Uint8List(0),
-      stderr: Uint8List(0),
-      exitCode: 0,
-      exitSignal: null,
-    );
-  }
-
-  @override
-  Future<void> close() async {}
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
+import 'support/ssh_exec.dart';
 
 final class _HeldSocket implements SSHSocket {
   var closed = false;
@@ -70,7 +22,7 @@ final class _HeldSocket implements SSHSocket {
 
 void main() {
   test('a host that reports every exit as 0 has neither tool', () async {
-    final client = _ZeroExitClient();
+    final client = FakeRunClient((_) => (exitCode: 0, stdout: '', stderr: ''));
     final session = HerdrSession.over(_HeldSocket(), client);
     final targets = await session.launchTargets();
     session.close();
@@ -85,7 +37,7 @@ void main() {
     () async {
       final keys = Ed25519Keys(MemoryPrivateKeyStore());
       await keys.generate(id: 'k1', name: 'test');
-      final client = _StalledClient();
+      final client = FakeRunClient((_) => null);
       final socket = _HeldSocket();
       const deadline = Duration(milliseconds: 50);
       final scanner = LaunchScanner(

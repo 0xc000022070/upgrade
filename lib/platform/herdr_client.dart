@@ -12,6 +12,7 @@ import '../application/pin_alerts.dart';
 import '../application/reason_lines.dart';
 import 'herdr_socket.dart';
 import 'host_keys.dart';
+import 'host_links.dart';
 import 'shell/remote_shell.dart';
 import 'shell/shell_launch.dart';
 import 'ssh_settle.dart';
@@ -530,16 +531,29 @@ final class HerdrProtocolMismatch extends HerdrFailure {
 /// where the command line it replaces was a shell, a `herdr` process and this same
 /// socket opened from the far end.
 class HerdrSession {
-  HerdrSession._(this._socket, this._client);
+  HerdrSession._(SSHSocket socket, this._client)
+    : _letGo = (() => unawaited(closeSsh(_client, socket))),
+      _suspect = _trusted;
 
   @visibleForTesting
-  HerdrSession.over(this._socket, this._client);
+  HerdrSession.over(SSHSocket socket, this._client)
+    : _letGo = (() => unawaited(closeSsh(_client, socket))),
+      _suspect = _trusted;
 
-  final SSHSocket _socket;
+  HerdrSession.borrowed(HostLease lease)
+    : _client = lease.client,
+      _letGo = lease.release,
+      _suspect = lease.suspect;
+
   final SSHClient _client;
+  final void Function() _letGo;
+  final void Function() _suspect;
+  static void _trusted() {}
+  var _closed = false;
 
   final _sockets = <String, String>{};
   final _execs = <SSHSession>{};
+  final _forwards = <SSHForwardChannel>{};
 
   /// One channel per running session reports panes arriving and leaving, one more per
   /// agent pane reports that pane's status transitions, and either kind of event asks the
@@ -611,9 +625,7 @@ class HerdrSession {
       return await (() async {
         // The session is read off the host, not off a setting: the default when it runs, else
         // the only one running, else a refusal that says which of the two it was.
-        final roster = await _guard(
-          () => _client.runWithResult(HerdrCommands.sessions()),
-        );
+        final roster = await _guard(() => _run(HerdrCommands.sessions()));
         if (roster.exitCode != 0) {
           return SpawnRefused(
             SpawnRefusal.spawnFailed,
@@ -633,8 +645,7 @@ class HerdrSession {
         }
         session = name;
         final resolved = await _guard(
-          () =>
-              _client.runWithResult(HerdrCommands.resolveDirectory(directory)),
+          () => _run(HerdrCommands.resolveDirectory(directory)),
         );
         if (resolved.exitCode == 20) {
           return const SpawnRefused(SpawnRefusal.noDirectory);
@@ -702,6 +713,7 @@ class HerdrSession {
         return SpawnSent(pane.pane);
       })().timeout(deadline);
     } on TimeoutException {
+      _suspect();
       expired = true;
       final made = workspace;
       final name = session;
@@ -711,20 +723,24 @@ class HerdrSession {
   }
 
   Future<List<String>> paths() async {
-    final result = await _guard(
-      () => _client.runWithResult(HerdrCommands.paths()),
-    );
+    final result = await _guard(() => _run(HerdrCommands.paths()));
     if (result.exitCode != 0) return const [];
     return HerdrClient.parsePaths(utf8.decode(result.stdout));
   }
 
   Future<LaunchTargets> launchTargets({Duration within = launchScanDeadline}) =>
-      _guard(() => _launchTargets().timeout(within));
+      _guard(
+        () => _launchTargets().timeout(
+          within,
+          onTimeout: () {
+            _suspect();
+            throw TimeoutException('launch scan', within);
+          },
+        ),
+      );
 
   Future<LaunchTargets> _launchTargets() async {
-    final probe = await _guard(
-      () => _client.runWithResult(LaunchCommands.present(), stderr: false),
-    );
+    final probe = await _guard(() => _run(LaunchCommands.present()));
     final present = LaunchCommands.parsePresent(
       utf8.decode(probe.stdout, allowMalformed: true),
     );
@@ -732,9 +748,7 @@ class HerdrSession {
     final hasTmux = present.contains('tmux');
     var sessions = const <SessionEntry>[];
     if (hasHerdr) {
-      final roster = await _guard(
-        () => _client.runWithResult(HerdrCommands.sessions()),
-      );
+      final roster = await _guard(() => _run(HerdrCommands.sessions()));
       if (roster.exitCode == 0) {
         try {
           sessions = HerdrClient.parseSessions(
@@ -748,7 +762,7 @@ class HerdrSession {
     final workspaces = <HerdrWorkspaceEntry>[];
     for (final session in sessions.where((session) => session.running)) {
       final listed = await _guard(
-        () => _client.runWithResult(LaunchCommands.workspaces(session.name)),
+        () => _run(LaunchCommands.workspaces(session.name)),
       );
       if (listed.exitCode != 0) continue;
       workspaces.addAll(
@@ -759,9 +773,7 @@ class HerdrSession {
       );
     }
     final tmux = hasTmux
-        ? await _guard(
-            () => _client.runWithResult(LaunchCommands.tmuxSessions()),
-          )
+        ? await _guard(() => _run(LaunchCommands.tmuxSessions()))
         : null;
     return LaunchTargets(
       herdrSessions: sessions,
@@ -777,9 +789,7 @@ class HerdrSession {
   }
 
   Future<List<String>> models(AgentKind kind) async {
-    final result = await _guard(
-      () => _client.runWithResult(HerdrCommands.models(kind)),
-    );
+    final result = await _guard(() => _run(HerdrCommands.models(kind)));
     if (result.exitCode != 0) return const [];
     return HerdrClient.parseModels(utf8.decode(result.stdout));
   }
@@ -831,17 +841,35 @@ class HerdrSession {
 
   /// A closed connection leaves a running exec to sshd, which hands it to init.
   void close() {
+    if (_closed) return;
+    _closed = true;
     for (final exec in [..._execs]) {
       _end(exec);
     }
-    unawaited(closeSsh(_client, _socket));
+    for (final forward in [..._forwards]) {
+      _forwards.remove(forward);
+      forward.destroy();
+    }
+    _letGo();
+  }
+
+  void _open() {
+    if (_closed) throw const HerdrUnreachable('session closed');
   }
 
   Future<SSHSession> _exec(String command) async {
+    _open();
     final session = await _guard(() => _client.execute(command));
+    if (_closed) {
+      endExec(session);
+      throw const HerdrUnreachable('session closed');
+    }
     _execs.add(session);
     return session;
   }
+
+  Future<SSHRunResult> _run(String command) =>
+      _runWithStdin(command, Uint8List(0));
 
   void _end(SSHSession session) {
     _execs.remove(session);
@@ -971,13 +999,18 @@ class HerdrSession {
         session.stderr.cast<List<int>>().forEach(err.add),
       ]);
       session.stdin.add(stdin);
-      await awaitWithin(
-        Future(() async {
-          await session.stdin.close();
-          await Future.wait([session.done, drained]);
-        }),
-        within,
-      );
+      try {
+        await awaitWithin(
+          Future(() async {
+            await session.stdin.close();
+            await Future.wait([session.done, drained]);
+          }),
+          within,
+        );
+      } on TimeoutException {
+        _suspect();
+        rethrow;
+      }
       final stdout = out.takeBytes();
       final stderr = err.takeBytes();
       return SSHRunResult(
@@ -1001,9 +1034,7 @@ class HerdrSession {
   }
 
   Future<List<SessionEntry>> _roster() async {
-    final result = await _guard(
-      () => _client.runWithResult(HerdrCommands.sessions()),
-    );
+    final result = await _guard(() => _run(HerdrCommands.sessions()));
     if (result.exitCode == 127) {
       throw HerdrMissing(utf8.decode(result.output).trim());
     }
@@ -1081,6 +1112,7 @@ class HerdrSession {
   }
 
   Future<HerdrLink> _link(String path) async {
+    _open();
     final channel = await _guard(() => _client.forwardLocalUnix(path));
     return _wrap(channel);
   }
@@ -1088,6 +1120,7 @@ class HerdrSession {
   /// Null when the far side refused the channel: no server is listening on [path]. A
   /// connection that is itself gone fails with the errors every other exchange fails with.
   Future<HerdrLink?> _linkOrNone(String path) async {
+    _open();
     final SSHForwardChannel channel;
     try {
       channel = await _client.forwardLocalUnix(path);
@@ -1101,11 +1134,21 @@ class HerdrSession {
 
   /// A channel let go rather than closed: herdr resets a connection whose client
   /// half-closes it, and the answer is already in hand by then.
-  HerdrLink _wrap(SSHForwardChannel channel) => HerdrLink(
-    incoming: channel.stream,
-    outgoing: channel.sink,
-    shut: () async => channel.destroy(),
-  );
+  HerdrLink _wrap(SSHForwardChannel channel) {
+    if (_closed) {
+      channel.destroy();
+      throw const HerdrUnreachable('session closed');
+    }
+    _forwards.add(channel);
+    return HerdrLink(
+      incoming: channel.stream,
+      outgoing: channel.sink,
+      shut: () async {
+        _forwards.remove(channel);
+        channel.destroy();
+      },
+    );
+  }
 
   static String _said(HerdrReply reply) => switch (reply) {
     HerdrRefusal(:final code, :final message) =>
@@ -1645,7 +1688,7 @@ class HerdrClient {
     return protocol is int ? protocol : null;
   }
 
-  Future<HerdrSession> connect({
+  Future<SshLink> dial({
     required String address,
     required int port,
     required String user,
@@ -1669,7 +1712,7 @@ class HerdrClient {
         () => authenticatedWithin(client.authenticated, verifier, timeout),
         verifier,
       );
-      return HerdrSession._(socket, client);
+      return (socket: socket, client: client);
     } on HerdrFailure {
       // A half-open connection is worse than none: the host would count it against the one
       // connection per phone until its own timeout.
@@ -1677,6 +1720,25 @@ class HerdrClient {
       onSettling?.call(settled);
       rethrow;
     }
+  }
+
+  Future<HerdrSession> connect({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    HostKeyVerifier? verifier,
+    void Function(Future<void> settled)? onSettling,
+  }) async {
+    final link = await dial(
+      address: address,
+      port: port,
+      user: user,
+      privateKey: privateKey,
+      verifier: verifier,
+      onSettling: onSettling,
+    );
+    return HerdrSession._(link.socket, link.client);
   }
 
   Future<List<AgentSnapshot>> fetch({

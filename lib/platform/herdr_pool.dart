@@ -1,17 +1,22 @@
 import 'dart:async';
 
+import 'package:dartssh2/dartssh2.dart';
+
 import 'herdr_client.dart';
 import 'host_keys.dart';
+import 'host_links.dart';
 
 class HerdrSessionPool {
   HerdrSessionPool(
-    this._client, {
+    this._links, {
+    this.borrow = HerdrSession.borrowed,
     this.idle = const Duration(seconds: 30),
     this.reuse = const Duration(seconds: 5),
     this.now = DateTime.now,
   });
 
-  final HerdrClient _client;
+  final HostLinks _links;
+  final HerdrSession Function(HostLease lease) borrow;
   final Duration idle;
 
   /// A live session lists in well under a second; one silent this long has lost its socket,
@@ -21,7 +26,6 @@ class HerdrSessionPool {
   // Wall time: timers run on the monotonic clock, which stops while the phone sleeps.
   final DateTime Function() now;
   final _held = <String, _Held>{};
-  final _settling = <String, Future<void>>{};
 
   Future<List<AgentSnapshot>> fetch({
     required String address,
@@ -43,34 +47,32 @@ class HerdrSessionPool {
     var held = _held[key];
     if (held != null && now().difference(held.usedAt) >= idle) {
       _drop(key, held);
+      if (held.client case final client?) await _links.vouch(client);
       held = null;
     }
     if (held != null) {
       try {
         return await held.list(now(), within: reuse);
+      } on TimeoutException {
+        _drop(key, held);
+        if (held.client case final client?) await _links.vouch(client);
+        if (!held.ready) rethrow;
       } catch (_) {
         _drop(key, held);
-        // Only a session that had worked is worth a second dial: a host that refused the
-        // first one would just refuse it again, a beat later.
         if (!held.ready) rethrow;
       }
     }
 
-    // A failed dial keeps authenticating until sshd lets go, and every one still open counts
-    // against MaxStartups: a second dial while it settles is how the user's own gets dropped.
-    if (_settling.containsKey(key)) {
-      throw const HerdrUnreachable('an earlier dial is still settling');
-    }
     late final _Held created;
     final fresh = _held[key] ??= created = _Held(
-      _client.connect(
+      _links.lease(
         address: address,
         port: port,
         user: user,
         privateKey: privateKey,
         verifier: verifier,
-        onSettling: (settled) => _settle(key, settled),
       ),
+      borrow,
       idle,
       now(),
       () => _drop(key, created),
@@ -95,28 +97,32 @@ class HerdrSessionPool {
     _held.remove(key);
     held.close();
   }
-
-  void _settle(String key, Future<void> settled) {
-    _settling[key] = settled;
-    settled.whenComplete(() {
-      if (identical(_settling[key], settled)) _settling.remove(key);
-    });
-  }
 }
 
 class _Held {
-  _Held(this._session, this._idle, this.usedAt, this._expire) {
+  _Held(
+    Future<HostLease> lease,
+    HerdrSession Function(HostLease lease) borrow,
+    this._idle,
+    this.usedAt,
+    this._expire,
+  ) {
+    _session = lease.then((lease) {
+      client = lease.client;
+      return borrow(lease);
+    });
     _session.then((_) {
       ready = true;
     }, onError: (_) {});
     _arm();
   }
 
-  final Future<HerdrSession> _session;
+  late final Future<HerdrSession> _session;
   final Duration _idle;
   final void Function() _expire;
   Timer? _timer;
   bool ready = false;
+  SSHClient? client;
   DateTime usedAt;
 
   Future<List<AgentSnapshot>> list(DateTime at, {Duration? within}) async {

@@ -773,6 +773,8 @@ A socket that opens and then says nothing is its own failure and not silence: th
 
 One interval for every connection the app holds — the shell, the agent client and watcher, the screen, the devices, the workspace, the host-key check, the plugin hosts — and it is sixty seconds, with no setting. It is what keeps the far side and every NAT between from forgetting a connection that is idle, and each one is the radio waking, so it is as long as that allows and set in one place. It does not find a dead link: a keepalive that goes unanswered is not an error, and the next request that fails is what finds it.
 
+**The agent list, the engine and the devices share one ssh connection per host**, opened by the first of them to ask, held thirty seconds past the last one done with it, and dialled again once, for all of them, when it drops.
+
 ## Agents
 
 ### The panel at the top of Home says what the agents are doing
