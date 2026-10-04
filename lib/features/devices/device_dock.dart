@@ -134,6 +134,18 @@ class DeviceDock extends ChangeNotifier {
     notifyListeners();
   }
 
+  void stopWatching(String hostId, HostDevice device) {
+    final session = _session;
+    if (session == null ||
+        session.host.id != hostId ||
+        session.device != device) {
+      return;
+    }
+    _end();
+    _collapse(false);
+    notifyListeners();
+  }
+
   void float() {
     if (_groups.isEmpty && _session == null) return;
     _floating = true;

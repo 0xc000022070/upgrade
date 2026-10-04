@@ -30,6 +30,38 @@ final class DevicesFailed extends DevicesPhase {
   final String reason;
 }
 
+sealed class DeviceBoot {
+  const DeviceBoot(this.device);
+
+  final StoppedDevice device;
+}
+
+final class BootRunning extends DeviceBoot {
+  const BootRunning(super.device);
+}
+
+final class BootFailed extends DeviceBoot {
+  const BootFailed(super.device, this.reason);
+
+  final String reason;
+}
+
+sealed class DeviceWork {
+  const DeviceWork();
+}
+
+final class WorkRunning extends DeviceWork {
+  const WorkRunning();
+}
+
+final class WorkFailed extends DeviceWork {
+  const WorkFailed(this.reason);
+
+  final String reason;
+}
+
+String workKey(HostDevice device) => '${device.kind.name}:${device.id}';
+
 class DevicesController extends ChangeNotifier {
   DevicesController({
     required this.host,
@@ -37,14 +69,18 @@ class DevicesController extends ChangeNotifier {
     required this._readPrivateKey,
     this.pinHostKey,
     this.prompt,
+    this.bootLimit = defaultBootLimit,
     DeviceLinkOpener? open,
   }) : _open = open ?? DeviceSsh.open;
+
+  static const defaultBootLimit = Duration(minutes: 3);
 
   final Host host;
   final DeviceDock dock;
   final Future<String?> Function(String keyId) _readPrivateKey;
   final Future<void> Function(String hostId, PinnedHostKey key)? pinHostKey;
   final HostKeyPrompt? prompt;
+  final Duration bootLimit;
   final DeviceLinkOpener _open;
 
   PinnedHostKey? _pinned;
@@ -52,19 +88,191 @@ class DevicesController extends ChangeNotifier {
   DevicesPhase _phase = const DevicesLoading();
   bool _disposed = false;
   int _attempt = 0;
+  final _boots = <DeviceBoot>[];
+  final _work = <String, DeviceWork>{};
 
   Future<DeviceLink?>? _dialling;
 
   DevicesPhase get phase => _phase;
   DeviceLink? get link => _link?.closed ?? true ? null : _link;
+  List<DeviceBoot> get boots => List.unmodifiable(_boots);
+  DeviceWork? workOn(HostDevice device) => _work[workKey(device)];
+
+  List<HostDevice> get shown {
+    final phase = _phase;
+    if (phase is! DevicesListed) return const [];
+    return [
+      for (final device in phase.devices)
+        if (!_boots.any((boot) => _bootOf(boot, device))) device,
+    ];
+  }
+
+  bool _bootOf(DeviceBoot boot, HostDevice device) =>
+      boot.device.kind == device.kind &&
+      boot.device.id ==
+          (device.kind == DeviceKind.android ? device.avd : device.id);
 
   void revive() {
     if (_link?.closed ?? false) unawaited(refresh());
   }
 
+  Future<DeviceLink> _ready() async {
+    final link = _live() ?? await _connect();
+    if (link == null) throw const HerdrUnreachable('no device link');
+    return link;
+  }
+
+  Future<StoppedListing> stopped() async {
+    final link = await _ready();
+    final listing = parseStoppedList(await link.read(DeviceCommands.stopped()));
+    final running = {
+      for (final boot in _boots)
+        if (boot is BootRunning) boot.device,
+    };
+    return StoppedListing(
+      tools: listing.tools,
+      devices: [
+        for (final device in listing.devices)
+          if (!running.contains(device)) device,
+      ],
+    );
+  }
+
+  Future<void> boot(StoppedDevice device, {required bool cold}) async {
+    if (_boots.any((boot) => boot is BootRunning && boot.device == device)) {
+      return;
+    }
+    _boots
+      ..removeWhere((boot) => boot.device == device)
+      ..add(BootRunning(device));
+    notifyListeners();
+    String? reason;
+    try {
+      final link = await _ready();
+      if (_disposed) return;
+      final outcome = parseOutcome(
+        await link.read(
+          DeviceCommands.boot(device, cold: cold),
+          limit: bootLimit,
+        ),
+      );
+      reason = outcome.ok ? null : outcome.error;
+    } on TimeoutException {
+      reason = ReasonLine.bootTimedOut.words;
+    } catch (error) {
+      reason = _reason(error);
+    }
+    if (_disposed) return;
+    final index = _boots.indexWhere(
+      (boot) => boot is BootRunning && boot.device == device,
+    );
+    if (index < 0) return;
+    if (reason == null) {
+      _boots.removeAt(index);
+      notifyListeners();
+      await _relist();
+      return;
+    }
+    _boots[index] = BootFailed(device, reason);
+    notifyListeners();
+  }
+
+  Future<void> shutDown(HostDevice device) =>
+      _act(device, DeviceCommands.shutDown(device));
+
+  Future<void> delete(HostDevice device) {
+    final android = device.kind == DeviceKind.android;
+    return _act(
+      device,
+      DeviceCommands.delete(
+        kind: device.kind,
+        id: android ? device.avd ?? device.id : device.id,
+        serial: android ? device.id : null,
+      ),
+    );
+  }
+
+  Future<void> _act(HostDevice device, String command) async {
+    final key = workKey(device);
+    if (_work[key] is WorkRunning) return;
+    _work[key] = const WorkRunning();
+    notifyListeners();
+    dock.stopWatching(host.id, device);
+    String? reason;
+    try {
+      final link = await _ready();
+      final outcome = parseOutcome(await link.read(command));
+      reason = outcome.ok ? null : outcome.error;
+    } catch (error) {
+      reason = _reason(error);
+    }
+    if (_disposed) return;
+    if (reason == null) {
+      _work.remove(key);
+      await _relist();
+      return;
+    }
+    _work[key] = WorkFailed(reason);
+    notifyListeners();
+  }
+
+  Future<String?> deleteStopped(StoppedDevice device) =>
+      _answer(DeviceCommands.delete(kind: device.kind, id: device.id));
+
+  Future<String?> create(NewDevice device) =>
+      _answer(DeviceCommands.create(device));
+
+  Future<DeviceCatalog> catalog(DeviceKind kind) async {
+    final link = await _ready();
+    final out = await link.read(DeviceCommands.catalog(kind));
+    return switch (kind) {
+      DeviceKind.android => parseAndroidCatalog(out),
+      DeviceKind.simulator => parseSimulatorCatalog(out),
+    };
+  }
+
+  Future<String?> _answer(String command) async {
+    try {
+      final link = await _ready();
+      final outcome = parseOutcome(await link.read(command));
+      return outcome.ok ? null : outcome.error;
+    } catch (error) {
+      return _reason(error);
+    }
+  }
+
+  String reasonFor(Object error) => _reason(error);
+
+  String _reason(Object error) {
+    debugPrint('dazzle.devices ${host.name}: $error');
+    return asHerdrFailure(error)?.reason(host.name) ??
+        ReasonLine.streamClosed.words;
+  }
+
+  Future<void> _relist() async {
+    final attempt = _attempt;
+    try {
+      final link = await _ready();
+      final devices = await link.list();
+      if (_disposed || attempt != _attempt) return;
+      _phase = DevicesListed(devices);
+      _boots.removeWhere(
+        (boot) =>
+            boot is BootFailed &&
+            devices.any((device) => _bootOf(boot, device)),
+      );
+      notifyListeners();
+    } catch (error) {
+      if (_disposed || attempt != _attempt) return;
+      _fail(error);
+    }
+  }
+
   Future<void> refresh() async {
     final attempt = ++_attempt;
     _phase = const DevicesLoading();
+    _boots.removeWhere((boot) => boot is BootFailed);
+    _work.removeWhere((_, work) => work is WorkFailed);
     notifyListeners();
     try {
       final link = _live() ?? await _connect();
@@ -145,6 +353,8 @@ class DevicesController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _boots.clear();
+    _work.clear();
     final link = _link;
     _link = null;
     if (link != null) dock.release(host.id, link);

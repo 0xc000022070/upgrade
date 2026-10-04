@@ -8,6 +8,7 @@ import '../../application/agents.dart';
 import '../../application/navigation.dart';
 import '../../application/pip.dart';
 import '../../data/repositories/host_repository.dart';
+import '../../design/components/inline_confirm.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/dazzle_icon.dart';
 import '../../design/icons/dazzle_icons.dart';
@@ -19,6 +20,7 @@ import '../hosts/host_strip.dart';
 import 'device_controllers.dart';
 import 'device_dock.dart';
 import 'device_screen.dart';
+import 'device_sheet.dart';
 
 const deviceFloatWidth = 120.0;
 const deviceFloatMinWidth = 100.0;
@@ -100,11 +102,20 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   bool _overClose = false;
   bool _overlay = false;
   bool _menu = false;
+  bool _sheet = false;
 
   @override
   void initState() {
     super.initState();
     _dock = ref.read(deviceDockProvider);
+  }
+
+  Future<void> _openSheet(DevicesController group) async {
+    final context = rootNavigatorKey.currentContext;
+    if (context == null || _sheet) return;
+    setState(() => _sheet = true);
+    await showDeviceSheet(context, group);
+    if (mounted) setState(() => _sheet = false);
   }
 
   void _expand() {
@@ -179,6 +190,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
       listenable: _dock,
       builder: (context, _) {
         final session = _dock.session;
+        if (_sheet) return const SizedBox.shrink();
         if (!_dock.floating || (session == null && _dock.groups.isEmpty)) {
           _overlay = false;
           _menu = false;
@@ -255,6 +267,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
                 _dock.select(group, device);
               },
               onFold: () => setState(() => _menu = false),
+              onSheet: _openSheet,
               grip: (child) => _handle(
                 media,
                 key: const ValueKey('device-list-handle'),
@@ -418,13 +431,14 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   }
 }
 
-class _DeviceList extends StatelessWidget {
+class _DeviceList extends StatefulWidget {
   const _DeviceList({
     super.key,
     required this.dock,
     required this.hosts,
     required this.onSelect,
     required this.onFold,
+    required this.onSheet,
     required this.grip,
   });
 
@@ -432,11 +446,94 @@ class _DeviceList extends StatelessWidget {
   final List<Host>? hosts;
   final void Function(DevicesController, HostDevice) onSelect;
   final VoidCallback onFold;
+  final void Function(DevicesController) onSheet;
   final Widget Function(Widget child) grip;
 
   @override
+  State<_DeviceList> createState() => _DeviceListState();
+}
+
+class _DeviceListState extends State<_DeviceList> {
+  String? _opened;
+
+  List<Widget> _rows(BuildContext context, DevicesController group) {
+    final tokens = context.tokens;
+    final session = widget.dock.session;
+    final hostId = group.host.id;
+    final shown = group.shown;
+    final boots = group.boots;
+    final phase = group.phase;
+    return switch (phase) {
+      DevicesLoading() => [const _ListRow(label: '…')],
+      DevicesFailed(:final reason) => [
+        _ListRow(label: reason, color: tokens.warning),
+      ],
+      DevicesListed() when shown.isEmpty && boots.isEmpty => [
+        const _ListRow(label: 'NONE'),
+      ],
+      DevicesListed() => [
+        for (final device in shown)
+          ...() {
+            final key = '$hostId-${device.id}';
+            final work = group.workOn(device);
+            final opened = _opened == key && work is! WorkRunning;
+            return [
+              _ListRow(
+                key: ValueKey('device-tab-$key'),
+                label: work is WorkRunning ? '${device.name}  …' : device.name,
+                active:
+                    session?.host.id == hostId &&
+                    session?.device.id == device.id,
+                onTap: work is WorkRunning
+                    ? null
+                    : () => widget.onSelect(group, device),
+                onLongPress: device.managed && work is! WorkRunning
+                    ? () => setState(() => _opened = opened ? null : key)
+                    : () {},
+              ),
+              if (opened)
+                _DeviceActions(
+                  key: ValueKey('device-actions-$key'),
+                  id: key,
+                  onShutDown: () {
+                    setState(() => _opened = null);
+                    unawaited(group.shutDown(device));
+                  },
+                  onDelete: () {
+                    setState(() => _opened = null);
+                    unawaited(group.delete(device));
+                  },
+                ),
+              if (work case WorkFailed(:final reason))
+                _ListRow(label: reason, color: tokens.warning),
+            ];
+          }(),
+        for (final boot in boots)
+          ...switch (boot) {
+            BootRunning(:final device) => [
+              _ListRow(
+                key: ValueKey('device-booting-$hostId-${device.id}'),
+                label: '${device.name}  …',
+              ),
+            ],
+            BootFailed(:final device, :final reason) => [
+              _ListRow(
+                key: ValueKey('device-boot-failed-$hostId-${device.id}'),
+                label: device.name,
+              ),
+              _ListRow(label: reason, color: tokens.warning),
+            ],
+          },
+      ],
+    };
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final session = dock.session;
+    final dock = widget.dock;
+    final hosts = widget.hosts;
+    final grip = widget.grip;
+    final onFold = widget.onFold;
     final groups = dock.groups;
     final shown = {for (final group in groups) group.host.id};
     final more = [
@@ -500,29 +597,9 @@ class _DeviceList extends StatelessWidget {
                       host: group.host,
                       failed: group.phase is DevicesFailed,
                       onTap: () => dock.show(group.host),
+                      onPlus: () => widget.onSheet(group),
                     ),
-                    ...switch (group.phase) {
-                      DevicesLoading() => [const _ListRow(label: '…')],
-                      DevicesFailed(:final reason) => [
-                        _ListRow(label: reason, color: tokens.warning),
-                      ],
-                      DevicesListed(:final devices) when devices.isEmpty => [
-                        const _ListRow(label: 'NONE'),
-                      ],
-                      DevicesListed(:final devices) => [
-                        for (final device in devices)
-                          _ListRow(
-                            key: ValueKey(
-                              'device-tab-${group.host.id}-${device.id}',
-                            ),
-                            label: device.name,
-                            active:
-                                session?.host.id == group.host.id &&
-                                session?.device.id == device.id,
-                            onTap: () => onSelect(group, device),
-                          ),
-                      ],
-                    },
+                    ..._rows(context, group),
                   ],
                 ],
               ),
@@ -576,39 +653,92 @@ class _HostRow extends StatelessWidget {
     required this.host,
     required this.failed,
     required this.onTap,
+    required this.onPlus,
   });
 
   final Host host;
   final bool failed;
   final VoidCallback onTap;
+  final VoidCallback onPlus;
 
   @override
   Widget build(BuildContext context) {
     final ink = failed ? context.tokens.warning : context.tokens.textMuted;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          Spacing.md,
-          Spacing.md,
-          Spacing.md,
-          Spacing.xs,
-        ),
-        child: Row(
-          children: [
-            HostMark(host.system, size: IconSizes.affordance, color: ink),
-            const SizedBox(width: Spacing.xs),
-            Expanded(
-              child: Text(
-                host.name.toUpperCase(),
-                style: context.tokens.label.copyWith(color: ink),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.md,
+                Spacing.md,
+                Spacing.md,
+                Spacing.xs,
+              ),
+              child: Row(
+                children: [
+                  HostMark(host.system, size: IconSizes.affordance, color: ink),
+                  const SizedBox(width: Spacing.xs),
+                  Expanded(
+                    child: Text(
+                      host.name.toUpperCase(),
+                      style: context.tokens.label.copyWith(color: ink),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
+        _Glyph(
+          key: ValueKey('device-group-plus-${host.id}'),
+          icon: DazzleIcons.add,
+          label: '${host.name.toUpperCase()} DEVICES',
+          onTap: onPlus,
+        ),
+      ],
+    );
+  }
+}
+
+class _DeviceActions extends StatelessWidget {
+  const _DeviceActions({
+    super.key,
+    required this.id,
+    required this.onShutDown,
+    required this.onDelete,
+  });
+
+  final String id;
+  final VoidCallback onShutDown;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          _Word(
+            key: ValueKey('device-shutdown-$id'),
+            label: 'SHUT DOWN',
+            onTap: onShutDown,
+          ),
+          InlineConfirmBlock(
+            key: ValueKey('device-delete-$id'),
+            label: 'DELETE',
+            confirmLabel: 'CONFIRM DELETE',
+            compact: true,
+            onConfirmed: onDelete,
+          ),
+        ],
       ),
     );
   }
@@ -620,12 +750,14 @@ class _ListRow extends StatelessWidget {
     required this.label,
     this.active = false,
     this.onTap,
+    this.onLongPress,
     this.color,
   });
 
   final String label;
   final bool active;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final Color? color;
 
   @override
@@ -643,6 +775,7 @@ class _ListRow extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Container(
           constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
           padding: const EdgeInsets.symmetric(horizontal: Spacing.md),

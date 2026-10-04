@@ -21,7 +21,13 @@ enum ReasonLine {
   newerBundle('newer bundle'),
   wrongPassphrase('wrong passphrase'),
   bundleIncomplete('bundle incomplete'),
-  noPicker('no picker');
+  noPicker('no picker'),
+
+  bootTimedOut('not booted in 3 min'),
+  noDeviceTools('no emulator or xcrun'),
+  noAvdManager('no avdmanager'),
+  noSystemImage('no system image'),
+  noRuntime('no simulator runtime');
 
   const ReasonLine(this.words, {this.names = false});
 

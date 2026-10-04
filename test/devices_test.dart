@@ -77,12 +77,76 @@ class FakeDeviceLink implements DeviceLink {
   @override
   Future<void> run(String command) async => commands.add(command);
 
+  final reads = <String>[];
+  final answers = <String, String>{};
+  final held = <String, Completer<String>>{};
+
+  @override
+  Future<String> read(String command, {Duration? limit}) async {
+    reads.add(command);
+    for (final MapEntry(:key, :value) in held.entries) {
+      if (!command.contains(key)) continue;
+      final pending = value.future;
+      return limit == null ? pending : pending.timeout(limit);
+    }
+    for (final MapEntry(:key, :value) in answers.entries) {
+      if (command.contains(key)) return value;
+    }
+    return 'OK\n';
+  }
+
+  int readsOf(String part) =>
+      reads.where((command) => command.contains(part)).length;
+
   @override
   bool closed = false;
 
   @override
-  Future<void> close() async => closed = true;
+  Future<void> close() async {
+    closed = true;
+    for (final pending in held.values) {
+      if (!pending.isCompleted) pending.completeError(StateError('ended'));
+    }
+  }
 }
+
+const _bootPart = '-no-window';
+const _stoppedPart = 'emulator -list-avds';
+const _killPart = 'emu kill';
+const _avdDeletePart = 'avdmanager delete avd';
+
+const _sims = '''
+{"devices": {"com.apple.CoreSimulator.SimRuntime.iOS-27-0": [
+  {"udid": "SIM-1", "name": "iPhone Air", "state": "Shutdown", "isAvailable": true}
+]}}''';
+
+const _booted = HostDevice(
+  kind: DeviceKind.android,
+  id: 'emulator-5556',
+  name: 'Pixel_9',
+  avd: 'Pixel_9',
+);
+
+FakeDeviceLink _hostLink([List<HostDevice> devices = const [_pixel]]) =>
+    FakeDeviceLink(devices)
+      ..answers[_stoppedPart] = 'T A\nE Pixel_9\nT I\n@simctl\n$_sims\n';
+
+Future<void> _openSheet(WidgetTester tester) async {
+  if (find.byKey(_bubbleKey).evaluate().isNotEmpty) await _open(tester);
+  await tester.tap(find.byKey(const ValueKey('device-group-plus-h1')));
+  await _settle(tester);
+}
+
+Future<void> _longPress(WidgetTester tester, Key key) async {
+  if (find.byKey(_bubbleKey).evaluate().isNotEmpty) await _open(tester);
+  await tester.longPress(find.byKey(key));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
+DeviceDock _dock(WidgetTester tester) =>
+    ProviderScope.containerOf(tester.element(find.byType(DeviceFloat)))
+        .read(deviceDockProvider);
 
 DeviceLinkOpener _opener(FakeDeviceLink link) =>
     ({
@@ -205,22 +269,6 @@ DeviceFrame _frame({int width = 1080, int height = 2400}) {
 }
 
 void main() {
-  test('the list keeps names with spaces and skips what is not a device', () {
-    final devices = parseDeviceList(
-      'A emulator-5554 pixel_7-api36-b\n'
-      'noise\n'
-      'I 0A1B2C3D-0000-1111-2222-333344445555 iPhone 17 Pro\n'
-      'A R5CT1234\n',
-    );
-    expect(devices.map((device) => device.name), [
-      'pixel_7-api36-b',
-      'iPhone 17 Pro',
-      'R5CT1234',
-    ]);
-    expect(devices[1].kind, DeviceKind.simulator);
-    expect(devices[1].pressable, isFalse);
-  });
-
   test('frames survive being cut anywhere and keepalives vanish', () async {
     final body = List<int>.generate(10, (index) => index);
     final wire = [
@@ -1115,5 +1163,435 @@ void main() {
     expect(shown.substring(0, second).replaceAll('\u200B', ''), endsWith('_'));
     expect(find.bySemanticsLabel(raw), findsOneWidget);
     semantics.dispose();
+  });
+
+  group('booting and removing', () {
+    testWidgets('+ lists what is shut down, over a hidden bar', (tester) async {
+      final link = _hostLink();
+      await _pump(tester, _opener(link));
+      await _openSheet(tester);
+
+      expect(find.byKey(const ValueKey('device-sheet')), findsOneWidget);
+      expect(find.text('ROSE DEVICES'), findsOneWidget);
+      expect(find.byKey(_barKey), findsNothing);
+      expect(
+        find.byKey(const ValueKey('device-stopped-Pixel_9')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('device-stopped-SIM-1')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('device-sheet-new')), findsOneWidget);
+
+      await tester.tapAt(const Offset(4, 4));
+      await _settle(tester);
+      expect(find.byKey(const ValueKey('device-sheet')), findsNothing);
+      expect(find.byKey(_barKey), findsOneWidget);
+    });
+
+    testWidgets('a host with neither tool says so and offers nothing', (
+      tester,
+    ) async {
+      final link = FakeDeviceLink(const [_pixel])..answers[_stoppedPart] = '';
+      await _pump(tester, _opener(link));
+      await _openSheet(tester);
+      expect(find.text('no emulator or xcrun'), findsOneWidget);
+      expect(find.byKey(const ValueKey('device-sheet-new')), findsNothing);
+    });
+
+    for (final cold in [false, true]) {
+      testWidgets(
+        '${cold ? 'COLD BOOT' : 'BOOT'} shows the row booting, then live',
+        (tester) async {
+          final link = _hostLink();
+          final boot = link.held[_bootPart] = Completer<String>();
+          await _pump(tester, _opener(link));
+          await _openSheet(tester);
+          await _tapKey(
+            tester,
+            ValueKey('device-${cold ? 'cold' : 'boot'}-Pixel_9'),
+          );
+          await _settle(tester);
+
+          expect(find.byKey(const ValueKey('device-sheet')), findsNothing);
+          expect(find.byKey(_barKey), findsOneWidget);
+          final sent = link.reads.singleWhere((c) => c.contains(_bootPart));
+          expect(sent.contains('-no-snapshot-load'), cold);
+          expect(
+            find.byKey(const ValueKey('device-booting-h1-Pixel_9')),
+            findsOneWidget,
+          );
+          expect(find.text('Pixel_\u200B9  \u2026'), findsOneWidget);
+
+          link.devices = const [_pixel, _booted];
+          boot.complete('B emulator-5556\n');
+          await _settle(tester);
+          expect(
+            find.byKey(const ValueKey('device-booting-h1-Pixel_9')),
+            findsNothing,
+          );
+          await _pick(tester, _booted);
+          expect(link.frameStreams.single.hasListener, isTrue);
+        },
+      );
+    }
+
+    testWidgets('a boot that fails keeps the name and says why', (
+      tester,
+    ) async {
+      final link = _hostLink()
+        ..answers[_bootPart] = 'INFO booting\nE PANIC: no engine\n';
+      await _pump(tester, _opener(link));
+      await _openSheet(tester);
+      await _tapKey(tester, const ValueKey('device-boot-Pixel_9'));
+      await _settle(tester);
+      expect(
+        find.byKey(const ValueKey('device-boot-failed-h1-Pixel_9')),
+        findsOneWidget,
+      );
+      expect(find.text('PANIC: no engine'), findsOneWidget);
+    });
+
+    testWidgets('a boot past 3 min fails alone; the label clears it', (
+      tester,
+    ) async {
+      final link = _hostLink();
+      link.held[_bootPart] = Completer<String>();
+      await _pump(tester, _opener(link));
+      await _openSheet(tester);
+      await _tapKey(tester, const ValueKey('device-boot-Pixel_9'));
+      final listed = link.reads.length;
+      await tester.pump(const Duration(minutes: 3));
+      await _settle(tester);
+      expect(find.text('not booted in 3 min'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('device-boot-failed-h1-Pixel_9')),
+        findsOneWidget,
+      );
+      expect(link.reads, hasLength(listed));
+      expect(link.readsOf(_killPart), 0);
+
+      link.devices = const [_pixel, _booted];
+      await tester.tap(find.text('ROSE'));
+      await _settle(tester);
+      expect(find.text('not booted in 3 min'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('device-boot-failed-h1-Pixel_9')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('device-tab-h1-emulator-5556')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'a listing that finds a timed out boot running drops its reason',
+      (tester) async {
+        final link = _hostLink(const [_pixel, _iphone]);
+        link.held[_bootPart] = Completer<String>();
+        await _pump(tester, _opener(link));
+        await _openSheet(tester);
+        await _tapKey(tester, const ValueKey('device-boot-Pixel_9'));
+        await tester.pump(const Duration(minutes: 3));
+        await _settle(tester);
+        expect(find.text('not booted in 3 min'), findsOneWidget);
+
+        link.devices = const [_pixel, _booted];
+        await _longPress(tester, ValueKey('device-tab-h1-${_iphone.id}'));
+        await _tapKey(tester, ValueKey('device-shutdown-h1-${_iphone.id}'));
+        await _settle(tester);
+        expect(link.readsOf('simctl shutdown'), 1);
+        expect(find.text('not booted in 3 min'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('device-boot-failed-h1-Pixel_9')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('device-tab-h1-emulator-5556')),
+          findsOneWidget,
+        );
+        expect(link.readsOf(_killPart), 0);
+      },
+    );
+
+    testWidgets('a boot that times out while already listed fails alone', (
+      tester,
+    ) async {
+      final link = _hostLink()
+        ..answers[_stoppedPart] = 'T A\nE Pixel_9\nE Small\n'
+        ..answers['Small'] = 'B emulator-5558\n';
+      link.held['Pixel_9'] = Completer<String>();
+      await _pump(tester, _opener(link));
+      await _openSheet(tester);
+      await _tapKey(tester, const ValueKey('device-boot-Pixel_9'));
+      link.devices = const [
+        _pixel,
+        _booted,
+        HostDevice(
+          kind: DeviceKind.android,
+          id: 'emulator-5558',
+          name: 'Small',
+          avd: 'Small',
+        ),
+      ];
+      await _openSheet(tester);
+      await _tapKey(tester, const ValueKey('device-boot-Small'));
+      await _settle(tester);
+      expect(
+        find.byKey(const ValueKey('device-tab-h1-emulator-5558')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('device-tab-h1-emulator-5556')),
+        findsNothing,
+      );
+
+      await tester.pump(const Duration(minutes: 3));
+      await _settle(tester);
+      expect(find.text('not booted in 3 min'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('device-boot-failed-h1-Pixel_9')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('device-tab-h1-emulator-5556')),
+        findsNothing,
+      );
+
+      link.devices = const [_pixel, _booted];
+      await _longPress(tester, const ValueKey('device-tab-h1-emulator-5558'));
+      await _tapKey(tester, const ValueKey('device-shutdown-h1-emulator-5558'));
+      await _settle(tester);
+      expect(find.text('not booted in 3 min'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('device-boot-failed-h1-Pixel_9')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('device-tab-h1-emulator-5556')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('END ends a boot in flight and shuts nothing down', (
+      tester,
+    ) async {
+      final link = _hostLink(const [_pixel, _booted]);
+      link.held[_bootPart] = Completer<String>();
+      await _pump(tester, _opener(link));
+      await _openSheet(tester);
+      await _tapKey(tester, const ValueKey('device-boot-Pixel_9'));
+      await _settle(tester);
+      await _tapKey(tester, const ValueKey('device-list-close'));
+      await _settle(tester);
+
+      expect(link.closed, isTrue);
+      expect(link.held[_bootPart]!.isCompleted, isTrue);
+      expect(link.readsOf(_killPart), 0);
+      expect(link.readsOf('simctl shutdown'), 0);
+      expect(link.commands, isEmpty);
+    });
+
+    testWidgets('a long press offers SHUT DOWN and DELETE on what it made', (
+      tester,
+    ) async {
+      final link = _hostLink(const [_pixel, _booted]);
+      await _pump(tester, _opener(link));
+      await _pick(tester, _booted);
+      expect(link.frameStreams.single.hasListener, isTrue);
+      await _fold(tester);
+
+      const tab = ValueKey('device-tab-h1-emulator-5556');
+      await _longPress(tester, tab);
+      expect(
+        find.byKey(const ValueKey('device-actions-h1-emulator-5556')),
+        findsOneWidget,
+      );
+      await _longPress(tester, tab);
+      expect(
+        find.byKey(const ValueKey('device-actions-h1-emulator-5556')),
+        findsNothing,
+      );
+
+      await _longPress(tester, tab);
+      link.devices = const [_pixel];
+      await _tapKey(tester, const ValueKey('device-shutdown-h1-emulator-5556'));
+      await _settle(tester);
+      expect(_dock(tester).session, isNull);
+      expect(link.frameStreams.single.hasListener, isFalse);
+      final kill = link.reads.singleWhere((c) => c.contains(_killPart));
+      expect(kill, contains('emulator-5556'));
+      expect(kill, isNot(contains(_avdDeletePart)));
+      expect(find.byKey(tab), findsNothing);
+
+      final streams = link.frameStreams.length;
+      await _longPress(tester, const ValueKey('device-tab-h1-emulator-5554'));
+      expect(
+        find.byKey(const ValueKey('device-actions-h1-emulator-5554')),
+        findsNothing,
+      );
+      expect(find.byKey(_barKey), findsOneWidget);
+      expect(link.frameStreams, hasLength(streams));
+      expect(_dock(tester).session, isNull);
+    });
+
+    testWidgets('DELETE asks once more, then stops and deletes', (
+      tester,
+    ) async {
+      final link = _hostLink(const [_booted]);
+      await _pump(tester, _opener(link));
+      await _longPress(tester, const ValueKey('device-tab-h1-emulator-5556'));
+
+      const delete = ValueKey('device-delete-h1-emulator-5556');
+      await _tapKey(tester, delete);
+      expect(find.text('CONFIRM DELETE'), findsOneWidget);
+      expect(link.readsOf(_avdDeletePart), 0);
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.text('CONFIRM DELETE'), findsNothing);
+
+      await _tapKey(tester, delete);
+      await _tapKey(tester, delete);
+      await _settle(tester);
+      final sent = link.reads.singleWhere((c) => c.contains(_avdDeletePart));
+      expect(sent, contains(_killPart));
+      expect(sent, contains('Pixel_9'));
+    });
+
+    testWidgets('a refused shut down says why under the row', (tester) async {
+      final link = _hostLink(const [_booted])
+        ..answers[_killPart] = 'E still running\n';
+      await _pump(tester, _opener(link));
+      await _longPress(tester, const ValueKey('device-tab-h1-emulator-5556'));
+      await _tapKey(tester, const ValueKey('device-shutdown-h1-emulator-5556'));
+      await _settle(tester);
+      expect(find.text('still running'), findsOneWidget);
+    });
+
+    testWidgets('a long press in the sheet offers DELETE alone', (
+      tester,
+    ) async {
+      final link = _hostLink();
+      await _pump(tester, _opener(link));
+      await _openSheet(tester);
+      await _longPress(tester, const ValueKey('device-stopped-SIM-1'));
+      expect(find.byKey(const ValueKey('device-boot-SIM-1')), findsNothing);
+      expect(find.text('SHUT DOWN'), findsNothing);
+      const delete = ValueKey('device-delete-SIM-1');
+      await _tapKey(tester, delete);
+      expect(link.readsOf('simctl delete'), 0);
+      link.answers[_stoppedPart] = 'T A\nE Pixel_9\nT I\n';
+      await _tapKey(tester, delete);
+      await _settle(tester);
+      expect(link.readsOf('simctl delete'), 1);
+      expect(link.readsOf(_stoppedPart), 2);
+      expect(find.byKey(const ValueKey('device-stopped-SIM-1')), findsNothing);
+    });
+
+    testWidgets('NEW makes an emulator from a profile and an image', (
+      tester,
+    ) async {
+      final link = _hostLink()
+        ..answers['avdmanager list device'] =
+            'P pixel_7\nP medium_phone\nS system-images;android-36;google_apis;x86_64\n';
+      await _pump(tester, _opener(link));
+      await _openSheet(tester);
+      await _tapKey(tester, const ValueKey('device-sheet-new'));
+      await _settle(tester);
+
+      expect(find.text('ANDROID'), findsOneWidget);
+      expect(
+        find.text('system-images;android-36;google_apis;x86_64'),
+        findsOneWidget,
+      );
+      await _tapKey(tester, const ValueKey('device-new-profile'));
+      await _tapKey(tester, const ValueKey('device-pick-pixel_7'));
+
+      final name = find.descendant(
+        of: find.byKey(const ValueKey('device-new-name')),
+        matching: find.byType(EditableText),
+      );
+      await tester.enterText(name, 'bad name');
+      await tester.pump();
+      await _tapKey(tester, const ValueKey('device-new-create'));
+      expect(link.readsOf('avdmanager create avd'), 0);
+
+      await tester.enterText(name, 'Pixel_10');
+      await tester.pump();
+      await _tapKey(tester, const ValueKey('device-new-image'));
+      await _tapKey(
+        tester,
+        const ValueKey(
+          'device-pick-system-images;android-36;google_apis;x86_64',
+        ),
+      );
+      expect(tester.widget<EditableText>(name).focusNode.hasFocus, isFalse);
+      await _tapKey(tester, const ValueKey('device-new-create'));
+      await _settle(tester);
+      final sent = link.reads.singleWhere(
+        (c) => c.contains('avdmanager create avd'),
+      );
+      expect(sent, contains('Pixel_10'));
+      expect(sent, contains('pixel_7'));
+      expect(find.byKey(const ValueKey('device-new-name')), findsNothing);
+      expect(link.readsOf(_stoppedPart), 2);
+    });
+
+    testWidgets('NEW without a system image cannot create', (tester) async {
+      final link = _hostLink()
+        ..answers['avdmanager list device'] = 'P pixel_7\n';
+      await _pump(tester, _opener(link));
+      await _openSheet(tester);
+      await _tapKey(tester, const ValueKey('device-sheet-new'));
+      await _settle(tester);
+      expect(find.text('no system image'), findsOneWidget);
+      expect(find.byKey(const ValueKey('device-new-create')), findsNothing);
+    });
+
+    testWidgets('NEW on a mac offers runtimes the device type runs', (
+      tester,
+    ) async {
+      final link = FakeDeviceLink(const [])
+        ..answers[_stoppedPart] = 'T I\n@simctl\n$_sims\n'
+        ..answers['list devicetypes'] =
+            '@devicetypes\n{"devicetypes":['
+            '{"identifier":"t1","name":"iPhone One"},'
+            '{"identifier":"t2","name":"iPhone Two"},'
+            '{"identifier":"t3","name":"iPhone Three"}]}\n'
+            '@runtimes\n{"runtimes":['
+            '{"identifier":"r1","name":"iOS 27.0","isAvailable":true,'
+            '"supportedDeviceTypes":[{"identifier":"t1"},{"identifier":"t2"}]},'
+            '{"identifier":"r2","name":"iOS 26.5","isAvailable":true,'
+            '"supportedDeviceTypes":[{"identifier":"t2"}]}]}\n';
+      await _pump(tester, _opener(link));
+      await _openSheet(tester);
+      await _tapKey(tester, const ValueKey('device-sheet-new'));
+      await _settle(tester);
+      expect(find.text('ANDROID'), findsNothing);
+
+      await _tapKey(tester, const ValueKey('device-new-profile'));
+      expect(find.byKey(const ValueKey('device-pick-t3')), findsNothing);
+      await _tapKey(tester, const ValueKey('device-pick-t1'));
+      expect(find.text('iOS 27.0'), findsOneWidget);
+      await _tapKey(tester, const ValueKey('device-new-image'));
+      expect(find.byKey(const ValueKey('device-pick-r2')), findsNothing);
+      await _tapKey(tester, const ValueKey('device-pick-r1'));
+
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('device-new-name')),
+          matching: find.byType(EditableText),
+        ),
+        'My Phone',
+      );
+      await tester.pump();
+      await _tapKey(tester, const ValueKey('device-new-create'));
+      await _settle(tester);
+      final sent = link.reads.singleWhere((c) => c.contains('simctl create'));
+      expect(sent, contains('My Phone'));
+      expect(sent, contains('t1'));
+      expect(sent, contains('r1'));
+    });
   });
 }

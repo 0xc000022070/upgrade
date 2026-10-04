@@ -14,14 +14,24 @@ import '../ssh_settle.dart';
 enum DeviceKind { android, simulator }
 
 class HostDevice {
-  const HostDevice({required this.kind, required this.id, required this.name});
+  const HostDevice({
+    required this.kind,
+    required this.id,
+    required this.name,
+    this.avd,
+    this.runtime,
+  });
 
   final DeviceKind kind;
 
   final String id;
   final String name;
+  final String? avd;
+  final String? runtime;
 
   bool get pressable => kind == DeviceKind.android;
+
+  bool get managed => kind == DeviceKind.simulator || avd != null;
 
   @override
   bool operator ==(Object other) =>
@@ -33,37 +43,501 @@ class HostDevice {
 
 List<HostDevice> parseDeviceList(String output) {
   final devices = <HostDevice>[];
-  for (final line in const LineSplitter().convert(output)) {
-    final match = RegExp(r'^([AI]) (\S+) ?(.*)$').firstMatch(line.trim());
+  final lines = const LineSplitter().convert(output);
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i].trim();
+    if (line == '@simctl') {
+      for (final sim in _simulators(lines.skip(i + 1).join('\n'))) {
+        if (sim.state != 'Booted') continue;
+        devices.add(
+          HostDevice(
+            kind: DeviceKind.simulator,
+            id: sim.udid,
+            name: sim.label,
+            runtime: sim.runtime,
+          ),
+        );
+      }
+      break;
+    }
+    final match = RegExp(r'^([AE]) (\S+) ?(.*)$').firstMatch(line);
     if (match == null) continue;
     final id = match.group(2)!;
     final name = match.group(3)!.trim();
+    final emulator = match.group(1) == 'E' && name.isNotEmpty;
     devices.add(
       HostDevice(
-        kind: match.group(1) == 'A' ? DeviceKind.android : DeviceKind.simulator,
+        kind: DeviceKind.android,
         id: id,
         name: name.isEmpty ? id : name,
+        avd: emulator ? name : null,
       ),
     );
   }
   return devices;
 }
 
-abstract final class DeviceCommands {
-  static String list() => underSh(r'''
+class StoppedDevice {
+  const StoppedDevice({
+    required this.kind,
+    required this.id,
+    required this.name,
+    this.runtime,
+  });
+
+  final DeviceKind kind;
+
+  final String id;
+  final String name;
+  final String? runtime;
+
+  @override
+  bool operator ==(Object other) =>
+      other is StoppedDevice && other.kind == kind && other.id == id;
+
+  @override
+  int get hashCode => Object.hash(kind, id);
+}
+
+class StoppedListing {
+  const StoppedListing({required this.tools, required this.devices});
+
+  final Set<DeviceKind> tools;
+  final List<StoppedDevice> devices;
+}
+
+StoppedListing parseStoppedList(String output) {
+  final tools = <DeviceKind>{};
+  final devices = <StoppedDevice>[];
+  final lines = const LineSplitter().convert(output);
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i].trim();
+    if (line == 'T A') tools.add(DeviceKind.android);
+    if (line == 'T I') tools.add(DeviceKind.simulator);
+    if (line.startsWith('E ')) {
+      final name = line.substring(2).trim();
+      if (name.isNotEmpty) {
+        devices.add(
+          StoppedDevice(kind: DeviceKind.android, id: name, name: name),
+        );
+      }
+    }
+    if (line == '@simctl') {
+      for (final sim in _simulators(lines.skip(i + 1).join('\n'))) {
+        if (sim.state != 'Shutdown') continue;
+        devices.add(
+          StoppedDevice(
+            kind: DeviceKind.simulator,
+            id: sim.udid,
+            name: sim.label,
+            runtime: sim.runtime,
+          ),
+        );
+      }
+      break;
+    }
+  }
+  return StoppedListing(tools: tools, devices: devices);
+}
+
+String runtimeLabel(String runtime) {
+  final tail = runtime.substring(runtime.lastIndexOf('.') + 1);
+  final dash = tail.indexOf('-');
+  if (dash < 0) return tail;
+  final version = tail.substring(dash + 1).replaceAll('-', '.');
+  return '${tail.substring(0, dash)} $version';
+}
+
+typedef _Simulator = ({
+  String udid,
+  String name,
+  String state,
+  String runtime,
+  String label,
+});
+
+List<_Simulator> _simulators(String json) {
+  if (json.trim().isEmpty) return const [];
+  final found = <_Simulator>[];
+  if (jsonDecode(json) case {'devices': final Map<String, Object?> runtimes}) {
+    for (final MapEntry(key: runtime, value: devices) in runtimes.entries) {
+      if (devices is! List<Object?>) continue;
+      for (final device in devices) {
+        if (device
+            case {
+              'udid': final String udid,
+              'name': final String name,
+              'state': final String state,
+            }
+            when device['isAvailable'] != false) {
+          found.add((
+            udid: udid,
+            name: name,
+            state: state,
+            runtime: runtime,
+            label: name,
+          ));
+        }
+      }
+    }
+  }
+  final counts = <String, int>{};
+  for (final sim in found) {
+    counts[sim.name] = (counts[sim.name] ?? 0) + 1;
+  }
+  return [
+    for (final sim in found)
+      counts[sim.name]! > 1
+          ? (
+              udid: sim.udid,
+              name: sim.name,
+              state: sim.state,
+              runtime: sim.runtime,
+              label: '${sim.name} · ${runtimeLabel(sim.runtime)}',
+            )
+          : sim,
+  ];
+}
+
+class CatalogEntry {
+  const CatalogEntry({required this.id, required this.name, this.supports});
+
+  final String id;
+  final String name;
+  final Set<String>? supports;
+}
+
+class DeviceCatalog {
+  const DeviceCatalog({
+    required this.available,
+    required this.profiles,
+    required this.images,
+  });
+
+  final bool available;
+  final List<CatalogEntry> profiles;
+  final List<CatalogEntry> images;
+
+  List<CatalogEntry> get offered {
+    final named = {for (final image in images) ...?image.supports};
+    if (images.every((image) => image.supports == null)) return profiles;
+    return [
+      for (final profile in profiles)
+        if (named.contains(profile.id)) profile,
+    ];
+  }
+
+  List<CatalogEntry> imagesFor(String? profile) => [
+    for (final image in images)
+      if (profile == null ||
+          image.supports == null ||
+          image.supports!.contains(profile))
+        image,
+  ];
+}
+
+DeviceCatalog parseAndroidCatalog(String output) {
+  final profiles = <CatalogEntry>[];
+  final images = <CatalogEntry>[];
+  var available = true;
+  for (final raw in const LineSplitter().convert(output)) {
+    final line = raw.trim();
+    if (line == 'X') available = false;
+    final match = RegExp(r'^([PS]) (\S+)$').firstMatch(line);
+    if (match == null) continue;
+    final id = match.group(2)!;
+    final entries = match.group(1) == 'P' ? profiles : images;
+    if (entries.any((entry) => entry.id == id)) continue;
+    entries.add(CatalogEntry(id: id, name: id));
+  }
+  return DeviceCatalog(
+    available: available,
+    profiles: profiles,
+    images: images,
+  );
+}
+
+DeviceCatalog parseSimulatorCatalog(String output) {
+  if (output.trim() == 'X') {
+    return const DeviceCatalog(available: false, profiles: [], images: []);
+  }
+  final types = output.indexOf('@devicetypes');
+  final runtimes = output.indexOf('@runtimes');
+  if (types < 0 || runtimes < types) {
+    throw const FormatException('no simulator catalog');
+  }
+  final typeJson = jsonDecode(
+    output.substring(types + '@devicetypes'.length, runtimes),
+  );
+  final runtimeJson = jsonDecode(
+    output.substring(runtimes + '@runtimes'.length),
+  );
+  final profiles = <CatalogEntry>[
+    if (typeJson case {'devicetypes': final List<Object?> list})
+      for (final type in list)
+        if (type case {
+          'identifier': final String id,
+          'name': final String name,
+        })
+          CatalogEntry(id: id, name: name),
+  ];
+  final images = <CatalogEntry>[
+    if (runtimeJson case {'runtimes': final List<Object?> list})
+      for (final runtime in list)
+        if (runtime
+            case {'identifier': final String id, 'name': final String name}
+            when runtime['isAvailable'] != false)
+          CatalogEntry(
+            id: id,
+            name: name,
+            supports: switch (runtime['supportedDeviceTypes']) {
+              final List<Object?> types => {
+                for (final type in types)
+                  if (type case {'identifier': final String id}) id,
+              },
+              _ => null,
+            },
+          ),
+  ];
+  return DeviceCatalog(available: true, profiles: profiles, images: images);
+}
+
+class NewDevice {
+  const NewDevice({
+    required this.kind,
+    required this.name,
+    required this.profile,
+    required this.image,
+  });
+
+  final DeviceKind kind;
+  final String name;
+  final String profile;
+  final String image;
+}
+
+final avdNamePattern = RegExp(r'^[A-Za-z0-9._-]+$');
+
+typedef DeviceOutcome = ({bool ok, String? serial, String? error});
+
+DeviceOutcome parseOutcome(String output) {
+  final lines = const LineSplitter().convert(output);
+  for (final raw in lines.reversed) {
+    final line = raw.trim();
+    if (line == 'OK') return (ok: true, serial: null, error: null);
+    if (line.startsWith('B ')) {
+      return (ok: true, serial: line.substring(2).trim(), error: null);
+    }
+    if (line == 'E' || line.startsWith('E ')) {
+      final message = line.substring(1).trim();
+      return (
+        ok: false,
+        serial: null,
+        error: message.isEmpty ? 'failed' : message,
+      );
+    }
+  }
+  return (ok: false, serial: null, error: 'no answer');
+}
+
+const _avdOf = r'''
+avd() {
+  n=$(adb -s "$1" emu avd name </dev/null 2>/dev/null | head -n 1 | tr -d '\r')
+  [ -n "$n" ] || n=$(adb -s "$1" shell getprop ro.boot.qemu.avd_name </dev/null 2>/dev/null | tr -d '\r')
+  printf '%s' "$n"
+}
+''';
+
+const _fail = r'''
+fail() {
+  m=$(printf '%s\n' "$1" | grep -E 'Error|ERROR' | tail -n 1)
+  [ -n "$m" ] || m=$(printf '%s\n' "$1" | grep . | tail -n 1)
+  printf 'E %s\n' "$(printf '%s' "${m:-failed}" | head -c 200 | tr '\n' ' ')"
+}
+''';
+
+const _stop = r'''
+stop() {
+  adb -s "$1" emu kill </dev/null >/dev/null 2>&1
+  i=0
+  while adb devices </dev/null 2>/dev/null | awk -v s="$1" '$1 == s && $2 == "device" { f = 1 } END { exit !f }'; do
+    i=$((i + 1))
+    [ "$i" -ge 30 ] && return 1
+    sleep 1
+  done
+  return 0
+}
+''';
+
+const _listBody = r'''
 if command -v adb >/dev/null 2>&1; then
   adb devices </dev/null | while read -r s state; do
     [ "$state" = device ] || continue
-    n=$(adb -s "$s" emu avd name </dev/null 2>/dev/null | head -n 1 | tr -d '\r')
-    [ -n "$n" ] || n=$(adb -s "$s" shell getprop ro.product.model </dev/null 2>/dev/null | tr -d '\r')
+    n=$(avd "$s")
+    if [ -n "$n" ]; then
+      printf 'E %s %s\n' "$s" "$n"
+      continue
+    fi
+    n=$(adb -s "$s" shell getprop ro.product.model </dev/null 2>/dev/null | tr -d '\r')
     printf 'A %s %s\n' "$s" "$n"
   done
 fi
 if command -v xcrun >/dev/null 2>&1; then
-  xcrun simctl list devices booted </dev/null 2>/dev/null |
-    sed -n 's/^ *\(.*\) (\([0-9A-Fa-f-]\{36\}\)) (Booted).*/I \2 \1/p'
+  echo '@simctl'
+  xcrun simctl list devices -j </dev/null 2>/dev/null
 fi
-''');
+''';
+
+const _stoppedBody = r'''
+if command -v emulator >/dev/null 2>&1; then
+  echo 'T A'
+  up=
+  if command -v adb >/dev/null 2>&1; then
+    up=$(adb devices </dev/null 2>/dev/null | while read -r s state; do
+      [ "$state" = device ] && avd "$s" && echo
+    done)
+  fi
+  emulator -list-avds </dev/null 2>/dev/null | while IFS= read -r n; do
+    case $n in ''|*[!A-Za-z0-9._-]*) continue ;; esac
+    printf '%s\n' "$up" | grep -qxF -- "$n" && continue
+    printf 'E %s\n' "$n"
+  done
+fi
+if command -v xcrun >/dev/null 2>&1; then
+  echo 'T I'
+  echo '@simctl'
+  xcrun simctl list devices -j </dev/null 2>/dev/null
+fi
+''';
+
+const _bootStart = r'''
+command -v emulator >/dev/null 2>&1 || { echo 'E no emulator'; exit 0; }
+command -v adb >/dev/null 2>&1 || { echo 'E no adb'; exit 0; }
+d=$(mktemp -d) || { echo 'E no temporary directory'; exit 0; }
+trap 'rm -rf "$d"' EXIT
+trap 'exit 0' HUP INT TERM PIPE
+detach() {
+  if command -v setsid >/dev/null 2>&1; then setsid "$@"
+  else perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' "$@"; fi
+}
+detach sh -c 'emulator "$@" 2>&1 | { head -c 65536 >"$0"; cat >/dev/null; }' "$d/log" -avd "$name" -no-window -no-audio''';
+
+const _bootWait = r''' </dev/null >/dev/null 2>&1 &
+pid=$!
+while :; do
+  if ! kill -0 "$pid" 2>/dev/null; then
+    fail "$(tail -n 5 "$d/log")"
+    exit 0
+  fi
+  for s in $(adb devices </dev/null 2>/dev/null | awk '$2 == "device" && $1 ~ /^emulator-/ { print $1 }'); do
+    [ "$(avd "$s")" = "$name" ] || continue
+    [ "$(adb -s "$s" shell getprop sys.boot_completed </dev/null 2>/dev/null | tr -d '\r')" = 1 ] || continue
+    printf 'B %s\n' "$s"
+    exit 0
+  done
+  sleep 2
+done
+''';
+
+const _catalogAndroid = r'''
+command -v avdmanager >/dev/null 2>&1 || { echo 'X'; exit 0; }
+avdmanager list device -c </dev/null 2>/dev/null | grep -E '^[A-Za-z0-9._-]+$' | sed 's/^/P /'
+sdk=${ANDROID_SDK_ROOT:-$ANDROID_HOME}
+if [ -z "$sdk" ] && e=$(command -v emulator); then sdk=$(dirname "$(dirname "$e")"); fi
+found=
+for dir in "$sdk"/system-images/*/*/*; do
+  [ -n "$sdk" ] && [ -d "$dir" ] || continue
+  found=1
+  printf 'S %s\n' "$(printf 'system-images/%s' "${dir#"$sdk"/system-images/}" | tr / ';')"
+done
+if [ -z "$found" ] && command -v sdkmanager >/dev/null 2>&1; then
+  sdkmanager --list_installed </dev/null 2>/dev/null | sed -n 's/^ *\(system-images;[^ |]*\).*/S \1/p'
+fi
+''';
+
+const _catalogSimulator = r'''
+command -v xcrun >/dev/null 2>&1 || { echo 'X'; exit 0; }
+echo '@devicetypes'
+xcrun simctl list devicetypes -j </dev/null 2>/dev/null
+echo '@runtimes'
+xcrun simctl list runtimes -j </dev/null 2>/dev/null
+''';
+
+String _set(Map<String, String> values) => [
+  for (final MapEntry(:key, :value) in values.entries)
+    '$key=${shellQuote(value)}\n',
+].join();
+
+abstract final class DeviceCommands {
+  static String list() => underSh('$_avdOf$_listBody');
+
+  static String stopped() => underSh('$_avdOf$_stoppedBody');
+
+  static String boot(StoppedDevice device, {required bool cold}) =>
+      switch (device.kind) {
+        DeviceKind.simulator => underSh(
+          '${_set({'id': device.id})}$_fail'
+          r'if out=$(xcrun simctl boot "$id" 2>&1 </dev/null); then echo OK; else fail "$out"; fi',
+        ),
+        DeviceKind.android => underSh(
+          '${_set({'name': device.id})}$_avdOf$_fail$_bootStart'
+          '${cold ? ' -no-snapshot-load' : ''}$_bootWait',
+        ),
+      };
+
+  static String shutDown(HostDevice device) => switch (device.kind) {
+    DeviceKind.simulator => underSh(
+      '${_set({'id': device.id})}$_fail'
+      r'if out=$(xcrun simctl shutdown "$id" 2>&1 </dev/null); then echo OK; else fail "$out"; fi',
+    ),
+    DeviceKind.android => underSh(
+      '${_set({'serial': device.id})}$_stop'
+      r'''if stop "$serial"; then echo OK; else echo 'E still running'; fi''',
+    ),
+  };
+
+  static String delete({
+    required DeviceKind kind,
+    required String id,
+    String? serial,
+  }) => switch (kind) {
+    DeviceKind.simulator => underSh(
+      '${_set({'id': id})}$_fail'
+      r'''
+xcrun simctl shutdown "$id" </dev/null >/dev/null 2>&1
+if out=$(xcrun simctl delete "$id" 2>&1 </dev/null); then echo OK; else fail "$out"; fi
+''',
+    ),
+    DeviceKind.android => underSh(
+      '${_set({'name': id, 'serial': serial ?? ''})}$_fail$_stop'
+      r'''
+command -v avdmanager >/dev/null 2>&1 || { echo 'E no avdmanager'; exit 0; }
+if [ -n "$serial" ] && ! stop "$serial"; then echo 'E still running'; exit 0; fi
+if out=$(avdmanager delete avd -n "$name" 2>&1 </dev/null); then echo OK; else fail "$out"; fi
+''',
+    ),
+  };
+
+  static String catalog(DeviceKind kind) => switch (kind) {
+    DeviceKind.android => underSh(_catalogAndroid),
+    DeviceKind.simulator => underSh(_catalogSimulator),
+  };
+
+  static String create(NewDevice device) => switch (device.kind) {
+    DeviceKind.android => underSh(
+      '${_set({'name': device.name, 'image': device.image, 'profile': device.profile})}$_fail'
+      r'''
+command -v avdmanager >/dev/null 2>&1 || { echo 'E no avdmanager'; exit 0; }
+if out=$(echo no | avdmanager create avd -n "$name" -k "$image" -d "$profile" 2>&1); then echo OK; else fail "$out"; fi
+''',
+    ),
+    DeviceKind.simulator => underSh(
+      '${_set({'name': device.name, 'type': device.profile, 'runtime': device.image})}$_fail'
+      r'''
+if out=$(xcrun simctl create "$name" "$type" "$runtime" 2>&1 </dev/null); then echo OK; else fail "$out"; fi
+''',
+    ),
+  };
 
   static String capture(HostDevice device) => switch (device.kind) {
     DeviceKind.android =>
@@ -241,6 +715,8 @@ abstract interface class DeviceLink {
 
   Future<void> run(String command);
 
+  Future<String> read(String command, {Duration? limit});
+
   bool get closed;
 
   Future<void> close();
@@ -346,15 +822,45 @@ class DeviceSsh implements DeviceLink {
   Future<Uint8List> _run(String command) async {
     final session = await _exec(command);
     try {
-      final out = BytesBuilder(copy: false);
-      await Future.wait([
-        session.stdout.cast<List<int>>().forEach(out.add),
-        session.stderr.cast<List<int>>().drain<void>(),
-        session.stdin.close(),
-      ]);
-      await session.done;
-      return out.takeBytes();
+      return await _drain(session);
     } finally {
+      _end(session);
+    }
+  }
+
+  static Future<Uint8List> _drain(SSHSession session) async {
+    final out = BytesBuilder(copy: false);
+    await Future.wait([
+      session.stdout.cast<List<int>>().forEach(out.add),
+      session.stderr.cast<List<int>>().drain<void>(),
+      session.stdin.close(),
+    ]);
+    await session.done;
+    return out.takeBytes();
+  }
+
+  @override
+  Future<String> read(String command, {Duration? limit}) async {
+    final session = await _doubting(() => _exec(command));
+    var settled = false;
+    Future<Uint8List> drained() async {
+      try {
+        return await _guard(() => _drain(session));
+      } catch (_) {
+        if (!settled) _doubt();
+        rethrow;
+      }
+    }
+
+    final pending = drained();
+    try {
+      final out = limit == null ? await pending : await pending.timeout(limit);
+      return utf8.decode(out, allowMalformed: true);
+    } on TimeoutException {
+      pending.ignore();
+      rethrow;
+    } finally {
+      settled = true;
       _end(session);
     }
   }

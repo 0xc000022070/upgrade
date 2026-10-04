@@ -174,6 +174,31 @@ void main() {
     expect(suspected, 1);
   });
 
+  test('a read answers with its output and ends its command', () async {
+    final client = FakeRunClient(
+      (_) => (exitCode: 0, stdout: 'noise\nB emulator-5556\n', stderr: ''),
+    );
+    final link = DeviceSsh.borrowed(HostLease(client, () {}));
+    expect(await link.read('boot'), 'noise\nB emulator-5556\n');
+    expect(client.sessions.single.destroyed, 1);
+  });
+
+  test('a read past its limit ends its command and keeps the link', () async {
+    var suspected = 0;
+    final client = FakeRunClient((_) => null);
+    final link = DeviceSsh.borrowed(
+      HostLease(client, () {}, () => suspected++),
+    );
+    await expectLater(
+      link.read('boot', limit: const Duration(milliseconds: 20)),
+      throwsA(isA<TimeoutException>()),
+    );
+    expect(client.sessions.single.signals, [SSHSignal.TERM]);
+    expect(client.sessions.single.destroyed, 1);
+    expect(suspected, 0);
+    expect(link.closed, isFalse);
+  });
+
   test('a loop that already exited is still torn down, quietly', () {
     final session = _Session(gone: true);
     expect(() => endExec(session), returnsNormally);
