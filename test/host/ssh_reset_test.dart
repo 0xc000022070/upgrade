@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/platform/herdr_client.dart';
+import 'package:dazzle/platform/host_links.dart';
 
 import 'fixture.dart';
 
@@ -57,7 +58,9 @@ void main() {
       final relay = await ResettingRelay.start();
       addTearDown(relay.close);
 
-      final session = await const HerdrClient().connect(
+      final links = HostLinks();
+      addTearDown(links.close);
+      final session = await HerdrClient(links: links).connect(
         address: hostVm.address,
         port: relay.port,
         user: hostVm.user,

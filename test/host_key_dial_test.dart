@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/platform/host_key_dial.dart';
+import 'package:dazzle/platform/host_links.dart';
 import 'package:dazzle/platform/host_keys.dart';
 import 'package:dazzle/platform/keys.dart';
 
@@ -24,7 +25,7 @@ void main() {
       });
 
       await expectLater(
-        dialHostKey(
+        HostLinks.probe(
           address: server.address.address,
           port: server.port,
           user: 'luis',

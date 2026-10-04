@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 
 import '../herdr_client.dart';
 import '../host_keys.dart';
+import '../host_links.dart';
 import '../ssh_settle.dart';
 import 'engine_channel.dart';
 import 'mosh_channel.dart';
@@ -569,33 +570,21 @@ Future<ShellHost> dialSsh({
   required Duration keepAlive,
   HostKeyVerifier? verifier,
 }) async {
-  final socket = await SSHSocket.connect(address, port, timeout: timeout);
-  return sshHostOver(
-    socket,
+  final ssh = await HostLinks.own(
+    address: address,
+    port: port,
     user: user,
     privateKey: privateKey,
+    timeout: timeout,
     keepAlive: keepAlive,
     verifier: verifier,
   );
+  return _SshHost(ssh.socket, ssh.client);
 }
 
-/// Split from [dialSsh] because the socket is the one half a test cannot have.
-ShellHost sshHostOver(
-  SSHSocket socket, {
-  required String user,
-  required String privateKey,
-  required Duration keepAlive,
-  HostKeyVerifier? verifier,
-}) => _SshHost(
-  socket,
-  SSHClient(
-    socket,
-    username: user,
-    identities: SSHKeyPair.fromPem(privateKey),
-    keepAliveInterval: keepAlive,
-    onVerifyHostKey: verifier?.verify,
-  ),
-);
+@visibleForTesting
+ShellHost sshHostOver(SSHSocket socket, SSHClient client) =>
+    _SshHost(socket, client);
 
 class _SshHost implements ShellHost {
   _SshHost(this._socket, this._client);

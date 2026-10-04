@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/application/agent_kind.dart';
 import 'package:dazzle/platform/herdr_client.dart';
+import 'package:dazzle/platform/host_links.dart';
 import 'package:dazzle/platform/herdr_socket.dart';
 import 'package:dazzle/platform/keys.dart';
 
@@ -542,12 +543,13 @@ void main() {
     final tarpit = await openTarpit();
 
     await expectLater(
-      const HerdrClient(timeout: Duration(milliseconds: 300)).connect(
-        address: tarpit.address,
-        port: tarpit.port,
-        user: 'luis',
-        privateKey: privateKey,
-      ),
+      HerdrClient(links: HostLinks(timeout: const Duration(milliseconds: 300)))
+          .connect(
+            address: tarpit.address,
+            port: tarpit.port,
+            user: 'luis',
+            privateKey: privateKey,
+          ),
       throwsA(isA<HerdrUnreachable>()),
     );
     await Future<void>.delayed(const Duration(milliseconds: 200));

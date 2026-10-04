@@ -775,6 +775,8 @@ One interval for every connection the app holds — the shell, the agent client 
 
 **The agent list, the send, the path, model and launch pickers, the engine, the devices, the screen, the workspace and the plugin hosts share one ssh connection per host**, opened by the first of them to ask, held thirty seconds past the last one done with it, and dialled again once, for all of them, when it drops. A channel the host refuses because that connection already carries all it allows fails only what asked for it, as `host busy`, and the connection stays.
 
+**Every connection is opened in one place, and only two are not the shared one.** The terminal tab dials its own, so a tab that redials never drops what everything else is riding, and the host-key check dials one that hangs up once the key is answered. The watcher and an answer from a notification run where the app's connections cannot reach, so each holds one shared connection per host of its own, by the same rules. A test fails the build when anything else opens a connection.
+
 ## Agents
 
 ### The panel at the top of Home says what the agents are doing

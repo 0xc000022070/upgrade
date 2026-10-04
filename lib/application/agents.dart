@@ -413,7 +413,7 @@ final engineOpenProvider = Provider<EngineOpen>((ref) {
   };
 });
 
-final hostKeyDialProvider = Provider<HostKeyDial>((ref) => dialHostKey);
+final hostKeyDialProvider = Provider<HostKeyDial>((ref) => HostLinks.probe);
 
 class _AgentSnapshotCache {
   final Map<String, _CachedSnapshot> _hosts = {};

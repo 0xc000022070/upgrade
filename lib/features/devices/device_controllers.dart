@@ -67,11 +67,11 @@ class DevicesController extends ChangeNotifier {
     required this.host,
     required this.dock,
     required this._readPrivateKey,
+    required this._open,
     this.pinHostKey,
     this.prompt,
     this.bootLimit = defaultBootLimit,
-    DeviceLinkOpener? open,
-  }) : _open = open ?? DeviceSsh.open;
+  });
 
   static const defaultBootLimit = Duration(minutes: 3);
 

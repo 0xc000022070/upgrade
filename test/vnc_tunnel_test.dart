@@ -40,9 +40,7 @@ void main() {
     await keys.generate(id: 'k1', name: 'test');
     final privateKey = (await keys.privateKey('k1'))!;
     final tarpit = await openTarpit();
-    final links = HostLinks(
-      dial: const HerdrClient(timeout: Duration(milliseconds: 300)).dial,
-    );
+    final links = HostLinks(timeout: const Duration(milliseconds: 300));
 
     await expectLater(
       VncTunnel(links).open(

@@ -10,6 +10,7 @@ import 'package:dazzle/application/pin_alerts.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/platform/agent_watcher.dart';
 import 'package:dazzle/platform/herdr_client.dart';
+import 'package:dazzle/platform/host_links.dart';
 import 'package:dazzle/platform/herdr_socket.dart';
 import 'package:dazzle/platform/host_keys.dart';
 import 'package:dazzle/platform/keys.dart';
@@ -19,7 +20,7 @@ import 'support/herdr_link.dart';
 /// Never dials: it keeps what it was handed to check the host with, and reports the host
 /// as down so the loop backs off instead of looping on it.
 class RecordingHerdrClient extends HerdrClient {
-  RecordingHerdrClient({this.failures = const {}});
+  RecordingHerdrClient({this.failures = const {}}) : super(links: HostLinks());
 
   final Map<String, HerdrFailure> failures;
 
@@ -102,7 +103,7 @@ class _EngineSession extends _NoWatchSession {
 }
 
 class _FreshSessionClient extends HerdrClient {
-  _FreshSessionClient(this.next);
+  _FreshSessionClient(this.next) : super(links: HostLinks());
 
   final HerdrSession Function() next;
 
@@ -118,7 +119,7 @@ class _FreshSessionClient extends HerdrClient {
 }
 
 class _SessionClient extends HerdrClient {
-  _SessionClient(this.session);
+  _SessionClient(this.session) : super(links: HostLinks());
 
   final HerdrSession session;
 

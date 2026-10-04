@@ -12,6 +12,7 @@ import '../data/repositories/host_repository.dart';
 import 'alert_notifications.dart';
 import 'engine_agents.dart';
 import 'herdr_client.dart';
+import 'host_links.dart';
 import 'host_keys.dart';
 import 'keys.dart';
 import 'pin_notifications.dart';
@@ -428,7 +429,7 @@ class AgentWatcherHandler extends TaskHandler {
     HerdrClient? client,
     PinNotifier? pins,
   }) : _keys = keys ?? const Ed25519Keys(SecurePrivateKeyStore()),
-       _client = client ?? const HerdrClient(),
+       _client = client ?? HerdrClient(links: HostLinks()),
        _pins = pins ?? const PinNotifications();
 
   final Ed25519Keys _keys;
@@ -484,6 +485,7 @@ class AgentWatcherHandler extends TaskHandler {
       await loop.stop();
     }
     _loops.clear();
+    _client.links.close();
   }
 
   Future<void> _reloadFromStore() async {

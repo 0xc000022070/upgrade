@@ -8,6 +8,7 @@ import '../application/pin_alerts.dart';
 import 'alert_notifications.dart';
 import 'engine_agents.dart';
 import 'herdr_client.dart';
+import 'host_links.dart';
 import 'host_keys.dart';
 import 'keys.dart';
 
@@ -72,25 +73,32 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
     if (privateKey == null) {
       throw HerdrKeyRejected('no private key stored for ${target.keyId}');
     }
-    const client = HerdrClient();
-    final session = await client.connect(
-      address: target.address,
-      port: target.port,
-      user: target.user,
-      privateKey: privateKey,
-      verifier: HostKeyVerifier.pinnedOnly(target.hostKey),
-    );
+    final links = HostLinks();
     try {
-      if (approval != null) {
-        await EngineAgents(
-          session,
-          owner: target.user,
-        ).answer(approval, allow: yes);
-      } else {
-        await session.sendKeys(target.pane, answerKeys(target.agent, yes: yes));
+      final session = await HerdrClient(links: links).connect(
+        address: target.address,
+        port: target.port,
+        user: target.user,
+        privateKey: privateKey,
+        verifier: HostKeyVerifier.pinnedOnly(target.hostKey),
+      );
+      try {
+        if (approval != null) {
+          await EngineAgents(
+            session,
+            owner: target.user,
+          ).answer(approval, allow: yes);
+        } else {
+          await session.sendKeys(
+            target.pane,
+            answerKeys(target.agent, yes: yes),
+          );
+        }
+      } finally {
+        session.close();
       }
     } finally {
-      session.close();
+      links.close();
     }
   } on EngineRefused catch (error) {
     debugPrint('dazzle.engine ${target.address}: $error');

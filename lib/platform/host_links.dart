@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 
 import 'herdr_client.dart';
+import 'host_key_dial.dart';
 import 'host_keys.dart';
 import 'ssh_settle.dart';
 
@@ -54,15 +56,22 @@ class _Link {
   SSHClient get client => ssh.client;
 }
 
+/// The one place the app opens an ssh connection. Everything else leases the shared link;
+/// [own] and [probe] are the only connections that are not it.
 class HostLinks {
   HostLinks({
     SshDial? dial,
+    this.timeout = const Duration(seconds: 10),
+    this.keepAlive = sshKeepAlive,
     this.linger = const Duration(seconds: 30),
     this.answer = const Duration(seconds: 2),
     this.now = DateTime.now,
-  }) : _dial = dial ?? const HerdrClient().dial;
+  }) : _injected = dial;
 
-  final SshDial _dial;
+  final SshDial? _injected;
+  late final SshDial _dial = _injected ?? _authenticated;
+  final Duration timeout;
+  final Duration keepAlive;
   final Duration linger;
   final Duration answer;
   final DateTime Function() now;
@@ -179,6 +188,103 @@ class HostLinks {
     });
   }
 
+  static Future<SshLink> own({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    required Duration timeout,
+    required Duration keepAlive,
+    HostKeyVerifier? verifier,
+  }) async {
+    final socket = _CountingSocket(
+      await SSHSocket.connect(address, port, timeout: timeout),
+    );
+    return (
+      socket: socket,
+      client: _client(socket, user, privateKey, keepAlive, verifier?.verify),
+      received: () => socket.received,
+    );
+  }
+
+  static Future<void> probe({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    required HostKeyVerifier verifier,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    final offered = Completer<void>();
+    final decided = Completer<void>();
+    final broken = Completer<void>();
+    final socket = await SSHSocket.connect(address, port, timeout: timeout);
+    final client = _client(socket, user, privateKey, sshKeepAlive, (
+      type,
+      fingerprint,
+    ) async {
+      if (!offered.isCompleted) offered.complete();
+      try {
+        return await verifier.verify(type, fingerprint);
+      } finally {
+        if (!decided.isCompleted) decided.complete();
+      }
+    });
+    unawaited(
+      client.authenticated.then(
+        (_) {},
+        onError: (Object error, StackTrace stack) {
+          if (!broken.isCompleted) broken.completeError(error, stack);
+        },
+      ),
+    );
+    try {
+      await Future.any([offered.future, broken.future])
+          .timeout(timeout, onTimeout: () => throw const HostKeySilent());
+      await decided.future;
+    } finally {
+      unawaited(
+        offered.isCompleted
+            ? closeSettled(client, socket)
+            : closeSsh(client, socket),
+      );
+    }
+  }
+
+  Future<SshLink> _authenticated({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    HostKeyVerifier? verifier,
+    void Function(Future<void> settled)? onSettling,
+  }) async {
+    final socket = _CountingSocket(
+      await _guard(
+        () => SSHSocket.connect(address, port, timeout: timeout),
+        verifier,
+      ),
+    );
+    final client = _client(
+      socket,
+      user,
+      privateKey,
+      keepAlive,
+      verifier?.verify,
+    );
+    try {
+      await _guard(
+        () => authenticatedWithin(client.authenticated, verifier, timeout),
+        verifier,
+      );
+      return (socket: socket, client: client, received: () => socket.received);
+    } on HerdrFailure {
+      final settled = closeSettled(client, socket);
+      onSettling?.call(settled);
+      rethrow;
+    }
+  }
+
   void close() {
     _closed = true;
     for (final link in [..._all]) {
@@ -227,4 +333,59 @@ class HostLinks {
       if (identical(_settling[key], settled)) _settling.remove(key);
     });
   }
+}
+
+SSHClient _client(
+  SSHSocket socket,
+  String user,
+  String privateKey,
+  Duration keepAlive,
+  SSHHostkeyVerifyHandler? verify,
+) => SSHClient(
+  socket,
+  username: user,
+  identities: SSHKeyPair.fromPem(privateKey),
+  keepAliveInterval: keepAlive,
+  onVerifyHostKey: verify,
+);
+
+Future<T> _guard<T>(
+  Future<T> Function() body, [
+  HostKeyVerifier? verifier,
+]) async {
+  try {
+    return await body();
+  } catch (error) {
+    throw asHerdrFailure(error, verifier?.refusal) ?? error;
+  }
+}
+
+class _CountingSocket implements SSHSocket {
+  _CountingSocket(this._inner) {
+    stream = _inner.stream.map((bytes) {
+      received += bytes.length;
+      return bytes;
+    });
+  }
+
+  final SSHSocket _inner;
+  var received = 0;
+
+  @override
+  late final Stream<Uint8List> stream;
+
+  @override
+  StreamSink<List<int>> get sink => _inner.sink;
+
+  @override
+  Future<void> get done => _inner.done;
+
+  @override
+  Future<void> close() => _inner.close();
+
+  @override
+  void destroy() => _inner.destroy();
+
+  @override
+  Future<void> flush() => _inner.flush();
 }

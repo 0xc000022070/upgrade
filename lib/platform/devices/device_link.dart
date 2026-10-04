@@ -731,10 +731,6 @@ typedef DeviceLinkOpener = Future<DeviceLink> Function({
 });
 
 class DeviceSsh implements DeviceLink {
-  DeviceSsh._(SSHSocket socket, this._client)
-    : _letGo = (() => unawaited(closeSsh(_client, socket))),
-      _suspect = _trusted;
-
   @visibleForTesting
   DeviceSsh.over(SSHSocket socket, this._client)
     : _letGo = (() => unawaited(closeSsh(_client, socket))),
@@ -752,35 +748,6 @@ class DeviceSsh implements DeviceLink {
   final void Function() _suspect;
   final _execs = <SSHSession>{};
   var _closed = false;
-
-  static Future<DeviceLink> open({
-    required String address,
-    required int port,
-    required String user,
-    required String privateKey,
-    HostKeyVerifier? verifier,
-  }) async {
-    final socket = await _guard(
-      () => SSHSocket.connect(address, port, timeout: timeout),
-      verifier,
-    );
-    final client = SSHClient(
-      socket,
-      username: user,
-      identities: SSHKeyPair.fromPem(privateKey),
-      handshakeTimeout: timeout,
-      authTimeout: timeout,
-      keepAliveInterval: sshKeepAlive,
-      onVerifyHostKey: verifier?.verify,
-    );
-    try {
-      await _guard(() => client.authenticated, verifier);
-      return DeviceSsh._(socket, client);
-    } on HerdrFailure {
-      unawaited(closeSsh(client, socket));
-      rethrow;
-    }
-  }
 
   @override
   Future<List<HostDevice>> list() async {

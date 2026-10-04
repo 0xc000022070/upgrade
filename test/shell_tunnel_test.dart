@@ -1188,9 +1188,12 @@ void main() {
     await runZonedGuarded(() async {
       final host = sshHostOver(
         socket,
-        user: 'luis',
-        privateKey: privateKey,
-        keepAlive: const Duration(seconds: 15),
+        SSHClient(
+          socket,
+          username: 'luis',
+          identities: SSHKeyPair.fromPem(privateKey),
+          keepAliveInterval: const Duration(seconds: 15),
+        ),
       );
       socket.reset();
       await expectLater(host.authenticated, throwsA(anything));
@@ -1276,9 +1279,12 @@ void main() {
     final socket = RudeSocket();
     final host = sshHostOver(
       socket,
-      user: 'luis',
-      privateKey: privateKey,
-      keepAlive: const Duration(seconds: 15),
+      SSHClient(
+        socket,
+        username: 'luis',
+        identities: SSHKeyPair.fromPem(privateKey),
+        keepAliveInterval: const Duration(seconds: 15),
+      ),
     );
     var settled = false;
     final closing = host.close().whenComplete(() => settled = true);

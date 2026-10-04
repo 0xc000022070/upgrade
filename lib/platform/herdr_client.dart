@@ -538,10 +538,6 @@ final class HerdrProtocolMismatch extends HerdrFailure {
 /// where the command line it replaces was a shell, a `herdr` process and this same
 /// socket opened from the far end.
 class HerdrSession {
-  HerdrSession._(SSHSocket socket, this._client)
-    : _letGo = (() => unawaited(closeSsh(_client, socket))),
-      _suspect = _trusted;
-
   @visibleForTesting
   HerdrSession.over(SSHSocket socket, this._client)
     : _letGo = (() => unawaited(closeSsh(_client, socket))),
@@ -1463,19 +1459,9 @@ String _agentName(String label, String workspace) {
 }
 
 class HerdrClient {
-  const HerdrClient({
-    this.timeout = const Duration(seconds: 10),
-    this.keepAlive = sshKeepAlive,
-    this.links,
-  });
+  const HerdrClient({required this.links});
 
-  final Duration timeout;
-
-  final HostLinks? links;
-
-  /// dartssh2 defaults to 10 s; the number is a decision, so it is declared rather than
-  /// inherited.
-  final Duration keepAlive;
+  final HostLinks links;
 
   /// Dart words a name that did not resolve in the exception's own message; the errno
   /// underneath is from the EAI_* namespace, which cannot be told apart from a connect
@@ -1721,71 +1707,21 @@ class HerdrClient {
     return protocol is int ? protocol : null;
   }
 
-  Future<SshLink> dial({
-    required String address,
-    required int port,
-    required String user,
-    required String privateKey,
-    HostKeyVerifier? verifier,
-    void Function(Future<void> settled)? onSettling,
-  }) async {
-    final socket = _CountingSocket(
-      await _guard(
-        () => SSHSocket.connect(address, port, timeout: timeout),
-        verifier,
-      ),
-    );
-    final client = SSHClient(
-      socket,
-      username: user,
-      identities: SSHKeyPair.fromPem(privateKey),
-      keepAliveInterval: keepAlive,
-      onVerifyHostKey: verifier?.verify,
-    );
-    try {
-      await _guard(
-        () => authenticatedWithin(client.authenticated, verifier, timeout),
-        verifier,
-      );
-      return (socket: socket, client: client, received: () => socket.received);
-    } on HerdrFailure {
-      // A half-open connection is worse than none: the host would count it against the one
-      // connection per phone until its own timeout.
-      final settled = closeSettled(client, socket);
-      onSettling?.call(settled);
-      rethrow;
-    }
-  }
-
   Future<HerdrSession> connect({
     required String address,
     required int port,
     required String user,
     required String privateKey,
     HostKeyVerifier? verifier,
-    void Function(Future<void> settled)? onSettling,
-  }) async {
-    if (links case final links?) {
-      return HerdrSession.borrowed(
-        await links.lease(
-          address: address,
-          port: port,
-          user: user,
-          privateKey: privateKey,
-          verifier: verifier,
-        ),
-      );
-    }
-    final link = await dial(
+  }) async => HerdrSession.borrowed(
+    await links.lease(
       address: address,
       port: port,
       user: user,
       privateKey: privateKey,
       verifier: verifier,
-      onSettling: onSettling,
-    );
-    return HerdrSession._(link.socket, link.client);
-  }
+    ),
+  );
 
   Future<List<AgentSnapshot>> fetch({
     required String address,
@@ -1936,34 +1872,4 @@ Future<T> _guard<T>(
   } catch (error) {
     throw asHerdrFailure(error, verifier?.refusal) ?? error;
   }
-}
-
-class _CountingSocket implements SSHSocket {
-  _CountingSocket(this._inner) {
-    stream = _inner.stream.map((bytes) {
-      received += bytes.length;
-      return bytes;
-    });
-  }
-
-  final SSHSocket _inner;
-  var received = 0;
-
-  @override
-  late final Stream<Uint8List> stream;
-
-  @override
-  StreamSink<List<int>> get sink => _inner.sink;
-
-  @override
-  Future<void> get done => _inner.done;
-
-  @override
-  Future<void> close() => _inner.close();
-
-  @override
-  void destroy() => _inner.destroy();
-
-  @override
-  Future<void> flush() => _inner.flush();
 }
