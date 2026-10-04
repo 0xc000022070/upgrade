@@ -115,6 +115,13 @@ VncFailure? asVncFailure(Object error, [HostKeyRefusal? refusal]) =>
         HostKeyRefusal.unverified => VncHostKeyUnverified('$error'),
         HostKeyRefusal.changed => VncHostKeyChanged('$error'),
       },
+      HerdrUnresolved() => VncUnresolved(error.detail ?? '$error'),
+      HerdrKeyRejected() => VncKeyRejected(error.detail ?? '$error'),
+      HerdrHostKeyUnverified() => VncHostKeyUnverified(
+        error.detail ?? '$error',
+      ),
+      HerdrHostKeyChanged() => VncHostKeyChanged(error.detail ?? '$error'),
+      HerdrFailure() => VncUnreachable(error.detail ?? '$error'),
       SSHHostkeyError() => VncHostKeyChanged('$error'),
       // dartssh2 raises this when the server answers the channel open with a failure, which
       // is what `restrict` and a missing `permitopen` both do.

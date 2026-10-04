@@ -75,7 +75,7 @@ class LaunchScanner {
 
 final launchScannerProvider = Provider(
   (ref) => LaunchScanner(
-    fetch: const HerdrClient().fetchLaunchTargets,
+    fetch: HerdrClient(links: ref.read(hostLinksProvider)).fetchLaunchTargets,
     keys: ref.watch(ed25519KeysProvider),
   ),
 );

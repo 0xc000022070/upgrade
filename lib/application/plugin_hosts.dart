@@ -11,7 +11,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../data/repositories/host_repository.dart';
+import '../platform/herdr_client.dart';
 import '../platform/host_keys.dart';
+import '../platform/host_links.dart';
 import '../platform/plugins/manifest.dart';
 import '../platform/plugins/store.dart';
 import '../platform/ssh_settle.dart';
@@ -164,6 +166,7 @@ Object? wholeNumbers(Object? value) => switch (value) {
 
 final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
   final keys = ref.watch(privateKeyStoreProvider);
+  final links = ref.read(hostLinksProvider);
   return (host, scope, operation, args) async {
     if (host.hostKey == null) {
       throw const PluginException(
@@ -174,24 +177,36 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
     if (privateKey == null) {
       throw const PluginException('Host private key is unavailable');
     }
-    final verifier = HostKeyVerifier.pinnedOnly(host.hostKey);
-    final socket = await SSHSocket.connect(
-      host.address,
-      host.port,
-      timeout: const Duration(seconds: 10),
-    );
-    final client = SSHClient(
-      socket,
-      username: host.user,
-      identities: SSHKeyPair.fromPem(privateKey),
-      keepAliveInterval: sshKeepAlive,
-      onVerifyHostKey: verifier.verify,
-    );
+    final HostLease lease;
     try {
-      await client.authenticated.timeout(const Duration(seconds: 15));
-      return await scheduleOver(client, host.user, scope, operation, args);
+      lease = await links.lease(
+        address: host.address,
+        port: host.port,
+        user: host.user,
+        privateKey: privateKey,
+        verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
+      );
+    } on HerdrFailure catch (error) {
+      throw PluginException(error.reason(host.name));
+    }
+    try {
+      return await scheduleOver(
+        lease.client,
+        host.user,
+        scope,
+        operation,
+        args,
+      );
+    } on SSHChannelOpenError {
+      throw const PluginException('Host busy');
+    } on TimeoutException {
+      unawaited(lease.suspect());
+      rethrow;
+    } on SSHError {
+      unawaited(lease.suspect());
+      rethrow;
     } finally {
-      unawaited(closeSettled(client, socket));
+      lease.release();
     }
   };
 });
@@ -204,9 +219,11 @@ Future<Map<String, Object?>> scheduleOver(
   String operation,
   Map<String, Object?> args,
 ) async {
-  final session = await client
-      .execute('dazzle-engine')
-      .timeout(const Duration(seconds: 10));
+  final session = await openWithin(
+    client.execute('dazzle-engine'),
+    const Duration(seconds: 10),
+    endExec,
+  );
   try {
     final output = BytesBuilder(copy: false);
     final errors = BytesBuilder(copy: false);

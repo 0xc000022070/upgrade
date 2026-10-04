@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartssh2/dartssh2.dart';
 
 import '../host_keys.dart';
+import '../host_links.dart';
 import '../ssh_settle.dart';
 import 'rfb_client.dart';
 import 'rfb_messages.dart';
@@ -12,16 +13,13 @@ import 'vnc_failure.dart';
 /// its own loopback, so wayvnc keeps listening on `127.0.0.1` and the phone never needs
 /// a route to it.
 class VncTunnel {
-  const VncTunnel({
-    this.timeout = const Duration(seconds: 10),
-    this.keepAlive = sshKeepAlive,
-  });
+  const VncTunnel(this.links, {this.timeout = const Duration(seconds: 10)});
 
   static const displayHost = '127.0.0.1';
   static const displayPort = 5900;
 
+  final HostLinks links;
   final Duration timeout;
-  final Duration keepAlive;
 
   Future<VncConnection> open({
     required String address,
@@ -32,40 +30,47 @@ class VncTunnel {
     String? password,
     HostKeyVerifier? verifier,
   }) async {
-    final socket = await guardVnc(
-      () => SSHSocket.connect(address, port, timeout: timeout),
+    final lease = await guardVnc(
+      () => links.lease(
+        address: address,
+        port: port,
+        user: user,
+        privateKey: privateKey,
+        verifier: verifier,
+      ),
       verifier,
-    );
-    final client = SSHClient(
-      socket,
-      username: user,
-      identities: SSHKeyPair.fromPem(privateKey),
-      keepAliveInterval: keepAlive,
-      onVerifyHostKey: verifier?.verify,
     );
     SSHForwardChannel? channel;
     RfbClient? rfb;
     try {
-      await guardVnc(() => client.authenticated.timeout(timeout), verifier);
       final opened = await guardVnc(
-        () => client.forwardLocal(displayHost, displayPort),
+        () => openWithin(
+          lease.client.forwardLocal(displayHost, displayPort),
+          timeout,
+          (opened) => opened.destroy(),
+        ),
         verifier,
       );
       channel = opened;
-      rfb = RfbClient(
+      final client = RfbClient(
         incoming: opened.stream,
         outgoing: opened.sink,
         username: vncUsername,
         password: password,
       );
-      final init = await guardVnc(rfb.handshake, verifier);
-      return SshVncConnection._(socket, client, opened, rfb, init);
-    } catch (_) {
-      // Half-open is worse than none: an ssh connection left behind counts against the host
-      // until its own timeout.
+      rfb = client;
+      final init = await guardVnc(
+        () => client.handshake().timeout(timeout),
+        verifier,
+      );
+      return SshVncConnection._(lease, opened, client, init);
+    } catch (error) {
       await rfb?.close();
       channel?.destroy();
-      unawaited(closeSettled(client, socket));
+      if (error is VncUnreachable || error is VncStreamClosed) {
+        await lease.suspect();
+      }
+      lease.release();
       rethrow;
     }
   }
@@ -78,17 +83,11 @@ abstract interface class VncConnection {
 }
 
 class SshVncConnection implements VncConnection {
-  SshVncConnection._(
-    this._socket,
-    this._client,
-    this._channel,
-    this.rfb,
-    this.serverInit,
-  );
+  SshVncConnection._(this._lease, this._channel, this.rfb, this.serverInit);
 
-  final SSHSocket _socket;
-  final SSHClient _client;
+  final HostLease _lease;
   final SSHForwardChannel _channel;
+  var _closed = false;
 
   @override
   final RfbClient rfb;
@@ -98,9 +97,14 @@ class SshVncConnection implements VncConnection {
 
   @override
   Future<void> close() async {
-    await rfb.close();
-    _channel.destroy();
-    unawaited(closeSsh(_client, _socket));
+    if (_closed) return;
+    _closed = true;
+    try {
+      await rfb.close();
+    } finally {
+      _channel.destroy();
+      _lease.release();
+    }
   }
 }
 

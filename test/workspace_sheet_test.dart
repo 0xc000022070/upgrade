@@ -424,6 +424,67 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('RETRY after a lost connection opens a fresh one', (
+      tester,
+    ) async {
+      final runners = [
+        FakeRunner(fail: const HerdrUnreachable()),
+        FakeRunner(),
+      ];
+      var opens = 0;
+      tester.view.physicalSize = const Size(400, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            privateKeyStoreProvider.overrideWithValue(privateKeys),
+            databaseProvider.overrideWithValue(db),
+          ],
+          child: MaterialApp(
+            theme: testTheme,
+            builder: houseText,
+            home: WorkspaceSheet(
+              path: path,
+              host: host,
+              open: ({
+                required address,
+                required port,
+                required user,
+                required privateKey,
+                verifier,
+              }) async => runners[opens++],
+            ),
+          ),
+        ),
+      );
+      await ready(tester);
+      expect(find.text('RETRY'), findsOneWidget);
+
+      await tapText(tester, 'RETRY');
+
+      expect(opens, 2);
+      expect(runners.first.closed, isTrue);
+      expect(runners.last.commands, isNotEmpty);
+      expect(find.text('nyx unreachable'), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a busy host keeps the connection for the next try', (
+      tester,
+    ) async {
+      final runner = await open(
+        tester,
+        runner: FakeRunner(fail: const HerdrBusy()),
+      );
+
+      expect(find.text('host busy'), findsOneWidget);
+      expect(runner.closed, isFalse);
+
+      await unmount(tester);
+    });
+
     testWidgets('REFRESH asks again without a second handshake', (
       tester,
     ) async {

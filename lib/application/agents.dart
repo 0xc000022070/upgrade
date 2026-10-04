@@ -27,7 +27,9 @@ enum AgentOutcomeKind {
 
   hostKeyUnverified,
 
-  hostKeyChanged;
+  hostKeyChanged,
+
+  busy;
 
   /// sshd counts failed authentications per source and locks the client out for an hour;
   /// a refused credential is never knocked on again.
@@ -69,6 +71,7 @@ class HostOutcome {
     AgentOutcomeKind.noHerdr => ReasonLine.noHerdr,
     AgentOutcomeKind.hostKeyUnverified => ReasonLine.hostKeyUnverified,
     AgentOutcomeKind.hostKeyChanged => ReasonLine.hostKeyChanged,
+    AgentOutcomeKind.busy => ReasonLine.hostBusy,
   };
 
   String get reason {
@@ -97,6 +100,7 @@ class HostOutcome {
     AgentOutcomeKind.noHerdr => 'install herdr on the host',
     AgentOutcomeKind.hostKeyUnverified => 'verify host key in HOSTS',
     AgentOutcomeKind.hostKeyChanged => 'host key changed; verify in HOSTS',
+    AgentOutcomeKind.busy => ReasonLine.hostBusy.on(host.name),
   };
 }
 
@@ -577,6 +581,7 @@ Future<HostOutcome> _poll(
       ),
       HerdrUnresolved() => failure(AgentOutcomeKind.unresolved),
       HerdrUnreachable() => failure(AgentOutcomeKind.unreachable),
+      HerdrBusy() => failure(AgentOutcomeKind.busy),
       EngineMissing() => failure(AgentOutcomeKind.noEngine),
       HerdrMissing() => failure(AgentOutcomeKind.noHerdr),
       HerdrHostKeyUnverified() => failure(AgentOutcomeKind.hostKeyUnverified),

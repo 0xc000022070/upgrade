@@ -95,7 +95,7 @@ class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
       host: widget.host,
       directory: widget.path.directory,
       readPrivateKey: ref.read(ed25519KeysProvider).privateKey,
-      open: widget.open,
+      open: widget.open ?? ref.read(workspaceOpenerProvider),
     );
     _controller.connect();
   }

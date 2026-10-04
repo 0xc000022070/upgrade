@@ -6,7 +6,11 @@ import 'herdr_client.dart';
 import 'host_keys.dart';
 import 'ssh_settle.dart';
 
-typedef SshLink = ({SSHSocket socket, SSHClient client});
+typedef SshLink = ({
+  SSHSocket socket,
+  SSHClient client,
+  int Function() received,
+});
 
 typedef SshDial = Future<SshLink> Function({
   required String address,
@@ -22,12 +26,12 @@ class HostLease {
 
   final SSHClient client;
   final void Function() _release;
-  final void Function() _suspect;
+  final Future<void> Function() _suspect;
   var _released = false;
 
-  static void _trusted() {}
+  static Future<void> _trusted() async {}
 
-  void suspect() => _suspect();
+  Future<void> suspect() => _suspect();
 
   void release() {
     if (_released) return;
@@ -160,8 +164,11 @@ class HostLinks {
     final inFlight = link.vouching;
     if (inFlight != null) return inFlight;
     final ping = () async {
+      final seen = link.ssh.received();
       try {
         await client.ping().timeout(answer);
+      } on TimeoutException {
+        if (link.ssh.received() == seen) _end(link);
       } catch (_) {
         _end(link);
       }
@@ -188,7 +195,7 @@ class HostLinks {
     return HostLease(
       link.client,
       () => _release(link),
-      () => unawaited(vouch(link.client)),
+      () => vouch(link.client),
     );
   }
 

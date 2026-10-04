@@ -146,7 +146,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
           host: widget.host!,
           directory: widget.directory!,
           readPrivateKey: ref.read(ed25519KeysProvider).privateKey,
-          open: widget.open,
+          open: widget.open ?? ref.read(workspaceOpenerProvider),
         );
     _controller.addListener(_onWorkspace);
     if (_owned) {

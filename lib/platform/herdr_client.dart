@@ -500,6 +500,13 @@ final class HerdrHostKeyChanged extends HerdrFailure {
   ReasonLine get line => ReasonLine.hostKeyChanged;
 }
 
+final class HerdrBusy extends HerdrFailure {
+  const HerdrBusy([super.detail]);
+
+  @override
+  ReasonLine get line => ReasonLine.hostBusy;
+}
+
 final class EngineMissing extends HerdrFailure {
   const EngineMissing([super.detail]);
 
@@ -722,22 +729,32 @@ class HerdrSession {
     }
   }
 
-  Future<List<String>> paths() async {
-    final result = await _guard(() => _run(HerdrCommands.paths()));
+  Future<List<String>> paths({Duration within = launchScanDeadline}) async {
+    final result = await _bounded(
+      'paths',
+      within,
+      () => _run(HerdrCommands.paths()),
+    );
     if (result.exitCode != 0) return const [];
     return HerdrClient.parsePaths(utf8.decode(result.stdout));
   }
 
   Future<LaunchTargets> launchTargets({Duration within = launchScanDeadline}) =>
-      _guard(
-        () => _launchTargets().timeout(
-          within,
-          onTimeout: () {
-            _suspect();
-            throw TimeoutException('launch scan', within);
-          },
-        ),
-      );
+      _bounded('launch scan', within, _launchTargets);
+
+  Future<T> _bounded<T>(
+    String what,
+    Duration within,
+    Future<T> Function() body,
+  ) => _guard(
+    () => body().timeout(
+      within,
+      onTimeout: () {
+        _suspect();
+        throw TimeoutException(what, within);
+      },
+    ),
+  );
 
   Future<LaunchTargets> _launchTargets() async {
     final probe = await _guard(() => _run(LaunchCommands.present()));
@@ -788,8 +805,15 @@ class HerdrSession {
     );
   }
 
-  Future<List<String>> models(AgentKind kind) async {
-    final result = await _guard(() => _run(HerdrCommands.models(kind)));
+  Future<List<String>> models(
+    AgentKind kind, {
+    Duration within = launchScanDeadline,
+  }) async {
+    final result = await _bounded(
+      'models',
+      within,
+      () => _run(HerdrCommands.models(kind)),
+    );
     if (result.exitCode != 0) return const [];
     return HerdrClient.parseModels(utf8.decode(result.stdout));
   }
@@ -859,7 +883,13 @@ class HerdrSession {
 
   Future<SSHSession> _exec(String command) async {
     _open();
-    final session = await _guard(() => _client.execute(command));
+    final session = await _guard(() async {
+      try {
+        return await _client.execute(command);
+      } on SSHChannelOpenError catch (error) {
+        throw HerdrBusy('$error');
+      }
+    });
     if (_closed) {
       endExec(session);
       throw const HerdrUnreachable('session closed');
@@ -1436,9 +1466,12 @@ class HerdrClient {
   const HerdrClient({
     this.timeout = const Duration(seconds: 10),
     this.keepAlive = sshKeepAlive,
+    this.links,
   });
 
   final Duration timeout;
+
+  final HostLinks? links;
 
   /// dartssh2 defaults to 10 s; the number is a decision, so it is declared rather than
   /// inherited.
@@ -1696,9 +1729,11 @@ class HerdrClient {
     HostKeyVerifier? verifier,
     void Function(Future<void> settled)? onSettling,
   }) async {
-    final socket = await _guard(
-      () => SSHSocket.connect(address, port, timeout: timeout),
-      verifier,
+    final socket = _CountingSocket(
+      await _guard(
+        () => SSHSocket.connect(address, port, timeout: timeout),
+        verifier,
+      ),
     );
     final client = SSHClient(
       socket,
@@ -1712,7 +1747,7 @@ class HerdrClient {
         () => authenticatedWithin(client.authenticated, verifier, timeout),
         verifier,
       );
-      return (socket: socket, client: client);
+      return (socket: socket, client: client, received: () => socket.received);
     } on HerdrFailure {
       // A half-open connection is worse than none: the host would count it against the one
       // connection per phone until its own timeout.
@@ -1730,6 +1765,17 @@ class HerdrClient {
     HostKeyVerifier? verifier,
     void Function(Future<void> settled)? onSettling,
   }) async {
+    if (links case final links?) {
+      return HerdrSession.borrowed(
+        await links.lease(
+          address: address,
+          port: port,
+          user: user,
+          privateKey: privateKey,
+          verifier: verifier,
+        ),
+      );
+    }
     final link = await dial(
       address: address,
       port: port,
@@ -1890,4 +1936,34 @@ Future<T> _guard<T>(
   } catch (error) {
     throw asHerdrFailure(error, verifier?.refusal) ?? error;
   }
+}
+
+class _CountingSocket implements SSHSocket {
+  _CountingSocket(this._inner) {
+    stream = _inner.stream.map((bytes) {
+      received += bytes.length;
+      return bytes;
+    });
+  }
+
+  final SSHSocket _inner;
+  var received = 0;
+
+  @override
+  late final Stream<Uint8List> stream;
+
+  @override
+  StreamSink<List<int>> get sink => _inner.sink;
+
+  @override
+  Future<void> get done => _inner.done;
+
+  @override
+  Future<void> close() => _inner.close();
+
+  @override
+  void destroy() => _inner.destroy();
+
+  @override
+  Future<void> flush() => _inner.flush();
 }

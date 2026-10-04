@@ -81,6 +81,7 @@ String alertFailureReason(HerdrFailure failure) => switch (failure) {
   HerdrProtocolMismatch(:final protocol) => 'PROTOCOL ${protocol ?? '?'}',
   HerdrUnresolved() => 'UNRESOLVED',
   HerdrUnreachable() => 'UNREACHABLE',
+  HerdrBusy() => 'HOST BUSY',
   EngineMissing() => 'NO ENGINE',
   HerdrMissing() => 'NO HERDR',
   HerdrHostKeyUnverified() => 'HOST KEY UNVERIFIED',

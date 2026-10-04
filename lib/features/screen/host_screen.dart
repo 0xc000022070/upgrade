@@ -78,7 +78,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
       readPrivateKey: ref.read(ed25519KeysProvider).privateKey,
       pinHostKey: ref.read(hostRepositoryProvider).pinHostKey,
       prompt: _askHostKey,
-      open: widget.open,
+      open: widget.open ?? VncTunnel(ref.read(hostLinksProvider)).open,
     );
     ref.listenManual<bool>(appVisibleProvider, (_, visible) {
       _away = !visible;

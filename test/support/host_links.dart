@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:dazzle/platform/herdr_client.dart';
@@ -7,6 +9,7 @@ import 'package:dazzle/platform/host_links.dart';
 import 'package:dazzle/platform/ssh_settle.dart';
 
 import 'ssh_exec.dart';
+import 'vnc_channel.dart';
 
 final class FakeLinkClient implements SSHClient {
   final gone = Completer<void>();
@@ -14,6 +17,15 @@ final class FakeLinkClient implements SSHClient {
   var pings = 0;
   Completer<void>? pong;
   Object? pingError;
+  var received = 0;
+  final sessions = <FakeExecSession>[];
+  final commands = <String>[];
+  FakeRunReply? Function(String command)? reply;
+  Object? execError;
+  Completer<void>? execGate;
+  final forwards = <FakeForwardChannel>[];
+  Object? forwardError;
+  Completer<void>? forwardGate;
 
   @override
   bool get isClosed => gone.isCompleted;
@@ -41,7 +53,56 @@ final class FakeLinkClient implements SSHClient {
     SSHPtyConfig? pty,
     SSHX11Config? x11,
     Map<String, String>? environment,
-  }) async => FakeExecSession()..input.stream.listen(null);
+  }) async {
+    commands.add(command);
+    await execGate?.future;
+    final error = execError;
+    if (error != null) throw error;
+    final session = FakeExecSession()..input.stream.listen(null);
+    sessions.add(session);
+    final answer = reply?.call(command);
+    if (answer != null) {
+      session.out.add(Uint8List.fromList(utf8.encode(answer.stdout)));
+      session.err.add(Uint8List.fromList(utf8.encode(answer.stderr)));
+      session.code = answer.exitCode;
+      unawaited(session.out.close());
+      unawaited(session.err.close());
+      session.exited.complete();
+    }
+    return session;
+  }
+
+  @override
+  Future<SSHForwardChannel> forwardLocal(
+    String remoteHost,
+    int remotePort, {
+    String localHost = 'localhost',
+    int localPort = 0,
+  }) async {
+    await forwardGate?.future;
+    final error = forwardError;
+    if (error != null) throw error;
+    final channel = FakeForwardChannel();
+    forwards.add(channel);
+    return channel;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class FakeForwardChannel implements SSHForwardChannel {
+  final wire = FakeVncChannel();
+  var destroyed = 0;
+
+  @override
+  Stream<Uint8List> get stream => wire.stream.map(Uint8List.fromList);
+
+  @override
+  StreamSink<List<int>> get sink => wire.sink;
+
+  @override
+  void destroy() => destroyed++;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -57,6 +118,7 @@ class FakeDial {
   var settling = 0;
   Completer<void>? gate;
   PinnedHostKey? accept;
+  void Function(FakeLinkClient client)? prepare;
 
   Future<SshLink> call({
     required String address,
@@ -82,7 +144,12 @@ class FakeDial {
       await verifier.verifyFingerprint(offered.type, offered.fingerprint);
     }
     final client = FakeLinkClient();
+    prepare?.call(client);
     clients.add(client);
-    return (socket: FakeExecSocket(), client: client);
+    return (
+      socket: FakeExecSocket(),
+      client: client,
+      received: () => client.received,
+    );
   }
 }

@@ -6,6 +6,7 @@ enum ReasonLine {
   streamClosed('stream closed'),
   hostKeyUnverified('host key unverified'),
   hostKeyChanged('host key changed'),
+  hostBusy('host busy'),
 
   protocolMismatch('protocol mismatch'),
   noEngine('no engine'),

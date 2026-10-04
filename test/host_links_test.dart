@@ -232,6 +232,51 @@ void main() {
       links.close();
     });
 
+    testWidgets('stays when bytes arrive while the ping is queued', (
+      tester,
+    ) async {
+      final dial = FakeDial();
+      final links = HostLinks(dial: dial.call);
+      final lease = await _lease(links);
+      final client = dial.clients.single..pong = Completer();
+      var settled = false;
+      unawaited(lease.suspect().then((_) => settled = true));
+      await tester.pump(const Duration(seconds: 1));
+      client.received += 4096;
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(settled, isTrue);
+      expect(client.isClosed, isFalse);
+      expect(client.closes, 0);
+      links.close();
+    });
+
+    testWidgets('under steady traffic answers in one window, once', (
+      tester,
+    ) async {
+      final dial = FakeDial();
+      final links = HostLinks(dial: dial.call);
+      final lease = await _lease(links);
+      final client = dial.clients.single..pong = Completer();
+      unawaited(lease.suspect());
+
+      HostLease? next;
+      for (var tick = 1; tick <= 15; tick++) {
+        await tester.pump(const Duration(milliseconds: 200));
+        client.received += 1024;
+        if (tick == 2) {
+          await tester.pump(const Duration(milliseconds: 100));
+          unawaited(_lease(links).then((lease) => next = lease));
+        }
+        if (tick < 10) expect(next, isNull);
+        if (tick == 10) expect(next?.client, same(client));
+      }
+
+      expect(client.pings, 1);
+      expect(dial.dials, 1);
+      links.close();
+    });
+
     test('closes when the ping fails', () async {
       final dial = FakeDial();
       final links = HostLinks(dial: dial.call);

@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 
 import '../herdr_client.dart';
-import '../host_keys.dart';
+import '../host_links.dart';
 import '../ssh_settle.dart';
 
 class WorkspaceReply {
@@ -30,69 +32,78 @@ abstract interface class WorkspaceRunner {
 /// Held, not reopened: a handshake is the expensive part of asking a machine anything,
 /// and every tap on this screen is one command on a connection that already exists.
 class WorkspaceSsh implements WorkspaceRunner {
-  WorkspaceSsh._(this._socket, this._client);
+  WorkspaceSsh.borrowed(this._lease);
 
   static const timeout = Duration(seconds: 10);
+  static const answer = Duration(seconds: 30);
 
-  final SSHSocket _socket;
-  final SSHClient _client;
+  final HostLease _lease;
+  final _execs = <SSHSession>{};
   var _closed = false;
-
-  static Future<WorkspaceSsh> open({
-    required String address,
-    required int port,
-    required String user,
-    required String privateKey,
-    HostKeyVerifier? verifier,
-  }) async {
-    final socket = await _guard(
-      () => SSHSocket.connect(address, port, timeout: timeout),
-      verifier,
-    );
-    final client = SSHClient(
-      socket,
-      username: user,
-      identities: SSHKeyPair.fromPem(privateKey),
-      keepAliveInterval: sshKeepAlive,
-      onVerifyHostKey: verifier?.verify,
-    );
-    try {
-      await _guard(() => client.authenticated.timeout(timeout), verifier);
-      return WorkspaceSsh._(socket, client);
-    } on HerdrFailure {
-      // Half-open costs the host a connection until its own timeout, and the phone has one of
-      // these per workspace it opens.
-      unawaited(closeSettled(client, socket));
-      rethrow;
-    }
-  }
 
   @override
   Future<WorkspaceReply> run(String command) async {
-    final result = await _guard(() => _client.runWithResult(command));
-    return WorkspaceReply(
-      exitCode: result.exitCode,
-      stdout: utf8.decode(result.stdout, allowMalformed: true),
-      stderr: utf8.decode(result.stderr, allowMalformed: true),
-    );
+    if (_closed || _lease.client.isClosed) {
+      throw const HerdrUnreachable('workspace closed');
+    }
+    final SSHSession session;
+    try {
+      session = await openWithin(
+        _lease.client.execute(command),
+        timeout,
+        endExec,
+      );
+    } on SSHChannelOpenError catch (error) {
+      throw HerdrBusy('$error');
+    } catch (error) {
+      throw await _doubted(error);
+    }
+    if (_closed) {
+      endExec(session);
+      throw const HerdrUnreachable('workspace closed');
+    }
+    _execs.add(session);
+    try {
+      final out = BytesBuilder(copy: false);
+      final err = BytesBuilder(copy: false);
+      await Future.wait([
+        session.stdout.cast<List<int>>().forEach(out.add),
+        session.stderr.cast<List<int>>().forEach(err.add),
+        session.stdin.close(),
+        session.done,
+      ]).timeout(answer);
+      if (_closed) throw const HerdrUnreachable('workspace closed');
+      return WorkspaceReply(
+        exitCode: session.exitCode,
+        stdout: utf8.decode(out.takeBytes(), allowMalformed: true),
+        stderr: utf8.decode(err.takeBytes(), allowMalformed: true),
+      );
+    } catch (error) {
+      throw await _doubted(error);
+    } finally {
+      _execs.remove(session);
+      endExec(session);
+    }
+  }
+
+  Future<Object> _doubted(Object error) async {
+    if (!_closed &&
+        (error is TimeoutException ||
+            error is SSHError ||
+            error is SocketException)) {
+      await _lease.suspect();
+    }
+    return asHerdrFailure(error) ?? error;
   }
 
   @override
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
-    unawaited(closeSsh(_client, _socket));
-  }
-}
-
-Future<T> _guard<T>(
-  Future<T> Function() body, [
-  HostKeyVerifier? verifier,
-]) async {
-  try {
-    return await body();
-  } catch (error) {
-    // The ssh failures are ssh failures whoever asked.
-    throw asHerdrFailure(error, verifier?.refusal) ?? error;
+    for (final exec in [..._execs]) {
+      endExec(exec);
+    }
+    _execs.clear();
+    _lease.release();
   }
 }

@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dazzle/data/repositories/host_repository.dart';
 import 'package:dazzle/features/screen/screen_controller.dart';
+import 'package:dazzle/platform/host_keys.dart';
+import 'package:dazzle/platform/vnc/vnc_failure.dart';
+import 'package:dazzle/platform/vnc/vnc_tunnel.dart';
 
 const _nyx = Host(
   id: 'nyx',
@@ -11,6 +14,16 @@ const _nyx = Host(
   keyId: 'k1',
 );
 
+Future<VncConnection> _unreachable({
+  required String address,
+  required int port,
+  required String user,
+  required String privateKey,
+  String? vncUsername,
+  String? password,
+  HostKeyVerifier? verifier,
+}) async => throw const VncUnreachable();
+
 void main() {
   test(
     'a dial that has not answered yet is connecting, and carries no reason',
@@ -18,6 +31,7 @@ void main() {
       final controller = HostScreenController(
         host: _nyx,
         readPrivateKey: (_) async => 'PRIVATE',
+        open: _unreachable,
       );
       addTearDown(controller.dispose);
 
@@ -29,6 +43,7 @@ void main() {
     final controller = HostScreenController(
       host: _nyx,
       readPrivateKey: (_) async => null,
+      open: _unreachable,
     );
     addTearDown(controller.dispose);
 
@@ -43,6 +58,7 @@ void main() {
     final controller = HostScreenController(
       host: _nyx,
       readPrivateKey: (_) async => null,
+      open: _unreachable,
     );
     addTearDown(controller.dispose);
 

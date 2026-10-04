@@ -790,7 +790,12 @@ class DeviceSsh implements DeviceLink {
 
   Future<SSHSession> _exec(String command) async {
     if (_closed) throw const HerdrUnreachable('device link closed');
-    final session = await _client.execute(command);
+    final SSHSession session;
+    try {
+      session = await _client.execute(command);
+    } on SSHChannelOpenError catch (error) {
+      throw HerdrBusy('$error');
+    }
     if (_closed) {
       endExec(session);
       throw const HerdrUnreachable('device link closed');
@@ -808,6 +813,8 @@ class DeviceSsh implements DeviceLink {
   Future<T> _doubting<T>(Future<T> Function() body) async {
     try {
       return await _guard(body);
+    } on HerdrBusy {
+      rethrow;
     } catch (_) {
       _doubt();
       rethrow;
@@ -897,7 +904,7 @@ class DeviceSsh implements DeviceLink {
                 },
               );
         } catch (error, stack) {
-          if (!cancelled) _doubt();
+          if (!cancelled && error is! HerdrBusy) _doubt();
           out.addError(error, stack);
           await out.close();
         }

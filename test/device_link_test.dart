@@ -168,7 +168,7 @@ void main() {
   test('a listing that fails on a borrowed link suspects the link', () async {
     var suspected = 0;
     final link = DeviceSsh.borrowed(
-      HostLease(_Refusing(), () {}, () => suspected++),
+      HostLease(_Refusing(), () {}, () async => suspected++),
     );
     await expectLater(link.list(), throwsA(anything));
     expect(suspected, 1);
@@ -187,7 +187,7 @@ void main() {
     var suspected = 0;
     final client = FakeRunClient((_) => null);
     final link = DeviceSsh.borrowed(
-      HostLease(client, () {}, () => suspected++),
+      HostLease(client, () {}, () async => suspected++),
     );
     await expectLater(
       link.read('boot', limit: const Duration(milliseconds: 20)),

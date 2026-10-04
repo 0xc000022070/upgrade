@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/agents.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
@@ -20,6 +22,25 @@ typedef WorkspaceOpener = Future<WorkspaceRunner> Function({
   HostKeyVerifier? verifier,
 });
 
+final workspaceOpenerProvider = Provider<WorkspaceOpener>((ref) {
+  final links = ref.read(hostLinksProvider);
+  return ({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    HostKeyVerifier? verifier,
+  }) async => WorkspaceSsh.borrowed(
+    await links.lease(
+      address: address,
+      port: port,
+      user: user,
+      privateKey: privateKey,
+      verifier: verifier,
+    ),
+  );
+});
+
 /// A [ChangeNotifier] for the reason `HostScreenController` is one: the connection is
 /// exactly as long-lived as the screen, and a provider that outlived the widget would
 /// leave an ssh session open on the host. The connection is held rather than reopened per
@@ -29,10 +50,9 @@ class WorkspaceController extends ChangeNotifier {
     required this.host,
     required String directory,
     required this.readPrivateKey,
-    WorkspaceOpener? open,
+    required this._open,
   }) : _directory = directory,
-       _root = directory,
-       _open = open ?? WorkspaceSsh.open;
+       _root = directory;
 
   final Host host;
   final Future<String?> Function(String keyId) readPrivateKey;
@@ -210,6 +230,10 @@ class WorkspaceController extends ChangeNotifier {
     } on HerdrFailure catch (error) {
       debugPrint('dazzle.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed) return null;
+      if (error is! HerdrBusy && identical(_runner, runner)) {
+        _runner = null;
+        unawaited(runner.close());
+      }
       _fail(error.reason(host.name));
       return null;
     }

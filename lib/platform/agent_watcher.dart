@@ -1038,6 +1038,7 @@ AgentOutcomeKind _kindOf(HerdrFailure error) => switch (error) {
   HerdrProtocolMismatch() => AgentOutcomeKind.protocolMismatch,
   HerdrUnresolved() => AgentOutcomeKind.unresolved,
   HerdrUnreachable() => AgentOutcomeKind.unreachable,
+  HerdrBusy() => AgentOutcomeKind.busy,
   EngineMissing() => AgentOutcomeKind.noEngine,
   HerdrMissing() => AgentOutcomeKind.noHerdr,
   HerdrHostKeyUnverified() => AgentOutcomeKind.hostKeyUnverified,

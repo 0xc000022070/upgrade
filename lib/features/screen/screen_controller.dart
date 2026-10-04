@@ -59,8 +59,8 @@ class HostScreenController extends ChangeNotifier {
     required this._readPrivateKey,
     this.pinHostKey,
     this.prompt,
-    VncOpener? open,
-  }) : _open = open ?? const VncTunnel().open;
+    required this._open,
+  });
 
   final Host host;
   final Future<String?> Function(String keyId) _readPrivateKey;

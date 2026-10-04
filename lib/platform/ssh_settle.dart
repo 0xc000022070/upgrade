@@ -20,6 +20,18 @@ Future<void> closeSsh(SSHClient client, SSHSocket socket) async {
   await socket.close().catchError((Object _) {});
 }
 
+Future<T> openWithin<T>(
+  Future<T> opening,
+  Duration within,
+  void Function(T opened) discard,
+) => opening.timeout(
+  within,
+  onTimeout: () {
+    opening.then(discard, onError: (Object _) {});
+    throw TimeoutException('channel open', within);
+  },
+);
+
 void endExec(SSHSession session) {
   try {
     session.kill(SSHSignal.TERM);

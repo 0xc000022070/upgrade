@@ -104,15 +104,15 @@ class PathScanner {
   }
 }
 
-final pathScannerProvider = Provider(
-  (ref) => PathScanner(
-    fetch: const HerdrClient().fetchPaths,
-    fetchModels: const HerdrClient().fetchModels,
+final pathScannerProvider = Provider((ref) {
+  final client = HerdrClient(links: ref.read(hostLinksProvider));
+  return PathScanner(
+    fetch: client.fetchPaths,
+    fetchModels: client.fetchModels,
     keys: ref.watch(ed25519KeysProvider),
     checkActive: ref
         .watch(pluginDataGateProvider)
         ?.lease('host.workspaces')
         .check,
-  ),
-  dependencies: [pluginDataGateProvider],
-);
+  );
+}, dependencies: [pluginDataGateProvider]);
