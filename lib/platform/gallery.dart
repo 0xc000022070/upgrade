@@ -6,7 +6,7 @@ import 'package:gal/gal.dart';
 /// to 9 and nothing after.
 typedef GallerySaver = Future<void> Function(Uint8List png, String name);
 
-const galleryAlbum = 'Dazzle';
+const galleryAlbum = 'Upgrade';
 
 Future<void> saveToGallery(Uint8List png, String name) async {
   if (!await Gal.hasAccess() && !await Gal.requestAccess()) {

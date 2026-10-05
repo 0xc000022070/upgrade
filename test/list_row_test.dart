@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/components/list_row.dart';
-import 'package:dazzle/design/icons/dazzle_icon.dart';
-import 'package:dazzle/design/icons/dazzle_icons.dart';
-import 'package:dazzle/design/spacing.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
 
 import 'support/themed_app.dart';
 
@@ -49,10 +49,10 @@ void main() {
           theme: testTheme,
           home: Scaffold(
             body: ListRow(
-              leading: DazzleIcon(
-                DazzleIcons.progressMarker,
+              leading: UpgradeIcon(
+                UpgradeIcons.progressMarker,
                 size: IconSizes.glyph,
-                color: DazzleColors.textDisabled,
+                color: UpgradeColors.textDisabled,
               ),
               title: 'lib/main.dart',
               subtitle: 'modified',
@@ -60,7 +60,7 @@ void main() {
           ),
         ),
       );
-      final glyph = tester.getRect(find.byType(DazzleIcon));
+      final glyph = tester.getRect(find.byType(UpgradeIcon));
       final title = tester.getRect(find.text('lib/main.dart'));
       return glyph.center.dy - title.center.dy;
     }

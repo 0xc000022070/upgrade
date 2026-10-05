@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/design/icons/dazzle_icons.dart';
-import 'package:dazzle/features/hosts/host_mark.dart';
-import 'package:dazzle/platform/shell/host_system.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/features/hosts/host_mark.dart';
+import 'package:upgrade/platform/shell/host_system.dart';
 
 void main() {
   group('the probe answer', () {
@@ -49,11 +49,11 @@ void main() {
   });
 
   test('only nixos and darwin draw a vendor mark', () {
-    expect(systemGlyph(HostSystem.nixos), DazzleIcons.systemNixos);
-    expect(systemGlyph(HostSystem.darwin), DazzleIcons.systemDarwin);
-    expect(systemGlyph(HostSystem.linux), DazzleIcons.systemServer);
-    expect(systemGlyph(HostSystem.other), DazzleIcons.systemServer);
-    expect(systemGlyph(null), DazzleIcons.systemServer);
+    expect(systemGlyph(HostSystem.nixos), UpgradeIcons.systemNixos);
+    expect(systemGlyph(HostSystem.darwin), UpgradeIcons.systemDarwin);
+    expect(systemGlyph(HostSystem.linux), UpgradeIcons.systemServer);
+    expect(systemGlyph(HostSystem.other), UpgradeIcons.systemServer);
+    expect(systemGlyph(null), UpgradeIcons.systemServer);
   });
 
   test(

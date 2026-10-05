@@ -1,10 +1,10 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/data/repositories/key_repository.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/data/enums.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/data/enums.dart';
 
 void main() {
   late AppDatabase db;
@@ -21,7 +21,7 @@ void main() {
 
   DateTime at(int day) => DateTime.utc(2026, 9, day, 10);
 
-  Future<void> key(String id, {String name = 'dazzle', int day = 1}) {
+  Future<void> key(String id, {String name = 'upgrade', int day = 1}) {
     return keys.save(
       ManagedKey(
         id: id,

@@ -15,7 +15,7 @@ void stubDeviceChannels({
   const codec = StandardMethodCodec();
 
   messenger.setMockMethodCallHandler(
-    const MethodChannel('dev.luisnquin.dazzle/device'),
+    const MethodChannel('dev.luisnquin.upgrade/device'),
     (call) async {
       switch (call.method) {
         case 'model':
@@ -35,13 +35,13 @@ void stubDeviceChannels({
   );
 
   messenger.setMockMessageHandler(
-    'dev.luisnquin.dazzle/device/throttle',
+    'dev.luisnquin.upgrade/device/throttle',
     (message) async => codec.encodeSuccessEnvelope(null),
   );
 
   // Answering `listen` is enough: nothing is replayed on subscribe.
   messenger.setMockMessageHandler(
-    'dev.luisnquin.dazzle/device/network',
+    'dev.luisnquin.upgrade/device/network',
     (message) async => codec.encodeSuccessEnvelope(null),
   );
 }
@@ -50,7 +50,7 @@ Future<void> pushNetwork(bool up) => TestDefaultBinaryMessengerBinding
     .instance
     .defaultBinaryMessenger
     .handlePlatformMessage(
-      'dev.luisnquin.dazzle/device/network',
+      'dev.luisnquin.upgrade/device/network',
       const StandardMethodCodec().encodeSuccessEnvelope(up),
       (_) {},
     );

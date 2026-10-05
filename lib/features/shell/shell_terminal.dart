@@ -21,7 +21,7 @@ const shellGestures = TerminalGestureSettings(
 final _themes =
     <(TerminalPalette, Color, Color, Color, double), TerminalTheme>{};
 
-TerminalTheme shellTheme(DazzleTokens tokens, double fontSize) {
+TerminalTheme shellTheme(UpgradeTokens tokens, double fontSize) {
   final palette = tokens.terminal;
   final key = (
     palette,

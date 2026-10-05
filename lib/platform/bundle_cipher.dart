@@ -133,8 +133,8 @@ class BundleCipher {
   static const marker = 'bundle';
 
   /// The app was called Spectacle when it wrote the files its users are now importing into
-  /// Dazzle, so both names open and the current one is written.
-  static const markerKey = 'dazzle';
+  /// Upgrade, so both names open and the current one is written.
+  static const markerKey = 'upgrade';
   static const legacyMarkerKey = 'spectacle';
   static const version = 1;
   static const _saltLength = 16;

@@ -4,8 +4,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/features/shell/shell_thumbnail.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/shell_thumbnail.dart';
 import 'package:flterm/flterm.dart';
 
 import 'support/shell_route.dart' show rose;
@@ -111,9 +111,9 @@ void main() {
 
     test('a gap the cursor moved over keeps the columns apart', () {
       final terminal = terminalSized(columns: 40);
-      write(terminal, 'dazzle 3\x1b[7C1 tab\x1b[3C1 pane');
+      write(terminal, 'upgrade 3\x1b[7C1 tab\x1b[3C1 pane');
 
-      expect(thumbnailLines(terminal), ['dazzle 3       1 tab   1 pane']);
+      expect(thumbnailLines(terminal), ['upgrade 3       1 tab   1 pane']);
     });
 
     test('a wide character takes its two cells and no more', () {

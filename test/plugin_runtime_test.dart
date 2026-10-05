@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:dazzle_luau/dazzle_luau.dart';
-import 'package:dazzle_luau/data_api.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
+import 'package:upgrade_luau/data_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   late LuauWorker worker;
   late Directory directory;
   setUp(() async {
-    directory = await Directory.systemTemp.createTemp('dazzle-runtime-test-');
+    directory = await Directory.systemTemp.createTemp('upgrade-runtime-test-');
     worker = LuauWorker(dataDirectory: directory.path);
   });
   tearDown(() async {
@@ -36,9 +36,9 @@ void main() {
 
   const read = '''
 return {run = function()
-  local item = dazzle.data.get('selected')
+  local item = upgrade.data.get('selected')
   assert(item.key == 'selected')
-  dazzle.data.propose('selected', item.key, item.value .. ' changed', item.revision)
+  upgrade.data.propose('selected', item.key, item.value .. ' changed', item.revision)
 end}
 ''';
 
@@ -60,7 +60,7 @@ end}
 local count = 0
 return {run = function()
   count += 1
-  dazzle.data.propose('selected', 'selected', tostring(count), 1)
+  upgrade.data.propose('selected', 'selected', tostring(count), 1)
 end}
 ''';
     expect((await run(source, key: 'a')).dataProposal?.value, '1');
@@ -97,9 +97,9 @@ assert(io == nil and package == nil and require == nil)
 assert(loadstring == nil and getfenv == nil and setfenv == nil)
 assert(coroutine == nil and collectgarbage == nil and print == nil)
 assert(os.execute == nil and os.remove == nil and os.getenv == nil)
-assert(not pcall(function() dazzle.data.get = function() end end))
+assert(not pcall(function() upgrade.data.get = function() end end))
 return {run = function()
-  assert(not pcall(function() dazzle.data.get('selected').value = 'replace' end))
+  assert(not pcall(function() upgrade.data.get('selected').value = 'replace' end))
 end}
 ''');
   });
@@ -109,7 +109,7 @@ end}
     'wrong module type': 'return 42',
     'missing action': 'return {}',
     'initialization has no selected record':
-        "dazzle.data.get('selected'); return {}",
+        "upgrade.data.get('selected'); return {}",
     'infinite initialization': 'while true do end',
     'infinite action': 'return {run = function() while true do end end}',
     'protected infinite action': '''
@@ -130,7 +130,7 @@ end end}
     'caught memory exhaustion still rejects result': '''
 return {run = function()
   pcall(function() return string.rep('x', 16000000) end)
-  dazzle.data.propose('selected', 'selected', 'must not escape', 1)
+  upgrade.data.propose('selected', 'selected', 'must not escape', 1)
 end}
 ''',
     'expensive pattern': '''
@@ -145,19 +145,19 @@ return {run = function()
 end}
 ''',
     'wrong proposal record': '''
-return {run = function() dazzle.data.propose('selected', 'other', 'x', 1) end}
+return {run = function() upgrade.data.propose('selected', 'other', 'x', 1) end}
 ''',
     'embedded NUL proposal key': r'''
-return {run = function() dazzle.data.propose('selected', 'selected\0x', 'y', 1) end}
+return {run = function() upgrade.data.propose('selected', 'selected\0x', 'y', 1) end}
 ''',
     'two proposals': '''
 return {run = function()
-  dazzle.data.propose('selected', 'selected', 'one', 1)
-  dazzle.data.propose('selected', 'selected', 'two', 1)
+  upgrade.data.propose('selected', 'selected', 'one', 1)
+  upgrade.data.propose('selected', 'selected', 'two', 1)
 end}
 ''',
     'invalid UTF8 proposal': '''
-return {run = function() dazzle.data.propose('selected', 'selected', string.char(255), 1) end}
+return {run = function() upgrade.data.propose('selected', 'selected', string.char(255), 1) end}
 ''',
   };
   for (final entry in failures.entries) {

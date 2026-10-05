@@ -5,32 +5,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/app/dazzle_app.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/pane_share.dart';
-import 'package:dazzle/application/providers.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/settings_repository.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/data/repositories/path_repository.dart';
-import 'package:dazzle/design/components/action_block.dart';
-import 'package:dazzle/design/components/list_row.dart';
-import 'package:dazzle/design/components/panel.dart';
-import 'package:dazzle/design/components/path_line.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/icons/dazzle_icon.dart';
-import 'package:dazzle/design/icons/dazzle_icons.dart';
-import 'package:dazzle/design/layout.dart';
-import 'package:dazzle/design/spacing.dart';
-import 'package:dazzle/features/code/diff_map.dart';
-import 'package:dazzle/features/code/explorer.dart';
-import 'package:dazzle/features/code/diff_sheet.dart';
-import 'package:dazzle/features/code/file_icons.dart';
-import 'package:dazzle/features/code/workspace_sheet.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/keys.dart';
-import 'package:dazzle/platform/workspace/workspace_client.dart';
-import 'package:dazzle/platform/workspace/workspace_commands.dart';
+import 'package:upgrade/app/upgrade_app.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/pane_share.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/path_line.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/code/diff_map.dart';
+import 'package:upgrade/features/code/explorer.dart';
+import 'package:upgrade/features/code/diff_sheet.dart';
+import 'package:upgrade/features/code/file_icons.dart';
+import 'package:upgrade/features/code/workspace_sheet.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/workspace/workspace_client.dart';
+import 'package:upgrade/platform/workspace/workspace_commands.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -47,11 +47,11 @@ const _status = '''
 ''';
 
 const _worktrees = '''
-worktree /home/luis/src/dazzle
+worktree /home/luis/src/upgrade
 HEAD 1a2b
 branch refs/heads/main
 
-worktree /home/luis/src/dazzle-fix
+worktree /home/luis/src/upgrade-fix
 HEAD 5e6f
 branch refs/heads/fix/paths
 
@@ -211,8 +211,8 @@ void main() {
   final path = AgentPath(
     id: 'path-1',
     hostId: 'host-1',
-    directory: '/home/luis/src/dazzle',
-    label: 'dazzle',
+    directory: '/home/luis/src/upgrade',
+    label: 'upgrade',
     createdAt: DateTime(2026, 9, 3),
   );
 
@@ -284,7 +284,7 @@ void main() {
       expect(runner.commands.first, startsWith("sh -c '"));
       expect(runner.commands.last, contains('find'));
 
-      expect(find.text('DAZZLE'), findsOneWidget);
+      expect(find.text('UPGRADE'), findsOneWidget);
       expect(find.text('main'), findsOneWidget);
       expect(find.text('+1 -0'), findsOneWidget);
       expect(find.text('lib'), findsOneWidget);
@@ -512,11 +512,11 @@ void main() {
       expect(find.text('ON SCREEN'), findsOneWidget);
       expect(find.text('fix/paths'), findsOneWidget);
 
-      await tapText(tester, 'dazzle-fix');
+      await tapText(tester, 'upgrade-fix');
 
       expect(runner.commands.length, greaterThan(asked));
       expect(
-        runner.commands.where((c) => c.contains('dazzle-fix')),
+        runner.commands.where((c) => c.contains('upgrade-fix')),
         isNotEmpty,
       );
       expect(runner.closed, isFalse);
@@ -566,29 +566,29 @@ void main() {
             home: Builder(
               builder: (context) => GestureDetector(
                 onTap: () => from(context),
-                child: const Text('DAZZLE ROW'),
+                child: const Text('UPGRADE ROW'),
               ),
             ),
           ),
         ),
       );
 
-      await tapText(tester, 'DAZZLE ROW');
+      await tapText(tester, 'UPGRADE ROW');
 
       expect(find.text('README.md'), findsOneWidget);
-      expect(find.text('DAZZLE ROW'), findsOneWidget);
+      expect(find.text('UPGRADE ROW'), findsOneWidget);
       final sheet = find.byKey(const ValueKey('code-sheet'));
       expect(tester.getTopLeft(sheet).dy, 24);
       expect(find.byKey(const ValueKey('code-grip-rule')), findsOneWidget);
 
-      from(tester.element(find.text('DAZZLE ROW')));
+      from(tester.element(find.text('UPGRADE ROW')));
       await ready(tester);
       expect(sheet, findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await ready(tester);
       expect(sheet, findsNothing);
-      expect(find.text('DAZZLE ROW'), findsOneWidget);
+      expect(find.text('UPGRADE ROW'), findsOneWidget);
 
       await unmount(tester);
     });
@@ -624,7 +624,7 @@ void main() {
       );
 
       await tapText(tester, 'lib');
-      expect(runner.commands.last, contains('/home/luis/src/dazzle/lib'));
+      expect(runner.commands.last, contains('/home/luis/src/upgrade/lib'));
       expect(find.text('lib'), findsNWidgets(2));
       expect(find.text('README.md'), findsNWidgets(2));
       expect(
@@ -1042,7 +1042,7 @@ void main() {
             .widgetList<Panel>(find.byType(Panel))
             .where((panel) => panel.literalTitle)
             .map((panel) => panel.title),
-        contains('DAZZLE / 1a2b3c'),
+        contains('UPGRADE / 1a2b3c'),
       );
       expect(
         runner.commands.where((command) => command.contains('log')),
@@ -2036,7 +2036,7 @@ new file mode 100644
     // listed with the untracked file and lib with the changed one, the deeper listing first
     // since a match is the first found.
     FakeRunner tracked({String? overview}) => FakeRunner(overview: overview)
-      ..answers['src/dazzle/lib'] = const WorkspaceReply(
+      ..answers['src/upgrade/lib'] = const WorkspaceReply(
         exitCode: 0,
         stdout: 'f\t200\tmain.dart\n',
         stderr: '',
@@ -2112,14 +2112,14 @@ new file mode 100644
       final runner = await browse(tester);
 
       expect(row(tester, 'lib').value, '1');
-      expect(row(tester, 'lib').valueColor, DazzleColors.warning);
+      expect(row(tester, 'lib').valueColor, UpgradeColors.warning);
       expect(row(tester, 'README.md').value, isNot('?'));
       expect(row(tester, 'scratch.txt').value, '?');
-      expect(row(tester, 'scratch.txt').valueColor, DazzleColors.accent);
+      expect(row(tester, 'scratch.txt').valueColor, UpgradeColors.accent);
 
       await tapText(tester, 'lib');
       expect(row(tester, 'main.dart').value, 'M');
-      expect(row(tester, 'main.dart').valueColor, DazzleColors.warning);
+      expect(row(tester, 'main.dart').valueColor, UpgradeColors.warning);
 
       expect(
         runner.commands.where((c) => c.contains('status --porcelain')),
@@ -2137,7 +2137,7 @@ new file mode 100644
       await tapText(tester, 'lib');
 
       expect(row(tester, 'gone.dart').value, 'D');
-      expect(row(tester, 'gone.dart').valueColor, DazzleColors.danger);
+      expect(row(tester, 'gone.dart').valueColor, UpgradeColors.danger);
 
       await tapText(tester, 'gone.dart');
       expect(find.byType(DiffSheet), findsOneWidget);
@@ -2203,16 +2203,16 @@ new file mode 100644
       expect(
         find.byWidgetPredicate(
           (w) =>
-              w is DazzleIcon &&
-              (w.icon == DazzleIcons.arrowUp ||
-                  w.icon == DazzleIcons.arrowDown ||
-                  w.icon == DazzleIcons.diff),
+              w is UpgradeIcon &&
+              (w.icon == UpgradeIcons.arrowUp ||
+                  w.icon == UpgradeIcons.arrowDown ||
+                  w.icon == UpgradeIcons.diff),
         ),
         findsNWidgets(3),
       );
       expect(
         find.byWidgetPredicate(
-          (w) => w is ColoredBox && w.color == DazzleColors.warning,
+          (w) => w is ColoredBox && w.color == UpgradeColors.warning,
         ),
         findsOneWidget,
       );

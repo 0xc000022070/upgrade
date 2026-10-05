@@ -1,4 +1,4 @@
-import 'package:dazzle_luau/data_api.dart';
+import 'package:upgrade_luau/data_api.dart';
 
 import 'manifest.dart';
 import 'store.dart';

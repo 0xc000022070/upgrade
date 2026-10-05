@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/pip.dart';
 import '../../design/tokens.dart';
 import '../../design/components/panel.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 
 class PipAffordance extends ConsumerWidget {
   const PipAffordance({super.key});
@@ -15,12 +15,12 @@ class PipAffordance extends ConsumerWidget {
         PipAction.absent => const SizedBox.shrink(),
         PipAction.quiet => PanelAffordance(
           'PIP',
-          icon: DazzleIcons.pip,
+          icon: UpgradeIcons.pip,
           color: context.tokens.textDisabled,
         ),
         PipAction.live => PanelAffordance(
           'PIP',
-          icon: DazzleIcons.pip,
+          icon: UpgradeIcons.pip,
           onTap: () => ref.read(pipSurfaceProvider).enter(),
         ),
       };

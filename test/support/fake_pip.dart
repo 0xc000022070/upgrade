@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:dazzle/application/pip.dart';
+import 'package:upgrade/application/pip.dart';
 
 class FakePip implements PipSurface {
   FakePip({this.here = true});

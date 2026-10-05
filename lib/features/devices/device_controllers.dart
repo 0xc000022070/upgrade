@@ -244,7 +244,7 @@ class DevicesController extends ChangeNotifier {
   String reasonFor(Object error) => _reason(error);
 
   String _reason(Object error) {
-    debugPrint('dazzle.devices ${host.name}: $error');
+    debugPrint('upgrade.devices ${host.name}: $error');
     return asHerdrFailure(error)?.reason(host.name) ??
         ReasonLine.streamClosed.words;
   }
@@ -340,7 +340,7 @@ class DevicesController extends ChangeNotifier {
 
   void _fail(Object error) {
     final failure = asHerdrFailure(error);
-    debugPrint('dazzle.devices ${host.name}: ${failure?.detail ?? error}');
+    debugPrint('upgrade.devices ${host.name}: ${failure?.detail ?? error}');
     _phase = DevicesFailed(
       failure?.reason(host.name) ?? ReasonLine.streamClosed.words,
     );
@@ -556,7 +556,7 @@ class DeviceScreenController extends ChangeNotifier {
       codec.dispose();
     } catch (error) {
       debugPrint(
-        'dazzle.devices $hostName ${device.id}: decode failed: $error',
+        'upgrade.devices $hostName ${device.id}: decode failed: $error',
       );
       return;
     }
@@ -603,7 +603,7 @@ class DeviceScreenController extends ChangeNotifier {
     if (!device.pressable || _phase is! DeviceLive) return;
     unawaited(
       _link.run(command).catchError((Object error) {
-        debugPrint('dazzle.devices $hostName ${device.id}: input: $error');
+        debugPrint('upgrade.devices $hostName ${device.id}: input: $error');
       }),
     );
   }
@@ -614,7 +614,7 @@ class DeviceScreenController extends ChangeNotifier {
     if (run != _run) return;
     _frames = null;
     if (_disposed) return;
-    debugPrint('dazzle.devices $hostName ${device.id}: $error');
+    debugPrint('upgrade.devices $hostName ${device.id}: $error');
     final failure = asHerdrFailure(error);
     _lost = failure is HerdrUnreachable;
     if (_lost && _returned && reopen != null) {

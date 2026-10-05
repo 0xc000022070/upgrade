@@ -7,7 +7,7 @@ import '../../application/native_plugins.dart';
 import '../../application/plugin_placements.dart';
 import '../../data/repositories/plugin_placement_repository.dart';
 import '../../design/components/action_block.dart';
-import '../../design/components/dazzle_field.dart';
+import '../../design/components/upgrade_field.dart';
 import '../../design/components/dot_spinner.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
@@ -255,7 +255,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
         if (manifest == null) ...[
           SheetField(
             label: 'PUBLIC GITHUB REPOSITORY',
-            child: DazzleField(
+            child: UpgradeField(
               controller: _repository,
               suggest: false,
               hint: 'https://github.com/owner/repository',
@@ -265,7 +265,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
           const SheetRule(),
           SheetField(
             label: 'REF',
-            child: DazzleField(
+            child: UpgradeField(
               controller: _revision,
               suggest: false,
               hint: 'full commit SHA, tag or branch name',
@@ -389,9 +389,9 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
             _fact('PLUGIN', '${manifest.id} ${manifest.version}'),
             if (package!.origin.startsWith('builtin:') ||
                 package.origin.startsWith('bundled:'))
-              _fact('DISTRIBUTION', 'Built-in · updated with Dazzle'),
+              _fact('DISTRIBUTION', 'Built-in · updated with Upgrade'),
             _fact('MANIFEST', '${manifest.formatVersion}'),
-            _fact('DAZZLE API', '${manifest.api}'),
+            _fact('UPGRADE API', '${manifest.api}'),
             if (manifest.uiVersion != null)
               _fact('UI API', '${manifest.uiVersion}'),
             if (!manifest.supported)
@@ -684,7 +684,7 @@ class _SourcesSheetState extends ConsumerState<_SourcesSheet> {
         ],
         SheetField(
           label: 'INDEX REPOSITORY',
-          child: DazzleField(
+          child: UpgradeField(
             controller: _repository,
             suggest: false,
             hint: 'https://github.com/owner/repository',
@@ -694,7 +694,7 @@ class _SourcesSheetState extends ConsumerState<_SourcesSheet> {
         const SheetRule(),
         SheetField(
           label: 'REF',
-          child: DazzleField(
+          child: UpgradeField(
             controller: _ref,
             suggest: false,
             hint: 'full commit SHA, tag or branch name',

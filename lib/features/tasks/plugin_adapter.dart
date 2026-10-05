@@ -1,4 +1,4 @@
-import 'package:dazzle_luau/data_api.dart';
+import 'package:upgrade_luau/data_api.dart';
 
 import '../../application/plugins.dart';
 import '../../data/database.dart';

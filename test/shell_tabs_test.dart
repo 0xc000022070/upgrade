@@ -2,21 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:dazzle/application/launch_scan.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/components/cell_divider.dart';
-import 'package:dazzle/design/components/dot_spinner.dart';
-import 'package:dazzle/design/components/scan_sweep.dart';
-import 'package:dazzle/design/motion.dart';
-import 'package:dazzle/design/spacing.dart';
-import 'package:dazzle/features/shell/host_shell_screen.dart';
-import 'package:dazzle/features/shell/shell_header.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/features/shell/shell_status.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
-import 'package:dazzle/platform/shell/shell_launch.dart';
+import 'package:upgrade/application/launch_scan.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/cell_divider.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/scan_sweep.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/shell/host_shell_screen.dart';
+import 'package:upgrade/features/shell/shell_header.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/shell_status.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
@@ -139,7 +139,7 @@ void main() {
       transport.opened.single.setHealth(health);
       await tester.pump();
       await tester.pump();
-      expect(tester.widget<ScanSweep>(sweep).lit, DazzleColors.warning);
+      expect(tester.widget<ScanSweep>(sweep).lit, UpgradeColors.warning);
       final band = find.descendant(
         of: sweep,
         matching: find.byType(ShaderMask),
@@ -160,7 +160,7 @@ void main() {
     transport.opened.single.drop();
     await tester.pump();
     await tester.pump();
-    expect(tester.widget<ScanSweep>(sweep).lit, DazzleColors.warning);
+    expect(tester.widget<ScanSweep>(sweep).lit, UpgradeColors.warning);
     expect(find.byType(DelayedSpinner), findsNothing);
 
     await tester.pump(shellReconnectDelays.first);
@@ -197,7 +197,7 @@ void main() {
 
     expect(headerWords(tester), contains('(i)'));
     expect(find.text('EXITED 1'), findsNothing);
-    expect(inkOfInfoMark(tester), DazzleColors.warning);
+    expect(inkOfInfoMark(tester), UpgradeColors.warning);
 
     await openInfo(tester);
 
@@ -286,7 +286,7 @@ void main() {
                     HerdrWorkspaceEntry(
                       session: 'hub',
                       id: 'w2',
-                      label: 'dazzle',
+                      label: 'upgrade',
                       status: 'working',
                       focused: true,
                     ),
@@ -323,7 +323,7 @@ void main() {
     expect(find.byKey(const ValueKey('launch-herdr-hub')), findsOneWidget);
     expect(find.text('2 spaces · 1 working'), findsOneWidget);
     expect(find.text('hyprland'), findsNothing);
-    expect(find.text('dazzle'), findsNothing);
+    expect(find.text('upgrade'), findsNothing);
     expect(find.text('ATTACHED'), findsOneWidget);
     expect(find.text('tmux 1'), findsOneWidget);
     expect(
@@ -407,9 +407,9 @@ void main() {
     });
 
     test('a login shell reads where it is, not who it is', () {
-      expect(shellTabLabel('luis@nyx: ~/Projects/dazzle', 1), 'dazzle');
+      expect(shellTabLabel('luis@nyx: ~/Projects/upgrade', 1), 'upgrade');
       expect(shellTabLabel('luis@nyx: ~', 1), '~');
-      expect(shellTabLabel('~/Projects/dazzle', 1), 'dazzle');
+      expect(shellTabLabel('~/Projects/upgrade', 1), 'upgrade');
     });
 
     test('a title with a space in it is a sentence and is kept whole', () {
@@ -424,10 +424,10 @@ void main() {
       await ready(tester);
       expect(labelOfTab(tester, 1), '1');
 
-      transport.opened.first.emit('\x1b]0;luis@rose: ~/Projects/dazzle\x07');
+      transport.opened.first.emit('\x1b]0;luis@rose: ~/Projects/upgrade\x07');
       await ready(tester);
 
-      expect(labelOfTab(tester, 1), 'dazzle');
+      expect(labelOfTab(tester, 1), 'upgrade');
 
       await unmount(tester);
     });
@@ -461,12 +461,12 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      expect(dotOfTab(tester, 1), DazzleColors.accent);
+      expect(dotOfTab(tester, 1), UpgradeColors.accent);
 
       transport.opened.first.drop();
       await ready(tester);
 
-      expect(dotOfTab(tester, 1), isNot(DazzleColors.accent));
+      expect(dotOfTab(tester, 1), isNot(UpgradeColors.accent));
 
       expect(find.text('STOP'), findsNothing);
       await openInfo(tester);
@@ -533,7 +533,7 @@ void main() {
       addTearDown(tester.view.reset);
       const named = Host(
         id: 'h1',
-        name: 'DAZZLE HOST VM',
+        name: 'UPGRADE HOST VM',
         address: '100.64.0.1',
         port: 22,
         user: 'luis',

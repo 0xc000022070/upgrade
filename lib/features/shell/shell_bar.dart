@@ -5,13 +5,13 @@ import 'package:flutter/widgets.dart';
 import '../../design/components/arrow_stick.dart';
 import '../../design/components/key_bar.dart';
 import '../../design/components/key_cell.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../platform/shell/strip_bytes.dart';
 import '../../platform/vnc/arming.dart';
 import '../../platform/vnc/keysyms.dart';
 import '../modifier_cell.dart';
 
-typedef _BarKey = ({String label, int keysym, DazzleIcons? icon, bool repeats});
+typedef _BarKey = ({String label, int keysym, UpgradeIcons? icon, bool repeats});
 
 const _stickKeysyms = {
   AxisDirection.up: Keysyms.up,
@@ -26,20 +26,20 @@ const _barKeys = <_BarKey>[
   (
     label: 'LEFT',
     keysym: Keysyms.left,
-    icon: DazzleIcons.arrowLeft,
+    icon: UpgradeIcons.arrowLeft,
     repeats: true,
   ),
-  (label: 'UP', keysym: Keysyms.up, icon: DazzleIcons.arrowUp, repeats: true),
+  (label: 'UP', keysym: Keysyms.up, icon: UpgradeIcons.arrowUp, repeats: true),
   (
     label: 'DOWN',
     keysym: Keysyms.down,
-    icon: DazzleIcons.arrowDown,
+    icon: UpgradeIcons.arrowDown,
     repeats: true,
   ),
   (
     label: 'RIGHT',
     keysym: Keysyms.right,
-    icon: DazzleIcons.arrowRight,
+    icon: UpgradeIcons.arrowRight,
     repeats: true,
   ),
   (label: 'END', keysym: Keysyms.end, icon: null, repeats: false),
@@ -108,7 +108,7 @@ class ShellBar extends StatelessWidget {
         KeyCell(
           key: const ValueKey('bar-find'),
           label: 'FIND',
-          icon: DazzleIcons.search,
+          icon: UpgradeIcons.search,
           armed: searching,
           minWidth: KeyBar.height,
           padding: KeyBar.cellPadding,
@@ -143,7 +143,7 @@ class ShellBar extends StatelessWidget {
         KeyCell(
           key: const ValueKey('bar-ATTACH'),
           label: 'ATTACH',
-          icon: DazzleIcons.image,
+          icon: UpgradeIcons.image,
           armed: clipCount > 0,
           minWidth: KeyBar.height,
           padding: KeyBar.cellPadding,
@@ -152,7 +152,7 @@ class ShellBar extends StatelessWidget {
         KeyCell(
           key: const ValueKey('bar-keyboard'),
           label: 'KEYBOARD',
-          icon: DazzleIcons.keyboard,
+          icon: UpgradeIcons.keyboard,
           armed: keyboardOpen,
           minWidth: KeyBar.height,
           padding: KeyBar.cellPadding,

@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flterm/flterm.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/design/tokens.dart';
-import 'package:dazzle/features/shell/shell_engine.dart';
-import 'package:dazzle/platform/vnc/keysyms.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/shell/shell_engine.dart';
+import 'package:upgrade/platform/vnc/keysyms.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -124,7 +124,7 @@ void main() {
       connection.emit('\x1b]11;?\x07');
       await _settle();
 
-      final ground = DazzleTokens.house.terminal.background;
+      final ground = UpgradeTokens.house.terminal.background;
       final rgb = [
         (ground.r * 0xff).round(),
         (ground.g * 0xff).round(),

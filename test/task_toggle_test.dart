@@ -4,20 +4,20 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/activity_repository.dart';
-import 'package:dazzle/data/repositories/goal_repository.dart';
-import 'package:dazzle/data/repositories/project_repository.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/data/repositories/task_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/components/list_row.dart';
-import 'package:dazzle/design/components/panel.dart';
-import 'package:dazzle/design/effects/glitch.dart';
-import 'package:dazzle/design/icons/dazzle_icon.dart';
-import 'package:dazzle/features/projects/project_detail_screen.dart';
-import 'package:dazzle/features/tasks/item_sheet.dart';
-import 'package:dazzle/features/tasks/task_row.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/goal_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/features/projects/project_detail_screen.dart';
+import 'package:upgrade/features/tasks/item_sheet.dart';
+import 'package:upgrade/features/tasks/task_row.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -217,23 +217,23 @@ void main() {
         tester.widget<Text>(inGoal(title)).style!.color!;
 
     Color boxInk(String title) => tester
-        .widget<DazzleIcon>(
+        .widget<UpgradeIcon>(
           find
-              .descendant(of: rowOf(title), matching: find.byType(DazzleIcon))
+              .descendant(of: rowOf(title), matching: find.byType(UpgradeIcon))
               .first,
         )
         .color;
 
-    expect(titleInk('Backups viejos'), DazzleColors.textMuted);
-    expect(boxInk('Backups viejos'), DazzleColors.textMuted);
+    expect(titleInk('Backups viejos'), UpgradeColors.textMuted);
+    expect(boxInk('Backups viejos'), UpgradeColors.textMuted);
 
-    expect(titleInk('Object storage'), DazzleColors.textPrimary);
-    expect(boxInk('Object storage'), DazzleColors.accent);
+    expect(titleInk('Object storage'), UpgradeColors.textPrimary);
+    expect(boxInk('Object storage'), UpgradeColors.accent);
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'DONE'));
     await _ready(tester);
-    expect(titleInk('Redis propio'), DazzleColors.textDisabled);
-    expect(boxInk('Redis propio'), DazzleColors.textDisabled);
+    expect(titleInk('Redis propio'), UpgradeColors.textDisabled);
+    expect(boxInk('Redis propio'), UpgradeColors.textDisabled);
 
     await unmount(tester);
   });

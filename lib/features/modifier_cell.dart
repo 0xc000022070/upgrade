@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../design/components/key_bar.dart';
 import '../design/components/key_cell.dart';
-import '../design/icons/dazzle_icons.dart';
+import '../design/icons/upgrade_icons.dart';
 import '../platform/vnc/arming.dart';
 import '../platform/vnc/keysyms.dart';
 
@@ -23,7 +23,7 @@ class ModifierCell extends StatelessWidget {
     final armed = arming.armed(modifier);
     return KeyCell(
       label: modifier.label,
-      icon: modifier == StickyModifier.superKey ? DazzleIcons.superKey : null,
+      icon: modifier == StickyModifier.superKey ? UpgradeIcons.superKey : null,
       armed: armed,
       repeat: armed ? arming.repeat : 1,
       locked: armed && arming.locked,

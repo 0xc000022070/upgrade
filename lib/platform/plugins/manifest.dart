@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:dazzle_luau/data_api.dart';
+import 'package:upgrade_luau/data_api.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:toml/toml.dart';
 
@@ -183,7 +183,7 @@ class PluginManifest {
       final summary = _optionalText(root['summary'], 'summary', 140);
       final version = Version.parse(_text(root['version'], 'version', 64));
       final api = VersionConstraint.parse(
-        _text(root['dazzle_api'], 'dazzle_api', 128),
+        _text(root['upgrade_api'], 'upgrade_api', 128),
       );
       final runtime = _map(root['runtime'], 'runtime');
       final entry = _text(runtime['entry'], 'entry', 200);
@@ -204,9 +204,9 @@ class PluginManifest {
           format != manifestVersion && !native && !uiRuntime && !filesRuntime
           ? 'Unsupported manifest version $format'
           : !api.allows(apiVersion)
-          ? 'Plugin requires Dazzle API $api'
+          ? 'Plugin requires Upgrade API $api'
           : native && !allowNative
-          ? 'Native plugins must be bundled with Dazzle'
+          ? 'Native plugins must be bundled with Upgrade'
           : runtime['kind'] != 'luau' && !native
           ? 'Unsupported plugin runtime'
           : invalidUiApi
@@ -242,7 +242,7 @@ class PluginManifest {
           'name',
           'purpose',
           'version',
-          'dazzle_api',
+          'upgrade_api',
           'runtime',
           'dependencies',
           'services',
@@ -374,7 +374,7 @@ class PluginManifest {
         'name',
         'purpose',
         'version',
-        'dazzle_api',
+        'upgrade_api',
         'runtime',
         'permissions',
         'dependencies',

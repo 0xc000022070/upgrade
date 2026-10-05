@@ -238,7 +238,7 @@ void synchronizePluginFields(
   }
 }
 
-Color pluginColor(DazzleTokens tokens, Object? value, [Color? fallback]) {
+Color pluginColor(UpgradeTokens tokens, Object? value, [Color? fallback]) {
   return switch (value) {
     'accent' => tokens.accent,
     'muted' => tokens.textMuted,
@@ -814,7 +814,7 @@ class _PluginDisclosureState extends State<_PluginDisclosure> {
 class _PluginCanvas extends CustomPainter {
   _PluginCanvas(this.commands, this.tokens) : signature = jsonEncode(commands);
   final List<Object?> commands;
-  final DazzleTokens tokens;
+  final UpgradeTokens tokens;
   final String signature;
   @override
   void paint(Canvas canvas, Size size) {

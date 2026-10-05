@@ -6,14 +6,14 @@ import 'dart:typed_data';
 import 'package:dart_mosh/dart_mosh.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/platform/shell/engine_channel.dart';
-import 'package:dazzle/platform/shell/mosh_channel.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
-import 'package:dazzle/platform/shell/remote_shell.dart';
-import 'package:dazzle/platform/shell/shell_tunnel.dart';
-import 'package:dazzle/platform/shell/udp_path.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/platform/keys.dart';
+import 'package:upgrade/platform/shell/engine_channel.dart';
+import 'package:upgrade/platform/shell/mosh_channel.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/shell_tunnel.dart';
+import 'package:upgrade/platform/shell/udp_path.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/keys.dart';
 
 /// `dart:io` reports a reset on both ends of the socket: the stream the transport reads
 /// and the `done` nothing in dartssh2 is holding.
@@ -400,11 +400,11 @@ const _tmuxPath = '/nix/store/tmux/bin/tmux';
 const _moshPath = '/nix/store/mosh/bin/mosh-server';
 
 String moshHostAnswer(String command, {bool tmux = true}) {
-  if (command == durableShellProbeCommand('dazzle123')) {
-    return tmux ? 'DAZZLE_TMUX=$_tmuxPath\nDAZZLE_RESUME=0\n' : '';
+  if (command == durableShellProbeCommand('upgrade123')) {
+    return tmux ? 'UPGRADE_TMUX=$_tmuxPath\nUPGRADE_RESUME=0\n' : '';
   }
   if (command == moshServerProbeCommand()) {
-    return 'profile noise\nDAZZLE_MOSH=$_moshPath\n';
+    return 'profile noise\nUPGRADE_MOSH=$_moshPath\n';
   }
   if (command.contains('mosh-server') && command.contains(' new ')) {
     return 'MOSH CONNECT 60001 AAECAwQFBgcICQoLDA0ODw\n';
@@ -445,10 +445,10 @@ void main() {
 
     test('a durable tab starts inside its own tmux server', () async {
       const tmux = '/nix/store/tmux/bin/tmux';
-      const session = 'dazzle123';
-      const command = 'export DAZZLE_TAB=dazzle123; exec \$SHELL -l';
+      const session = 'upgrade123';
+      const command = 'export UPGRADE_TAB=upgrade123; exec \$SHELL -l';
       final host = FakeHost(
-        execOut: 'noise\nDAZZLE_TMUX=$tmux\nDAZZLE_RESUME=0\n',
+        execOut: 'noise\nUPGRADE_TMUX=$tmux\nUPGRADE_RESUME=0\n',
       );
 
       final connection = await openOn(
@@ -468,8 +468,8 @@ void main() {
 
     test('an existing durable tab is classified as resumed', () async {
       const tmux = '/usr/bin/tmux';
-      const session = 'dazzle123';
-      final host = FakeHost(execOut: 'DAZZLE_TMUX=$tmux\nDAZZLE_RESUME=1\n');
+      const session = 'upgrade123';
+      final host = FakeHost(execOut: 'UPGRADE_TMUX=$tmux\nUPGRADE_RESUME=1\n');
 
       final connection = await openOn(
         tunnelTo(host),
@@ -482,7 +482,7 @@ void main() {
     });
 
     test('a host without tmux keeps the plain SSH command', () async {
-      const session = 'dazzle123';
+      const session = 'upgrade123';
       const command = 'exec \$SHELL -l';
       final host = FakeHost(execCode: 127);
 
@@ -501,8 +501,8 @@ void main() {
     });
 
     test('Mosh carries a durable shell and rehomes its UDP socket', () async {
-      const session = 'dazzle123';
-      const command = 'export DAZZLE_TAB=dazzle123; exec \$SHELL -l';
+      const session = 'upgrade123';
+      const command = 'export UPGRADE_TAB=upgrade123; exec \$SHELL -l';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       final channel = FakeMoshChannel();
       final connection = await openOn(
@@ -527,7 +527,7 @@ void main() {
         (request) =>
             request.contains('mosh-server') && request.contains(' new '),
       );
-      expect(launch, contains("$moshTabVariable='dazzle123'"));
+      expect(launch, contains("$moshTabVariable='upgrade123'"));
       expect(launch, contains("-- sh -c 'exec '\\''$_tmuxPath'"));
 
       connection.write(Uint8List.fromList([0x6c, 0x73, 0x0d]));
@@ -540,7 +540,7 @@ void main() {
     });
 
     test('Mosh sends a resize while an earlier probe is pending', () async {
-      const session = 'dazzle123';
+      const session = 'upgrade123';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       final channel = FakeMoshChannel();
       final connection = await openOn(
@@ -562,7 +562,7 @@ void main() {
     test(
       'Mosh health follows acknowledged contact, not session existence',
       () async {
-        const session = 'dazzle123';
+        const session = 'upgrade123';
         final host = FakeHost()..execAnswer = moshHostAnswer;
         final channel = FakeMoshChannel();
         final connection = await openOn(
@@ -593,7 +593,7 @@ void main() {
     test(
       'a Mosh packet that carries no screen still counts as contact',
       () async {
-        const session = 'dazzle123';
+        const session = 'upgrade123';
         final host = FakeHost()..execAnswer = moshHostAnswer;
         final channel = FakeMoshChannel();
         final connection = await openOn(
@@ -621,7 +621,7 @@ void main() {
     test(
       'a thawed Mosh tab owes one missed answer, not one per tick',
       () async {
-        const session = 'dazzle123';
+        const session = 'upgrade123';
         final host = FakeHost()..execAnswer = moshHostAnswer;
         final channel = FakeMoshChannel();
         final connection = await openOn(
@@ -646,7 +646,7 @@ void main() {
     );
 
     test('a Mosh channel that stops answering reaches the reader', () async {
-      const session = 'dazzle123';
+      const session = 'upgrade123';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       final channel = FakeMoshChannel();
       final connection = await openOn(
@@ -675,7 +675,7 @@ void main() {
     });
 
     test('a suspended Mosh tab goes quiet and rehomes on resume', () async {
-      const session = 'dazzle123';
+      const session = 'upgrade123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -709,7 +709,7 @@ void main() {
     });
 
     test('a suspended Mosh tab dials no control path', () async {
-      const session = 'dazzle123';
+      const session = 'upgrade123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -735,7 +735,7 @@ void main() {
     });
 
     test('Mosh redials its SSH control path after a network change', () async {
-      const session = 'dazzle123';
+      const session = 'upgrade123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -760,7 +760,7 @@ void main() {
     });
 
     test('a plain return keeps the SSH control path', () async {
-      const session = 'dazzle123';
+      const session = 'upgrade123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -794,7 +794,7 @@ void main() {
     });
 
     test('an unreachable Mosh UDP port falls back to SSH', () async {
-      const session = 'dazzle123';
+      const session = 'upgrade123';
       const command = 'exec \$SHELL -l';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       final channel = FakeMoshChannel();
@@ -827,7 +827,7 @@ void main() {
     });
 
     test('a failed Mosh bootstrap is cleaned before SSH fallback', () async {
-      const session = 'dazzle123';
+      const session = 'upgrade123';
       const command = 'exec \$SHELL -l';
       final host = FakeHost()
         ..execAnswer = moshHostAnswer
@@ -858,7 +858,7 @@ void main() {
     });
 
     test('a Herdr pane uses Mosh without nesting tmux', () async {
-      const session = 'dazzle123';
+      const session = 'upgrade123';
       const command = "env HERDR_SESSION='work' herdr agent attach 'w2a:p3'";
       final host = FakeHost()..execAnswer = moshHostAnswer;
       final channel = FakeMoshChannel();
@@ -999,8 +999,8 @@ void main() {
 
     test('ending a durable shell kills only its named tmux session', () async {
       const tmux = '/usr/bin/tmux';
-      const session = 'dazzle123';
-      final host = FakeHost(execOut: 'DAZZLE_TMUX=$tmux\nDAZZLE_RESUME=1\n');
+      const session = 'upgrade123';
+      final host = FakeHost(execOut: 'UPGRADE_TMUX=$tmux\nUPGRADE_RESUME=1\n');
       final connection = await openOn(
         tunnelTo(host),
         command: 'exec \$SHELL -l',
@@ -1024,16 +1024,16 @@ void main() {
 
     test('a durable shell reports the active pane directory', () async {
       const tmux = '/usr/bin/tmux';
-      const session = 'dazzle123';
-      final host = FakeHost(execOut: 'DAZZLE_TMUX=$tmux\nDAZZLE_RESUME=1\n');
+      const session = 'upgrade123';
+      final host = FakeHost(execOut: 'UPGRADE_TMUX=$tmux\nUPGRADE_RESUME=1\n');
       final connection = await openOn(
         tunnelTo(host),
         command: 'exec \$SHELL -l',
         persistentSession: session,
       );
 
-      host.execOut = '/srv/dazzle\n';
-      expect(await connection.remoteDirectory(session), '/srv/dazzle');
+      host.execOut = '/srv/upgrade\n';
+      expect(await connection.remoteDirectory(session), '/srv/upgrade');
       expect(
         host.requests.last,
         'exec ${durableShellDirectoryCommand(tmux, session)}',
@@ -1180,7 +1180,7 @@ void main() {
 
   test('a dial that fails leaves no unhandled error behind', () async {
     final keys = Ed25519Keys(MemoryPrivateKeyStore());
-    await keys.generate(id: 'key-1', name: 'dazzle');
+    await keys.generate(id: 'key-1', name: 'upgrade');
     final privateKey = (await keys.privateKey('key-1'))!;
 
     final loose = <Object>[];
@@ -1273,7 +1273,7 @@ void main() {
 
   test('closing a host still authenticating waits for it to settle', () async {
     final keys = Ed25519Keys(MemoryPrivateKeyStore());
-    await keys.generate(id: 'key-1', name: 'dazzle');
+    await keys.generate(id: 'key-1', name: 'upgrade');
     final privateKey = (await keys.privateKey('key-1'))!;
 
     final socket = RudeSocket();
@@ -1375,7 +1375,7 @@ String Function(String, String) engineHostAnswer({
   String start =
       '{"ok":true,"result":{"port":60990,"key":"$_engineKey","pid":42}}',
 }) => (command, stdin) {
-  if (!command.endsWith('dazzle-engine')) return moshHostAnswer(command);
+  if (!command.endsWith('upgrade-engine')) return moshHostAnswer(command);
   final request = jsonDecode(stdin) as Map<String, Object?>;
   return switch (request['op']) {
     'start' => start,
@@ -1440,7 +1440,7 @@ List<Map<String, Object?>> engineRequests(FakeHost host) => [
 ];
 
 void engineTests() {
-  const session = 'dazzle123';
+  const session = 'upgrade123';
 
   test('an engine that knows shell/1 carries the tab and Mosh is never '
       'probed', () async {
@@ -1456,7 +1456,7 @@ void engineTests() {
 
     expect(connection, isA<EngineShellConnection>());
     expect(connection.transport, ShellTransport.engine);
-    expect(host.requests, ["exec $moshTabVariable='dazzle123' dazzle-engine"]);
+    expect(host.requests, ["exec $moshTabVariable='upgrade123' upgrade-engine"]);
     expect(engineRequests(host).single, {
       'service': 'shell/1',
       'op': 'start',
@@ -1508,7 +1508,7 @@ void engineTests() {
     ('not installed', ''),
     ('too old to know shell/1', '{"ok":false,"error":{"kind":"unsupported"}}'),
     ('refusing the owner', '{"ok":false,"error":{"kind":"denied"}}'),
-    ('answering garbage', 'dazzle-engine: command not found'),
+    ('answering garbage', 'upgrade-engine: command not found'),
   ]) {
     test('an engine $name falls back to Mosh and stops nothing', () async {
       final host = FakeHost()..execInputAnswer = engineHostAnswer(start: start);
@@ -1658,11 +1658,11 @@ void engineTests() {
     addTearDown(connection.close);
 
     expect(
-      await connection.terminateRemote('dazzle456', durableShell: false),
+      await connection.terminateRemote('upgrade456', durableShell: false),
       isTrue,
     );
     expect(engine.ended, isFalse);
-    expect(engineRequests(host).last['args'], {'tab': 'dazzle456'});
+    expect(engineRequests(host).last['args'], {'tab': 'upgrade456'});
   });
 
   test('a stop the engine refuses falls to the marker sweep', () async {
@@ -1673,20 +1673,20 @@ void engineTests() {
       tabSession: session,
     );
     addTearDown(connection.close);
-    host.execInputAnswer = (command, stdin) => command.endsWith('dazzle-engine')
+    host.execInputAnswer = (command, stdin) => command.endsWith('upgrade-engine')
         ? '{"ok":false,"error":{"kind":"failed","message":"no"}}'
         : '';
 
     expect(
-      await connection.terminateRemote('dazzle456', durableShell: false),
+      await connection.terminateRemote('upgrade456', durableShell: false),
       isTrue,
     );
-    expect(host.requests.last, 'exec ${moshServerCleanupCommand('dazzle456')}');
+    expect(host.requests.last, 'exec ${moshServerCleanupCommand('upgrade456')}');
 
     host.execCodeAnswer = (command) =>
-        command.endsWith('dazzle-engine') ? 0 : 1;
+        command.endsWith('upgrade-engine') ? 0 : 1;
     expect(
-      await connection.terminateRemote('dazzle456', durableShell: false),
+      await connection.terminateRemote('upgrade456', durableShell: false),
       isFalse,
     );
   });

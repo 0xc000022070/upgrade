@@ -5,7 +5,7 @@ import '../../app/static_surface.dart';
 import '../../application/item_search.dart';
 import '../../application/providers.dart';
 import '../../data/views.dart';
-import '../../design/components/dazzle_field.dart';
+import '../../design/components/upgrade_field.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
@@ -52,7 +52,7 @@ class _ItemSearchScreenState extends ConsumerState<ItemSearchScreen> {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'SEARCH',
-          breadcrumb: '/ DAZZLE / SEARCH',
+          breadcrumb: '/ UPGRADE / SEARCH',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(
@@ -61,7 +61,7 @@ class _ItemSearchScreenState extends ConsumerState<ItemSearchScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      DazzleField(
+                      UpgradeField(
                         key: const ValueKey('item-search-field'),
                         controller: _query,
                         autofocus: true,

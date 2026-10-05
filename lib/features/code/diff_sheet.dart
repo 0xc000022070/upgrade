@@ -17,7 +17,7 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/section.dart';
 import '../../design/components/status_tag.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
 import '../../platform/workspace/workspace_model.dart';
@@ -471,7 +471,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       title: 'CHANGES',
       affordance: PanelAffordance(
         _countWord(files?.length, _filesFailed),
-        icon: _changesOpen ? DazzleIcons.collapse : DazzleIcons.expand,
+        icon: _changesOpen ? UpgradeIcons.collapse : UpgradeIcons.expand,
       ),
       onHeaderTap: () => setState(() => _changesOpen = !_changesOpen),
       bodyPadding: EdgeInsets.zero,
@@ -526,7 +526,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       title: 'COMMITS',
       affordance: PanelAffordance(
         _countWord(commits?.length, _controller.phase == WorkspacePhase.failed),
-        icon: _historyOpen ? DazzleIcons.collapse : DazzleIcons.expand,
+        icon: _historyOpen ? UpgradeIcons.collapse : UpgradeIcons.expand,
       ),
       onHeaderTap: () => setState(() => _historyOpen = !_historyOpen),
       bodyPadding: EdgeInsets.zero,

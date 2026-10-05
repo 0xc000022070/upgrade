@@ -12,12 +12,12 @@ import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/path_repository.dart';
 import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
-import '../../design/components/dazzle_field.dart';
+import '../../design/components/upgrade_field.dart';
 import '../../design/components/dot_spinner.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../hosts/path_picker_sheet.dart';
 import '../home/agent_mark.dart';
@@ -212,7 +212,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           title: 'SEND TO',
           affordance: PanelAffordance(
             'BACK',
-            icon: DazzleIcons.back,
+            icon: UpgradeIcons.back,
             onTap: () => _back(step),
           ),
           children: [_picker()],
@@ -222,7 +222,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           title: dispatch.target.title,
           affordance: PanelAffordance(
             'BACK',
-            icon: DazzleIcons.back,
+            icon: UpgradeIcons.back,
             onTap: () => _back(dispatch),
           ),
           children: _dispatchBody(dispatch),
@@ -330,7 +330,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
       const SheetRule(),
       SheetField(
         label: 'MESSAGE',
-        child: DazzleField(
+        child: UpgradeField(
           key: const ValueKey('send-message'),
           semanticLabel: 'Message to agent',
           controller: _message,

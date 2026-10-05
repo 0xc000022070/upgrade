@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:dazzle/platform/shell/shell_connection.dart';
-import 'package:dazzle/platform/shell/shell_tunnel.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/shell_tunnel.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

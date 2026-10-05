@@ -4,10 +4,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dazzle/design/ascii/atlas.dart';
-import 'package:dazzle/design/ascii/braille.dart';
-import 'package:dazzle/design/ascii/ramp.dart';
-import 'package:dazzle/design/typography.dart';
+import 'package:upgrade/design/ascii/atlas.dart';
+import 'package:upgrade/design/ascii/braille.dart';
+import 'package:upgrade/design/ascii/ramp.dart';
+import 'package:upgrade/design/typography.dart';
 
 void main() {
   const shade = 0xFFE8E8E3;

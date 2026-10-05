@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/host_links.dart';
-import 'package:dazzle/platform/shell/shell_tunnel.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/shell/shell_tunnel.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/ssh_exec.dart';

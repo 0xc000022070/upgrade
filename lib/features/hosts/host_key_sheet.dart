@@ -40,7 +40,7 @@ Future<bool> askHostKey(
           Meta(offer.fingerprint, strong: true, maxLines: 3),
           const SizedBox(height: Spacing.md),
           Text(
-            'VERIFY THE OFFERED FINGERPRINT OUTSIDE DAZZLE BEFORE REPLACING.',
+            'VERIFY THE OFFERED FINGERPRINT OUTSIDE UPGRADE BEFORE REPLACING.',
             style: context.tokens.label.copyWith(color: context.tokens.warning),
           ),
         ] else ...[

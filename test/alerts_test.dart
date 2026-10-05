@@ -3,17 +3,17 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/agent_state.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/alerts.dart';
-import 'package:dazzle/application/pin_alerts.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/platform/agent_watcher.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/host_links.dart';
-import 'package:dazzle/platform/herdr_socket.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/platform/keys.dart';
+import 'package:upgrade/application/agent_state.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/alerts.dart';
+import 'package:upgrade/application/pin_alerts.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/agent_watcher.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/herdr_socket.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/keys.dart';
 
 import 'support/herdr_link.dart';
 
@@ -674,7 +674,7 @@ void main() {
     ).subscribe(HerdrRequests.paneStatus((session: 'default', pane: 'wQ:p1')));
     final woken = events.first;
     watching.say(const {
-      'id': 'dazzle:0',
+      'id': 'upgrade:0',
       'result': {'type': 'subscription_started'},
     });
     watching.say(const {

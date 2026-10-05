@@ -1,17 +1,17 @@
 import 'dart:io';
 
-import 'package:dazzle/application/plugins.dart';
-import 'package:dazzle/application/providers.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/activity_repository.dart';
-import 'package:dazzle/data/repositories/attachment_repository.dart';
-import 'package:dazzle/data/repositories/project_repository.dart';
-import 'package:dazzle/data/repositories/task_repository.dart';
-import 'package:dazzle/data/views.dart';
-import 'package:dazzle/features/tasks/plugin_adapter.dart';
-import 'package:dazzle/platform/plugins/manifest.dart';
-import 'package:dazzle/platform/plugins/store.dart';
-import 'package:dazzle_luau/data_api.dart';
+import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/features/tasks/plugin_adapter.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade_luau/data_api.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,11 +22,11 @@ Future<PluginPackage> fixturePlugin({bool dependent = false}) async {
   final name = dependent ? 'record-restore' : 'record-text';
   return PluginPackage(
     manifest: PluginManifest.parse(
-      await File('test/fixtures/plugins/$name/dazzle.plugin.toml')
+      await File('test/fixtures/plugins/$name/upgrade.plugin.toml')
           .readAsString(),
     ),
     source: await File('test/fixtures/plugins/$name/main.luau').readAsString(),
-    origin: 'fixture:dazzle.$name',
+    origin: 'fixture:upgrade.$name',
     revision: '2.0.0',
   );
 }
@@ -41,7 +41,7 @@ void main() {
   late ProviderContainer container;
 
   setUp(() async {
-    directory = await Directory.systemTemp.createTemp('dazzle-plugin-data-');
+    directory = await Directory.systemTemp.createTemp('upgrade-plugin-data-');
     db = AppDatabase(NativeDatabase.memory());
     final activity = ActivityRepository(db);
     tasks = TaskRepository(db, activity);
@@ -80,7 +80,7 @@ void main() {
   Future<RecordProposal> proposal() async {
     final plugin = PluginPackage(
       manifest: PluginManifest.parse(fixtures.manifest()),
-      source: "return {run = function() local r = dazzle.data.get('selected'); dazzle.data.propose('selected', r.key, 'Proposed', r.revision) end}",
+      source: "return {run = function() local r = upgrade.data.get('selected'); upgrade.data.propose('selected', r.key, 'Proposed', r.revision) end}",
       origin: 'bundled:test',
       revision: '1.2.0',
     );

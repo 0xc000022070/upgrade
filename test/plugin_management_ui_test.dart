@@ -1,20 +1,20 @@
 import 'dart:io';
 
-import 'package:dazzle/app/builtin_plugins.dart';
-import 'package:dazzle/application/native_plugins.dart';
-import 'package:dazzle/application/plugin_placements.dart';
-import 'package:dazzle/application/plugins.dart';
-import 'package:dazzle/application/providers.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/plugin_placement_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/components/action_block.dart';
-import 'package:dazzle/design/components/list_row.dart';
-import 'package:dazzle/features/plugins/plugin_management_screen.dart';
-import 'package:dazzle/features/plugins/plugin_page.dart';
-import 'package:dazzle/platform/plugins/index.dart';
-import 'package:dazzle/platform/plugins/manifest.dart';
-import 'package:dazzle/platform/plugins/store.dart';
+import 'package:upgrade/app/builtin_plugins.dart';
+import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/application/plugin_placements.dart';
+import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/features/plugins/plugin_management_screen.dart';
+import 'package:upgrade/features/plugins/plugin_page.dart';
+import 'package:upgrade/platform/plugins/index.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,21 +35,21 @@ Future<void> _drain(WidgetTester tester) async {
 
 PluginPackage _schedules() => PluginPackage(
   manifest: PluginManifest.parse(
-    File('plugins/agent-schedules/dazzle.plugin.toml').readAsStringSync(),
+    File('plugins/agent-schedules/upgrade.plugin.toml').readAsStringSync(),
   ),
   source: File('plugins/agent-schedules/main.luau').readAsStringSync(),
-  origin: 'bundled:dazzle.agent-schedules',
+  origin: 'bundled:upgrade.agent-schedules',
   revision: '1.0.0',
 );
 
 PluginPackage _projectsPageTitled(String title) {
-  final toml = File('lib/plugins/projects/dazzle.plugin.toml')
+  final toml = File('lib/plugins/projects/upgrade.plugin.toml')
       .readAsStringSync()
       .replaceFirst('title = "Projects"', 'title = "$title"');
   return PluginPackage(
     manifest: PluginManifest.parse(toml, allowNative: true),
     source: File('lib/plugins/projects/main.dart').readAsStringSync(),
-    origin: 'bundled:dazzle.projects',
+    origin: 'bundled:upgrade.projects',
     revision: '1.0.0',
   );
 }
@@ -65,7 +65,7 @@ class _RefusingPlugins extends _FixturePlugins {
   _RefusingPlugins(super.catalog);
   @override
   Future<void> setEnabled(String id, bool enabled) async =>
-      throw const PluginException('Projects needs dazzle.drops ^1.0.0');
+      throw const PluginException('Projects needs upgrade.drops ^1.0.0');
 }
 
 List<Override> _catalogOverrides(
@@ -154,7 +154,7 @@ void main() {
     expect(tester.takeException(), isNull);
 
     final captureLayout = find.byKey(
-      const ValueKey('layout-dazzle.drops:widget:capture'),
+      const ValueKey('layout-upgrade.drops:widget:capture'),
     );
     await tester.ensureVisible(captureLayout);
     await tester.pump();
@@ -233,9 +233,9 @@ void main() {
     await tester.tap(enable);
     await _drain(tester);
 
-    final failure = find.text('Projects needs dazzle.drops ^1.0.0');
+    final failure = find.text('Projects needs upgrade.drops ^1.0.0');
     expect(failure, findsOneWidget);
-    expect(tester.widget<Text>(failure).style?.color, DazzleColors.danger);
+    expect(tester.widget<Text>(failure).style?.color, UpgradeColors.danger);
     expect(
       tester.getTopLeft(failure).dy,
       greaterThanOrEqualTo(tester.getBottomLeft(enable).dy),

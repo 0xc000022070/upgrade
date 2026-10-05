@@ -25,7 +25,7 @@ String _hex(Color color) =>
 
 /// The theme table an API-2 plugin's `mount` event carries, so a page reads the device's
 /// active look instead of guessing at the house palette.
-Map<String, Object?> pluginThemeTable(DazzleTokens tokens) => {
+Map<String, Object?> pluginThemeTable(UpgradeTokens tokens) => {
   'brightness': tokens.brightness == Brightness.dark ? 'dark' : 'light',
   'background': _hex(tokens.backgroundPrimary),
   'surface': _hex(tokens.surfacePrimary),

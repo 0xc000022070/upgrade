@@ -1,17 +1,17 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/bundle.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/data/raw_tables.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/data/repositories/key_repository.dart';
-import 'package:dazzle/data/repositories/path_repository.dart';
-import 'package:dazzle/platform/attachment_store.dart';
-import 'package:dazzle/platform/bundle_cipher.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/platform/keys.dart';
+import 'package:upgrade/application/bundle.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/raw_tables.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/platform/attachment_store.dart';
+import 'package:upgrade/platform/bundle_cipher.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/keys.dart';
 
 ManagedKey _key(String id) => ManagedKey(
   id: id,
@@ -95,8 +95,8 @@ class _Phone {
           PathsCompanion.insert(
             id: 'p1',
             hostId: 'h1',
-            directory: '~/src/dazzle',
-            label: 'dazzle',
+            directory: '~/src/upgrade',
+            label: 'upgrade',
             createdAt: DateTime.utc(2026, 9, 3),
             projectId: const Value('proj-1'),
           ),
@@ -107,7 +107,7 @@ class _Phone {
         .insert(
           ProjectsCompanion.insert(
             id: 'proj-1',
-            name: 'dazzle',
+            name: 'upgrade',
             description: 'the phone, on the phone',
             objective: 'survive a rename',
             status: ProjectStatus.active,
@@ -173,7 +173,7 @@ void main() {
     expect(host.host.vncPassword, 'hunter2');
     expect(host.integrations, {IntegrationKind.herdr});
     expect(bundle.paths.map((p) => p.directory), [
-      '~/src/dazzle',
+      '~/src/upgrade',
       '~/src/dots',
     ]);
     expect(bundle.count.words, startsWith('1 HOST · 2 KEYS · 2 PATHS · '));
@@ -189,7 +189,7 @@ void main() {
 
     expect(bundle.rows.keys, isNot(contains('hosts')));
     expect(bundle.rows['tasks']!.single['title'], 'carry the phone');
-    expect(bundle.rows['projects']!.single['name'], 'dazzle');
+    expect(bundle.rows['projects']!.single['name'], 'upgrade');
     expect(bundle.files.keys, ['attachments/a1.jpg']);
     expect(bundle.files['attachments/a1.jpg'], [1, 2, 3]);
   });
@@ -261,7 +261,7 @@ void main() {
       IntegrationKind.herdr,
     });
     final paths = await b.paths.listForHost('h1');
-    expect(paths.map((p) => p.label), ['dazzle', 'dots']);
+    expect(paths.map((p) => p.label), ['upgrade', 'dots']);
     expect(paths.map((p) => p.projectId), ['proj-1', null]);
   });
 
@@ -285,7 +285,7 @@ void main() {
     final paths = await b.paths.listForHost('h1');
     final kept = paths.singleWhere((p) => p.id == 'p1');
     expect(kept.projectId, 'proj-1');
-    expect(kept.label, 'dazzle');
+    expect(kept.label, 'upgrade');
   });
 
   test('a host row is replaced by the bundle under the same id', () async {
@@ -352,7 +352,7 @@ void main() {
   test('the file is named for the day', () {
     expect(
       bundleFileName(DateTime(2026, 9, 8, 15)),
-      'dazzle-2026-09-08.bundle',
+      'upgrade-2026-09-08.bundle',
     );
   });
 }

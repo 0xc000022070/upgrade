@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/features/hosts/link_probes.dart';
-import 'package:dazzle/platform/link_probe.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/features/hosts/link_probes.dart';
+import 'package:upgrade/platform/link_probe.dart';
 
 const _rose = Host(
   id: 'h1',
@@ -101,7 +101,7 @@ void main() {
   });
 
   test('a name that does not resolve says so', () async {
-    final result = await probeLink('nyx.dazzle.invalid', 22, deadline: _short);
+    final result = await probeLink('nyx.upgrade.invalid', 22, deadline: _short);
 
     expect(result.status, LinkStatus.unresolved);
     expect(linkWord(result), 'UNRESOLVED');

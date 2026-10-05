@@ -6,8 +6,8 @@ import '../../data/views.dart';
 import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../tasks/item_sheet.dart';
 
@@ -44,8 +44,8 @@ class _NextActionRow extends StatelessWidget {
       if (blocked) '[ BLOCKED BY ] ${task.blockedReason}',
     ].join(' · ');
     return ListRow(
-      leading: DazzleIcon(
-        DazzleIcons.forward,
+      leading: UpgradeIcon(
+        UpgradeIcons.forward,
         size: IconSizes.glyph,
         color: context.tokens.accent,
       ),

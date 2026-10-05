@@ -4,9 +4,9 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 // ignore: implementation_imports
 import 'package:dartssh2/src/ssh_channel.dart';
-import 'package:dazzle/platform/devices/device_link.dart';
-import 'package:dazzle/platform/host_links.dart';
-import 'package:dazzle/platform/ssh_settle.dart';
+import 'package:upgrade/platform/devices/device_link.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/ssh_settle.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/ssh_exec.dart';

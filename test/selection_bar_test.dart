@@ -4,20 +4,20 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/app/dazzle_app.dart';
-import 'package:dazzle/app/nav_shell.dart';
-import 'package:dazzle/application/drop_selection.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/data/repositories/activity_repository.dart';
-import 'package:dazzle/data/repositories/attachment_repository.dart';
-import 'package:dazzle/data/repositories/project_repository.dart';
-import 'package:dazzle/data/repositories/task_repository.dart';
-import 'package:dazzle/features/home/capture_bar.dart';
-import 'package:dazzle/features/home/home_screen.dart';
-import 'package:dazzle/features/projects/projects_screen.dart';
-import 'package:dazzle/features/settings/settings_screen.dart';
-import 'package:dazzle/features/tasks/selection_bar.dart';
+import 'package:upgrade/app/upgrade_app.dart';
+import 'package:upgrade/app/nav_shell.dart';
+import 'package:upgrade/application/drop_selection.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/features/home/capture_bar.dart';
+import 'package:upgrade/features/home/home_screen.dart';
+import 'package:upgrade/features/projects/projects_screen.dart';
+import 'package:upgrade/features/settings/settings_screen.dart';
+import 'package:upgrade/features/tasks/selection_bar.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -74,7 +74,7 @@ void main() {
 
   Widget shell() => ProviderScope(
     overrides: [...featureTestOverrides(db)],
-    child: MaterialApp(theme: testTheme, home: DazzleShell()),
+    child: MaterialApp(theme: testTheme, home: UpgradeShell()),
   );
 
   Future<void> unmount(WidgetTester tester) async {
@@ -383,7 +383,7 @@ void main() {
     expect(find.byType(SettingsScreen), findsOneWidget);
     expect(_selection(tester).ids, isEmpty);
 
-    await tester.tap(find.text('/ DAZZLE / SYS'));
+    await tester.tap(find.text('/ UPGRADE / SYS'));
     await _ready(tester);
 
     expect(find.byType(SelectionBar), findsNothing);

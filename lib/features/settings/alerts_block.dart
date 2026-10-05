@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:dazzle_shade/dazzle_shade.dart';
+import 'package:upgrade_shade/upgrade_shade.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -111,7 +111,7 @@ class _DndRowState extends State<_DndRow> with WidgetsBindingObserver {
   }
 
   Future<void> _refresh() async {
-    final granted = await _ask(DazzleShade.dndAccess) ?? false;
+    final granted = await _ask(UpgradeShade.dndAccess) ?? false;
     if (granted && !_granted) await PinNotifications.createChannel();
     if (mounted && granted != _granted) setState(() => _granted = granted);
   }
@@ -120,7 +120,7 @@ class _DndRowState extends State<_DndRow> with WidgetsBindingObserver {
     try {
       return await call();
     } on Object catch (error) {
-      debugPrint('dazzle.dnd: $error');
+      debugPrint('upgrade.dnd: $error');
       return null;
     }
   }
@@ -142,7 +142,7 @@ class _DndRowState extends State<_DndRow> with WidgetsBindingObserver {
                 style: context.tokens.rowSubtitle,
               ),
         value: _granted,
-        onChanged: (_) => unawaited(_ask(DazzleShade.askDndAccess)),
+        onChanged: (_) => unawaited(_ask(UpgradeShade.askDndAccess)),
       ),
     );
   }

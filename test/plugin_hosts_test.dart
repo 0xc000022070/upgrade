@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/plugin_hosts.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/platform/plugins/manifest.dart';
-import 'package:dazzle/platform/plugins/store.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/plugin_hosts.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -29,7 +29,7 @@ void main() {
     active = true;
     configured = false;
     blocked = null;
-    root = await Directory.systemTemp.createTemp('dazzle-plugin-hosts-');
+    root = await Directory.systemTemp.createTemp('upgrade-plugin-hosts-');
     bindings = SchedulerBindings(
       () async => File('${root.path}/bindings.json'),
     );

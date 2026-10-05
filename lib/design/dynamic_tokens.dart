@@ -6,7 +6,7 @@ import 'typography.dart';
 
 /// Only the chrome moves. [SyntaxPalette], the terminal's ANSI table and the diff
 /// grounds stay the house's: they are read against always-dark surfaces.
-DazzleTokens dazzleTokensFromScheme(ColorScheme scheme) {
+UpgradeTokens upgradeTokensFromScheme(ColorScheme scheme) {
   TextStyle recolor(TextStyle base, Color color) => base.copyWith(color: color);
 
   final textPrimary = scheme.onSurface;
@@ -15,7 +15,7 @@ DazzleTokens dazzleTokensFromScheme(ColorScheme scheme) {
   final textDisabled = scheme.onSurface.withValues(alpha: 0.38);
   final accent = scheme.primary;
 
-  return DazzleTokens(
+  return UpgradeTokens(
     brightness: scheme.brightness,
     backgroundPrimary: scheme.surface,
     backgroundSecondary: scheme.surfaceContainerLow,
@@ -33,43 +33,43 @@ DazzleTokens dazzleTokensFromScheme(ColorScheme scheme) {
     warningMuted: scheme.tertiary.withValues(alpha: 0.7),
     danger: scheme.error,
     syntax: SyntaxPalette.house,
-    scrim: DazzleTokens.house.scrim,
-    mediaBackdrop: DazzleTokens.house.mediaBackdrop,
+    scrim: UpgradeTokens.house.scrim,
+    mediaBackdrop: UpgradeTokens.house.mediaBackdrop,
     selectionWash: accent.withValues(alpha: 0.20),
     selectionWashCurrent: accent.withValues(alpha: 0.53),
     terminalSelectionWash: accent.withValues(alpha: 0.33),
-    diffMapWindow: DazzleTokens.house.diffMapWindow,
-    diffAddedGround: DazzleTokens.house.diffAddedGround,
-    diffRemovedGround: DazzleTokens.house.diffRemovedGround,
-    diffCappedGround: DazzleTokens.house.diffCappedGround,
-    diffAddedRun: DazzleTokens.house.diffAddedRun,
-    diffRemovedRun: DazzleTokens.house.diffRemovedRun,
-    terminal: DazzleTokens.house.terminal,
-    screenTitle: recolor(DazzleText.screenTitle, textPrimary),
-    breadcrumb: recolor(DazzleText.breadcrumb, textMuted),
-    panelHeader: recolor(DazzleText.panelHeader, textMuted),
-    rowKicker: recolor(DazzleText.rowKicker, textSecondary),
-    rowTitle: recolor(DazzleText.rowTitle, textPrimary),
-    rowTitleLead: recolor(DazzleText.rowTitleLead, textPrimary),
-    rowSubtitle: recolor(DazzleText.rowSubtitle, textMuted),
-    value: recolor(DazzleText.value, textMuted),
-    valueStrong: recolor(DazzleText.valueStrong, textPrimary),
-    label: recolor(DazzleText.label, textMuted),
-    heroName: recolor(DazzleText.heroName, textPrimary),
-    heroPercent: recolor(DazzleText.heroPercent, accent),
-    noteBody: recolor(DazzleText.noteBody, textPrimary),
-    buildStamp: recolor(DazzleText.buildStamp, textMuted),
-    capture: recolor(DazzleText.capture, textMuted),
-    prose: recolor(DazzleText.prose, textSecondary),
-    navLabel: recolor(DazzleText.navLabel, textMuted),
-    pipHeadline: recolor(DazzleText.pipHeadline, textPrimary),
-    pipAgent: recolor(DazzleText.pipAgent, textPrimary),
-    pipState: recolor(DazzleText.pipState, textSecondary),
-    pipMeta: recolor(DazzleText.pipMeta, textSecondary),
+    diffMapWindow: UpgradeTokens.house.diffMapWindow,
+    diffAddedGround: UpgradeTokens.house.diffAddedGround,
+    diffRemovedGround: UpgradeTokens.house.diffRemovedGround,
+    diffCappedGround: UpgradeTokens.house.diffCappedGround,
+    diffAddedRun: UpgradeTokens.house.diffAddedRun,
+    diffRemovedRun: UpgradeTokens.house.diffRemovedRun,
+    terminal: UpgradeTokens.house.terminal,
+    screenTitle: recolor(UpgradeText.screenTitle, textPrimary),
+    breadcrumb: recolor(UpgradeText.breadcrumb, textMuted),
+    panelHeader: recolor(UpgradeText.panelHeader, textMuted),
+    rowKicker: recolor(UpgradeText.rowKicker, textSecondary),
+    rowTitle: recolor(UpgradeText.rowTitle, textPrimary),
+    rowTitleLead: recolor(UpgradeText.rowTitleLead, textPrimary),
+    rowSubtitle: recolor(UpgradeText.rowSubtitle, textMuted),
+    value: recolor(UpgradeText.value, textMuted),
+    valueStrong: recolor(UpgradeText.valueStrong, textPrimary),
+    label: recolor(UpgradeText.label, textMuted),
+    heroName: recolor(UpgradeText.heroName, textPrimary),
+    heroPercent: recolor(UpgradeText.heroPercent, accent),
+    noteBody: recolor(UpgradeText.noteBody, textPrimary),
+    buildStamp: recolor(UpgradeText.buildStamp, textMuted),
+    capture: recolor(UpgradeText.capture, textMuted),
+    prose: recolor(UpgradeText.prose, textSecondary),
+    navLabel: recolor(UpgradeText.navLabel, textMuted),
+    pipHeadline: recolor(UpgradeText.pipHeadline, textPrimary),
+    pipAgent: recolor(UpgradeText.pipAgent, textPrimary),
+    pipState: recolor(UpgradeText.pipState, textSecondary),
+    pipMeta: recolor(UpgradeText.pipMeta, textSecondary),
   );
 }
 
-DazzleTokens dazzleTokensForSystem({
+UpgradeTokens upgradeTokensForSystem({
   required Brightness platformBrightness,
   required ColorScheme? lightDynamic,
   required ColorScheme? darkDynamic,
@@ -80,8 +80,8 @@ DazzleTokens dazzleTokensForSystem({
   final scheme =
       dynamicScheme ??
       ColorScheme.fromSeed(
-        seedColor: DazzleColors.accent,
+        seedColor: UpgradeColors.accent,
         brightness: platformBrightness,
       );
-  return dazzleTokensFromScheme(scheme);
+  return upgradeTokensFromScheme(scheme);
 }

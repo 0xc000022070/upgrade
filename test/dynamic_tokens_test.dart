@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/design/dynamic_tokens.dart';
-import 'package:dazzle/design/tokens.dart';
+import 'package:upgrade/design/dynamic_tokens.dart';
+import 'package:upgrade/design/tokens.dart';
 
 void main() {
-  group('dazzleTokensFromScheme', () {
+  group('upgradeTokensFromScheme', () {
     const scheme = ColorScheme(
       brightness: Brightness.light,
       primary: Color(0xFF111111),
@@ -26,7 +26,7 @@ void main() {
     );
 
     test('chrome follows the scheme', () {
-      final tokens = dazzleTokensFromScheme(scheme);
+      final tokens = upgradeTokensFromScheme(scheme);
       expect(tokens.brightness, Brightness.light);
       expect(tokens.backgroundPrimary, scheme.surface);
       expect(tokens.backgroundSecondary, scheme.surfaceContainerLow);
@@ -43,39 +43,39 @@ void main() {
     });
 
     test('every text role is recoloured but keeps its house shape', () {
-      final tokens = dazzleTokensFromScheme(scheme);
+      final tokens = upgradeTokensFromScheme(scheme);
       expect(tokens.screenTitle.color, scheme.onSurface);
       expect(
         tokens.screenTitle.fontFamily,
-        DazzleTokens.house.screenTitle.fontFamily,
+        UpgradeTokens.house.screenTitle.fontFamily,
       );
       expect(
         tokens.screenTitle.fontSize,
-        DazzleTokens.house.screenTitle.fontSize,
+        UpgradeTokens.house.screenTitle.fontSize,
       );
       expect(tokens.heroPercent.color, scheme.primary);
       expect(
         tokens.panelHeader.color,
-        isNot(DazzleTokens.house.panelHeader.color),
+        isNot(UpgradeTokens.house.panelHeader.color),
       );
     });
 
     test('code and diff palettes stay the house palette', () {
-      final tokens = dazzleTokensFromScheme(scheme);
-      expect(tokens.syntax, DazzleTokens.house.syntax);
-      expect(tokens.terminal, DazzleTokens.house.terminal);
-      expect(tokens.diffAddedGround, DazzleTokens.house.diffAddedGround);
-      expect(tokens.diffRemovedGround, DazzleTokens.house.diffRemovedGround);
-      expect(tokens.mediaBackdrop, DazzleTokens.house.mediaBackdrop);
+      final tokens = upgradeTokensFromScheme(scheme);
+      expect(tokens.syntax, UpgradeTokens.house.syntax);
+      expect(tokens.terminal, UpgradeTokens.house.terminal);
+      expect(tokens.diffAddedGround, UpgradeTokens.house.diffAddedGround);
+      expect(tokens.diffRemovedGround, UpgradeTokens.house.diffRemovedGround);
+      expect(tokens.mediaBackdrop, UpgradeTokens.house.mediaBackdrop);
     });
   });
 
-  group('dazzleTokensForSystem', () {
+  group('upgradeTokensForSystem', () {
     test('a dynamic scheme for the platform brightness wins when offered', () {
       const light = ColorScheme.light(primary: Color(0xFF00FF00));
       const dark = ColorScheme.dark(primary: Color(0xFFFF00FF));
 
-      final atDark = dazzleTokensForSystem(
+      final atDark = upgradeTokensForSystem(
         platformBrightness: Brightness.dark,
         lightDynamic: light,
         darkDynamic: dark,
@@ -83,7 +83,7 @@ void main() {
       expect(atDark.accent, dark.primary);
       expect(atDark.brightness, Brightness.dark);
 
-      final atLight = dazzleTokensForSystem(
+      final atLight = upgradeTokensForSystem(
         platformBrightness: Brightness.light,
         lightDynamic: light,
         darkDynamic: dark,
@@ -93,7 +93,7 @@ void main() {
     });
 
     test('a seeded scheme stands in when the platform offers none', () {
-      final tokens = dazzleTokensForSystem(
+      final tokens = upgradeTokensForSystem(
         platformBrightness: Brightness.dark,
         lightDynamic: null,
         darkDynamic: null,
@@ -101,7 +101,7 @@ void main() {
       expect(tokens.brightness, Brightness.dark);
       expect(
         tokens.backgroundPrimary,
-        isNot(DazzleTokens.house.backgroundPrimary),
+        isNot(UpgradeTokens.house.backgroundPrimary),
       );
     });
   });

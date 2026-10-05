@@ -308,7 +308,7 @@ class HostScreenController extends ChangeNotifier {
     await connection?.close();
   }
 
-  void _log(Object message) => debugPrint('dazzle.vnc ${host.name}: $message');
+  void _log(Object message) => debugPrint('upgrade.vnc ${host.name}: $message');
 
   @override
   void dispose() {

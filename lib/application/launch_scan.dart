@@ -47,7 +47,7 @@ class LaunchScanner {
     final privateKey = await keys.privateKey(host.keyId).catchError((
       Object error,
     ) {
-      debugPrint('dazzle.launch ${host.name}: $error');
+      debugPrint('upgrade.launch ${host.name}: $error');
       return null;
     });
     if (privateKey == null) {
@@ -64,10 +64,10 @@ class LaunchScanner {
         ),
       );
     } on HerdrFailure catch (error) {
-      debugPrint('dazzle.launch ${host.name}: ${error.detail ?? error}');
+      debugPrint('upgrade.launch ${host.name}: ${error.detail ?? error}');
       return LaunchScanFailed(error.reason(host.name));
     } catch (error) {
-      debugPrint('dazzle.launch ${host.name}: $error');
+      debugPrint('upgrade.launch ${host.name}: $error');
       return LaunchScanFailed(ReasonLine.protocolMismatch.words);
     }
   }

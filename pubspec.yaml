@@ -1,4 +1,4 @@
-name: dazzle
+name: upgrade
 description: Local-first personal control plane.
 publish_to: 'none'
 
@@ -8,12 +8,12 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
-  dazzle_luau:
-    path: packages/dazzle_luau
-  dazzle_highlight:
-    path: packages/dazzle_highlight
-  dazzle_shade:
-    path: packages/dazzle_shade
+  upgrade_luau:
+    path: packages/upgrade_luau
+  upgrade_highlight:
+    path: packages/upgrade_highlight
+  upgrade_shade:
+    path: packages/upgrade_shade
   crypto: ^3.0.7
   pub_semver: ^2.2.1
   toml: ^0.18.0
@@ -66,13 +66,13 @@ flutter:
   uses-material-design: true
 
   assets:
-    - lib/plugins/drops/dazzle.plugin.toml
+    - lib/plugins/drops/upgrade.plugin.toml
     - lib/plugins/drops/main.dart
-    - lib/plugins/projects/dazzle.plugin.toml
+    - lib/plugins/projects/upgrade.plugin.toml
     - lib/plugins/projects/main.dart
-    - plugins/agent-schedules/dazzle.plugin.toml
+    - plugins/agent-schedules/upgrade.plugin.toml
     - plugins/agent-schedules/main.luau
-    - plugins/board/dazzle.plugin.toml
+    - plugins/board/upgrade.plugin.toml
     - plugins/board/main.luau
     - assets/icons/
     - assets/icons/signal/

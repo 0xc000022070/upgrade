@@ -8,7 +8,7 @@ import '../../application/drop_selection.dart';
 import '../../application/fresh_drops.dart';
 
 const projectsPlugin = NativePluginModule(
-  id: 'dazzle.projects',
+  id: 'upgrade.projects',
   directory: 'lib/plugins/projects',
   surfaces: {'navigation.page': _projects, 'project.next_action': _nextAction},
   deactivate: _deactivate,

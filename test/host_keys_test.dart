@@ -4,15 +4,15 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/components/action_block.dart';
-import 'package:dazzle/features/hosts/host_key_sheet.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
-import 'package:dazzle/platform/shell/shell_tunnel.dart';
-import 'package:dazzle/platform/vnc/vnc_failure.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/features/hosts/host_key_sheet.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/shell_tunnel.dart';
+import 'package:upgrade/platform/vnc/vnc_failure.dart';
 
 import 'support/themed_app.dart';
 
@@ -243,7 +243,7 @@ void main() {
     final replace = tester.widget<ActionBlock>(
       find.widgetWithText(ActionBlock, 'REPLACE'),
     );
-    expect(replace.tone, DazzleColors.warning);
+    expect(replace.tone, UpgradeColors.warning);
     expect(replace.filled, isTrue);
 
     await tester.tap(find.text('KEEP OLD'));

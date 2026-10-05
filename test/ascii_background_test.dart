@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/design/ascii/effects.dart';
-import 'package:dazzle/design/components/ascii_background.dart';
-import 'package:dazzle/design/motion.dart';
+import 'package:upgrade/design/ascii/effects.dart';
+import 'package:upgrade/design/components/ascii_background.dart';
+import 'package:upgrade/design/motion.dart';
 
 int _tickOf(WidgetTester tester) =>
     tester.widget<AsciiBackground>(find.byType(AsciiBackground)).tick.value;

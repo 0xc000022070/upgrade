@@ -4,8 +4,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../tokens.dart';
-import '../icons/dazzle_icon.dart';
-import '../icons/dazzle_icons.dart';
+import '../icons/upgrade_icon.dart';
+import '../icons/upgrade_icons.dart';
 import '../motion.dart';
 import '../spacing.dart';
 
@@ -28,7 +28,7 @@ class KeyCell extends StatefulWidget {
   });
 
   final String label;
-  final DazzleIcons? icon;
+  final UpgradeIcons? icon;
   final VoidCallback onTap;
   final bool armed;
 
@@ -161,7 +161,7 @@ class _KeyCellState extends State<KeyCell> {
                     text: label,
                     style: context.tokens.panelHeader.copyWith(color: tint),
                   )
-                : DazzleIcon(icon, size: IconSizes.toolbar, color: tint),
+                : UpgradeIcon(icon, size: IconSizes.toolbar, color: tint),
           ),
         ),
       ),

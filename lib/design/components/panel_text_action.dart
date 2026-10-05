@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../tokens.dart';
-import '../icons/dazzle_icon.dart';
-import '../icons/dazzle_icons.dart';
+import '../icons/upgrade_icon.dart';
+import '../icons/upgrade_icons.dart';
 import '../spacing.dart';
 
 class PanelTextAction extends StatelessWidget {
@@ -10,12 +10,12 @@ class PanelTextAction extends StatelessWidget {
     super.key,
     required this.label,
     required this.onTap,
-    this.icon = DazzleIcons.add,
+    this.icon = UpgradeIcons.add,
   });
 
   final String label;
   final VoidCallback? onTap;
-  final DazzleIcons icon;
+  final UpgradeIcons icon;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +26,7 @@ class PanelTextAction extends StatelessWidget {
         height: TapTargets.minHeight,
         child: Row(
           children: [
-            DazzleIcon(
+            UpgradeIcon(
               icon,
               size: IconSizes.affordance,
               color: context.tokens.textMuted,

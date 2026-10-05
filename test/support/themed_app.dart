@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:dazzle/design/tokens.dart';
+import 'package:upgrade/design/tokens.dart';
 
-final testTheme = ThemeData(extensions: const [DazzleTokens.house]);
+final testTheme = ThemeData(extensions: const [UpgradeTokens.house]);

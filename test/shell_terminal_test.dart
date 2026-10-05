@@ -3,14 +3,14 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/shell_font.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/settings_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/features/shell/shell_engine.dart';
-import 'package:dazzle/features/shell/shell_selection.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
+import 'package:upgrade/application/shell_font.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/features/shell/shell_engine.dart';
+import 'package:upgrade/features/shell/shell_selection.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
@@ -543,7 +543,7 @@ void main() {
           .selection;
       final wash = selection.background!.fixedColor!;
       expect(wash.a, lessThan(0.5));
-      expect(wash.withValues(alpha: 1), DazzleColors.accent);
+      expect(wash.withValues(alpha: 1), UpgradeColors.accent);
       expect(selection.foreground, isNull);
 
       await unmount(tester);
@@ -719,7 +719,7 @@ void main() {
           sessions,
           theme: testTheme.copyWith(
             colorScheme: testTheme.colorScheme.copyWith(
-              primary: DazzleColors.accentMuted,
+              primary: UpgradeColors.accentMuted,
             ),
           ),
         ),

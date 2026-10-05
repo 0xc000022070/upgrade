@@ -6,23 +6,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/navigation.dart';
-import 'package:dazzle/application/providers.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/design/dynamic_tokens.dart';
-import 'package:dazzle/design/effects/glitch.dart';
-import 'package:dazzle/design/icons/dazzle_icon.dart';
-import 'package:dazzle/design/theme.dart';
-import 'package:dazzle/design/tokens.dart';
-import 'package:dazzle/features/devices/device_controllers.dart';
-import 'package:dazzle/features/devices/device_dock.dart';
-import 'package:dazzle/features/devices/device_float.dart';
-import 'package:dazzle/features/screen/screen_preview.dart';
-import 'package:dazzle/platform/devices/device_link.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/platform/keys.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/dynamic_tokens.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/theme.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/devices/device_controllers.dart';
+import 'package:upgrade/features/devices/device_dock.dart';
+import 'package:upgrade/features/devices/device_float.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
+import 'package:upgrade/platform/devices/device_link.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/keys.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -1019,14 +1019,14 @@ void main() {
   });
 
   group('under a light theme the float keeps the house ink', () {
-    const house = DazzleTokens.house;
-    final light = dazzleTokensFromScheme(
+    const house = UpgradeTokens.house;
+    final light = upgradeTokensFromScheme(
       ColorScheme.fromSeed(
         seedColor: Colors.indigo,
         brightness: Brightness.light,
       ),
     );
-    final theme = DazzleTheme.build(light);
+    final theme = UpgradeTheme.build(light);
     final inks = {
       house.textPrimary,
       house.textMuted,
@@ -1035,8 +1035,8 @@ void main() {
     };
 
     Color icon(WidgetTester tester, Finder under) => tester
-        .widget<DazzleIcon>(
-          find.descendant(of: under, matching: find.byType(DazzleIcon)),
+        .widget<UpgradeIcon>(
+          find.descendant(of: under, matching: find.byType(UpgradeIcon)),
         )
         .color;
 
@@ -1080,7 +1080,7 @@ void main() {
       final overlay = find.byKey(_overlayKey);
       final glyphs = find.descendant(
         of: overlay,
-        matching: find.byType(DazzleIcon),
+        matching: find.byType(UpgradeIcon),
       );
       final words = find.descendant(
         of: overlay,
@@ -1088,7 +1088,7 @@ void main() {
       );
       expect(glyphs, findsNWidgets(2));
       expect(words, findsAtLeastNWidgets(2));
-      for (final glyph in tester.widgetList<DazzleIcon>(glyphs)) {
+      for (final glyph in tester.widgetList<UpgradeIcon>(glyphs)) {
         expect(inks, contains(glyph.color));
       }
       for (final word in words.evaluate()) {

@@ -9,8 +9,8 @@ import '../../design/components/dot_spinner.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../platform/host_keys.dart';
@@ -112,8 +112,8 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
           children: [
             ListRow(
               key: const ValueKey('launch-shell'),
-              leading: DazzleIcon(
-                DazzleIcons.shell,
+              leading: UpgradeIcon(
+                UpgradeIcons.shell,
                 size: _logo,
                 color: context.tokens.textSecondary,
               ),
@@ -243,8 +243,8 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
             ),
           ListRow(
             key: const ValueKey('launch-tmux-new'),
-            leading: DazzleIcon(
-              DazzleIcons.add,
+            leading: UpgradeIcon(
+              UpgradeIcons.add,
               size: _logo,
               color: context.tokens.textSecondary,
             ),

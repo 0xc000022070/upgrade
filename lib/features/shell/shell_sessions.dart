@@ -59,7 +59,7 @@ final class ShellReconnecting extends ShellState {
 }
 
 /// The remote session may still exist, but the transport has missed enough
-/// acknowledgements that Dazzle has no evidence of a usable connection.
+/// acknowledgements that Upgrade has no evidence of a usable connection.
 final class ShellDisconnected extends ShellState {
   const ShellDisconnected(this.transport);
 
@@ -671,7 +671,7 @@ class ShellSessions extends ChangeNotifier {
       }
       return answer;
     } on HerdrFailure catch (error) {
-      debugPrint('dazzle.shell ${session.host.name}: ${error.detail ?? error}');
+      debugPrint('upgrade.shell ${session.host.name}: ${error.detail ?? error}');
       return null;
     }
   }
@@ -768,7 +768,7 @@ class ShellSessions extends ChangeNotifier {
           ..pane = pane
           ..launch = launch;
     session.painted.value = snapshot != null;
-    answerInColours(session.terminal, DazzleTokens.house.terminal);
+    answerInColours(session.terminal, UpgradeTokens.house.terminal);
     _byHost.putIfAbsent(host.id, () => []).add(session);
     _active[host.id] = number;
     _parkedHostId = host.id;
@@ -796,14 +796,14 @@ class ShellSessions extends ChangeNotifier {
             (_) {},
             onError: (Object error) {
               if (terminal.restoration != RestorationState.failed) return;
-              debugPrint('dazzle.shell snapshot $hostId/$number: $error');
+              debugPrint('upgrade.shell snapshot $hostId/$number: $error');
               unawaited(snapshots?.drop(hostId, number));
             },
           ),
         );
         return terminal;
       } catch (error) {
-        debugPrint('dazzle.shell snapshot $hostId/$number: $error');
+        debugPrint('upgrade.shell snapshot $hostId/$number: $error');
         unawaited(snapshots?.drop(hostId, number));
       }
     }
@@ -824,14 +824,14 @@ class ShellSessions extends ChangeNotifier {
         preserveSnapshotColors: false,
       );
     } catch (error) {
-      debugPrint('dazzle.shell ${session.host.name}: host snapshot: $error');
+      debugPrint('upgrade.shell ${session.host.name}: host snapshot: $error');
       return;
     }
     unawaited(
       next.restored.then(
         (_) {},
         onError: (Object error) => debugPrint(
-          'dazzle.shell ${session.host.name}: host snapshot: $error',
+          'upgrade.shell ${session.host.name}: host snapshot: $error',
         ),
       ),
     );
@@ -841,7 +841,7 @@ class ShellSessions extends ChangeNotifier {
       ..onBell = null
       ..onPwdChanged = null
       ..onResize = null;
-    answerInColours(next, DazzleTokens.house.terminal);
+    answerInColours(next, UpgradeTokens.house.terminal);
     session._terminal.value = next;
     _wireTerminal(session);
     final marker = session._heldMarker;
@@ -903,7 +903,7 @@ class ShellSessions extends ChangeNotifier {
     session._stopAsking();
     unawaited(
       connection.suspend().catchError((Object error) {
-        debugPrint('dazzle.shell ${session.host.name}: suspend: $error');
+        debugPrint('upgrade.shell ${session.host.name}: suspend: $error');
       }),
     );
   }
@@ -920,7 +920,7 @@ class ShellSessions extends ChangeNotifier {
     session._rehomed = Timer(shellRehomeSettle, () => session._rehomed = null);
     unawaited(
       connection.resume().catchError((Object error) {
-        debugPrint('dazzle.shell ${session.host.name}: resume: $error');
+        debugPrint('upgrade.shell ${session.host.name}: resume: $error');
       }),
     );
     unawaited(_askHost(session));
@@ -949,7 +949,7 @@ class ShellSessions extends ChangeNotifier {
     try {
       bytes = session.terminal.snapshot();
     } catch (error) {
-      debugPrint('dazzle.shell ${session.host.name}: snapshot: $error');
+      debugPrint('upgrade.shell ${session.host.name}: snapshot: $error');
       return;
     }
     session._unsavedSince = null;
@@ -959,7 +959,7 @@ class ShellSessions extends ChangeNotifier {
       try {
         await store.write(hostId, session.number, bytes);
       } catch (error) {
-        debugPrint('dazzle.shell ${session.host.name}: snapshot: $error');
+        debugPrint('upgrade.shell ${session.host.name}: snapshot: $error');
       }
     });
   }
@@ -974,7 +974,7 @@ class ShellSessions extends ChangeNotifier {
     try {
       await persistence;
     } catch (error) {
-      debugPrint('dazzle.shell ${host.name}: tab save failed: $error');
+      debugPrint('upgrade.shell ${host.name}: tab save failed: $error');
       if (!session._closed) {
         session.state = ShellFailed(
           ShellFailureKind.streamClosed,
@@ -1114,7 +1114,7 @@ class ShellSessions extends ChangeNotifier {
           ) ??
           false;
     } catch (error) {
-      debugPrint('dazzle.shell ${session.host.name}: cleanup failed: $error');
+      debugPrint('upgrade.shell ${session.host.name}: cleanup failed: $error');
     } finally {
       await connection?.close();
     }
@@ -1448,7 +1448,7 @@ class ShellSessions extends ChangeNotifier {
             }
           }
         } catch (error) {
-          debugPrint('dazzle.shell ${host.name}: cleanup failed: $error');
+          debugPrint('upgrade.shell ${host.name}: cleanup failed: $error');
         } finally {
           await connection.close();
         }
@@ -1569,7 +1569,7 @@ class ShellSessions extends ChangeNotifier {
         }
       }
     } catch (error) {
-      debugPrint('dazzle.shell $hostId: cleanup failed: $error');
+      debugPrint('upgrade.shell $hostId: cleanup failed: $error');
     }
   }
 
@@ -1730,7 +1730,7 @@ class ShellSessions extends ChangeNotifier {
           .rehome(network: network)
           .catchError((Object error) {
             debugPrint(
-              'dazzle.shell ${session.host.name}: rehome failed: $error',
+              'upgrade.shell ${session.host.name}: rehome failed: $error',
             );
           })
           .whenComplete(() {

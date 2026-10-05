@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../tokens.dart';
-import '../icons/dazzle_icon.dart';
-import '../icons/dazzle_icons.dart';
+import '../icons/upgrade_icon.dart';
+import '../icons/upgrade_icons.dart';
 import '../spacing.dart';
 
 class ToolbarIconAction extends StatefulWidget {
@@ -14,7 +14,7 @@ class ToolbarIconAction extends StatefulWidget {
   });
 
   final String label;
-  final DazzleIcons icon;
+  final UpgradeIcons icon;
   final VoidCallback onTap;
 
   @override
@@ -44,7 +44,7 @@ class _ToolbarIconActionState extends State<ToolbarIconAction> {
           child: SizedBox.square(
             dimension: 48,
             child: Center(
-              child: DazzleIcon(
+              child: UpgradeIcon(
                 widget.icon,
                 size: IconSizes.toolbar,
                 color: color,

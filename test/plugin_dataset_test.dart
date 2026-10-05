@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:dazzle_luau/datasets.dart';
-import 'package:dazzle_luau/dazzle_luau.dart';
+import 'package:upgrade_luau/datasets.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -16,7 +16,7 @@ void main() {
   late LuauWorker worker;
 
   setUp(() {
-    directory = Directory.systemTemp.createTempSync('dazzle-datasets-');
+    directory = Directory.systemTemp.createTempSync('upgrade-datasets-');
     store = DatasetStore(directory);
     worker = LuauWorker(dataDirectory: directory.path);
   });
@@ -100,16 +100,16 @@ void main() {
     () async {
       final result = await run('''
 return {run = function()
-  assert(dazzle.data.get("local", "one") == nil)
-  local revision = dazzle.data.put("local", "one", "hello", 0)
-  local record = dazzle.data.get("local", "one")
+  assert(upgrade.data.get("local", "one") == nil)
+  local revision = upgrade.data.put("local", "one", "hello", 0)
+  local record = upgrade.data.get("local", "one")
   assert(record.key == "one" and record.value == "hello" and record.revision == revision)
   assert(not pcall(function() record.value = "mutated" end))
-  local page = dazzle.data.query("local", "", 10)
+  local page = upgrade.data.query("local", "", 10)
   assert(#page == 1 and page[1].value == "hello")
   assert(not pcall(function() page[1] = nil end))
-  assert(dazzle.data.delete("local", "one", revision))
-  assert(dazzle.data.get("local", "one") == nil)
+  assert(upgrade.data.delete("local", "one", revision))
+  assert(upgrade.data.get("local", "one") == nil)
 end}
 ''');
       expect(result.dataCalls, 6);
@@ -125,8 +125,8 @@ end}
     final result = await run(
       '''
 return {run = function()
-  local record = dazzle.data.get("selected")
-  dazzle.data.propose("selected", record.key, "replacement", record.revision)
+  local record = upgrade.data.get("selected")
+  upgrade.data.propose("selected", record.key, "replacement", record.revision)
 end}
 ''',
       context: DataContext(owner, {
@@ -146,9 +146,9 @@ end}
     () async {
       final result = await run('''
 return {run = function()
-  assert(not pcall(function() dazzle.data.query("local", "", 1.5) end))
-  assert(not pcall(function() dazzle.data.get("local", string.char(255)) end))
-  assert(not pcall(function() dazzle.data.get("secret", "one") end))
+  assert(not pcall(function() upgrade.data.query("local", "", 1.5) end))
+  assert(not pcall(function() upgrade.data.get("local", string.char(255)) end))
+  assert(not pcall(function() upgrade.data.get("secret", "one") end))
 end}
 ''');
       expect(result.dataCalls, 3);
@@ -163,7 +163,7 @@ end}
       try {
         await run('''
 return {run = function()
-  dazzle.data.put("local", "one", "committed", 0)
+  upgrade.data.put("local", "one", "committed", 0)
   error("script failed after write")
 end}
 ''');
@@ -186,7 +186,7 @@ end}
       run('''
 return {run = function()
   for i = 1, 100 do
-    pcall(function() dazzle.data.get("local", "one") end)
+    pcall(function() upgrade.data.get("local", "one") end)
   end
 end}
 '''),
@@ -202,13 +202,13 @@ end}
       greaterThan(0),
     );
     await run(
-      'return {run = function() assert(dazzle.data.get("local", "one") == nil) end}',
+      'return {run = function() assert(upgrade.data.get("local", "one") == nil) end}',
     );
   });
 
   test('module initialization cannot access dataset APIs', () async {
     await expectLater(
-      run('dazzle.data.put("local", "one", "bad", 0); return {}'),
+      run('upgrade.data.put("local", "one", "bad", 0); return {}'),
       throwsA(isA<LuauException>()),
     );
     expect(store.inventory(), isEmpty);
@@ -232,7 +232,7 @@ return {run = function()
   while gcinfo() < $pressure do
     retained[#retained + 1] = string.rep("x", 4096) .. tostring(#retained)
   end
-  local records = dazzle.data.query("local", "", 4)
+  local records = upgrade.data.query("local", "", 4)
   assert(retained[1][1] == 1 and #records == 4)
 end}
 ''');
@@ -247,7 +247,7 @@ end}
       }
       expect(failedDuringReply, isTrue);
       await run(
-        'return {run = function() assert(dazzle.data.get("local", "0") ~= nil) end}',
+        'return {run = function() assert(upgrade.data.get("local", "0") ~= nil) end}',
       );
       expect(store.inventory().single.records, 4);
     },
@@ -255,7 +255,7 @@ end}
 
   test('owner invalidation cancels queued calls before they mutate datasets', () async {
     const source =
-        'return {run = function() dazzle.data.put("local", "one", "bad", 0) end}';
+        'return {run = function() upgrade.data.put("local", "one", "bad", 0) end}';
     final pending = List.generate(LuauWorker.maxPending, (_) => run(source));
     final rejected = Future.wait(
       pending.map(
@@ -279,10 +279,10 @@ end}
 local calls = 0
 return {run = function()
   calls += 1
-  if dazzle.data.get("local", "one") == nil then
-    dazzle.data.put("local", "one", "retained", 0)
+  if upgrade.data.get("local", "one") == nil then
+    upgrade.data.put("local", "one", "retained", 0)
   end
-  dazzle.data.propose("selected", "selection", tostring(calls), 1)
+  upgrade.data.propose("selected", "selection", tostring(calls), 1)
 end}
 ''';
     DataContext context(DataOwner actor) => DataContext(actor, {
@@ -338,7 +338,7 @@ local calls = 0
 return {run = function()
   calls += 1
   assert(calls == 1)
-  pcall(function() dazzle.data.put("local", "one", "value", 0) end)
+  pcall(function() upgrade.data.put("local", "one", "value", 0) end)
 end}
 ''';
     final first = await run(source);

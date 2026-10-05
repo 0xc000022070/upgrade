@@ -9,26 +9,26 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/agent_kind.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/path_scan.dart';
-import 'package:dazzle/application/send.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/data/repositories/activity_repository.dart';
-import 'package:dazzle/data/repositories/attachment_repository.dart';
-import 'package:dazzle/data/repositories/dispatch_repository.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/data/repositories/path_repository.dart';
-import 'package:dazzle/data/repositories/project_repository.dart';
-import 'package:dazzle/data/repositories/task_repository.dart';
-import 'package:dazzle/design/components/dazzle_field.dart';
-import 'package:dazzle/features/tasks/item_sheet.dart';
-import 'package:dazzle/features/tasks/item_tags.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/keys.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/platform/shell/remote_shell.dart';
+import 'package:upgrade/application/agent_kind.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/path_scan.dart';
+import 'package:upgrade/application/send.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/dispatch_repository.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/features/tasks/item_sheet.dart';
+import 'package:upgrade/features/tasks/item_tags.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -55,8 +55,8 @@ PathTarget _target() => PathTarget(
   path: AgentPath(
     id: 'path-1',
     hostId: _host.id,
-    directory: '~/src/dazzle',
-    label: 'dazzle',
+    directory: '~/src/upgrade',
+    label: 'upgrade',
     createdAt: DateTime.utc(2026, 9, 3),
   ),
   host: _host,
@@ -76,15 +76,15 @@ void main() {
     // The `~` is expanded on the host first, by the one command that also proves the
     // directory is there.
     expect(
-      HerdrCommands.resolveDirectory("~/src/dazzle with 'quote'"),
+      HerdrCommands.resolveDirectory("~/src/upgrade with 'quote'"),
       contains(r'$HOME'),
     );
     expect(
       HerdrRequests.workspaceCreate(
-        cwd: "/home/dev/src/dazzle with 'quote'",
-        label: 'dazzle',
+        cwd: "/home/dev/src/upgrade with 'quote'",
+        label: 'upgrade',
       ).params,
-      containsPair('cwd', "/home/dev/src/dazzle with 'quote'"),
+      containsPair('cwd', "/home/dev/src/upgrade with 'quote'"),
     );
   });
 
@@ -118,7 +118,7 @@ void main() {
     expect(
       prompt,
       'what is wrong here\n\nhttps://a.example\n'
-      '/tmp/dazzle/a.png\n/tmp/dazzle/b.png',
+      '/tmp/upgrade/a.png\n/tmp/upgrade/b.png',
     );
   });
 
@@ -129,7 +129,7 @@ void main() {
         links: const [],
         images: [RemoteFile('a.png', Uint8List(0))],
       ),
-      'what is wrong here\n\n/tmp/dazzle/a.png',
+      'what is wrong here\n\n/tmp/upgrade/a.png',
     );
   });
 
@@ -153,7 +153,7 @@ void main() {
         images: [RemoteFile('a.png', Uint8List(0))],
       ),
       'tests first\n\nITEM\nauth refresh\n\n'
-      'https://a.example\n/tmp/dazzle/a.png',
+      'https://a.example\n/tmp/upgrade/a.png',
     );
   });
 
@@ -176,7 +176,7 @@ void main() {
     );
     expect(
       RemoteFile.fromPath('../../etc/passwd', Uint8List(0)).remotePath,
-      '/tmp/dazzle/passwd',
+      '/tmp/upgrade/passwd',
     );
     expect(
       RemoteFile.fromPath("a b';rm -rf .png", Uint8List(0)).name,
@@ -188,7 +188,7 @@ void main() {
   test('the upload command makes the directory and takes the file whole', () {
     expect(
       uploadCommand('a.png'),
-      underSh("mkdir -p '/tmp/dazzle' && cat > '/tmp/dazzle/a.png'"),
+      underSh("mkdir -p '/tmp/upgrade' && cat > '/tmp/upgrade/a.png'"),
     );
   });
 
@@ -300,7 +300,7 @@ void main() {
         expect(state, isA<SendFailed>());
         expect(
           outgoing,
-          'Reviewed instructions\n\nhttps://a.example\n\n/tmp/dazzle/photo.png',
+          'Reviewed instructions\n\nhttps://a.example\n\n/tmp/upgrade/photo.png',
         );
       },
     );
@@ -315,8 +315,8 @@ void main() {
             PathsCompanion.insert(
               id: 'path-1',
               hostId: _host.id,
-              directory: '~/src/dazzle',
-              label: 'dazzle',
+              directory: '~/src/upgrade',
+              label: 'upgrade',
               createdAt: DateTime.utc(2026, 9, 3),
             ),
           );
@@ -348,7 +348,7 @@ void main() {
       expect(state, isA<SendSent>());
       expect((state as SendSent).paneId, 'wQ:p7');
       expect(calls.single.kind, 'claude');
-      expect(calls.single.directory, '~/src/dazzle');
+      expect(calls.single.directory, '~/src/upgrade');
       expect(calls.single.prompt, 'read the gate log\n\nhttps://a.example');
 
       final verifier = verifiers.single!;
@@ -362,7 +362,7 @@ void main() {
       final rows = await dispatches.watchForItem(itemId).first;
       expect(rows, hasLength(1));
       expect(rows.single.hostName, 'nyx');
-      expect(rows.single.label, 'dazzle');
+      expect(rows.single.label, 'upgrade');
       expect(rows.single.agent, 'claude');
       expect(rows.single.paneId, 'wQ:p7');
 
@@ -371,7 +371,7 @@ void main() {
         (entry) => entry.action == ActivityAction.sent,
       );
       expect(sent.title, 'read the gate log');
-      expect(sent.context, 'nyx / dazzle');
+      expect(sent.context, 'nyx / upgrade');
       expect(sent.detail, 'wQ:p7');
     });
 
@@ -428,7 +428,7 @@ void main() {
       expect(
         calls.single.prompt,
         'what is wrong here\n\nhttps://a.example\n'
-        '/tmp/dazzle/first.png\n/tmp/dazzle/second.jpg',
+        '/tmp/upgrade/first.png\n/tmp/upgrade/second.jpg',
       );
     });
 
@@ -603,7 +603,7 @@ void main() {
 
     tearDown(() => db.close());
 
-    Future<void> addPath({String label = 'dazzle', String? projectId}) => db
+    Future<void> addPath({String label = 'upgrade', String? projectId}) => db
         .into(db.paths)
         .insert(
           PathsCompanion.insert(
@@ -630,7 +630,7 @@ void main() {
               required user,
               required privateKey,
               verifier,
-            }) async => const ['~/src/dazzle'],
+            }) async => const ['~/src/upgrade'],
             fetchModels: ({
               required address,
               required port,
@@ -701,7 +701,7 @@ void main() {
       final project = await ProjectRepository(
         db,
         activity,
-      ).create(name: 'dazzle');
+      ).create(name: 'upgrade');
       final id = await TaskRepository(
         db,
         activity,
@@ -725,7 +725,7 @@ void main() {
       final project = await ProjectRepository(
         db,
         activity,
-      ).create(name: 'dazzle');
+      ).create(name: 'upgrade');
       final id = await TaskRepository(
         db,
         activity,
@@ -753,13 +753,13 @@ void main() {
       final project = await ProjectRepository(
         db,
         activity,
-      ).create(name: 'dazzle');
+      ).create(name: 'upgrade');
       final id = await TaskRepository(
         db,
         activity,
       ).create(title: 'ship the picker', projectId: project);
       await addPath(label: 'gate');
-      await addPath(label: 'dazzle', projectId: project);
+      await addPath(label: 'upgrade', projectId: project);
       await addPath(label: 'monolith', projectId: project);
 
       await tester.pumpWidget(app(id));
@@ -770,7 +770,7 @@ void main() {
       expect(find.text('SEND TO'), findsOneWidget);
       expect(find.text('LINKED'), findsNWidgets(2));
       final loose = tester.getTopLeft(find.text('NYX / GATE')).dy;
-      expect(tester.getTopLeft(find.text('NYX / DAZZLE')).dy, lessThan(loose));
+      expect(tester.getTopLeft(find.text('NYX / UPGRADE')).dy, lessThan(loose));
       expect(
         tester.getTopLeft(find.text('NYX / MONOLITH')).dy,
         lessThan(loose),
@@ -823,9 +823,9 @@ void main() {
       await tester.tap(find.text('SEND'));
       await _drain(tester);
       expect(find.text('SEND TO'), findsOneWidget);
-      expect(find.text('NYX / DAZZLE'), findsOneWidget);
+      expect(find.text('NYX / UPGRADE'), findsOneWidget);
 
-      await tester.tap(find.text('NYX / DAZZLE'));
+      await tester.tap(find.text('NYX / UPGRADE'));
       await _drain(tester);
       expect(find.text('AGENT'), findsOneWidget);
       expect(find.text('MODEL'), findsOneWidget);
@@ -834,7 +834,7 @@ void main() {
 
       final message = find.byKey(const ValueKey('send-message'));
       expect(
-        tester.widget<DazzleField>(message).controller.text,
+        tester.widget<UpgradeField>(message).controller.text,
         'read the gate log\n\nhttps://a.example',
       );
       await tester.enterText(
@@ -844,10 +844,10 @@ void main() {
       await tester.binding.handlePopRoute();
       await _drain(tester);
       expect(find.text('SEND TO'), findsOneWidget);
-      await tester.tap(find.text('NYX / DAZZLE'));
+      await tester.tap(find.text('NYX / UPGRADE'));
       await _drain(tester);
       expect(
-        tester.widget<DazzleField>(message).controller.text,
+        tester.widget<UpgradeField>(message).controller.text,
         'Review the revised log\n\nhttps://a.example',
       );
       await tester.tap(find.text('SONNET'));
@@ -898,7 +898,7 @@ void main() {
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);
-      await tester.tap(find.text('NYX / DAZZLE'));
+      await tester.tap(find.text('NYX / UPGRADE'));
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);
@@ -923,7 +923,7 @@ void main() {
       await addPath();
       await DriftDispatchRepository(db, activity).record(
         itemId: id,
-        pathId: 'path-dazzle',
+        pathId: 'path-upgrade',
         paneId: 'wQ:p7',
         title: 'a drop',
         agent: 'claude',
@@ -934,7 +934,7 @@ void main() {
 
       expect(find.text('[ SENT ]'), findsOneWidget);
       expect(
-        find.textContaining('NYX / DAZZLE · CLAUDE · wQ:p7 · '),
+        find.textContaining('NYX / UPGRADE · CLAUDE · wQ:p7 · '),
         findsOneWidget,
       );
       expect(find.byType(SentTag), findsOneWidget);
@@ -953,7 +953,7 @@ void main() {
       await addPath();
       await DriftDispatchRepository(db, activity).record(
         itemId: id,
-        pathId: 'path-dazzle',
+        pathId: 'path-upgrade',
         paneId: 'wQ:p7',
         title: 'a drop',
         agent: 'claude',
@@ -966,7 +966,7 @@ void main() {
       expect(find.byType(SentTag), findsNothing);
       expect(find.text('[ SENT ]'), findsOneWidget);
       expect(
-        find.textContaining('NYX / DAZZLE · CLAUDE · wQ:p7 · '),
+        find.textContaining('NYX / UPGRADE · CLAUDE · wQ:p7 · '),
         findsOneWidget,
       );
 
@@ -1006,7 +1006,7 @@ void main() {
       expect(find.text('SAVE'), findsOneWidget);
       expect(find.text('SEND'), findsNothing);
 
-      await tester.enterText(find.byType(DazzleField), 'read lib/auth first');
+      await tester.enterText(find.byType(UpgradeField), 'read lib/auth first');
       await tester.tap(find.text('SAVE'));
       await _drain(tester);
 
@@ -1034,7 +1034,7 @@ void main() {
 
       await tester.tap(find.text('EDIT PROMPT'));
       await _drain(tester);
-      await tester.enterText(find.byType(DazzleField), '   ');
+      await tester.enterText(find.byType(UpgradeField), '   ');
       await tester.tap(find.text('SAVE'));
       await _drain(tester);
 
@@ -1082,7 +1082,7 @@ void main() {
 
       await tester.tap(find.text('SEND'));
       await _drain(tester);
-      await tester.tap(find.text('NYX / DAZZLE'));
+      await tester.tap(find.text('NYX / UPGRADE'));
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);

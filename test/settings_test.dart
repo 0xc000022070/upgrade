@@ -4,13 +4,13 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/app/static_surface.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/settings_repository.dart';
-import 'package:dazzle/design/components/ascii_background.dart';
-import 'package:dazzle/design/motion.dart';
-import 'package:dazzle/features/home/home_screen.dart';
-import 'package:dazzle/features/settings/settings_screen.dart';
+import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/design/components/ascii_background.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/features/home/home_screen.dart';
+import 'package:upgrade/features/settings/settings_screen.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -84,7 +84,7 @@ void main() {
     await _ready(tester);
 
     expect(find.text('SETTINGS'), findsOneWidget);
-    expect(find.text('/ DAZZLE / SYS'), findsOneWidget);
+    expect(find.text('/ UPGRADE / SYS'), findsOneWidget);
     expect(find.text('[ BACKGROUND ]'), findsOneWidget);
     expect(find.text('[ APPEARANCE ]'), findsOneWidget);
     expect(find.text('[ BUILD ]'), findsOneWidget);
@@ -150,14 +150,14 @@ void main() {
     },
   );
 
-  testWidgets('appearance defaults to Dazzle dark and choices persist', (
+  testWidgets('appearance defaults to Upgrade dark and choices persist', (
     tester,
   ) async {
     _tall(tester);
     await tester.pumpWidget(host(const SettingsScreen()));
     await _ready(tester);
 
-    expect(_themeSelected(tester, 'Dazzle dark'), isTrue);
+    expect(_themeSelected(tester, 'Upgrade dark'), isTrue);
     expect(_themeSelected(tester, 'System'), isFalse);
     expect(
       await (db.select(
@@ -170,16 +170,16 @@ void main() {
     await _ready(tester);
 
     expect(_themeSelected(tester, 'System'), isTrue);
-    expect(_themeSelected(tester, 'Dazzle dark'), isFalse);
+    expect(_themeSelected(tester, 'Upgrade dark'), isFalse);
     expect(
       await settings.flag(SettingsRepository.themeSystem, orElse: false),
       isTrue,
     );
 
-    await tester.tap(find.text('Dazzle dark'));
+    await tester.tap(find.text('Upgrade dark'));
     await _ready(tester);
 
-    expect(_themeSelected(tester, 'Dazzle dark'), isTrue);
+    expect(_themeSelected(tester, 'Upgrade dark'), isTrue);
     expect(
       await settings.flag(SettingsRepository.themeSystem, orElse: false),
       isFalse,

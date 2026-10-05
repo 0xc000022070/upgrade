@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../tokens.dart';
 import '../spacing.dart';
 import 'panel.dart';
-import 'dazzle_field.dart';
+import 'upgrade_field.dart';
 
 class FieldPanel extends StatelessWidget {
   const FieldPanel({
@@ -50,7 +50,7 @@ class FieldPanel extends StatelessWidget {
         Spacing.panelPadding,
         Spacing.sm,
       ),
-      child: DazzleField(
+      child: UpgradeField(
         enabled: enabled,
         maxLength: maxLength,
         semanticLabel: label,

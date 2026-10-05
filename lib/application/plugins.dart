@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:dazzle_luau/dazzle_luau.dart';
-import 'package:dazzle_luau/data_api.dart';
-import 'package:dazzle_luau/ui_sdk.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
+import 'package:upgrade_luau/data_api.dart';
+import 'package:upgrade_luau/ui_sdk.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';

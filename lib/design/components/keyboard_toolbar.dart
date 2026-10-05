@@ -6,7 +6,7 @@ import '../tokens.dart';
 import '../motion.dart';
 import '../spacing.dart';
 import 'action_block.dart';
-import 'dazzle_field.dart';
+import 'upgrade_field.dart';
 
 enum ToolbarGlyph {
   link(Icons.link, 'LINK'),
@@ -563,7 +563,7 @@ class _FieldLine extends StatelessWidget {
             Text(field.label, style: context.tokens.panelHeader),
             const SizedBox(width: Spacing.lg),
             Expanded(
-              child: DazzleField(
+              child: UpgradeField(
                 controller: field.controller,
                 focusNode: focus,
                 style: context.tokens.capture.copyWith(

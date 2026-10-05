@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 import '../../design/tokens.dart';
 import '../../design/components/cell_divider.dart';
 import '../../design/components/key_cell.dart';
-import '../../design/components/dazzle_field.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/components/upgrade_field.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import 'shell_sessions.dart';
@@ -140,7 +140,7 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
                   horizontal: RowMetrics.padding,
                 ),
                 child: Center(
-                  child: DazzleField(
+                  child: UpgradeField(
                     key: const ValueKey('shell-find-field'),
                     controller: _query,
                     autofocus: true,
@@ -169,7 +169,7 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
             KeyCell(
               key: const ValueKey('shell-find-prev'),
               label: 'PREV',
-              icon: DazzleIcons.arrowUp,
+              icon: UpgradeIcons.arrowUp,
               inert: total == 0,
               minWidth: RowMetrics.minHeight,
               padding: RowMetrics.padding,
@@ -178,7 +178,7 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
             KeyCell(
               key: const ValueKey('shell-find-next'),
               label: 'NEXT',
-              icon: DazzleIcons.arrowDown,
+              icon: UpgradeIcons.arrowDown,
               inert: total == 0,
               minWidth: RowMetrics.minHeight,
               padding: RowMetrics.padding,

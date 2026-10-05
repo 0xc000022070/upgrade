@@ -2,8 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/clips.dart';
-import 'package:dazzle/features/screen/screen_preview.dart';
+import 'package:upgrade/application/clips.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
 
 Uint8List png(int width, int height) => encodePng(
   PreviewFrame(
@@ -18,7 +18,7 @@ void main() {
   late ClipStore clips;
 
   setUp(() {
-    directory = Directory.systemTemp.createTempSync('dazzle-clips-test');
+    directory = Directory.systemTemp.createTempSync('upgrade-clips-test');
     clips = ClipStore(directory);
   });
 

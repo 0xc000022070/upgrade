@@ -9,8 +9,8 @@ import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/effects/glitch.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../screen_scaffold.dart';
 import '../tasks/drops_panel.dart';
@@ -118,8 +118,8 @@ class _NextActionRow extends StatelessWidget {
     ].join(' · ');
 
     return ListRow(
-      leading: DazzleIcon(
-        DazzleIcons.forward,
+      leading: UpgradeIcon(
+        UpgradeIcons.forward,
         size: IconSizes.glyph,
         color: context.tokens.accent,
       ),

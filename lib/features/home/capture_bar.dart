@@ -14,11 +14,11 @@ import '../../design/components/keyboard_toolbar.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/solid_action_bar.dart';
-import '../../design/components/dazzle_field.dart';
+import '../../design/components/upgrade_field.dart';
 import '../../design/components/dither_field.dart';
 import '../../design/effects/glitch.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
 import '../../application/attachment_files.dart';
@@ -320,13 +320,13 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: DazzleField(
+                        child: UpgradeField(
                           controller: _controller,
                           focusNode: _focus,
                           style: context.tokens.capture.copyWith(
                             color: context.tokens.textPrimary,
                           ),
-                          maxLines: DazzleField.bodyLines,
+                          maxLines: UpgradeField.bodyLines,
                           hint: 'Capture',
                           hintStyle: context.tokens.capture,
                           onSubmitted: (_) => _submit(),
@@ -343,8 +343,8 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                           width: TapTargets.minHeight,
                           height: RowMetrics.minHeight,
                           child: Center(
-                            child: DazzleIcon(
-                              DazzleIcons.submit,
+                            child: UpgradeIcon(
+                              UpgradeIcons.submit,
                               size: IconSizes.md,
                               color: pending
                                   ? context.tokens.textSecondary

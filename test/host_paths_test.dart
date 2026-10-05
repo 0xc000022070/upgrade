@@ -1,9 +1,9 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/data/repositories/path_repository.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
 
 void main() {
   late AppDatabase db;
@@ -49,17 +49,17 @@ void main() {
 
   test('a row shows the last two segments of a long directory', () {
     expect(
-      shortPathLabel('~/Projects/github.com/luisnquin/dazzle'),
-      '…/luisnquin/dazzle',
+      shortPathLabel('~/Projects/github.com/luisnquin/upgrade'),
+      '…/luisnquin/upgrade',
     );
     expect(shortPathLabel('/srv/gate'), '/srv/gate');
-    expect(shortPathLabel('dazzle'), 'dazzle');
+    expect(shortPathLabel('upgrade'), 'upgrade');
   });
 
   test('the last segment is what an unnamed path is called', () {
-    expect(defaultPathLabel('~/src/dazzle'), 'dazzle');
+    expect(defaultPathLabel('~/src/upgrade'), 'upgrade');
     expect(defaultPathLabel('/srv/herdr/'), 'herdr');
-    expect(defaultPathLabel('dazzle'), 'dazzle');
+    expect(defaultPathLabel('upgrade'), 'upgrade');
     expect(defaultPathLabel('~'), '~');
     expect(defaultPathLabel('/'), '/');
   });
@@ -71,12 +71,12 @@ void main() {
     await seedDrop();
     await seedDispatch(path.id);
 
-    await paths.repoint(path.id, '~/src/dazzle/');
+    await paths.repoint(path.id, '~/src/upgrade/');
 
     final row = (await paths.listForHost('host-1')).single;
     expect(row.id, path.id);
-    expect(row.directory, '~/src/dazzle/');
-    expect(row.label, 'dazzle');
+    expect(row.directory, '~/src/upgrade/');
+    expect(row.label, 'upgrade');
     expect((await db.select(db.dispatches).get()).single.pathId, path.id);
   });
 
@@ -86,7 +86,7 @@ void main() {
       await seedHost();
       await seedDrop();
       final path = await DriftPathRepository(db)
-          .add(hostId: 'host-1', directory: '~/src/dazzle');
+          .add(hostId: 'host-1', directory: '~/src/upgrade');
       await seedDispatch(path.id);
 
       await DriftHostRepository(db).delete('host-1');
@@ -101,7 +101,7 @@ void main() {
     await seedHost();
     await seedDrop();
     final paths = DriftPathRepository(db);
-    final path = await paths.add(hostId: 'host-1', directory: '~/src/dazzle');
+    final path = await paths.add(hostId: 'host-1', directory: '~/src/upgrade');
     await seedDispatch(path.id);
 
     await paths.remove(path.id);

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/features/code/diff_jump.dart';
-import 'package:dazzle/features/code/hunk_pin.dart';
-import 'package:dazzle/platform/workspace/workspace_model.dart';
+import 'package:upgrade/features/code/diff_jump.dart';
+import 'package:upgrade/features/code/hunk_pin.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 import 'support/themed_app.dart';
 

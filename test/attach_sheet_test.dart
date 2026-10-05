@@ -3,13 +3,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/clips.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/components/panel.dart';
-import 'package:dazzle/features/shell/attach_sheet.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/platform/shell/remote_shell.dart';
+import 'package:upgrade/application/clips.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/features/shell/attach_sheet.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -33,7 +33,7 @@ void main() {
   late ShellSessions sessions;
 
   setUp(() {
-    directory = Directory.systemTemp.createTempSync('dazzle-attach-test');
+    directory = Directory.systemTemp.createTempSync('upgrade-attach-test');
     clips = ClipStore(directory);
     transport = FakeShellTransport();
     sessions = fakeShellSessions(transport);
@@ -91,7 +91,7 @@ void main() {
     expect(help, findsOneWidget);
     expect(find.text('CANCEL'), findsOneWidget);
     expect(copy, findsNothing);
-    expect(inkOf(tester), DazzleColors.textMuted);
+    expect(inkOf(tester), UpgradeColors.textMuted);
   });
 
   testWidgets('a tap raises the copy over PHOTOS and a second takes it away', (
@@ -138,11 +138,11 @@ void main() {
 
     await tester.tap(help);
     await tester.pumpAndSettle();
-    expect(inkOf(tester), DazzleColors.accent);
+    expect(inkOf(tester), UpgradeColors.accent);
 
     await tester.tap(help);
     await tester.pumpAndSettle();
-    expect(inkOf(tester), DazzleColors.textMuted);
+    expect(inkOf(tester), UpgradeColors.textMuted);
   });
 
   testWidgets('CANCEL still closes the sheet with the copy open', (

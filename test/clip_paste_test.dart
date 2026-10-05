@@ -3,13 +3,13 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/clips.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/features/screen/screen_preview.dart';
-import 'package:dazzle/features/shell/clip_paste.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/platform/shell/host_clipboard.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
+import 'package:upgrade/application/clips.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
+import 'package:upgrade/features/shell/clip_paste.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/platform/shell/host_clipboard.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 
 import 'support/fake_shell.dart';
 
@@ -61,7 +61,7 @@ void main() {
   late Clip clip;
 
   setUp(() async {
-    directory = Directory.systemTemp.createTempSync('dazzle-paste-test');
+    directory = Directory.systemTemp.createTempSync('upgrade-paste-test');
     clips = ClipStore(directory);
     clip = await clips.add(
       encodePng(PreviewFrame(width: 8, height: 8, rgb: Uint8List(8 * 8 * 3))),
@@ -118,7 +118,7 @@ void main() {
     expect(result.outcome, PasteOutcome.path);
     expect(result.line, 'PATH · no display server');
     expect(connection.execs.skip(2), hasLength(2));
-    expect(connection.written, contains('/tmp/dazzle/${clip.fileName}'));
+    expect(connection.written, contains('/tmp/upgrade/${clip.fileName}'));
     expect(connection.writes.any((bytes) => bytes.contains(0x16)), isFalse);
   });
 
@@ -175,7 +175,7 @@ void main() {
     final result = await pasteClip(store: store, session: session, clip: clip);
 
     expect(result.line, 'PATH · wayland exit 1');
-    expect(connection.written, contains('/tmp/dazzle/'));
+    expect(connection.written, contains('/tmp/upgrade/'));
   });
 
   test('a photo goes as bytes under a fresh name, held nowhere', () async {

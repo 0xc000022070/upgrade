@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/design/components/panel.dart';
-import 'package:dazzle/design/components/signal_text.dart';
-import 'package:dazzle/design/spacing.dart';
-import 'package:dazzle/design/typography.dart';
-import 'package:dazzle/features/screen_scaffold.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/signal_text.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/typography.dart';
+import 'package:upgrade/features/screen_scaffold.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -59,7 +59,7 @@ void main() {
 
     final crumb = tester.widget<Text>(find.text('/ PROJECTS'));
     expect(crumb.maxLines, 1);
-    expect(crumb.style, DazzleText.breadcrumb);
+    expect(crumb.style, UpgradeText.breadcrumb);
     expect(find.text('/ PERSONAL CONTROL PLANE / PROJECTS'), findsNothing);
 
     await tester.pumpWidget(host());

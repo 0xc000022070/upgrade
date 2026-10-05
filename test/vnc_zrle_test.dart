@@ -2,9 +2,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/platform/vnc/framebuffer.dart';
-import 'package:dazzle/platform/vnc/vnc_failure.dart';
-import 'package:dazzle/platform/vnc/zrle.dart';
+import 'package:upgrade/platform/vnc/framebuffer.dart';
+import 'package:upgrade/platform/vnc/vnc_failure.dart';
+import 'package:upgrade/platform/vnc/zrle.dart';
 
 /// A CPIXEL in this session's format: the three low bytes of BGRX, in wire order. RFC
 /// 6143 drops the byte the pixel format never reads.

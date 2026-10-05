@@ -385,7 +385,7 @@ class BundleTransfer {
 
 String bundleFileName(DateTime now) {
   final day = now.toIso8601String().substring(0, 10);
-  return 'dazzle-$day.bundle';
+  return 'upgrade-$day.bundle';
 }
 
 ReasonLine bundleLine(BundleFault fault) => switch (fault) {

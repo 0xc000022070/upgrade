@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/features/code/change_marks.dart';
-import 'package:dazzle/platform/workspace/workspace_model.dart';
+import 'package:upgrade/features/code/change_marks.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 DiffLine _hunk(String header) => DiffLine(DiffLineKind.hunk, header);
 DiffLine _add(String text, int at) =>

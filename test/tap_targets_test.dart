@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/components/panel.dart';
-import 'package:dazzle/design/spacing.dart';
-import 'package:dazzle/features/screen_scaffold.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/screen_scaffold.dart';
 
 import 'support/themed_app.dart';
 
@@ -240,7 +240,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 150));
       expect(
         tester.widget<Text>(find.text('4')).style?.color,
-        DazzleColors.textMuted,
+        UpgradeColors.textMuted,
       );
       await gesture.up();
 
@@ -260,17 +260,17 @@ void main() {
       await _settle(tester);
 
       Color? ink() => tester.widget<Text>(find.text('NEW')).style?.color;
-      expect(ink(), DazzleColors.textMuted);
+      expect(ink(), UpgradeColors.textMuted);
 
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(PanelAffordance)),
       );
       await tester.pump(const Duration(milliseconds: 150));
-      expect(ink(), DazzleColors.accent);
+      expect(ink(), UpgradeColors.accent);
 
       await gesture.up();
       await tester.pump();
-      expect(ink(), DazzleColors.textMuted);
+      expect(ink(), UpgradeColors.textMuted);
 
       await _drain(tester);
     });

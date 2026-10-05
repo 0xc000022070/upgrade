@@ -1,23 +1,23 @@
 import 'dart:io';
 
-import 'package:dazzle/app/builtin_plugins.dart';
-import 'package:dazzle/application/native_plugins.dart';
-import 'package:dazzle/application/plugin_placements.dart';
-import 'package:dazzle/application/plugins.dart';
-import 'package:dazzle/application/providers.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/plugin_placement_repository.dart';
-import 'package:dazzle/platform/plugins/manifest.dart';
-import 'package:dazzle/platform/plugins/store.dart';
+import 'package:upgrade/app/builtin_plugins.dart';
+import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/application/plugin_placements.dart';
+import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 PluginPackage builtinFixture(String name) => PluginPackage(
   manifest: PluginManifest.parse(
-    File('lib/plugins/$name/dazzle.plugin.toml').readAsStringSync(),
+    File('lib/plugins/$name/upgrade.plugin.toml').readAsStringSync(),
     allowNative: true,
   ),
   source: File('lib/plugins/$name/main.dart').readAsStringSync(),
-  origin: 'bundled:dazzle.$name',
+  origin: 'bundled:upgrade.$name',
   revision: '1.0.0',
 );
 

@@ -10,8 +10,8 @@ import '../../design/components/action_block.dart';
 import '../../design/components/dot_spinner.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import 'clip_paste.dart';
 import 'photo_attach.dart';
@@ -286,8 +286,8 @@ class _ClipTile extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(Spacing.sm),
                     color: context.tokens.surfacePrimary,
-                    child: DazzleIcon(
-                      DazzleIcons.close,
+                    child: UpgradeIcon(
+                      UpgradeIcons.close,
                       size: IconSizes.affordance,
                       color: context.tokens.textSecondary,
                     ),

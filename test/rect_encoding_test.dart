@@ -1,11 +1,11 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/platform/vnc/byte_reader.dart';
-import 'package:dazzle/platform/vnc/framebuffer.dart';
-import 'package:dazzle/platform/vnc/rect_encoding.dart';
-import 'package:dazzle/platform/vnc/rfb_messages.dart';
-import 'package:dazzle/platform/vnc/zrle.dart';
+import 'package:upgrade/platform/vnc/byte_reader.dart';
+import 'package:upgrade/platform/vnc/framebuffer.dart';
+import 'package:upgrade/platform/vnc/rect_encoding.dart';
+import 'package:upgrade/platform/vnc/rfb_messages.dart';
+import 'package:upgrade/platform/vnc/zrle.dart';
 
 RectTarget _target(Framebuffer framebuffer, [List<int> incoming = const []]) =>
     RectTarget(

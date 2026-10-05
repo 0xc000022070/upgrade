@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/platform/host_links.dart';
-import 'package:dazzle/platform/ssh_settle.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/ssh_settle.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/host_links.dart';

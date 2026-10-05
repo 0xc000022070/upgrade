@@ -6,26 +6,26 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/navigation.dart';
-import 'package:dazzle/application/path_scan.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/data/repositories/key_repository.dart';
-import 'package:dazzle/data/repositories/path_repository.dart';
-import 'package:dazzle/features/hosts/hosts_screen.dart';
-import 'package:dazzle/features/hosts/link_probes.dart';
-import 'package:dazzle/features/screen/screen_preview.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/platform/keys.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/platform/link_probe.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/application/path_scan.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/features/hosts/hosts_screen.dart';
+import 'package:upgrade/features/hosts/link_probes.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/link_probe.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
-const _scanned = ['~/src/dazzle', '/srv/gate', '~/src/monolith'];
+const _scanned = ['~/src/upgrade', '/srv/gate', '~/src/monolith'];
 
 ManagedKey _key(String id) => ManagedKey(
   id: id,
@@ -63,7 +63,7 @@ void main() {
     hosts = DriftHostRepository(db);
     privateKeys = MemoryPrivateKeyStore();
     paths = DriftPathRepository(db);
-    root = Directory.systemTemp.createTempSync('dazzle-code');
+    root = Directory.systemTemp.createTempSync('upgrade-code');
     previews = ScreenPreviews(Directory('${root.path}/screens'));
     sessions = fakeShellSessions(FakeShellTransport()..stall = true);
     addTearDown(previews.dispose);
@@ -185,10 +185,10 @@ void main() {
     expect(find.text(shortPathLabel('~/src/monolith')), findsOneWidget);
 
     await tapText(tester, 'ADD');
-    await tapText(tester, shortPathLabel('~/src/dazzle'));
+    await tapText(tester, shortPathLabel('~/src/upgrade'));
     await tapText(tester, 'ADD 1');
 
-    expect(find.text(shortPathLabel('~/src/dazzle')), findsOneWidget);
+    expect(find.text(shortPathLabel('~/src/upgrade')), findsOneWidget);
     expect((await paths.listForHost('1')).length, 2);
 
     await unmount(tester);
@@ -218,13 +218,13 @@ void main() {
     expect(find.text('ROSE'), findsOneWidget);
     await tapText(tester, 'NYX');
 
-    await tapText(tester, shortPathLabel('~/src/dazzle'));
+    await tapText(tester, shortPathLabel('~/src/upgrade'));
     await tapText(tester, shortPathLabel('/srv/gate'));
     await tapText(tester, 'ADD 2');
 
     final registered = await paths.listForHost('1');
     expect(registered.map((path) => path.directory), [
-      '~/src/dazzle',
+      '~/src/upgrade',
       '/srv/gate',
     ]);
     expect(find.text('NYX'), findsNWidgets(2));
@@ -240,7 +240,7 @@ void main() {
     await toCode(tester);
 
     await tapText(tester, 'ADD');
-    expect(find.text(shortPathLabel('~/src/dazzle')), findsOneWidget);
+    expect(find.text(shortPathLabel('~/src/upgrade')), findsOneWidget);
 
     await unmount(tester);
   });
@@ -249,12 +249,12 @@ void main() {
     tester,
   ) async {
     await hosts.save(_host('1', 'nyx'));
-    await paths.add(hostId: '1', directory: '~/src/dazzle');
+    await paths.add(hostId: '1', directory: '~/src/upgrade');
     await open(tester);
     await toCode(tester);
 
     await tapText(tester, 'ADD');
-    expect(find.text(shortPathLabel('~/src/dazzle')), findsOneWidget);
+    expect(find.text(shortPathLabel('~/src/upgrade')), findsOneWidget);
     expect(find.text(shortPathLabel('/srv/gate')), findsOneWidget);
 
     await unmount(tester);
@@ -262,11 +262,11 @@ void main() {
 
   testWidgets('a long press re-points a row', (tester) async {
     await hosts.save(_host('1', 'nyx'));
-    final path = await paths.add(hostId: '1', directory: '~/src/dazzle');
+    final path = await paths.add(hostId: '1', directory: '~/src/upgrade');
     await open(tester);
     await toCode(tester);
 
-    await tester.longPress(find.text(shortPathLabel('~/src/dazzle')));
+    await tester.longPress(find.text(shortPathLabel('~/src/upgrade')));
     await ready(tester);
     await tapText(tester, 'RE-POINT');
     await tapText(tester, shortPathLabel('~/src/monolith'));
@@ -281,19 +281,19 @@ void main() {
 
   testWidgets('a long press removes a row', (tester) async {
     await hosts.save(_host('1', 'nyx'));
-    await paths.add(hostId: '1', directory: '~/src/dazzle');
+    await paths.add(hostId: '1', directory: '~/src/upgrade');
     await paths.add(hostId: '1', directory: '/srv/gate');
     await open(tester);
     await toCode(tester);
 
-    await tester.longPress(find.text(shortPathLabel('~/src/dazzle')));
+    await tester.longPress(find.text(shortPathLabel('~/src/upgrade')));
     await ready(tester);
     await tapText(tester, 'REMOVE');
 
     expect((await paths.listForHost('1')).map((p) => p.directory), [
       '/srv/gate',
     ]);
-    expect(find.text(shortPathLabel('~/src/dazzle')), findsNothing);
+    expect(find.text(shortPathLabel('~/src/upgrade')), findsNothing);
 
     await unmount(tester);
   });
@@ -317,14 +317,14 @@ void main() {
   testWidgets('rows are grouped by the host that holds them', (tester) async {
     await hosts.save(_host('1', 'nyx'));
     await hosts.save(_host('2', 'rose'));
-    await paths.add(hostId: '1', directory: '~/src/dazzle');
+    await paths.add(hostId: '1', directory: '~/src/upgrade');
     await paths.add(hostId: '2', directory: '/srv/gate');
     await open(tester);
     await toCode(tester);
 
     expect(find.text('NYX'), findsOneWidget);
     expect(find.text('ROSE'), findsOneWidget);
-    expect(find.text(shortPathLabel('~/src/dazzle')), findsOneWidget);
+    expect(find.text(shortPathLabel('~/src/upgrade')), findsOneWidget);
     expect(find.text(shortPathLabel('/srv/gate')), findsOneWidget);
 
     await unmount(tester);

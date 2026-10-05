@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/platform/shell/strip_bytes.dart';
-import 'package:dazzle/platform/vnc/keysyms.dart';
+import 'package:upgrade/platform/shell/strip_bytes.dart';
+import 'package:upgrade/platform/vnc/keysyms.dart';
 
 Set<StickyModifier> none() => <StickyModifier>{};
 Set<StickyModifier> armed(StickyModifier modifier) => {modifier};

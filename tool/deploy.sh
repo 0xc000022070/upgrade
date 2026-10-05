@@ -25,7 +25,7 @@ EOF
 }
 
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly PKG=dev.luisnquin.dazzle
+readonly PKG=dev.luisnquin.upgrade
 readonly CERT=d6b7cdfb8d0a5c0017e317b7db27f3fb3ce0b3f650f28ca6b989c4582f5d7e5e
 readonly OUT="$ROOT/build/deploy"
 readonly TREE="$OUT/tree"
@@ -61,7 +61,7 @@ stamp() {
 build() {
   local name code sha
   read -r name code sha <<<"$(stamp)"
-  local apk="$OUT/dazzle-$name-$code-$sha.apk"
+  local apk="$OUT/upgrade-$name-$code-$sha.apk"
   if [[ -f $apk ]]; then
     echo "$apk"
     return 0
@@ -81,7 +81,7 @@ build() {
   (
     cd "$TREE" &&
       just pub-build && flutter pub get && just gen &&
-      DAZZLE_BUILD=$sha just apk-release "$name" "$code"
+      UPGRADE_BUILD=$sha just apk-release "$name" "$code"
   ) >&2 || die "the build of $name+$code ($sha) failed"
   [[ -f $built ]] || die "the build of $name+$code ($sha) left no apk"
 
@@ -91,7 +91,7 @@ build() {
   cert=$("$tools/apksigner" verify --print-certs "$built" | awk '/certificate SHA-256 digest:/ {print $NF; exit}')
   [[ $cert == "$CERT" ]] || die "apk signed by $cert, not the key the handsets trust"
 
-  rm -f "$OUT"/dazzle-*.apk
+  rm -f "$OUT"/upgrade-*.apk
   cp "$built" "$apk"
   echo "$apk"
 }

@@ -4,17 +4,17 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/app/nav_shell.dart';
-import 'package:dazzle/app/dazzle_app.dart';
-import 'package:dazzle/application/agent_state.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/navigation.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/design/spacing.dart';
-import 'package:dazzle/features/shell/parked_shell_bar.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/platform/herdr_client.dart';
+import 'package:upgrade/app/nav_shell.dart';
+import 'package:upgrade/app/upgrade_app.dart';
+import 'package:upgrade/application/agent_state.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/shell/parked_shell_bar.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/platform/herdr_client.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -56,7 +56,7 @@ void main() {
       shellSessionsProvider.overrideWithValue(sessions),
       ...extra,
     ],
-    child: MaterialApp(theme: testTheme, home: DazzleShell()),
+    child: MaterialApp(theme: testTheme, home: UpgradeShell()),
   );
 
   Future<void> ready(WidgetTester tester) async {
@@ -162,7 +162,7 @@ void main() {
                       state: AgentState.of('blocked'),
                       terminalTitleStripped: 'work',
                       workspaceId: 'wQ',
-                      cwd: '/workspace/dazzle',
+                      cwd: '/workspace/upgrade',
                       stateChangeSeq: 1,
                     ),
                   ],
@@ -180,7 +180,7 @@ void main() {
 
     final line = find.byKey(const ValueKey('agent-status'));
     expect(
-      ProviderScope.containerOf(tester.element(find.byType(DazzleShell)))
+      ProviderScope.containerOf(tester.element(find.byType(UpgradeShell)))
           .read(navIndexProvider),
       1,
       reason: 'Loading plugin placements must not reset the selected page',

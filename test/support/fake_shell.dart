@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:dazzle/data/repositories/shell_tab_repository.dart';
-import 'package:dazzle/data/shell_snapshot_store.dart';
-import 'package:dazzle/application/pin_alerts.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
-import 'package:dazzle/platform/host_keys.dart';
+import 'package:upgrade/data/repositories/shell_tab_repository.dart';
+import 'package:upgrade/data/shell_snapshot_store.dart';
+import 'package:upgrade/application/pin_alerts.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/host_keys.dart';
 
 class FakeShellConnection implements ShellConnection {
   FakeShellConnection({

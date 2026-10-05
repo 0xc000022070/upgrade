@@ -1,6 +1,6 @@
 [build.android]
-app = "dev.luisnquin.dazzle"
-stale = "find lib assets android/app/src packages/dazzle_luau plugins pubspec.yaml pubspec.lock -type f | sort | xargs cksum | cksum"
+app = "dev.luisnquin.upgrade"
+stale = "find lib assets android/app/src packages/upgrade_luau plugins pubspec.yaml pubspec.lock -type f | sort | xargs cksum | cksum"
 run = """
 nix develop -c just apk
 phone app install -t "$PHONE_ID" build/app/outputs/flutter-apk/app-debug.apk

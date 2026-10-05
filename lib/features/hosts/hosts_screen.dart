@@ -17,7 +17,7 @@ import '../../design/components/panel_text_action.dart';
 import '../../design/components/segment_switch.dart';
 import '../../design/components/section.dart';
 import '../../design/components/toolbar_icon_action.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../platform/engine_agents.dart';
 import '../../platform/herdr_client.dart';
@@ -118,7 +118,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
       maxContentWidth: 1100,
       breadcrumbTrailing: ToolbarIconAction(
         label: 'MANAGE SSH KEYS',
-        icon: DazzleIcons.sshKey,
+        icon: UpgradeIcons.sshKey,
         onTap: () => openKeys(context),
       ),
       header: SegmentSwitch(
@@ -265,7 +265,7 @@ class _HostDetail extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: host?.name.toUpperCase() ?? 'HOST',
-          breadcrumb: '/ DAZZLE / HOSTS',
+          breadcrumb: '/ UPGRADE / HOSTS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             if (host != null)
@@ -318,7 +318,7 @@ class _HostPanel extends ConsumerWidget {
       leading: HostMark(host.system),
       affordance: PanelAffordance(
         'EDIT',
-        icon: DazzleIcons.edit,
+        icon: UpgradeIcons.edit,
         onTap: () => openHostForm(context, host: host),
       ),
       bodyPadding: panelRowsPadding,
@@ -480,7 +480,7 @@ class _HookRowsState extends ConsumerState<_HookRows> {
         });
       }
     } catch (error) {
-      debugPrint('dazzle.engine ${widget.host.name} hooks: $error');
+      debugPrint('upgrade.engine ${widget.host.name} hooks: $error');
       if (mounted) setState(() => _failure = _failureLine(error));
     }
   }
@@ -492,7 +492,7 @@ class _HookRowsState extends ConsumerState<_HookRows> {
       await _withEngine((engine) => engine.install(status.agent));
       await _load();
     } catch (error) {
-      debugPrint('dazzle.engine ${widget.host.name} install: $error');
+      debugPrint('upgrade.engine ${widget.host.name} install: $error');
       if (mounted) setState(() => _failure = _failureLine(error));
     } finally {
       if (mounted) setState(() => _installing = null);
@@ -832,7 +832,7 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
         verified = verifier.refusal == null;
       }
     } catch (error) {
-      debugPrint('dazzle.verify ${host.name}: $error');
+      debugPrint('upgrade.verify ${host.name}: $error');
       failure = _failureWord(error);
     }
     if (!mounted) return;

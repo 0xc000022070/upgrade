@@ -94,7 +94,7 @@ class _MapPainter extends CustomPainter {
   final List<DiffStreak> streaks;
   final int rows;
   final ScrollController scroll;
-  final DazzleTokens tokens;
+  final UpgradeTokens tokens;
 
   /// A single changed line in a file of thousands is a fraction of a pixel tall. It is
   /// drawn at the smallest height a thumb can be aimed at instead.

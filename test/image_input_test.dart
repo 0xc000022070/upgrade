@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:dazzle/application/clips.dart';
-import 'package:dazzle/features/tasks/image_input.dart';
+import 'package:upgrade/application/clips.dart';
+import 'package:upgrade/features/tasks/image_input.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -13,7 +13,7 @@ void main() {
   late Map<Object?, Object?> asked;
 
   setUp(() async {
-    support = await Directory.systemTemp.createTemp('dazzle-attachments');
+    support = await Directory.systemTemp.createTemp('upgrade-attachments');
     asked = {};
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;

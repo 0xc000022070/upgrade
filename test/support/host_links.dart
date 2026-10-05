@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/platform/host_links.dart';
-import 'package:dazzle/platform/ssh_settle.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/ssh_settle.dart';
 
 import 'ssh_exec.dart';
 import 'vnc_channel.dart';

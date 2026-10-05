@@ -6,8 +6,8 @@ import 'package:flutter/widgets.dart';
 
 import '../tokens.dart';
 import '../effects/glitch.dart';
-import '../icons/dazzle_icon.dart';
-import '../icons/dazzle_icons.dart';
+import '../icons/upgrade_icon.dart';
+import '../icons/upgrade_icons.dart';
 import '../spacing.dart';
 import 'path_line.dart';
 import 'signal_text.dart';
@@ -277,14 +277,14 @@ class PanelAffordance extends StatefulWidget {
   const PanelAffordance(
     this.label, {
     super.key,
-    this.icon = DazzleIcons.forward,
+    this.icon = UpgradeIcons.forward,
     this.showIcon = true,
     this.color,
     this.onTap,
   });
 
   final String label;
-  final DazzleIcons icon;
+  final UpgradeIcons icon;
   final bool showIcon;
   final Color? color;
   final VoidCallback? onTap;
@@ -311,7 +311,7 @@ class _PanelAffordanceState extends State<PanelAffordance> {
         ),
         if (widget.showIcon) ...[
           const SizedBox(width: Spacing.sm),
-          DazzleIcon(widget.icon, size: IconSizes.affordance, color: tint),
+          UpgradeIcon(widget.icon, size: IconSizes.affordance, color: tint),
         ],
       ],
     );

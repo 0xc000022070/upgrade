@@ -30,9 +30,9 @@ typedef ReadImage = Future<Uint8List> Function(String path);
 
 Future<Uint8List> _readFile(String path) => File(path).readAsBytes();
 
-/// With `--dart-define=DAZZLE_FAKE_SPAWN=true` the send never dials and answers with a
+/// With `--dart-define=UPGRADE_FAKE_SPAWN=true` the send never dials and answers with a
 /// pane id.
-const _fakeSpawn = bool.fromEnvironment('DAZZLE_FAKE_SPAWN');
+const _fakeSpawn = bool.fromEnvironment('UPGRADE_FAKE_SPAWN');
 
 Future<SpawnResult> _fakeSend({
   required String address,
@@ -129,7 +129,7 @@ class Sender {
   }) async {
     checkActive?.call();
     final host = target.host;
-    void log(Object error) => debugPrint('dazzle.spawn ${host.name}: $error');
+    void log(Object error) => debugPrint('upgrade.spawn ${host.name}: $error');
 
     final privateKey = await keys.privateKey(host.keyId);
     checkActive?.call();

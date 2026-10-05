@@ -206,9 +206,9 @@ class ShellTunnel {
       String? tmux;
       var resumed = false;
       for (final line in result.out.split('\n')) {
-        if (line.startsWith('DAZZLE_TMUX=/')) {
-          tmux = line.substring('DAZZLE_TMUX='.length).trim();
-        } else if (line.trim() == 'DAZZLE_RESUME=1') {
+        if (line.startsWith('UPGRADE_TMUX=/')) {
+          tmux = line.substring('UPGRADE_TMUX='.length).trim();
+        } else if (line.trim() == 'UPGRADE_RESUME=1') {
           resumed = true;
         }
       }
@@ -419,8 +419,8 @@ class ShellTunnel {
       final result = await _exec(host, moshServerProbeCommand());
       if (!result.ok) return null;
       for (final line in result.out.split('\n')) {
-        if (!line.startsWith('DAZZLE_MOSH=/')) continue;
-        final path = line.substring('DAZZLE_MOSH='.length).trim();
+        if (!line.startsWith('UPGRADE_MOSH=/')) continue;
+        final path = line.substring('UPGRADE_MOSH='.length).trim();
         if (!path.contains(RegExp(r'[\r\n]'))) return path;
       }
     } catch (_) {}
@@ -487,7 +487,7 @@ class _DurableTarget {
 }
 
 void _log(String address, Object message) =>
-    debugPrint('dazzle.shell $address: $message');
+    debugPrint('upgrade.shell $address: $message');
 
 /// Null for anything unexpected: a bug in the layer above reads better as itself than as
 /// a reason line.
@@ -1009,7 +1009,7 @@ Future<Map<String, Object?>?> _engineCall(
   required Map<String, Object?> args,
 }) async {
   final result = await run(
-    '$moshTabVariable=${shellQuote(tab)} dazzle-engine',
+    '$moshTabVariable=${shellQuote(tab)} upgrade-engine',
     Uint8List.fromList(
       utf8.encode(
         jsonEncode({

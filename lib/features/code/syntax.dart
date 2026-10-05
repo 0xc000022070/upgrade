@@ -8,8 +8,8 @@ library;
 
 import 'dart:isolate';
 
-import 'package:dazzle_highlight/dazzle_highlight.dart';
-import 'package:dazzle_highlight/languages/all.dart';
+import 'package:upgrade_highlight/upgrade_highlight.dart';
+import 'package:upgrade_highlight/languages/all.dart';
 
 enum SyntaxToken {
   plain,

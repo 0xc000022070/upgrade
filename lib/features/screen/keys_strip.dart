@@ -4,7 +4,7 @@ import 'package:flutter/widgets.dart';
 import '../../design/tokens.dart';
 import '../../design/components/key_bar.dart';
 import '../../design/components/key_cell.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../platform/vnc/arming.dart';
 import '../../platform/vnc/keysyms.dart';
 import '../modifier_cell.dart';
@@ -12,7 +12,7 @@ import '../modifier_cell.dart';
 typedef _StripKey = ({
   String label,
   int keysym,
-  DazzleIcons? icon,
+  UpgradeIcons? icon,
   bool repeats,
 });
 
@@ -31,20 +31,20 @@ const _stripKeys = <_StripKey>[
   (
     label: 'LEFT',
     keysym: Keysyms.left,
-    icon: DazzleIcons.arrowLeft,
+    icon: UpgradeIcons.arrowLeft,
     repeats: true,
   ),
-  (label: 'UP', keysym: Keysyms.up, icon: DazzleIcons.arrowUp, repeats: true),
+  (label: 'UP', keysym: Keysyms.up, icon: UpgradeIcons.arrowUp, repeats: true),
   (
     label: 'DOWN',
     keysym: Keysyms.down,
-    icon: DazzleIcons.arrowDown,
+    icon: UpgradeIcons.arrowDown,
     repeats: true,
   ),
   (
     label: 'RIGHT',
     keysym: Keysyms.right,
-    icon: DazzleIcons.arrowRight,
+    icon: UpgradeIcons.arrowRight,
     repeats: true,
   ),
   (label: 'END', keysym: Keysyms.end, icon: null, repeats: false),

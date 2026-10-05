@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/data/bundles.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/enums.dart';
+import 'package:upgrade/data/bundles.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
 
 Task item(String id, {String? bundleId}) => Task(
   id: id,

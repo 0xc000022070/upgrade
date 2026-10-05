@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dazzle/platform/plugins/bindings.dart';
-import 'package:dazzle/platform/plugins/manifest.dart';
-import 'package:dazzle/platform/plugins/store.dart';
-import 'package:dazzle_luau/data_api.dart';
+import 'package:upgrade/platform/plugins/bindings.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade_luau/data_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'plugins_test.dart' as fixtures;
@@ -183,7 +183,7 @@ void main() {
     'old manifest and grants remain inert without resetting the catalog',
     () async {
       final directory = await Directory.systemTemp.createTemp(
-        'dazzle-retained-test-',
+        'upgrade-retained-test-',
       );
       try {
         final source = fixtures.manifest().replaceFirst(

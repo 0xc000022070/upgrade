@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
@@ -51,7 +51,7 @@ void main() {
 
     expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('CONNECTING'), findsNothing);
-    expect(inkOfInfoMark(tester), DazzleColors.warning);
+    expect(inkOfInfoMark(tester), UpgradeColors.warning);
     expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
     expect(find.text('RETRY'), findsNothing);
 
@@ -98,7 +98,7 @@ void main() {
     await ready(tester);
 
     expect(find.text('EXITED 130'), findsNothing);
-    expect(inkOfInfoMark(tester), DazzleColors.warning);
+    expect(inkOfInfoMark(tester), UpgradeColors.warning);
 
     await openInfo(tester);
     expect(find.text('EXITED 130'), findsOneWidget);
@@ -208,7 +208,7 @@ void main() {
     await ready(tester);
 
     expect(find.textContaining('RECONNECTING'), findsNothing);
-    expect(inkOfInfoMark(tester), DazzleColors.warning);
+    expect(inkOfInfoMark(tester), UpgradeColors.warning);
     expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
 
     await openInfo(tester);

@@ -19,7 +19,7 @@ class PluginManagementScreen extends StatelessWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'PLUGINS',
-          breadcrumb: '/ DAZZLE / PLUGINS',
+          breadcrumb: '/ UPGRADE / PLUGINS',
           onBack: () => Navigator.of(context).pop(),
           children: const [PluginsPanel()],
         ),

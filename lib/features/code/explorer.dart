@@ -10,8 +10,8 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/components/segment_switch.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/layout.dart';
 import '../../design/spacing.dart';
 import '../../platform/workspace/workspace_model.dart';
@@ -393,7 +393,7 @@ class _ExplorerState extends ConsumerState<Explorer> {
       title: 'FILES',
       affordance: PanelAffordance(
         'REFRESH',
-        icon: DazzleIcons.sync,
+        icon: UpgradeIcons.sync,
         onTap: _refresh,
       ),
       bodyPadding: EdgeInsets.zero,
@@ -679,11 +679,11 @@ class _ExplorerState extends ConsumerState<Explorer> {
             ),
           ),
           if (blocks.isNotEmpty) ...[
-            _verb(DazzleIcons.arrowUp, 'PREV', () => _step(tab, blocks, -1)),
-            _verb(DazzleIcons.arrowDown, 'NEXT', () => _step(tab, blocks, 1)),
+            _verb(UpgradeIcons.arrowUp, 'PREV', () => _step(tab, blocks, -1)),
+            _verb(UpgradeIcons.arrowDown, 'NEXT', () => _step(tab, blocks, 1)),
           ],
           _verb(
-            DazzleIcons.diff,
+            UpgradeIcons.diff,
             'DIFF',
             () => showDiffSheet(context, widget.controller, file: file),
           ),
@@ -692,7 +692,7 @@ class _ExplorerState extends ConsumerState<Explorer> {
     );
   }
 
-  Widget _verb(DazzleIcons icon, String label, VoidCallback onTap) => Semantics(
+  Widget _verb(UpgradeIcons icon, String label, VoidCallback onTap) => Semantics(
     container: true,
     button: true,
     label: label,
@@ -705,7 +705,7 @@ class _ExplorerState extends ConsumerState<Explorer> {
         width: TapTargets.minHeight,
         height: RowMetrics.minHeight,
         child: Center(
-          child: DazzleIcon(
+          child: UpgradeIcon(
             icon,
             size: IconSizes.sm,
             color: context.tokens.textSecondary,

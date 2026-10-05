@@ -20,10 +20,10 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/picker_row.dart';
 import '../../design/components/section.dart';
-import '../../design/components/dazzle_field.dart';
+import '../../design/components/upgrade_field.dart';
 import '../../design/effects/glitch.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../code/workspace_sheet.dart';
 import '../home/capture_bar.dart';
@@ -252,7 +252,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   children: [
                     PanelAffordance(
                       'EDIT',
-                      icon: DazzleIcons.edit,
+                      icon: UpgradeIcons.edit,
                       onTap: () => openProjectForm(
                         context,
                         project: project,
@@ -315,7 +315,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                             const SizedBox(width: Spacing.lg),
                             PanelAffordance(
                               'NEW',
-                              icon: DazzleIcons.add,
+                              icon: UpgradeIcons.add,
                               onTap: () => openProjectForm(
                                 context,
                                 parentId: widget.projectId,
@@ -351,7 +351,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      DazzleField(
+                      UpgradeField(
                         key: const ValueKey('project-task-search'),
                         controller: _search,
                         hint: 'Search tasks',
@@ -385,7 +385,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       const SizedBox(width: Spacing.lg),
                       PanelAffordance(
                         'NEW',
-                        icon: DazzleIcons.add,
+                        icon: UpgradeIcons.add,
                         onTap: () => setState(() {
                           _renaming = null;
                           _creating = true;
@@ -479,7 +479,7 @@ class _CodePanel extends ConsumerWidget {
       title: 'CODE',
       affordance: PanelAffordance(
         'LINK',
-        icon: DazzleIcons.add,
+        icon: UpgradeIcons.add,
         onTap: () => _link(context, ref),
       ),
       bodyPadding: panelRowsPadding,
@@ -649,7 +649,7 @@ class _GoalEditorState extends State<_GoalEditor> {
         showIcon: false,
         onTap: widget.onCancel,
       ),
-      child: DazzleField(
+      child: UpgradeField(
         controller: _field,
         autofocus: true,
         style: context.tokens.rowTitleLead,
@@ -732,8 +732,8 @@ class _NoteRow extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: DazzleIcon(
-              DazzleIcons.note,
+            child: UpgradeIcon(
+              UpgradeIcons.note,
               size: IconSizes.glyph,
               color: context.tokens.textDisabled,
             ),

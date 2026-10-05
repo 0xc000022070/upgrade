@@ -4,12 +4,12 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/app/dazzle_app.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/features/shell/shell_sheet.dart';
+import 'package:upgrade/app/upgrade_app.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/shell_sheet.dart';
 
 import 'support/fake_shell.dart';
 import 'support/launch_scan.dart';
@@ -55,7 +55,7 @@ void main() {
       shellSessionsProvider.overrideWithValue(sessions),
       noLaunchTargets,
     ],
-    child: MaterialApp(theme: testTheme, home: DazzleShell()),
+    child: MaterialApp(theme: testTheme, home: UpgradeShell()),
   );
 
   Future<void> ready(WidgetTester tester) async {
@@ -147,7 +147,7 @@ void main() {
     addTearDown(tester.view.reset);
     const named = Host(
       id: 'long',
-      name: 'DAZZLE DEVELOPMENT HOST',
+      name: 'UPGRADE DEVELOPMENT HOST',
       address: '100.64.0.3',
       port: 22,
       user: 'dev',
@@ -435,7 +435,7 @@ void main() {
     await ready(tester);
 
     openHostShell(
-      tester.element(find.byType(DazzleShell)),
+      tester.element(find.byType(UpgradeShell)),
       _nyx,
       command: 'cd /srv',
     );

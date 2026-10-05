@@ -17,7 +17,7 @@ class StatusTag extends StatelessWidget {
   final Color? color;
   final ProjectStatus? projectStatus;
 
-  static Color _projectColor(DazzleTokens tokens, ProjectStatus status) =>
+  static Color _projectColor(UpgradeTokens tokens, ProjectStatus status) =>
       switch (status) {
         ProjectStatus.active => tokens.accent,
         ProjectStatus.paused => tokens.textSecondary,

@@ -1,4 +1,4 @@
-import 'package:dazzle/platform/herdr_client.dart';
+import 'package:upgrade/platform/herdr_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/ssh_exec.dart';

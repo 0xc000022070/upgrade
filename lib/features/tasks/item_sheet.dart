@@ -23,8 +23,8 @@ import '../../design/components/keyboard_toolbar.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
-import '../../design/components/dazzle_field.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/components/upgrade_field.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../platform/browser.dart';
 import '../home/agent_mark.dart';
@@ -289,7 +289,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           title: 'MOVE TO',
           affordance: PanelAffordance(
             'BACK',
-            icon: DazzleIcons.back,
+            icon: UpgradeIcons.back,
             onTap: () => setState(() => _mode = const _Item()),
           ),
           children: [
@@ -304,7 +304,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           title: 'GROUP WITH',
           affordance: PanelAffordance(
             'BACK',
-            icon: DazzleIcons.back,
+            icon: UpgradeIcons.back,
             onTap: () => setState(() => _mode = const _Item()),
           ),
           children: [PairPickerBody(taskId: widget.taskId, onPicked: _pair)],
@@ -320,7 +320,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           title: 'PROMPT',
           affordance: PanelAffordance(
             'BACK',
-            icon: DazzleIcons.back,
+            icon: UpgradeIcons.back,
             onTap: () {
               _promptFocus.unfocus();
               setState(() => _mode = const _Item());
@@ -647,11 +647,11 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                 onTap: () => tasks.setDone(task.id, !task.done),
               ),
             ],
-      child: DazzleField(
+      child: UpgradeField(
         controller: _field,
         focusNode: _focus,
         style: context.tokens.rowTitleLead,
-        maxLines: DazzleField.bodyLines,
+        maxLines: UpgradeField.bodyLines,
         contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
         onSubmitted: (_) => _submit(),
       ),
@@ -671,14 +671,14 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          DazzleField(
+          UpgradeField(
             controller: _promptField,
             focusNode: _promptFocus,
             autofocus: true,
             style: context.tokens.value,
             hint: 'what the agent is to do',
-            minLines: DazzleField.bodyLines,
-            maxLines: DazzleField.bodyLines,
+            minLines: UpgradeField.bodyLines,
+            maxLines: UpgradeField.bodyLines,
             contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
           ),
           const SheetRule(),

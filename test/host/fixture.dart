@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dazzle/platform/keys.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 
 /// The NixOS guest from `nix run .#host-vm`, which `just test-host` brings up. It is the
 /// only machine these tests may touch: its firewall rejects every outbound packet.

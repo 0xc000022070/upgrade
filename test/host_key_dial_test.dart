@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/platform/host_key_dial.dart';
-import 'package:dazzle/platform/host_links.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/platform/keys.dart';
+import 'package:upgrade/platform/host_key_dial.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/keys.dart';
 
 void main() {
   test(

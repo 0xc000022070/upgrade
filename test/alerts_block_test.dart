@@ -4,14 +4,14 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/alerts.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/data/repositories/settings_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/features/settings/alerts_block.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/alerts.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/features/settings/alerts_block.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -78,7 +78,7 @@ void main() {
     for (final kind in AlertKind.values) {
       expect(
         tester.widget<Text>(find.text(kind.label)).style?.color,
-        DazzleColors.textMuted,
+        UpgradeColors.textMuted,
       );
       await tester.tap(find.text(kind.label));
       await settle(tester);
@@ -122,7 +122,7 @@ void main() {
     expect(find.text('NO HOST'), findsNothing);
     expect(
       tester.widget<Text>(find.text('BLOCKED AGENTS')).style?.color,
-      isNot(DazzleColors.textMuted),
+      isNot(UpgradeColors.textMuted),
     );
     await tester.tap(find.text('BLOCKED AGENTS'));
     await settle(tester);

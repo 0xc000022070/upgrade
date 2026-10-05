@@ -4,8 +4,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../tokens.dart';
-import '../icons/dazzle_icon.dart';
-import '../icons/dazzle_icons.dart';
+import '../icons/upgrade_icon.dart';
+import '../icons/upgrade_icons.dart';
 import '../spacing.dart';
 
 const _hysteresis = 1.4;
@@ -98,10 +98,10 @@ class _ArrowStickState extends State<ArrowStick> {
 
   @override
   Widget build(BuildContext context) {
-    Widget arm(AxisDirection direction, DazzleIcons icon, Alignment at) =>
+    Widget arm(AxisDirection direction, UpgradeIcons icon, Alignment at) =>
         Align(
           alignment: at,
-          child: DazzleIcon(
+          child: UpgradeIcon(
             icon,
             size: _glyph,
             color: _held == direction
@@ -137,22 +137,22 @@ class _ArrowStickState extends State<ArrowStick> {
                 children: [
                   arm(
                     AxisDirection.up,
-                    DazzleIcons.arrowUp,
+                    UpgradeIcons.arrowUp,
                     Alignment.topCenter,
                   ),
                   arm(
                     AxisDirection.down,
-                    DazzleIcons.arrowDown,
+                    UpgradeIcons.arrowDown,
                     Alignment.bottomCenter,
                   ),
                   arm(
                     AxisDirection.left,
-                    DazzleIcons.arrowLeft,
+                    UpgradeIcons.arrowLeft,
                     Alignment.centerLeft,
                   ),
                   arm(
                     AxisDirection.right,
-                    DazzleIcons.arrowRight,
+                    UpgradeIcons.arrowRight,
                     Alignment.centerRight,
                   ),
                 ],

@@ -10,7 +10,7 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/effects/glitch.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import 'item_sheet.dart';
 import 'task_row.dart';
@@ -194,7 +194,7 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
               title: 'DONE',
               affordance: PanelAffordance(
                 '${doneRows.length}',
-                icon: _showDone ? DazzleIcons.collapse : DazzleIcons.expand,
+                icon: _showDone ? UpgradeIcons.collapse : UpgradeIcons.expand,
               ),
               onHeaderTap: () => setState(() => _showDone = !_showDone),
               bodyPadding: panelRowsPadding,

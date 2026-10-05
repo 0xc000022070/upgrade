@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/app/keyboard_release.dart';
+import 'package:upgrade/app/keyboard_release.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';

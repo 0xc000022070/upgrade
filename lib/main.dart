@@ -9,7 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'app/alerts_boot.dart';
 import 'app/boot.dart';
 import 'app/builtin_plugins.dart';
-import 'app/dazzle_app.dart';
+import 'app/upgrade_app.dart';
 import 'application/agents.dart';
 import 'application/clips.dart';
 import 'application/pip.dart';
@@ -26,7 +26,7 @@ import 'data/seed.dart';
 import 'data/shell_snapshot_store.dart';
 import 'design/ascii/grid.dart';
 import 'design/components/ascii_mascot.dart';
-import 'design/icons/dazzle_icon.dart';
+import 'design/icons/upgrade_icon.dart';
 import 'design/typography.dart';
 import 'features/shell/shell_sessions.dart';
 import 'features/tasks/image_input.dart';
@@ -107,7 +107,7 @@ Future<void> main() async {
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: DazzleApp(boot: boot),
+      child: UpgradeApp(boot: boot),
     ),
   );
 }

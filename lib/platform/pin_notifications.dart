@@ -1,4 +1,4 @@
-import 'package:dazzle_shade/dazzle_shade.dart';
+import 'package:upgrade_shade/upgrade_shade.dart';
 import 'package:flutter/foundation.dart';
 
 import '../application/pin_alerts.dart';
@@ -16,13 +16,13 @@ class PinNotifications implements PinNotifier {
 
   static Future<void> createChannel() async {
     try {
-      await DazzleShade.createChannel(
+      await UpgradeShade.createChannel(
         id: channelId,
         name: channelName,
         retired: _retired,
       );
     } catch (error) {
-      debugPrint('dazzle.pin channel: $error');
+      debugPrint('upgrade.pin channel: $error');
     }
   }
 
@@ -33,7 +33,7 @@ class PinNotifications implements PinNotifier {
     required String text,
   }) async {
     try {
-      await DazzleShade.show(
+      await UpgradeShade.show(
         id: pinNotificationId(hostId),
         channelId: channelId,
         title: pinNotificationTitle,
@@ -42,16 +42,16 @@ class PinNotifications implements PinNotifier {
         ask: askId,
       );
     } catch (error) {
-      debugPrint('dazzle.pin notification: $error');
+      debugPrint('upgrade.pin notification: $error');
     }
   }
 
   @override
   Future<void> withdraw(String hostId) async {
     try {
-      await DazzleShade.cancel(pinNotificationId(hostId));
+      await UpgradeShade.cancel(pinNotificationId(hostId));
     } catch (error) {
-      debugPrint('dazzle.pin notification: $error');
+      debugPrint('upgrade.pin notification: $error');
     }
   }
 }

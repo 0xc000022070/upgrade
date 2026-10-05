@@ -8,7 +8,7 @@ import '../../design/components/panel.dart';
 import '../../design/components/section.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../screen_scaffold.dart';
 import 'project_detail_screen.dart';
 import 'project_form_screen.dart';
@@ -102,7 +102,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
               const SizedBox(width: Spacing.lg),
               PanelAffordance(
                 'NEW',
-                icon: DazzleIcons.add,
+                icon: UpgradeIcons.add,
                 onTap: () => openProjectForm(context),
               ),
             ],
@@ -128,7 +128,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             title: 'ARCHIVED',
             affordance: PanelAffordance(
               '${archived.length}',
-              icon: _showArchived ? DazzleIcons.collapse : DazzleIcons.expand,
+              icon: _showArchived ? UpgradeIcons.collapse : UpgradeIcons.expand,
             ),
             onHeaderTap: () => setState(() => _showArchived = !_showArchived),
             bodyPadding: panelRowsPadding,

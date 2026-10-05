@@ -1,16 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dazzle/app/builtin_plugins.dart';
-import 'package:dazzle/application/native_plugins.dart';
-import 'package:dazzle/application/plugin_placements.dart';
-import 'package:dazzle/application/plugins.dart';
-import 'package:dazzle/data/repositories/plugin_placement_repository.dart';
-import 'package:dazzle/application/toasts.dart';
-import 'package:dazzle/platform/plugins/contributions.dart';
-import 'package:dazzle/platform/plugins/manifest.dart';
-import 'package:dazzle/platform/plugins/module.dart';
-import 'package:dazzle/platform/plugins/store.dart';
+import 'package:upgrade/app/builtin_plugins.dart';
+import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/application/plugin_placements.dart';
+import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
+import 'package:upgrade/application/toasts.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/module.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,7 +24,7 @@ void main() {
   late List<InstalledPlugin> catalog;
 
   setUp(() async {
-    root = await Directory.systemTemp.createTemp('dazzle-placements-');
+    root = await Directory.systemTemp.createTemp('upgrade-placements-');
     store = PluginStore(root);
     catalog = await store.synchronizeBuiltins([
       builtinFixture('drops'),
@@ -423,10 +423,10 @@ void main() {
           );
       await scope
           .read(pluginsProvider.notifier)
-          .setEnabled('dazzle.projects', false);
+          .setEnabled('upgrade.projects', false);
       await scope
           .read(pluginsProvider.notifier)
-          .setEnabled('dazzle.drops', false);
+          .setEnabled('upgrade.drops', false);
       expect(scope.read(toastQueueProvider), isEmpty);
       scope.dispose();
 
@@ -439,7 +439,7 @@ void main() {
       expect(state.knownWidgets, contains(composer));
       expect(state.knownPages, contains(page));
       expect(
-        catalog.singleWhere((plugin) => plugin.id == 'dazzle.drops').enabled,
+        catalog.singleWhere((plugin) => plugin.id == 'upgrade.drops').enabled,
         isFalse,
       );
     },
@@ -480,7 +480,7 @@ manifest_version = 3
 id = "test.composer"
 name = "Second composer"
 version = "1.0.0"
-dazzle_api = "^2.0.0"
+upgrade_api = "^2.0.0"
 [runtime]
 kind = "native"
 entry = "main.dart"
@@ -509,7 +509,7 @@ id = "test.runtime"
 name = "Runtime test"
 purpose = "Verify live page discovery."
 version = "1.0.0"
-dazzle_api = "^2.1.0"
+upgrade_api = "^2.1.0"
 ui_api = 1
 [runtime]
 kind = "luau"

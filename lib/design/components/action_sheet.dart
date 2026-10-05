@@ -4,7 +4,7 @@ import '../tokens.dart';
 import '../motion.dart';
 import '../spacing.dart';
 import 'solid_action_bar.dart';
-import 'dazzle_field.dart';
+import 'upgrade_field.dart';
 
 class SheetAction {
   const SheetAction(
@@ -123,7 +123,7 @@ class _PromptState extends State<_Prompt> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-            child: DazzleField(
+            child: UpgradeField(
               controller: _controller,
               autofocus: true,
               hint: widget.hint,

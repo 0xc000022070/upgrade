@@ -1,20 +1,20 @@
 import 'dart:async';
 
 import 'package:dartssh2/dartssh2.dart';
-import 'package:dazzle/application/agent_kind.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/plugin_hosts.dart';
-import 'package:dazzle/application/reason_lines.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/platform/devices/device_link.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/platform/host_links.dart';
-import 'package:dazzle/platform/keys.dart';
-import 'package:dazzle/platform/plugins/manifest.dart';
-import 'package:dazzle/platform/vnc/vnc_tunnel.dart';
-import 'package:dazzle/platform/workspace/workspace_client.dart';
+import 'package:upgrade/application/agent_kind.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/plugin_hosts.dart';
+import 'package:upgrade/application/reason_lines.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/devices/device_link.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
+import 'package:upgrade/platform/workspace/workspace_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 

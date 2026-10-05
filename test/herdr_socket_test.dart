@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/platform/herdr_socket.dart';
+import 'package:upgrade/platform/herdr_socket.dart';
 
 import 'support/herdr_link.dart';
 
@@ -21,7 +21,7 @@ void main() {
 
     expect(await reply, isA<HerdrResult>());
     expect(link.sent.single, {
-      'id': 'dazzle:0',
+      'id': 'upgrade:0',
       'method': 'agent.read',
       'params': {'target': 'w1:p1'},
     });
@@ -43,8 +43,8 @@ void main() {
 
     expect(links, hasLength(2));
     expect(links.map((link) => link.sent.single['id']), [
-      'dazzle:0',
-      'dazzle:1',
+      'upgrade:0',
+      'upgrade:1',
     ]);
     expect(links.every((link) => link.shut), isTrue);
   });
@@ -75,7 +75,7 @@ void main() {
 
     await answers((link) => link.feed('not json\n'));
     await answers((link) => link.say(const ['a list is not a reply']));
-    await answers((link) => link.say(const {'id': 'dazzle:0'}));
+    await answers((link) => link.say(const {'id': 'upgrade:0'}));
     await answers((link) => unawaited(link.endStream()));
   });
 

@@ -296,7 +296,7 @@ final linkPreviewsProvider = Provider<LinkPreviews>((ref) {
   return LinkPreviews(
     fetcher: LinkMetadataFetcher(),
     cache: LinkPreviewCache.inDirectory(
-      Directory(p.join(Directory.systemTemp.path, 'dazzle')),
+      Directory(p.join(Directory.systemTemp.path, 'upgrade')),
     ),
   );
 });

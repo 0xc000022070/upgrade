@@ -3,19 +3,19 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/data/repositories/key_repository.dart';
-import 'package:dazzle/data/repositories/path_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/icons/dazzle_icon.dart';
-import 'package:dazzle/design/icons/dazzle_icons.dart';
-import 'package:dazzle/design/spacing.dart';
-import 'package:dazzle/features/code/diff_sheet.dart';
-import 'package:dazzle/features/shell/host_shell_screen.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/shell/remote_shell.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/code/diff_sheet.dart';
+import 'package:upgrade/features/shell/host_shell_screen.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -39,8 +39,8 @@ ExecResult _says(String stdout, {int exitCode = 0}) => ExecResult(
   stderr: Uint8List(0),
 );
 
-DazzleIcon _mark(WidgetTester tester) => tester.widget<DazzleIcon>(
-  find.descendant(of: find.byKey(_diffCell), matching: find.byType(DazzleIcon)),
+UpgradeIcon _mark(WidgetTester tester) => tester.widget<UpgradeIcon>(
+  find.descendant(of: find.byKey(_diffCell), matching: find.byType(UpgradeIcon)),
 );
 
 void main() {
@@ -49,8 +49,8 @@ void main() {
   group('a shell says where it is', () {
     test('the path is taken and the host in the url is not', () {
       expect(
-        cwdFromOsc('file://rose/home/luis/src/dazzle'),
-        '/home/luis/src/dazzle',
+        cwdFromOsc('file://rose/home/luis/src/upgrade'),
+        '/home/luis/src/upgrade',
       );
       // A hook writes the path escaped, and a space is the escape that happens.
       expect(cwdFromOsc('file://rose/home/luis/my%20src'), '/home/luis/my src');
@@ -66,11 +66,11 @@ void main() {
 
   group('a tab is marked so the host can be asked', () {
     test('the mark goes into the shell it is asked about', () {
-      const command = 'export DAZZLE_TAB=s1a2b3c; exec \$SHELL -l';
+      const command = 'export UPGRADE_TAB=s1a2b3c; exec \$SHELL -l';
       expect(shellMarked('s1a2b3c'), command);
       expect(
         shellMarked('s1a2b3c', command: 'cd /srv && exec \$SHELL -l'),
-        'export DAZZLE_TAB=s1a2b3c; cd /srv && exec \$SHELL -l',
+        'export UPGRADE_TAB=s1a2b3c; cd /srv && exec \$SHELL -l',
       );
     });
 
@@ -79,7 +79,7 @@ void main() {
 
       expect(probe, startsWith('sh -c '));
       expect(probe, contains('/proc/[0-9]*'));
-      expect(probe, contains('DAZZLE_TAB='));
+      expect(probe, contains('UPGRADE_TAB='));
       expect(probe, contains('s1a2b3c'));
       expect(probe, contains('PPid'));
       expect(probe, contains(r'readlink "$p/cwd"'));
@@ -96,7 +96,7 @@ void main() {
       final cleanup = moshServerCleanupCommand('s1a2b3c');
 
       expect(cleanup, contains('exec 2>/dev/null'));
-      expect(cleanup, contains('DAZZLE_MOSH_TAB=s1a2b3c'));
+      expect(cleanup, contains('UPGRADE_MOSH_TAB=s1a2b3c'));
       expect(cleanup, contains('mosh-server|*/mosh-server'));
       expect(cleanup, contains(r'kill "${p##*/}"'));
       expect(cleanup, isNot(contains('pkill')));
@@ -127,9 +127,9 @@ void main() {
 
   group('what the probe came back with', () {
     test('a plain shell is a directory and no session', () {
-      final place = parseShellPlace('/home/luis/src/dazzle\n\n');
+      final place = parseShellPlace('/home/luis/src/upgrade\n\n');
 
-      expect(place.cwd, '/home/luis/src/dazzle');
+      expect(place.cwd, '/home/luis/src/upgrade');
       expect(place.herdrSession, isNull);
     });
 
@@ -175,7 +175,7 @@ void main() {
       await ready(tester);
 
       expect(find.text('DIFF'), findsNothing);
-      expect(_mark(tester).icon, DazzleIcons.branch);
+      expect(_mark(tester).icon, UpgradeIcons.branch);
 
       await unmount(tester);
     });
@@ -212,7 +212,7 @@ void main() {
       await ready(tester);
 
       expect(sessions.forHost(rose.id).single.repository, isNull);
-      expect(_mark(tester).color, DazzleColors.textDisabled);
+      expect(_mark(tester).color, UpgradeColors.textDisabled);
 
       await tester.tap(find.byKey(_diffCell));
       await ready(tester);
@@ -227,16 +227,16 @@ void main() {
       transport.opening = (connection) => connection.answer = (command, _) =>
           _says(
             command.contains('rev-parse')
-                ? '/home/luis/src/dazzle\n'
-                : '/home/luis/src/dazzle/lib/features\n\n',
+                ? '/home/luis/src/upgrade\n'
+                : '/home/luis/src/upgrade/lib/features\n\n',
           );
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
       final session = sessions.forHost(rose.id).single;
-      expect(session.cwd, '/home/luis/src/dazzle/lib/features');
-      expect(session.repository, '/home/luis/src/dazzle');
-      expect(_mark(tester).color, isNot(DazzleColors.textDisabled));
+      expect(session.cwd, '/home/luis/src/upgrade/lib/features');
+      expect(session.repository, '/home/luis/src/upgrade');
+      expect(_mark(tester).color, isNot(UpgradeColors.textDisabled));
 
       await unmount(tester);
     });
@@ -246,14 +246,14 @@ void main() {
     ) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      var here = '/home/luis/src/dazzle';
+      var here = '/home/luis/src/upgrade';
       transport.opening = (connection) =>
           connection.answer = (command, _) =>
               _says(command.contains('rev-parse') ? '$here\n' : '$here\n\n');
       await tester.pumpWidget(app(sessions));
       await ready(tester);
       final session = sessions.forHost(rose.id).single;
-      expect(session.repository, '/home/luis/src/dazzle');
+      expect(session.repository, '/home/luis/src/upgrade');
 
       here = '/srv/gate';
       await tester.tap(find.byKey(_diffCell));
@@ -278,14 +278,14 @@ void main() {
 
       final session = sessions.forHost(rose.id).single;
       final connection = transport.opened.single;
-      connection.answerWith('/home/luis/src/dazzle\n');
+      connection.answerWith('/home/luis/src/upgrade\n');
       connection.directoryRequests.clear();
 
-      expect(await sessions.cwdFromHost(session), '/home/luis/src/dazzle');
+      expect(await sessions.cwdFromHost(session), '/home/luis/src/upgrade');
       expect(connection.execs.last.command, shellCwdProbe(session.mark));
       expect(connection.directoryRequests, isEmpty);
       expect(connection.written, isNot(contains('/proc')));
-      expect(session.cwd, '/home/luis/src/dazzle');
+      expect(session.cwd, '/home/luis/src/upgrade');
 
       await unmount(tester);
     });
@@ -305,12 +305,12 @@ void main() {
       connection.answerWith(
         '{"result":{"type":"pane_list","panes":['
         '{"pane_id":"w2C:p2","cwd":"/home/luis"},'
-        '{"pane_id":"w22:p1","cwd":"/home/luis/src/dazzle",'
-        '"foreground_cwd":"/home/luis/src/dazzle/lib"}'
+        '{"pane_id":"w22:p1","cwd":"/home/luis/src/upgrade",'
+        '"foreground_cwd":"/home/luis/src/upgrade/lib"}'
         ']}}',
       );
 
-      expect(await sessions.cwdFromHost(session), '/home/luis/src/dazzle');
+      expect(await sessions.cwdFromHost(session), '/home/luis/src/upgrade');
       expect(connection.execs.last.command, HerdrCommands.panes('hub'));
       expect(connection.execs.last.command, isNot(contains('/proc')));
 
@@ -329,10 +329,10 @@ void main() {
       final connection = transport.opened.single;
       expect(session.pane, isNull);
       connection.directory = '/srv/stale-tmux-pane';
-      connection.answerWith('/home/luis/src/dazzle\n');
+      connection.answerWith('/home/luis/src/upgrade\n');
       connection.directoryRequests.clear();
 
-      expect(await sessions.cwdFromHost(session), '/home/luis/src/dazzle');
+      expect(await sessions.cwdFromHost(session), '/home/luis/src/upgrade');
       expect(connection.directoryRequests, isEmpty);
       expect(connection.execs.last.command, shellCwdProbe(session.mark));
 
@@ -425,7 +425,7 @@ void main() {
       await DriftKeyRepository(db).save(_key);
       await DriftHostRepository(db).save(rose);
       await DriftPathRepository(db)
-          .add(hostId: rose.id, directory: '~/src/dazzle');
+          .add(hostId: rose.id, directory: '~/src/upgrade');
 
       final sessions = fakeShellSessions(FakeShellTransport());
       await tester.pumpWidget(app(sessions, db: db));
@@ -441,7 +441,7 @@ void main() {
       await DriftKeyRepository(db).save(_key);
       await DriftHostRepository(db).save(rose);
       final paths = DriftPathRepository(db);
-      await paths.add(hostId: rose.id, directory: '~/src/dazzle');
+      await paths.add(hostId: rose.id, directory: '~/src/upgrade');
       await paths.add(hostId: rose.id, directory: '/srv/gate');
 
       final sessions = fakeShellSessions(FakeShellTransport());
@@ -451,7 +451,7 @@ void main() {
       await tester.tap(find.byKey(_diffCell));
       await ready(tester);
 
-      expect(find.text('DAZZLE'), findsOneWidget);
+      expect(find.text('UPGRADE'), findsOneWidget);
       expect(find.text('GATE'), findsOneWidget);
 
       await unmount(tester);

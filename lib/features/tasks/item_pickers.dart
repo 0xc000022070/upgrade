@@ -9,7 +9,7 @@ import '../../data/enums.dart';
 import '../../data/views.dart';
 import '../../design/components/picker_row.dart';
 import '../../design/components/panel_sheet.dart';
-import '../../design/components/dazzle_field.dart';
+import '../../design/components/upgrade_field.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 
@@ -147,7 +147,7 @@ class _PairPickerBodyState extends ConsumerState<PairPickerBody> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        DazzleField(
+        UpgradeField(
           controller: _search,
           autofocus: true,
           hint: 'search',

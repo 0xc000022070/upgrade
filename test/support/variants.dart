@@ -3,8 +3,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dazzle/design/dynamic_tokens.dart';
-import 'package:dazzle/design/tokens.dart';
+import 'package:upgrade/design/dynamic_tokens.dart';
+import 'package:upgrade/design/tokens.dart';
 
 /// One shape the app is read on, in the dp the spec is written in.
 class Surface {
@@ -52,11 +52,11 @@ void useSurface(WidgetTester tester, Surface surface) {
 class Palette {
   const Palette(this.name, this.tokens);
 
-  static final house = Palette('house', DazzleTokens.house);
+  static final house = Palette('house', UpgradeTokens.house);
 
   static final systemLight = Palette(
     'system light',
-    dazzleTokensForSystem(
+    upgradeTokensForSystem(
       platformBrightness: Brightness.light,
       lightDynamic: null,
       darkDynamic: null,
@@ -65,7 +65,7 @@ class Palette {
 
   static final systemDark = Palette(
     'system dark',
-    dazzleTokensForSystem(
+    upgradeTokensForSystem(
       platformBrightness: Brightness.dark,
       lightDynamic: null,
       darkDynamic: null,
@@ -73,7 +73,7 @@ class Palette {
   );
 
   final String name;
-  final DazzleTokens tokens;
+  final UpgradeTokens tokens;
 
   ThemeData get theme => ThemeData(extensions: [tokens]);
 

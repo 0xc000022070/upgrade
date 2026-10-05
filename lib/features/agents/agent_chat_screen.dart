@@ -11,7 +11,7 @@ import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/components/section.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../platform/engine_agents.dart';
@@ -132,7 +132,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
         _failure = read.failure;
       });
     } catch (error) {
-      debugPrint('dazzle.engine ${widget.host.name} chat: $error');
+      debugPrint('upgrade.engine ${widget.host.name} chat: $error');
       _drop();
       if (_gone || !mounted) return;
       setState(
@@ -196,7 +196,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
         );
       }
     } catch (error) {
-      debugPrint('dazzle.engine ${widget.host.name} answer: $error');
+      debugPrint('upgrade.engine ${widget.host.name} answer: $error');
       if (mounted) setState(() => _answerLine = 'FAILED');
     } finally {
       if (mounted) setState(() => _answering = null);
@@ -227,7 +227,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
       body: StaticSurface(
         child: ScreenScaffold(
           title: agentMarkName(widget.agent.agent),
-          breadcrumb: '/ DAZZLE / AGENTS',
+          breadcrumb: '/ UPGRADE / AGENTS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(
@@ -340,7 +340,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
             if (link != null)
               PanelTextAction(
                 label: 'OPEN PANE',
-                icon: DazzleIcons.forward,
+                icon: UpgradeIcons.forward,
                 onTap: () => openAgentPane(context, ref, widget.host, link),
               ),
           ],

@@ -11,7 +11,7 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/picker_row.dart';
 import '../../design/components/section.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../hosts/path_picker_sheet.dart';
 import 'workspace_sheet.dart';
 
@@ -29,7 +29,7 @@ class CodeList extends ConsumerWidget {
           title: 'WORKSPACES',
           affordance: PanelAffordance(
             'ADD',
-            icon: DazzleIcons.add,
+            icon: UpgradeIcons.add,
             onTap: hosts.isEmpty ? null : () => _add(context, ref, hosts),
           ),
           bodyPadding: panelRowsPadding,

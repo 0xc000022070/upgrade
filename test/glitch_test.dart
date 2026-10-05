@@ -1,16 +1,16 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/design/effects/glitch.dart';
-import 'package:dazzle/design/icons/dazzle_icon.dart';
-import 'package:dazzle/design/icons/dazzle_icons.dart';
-import 'package:dazzle/design/motion.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/motion.dart';
 
 Widget _host(GlitchController controller, {required bool reduceMotion}) {
   return MediaQuery(
     data: MediaQueryData(disableAnimations: reduceMotion),
     child: Directionality(
       textDirection: TextDirection.ltr,
-      child: DazzleIcon(DazzleIcons.task, glitch: controller),
+      child: UpgradeIcon(UpgradeIcons.task, glitch: controller),
     ),
   );
 }

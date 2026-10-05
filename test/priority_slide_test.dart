@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/design/components/list_row.dart';
-import 'package:dazzle/design/components/priority_row.dart';
-import 'package:dazzle/design/components/slide_steps.dart';
-import 'package:dazzle/design/effects/glitch.dart';
-import 'package:dazzle/design/motion.dart';
-import 'package:dazzle/design/spacing.dart';
-import 'package:dazzle/design/tokens.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/priority_row.dart';
+import 'package:upgrade/design/components/slide_steps.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
 import 'support/themed_app.dart';
 
@@ -112,8 +112,8 @@ void main() {
     expect(written, isEmpty);
   });
 
-  Future<DazzleTokens> pumpRamp(WidgetTester tester, {bool done = false}) async {
-    late DazzleTokens tokens;
+  Future<UpgradeTokens> pumpRamp(WidgetTester tester, {bool done = false}) async {
+    late UpgradeTokens tokens;
     await tester.pumpWidget(
       MaterialApp(
         theme: testTheme,

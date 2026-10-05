@@ -16,7 +16,7 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/components/toolbar_icon_action.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/tokens.dart';
 import '../../design/spacing.dart';
 import '../../platform/plugins/contributions.dart';
@@ -165,7 +165,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     if (drops)
                       ToolbarIconAction(
                         label: 'SEARCH',
-                        icon: DazzleIcons.search,
+                        icon: UpgradeIcons.search,
                         onTap: () {
                           _leave();
                           openItemSearch(context);

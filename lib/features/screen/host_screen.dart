@@ -105,7 +105,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
       _previews = previews;
       _previewEvery();
     } catch (error) {
-      debugPrint('dazzle.vnc ${widget.host.name}: no preview store: $error');
+      debugPrint('upgrade.vnc ${widget.host.name}: no preview store: $error');
     }
   }
 
@@ -159,7 +159,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
               .add(png, source: ClipSource.screen, hostName: widget.host.name);
           _say(heldNotice(clip));
         case CropTarget.save:
-          await widget.save(png, 'dazzle-${DateTime.now().toIso8601String()}');
+          await widget.save(png, 'upgrade-${DateTime.now().toIso8601String()}');
           _say(savedNotice(rect.width, rect.height));
       }
     } catch (error) {

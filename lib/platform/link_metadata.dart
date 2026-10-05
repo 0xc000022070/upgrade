@@ -22,7 +22,7 @@ class LinkMetadataFetcher {
 
   /// Honest about being a phone. Sending a crawler's name to get a crawler's page is a
   /// preview that lies about who is asking.
-  static const userAgent = 'Dazzle/1.0 (+link-preview)';
+  static const userAgent = 'Upgrade/1.0 (+link-preview)';
 
   Future<LinkPreview?> fetch(String url) async {
     final target = Uri.tryParse(url);

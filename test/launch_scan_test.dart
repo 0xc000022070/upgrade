@@ -1,11 +1,11 @@
 import 'package:dartssh2/dartssh2.dart';
-import 'package:dazzle/application/launch_scan.dart';
-import 'package:dazzle/application/reason_lines.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/keys.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/platform/shell/shell_launch.dart';
+import 'package:upgrade/application/launch_scan.dart';
+import 'package:upgrade/application/reason_lines.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/ssh_exec.dart';

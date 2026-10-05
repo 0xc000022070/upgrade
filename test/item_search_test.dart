@@ -1,9 +1,9 @@
-import 'package:dazzle/application/item_search.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/activity_repository.dart';
-import 'package:dazzle/data/repositories/attachment_repository.dart';
-import 'package:dazzle/data/repositories/project_repository.dart';
-import 'package:dazzle/data/repositories/task_repository.dart';
+import 'package:upgrade/application/item_search.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 

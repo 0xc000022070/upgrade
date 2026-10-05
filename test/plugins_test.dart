@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:dazzle/platform/plugins/index.dart';
-import 'package:dazzle/platform/plugins/manifest.dart';
-import 'package:dazzle/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/index.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 String manifest({
@@ -18,7 +18,7 @@ manifest_version = 2
 id = "$id"
 name = "Test plugin"
 version = "$version"
-dazzle_api = "^2.0.0"
+upgrade_api = "^2.0.0"
 [runtime]
 kind = "luau"
 entry = "main.luau"
@@ -66,7 +66,7 @@ manifest_version = 5
 id = "test.filesui"
 name = "Test files ui"
 version = "1.0.0"
-dazzle_api = "^2.0.0"
+upgrade_api = "^2.0.0"
 ${declareUiApi ? 'ui_api = 1\n' : ''}files = ["lib/util.luau"]
 [runtime]
 kind = "luau"
@@ -82,7 +82,7 @@ manifest_version = 4
 id = "test.ui"
 name = "Test ui"
 version = "1.0.0"
-dazzle_api = "^2.0.0"
+upgrade_api = "^2.0.0"
 ${declareUiApi ? 'ui_api = $uiApiValue\n' : ''}[runtime]
 kind = "luau"
 entry = "main.luau"
@@ -215,7 +215,7 @@ void main() {
     });
 
     test('native widgets require bounded exact or ranged sizes', () {
-      final source = File('lib/plugins/drops/dazzle.plugin.toml')
+      final source = File('lib/plugins/drops/upgrade.plugin.toml')
           .readAsStringSync();
       final parsed = PluginManifest.parse(source, allowNative: true);
       expect(parsed.purpose, contains('Capture'));
@@ -450,7 +450,7 @@ void main() {
     late Directory directory;
     late PluginSourceStore store;
     setUp(() async {
-      directory = await Directory.systemTemp.createTemp('dazzle-sources-test-');
+      directory = await Directory.systemTemp.createTemp('upgrade-sources-test-');
       store = PluginSourceStore(directory);
     });
     tearDown(() => directory.delete(recursive: true));
@@ -525,7 +525,7 @@ void main() {
             200,
             jsonEncode({'sha': revision}),
           ),
-          path('dazzle.index.toml'): _FakeResponse(
+          path('upgrade.index.toml'): _FakeResponse(
             200,
             pluginIndexDocument(pluginIndex()),
           ),
@@ -557,7 +557,7 @@ void main() {
             200,
             jsonEncode({'sha': revision}),
           ),
-          path('dazzle.index.toml'): _FakeResponse(200, 'x' * (16 * 1024 + 1)),
+          path('upgrade.index.toml'): _FakeResponse(200, 'x' * (16 * 1024 + 1)),
         }),
       );
       await expectLater(
@@ -571,7 +571,7 @@ void main() {
     late Directory directory;
     late PluginStore store;
     setUp(() async {
-      directory = await Directory.systemTemp.createTemp('dazzle-plugins-test-');
+      directory = await Directory.systemTemp.createTemp('upgrade-plugins-test-');
       store = PluginStore(directory);
     });
     tearDown(() => directory.delete(recursive: true));
@@ -756,7 +756,7 @@ void main() {
     test('downloads the manifest, the entry and every declared file', () async {
       final fetcher = PluginFetcher(
         httpClientFactory: () => _FakeHttpClient({
-          path('dazzle.plugin.toml'): _FakeResponse(
+          path('upgrade.plugin.toml'): _FakeResponse(
             200,
             filesManifest(files: ['lib/util.luau']),
           ),
@@ -775,7 +775,7 @@ void main() {
     test('fails when a declared file is missing on the origin', () async {
       final fetcher = PluginFetcher(
         httpClientFactory: () => _FakeHttpClient({
-          path('dazzle.plugin.toml'): _FakeResponse(
+          path('upgrade.plugin.toml'): _FakeResponse(
             200,
             filesManifest(files: ['lib/util.luau']),
           ),
@@ -803,7 +803,7 @@ void main() {
             200,
             jsonEncode({'sha': revision}),
           ),
-          path('dazzle.plugin.toml'): _FakeResponse(200, manifest()),
+          path('upgrade.plugin.toml'): _FakeResponse(200, manifest()),
           path('main.luau'): const _FakeResponse(
             200,
             'return {run = function() end}',

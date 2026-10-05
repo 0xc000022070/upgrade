@@ -13,7 +13,7 @@ import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
-import '../../design/components/dazzle_field.dart';
+import '../../design/components/upgrade_field.dart';
 import '../../design/components/meta.dart';
 import '../../design/components/meta_row.dart';
 import '../../design/components/panel.dart';
@@ -273,7 +273,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         ),
       );
     } catch (error) {
-      debugPrint('dazzle.verify ${host.name}: $error');
+      debugPrint('upgrade.verify ${host.name}: $error');
     }
     if (mounted) setState(() => _verifying = false);
   }
@@ -303,7 +303,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       final previews = await ref.read(screenPreviewsProvider.future);
       await previews.delete(hostId);
     } catch (error) {
-      debugPrint('dazzle.vnc $hostId: preview not removed: $error');
+      debugPrint('upgrade.vnc $hostId: preview not removed: $error');
     }
   }
 
@@ -370,7 +370,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         body: StaticSurface(
           child: ScreenScaffold(
             title: widget.host == null ? 'NEW HOST' : 'HOST',
-            breadcrumb: '/ DAZZLE / HOSTS',
+            breadcrumb: '/ UPGRADE / HOSTS',
             onBack: _handleBack,
             children: [
               PanelStack(
@@ -589,7 +589,7 @@ class _HostField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(label, style: context.tokens.label),
-        DazzleField(
+        UpgradeField(
           semanticLabel: label,
           controller: controller,
           enabled: enabled,

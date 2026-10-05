@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dazzle_luau/data_api.dart';
-import 'package:dazzle_luau/dazzle_luau.dart';
+import 'package:upgrade_luau/data_api.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
 
 Future<void> main() async {
   final directory = Directory.systemTemp.createTempSync(
-    'dazzle-data-benchmark-',
+    'upgrade-data-benchmark-',
   );
   final worker = LuauWorker(dataDirectory: directory.path);
   final owner = DataOwner('benchmark.records', 'bundled:benchmark');
@@ -20,11 +20,11 @@ Future<void> main() async {
   });
   const source = '''
 return {run = function()
-  local record = dazzle.data.get("local", "counter")
+  local record = upgrade.data.get("local", "counter")
   local count = record and tonumber(record.value) or 0
   local revision = record and record.revision or 0
-  dazzle.data.put("local", "counter", tostring(count + 1), revision)
-  assert(#dazzle.data.query("local", "", 1) == 1)
+  upgrade.data.put("local", "counter", tostring(count + 1), revision)
+  assert(#upgrade.data.query("local", "", 1) == 1)
 end}
 ''';
   final roundtrips = <int>[];

@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../tokens.dart';
-import '../icons/dazzle_icon.dart';
-import '../icons/dazzle_icons.dart';
+import '../icons/upgrade_icon.dart';
+import '../icons/upgrade_icons.dart';
 import '../spacing.dart';
 import 'item_line.dart';
 import 'path_line.dart';
@@ -234,8 +234,8 @@ class ListRow extends StatelessWidget {
             ],
             if (node) ...[
               const SizedBox(width: Spacing.md),
-              DazzleIcon(
-                DazzleIcons.progressMarker,
+              UpgradeIcon(
+                UpgradeIcons.progressMarker,
                 size: IconSizes.glyph,
                 color: context.tokens.textDisabled,
               ),

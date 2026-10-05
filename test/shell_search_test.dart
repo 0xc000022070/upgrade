@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/design/tokens.dart';
-import 'package:dazzle/features/shell/host_shell_screen.dart';
-import 'package:dazzle/features/shell/shell_search.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/shell/host_shell_screen.dart';
+import 'package:upgrade/features/shell/shell_search.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
 import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
@@ -47,7 +47,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: ThemeData(extensions: const [DazzleTokens.house]),
+            theme: ThemeData(extensions: const [UpgradeTokens.house]),
             home: Scaffold(
               body: ShellSearchRow(session: session, onClose: () {}),
             ),
@@ -147,7 +147,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: ThemeData(extensions: const [DazzleTokens.house]),
+            theme: ThemeData(extensions: const [UpgradeTokens.house]),
             home: Scaffold(
               body: ShellSearchRow(
                 session: session,
@@ -179,7 +179,7 @@ void main() {
         noWorkspaces,
       ],
       child: MaterialApp(
-        theme: ThemeData(extensions: const [DazzleTokens.house]),
+        theme: ThemeData(extensions: const [UpgradeTokens.house]),
         home: const HostShellRoute(host: _rose),
       ),
     );

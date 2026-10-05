@@ -6,16 +6,16 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/bundle.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/data/repositories/key_repository.dart';
-import 'package:dazzle/design/components/action_block.dart';
-import 'package:dazzle/features/settings/settings_screen.dart';
-import 'package:dazzle/platform/bundle_cipher.dart';
-import 'package:dazzle/platform/keys.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/bundle.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/features/settings/settings_screen.dart';
+import 'package:upgrade/platform/bundle_cipher.dart';
+import 'package:upgrade/platform/keys.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -164,7 +164,7 @@ void main() {
     );
 
     final (name, bytes) = saved.single;
-    expect(name, startsWith('dazzle-'));
+    expect(name, startsWith('upgrade-'));
     expect(name, endsWith('.bundle'));
     final bundle = Bundle.decode(await cipher.open(bytes, 'correct horse'));
     expect(bundle.hosts.single.host.name, 'rose');

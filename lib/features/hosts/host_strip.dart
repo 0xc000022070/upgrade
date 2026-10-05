@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../data/enums.dart';
 import '../../data/repositories/host_repository.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import 'host_mark.dart';
@@ -171,8 +171,8 @@ class HostMenu extends StatelessWidget {
             ),
             child: Row(
               children: [
-                DazzleIcon(
-                  DazzleIcons.hosts,
+                UpgradeIcon(
+                  UpgradeIcons.hosts,
                   size: IconSizes.glyph,
                   color: context.tokens.textMuted,
                 ),

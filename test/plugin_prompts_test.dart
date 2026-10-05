@@ -1,21 +1,21 @@
 import 'dart:io';
 
-import 'package:dazzle/app/builtin_plugins.dart';
-import 'package:dazzle/application/native_plugins.dart';
-import 'package:dazzle/application/plugin_hosts.dart';
-import 'package:dazzle/application/plugin_placements.dart';
-import 'package:dazzle/application/plugins.dart';
-import 'package:dazzle/application/providers.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/data/repositories/plugin_placement_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/features/plugins/plugin_management_screen.dart';
-import 'package:dazzle/features/plugins/plugin_page.dart';
-import 'package:dazzle/platform/plugins/contributions.dart';
-import 'package:dazzle/platform/plugins/manifest.dart';
-import 'package:dazzle/platform/plugins/store.dart';
-import 'package:dazzle_luau/dazzle_luau.dart';
+import 'package:upgrade/app/builtin_plugins.dart';
+import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/application/plugin_hosts.dart';
+import 'package:upgrade/application/plugin_placements.dart';
+import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/features/plugins/plugin_management_screen.dart';
+import 'package:upgrade/features/plugins/plugin_page.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,7 +37,7 @@ Future<void> _drain(WidgetTester tester) async {
 /// The builtin fixtures leave a single widget able to take the input bar, so nothing ever
 /// contends for it. This one also accepts it.
 PluginPackage _contendingProjects() {
-  final toml = File('lib/plugins/projects/dazzle.plugin.toml')
+  final toml = File('lib/plugins/projects/upgrade.plugin.toml')
       .readAsStringSync()
       .replaceFirst(
         'locations = ["home.card"]',
@@ -46,7 +46,7 @@ PluginPackage _contendingProjects() {
   return PluginPackage(
     manifest: PluginManifest.parse(toml, allowNative: true),
     source: File('lib/plugins/projects/main.dart').readAsStringSync(),
-    origin: 'bundled:dazzle.projects',
+    origin: 'bundled:upgrade.projects',
     revision: '1.0.0',
   );
 }
@@ -167,7 +167,7 @@ void main() {
     await _drain(tester);
 
     final layout = find.byKey(
-      const ValueKey('layout-dazzle.projects:widget:next-action'),
+      const ValueKey('layout-upgrade.projects:widget:next-action'),
     );
     await tester.ensureVisible(layout);
     await tester.pump();
@@ -227,7 +227,7 @@ void main() {
     await _drain(tester);
 
     final layout = find.byKey(
-      const ValueKey('layout-dazzle.drops:widget:drops'),
+      const ValueKey('layout-upgrade.drops:widget:drops'),
     );
     await tester.ensureVisible(layout);
     await tester.pump();
@@ -244,7 +244,7 @@ void main() {
     expect(find.byType(SnackBar), findsNothing);
     final failure = find.text('Storage is read only');
     expect(failure, findsOneWidget);
-    expect(tester.widget<Text>(failure).style?.color, DazzleColors.danger);
+    expect(tester.widget<Text>(failure).style?.color, UpgradeColors.danger);
 
     repository.refuse = false;
     await tester.tap(hide);

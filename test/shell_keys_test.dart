@@ -3,11 +3,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/design/components/action_block.dart';
-import 'package:dazzle/features/shell/host_shell_screen.dart';
-import 'package:dazzle/features/shell/shell_bar.dart';
-import 'package:dazzle/platform/shell/remote_shell.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/features/shell/host_shell_screen.dart';
+import 'package:upgrade/features/shell/shell_bar.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';

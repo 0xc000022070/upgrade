@@ -14,14 +14,14 @@ abstract final class FontFamilies {
   static const count = 4;
 }
 
-abstract final class DazzleText {
+abstract final class UpgradeText {
   static const screenTitle = TextStyle(
     fontFamily: FontFamilies.display,
     fontSize: 29,
     height: 1.0,
     fontWeight: FontWeight.w700,
     letterSpacing: 1.0,
-    color: DazzleColors.textPrimary,
+    color: UpgradeColors.textPrimary,
   );
 
   static const breadcrumb = TextStyle(
@@ -30,7 +30,7 @@ abstract final class DazzleText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.5,
-    color: DazzleColors.textMuted,
+    color: UpgradeColors.textMuted,
   );
 
   static const panelHeader = TextStyle(
@@ -39,7 +39,7 @@ abstract final class DazzleText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.8,
-    color: DazzleColors.textMuted,
+    color: UpgradeColors.textMuted,
   );
 
   static const rowKicker = TextStyle(
@@ -48,7 +48,7 @@ abstract final class DazzleText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.8,
-    color: DazzleColors.textSecondary,
+    color: UpgradeColors.textSecondary,
   );
 
   static const rowTitle = TextStyle(
@@ -56,7 +56,7 @@ abstract final class DazzleText {
     fontSize: 14,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: DazzleColors.textPrimary,
+    color: UpgradeColors.textPrimary,
   );
 
   static const rowTitleLead = TextStyle(
@@ -64,7 +64,7 @@ abstract final class DazzleText {
     fontSize: 15,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: DazzleColors.textPrimary,
+    color: UpgradeColors.textPrimary,
   );
 
   static const rowSubtitle = TextStyle(
@@ -72,7 +72,7 @@ abstract final class DazzleText {
     fontSize: 12,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: DazzleColors.textMuted,
+    color: UpgradeColors.textMuted,
   );
 
   static const value = TextStyle(
@@ -80,7 +80,7 @@ abstract final class DazzleText {
     fontSize: 12,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: DazzleColors.textMuted,
+    color: UpgradeColors.textMuted,
   );
 
   static const valueStrong = TextStyle(
@@ -88,7 +88,7 @@ abstract final class DazzleText {
     fontSize: 12,
     height: 1.3,
     fontWeight: FontWeight.w500,
-    color: DazzleColors.textPrimary,
+    color: UpgradeColors.textPrimary,
   );
 
   static const label = TextStyle(
@@ -97,7 +97,7 @@ abstract final class DazzleText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.8,
-    color: DazzleColors.textMuted,
+    color: UpgradeColors.textMuted,
   );
 
   static const heroName = TextStyle(
@@ -106,7 +106,7 @@ abstract final class DazzleText {
     height: 1.1,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.4,
-    color: DazzleColors.textPrimary,
+    color: UpgradeColors.textPrimary,
   );
 
   static const heroPercent = TextStyle(
@@ -115,7 +115,7 @@ abstract final class DazzleText {
     height: 1.0,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.2,
-    color: DazzleColors.accent,
+    color: UpgradeColors.accent,
   );
 
   static const noteBody = TextStyle(
@@ -123,7 +123,7 @@ abstract final class DazzleText {
     fontSize: 14,
     height: 1.45,
     fontWeight: FontWeight.w400,
-    color: DazzleColors.textPrimary,
+    color: UpgradeColors.textPrimary,
   );
 
   static const buildStamp = TextStyle(
@@ -131,7 +131,7 @@ abstract final class DazzleText {
     fontSize: 11,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: DazzleColors.textMuted,
+    color: UpgradeColors.textMuted,
   );
 
   static const capture = TextStyle(
@@ -139,7 +139,7 @@ abstract final class DazzleText {
     fontSize: 14,
     height: 1.2,
     fontWeight: FontWeight.w400,
-    color: DazzleColors.textMuted,
+    color: UpgradeColors.textMuted,
   );
 
   static const prose = TextStyle(
@@ -147,7 +147,7 @@ abstract final class DazzleText {
     fontSize: 14,
     height: 1.45,
     fontWeight: FontWeight.w400,
-    color: DazzleColors.textSecondary,
+    color: UpgradeColors.textSecondary,
   );
 
   static const navLabel = TextStyle(
@@ -156,7 +156,7 @@ abstract final class DazzleText {
     height: 1.2,
     fontWeight: FontWeight.w400,
     letterSpacing: 1.0,
-    color: DazzleColors.textMuted,
+    color: UpgradeColors.textMuted,
   );
 
   /// Deliberately not the scale above. A picture-in-picture tile has no columns to carry
@@ -170,7 +170,7 @@ abstract final class DazzleText {
     // Medium is the heaviest mono in the bundle: asking for more resolves back to this.
     fontWeight: FontWeight.w500,
     letterSpacing: 0.4,
-    color: DazzleColors.textPrimary,
+    color: UpgradeColors.textPrimary,
   );
 
   static const pipAgent = TextStyle(
@@ -178,7 +178,7 @@ abstract final class DazzleText {
     fontSize: 11,
     height: 1.25,
     fontWeight: FontWeight.w500,
-    color: DazzleColors.textPrimary,
+    color: UpgradeColors.textPrimary,
   );
 
   static const pipState = TextStyle(
@@ -186,7 +186,7 @@ abstract final class DazzleText {
     fontSize: 11,
     height: 1.25,
     fontWeight: FontWeight.w400,
-    color: DazzleColors.textSecondary,
+    color: UpgradeColors.textSecondary,
   );
 
   static const pipMeta = TextStyle(
@@ -195,6 +195,6 @@ abstract final class DazzleText {
     height: 1.25,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.6,
-    color: DazzleColors.textSecondary,
+    color: UpgradeColors.textSecondary,
   );
 }

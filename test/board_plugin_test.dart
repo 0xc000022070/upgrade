@@ -1,12 +1,12 @@
 import 'dart:io';
 
-import 'package:dazzle/platform/plugins/bindings.dart';
-import 'package:dazzle/platform/plugins/manifest.dart';
-import 'package:dazzle/platform/plugins/store.dart';
-import 'package:dazzle/platform/plugins/ui.dart';
-import 'package:dazzle_luau/data_api.dart';
-import 'package:dazzle_luau/dazzle_luau.dart';
-import 'package:dazzle_luau/ui_sdk.dart';
+import 'package:upgrade/platform/plugins/bindings.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade_luau/data_api.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
+import 'package:upgrade_luau/ui_sdk.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 
@@ -14,10 +14,10 @@ import 'support/themed_app.dart';
 
 PluginPackage boardPackage() => PluginPackage(
   manifest: PluginManifest.parse(
-    File('plugins/board/dazzle.plugin.toml').readAsStringSync(),
+    File('plugins/board/upgrade.plugin.toml').readAsStringSync(),
   ),
   source: File('plugins/board/main.luau').readAsStringSync(),
-  origin: 'bundled:dazzle.board',
+  origin: 'bundled:upgrade.board',
   revision: '1.0.0',
 );
 
@@ -88,7 +88,7 @@ void main() {
   late LuauWorker worker;
   late BoardHarness app;
   setUp(() async {
-    root = await Directory.systemTemp.createTemp('dazzle-board-');
+    root = await Directory.systemTemp.createTemp('upgrade-board-');
     worker = LuauWorker(dataDirectory: root.path);
     app = BoardHarness(worker, boardPackage());
   });

@@ -59,8 +59,8 @@ class SyntaxPalette {
 /// Geometry is not here: it does not change with the theme, so it stays the plain
 /// constants in `spacing.dart`.
 @immutable
-class DazzleTokens extends ThemeExtension<DazzleTokens> {
-  const DazzleTokens({
+class UpgradeTokens extends ThemeExtension<UpgradeTokens> {
+  const UpgradeTokens({
     required this.brightness,
     required this.backgroundPrimary,
     required this.backgroundSecondary,
@@ -173,23 +173,23 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
   final TextStyle pipState;
   final TextStyle pipMeta;
 
-  static const house = DazzleTokens(
+  static const house = UpgradeTokens(
     brightness: Brightness.dark,
-    backgroundPrimary: DazzleColors.backgroundPrimary,
-    backgroundSecondary: DazzleColors.backgroundSecondary,
-    surfacePrimary: DazzleColors.surfacePrimary,
-    surfaceSecondary: DazzleColors.surfaceSecondary,
-    borderSubtle: DazzleColors.borderSubtle,
-    borderNormal: DazzleColors.borderNormal,
-    textPrimary: DazzleColors.textPrimary,
-    textSecondary: DazzleColors.textSecondary,
-    textMuted: DazzleColors.textMuted,
-    textDisabled: DazzleColors.textDisabled,
-    accent: DazzleColors.accent,
-    accentMuted: DazzleColors.accentMuted,
-    warning: DazzleColors.warning,
-    warningMuted: DazzleColors.warningMuted,
-    danger: DazzleColors.danger,
+    backgroundPrimary: UpgradeColors.backgroundPrimary,
+    backgroundSecondary: UpgradeColors.backgroundSecondary,
+    surfacePrimary: UpgradeColors.surfacePrimary,
+    surfaceSecondary: UpgradeColors.surfaceSecondary,
+    borderSubtle: UpgradeColors.borderSubtle,
+    borderNormal: UpgradeColors.borderNormal,
+    textPrimary: UpgradeColors.textPrimary,
+    textSecondary: UpgradeColors.textSecondary,
+    textMuted: UpgradeColors.textMuted,
+    textDisabled: UpgradeColors.textDisabled,
+    accent: UpgradeColors.accent,
+    accentMuted: UpgradeColors.accentMuted,
+    warning: UpgradeColors.warning,
+    warningMuted: UpgradeColors.warningMuted,
+    danger: UpgradeColors.danger,
     syntax: SyntaxPalette.house,
     scrim: Color(0x99000000),
     mediaBackdrop: Color(0xFF000000),
@@ -203,45 +203,45 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
     diffAddedRun: Color(0x40B7FF2A),
     diffRemovedRun: Color(0x4DB84A4A),
     terminal: _houseTerminal,
-    screenTitle: DazzleText.screenTitle,
-    breadcrumb: DazzleText.breadcrumb,
-    panelHeader: DazzleText.panelHeader,
-    rowKicker: DazzleText.rowKicker,
-    rowTitle: DazzleText.rowTitle,
-    rowTitleLead: DazzleText.rowTitleLead,
-    rowSubtitle: DazzleText.rowSubtitle,
-    value: DazzleText.value,
-    valueStrong: DazzleText.valueStrong,
-    label: DazzleText.label,
-    heroName: DazzleText.heroName,
-    heroPercent: DazzleText.heroPercent,
-    noteBody: DazzleText.noteBody,
-    buildStamp: DazzleText.buildStamp,
-    capture: DazzleText.capture,
-    prose: DazzleText.prose,
-    navLabel: DazzleText.navLabel,
-    pipHeadline: DazzleText.pipHeadline,
-    pipAgent: DazzleText.pipAgent,
-    pipState: DazzleText.pipState,
-    pipMeta: DazzleText.pipMeta,
+    screenTitle: UpgradeText.screenTitle,
+    breadcrumb: UpgradeText.breadcrumb,
+    panelHeader: UpgradeText.panelHeader,
+    rowKicker: UpgradeText.rowKicker,
+    rowTitle: UpgradeText.rowTitle,
+    rowTitleLead: UpgradeText.rowTitleLead,
+    rowSubtitle: UpgradeText.rowSubtitle,
+    value: UpgradeText.value,
+    valueStrong: UpgradeText.valueStrong,
+    label: UpgradeText.label,
+    heroName: UpgradeText.heroName,
+    heroPercent: UpgradeText.heroPercent,
+    noteBody: UpgradeText.noteBody,
+    buildStamp: UpgradeText.buildStamp,
+    capture: UpgradeText.capture,
+    prose: UpgradeText.prose,
+    navLabel: UpgradeText.navLabel,
+    pipHeadline: UpgradeText.pipHeadline,
+    pipAgent: UpgradeText.pipAgent,
+    pipState: UpgradeText.pipState,
+    pipMeta: UpgradeText.pipMeta,
   );
 
   static const _houseTerminal = TerminalPalette(
-    foreground: DazzleColors.textPrimary,
+    foreground: UpgradeColors.textPrimary,
     background: Color(0xFF000000),
-    cursor: DazzleColors.accent,
+    cursor: UpgradeColors.accent,
     ansi: [
-      DazzleColors.backgroundPrimary,
+      UpgradeColors.backgroundPrimary,
       Color(0xFFCD3131),
-      DazzleColors.accent,
+      UpgradeColors.accent,
       Color(0xFFE5E510),
       Color(0xFF2472C8),
       Color(0xFFBC3FBC),
       Color(0xFF11A8CD),
-      DazzleColors.textPrimary,
-      DazzleColors.textDisabled,
+      UpgradeColors.textPrimary,
+      UpgradeColors.textDisabled,
       Color(0xFFF14C4C),
-      DazzleColors.accentMuted,
+      UpgradeColors.accentMuted,
       Color(0xFFF5F543),
       Color(0xFF3B8EEA),
       Color(0xFFD670D6),
@@ -251,7 +251,7 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
   );
 
   @override
-  DazzleTokens copyWith({
+  UpgradeTokens copyWith({
     Brightness? brightness,
     Color? backgroundPrimary,
     Color? backgroundSecondary,
@@ -303,7 +303,7 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
     TextStyle? pipState,
     TextStyle? pipMeta,
   }) {
-    return DazzleTokens(
+    return UpgradeTokens(
       brightness: brightness ?? this.brightness,
       backgroundPrimary: backgroundPrimary ?? this.backgroundPrimary,
       backgroundSecondary: backgroundSecondary ?? this.backgroundSecondary,
@@ -359,11 +359,11 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
   }
 
   @override
-  DazzleTokens lerp(ThemeExtension<DazzleTokens>? other, double t) {
-    if (other is! DazzleTokens) return this;
+  UpgradeTokens lerp(ThemeExtension<UpgradeTokens>? other, double t) {
+    if (other is! UpgradeTokens) return this;
     Color c(Color a, Color b) => Color.lerp(a, b, t)!;
     TextStyle s(TextStyle a, TextStyle b) => TextStyle.lerp(a, b, t)!;
-    return DazzleTokens(
+    return UpgradeTokens(
       // A brightness does not blend: the crossfade in the colours is the transition, and the
       // platform brightness flips once it is done.
       brightness: t < 0.5 ? brightness : other.brightness,
@@ -425,6 +425,6 @@ class DazzleTokens extends ThemeExtension<DazzleTokens> {
   }
 }
 
-extension DazzleTokensContext on BuildContext {
-  DazzleTokens get tokens => Theme.of(this).extension<DazzleTokens>()!;
+extension UpgradeTokensContext on BuildContext {
+  UpgradeTokens get tokens => Theme.of(this).extension<UpgradeTokens>()!;
 }

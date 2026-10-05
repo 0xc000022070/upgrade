@@ -3,7 +3,7 @@ import 'package:flterm/flterm.dart';
 
 import '../../design/tokens.dart';
 import '../../design/components/key_cell.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import 'shell_sessions.dart';
 
@@ -101,7 +101,7 @@ class _ShellTailCellState extends State<ShellTailCell> {
             child: KeyCell(
               key: const ValueKey('shell-tail'),
               label: 'LIVE',
-              icon: DazzleIcons.arrowDown,
+              icon: UpgradeIcons.arrowDown,
               minWidth: RowMetrics.minHeight,
               padding: RowMetrics.padding,
               height: RowMetrics.minHeight,

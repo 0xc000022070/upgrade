@@ -10,8 +10,8 @@ import '../../application/pip.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/components/inline_confirm.dart';
 import '../../design/effects/glitch.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../platform/devices/device_link.dart';
@@ -578,7 +578,7 @@ class _DeviceListState extends State<_DeviceList> {
                   ),
                   _Glyph(
                     key: const ValueKey('device-list-minimize'),
-                    icon: DazzleIcons.minimize,
+                    icon: UpgradeIcons.minimize,
                     label: 'MINIMIZE',
                     onTap: onFold,
                   ),
@@ -697,7 +697,7 @@ class _HostRow extends StatelessWidget {
         ),
         _Glyph(
           key: ValueKey('device-group-plus-${host.id}'),
-          icon: DazzleIcons.add,
+          icon: UpgradeIcons.add,
           label: '${host.name.toUpperCase()} DEVICES',
           onTap: onPlus,
         ),
@@ -848,8 +848,8 @@ class _PhoneMarkState extends State<_PhoneMark> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return DazzleIcon(
-      DazzleIcons.phone,
+    return UpgradeIcon(
+      UpgradeIcons.phone,
       size: widget.size,
       color: context.tokens.textPrimary,
       glitch: _glitch,
@@ -906,14 +906,14 @@ class _Tile extends StatelessWidget {
                         children: [
                           _Glyph(
                             key: const ValueKey('device-float-expand'),
-                            icon: DazzleIcons.expand,
+                            icon: UpgradeIcons.expand,
                             label: 'FULL SCREEN',
                             onTap: onExpand,
                           ),
                           const Spacer(),
                           _Glyph(
                             key: const ValueKey('device-float-collapse'),
-                            icon: DazzleIcons.minimize,
+                            icon: UpgradeIcons.minimize,
                             label: 'MINIMIZE',
                             onTap: onCollapse,
                           ),
@@ -1024,8 +1024,8 @@ class _OnMedia extends StatelessWidget {
     return Theme(
       data: theme.copyWith(
         extensions: [
-          ...theme.extensions.values.where((e) => e is! DazzleTokens),
-          DazzleTokens.house,
+          ...theme.extensions.values.where((e) => e is! UpgradeTokens),
+          UpgradeTokens.house,
         ],
       ),
       child: child,
@@ -1043,8 +1043,8 @@ class _FailedMark extends StatelessWidget {
     return Semantics(
       key: const ValueKey('device-float-failed'),
       label: reason,
-      child: DazzleIcon(
-        DazzleIcons.failed,
+      child: UpgradeIcon(
+        UpgradeIcons.failed,
         size: IconSizes.glyph,
         color: context.tokens.warning,
       ),
@@ -1078,7 +1078,7 @@ class _Glyph extends StatelessWidget {
     required this.onTap,
   });
 
-  final DazzleIcons icon;
+  final UpgradeIcons icon;
   final String label;
   final VoidCallback onTap;
 
@@ -1094,7 +1094,7 @@ class _Glyph extends StatelessWidget {
         child: SizedBox.square(
           dimension: TapTargets.minHeight,
           child: Center(
-            child: DazzleIcon(
+            child: UpgradeIcon(
               icon,
               size: IconSizes.sm,
               color: context.tokens.textPrimary,
@@ -1155,7 +1155,7 @@ class _CloseTarget extends StatelessWidget {
         border: Border.all(color: tint, width: Borders.hairline),
       ),
       child: Center(
-        child: DazzleIcon(DazzleIcons.close, size: IconSizes.sm, color: tint),
+        child: UpgradeIcon(UpgradeIcons.close, size: IconSizes.sm, color: tint),
       ),
     );
   }

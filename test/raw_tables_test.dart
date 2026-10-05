@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/data/raw_tables.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/raw_tables.dart';
 
 Future<void> _seed(AppDatabase db) async {
   await db
@@ -13,7 +13,7 @@ Future<void> _seed(AppDatabase db) async {
       .insert(
         ProjectsCompanion.insert(
           id: 'proj-1',
-          name: 'dazzle',
+          name: 'upgrade',
           description: 'the phone, on the phone',
           objective: 'survive a rename',
           status: ProjectStatus.active,

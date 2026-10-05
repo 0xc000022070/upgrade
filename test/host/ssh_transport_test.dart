@@ -4,8 +4,8 @@ library;
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
-import 'package:dazzle/platform/shell/shell_tunnel.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/shell_tunnel.dart';
 
 import 'fixture.dart';
 
@@ -36,7 +36,7 @@ void main() {
 
     // The guest's prompt is `%n@%m:%~%#`, so its own hostname is the one string no echo of
     // ours could have produced.
-    await readUntil(connection, 'dazzle-host');
+    await readUntil(connection, 'upgrade-host');
     expect(connection.transport, ShellTransport.ssh);
     expect(connection.continuity, ShellContinuity.plain);
   });
@@ -53,7 +53,7 @@ void main() {
   test('a window change reaches the remote mid-session', () async {
     final connection = await open(columns: 80, rows: 24);
     addTearDown(connection.close);
-    await readUntil(connection, 'dazzle-host');
+    await readUntil(connection, 'upgrade-host');
 
     connection.resize(120, 40);
     type(connection, 'stty size');
@@ -71,7 +71,7 @@ void main() {
   test('an exec channel runs beside the shell without disturbing it', () async {
     final connection = await open();
     addTearDown(connection.close);
-    final prompt = await readUntil(connection, 'dazzle-host');
+    final prompt = await readUntil(connection, 'upgrade-host');
 
     final result = await connection.exec('printf beside');
 

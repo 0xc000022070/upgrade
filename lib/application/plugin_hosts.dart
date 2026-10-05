@@ -5,7 +5,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:dartssh2/dartssh2.dart';
-import 'package:dazzle_luau/data_api.dart';
+import 'package:upgrade_luau/data_api.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -220,7 +220,7 @@ Future<Map<String, Object?>> scheduleOver(
   Map<String, Object?> args,
 ) async {
   final session = await openWithin(
-    client.execute('dazzle-engine'),
+    client.execute('upgrade-engine'),
     const Duration(seconds: 10),
     endExec,
   );
@@ -264,7 +264,7 @@ Future<Map<String, Object?>> scheduleOver(
           .trim();
       // A machine with no engine answers over the shell instead: 127 and a line of its own.
       if (session.exitCode == 127 || complaint.endsWith('not found')) {
-        throw const PluginException('This host has no dazzle-engine installed');
+        throw const PluginException('This host has no upgrade-engine installed');
       }
       throw PluginException('Host engine did not answer. $complaint');
     }

@@ -51,7 +51,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'SETTINGS',
-          breadcrumb: '/ DAZZLE / SYS',
+          breadcrumb: '/ UPGRADE / SYS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(
@@ -85,7 +85,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     runSpacing: 8,
                     children: [
                       ChoiceChip(
-                        label: const Text('Dazzle dark'),
+                        label: const Text('Upgrade dark'),
                         selected: !themeSystem,
                         onSelected: (_) => _setThemeSystem(false),
                       ),

@@ -10,7 +10,7 @@ import '../../design/components/meta.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/components/section.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../platform/herdr_client.dart';
@@ -38,7 +38,7 @@ class AgentsScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'AGENTS',
-          breadcrumb: '/ DAZZLE / AGENTS',
+          breadcrumb: '/ UPGRADE / AGENTS',
           titleTrailing: const PipAffordance(),
           onBack: () => Navigator.of(context).pop(),
           children: [
@@ -295,7 +295,7 @@ class _FailureLineState extends ConsumerState<_FailureLine> {
             PanelTextAction(
               label: _retrying ? 'RETRYING' : 'RETRY',
               onTap: _retrying ? null : _retry,
-              icon: DazzleIcons.sync,
+              icon: UpgradeIcons.sync,
             ),
         ],
       ),

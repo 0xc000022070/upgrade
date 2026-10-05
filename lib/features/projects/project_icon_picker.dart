@@ -4,8 +4,8 @@ import '../../data/project_icons.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/picker_row.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import 'project_icon.dart';
@@ -97,7 +97,7 @@ class _Choice extends StatelessWidget {
             if (icon case final icon?)
               ProjectIcon(icon, size: IconSizes.hero, color: color)
             else
-              DazzleIcon(DazzleIcons.close, size: IconSizes.hero, color: color),
+              UpgradeIcon(UpgradeIcons.close, size: IconSizes.hero, color: color),
             if (icon == null) ...[
               const SizedBox(height: Spacing.sm),
               Text('NO ICON', style: tokens.label.copyWith(color: color)),

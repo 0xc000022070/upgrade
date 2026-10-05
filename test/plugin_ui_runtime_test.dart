@@ -1,5 +1,5 @@
-import 'package:dazzle_luau/dazzle_luau.dart';
-import 'package:dazzle_luau/ui_sdk.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
+import 'package:upgrade_luau/ui_sdk.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

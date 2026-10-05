@@ -6,20 +6,20 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/data/repositories/key_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/components/solid_action_bar.dart';
-import 'package:dazzle/features/settings/host_form_screen.dart';
-import 'package:dazzle/features/settings/key_form_screen.dart';
-import 'package:dazzle/features/hosts/hosts_screen.dart';
-import 'package:dazzle/features/screen/screen_preview.dart';
-import 'package:dazzle/platform/host_key_dial.dart';
-import 'package:dazzle/platform/keys.dart';
-import 'package:dazzle/platform/vnc/framebuffer.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/features/settings/host_form_screen.dart';
+import 'package:upgrade/features/settings/key_form_screen.dart';
+import 'package:upgrade/features/hosts/hosts_screen.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
+import 'package:upgrade/platform/host_key_dial.dart';
+import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/vnc/framebuffer.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -51,7 +51,7 @@ void main() {
     keys = InMemoryKeyRepository();
     hosts = InMemoryHostRepository();
     privateKeys = MemoryPrivateKeyStore();
-    root = Directory.systemTemp.createTempSync('dazzle-host-form');
+    root = Directory.systemTemp.createTempSync('upgrade-host-form');
     previews = ScreenPreviews(Directory('${root.path}/screens'));
     dial = ({
       required address,
@@ -159,7 +159,7 @@ void main() {
     );
     expect(label(tester), 'CREATE HOST');
     expect(find.text('NAME MISSING'), findsOneWidget);
-    expect(fill(tester), DazzleColors.textDisabled);
+    expect(fill(tester), UpgradeColors.textDisabled);
 
     await tester.tap(find.byType(SolidActionBar));
     await _ready(tester);
@@ -187,7 +187,7 @@ void main() {
     await tester.enterText(field(_Fields.user), 'luis');
     await tester.pump();
     expect(label(tester), 'CREATE HOST');
-    expect(fill(tester), DazzleColors.accent);
+    expect(fill(tester), UpgradeColors.accent);
 
     await unmount(tester);
   });
@@ -346,7 +346,7 @@ void main() {
     await tester.enterText(field(_Fields.name), 'nyx');
     await tester.pump();
 
-    await tester.tap(find.text('/ DAZZLE / HOSTS'));
+    await tester.tap(find.text('/ UPGRADE / HOSTS'));
     await _sheet(tester);
     expect(find.text('DISCARD HOST?'), findsOneWidget);
 
@@ -408,7 +408,7 @@ void main() {
       await tester.pump();
       expect(label(tester), 'CREATE HOST', reason: 'port `$typed`');
       expect(find.text('PORT MISSING'), findsOneWidget);
-      expect(fill(tester), DazzleColors.textDisabled);
+      expect(fill(tester), UpgradeColors.textDisabled);
     }
 
     await tester.tap(find.byType(SolidActionBar).first);
@@ -418,7 +418,7 @@ void main() {
     await tester.enterText(field(_Fields.port), '357');
     await tester.pump();
     expect(label(tester), 'CREATE HOST');
-    expect(fill(tester), DazzleColors.accent);
+    expect(fill(tester), UpgradeColors.accent);
 
     await unmount(tester);
   });

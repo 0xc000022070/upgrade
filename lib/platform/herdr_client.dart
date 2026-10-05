@@ -257,7 +257,7 @@ abstract final class HerdrRequests {
 
   /// A flag and not a value: every generated rc assigns `HISTFILE` outright after the
   /// environment is read, so only the rc can undo the rc, and it needs a name to key on.
-  static const paneMark = {'DAZZLE_PANE': '1'};
+  static const paneMark = {'UPGRADE_PANE': '1'};
 
   static const HerdrRequest agentList = (method: 'agent.list', params: {});
 
@@ -569,7 +569,7 @@ class HerdrSession {
     Duration? within,
   }) async {
     final result = await _runWithStdin(
-      'dazzle-engine',
+      'upgrade-engine',
       Uint8List.fromList(utf8.encode(jsonEncode(request))),
       within: within,
     );

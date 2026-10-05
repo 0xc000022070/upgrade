@@ -2,8 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/design/ascii/braille.dart';
-import 'package:dazzle/design/ascii/grid.dart';
+import 'package:upgrade/design/ascii/braille.dart';
+import 'package:upgrade/design/ascii/grid.dart';
 
 AsciiSheet _fromDisk(String state) =>
     AsciiSheet.parse(File(mascotAsset(state)).readAsStringSync());

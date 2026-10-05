@@ -30,7 +30,7 @@ part 'database.g.dart';
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
-    : super(executor ?? driftDatabase(name: 'dazzle'));
+    : super(executor ?? driftDatabase(name: 'upgrade'));
 
   @override
   int get schemaVersion => 22;

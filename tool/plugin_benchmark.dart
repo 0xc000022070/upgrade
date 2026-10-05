@@ -1,18 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dazzle_luau/dazzle_luau.dart';
-import 'package:dazzle_luau/data_api.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
+import 'package:upgrade_luau/data_api.dart';
 
 Future<void> main() async {
   final directory = await Directory.systemTemp.createTemp(
-    'dazzle-record-benchmark-',
+    'upgrade-record-benchmark-',
   );
   final worker = LuauWorker(dataDirectory: directory.path);
   const source = '''
 return { trim = function()
-  local item = dazzle.data.get('selected')
-  dazzle.data.propose('selected', item.key, string.gsub(item.value, "[ \\t]+", " "), item.revision)
+  local item = upgrade.data.get('selected')
+  upgrade.data.propose('selected', item.key, string.gsub(item.value, "[ \\t]+", " "), item.revision)
 end }
 ''';
   final samples = <int>[];

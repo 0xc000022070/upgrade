@@ -4,21 +4,21 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/activity_repository.dart';
-import 'package:dazzle/data/repositories/project_repository.dart';
-import 'package:dazzle/data/repositories/task_repository.dart';
-import 'package:dazzle/features/home/capture_bar.dart';
-import 'package:dazzle/features/tasks/item_pickers.dart';
-import 'package:dazzle/features/tasks/selection_bar.dart';
-import 'package:dazzle/features/home/home_screen.dart';
-import 'package:dazzle/app/toast_host.dart';
-import 'package:dazzle/application/toasts.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/features/home/capture_bar.dart';
+import 'package:upgrade/features/tasks/item_pickers.dart';
+import 'package:upgrade/features/tasks/selection_bar.dart';
+import 'package:upgrade/features/home/home_screen.dart';
+import 'package:upgrade/app/toast_host.dart';
+import 'package:upgrade/application/toasts.dart';
 
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/components/list_row.dart';
-import 'package:dazzle/design/icons/dazzle_icon.dart';
-import 'package:dazzle/design/icons/dazzle_icons.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
@@ -26,10 +26,10 @@ import 'support/themed_app.dart';
 Color? _verbColor(WidgetTester tester, IconData icon) =>
     tester.widget<Icon>(find.byIcon(icon)).color;
 
-Finder _box(String title, DazzleIcons icon) => find.descendant(
+Finder _box(String title, UpgradeIcons icon) => find.descendant(
   of: find.ancestor(of: find.text(title), matching: find.byType(ListRow)),
   matching: find.byWidgetPredicate(
-    (widget) => widget is DazzleIcon && widget.icon == icon,
+    (widget) => widget is UpgradeIcon && widget.icon == icon,
   ),
 );
 
@@ -119,7 +119,7 @@ void main() {
     await tester.tap(find.text('Drops'));
     await _ready(tester);
 
-    expect(find.text('/ DAZZLE / PLUGINS'), findsOneWidget);
+    expect(find.text('/ UPGRADE / PLUGINS'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -240,7 +240,7 @@ void main() {
     await _ready(tester);
 
     expect(
-      _box('revisar pgbouncer', DazzleIcons.checkboxEmpty),
+      _box('revisar pgbouncer', UpgradeIcons.checkboxEmpty),
       findsOneWidget,
     );
     await _tapBox(tester, 'revisar pgbouncer');
@@ -278,7 +278,7 @@ void main() {
     await _ready(tester);
     expect(find.text('revisar pgbouncer'), findsOneWidget);
     expect(
-      _box('revisar pgbouncer', DazzleIcons.checkboxChecked),
+      _box('revisar pgbouncer', UpgradeIcons.checkboxChecked),
       findsOneWidget,
     );
 
@@ -439,13 +439,13 @@ void main() {
     expect(find.text('[ ]'), findsNWidgets(2));
     expect(find.text('[x]'), findsNothing);
     expect(find.text('SELECT'), findsNothing, reason: 'hidden in the mode');
-    expect(_verbColor(tester, Icons.arrow_forward), DazzleColors.textDisabled);
-    expect(_verbColor(tester, Icons.delete_outline), DazzleColors.textDisabled);
+    expect(_verbColor(tester, Icons.arrow_forward), UpgradeColors.textDisabled);
+    expect(_verbColor(tester, Icons.delete_outline), UpgradeColors.textDisabled);
 
     await tester.tap(find.text('primero'));
     await _ready(tester);
     expect(find.text('1 SELECTED'), findsOneWidget);
-    expect(_verbColor(tester, Icons.arrow_forward), DazzleColors.textSecondary);
+    expect(_verbColor(tester, Icons.arrow_forward), UpgradeColors.textSecondary);
 
     await unmount(tester);
   });

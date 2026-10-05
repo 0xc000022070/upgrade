@@ -9,8 +9,8 @@ import 'typography.dart';
 /// Material is a substrate only. Everything that would leak a Material look — ripples,
 /// elevation tints, shadows, rounded defaults, overscroll glow, the zoom transition — is
 /// neutralized here.
-abstract final class DazzleTheme {
-  static ThemeData build([DazzleTokens tokens = DazzleTokens.house]) {
+abstract final class UpgradeTheme {
+  static ThemeData build([UpgradeTokens tokens = UpgradeTokens.house]) {
     final schemeBuilder = tokens.brightness == Brightness.dark
         ? ColorScheme.dark
         : ColorScheme.light;
@@ -76,7 +76,7 @@ abstract final class DazzleTheme {
     );
   }
 
-  static TextTheme _textTheme(DazzleTokens tokens) => TextTheme(
+  static TextTheme _textTheme(UpgradeTokens tokens) => TextTheme(
     headlineLarge: tokens.screenTitle,
     headlineMedium: tokens.heroName,
     titleMedium: tokens.rowTitle,
@@ -89,8 +89,8 @@ abstract final class DazzleTheme {
   );
 }
 
-final class DazzleScrollBehavior extends MaterialScrollBehavior {
-  const DazzleScrollBehavior();
+final class UpgradeScrollBehavior extends MaterialScrollBehavior {
+  const UpgradeScrollBehavior();
 
   @override
   Widget buildOverscrollIndicator(

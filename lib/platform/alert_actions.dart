@@ -101,14 +101,14 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
       links.close();
     }
   } on EngineRefused catch (error) {
-    debugPrint('dazzle.engine ${target.address}: $error');
+    debugPrint('upgrade.engine ${target.address}: $error');
     await redraw(
       line: alertFailedLine(error.notFound ? 'ALREADY ANSWERED' : 'REFUSED'),
       withActions: false,
     );
     return;
   } on HerdrFailure catch (error) {
-    debugPrint('dazzle.herdr ${target.address}: ${error.detail ?? error}');
+    debugPrint('upgrade.herdr ${target.address}: ${error.detail ?? error}');
     await redraw(
       line: alertFailedLine(alertFailureReason(error)),
       withActions: true,

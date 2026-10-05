@@ -1,15 +1,15 @@
 import 'package:flutter/widgets.dart';
 
 import '../../data/enums.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 
-DazzleIcons systemGlyph(HostSystem? system) => switch (system) {
-  HostSystem.nixos => DazzleIcons.systemNixos,
-  HostSystem.darwin => DazzleIcons.systemDarwin,
-  HostSystem.linux || HostSystem.other || null => DazzleIcons.systemServer,
+UpgradeIcons systemGlyph(HostSystem? system) => switch (system) {
+  HostSystem.nixos => UpgradeIcons.systemNixos,
+  HostSystem.darwin => UpgradeIcons.systemDarwin,
+  HostSystem.linux || HostSystem.other || null => UpgradeIcons.systemServer,
 };
 
 String systemWord(HostSystem? system) => switch (system) {
@@ -34,7 +34,7 @@ class HostMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     label: systemWord(system),
-    child: DazzleIcon(
+    child: UpgradeIcon(
       systemGlyph(system),
       size: size,
       color: color ?? context.tokens.textSecondary,

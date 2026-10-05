@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/features/shell/host_shell_screen.dart';
-import 'package:dazzle/features/shell/parked_shell_bar.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
+import 'package:upgrade/features/shell/host_shell_screen.dart';
+import 'package:upgrade/features/shell/parked_shell_bar.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';

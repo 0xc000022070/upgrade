@@ -5,13 +5,13 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/data/repositories/key_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/features/ssh/ssh_screen.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/ssh/ssh_screen.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -175,11 +175,11 @@ void main() {
                 as BoxDecoration)
             .color!;
 
-    expect(dot(), DazzleColors.accent);
+    expect(dot(), UpgradeColors.accent);
 
     shells.opened.single.exit(1);
     await ready(tester);
-    expect(dot(), DazzleColors.textMuted);
+    expect(dot(), UpgradeColors.textMuted);
 
     await unmount(tester);
   });
@@ -193,11 +193,11 @@ void main() {
       final first = sessions.open(_rose)!;
       first.title = 'Fix reconnect';
       final second = sessions.open(_nyx)!;
-      second.cwd = '/home/dev/Projects/dazzle';
+      second.cwd = '/home/dev/Projects/upgrade';
       await tester.pumpWidget(app());
       await ready(tester);
       expect(find.text('Fix reconnect'), findsOneWidget);
-      expect(find.text('dazzle'), findsOneWidget);
+      expect(find.text('upgrade'), findsOneWidget);
       expect(find.text('rose · shell 1'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await unmount(tester);

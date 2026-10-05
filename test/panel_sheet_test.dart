@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/design/components/action_block.dart';
-import 'package:dazzle/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
 
 import 'support/themed_app.dart';
 

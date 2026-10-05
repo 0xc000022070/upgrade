@@ -113,7 +113,7 @@ class WorkspaceController extends ChangeNotifier {
       _runner = runner;
       await _load(attempt);
     } on HerdrFailure catch (error) {
-      debugPrint('dazzle.workspace ${host.name}: ${error.detail ?? error}');
+      debugPrint('upgrade.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed || attempt != _attempt) return;
       _fail(error.reason(host.name));
     }
@@ -228,7 +228,7 @@ class WorkspaceController extends ChangeNotifier {
     try {
       return await runner.run(command);
     } on HerdrFailure catch (error) {
-      debugPrint('dazzle.workspace ${host.name}: ${error.detail ?? error}');
+      debugPrint('upgrade.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed) return null;
       if (error is! HerdrBusy && identical(_runner, runner)) {
         _runner = null;

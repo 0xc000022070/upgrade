@@ -5,18 +5,18 @@ import 'dart:async';
 
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/agent_state.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/navigation.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/design/components/dot_spinner.dart';
-import 'package:dazzle/features/home/agent_mark.dart';
-import 'package:dazzle/features/home/agents_panel.dart';
-import 'package:dazzle/features/hosts/hosts_screen.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/keys.dart';
-import 'package:dazzle/platform/host_keys.dart';
+import 'package:upgrade/application/agent_state.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/features/home/agent_mark.dart';
+import 'package:upgrade/features/home/agents_panel.dart';
+import 'package:upgrade/features/hosts/hosts_screen.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/host_keys.dart';
 
 import 'support/themed_app.dart';
 
@@ -50,7 +50,7 @@ AgentSnapshot agent({
   state: AgentState.of(status),
   terminalTitleStripped: work,
   workspaceId: 'wQ',
-  cwd: '/workspace/dazzle',
+  cwd: '/workspace/upgrade',
   stateChangeSeq: sequence,
 );
 

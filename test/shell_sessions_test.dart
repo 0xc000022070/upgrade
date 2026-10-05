@@ -6,21 +6,21 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/pin_alerts.dart';
-import 'package:dazzle/data/enums.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/data/repositories/shell_tab_repository.dart';
-import 'package:dazzle/data/shell_snapshot_store.dart';
-import 'package:dazzle/design/components/dot_spinner.dart';
-import 'package:dazzle/features/shell/host_shell_screen.dart';
-import 'package:dazzle/features/shell/shell_card.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/shell/host_system.dart';
-import 'package:dazzle/platform/shell/remote_shell.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
-import 'package:dazzle/platform/vnc/keysyms.dart';
-import 'package:dazzle/features/shell/shell_terminal.dart';
+import 'package:upgrade/application/pin_alerts.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/shell_tab_repository.dart';
+import 'package:upgrade/data/shell_snapshot_store.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/features/shell/host_shell_screen.dart';
+import 'package:upgrade/features/shell/shell_card.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/shell/host_system.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/vnc/keysyms.dart';
+import 'package:upgrade/features/shell/shell_terminal.dart';
 import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
@@ -350,9 +350,9 @@ void main() {
     await _settle();
     final connection = transport.opened.single;
 
-    connection.emit('dazzle');
+    connection.emit('upgrade');
     await _settle();
-    expect(_text(session.terminal), contains('dazzle'));
+    expect(_text(session.terminal), contains('upgrade'));
 
     sessions.send(session, Uint8List.fromList([0x03]));
     expect(connection.writes.single, [0x03]);

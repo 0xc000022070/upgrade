@@ -12,7 +12,7 @@ Future<void> seedDevData(
   required TaskRepository tasks,
   required NoteRepository notes,
 }) async {
-  const fixturesEnabled = bool.fromEnvironment('DAZZLE_SEED_FIXTURES');
+  const fixturesEnabled = bool.fromEnvironment('UPGRADE_SEED_FIXTURES');
   if (!kDebugMode || !fixturesEnabled) return;
   final existing = await db.select(db.projects).get();
   if (existing.isNotEmpty) return;

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/agent_state.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/navigation.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/features/agents/agent_status_bar.dart';
-import 'package:dazzle/platform/herdr_client.dart';
+import 'package:upgrade/application/agent_state.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/features/agents/agent_status_bar.dart';
+import 'package:upgrade/platform/herdr_client.dart';
 
 import 'support/themed_app.dart';
 
@@ -35,7 +35,7 @@ AgentSnapshot agent(String name, String status) => AgentSnapshot(
   state: AgentState.of(status),
   terminalTitleStripped: 'work',
   workspaceId: 'wQ',
-  cwd: '/workspace/dazzle',
+  cwd: '/workspace/upgrade',
   stateChangeSeq: 1,
 );
 
@@ -236,7 +236,7 @@ void main() {
         answering([agent('claude', 'working')]),
       ]);
 
-      expect(mark(tester), DazzleColors.warning);
+      expect(mark(tester), UpgradeColors.warning);
     });
 
     testWidgets('turns danger when a host has stopped answering', (
@@ -247,7 +247,7 @@ void main() {
         answering([agent('claude', 'working')], on: rose),
       ]);
 
-      expect(mark(tester), DazzleColors.danger);
+      expect(mark(tester), UpgradeColors.danger);
     });
 
     testWidgets('reads blocked in herdr\'s red beside a host being down', (
@@ -258,7 +258,7 @@ void main() {
         answering([agent('claude', 'blocked')], on: rose),
       ]);
 
-      expect(mark(tester), DazzleColors.danger);
+      expect(mark(tester), UpgradeColors.danger);
     });
 
     testWidgets('grows by what the line beside it grew by', (tester) async {

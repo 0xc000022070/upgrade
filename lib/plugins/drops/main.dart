@@ -13,7 +13,7 @@ import '../../application/fresh_drops.dart';
 import '../../application/toasts.dart';
 
 const dropsPlugin = NativePluginModule(
-  id: 'dazzle.drops',
+  id: 'upgrade.drops',
   directory: 'lib/plugins/drops',
   surfaces: {
     'home.layout': _home,

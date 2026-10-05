@@ -17,7 +17,7 @@ Future<List<PluginPackage>> loadBuiltinPlugins() async => [
 
 Future<PluginPackage> _loadScript(String directory) async {
   final manifest = PluginManifest.parse(
-    await rootBundle.loadString('$directory/dazzle.plugin.toml'),
+    await rootBundle.loadString('$directory/upgrade.plugin.toml'),
   );
   return PluginPackage(
     manifest: manifest,
@@ -29,7 +29,7 @@ Future<PluginPackage> _loadScript(String directory) async {
 
 Future<PluginPackage> _load(NativePluginModule module) async {
   final manifest = PluginManifest.parse(
-    await rootBundle.loadString('${module.directory}/dazzle.plugin.toml'),
+    await rootBundle.loadString('${module.directory}/upgrade.plugin.toml'),
     allowNative: true,
   );
   if (manifest.id != module.id ||

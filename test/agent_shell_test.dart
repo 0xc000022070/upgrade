@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/agent_state.dart';
-import 'package:dazzle/application/navigation.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/components/action_block.dart';
-import 'package:dazzle/features/agents/agent_shell.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/features/ssh/ssh_screen.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/shell/remote_shell.dart';
+import 'package:upgrade/application/agent_state.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/features/agents/agent_shell.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/ssh/ssh_screen.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -32,7 +32,7 @@ const _agent = AgentSnapshot(
   state: WorkingState(),
   terminalTitleStripped: 'refactor',
   workspaceId: 'w22',
-  cwd: '/home/luis/dazzle',
+  cwd: '/home/luis/upgrade',
   stateChangeSeq: 4,
 );
 
@@ -115,7 +115,7 @@ void main() {
     final commit = tester.widget<ActionBlock>(
       find.widgetWithText(ActionBlock, 'OPEN HERE'),
     );
-    expect(commit.tone, DazzleColors.accent);
+    expect(commit.tone, UpgradeColors.accent);
     expect(commit.filled, isTrue);
     expect(find.widgetWithText(ActionBlock, 'CANCEL'), findsOneWidget);
     await tester.tap(find.text('OPEN HERE'));

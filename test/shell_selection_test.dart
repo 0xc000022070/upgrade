@@ -3,9 +3,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/features/shell/shell_selection.dart';
-import 'package:dazzle/features/shell/shell_sessions.dart';
-import 'package:dazzle/features/shell/shell_terminal.dart';
+import 'package:upgrade/features/shell/shell_selection.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/shell_terminal.dart';
 import 'package:flterm/flterm.dart';
 
 import 'support/platform_channels.dart';

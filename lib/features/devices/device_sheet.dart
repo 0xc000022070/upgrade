@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../application/reason_lines.dart';
 import '../../design/components/action_block.dart';
-import '../../design/components/dazzle_field.dart';
+import '../../design/components/upgrade_field.dart';
 import '../../design/components/inline_confirm.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel_sheet.dart';
@@ -349,7 +349,7 @@ class _NewDeviceState extends State<_NewDevice> {
         ],
         SheetField(
           label: 'NAME',
-          child: DazzleField(
+          child: UpgradeField(
             key: const ValueKey('device-new-name'),
             controller: _name,
             hint: _android ? 'Pixel_9' : 'iPhone 17',

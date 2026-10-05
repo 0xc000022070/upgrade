@@ -7,16 +7,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/agent_state.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/pip.dart';
-import 'package:dazzle/data/database.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/design/colors.dart';
-import 'package:dazzle/design/components/list_row.dart';
-import 'package:dazzle/features/agents/agents_screen.dart';
-import 'package:dazzle/features/home/agent_mark.dart';
-import 'package:dazzle/platform/herdr_client.dart';
+import 'package:upgrade/application/agent_state.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/pip.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/features/agents/agents_screen.dart';
+import 'package:upgrade/features/home/agent_mark.dart';
+import 'package:upgrade/platform/herdr_client.dart';
 
 import 'support/fake_pip.dart';
 import 'support/platform_channels.dart';
@@ -53,7 +53,7 @@ AgentSnapshot agent(
   state: AgentState.of(status),
   terminalTitleStripped: title,
   workspaceId: workspace,
-  cwd: '/workspace/dazzle',
+  cwd: '/workspace/upgrade',
   stateChangeSeq: 1,
   workspaceLabel: label,
 );
@@ -127,7 +127,7 @@ void main() {
     );
     await ready(tester);
 
-    await tester.tap(find.widgetWithText(ListRow, 'CLAUDE · dazzle · Rose'));
+    await tester.tap(find.widgetWithText(ListRow, 'CLAUDE · upgrade · Rose'));
 
     expect(opened, [(rose, claude)]);
 
@@ -263,7 +263,7 @@ void main() {
             host: nyx,
             kind: AgentOutcomeKind.snapshot,
             agents: [
-              agent('claude', workspace: 'wK', label: 'dazzle 2'),
+              agent('claude', workspace: 'wK', label: 'upgrade 2'),
               agent('codex', workspace: 'wR'),
             ],
           ),
@@ -272,7 +272,7 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('DAZZLE 2'), findsOneWidget);
+    expect(find.text('UPGRADE 2'), findsOneWidget);
     expect(find.text('wR'), findsOneWidget);
     expect(find.text('WK'), findsNothing);
     expect(find.text('WR'), findsNothing);
@@ -379,7 +379,7 @@ void main() {
     expect(find.text('G'), findsOneWidget);
     expect(find.text('?'), findsNothing);
     expect(find.text('C'), findsNothing);
-    expect(find.text('GIZMO · dazzle · Nyx'), findsOneWidget);
+    expect(find.text('GIZMO · upgrade · Nyx'), findsOneWidget);
     await unmount(tester);
   });
 
@@ -405,9 +405,9 @@ void main() {
       for (final row in tester.widgetList<ListRow>(find.byType(ListRow)))
         row.value: row.valueColor,
     };
-    expect(rows['DONE'], DazzleColors.textPrimary);
-    expect(rows['IDLE'], DazzleColors.textMuted);
-    expect(rows['COMPACTING'], DazzleColors.textMuted);
+    expect(rows['DONE'], UpgradeColors.textPrimary);
+    expect(rows['IDLE'], UpgradeColors.textMuted);
+    expect(rows['COMPACTING'], UpgradeColors.textMuted);
     await unmount(tester);
   });
 
@@ -427,7 +427,7 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('? · dazzle · Nyx'), findsOneWidget);
+    expect(find.text('? · upgrade · Nyx'), findsOneWidget);
     expect(
       find.descendant(of: find.byType(AgentMark), matching: find.text('?')),
       findsOneWidget,

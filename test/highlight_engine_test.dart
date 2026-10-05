@@ -1,5 +1,5 @@
-import 'package:dazzle_highlight/dazzle_highlight.dart';
-import 'package:dazzle_highlight/languages/all.dart';
+import 'package:upgrade_highlight/upgrade_highlight.dart';
+import 'package:upgrade_highlight/languages/all.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _samples = <String, String>{
@@ -34,7 +34,7 @@ const _samples = <String, String>{
   'sql': 'select * from hosts where port = 357;',
   'typescript': 'const x: number = 1;',
   'xml': '<a href="x">t</a>',
-  'yaml': 'name: dazzle # hey\nlist:\n  - true',
+  'yaml': 'name: upgrade # hey\nlist:\n  - true',
 };
 
 void main() {

@@ -132,7 +132,7 @@ class ClipStore extends ChangeNotifier {
 final clipStoreProvider = Provider<ClipStore>((ref) {
   ref.keepAlive();
   return ClipStore(
-    Directory(p.join(Directory.systemTemp.path, 'dazzle-clips')),
+    Directory(p.join(Directory.systemTemp.path, 'upgrade-clips')),
   );
 });
 

@@ -216,27 +216,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.0.0"
-  dazzle_highlight:
-    dependency: "direct main"
-    description:
-      path: "packages/dazzle_highlight"
-      relative: true
-    source: path
-    version: "0.0.3+dazzle.1"
-  dazzle_luau:
-    dependency: "direct main"
-    description:
-      path: "packages/dazzle_luau"
-      relative: true
-    source: path
-    version: "0.1.0"
-  dazzle_shade:
-    dependency: "direct main"
-    description:
-      path: "packages/dazzle_shade"
-      relative: true
-    source: path
-    version: "0.1.0"
   dbus:
     dependency: transitive
     description:
@@ -1164,6 +1143,27 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  upgrade_highlight:
+    dependency: "direct main"
+    description:
+      path: "packages/upgrade_highlight"
+      relative: true
+    source: path
+    version: "0.0.3+upgrade.1"
+  upgrade_luau:
+    dependency: "direct main"
+    description:
+      path: "packages/upgrade_luau"
+      relative: true
+    source: path
+    version: "0.1.0"
+  upgrade_shade:
+    dependency: "direct main"
+    description:
+      path: "packages/upgrade_shade"
+      relative: true
+    source: path
+    version: "0.1.0"
   url_launcher:
     dependency: "direct main"
     description:

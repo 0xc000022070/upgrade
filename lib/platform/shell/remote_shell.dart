@@ -22,7 +22,7 @@ String shellIn(String directory) => '${shellCd(directory)} && exec \$SHELL -l';
 
 /// Exported before the `exec`, which is what carries it into the login shell that
 /// replaces it.
-const shellMarkVariable = 'DAZZLE_TAB';
+const shellMarkVariable = 'UPGRADE_TAB';
 
 /// Letters and digits, and nothing a shell or a `grep` reads as anything but itself.
 final shellMark = RegExp(r'^[a-z0-9]{6,32}$');
@@ -32,21 +32,21 @@ String shellMarked(String mark, {String? command}) {
   return 'export $shellMarkVariable=$mark; ${command ?? 'exec \$SHELL -l'}';
 }
 
-const durableShellSocket = 'dazzle';
+const durableShellSocket = 'upgrade';
 
 final durableShellSession = shellMark;
 
-const moshTabVariable = 'DAZZLE_MOSH_TAB';
+const moshTabVariable = 'UPGRADE_MOSH_TAB';
 
 String durableShellProbeCommand(String session) {
   assert(durableShellSession.hasMatch(session));
   final target = shellQuote(session);
   final script =
       'p=\$(command -v tmux) || exit 127; '
-      'printf "DAZZLE_TMUX=%s\\n" "\$p"; '
+      'printf "UPGRADE_TMUX=%s\\n" "\$p"; '
       'if "\$p" -L $durableShellSocket has-session -t $target 2>/dev/null; '
-      'then printf "DAZZLE_RESUME=1\\n"; '
-      'else printf "DAZZLE_RESUME=0\\n"; fi';
+      'then printf "UPGRADE_RESUME=1\\n"; '
+      'else printf "UPGRADE_RESUME=0\\n"; fi';
   return 'exec "\$SHELL" -lc ${shellQuote(script)}';
 }
 
@@ -77,7 +77,7 @@ String durableShellDirectoryCommand(String tmux, String session) {
 String moshServerProbeCommand() {
   const script =
       'p=\$(command -v mosh-server) || exit 127; '
-      'printf "DAZZLE_MOSH=%s\\n" "\$p"';
+      'printf "UPGRADE_MOSH=%s\\n" "\$p"';
   return 'exec "\$SHELL" -lc ${shellQuote(script)}';
 }
 
@@ -91,7 +91,7 @@ String moshServerCleanupCommand(String session) {
     'for p in /proc/[0-9]*; do '
     '$marked$session" 2>/dev/null || continue; '
     'a=\$(tr "\\000" " " < "\$p/cmdline" 2>/dev/null); '
-    'case "\${a%% *}" in mosh-server|*/mosh-server|dazzle-engine|*/dazzle-engine) '
+    'case "\${a%% *}" in mosh-server|*/mosh-server|upgrade-engine|*/upgrade-engine) '
     'kill "\${p##*/}" 2>/dev/null || ok=0;; esac; '
     'done; [ "\$ok" -eq 1 ]',
   );
@@ -148,7 +148,7 @@ ShellPlace parseShellPlace(String source) {
 
 /// World-writable and cleared by the host's own reboot, which is the right lifetime for
 /// a file nothing ever comes back for.
-const remoteUploadDirectory = '/tmp/dazzle';
+const remoteUploadDirectory = '/tmp/upgrade';
 
 String remotePathFor(String fileName) => '$remoteUploadDirectory/$fileName';
 
@@ -198,7 +198,7 @@ String pinentryMarkCommand(String tab) {
     'tr "\\000" "\\n" < "\$p/environ" | grep -qx "$moshTabVariable=$tab" '
     '|| continue; '
     'a=\$(tr "\\000" " " < "\$p/cmdline"); '
-    'case "\${a%% *}" in mosh-server|*/mosh-server|dazzle-engine|*/dazzle-engine) h="\$h \${p##*/}";; esac; '
+    'case "\${a%% *}" in mosh-server|*/mosh-server|upgrade-engine|*/upgrade-engine) h="\$h \${p##*/}";; esac; '
     'done; '
     'ps -eo ppid=,tty= | awk -v h="\$h" '
     "'BEGIN { n = split(h, k, \" \"); for (i = 1; i <= n; i++) w[k[i]] = 1 } "

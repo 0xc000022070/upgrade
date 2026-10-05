@@ -10,8 +10,8 @@ import '../../design/components/drag_sheet.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../platform/shell/remote_shell.dart';
@@ -285,8 +285,8 @@ class _BranchCell extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DazzleIcon(
-              DazzleIcons.branch,
+            UpgradeIcon(
+              UpgradeIcons.branch,
               size: IconSizes.affordance,
               color: tint,
             ),

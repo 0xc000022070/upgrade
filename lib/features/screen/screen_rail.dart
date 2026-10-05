@@ -2,8 +2,8 @@ import 'package:flutter/widgets.dart';
 
 import '../../design/tokens.dart';
 import '../../design/components/panel.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 
 /// Small on purpose: the framework's own touch slop is the gate on whether this was a
@@ -150,21 +150,21 @@ class _ScreenRailState extends State<ScreenRail> {
               children: [
                 _RailToggle(
                   key: const ValueKey('rail-keyboard'),
-                  icon: DazzleIcons.keyboard,
+                  icon: UpgradeIcons.keyboard,
                   label: 'KEYBOARD',
                   active: widget.keyboardOpen,
                   onTap: widget.onKeyboard,
                 ),
                 _RailToggle(
                   key: const ValueKey('rail-keys'),
-                  icon: DazzleIcons.keys,
+                  icon: UpgradeIcons.keys,
                   label: 'KEYS',
                   active: widget.stripOpen,
                   onTap: widget.onStrip,
                 ),
                 _RailToggle(
                   key: const ValueKey('rail-crop'),
-                  icon: DazzleIcons.crop,
+                  icon: UpgradeIcons.crop,
                   label: 'CROP',
                   active: widget.cropArmed,
                   onTap: widget.onCrop,
@@ -187,7 +187,7 @@ class _RailToggle extends StatelessWidget {
     required this.onTap,
   });
 
-  final DazzleIcons icon;
+  final UpgradeIcons icon;
 
   /// Not drawn. The rail is glyphs only, and this is what each one is called to a screen
   /// reader and to a test.
@@ -208,7 +208,7 @@ class _RailToggle extends StatelessWidget {
           width: TapTargets.minHeight,
           height: TapTargets.minHeight,
           child: Center(
-            child: DazzleIcon(icon, size: IconSizes.toolbar, color: tint),
+            child: UpgradeIcon(icon, size: IconSizes.toolbar, color: tint),
           ),
         ),
       ),

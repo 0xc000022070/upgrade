@@ -9,8 +9,8 @@ import '../../design/tokens.dart';
 import '../../design/components/list_row.dart';
 import '../../design/components/priority_row.dart';
 import '../../design/effects/glitch.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import 'item_sheet.dart';
 import 'item_tags.dart';
@@ -59,7 +59,7 @@ class _TaskRowState extends ConsumerState<TaskRow> {
   }
 
   Future<void> _toggle() async {
-    // Reduce-motion drops the glitch in [DazzleIcon], so there is nothing to fire and the
+    // Reduce-motion drops the glitch in [UpgradeIcon], so there is nothing to fire and the
     // checkbox simply changes state.
     if (!MediaQuery.disableAnimationsOf(context)) {
       _glitch.fire(seed: widget.task.id.hashCode);
@@ -87,8 +87,8 @@ class _TaskRowState extends ConsumerState<TaskRow> {
         seed: task.id.hashCode,
         dim: task.done,
       ),
-      leading: DazzleIcon(
-        task.done ? DazzleIcons.checkboxChecked : DazzleIcons.checkboxEmpty,
+      leading: UpgradeIcon(
+        task.done ? UpgradeIcons.checkboxChecked : UpgradeIcons.checkboxEmpty,
         size: IconSizes.check,
         color: task.done
             ? context.tokens.textDisabled
@@ -119,8 +119,8 @@ class _TaskRowState extends ConsumerState<TaskRow> {
                 const <String, int>{})[task.id] ??
             0,
         state: !widget.drop && task.isNext
-            ? DazzleIcon(
-                DazzleIcons.forward,
+            ? UpgradeIcon(
+                UpgradeIcons.forward,
                 size: IconSizes.glyph,
                 color: context.tokens.accent,
               )

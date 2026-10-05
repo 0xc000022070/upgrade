@@ -1,8 +1,8 @@
 import 'dart:ui' show SemanticsAction;
 
-import 'package:dazzle/design/icons/dazzle_icon.dart';
-import 'package:dazzle/design/icons/dazzle_icons.dart';
-import 'package:dazzle/features/home/home_actions.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/features/home/home_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -37,9 +37,9 @@ void main() {
       }
       expect(
         tester
-            .widgetList<DazzleIcon>(find.byType(DazzleIcon))
+            .widgetList<UpgradeIcon>(find.byType(UpgradeIcon))
             .map((icon) => icon.icon),
-        [DazzleIcons.plugins, DazzleIcons.settings],
+        [UpgradeIcons.plugins, UpgradeIcons.settings],
       );
       expect(tester.takeException(), isNull);
     } finally {

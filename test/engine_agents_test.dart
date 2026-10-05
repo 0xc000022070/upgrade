@@ -1,12 +1,12 @@
-import 'package:dazzle/application/agent_state.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/alerts.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/features/agents/agents_screen.dart';
-import 'package:dazzle/platform/agent_watcher.dart';
-import 'package:dazzle/platform/engine_agents.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/host_keys.dart';
+import 'package:upgrade/application/agent_state.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/alerts.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/features/agents/agents_screen.dart';
+import 'package:upgrade/platform/agent_watcher.dart';
+import 'package:upgrade/platform/engine_agents.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_keys.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final pinned = PinnedHostKey(
@@ -138,7 +138,7 @@ void main() {
         },
         {
           'agent': 'opencode',
-          'config_path': '/home/dev/.config/opencode/plugin/dazzle.js',
+          'config_path': '/home/dev/.config/opencode/plugin/upgrade.js',
           'installed': true,
           'writable': true,
           'entries': 'export default {}',

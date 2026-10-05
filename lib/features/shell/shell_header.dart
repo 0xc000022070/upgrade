@@ -9,8 +9,8 @@ import '../../design/components/list_row.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/components/scan_sweep.dart';
-import '../../design/icons/dazzle_icon.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icon.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import '../../platform/shell/shell_connection.dart';
@@ -26,7 +26,7 @@ const _detailHeight = 56.0;
 
 const _tabMaxWidth = 88.0;
 
-/// A login shell's title is who and where — `luis@nyx: ~/Projects/dazzle` — and the where
+/// A login shell's title is who and where (`luis@nyx: ~/Projects/upgrade`), and the where
 /// is the half that tells two tabs apart. A title with a space in it is a sentence the
 /// program wrote and is kept as it stands, slashes included: `vim design/SPEC.md` is not
 /// a path.
@@ -178,7 +178,7 @@ class _ShellHeaderState extends State<ShellHeader> {
               _TabCell(
                 key: const ValueKey('shell-tab-diff'),
                 label: 'DIFF',
-                icon: DazzleIcons.branch,
+                icon: UpgradeIcons.branch,
                 dimmed: !widget.diffReady,
                 onTap: widget.diffReady ? onDiff : null,
               ),
@@ -358,7 +358,7 @@ class _Middle extends StatelessWidget {
                 PanelTextAction(
                   key: const ValueKey('shell-info-stop'),
                   label: 'STOP',
-                  icon: DazzleIcons.close,
+                  icon: UpgradeIcons.close,
                   onTap: () {
                     Navigator.of(context).pop();
                     stop();
@@ -456,8 +456,8 @@ class _ShellReasonRowState extends State<ShellReasonRow> {
                     ),
                   ),
                   if (detail != null)
-                    DazzleIcon(
-                      _open ? DazzleIcons.collapse : DazzleIcons.expand,
+                    UpgradeIcon(
+                      _open ? UpgradeIcons.collapse : UpgradeIcons.expand,
                       size: 12,
                       color: context.tokens.textMuted,
                     ),
@@ -531,7 +531,7 @@ class _TabCell extends StatelessWidget {
 
   final String? label;
 
-  final DazzleIcons? icon;
+  final UpgradeIcons? icon;
 
   final bool dimmed;
 
@@ -595,7 +595,7 @@ class _TabCell extends StatelessWidget {
               if (icon case final icon?)
                 Semantics(
                   label: label,
-                  child: DazzleIcon(icon, size: IconSizes.sm, color: tint),
+                  child: UpgradeIcon(icon, size: IconSizes.sm, color: tint),
                 )
               else
                 ConstrainedBox(

@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dazzle/application/agents.dart';
-import 'package:dazzle/application/reason_lines.dart';
-import 'package:dazzle/data/repositories/host_repository.dart';
-import 'package:dazzle/platform/herdr_client.dart';
-import 'package:dazzle/platform/host_keys.dart';
-import 'package:dazzle/platform/shell/shell_connection.dart';
-import 'package:dazzle/platform/vnc/vnc_failure.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/reason_lines.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/vnc/vnc_failure.dart';
 
 const nyx = Host(
   id: 'nyx',

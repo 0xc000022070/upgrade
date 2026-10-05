@@ -13,7 +13,7 @@ import '../../design/components/panel.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../design/components/panel_text_action.dart';
 import '../../design/components/solid_action_bar.dart';
-import '../../design/icons/dazzle_icons.dart';
+import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../platform/bundle_cipher.dart';
 import '../../platform/documents.dart';
@@ -59,12 +59,12 @@ class _BundlePanelState extends ConsumerState<BundlePanel> {
             ),
           PanelTextAction(
             label: 'EXPORT',
-            icon: DazzleIcons.arrowUp,
+            icon: UpgradeIcons.arrowUp,
             onTap: _busy ? null : _export,
           ),
           PanelTextAction(
             label: 'IMPORT',
-            icon: DazzleIcons.arrowDown,
+            icon: UpgradeIcons.arrowDown,
             onTap: _busy ? null : _import,
           ),
         ],

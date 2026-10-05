@@ -1,4 +1,4 @@
-import 'package:dazzle/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
