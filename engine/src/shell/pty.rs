@@ -154,7 +154,7 @@ mod tests {
             argv: argv.iter().map(|arg| arg.to_string()).collect(),
             arg0: None,
             cwd: std::env::temp_dir(),
-            env: vec![("DAZZLE_TEST".into(), "here".into())],
+            env: vec![("UPGRADE_TEST".into(), "here".into())],
             size: Size {
                 cols: 33,
                 rows: 11,
@@ -187,7 +187,7 @@ mod tests {
         let mut pty = spawn(&[
             "/bin/sh",
             "-c",
-            "stty size; echo $DAZZLE_TEST; test -t 0 && echo tty",
+            "stty size; echo $UPGRADE_TEST; test -t 0 && echo tty",
         ]);
         let out = read_all(&mut pty);
         assert!(out.contains("11 33"), "{out:?}");

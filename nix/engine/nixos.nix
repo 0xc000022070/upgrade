@@ -5,7 +5,7 @@
 }:
 
 let
-  cfg = config.services.dazzle-engine;
+  cfg = config.services.upgrade-engine;
   ports =
     if cfg.shellPorts != null then
       cfg.shellPorts
@@ -18,7 +18,7 @@ in
 {
   imports = [ ./options.nix ];
 
-  options.services.dazzle-engine.openFirewall = lib.mkOption {
+  options.services.upgrade-engine.openFirewall = lib.mkOption {
     type = lib.types.bool;
     default = false;
     description = ''
@@ -39,7 +39,7 @@ in
 
     # A symlink to a store file, which is world-readable: the ceiling is
     # something every account the engine may run as has to be able to read.
-    environment.etc."dazzle-engine/config.json".source = cfg.configFile;
+    environment.etc."upgrade-engine/config.json".source = cfg.configFile;
 
     networking.firewall.allowedUDPPortRanges = lib.mkIf cfg.openFirewall [ ports ];
   };

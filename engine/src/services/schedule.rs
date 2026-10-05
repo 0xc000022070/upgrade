@@ -530,7 +530,7 @@ fn probe() -> Value {
     })
 }
 
-const TIMER_PREFIX: &str = "dazzle-schedule-";
+const TIMER_PREFIX: &str = "upgrade-schedule-";
 
 fn timer_name(scope: &str) -> String {
     format!("{TIMER_PREFIX}{scope}")
@@ -610,7 +610,7 @@ pub(crate) fn remove_systemd_timers(dir: &Path) -> Vec<String> {
             .args(["--user", "daemon-reload"])
             .output();
         // A unit that failed is held by name in the manager long after its file is gone,
-        // so without this the account is left with dazzle entries under `--failed` that
+        // so without this the account is left with upgrade entries under `--failed` that
         // no file on the machine explains and nothing but this can clear.
         let _ = Command::new("systemctl")
             .arg("--user")
@@ -729,7 +729,7 @@ pub(crate) fn agent_plist(
     <string>{scope}</string>
   </array>
   <key>EnvironmentVariables</key>
-  <dict>{path_entry}<key>DAZZLE_ENGINE_STATE</key><string>{state}</string></dict>
+  <dict>{path_entry}<key>UPGRADE_ENGINE_STATE</key><string>{state}</string></dict>
   <key>StartInterval</key><integer>60</integer>
   <key>RunAtLoad</key><false/>
 </dict>
@@ -748,10 +748,10 @@ pub(crate) fn dispatch_unit(engine: &str, scope: &str, state: &str, path: Option
         .map(|path| format!("Environment=\"PATH={}\"\n", unit_escape(path)))
         .unwrap_or_default();
     format!(
-        "[Unit]\nDescription=Dazzle agent schedule dispatch\n\
+        "[Unit]\nDescription=Upgrade agent schedule dispatch\n\
          [Service]\nType=oneshot\nKillMode=process\n\
          ExecStart=\"{}\" __tick \"{scope}\"\n\
-         Environment=\"DAZZLE_ENGINE_STATE={}\"\n{path_line}\
+         Environment=\"UPGRADE_ENGINE_STATE={}\"\n{path_line}\
          TimeoutStartSec=30\n",
         unit_escape(engine),
         unit_escape(state)
@@ -794,7 +794,7 @@ fn install_timer(scope: &str) -> EngineResult<()> {
     }
 
     let service = dispatch_unit(&engine, scope, &state, install_path().as_deref());
-    let timer = "[Unit]\nDescription=Dazzle agent schedules\n\
+    let timer = "[Unit]\nDescription=Upgrade agent schedules\n\
                  [Timer]\nOnCalendar=*-*-* *:*:00\nAccuracySec=1s\nPersistent=true\n\
                  [Install]\nWantedBy=timers.target\n";
 
@@ -1557,7 +1557,7 @@ mod tests {
         // the timer has to run with.
         let profile = "/etc/profiles/per-user/dev/bin:/usr/bin:/bin";
         let plist = agent_plist(
-            "dazzle-schedule-aa",
+            "upgrade-schedule-aa",
             "/bin/engine",
             "aa",
             "/state",
@@ -1570,7 +1570,7 @@ mod tests {
         // An account with no PATH at all leaves the key out rather than pinning an
         // empty one, which would be a narrower environment than inheriting.
         assert!(
-            !agent_plist("dazzle-schedule-aa", "/bin/engine", "aa", "/state", None)
+            !agent_plist("upgrade-schedule-aa", "/bin/engine", "aa", "/state", None)
                 .contains("PATH")
         );
         assert!(!dispatch_unit("/bin/engine", "aa", "/state", None).contains("PATH"));
@@ -1586,7 +1586,7 @@ mod tests {
 
     fn scratch(name: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "dazzle-schedule-unit-{}-{name}",
+            "upgrade-schedule-unit-{}-{name}",
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&dir);
@@ -1610,21 +1610,21 @@ mod tests {
         plant(
             &dir,
             &[
-                "dazzle-schedule-aa.plist",
-                "dazzle-schedule-bb.plist",
+                "upgrade-schedule-aa.plist",
+                "upgrade-schedule-bb.plist",
                 "com.apple.something.plist",
-                "dazzle-schedule-cc.txt",
+                "upgrade-schedule-cc.txt",
             ],
         );
 
         let mut removed = remove_launchd_timers(&dir);
         removed.sort();
-        assert_eq!(removed, vec!["dazzle-schedule-aa", "dazzle-schedule-bb"]);
-        assert!(!dir.join("dazzle-schedule-aa.plist").exists());
+        assert_eq!(removed, vec!["upgrade-schedule-aa", "upgrade-schedule-bb"]);
+        assert!(!dir.join("upgrade-schedule-aa.plist").exists());
         assert!(dir.join("com.apple.something.plist").exists());
         // A label is what launchctl is addressed by, so a file that is not a plist is
         // not this walk's to take however it is named.
-        assert!(dir.join("dazzle-schedule-cc.txt").exists());
+        assert!(dir.join("upgrade-schedule-cc.txt").exists());
 
         assert!(remove_launchd_timers(&dir).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
@@ -1636,8 +1636,8 @@ mod tests {
         plant(
             &dir,
             &[
-                "dazzle-schedule-aa.timer",
-                "dazzle-schedule-aa.service",
+                "upgrade-schedule-aa.timer",
+                "upgrade-schedule-aa.service",
                 "borgbackup.timer",
             ],
         );
@@ -1646,7 +1646,7 @@ mod tests {
         removed.sort();
         assert_eq!(
             removed,
-            vec!["dazzle-schedule-aa.service", "dazzle-schedule-aa.timer"]
+            vec!["upgrade-schedule-aa.service", "upgrade-schedule-aa.timer"]
         );
         assert!(dir.join("borgbackup.timer").exists());
 
@@ -1656,7 +1656,7 @@ mod tests {
 
     #[test]
     fn a_walk_over_a_directory_that_is_not_there_removes_nothing() {
-        let absent = std::env::temp_dir().join("dazzle-schedule-unit-absent");
+        let absent = std::env::temp_dir().join("upgrade-schedule-unit-absent");
         let _ = std::fs::remove_dir_all(&absent);
         assert!(remove_launchd_timers(&absent).is_empty());
         assert!(remove_systemd_timers(&absent).is_empty());

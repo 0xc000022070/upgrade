@@ -999,7 +999,7 @@ mod tests {
     #[test]
     fn shared_memory_is_read_and_unlinked_once_settled() {
         let name = format!(
-            "dazzle-kitty-medium-{}-{}",
+            "upgrade-kitty-medium-{}-{}",
             std::process::id(),
             now_millis()
         );

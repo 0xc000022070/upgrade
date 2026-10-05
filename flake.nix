@@ -1,5 +1,5 @@
 {
-  description = "Dazzle — local-first personal control plane (Flutter)";
+  description = "Upgrade — local-first personal control plane (Flutter)";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -25,13 +25,13 @@
         { pkgs, lib, ... }:
         {
           imports = [ path ];
-          services.dazzle-engine.package =
+          services.upgrade-engine.package =
             lib.mkDefault
               self.packages.${pkgs.stdenv.hostPlatform.system}.engine;
         };
 
       hostScenarios = import ./nix/host-vm/scenarios.nix;
-      hostName = name: if name == "full" then "dazzle-host" else "dazzle-host-${name}";
+      hostName = name: if name == "full" then "upgrade-host" else "upgrade-host-${name}";
       guestSystems = {
         x86_64-linux = "x86_64-linux";
         aarch64-darwin = "aarch64-linux";
@@ -42,9 +42,9 @@
           system = guestSystems.${hostSystem};
           modules = [
             ./nix/host-vm/configuration.nix
-            self.nixosModules.dazzle-engine
+            self.nixosModules.upgrade-engine
             {
-              dazzleHost = scenario // {
+              upgradeHost = scenario // {
                 inherit name;
               };
               virtualisation.host.pkgs = nixpkgs.legacyPackages.${hostSystem};
@@ -87,7 +87,7 @@
           {
             "host-vm${suffix}" =
               app tools."host-vm-runner${suffix}"
-                "Run the ${name} remote host fixture for Dazzle";
+                "Run the ${name} remote host fixture for Upgrade";
             "host-up${suffix}" = app tools."host-up${suffix}" "Boot the ${name} remote host fixture detached";
             "host-ssh${suffix}" =
               app tools."host-ssh${suffix}"
@@ -103,18 +103,18 @@
       # The engine is declared by the owner of a machine, never installed by the
       # app, so the modules are the only supported way onto a host.
       nixosModules = rec {
-        dazzle-engine = engineModule ./nix/engine/nixos.nix;
-        default = dazzle-engine;
+        upgrade-engine = engineModule ./nix/engine/nixos.nix;
+        default = upgrade-engine;
       };
 
       darwinModules = rec {
-        dazzle-engine = engineModule ./nix/engine/darwin.nix;
-        default = dazzle-engine;
+        upgrade-engine = engineModule ./nix/engine/darwin.nix;
+        default = upgrade-engine;
       };
 
       homeModules = rec {
-        dazzle-engine = engineModule ./nix/engine/home.nix;
-        default = dazzle-engine;
+        upgrade-engine = engineModule ./nix/engine/home.nix;
+        default = upgrade-engine;
       };
 
       devShells.${system}.default = import ./nix/dev-shell.nix {

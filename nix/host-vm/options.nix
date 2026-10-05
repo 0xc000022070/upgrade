@@ -1,7 +1,7 @@
 { config, lib, ... }:
 
 {
-  options.dazzleHost = {
+  options.upgradeHost = {
     name = lib.mkOption {
       type = lib.types.str;
       default = "full";
@@ -11,10 +11,10 @@
       from = lib.mkOption { type = lib.types.port; };
       to = lib.mkOption {
         type = lib.types.port;
-        default = config.dazzleHost.mosh.from + 15;
+        default = config.upgradeHost.mosh.from + 15;
       };
     };
-    engine = lib.mkEnableOption "the Dazzle engine";
+    engine = lib.mkEnableOption "the Upgrade engine";
     herdr = lib.mkEnableOption "herdr";
     codex = lib.mkEnableOption "codex against a local mock of the OpenAI backend";
     declaredHooks = lib.mkEnableOption "agent configs linked into the store";

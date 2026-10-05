@@ -16,20 +16,20 @@ use std::path::PathBuf;
 const MAX_REQUEST_BYTES: u64 = 1024 * 1024;
 
 const USAGE: &str = "\
-dazzle-engine — the host side of a Dazzle plugin.
+upgrade-engine — the host side of a Upgrade plugin.
 
 It is exec'd per call: it reads one JSON request on stdin, writes one JSON
 response on stdout, and exits. The one thing that stays is a shell/1 server:
 it listens on UDP for its own tab until the shell ends or is stopped.
 
-    echo '{\"service\":\"lifecycle\",\"op\":\"probe\"}' | dazzle-engine
+    echo '{\"service\":\"lifecycle\",\"op\":\"probe\"}' | upgrade-engine
 
   hook <agent>  report an agent's hook event (claude, codex, opencode); the
                 agent runs this, not a person
   --version   print the engine and protocol version as JSON
   --help      print this
 
-Configuration is read from /etc/dazzle-engine/config.json and the per-user file
+Configuration is read from /etc/upgrade-engine/config.json and the per-user file
 beside it. Their denyCapabilities and denyExec lists are unioned, never replaced.
 shellPorts {from, to} bounds the UDP ports shell/1 listens on; every file's
 range is intersected, and the default is 60001-60999.
@@ -95,7 +95,7 @@ fn main() {
             return;
         }
         Some(other) => {
-            eprintln!("dazzle-engine: unknown argument {other}; the request goes on stdin");
+            eprintln!("upgrade-engine: unknown argument {other}; the request goes on stdin");
             std::process::exit(2);
         }
         None => {}
@@ -111,7 +111,7 @@ fn main() {
     }) {
         Ok(()) => {}
         Err(err) => {
-            eprintln!("dazzle-engine: the response could not be written: {err}");
+            eprintln!("upgrade-engine: the response could not be written: {err}");
             std::process::exit(2);
         }
     }

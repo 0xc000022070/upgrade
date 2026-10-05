@@ -18,7 +18,7 @@ let
   };
 in
 pkgs.mkShell {
-  name = "dazzle";
+  name = "upgrade";
 
   packages = [
     pkgs.flutter
@@ -69,7 +69,7 @@ pkgs.mkShell {
   JAVA_HOME = "${jdk}";
 
   shellHook = ''
-    export DAZZLE_BUILD="$(${pkgs.git}/bin/git rev-parse --short HEAD 2>/dev/null || echo dev)"
+    export UPGRADE_BUILD="$(${pkgs.git}/bin/git rev-parse --short HEAD 2>/dev/null || echo dev)"
 
     # Only these two keys are rewritten, because store paths move with the
     # flake lock. Every other key is kept: `flutter build` writes

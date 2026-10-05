@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-const BINARY: &str = env!("CARGO_BIN_EXE_dazzle-engine");
+const BINARY: &str = env!("CARGO_BIN_EXE_upgrade-engine");
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
 struct Sandbox {
@@ -29,7 +29,7 @@ impl Sandbox {
     fn build(name: &str, only_stubs: bool) -> Self {
         let unique = COUNTER.fetch_add(1, Ordering::SeqCst);
         let root = std::env::temp_dir().join(format!(
-            "dazzle-engine-test-{}-{name}-{unique}",
+            "upgrade-engine-test-{}-{name}-{unique}",
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&root);
@@ -112,10 +112,10 @@ impl Sandbox {
             .stderr(Stdio::piped());
         match config {
             Some(path) => {
-                command.env("DAZZLE_ENGINE_CONFIG", path);
+                command.env("UPGRADE_ENGINE_CONFIG", path);
             }
             None => {
-                command.env_remove("DAZZLE_ENGINE_CONFIG");
+                command.env_remove("UPGRADE_ENGINE_CONFIG");
             }
         }
         let mut child = command.spawn().unwrap();
@@ -138,7 +138,7 @@ impl Sandbox {
     fn command(&self, path: &str) -> Command {
         let mut command = Command::new(BINARY);
         command
-            .env("DAZZLE_ENGINE_STATE", self.state())
+            .env("UPGRADE_ENGINE_STATE", self.state())
             .env("HOME", self.home())
             .env("XDG_CONFIG_HOME", self.home().join("config"))
             .env("PATH", path);
@@ -575,11 +575,11 @@ fn teardown_takes_the_timer_off_the_manager_that_holds_it() {
     let units = sandbox.unit_dir();
     fs::create_dir_all(&units).unwrap();
     let planted: Vec<String> = if cfg!(target_os = "macos") {
-        vec![format!("dazzle-schedule-{SCOPE}.plist")]
+        vec![format!("upgrade-schedule-{SCOPE}.plist")]
     } else {
         vec![
-            format!("dazzle-schedule-{SCOPE}.timer"),
-            format!("dazzle-schedule-{SCOPE}.service"),
+            format!("upgrade-schedule-{SCOPE}.timer"),
+            format!("upgrade-schedule-{SCOPE}.service"),
         ]
     };
     // A file the engine did not write is not the engine's to remove, whoever else on
@@ -615,7 +615,7 @@ fn teardown_takes_the_timer_off_the_manager_that_holds_it() {
             "systemctl was told {told:?}"
         );
         // A unit that failed is held by name after its file is gone, and an account left
-        // with dazzle entries under `--failed` has nothing on the machine to explain them.
+        // with upgrade entries under `--failed` has nothing on the machine to explain them.
         assert!(told.contains("reset-failed"), "systemctl was told {told:?}");
     }
 }
@@ -663,7 +663,7 @@ fn a_job(sandbox: &Sandbox, revision: u64) -> Value {
 fn tick_queue(sandbox: &Sandbox) {
     assert!(Command::new(BINARY)
         .args(["__tick", SCOPE])
-        .env("DAZZLE_ENGINE_STATE", sandbox.state())
+        .env("UPGRADE_ENGINE_STATE", sandbox.state())
         .env(
             "PATH",
             format!(
@@ -1225,7 +1225,7 @@ fn the_timer_ticks_against_the_same_state_the_service_wrote() {
     let ticked = Command::new(BINARY)
         .arg("__tick")
         .arg(SCOPE)
-        .env("DAZZLE_ENGINE_STATE", sandbox.state())
+        .env("UPGRADE_ENGINE_STATE", sandbox.state())
         .env(
             "PATH",
             format!(
@@ -1605,7 +1605,7 @@ fn install_adds_the_hooks_beside_the_user_own_and_teardown_takes_only_them() {
     assert_eq!(written["hooks"]["Stop"].as_array().unwrap().len(), 2);
     assert_eq!(
         written["hooks"]["PermissionRequest"][0]["hooks"][0]["command"],
-        json!("dazzle-engine hook claude")
+        json!("upgrade-engine hook claude")
     );
 
     sandbox.agents(&owner, "install", json!({ "agent": "claude" }));
@@ -1638,7 +1638,7 @@ fn a_config_a_declaration_owns_is_shown_rather_than_written() {
     assert_eq!(codex["writable"], json!(false));
     assert_eq!(
         codex["entries"]["hooks"]["PermissionRequest"][0]["hooks"][0]["command"],
-        json!("dazzle-engine hook codex")
+        json!("upgrade-engine hook codex")
     );
 
     let refused = sandbox.agents(&owner, "install", json!({ "agent": "codex" }));

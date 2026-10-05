@@ -17,7 +17,7 @@ in
   "host-vm${suffix}" = nixos.config.system.build.vm;
 
   "host-ssh${suffix}" = pkgs.writeShellApplication {
-    name = "dazzle-host-ssh${suffix}";
+    name = "upgrade-host-ssh${suffix}";
     runtimeInputs = [
       pkgs.openssh
       pkgs.sshpass
@@ -32,10 +32,10 @@ in
   };
 
   "host-vm-runner${suffix}" = pkgs.writeShellApplication {
-    name = "dazzle-host-vm${suffix}";
+    name = "upgrade-host-vm${suffix}";
     runtimeInputs = [ pkgs.coreutils ];
     text = ''
-      state_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/dazzle"
+      state_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/upgrade"
       mkdir -p "$state_dir"
       export NIX_DISK_IMAGE="$state_dir/host-vm${suffix}.qcow2"
       exec ${runner} "$@"
@@ -43,7 +43,7 @@ in
   };
 
   "host-up${suffix}" = pkgs.writeShellApplication {
-    name = "dazzle-host-up${suffix}";
+    name = "upgrade-host-up${suffix}";
     runtimeInputs = [
       pkgs.coreutils
     ]
@@ -54,7 +54,7 @@ in
     text = ''
       probe() { bash -c 'exec 3<>/dev/tcp/127.0.0.1/${port} && head -c 3 <&3 | grep -q SSH' 2>/dev/null; }
       if probe; then echo "${vmName}: up on ${port}"; exit 0; fi
-      state_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/dazzle"
+      state_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/upgrade"
       mkdir -p "$state_dir"
       log="''${TMPDIR:-/tmp}/${vmName}.log"
       echo "${vmName}: booting, log $log"

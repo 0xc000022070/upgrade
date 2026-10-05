@@ -7,7 +7,7 @@
 }:
 
 let
-  cfg = config.dazzleHost;
+  cfg = config.upgradeHost;
   full = cfg.name == "full";
 
   codexMockPort = 18733;
@@ -69,7 +69,7 @@ let
   declaredConfigs = {
     ".claude/settings.json" = pkgs.writeText "settings.json" (builtins.toJSON { model = "sonnet"; });
     ".codex/hooks.json" = pkgs.writeText "hooks.json" (builtins.toJSON { hooks = { }; });
-    ".config/opencode/plugins/dazzle.js" = pkgs.writeText "dazzle.js" "export default {}\n";
+    ".config/opencode/plugins/upgrade.js" = pkgs.writeText "upgrade.js" "export default {}\n";
   };
 in
 {
@@ -79,7 +79,7 @@ in
   ];
 
   networking = {
-    hostName = if full then "dazzle-host" else "dazzle-host-${cfg.name}";
+    hostName = if full then "upgrade-host" else "upgrade-host-${cfg.name}";
     firewall.allowedTCPPorts = [ 22 ];
     firewall.allowedUDPPortRanges = [
       {
@@ -101,7 +101,7 @@ in
   # miss: without it the user's systemd instance stops at logout, and the engine
   # reports the host unsupported rather than installing a timer that would only run
   # while somebody happened to be logged in.
-  services.dazzle-engine = {
+  services.upgrade-engine = {
     enable = cfg.engine;
     shellPorts = {
       inherit (cfg.mosh) from to;
@@ -150,7 +150,7 @@ in
   ++ [ (lib.hiPrio pinnedMosh) ];
 
   # tmpfiles makes a missing parent root's, and home-manager's are the user's.
-  systemd.tmpfiles.settings.dazzle-declared-hooks = lib.mkIf cfg.declaredHooks (
+  systemd.tmpfiles.settings.upgrade-declared-hooks = lib.mkIf cfg.declaredHooks (
     lib.genAttrs
       (map (dir: "/home/dev/${dir}") [
         ".claude"
@@ -204,8 +204,8 @@ in
     };
   };
 
-  systemd.services.dazzle-host-fixture = {
-    description = "Seed the Dazzle remote host fixture";
+  systemd.services.upgrade-host-fixture = {
+    description = "Seed the Upgrade remote host fixture";
     wantedBy = [ "multi-user.target" ];
     path = [ pkgs.git ];
     serviceConfig = {
@@ -229,7 +229,7 @@ in
         git -C "$project" init -b main
         git -C "$project" config user.name fixture
         git -C "$project" config user.email fixture@localhost
-        printf 'Dazzle remote host fixture\n' > "$project/README"
+        printf 'Upgrade remote host fixture\n' > "$project/README"
         git -C "$project" add README
         git -C "$project" commit -m 'initial fixture'
       fi

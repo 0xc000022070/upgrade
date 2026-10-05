@@ -1,14 +1,14 @@
 [package]
-name = "dazzle-engine"
+name = "upgrade-engine"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.89"
-description = "The host side of a Dazzle plugin: one binary, exec'd per call."
+description = "The host side of a Upgrade plugin: one binary, exec'd per call."
 license = "MIT"
 build = "build.rs"
 
 [[bin]]
-name = "dazzle-engine"
+name = "upgrade-engine"
 path = "src/main.rs"
 
 [dependencies]

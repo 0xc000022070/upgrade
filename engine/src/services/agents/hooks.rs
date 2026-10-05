@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 
 use super::KINDS;
 
-const MARK: &str = "dazzle-engine hook";
-const PLUGIN_MARK: &str = "// dazzle-engine agents plugin";
+const MARK: &str = "upgrade-engine hook";
+const PLUGIN_MARK: &str = "// upgrade-engine agents plugin";
 const EVENT_TIMEOUT_S: u64 = 10;
 const APPROVAL_TIMEOUT_S: u64 = 90;
 
@@ -51,7 +51,7 @@ fn config_path(agent: &str) -> EngineResult<PathBuf> {
             .join("hooks.json"),
         "opencode" => env_dir("XDG_CONFIG_HOME")
             .unwrap_or(home.join(".config"))
-            .join("opencode/plugins/dazzle.js"),
+            .join("opencode/plugins/upgrade.js"),
         other => return Err(EngineError::bad_request(format!("no agent kind {other}"))),
     })
 }
@@ -112,7 +112,7 @@ const answerable = (event) => {{
   }}
 }};
 
-export const DazzleAgents = async ({{ client, $, directory }}) => {{
+export const UpgradeAgents = async ({{ client, $, directory }}) => {{
   let queue = Promise.resolve();
   const report = async (input) => {{
     const out = await $`{MARK} opencode < ${{new Response(JSON.stringify({{ cwd: directory, ...input }}))}}`.quiet().nothrow();
@@ -270,7 +270,7 @@ fn write_atomic(path: &Path, contents: &str) -> EngineResult<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let tmp = path.with_extension("dazzle.tmp");
+    let tmp = path.with_extension("upgrade.tmp");
     fs::write(&tmp, contents)?;
     if let Ok(meta) = fs::metadata(path) {
         fs::set_permissions(&tmp, meta.permissions())?;
@@ -387,7 +387,7 @@ mod tests {
     use std::process::Command;
 
     fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("dazzle-hooks-unit-{}-{name}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("upgrade-hooks-unit-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -447,7 +447,7 @@ mod tests {
     }
 
     const HARNESS: &str = r#"
-const { DazzleAgents } = await import(process.argv[2]);
+const { UpgradeAgents } = await import(process.argv[2]);
 const log = [];
 const $ = (_strings, body) => ({ quiet: () => ({ nothrow: async () => {
   const name = JSON.parse(await body.text()).hook_event_name;
@@ -456,7 +456,7 @@ const $ = (_strings, body) => ({ quiet: () => ({ nothrow: async () => {
   log.push(`end ${name}`);
   return { text: () => "" };
 } }) });
-const hooks = await DazzleAgents({ client: {}, $, directory: "/w" });
+const hooks = await UpgradeAgents({ client: {}, $, directory: "/w" });
 hooks.event({ event: { type: "session.status", properties: { sessionID: "s", status: { type: "busy" } } } });
 hooks.event({ event: { type: "permission.asked", properties: { id: "p1", sessionID: "s", permission: "bash", patterns: ["ls"] } } });
 await new Promise((done) => setTimeout(done, 300));
@@ -467,9 +467,9 @@ console.log(JSON.stringify(log));
     #[test]
     fn the_opencode_plugin_reports_events_in_the_order_they_came() {
         let dir = scratch("plugin-order");
-        std::fs::write(dir.join("dazzle.mjs"), plugin()).unwrap();
+        std::fs::write(dir.join("upgrade.mjs"), plugin()).unwrap();
         std::fs::write(dir.join("harness.mjs"), HARNESS).unwrap();
-        let Ok(output) = Command::new("node").arg(dir.join("harness.mjs")).arg(dir.join("dazzle.mjs")).output() else {
+        let Ok(output) = Command::new("node").arg(dir.join("harness.mjs")).arg(dir.join("upgrade.mjs")).output() else {
             return;
         };
         let _ = std::fs::remove_dir_all(&dir);

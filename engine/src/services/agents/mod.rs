@@ -362,7 +362,7 @@ fn env_text(key: &str) -> Option<String> {
 
 pub fn hook(agent: &str) -> i32 {
     if let Err(err) = run_hook(agent) {
-        eprintln!("dazzle-engine hook: {err}");
+        eprintln!("upgrade-engine hook: {err}");
     }
     0
 }
@@ -464,7 +464,7 @@ fn apply_event(session: &mut Session, event: &str, input: &Value) -> Option<Opti
 fn print_decision(decision: &str) {
     let mut decided = json!({ "behavior": decision });
     if decision == "deny" {
-        decided["message"] = json!("Denied from Dazzle");
+        decided["message"] = json!("Denied from Upgrade");
     }
     let output = json!({
         "hookSpecificOutput": {
@@ -583,7 +583,7 @@ mod tests {
 
     #[test]
     fn an_answer_that_lands_as_the_wait_ends_is_taken_under_the_lock() {
-        let root = std::env::temp_dir().join(format!("dazzle-agents-close-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("upgrade-agents-close-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let mut store = Store::open(&root).unwrap();
         let mut session = new_session("claude:s1", "claude", "s1", now_millis());
