@@ -691,8 +691,37 @@ void main() {
     await ready(tester);
 
     expect(sessions.forHost(rose.id), isEmpty);
+    expect(find.byKey(const ValueKey('shell-sheet')), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('closing the last tab pops a route that opened on it', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions, home: const Launcher()));
+    await tester.pump();
+
+    await tester.tap(find.text('OPEN'));
+    await ready(tester);
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await ready(tester);
     expect(find.text('ROSE'), findsNothing);
-    expect(find.text('OPEN'), findsOneWidget);
+    expect(sessions.forHost(rose.id), hasLength(1));
+
+    await tester.tap(find.text('OPEN'));
+    await ready(tester);
+    expect(find.text('ROSE'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('shell-tab-close')));
+    await ready(tester);
+    await tester.tap(find.text('CLOSE'));
+    await ready(tester);
+
+    expect(sessions.forHost(rose.id), isEmpty);
+    expect(find.byKey(const ValueKey('shell-sheet')), findsNothing);
 
     await unmount(tester);
   });

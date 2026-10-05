@@ -161,6 +161,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       } else if (sessions.forHost(widget.host.id).isEmpty) {
         sessions.open(widget.host, prompt: _askHostKey);
       }
+      // Landing on tabs that were already there tells the store nothing, so no drain
+      // would ever see them.
+      if (sessions.forHost(widget.host.id).isNotEmpty) _opened = true;
     });
   }
 
