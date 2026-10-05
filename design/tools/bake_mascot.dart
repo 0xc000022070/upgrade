@@ -2,10 +2,10 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:dazzle/design/ascii/braille.dart';
-import 'package:dazzle/design/ascii/grid.dart';
-import 'package:dazzle/design/ascii/kitten.dart';
-import 'package:dazzle/design/ascii/noise.dart';
+import 'package:upgrade/design/ascii/braille.dart';
+import 'package:upgrade/design/ascii/grid.dart';
+import 'package:upgrade/design/ascii/kitten.dart';
+import 'package:upgrade/design/ascii/noise.dart';
 
 const _cols = 17;
 const _rows = 10;

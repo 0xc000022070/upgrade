@@ -1,6 +1,6 @@
 # Remote host development
 
-Use the NixOS VM as Dazzle's integrated remote computer. Build Dazzle and drive
+Use the NixOS VM as Upgrade's integrated remote computer. Build Upgrade and drive
 the Android emulator on the development host; do not install Android tooling in
 the VM.
 
@@ -9,9 +9,9 @@ the VM.
 3. The guest project is `/home/dev/Projects/fixture`.
 4. Herdr uses the guest session `development`.
 
-The development phone is `pixel_7-api36`, not Faraday. Its Dazzle host entry is:
+The development phone is `pixel_7-api36`, not Faraday. Its Upgrade host entry is:
 
-- name: `DAZZLE HOST VM`
+- name: `UPGRADE HOST VM`
 - address: `100.118.60.77:2222`
 - user: `dev`
 - key: `test-key`

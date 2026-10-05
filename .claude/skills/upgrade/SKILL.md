@@ -1,9 +1,9 @@
 ---
-name: dazzle
-description: Work on Dazzle, the open source phone client for hosts, shells, screens and herdr agents. Use for any change in this repo — a user ruling landing in design/SPEC.md, building it, gating it, committing it, pushing a build to faraday.
+name: upgrade
+description: Work on Upgrade, the open source phone client for hosts, shells, screens and herdr agents. Use for any change in this repo — a user ruling landing in design/SPEC.md, building it, gating it, committing it, pushing a build to faraday.
 ---
 
-# Dazzle
+# Upgrade
 
 Flutter, Drift, Riverpod. Dark monochrome, accent `#B7FF2A`, Barlow Condensed and IBM Plex Mono. The contract is `design/SPEC.md`: it says what the app does in the house words, and the section being built names what has to be true.
 
