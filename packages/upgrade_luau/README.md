@@ -63,7 +63,7 @@ Declare each alias under `host_capabilities.<alias>` with `api_version = 1`, a `
 Current services:
 
 - `hosts`: `list` returns registered host IDs and names. `workspaces({host})` returns `{items = {"~/Projects/example", ...}}` through the existing host workspace scanner, after native consent. Paths can be absolute or home-relative; the scheduler expands `~/` on the host, then canonicalizes the existing directory. No shell interpolation is used. Declare and grant workspace discovery separately from `list`.
-- `scheduler`: `inspect`, `setup`, `list`, `get`, `save`, `pause`, `resume`, `run`, `history`, `output`, `cancel`, `usage`, `pause_scope`, `resume_scope`. Arguments include a registered `host` ID. The call reaches that host's `upgrade-engine` over the `schedule/1` service; no code is ever shipped to the machine. `inspect.features` advertises `queue`, `cancel`, and `summary`; older engines omit this list.
+- `scheduler`: `inspect`, `setup`, `list`, `get`, `save`, `pause`, `resume`, `run`, `history`, `output`, `cancel`, `usage`, `pause_scope`, `resume_scope`. Arguments include a registered `host` ID. The call reaches that host's `upgraded` over the `schedule/1` service; no code is ever shipped to the machine. `inspect.features` advertises `queue`, `cancel`, and `summary`; older engines omit this list.
 
 Host storage is scoped by plugin ID and source origin. No operation accepts another plugin's owner or arbitrary storage path. Each scope has its own versioned, locked JSON state and run output files. UI state, local dataset usage, and remote scheduler storage are separate measurements.
 
@@ -71,7 +71,7 @@ This API isolation is not an OS sandbox for agent processes. Granting agent exec
 
 ## Agent schedules
 
-The built-in Luau plugin is disabled until enabled in Settings. It does not depend on Drops or Projects. On a registered, verified Linux host, setup requires an installed `upgrade-engine` carrying `schedule/1`, systemd user services, login linger, and an installed, authenticated Codex or Claude CLI. A host whose engine is absent, or whose engine does not carry that service, reports the missing capability instead of simulating a schedule. Upgrade never installs the engine; the machine's owner declares it.
+The built-in Luau plugin is disabled until enabled in Settings. It does not depend on Drops or Projects. On a registered, verified Linux host, setup requires an installed `upgraded` carrying `schedule/1`, systemd user services, login linger, and an installed, authenticated Codex or Claude CLI. A host whose engine is absent, or whose engine does not carry that service, reports the missing capability instead of simulating a schedule. Upgrade never installs the engine; the machine's owner declares it.
 
 Setup writes only the engine's own state for that scope and the systemd user service/timer it arms. It does not enable linger, alter SSH authorization, or replace existing host jobs. The timer checks once per minute. Each run uses a detached engine supervisor, survives phone disconnection, and uses the host agent's existing permissions and authentication. No permission-bypass flags are added.
 

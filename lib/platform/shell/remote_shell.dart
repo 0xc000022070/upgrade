@@ -91,7 +91,7 @@ String moshServerCleanupCommand(String session) {
     'for p in /proc/[0-9]*; do '
     '$marked$session" 2>/dev/null || continue; '
     'a=\$(tr "\\000" " " < "\$p/cmdline" 2>/dev/null); '
-    'case "\${a%% *}" in mosh-server|*/mosh-server|upgrade-engine|*/upgrade-engine) '
+    'case "\${a%% *}" in mosh-server|*/mosh-server|upgraded|*/upgraded) '
     'kill "\${p##*/}" 2>/dev/null || ok=0;; esac; '
     'done; [ "\$ok" -eq 1 ]',
   );
@@ -198,7 +198,7 @@ String pinentryMarkCommand(String tab) {
     'tr "\\000" "\\n" < "\$p/environ" | grep -qx "$moshTabVariable=$tab" '
     '|| continue; '
     'a=\$(tr "\\000" " " < "\$p/cmdline"); '
-    'case "\${a%% *}" in mosh-server|*/mosh-server|upgrade-engine|*/upgrade-engine) h="\$h \${p##*/}";; esac; '
+    'case "\${a%% *}" in mosh-server|*/mosh-server|upgraded|*/upgraded) h="\$h \${p##*/}";; esac; '
     'done; '
     'ps -eo ppid=,tty= | awk -v h="\$h" '
     "'BEGIN { n = split(h, k, \" \"); for (i = 1; i <= n; i++) w[k[i]] = 1 } "

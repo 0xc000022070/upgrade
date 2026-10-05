@@ -1009,7 +1009,7 @@ Future<Map<String, Object?>?> _engineCall(
   required Map<String, Object?> args,
 }) async {
   final result = await run(
-    '$moshTabVariable=${shellQuote(tab)} upgrade-engine',
+    '$moshTabVariable=${shellQuote(tab)} upgraded',
     Uint8List.fromList(
       utf8.encode(
         jsonEncode({

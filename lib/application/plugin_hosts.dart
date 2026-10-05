@@ -220,7 +220,7 @@ Future<Map<String, Object?>> scheduleOver(
   Map<String, Object?> args,
 ) async {
   final session = await openWithin(
-    client.execute('upgrade-engine'),
+    client.execute('upgraded'),
     const Duration(seconds: 10),
     endExec,
   );
@@ -264,7 +264,7 @@ Future<Map<String, Object?>> scheduleOver(
           .trim();
       // A machine with no engine answers over the shell instead: 127 and a line of its own.
       if (session.exitCode == 127 || complaint.endsWith('not found')) {
-        throw const PluginException('This host has no upgrade-engine installed');
+        throw const PluginException('This host has no upgraded installed');
       }
       throw PluginException('Host engine did not answer. $complaint');
     }

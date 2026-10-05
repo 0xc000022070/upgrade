@@ -7,17 +7,17 @@ import 'package:upgrade/platform/shell/engine_channel.dart';
 import 'package:upgrade/platform/shell/udp_path.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-final _binary = Platform.environment['UPGRADE_ENGINE_BIN'];
+final _binary = Platform.environment['UPGRADED_BIN'];
 
 const _patience = Duration(seconds: 10);
 const _size = EngineSize(80, 24, widthPx: 800, heightPx: 480);
 
 String? get _skip {
   final binary = _binary;
-  if (binary == null || binary.isEmpty) return 'UPGRADE_ENGINE_BIN is not set';
+  if (binary == null || binary.isEmpty) return 'UPGRADED_BIN is not set';
   final stat = FileStat.statSync(binary);
   if (stat.type != FileSystemEntityType.file || stat.mode & 0x49 == 0) {
-    return 'UPGRADE_ENGINE_BIN is not an executable: $binary';
+    return 'UPGRADED_BIN is not an executable: $binary';
   }
   return null;
 }
@@ -30,14 +30,14 @@ class _Sandbox {
 
   Map<String, String> get _environment => {
     for (final entry in Platform.environment.entries)
-      if (entry.key != 'UPGRADE_ENGINE_CONFIG') entry.key: entry.value,
-    'UPGRADE_ENGINE_STATE': '${root.path}/state',
+      if (entry.key != 'UPGRADED_CONFIG') entry.key: entry.value,
+    'UPGRADED_STATE': '${root.path}/state',
     'HOME': '${root.path}/home',
     'XDG_CONFIG_HOME': '${root.path}/home/config',
   };
 
   static Future<_Sandbox> create() async {
-    final root = await Directory.systemTemp.createTemp('upgrade-engine-live-');
+    final root = await Directory.systemTemp.createTemp('upgraded-live-');
     await Directory('${root.path}/state').create();
     await Directory('${root.path}/home').create();
     final sandbox = _Sandbox(root);

@@ -101,7 +101,7 @@ in
   # miss: without it the user's systemd instance stops at logout, and the engine
   # reports the host unsupported rather than installing a timer that would only run
   # while somebody happened to be logged in.
-  services.upgrade-engine = {
+  services.upgraded = {
     enable = cfg.engine;
     shellPorts = {
       inherit (cfg.mosh) from to;

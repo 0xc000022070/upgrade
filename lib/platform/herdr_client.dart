@@ -569,7 +569,7 @@ class HerdrSession {
     Duration? within,
   }) async {
     final result = await _runWithStdin(
-      'upgrade-engine',
+      'upgraded',
       Uint8List.fromList(utf8.encode(jsonEncode(request))),
       within: within,
     );

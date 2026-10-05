@@ -1375,7 +1375,7 @@ String Function(String, String) engineHostAnswer({
   String start =
       '{"ok":true,"result":{"port":60990,"key":"$_engineKey","pid":42}}',
 }) => (command, stdin) {
-  if (!command.endsWith('upgrade-engine')) return moshHostAnswer(command);
+  if (!command.endsWith('upgraded')) return moshHostAnswer(command);
   final request = jsonDecode(stdin) as Map<String, Object?>;
   return switch (request['op']) {
     'start' => start,
@@ -1456,7 +1456,7 @@ void engineTests() {
 
     expect(connection, isA<EngineShellConnection>());
     expect(connection.transport, ShellTransport.engine);
-    expect(host.requests, ["exec $moshTabVariable='upgrade123' upgrade-engine"]);
+    expect(host.requests, ["exec $moshTabVariable='upgrade123' upgraded"]);
     expect(engineRequests(host).single, {
       'service': 'shell/1',
       'op': 'start',
@@ -1508,7 +1508,7 @@ void engineTests() {
     ('not installed', ''),
     ('too old to know shell/1', '{"ok":false,"error":{"kind":"unsupported"}}'),
     ('refusing the owner', '{"ok":false,"error":{"kind":"denied"}}'),
-    ('answering garbage', 'upgrade-engine: command not found'),
+    ('answering garbage', 'upgraded: command not found'),
   ]) {
     test('an engine $name falls back to Mosh and stops nothing', () async {
       final host = FakeHost()..execInputAnswer = engineHostAnswer(start: start);
@@ -1673,7 +1673,7 @@ void engineTests() {
       tabSession: session,
     );
     addTearDown(connection.close);
-    host.execInputAnswer = (command, stdin) => command.endsWith('upgrade-engine')
+    host.execInputAnswer = (command, stdin) => command.endsWith('upgraded')
         ? '{"ok":false,"error":{"kind":"failed","message":"no"}}'
         : '';
 
@@ -1684,7 +1684,7 @@ void engineTests() {
     expect(host.requests.last, 'exec ${moshServerCleanupCommand('upgrade456')}');
 
     host.execCodeAnswer = (command) =>
-        command.endsWith('upgrade-engine') ? 0 : 1;
+        command.endsWith('upgraded') ? 0 : 1;
     expect(
       await connection.terminateRemote('upgrade456', durableShell: false),
       isFalse,
