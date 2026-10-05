@@ -93,6 +93,8 @@ class ShellTunnel {
 
   final UdpVerdicts udpVerdicts;
 
+  final _resumes = <String, ({String epoch, EngineResume state})>{};
+
   Future<ShellConnection> open({
     required String address,
     required int port,
@@ -141,6 +143,8 @@ class ShellTunnel {
             );
       final tab = tabSession;
       if (tab != null && durableShellSession.hasMatch(tab)) {
+        final place = '$user@$address:$port/$tab';
+        final earlier = _resumes.remove(place);
         if (udpVerdicts.silent(address)) {
           _log(address, 'udp silent, ssh until the verdict lapses');
         } else {
@@ -154,6 +158,8 @@ class ShellTunnel {
             rows: rows,
             command: run ?? 'exec \$SHELL -l',
             tabSession: tab,
+            place: place,
+            earlier: earlier,
             continuity: durable?.continuity ?? ShellContinuity.plain,
             tmux: durable?.tmux,
             verifier: verifier,
@@ -233,6 +239,8 @@ class ShellTunnel {
     required int rows,
     required String command,
     required String tabSession,
+    required String place,
+    required ({String epoch, EngineResume state})? earlier,
     required ShellContinuity continuity,
     required String? tmux,
     required HostKeyVerifier? verifier,
@@ -268,14 +276,19 @@ class ShellTunnel {
       if (udpPort is! int || key is! String) {
         throw FormatException('engine start answered $start');
       }
+      final epoch = start['epoch'];
+      final trusted = verifier?.verified ?? verifier?.pinned;
+      final carried = resumed && epoch is String && earlier?.epoch == epoch
+          ? earlier?.state
+          : null;
       final channel = await engineDialer(
         host: address,
         port: udpPort,
         key: key,
         columns: columns,
         rows: rows,
+        resume: carried,
       );
-      final trusted = verifier?.verified ?? verifier?.pinned;
       connection = EngineShellConnection(
         host,
         channel,
@@ -286,6 +299,10 @@ class ShellTunnel {
         rows: rows,
         continuity: resumed ? ShellContinuity.resumed : continuity,
         tmux: tmux,
+        seamless: carried != null,
+        onLeave: epoch is String
+            ? (state) => _resumes[place] = (epoch: epoch, state: state)
+            : null,
         redial: () => _redial(
           address: address,
           port: port,
@@ -303,12 +320,18 @@ class ShellTunnel {
       udpVerdicts.clear(address);
       _log(
         address,
-        'engine $udpPort on ${columns}x$rows${resumed ? ', resumed' : ''}',
+        'engine $udpPort on ${columns}x$rows'
+        '${carried != null
+            ? ', carried on'
+            : resumed
+            ? ', resumed'
+            : ''}',
       );
       return connection;
     } catch (error) {
       if (!_silent(address, error)) _log(address, 'engine fallback: $error');
       await connection?.abandon();
+      _resumes.remove(place);
       if (started) {
         try {
           await _engineCall(
@@ -1044,6 +1067,8 @@ class EngineShellConnection implements ShellConnection {
     required this.continuity,
     required this.tmux,
     required this.redial,
+    this.seamless = false,
+    this.onLeave,
     this.healthInterval = const Duration(seconds: 3),
     this.giveUp = const Duration(seconds: 30),
   }) : _host = host {
@@ -1051,7 +1076,13 @@ class EngineShellConnection implements ShellConnection {
     _reading.add(
       _engine.errors.listen((error) => _log(address, 'engine: $error')),
     );
-    _reading.add(_engine.contacts.listen((_) => _contact()));
+    _reading.add(
+      _engine.contacts.listen((_) {
+        _contact();
+        // A stream carried on owes no output: an idle shell may have none to send.
+        if (seamless) _settle();
+      }),
+    );
   }
 
   final String address;
@@ -1059,6 +1090,10 @@ class EngineShellConnection implements ShellConnection {
   final String tab;
   final EngineChannel _engine;
   final Future<ShellHost> Function() redial;
+
+  final bool seamless;
+
+  final void Function(EngineResume state)? onLeave;
   final Duration healthInterval;
   final Duration giveUp;
   final String? tmux;
@@ -1085,6 +1120,8 @@ class EngineShellConnection implements ShellConnection {
   var _health = ShellConnectionHealth.connected;
   var _closed = false;
   var _suspended = false;
+  var _ended = false;
+  var _delivered = 0;
 
   late final StreamController<ShellConnectionHealth> _healthEvents =
       StreamController<ShellConnectionHealth>.broadcast(
@@ -1101,14 +1138,18 @@ class EngineShellConnection implements ShellConnection {
   Future<void> get ready => _ready.future;
 
   @override
-  Stream<Uint8List> get output => _frames.stream
-      .where((event) => event is EnginePty)
-      .map((event) => (event as EnginePty).bytes);
+  Stream<Uint8List> get output =>
+      _frames.stream.where((event) => event is EnginePty).map((event) {
+        _delivered++;
+        return (event as EnginePty).bytes;
+      });
 
   @override
-  Stream<Uint8List> get snapshots => _frames.stream
-      .where((event) => event is EngineSnapshot)
-      .map((event) => (event as EngineSnapshot).bytes);
+  Stream<Uint8List> get snapshots =>
+      _frames.stream.where((event) => event is EngineSnapshot).map((event) {
+        _delivered++;
+        return (event as EngineSnapshot).bytes;
+      });
 
   @override
   Stream<ShellConnectionHealth> get health => _healthEvents.stream;
@@ -1144,7 +1185,10 @@ class EngineShellConnection implements ShellConnection {
     required bool durableShell,
   }) async {
     if (!durableShellSession.hasMatch(session)) return false;
-    if (session == tab) await _engine.close(end: true);
+    if (session == tab) {
+      _ended = true;
+      await _engine.close(end: true);
+    }
     final stopped = await _engineCall(
       (command, stdin) => exec(command, stdin: stdin),
       owner: owner,
@@ -1216,6 +1260,7 @@ class EngineShellConnection implements ShellConnection {
       await subscription.cancel();
     }
     await _engine.close();
+    _leave();
     await _dropHost(_host);
     _finish(null);
     if (!_ready.isCompleted) _ready.complete();
@@ -1231,10 +1276,17 @@ class EngineShellConnection implements ShellConnection {
       await subscription.cancel();
     }
     await _engine.close();
+    _leave();
     _finish(null);
     if (!_ready.isCompleted) _ready.complete();
     await _frames.close();
     await _healthEvents.close();
+  }
+
+  void _leave() {
+    if (_ended || _exit.isCompleted) return;
+    final state = _engine.resumable;
+    if (state != null && state.emitted == _delivered) onLeave?.call(state);
   }
 
   Future<T> _withHost<T>(Future<T> Function(ShellHost host) body) async {
@@ -1280,16 +1332,19 @@ class EngineShellConnection implements ShellConnection {
   void _emit(EngineEvent event) {
     if (_closed) return;
     _contact();
-    if (!_ready.isCompleted) {
-      _ready.complete();
-      _healthTimer = Timer.periodic(healthInterval, (_) => _checkHealth());
-    }
+    _settle();
     if (event is EngineExit) {
       scheduleMicrotask(() => _finish(event.status));
       return;
     }
     _pending.add(event);
     _drain();
+  }
+
+  void _settle() {
+    if (_closed || _ready.isCompleted) return;
+    _ready.complete();
+    _healthTimer = Timer.periodic(healthInterval, (_) => _checkHealth());
   }
 
   void _drain() {

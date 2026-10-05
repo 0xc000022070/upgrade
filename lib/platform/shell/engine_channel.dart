@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -292,7 +293,11 @@ class EngineRecordReader {
 class EngineReceiver {
   EngineReceiver({this.awaitingKeyframe = true});
 
+  static const aheadLimit = 1 << 20;
+
   final _records = EngineRecordReader();
+  final _ahead = SplayTreeMap<int, Uint8List>();
+  int _aheadBytes = 0;
   int ack = 0;
 
   bool awaitingKeyframe;
@@ -305,14 +310,41 @@ class EngineReceiver {
       ack = offset;
       awaitingKeyframe = false;
       _records.reset();
-    } else if (awaitingKeyframe) {
+      while (_ahead.isNotEmpty && _ahead.firstKey()! < offset) {
+        _aheadBytes -= _ahead.remove(_ahead.firstKey())!.length;
+      }
+    } else if (awaitingKeyframe || offset > ack) {
+      if (offset > ack) _hold(offset, data);
       return const [];
     }
+    final events = _consume(offset, data);
+    while (_ahead.isNotEmpty && _ahead.firstKey()! <= ack) {
+      final key = _ahead.firstKey()!;
+      final held = _ahead.remove(key)!;
+      _aheadBytes -= held.length;
+      events.addAll(_consume(key, held));
+    }
+    return events;
+  }
+
+  List<EngineEvent> _consume(int offset, Uint8List data) {
     final end = offset + data.length;
-    if (offset > ack || end <= ack) return const [];
+    if (end <= ack) return [];
     final fresh = Uint8List.sublistView(data, ack - offset);
     ack = end;
     return _records.add(fresh);
+  }
+
+  void forgetAhead() {
+    _ahead.clear();
+    _aheadBytes = 0;
+  }
+
+  void _hold(int offset, Uint8List data) {
+    if (_ahead.containsKey(offset)) return;
+    if (_aheadBytes + data.length > aheadLimit) return;
+    _ahead[offset] = data;
+    _aheadBytes += data.length;
   }
 }
 
@@ -364,6 +396,21 @@ class EngineOutbox {
   }
 }
 
+class EngineResume {
+  const EngineResume({
+    required this.keyframe,
+    required this.receiver,
+    required this.outbox,
+    required this.emitted,
+  });
+
+  final int keyframe;
+  final EngineReceiver receiver;
+  final EngineOutbox outbox;
+
+  final int emitted;
+}
+
 abstract interface class EngineChannel {
   Stream<EngineEvent> get events;
   Stream<Object> get errors;
@@ -380,6 +427,8 @@ abstract interface class EngineChannel {
   Future<void> suspend();
 
   Future<void> close({bool end = false});
+
+  EngineResume? get resumable;
 }
 
 typedef EngineDialer = Future<EngineChannel> Function({
@@ -388,6 +437,7 @@ typedef EngineDialer = Future<EngineChannel> Function({
   required String key,
   required int columns,
   required int rows,
+  EngineResume? resume,
 });
 
 Future<EngineChannel> dialEngine({
@@ -396,6 +446,7 @@ Future<EngineChannel> dialEngine({
   required String key,
   required int columns,
   required int rows,
+  EngineResume? resume,
   Duration contactWindow = const Duration(seconds: 4),
 }) async {
   final address =
@@ -407,6 +458,7 @@ Future<EngineChannel> dialEngine({
     cipher: MoshPacketCipher.aesOcb(MoshKey.parse(key)),
     size: EngineSize(columns, rows),
     contactWindow: contactWindow,
+    resume: resume,
   );
   await channel.start();
   return channel;
@@ -422,10 +474,19 @@ class UdpEngineChannel implements EngineChannel {
     this.ackDelay = const Duration(milliseconds: 10),
     this.inFlightLimit = 16,
     this.contactWindow = const Duration(seconds: 4),
+    this.contactTries = 2,
     this.firstResend = const Duration(milliseconds: 250),
     this.binder = RawDatagramSocket.bind,
     Random? random,
-  }) : keyframe = (random ?? Random.secure()).nextInt(0xfffffffe) + 1;
+    EngineResume? resume,
+  }) : keyframe =
+           resume?.keyframe ??
+           (random ?? Random.secure()).nextInt(0xfffffffe) + 1,
+       _receiver = resume?.receiver ?? EngineReceiver(),
+       _outbox = resume?.outbox ?? EngineOutbox(),
+       _carried = resume != null {
+    _outbox.rewind();
+  }
 
   final InternetAddress address;
   final int port;
@@ -435,6 +496,8 @@ class UdpEngineChannel implements EngineChannel {
   final int inFlightLimit;
 
   final Duration contactWindow;
+
+  final int contactTries;
 
   final Duration firstResend;
 
@@ -446,8 +509,11 @@ class UdpEngineChannel implements EngineChannel {
   final MoshPacketCipher _cipher;
   final _clock = Stopwatch()..start();
   final _rtt = MoshRttEstimator();
-  final _receiver = EngineReceiver();
-  final _outbox = EngineOutbox();
+  final EngineReceiver _receiver;
+  final EngineOutbox _outbox;
+
+  final bool _carried;
+  int _emitted = 0;
 
   final _events = StreamController<EngineEvent>();
   final _errors = StreamController<Object>.broadcast();
@@ -489,9 +555,29 @@ class UdpEngineChannel implements EngineChannel {
 
   int get ack => _receiver.ack;
 
+  @override
+  EngineResume? get resumable => _closed && !_receiver.awaitingKeyframe
+      ? EngineResume(
+          keyframe: keyframe,
+          receiver: _receiver,
+          outbox: _outbox,
+          emitted: _emitted,
+        )
+      : null;
+
   Future<void> start() async {
     await _bind();
-    _contact.arm(contactWindow, address: address.address, port: port);
+    _contact.arm(
+      contactWindow,
+      address: address.address,
+      port: port,
+      tries: contactTries,
+      again: () {
+        if (_suspended) return;
+        // ignored: an unbound socket just lets the window run out to the verdict.
+        unawaited(rehome().catchError((Object _) {}));
+      },
+    );
     _transmit();
   }
 
@@ -550,6 +636,7 @@ class UdpEngineChannel implements EngineChannel {
       }
     }
     _closed = true;
+    _receiver.forgetAhead();
     _contact.cancel();
     _timer?.cancel();
     _timer = null;
@@ -649,7 +736,11 @@ class UdpEngineChannel implements EngineChannel {
     final syncing = !_synced;
     if (syncing) {
       _synced = true;
-      _outbox.adopt(server.inputAck);
+      if (_carried && server.inputAck <= _outbox.end) {
+        _outbox.acknowledge(server.inputAck);
+      } else {
+        _outbox.adopt(server.inputAck);
+      }
     }
     _heardStamp = server.timestamp;
     _heardAt = now;
@@ -665,6 +756,7 @@ class UdpEngineChannel implements EngineChannel {
     final before = _receiver.ack;
     for (final event in _receiver.take(server)) {
       if (_closed) return;
+      if (event is! EngineExit) _emitted++;
       _events.add(event);
     }
     if (_receiver.ack != before) {

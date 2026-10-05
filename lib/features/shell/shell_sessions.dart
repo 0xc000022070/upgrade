@@ -1494,7 +1494,9 @@ class ShellSessions extends ChangeNotifier {
           session._write('\x1b[?1049l');
         }
       }
-      session._heldMarker = engine ? marker : null;
+      final seamless =
+          connection is EngineShellConnection && connection.seamless;
+      session._heldMarker = engine && !seamless ? marker : null;
       if (marker != null && !engine) session._write(marker);
       final moshPane =
           connection.transport == ShellTransport.mosh && session.pane != null;

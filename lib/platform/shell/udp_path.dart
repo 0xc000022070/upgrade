@@ -31,10 +31,28 @@ class UdpContact {
 
   Future<void> get future => _done.future;
 
-  void arm(Duration window, {required String address, required int port}) {
+  void arm(
+    Duration window, {
+    required String address,
+    required int port,
+    int tries = 1,
+    void Function()? again,
+  }) {
     if (_done.isCompleted || _timer != null) return;
     _timer = Timer(window, () {
+      _timer = null;
       if (_done.isCompleted) return;
+      if (tries > 1 && again != null) {
+        again();
+        arm(
+          window,
+          address: address,
+          port: port,
+          tries: tries - 1,
+          again: again,
+        );
+        return;
+      }
       _done.completeError(
         UdpSilent(address: address, port: port, window: window),
       );

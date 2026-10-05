@@ -372,14 +372,53 @@ void main() {
       final receiver = EngineReceiver(awaitingKeyframe: false);
       final record = engineRecord(1, _bytes('abcdef'));
 
-      expect(receiver.take(_data(4, record.sublist(4))), isEmpty);
-      expect(receiver.ack, 0);
       final first = receiver.take(_data(0, record.sublist(0, 7)));
       expect((first.single as EnginePty).bytes, _bytes('ab'));
       expect(receiver.take(_data(0, record.sublist(0, 7))), isEmpty);
       final rest = receiver.take(_data(5, record.sublist(5)));
       expect((rest.single as EnginePty).bytes, _bytes('cdef'));
       expect(receiver.ack, record.length);
+    });
+
+    test('data ahead of a hole is held and delivered once the hole '
+        'fills', () {
+      final receiver = EngineReceiver(awaitingKeyframe: false);
+      final one = engineRecord(1, _bytes('one'));
+      final two = engineRecord(1, _bytes('two'));
+      final three = engineRecord(1, _bytes('three'));
+      final at2 = one.length;
+      final at3 = at2 + two.length;
+
+      expect(receiver.take(_data(at3, three)), isEmpty);
+      expect(receiver.take(_data(at2, two)), isEmpty);
+      expect(receiver.ack, 0);
+
+      final events = receiver.take(_data(0, one));
+      expect(events.map((event) => (event as EnginePty).bytes), [
+        _bytes('one'),
+        _bytes('two'),
+        _bytes('three'),
+      ]);
+      expect(receiver.ack, at3 + three.length);
+    });
+
+    test('data held ahead of a keyframe survives the keyframe, and data '
+        'behind it is dropped', () {
+      final receiver = EngineReceiver();
+      final stale = engineRecord(1, _bytes('stale'));
+      final frame = engineRecord(2, _bytes('SNAP'));
+      final after = engineRecord(1, _bytes('after'));
+
+      expect(receiver.take(_data(10, stale)), isEmpty);
+      expect(receiver.take(_data(100 + frame.length, after)), isEmpty);
+
+      final events = receiver.take(_data(100, frame, jump: true));
+      expect(events.map((event) => event.runtimeType), [
+        EngineSnapshot,
+        EnginePty,
+      ]);
+      expect((events.last as EnginePty).bytes, _bytes('after'));
+      expect(receiver.ack, 100 + frame.length + after.length);
     });
 
     test('a jump drops the partial record and parses fresh', () {
@@ -516,6 +555,96 @@ void main() {
       },
     );
 
+    test('a channel resumed from a closed one keeps its keyframe id, its '
+        'place mid-record and its unconfirmed input', () async {
+      final events = <EngineEvent>[];
+      channel.events.listen(events.add);
+      final hello = server.next((_) => true);
+      await channel.start();
+      await hello;
+      final stream = Uint8List.fromList([
+        ...engineRecord(2, _bytes('SNAP')),
+        ...engineRecord(1, _bytes('hello')),
+      ]);
+      final split = stream.length - 3;
+      final acked = server.next((packet) => packet.ack == 20 + split);
+      server.send(_data(20, stream.sublist(0, split), jump: true));
+      await acked;
+      final typed = server.next((packet) => packet.input != null);
+      channel.send(_bytes('x'));
+      await typed;
+      await channel.close();
+      final state = channel.resumable!;
+      expect(state.emitted, events.length);
+
+      final next = UdpEngineChannel(
+        address: InternetAddress.loopbackIPv4,
+        port: server.port,
+        cipher: MoshPacketCipher.aesOcb(_key),
+        size: const EngineSize(100, 40),
+        resume: state,
+      );
+      addTearDown(next.close);
+      expect(next.keyframe, channel.keyframe);
+      final carried = <EngineEvent>[];
+      next.events.listen(carried.add);
+      final again = server.next((_) => true);
+      await next.start();
+      expect((await again).ack, 20 + split);
+
+      final resent = server.next((packet) => packet.input != null);
+      server.send(_data(20 + split, stream.sublist(split)));
+      final input = await resent;
+      expect(input.inputOffset, 0);
+      expect(input.input, _bytes('x'));
+      expect(carried.single, isA<EnginePty>());
+      expect((carried.single as EnginePty).bytes, _bytes('llo'));
+    });
+
+    test('a resumed channel renumbers what it kept from the server\'s input '
+        'ack when that ack is past it all', () async {
+      final outbox = EngineOutbox()..add(_bytes('ab'));
+      final next = UdpEngineChannel(
+        address: InternetAddress.loopbackIPv4,
+        port: server.port,
+        cipher: MoshPacketCipher.aesOcb(_key),
+        size: const EngineSize(100, 40),
+        resume: EngineResume(
+          keyframe: 7,
+          receiver: EngineReceiver(awaitingKeyframe: false),
+          outbox: outbox,
+          emitted: 0,
+        ),
+      );
+      addTearDown(next.close);
+      final hello = server.next((_) => true);
+      await next.start();
+      await hello;
+      final typed = server.next((packet) => packet.input != null);
+      server.send(
+        EngineServerPacket(
+          jump: false,
+          timestamp: 0,
+          timestampReply: engineNoTimestamp,
+          inputAck: 50,
+          sizeGen: 1,
+          streamEnd: 0,
+        ),
+      );
+      final input = await typed;
+      expect(input.inputOffset, 50);
+      expect(input.input, _bytes('ab'));
+    });
+
+    test(
+      'a channel that never got its keyframe leaves nothing to resume',
+      () async {
+        await channel.start();
+        await channel.close();
+        expect(channel.resumable, isNull);
+      },
+    );
+
     test('two channels never ask for the same keyframe', () {
       final ids = {
         for (var i = 0; i < 64; i++)
@@ -541,6 +670,7 @@ void main() {
           size: const EngineSize(100, 40),
           firstResend: const Duration(milliseconds: 40),
           contactWindow: const Duration(milliseconds: 600),
+          contactTries: 1,
         );
       });
 
@@ -575,6 +705,28 @@ void main() {
             arrivals[i] - arrivals[i - 1],
         ];
         expect(gaps[2], greaterThan(gaps[0]));
+      });
+
+      test('a window missed is tried again from a fresh socket before it '
+          'is silent', () async {
+        final retry = UdpEngineChannel(
+          address: InternetAddress.loopbackIPv4,
+          port: server.port,
+          cipher: MoshPacketCipher.aesOcb(_key),
+          size: const EngineSize(100, 40),
+          contactWindow: const Duration(milliseconds: 200),
+        );
+        addTearDown(retry.close);
+        final hello = server.next((_) => true);
+        await retry.start();
+        await hello;
+        final first = server.clientPort;
+
+        final moved = server.next((_) => server.clientPort != first);
+        await moved;
+        server.send(_data(0, Uint8List(0)));
+        await retry.firstContact.timeout(const Duration(seconds: 2));
+        expect(server.ports, hasLength(2));
       });
 
       test('one packet heard is contact, and the window passing after it '

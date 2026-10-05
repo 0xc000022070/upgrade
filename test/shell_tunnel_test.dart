@@ -1316,6 +1316,9 @@ class FakeEngineChannel implements EngineChannel {
   var ended = false;
 
   @override
+  EngineResume? resumable;
+
+  @override
   Stream<EngineEvent> get events => _events.stream;
 
   @override
@@ -1358,7 +1361,9 @@ class FakeEngineChannel implements EngineChannel {
     await _contacts.close();
   }
 
-  void emit(EngineEvent event) => _events.add(event);
+  void emit(EngineEvent event) {
+    if (!_events.isClosed) _events.add(event);
+  }
 
   void contact() => _contacts.add(null);
 
@@ -1391,6 +1396,7 @@ ShellTunnel engineTunnelTo(
   Duration timeout = const Duration(seconds: 10),
   bool emitReady = true,
   List<({String host, int port, String key})>? dialled,
+  List<EngineResume?>? resumes,
   UdpVerdicts? verdicts,
   FakeEngineChannel Function()? next,
   FakeHost Function()? nextHost,
@@ -1414,8 +1420,10 @@ ShellTunnel engineTunnelTo(
         required String key,
         required int columns,
         required int rows,
+        EngineResume? resume,
       }) async {
         dialled?.add((host: host, port: port, key: key));
+        resumes?.add(resume);
         final channel = next?.call() ?? engine;
         if (emitReady) {
           Timer.run(() => channel.emit(EnginePty(utf8.encode('\$ '))));
@@ -1485,6 +1493,110 @@ void engineTests() {
       heightPx: 1554,
     ));
     expect(engine.rehomes, 1);
+  });
+
+  test('a dial back to the same server process carries on where the last '
+      'channel left off, and one to another starts over', () async {
+    var epoch = 'one';
+    String answer(String command, String stdin) => engineHostAnswer(
+      start:
+          '{"ok":true,"result":{"port":60990,"key":"$_engineKey","pid":42,'
+          '"epoch":"$epoch","resumed":true}}',
+    )(command, stdin);
+    final left = EngineResume(
+      keyframe: 7,
+      receiver: EngineReceiver(awaitingKeyframe: false),
+      outbox: EngineOutbox(),
+      emitted: 0,
+    );
+    final channels = [
+      FakeEngineChannel()..resumable = left,
+      FakeEngineChannel()..resumable = left,
+      FakeEngineChannel(),
+    ];
+    var dialled = 0;
+    final resumes = <EngineResume?>[];
+    final tunnel = engineTunnelTo(
+      FakeHost()..execInputAnswer = answer,
+      channels.first,
+      FakeMoshChannel(),
+      resumes: resumes,
+      next: () => channels[dialled++],
+      nextHost: () => FakeHost()..execInputAnswer = answer,
+    );
+    Future<EngineShellConnection> open() async =>
+        await openOn(tunnel, command: 'exec \$SHELL -l', tabSession: session)
+            as EngineShellConnection;
+
+    final first = await open();
+    expect(first.seamless, isFalse);
+    await first.close();
+    final second = await open();
+    expect(second.seamless, isTrue);
+    await second.close();
+    epoch = 'two';
+    final third = await open();
+    addTearDown(third.close);
+    expect(third.seamless, isFalse);
+    expect(resumes, [null, same(left), null]);
+  });
+
+  test('a carried channel to an idle shell is ready on first contact, and '
+      'one that falls back leaves nothing to carry', () async {
+    String answer(String command, String stdin) => engineHostAnswer(
+      start:
+          '{"ok":true,"result":{"port":60990,"key":"$_engineKey","pid":42,'
+          '"epoch":"one","resumed":true}}',
+    )(command, stdin);
+    final left = EngineResume(
+      keyframe: 7,
+      receiver: EngineReceiver(awaitingKeyframe: false),
+      outbox: EngineOutbox(),
+      emitted: 0,
+    );
+    final talking = FakeEngineChannel()..resumable = left;
+    final idle = FakeEngineChannel()..resumable = left;
+    final silent = FakeEngineChannel()
+      ..resumable = left
+      ..fallSilent();
+    final last = FakeEngineChannel();
+    final channels = [talking, idle, silent, last];
+    var dialled = 0;
+    final resumes = <EngineResume?>[];
+    final tunnel = engineTunnelTo(
+      FakeHost()..execInputAnswer = answer,
+      talking,
+      FakeMoshChannel(),
+      emitReady: false,
+      timeout: const Duration(seconds: 1),
+      verdicts: UdpVerdicts(ttl: Duration.zero),
+      resumes: resumes,
+      next: () {
+        final channel = channels[dialled++];
+        Timer.run(
+          () => channel == idle
+              ? channel.contact()
+              : channel.emit(EnginePty(utf8.encode('\$ '))),
+        );
+        return channel;
+      },
+      nextHost: () => FakeHost()..execInputAnswer = answer,
+    );
+    Future<ShellConnection> open() =>
+        openOn(tunnel, command: 'exec \$SHELL -l', tabSession: session);
+
+    await (await open()).close();
+    final carried = await open() as EngineShellConnection;
+    expect(carried.seamless, isTrue);
+    await carried.close();
+    final fallback = await open();
+    expect(fallback, isNot(isA<EngineShellConnection>()));
+    await fallback.close();
+    final fresh = await open() as EngineShellConnection;
+    addTearDown(fresh.close);
+
+    expect(fresh.seamless, isFalse);
+    expect(resumes, [null, same(left), same(left), null]);
   });
 
   test('a durable tab hands its tmux attach to the engine', () async {
@@ -1713,6 +1825,7 @@ void engineTests() {
             required String key,
             required int columns,
             required int rows,
+            EngineResume? resume,
           }) async {
             Timer.run(() => engine.emit(EnginePty(utf8.encode('\$ '))));
             return engine;
