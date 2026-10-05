@@ -171,7 +171,7 @@ publish:
 
 # faraday: install and launch only, for the user to review by hand.
 review:
-    phone up --profile review
+    phone up -t faraday
 
 desktop: pub-build
     flutter run -d linux --dart-define=DAZZLE_BUILD=${DAZZLE_BUILD:-dev}
