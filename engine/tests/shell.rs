@@ -412,6 +412,8 @@ fn resuming_rekeys_the_running_session_and_keeps_its_shell() {
     assert_eq!(second["resumed"], json!(true));
     assert_eq!(second["port"], first["port"]);
     assert_eq!(second["pid"], first["pid"]);
+    assert!(first["epoch"].is_string());
+    assert_eq!(second["epoch"], first["epoch"]);
     assert_ne!(second["key"], first["key"]);
 
     for _ in 0..10 {
@@ -427,6 +429,29 @@ fn resuming_rekeys_the_running_session_and_keeps_its_shell() {
         c.output().contains("kept-yes-2")
     });
     assert!(client.jumped, "a rekeyed client starts from a keyframe");
+}
+
+#[test]
+fn a_client_resuming_with_its_keyframe_id_carries_on_from_its_ack() {
+    let sandbox = Sandbox::new("carry");
+    let first = sandbox.start("carry", json!({}));
+    let mut client = Client::connect(&first);
+    client.keyframe = 5;
+    client.type_in("echo before-$((1+1))\n");
+    client.until("the first echo", |c| c.output().contains("before-2"));
+
+    let second = sandbox.start("carry", json!({}));
+    assert_eq!(second["resumed"], json!(true));
+    client.rekey(&second);
+    client.jumped = false;
+    client.type_in("echo after-$((2+2))\n");
+    client.until("the echo after the resume", |c| {
+        c.output().contains("after-4")
+    });
+    assert!(
+        !client.jumped,
+        "a client that kept its place gets no keyframe"
+    );
 }
 
 #[test]

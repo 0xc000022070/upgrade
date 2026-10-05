@@ -15,6 +15,7 @@ use std::time::{Duration, Instant};
 
 const PENDING_INPUT: usize = 256 * 1024;
 const READ_BUDGET: usize = 1 << 20;
+const AWAY: Duration = Duration::from_secs(30);
 
 pub struct Timing {
     pub linger: Duration,
@@ -57,6 +58,7 @@ pub struct Server {
     timing: Timing,
     started: Instant,
     contacted: bool,
+    rejoined: bool,
     ended_at: Option<Instant>,
     ending: Option<Ending>,
 }
@@ -87,6 +89,7 @@ impl Server {
             timing,
             started: now,
             contacted: false,
+            rejoined: false,
             ended_at: None,
             ending: None,
         }
@@ -161,7 +164,9 @@ impl Server {
     }
 
     fn transmit(&mut self, now: Instant) {
-        let _ = self.mirror.relieve(self.link.ack(), self.link.is_live(now));
+        let _ = self
+            .mirror
+            .relieve(self.link.ack(), self.link.is_recent(now));
         let header = Header {
             input_ack: self.input.ack(),
             size_gen: self.control.size_gen(),
@@ -210,8 +215,9 @@ impl Server {
 
     fn receive(&mut self, packet: &ClientPacket, now: Instant) {
         self.contacted = true;
-        self.link.heard(packet, now);
+        let quiet = self.link.heard(packet, now);
         let directives = self.control.apply(packet);
+        let rejoined = std::mem::take(&mut self.rejoined);
         if let Some(size) = directives.resize {
             let _ = self.mirror.resize(size);
             if let Some(pty) = &self.pty {
@@ -231,7 +237,11 @@ impl Server {
             }
         }
         self.mirror.release(self.link.ack());
-        let _ = if directives.keyframe {
+        let away = quiet.is_some_and(|quiet| quiet >= AWAY)
+            && self.mirror.outweighs_keyframe(self.link.ack());
+        // A phone that resized while away reflowed bytes the server had not, so what it
+        // holds no longer matches what a replay continues.
+        let _ = if directives.keyframe || away || (rejoined && directives.reshaped) {
             self.mirror.keyframe()
         } else {
             self.mirror.catch_up(self.link.ack())
@@ -323,7 +333,8 @@ impl Server {
             return;
         };
         self.endpoint.rekey(&key);
-        self.link = Link::new(now);
-        self.control = Control::default();
+        self.link.rekeyed(now);
+        self.control.rekeyed();
+        self.rejoined = true;
     }
 }

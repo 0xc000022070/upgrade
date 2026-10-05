@@ -4,11 +4,13 @@ use super::wire::{ClientPacket, Size};
 pub struct Control {
     size_gen: u32,
     keyframe: u32,
+    size: Option<Size>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Directives {
     pub resize: Option<Size>,
+    pub reshaped: bool,
     pub keyframe: bool,
     pub close: bool,
 }
@@ -16,6 +18,10 @@ pub struct Directives {
 impl Control {
     pub fn size_gen(&self) -> u32 {
         self.size_gen
+    }
+
+    pub fn rekeyed(&mut self) {
+        self.size_gen = 0;
     }
 
     pub fn apply(&mut self, packet: &ClientPacket) -> Directives {
@@ -28,8 +34,14 @@ impl Control {
             self.size_gen = packet.size_gen;
             packet.size
         });
+        let reshaped = resize.is_some_and(|size| {
+            self.size
+                .replace(size)
+                .is_none_or(|last| (last.cols, last.rows) != (size.cols, size.rows))
+        });
         Directives {
             resize,
+            reshaped,
             keyframe,
             close: packet.close,
         }
@@ -82,6 +94,23 @@ mod tests {
         let directives = control.apply(&packet(2, 1, 90));
         assert_eq!(directives.resize.map(|size| size.cols), Some(90));
         assert_eq!(control.size_gen(), 1);
+    }
+
+    #[test]
+    fn a_rekey_keeps_the_keyframe_and_takes_any_size() {
+        let mut control = Control::default();
+        control.apply(&packet(7, 9, 100));
+        control.rekeyed();
+        let same = control.apply(&packet(7, 1, 100));
+        assert!(!same.keyframe);
+        assert!(same.resize.is_some());
+        assert!(!same.reshaped);
+        control.rekeyed();
+        let mut measured = packet(7, 1, 100);
+        measured.size.width_px = 800;
+        assert!(!control.apply(&measured).reshaped);
+        control.rekeyed();
+        assert!(control.apply(&packet(7, 1, 90)).reshaped);
     }
 
     #[test]

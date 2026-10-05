@@ -4,6 +4,7 @@ use super::vt::{Options, Terminal, VtError};
 use super::wire::{record, Size, RECORD_EXIT, RECORD_HEADER, RECORD_PTY, RECORD_SNAPSHOT};
 
 const MIN_BACKLOG: u64 = 1 << 20;
+const MIN_REPLAY: u64 = 64 << 10;
 
 pub struct Mirror {
     terminal: Terminal,
@@ -107,6 +108,10 @@ impl Mirror {
             self.keyframe()?;
         }
         Ok(())
+    }
+
+    pub fn outweighs_keyframe(&self, ack: u64) -> bool {
+        self.stream.backlog(ack) > MIN_REPLAY.max(self.keyframe_len)
     }
 
     pub fn relieve(&mut self, ack: u64, live: bool) -> Result<(), VtError> {

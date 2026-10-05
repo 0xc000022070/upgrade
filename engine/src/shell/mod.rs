@@ -174,6 +174,7 @@ fn start(args: &Value, state_root: &Path, policy: &Policy) -> EngineResult<Value
                     "port": record.port,
                     "key": wire::printable_key(&key),
                     "pid": record.pid,
+                    "epoch": record.epoch(),
                     "resumed": true,
                 }));
             }
@@ -187,6 +188,7 @@ fn start(args: &Value, state_root: &Path, policy: &Policy) -> EngineResult<Value
             "port": started.port,
             "key": wire::printable_key(&started.key),
             "pid": started.pid,
+            "epoch": registry::live(&dir).map(|record| record.epoch()),
             "resumed": false,
         })),
         Err(err) => {

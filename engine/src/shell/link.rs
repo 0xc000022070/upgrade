@@ -6,7 +6,9 @@ use std::time::{Duration, Instant};
 
 pub const HEARTBEAT: Duration = Duration::from_secs(3);
 pub const SILENCE: Duration = Duration::from_secs(60);
+pub const RECENT: Duration = Duration::from_secs(8);
 pub const ACK_DELAY: Duration = Duration::from_millis(20);
+const MAX_BACKOFF: u32 = 3;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Header {
@@ -22,8 +24,10 @@ pub struct Link {
     cursor: u64,
     last_send: Option<Instant>,
     last_heard: Option<Instant>,
+    quiet_since: Option<Instant>,
     retransmit_at: Option<Instant>,
     owed_since: Option<Instant>,
+    backoff: u32,
 }
 
 impl Link {
@@ -36,8 +40,10 @@ impl Link {
             cursor: 0,
             last_send: None,
             last_heard: None,
+            quiet_since: None,
             retransmit_at: None,
             owed_since: None,
+            backoff: 0,
         }
     }
 
@@ -46,11 +52,33 @@ impl Link {
     }
 
     pub fn is_live(&self, now: Instant) -> bool {
-        self.last_heard
-            .is_some_and(|at| now.duration_since(at) < SILENCE)
+        self.heard_within(now, SILENCE)
     }
 
-    pub fn heard(&mut self, packet: &ClientPacket, now: Instant) {
+    pub fn is_recent(&self, now: Instant) -> bool {
+        self.heard_within(now, RECENT)
+    }
+
+    fn heard_within(&self, now: Instant, span: Duration) -> bool {
+        self.last_heard
+            .is_some_and(|at| now.duration_since(at) < span)
+    }
+
+    pub fn rekeyed(&mut self, now: Instant) {
+        *self = Self {
+            ack: self.ack,
+            cursor: self.ack,
+            quiet_since: self.last_heard.or(self.quiet_since),
+            ..Self::new(now)
+        };
+    }
+
+    pub fn heard(&mut self, packet: &ClientPacket, now: Instant) -> Option<Duration> {
+        let first = self.last_heard.is_none();
+        let quiet = self
+            .last_heard
+            .or(self.quiet_since.take())
+            .map(|at| now.duration_since(at));
         self.rtt.observe(
             self.clock.stamp(now),
             packet.timestamp,
@@ -58,15 +86,21 @@ impl Link {
             now,
         );
         self.last_heard = Some(now);
-        if packet.ack > self.ack {
-            self.window.acknowledged(packet.ack - self.ack);
-            self.ack = packet.ack;
+        let backed_off = std::mem::take(&mut self.backoff) > 0;
+        if packet.ack > self.ack || backed_off {
+            if packet.ack > self.ack && !first {
+                self.window.acknowledged(packet.ack - self.ack);
+            }
+            if packet.ack > self.ack {
+                self.ack = packet.ack;
+            }
             self.cursor = self.cursor.max(self.ack);
-            self.retransmit_at = (self.cursor > self.ack).then(|| now + self.rtt.rto());
+            self.retransmit_at = (self.cursor > self.ack).then(|| now + self.rto());
         }
         if packet.input.is_some() || packet.timestamp != NO_TIMESTAMP {
             self.owed_since.get_or_insert(now);
         }
+        quiet
     }
 
     pub fn transmit(&mut self, now: Instant, stream: &Stream, header: Header) -> Vec<ServerPacket> {
@@ -78,6 +112,7 @@ impl Link {
             self.cursor = floor;
             self.window.timed_out();
             self.retransmit_at = None;
+            self.backoff = (self.backoff + 1).min(MAX_BACKOFF);
         }
         self.cursor = self.cursor.max(stream.base());
 
@@ -91,7 +126,7 @@ impl Link {
             packets.push(self.packet(now, stream, header, jump, Some((offset, bytes))));
         }
         if !packets.is_empty() {
-            self.retransmit_at.get_or_insert(now + self.rtt.rto());
+            self.retransmit_at.get_or_insert(now + self.rto());
         } else if self
             .owed_since
             .is_some_and(|at| now.duration_since(at) >= ACK_DELAY)
@@ -106,6 +141,10 @@ impl Link {
             self.owed_since = None;
         }
         packets
+    }
+
+    fn rto(&self) -> Duration {
+        self.rtt.rto() * (1 << self.backoff)
     }
 
     fn packet(
@@ -269,6 +308,65 @@ mod tests {
         let asleep = now + SILENCE;
         assert!(link.transmit(asleep, &stream, HEADER).is_empty());
         assert_eq!(link.deadline(asleep, &stream), None);
+    }
+
+    #[test]
+    fn the_resend_backs_off_while_the_phone_is_quiet_and_not_once_it_speaks() {
+        let now = Instant::now();
+        let mut link = Link::new(now);
+        let mut stream = Stream::default();
+        stream.append(b"abc");
+        link.heard(&client_packet(0), now);
+        let rto = link.rtt.rto();
+        link.transmit(now, &stream, HEADER);
+        let mut at = now;
+        for doubling in 0..=MAX_BACKOFF + 1 {
+            at += rto * (1 << doubling.min(MAX_BACKOFF));
+            let early = link.transmit(at - Duration::from_millis(1), &stream, HEADER);
+            assert!(offsets(&early).is_empty());
+            assert_eq!(offsets(&link.transmit(at, &stream, HEADER)), vec![0]);
+        }
+        link.heard(&client_packet(0), at);
+        assert_eq!(link.rto(), rto);
+        assert_eq!(link.retransmit_at, Some(at + rto));
+    }
+
+    #[test]
+    fn a_rekey_keeps_the_place_and_remembers_the_quiet() {
+        let now = Instant::now();
+        let mut link = Link::new(now);
+        let mut stream = Stream::default();
+        stream.append(&[0; 100]);
+        link.heard(&client_packet(0), now);
+        link.transmit(now, &stream, HEADER);
+        link.heard(&client_packet(40), now);
+        let later = now + Duration::from_secs(45);
+        link.rekeyed(later);
+        assert_eq!(link.ack(), 40);
+        assert!(link.transmit(later, &stream, HEADER).is_empty());
+        assert_eq!(
+            link.heard(&client_packet(40), later),
+            Some(Duration::from_secs(45))
+        );
+        assert_eq!(offsets(&link.transmit(later, &stream, HEADER)), vec![40]);
+    }
+
+    #[test]
+    fn an_ack_the_lost_path_earned_does_not_open_the_new_window() {
+        use super::super::window::INITIAL;
+        let now = Instant::now();
+        let mut link = Link::new(now);
+        let mut stream = Stream::default();
+        stream.append(&vec![0; 4 * INITIAL as usize]);
+        link.heard(&client_packet(0), now);
+        link.rekeyed(now);
+        link.heard(&client_packet(INITIAL), now);
+        let sent: usize = link
+            .transmit(now, &stream, HEADER)
+            .iter()
+            .map(|packet| packet.data.as_ref().map_or(0, |(_, data)| data.len()))
+            .sum();
+        assert!((sent as u64) < INITIAL + SERVER_MAX_DATA as u64);
     }
 
     #[test]

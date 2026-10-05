@@ -18,6 +18,10 @@ pub struct Record {
 }
 
 impl Record {
+    pub fn epoch(&self) -> String {
+        format!("{}-{}", self.pid, self.started)
+    }
+
     pub fn new(port: u16, shell_pid: u32) -> Self {
         Self {
             pid: std::process::id() as i32,
