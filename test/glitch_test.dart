@@ -117,6 +117,29 @@ void main() {
   });
 
   group('block plan', () {
+    test('the bubble tear stays under half the shape and under 400ms', () {
+      for (var seed = 0; seed < 500; seed++) {
+        final plan = planGlitchBlocks(
+          seed,
+          blocks: 8,
+          fragments: 3,
+          coverage: 0.5,
+          reach: 2,
+        );
+        final covered = plan.fold<double>(0, (sum, b) => sum + b.area);
+        expect(covered, lessThanOrEqualTo(0.5), reason: 'seed $seed');
+        for (final block in plan) {
+          expect(block.dest.left, greaterThanOrEqualTo(0));
+          expect(block.dest.right, lessThanOrEqualTo(1 + 1e-9));
+        }
+      }
+      expect(
+        Effects.glitchStep * (tearGlitchSteps.length + 1),
+        lessThan(const Duration(milliseconds: 400)),
+      );
+      expect(tearGlitchSteps.where((s) => s.accent), hasLength(2));
+    });
+
     test('never corrupts more than 30% of the shape', () {
       for (var seed = 0; seed < 500; seed++) {
         final plan = planGlitchBlocks(seed, blocks: 8, fragments: 3);

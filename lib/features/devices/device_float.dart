@@ -31,7 +31,7 @@ const _glide = Duration(milliseconds: 220);
 const _decodeStep = 120;
 const deviceListWidth = 280.0;
 const deviceBubbleSize = 56.0;
-const _bubblePulse = Duration(milliseconds: 2600);
+const _bubblePulse = Duration(milliseconds: 1400);
 
 class DeviceFloat extends ConsumerStatefulWidget {
   const DeviceFloat({super.key, required this.child});
@@ -812,7 +812,8 @@ class _PhoneMark extends StatefulWidget {
 }
 
 class _PhoneMarkState extends State<_PhoneMark> with WidgetsBindingObserver {
-  final _glitch = GlitchController();
+  late final _steps = widget.pulse ? tearGlitchSteps : iconGlitchSteps;
+  late final _glitch = GlitchController(frames: _steps.length + 1);
   Timer? _pulse;
 
   @override
@@ -852,6 +853,7 @@ class _PhoneMarkState extends State<_PhoneMark> with WidgetsBindingObserver {
       size: widget.size,
       color: context.tokens.textPrimary,
       glitch: _glitch,
+      steps: _steps,
     );
   }
 }

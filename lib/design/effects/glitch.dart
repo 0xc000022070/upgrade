@@ -6,13 +6,15 @@ import 'package:flutter/widgets.dart';
 import '../motion.dart';
 
 class GlitchController extends ChangeNotifier {
-  GlitchController();
+  GlitchController({this.frames = Effects.glitchFrames});
+
+  final int frames;
 
   Timer? _timer;
   int _frame = -1;
   int _seed = 0;
 
-  /// -1 while idle, otherwise 0..[Effects.glitchFrames] - 1.
+  /// -1 while idle, otherwise 0..[frames] - 1.
   int get frame => _frame;
 
   bool get idle => _frame < 0;
@@ -27,7 +29,7 @@ class GlitchController extends ChangeNotifier {
     notifyListeners();
     _timer = Timer.periodic(Effects.glitchStep, (timer) {
       _frame++;
-      if (_frame >= Effects.glitchFrames) {
+      if (_frame >= frames) {
         _frame = -1;
         timer.cancel();
         _timer = null;
@@ -86,10 +88,12 @@ List<GlitchBlock> planGlitchBlocks(
   int blocks = 4,
   int fragments = 3,
   bool tone = true,
+  double coverage = glitchCoverage,
+  double reach = 1,
 }) {
   final random = Random(seed);
   final planned = <GlitchBlock>[];
-  var budget = glitchCoverage;
+  var budget = coverage;
 
   double between(double low, double high) =>
       low + random.nextDouble() * (high - low);
@@ -108,7 +112,7 @@ List<GlitchBlock> planGlitchBlocks(
     final top = between(0, 1 - height);
     // Nothing keeps a sideways shift inside the box: a block at the edge samples past it
     // and tears off.
-    final dx = between(1 / 32, 1 / 6) * sign();
+    final dx = between(1 / 32, 1 / 6) * reach * sign();
     // A mosh is only a mosh if it lands on ink — a vertical reach past the box would sample
     // nothing and read as a hole.
     final dy = i < moshes
@@ -133,8 +137,8 @@ List<GlitchBlock> planGlitchBlocks(
     budget -= width * height;
     final sourceLeft = between(0.2, 0.8 - width);
     final sourceTop = between(0.2, 0.8 - height);
-    final left = _thrown(sourceLeft, width, between(1 / 4, 1 / 2));
-    final top = _thrown(sourceTop, height, between(1 / 8, 1 / 3));
+    final left = _thrown(sourceLeft, width, between(1 / 4, 1 / 2) * reach);
+    final top = _thrown(sourceTop, height, between(1 / 8, 1 / 3) * reach);
     planned.add(
       GlitchBlock(
         dest: Rect.fromLTWH(left, top, width, height),
@@ -167,6 +171,8 @@ class GlitchBlocks extends StatelessWidget {
     this.blocks = 4,
     this.fragments = 3,
     this.tone = true,
+    this.coverage = glitchCoverage,
+    this.reach = 1,
   });
 
   final Widget child;
@@ -178,6 +184,10 @@ class GlitchBlocks extends StatelessWidget {
 
   final bool tone;
 
+  final double coverage;
+
+  final double reach;
+
   @override
   Widget build(BuildContext context) {
     final plan = planGlitchBlocks(
@@ -185,6 +195,8 @@ class GlitchBlocks extends StatelessWidget {
       blocks: blocks,
       fragments: fragments,
       tone: tone,
+      coverage: coverage,
+      reach: reach,
     );
     return Stack(
       clipBehavior: Clip.none,
@@ -265,7 +277,7 @@ class GlitchPanel extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, child) {
-        if (controller.idle || controller.frame >= Effects.glitchFrames - 1) {
+        if (controller.idle || controller.frame >= controller.frames - 1) {
           return child!;
         }
         return GlitchBlocks(
