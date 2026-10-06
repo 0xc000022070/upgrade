@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,12 @@ import 'shell_sessions.dart';
 const voiceHold = Duration(milliseconds: 400);
 
 const _failureShown = Duration(seconds: 2);
+
+const _endWait = Duration(seconds: 5);
+
+const _micDenied = 'MIC DENIED';
+
+const _voiceFailed = 'VOICE FAILED';
 
 const _returnAfterPaste = Duration(milliseconds: 80);
 
@@ -58,7 +65,7 @@ String appendWords(String draft, String words) {
   return head.isEmpty ? words : '$head $words';
 }
 
-enum _Phase { idle, starting, listening, finishing, failed }
+enum _Phase { idle, starting, listening, paused, finishing, failed }
 
 typedef VoiceLevels = (double latest, double before, double oldest);
 
@@ -80,11 +87,12 @@ class ShellDictation extends ChangeNotifier {
   late final StreamSubscription<SpeechEvent> _events;
 
   var _phase = _Phase.idle;
-  var _take = 0;
+  var _run = 0;
   Transcriber? _whisper;
   ShellSession? _session;
   Timer? _hold;
   bool _held = false;
+  bool _latched = false;
 
   bool? _liftedHeld;
   bool _stopOnLift = false;
@@ -93,14 +101,28 @@ class ShellDictation extends ChangeNotifier {
   String? _failure;
   Timer? _clear;
   final _levels = ValueNotifier<VoiceLevels>(_quiet);
+  Future<void> _heard = Future.value();
+  var _hearing = 0;
+  var _endsOwed = 0;
+  Timer? _owed;
+  var _resumeOwed = false;
 
   ValueListenable<VoiceLevels> get levels => _levels;
 
+  bool get listening => _phase == _Phase.listening;
+
+  bool get paused => _phase == _Phase.paused;
+
   bool get finishing => _phase == _Phase.finishing;
+
+  bool get latched => _latched || paused;
+
+  bool get transcribing => _hearing > 0;
 
   bool get hearing =>
       _phase == _Phase.starting ||
       _phase == _Phase.listening ||
+      _phase == _Phase.paused ||
       _phase == _Phase.finishing;
 
   bool get showing => hearing || _phase == _Phase.failed;
@@ -111,29 +133,31 @@ class ShellDictation extends ChangeNotifier {
 
   String? get failure => _failure;
 
+  ShellSession? get session => _session;
+
   Future<void> press(ShellSession session) async {
-    if (_phase == _Phase.listening) {
+    if (_phase == _Phase.listening ||
+        _phase == _Phase.paused ||
+        (_phase == _Phase.starting && _latched)) {
       _stopOnLift = true;
       return;
     }
     if (hearing) return;
-    _clear?.cancel();
+    _reset(notify: false);
     _phase = _Phase.starting;
     _session = session;
-    _held = false;
-    _hold?.cancel();
     _hold = Timer(voiceHold, () => _held = true);
-    _liftedHeld = null;
-    _stopOnLift = false;
-    _settled.clear();
-    _partial = '';
-    _failure = null;
     final whisper = _whisper = this.whisper?.call();
     whisper?.warm();
-    final take = ++_take;
+    await _begin();
+  }
+
+  Future<void> _begin() async {
+    final whisper = _whisper;
+    final run = _run;
     notifyListeners();
     final answer = await (whisper != null ? Speech.record() : Speech.start());
-    if (_phase != _Phase.starting || take != _take) {
+    if (_phase != _Phase.starting || run != _run) {
       if (answer == SpeechStart.listening) {
         unawaited(whisper != null ? Speech.discard() : Speech.cancel());
       }
@@ -143,22 +167,114 @@ class ShellDictation extends ChangeNotifier {
       case SpeechStart.listening:
         _phase = _Phase.listening;
         notifyListeners();
-        if (_liftedHeld ?? false) _stop();
+        switch (_liftedHeld) {
+          case true:
+            done();
+          case false:
+            _latched = true;
+          case null:
+            break;
+        }
       case SpeechStart.granted:
-        _reset();
+        _settled.isEmpty && _hearing == 0 ? _reset() : _wrapUp();
       case SpeechStart.denied:
-        _fail('MIC DENIED');
+        _refused(_micDenied);
       case SpeechStart.unavailable:
-        _fail('NO RECOGNIZER');
+        _refused('NO RECOGNIZER');
     }
+  }
+
+  void _refused(String reason) {
+    _failure = reason;
+    _settled.isEmpty && _hearing == 0 ? _fail(reason) : _wrapUp();
+  }
+
+  void _wrapUp() {
+    _phase = _Phase.finishing;
+    notifyListeners();
+    _whisper != null ? _settle() : _finish();
   }
 
   void lift() {
     switch (_phase) {
+      case _Phase.starting when _stopOnLift:
+        _stopOnLift = false;
+        _liftedHeld = true;
       case _Phase.starting:
-        _liftedHeld = _held;
+        _liftedHeld ??= _held;
+      case _Phase.listening || _Phase.paused:
+        if (_stopOnLift || (_held && !_latched)) {
+          done();
+        } else if (!_latched) {
+          _latched = true;
+          notifyListeners();
+        }
+      case _Phase.idle || _Phase.finishing || _Phase.failed:
+        break;
+    }
+  }
+
+  void pause() {
+    if (_phase != _Phase.listening) return;
+    _phase = _Phase.paused;
+    _levels.value = _quiet;
+    notifyListeners();
+    if (_whisper != null) {
+      _collect();
+    } else {
+      _stop();
+    }
+  }
+
+  void _stop() {
+    _endsOwed++;
+    unawaited(Speech.stop());
+    final run = _run;
+    _owed?.cancel();
+    _owed = Timer(_endWait, () {
+      if (run != _run || _endsOwed == 0) return;
+      unawaited(Speech.cancel());
+      _endsOwed = 1;
+      _ended();
+    });
+  }
+
+  void resume() {
+    if (_phase != _Phase.paused) return;
+    if (_endsOwed > 0) {
+      _resumeOwed = true;
+      return;
+    }
+    _phase = _Phase.starting;
+    _failure = null;
+    _liftedHeld = false;
+    unawaited(_begin());
+  }
+
+  void done() {
+    _stopOnLift = false;
+    switch (_phase) {
       case _Phase.listening:
-        if (_stopOnLift || _held) _stop();
+        _phase = _Phase.finishing;
+        _levels.value = _quiet;
+        notifyListeners();
+        if (_whisper != null) {
+          _collect();
+          _settle();
+        } else {
+          _stop();
+        }
+      case _Phase.paused:
+        _phase = _Phase.finishing;
+        _resumeOwed = false;
+        notifyListeners();
+        if (_whisper != null) {
+          _settle();
+        } else if (_endsOwed == 0) {
+          _finish();
+        }
+      case _Phase.starting:
+        _liftedHeld = true;
       case _Phase.idle || _Phase.finishing || _Phase.failed:
         break;
     }
@@ -171,39 +287,47 @@ class ShellDictation extends ChangeNotifier {
 
   Future<void> _drop() => _whisper != null ? Speech.discard() : Speech.cancel();
 
-  void _stop() {
-    _phase = _Phase.finishing;
-    _levels.value = _quiet;
-    notifyListeners();
-    final whisper = _whisper;
-    unawaited(whisper != null ? _transcribe(whisper) : Speech.stop());
+  void _collect() {
+    final whisper = _whisper!;
+    final run = _run;
+    final pcm = Speech.finish();
+    _hearing++;
+    _heard = _heard
+        .then((_) async {
+          final recorded = await pcm;
+          if (run != _run) return;
+          if (recorded == null) {
+            _failure = _voiceFailed;
+            return;
+          }
+          final samples = pcmSamples(recorded);
+          if (!heardAnything(samples)) return;
+          try {
+            final text = spokenText(await whisper.transcribe(samples));
+            if (run == _run && text.isNotEmpty) _settled.add(text);
+          } on Object {
+            if (run == _run) _failure = _voiceFailed;
+          }
+        })
+        .whenComplete(() {
+          if (run != _run) return;
+          _hearing--;
+          notifyListeners();
+        });
   }
 
-  Future<void> _transcribe(Transcriber whisper) async {
-    final take = _take;
-    bool current() => take == _take && _phase == _Phase.finishing;
-    final pcm = await Speech.finish();
-    if (!current()) return;
-    if (pcm == null) {
-      _failure = 'VOICE FAILED';
-    } else {
-      final samples = pcmSamples(pcm);
-      if (heardAnything(samples)) {
-        try {
-          final text = spokenText(await whisper.transcribe(samples));
-          if (!current()) return;
-          if (text.isNotEmpty) _settled.add(text);
-        } on Object {
-          if (!current()) return;
-          _failure = 'VOICE FAILED';
-        }
-      }
-    }
-    _finish();
+  void _settle() {
+    final run = _run;
+    unawaited(
+      _heard.then((_) {
+        if (run == _run && _phase == _Phase.finishing) _finish();
+      }),
+    );
   }
 
   void _onEvent(SpeechEvent event) {
     if (!hearing) return;
+    if (_phase == _Phase.starting && event is! SpeechLevel) return;
     switch (event) {
       case SpeechLevel(:final level):
         if (_phase != _Phase.listening) return;
@@ -216,57 +340,92 @@ class ShellDictation extends ChangeNotifier {
         _settled.add(text);
         _partial = '';
       case SpeechFailed(:final denied):
-        _failure = denied ? 'MIC DENIED' : 'VOICE FAILED';
+        _failure = denied ? _micDenied : _voiceFailed;
       case SpeechEnded():
-        _finish();
+        _ended();
         return;
       case SpeechCut():
-        if (_phase == _Phase.listening) _stop();
+        if (_phase != _Phase.listening) return;
+        _latched ? pause() : done();
         return;
     }
     notifyListeners();
   }
 
+  void _ended() {
+    final partial = _partial.trim();
+    if (partial.isNotEmpty) _settled.add(partial);
+    _partial = '';
+    if (_endsOwed > 0) _endsOwed--;
+    if (_endsOwed == 0) _owed?.cancel();
+    switch (_phase) {
+      case _Phase.finishing when _endsOwed == 0:
+        _finish();
+      case _Phase.listening when _latched && _failure != _micDenied:
+        _phase = _Phase.paused;
+        _levels.value = _quiet;
+        notifyListeners();
+      case _Phase.listening || _Phase.starting:
+        _finish();
+      case _Phase.paused when _endsOwed == 0 && _resumeOwed:
+        _resumeOwed = false;
+        resume();
+      case _:
+        notifyListeners();
+    }
+  }
+
   void _finish() {
     final failure = _failure;
-    if (failure != null) {
-      _fail(failure);
-      return;
-    }
     final words = _settled.isNotEmpty ? settled : _partial.trim();
     final session = _session;
     _reset();
-    if (words.isEmpty) {
-      _fail('NOTHING HEARD');
-      return;
+    if (words.isNotEmpty && session != null && !session.retired) {
+      onWords(session, words);
     }
-    if (session != null && !session.retired) onWords(session, words);
+    if (failure != null) {
+      _fail(failure);
+    } else if (words.isEmpty) {
+      _fail('NOTHING HEARD');
+    }
   }
 
   void _fail(String reason) {
     _phase = _Phase.failed;
+    _latched = false;
     _failure = reason;
     _clear?.cancel();
     _clear = Timer(_failureShown, _reset);
     notifyListeners();
   }
 
-  void _reset() {
+  void _reset({bool notify = true}) {
     _clear?.cancel();
     _hold?.cancel();
+    _run++;
     _levels.value = _quiet;
     _phase = _Phase.idle;
     _session = null;
+    _held = false;
+    _latched = false;
+    _liftedHeld = null;
+    _stopOnLift = false;
     _settled.clear();
     _partial = '';
     _failure = null;
-    notifyListeners();
+    _heard = Future.value();
+    _hearing = 0;
+    _endsOwed = 0;
+    _owed?.cancel();
+    _resumeOwed = false;
+    if (notify) notifyListeners();
   }
 
   @override
   void dispose() {
     _clear?.cancel();
     _hold?.cancel();
+    _owed?.cancel();
     unawaited(_events.cancel());
     if (hearing) unawaited(_drop());
     _levels.dispose();
@@ -484,84 +643,296 @@ class _FinishingState extends State<_Finishing> {
         );
 }
 
-class DictationRow extends StatelessWidget {
-  const DictationRow({super.key, required this.dictation});
+const voiceFloatWidth = 280.0;
+
+// The panel rests clear of the close target, so grabbing it never starts hot.
+const voiceFloatRest = Spacing.xl + closeTargetSize + Spacing.md;
+
+const _voiceGlide = Duration(milliseconds: 220);
+
+const _previewLines = 4;
+
+class VoiceFloat extends StatefulWidget {
+  const VoiceFloat({super.key, required this.dictation});
 
   final ShellDictation dictation;
 
   @override
-  Widget build(BuildContext context) {
-    final failure = dictation.failure;
-    final settled = dictation.settled;
-    final partial = dictation.partial;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: context.tokens.surfacePrimary,
-        border: Border(top: BorderSide(color: context.tokens.borderSubtle)),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: RowMetrics.minHeight),
-        child: Row(
-          children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: RowMetrics.padding,
-                  vertical: Spacing.sm,
-                ),
-                child: failure != null && !dictation.hearing
-                    ? Text(
-                        key: const ValueKey('shell-voice-failure'),
-                        failure,
-                        style: context.tokens.label.copyWith(
-                          color: context.tokens.warning,
-                        ),
-                      )
-                    : Text.rich(
-                        key: const ValueKey('shell-voice-heard'),
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: dictation.finishing
-                                  ? 'FINISHING'
-                                  : 'LISTENING',
-                              style: context.tokens.label.copyWith(
-                                color: context.tokens.accent,
-                              ),
-                            ),
-                            if (settled.isNotEmpty)
-                              TextSpan(
-                                text: '  $settled',
-                                style: context.tokens.value.copyWith(
-                                  color: context.tokens.textPrimary,
-                                ),
-                              ),
-                            if (partial.isNotEmpty)
-                              TextSpan(
-                                text: '  $partial',
-                                style: context.tokens.value.copyWith(
-                                  color: context.tokens.textMuted,
-                                ),
-                              ),
-                          ],
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+  State<VoiceFloat> createState() => _VoiceFloatState();
+}
+
+class _VoiceFloatState extends State<VoiceFloat> {
+  final _panel = GlobalKey();
+  var _right = true;
+  var _bottom = voiceFloatRest;
+  Offset? _dragAt;
+  var _travel = 0.0;
+  var _hot = false;
+  var _height = 0.0;
+
+  ShellDictation get _dictation => widget.dictation;
+
+  Offset _targetCentre(Size area) =>
+      Offset(area.width / 2, area.height - Spacing.xl - closeTargetSize / 2);
+
+  void _measure(Duration _) {
+    final height = _panel.currentContext?.size?.height;
+    if (!mounted || height == null || height == _height) return;
+    setState(() => _height = height);
+  }
+
+  double _restLeft(Size area, double width) =>
+      _right ? area.width - width - Spacing.md : Spacing.md;
+
+  double _restBottom(Size area) => _bottom.clamp(
+    voiceFloatRest,
+    math.max(voiceFloatRest, area.height - _height - Spacing.md),
+  );
+
+  void _onDragStart(Size area, double width) {
+    final float = context.findRenderObject() as RenderBox?;
+    final panel = _panel.currentContext?.findRenderObject() as RenderBox?;
+    final at = float != null && panel != null && panel.hasSize
+        ? float.globalToLocal(panel.localToGlobal(Offset.zero))
+        : Offset(
+            _restLeft(area, width),
+            area.height - _restBottom(area) - _height,
+          );
+    setState(() {
+      _dragAt = Offset(at.dx, area.height - at.dy - _height);
+      _travel = 0;
+    });
+  }
+
+  void _onDragUpdate(DragUpdateDetails details, Size area) {
+    final at = _dragAt;
+    if (at == null) return;
+    setState(() {
+      _dragAt = at + Offset(details.delta.dx, -details.delta.dy);
+      _travel += details.delta.distance;
+      _hot =
+          _travel >= voiceDragSlop &&
+          (_pointer(details) - _targetCentre(area)).distance < closeTargetSize;
+    });
+  }
+
+  Offset _pointer(DragUpdateDetails details) {
+    final box = context.findRenderObject() as RenderBox?;
+    return box?.globalToLocal(details.globalPosition) ?? Offset.infinite;
+  }
+
+  void _onDragEnd(Size area, double width) {
+    final at = _dragAt;
+    if (at == null) return;
+    final drop = _hot;
+    setState(() {
+      _right = at.dx + width / 2 > area.width / 2;
+      _bottom = at.dy;
+      _dragAt = null;
+      _hot = false;
+    });
+    if (drop) _dictation.cancel();
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final area = box.biggest;
+      final width = math.min(voiceFloatWidth, area.width - Spacing.md * 2);
+      final at = _dragAt;
+      final target = _targetCentre(area);
+      WidgetsBinding.instance.addPostFrameCallback(_measure);
+      return Stack(
+        children: [
+          if (at != null && _travel >= voiceDragSlop)
+            Positioned(
+              left: target.dx - closeTargetSize / 2,
+              top: target.dy - closeTargetSize / 2,
+              width: closeTargetSize,
+              height: closeTargetSize,
+              child: CloseTarget(
+                key: const ValueKey('shell-voice-float-target'),
+                hot: _hot,
               ),
             ),
-            if (dictation.hearing) ...[
-              const CellDivider(),
-              KeyCell(
-                key: const ValueKey('shell-voice-cancel'),
-                label: '×',
-                minWidth: RowMetrics.minHeight,
-                padding: RowMetrics.padding,
-                onTap: dictation.cancel,
+          AnimatedPositioned(
+            duration: at != null ? Duration.zero : _voiceGlide,
+            curve: Curves.easeOutCubic,
+            left: at?.dx ?? _restLeft(area, width),
+            bottom: at?.dy ?? _restBottom(area),
+            width: width,
+            child: _VoicePanel(
+              key: _panel,
+              dictation: _dictation,
+              onDragStart: (_) => _onDragStart(area, width),
+              onDragUpdate: (details) => _onDragUpdate(details, area),
+              onDragEnd: (_) => _onDragEnd(area, width),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _VoicePanel extends StatelessWidget {
+  const _VoicePanel({
+    super.key,
+    required this.dictation,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+  });
+
+  final ShellDictation dictation;
+  final GestureDragStartCallback onDragStart;
+  final GestureDragUpdateCallback onDragUpdate;
+  final GestureDragEndCallback onDragEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final failure = dictation.paused || !dictation.hearing
+        ? dictation.failure
+        : null;
+    final settled = dictation.settled;
+    final partial = dictation.partial;
+    final word =
+        failure ??
+        switch (dictation) {
+          ShellDictation(finishing: true) => 'FINISHING',
+          ShellDictation(paused: true) => 'PAUSED',
+          _ => 'LISTENING',
+        };
+    final controls = dictation.latched && !dictation.finishing;
+    return DecoratedBox(
+      key: const ValueKey('shell-voice-float'),
+      decoration: BoxDecoration(
+        color: tokens.surfacePrimary,
+        border: Border.all(color: tokens.borderNormal, width: Borders.hairline),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GestureDetector(
+            key: const ValueKey('shell-voice-float-handle'),
+            behavior: HitTestBehavior.opaque,
+            onPanStart: onDragStart,
+            onPanUpdate: onDragUpdate,
+            onPanEnd: onDragEnd,
+            child: SizedBox(
+              height: TapTargets.minHeight,
+              child: Row(
+                children: [
+                  const SizedBox(width: RowMetrics.padding),
+                  if (dictation.listening &&
+                      !MediaQuery.disableAnimationsOf(context))
+                    ValueListenableBuilder(
+                      valueListenable: dictation.levels,
+                      builder: (context, levels, _) => CustomPaint(
+                        size: const Size.square(IconSizes.toolbar),
+                        painter: _Meter(levels, tokens.accent),
+                      ),
+                    )
+                  else
+                    UpgradeIcon(
+                      UpgradeIcons.voice,
+                      size: IconSizes.toolbar,
+                      color: failure != null ? tokens.warning : tokens.accent,
+                    ),
+                  const SizedBox(width: Spacing.md),
+                  Expanded(
+                    child: Text(
+                      word,
+                      key: ValueKey(
+                        failure != null
+                            ? 'shell-voice-failure'
+                            : 'shell-voice-state',
+                      ),
+                      style: tokens.label.copyWith(
+                        color: failure != null ? tokens.warning : tokens.accent,
+                      ),
+                    ),
+                  ),
+                  if (dictation.transcribing || dictation.finishing)
+                    const _Finishing(key: ValueKey('shell-voice-finishing')),
+                  const SizedBox(width: RowMetrics.padding),
+                ],
               ),
-            ],
-          ],
-        ),
+            ),
+          ),
+          if (settled.isNotEmpty || partial.isNotEmpty)
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight:
+                    (tokens.value.fontSize ?? 14) *
+                        (tokens.value.height ?? 1.4) *
+                        _previewLines +
+                    Spacing.md,
+              ),
+              child: SingleChildScrollView(
+                reverse: true,
+                padding: const EdgeInsets.fromLTRB(
+                  RowMetrics.padding,
+                  0,
+                  RowMetrics.padding,
+                  Spacing.md,
+                ),
+                child: Text.rich(
+                  key: const ValueKey('shell-voice-heard'),
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: settled,
+                        style: tokens.value.copyWith(color: tokens.textPrimary),
+                      ),
+                      if (partial.isNotEmpty)
+                        TextSpan(
+                          text: settled.isEmpty ? partial : ' $partial',
+                          style: tokens.value.copyWith(color: tokens.textMuted),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          if (controls)
+            DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: tokens.borderSubtle)),
+              ),
+              child: SizedBox(
+                height: TapTargets.minHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: KeyCell(
+                        key: const ValueKey('shell-voice-pause'),
+                        label: dictation.paused ? 'RESUME' : 'PAUSE',
+                        inert: !dictation.paused && !dictation.listening,
+                        padding: RowMetrics.padding,
+                        onTap: dictation.paused
+                            ? dictation.resume
+                            : dictation.pause,
+                      ),
+                    ),
+                    const CellDivider(),
+                    Expanded(
+                      child: KeyCell(
+                        key: const ValueKey('shell-voice-done'),
+                        label: 'DONE',
+                        armed: true,
+                        padding: RowMetrics.padding,
+                        onTap: dictation.done,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

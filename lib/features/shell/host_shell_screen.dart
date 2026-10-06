@@ -291,6 +291,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 
   void _onSessions() {
     if (!mounted) return;
+    if (_dictation.session?.retired ?? false) _dictation.cancel();
     _withdrawPin();
     if (_pinShown == null) unawaited(_askPins());
     if (_announcing) return;
@@ -824,27 +825,37 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                   ),
                 ),
                 Expanded(
-                  child: active == null
-                      ? const SizedBox.shrink()
-                      : RawGestureDetector(
-                          key: const ValueKey('shell-pinch'),
-                          gestures: {
-                            ShellResizeGestureRecognizer:
-                                GestureRecognizerFactoryWithHandlers<
-                                  ShellResizeGestureRecognizer
-                                >(
-                                  ShellResizeGestureRecognizer.new,
-                                  (recognizer) => recognizer
-                                    ..onStart = _onPinchStart
-                                    ..onUpdate = _onPinchUpdate
-                                    ..onEnd = _onPinchEnd,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: active == null
+                            ? const SizedBox.shrink()
+                            : RawGestureDetector(
+                                key: const ValueKey('shell-pinch'),
+                                gestures: {
+                                  ShellResizeGestureRecognizer:
+                                      GestureRecognizerFactoryWithHandlers<
+                                        ShellResizeGestureRecognizer
+                                      >(
+                                        ShellResizeGestureRecognizer.new,
+                                        (recognizer) => recognizer
+                                          ..onStart = _onPinchStart
+                                          ..onUpdate = _onPinchUpdate
+                                          ..onEnd = _onPinchEnd,
+                                      ),
+                                },
+                                child: ShellTerminalView(
+                                  session: active,
+                                  fontSize: fontSize,
                                 ),
-                          },
-                          child: ShellTerminalView(
-                            session: active,
-                            fontSize: fontSize,
-                          ),
+                              ),
+                      ),
+                      if (_dictation.showing)
+                        Positioned.fill(
+                          child: VoiceFloat(dictation: _dictation),
                         ),
+                    ],
+                  ),
                 ),
                 if (active != null && _searching)
                   ShellSearchRow(
@@ -859,7 +870,6 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                     onCancel: () => _onDraftCancel(active),
                     onSend: () => _onDraftSend(active),
                   ),
-                if (_dictation.showing) DictationRow(dictation: _dictation),
                 if (active != null)
                   // The lamp answers the same question the tap does, so it is rebuilt
                   // on the focus that question reads and not only on the inset: a lit

@@ -223,6 +223,7 @@ void main() {
       dictation().lift();
       await tester.pump();
       expect(calls, ['start', 'stop']);
+      dictation().cancel();
     });
 
     testWidgets('a hold lifted before the recognizer answers still stops', (
@@ -240,6 +241,7 @@ void main() {
       answered.complete('listening');
       await tester.pump();
       expect(calls, ['start', 'stop']);
+      dictation().cancel();
     });
 
     testWidgets('silence ends in NOTHING HEARD and clears itself', (
@@ -318,6 +320,7 @@ void main() {
       expect(dictation().levels.value, (0.0, 0.0, 0.0));
       events.add(const SpeechLevel(0.7));
       expect(dictation().levels.value, (0.0, 0.0, 0.0));
+      dictation().cancel();
     });
 
     testWidgets('with Whisper the phone records and the model hears it whole', (
@@ -356,19 +359,248 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
     });
 
-    testWidgets('a recording the phone cuts short is transcribed as lifted', (
+    testWidgets('a held recording the phone cuts short is transcribed', (
       tester,
     ) async {
       whisper = _Whisper(() async => 'two minutes of it');
       recorded = _pcm(4000);
       unawaited(dictation().press(_session()));
-      await tester.pump();
-      dictation().lift();
       await tester.pump(voiceHold);
       expect(dictation().hearing, isTrue);
       events.add(const SpeechCut());
       await tester.pump();
       expect(delivered.single.$2, 'two minutes of it');
+    });
+
+    testWidgets(
+      'a tapped recording the phone cuts short pauses with a preview',
+      (tester) async {
+        whisper = _Whisper(() async => 'two minutes of it');
+        recorded = _pcm(4000);
+        unawaited(dictation().press(_session()));
+        await tester.pump();
+        dictation().lift();
+        await tester.pump(voiceHold);
+        events.add(const SpeechCut());
+        await tester.pump();
+        expect(dictation().paused, isTrue);
+        expect(dictation().settled, 'two minutes of it');
+        expect(delivered, isEmpty);
+        dictation().done();
+        await tester.pump();
+        expect(delivered.single.$2, 'two minutes of it');
+      },
+    );
+
+    testWidgets('whisper hears each stretch between pauses in order', (
+      tester,
+    ) async {
+      final answers = ['first part', 'second part'];
+      whisper = _Whisper(() async => answers.removeAt(0));
+      recorded = _pcm(4000);
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      dictation().lift();
+      expect(dictation().latched, isTrue);
+      dictation().pause();
+      await tester.pump();
+      expect(dictation().paused, isTrue);
+      expect(dictation().settled, 'first part');
+      dictation().resume();
+      await tester.pump();
+      expect(dictation().listening, isTrue);
+      dictation().done();
+      await tester.pump();
+      expect(calls, ['record', 'finish', 'record', 'finish']);
+      expect(delivered.single.$2, 'first part second part');
+    });
+
+    testWidgets('the phone recognizer pauses and resumes on its own session', (
+      tester,
+    ) async {
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      dictation().lift();
+      events.add(const SpeechPartial('hello'));
+      dictation().pause();
+      await tester.pump();
+      dictation().resume();
+      await tester.pump();
+      expect(calls, ['start', 'stop']);
+      events.add(const SpeechEnded());
+      await tester.pump();
+      expect(calls, ['start', 'stop', 'start']);
+      expect(dictation().settled, 'hello');
+      events.add(const SpeechSettled('world'));
+      dictation().done();
+      await tester.pump();
+      events.add(const SpeechEnded());
+      expect(delivered.single.$2, 'hello world');
+    });
+
+    testWidgets('a tapped dictation the recognizer gives up on pauses', (
+      tester,
+    ) async {
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      dictation().lift();
+      events.add(const SpeechSettled('so far'));
+      events.add(const SpeechEnded());
+      expect(dictation().paused, isTrue);
+      expect(delivered, isEmpty);
+      unawaited(dictation().press(_session()));
+      dictation().lift();
+      expect(delivered.single.$2, 'so far');
+    });
+
+    testWidgets('a stretch whisper fails on shows while paused, not after', (
+      tester,
+    ) async {
+      final answers = <Future<String> Function()>[
+        () async => throw const TranscriptionFailed('decode'),
+        () async => 'second part',
+      ];
+      whisper = _Whisper(() => answers.removeAt(0)());
+      recorded = _pcm(4000);
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      dictation().lift();
+      dictation().pause();
+      await tester.pump();
+      expect(dictation().paused, isTrue);
+      expect(dictation().failure, 'VOICE FAILED');
+      dictation().resume();
+      await tester.pump();
+      expect(dictation().failure, isNull);
+      dictation().done();
+      await tester.pump();
+      expect(delivered.single.$2, 'second part');
+      expect(dictation().showing, isFalse);
+    });
+
+    testWidgets('a failed last stretch still lands what came before', (
+      tester,
+    ) async {
+      final answers = <Future<String> Function()>[
+        () async => 'first part',
+        () async => throw const TranscriptionFailed('decode'),
+      ];
+      whisper = _Whisper(() => answers.removeAt(0)());
+      recorded = _pcm(4000);
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      dictation().lift();
+      dictation().pause();
+      await tester.pump();
+      dictation().resume();
+      await tester.pump();
+      dictation().done();
+      await tester.pump();
+      expect(delivered.single.$2, 'first part');
+      expect(dictation().failure, 'VOICE FAILED');
+      await tester.pump(const Duration(seconds: 2));
+    });
+
+    testWidgets('a resume the phone refuses lands the words already heard', (
+      tester,
+    ) async {
+      whisper = _Whisper(() async => 'first part');
+      recorded = _pcm(4000);
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      dictation().lift();
+      dictation().pause();
+      await tester.pump();
+      answer = 'unavailable';
+      dictation().resume();
+      await tester.pump();
+      expect(delivered.single.$2, 'first part');
+      expect(dictation().failure, 'NO RECOGNIZER');
+      await tester.pump(const Duration(seconds: 2));
+    });
+
+    testWidgets('a failure on a tapped take offers no controls', (
+      tester,
+    ) async {
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      dictation().lift();
+      events.add(const SpeechFailed(denied: true));
+      events.add(const SpeechEnded());
+      expect(dictation().failure, 'MIC DENIED');
+      expect(dictation().latched, isFalse);
+      await tester.pump(const Duration(seconds: 2));
+    });
+
+    testWidgets('an end left over from a cancelled take spares the next', (
+      tester,
+    ) async {
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      dictation().lift();
+      dictation().pause();
+      dictation().cancel();
+      final answered = Completer<String>();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_speech, (call) async {
+            calls.add(call.method);
+            return call.method == 'start' ? answered.future : null;
+          });
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      events.add(const SpeechPartial('stale'));
+      events.add(const SpeechEnded());
+      answered.complete('listening');
+      await tester.pump();
+      dictation().lift();
+      expect(dictation().listening, isTrue);
+      expect(dictation().partial, isEmpty);
+      dictation().cancel();
+    });
+
+    testWidgets('an end that never comes stops being waited on', (
+      tester,
+    ) async {
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      dictation().lift();
+      events.add(const SpeechSettled('so far'));
+      dictation().pause();
+      await tester.pump();
+      dictation().done();
+      expect(dictation().finishing, isTrue);
+      await tester.pump(const Duration(seconds: 5));
+      expect(calls, ['start', 'stop', 'cancel']);
+      expect(delivered.single.$2, 'so far');
+    });
+
+    testWidgets('a tap while a resume starts ends the take once it answers', (
+      tester,
+    ) async {
+      whisper = _Whisper(() async => 'first part');
+      recorded = _pcm(4000);
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      dictation().lift();
+      dictation().pause();
+      await tester.pump();
+      final answered = Completer<String>();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_speech, (call) async {
+            calls.add(call.method);
+            return switch (call.method) {
+              'record' => answered.future,
+              'finish' => recorded,
+              _ => null,
+            };
+          });
+      dictation().resume();
+      await tester.pump();
+      unawaited(dictation().press(_session()));
+      dictation().lift();
+      answered.complete('listening');
+      await tester.pump();
+      expect(delivered.single.$2, 'first part first part');
     });
 
     testWidgets('a model that fails says VOICE FAILED', (tester) async {
@@ -463,6 +695,141 @@ void main() {
       await tester.pump();
       expect(calls, ['start', 'stop']);
       expect(find.byKey(target), findsNothing);
+      dictation().cancel();
+    });
+
+    Future<void> pumpFloat(WidgetTester tester) => tester.pumpWidget(
+      Theme(
+        data: testTheme,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: MediaQuery(
+            data: const MediaQueryData(size: Size(400, 800)),
+            child: ListenableBuilder(
+              listenable: dictation(),
+              builder: (context, _) => dictation().showing
+                  ? VoiceFloat(dictation: dictation())
+                  : const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    testWidgets('the float carries pause and done once the take is tapped', (
+      tester,
+    ) async {
+      await pumpFloat(tester);
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      expect(find.text('LISTENING'), findsOneWidget);
+      expect(find.byKey(const ValueKey('shell-voice-done')), findsNothing);
+      dictation().lift();
+      await tester.pump();
+      events.add(const SpeechPartial('make it'));
+      await tester.pump();
+      expect(find.textContaining('make it'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('shell-voice-pause')));
+      await tester.pump();
+      expect(find.text('PAUSED'), findsOneWidget);
+      expect(find.text('RESUME'), findsOneWidget);
+      events.add(const SpeechEnded());
+      await tester.tap(find.byKey(const ValueKey('shell-voice-done')));
+      await tester.pump();
+      expect(delivered.single.$2, 'make it');
+    });
+
+    testWidgets('the float dropped on the close target throws the take away', (
+      tester,
+    ) async {
+      await pumpFloat(tester);
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      dictation().lift();
+      await tester.pump();
+      final handle = find.byKey(const ValueKey('shell-voice-float-handle'));
+      final finger = await tester.startGesture(tester.getCenter(handle));
+      await finger.moveBy(const Offset(-40, 0));
+      await tester.pump();
+      final target = find.byKey(const ValueKey('shell-voice-float-target'));
+      expect(target, findsOneWidget);
+      await finger.moveTo(tester.getCenter(target));
+      await tester.pump();
+      await finger.up();
+      await tester.pump();
+      expect(calls, ['start', 'cancel']);
+      expect(dictation().showing, isFalse);
+      expect(delivered, isEmpty);
+    });
+
+    const floatHandle = ValueKey('shell-voice-float-handle');
+    const floatTarget = ValueKey('shell-voice-float-target');
+
+    testWidgets('the float rests clear of the target and a nudge never drops', (
+      tester,
+    ) async {
+      await pumpFloat(tester);
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      final panel = tester.getRect(
+        find.byKey(const ValueKey('shell-voice-float')),
+      );
+      expect(800 - panel.bottom, greaterThanOrEqualTo(voiceFloatRest));
+      final finger = await tester.startGesture(
+        tester.getCenter(find.byKey(floatHandle)),
+      );
+      await finger.moveBy(const Offset(0, voiceDragSlop / 2));
+      await tester.pump();
+      expect(find.byKey(floatTarget), findsNothing);
+      await finger.up();
+      await tester.pump();
+      expect(dictation().hearing, isTrue);
+      dictation().cancel();
+    });
+
+    testWidgets('the float stays on screen when its area shrinks', (
+      tester,
+    ) async {
+      var height = 800.0;
+      late StateSetter resize;
+      await tester.pumpWidget(
+        Theme(
+          data: testTheme,
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                resize = setState;
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 400,
+                    height: height,
+                    child: ListenableBuilder(
+                      listenable: dictation(),
+                      builder: (context, _) => dictation().showing
+                          ? VoiceFloat(dictation: dictation())
+                          : const SizedBox.shrink(),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      await tester.drag(find.byKey(floatHandle), const Offset(0, -600));
+      await tester.pumpAndSettle();
+      resize(() => height = 300);
+      await tester.pumpAndSettle();
+      final panel = tester.getRect(
+        find.byKey(const ValueKey('shell-voice-float')),
+      );
+      expect(panel.top, greaterThanOrEqualTo(0));
+      expect(panel.bottom, lessThanOrEqualTo(300));
+      dictation().cancel();
     });
 
     testWidgets('the cell meters while it hears and spins while it finishes', (
