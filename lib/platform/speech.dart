@@ -17,6 +17,7 @@ sealed class SpeechEvent {
       'final' when text is String => SpeechSettled(text),
       'failed' => SpeechFailed(denied: text == 'denied'),
       'end' => const SpeechEnded(),
+      'cut' => const SpeechCut(),
       _ => null,
     };
   }
@@ -50,6 +51,10 @@ final class SpeechEnded extends SpeechEvent {
   const SpeechEnded();
 }
 
+final class SpeechCut extends SpeechEvent {
+  const SpeechCut();
+}
+
 abstract final class Speech {
   static const _channel = MethodChannel('dev.luisnquin.upgrade/speech');
 
@@ -65,9 +70,27 @@ abstract final class Speech {
     if (event != null) _events.add(event);
   }
 
-  static Future<SpeechStart> start() async {
+  static Future<SpeechStart> start() => _start('start');
+
+  static Future<SpeechStart> record() => _start('record');
+
+  static Future<Uint8List?> finish() async {
     try {
-      final answer = await _channel.invokeMethod<String>('start');
+      return await _channel.invokeMethod<Uint8List>('finish');
+    } on MissingPluginException {
+      // ignored: no recording reads as VOICE FAILED to the caller.
+      return null;
+    } on PlatformException {
+      // ignored: no recording reads as VOICE FAILED to the caller.
+      return null;
+    }
+  }
+
+  static Future<void> discard() => _quietly('discard');
+
+  static Future<SpeechStart> _start(String method) async {
+    try {
+      final answer = await _channel.invokeMethod<String>(method);
       return SpeechStart.values.asNameMap()[answer] ?? SpeechStart.unavailable;
     } on MissingPluginException {
       return SpeechStart.unavailable;

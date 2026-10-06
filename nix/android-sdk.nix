@@ -4,6 +4,7 @@ androidenv.composeAndroidPackages {
   cmdLineToolsVersion = "22.0";
   platformToolsVersion = "37.0.1";
   platformVersions = [
+    "34"
     "35"
     "36"
     "37.0"

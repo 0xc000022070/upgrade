@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flterm/flterm.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:upgrade/features/shell/shell_sessions.dart';
 import 'package:upgrade/features/shell/shell_voice.dart';
 import 'package:upgrade/platform/herdr_client.dart';
 import 'package:upgrade/platform/speech.dart';
+import 'package:upgrade/platform/whisper.dart';
 
 import 'support/themed_app.dart';
 
@@ -43,6 +45,31 @@ AgentSnapshot _agent(String agent, String pane) => AgentSnapshot(
   cwd: '/home/luis',
   stateChangeSeq: 1,
 );
+
+class _Whisper implements Transcriber {
+  _Whisper(this.answer);
+
+  final Future<String> Function() answer;
+  var warmed = 0;
+  final heard = <int>[];
+
+  @override
+  void warm() => warmed++;
+
+  @override
+  Future<String> transcribe(Float32List samples) {
+    heard.add(samples.length);
+    return answer();
+  }
+}
+
+Uint8List _pcm(int amplitude, {int samples = 1600}) {
+  final data = ByteData(samples * 2);
+  for (var i = 0; i < samples; i++) {
+    data.setInt16(i * 2, i.isEven ? amplitude : -amplitude, Endian.little);
+  }
+  return data.buffer.asUint8List();
+}
 
 void main() {
   group('the agent behind a tab', () {
@@ -115,6 +142,7 @@ void main() {
       isA<SpeechLevel>().having((e) => e.level, 'level', 1),
     );
     expect(SpeechEvent.parse({'type': 'end'}), isA<SpeechEnded>());
+    expect(SpeechEvent.parse({'type': 'cut'}), isA<SpeechCut>());
     expect(SpeechEvent.parse({'type': 'partial'}), isNull);
     expect(SpeechEvent.parse('end'), isNull);
   });
@@ -124,12 +152,15 @@ void main() {
     late List<String> calls;
     late String answer;
     late List<(ShellSession, String)> delivered;
+    late Uint8List? recorded;
+    Transcriber? whisper;
     ShellDictation? built;
 
     // Built on first use, inside the test's fake time: the subscription keeps the zone
     // it was made in, and a timer started from an event would otherwise be a real one.
     ShellDictation dictation() => built ??= ShellDictation(
       onWords: (session, words) => delivered.add((session, words)),
+      whisper: () => whisper,
       events: events.stream,
     );
 
@@ -138,10 +169,16 @@ void main() {
       calls = [];
       answer = 'listening';
       delivered = [];
+      recorded = null;
+      whisper = null;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(_speech, (call) async {
             calls.add(call.method);
-            return call.method == 'start' ? answer : null;
+            return switch (call.method) {
+              'start' || 'record' => answer,
+              'finish' => recorded,
+              _ => null,
+            };
           });
     });
 
@@ -281,6 +318,81 @@ void main() {
       expect(dictation().levels.value, (0.0, 0.0, 0.0));
       events.add(const SpeechLevel(0.7));
       expect(dictation().levels.value, (0.0, 0.0, 0.0));
+    });
+
+    testWidgets('with Whisper the phone records and the model hears it whole', (
+      tester,
+    ) async {
+      final model = _Whisper(() async => ' [BLANK_AUDIO] list  the files ');
+      whisper = model;
+      recorded = _pcm(4000);
+      final session = _session();
+      unawaited(dictation().press(session));
+      await tester.pump();
+      expect(model.warmed, 1);
+      expect(dictation().hearing, isTrue);
+      await tester.pump(voiceHold);
+      dictation().lift();
+      await tester.pump();
+      expect(calls, ['record', 'finish']);
+      expect(model.heard, [1600]);
+      expect(dictation().hearing, isFalse);
+      expect(delivered.single.$1, same(session));
+      expect(delivered.single.$2, 'list the files');
+    });
+
+    testWidgets('a recording that stayed at room level is not transcribed', (
+      tester,
+    ) async {
+      final model = _Whisper(() async => 'Thank you.');
+      whisper = model;
+      recorded = _pcm(40);
+      unawaited(dictation().press(_session()));
+      await tester.pump(voiceHold);
+      dictation().lift();
+      await tester.pump();
+      expect(model.heard, isEmpty);
+      expect(dictation().failure, 'NOTHING HEARD');
+      await tester.pump(const Duration(seconds: 2));
+    });
+
+    testWidgets('a recording the phone cuts short is transcribed as lifted', (
+      tester,
+    ) async {
+      whisper = _Whisper(() async => 'two minutes of it');
+      recorded = _pcm(4000);
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      dictation().lift();
+      await tester.pump(voiceHold);
+      expect(dictation().hearing, isTrue);
+      events.add(const SpeechCut());
+      await tester.pump();
+      expect(delivered.single.$2, 'two minutes of it');
+    });
+
+    testWidgets('a model that fails says VOICE FAILED', (tester) async {
+      whisper = _Whisper(() async => throw const TranscriptionFailed('load'));
+      recorded = _pcm(4000);
+      unawaited(dictation().press(_session()));
+      await tester.pump(voiceHold);
+      dictation().lift();
+      await tester.pump();
+      expect(dictation().failure, 'VOICE FAILED');
+      expect(delivered, isEmpty);
+      await tester.pump(const Duration(seconds: 2));
+    });
+
+    testWidgets('cancel throws the recording away', (tester) async {
+      final model = _Whisper(() async => 'never mind');
+      whisper = model;
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      dictation().cancel();
+      await tester.pump();
+      expect(calls, ['record', 'discard']);
+      expect(model.heard, isEmpty);
+      expect(dictation().showing, isFalse);
     });
 
     Future<void> pumpCell(WidgetTester tester) => tester.pumpWidget(

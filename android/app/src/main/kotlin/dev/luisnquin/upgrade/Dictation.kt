@@ -35,18 +35,22 @@ class Dictation(
     private var idleRestarts = 0
     private var rebuilt = false
     private var levelAt = 0L
+    private val recorder = Recorder(channel)
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "start" -> start(result)
+            "start" -> start(result, own = false)
+            "record" -> start(result, own = true)
+            "finish" -> result.success(recorder.finish())
+            "discard" -> { recorder.discard(); result.success(null) }
             "stop" -> { stop(); result.success(null) }
             "cancel" -> { cancel(); result.success(null) }
             else -> result.notImplemented()
         }
     }
 
-    private fun start(result: MethodChannel.Result) {
-        if (!SpeechRecognizer.isRecognitionAvailable(activity)) {
+    private fun start(result: MethodChannel.Result, own: Boolean) {
+        if (!own && !SpeechRecognizer.isRecognitionAvailable(activity)) {
             result.success("unavailable")
             return
         }
@@ -61,6 +65,10 @@ class Dictation(
             activity.requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), RECORD_AUDIO_REQUEST)
             return
         }
+        if (own) {
+            result.success(if (recorder.start()) "listening" else "unavailable")
+            return
+        }
         wanted = true
         idleRestarts = 0
         rebuilt = false
@@ -72,6 +80,11 @@ class Dictation(
         val result = asking ?: return
         asking = null
         result.success(if (granted) "granted" else "denied")
+    }
+
+    fun pause() {
+        recorder.cut()
+        stop()
     }
 
     fun stop() {
@@ -89,6 +102,7 @@ class Dictation(
     }
 
     fun destroy() {
+        recorder.discard()
         cancel()
         handler.removeCallbacksAndMessages(null)
         recognizer?.destroy()

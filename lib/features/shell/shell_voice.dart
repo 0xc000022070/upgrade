@@ -16,6 +16,7 @@ import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/speech.dart';
+import '../../platform/whisper.dart';
 import '../home/agent_mark.dart';
 import 'shell_sessions.dart';
 
@@ -63,15 +64,23 @@ typedef VoiceLevels = (double latest, double before, double oldest);
 const _quiet = (0.0, 0.0, 0.0);
 
 class ShellDictation extends ChangeNotifier {
-  ShellDictation({required this.onWords, Stream<SpeechEvent>? events}) {
+  ShellDictation({
+    required this.onWords,
+    this.whisper,
+    Stream<SpeechEvent>? events,
+  }) {
     _events = (events ?? Speech.events).listen(_onEvent);
   }
 
   final void Function(ShellSession session, String words) onWords;
 
+  final Transcriber? Function()? whisper;
+
   late final StreamSubscription<SpeechEvent> _events;
 
   var _phase = _Phase.idle;
+  var _take = 0;
+  Transcriber? _whisper;
   ShellSession? _session;
   Timer? _hold;
   bool _held = false;
@@ -118,9 +127,17 @@ class ShellDictation extends ChangeNotifier {
     _settled.clear();
     _partial = '';
     _failure = null;
+    final whisper = _whisper = this.whisper?.call();
+    whisper?.warm();
+    final take = ++_take;
     notifyListeners();
-    final answer = await Speech.start();
-    if (_phase != _Phase.starting) return;
+    final answer = await (whisper != null ? Speech.record() : Speech.start());
+    if (_phase != _Phase.starting || take != _take) {
+      if (answer == SpeechStart.listening) {
+        unawaited(whisper != null ? Speech.discard() : Speech.cancel());
+      }
+      return;
+    }
     switch (answer) {
       case SpeechStart.listening:
         _phase = _Phase.listening;
@@ -147,15 +164,41 @@ class ShellDictation extends ChangeNotifier {
   }
 
   void cancel() {
-    if (hearing) unawaited(Speech.cancel());
+    if (hearing) unawaited(_drop());
     _reset();
   }
+
+  Future<void> _drop() => _whisper != null ? Speech.discard() : Speech.cancel();
 
   void _stop() {
     _phase = _Phase.finishing;
     _levels.value = _quiet;
     notifyListeners();
-    unawaited(Speech.stop());
+    final whisper = _whisper;
+    unawaited(whisper != null ? _transcribe(whisper) : Speech.stop());
+  }
+
+  Future<void> _transcribe(Transcriber whisper) async {
+    final take = _take;
+    bool current() => take == _take && _phase == _Phase.finishing;
+    final pcm = await Speech.finish();
+    if (!current()) return;
+    if (pcm == null) {
+      _failure = 'VOICE FAILED';
+    } else {
+      final samples = pcmSamples(pcm);
+      if (heardAnything(samples)) {
+        try {
+          final text = spokenText(await whisper.transcribe(samples));
+          if (!current()) return;
+          if (text.isNotEmpty) _settled.add(text);
+        } on Object {
+          if (!current()) return;
+          _failure = 'VOICE FAILED';
+        }
+      }
+    }
+    _finish();
   }
 
   void _onEvent(SpeechEvent event) {
@@ -175,6 +218,9 @@ class ShellDictation extends ChangeNotifier {
         _failure = denied ? 'MIC DENIED' : 'VOICE FAILED';
       case SpeechEnded():
         _finish();
+        return;
+      case SpeechCut():
+        if (_phase == _Phase.listening) _stop();
         return;
     }
     notifyListeners();
@@ -221,7 +267,7 @@ class ShellDictation extends ChangeNotifier {
     _clear?.cancel();
     _hold?.cancel();
     unawaited(_events.cancel());
-    if (hearing) unawaited(Speech.cancel());
+    if (hearing) unawaited(_drop());
     _levels.dispose();
     super.dispose();
   }

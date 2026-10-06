@@ -183,7 +183,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onPause() {
         super.onPause()
-        dictation?.stop()
+        dictation?.pause()
     }
 
     override fun onRequestPermissionsResult(

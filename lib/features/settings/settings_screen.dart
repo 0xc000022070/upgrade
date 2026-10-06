@@ -10,6 +10,7 @@ import '../../platform/device.dart';
 import '../screen_scaffold.dart';
 import 'alerts_block.dart';
 import 'bundle_panel.dart';
+import 'voice_block.dart';
 
 void openSettings(BuildContext context) {
   Navigator.of(
@@ -77,6 +78,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
                 const AlertsSettingsBlock(),
+                const VoiceSettingsBlock(),
                 const BundlePanel(),
                 Panel(
                   title: '[ APPEARANCE ]',

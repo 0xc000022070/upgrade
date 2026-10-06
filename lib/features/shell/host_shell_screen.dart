@@ -9,6 +9,7 @@ import '../../application/clips.dart';
 import '../../application/pin_alerts.dart';
 import '../../application/providers.dart';
 import '../../application/shell_font.dart';
+import '../../application/whisper.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/path_repository.dart';
 import '../../data/repositories/settings_repository.dart';
@@ -132,7 +133,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     );
     _clips = ref.read(clipStoreProvider);
     _clips.addListener(_onClips);
-    _dictation = ShellDictation(onWords: _onWords)..addListener(_onDictation);
+    final whisper = ref.read(whisperModelProvider.notifier);
+    _dictation = ShellDictation(
+      onWords: _onWords,
+      whisper: () => whisper.transcriber,
+    )..addListener(_onDictation);
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     // Opening a session tells the store, and the screen the user came from is
     // listening to it while it draws this route in. So the shell waits for the frame
