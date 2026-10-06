@@ -801,6 +801,35 @@ void main() {
     expect(tester.getSize(find.byKey(_floatKey)).width, deviceFloatMinWidth);
   });
 
+  testWidgets('a row says what it is, and what its hold is', (tester) async {
+    final link = FakeDeviceLink(const [_pixel, _iphone]);
+    await _pump(tester, _opener(link));
+    await _open(tester);
+
+    Finder tag(HostDevice device, String word) => find.descendant(
+      of: find.byKey(ValueKey('device-tab-h1-${device.id}')),
+      matching: find.text(word),
+    );
+
+    expect(tag(_pixel, 'EMULATOR'), findsOneWidget);
+    expect(tag(_iphone, 'SIMULATOR'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byKey(_barKey), matching: find.text('DEVICES')),
+      findsOneWidget,
+    );
+
+    await _pick(tester, _pixel);
+    await _live(tester, link);
+    await _open(tester);
+    expect(tag(_pixel, 'LIVE'), findsOneWidget);
+    expect(tag(_iphone, 'SIMULATOR'), findsOneWidget);
+
+    await _tapKey(tester, const ValueKey('device-list-handle'));
+    await _fold(tester);
+    await _open(tester);
+    expect(tag(_pixel, 'HELD'), findsOneWidget);
+  });
+
   testWidgets('a short throw carries the float to the far side', (
     tester,
   ) async {
@@ -1182,7 +1211,10 @@ void main() {
         .getPositionForOffset(Offset(0, tops[1] + 1))
         .offset;
     expect(shown.substring(0, second).replaceAll('\u200B', ''), endsWith('_'));
-    expect(find.bySemanticsLabel(RegExp('^$raw\\n')), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('^${RegExp.escape(raw)}\\n')),
+      findsOneWidget,
+    );
     semantics.dispose();
   });
 
@@ -1795,6 +1827,31 @@ void main() {
       await _pick(tester, _pixel);
       expect(find.byKey(_floatKey), findsOneWidget);
       expect(link.frameStreams.last.hasListener, isTrue);
+    });
+
+    testWidgets('keeps the side a bubble was let go past', (tester) async {
+      await _pump(tester, _opener(FakeDeviceLink(const [_pixel])));
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(_bubbleKey)),
+      );
+      for (var i = 0; i < 30; i++) {
+        await gesture.moveBy(
+          const Offset(-30, 0),
+          timeStamp: Duration(milliseconds: i * 5),
+        );
+        await tester.pump(const Duration(milliseconds: 5));
+      }
+      for (var i = 1; i <= 3; i++) {
+        await gesture.moveBy(
+          const Offset(25, 0),
+          timeStamp: Duration(milliseconds: 200 + i * 5),
+        );
+        await tester.pump(const Duration(milliseconds: 5));
+      }
+      await gesture.up(timeStamp: const Duration(milliseconds: 215));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byKey(handle), findsOneWidget);
+      expect(tester.getCenter(find.byKey(handle)).dx, lessThan(400));
     });
 
     testWidgets('is only on the tabs', (tester) async {

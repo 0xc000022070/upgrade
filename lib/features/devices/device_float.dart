@@ -209,8 +209,9 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     final center = dropped + _dragSize.center(Offset.zero);
     final thrown = center + velocity.pixelsPerSecond * _throw;
     final close = _overClose;
+    final tucked = center.dx < 0 || center.dx > media.size.width;
     setState(() {
-      _right = thrown.dx > media.size.width / 2;
+      _right = (tucked ? center : thrown).dx > media.size.width / 2;
       _top = dropped.dy + velocity.pixelsPerSecond.dy * _throw;
       _dragAt = null;
       _overClose = false;
@@ -218,7 +219,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     });
     if (close) {
       _dock.close();
-    } else if (center.dx < 0 || center.dx > media.size.width) {
+    } else if (tucked) {
       _dock.tuck();
     }
   }
@@ -790,8 +791,9 @@ class _FloatWindowState extends State<_FloatWindow> {
       final close = _overClose;
       final center = dropped + size.center(Offset.zero);
       final fling = details.velocity.pixelsPerSecond * _throw;
+      final tucked = center.dx < 0 || center.dx > screen.width;
       setState(() {
-        _right = (center + fling).dx > screen.width / 2;
+        _right = (tucked ? center : center + fling).dx > screen.width / 2;
         _top = dropped.dy + fling.dy;
         _dragAt = null;
         _pointer = null;
@@ -799,7 +801,7 @@ class _FloatWindowState extends State<_FloatWindow> {
         _overClose = false;
       });
       if (close) return widget.onClose();
-      if (center.dx < 0 || center.dx > screen.width) widget.onCollapse();
+      if (tucked) widget.onCollapse();
     }
 
     final id = widget.id;
@@ -894,15 +896,20 @@ class _DeviceListState extends State<_DeviceList> {
             final key = '$hostId-${device.id}';
             final work = group.workOn(device);
             final opened = _opened == key && work is! WorkRunning;
+            final held =
+                session?.host.id == hostId && session?.device.id == device.id;
             return [
               _ListRow(
                 key: ValueKey('device-tab-$key'),
                 icon: UpgradeIcons.phone,
-                tag: _kindTag(device),
+                tag: held
+                    ? _heldTag(
+                        away: widget.dock.collapsed,
+                        paused: session!.controller.phase is DevicePaused,
+                      )
+                    : _kindTag(device),
                 label: work is WorkRunning ? '${device.name}  …' : device.name,
-                active:
-                    session?.host.id == hostId &&
-                    session?.device.id == device.id,
+                active: held,
                 onTap: work is WorkRunning
                     ? null
                     : () => widget.onSelect(group, device),
@@ -1028,7 +1035,12 @@ class _DeviceListState extends State<_DeviceList> {
                           _ListRow(
                             key: ValueKey('desktop-tab-${host.id}'),
                             icon: UpgradeIcons.monitor,
-                            tag: 'VNC',
+                            tag: desktop?.host.id == host.id
+                                ? _heldTag(
+                                    away: dock.desktopCollapsed,
+                                    paused: dock.desktopPaused,
+                                  )
+                                : 'VNC',
                             label: 'REMOTE DESKTOP',
                             active: desktop?.host.id == host.id,
                             onTap: () => widget.onDesktop(host),
@@ -1038,7 +1050,9 @@ class _DeviceListState extends State<_DeviceList> {
                           _Caption(
                             label: 'DEVICES',
                             plus: group == null
-                                ? null
+                                ? const SizedBox.square(
+                                    dimension: TapTargets.minHeight,
+                                  )
                                 : _Glyph(
                                     key: ValueKey(
                                       'device-group-plus-${host.id}',
@@ -1085,9 +1099,14 @@ class _DeviceListState extends State<_DeviceList> {
   }
 }
 
+String _heldTag({required bool away, required bool paused}) =>
+    away ? 'HELD' : (paused ? 'PAUSED' : 'LIVE');
+
 String _kindTag(HostDevice device) => switch (device.kind) {
   DeviceKind.simulator => 'SIMULATOR',
-  DeviceKind.android when device.avd != null => 'EMULATOR',
+  DeviceKind.android
+      when device.avd != null || device.id.startsWith('emulator-') =>
+    'EMULATOR',
   DeviceKind.android => 'PHYSICAL',
 };
 
@@ -1267,7 +1286,6 @@ class _ListRow extends StatelessWidget {
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
     );
-    final shownTag = active ? 'LIVE' : tag;
     return Semantics(
       button: onTap != null,
       selected: active,
@@ -1294,12 +1312,19 @@ class _ListRow extends StatelessWidget {
                     UpgradeIcon(icon!, size: IconSizes.sm, color: tint),
                     const SizedBox(width: Spacing.sm),
                     Expanded(child: text),
-                    if (shownTag case final shownTag?) ...[
+                    if (tag case final tag?) ...[
                       const SizedBox(width: Spacing.sm),
-                      Text(
-                        shownTag,
-                        style: tokens.rowKicker.copyWith(
-                          color: active ? tokens.accent : tokens.textMuted,
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: deviceListWidth * 0.35,
+                        ),
+                        child: Text(
+                          tag,
+                          style: tokens.rowKicker.copyWith(
+                            color: active ? tokens.accent : tokens.textMuted,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],

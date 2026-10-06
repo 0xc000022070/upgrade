@@ -346,7 +346,7 @@ void main() {
     await tester.enterText(field(_Fields.name), 'nyx');
     await tester.pump();
 
-    await tester.tap(find.text('/ UPGRADE / HOSTS'));
+    await tester.tap(find.text('/ UPGRADE / MACHINES'));
     await _sheet(tester);
     expect(find.text('DISCARD HOST?'), findsOneWidget);
 

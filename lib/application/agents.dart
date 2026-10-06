@@ -94,12 +94,12 @@ class HostOutcome {
     AgentOutcomeKind.snapshot => 'agent integration available',
     AgentOutcomeKind.unreachable => '$_word check could not reach host',
     AgentOutcomeKind.unresolved => '$_word host name did not resolve',
-    AgentOutcomeKind.keyRejected => 'check SSH key in HOSTS',
+    AgentOutcomeKind.keyRejected => 'check SSH key in MACHINES',
     AgentOutcomeKind.protocolMismatch => '$_word protocol is not supported',
     AgentOutcomeKind.noEngine => 'install upgraded on the host',
     AgentOutcomeKind.noHerdr => 'install herdr on the host',
-    AgentOutcomeKind.hostKeyUnverified => 'verify host key in HOSTS',
-    AgentOutcomeKind.hostKeyChanged => 'host key changed; verify in HOSTS',
+    AgentOutcomeKind.hostKeyUnverified => 'verify host key in MACHINES',
+    AgentOutcomeKind.hostKeyChanged => 'host key changed; verify in MACHINES',
     AgentOutcomeKind.busy => ReasonLine.hostBusy.on(host.name),
   };
 }

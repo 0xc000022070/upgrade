@@ -370,7 +370,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         body: StaticSurface(
           child: ScreenScaffold(
             title: widget.host == null ? 'NEW HOST' : 'HOST',
-            breadcrumb: '/ UPGRADE / HOSTS',
+            breadcrumb: '/ UPGRADE / MACHINES',
             onBack: _handleBack,
             children: [
               PanelStack(

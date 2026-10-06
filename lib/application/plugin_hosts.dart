@@ -170,7 +170,7 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
   return (host, scope, operation, args) async {
     if (host.hostKey == null) {
       throw const PluginException(
-        'Verify the host key in HOSTS before connecting',
+        'Verify the host key in MACHINES before connecting',
       );
     }
     final privateKey = await keys.read(host.keyId);

@@ -223,7 +223,7 @@ void main() {
     await ready(tester);
 
     expect(find.text('key rejected'), findsOneWidget);
-    expect(find.text('check SSH key in HOSTS'), findsOneWidget);
+    expect(find.text('check SSH key in MACHINES'), findsOneWidget);
     expect(find.text('RETRY'), findsNothing);
     expect(find.textContaining('private'), findsNothing);
 
