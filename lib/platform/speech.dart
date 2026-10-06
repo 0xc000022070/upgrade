@@ -10,7 +10,9 @@ sealed class SpeechEvent {
   static SpeechEvent? parse(Object? arguments) {
     if (arguments is! Map) return null;
     final text = arguments['text'];
+    final level = arguments['level'];
     return switch (arguments['type']) {
+      'level' when level is num => SpeechLevel(level.toDouble().clamp(0, 1)),
       'partial' when text is String => SpeechPartial(text),
       'final' when text is String => SpeechSettled(text),
       'failed' => SpeechFailed(denied: text == 'denied'),
@@ -24,6 +26,12 @@ final class SpeechPartial extends SpeechEvent {
   const SpeechPartial(this.text);
 
   final String text;
+}
+
+final class SpeechLevel extends SpeechEvent {
+  const SpeechLevel(this.level);
+
+  final double level;
 }
 
 final class SpeechSettled extends SpeechEvent {

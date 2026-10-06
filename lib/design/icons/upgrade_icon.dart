@@ -60,6 +60,7 @@ const glitchIcons = [
   UpgradeIcons.checkboxEmpty,
   UpgradeIcons.submit,
   UpgradeIcons.phone,
+  UpgradeIcons.voice,
 ];
 
 /// flutter_svg keys its cache on the asset/colour pair, so the first play of a sequence
@@ -146,7 +147,9 @@ class GlitchedIcon extends StatelessWidget {
           coverage: step.coverage,
           reach: step.reach,
           child: frame(
-            paint: step.accent ? UpgradeColors.accent : UpgradeColors.textPrimary,
+            paint: step.accent
+                ? UpgradeColors.accent
+                : UpgradeColors.textPrimary,
           ),
         );
       },

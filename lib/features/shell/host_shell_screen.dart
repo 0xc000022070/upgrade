@@ -12,6 +12,7 @@ import '../../application/shell_font.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../data/repositories/path_repository.dart';
 import '../../data/repositories/settings_repository.dart';
+import '../../design/effects/glitch.dart';
 import '../../design/tokens.dart';
 import '../../design/components/action_block.dart';
 import '../../design/components/drag_sheet.dart';
@@ -178,6 +179,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     _dictation
       ..removeListener(_onDictation)
       ..dispose();
+    _voiceLanding.dispose();
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     super.dispose();
   }
@@ -190,6 +192,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   late final ClipStore _clips;
 
   late final ShellDictation _dictation;
+
+  final _voiceLanding = GlitchController();
 
   var _searching = false;
 
@@ -211,6 +215,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   }
 
   void _onWords(ShellSession session, String words) {
+    _voiceLanding.fire();
     final draft = session.voiceDraft;
     final agent = draft?.agent ?? shellAgent(session, _agentsOn(session.host));
     if (agent == null) {
@@ -870,7 +875,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                       searching: _searching,
                       onFind: _onFind,
                       onAttach: () => showAttachSheet(context, session: active),
-                      hearing: _dictation.hearing,
+                      dictation: _dictation,
+                      voiceLanding: _voiceLanding,
                       onVoicePress: () => unawaited(_dictation.press(active)),
                       onVoiceLift: _dictation.lift,
                     ),

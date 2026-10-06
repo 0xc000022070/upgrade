@@ -1,15 +1,20 @@
 import 'dart:async';
 
 import 'package:flterm/flterm.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agent_kind.dart';
 import 'package:upgrade/application/agent_state.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
 import 'package:upgrade/features/shell/shell_voice.dart';
 import 'package:upgrade/platform/herdr_client.dart';
 import 'package:upgrade/platform/speech.dart';
+
+import 'support/themed_app.dart';
 
 const _rose = Host(
   id: 'h1',
@@ -104,6 +109,10 @@ void main() {
     expect(
       SpeechEvent.parse({'type': 'failed', 'text': '7'}),
       isA<SpeechFailed>().having((e) => e.denied, 'denied', isFalse),
+    );
+    expect(
+      SpeechEvent.parse({'type': 'level', 'level': 1.4}),
+      isA<SpeechLevel>().having((e) => e.level, 'level', 1),
     );
     expect(SpeechEvent.parse({'type': 'end'}), isA<SpeechEnded>());
     expect(SpeechEvent.parse({'type': 'partial'}), isNull);
@@ -254,6 +263,68 @@ void main() {
       dictation().lift();
       events.add(const SpeechEnded());
       expect(delivered, isEmpty);
+    });
+
+    testWidgets('levels move out from the centre and rest once lifted', (
+      tester,
+    ) async {
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      events
+        ..add(const SpeechLevel(0.2))
+        ..add(const SpeechLevel(0.5))
+        ..add(const SpeechLevel(0.9));
+      expect(dictation().levels.value, (0.9, 0.5, 0.2));
+      await tester.pump(voiceHold);
+      dictation().lift();
+      expect(dictation().finishing, isTrue);
+      expect(dictation().levels.value, (0.0, 0.0, 0.0));
+      events.add(const SpeechLevel(0.7));
+      expect(dictation().levels.value, (0.0, 0.0, 0.0));
+    });
+
+    Future<void> pumpCell(WidgetTester tester) => tester.pumpWidget(
+      Theme(
+        data: testTheme,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: ListenableBuilder(
+            listenable: dictation(),
+            builder: (context, _) => Center(
+              child: VoiceCell(
+                dictation: dictation(),
+                onPress: () {},
+                onLift: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    testWidgets('the cell meters while it hears and spins while it finishes', (
+      tester,
+    ) async {
+      await pumpCell(tester);
+      expect(find.byType(UpgradeIcon), findsOneWidget);
+      unawaited(dictation().press(_session()));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('shell-voice-meter')), findsOneWidget);
+      await tester.pump(voiceHold);
+      dictation().lift();
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('shell-voice-finishing')),
+        findsOneWidget,
+      );
+      expect(find.byType(DotSpinner), findsNothing);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.byType(DotSpinner), findsOneWidget);
+      events.add(const SpeechSettled('done'));
+      events.add(const SpeechEnded());
+      await tester.pump();
+      expect(find.byType(DotSpinner), findsNothing);
+      expect(find.byType(UpgradeIcon), findsOneWidget);
     });
   });
 }

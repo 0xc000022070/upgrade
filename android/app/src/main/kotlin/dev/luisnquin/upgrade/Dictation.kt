@@ -6,6 +6,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -13,6 +16,10 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 const val RECORD_AUDIO_REQUEST = 3903
+
+private const val RESTART_DELAY_MS = 150L
+private const val MAX_IDLE_RESTARTS = 3
+private const val LEVEL_EVERY_MS = 80L
 
 class Dictation(
     private val activity: Activity,
@@ -23,6 +30,11 @@ class Dictation(
     private var wanted = false
     private var listening = false
     private var asking: MethodChannel.Result? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private val restart = Runnable { if (wanted) listen() else ended() }
+    private var idleRestarts = 0
+    private var rebuilt = false
+    private var levelAt = 0L
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -50,6 +62,8 @@ class Dictation(
             return
         }
         wanted = true
+        idleRestarts = 0
+        rebuilt = false
         listen()
         result.success("listening")
     }
@@ -61,18 +75,22 @@ class Dictation(
     }
 
     fun stop() {
+        if (!wanted && !listening) return
         wanted = false
+        handler.removeCallbacks(restart)
         if (listening) recognizer?.stopListening() else ended()
     }
 
     fun cancel() {
         wanted = false
         listening = false
+        handler.removeCallbacks(restart)
         recognizer?.cancel()
     }
 
     fun destroy() {
         cancel()
+        handler.removeCallbacksAndMessages(null)
         recognizer?.destroy()
         recognizer = null
     }
@@ -117,6 +135,20 @@ class Dictation(
 
     private fun ended() = emit("end")
 
+    private fun resume() {
+        if (!wanted) {
+            ended()
+            return
+        }
+        handler.removeCallbacks(restart)
+        handler.postDelayed(restart, RESTART_DELAY_MS)
+    }
+
+    private fun rebuild() {
+        recognizer?.destroy()
+        recognizer = null
+    }
+
     private fun first(results: Bundle?): String =
         results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim() ?: ""
 
@@ -128,8 +160,12 @@ class Dictation(
     override fun onResults(results: Bundle?) {
         listening = false
         val text = first(results)
-        if (text.isNotEmpty()) emit("final", text)
-        if (wanted) listen() else ended()
+        if (text.isNotEmpty()) {
+            emit("final", text)
+        } else if (wanted && ++idleRestarts >= MAX_IDLE_RESTARTS) {
+            wanted = false
+        }
+        resume()
     }
 
     override fun onError(error: Int) {
@@ -137,14 +173,26 @@ class Dictation(
         val missingLanguage = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             (error == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED ||
                 error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE)
+        val silent = error == SpeechRecognizer.ERROR_NO_MATCH ||
+            error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+        val broken = error == SpeechRecognizer.ERROR_CLIENT ||
+            error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY
         when {
+            !wanted && (silent || broken) -> ended()
             missingLanguage && onDevice -> {
                 fallBack()
-                if (wanted) listen() else ended()
+                resume()
             }
-            error == SpeechRecognizer.ERROR_NO_MATCH ||
-                error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT ||
-                error == SpeechRecognizer.ERROR_CLIENT -> if (wanted) listen() else ended()
+            silent && ++idleRestarts < MAX_IDLE_RESTARTS -> resume()
+            silent -> {
+                wanted = false
+                ended()
+            }
+            broken && !rebuilt -> {
+                rebuilt = true
+                rebuild()
+                resume()
+            }
             error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
                 wanted = false
                 emit("failed", "denied")
@@ -159,8 +207,19 @@ class Dictation(
     }
 
     override fun onReadyForSpeech(params: Bundle?) {}
-    override fun onBeginningOfSpeech() {}
-    override fun onRmsChanged(rmsdB: Float) {}
+    override fun onBeginningOfSpeech() {
+        idleRestarts = 0
+        rebuilt = false
+    }
+
+    // rmsdB runs roughly -2 (silence) to 10 (a raised voice).
+    override fun onRmsChanged(rmsdB: Float) {
+        val now = SystemClock.uptimeMillis()
+        if (now - levelAt < LEVEL_EVERY_MS) return
+        levelAt = now
+        val level = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
+        channel.invokeMethod("event", mapOf("type" to "level", "level" to level.toDouble()))
+    }
     override fun onBufferReceived(buffer: ByteArray?) {}
     override fun onEndOfSpeech() {}
     override fun onEvent(eventType: Int, params: Bundle?) {}

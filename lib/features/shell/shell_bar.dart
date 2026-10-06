@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
+import '../../design/effects/glitch.dart';
 import '../../design/components/arrow_stick.dart';
 import '../../design/components/key_bar.dart';
 import '../../design/components/key_cell.dart';
@@ -74,7 +75,8 @@ class ShellBar extends StatelessWidget {
     required this.onKeyboard,
     this.clipCount = 0,
     this.onAttach,
-    this.hearing = false,
+    this.dictation,
+    this.voiceLanding,
     this.onVoicePress,
     this.onVoiceLift,
     this.searching = false,
@@ -100,7 +102,8 @@ class ShellBar extends StatelessWidget {
   final int clipCount;
   final VoidCallback? onAttach;
 
-  final bool hearing;
+  final ShellDictation? dictation;
+  final GlitchController? voiceLanding;
   final VoidCallback? onVoicePress;
   final VoidCallback? onVoiceLift;
 
@@ -164,7 +167,8 @@ class ShellBar extends StatelessWidget {
         ),
         VoiceCell(
           key: const ValueKey('bar-VOICE'),
-          hearing: hearing,
+          dictation: dictation,
+          landing: voiceLanding,
           onPress: () => onVoicePress?.call(),
           onLift: () => onVoiceLift?.call(),
         ),

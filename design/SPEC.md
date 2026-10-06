@@ -1357,7 +1357,11 @@ The cell is a picture, drawn in the accent while memory holds anything; the coun
 
 ### `VOICE` dictates, and an agent's tab gets a composer
 
-The cell is five level bars on the pinned side, between `ATTACH` and the keyboard toggle, drawn in the accent while it hears. A press starts listening at once, so the first word is not lost to a wait. A lift after 400 ms ends it, which is hold to talk; a lift sooner leaves it listening hands-free until the next tap, for a phone held at arm's length. A pause while it listens does not end it: what was heard so far is settled and listening carries on.
+The cell is five level bars on the pinned side, between `ATTACH` and the keyboard toggle. A press starts listening at once, so the first word is not lost to a wait. A lift after 400 ms ends it, which is hold to talk; a lift sooner leaves it listening hands-free until the next tap, for a phone held at arm's length. A pause while it listens does not end it: what was heard so far is settled and listening carries on.
+
+**The cell shows the microphone working.** While it listens the bars stand in the accent as a level meter of what the microphone hears, at most twelve readings a second: the centre bar is the latest reading, the pair beside it the one before, the outer pair the one before that, so a voice reads as a trace moving out from the middle and silence as five short bars. After the lift, while the recognizer finishes its last words, the row reads `FINISHING`, and the cell holds still and gives way to the dot spinner once the wait passes 200 ms. When the words land, in the composer or at the cursor, the glyph takes the five-frame icon glitch, as a capture landing does. The meter is the one moving thing here that runs for as long as a state lasts, and it is allowed because every frame of it is a reading and not decoration; the glitch stays an event. Reduce-motion keeps the bars still in the accent and skips the glitch.
+
+**A recognizer that will not start again is not asked forever.** Each restart after a pause waits a beat for the last session to let go. One that errors before hearing anything is rebuilt and asked once more, and three restarts in a row with no speech end the dictation with what was settled, or `NOTHING HEARD`.
 
 **The recognizer is the phone's own.** Android's speech service, asked to stay on the device wherever it has the language. The audio goes nowhere near the host, and the app ships no model and talks to no server of its own. The microphone is asked for the first time the cell is pressed and not before.
 
