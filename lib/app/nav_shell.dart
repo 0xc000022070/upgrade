@@ -17,8 +17,7 @@ class NavDestination {
 const navDestinations = [
   NavDestination('HOME', UpgradeIcons.home),
   NavDestination('PROJECTS', UpgradeIcons.projects),
-  NavDestination('HOSTS', UpgradeIcons.hosts),
-  NavDestination('SSH', UpgradeIcons.shell),
+  NavDestination('MACHINES', UpgradeIcons.hosts),
   NavDestination('TOOLS', UpgradeIcons.tools),
 ];
 

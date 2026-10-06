@@ -8,7 +8,7 @@ import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/features/agents/agent_shell.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
-import 'package:upgrade/features/ssh/ssh_screen.dart';
+import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/platform/herdr_client.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 
@@ -122,7 +122,7 @@ void main() {
     await ready(tester);
 
     expect(header, findsOneWidget);
-    expect(container.read(navIndexProvider), SshScreen.navIndex);
+    expect(container.read(navIndexProvider), HostsScreen.navIndex);
     final session = sessions.forHost(_rose.id).single;
     expect(session.pane, _pane);
     expect(session.command, _takeoverAttach);

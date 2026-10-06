@@ -25,8 +25,11 @@ import '../../platform/host_key_dial.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/link_probe.dart';
 import '../code/code_list.dart';
+import '../devices/device_dock.dart';
+import '../devices/screens_action.dart';
 import '../screen_scaffold.dart';
 import '../settings/host_form_screen.dart';
+import '../shell/active_sessions_panel.dart';
 import '../shell/shell_sheet.dart';
 import '../shell/shell_sessions.dart';
 import '../shell/shell_status.dart';
@@ -113,15 +116,21 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     };
 
     return ScreenScaffold(
-      title: 'HOSTS',
+      title: 'MACHINES',
       maxContentWidth: 1100,
-      breadcrumbTrailing: ToolbarIconAction(
-        label: 'MANAGE SSH KEYS',
-        icon: UpgradeIcons.sshKey,
-        onTap: () => openKeys(context),
+      breadcrumbTrailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const ScreensAction(),
+          ToolbarIconAction(
+            label: 'MANAGE SSH KEYS',
+            icon: UpgradeIcons.sshKey,
+            onTap: () => openKeys(context),
+          ),
+        ],
       ),
       header: SegmentSwitch(
-        labels: const ['MACHINES', 'CODE'],
+        labels: const ['HOSTS', 'CODE'],
         currentIndex: _segment,
         onSelected: (index) => setState(() => _segment = index),
       ),
@@ -129,6 +138,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
         if (_segment == 1)
           const CodeList()
         else ...[
+          ActiveSessionsPanel(hosts: hosts.valueOrNull ?? const <Host>[]),
           AsyncSection<List<Host>>(
             value: hosts,
             empty: 'Add a host to connect to your computer.',
@@ -236,8 +246,8 @@ class _HostSummary extends ConsumerWidget {
                   style: context.tokens.label,
                 ),
               ),
-              const SizedBox(height: Spacing.sm),
-              const PanelAffordance('DETAILS'),
+              const SizedBox(height: Spacing.md),
+              _HostActions(host: host),
             ],
           ),
         ),
@@ -264,7 +274,7 @@ class _HostDetail extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: host?.name.toUpperCase() ?? 'HOST',
-          breadcrumb: '/ UPGRADE / HOSTS',
+          breadcrumb: '/ UPGRADE / MACHINES',
           onBack: () => Navigator.of(context).pop(),
           children: [
             if (host != null)
@@ -814,3 +824,70 @@ String _failureWord(Object error) => switch (error) {
   TimeoutException() => 'NO ANSWER',
   _ => 'FAILED',
 };
+
+class _HostActions extends ConsumerWidget {
+  const _HostActions({required this.host});
+
+  final Host host;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final store = ref.watch(shellSessionsProvider);
+    final dock = ref.watch(deviceDockProvider);
+    final screen = ref
+        .watch(screenHostsProvider)
+        ?.where((screen) => screen.host.id == host.id)
+        .firstOrNull;
+    final accent = context.tokens.accent;
+    return Wrap(
+      spacing: Spacing.lg,
+      runSpacing: Spacing.md,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        ShellWatcher(
+          store: store,
+          watch: (store) => store.forHost(host.id),
+          builder: (context) {
+            final sessions = store.forHost(host.id);
+            final worst = worstShellState(sessions);
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (worst != null) ...[
+                  ShellStateDot(state: worst),
+                  const SizedBox(width: Spacing.sm),
+                ],
+                PanelAffordance(
+                  sessions.isEmpty
+                      ? 'SHELL'
+                      : 'SHELL · ${sessions.length} OPEN',
+                  key: ValueKey('ssh-host-${host.id}'),
+                  icon: UpgradeIcons.shell,
+                  color: accent,
+                  onTap: () => pickHostShell(context, store, host),
+                ),
+              ],
+            );
+          },
+        ),
+        if (screen?.desktop ?? false)
+          PanelAffordance(
+            'DESKTOP',
+            key: ValueKey('desktop-host-${host.id}'),
+            icon: UpgradeIcons.screens,
+            color: accent,
+            onTap: () => dock.watchDesktop(host),
+          ),
+        if (screen?.devices ?? false)
+          PanelAffordance(
+            'DEVICES',
+            key: ValueKey('devices-host-${host.id}'),
+            icon: UpgradeIcons.screens,
+            color: accent,
+            onTap: dock.ask,
+          ),
+        const PanelAffordance('DETAILS'),
+      ],
+    );
+  }
+}

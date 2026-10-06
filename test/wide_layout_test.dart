@@ -169,7 +169,7 @@ void main() {
     expect(bar.height, lessThan(120));
     expect(bar.bottom, 800);
     final first = tester.getRect(find.text('HOME'));
-    final last = tester.getRect(find.text('SSH'));
+    final last = tester.getRect(find.text('TOOLS'));
     expect(first.left, greaterThanOrEqualTo(150));
     expect(last.right, lessThanOrEqualTo(750));
     expect((first.center.dx + last.center.dx) / 2, closeTo(450, 1));

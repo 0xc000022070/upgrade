@@ -10,8 +10,9 @@ import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
-import 'package:upgrade/features/ssh/ssh_screen.dart';
+import 'package:upgrade/features/hosts/hosts_screen.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
@@ -53,8 +54,14 @@ void main() {
 
   tearDown(() => db.close());
 
-  Widget app({double textScale = 1}) => ProviderScope(
+  Widget app({
+    double textScale = 1,
+    List<Host> desktops = const [],
+    List<Host> devices = const [],
+  }) => ProviderScope(
     overrides: [
+      vncHostsProvider.overrideWith((ref) => Stream.value(desktops)),
+      deviceHostsProvider.overrideWith((ref) => Stream.value(devices)),
       ...featureTestOverrides(db),
       keyRepositoryProvider.overrideWithValue(keys),
       hostRepositoryProvider.overrideWithValue(hosts),
@@ -68,7 +75,7 @@ void main() {
             .copyWith(textScaler: TextScaler.linear(textScale)),
         child: child!,
       ),
-      home: SshScreen(),
+      home: const HostsScreen(),
     ),
   );
 
@@ -101,9 +108,7 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  testWidgets('every host is a row saying what it is dialled as', (
-    tester,
-  ) async {
+  testWidgets('every host is a card saying where it is', (tester) async {
     sized(tester);
     await seed();
     await tester.pumpWidget(app());
@@ -111,8 +116,8 @@ void main() {
 
     expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('NYX'), findsOneWidget);
-    expect(find.text('luis@100.64.0.1:22'), findsOneWidget);
-    expect(find.text('luis@100.64.0.2:357'), findsOneWidget);
+    expect(find.text('100.64.0.1:22'), findsOneWidget);
+    expect(find.text('100.64.0.2:357'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -147,8 +152,8 @@ void main() {
     expect(find.byKey(const ValueKey('shell-card-h2-2')), findsOneWidget);
     expect(find.text('rose · shell 1'), findsOneWidget);
     expect(find.text('nyx · shell 2'), findsOneWidget);
-    expect(find.text('1 OPEN'), findsOneWidget);
-    expect(find.text('2 OPEN'), findsOneWidget);
+    expect(find.text('SHELL · 1 OPEN'), findsOneWidget);
+    expect(find.text('SHELL · 2 OPEN'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -235,31 +240,6 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a host with no session lines its name up with one that has', (
-    tester,
-  ) async {
-    sized(tester);
-    await seed();
-    shells.stall = false;
-    sessions.open(_nyx);
-    await tester.pumpWidget(app());
-    await ready(tester);
-
-    double left(String host, String text) => tester
-        .getTopLeft(
-          find.descendant(
-            of: find.byKey(ValueKey('ssh-host-$host')),
-            matching: find.text(text),
-          ),
-        )
-        .dx;
-
-    expect(left('h1', 'ROSE'), left('h2', 'NYX'));
-    expect(left('h1', 'luis@100.64.0.1:22'), left('h2', 'luis@100.64.0.2:357'));
-
-    await unmount(tester);
-  });
-
   testWidgets('a card opens its own host on its own tab', (tester) async {
     sized(tester);
     await seed();
@@ -285,7 +265,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a host row with no session opens one', (tester) async {
+  testWidgets('a card with no session opens one', (tester) async {
     sized(tester);
     await seed();
     shells.stall = false;
@@ -337,6 +317,30 @@ void main() {
     },
   );
 
+  testWidgets('a card offers the screens its host has', (tester) async {
+    sized(tester);
+    await seed();
+    await tester.pumpWidget(
+      app(desktops: const [_rose], devices: const [_nyx]),
+    );
+    await ready(tester);
+
+    expect(find.byKey(const ValueKey('desktop-host-h1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('devices-host-h1')), findsNothing);
+    expect(find.byKey(const ValueKey('desktop-host-h2')), findsNothing);
+    expect(find.byKey(const ValueKey('devices-host-h2')), findsOneWidget);
+
+    final dock = ProviderScope.containerOf(
+      tester.element(find.byType(HostsScreen)),
+    ).read(deviceDockProvider);
+    final asks = dock.asks;
+    await tester.tap(find.byKey(const ValueKey('devices-host-h2')));
+    await tester.pump();
+    expect(dock.asks, asks + 1);
+
+    await unmount(tester);
+  });
+
   testWidgets('no host is the panel saying so, not an empty screen', (
     tester,
   ) async {
@@ -344,7 +348,10 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    expect(find.text('NO HOSTS REGISTERED'), findsOneWidget);
+    expect(
+      find.text('ADD A HOST TO CONNECT TO YOUR COMPUTER.'),
+      findsOneWidget,
+    );
 
     await unmount(tester);
   });

@@ -343,11 +343,11 @@ Where the figure lands is solved and not computed from the grid: a cell with one
 
 ### Four tabs, and the bar is glyph over label
 
-`HOME`, `PROJECTS`, `HOSTS`, `SSH`. Each tab is a house glyph over a mono 9 label, accent on the active one, with a thin top rule segment over it. No floating centre button, no pill container, no glow.
+`HOME`, `PROJECTS`, `MACHINES`, `TOOLS`. Each tab is a house glyph over a mono 9 label, accent on the active one, with a thin top rule segment over it. No floating centre button, no pill container, no glow.
 
-**Every tab owns its glyph rather than borrowing one.** A destination is a place, and a glyph shared with an action says the place is that action. `HOME` is a house the roof is carried down into, open on the right, with the local endpoint inside it — a roof over a detached baseline was drawn first and reads as two objects rather than a place. `HOSTS` is two stacked rack units carrying a system node each — machines, not a page of text. `SSH` is a prompt caret with the cursor block inline after it, because what is behind that tab is a terminal and nothing about a terminal is an abstract coupling. `TOOLS` is a bay of docked slots holding unlike modules, which is what a destination filled by plugin pages is.
+**Every tab owns its glyph rather than borrowing one.** A destination is a place, and a glyph shared with an action says the place is that action. `HOME` is a house the roof is carried down into, open on the right, with the local endpoint inside it — a roof over a detached baseline was drawn first and reads as two objects rather than a place. `MACHINES` is two stacked rack units carrying a system node each — machines, not a page of text. `TOOLS` is a bay of docked slots holding unlike modules, which is what a destination filled by plugin pages is.
 
-**Struck:** an `ACTIVITY` tab and a `SEARCH` tab. Activity events keep being written and nothing draws them; search is a screen Home pushes, not a tab to live on.
+**Struck:** an `ACTIVITY` tab and a `SEARCH` tab. Activity events keep being written and nothing draws them; search is a screen Home pushes, not a tab to live on. And a separate `SSH` tab: it listed the same machines a second time, so a host's shell and its details were one tab apart.
 
 ### Home is the agents first, then the next thing, then the work
 
@@ -723,7 +723,9 @@ The convention of hiding a bar until the form is valid is fine where the only re
 
 `unresolved` is the address failing to resolve, before any socket opened. `unreachable` is everything after a name. The underlying error is written to the debug log with the host's name on every failure, so a report from a handset can be read without guessing.
 
-### HOSTS is the tab for machines, and each machine is a panel
+### MACHINES is the tab for machines, and everything running on them
+
+`ACTIVE SESSIONS` on top, then a card per host, then `ADD HOST`; `CODE` is the second segment. A card carries what the machine can do right now as accent text actions: `SHELL`, with the worst state dot and `· <n> OPEN` once sessions exist, `DESKTOP` when VNC is on, which floats its desktop at once, and `DEVICES` when devices are on, which opens the screens list. `DETAILS` and a tap anywhere else push the host's panel. `MANAGE SSH KEYS` and `SCREENS` sit in the header.
 
 One panel per registered host, each with its own header strip carrying the host name and `EDIT` on the right, which pushes that host's form. The body is metadata rows: `ADDRESS` as `<address>:<port>`, `USER`, `KEY` naming the key, `INTEGRATIONS` as mono tokens of whatever is on or `NONE`, and a `STATE` row carrying the host's latest agent outcome when the agent integration is on — `3 agents · 1 blocked`, or the reason line in its colour. `ADD HOST` is the last text action after the panels, or the only thing there when no host is registered.
 
@@ -733,7 +735,7 @@ Nothing on this tab edits in place. The form is the one editor. SYS keeps `[ STA
 
 ### A host is drawn with the mark of the system it runs
 
-A list of machines that are all the same name in the same face reads as one machine repeated. Each host carries a mark for its operating system: the NixOS snowflake, the Apple apple for macOS, and for anything else a single rack unit. It sits before the name on the host's card in `MACHINES` and in its panel's header strip, as the leading glyph of its row in the SSH host list beside the state dot, and before the name on its group's label in the tab strip.
+A list of machines that are all the same name in the same face reads as one machine repeated. Each host carries a mark for its operating system: the NixOS snowflake, the Apple apple for macOS, and for anything else a single rack unit. It sits before the name on the host's card in `MACHINES` and in its panel's header strip, and before the name on its group's label in the tab strip.
 
 A scoped exception to never shipping a third-party mark, like the agents' marks, and narrower than theirs: the two vendor marks are redrawn in the house stroke, caps and joins, with every curve faceted into straight runs, in `currentColor` and never the vendor's colours. They are `hl-system-nixos` and `hl-system-darwin` in the icon index under their own heading, and nothing else in the family borrows from them. The rack unit is the family's own `hl-system-server`, one unit where `hosts` draws two.
 
@@ -849,7 +851,7 @@ The AGENTS panel answers this and answers it better: a row per agent, the work e
 
 Struck: the bar on HOME. The panel is there, saying all of this and the rows under it, and two answers to one question on one screen is one of them too many.
 
-Struck: the bar on HOSTS. The host panel is there, with the reason line and `RETRY`, and the strip would stack a third row of chrome over a parked shell and the nav bar to repeat it.
+Struck: the bar on MACHINES. The host panel is there, with the reason line and `RETRY`, and the strip would stack a third row of chrome over a parked shell and the nav bar to repeat it.
 
 Struck: the block at the head held at the size it was drawn. The phone's text scale is a curve that gives a small size most of the rise, so a fixed six pixels shrinks against its own line until it reads as dust on the bar. It is sized off the line's own face.
 
@@ -921,7 +923,7 @@ Under the workspaces, one panel per host the engine answers for, titled `INBOX` 
 
 ### The hooks go in when the user is standing where they matter, and never behind their back
 
-A hook is a line in the agent's own configuration, which is a file the user owns. With `AGENTS` on, the host's panel on HOSTS lists each agent kind with whether its hooks are in: `INSTALLED`, or `INSTALL` behind a sheet that names the file and what will be added to it and waits for a confirm. The engine merges its entries beside whatever is there and touches nothing else; OpenCode takes a plugin file of the engine's own. A plugin file at that path the engine did not write is not its to replace: it is reported as not writable, and the sheet shows the plugin with `COPY` like any other declaration.
+A hook is a line in the agent's own configuration, which is a file the user owns. With `AGENTS` on, the host's panel on MACHINES lists each agent kind with whether its hooks are in: `INSTALLED`, or `INSTALL` behind a sheet that names the file and what will be added to it and waits for a confirm. The engine merges its entries beside whatever is there and touches nothing else; OpenCode takes a plugin file of the engine's own. A plugin file at that path the engine did not write is not its to replace: it is reported as not writable, and the sheet shows the plugin with `COPY` like any other declaration.
 
 **A file a declaration owns is shown, not written.** A configuration that is a link into a store — home-manager, a Nix module, anything the user rebuilds from — is read-only in every way that matters, and a write to it is undone at the next switch. The engine reports it as not writable, and the sheet shows the path and the exact entries with `COPY`, for the user to put in their own declaration.
 
@@ -1071,7 +1073,7 @@ The reconnect schedule is one backoff per host: five seconds after an outage, do
 
 **The line is drawn at the credential, and it is drawn because the knocking is not free.** The daemon on the far side counts failed authentications per source address, and under its own shipped defaults it answers everything from that address for the next hour before a key is looked at, for a day if the client keeps knocking. A watcher on a minute's timer is a client that keeps knocking. What it loses is not the watch: the shell and the screen dial the same daemon from the same phone, so a background loop nobody is looking at can lock the user out of the machine they were about to open a terminal on, and go on holding the lock open by retrying into it.
 
-**The app's own two refusals sit on the same side of that line for a plainer reason.** A host key that was never pinned and a host key that changed are both answered by a person standing in front of a fingerprint on HOSTS. A loop cannot be the one to answer them, so a loop that retries them is asking a question with nobody in the room, every minute, for as long as the phone is on.
+**The app's own two refusals sit on the same side of that line for a plainer reason.** A host key that was never pinned and a host key that changed are both answered by a person standing in front of a fingerprint on MACHINES. A loop cannot be the one to answer them, so a loop that retries them is asking a question with nobody in the room, every minute, for as long as the phone is on.
 
 **Everything else costs the host nothing to be asked twice and can answer differently without anybody touching the phone.** A route that is not there comes back, a name starts resolving, a herdr too old to be understood is upgraded on the far side. Those keep the schedule they have.
 
@@ -1099,7 +1101,7 @@ Sessions outlive the route. A store per host keeps every session, its connection
 
 ### The shell is a sheet over the screen it was opened from
 
-It is presented as a modal sheet over the surface that opened it — the SSH tab, a host panel, a session card, a workspace, an agent row — and not as a page in front of it. The screen beneath stays in the tree under a `0x99000000` wash, lighter than a panel sheet's, so the tab still reads as the tab.
+It is presented as a modal sheet over the surface that opened it — the MACHINES tab, a host panel, a session card, a workspace, an agent row — and not as a page in front of it. The screen beneath stays in the tree under a `0x99000000` wash, lighter than a panel sheet's, so the tab still reads as the tab.
 
 **The sheet stands flush under the status bar**, its foot at the screen's, so the terminal keeps every row a full page had. In place of a band or a shoulder, one rule on the sheet's own top edge — 36 × 2 px, centred, `textDisabled`, 5 px under the edge, drawn over the header's ground, with the hairline `borderNormal` along the edge itself. That rule is the only thing that says sheet, and it says it inside the row the header already holds, so it costs no rows either. It takes no touches: the header under it is what the finger grabs.
 
@@ -1155,9 +1157,9 @@ A tab that is dialling, or is up and has not had a byte from the host, is a blac
 
 It is the host's bytes that end it, not the terminal's: the modes and the mark the app writes into a fresh terminal on its own are not an answer. A tab restored on its saved screen never shows it, because it opens on something to read and the dial lands under it the way a reconnect does, and a reconnect on a tab the host already drew on never shows it either. A tab that failed, exited or is waiting drops it — the reason row says why, and a waiting tab is not working.
 
-### SSH is the tab for what is running
+### Active sessions sit over the machines
 
-`ACTIVE SESSIONS` on top, one card per session across every host, in host order then tab order, drawn only while something is open: an empty shelf is worse than the list starting at the top. Under it the host list, each row `ssh, <user>` and never the address, counting its own sessions.
+`ACTIVE SESSIONS` on top of MACHINES, one card per session across every host, in host order then tab order, drawn only while something is open: an empty shelf is worse than the list starting at the top.
 
 A card is a live miniature of its session's terminal on black, hairline bordered, repainted as output arrives but not more than twice a second, with the state dot in its top trailing corner and `<HOST> <n>` captioned under it over the shell's title. A tap opens that session.
 
@@ -1557,17 +1559,17 @@ The integration is a `DEVICES` row in the host form's `[ INTEGRATIONS ]`. A devi
 
 **It is not the desktop cut down to a window.** A window cut out of the VNC picture shows whatever is on top of it, and two emulators on one host open at the same spot, so the picture would be the wrong device half the time and off the display's edge the rest.
 
-### The way in is the screens handle, on the edge of every tab
+### The way in is the screens tab, on the edge of every tab, and its twin in the header
 
 **One launcher holds every screen the user owns: desktops and devices alike.** A host whose VNC integration is on brings its desktop, and a host whose devices integration is on brings its emulators and simulators. They are listed together, and a desktop and a device float at the same time.
 
-**The handle is the way in, not a host's panel.** On the four tabs, an 8×44 bar rests against the side edge where the bubble last rested, at its height, low on the right until the bubble has been moved: the screen rail's own handle, `--text-disabled` while nothing is held, accent while a desktop or a device is, minimized or not. A tap on it, or a drag inward from it, drops the bubble with the list open. It shows only while some host has either integration on or something is held; it is gone while any route or sheet is pushed over the tabs and while a screen is full screen, so it never sits over a form or a shell.
+**The edge tab is the way in, not a host's panel.** On the four tabs, a 28×56 tab rests against the side edge where the bubble last rested, at its height, low on the right until the bubble has been moved: black, bordered on the three sides off the edge, holding the screens glyph torn on the bubble's beat. The border and glyph are `--text-muted` while nothing is held, accent while a desktop or a device is, minimized or not. `SCREENS` in the HOME and MACHINES headers opens the same list, for whoever never looks at the edge. An 8 px bar was tried first: nobody found it. A tap on it, or a drag inward from it, drops the bubble with the list open. It shows only while some host has either integration on or something is held; it is gone while any route or sheet is pushed over the tabs and while a screen is full screen, so it never sits over a form or a shell.
 
 The bubble is a square holding the screens glyph, a monitor with a phone in front of it, glitched as it lands and torn again every 1.4 seconds while it sits with the app in front, so a parked device never reads as a dead icon; with the app away it lies still and wakes nothing. A tap on it opens the list; a device's picture appears only once the user taps its row, and the list folds back into the bubble as it does. A window that was open folds into the bubble. There is no list route: the bubble holds the list.
 
 **The list is a panel, not a strip.** It opens from the bubble on its side, downward from the bubble in the top half of the screen and upward in the bottom half, at most as wide as a phone column and never taller than the room between the bubble and the screen's edge, scrolling inside itself when the hosts outgrow it. Its whole header is the drag handle, and a tap on it folds the list back into the bubble. It holds the screens glyph, glitched as the list opens, then `SCREENS`, then the minimize dash, which folds it as well. A tap anywhere off the list folds it too. Below it, every host with either integration on is a label row, by name, the host's mark and name. Under it, a host with VNC on has a `DESKTOP` row first, in accent while its desktop is held; a tap floats the desktop window and dials it, and on a desktop already held it only brings the window back. Then one row per booted device under its full AVD name, model or simulator name, the streaming one in accent with an accent rule down its left edge. A row opens the window on that device; one device streams at a time, whichever host it is on. A host with none booted shows a dimmed `NONE` row, one still connecting `…`, and one whose connection failed has its label in warning and its reason line, in warning, under it. Opening the list dials every host with devices on that is not dialled yet, and only those; a tap on a label asks that host again. With no host carrying either integration the list says `NO HOST HAS VNC OR DEVICES ON`, dimmed. The footer is `END` at its far end.
 
-**Struck:** the `DEVICES` row on the host's panel, and the `+ HOST` menu in the list's footer. A way in that started from one host put the user on the HOSTS tab to watch anything, and a second host was a second trip; the list now holds every host there is to hold.
+**Struck:** the `DEVICES` row on the host's panel, and the `+ HOST` menu in the list's footer. A way in that started from one host put the user on the MACHINES tab to watch anything, and a second host was a second trip; the list now holds every host there is to hold.
 
 ### A host's devices are booted, made and removed from the list, never from its shell
 
@@ -1613,7 +1615,7 @@ On Android a tap is `input tap`, a long press is a swipe that does not move for 
 
 ### A registered directory is a primitive of its own, beside the projects
 
-A checkout is not a property of a machine the way an address and a port are: it outlives which machine holds it, and it is what the user actually works in. So there are two primitives with two homes. PROJECTS is the board and nothing else. CODE is every registered directory across every host, and it lives on HOSTS because a registered directory is a host thing the app owns and not a Projects thing. **They are siblings, not a hierarchy**: a workspace with no project is ordinary and a project with no workspace is ordinary.
+A checkout is not a property of a machine the way an address and a port are: it outlives which machine holds it, and it is what the user actually works in. So there are two primitives with two homes. PROJECTS is the board and nothing else. CODE is every registered directory across every host, and it lives on MACHINES because a registered directory is a host thing the app owns and not a Projects thing. **They are siblings, not a hierarchy**: a workspace with no project is ordinary and a project with no workspace is ordinary.
 
 **Struck:** a fifth destination in the nav. Four labels is what fits inside the content cap with the parked shell bar over it, and a switch that lives on the screen it switches costs no chrome at all.
 

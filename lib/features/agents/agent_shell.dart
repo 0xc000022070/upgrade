@@ -9,7 +9,7 @@ import '../../design/components/panel_sheet.dart';
 import '../../platform/herdr_client.dart';
 import '../shell/shell_sessions.dart';
 import '../shell/shell_sheet.dart';
-import '../ssh/ssh_screen.dart';
+import '../hosts/hosts_screen.dart';
 import 'agent_chat_screen.dart';
 
 typedef AgentOpen = void Function(Host host, AgentSnapshot agent);
@@ -42,7 +42,7 @@ void openAgentPane(
 ) {
   final held = ref.read(shellSessionsProvider).holding(host.id, pane);
   if (held != null) {
-    ref.read(navIndexProvider.notifier).state = SshScreen.navIndex;
+    ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex;
     openHostShell(context, host, session: held);
     return;
   }
@@ -64,7 +64,7 @@ Future<void> _confirmAndOpenAgentShell(
     confirmLabel: 'OPEN HERE',
   );
   if (!confirmed || !context.mounted) return;
-  ref.read(navIndexProvider.notifier).state = SshScreen.navIndex;
+  ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex;
   openHostShell(
     context,
     host,

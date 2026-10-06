@@ -325,7 +325,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the sessions are not on this screen any more', (tester) async {
+  testWidgets('the sessions sit over the hosts and on their cards', (tester) async {
     tester.view.physicalSize = const Size(400, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -335,9 +335,9 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    expect(find.text('SHELLS'), findsNothing);
-    expect(find.text('ACTIVE SESSIONS'), findsNothing);
-    expect(find.byKey(const ValueKey('shell-card-h1-1')), findsNothing);
+    expect(find.text('ACTIVE SESSIONS'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-card-h1-1')), findsOneWidget);
+    expect(find.text('SHELL · 1 OPEN'), findsOneWidget);
     await details(tester, 'ROSE');
     expect(find.text('SHELL · 1 OPEN'), findsOneWidget);
 

@@ -20,7 +20,6 @@ import '../features/hosts/hosts_screen.dart';
 import '../features/plugins/plugin_page.dart';
 import '../features/shell/parked_shell_bar.dart';
 import '../features/shell/shell_wake.dart';
-import '../features/ssh/ssh_screen.dart';
 import 'alerts_boot.dart';
 import 'autonomous_ticks.dart';
 import 'boot.dart';
@@ -128,7 +127,7 @@ class _UpgradeShellState extends ConsumerState<UpgradeShell> {
     final pinnedId = placements?.pinnedPages.firstOrNull;
     final contribution = pinnedId == null ? null : catalog.page(pinnedId);
     final pinned = contribution?.enabled == true ? contribution : null;
-    final visibleIndices = [0, if (pinned != null) 1, 2, 3, 4];
+    final visibleIndices = [0, if (pinned != null) 1, 2, 3];
     final index = visibleIndices.contains(selectedIndex) ? selectedIndex : 0;
     if (index != selectedIndex && !placementState.isLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -143,7 +142,6 @@ class _UpgradeShellState extends ConsumerState<UpgradeShell> {
       const HomeScreen(),
       pinned == null ? const SizedBox.shrink() : _pluginPage(pinned),
       const HostsScreen(),
-      const SshScreen(),
       const PluginLibraryScreen(),
     ];
 

@@ -18,6 +18,7 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/devices/device_controllers.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/features/devices/device_float.dart';
+import 'package:upgrade/features/devices/screens_action.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';
 import 'package:upgrade/platform/devices/device_link.dart';
 import 'package:upgrade/platform/herdr_client.dart';
@@ -196,9 +197,15 @@ Future<void> _pump(
         home: Consumer(
           builder: (context, ref, _) => Scaffold(
             body: Center(
-              child: TextButton(
-                onPressed: () => ref.read(deviceDockProvider).show(_rose),
-                child: const Text('DEVICES'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: () => ref.read(deviceDockProvider).show(_rose),
+                    child: const Text('DEVICES'),
+                  ),
+                  const ScreensAction(),
+                ],
               ),
             ),
           ),
@@ -1737,6 +1744,7 @@ void main() {
 
   group('the edge', () {
     const handle = ValueKey('screens-handle');
+    const screensAction = ValueKey('screens-action');
 
     Future<void> tuck(WidgetTester tester) async {
       await tester.drag(find.byKey(_bubbleKey), const Offset(400, 0));
@@ -1761,7 +1769,7 @@ void main() {
         find.byKey(const ValueKey('screens-handle-bar')),
       );
       expect(
-        (bar.decoration! as BoxDecoration).color,
+        ((bar.decoration! as BoxDecoration).border! as Border).top.color,
         testTheme.extension<UpgradeTokens>()!.accent,
       );
 
@@ -1790,6 +1798,14 @@ void main() {
       expect(find.byKey(handle), findsOneWidget);
     });
 
+    testWidgets('has a twin in the header that opens the list', (tester) async {
+      await _pump(tester, _opener(FakeDeviceLink(const [_pixel])), show: false);
+      expect(find.byKey(_barKey), findsNothing);
+      await _tapKey(tester, screensAction);
+      expect(find.byKey(_barKey), findsOneWidget);
+      expect(find.byKey(handle), findsNothing);
+    });
+
     testWidgets('is there before anything was opened', (tester) async {
       await _pump(tester, _opener(FakeDeviceLink(const [_pixel])), show: false);
       expect(find.byKey(handle), findsOneWidget);
@@ -1804,6 +1820,7 @@ void main() {
         show: false,
       );
       expect(find.byKey(handle), findsNothing);
+      expect(find.byKey(screensAction), findsNothing);
     });
   });
 }

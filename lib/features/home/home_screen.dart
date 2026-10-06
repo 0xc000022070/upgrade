@@ -23,6 +23,7 @@ import '../../platform/plugins/contributions.dart';
 import '../screen_scaffold.dart';
 import '../tasks/item_search_screen.dart';
 import '../tasks/selection_bar.dart';
+import '../devices/screens_action.dart';
 import '../plugins/plugin_management_screen.dart';
 import 'agents_panel.dart';
 import 'home_card_viewport.dart';
@@ -172,6 +173,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         },
                       ),
                     if (drops) const SizedBox(width: Spacing.sm),
+                    const ScreensAction(),
                     HomeActions(beforeOpen: _leave),
                   ],
                 ),

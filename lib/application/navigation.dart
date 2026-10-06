@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/effects/glitch.dart';
 
-const navDestinationCount = 5;
+const navDestinationCount = 4;
 
 final navIndexProvider = StateProvider<int>((ref) => 0);
 

@@ -217,7 +217,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await drain(tester);
     expect(find.byType(PluginPage), findsNothing);
-    expect(container.read(navIndexProvider), 4);
+    expect(container.read(navIndexProvider), 3);
     expect(find.byType(PluginLibraryScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -241,7 +241,7 @@ void main() {
       await drain(tester);
       expect(find.byType(CaptureBar), findsNothing);
       expect(find.text('PROJECTS'), findsNothing);
-      expect(find.text('HOSTS'), findsOneWidget);
+      expect(find.text('MACHINES'), findsOneWidget);
       final controller = container.read(pluginsProvider.notifier);
       await tester.runAsync(() => controller.setEnabled('upgrade.drops', true));
       await tester.runAsync(
@@ -260,7 +260,9 @@ void main() {
       await tester.runAsync(
         () => controller.setEnabled('upgrade.projects', false),
       );
-      await tester.runAsync(() => controller.setEnabled('upgrade.drops', false));
+      await tester.runAsync(
+        () => controller.setEnabled('upgrade.drops', false),
+      );
       await drain(tester);
       expect(find.byType(ItemSheet), findsNothing);
       expect(find.byType(CaptureBar), findsNothing);

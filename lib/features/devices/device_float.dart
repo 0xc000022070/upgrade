@@ -36,9 +36,9 @@ const deviceListWidth = 280.0;
 const deviceBubbleSize = 56.0;
 const _bubblePulse = Duration(milliseconds: 1400);
 const desktopFloatShare = 0.6;
-const screensHandleWidth = 8.0;
-const screensHandleHeight = 44.0;
-const _handleReach = 24.0;
+const screensHandleWidth = 28.0;
+const screensHandleHeight = deviceBubbleSize;
+const _handleReach = 40.0;
 
 class DeviceFloat extends ConsumerStatefulWidget {
   const DeviceFloat({super.key, required this.child});
@@ -107,12 +107,15 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   bool _menu = false;
   bool _sheet = false;
   late bool _atRoot = rootRoutes.atRoot.value;
+  late int _asks;
 
   @override
   void initState() {
     super.initState();
     _dock = ref.read(deviceDockProvider);
     rootRoutes.atRoot.addListener(_onRoute);
+    _asks = _dock.asks;
+    _dock.addListener(_onAsk);
     ref.listenManual<List<ScreenHost>?>(screenHostsProvider, (_, hosts) {
       if (_menu && _dock.floating) _attach(hosts);
     });
@@ -121,6 +124,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   @override
   void dispose() {
     rootRoutes.atRoot.removeListener(_onRoute);
+    _dock.removeListener(_onAsk);
     super.dispose();
   }
 
@@ -143,6 +147,12 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
       for (final screen in hosts ?? const <ScreenHost>[])
         if (screen.devices) screen.host,
     ]);
+  }
+
+  void _onAsk() {
+    if (_dock.asks == _asks) return;
+    _asks = _dock.asks;
+    _openList();
   }
 
   void _openList() {
@@ -271,17 +281,18 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
 
   Widget _placeHandle(BuildContext context) {
     final media = MediaQuery.of(context);
-    final top =
-        _clampTop(media, deviceBubbleSize) +
-        (deviceBubbleSize - screensHandleHeight) / 2;
     final held = _dock.holding;
     final tokens = context.tokens;
+    final edge = BorderSide(
+      color: held ? tokens.accent : tokens.textMuted,
+      width: Borders.hairline,
+    );
     return Stack(
       children: [
         Positioned(
           right: _right ? 0 : null,
           left: _right ? null : 0,
-          top: top - (deviceBubbleSize - screensHandleHeight) / 2,
+          top: _clampTop(media, deviceBubbleSize),
           child: Semantics(
             button: true,
             label: 'SCREENS',
@@ -307,10 +318,19 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
                     width: screensHandleWidth,
                     height: screensHandleHeight,
                     decoration: BoxDecoration(
-                      color: held ? tokens.accent : tokens.textDisabled,
-                      border: Border.all(
-                        color: tokens.borderNormal,
-                        width: Borders.hairline,
+                      color: tokens.mediaBackdrop,
+                      border: Border(
+                        top: edge,
+                        bottom: edge,
+                        left: _right ? edge : BorderSide.none,
+                        right: _right ? BorderSide.none : edge,
+                      ),
+                    ),
+                    child: Center(
+                      child: _ScreensMark(
+                        size: IconSizes.sm,
+                        pulse: true,
+                        color: held ? tokens.accent : null,
                       ),
                     ),
                   ),
@@ -1191,10 +1211,11 @@ class _ListRow extends StatelessWidget {
 }
 
 class _ScreensMark extends StatefulWidget {
-  const _ScreensMark({required this.size, this.pulse = false});
+  const _ScreensMark({required this.size, this.pulse = false, this.color});
 
   final double size;
   final bool pulse;
+  final Color? color;
 
   @override
   State<_ScreensMark> createState() => _ScreensMarkState();
@@ -1241,7 +1262,7 @@ class _ScreensMarkState extends State<_ScreensMark>
     return UpgradeIcon(
       UpgradeIcons.screens,
       size: widget.size,
-      color: context.tokens.textPrimary,
+      color: widget.color ?? context.tokens.textPrimary,
       glitch: _glitch,
       steps: _steps,
     );

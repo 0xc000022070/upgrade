@@ -65,6 +65,7 @@ class DeviceDock extends ChangeNotifier {
   int _decodeWidth = floatDecodeWidth;
   bool _away = false;
   bool _disposed = false;
+  int _asks = 0;
 
   DeviceSession? get session => _session;
   DesktopSession? get desktop => _desktop;
@@ -75,6 +76,12 @@ class DeviceDock extends ChangeNotifier {
   bool get desktopPaused => _desktopPaused;
   DockSurface? get expanded => _expanded;
   bool get holding => _session != null || _desktop != null;
+  int get asks => _asks;
+
+  void ask() {
+    _asks++;
+    notifyListeners();
+  }
 
   DeviceLink? borrow(String hostId) {
     final lease = _leases[hostId];

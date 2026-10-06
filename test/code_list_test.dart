@@ -76,7 +76,7 @@ void main() {
     return db.close();
   });
 
-  // The MACHINES segment probes, previews and dials the hosts it lists; none of that
+  // The HOSTS segment probes, previews and dials the hosts it lists; none of that
   // reaches a socket here.
   Future<void> noDial({
     required String address,
@@ -152,13 +152,13 @@ void main() {
 
   Future<void> toCode(WidgetTester tester) => tapText(tester, 'CODE');
 
-  testWidgets('HOSTS opens on MACHINES and the switch reaches CODE', (
+  testWidgets('MACHINES opens on HOSTS and the switch reaches CODE', (
     tester,
   ) async {
     await hosts.save(_host('1', 'nyx'));
     await open(tester);
 
-    expect(find.text('HOSTS'), findsWidgets);
+    expect(find.text('MACHINES'), findsWidgets);
     expect(find.text('ADD HOST'), findsOneWidget);
     expect(find.text('WORKSPACES'), findsNothing);
 
@@ -166,7 +166,7 @@ void main() {
     expect(find.text('WORKSPACES'), findsOneWidget);
     expect(find.text('ADD HOST'), findsNothing);
 
-    await tapText(tester, 'MACHINES');
+    await tapText(tester, 'HOSTS');
     expect(find.text('WORKSPACES'), findsNothing);
     expect(find.text('ADD HOST'), findsOneWidget);
 
