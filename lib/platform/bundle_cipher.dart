@@ -132,10 +132,10 @@ class BundleCipher {
 
   static const marker = 'bundle';
 
-  /// The app was called Spectacle when it wrote the files its users are now importing into
-  /// Upgrade, so both names open and the current one is written.
+  /// The app was called Spectacle, then Dazzle, when it wrote files its users now import
+  /// into Upgrade, so every name opens and the current one is written.
   static const markerKey = 'upgrade';
-  static const legacyMarkerKey = 'spectacle';
+  static const legacyMarkerKeys = ['dazzle', 'spectacle'];
   static const version = 1;
   static const _saltLength = 16;
   static const _nonceLength = 24;
@@ -173,8 +173,12 @@ class BundleCipher {
     } on FormatException {
       throw const BundleException(BundleFault.notABundle);
     }
-    if (json is! Map ||
-        (json[markerKey] != marker && json[legacyMarkerKey] != marker)) {
+    if (json is! Map) throw const BundleException(BundleFault.notABundle);
+    final envelope = json;
+    if (![
+      markerKey,
+      ...legacyMarkerKeys,
+    ].any((key) => envelope[key] == marker)) {
       throw const BundleException(BundleFault.notABundle);
     }
     final fileVersion = json['version'];
