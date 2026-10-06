@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:upgrade/platform/vnc/rfb_client.dart';
+import 'package:upgrade/platform/vnc/rfb_messages.dart';
+import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
+
 class FakeVncChannel {
   FakeVncChannel() {
     _outgoing.stream.listen(_sent.add);
@@ -132,3 +136,47 @@ List<int> _s32(int value) {
 
 List<int> u16(int value) => _u16(value);
 List<int> u32(int value) => _u32(value);
+
+class FakeVncConnection implements VncConnection {
+  FakeVncConnection._(this.channel, this.rfb, this.serverInit);
+
+  static Future<FakeVncConnection> open({
+    int width = 16,
+    int height = 8,
+  }) async {
+    final channel = FakeVncChannel();
+    final rfb = RfbClient(incoming: channel.stream, outgoing: channel.sink);
+    channel.feed(serverHandshake(width: width, height: height));
+    final init = await rfb.handshake();
+    return FakeVncConnection._(channel, rfb, init);
+  }
+
+  final FakeVncChannel channel;
+
+  @override
+  final RfbClient rfb;
+
+  @override
+  final RfbServerInit serverInit;
+
+  bool closed = false;
+
+  void feedFrame() {
+    channel.feed([
+      Rfb.serverFramebufferUpdate,
+      ...updateHeader(1),
+      ...rectHeader(x: 0, y: 0, width: 1, height: 1, encoding: Rfb.encodingRaw),
+      0x11,
+      0x22,
+      0x33,
+      0xFF,
+    ]);
+  }
+
+  @override
+  Future<void> close() async {
+    closed = true;
+    await rfb.close();
+    await channel.dispose();
+  }
+}

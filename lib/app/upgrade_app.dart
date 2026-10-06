@@ -81,6 +81,7 @@ class UpgradeApp extends ConsumerWidget {
           // Over every route rather than inside one: the app goes to the parked window from
           // wherever the user was.
           navigatorKey: rootNavigatorKey,
+          navigatorObservers: [rootRoutes],
           builder: (context, child) => KeyboardRelease(
             child: houseText(
               context,

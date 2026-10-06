@@ -250,6 +250,39 @@ final deviceHostsProvider = StreamProvider<List<Host>>(
       .watchWithIntegration(IntegrationKind.devices),
 );
 
+final vncHostsProvider = StreamProvider<List<Host>>(
+  (ref) => ref
+      .watch(hostRepositoryProvider)
+      .watchWithIntegration(IntegrationKind.vnc),
+);
+
+class ScreenHost {
+  const ScreenHost(this.host, {required this.desktop, required this.devices});
+
+  final Host host;
+  final bool desktop;
+  final bool devices;
+}
+
+final screenHostsProvider = Provider<List<ScreenHost>?>((ref) {
+  final desktops = ref.watch(vncHostsProvider).valueOrNull;
+  final devices = ref.watch(deviceHostsProvider).valueOrNull;
+  if (desktops == null || devices == null) return null;
+  final desktopIds = {for (final host in desktops) host.id};
+  final deviceIds = {for (final host in devices) host.id};
+  final hosts = {
+    for (final host in [...desktops, ...devices]) host.id: host,
+  }.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+  return [
+    for (final host in hosts)
+      ScreenHost(
+        host,
+        desktop: desktopIds.contains(host.id),
+        devices: deviceIds.contains(host.id),
+      ),
+  ];
+});
+
 Stream<List<AgentChannel>> watchAgentChannels(HostRepository repository) {
   late final StreamController<List<AgentChannel>> controller;
   final subscriptions = <StreamSubscription<List<Host>>>[];

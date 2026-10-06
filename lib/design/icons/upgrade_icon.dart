@@ -59,7 +59,7 @@ const glitchIcons = [
   UpgradeIcons.checkboxChecked,
   UpgradeIcons.checkboxEmpty,
   UpgradeIcons.submit,
-  UpgradeIcons.phone,
+  UpgradeIcons.screens,
   UpgradeIcons.voice,
 ];
 

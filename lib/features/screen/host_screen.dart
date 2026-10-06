@@ -13,6 +13,7 @@ import '../../design/spacing.dart';
 import '../../platform/gallery.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/vnc/vnc_tunnel.dart';
+import '../devices/device_dock.dart';
 import '../hosts/host_key_sheet.dart';
 import '../settings/host_form_screen.dart';
 import 'crop_notice.dart';
@@ -24,10 +25,31 @@ import 'screen_rail.dart';
 import 'screen_transform.dart';
 
 void openHostScreen(BuildContext context, Host host) {
+  final dock = ProviderScope.containerOf(context).read(deviceDockProvider);
+  if (dock.desktop?.host.id == host.id) return expandDesktop(context, dock);
   Navigator.of(
     context,
     rootNavigator: true,
   ).push(MaterialPageRoute<void>(builder: (_) => HostScreenRoute(host: host)));
+}
+
+void expandDesktop(BuildContext context, DeviceDock dock) {
+  final desktop = dock.desktop;
+  if (desktop == null) return;
+  dock.expandDesktop();
+  Navigator.of(context, rootNavigator: true).push(
+    MaterialPageRoute<void>(
+      builder: (_) => PopScope(
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) dock.float();
+        },
+        child: HostScreenRoute(
+          host: desktop.host,
+          controller: desktop.controller,
+        ),
+      ),
+    ),
+  );
 }
 
 class HostScreenRoute extends ConsumerStatefulWidget {
@@ -36,6 +58,7 @@ class HostScreenRoute extends ConsumerStatefulWidget {
     required this.host,
     this.open,
     this.save = saveToGallery,
+    this.controller,
   });
 
   final Host host;
@@ -45,6 +68,9 @@ class HostScreenRoute extends ConsumerStatefulWidget {
   /// Injectable only so "disposing the route closes channel and client" can be asserted
   /// without a host answering. Null everywhere but a test.
   final VncOpener? open;
+
+  /// Held by the dock, which connects it, pauses it and closes it; the route only shows it.
+  final HostScreenController? controller;
 
   @override
   ConsumerState<HostScreenRoute> createState() => _HostScreenRouteState();
@@ -73,22 +99,25 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   @override
   void initState() {
     super.initState();
-    _controller = HostScreenController(
-      host: widget.host,
-      readPrivateKey: ref.read(ed25519KeysProvider).privateKey,
-      pinHostKey: ref.read(hostRepositoryProvider).pinHostKey,
-      prompt: _askHostKey,
-      open: widget.open ?? VncTunnel(ref.read(hostLinksProvider)).open,
-    );
+    final shared = widget.controller;
+    _controller =
+        shared ??
+        HostScreenController(
+          host: widget.host,
+          readPrivateKey: ref.read(ed25519KeysProvider).privateKey,
+          pinHostKey: ref.read(hostRepositoryProvider).pinHostKey,
+          prompt: _askHostKey,
+          open: widget.open ?? VncTunnel(ref.read(hostLinksProvider)).open,
+        );
     ref.listenManual<bool>(appVisibleProvider, (_, visible) {
       _away = !visible;
       _previewTimer?.cancel();
       _previewTimer = null;
       if (visible) _previewEvery();
-      _controller.setAway(_away);
+      if (widget.controller == null) _controller.setAway(_away);
     });
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-    _controller.connect();
+    if (shared == null) _controller.connect();
     unawaited(_openPreviews());
   }
 
@@ -134,7 +163,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
     // Exactly what `main` sets before the first frame. None of the rest of the app is laid
     // out for a landscape window, and portraitDown is not in the set either.
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
-    _controller.dispose();
+    if (widget.controller == null) _controller.dispose();
     super.dispose();
   }
 
@@ -177,11 +206,17 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   }
 
   void _editHost() {
-    Navigator.of(context, rootNavigator: true).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => HostFormScreen(host: widget.host),
-      ),
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final form = MaterialPageRoute<void>(
+      builder: (_) => HostFormScreen(host: widget.host),
     );
+    if (widget.controller == null) {
+      navigator.pushReplacement(form);
+      return;
+    }
+    navigator
+      ..pop()
+      ..push(form);
   }
 
   @override

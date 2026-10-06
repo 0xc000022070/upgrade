@@ -12,7 +12,6 @@ import 'package:upgrade/features/screen/host_screen.dart';
 import 'package:upgrade/features/screen/screen_rail.dart';
 import 'package:upgrade/platform/keys.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
-import 'package:upgrade/platform/vnc/rfb_client.dart';
 import 'package:upgrade/platform/vnc/rfb_messages.dart';
 import 'package:upgrade/platform/vnc/vnc_failure.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
@@ -29,50 +28,6 @@ const _nyx = Host(
   user: 'luisnquin',
   keyId: 'k1',
 );
-
-class FakeVncConnection implements VncConnection {
-  FakeVncConnection._(this.channel, this.rfb, this.serverInit);
-
-  static Future<FakeVncConnection> open({
-    int width = 16,
-    int height = 8,
-  }) async {
-    final channel = FakeVncChannel();
-    final rfb = RfbClient(incoming: channel.stream, outgoing: channel.sink);
-    channel.feed(serverHandshake(width: width, height: height));
-    final init = await rfb.handshake();
-    return FakeVncConnection._(channel, rfb, init);
-  }
-
-  final FakeVncChannel channel;
-
-  @override
-  final RfbClient rfb;
-
-  @override
-  final RfbServerInit serverInit;
-
-  bool closed = false;
-
-  void feedFrame() {
-    channel.feed([
-      Rfb.serverFramebufferUpdate,
-      ...updateHeader(1),
-      ...rectHeader(x: 0, y: 0, width: 1, height: 1, encoding: Rfb.encodingRaw),
-      0x11,
-      0x22,
-      0x33,
-      0xFF,
-    ]);
-  }
-
-  @override
-  Future<void> close() async {
-    closed = true;
-    await rfb.close();
-    await channel.dispose();
-  }
-}
 
 /// What Android reserves at the left edge for its own back gesture. A pointer that goes
 /// down inside it never reaches the app.

@@ -23,8 +23,10 @@ import 'package:upgrade/platform/devices/device_link.dart';
 import 'package:upgrade/platform/herdr_client.dart';
 import 'package:upgrade/platform/host_keys.dart';
 import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 
 import 'support/platform_channels.dart';
+import 'support/vnc_channel.dart';
 import 'support/themed_app.dart';
 
 const _rose = Host(
@@ -168,6 +170,9 @@ Future<void> _pump(
   WidgetTester tester,
   DeviceLinkOpener open, {
   List<Host> hosts = const [_rose],
+  List<Host> desktops = const [],
+  VncOpener? vnc,
+  bool show = true,
   ThemeData? theme,
 }) async {
   stubDeviceChannels();
@@ -180,10 +185,13 @@ Future<void> _pump(
         staticEnabledProvider.overrideWith((ref) => Stream.value(false)),
         deviceLinkOpenerProvider.overrideWithValue(open),
         deviceHostsProvider.overrideWith((ref) => Stream.value(hosts)),
+        vncHostsProvider.overrideWith((ref) => Stream.value(desktops)),
+        if (vnc != null) vncOpenerProvider.overrideWithValue(vnc),
       ],
       child: MaterialApp(
         theme: theme ?? testTheme,
         navigatorKey: rootNavigatorKey,
+        navigatorObservers: [rootRoutes],
         builder: (context, child) => DeviceFloat(child: child!),
         home: Consumer(
           builder: (context, ref, _) => Scaffold(
@@ -199,6 +207,7 @@ Future<void> _pump(
     ),
   );
   await tester.pump();
+  if (!show) return _settle(tester);
   await tester.tap(find.text('DEVICES'));
   await _settle(tester);
 }
@@ -386,7 +395,7 @@ void main() {
     expect(find.byKey(_barKey), findsOneWidget);
     expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('pixel_\u200B7-api36'), findsOneWidget);
-    expect(find.text('+  NO OTHER HOST HAS DEVICES ON'), findsOneWidget);
+    expect(find.text('SCREENS'), findsOneWidget);
     expect(link.frameStreams, isEmpty);
 
     await _pick(tester, _pixel);
@@ -445,9 +454,8 @@ void main() {
     expect(link.frameStreams.single.hasListener, isTrue);
   });
 
-  testWidgets('+ adds a host to the bar, and its tabs move the stream', (
-    tester,
-  ) async {
+  testWidgets('every host with devices on is listed, and its tabs move the '
+      'stream', (tester) async {
     final rose = FakeDeviceLink(const [_pixel]);
     final nyx = FakeDeviceLink(const [_iphone]);
     Future<DeviceLink> open({
@@ -463,20 +471,10 @@ void main() {
     await _live(tester, rose);
     await _fold(tester);
     await _open(tester);
-
-    const plus = ValueKey('device-list-plus');
-    await tester.ensureVisible(find.byKey(plus));
-    await tester.pump();
-    await tester.tap(find.byKey(plus));
-    await tester.pump();
-    expect(find.text('DEVICES ON'), findsOneWidget);
-    expect(find.byKey(const ValueKey('device-new-host-h1')), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('device-new-host-h2')));
     await _settle(tester);
 
     expect(find.text('NYX'), findsOneWidget);
-    expect(find.byKey(plus), findsNothing);
-    expect(find.text('+  NO OTHER HOST HAS DEVICES ON'), findsOneWidget);
+    expect(find.text('DESKTOP'), findsNothing);
     expect(nyx.frameStreams, isEmpty);
 
     await _pick(tester, _iphone, host: 'h2');
@@ -638,7 +636,7 @@ void main() {
     expect(link.frameStreams, hasLength(2));
     expect(link.frameStreams.last.hasListener, isTrue);
 
-    await tester.drag(find.byKey(_floatKey), const Offset(400, 0));
+    await tester.drag(find.byKey(_floatKey), const Offset(-400, 0));
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byKey(_bubbleKey), findsOneWidget);
     expect(link.frameStreams.last.hasListener, isFalse);
@@ -683,11 +681,10 @@ void main() {
 
     await dropOnTarget(find.byKey(_floatKey));
     expect(find.byKey(_floatKey), findsNothing);
-    expect(find.byKey(_barKey), findsNothing);
+    expect(find.byKey(_bubbleKey), findsOneWidget);
     expect(link.frameStreams.single.hasListener, isFalse);
-    expect(link.closed, isTrue);
+    expect(link.closed, isFalse);
 
-    await reopen();
     await dropOnTarget(find.byKey(_bubbleKey));
     expect(find.byKey(_bubbleKey), findsNothing);
     expect(link.closed, isTrue);
@@ -695,7 +692,7 @@ void main() {
     await reopen();
     await _open(tester);
     await dropOnTarget(
-      find.descendant(of: find.byKey(_barKey), matching: find.text('DEVICES')),
+      find.descendant(of: find.byKey(_barKey), matching: find.text('SCREENS')),
     );
     expect(find.byKey(_barKey), findsNothing);
     expect(link.closed, isTrue);
@@ -712,9 +709,9 @@ void main() {
     await _tapKey(tester, _floatKey);
     await _tapKey(tester, const ValueKey('device-float-close'));
     expect(find.byKey(_floatKey), findsNothing);
-    expect(find.byKey(_barKey), findsNothing);
+    expect(find.byKey(_bubbleKey), findsOneWidget);
     expect(link.frameStreams.last.hasListener, isFalse);
-    expect(link.closed, isTrue);
+    expect(link.closed, isFalse);
   });
 
   testWidgets(
@@ -725,7 +722,7 @@ void main() {
       await _pump(tester, _opener(link));
       expect(
         tester.getSemantics(find.byKey(_bubbleKey)),
-        isSemantics(label: 'DEVICES', isButton: true),
+        isSemantics(label: 'SCREENS', isButton: true),
       );
 
       await _open(tester);
@@ -1592,6 +1589,221 @@ void main() {
       expect(sent, contains('My Phone'));
       expect(sent, contains('t1'));
       expect(sent, contains('r1'));
+    });
+  });
+
+  group('a desktop', () {
+    late List<FakeVncConnection> connections;
+
+    VncOpener vnc() {
+      connections = [];
+      return ({
+        required String address,
+        required int port,
+        required String user,
+        required String privateKey,
+        String? vncUsername,
+        String? password,
+        HostKeyVerifier? verifier,
+      }) async {
+        final connection = await FakeVncConnection.open();
+        connections.add(connection);
+        return connection;
+      };
+    }
+
+    const desktopKey = ValueKey('desktop-float');
+    const desktopTab = ValueKey('desktop-tab-h1');
+
+    Future<void> watchDesktop(WidgetTester tester) async {
+      if (find.byKey(_bubbleKey).evaluate().isNotEmpty) await _open(tester);
+      await _tapKey(tester, desktopTab);
+      await _settle(tester);
+      connections.last.feedFrame();
+      await _settle(tester);
+    }
+
+    Finder onDesktop(String text) => find.descendant(
+      of: find.byKey(const ValueKey('desktop-float-overlay')),
+      matching: find.text(text),
+    );
+
+    testWidgets('floats beside a device, each window on its own', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(400, 860);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final link = FakeDeviceLink(const [_pixel]);
+      await _pump(tester, _opener(link), desktops: const [_rose], vnc: vnc());
+      await _open(tester);
+      final rows = [
+        for (final key in const [
+          'device-group-h1',
+          'desktop-tab-h1',
+          'device-tab-h1-emulator-5554',
+        ])
+          tester.getTopLeft(find.byKey(ValueKey(key))).dy,
+      ];
+      expect(rows, orderedEquals([...rows]..sort()));
+
+      await watchDesktop(tester);
+      expect(find.byKey(desktopKey), findsOneWidget);
+      expect(find.byKey(_bubbleKey), findsOneWidget);
+      expect(connections, hasLength(1));
+
+      await _pick(tester, _pixel);
+      await _live(tester, link);
+      expect(find.byKey(desktopKey), findsOneWidget);
+      expect(find.byKey(_floatKey), findsOneWidget);
+      expect(find.byKey(_bubbleKey), findsOneWidget);
+      expect(
+        tester
+            .getRect(find.byKey(desktopKey))
+            .overlaps(tester.getRect(find.byKey(_floatKey))),
+        isFalse,
+      );
+
+      await _tapKey(tester, desktopKey);
+      await tester.tap(onDesktop('PAUSE'));
+      await tester.pump();
+      expect(_dock(tester).desktopPaused, isTrue);
+      expect(onDesktop('RESUME'), findsOneWidget);
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(desktopKey)) + const Offset(4, 4),
+      );
+      await tester.pump();
+      expect(_dock(tester).desktopPaused, isTrue);
+      expect(
+        find.byKey(const ValueKey('desktop-float-paused')),
+        findsOneWidget,
+      );
+      expect(link.frameStreams.last.hasListener, isTrue);
+
+      await _tapKey(tester, desktopKey);
+      await _tapKey(tester, const ValueKey('desktop-float-close'));
+      await _settle(tester);
+      expect(find.byKey(desktopKey), findsNothing);
+      expect(find.byKey(_floatKey), findsOneWidget);
+      expect(connections.single.closed, isTrue);
+      expect(link.closed, isFalse);
+    });
+
+    testWidgets('a minimized desktop comes back from its row', (tester) async {
+      await _pump(
+        tester,
+        _opener(FakeDeviceLink(const [_pixel])),
+        desktops: const [_rose],
+        vnc: vnc(),
+      );
+      await watchDesktop(tester);
+      await _tapKey(tester, desktopKey);
+      await _tapKey(tester, const ValueKey('desktop-float-collapse'));
+      expect(find.byKey(desktopKey), findsNothing);
+      expect(_dock(tester).desktop, isNotNull);
+
+      await _open(tester);
+      await _tapKey(tester, desktopTab);
+      expect(find.byKey(desktopKey), findsOneWidget);
+      expect(connections, hasLength(1));
+      expect(connections.single.closed, isFalse);
+    });
+
+    testWidgets('goes full screen on the same connection and floats back', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        _opener(FakeDeviceLink(const [_pixel])),
+        desktops: const [_rose],
+        vnc: vnc(),
+      );
+      await watchDesktop(tester);
+      await _tapKey(tester, desktopKey);
+      await _tapKey(tester, const ValueKey('desktop-float-expand'));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('/ ROSE SCREEN'), findsOneWidget);
+      expect(find.byKey(desktopKey), findsNothing);
+      expect(find.byKey(_bubbleKey), findsNothing);
+      expect(connections, hasLength(1));
+
+      await tester.tap(find.text('/ ROSE SCREEN'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byKey(desktopKey), findsOneWidget);
+      expect(connections.single.closed, isFalse);
+    });
+  });
+
+  group('the edge', () {
+    const handle = ValueKey('screens-handle');
+
+    Future<void> tuck(WidgetTester tester) async {
+      await tester.drag(find.byKey(_bubbleKey), const Offset(400, 0));
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    testWidgets('takes the bubble and gives it back with the list open', (
+      tester,
+    ) async {
+      final link = FakeDeviceLink(const [_pixel]);
+      await _pump(tester, _opener(link));
+      await _pick(tester, _pixel);
+      await _live(tester, link);
+
+      await tuck(tester);
+      expect(find.byKey(_bubbleKey), findsNothing);
+      expect(find.byKey(_floatKey), findsNothing);
+      expect(find.byKey(handle), findsOneWidget);
+      expect(link.frameStreams.last.hasListener, isFalse);
+      expect(link.closed, isFalse);
+      final bar = tester.widget<Container>(
+        find.byKey(const ValueKey('screens-handle-bar')),
+      );
+      expect(
+        (bar.decoration! as BoxDecoration).color,
+        testTheme.extension<UpgradeTokens>()!.accent,
+      );
+
+      await _tapKey(tester, handle);
+      expect(find.byKey(_barKey), findsOneWidget);
+      await _pick(tester, _pixel);
+      expect(find.byKey(_floatKey), findsOneWidget);
+      expect(link.frameStreams.last.hasListener, isTrue);
+    });
+
+    testWidgets('is only on the tabs', (tester) async {
+      await _pump(tester, _opener(FakeDeviceLink(const [_pixel])));
+      await tuck(tester);
+      expect(find.byKey(handle), findsOneWidget);
+
+      rootNavigatorKey.currentState!.push(
+        MaterialPageRoute<void>(builder: (_) => const Scaffold()),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byKey(handle), findsNothing);
+
+      rootNavigatorKey.currentState!.pop();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byKey(handle), findsOneWidget);
+    });
+
+    testWidgets('is there before anything was opened', (tester) async {
+      await _pump(tester, _opener(FakeDeviceLink(const [_pixel])), show: false);
+      expect(find.byKey(handle), findsOneWidget);
+      expect(find.byKey(_bubbleKey), findsNothing);
+    });
+
+    testWidgets('is not there without a host to show', (tester) async {
+      await _pump(
+        tester,
+        _opener(FakeDeviceLink(const [_pixel])),
+        hosts: const [],
+        show: false,
+      );
+      expect(find.byKey(handle), findsNothing);
     });
   });
 }

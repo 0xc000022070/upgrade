@@ -32,3 +32,25 @@ final navGlitchProvider = Provider<NavGlitch>((ref) {
 });
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
+
+class RootRoutes extends NavigatorObserver {
+  final atRoot = ValueNotifier<bool>(true);
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      atRoot.value = route.isFirst;
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      atRoot.value = previousRoute?.isFirst ?? true;
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      atRoot.value = !(navigator?.canPop() ?? false);
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
+      atRoot.value = !(navigator?.canPop() ?? false);
+}
+
+final rootRoutes = RootRoutes();

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/agents.dart';
@@ -9,6 +10,7 @@ import '../../application/navigation.dart';
 import '../../application/pip.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/components/inline_confirm.dart';
+import '../../design/components/panel.dart';
 import '../../design/effects/glitch.dart';
 import '../../design/icons/upgrade_icon.dart';
 import '../../design/icons/upgrade_icons.dart';
@@ -16,7 +18,8 @@ import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../platform/devices/device_link.dart';
 import '../hosts/host_mark.dart';
-import '../hosts/host_strip.dart';
+import '../screen/host_screen.dart';
+import '../screen/screen_controller.dart';
 import 'device_controllers.dart';
 import 'device_dock.dart';
 import 'device_screen.dart';
@@ -32,6 +35,10 @@ const _decodeStep = 120;
 const deviceListWidth = 280.0;
 const deviceBubbleSize = 56.0;
 const _bubblePulse = Duration(milliseconds: 1400);
+const desktopFloatShare = 0.6;
+const screensHandleWidth = 8.0;
+const screensHandleHeight = 44.0;
+const _handleReach = 24.0;
 
 class DeviceFloat extends ConsumerStatefulWidget {
   const DeviceFloat({super.key, required this.child});
@@ -94,20 +101,55 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
 
   bool _right = true;
   double? _top;
-  double _width = deviceFloatWidth;
-  double _pinchFrom = deviceFloatWidth;
   Offset? _dragAt;
   Size _dragSize = Size.zero;
-  bool _gesturing = false;
   bool _overClose = false;
-  bool _overlay = false;
   bool _menu = false;
   bool _sheet = false;
+  late bool _atRoot = rootRoutes.atRoot.value;
 
   @override
   void initState() {
     super.initState();
     _dock = ref.read(deviceDockProvider);
+    rootRoutes.atRoot.addListener(_onRoute);
+    ref.listenManual<List<ScreenHost>?>(screenHostsProvider, (_, hosts) {
+      if (_menu && _dock.floating) _attach(hosts);
+    });
+  }
+
+  @override
+  void dispose() {
+    rootRoutes.atRoot.removeListener(_onRoute);
+    super.dispose();
+  }
+
+  /// The navigator reports a push from inside its own build.
+  void _onRoute() {
+    void apply() {
+      if (mounted) setState(() => _atRoot = rootRoutes.atRoot.value);
+    }
+
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => apply());
+    } else {
+      apply();
+    }
+  }
+
+  void _attach(List<ScreenHost>? hosts) {
+    _dock.attach([
+      for (final screen in hosts ?? const <ScreenHost>[])
+        if (screen.devices) screen.host,
+    ]);
+  }
+
+  void _openList() {
+    _dock.summon();
+    _dock.revive();
+    _attach(ref.read(screenHostsProvider));
+    setState(() => _menu = true);
   }
 
   Future<void> _openSheet(DevicesController group) async {
@@ -118,30 +160,20 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     if (mounted) setState(() => _sheet = false);
   }
 
-  void _expand() {
+  void _expandDevice() {
     final navigator = rootNavigatorKey.currentState;
     if (navigator == null) return;
-    setState(() => _overlay = false);
     _dock.expand();
     navigator.push(
       MaterialPageRoute<void>(builder: (_) => const DeviceScreen()),
     );
   }
 
-  void _collapse() {
-    setState(() => _overlay = false);
-    _dock.collapse(true);
+  void _expandDesktop() {
+    final context = rootNavigatorKey.currentContext;
+    if (context == null) return;
+    expandDesktop(context, _dock);
   }
-
-  void _close() {
-    setState(() => _overlay = false);
-    _dock.close();
-  }
-
-  Offset _target(MediaQueryData media) => Offset(
-    media.size.width / 2,
-    media.size.height - media.padding.bottom - deviceFloatClearance / 2,
-  );
 
   double _clampTop(MediaQueryData media, double height) {
     final minTop = media.padding.top + Spacing.lg;
@@ -152,60 +184,142 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     return (_top ?? maxTop).clamp(minTop, maxTop);
   }
 
-  void _drag(Offset delta, MediaQueryData media, {Offset? pointer}) {
-    final moved = _dragAt! + delta;
-    final center = pointer ?? moved + _dragSize.center(Offset.zero);
+  void _drag(Offset delta, Offset pointer, MediaQueryData media) {
     setState(() {
-      _dragAt = moved;
-      _overlay = false;
-      _overClose = (center - _target(media)).distance < deviceCloseTarget;
+      _dragAt = _dragAt! + delta;
+      _overClose = _overTarget(pointer, media);
     });
   }
 
-  bool _drop(MediaQueryData media) {
+  void _drop(MediaQueryData media) {
     final dropped = _dragAt;
-    if (dropped == null) return false;
-    if (_overClose) {
-      setState(() {
-        _gesturing = false;
-        _dragAt = null;
-        _overClose = false;
-      });
-      _dock.close();
-      return false;
-    }
+    if (dropped == null) return;
     final center = dropped + _dragSize.center(Offset.zero);
+    final close = _overClose;
     setState(() {
       _right = center.dx > media.size.width / 2;
       _top = dropped.dy;
       _dragAt = null;
-      _gesturing = false;
+      _overClose = false;
+      _menu = false;
     });
-    return center.dx < 0 || center.dx > media.size.width;
+    if (close) {
+      _dock.close();
+    } else if (center.dx < 0 || center.dx > media.size.width) {
+      _dock.tuck();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final hosts = ref.watch(screenHostsProvider);
     return ListenableBuilder(
       listenable: _dock,
       builder: (context, _) {
-        final session = _dock.session;
         if (_sheet) return const SizedBox.shrink();
-        if (!_dock.floating || (session == null && _dock.groups.isEmpty)) {
-          _overlay = false;
+        if (!_dock.floating) {
           _menu = false;
-          return const SizedBox.shrink();
+          final reachable = _dock.holding || (hosts?.isNotEmpty ?? false);
+          if (_dock.expanded != null || !_atRoot || !reachable) {
+            return const SizedBox.shrink();
+          }
+          return _placeHandle(context);
         }
-        if (session == null || _dock.collapsed) {
-          _overlay = false;
-          return _placeRest(context);
-        }
-        _menu = false;
-        return ListenableBuilder(
-          listenable: session.controller,
-          builder: (context, _) => _place(context, session),
+        final session = _dock.session;
+        final desktop = _dock.desktop;
+        final screens = _screens(hosts);
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            if (desktop != null && !_dock.desktopCollapsed)
+              _DesktopWindow(
+                key: const ValueKey('desktop-window'),
+                dock: _dock,
+                desktop: desktop,
+                right: !_right,
+                onExpand: _expandDesktop,
+              ),
+            if (session != null && !_dock.collapsed)
+              _DeviceWindow(
+                key: const ValueKey('device-window'),
+                dock: _dock,
+                session: session,
+                right: !_right,
+                onExpand: _expandDevice,
+              ),
+            _placeRest(context, screens),
+          ],
         );
       },
+    );
+  }
+
+  List<ScreenHost> _screens(List<ScreenHost>? hosts) {
+    final listed = [...?hosts];
+    final ids = {for (final screen in listed) screen.host.id};
+    final desktop = _dock.desktop;
+    for (final group in _dock.groups) {
+      if (ids.add(group.host.id)) {
+        listed.add(ScreenHost(group.host, desktop: false, devices: true));
+      }
+    }
+    if (desktop != null && ids.add(desktop.host.id)) {
+      listed.add(ScreenHost(desktop.host, desktop: true, devices: false));
+    }
+    return listed;
+  }
+
+  Widget _placeHandle(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final top =
+        _clampTop(media, deviceBubbleSize) +
+        (deviceBubbleSize - screensHandleHeight) / 2;
+    final held = _dock.holding;
+    final tokens = context.tokens;
+    return Stack(
+      children: [
+        Positioned(
+          right: _right ? 0 : null,
+          left: _right ? null : 0,
+          top: top - (deviceBubbleSize - screensHandleHeight) / 2,
+          child: Semantics(
+            button: true,
+            label: 'SCREENS',
+            child: GestureDetector(
+              key: const ValueKey('screens-handle'),
+              behavior: HitTestBehavior.opaque,
+              onTap: _openList,
+              onHorizontalDragEnd: (details) {
+                final inward = _right
+                    ? details.primaryVelocity! < 0
+                    : details.primaryVelocity! > 0;
+                if (inward) _openList();
+              },
+              child: SizedBox(
+                width: _handleReach,
+                height: deviceBubbleSize,
+                child: Align(
+                  alignment: _right
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
+                  child: Container(
+                    key: const ValueKey('screens-handle-bar'),
+                    width: screensHandleWidth,
+                    height: screensHandleHeight,
+                    decoration: BoxDecoration(
+                      color: held ? tokens.accent : tokens.textDisabled,
+                      border: Border.all(
+                        color: tokens.borderNormal,
+                        width: Borders.hairline,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -223,21 +337,20 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
         final box = _barKey.currentContext?.findRenderObject();
         if (box is! RenderBox) return;
         setState(() {
-          _gesturing = true;
           _dragSize = box.size;
           _dragAt = box.localToGlobal(Offset.zero);
         });
       },
       onPanUpdate: (details) {
         if (_dragAt == null) return;
-        _drag(details.delta, media, pointer: details.globalPosition);
+        _drag(details.delta, details.globalPosition, media);
       },
       onPanEnd: (_) => _drop(media),
       child: child,
     );
   }
 
-  Widget _placeRest(BuildContext context) {
+  Widget _placeRest(BuildContext context, List<ScreenHost> screens) {
     final media = MediaQuery.of(context);
     final screen = media.size;
     final top = _clampTop(media, deviceBubbleSize);
@@ -261,10 +374,14 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
             child: _DeviceList(
               key: _barKey,
               dock: _dock,
-              hosts: ref.watch(deviceHostsProvider).valueOrNull,
+              screens: screens,
               onSelect: (group, device) {
                 setState(() => _menu = false);
                 _dock.select(group, device);
+              },
+              onDesktop: (host) {
+                setState(() => _menu = false);
+                _dock.watchDesktop(host);
               },
               onFold: () => setState(() => _menu = false),
               onSheet: _openSheet,
@@ -282,16 +399,13 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
             child: _handle(
               media,
               key: const ValueKey('device-float-bubble'),
-              onTap: () {
-                _dock.revive();
-                setState(() => _menu = true);
-              },
+              onTap: _openList,
               child: Semantics(
                 button: true,
-                label: 'DEVICES',
+                label: 'SCREENS',
                 child: const _Frame(
                   child: Center(
-                    child: _PhoneMark(size: IconSizes.lg, pulse: true),
+                    child: _ScreensMark(size: IconSizes.lg, pulse: true),
                   ),
                 ),
               ),
@@ -310,7 +424,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
               onTap: () => setState(() => _menu = false),
             ),
           ),
-        if (at != null) _closeTarget(media),
+        if (at != null) _CloseSlot(hot: _overClose),
         if (at != null)
           Positioned(key: slot, left: at.dx, top: at.dy, child: shown)
         else if (_menu && upward)
@@ -332,27 +446,290 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
       ],
     );
   }
+}
 
-  Widget _closeTarget(MediaQueryData media) {
-    final target = _target(media);
+Offset _target(MediaQueryData media) => Offset(
+  media.size.width / 2,
+  media.size.height - media.padding.bottom - deviceFloatClearance / 2,
+);
+
+bool _overTarget(Offset pointer, MediaQueryData media) =>
+    (pointer - _target(media)).distance < deviceCloseTarget;
+
+class _CloseSlot extends StatelessWidget {
+  const _CloseSlot({required this.hot});
+
+  final bool hot;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = _target(MediaQuery.of(context));
     return Positioned(
       left: target.dx - deviceCloseTarget / 2,
       top: target.dy - deviceCloseTarget / 2,
       width: deviceCloseTarget,
       height: deviceCloseTarget,
-      child: _OnMedia(child: _CloseTarget(hot: _overClose)),
+      child: _OnMedia(child: _CloseTarget(hot: hot)),
     );
   }
+}
 
-  Widget _place(BuildContext context, DeviceSession session) {
+class _DeviceWindow extends StatelessWidget {
+  const _DeviceWindow({
+    super.key,
+    required this.dock,
+    required this.session,
+    required this.right,
+    required this.onExpand,
+  });
+
+  final DeviceDock dock;
+  final DeviceSession session;
+  final bool right;
+  final VoidCallback onExpand;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = session.controller;
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final native = controller.nativeSize;
+        return _FloatWindow(
+          id: 'device-float',
+          aspect: native.isEmpty ? 9 / 20 : native.width / native.height,
+          right: right,
+          low: true,
+          width: (_) => deviceFloatWidth,
+          widest: (screen) => screen.width * deviceFloatMaxShare,
+          onSettled: (width, ratio) {
+            final pixels = (width * ratio / _decodeStep).ceil();
+            dock.decodeAt(math.max(floatDecodeWidth, pixels * _decodeStep));
+          },
+          live: _Live(controller: controller),
+          picture: controller.image != null,
+          marks: [
+            if (controller.phase is DevicePaused)
+              const _PausedMark(key: ValueKey('device-float-paused')),
+            if (controller.image != null)
+              if (controller.phase case DeviceFailed(:final reason))
+                _FailedMark(
+                  key: const ValueKey('device-float-failed'),
+                  reason: reason,
+                ),
+          ],
+          actions: (context) =>
+              deviceStateActions(context, controller, terse: true),
+          onExpand: onExpand,
+          onCollapse: () => dock.collapse(true),
+          onClose: dock.endDevice,
+        );
+      },
+    );
+  }
+}
+
+class _DesktopWindow extends StatelessWidget {
+  const _DesktopWindow({
+    super.key,
+    required this.dock,
+    required this.desktop,
+    required this.right,
+    required this.onExpand,
+  });
+
+  final DeviceDock dock;
+  final DesktopSession desktop;
+  final bool right;
+  final VoidCallback onExpand;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = desktop.controller;
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final size = controller.framebufferSize;
+        final paused = dock.desktopPaused;
+        final phase = controller.phase;
+        final quiet = context.tokens.panelHeader;
+        return _FloatWindow(
+          id: 'desktop-float',
+          aspect: size.isEmpty ? 16 / 10 : size.width / size.height,
+          right: right,
+          low: false,
+          width: (screen) => screen.width * desktopFloatShare,
+          widest: (screen) => screen.width - Spacing.screenEdge * 2,
+          live: _Desktop(controller: controller, paused: paused),
+          picture: controller.image != null,
+          marks: [
+            if (paused && phase is ScreenLive)
+              const _PausedMark(key: ValueKey('desktop-float-paused')),
+            if (controller.image != null)
+              if (phase case ScreenFailed(:final reason))
+                _FailedMark(
+                  key: const ValueKey('desktop-float-failed'),
+                  reason: reason,
+                ),
+          ],
+          actions: (context) => switch (phase) {
+            ScreenConnecting() => [Text('…', style: quiet)],
+            ScreenFailed() => [
+              PanelAffordance(
+                'RETRY',
+                showIcon: false,
+                onTap: controller.retry,
+              ),
+            ],
+            ScreenLive() when paused => [
+              PanelAffordance(
+                'RESUME',
+                showIcon: false,
+                color: context.tokens.accent,
+                onTap: () => dock.pauseDesktop(false),
+              ),
+            ],
+            ScreenLive() => [
+              PanelAffordance(
+                'PAUSE',
+                showIcon: false,
+                onTap: () => dock.pauseDesktop(true),
+              ),
+            ],
+          },
+          onExpand: onExpand,
+          onCollapse: () => dock.collapseDesktop(true),
+          onClose: dock.endDesktop,
+        );
+      },
+    );
+  }
+}
+
+class _Desktop extends StatelessWidget {
+  const _Desktop({required this.controller, required this.paused});
+
+  final HostScreenController controller;
+  final bool paused;
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller.image == null) {
+      final phase = controller.phase;
+      return Padding(
+        padding: const EdgeInsets.all(Spacing.sm),
+        child: Center(
+          child: Text(
+            phase is ScreenFailed ? phase.reason : 'CONNECTING',
+            textAlign: TextAlign.center,
+            style: context.tokens.panelHeader.copyWith(
+              color: phase is ScreenFailed ? context.tokens.warning : null,
+            ),
+          ),
+        ),
+      );
+    }
+    return Opacity(
+      opacity: paused || controller.phase is! ScreenLive ? pausedDim : 1,
+      child: ValueListenableBuilder(
+        valueListenable: controller.frames,
+        builder: (context, image, _) => RawImage(
+          image: image,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+        ),
+      ),
+    );
+  }
+}
+
+class _FloatWindow extends StatefulWidget {
+  const _FloatWindow({
+    required this.id,
+    required this.aspect,
+    required this.right,
+    required this.low,
+    required this.width,
+    required this.widest,
+    required this.live,
+    required this.picture,
+    required this.marks,
+    required this.actions,
+    required this.onExpand,
+    required this.onCollapse,
+    required this.onClose,
+    this.onSettled,
+  });
+
+  final String id;
+  final double aspect;
+
+  final bool right;
+  final bool low;
+  final double Function(Size screen) width;
+  final double Function(Size screen) widest;
+
+  final Widget live;
+  final bool picture;
+  final List<Widget> marks;
+  final List<Widget> Function(BuildContext context) actions;
+  final VoidCallback onExpand;
+  final VoidCallback onCollapse;
+  final VoidCallback onClose;
+  final void Function(double width, double ratio)? onSettled;
+
+  @override
+  State<_FloatWindow> createState() => _FloatWindowState();
+}
+
+class _FloatWindowState extends State<_FloatWindow> {
+  bool? _right;
+  double? _top;
+  double? _width;
+  double _pinchFrom = 0;
+  Offset? _dragAt;
+  Offset? _pointer;
+  bool _gesturing = false;
+  bool _overClose = false;
+  bool _overlay = false;
+
+  void _hide(VoidCallback then) {
+    setState(() => _overlay = false);
+    then();
+  }
+
+  double _clampTop(MediaQueryData media, double height) {
+    final minTop = media.padding.top + Spacing.lg;
+    final maxTop = math.max(
+      minTop,
+      media.size.height - height - media.padding.bottom - deviceFloatClearance,
+    );
+    return (_top ?? (widget.low ? maxTop : minTop)).clamp(minTop, maxTop);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final screen = media.size;
-    final controller = session.controller;
-    final native = controller.nativeSize;
-    final aspect = native.isEmpty ? 9 / 20 : native.width / native.height;
-    final size = Size(_width, _width / aspect);
+    final aspect = widget.aspect;
+    final tallest =
+        screen.height -
+        media.padding.top -
+        Spacing.lg -
+        media.padding.bottom -
+        deviceFloatClearance;
+    final widest = math.max(
+      deviceFloatMinWidth,
+      math.min(widget.widest(screen), tallest * aspect),
+    );
+    final width = (_width ?? widget.width(screen)).clamp(
+      deviceFloatMinWidth,
+      widest,
+    );
+    final size = Size(width, width / aspect);
+    final right = _right ?? widget.right;
     final resting = Offset(
-      _right
+      right
           ? screen.width - size.width - Spacing.screenEdge
           : Spacing.screenEdge,
       _clampTop(media, size.height),
@@ -361,16 +738,6 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
 
     void onScaleUpdate(ScaleUpdateDetails details) {
       if (details.pointerCount > 1) {
-        final tallest =
-            screen.height -
-            media.padding.top -
-            Spacing.lg -
-            media.padding.bottom -
-            deviceFloatClearance;
-        final widest = math.max(
-          deviceFloatMinWidth,
-          math.min(screen.width * deviceFloatMaxShare, tallest * aspect),
-        );
         setState(() {
           _width = (_pinchFrom * details.scale).clamp(
             deviceFloatMinWidth,
@@ -379,26 +746,41 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
         });
         return;
       }
-      _dragAt ??= resting;
-      _dragSize = size;
-      _drag(details.focalPointDelta, media);
+      setState(() {
+        _dragAt = (_dragAt ?? resting) + details.focalPointDelta;
+        _pointer = details.focalPoint;
+        _overlay = false;
+        _overClose = _overTarget(details.focalPoint, media);
+      });
     }
 
     void onScaleEnd(ScaleEndDetails details) {
-      final pixels = (_width * media.devicePixelRatio / _decodeStep).ceil();
-      _dock.decodeAt(math.max(floatDecodeWidth, pixels * _decodeStep));
-      if (_dragAt == null) {
+      widget.onSettled?.call(width, media.devicePixelRatio);
+      final dropped = _dragAt;
+      if (dropped == null) {
         setState(() => _gesturing = false);
         return;
       }
-      if (_drop(media)) _dock.collapse(true);
+      final close = _overClose;
+      final center = dropped + size.center(Offset.zero);
+      setState(() {
+        _right = center.dx > screen.width / 2;
+        _top = dropped.dy;
+        _dragAt = null;
+        _pointer = null;
+        _gesturing = false;
+        _overClose = false;
+      });
+      if (close) return widget.onClose();
+      if (center.dx < 0 || center.dx > screen.width) widget.onCollapse();
     }
 
+    final id = widget.id;
     return Stack(
       children: [
-        if (_dragAt != null) _closeTarget(media),
+        if (_pointer != null) _CloseSlot(hot: _overClose),
         AnimatedPositioned(
-          key: const ValueKey('device-float-slot'),
+          key: ValueKey('$id-slot'),
           duration: _gesturing ? Duration.zero : _glide,
           curve: Curves.easeOutCubic,
           left: at.dx,
@@ -406,22 +788,26 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
           width: size.width,
           height: size.height,
           child: GestureDetector(
-            key: const ValueKey('device-float'),
+            key: ValueKey(id),
             behavior: HitTestBehavior.opaque,
             onTap: () => setState(() => _overlay = !_overlay),
             onScaleStart: (_) => setState(() {
               _gesturing = true;
-              _pinchFrom = _width;
+              _pinchFrom = width;
             }),
             onScaleUpdate: onScaleUpdate,
             onScaleEnd: onScaleEnd,
             child: _Frame(
               child: _Tile(
-                controller: controller,
+                id: id,
+                live: widget.live,
+                picture: widget.picture,
+                marks: widget.marks,
+                actions: widget.actions,
                 overlay: _overlay,
-                onExpand: _expand,
-                onCollapse: _collapse,
-                onClose: _close,
+                onExpand: () => _hide(widget.onExpand),
+                onCollapse: () => _hide(widget.onCollapse),
+                onClose: () => _hide(widget.onClose),
               ),
             ),
           ),
@@ -435,16 +821,18 @@ class _DeviceList extends StatefulWidget {
   const _DeviceList({
     super.key,
     required this.dock,
-    required this.hosts,
+    required this.screens,
     required this.onSelect,
+    required this.onDesktop,
     required this.onFold,
     required this.onSheet,
     required this.grip,
   });
 
   final DeviceDock dock;
-  final List<Host>? hosts;
+  final List<ScreenHost> screens;
   final void Function(DevicesController, HostDevice) onSelect;
+  final void Function(Host) onDesktop;
   final VoidCallback onFold;
   final void Function(DevicesController) onSheet;
   final Widget Function(Widget child) grip;
@@ -531,15 +919,10 @@ class _DeviceListState extends State<_DeviceList> {
   @override
   Widget build(BuildContext context) {
     final dock = widget.dock;
-    final hosts = widget.hosts;
     final grip = widget.grip;
     final onFold = widget.onFold;
-    final groups = dock.groups;
-    final shown = {for (final group in groups) group.host.id};
-    final more = [
-      for (final host in hosts ?? const <Host>[])
-        if (!shown.contains(host.id)) host,
-    ];
+    final groups = {for (final group in dock.groups) group.host.id: group};
+    final desktop = dock.desktop;
     final tokens = context.tokens;
     return Container(
       key: const ValueKey('device-list'),
@@ -568,12 +951,12 @@ class _DeviceListState extends State<_DeviceList> {
                 children: [
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: Spacing.sm),
-                    child: Center(child: _PhoneMark(size: IconSizes.sm)),
+                    child: Center(child: _ScreensMark(size: IconSizes.sm)),
                   ),
                   Expanded(
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Text('DEVICES', style: tokens.panelHeader),
+                      child: Text('SCREENS', style: tokens.panelHeader),
                     ),
                   ),
                   _Glyph(
@@ -591,16 +974,38 @@ class _DeviceListState extends State<_DeviceList> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final group in groups) ...[
-                    _HostRow(
-                      key: ValueKey('device-group-${group.host.id}'),
-                      host: group.host,
-                      failed: group.phase is DevicesFailed,
-                      onTap: () => dock.show(group.host),
-                      onPlus: () => widget.onSheet(group),
-                    ),
-                    ..._rows(context, group),
-                  ],
+                  if (widget.screens.isEmpty)
+                    const _ListRow(label: 'NO HOST HAS VNC OR DEVICES ON'),
+                  for (final screen in widget.screens)
+                    ...() {
+                      final host = screen.host;
+                      final group = groups[host.id];
+                      return [
+                        _HostRow(
+                          key: ValueKey('device-group-${host.id}'),
+                          host: host,
+                          failed: group?.phase is DevicesFailed,
+                          onTap: group == null
+                              ? null
+                              : () => unawaited(group.refresh()),
+                          onPlus: group == null
+                              ? null
+                              : () => widget.onSheet(group),
+                        ),
+                        if (screen.desktop)
+                          _ListRow(
+                            key: ValueKey('desktop-tab-${host.id}'),
+                            label: 'DESKTOP',
+                            active: desktop?.host.id == host.id,
+                            onTap: () => widget.onDesktop(host),
+                          ),
+                        if (screen.devices)
+                          if (group == null)
+                            const _ListRow(label: '…')
+                          else
+                            ..._rows(context, group),
+                      ];
+                    }(),
                 ],
               ),
             ),
@@ -616,23 +1021,7 @@ class _DeviceListState extends State<_DeviceList> {
             ),
             child: Row(
               children: [
-                Expanded(
-                  child: more.isEmpty
-                      ? const _ListRow(label: '+  NO OTHER HOST HAS DEVICES ON')
-                      : HostMenu(
-                          key: const ValueKey('device-list-plus'),
-                          title: 'DEVICES ON',
-                          hosts: more,
-                          itemKey: (host) => 'device-new-host-${host.id}',
-                          onPick: dock.show,
-                          builder: (context, controller, _) => _ListRow(
-                            label: '+  HOST',
-                            onTap: controller.isOpen
-                                ? controller.close
-                                : controller.open,
-                          ),
-                        ),
-                ),
+                const Spacer(),
                 _Word(
                   key: const ValueKey('device-list-close'),
                   label: 'END',
@@ -658,25 +1047,22 @@ class _HostRow extends StatelessWidget {
 
   final Host host;
   final bool failed;
-  final VoidCallback onTap;
-  final VoidCallback onPlus;
+  final VoidCallback? onTap;
+  final VoidCallback? onPlus;
 
   @override
   Widget build(BuildContext context) {
     final ink = failed ? context.tokens.warning : context.tokens.textMuted;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onTap,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Spacing.md,
-                Spacing.md,
-                Spacing.md,
-                Spacing.xs,
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.md,
+                vertical: Spacing.xs,
               ),
               child: Row(
                 children: [
@@ -695,12 +1081,15 @@ class _HostRow extends StatelessWidget {
             ),
           ),
         ),
-        _Glyph(
-          key: ValueKey('device-group-plus-${host.id}'),
-          icon: UpgradeIcons.add,
-          label: '${host.name.toUpperCase()} DEVICES',
-          onTap: onPlus,
-        ),
+        if (onPlus case final onPlus?)
+          _Glyph(
+            key: ValueKey('device-group-plus-${host.id}'),
+            icon: UpgradeIcons.add,
+            label: '${host.name.toUpperCase()} DEVICES',
+            onTap: onPlus,
+          )
+        else
+          const SizedBox(height: TapTargets.minHeight),
       ],
     );
   }
@@ -801,17 +1190,18 @@ class _ListRow extends StatelessWidget {
   }
 }
 
-class _PhoneMark extends StatefulWidget {
-  const _PhoneMark({required this.size, this.pulse = false});
+class _ScreensMark extends StatefulWidget {
+  const _ScreensMark({required this.size, this.pulse = false});
 
   final double size;
   final bool pulse;
 
   @override
-  State<_PhoneMark> createState() => _PhoneMarkState();
+  State<_ScreensMark> createState() => _ScreensMarkState();
 }
 
-class _PhoneMarkState extends State<_PhoneMark> with WidgetsBindingObserver {
+class _ScreensMarkState extends State<_ScreensMark>
+    with WidgetsBindingObserver {
   late final _steps = widget.pulse ? tearGlitchSteps : iconGlitchSteps;
   late final _glitch = GlitchController(frames: _steps.length + 1);
   Timer? _pulse;
@@ -849,7 +1239,7 @@ class _PhoneMarkState extends State<_PhoneMark> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return UpgradeIcon(
-      UpgradeIcons.phone,
+      UpgradeIcons.screens,
       size: widget.size,
       color: context.tokens.textPrimary,
       glitch: _glitch,
@@ -860,14 +1250,22 @@ class _PhoneMarkState extends State<_PhoneMark> with WidgetsBindingObserver {
 
 class _Tile extends StatelessWidget {
   const _Tile({
-    required this.controller,
+    required this.id,
+    required this.live,
+    required this.picture,
+    required this.marks,
+    required this.actions,
     required this.overlay,
     required this.onExpand,
     required this.onCollapse,
     required this.onClose,
   });
 
-  final DeviceScreenController controller;
+  final String id;
+  final Widget live;
+  final bool picture;
+  final List<Widget> marks;
+  final List<Widget> Function(BuildContext context) actions;
   final bool overlay;
   final VoidCallback onExpand;
   final VoidCallback onCollapse;
@@ -879,23 +1277,13 @@ class _Tile extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          _Live(controller: controller),
-          if (!overlay && controller.phase is DevicePaused)
-            const Positioned(
-              top: Spacing.md,
-              right: Spacing.md,
-              child: _PausedMark(),
-            ),
-          if (!overlay && controller.image != null)
-            if (controller.phase case DeviceFailed(:final reason))
-              Positioned(
-                top: Spacing.md,
-                right: Spacing.md,
-                child: _FailedMark(reason: reason),
-              ),
+          if (picture || !overlay) live,
+          if (!overlay)
+            for (final mark in marks)
+              Positioned(top: Spacing.md, right: Spacing.md, child: mark),
           if (overlay)
             ColoredBox(
-              key: const ValueKey('device-float-overlay'),
+              key: ValueKey('$id-overlay'),
               color: context.tokens.scrim,
               child: LayoutBuilder(
                 builder: (context, box) {
@@ -905,14 +1293,14 @@ class _Tile extends StatelessWidget {
                       Row(
                         children: [
                           _Glyph(
-                            key: const ValueKey('device-float-expand'),
+                            key: ValueKey('$id-expand'),
                             icon: UpgradeIcons.expand,
                             label: 'FULL SCREEN',
                             onTap: onExpand,
                           ),
                           const Spacer(),
                           _Glyph(
-                            key: const ValueKey('device-float-collapse'),
+                            key: ValueKey('$id-collapse'),
                             icon: UpgradeIcons.minimize,
                             label: 'MINIMIZE',
                             onTap: onCollapse,
@@ -923,16 +1311,12 @@ class _Tile extends StatelessWidget {
                         child: Center(
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: deviceStateActions(
-                              context,
-                              controller,
-                              terse: true,
-                            ),
+                            children: actions(context),
                           ),
                         ),
                       ),
                       _Word(
-                        key: const ValueKey('device-float-close'),
+                        key: ValueKey('$id-close'),
                         label: 'END',
                         onTap: onClose,
                       ),
@@ -1034,14 +1418,13 @@ class _OnMedia extends StatelessWidget {
 }
 
 class _FailedMark extends StatelessWidget {
-  const _FailedMark({required this.reason});
+  const _FailedMark({super.key, required this.reason});
 
   final String reason;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      key: const ValueKey('device-float-failed'),
       label: reason,
       child: UpgradeIcon(
         UpgradeIcons.failed,
@@ -1053,7 +1436,7 @@ class _FailedMark extends StatelessWidget {
 }
 
 class _PausedMark extends StatelessWidget {
-  const _PausedMark();
+  const _PausedMark({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -1063,7 +1446,6 @@ class _PausedMark extends StatelessWidget {
       child: ColoredBox(color: context.tokens.textPrimary),
     );
     return Row(
-      key: const ValueKey('device-float-paused'),
       mainAxisSize: MainAxisSize.min,
       children: [bar, const SizedBox(width: 3), bar],
     );
