@@ -1163,10 +1163,12 @@ void main() {
     await _pump(tester, _opener(FakeDeviceLink(const [long])));
     await _open(tester);
     final paragraph = tester.renderObject<RenderParagraph>(
-      find.descendant(
-        of: find.byKey(const ValueKey('device-tab-h1-emulator-5556')),
-        matching: find.byType(RichText),
-      ),
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('device-tab-h1-emulator-5556')),
+            matching: find.byType(RichText),
+          )
+          .first,
     );
     final shown = paragraph.text.toPlainText();
     final tops = {
@@ -1180,7 +1182,7 @@ void main() {
         .getPositionForOffset(Offset(0, tops[1] + 1))
         .offset;
     expect(shown.substring(0, second).replaceAll('\u200B', ''), endsWith('_'));
-    expect(find.bySemanticsLabel(raw), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('^$raw\\n')), findsOneWidget);
     semantics.dispose();
   });
 

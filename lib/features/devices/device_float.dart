@@ -891,6 +891,8 @@ class _DeviceListState extends State<_DeviceList> {
             return [
               _ListRow(
                 key: ValueKey('device-tab-$key'),
+                icon: UpgradeIcons.phone,
+                tag: _kindTag(device),
                 label: work is WorkRunning ? '${device.name}  …' : device.name,
                 active:
                     session?.host.id == hostId &&
@@ -924,6 +926,8 @@ class _DeviceListState extends State<_DeviceList> {
             BootRunning(:final device) => [
               _ListRow(
                 key: ValueKey('device-booting-$hostId-${device.id}'),
+                icon: UpgradeIcons.phone,
+                tag: 'BOOTING',
                 label: '${device.name}  …',
               ),
             ],
@@ -999,7 +1003,7 @@ class _DeviceListState extends State<_DeviceList> {
                 children: [
                   if (widget.screens.isEmpty)
                     const _ListRow(label: 'NO HOST HAS VNC OR DEVICES ON'),
-                  for (final screen in widget.screens)
+                  for (final (index, screen) in widget.screens.indexed)
                     ...() {
                       final host = screen.host;
                       final group = groups[host.id];
@@ -1007,26 +1011,42 @@ class _DeviceListState extends State<_DeviceList> {
                         _HostRow(
                           key: ValueKey('device-group-${host.id}'),
                           host: host,
+                          first: index == 0,
                           failed: group?.phase is DevicesFailed,
                           onTap: group == null
                               ? null
                               : () => unawaited(group.refresh()),
-                          onPlus: group == null
-                              ? null
-                              : () => widget.onSheet(group),
                         ),
-                        if (screen.desktop)
+                        if (screen.desktop) ...[
+                          const _Caption(label: 'DESKTOP'),
                           _ListRow(
                             key: ValueKey('desktop-tab-${host.id}'),
-                            label: 'DESKTOP',
+                            icon: UpgradeIcons.monitor,
+                            tag: 'VNC',
+                            label: 'REMOTE DESKTOP',
                             active: desktop?.host.id == host.id,
                             onTap: () => widget.onDesktop(host),
                           ),
-                        if (screen.devices)
+                        ],
+                        if (screen.devices) ...[
+                          _Caption(
+                            label: 'DEVICES',
+                            plus: group == null
+                                ? null
+                                : _Glyph(
+                                    key: ValueKey(
+                                      'device-group-plus-${host.id}',
+                                    ),
+                                    icon: UpgradeIcons.add,
+                                    label: '${host.name.toUpperCase()} DEVICES',
+                                    onTap: () => widget.onSheet(group),
+                                  ),
+                          ),
                           if (group == null)
                             const _ListRow(label: '…')
                           else
                             ..._rows(context, group),
+                        ],
                       ];
                     }(),
                 ],
@@ -1059,61 +1079,109 @@ class _DeviceListState extends State<_DeviceList> {
   }
 }
 
+String _kindTag(HostDevice device) => switch (device.kind) {
+  DeviceKind.simulator => 'SIMULATOR',
+  DeviceKind.android when device.avd != null => 'EMULATOR',
+  DeviceKind.android => 'PHYSICAL',
+};
+
 class _HostRow extends StatelessWidget {
   const _HostRow({
     super.key,
     required this.host,
+    required this.first,
     required this.failed,
     required this.onTap,
-    required this.onPlus,
   });
 
   final Host host;
+  final bool first;
   final bool failed;
   final VoidCallback? onTap;
-  final VoidCallback? onPlus;
 
   @override
   Widget build(BuildContext context) {
-    final ink = failed ? context.tokens.warning : context.tokens.textMuted;
-    return Row(
-      children: [
-        Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.md,
-                vertical: Spacing.xs,
-              ),
-              child: Row(
-                children: [
-                  HostMark(host.system, size: IconSizes.affordance, color: ink),
-                  const SizedBox(width: Spacing.xs),
-                  Expanded(
-                    child: Text(
-                      host.name.toUpperCase(),
-                      style: context.tokens.label.copyWith(color: ink),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+    final tokens = context.tokens;
+    final ink = failed ? tokens.warning : tokens.textPrimary;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+        decoration: BoxDecoration(
+          color: tokens.surfaceSecondary,
+          border: first
+              ? null
+              : Border(
+                  top: BorderSide(
+                    color: tokens.borderNormal,
+                    width: Borders.hairline,
                   ),
-                ],
+                ),
+        ),
+        child: Row(
+          children: [
+            HostMark(host.system, size: IconSizes.affordance, color: ink),
+            const SizedBox(width: Spacing.sm),
+            Expanded(
+              child: Text(
+                host.name.toUpperCase(),
+                style: tokens.label.copyWith(color: ink),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
+            const SizedBox(width: Spacing.sm),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: deviceListWidth / 2),
+              child: Text(
+                host.address,
+                style: tokens.rowSubtitle.copyWith(color: tokens.textMuted),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
-        if (onPlus case final onPlus?)
-          _Glyph(
-            key: ValueKey('device-group-plus-${host.id}'),
-            icon: UpgradeIcons.add,
-            label: '${host.name.toUpperCase()} DEVICES',
-            onTap: onPlus,
-          )
-        else
-          const SizedBox(height: TapTargets.minHeight),
-      ],
+      ),
+    );
+  }
+}
+
+class _Caption extends StatelessWidget {
+  const _Caption({required this.label, this.plus});
+
+  final String label;
+  final Widget? plus;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: Spacing.md,
+        top: plus == null ? Spacing.sm : 0,
+      ),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: tokens.rowKicker.copyWith(color: tokens.textMuted),
+          ),
+          const SizedBox(width: Spacing.sm),
+          Expanded(
+            child: Container(
+              height: Borders.hairline,
+              color: tokens.borderNormal,
+            ),
+          ),
+          if (plus case final plus?)
+            plus
+          else
+            const SizedBox(width: Spacing.md),
+        ],
+      ),
     );
   }
 }
@@ -1164,6 +1232,8 @@ class _ListRow extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.color,
+    this.icon,
+    this.tag,
   });
 
   final String label;
@@ -1171,16 +1241,27 @@ class _ListRow extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final Color? color;
+  final UpgradeIcons? icon;
+  final String? tag;
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final tint =
         color ??
         (active
-            ? context.tokens.accent
+            ? tokens.accent
             : onTap == null
-            ? context.tokens.textDisabled
-            : context.tokens.textPrimary);
+            ? tokens.textDisabled
+            : tokens.textPrimary);
+    final text = Text(
+      label.replaceAll('_', '_\u200B'),
+      semanticsLabel: label,
+      style: tokens.rowTitle.copyWith(color: tint),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+    final shownTag = active ? 'LIVE' : tag;
     return Semantics(
       button: onTap != null,
       selected: active,
@@ -1195,18 +1276,29 @@ class _ListRow extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(
               left: BorderSide(
-                color: active ? context.tokens.accent : Colors.transparent,
+                color: active ? tokens.accent : Colors.transparent,
                 width: Borders.hairline * 2,
               ),
             ),
           ),
-          child: Text(
-            label.replaceAll('_', '_\u200B'),
-            semanticsLabel: label,
-            style: context.tokens.rowTitle.copyWith(color: tint),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+          child: icon == null
+              ? text
+              : Row(
+                  children: [
+                    UpgradeIcon(icon!, size: IconSizes.sm, color: tint),
+                    const SizedBox(width: Spacing.sm),
+                    Expanded(child: text),
+                    if (shownTag case final shownTag?) ...[
+                      const SizedBox(width: Spacing.sm),
+                      Text(
+                        shownTag,
+                        style: tokens.rowKicker.copyWith(
+                          color: active ? tokens.accent : tokens.textMuted,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
         ),
       ),
     );
