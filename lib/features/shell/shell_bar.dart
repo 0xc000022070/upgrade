@@ -10,8 +10,14 @@ import '../../platform/shell/strip_bytes.dart';
 import '../../platform/vnc/arming.dart';
 import '../../platform/vnc/keysyms.dart';
 import '../modifier_cell.dart';
+import 'shell_voice.dart';
 
-typedef _BarKey = ({String label, int keysym, UpgradeIcons? icon, bool repeats});
+typedef _BarKey = ({
+  String label,
+  int keysym,
+  UpgradeIcons? icon,
+  bool repeats,
+});
 
 const _stickKeysyms = {
   AxisDirection.up: Keysyms.up,
@@ -68,6 +74,9 @@ class ShellBar extends StatelessWidget {
     required this.onKeyboard,
     this.clipCount = 0,
     this.onAttach,
+    this.hearing = false,
+    this.onVoicePress,
+    this.onVoiceLift,
     this.searching = false,
     this.onFind,
   });
@@ -90,6 +99,10 @@ class ShellBar extends StatelessWidget {
 
   final int clipCount;
   final VoidCallback? onAttach;
+
+  final bool hearing;
+  final VoidCallback? onVoicePress;
+  final VoidCallback? onVoiceLift;
 
   final bool searching;
 
@@ -148,6 +161,12 @@ class ShellBar extends StatelessWidget {
           minWidth: KeyBar.height,
           padding: KeyBar.cellPadding,
           onTap: () => onAttach?.call(),
+        ),
+        VoiceCell(
+          key: const ValueKey('bar-VOICE'),
+          hearing: hearing,
+          onPress: () => onVoicePress?.call(),
+          onLift: () => onVoiceLift?.call(),
         ),
         KeyCell(
           key: const ValueKey('bar-keyboard'),

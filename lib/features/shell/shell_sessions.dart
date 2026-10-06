@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flterm/flterm.dart';
 
+import '../../application/agent_kind.dart';
 import '../../application/agents.dart';
 import '../../application/pin_alerts.dart';
 import '../../application/providers.dart';
@@ -159,6 +160,8 @@ bool isViewReport(Uint8List bytes) {
 const shellReattachMarker = '\r\n\x1b[2m-- reattached --\x1b[0m\r\n';
 const shellRestoreMarker = '\r\n\x1b[2m-- session restored --\x1b[0m\r\n';
 
+typedef VoiceDraft = ({AgentKind agent, String text});
+
 /// A tab that ends on it closes itself, and a tab that ends on anything else is put in
 /// front of the user.
 const shellCleanExit = 0;
@@ -309,6 +312,8 @@ class ShellSession extends ChangeNotifier {
 
   /// Null until it says, which a bare `sh` never does.
   String? title;
+
+  VoiceDraft? voiceDraft;
 
   /// Set by the OSC, cleared by the answer, by `done`, and by the link going: a request
   /// outlives none of the connection it arrived on.
@@ -671,7 +676,9 @@ class ShellSessions extends ChangeNotifier {
       }
       return answer;
     } on HerdrFailure catch (error) {
-      debugPrint('upgrade.shell ${session.host.name}: ${error.detail ?? error}');
+      debugPrint(
+        'upgrade.shell ${session.host.name}: ${error.detail ?? error}',
+      );
       return null;
     }
   }

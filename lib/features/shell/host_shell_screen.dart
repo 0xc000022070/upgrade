@@ -33,6 +33,7 @@ import 'launch_picker_sheet.dart';
 import 'shell_search.dart';
 import 'shell_sessions.dart';
 import 'shell_terminal.dart';
+import 'shell_voice.dart';
 import 'shell_watcher.dart';
 
 class HostShellRoute extends ConsumerStatefulWidget {
@@ -130,6 +131,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     );
     _clips = ref.read(clipStoreProvider);
     _clips.addListener(_onClips);
+    _dictation = ShellDictation(onWords: _onWords)..addListener(_onDictation);
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     // Opening a session tells the store, and the screen the user came from is
     // listening to it while it draws this route in. So the shell waits for the frame
@@ -173,6 +175,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     _view.dispose();
     _store.removeListener(_onStore);
     _clips.removeListener(_onClips);
+    _dictation
+      ..removeListener(_onDictation)
+      ..dispose();
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     super.dispose();
   }
@@ -183,6 +188,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   Object? _drawn;
 
   late final ClipStore _clips;
+
+  late final ShellDictation _dictation;
 
   var _searching = false;
 
@@ -197,6 +204,53 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 
   void _onClips() {
     if (mounted) setState(() {});
+  }
+
+  void _onDictation() {
+    if (mounted) setState(() {});
+  }
+
+  void _onWords(ShellSession session, String words) {
+    final draft = session.voiceDraft;
+    final agent = draft?.agent ?? shellAgent(session, _agentsOn(session.host));
+    if (agent == null) {
+      session.terminal.paste(words);
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      session.voiceDraft = (
+        agent: agent,
+        text: appendWords(draft?.text ?? '', words),
+      );
+    });
+  }
+
+  Iterable<AgentSnapshot> _agentsOn(Host host) sync* {
+    final state = ref.read(agentsFeedProvider).valueOrNull;
+    if (state == null) return;
+    for (final outcome in state.outcomes) {
+      if (outcome.host.id == host.id) yield* outcome.agents;
+    }
+  }
+
+  void _onDraftEdit(ShellSession session, String text) {
+    final draft = session.voiceDraft;
+    if (draft == null) return;
+    final wasEmpty = draft.text.trim().isEmpty;
+    session.voiceDraft = (agent: draft.agent, text: text);
+    if (wasEmpty != text.trim().isEmpty) setState(() {});
+  }
+
+  void _onDraftCancel(ShellSession session) {
+    setState(() => session.voiceDraft = null);
+  }
+
+  void _onDraftSend(ShellSession session) {
+    final text = session.voiceDraft?.text.trim() ?? '';
+    if (text.isEmpty) return;
+    setState(() => session.voiceDraft = null);
+    unawaited(sendDraft(session, text, (bytes) => _store.send(session, bytes)));
   }
 
   void _onStore() {
@@ -787,6 +841,15 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                     session: active,
                     onClose: () => setState(() => _searching = false),
                   ),
+                if (active?.voiceDraft case final draft?)
+                  VoiceComposer(
+                    key: ValueKey('shell-voice-composer-${active!.mark}'),
+                    draft: draft,
+                    onEdit: (text) => _onDraftEdit(active, text),
+                    onCancel: () => _onDraftCancel(active),
+                    onSend: () => _onDraftSend(active),
+                  ),
+                if (_dictation.showing) DictationRow(dictation: _dictation),
                 if (active != null)
                   // The lamp answers the same question the tap does, so it is rebuilt
                   // on the focus that question reads and not only on the inset: a lit
@@ -807,6 +870,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                       searching: _searching,
                       onFind: _onFind,
                       onAttach: () => showAttachSheet(context, session: active),
+                      hearing: _dictation.hearing,
+                      onVoicePress: () => unawaited(_dictation.press(active)),
+                      onVoiceLift: _dictation.lift,
                     ),
                   ),
               ],

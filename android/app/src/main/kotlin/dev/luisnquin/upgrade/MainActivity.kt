@@ -40,6 +40,8 @@ class MainActivity : FlutterActivity() {
 
     private var warm = false
 
+    private var dictation: Dictation? = null
+
     override fun provideFlutterEngine(context: Context): FlutterEngine {
         warm = UpgradeEngine.started
         return UpgradeEngine.obtain(context, flutterShellArgs.toArray())
@@ -141,6 +143,10 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
+        val speech = MethodChannel(messenger, "dev.luisnquin.upgrade/speech")
+        dictation?.destroy()
+        dictation = Dictation(this, speech).also { speech.setMethodCallHandler(it::handle) }
+
         UpgradeEngine.pip(isInPictureInPictureMode)
         if (warm) return
 
@@ -170,6 +176,24 @@ class MainActivity : FlutterActivity() {
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         MethodChannel(messenger, "dev.luisnquin.upgrade/device").setMethodCallHandler(null)
         MethodChannel(messenger, "dev.luisnquin.upgrade/pip").setMethodCallHandler(null)
+        MethodChannel(messenger, "dev.luisnquin.upgrade/speech").setMethodCallHandler(null)
+        dictation?.destroy()
+        dictation = null
+    }
+
+    override fun onPause() {
+        super.onPause()
+        dictation?.stop()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != RECORD_AUDIO_REQUEST) return
+        dictation?.onPermission(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
     }
 
     // The embedding swallows insets while it thinks an IME animation runs, and one cut short

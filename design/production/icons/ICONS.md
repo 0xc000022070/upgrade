@@ -1,6 +1,6 @@
 # Upgrade production icon reference
 
-This directory contains 65 Upgrade-owned SVG icons. All files use a 24×24 viewBox, a 1.75 px stroke, butt caps, miter joins, and `currentColor`. Routes stay unfilled. Nodes carry the fill.
+This directory contains 66 Upgrade-owned SVG icons. All files use a 24×24 viewBox, a 1.75 px stroke, butt caps, miter joins, and `currentColor`. Routes stay unfilled. Nodes carry the fill.
 
 "Diamond" means endpoint, entity, or target. "Square" means system, container, device, or junction. A mixed icon uses each node for its assigned role. Circles are forbidden. Search alone owns the opposing-corner modifier. Add alone owns the bare `+`. Close alone owns the bare `×`.
 
@@ -103,6 +103,7 @@ The variant is drawn only inside the icon-glitch event. It is not a static icon 
 | super | The super key: a centre cap with four corner tabs | None | None | 16 px |
 | crop | Two overlapping corner rules marking a region | None | None | 16 px |
 | pip | A small window docked inside a larger one | Square window node | None | 20 px |
+| voice | Speech as a level trace: five bars, the tallest in the centre | None | None | 16 px |
 
 ## Host systems
 

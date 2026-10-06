@@ -68,6 +68,7 @@ enum UpgradeIcons {
   tools('tools'),
   vault('vault'),
   verified('verified'),
+  voice('voice'),
   warning('warning');
 
   const UpgradeIcons(this.slug);

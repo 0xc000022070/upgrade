@@ -1355,6 +1355,18 @@ The cell is a picture, drawn in the accent while memory holds anything; the coun
 
 **Struck:** forwarding the host's Wayland socket over a stream-local channel and speaking the clipboard protocol from Dart. It removes the dependency on one tool and buys nothing else — it cannot help X11, macOS or a headless host, and it puts a hand-written Wayland client in a phone app to save one `command -v`.
 
+### `VOICE` dictates, and an agent's tab gets a composer
+
+The cell is five level bars on the pinned side, between `ATTACH` and the keyboard toggle, drawn in the accent while it hears. A press starts listening at once, so the first word is not lost to a wait. A lift after 400 ms ends it, which is hold to talk; a lift sooner leaves it listening hands-free until the next tap, for a phone held at arm's length. A pause while it listens does not end it: what was heard so far is settled and listening carries on.
+
+**The recognizer is the phone's own.** Android's speech service, asked to stay on the device wherever it has the language. The audio goes nowhere near the host, and the app ships no model and talks to no server of its own. The microphone is asked for the first time the cell is pressed and not before.
+
+While it listens a row stands over the key bar: `LISTENING` in the accent, then the words as they are heard, the settled ones primary and the guess still forming muted, and `×` at the end, which throws all of it away. A failure takes the row for a moment and names itself: `MIC DENIED`, `NO RECOGNIZER`, `NOTHING HEARD`, `VOICE FAILED`.
+
+**Where the words go is decided by what the tab is running.** A tab whose agent is Claude Code or Codex sends them through a composer. The tab counts as an agent's when it is a herdr pane the agents panel names, when its command starts one, or when its title is the one the agent set. The composer stands above the key bar: the agent's mark and name on its strip, `CANCEL` and `SEND` at the right, and under them a field of up to six lines holding the draft, which the next dictation appends to and the keyboard edits. `SEND` pastes the draft whole, bracketed when the agent asked for bracketed paste, and presses Return 80 ms after, so the agent takes it as one message and not as typing that happened to contain a Return. Each tab keeps its own draft until it is sent or cancelled. Anywhere else the words are pasted at the cursor and nothing is pressed: a command said aloud is read before it runs.
+
+**Struck:** a hosted recognizer and a downloaded one. The phone already carries a recognizer, and a second one is a model to ship or a server that hears the user. **Struck:** an auto-send setting. The agent's tab already sends with one tap, and a shell that runs whatever was misheard is the wrong default.
+
 ### A passphrase the host asks for is asked for on the phone
 
 **The prompt was never the app's to fix alone.** A key agent asks for a passphrase on whichever tty it was last told about, through a pinentry that draws over whatever is running there: a full-screen application in a tab gets a curses box painted across it and the two fight for the same keys, and no terminal can stop that from its own side. So the host runs its own pinentry, which never touches the tty that asked — it puts a modal on the computer, a fullscreen terminal window on the graphical session or a reserved console otherwise, and at the same moment writes the request into every terminal that asked to be told. The first decision wins and the others withdraw. This app is one of those terminals, and what follows is the terminal's half.
