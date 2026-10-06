@@ -732,7 +732,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('shell-voice-pause')));
       await tester.pump();
       expect(find.text('PAUSED'), findsOneWidget);
-      expect(find.text('RESUME'), findsOneWidget);
+      expect(find.bySemanticsLabel('RESUME'), findsOneWidget);
       events.add(const SpeechEnded());
       await tester.tap(find.byKey(const ValueKey('shell-voice-done')));
       await tester.pump();

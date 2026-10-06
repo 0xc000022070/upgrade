@@ -823,26 +823,33 @@ class _VoicePanel extends StatelessWidget {
             onPanEnd: onDragEnd,
             child: SizedBox(
               height: TapTargets.minHeight,
-              child: Row(
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  const SizedBox(width: RowMetrics.padding),
-                  if (dictation.listening &&
-                      !MediaQuery.disableAnimationsOf(context))
-                    ValueListenableBuilder(
-                      valueListenable: dictation.levels,
-                      builder: (context, levels, _) => CustomPaint(
-                        size: const Size.square(IconSizes.toolbar),
-                        painter: _Meter(levels, tokens.accent),
-                      ),
-                    )
-                  else
-                    UpgradeIcon(
-                      UpgradeIcons.voice,
-                      size: IconSizes.toolbar,
-                      color: failure != null ? tokens.warning : tokens.accent,
+                  Positioned(
+                    left: RowMetrics.padding,
+                    child:
+                        dictation.listening &&
+                            !MediaQuery.disableAnimationsOf(context)
+                        ? ValueListenableBuilder(
+                            valueListenable: dictation.levels,
+                            builder: (context, levels, _) => CustomPaint(
+                              size: const Size.square(IconSizes.toolbar),
+                              painter: _Meter(levels, tokens.accent),
+                            ),
+                          )
+                        : UpgradeIcon(
+                            UpgradeIcons.voice,
+                            size: IconSizes.toolbar,
+                            color: failure != null
+                                ? tokens.warning
+                                : tokens.accent,
+                          ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: RowMetrics.padding * 2 + IconSizes.toolbar,
                     ),
-                  const SizedBox(width: Spacing.md),
-                  Expanded(
                     child: Text(
                       word,
                       key: ValueKey(
@@ -850,14 +857,19 @@ class _VoicePanel extends StatelessWidget {
                             ? 'shell-voice-failure'
                             : 'shell-voice-state',
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
                       style: tokens.label.copyWith(
                         color: failure != null ? tokens.warning : tokens.accent,
                       ),
                     ),
                   ),
                   if (dictation.transcribing || dictation.finishing)
-                    const _Finishing(key: ValueKey('shell-voice-finishing')),
-                  const SizedBox(width: RowMetrics.padding),
+                    const Positioned(
+                      right: RowMetrics.padding,
+                      child: _Finishing(key: ValueKey('shell-voice-finishing')),
+                    ),
                 ],
               ),
             ),
@@ -911,6 +923,9 @@ class _VoicePanel extends StatelessWidget {
                       child: KeyCell(
                         key: const ValueKey('shell-voice-pause'),
                         label: dictation.paused ? 'RESUME' : 'PAUSE',
+                        icon: dictation.paused
+                            ? UpgradeIcons.resume
+                            : UpgradeIcons.pause,
                         inert: !dictation.paused && !dictation.listening,
                         padding: RowMetrics.padding,
                         onTap: dictation.paused
@@ -923,6 +938,7 @@ class _VoicePanel extends StatelessWidget {
                       child: KeyCell(
                         key: const ValueKey('shell-voice-done'),
                         label: 'DONE',
+                        icon: UpgradeIcons.done,
                         armed: true,
                         padding: RowMetrics.padding,
                         onTap: dictation.done,
