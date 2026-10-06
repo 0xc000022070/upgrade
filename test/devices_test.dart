@@ -801,6 +801,21 @@ void main() {
     expect(tester.getSize(find.byKey(_floatKey)).width, deviceFloatMinWidth);
   });
 
+  testWidgets('a short throw carries the float to the far side', (
+    tester,
+  ) async {
+    final link = FakeDeviceLink(const [_pixel]);
+    await _pump(tester, _opener(link));
+    await _pick(tester, _pixel);
+    await _live(tester, link);
+
+    final from = tester.getCenter(find.byKey(_floatKey));
+    expect(from.dx, lessThan(400));
+    await tester.fling(find.byKey(_floatKey), const Offset(150, 0), 2000);
+    await tester.pumpAndSettle();
+    expect(tester.getCenter(find.byKey(_floatKey)).dx, greaterThan(400));
+  });
+
   testWidgets('PAUSE stops the loop, and so does hiding the app', (
     tester,
   ) async {

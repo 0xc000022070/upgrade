@@ -31,6 +31,7 @@ const deviceFloatMaxShare = 0.6;
 const deviceFloatClearance = 112.0;
 const deviceCloseTarget = 48.0;
 const _glide = Duration(milliseconds: 220);
+const _throw = 0.12;
 const _decodeStep = 120;
 const deviceListWidth = 280.0;
 const deviceBubbleSize = 56.0;
@@ -201,14 +202,15 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     });
   }
 
-  void _drop(MediaQueryData media) {
+  void _drop(MediaQueryData media, Velocity velocity) {
     final dropped = _dragAt;
     if (dropped == null) return;
     final center = dropped + _dragSize.center(Offset.zero);
+    final thrown = center + velocity.pixelsPerSecond * _throw;
     final close = _overClose;
     setState(() {
-      _right = center.dx > media.size.width / 2;
-      _top = dropped.dy;
+      _right = thrown.dx > media.size.width / 2;
+      _top = dropped.dy + velocity.pixelsPerSecond.dy * _throw;
       _dragAt = null;
       _overClose = false;
       _menu = false;
@@ -365,7 +367,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
         if (_dragAt == null) return;
         _drag(details.delta, details.globalPosition, media);
       },
-      onPanEnd: (_) => _drop(media),
+      onPanEnd: (details) => _drop(media, details.velocity),
       child: child,
     );
   }
@@ -445,24 +447,22 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
             ),
           ),
         if (at != null) _CloseSlot(hot: _overClose),
-        if (at != null)
-          Positioned(key: slot, left: at.dx, top: at.dy, child: shown)
-        else if (_menu && upward)
-          Positioned(
-            key: slot,
-            right: side,
-            left: otherSide,
-            bottom: screen.height - bottom,
-            child: shown,
-          )
-        else
-          Positioned(
-            key: slot,
-            right: side,
-            left: otherSide,
-            top: top,
-            child: shown,
-          ),
+        AnimatedPositioned(
+          key: slot,
+          duration: at != null ? Duration.zero : _glide,
+          curve: Curves.easeOutCubic,
+          left:
+              at?.dx ??
+              (_menu
+                  ? otherSide
+                  : _right
+                  ? screen.width - Spacing.screenEdge - deviceBubbleSize
+                  : Spacing.screenEdge),
+          right: at == null && _menu ? side : null,
+          top: at?.dy ?? (_menu && upward ? null : top),
+          bottom: at == null && _menu && upward ? screen.height - bottom : null,
+          child: RepaintBoundary(child: shown),
+        ),
       ],
     );
   }
@@ -783,9 +783,10 @@ class _FloatWindowState extends State<_FloatWindow> {
       }
       final close = _overClose;
       final center = dropped + size.center(Offset.zero);
+      final fling = details.velocity.pixelsPerSecond * _throw;
       setState(() {
-        _right = center.dx > screen.width / 2;
-        _top = dropped.dy;
+        _right = (center + fling).dx > screen.width / 2;
+        _top = dropped.dy + fling.dy;
         _dragAt = null;
         _pointer = null;
         _gesturing = false;
@@ -817,17 +818,19 @@ class _FloatWindowState extends State<_FloatWindow> {
             }),
             onScaleUpdate: onScaleUpdate,
             onScaleEnd: onScaleEnd,
-            child: _Frame(
-              child: _Tile(
-                id: id,
-                live: widget.live,
-                picture: widget.picture,
-                marks: widget.marks,
-                actions: widget.actions,
-                overlay: _overlay,
-                onExpand: () => _hide(widget.onExpand),
-                onCollapse: () => _hide(widget.onCollapse),
-                onClose: () => _hide(widget.onClose),
+            child: RepaintBoundary(
+              child: _Frame(
+                child: _Tile(
+                  id: id,
+                  live: widget.live,
+                  picture: widget.picture,
+                  marks: widget.marks,
+                  actions: widget.actions,
+                  overlay: _overlay,
+                  onExpand: () => _hide(widget.onExpand),
+                  onCollapse: () => _hide(widget.onCollapse),
+                  onClose: () => _hide(widget.onClose),
+                ),
               ),
             ),
           ),
@@ -1259,12 +1262,14 @@ class _ScreensMarkState extends State<_ScreensMark>
 
   @override
   Widget build(BuildContext context) {
-    return UpgradeIcon(
-      UpgradeIcons.screens,
-      size: widget.size,
-      color: widget.color ?? context.tokens.textPrimary,
-      glitch: _glitch,
-      steps: _steps,
+    return RepaintBoundary(
+      child: UpgradeIcon(
+        UpgradeIcons.screens,
+        size: widget.size,
+        color: widget.color ?? context.tokens.textPrimary,
+        glitch: _glitch,
+        steps: _steps,
+      ),
     );
   }
 }
