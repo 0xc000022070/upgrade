@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Size;
 
 import 'package:upgrade/application/pip.dart';
 
@@ -7,14 +8,16 @@ class FakePip implements PipSurface {
 
   final bool here;
   var entries = 0;
+  Size? aspect;
   final modes = StreamController<bool>.broadcast();
 
   @override
   Future<bool> available() async => here;
 
   @override
-  Future<bool> enter() async {
+  Future<bool> enter({Size? aspect}) async {
     entries++;
+    this.aspect = aspect;
     return here;
   }
 

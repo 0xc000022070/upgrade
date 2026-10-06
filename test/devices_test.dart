@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents.dart';
 import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/application/pip.dart';
+import 'package:upgrade/app/pip_host.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/dynamic_tokens.dart';
@@ -26,6 +28,7 @@ import 'package:upgrade/platform/host_keys.dart';
 import 'package:upgrade/platform/keys.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 
+import 'support/fake_pip.dart';
 import 'support/platform_channels.dart';
 import 'support/vnc_channel.dart';
 import 'support/themed_app.dart';
@@ -175,6 +178,7 @@ Future<void> _pump(
   VncOpener? vnc,
   bool show = true,
   ThemeData? theme,
+  FakePip? pip,
 }) async {
   stubDeviceChannels();
   final store = MemoryPrivateKeyStore();
@@ -188,12 +192,15 @@ Future<void> _pump(
         deviceHostsProvider.overrideWith((ref) => Stream.value(hosts)),
         vncHostsProvider.overrideWith((ref) => Stream.value(desktops)),
         if (vnc != null) vncOpenerProvider.overrideWithValue(vnc),
+        if (pip != null) pipSurfaceProvider.overrideWithValue(pip),
       ],
       child: MaterialApp(
         theme: theme ?? testTheme,
         navigatorKey: rootNavigatorKey,
         navigatorObservers: [rootRoutes],
-        builder: (context, child) => DeviceFloat(child: child!),
+        builder: (context, child) => pip == null
+            ? DeviceFloat(child: child!)
+            : PipHost(child: DeviceFloat(child: child!)),
         home: Consumer(
           builder: (context, ref, _) => Scaffold(
             body: Center(
@@ -828,6 +835,48 @@ void main() {
     await _fold(tester);
     await _open(tester);
     expect(tag(_pixel, 'HELD'), findsOneWidget);
+  });
+
+  testWidgets('a window parks its own stream in picture-in-picture', (
+    tester,
+  ) async {
+    final pip = FakePip();
+    final link = FakeDeviceLink(const [_pixel]);
+    await _pump(tester, _opener(link), pip: pip);
+    await _pick(tester, _pixel);
+    await _live(tester, link);
+    await _tapKey(tester, _floatKey);
+    await _tapKey(tester, const ValueKey('device-float-pip'));
+    expect(pip.entries, 1);
+    expect(pip.aspect, isNotNull);
+    expect(pip.aspect!.isEmpty, isFalse);
+
+    pip.modes.add(true);
+    await _settle(tester);
+    const window = ValueKey('screen-pip');
+    expect(
+      find.descendant(of: find.byKey(window), matching: find.byType(RawImage)),
+      findsOneWidget,
+    );
+    expect(link.frameStreams.last.hasListener, isTrue);
+
+    pip.modes.add(false);
+    await _settle(tester);
+    expect(find.byKey(window), findsNothing);
+    expect(find.byKey(_floatKey), findsOneWidget);
+    expect(link.frameStreams.last.hasListener, isTrue);
+  });
+
+  testWidgets('a window offers no picture-in-picture without one', (
+    tester,
+  ) async {
+    final link = FakeDeviceLink(const [_pixel]);
+    await _pump(tester, _opener(link), pip: FakePip(here: false));
+    await _pick(tester, _pixel);
+    await _live(tester, link);
+    await _tapKey(tester, _floatKey);
+    expect(find.byKey(const ValueKey('device-float-collapse')), findsOneWidget);
+    expect(find.byKey(const ValueKey('device-float-pip')), findsNothing);
   });
 
   testWidgets('a short throw carries the float to the far side', (
@@ -1683,6 +1732,40 @@ void main() {
       of: find.byKey(const ValueKey('desktop-float-overlay')),
       matching: find.text(text),
     );
+
+    testWidgets('parks in picture-in-picture, even from a pause', (
+      tester,
+    ) async {
+      final pip = FakePip();
+      await _pump(
+        tester,
+        _opener(FakeDeviceLink(const [])),
+        desktops: const [_rose],
+        vnc: vnc(),
+        pip: pip,
+      );
+      await watchDesktop(tester);
+      await _tapKey(tester, desktopKey);
+      await tester.tap(onDesktop('PAUSE'));
+      await tester.pump();
+      expect(onDesktop('RESUME'), findsOneWidget);
+      await _tapKey(tester, const ValueKey('desktop-float-pip'));
+      expect(pip.entries, 1);
+      pip.modes.add(true);
+      await _settle(tester);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('screen-pip')),
+          matching: find.byType(RawImage),
+        ),
+        findsOneWidget,
+      );
+
+      pip.modes.add(false);
+      await _settle(tester);
+      expect(find.byKey(desktopKey), findsOneWidget);
+      expect(find.byKey(const ValueKey('desktop-float-paused')), findsNothing);
+    });
 
     testWidgets('floats beside a device, each window on its own', (
       tester,

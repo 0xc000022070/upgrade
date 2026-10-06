@@ -11,8 +11,14 @@ abstract final class Pip {
   static Future<bool> available() async =>
       await _calls.invokeMethod<bool>('available') ?? false;
 
-  static Future<bool> enter() async =>
-      await _calls.invokeMethod<bool>('enter') ?? false;
+  static Future<bool> enter({Size? aspect}) async =>
+      await _calls.invokeMethod<bool>(
+        'enter',
+        aspect == null || aspect.isEmpty
+            ? null
+            : {'width': aspect.width.round(), 'height': aspect.height.round()},
+      ) ??
+      false;
 
   /// Replayed on subscribe, because a listener that arrived late would otherwise draw the
   /// whole app into a corner tile.

@@ -64,6 +64,10 @@ class _DeviceFloatState extends ConsumerState<DeviceFloat> {
       appVisibleProvider,
       (_, visible) => _setHidden(!visible),
     );
+    ref.listenManual<DockSurface?>(
+      screenPipProvider,
+      (_, surface) => _dock.pipFor(surface),
+    );
   }
 
   void _setHidden(bool hidden) {
@@ -75,6 +79,7 @@ class _DeviceFloatState extends ConsumerState<DeviceFloat> {
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<bool>>(pipModeProvider, (_, next) {
       _inPip = next.valueOrNull ?? false;
+      if (!_inPip) ref.read(screenPipProvider.notifier).state = null;
       _dock.setAway(_hidden || _inPip);
     });
     // Above the navigator there is no overlay for the bar's menu to open in.
@@ -181,6 +186,13 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     );
   }
 
+  Future<void> _pip(DockSurface surface, Size aspect) async {
+    final target = ref.read(screenPipProvider.notifier);
+    target.state = surface;
+    final entered = await ref.read(pipSurfaceProvider).enter(aspect: aspect);
+    if (!entered) target.state = null;
+  }
+
   void _expandDesktop() {
     final context = rootNavigatorKey.currentContext;
     if (context == null) return;
@@ -227,6 +239,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   @override
   Widget build(BuildContext context) {
     final hosts = ref.watch(screenHostsProvider);
+    final pip = ref.watch(pipAvailableProvider).valueOrNull ?? false;
     return ListenableBuilder(
       listenable: _dock,
       builder: (context, _) {
@@ -252,6 +265,9 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
                 desktop: desktop,
                 right: !_right,
                 onExpand: _expandDesktop,
+                onPip: pip
+                    ? (aspect) => _pip(DockSurface.desktop, aspect)
+                    : null,
               ),
             if (session != null && !_dock.collapsed)
               _DeviceWindow(
@@ -260,6 +276,9 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
                 session: session,
                 right: !_right,
                 onExpand: _expandDevice,
+                onPip: pip
+                    ? (aspect) => _pip(DockSurface.device, aspect)
+                    : null,
               ),
             _placeRest(context, screens),
           ],
@@ -508,12 +527,14 @@ class _DeviceWindow extends StatelessWidget {
     required this.session,
     required this.right,
     required this.onExpand,
+    required this.onPip,
   });
 
   final DeviceDock dock;
   final DeviceSession session;
   final bool right;
   final VoidCallback onExpand;
+  final void Function(Size aspect)? onPip;
 
   @override
   Widget build(BuildContext context) {
@@ -548,6 +569,7 @@ class _DeviceWindow extends StatelessWidget {
           actions: (context) =>
               deviceStateActions(context, controller, terse: true),
           onExpand: onExpand,
+          onPip: onPip == null ? null : () => onPip!(native),
           onCollapse: () => dock.collapse(true),
           onClose: dock.endDevice,
         );
@@ -563,12 +585,14 @@ class _DesktopWindow extends StatelessWidget {
     required this.desktop,
     required this.right,
     required this.onExpand,
+    required this.onPip,
   });
 
   final DeviceDock dock;
   final DesktopSession desktop;
   final bool right;
   final VoidCallback onExpand;
+  final void Function(Size aspect)? onPip;
 
   @override
   Widget build(BuildContext context) {
@@ -625,6 +649,7 @@ class _DesktopWindow extends StatelessWidget {
             ],
           },
           onExpand: onExpand,
+          onPip: onPip == null ? null : () => onPip!(size),
           onCollapse: () => dock.collapseDesktop(true),
           onClose: dock.endDesktop,
         );
@@ -685,6 +710,7 @@ class _FloatWindow extends StatefulWidget {
     required this.onExpand,
     required this.onCollapse,
     required this.onClose,
+    this.onPip,
     this.onSettled,
   });
 
@@ -703,6 +729,7 @@ class _FloatWindow extends StatefulWidget {
   final VoidCallback onExpand;
   final VoidCallback onCollapse;
   final VoidCallback onClose;
+  final VoidCallback? onPip;
   final void Function(double width, double ratio)? onSettled;
 
   @override
@@ -836,6 +863,9 @@ class _FloatWindowState extends State<_FloatWindow> {
                   actions: widget.actions,
                   overlay: _overlay,
                   onExpand: () => _hide(widget.onExpand),
+                  onPip: widget.onPip == null
+                      ? null
+                      : () => _hide(widget.onPip!),
                   onCollapse: () => _hide(widget.onCollapse),
                   onClose: () => _hide(widget.onClose),
                 ),
@@ -1408,6 +1438,7 @@ class _Tile extends StatelessWidget {
     required this.onExpand,
     required this.onCollapse,
     required this.onClose,
+    required this.onPip,
   });
 
   final String id;
@@ -1419,9 +1450,11 @@ class _Tile extends StatelessWidget {
   final VoidCallback onExpand;
   final VoidCallback onCollapse;
   final VoidCallback onClose;
+  final VoidCallback? onPip;
 
   @override
   Widget build(BuildContext context) {
+    final glyphs = onPip == null ? 2 : 3;
     return ClipRect(
       child: Stack(
         fit: StackFit.expand,
@@ -1448,6 +1481,13 @@ class _Tile extends StatelessWidget {
                             onTap: onExpand,
                           ),
                           const Spacer(),
+                          if (onPip != null)
+                            _Glyph(
+                              key: ValueKey('$id-pip'),
+                              icon: UpgradeIcons.pip,
+                              label: 'PIP',
+                              onTap: onPip!,
+                            ),
                           _Glyph(
                             key: ValueKey('$id-collapse'),
                             icon: UpgradeIcons.minimize,
@@ -1471,10 +1511,13 @@ class _Tile extends StatelessWidget {
                       ),
                     ],
                   );
-                  if (box.maxHeight >= tallest) return controls;
+                  final narrowest = TapTargets.minHeight * glyphs;
+                  if (box.maxHeight >= tallest && box.maxWidth >= narrowest) {
+                    return controls;
+                  }
                   return FittedBox(
                     child: SizedBox(
-                      width: math.max(box.maxWidth, TapTargets.minHeight * 2),
+                      width: math.max(box.maxWidth, narrowest),
                       height: tallest,
                       child: controls,
                     ),
@@ -1666,6 +1709,43 @@ class _Word extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class ScreenPip extends ConsumerWidget {
+  const ScreenPip({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dock = ref.watch(deviceDockProvider);
+    final surface = ref.watch(screenPipProvider);
+    return ColoredBox(
+      key: const ValueKey('screen-pip'),
+      color: context.tokens.backgroundPrimary,
+      child: ListenableBuilder(
+        listenable: dock,
+        builder: (context, _) {
+          final session = dock.session;
+          final desktop = dock.desktop;
+          return switch (surface) {
+            DockSurface.device when session != null => ListenableBuilder(
+              listenable: session.controller,
+              builder: (context, _) => _Live(controller: session.controller),
+            ),
+            DockSurface.desktop when desktop != null => ListenableBuilder(
+              listenable: desktop.controller,
+              builder: (context, _) => _Desktop(
+                controller: desktop.controller,
+                paused: dock.desktopPaused,
+              ),
+            ),
+            _ => Center(
+              child: Text('ENDED', style: context.tokens.panelHeader),
+            ),
+          };
+        },
       ),
     );
   }

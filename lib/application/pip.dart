@@ -1,3 +1,5 @@
+import 'dart:ui' show Size;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../platform/pip.dart';
@@ -8,7 +10,7 @@ class PipSurface {
 
   Future<bool> available() => Pip.available();
 
-  Future<bool> enter() => Pip.enter();
+  Future<bool> enter({Size? aspect}) => Pip.enter(aspect: aspect);
 
   Stream<bool> mode() => Pip.mode();
 }
@@ -20,7 +22,7 @@ class AbsentPip implements PipSurface {
   Future<bool> available() async => false;
 
   @override
-  Future<bool> enter() async => false;
+  Future<bool> enter({Size? aspect}) async => false;
 
   @override
   Stream<bool> mode() => const Stream.empty();

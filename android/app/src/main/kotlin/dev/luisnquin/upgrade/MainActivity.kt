@@ -138,7 +138,9 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "available" -> result.success(pipAvailable())
-                    "enter" -> result.success(enterPip())
+                    "enter" -> result.success(
+                        enterPip(call.argument<Int>("width"), call.argument<Int>("height")),
+                    )
                     else -> result.notImplemented()
                 }
             }
@@ -212,9 +214,9 @@ class MainActivity : FlutterActivity() {
 
     // The system will not give the window more height than the ratio asks for,
     // and clamps anything past 2.39:1.
-    private fun pipParams(): PictureInPictureParams {
+    private fun pipParams(width: Int?, height: Int?): PictureInPictureParams {
         val builder = PictureInPictureParams.Builder()
-            .setAspectRatio(Rational(16, 9))
+            .setAspectRatio(pipRatio(width, height))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             builder.setAutoEnterEnabled(false)
             builder.setSeamlessResizeEnabled(false)
@@ -222,9 +224,19 @@ class MainActivity : FlutterActivity() {
         return builder.build()
     }
 
-    private fun enterPip(): Boolean {
+    private fun pipRatio(width: Int?, height: Int?): Rational {
+        if (width == null || height == null || width <= 0 || height <= 0) return Rational(16, 9)
+        val ratio = width.toFloat() / height
+        return when {
+            ratio > 2.39f -> Rational(239, 100)
+            ratio < 1 / 2.39f -> Rational(100, 239)
+            else -> Rational(width, height)
+        }
+    }
+
+    private fun enterPip(width: Int?, height: Int?): Boolean {
         if (!pipAvailable() || isInPictureInPictureMode) return false
-        return enterPictureInPictureMode(pipParams())
+        return enterPictureInPictureMode(pipParams(width, height))
     }
 
     override fun onPictureInPictureModeChanged(

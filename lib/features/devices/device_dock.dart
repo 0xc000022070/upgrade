@@ -64,6 +64,7 @@ class DeviceDock extends ChangeNotifier {
   DockSurface? _expanded;
   int _decodeWidth = floatDecodeWidth;
   bool _away = false;
+  DockSurface? _pip;
   bool _disposed = false;
   int _asks = 0;
 
@@ -75,6 +76,7 @@ class DeviceDock extends ChangeNotifier {
   bool get desktopCollapsed => _desktopCollapsed;
   bool get desktopPaused => _desktopPaused;
   DockSurface? get expanded => _expanded;
+  DockSurface? get pip => _pip;
   bool get holding => _session != null || _desktop != null;
   int get asks => _asks;
 
@@ -314,6 +316,14 @@ class DeviceDock extends ChangeNotifier {
     _sync();
   }
 
+  void pipFor(DockSurface? surface) {
+    if (_pip == surface) return;
+    _pip = surface;
+    if (surface == DockSurface.desktop) _desktopPaused = false;
+    _sync();
+    notifyListeners();
+  }
+
   void revive() {
     for (final group in _groups) {
       group.revive();
@@ -321,13 +331,15 @@ class DeviceDock extends ChangeNotifier {
   }
 
   bool get _deviceAway =>
-      _away || _collapsed || (!_floating && _expanded != DockSurface.device);
+      _pip != DockSurface.device &&
+      (_away || _collapsed || (!_floating && _expanded != DockSurface.device));
 
   bool get _desktopAway =>
-      _away ||
-      _desktopCollapsed ||
-      _desktopPaused ||
-      (!_floating && _expanded != DockSurface.desktop);
+      _pip != DockSurface.desktop &&
+      (_away ||
+          _desktopCollapsed ||
+          _desktopPaused ||
+          (!_floating && _expanded != DockSurface.desktop));
 
   void _sync() {
     unawaited(_session?.controller.setAway(_deviceAway));
@@ -409,6 +421,8 @@ final deviceLinkOpenerProvider = Provider<DeviceLinkOpener>((ref) {
 final vncOpenerProvider = Provider<VncOpener>(
   (ref) => VncTunnel(ref.read(hostLinksProvider)).open,
 );
+
+final screenPipProvider = StateProvider<DockSurface?>((ref) => null);
 
 final deviceDockProvider = Provider<DeviceDock>((ref) {
   final keys = ref.read(ed25519KeysProvider);
