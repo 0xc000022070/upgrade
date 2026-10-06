@@ -187,6 +187,26 @@ void main() {
     );
   });
 
+  test(
+    'a long take is cut at its quiet spot into pieces whisper hears whole',
+    () {
+      const rate = whisperRate;
+      final samples = Float32List(65 * rate)..fillRange(0, 65 * rate, 0.2);
+      samples.fillRange(23 * rate, 23 * rate + rate ~/ 5, 0);
+      final chunks = whisperChunks(samples);
+      expect(
+        chunks.map((c) => c.length).fold(0, (a, b) => a + b),
+        samples.length,
+      );
+      expect(chunks.every((c) => c.length <= 28 * rate), isTrue);
+      expect(
+        chunks.first.length,
+        inInclusiveRange(23 * rate, 23 * rate + rate ~/ 5),
+      );
+      expect(whisperChunks(Float32List(rate)), hasLength(1));
+    },
+  );
+
   test('whisper notes about the audio are not words', () {
     expect(spokenText(' [BLANK_AUDIO] '), isEmpty);
     expect(spokenText('fix  the [MUSIC] parser'), 'fix the parser');

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../application/agent_kind.dart';
 import '../../design/components/cell_divider.dart';
+import '../../design/components/close_target.dart';
 import '../../design/components/dot_spinner.dart';
 import '../../design/components/key_cell.dart';
 import '../../design/components/upgrade_field.dart';
@@ -273,59 +274,140 @@ class ShellDictation extends ChangeNotifier {
   }
 }
 
-class VoiceCell extends StatelessWidget {
+const voiceDragSlop = 24.0;
+
+const voiceTargetRise = 96.0;
+
+class VoiceCell extends StatefulWidget {
   const VoiceCell({
     super.key,
     required this.dictation,
     required this.onPress,
     required this.onLift,
+    required this.onDrop,
     this.landing,
   });
 
   final ShellDictation? dictation;
   final VoidCallback onPress;
   final VoidCallback onLift;
+  final VoidCallback onDrop;
   final GlitchController? landing;
 
   @override
+  State<VoiceCell> createState() => _VoiceCellState();
+}
+
+class _VoiceCellState extends State<VoiceCell> {
+  final _target = OverlayPortalController();
+  final _hot = ValueNotifier(false);
+  Offset? _down;
+  var _centre = Offset.zero;
+
+  @override
+  void dispose() {
+    _hot.dispose();
+    super.dispose();
+  }
+
+  void _onDown(PointerDownEvent event) {
+    _down = event.position;
+    widget.onPress();
+  }
+
+  void _onMove(PointerMoveEvent event) {
+    final down = _down;
+    if (down == null) return;
+    if (!_target.isShowing) {
+      final dictation = widget.dictation;
+      if (dictation == null || !dictation.hearing || dictation.finishing) {
+        return;
+      }
+      if ((event.position - down).distance < voiceDragSlop) return;
+      final box = context.findRenderObject()! as RenderBox;
+      _centre =
+          box.localToGlobal(box.size.topCenter(Offset.zero)) -
+          const Offset(0, voiceTargetRise);
+      _target.show();
+    }
+    _hot.value = (event.position - _centre).distance < closeTargetSize;
+  }
+
+  void _onUp(PointerUpEvent event) {
+    final drop = _target.isShowing && _hot.value;
+    _end();
+    drop ? widget.onDrop() : widget.onLift();
+  }
+
+  void _onCancel(PointerCancelEvent event) {
+    _end();
+    widget.onLift();
+  }
+
+  void _end() {
+    _down = null;
+    _hot.value = false;
+    if (_target.isShowing) _target.hide();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final dictation = this.dictation;
+    final dictation = widget.dictation;
     final hearing = dictation?.hearing ?? false;
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: (_) => onPress(),
-      onPointerUp: (_) => onLift(),
-      onPointerCancel: (_) => onLift(),
-      child: Semantics(
-        button: true,
-        label: 'VOICE',
-        child: Container(
-          constraints: const BoxConstraints(minWidth: RowMetrics.minHeight),
-          padding: const EdgeInsets.symmetric(horizontal: RowMetrics.padding),
-          alignment: Alignment.center,
-          child: switch (dictation) {
-            final dictation? when dictation.finishing => _Finishing(
-              key: const ValueKey('shell-voice-finishing'),
+    return OverlayPortal(
+      controller: _target,
+      overlayChildBuilder: (context) => Positioned(
+        left: _centre.dx - closeTargetSize / 2,
+        top: _centre.dy - closeTargetSize / 2,
+        width: closeTargetSize,
+        height: closeTargetSize,
+        child: IgnorePointer(
+          child: ValueListenableBuilder(
+            valueListenable: _hot,
+            builder: (context, hot, _) => CloseTarget(
+              key: const ValueKey('shell-voice-target'),
+              hot: hot,
             ),
-            final dictation?
-                when hearing && !MediaQuery.disableAnimationsOf(context) =>
-              ValueListenableBuilder(
-                key: const ValueKey('shell-voice-meter'),
-                valueListenable: dictation.levels,
-                builder: (context, levels, _) => CustomPaint(
-                  size: const Size.square(IconSizes.toolbar),
-                  painter: _Meter(levels, context.tokens.accent),
-                ),
+          ),
+        ),
+      ),
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: _onDown,
+        onPointerMove: _onMove,
+        onPointerUp: _onUp,
+        onPointerCancel: _onCancel,
+        child: Semantics(
+          button: true,
+          label: 'VOICE',
+          child: Container(
+            constraints: const BoxConstraints(minWidth: RowMetrics.minHeight),
+            padding: const EdgeInsets.symmetric(horizontal: RowMetrics.padding),
+            alignment: Alignment.center,
+            child: switch (dictation) {
+              final dictation? when dictation.finishing => _Finishing(
+                key: const ValueKey('shell-voice-finishing'),
               ),
-            _ => UpgradeIcon(
-              UpgradeIcons.voice,
-              size: IconSizes.toolbar,
-              color: hearing
-                  ? context.tokens.accent
-                  : context.tokens.textSecondary,
-              glitch: landing,
-            ),
-          },
+              final dictation?
+                  when hearing && !MediaQuery.disableAnimationsOf(context) =>
+                ValueListenableBuilder(
+                  key: const ValueKey('shell-voice-meter'),
+                  valueListenable: dictation.levels,
+                  builder: (context, levels, _) => CustomPaint(
+                    size: const Size.square(IconSizes.toolbar),
+                    painter: _Meter(levels, context.tokens.accent),
+                  ),
+                ),
+              _ => UpgradeIcon(
+                UpgradeIcons.voice,
+                size: IconSizes.toolbar,
+                color: hearing
+                    ? context.tokens.accent
+                    : context.tokens.textSecondary,
+                glitch: widget.landing,
+              ),
+            },
+          ),
         ),
       ),
     );

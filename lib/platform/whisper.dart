@@ -205,6 +205,39 @@ bool heardAnything(Float32List samples) {
   return false;
 }
 
+const _chunkMost = 28 * whisperRate;
+const _chunkLeast = 20 * whisperRate;
+
+// Whisper hears thirty seconds and drops the rest, so a long take is cut at its
+// quietest tenth of a second between twenty and twenty-eight.
+List<Float32List> whisperChunks(Float32List samples) {
+  const window = whisperRate ~/ 10;
+  final chunks = <Float32List>[];
+  var start = 0;
+  while (samples.length - start > _chunkMost) {
+    var cut = start + _chunkMost;
+    var quietest = double.infinity;
+    for (
+      var at = start + _chunkLeast;
+      at + window <= start + _chunkMost;
+      at += window
+    ) {
+      var sum = 0.0;
+      for (var i = at; i < at + window; i++) {
+        sum += samples[i] * samples[i];
+      }
+      if (sum < quietest) {
+        quietest = sum;
+        cut = at + window ~/ 2;
+      }
+    }
+    chunks.add(Float32List.sublistView(samples, start, cut));
+    start = cut;
+  }
+  chunks.add(Float32List.sublistView(samples, start));
+  return chunks;
+}
+
 final _bracketed = RegExp(r'\[[^\]]*\]');
 final _spaces = RegExp(r'\s+');
 
@@ -263,6 +296,15 @@ class WhisperTranscriber implements Transcriber {
   @override
   Future<String> transcribe(Float32List samples) async {
     final worker = await _spawn();
+    final heard = <String>[];
+    for (final chunk in whisperChunks(samples)) {
+      if (!heardAnything(chunk)) continue;
+      heard.add(await _hear(worker, chunk));
+    }
+    return heard.join(' ');
+  }
+
+  Future<String> _hear(SendPort worker, Float32List samples) async {
     final reply = ReceivePort();
     try {
       worker.send((reply.sendPort, TransferableTypedData.fromList([samples])));

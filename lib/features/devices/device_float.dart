@@ -9,6 +9,7 @@ import '../../application/agents.dart';
 import '../../application/navigation.dart';
 import '../../application/pip.dart';
 import '../../data/repositories/host_repository.dart';
+import '../../design/components/close_target.dart';
 import '../../design/components/inline_confirm.dart';
 import '../../design/components/panel.dart';
 import '../../design/effects/glitch.dart';
@@ -29,7 +30,7 @@ const deviceFloatWidth = 120.0;
 const deviceFloatMinWidth = 100.0;
 const deviceFloatMaxShare = 0.6;
 const deviceFloatClearance = 112.0;
-const deviceCloseTarget = 48.0;
+const deviceCloseTarget = closeTargetSize;
 const _glide = Duration(milliseconds: 220);
 const _throw = 0.12;
 const _decodeStep = 120;
@@ -489,7 +490,12 @@ class _CloseSlot extends StatelessWidget {
       top: target.dy - deviceCloseTarget / 2,
       width: deviceCloseTarget,
       height: deviceCloseTarget,
-      child: _OnMedia(child: _CloseTarget(hot: hot)),
+      child: _OnMedia(
+        child: CloseTarget(
+          key: const ValueKey('device-float-target'),
+          hot: hot,
+        ),
+      ),
     );
   }
 }
@@ -1635,27 +1641,6 @@ class _Word extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _CloseTarget extends StatelessWidget {
-  const _CloseTarget({required this.hot});
-
-  final bool hot;
-
-  @override
-  Widget build(BuildContext context) {
-    final tint = hot ? context.tokens.accent : context.tokens.textMuted;
-    return DecoratedBox(
-      key: const ValueKey('device-float-target'),
-      decoration: BoxDecoration(
-        color: context.tokens.mediaBackdrop,
-        border: Border.all(color: tint, width: Borders.hairline),
-      ),
-      child: Center(
-        child: UpgradeIcon(UpgradeIcons.close, size: IconSizes.sm, color: tint),
       ),
     );
   }

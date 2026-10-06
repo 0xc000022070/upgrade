@@ -395,24 +395,75 @@ void main() {
       expect(dictation().showing, isFalse);
     });
 
-    Future<void> pumpCell(WidgetTester tester) => tester.pumpWidget(
-      Theme(
-        data: testTheme,
-        child: Directionality(
-          textDirection: TextDirection.ltr,
-          child: ListenableBuilder(
-            listenable: dictation(),
-            builder: (context, _) => Center(
-              child: VoiceCell(
-                dictation: dictation(),
-                onPress: () {},
-                onLift: () {},
+    Future<void> pumpCell(WidgetTester tester, {ShellSession? session}) =>
+        tester.pumpWidget(
+          Theme(
+            data: testTheme,
+            child: Directionality(
+              textDirection: TextDirection.ltr,
+              child: Overlay(
+                initialEntries: [
+                  OverlayEntry(
+                    builder: (context) => ListenableBuilder(
+                      listenable: dictation(),
+                      builder: (context, _) => Center(
+                        child: VoiceCell(
+                          dictation: dictation(),
+                          onPress: () {
+                            if (session != null) {
+                              unawaited(dictation().press(session));
+                            }
+                          },
+                          onLift: dictation().lift,
+                          onDrop: dictation().cancel,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ),
-      ),
-    );
+        );
+
+    const target = ValueKey('shell-voice-target');
+
+    testWidgets('a hold dragged onto the target throws the take away', (
+      tester,
+    ) async {
+      await pumpCell(tester, session: _session());
+      final cell = tester.getCenter(find.byType(VoiceCell));
+      final finger = await tester.startGesture(cell);
+      await tester.pump();
+      expect(find.byKey(target), findsNothing);
+      await finger.moveBy(const Offset(0, -voiceDragSlop));
+      await tester.pump();
+      expect(find.byKey(target), findsOneWidget);
+      await finger.moveTo(tester.getCenter(find.byKey(target)));
+      await tester.pump(voiceHold);
+      await finger.up();
+      await tester.pump();
+      expect(calls, ['start', 'cancel']);
+      expect(find.byKey(target), findsNothing);
+      expect(dictation().showing, isFalse);
+      expect(delivered, isEmpty);
+    });
+
+    testWidgets('a hold dragged off the target and lifted still delivers', (
+      tester,
+    ) async {
+      await pumpCell(tester, session: _session());
+      final cell = tester.getCenter(find.byType(VoiceCell));
+      final finger = await tester.startGesture(cell);
+      await tester.pump();
+      await finger.moveBy(const Offset(-voiceDragSlop * 2, 0));
+      await tester.pump(voiceHold);
+      expect(find.byKey(target), findsOneWidget);
+      await finger.up();
+      await tester.pump();
+      expect(calls, ['start', 'stop']);
+      expect(find.byKey(target), findsNothing);
+    });
 
     testWidgets('the cell meters while it hears and spins while it finishes', (
       tester,

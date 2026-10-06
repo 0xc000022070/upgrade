@@ -884,6 +884,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                       voiceLanding: _voiceLanding,
                       onVoicePress: () => unawaited(_dictation.press(active)),
                       onVoiceLift: _dictation.lift,
+                      onVoiceDrop: _dictation.cancel,
                     ),
                   ),
               ],

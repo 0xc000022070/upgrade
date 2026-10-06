@@ -79,6 +79,7 @@ class ShellBar extends StatelessWidget {
     this.voiceLanding,
     this.onVoicePress,
     this.onVoiceLift,
+    this.onVoiceDrop,
     this.searching = false,
     this.onFind,
   });
@@ -106,6 +107,7 @@ class ShellBar extends StatelessWidget {
   final GlitchController? voiceLanding;
   final VoidCallback? onVoicePress;
   final VoidCallback? onVoiceLift;
+  final VoidCallback? onVoiceDrop;
 
   final bool searching;
 
@@ -171,6 +173,7 @@ class ShellBar extends StatelessWidget {
           landing: voiceLanding,
           onPress: () => onVoicePress?.call(),
           onLift: () => onVoiceLift?.call(),
+          onDrop: () => onVoiceDrop?.call(),
         ),
         KeyCell(
           key: const ValueKey('bar-keyboard'),
