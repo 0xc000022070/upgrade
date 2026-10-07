@@ -867,6 +867,30 @@ void main() {
     expect(link.frameStreams.last.hasListener, isTrue);
   });
 
+  testWidgets('a float too narrow for its glyphs keeps them on its edges', (
+    tester,
+  ) async {
+    final link = FakeDeviceLink(const [_pixel]);
+    await _pump(tester, _opener(link), pip: FakePip());
+    await _pick(tester, _pixel);
+    await _live(tester, link);
+    await _tapKey(tester, _floatKey);
+    final float = tester.getRect(find.byKey(_floatKey));
+    final expand = tester.getRect(
+      find.byKey(const ValueKey('device-float-expand')),
+    );
+    final collapse = tester.getRect(
+      find.byKey(const ValueKey('device-float-collapse')),
+    );
+    final close = tester.getRect(
+      find.byKey(const ValueKey('device-float-close')),
+    );
+    expect(expand.top - float.top, lessThan(4));
+    expect(expand.left - float.left, lessThan(4));
+    expect(float.right - collapse.right, lessThan(4));
+    expect(float.bottom - close.bottom, lessThan(4));
+  });
+
   testWidgets('a window offers no picture-in-picture without one', (
     tester,
   ) async {
@@ -1809,7 +1833,7 @@ void main() {
       expect(_dock(tester).desktopPaused, isTrue);
       expect(onDesktop('RESUME'), findsOneWidget);
       await tester.tapAt(
-        tester.getTopLeft(find.byKey(desktopKey)) + const Offset(4, 4),
+        tester.getRect(find.byKey(desktopKey)).centerLeft + const Offset(4, 0),
       );
       await tester.pump();
       expect(_dock(tester).desktopPaused, isTrue);

@@ -1515,10 +1515,16 @@ class _Tile extends StatelessWidget {
                   if (box.maxHeight >= tallest && box.maxWidth >= narrowest) {
                     return controls;
                   }
+                  // The canvas keeps the tile's aspect so the glyphs and END stay on
+                  // its edges once scaled down.
+                  final scale = math.max(
+                    1.0,
+                    math.max(narrowest / box.maxWidth, tallest / box.maxHeight),
+                  );
                   return FittedBox(
                     child: SizedBox(
-                      width: math.max(box.maxWidth, narrowest),
-                      height: tallest,
+                      width: box.maxWidth * scale,
+                      height: box.maxHeight * scale,
                       child: controls,
                     ),
                   );
