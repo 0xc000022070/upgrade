@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/application/agent_kind.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:flterm/flterm.dart';
@@ -40,6 +41,31 @@ void main() {
     expect(find.byKey(const ValueKey('shell-text-size')), findsNothing);
     expect(find.text('Aa'), findsNothing);
     expect(find.byKey(const ValueKey('shell-pinch')), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('a voice draft sends from the shell bar without the keyboard', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    final session = sessions.activeFor(rose.id)!;
+
+    expect(find.byKey(const ValueKey('bar-voice-send')), findsNothing);
+    session.voiceDraft = (agent: const CodexKind(), text: 'check this');
+    session.changed();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('bar-voice-send')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('bar-voice-send')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(session.voiceDraft, isNull);
+    expect(find.byKey(const ValueKey('bar-voice-send')), findsNothing);
+    expect(transport.opened.single.writes.last, [0x0d]);
     await unmount(tester);
   });
 

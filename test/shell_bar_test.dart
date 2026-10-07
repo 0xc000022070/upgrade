@@ -17,6 +17,7 @@ class BarRecord {
   int keyboards = 0;
   int attaches = 0;
   int finds = 0;
+  int voiceSends = 0;
 
   /// Records hold their set by identity, so the shape they are compared in is a written
   /// one.
@@ -39,6 +40,7 @@ Future<BarRecord> pumpBar(
   bool keyboardOpen = false,
   int clipCount = 0,
   bool searching = false,
+  bool suggestVoiceSend = false,
 }) async {
   final record = BarRecord();
   await tester.pumpWidget(
@@ -60,6 +62,7 @@ Future<BarRecord> pumpBar(
             onAttach: () => record.attaches++,
             searching: searching,
             onFind: () => record.finds++,
+            onVoiceSend: suggestVoiceSend ? () => record.voiceSends++ : null,
           ),
         ),
       ),
@@ -113,6 +116,17 @@ Color iconTintOf(WidgetTester tester, String label) => tester
 
 void main() {
   group('the keys', () {
+    testWidgets('voice send appears only with a pending suggestion', (
+      tester,
+    ) async {
+      await pumpBar(tester);
+      expect(find.byKey(const ValueKey('bar-voice-send')), findsNothing);
+
+      final record = await pumpBar(tester, suggestVoiceSend: true);
+      await tapCell(tester, 'voice-send');
+      expect(record.voiceSends, 1);
+    });
+
     testWidgets('ESC, the arrows and END go as their sequences', (
       tester,
     ) async {

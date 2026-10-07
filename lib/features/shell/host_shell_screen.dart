@@ -176,6 +176,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 
   @override
   void dispose() {
+    _voiceSendSuggestionTimer?.cancel();
+    _voiceSendSuggestion?.voiceSendSuggested = false;
     _follower.dispose();
     _view.dispose();
     _store.removeListener(_onStore);
@@ -198,6 +200,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   late final ShellDictation _dictation;
 
   final _voiceLanding = GlitchController();
+
+  ShellSession? _voiceSendSuggestion;
+  Timer? _voiceSendSuggestionTimer;
 
   var _searching = false;
 
@@ -224,6 +229,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     final agent = draft?.agent ?? shellAgent(session, _agentsOn(session.host));
     if (agent == null) {
       session.terminal.paste(words);
+      if (session.state is ShellLive) _suggestVoiceSend(session);
       return;
     }
     if (!mounted) return;
@@ -233,6 +239,43 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
         text: appendWords(draft?.text ?? '', words),
       );
     });
+    _suggestVoiceSend(session);
+  }
+
+  void _suggestVoiceSend(ShellSession session) {
+    if (_voiceSendSuggestion case final previous?) {
+      previous.voiceSendSuggested = false;
+    }
+    _voiceSendSuggestionTimer?.cancel();
+    _voiceSendSuggestion = session;
+    session.voiceSendSuggested = true;
+    if (session.voiceDraft == null) {
+      _voiceSendSuggestionTimer = Timer(const Duration(seconds: 30), () {
+        if (!mounted || _voiceSendSuggestion != session) return;
+        session.voiceSendSuggested = false;
+        _voiceSendSuggestionTimer = null;
+        setState(() => _voiceSendSuggestion = null);
+      });
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _clearVoiceSendSuggestion(ShellSession session) {
+    if (_voiceSendSuggestion != session) return;
+    _voiceSendSuggestionTimer?.cancel();
+    _voiceSendSuggestionTimer = null;
+    session.voiceSendSuggested = false;
+    setState(() => _voiceSendSuggestion = null);
+  }
+
+  void _onVoiceSend(ShellSession session) {
+    if (_dictation.hearing || session.state is! ShellLive) return;
+    if (session.voiceDraft != null) {
+      _onDraftSend(session);
+    } else if (_voiceSendSuggestion == session && session.voiceSendSuggested) {
+      _clearVoiceSendSuggestion(session);
+      _store.send(session, Uint8List.fromList(const [0x0d]));
+    }
   }
 
   Iterable<AgentSnapshot> _agentsOn(Host host) sync* {
@@ -252,12 +295,14 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   }
 
   void _onDraftCancel(ShellSession session) {
+    _clearVoiceSendSuggestion(session);
     setState(() => session.voiceDraft = null);
   }
 
   void _onDraftSend(ShellSession session) {
     final text = session.voiceDraft?.text.trim() ?? '';
     if (text.isEmpty) return;
+    _clearVoiceSendSuggestion(session);
     setState(() => session.voiceDraft = null);
     unawaited(sendDraft(session, text, (bytes) => _store.send(session, bytes)));
   }
@@ -550,6 +595,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   }
 
   void _onBytes(ShellSession session, Uint8List bytes) {
+    if (clearsVoiceSendSuggestion(bytes)) {
+      _clearVoiceSendSuggestion(session);
+    }
     _store.send(session, bytes);
   }
 
@@ -875,7 +923,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                   // key over a keyboard that is not there is how the jam looked before
                   // the tap converged.
                   ListenableBuilder(
-                    listenable: active.focusNode,
+                    listenable: Listenable.merge([active.focusNode, active]),
                     builder: (context, _) => ShellBar(
                       sticky: active.sticky,
                       repeat: active.stickyRepeat,
@@ -894,6 +942,15 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                       onVoicePress: () => unawaited(_dictation.press(active)),
                       onVoiceLift: _dictation.lift,
                       onVoiceDrop: _dictation.cancel,
+                      onVoiceSend:
+                          !_dictation.hearing &&
+                              active.state is ShellLive &&
+                              ((active.voiceDraft?.text.trim().isNotEmpty ??
+                                      false) ||
+                                  (_voiceSendSuggestion == active &&
+                                      active.voiceSendSuggested))
+                          ? () => _onVoiceSend(active)
+                          : null,
                     ),
                   ),
               ],

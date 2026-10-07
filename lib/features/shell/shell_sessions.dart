@@ -162,6 +162,13 @@ const shellRestoreMarker = '\r\n\x1b[2m-- session restored --\x1b[0m\r\n';
 
 typedef VoiceDraft = ({AgentKind agent, String text});
 
+bool clearsVoiceSendSuggestion(Uint8List bytes) => bytes.any(
+  (byte) => switch (byte) {
+    0x03 || 0x04 || 0x0a || 0x0d || 0x15 => true,
+    _ => false,
+  },
+);
+
 /// A tab that ends on it closes itself, and a tab that ends on anything else is put in
 /// front of the user.
 const shellCleanExit = 0;
@@ -314,6 +321,7 @@ class ShellSession extends ChangeNotifier {
   String? title;
 
   VoiceDraft? voiceDraft;
+  bool voiceSendSuggested = false;
 
   /// Set by the OSC, cleared by the answer, by `done`, and by the link going: a request
   /// outlives none of the connection it arrived on.
@@ -1205,6 +1213,10 @@ class ShellSessions extends ChangeNotifier {
   /// terminal count the same.
   void send(ShellSession session, Uint8List bytes) {
     if (bytes.isNotEmpty) {
+      if (session.voiceSendSuggested && clearsVoiceSendSuggestion(bytes)) {
+        session.voiceSendSuggested = false;
+        session.changed();
+      }
       // A key is not a read: the bar's bytes never pass the view, so a shell asked
       // for something from up in the scrollback would answer off the screen.
       session.followTail();
@@ -1594,6 +1606,7 @@ class ShellSessions extends ChangeNotifier {
       session._health = null;
       session.disarm();
       session.state = ShellExited(code);
+      session.voiceSendSuggested = false;
       _setPin(session, null);
       // Every other code is the shell saying something went wrong, so that tab stays
       // for its output to be read.
@@ -1624,6 +1637,7 @@ class ShellSessions extends ChangeNotifier {
     final current = session.state;
     if (current.runtimeType == next.runtimeType) return;
     session.state = next;
+    if (next is! ShellLive) session.voiceSendSuggested = false;
     session.changed();
   }
 
@@ -1631,6 +1645,7 @@ class ShellSessions extends ChangeNotifier {
   /// away without a word for it.
   void _fail(ShellSession session, Object error, _Attempt attempt) {
     if (!attempt.isCurrent) return;
+    session.voiceSendSuggested = false;
     unawaited(session._health?.cancel());
     session._health = null;
     session.pin = null;

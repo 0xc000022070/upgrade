@@ -359,6 +359,32 @@ void main() {
   });
 
   test(
+    'submitting or cancelling input clears a voice send suggestion',
+    () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(_rose)!;
+      await _settle();
+
+      session.voiceSendSuggested = true;
+      sessions.send(session, Uint8List.fromList([0x61]));
+      expect(session.voiceSendSuggested, isTrue);
+
+      sessions.send(session, Uint8List.fromList([0x0d]));
+      expect(session.voiceSendSuggested, isFalse);
+      expect(transport.opened.single.writes.last, [0x0d]);
+
+      session.voiceSendSuggested = true;
+      sessions.send(session, Uint8List.fromList([0x03]));
+      expect(session.voiceSendSuggested, isFalse);
+
+      session.voiceSendSuggested = true;
+      sessions.send(session, Uint8List.fromList([0x15]));
+      expect(session.voiceSendSuggested, isFalse);
+    },
+  );
+
+  test(
     'a snapshot replaces the terminal and later bytes land on the new one',
     () async {
       final transport = FakeShellTransport();
@@ -1254,9 +1280,11 @@ void main() {
       final session = sessions.open(_rose)!;
       await _pumpDial(tester);
 
+      session.voiceSendSuggested = true;
       transport.opened.single.setHealth(ShellConnectionHealth.reconnecting);
       await tester.pump();
       expect(session.state, isA<ShellReconnecting>());
+      expect(session.voiceSendSuggested, isFalse);
 
       transport.opened.single.setHealth(ShellConnectionHealth.disconnected);
       await tester.pump();
