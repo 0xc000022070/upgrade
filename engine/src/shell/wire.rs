@@ -19,6 +19,7 @@ pub const SERVER_JUMP: u8 = 1 << 1;
 pub const RECORD_PTY: u8 = 1;
 pub const RECORD_SNAPSHOT: u8 = 2;
 pub const RECORD_EXIT: u8 = 3;
+pub const RECORD_FOREGROUND: u8 = 4;
 pub const RECORD_HEADER: usize = 5;
 
 #[cfg(test)]

@@ -19,6 +19,12 @@ sealed class AgentKind {
 
   String get name;
 
+  bool matchesForegroundProcess(
+    String command,
+    String executable,
+    String script,
+  );
+
   String get markAsset => 'assets/icons/agent-$name.svg';
 
   List<String> get startFlags;
@@ -45,6 +51,27 @@ class ClaudeKind extends AgentKind {
   String get name => 'claude';
 
   @override
+  bool matchesForegroundProcess(
+    String command,
+    String executable,
+    String script,
+  ) {
+    final process = command.split('/').last;
+    final binary = executable.split('/').last;
+    final nodeCli = script.endsWith('/@anthropic-ai/claude-code/cli.js');
+    if (process == name &&
+        (binary == name ||
+            binary == '.$name-wrapped' ||
+            (binary == 'node' && nodeCli) ||
+            executable.contains('/.local/share/claude/versions/'))) {
+      return true;
+    }
+    return (process == 'node' || process == 'bun') &&
+        binary == process &&
+        nodeCli;
+  }
+
+  @override
   List<String> get startFlags => const [
     '--settings',
     '{"skipDangerousModePermissionPrompt":true}',
@@ -69,6 +96,23 @@ class CodexKind extends AgentKind {
 
   @override
   String get name => 'codex';
+
+  @override
+  bool matchesForegroundProcess(
+    String command,
+    String executable,
+    String script,
+  ) {
+    final process = command.split('/').last;
+    final binary = executable.split('/').last;
+    if ((process == name || process == '.codex-wrapped') &&
+        (binary == name || binary == '.codex-wrapped')) {
+      return true;
+    }
+    return (process == 'node' || process == 'bun') &&
+        binary == process &&
+        script.endsWith('/@openai/codex/bin/codex.js');
+  }
 
   @override
   List<String> get startFlags => const ['--yolo'];

@@ -318,6 +318,8 @@ void main() {
       final stream = [
         ...engineRecord(1, _bytes('hi')),
         ...engineRecord(2, _bytes('GHOSTSNP')),
+        ...engineRecord(4, _bytes('codex\t/usr/bin/codex\t\n')),
+        ...engineRecord(4, const []),
         ...engineRecord(1, const []),
         ...engineRecord(3, [0xff, 0xff, 0xff, 0xf1]),
       ];
@@ -327,11 +329,16 @@ void main() {
         events.addAll(reader.add(Uint8List.fromList([byte])));
       }
 
-      expect(events, hasLength(4));
+      expect(events, hasLength(6));
       expect((events[0] as EnginePty).bytes, _bytes('h'));
       expect((events[1] as EnginePty).bytes, _bytes('i'));
       expect((events[2] as EngineSnapshot).bytes, _bytes('GHOSTSNP'));
-      expect((events[3] as EngineExit).status, -15);
+      expect(
+        (events[3] as EngineForeground).processes,
+        'codex\t/usr/bin/codex\t\n',
+      );
+      expect((events[4] as EngineForeground).processes, isEmpty);
+      expect((events[5] as EngineExit).status, -15);
     });
 
     test('an unknown kind is skipped whole', () {

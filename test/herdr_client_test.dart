@@ -14,11 +14,8 @@ import 'support/tarpit.dart';
 
 void main() {
   test('parses a local herdr agent list fixture', () {
-    final decoded = jsonDecode(
+    final agents = HerdrClient.parseCliAgentList(
       File('test/fixtures/herdr_agent_list.json').readAsStringSync(),
-    ) as Map<String, Object?>;
-    final agents = HerdrClient.parseAgentList(
-      decoded['result']! as Map<String, Object?>,
       session: 'lab',
     );
 
@@ -31,6 +28,7 @@ void main() {
     expect(agents.first.workspaceId, 'wQ');
     expect(agents.first.cwd, '/home/luisnquin/.dotfiles');
     expect(agents.first.stateChangeSeq, 248);
+    expect(HerdrCommands.agents('lab'), contains('agent list --json'));
   });
 
   test('a workspace is titled by the label herdr lists it under', () {

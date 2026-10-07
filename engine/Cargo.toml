@@ -18,7 +18,7 @@ chrono-tz = "0.10"
 libc = "0.2"
 memchr = "2"
 miniz_oxide = "0.8"
-nix = { version = "0.31.3", default-features = false, features = ["user", "signal", "process", "fs"] }
+nix = { version = "0.31.3", default-features = false, features = ["user", "signal", "process", "fs", "term"] }
 ocb3 = "0.1"
 png = "0.17"
 serde = { version = "1", features = ["derive"] }

@@ -89,6 +89,7 @@ void main() {
     expect(await _count(tester, () => activeLink.emit('\x1b]0;top\x07')), {
       'ShellHeader': 1,
       '_Bar': 1,
+      'ShellBar': 1,
     });
     expect(
       await _count(tester, () => backLink.emit('\x1b]7;file://rose/tmp\x1b\\')),

@@ -773,6 +773,9 @@ class MoshShellConnection implements ShellConnection {
   Stream<Uint8List> get snapshots => const Stream.empty();
 
   @override
+  Stream<String> get foregroundProcesses => const Stream.empty();
+
+  @override
   Stream<ShellConnectionHealth> get health => _healthEvents.stream;
 
   @override
@@ -799,6 +802,13 @@ class MoshShellConnection implements ShellConnection {
     Duration? timeout,
   }) =>
       _withHost((host) => _exec(host, command, stdin: stdin, timeout: timeout));
+
+  @override
+  Future<ExecResult?> execOnExistingHost(String command, {Duration? timeout}) {
+    final host = _host;
+    if (_closed || _suspended || host == null) return Future.value(null);
+    return _execOnExistingHost(host, command, timeout: timeout);
+  }
 
   @override
   Future<bool> terminateRemote(
@@ -1152,6 +1162,13 @@ class EngineShellConnection implements ShellConnection {
       });
 
   @override
+  Stream<String> get foregroundProcesses =>
+      _frames.stream.where((event) => event is EngineForeground).map((event) {
+        _delivered++;
+        return (event as EngineForeground).processes;
+      });
+
+  @override
   Stream<ShellConnectionHealth> get health => _healthEvents.stream;
 
   @override
@@ -1178,6 +1195,13 @@ class EngineShellConnection implements ShellConnection {
     Duration? timeout,
   }) =>
       _withHost((host) => _exec(host, command, stdin: stdin, timeout: timeout));
+
+  @override
+  Future<ExecResult?> execOnExistingHost(String command, {Duration? timeout}) {
+    final host = _host;
+    if (_closed || _suspended || host == null) return Future.value(null);
+    return _execOnExistingHost(host, command, timeout: timeout);
+  }
 
   @override
   Future<bool> terminateRemote(
@@ -1469,6 +1493,9 @@ class SshShellConnection implements ShellConnection {
   Stream<Uint8List> get snapshots => const Stream.empty();
 
   @override
+  Stream<String> get foregroundProcesses => const Stream.empty();
+
+  @override
   Future<int?> get exitCode => _exit.future;
 
   @override
@@ -1486,6 +1513,10 @@ class SshShellConnection implements ShellConnection {
   }) async {
     return _exec(_host, command, stdin: stdin, timeout: timeout);
   }
+
+  @override
+  Future<ExecResult?> execOnExistingHost(String command, {Duration? timeout}) =>
+      _execOnExistingHost(_host, command, timeout: timeout);
 
   @override
   Future<bool> terminateRemote(
@@ -1567,6 +1598,40 @@ Future<ExecResult> _exec(
   Duration? timeout,
 }) async {
   final channel = await host.execute(command);
+  return _finishExec(channel, stdin: stdin, timeout: timeout);
+}
+
+Future<ExecResult> _execOnExistingHost(
+  ShellHost host,
+  String command, {
+  Duration? timeout,
+}) async {
+  if (timeout == null) return _exec(host, command);
+  ShellExec? channel;
+  var expired = false;
+  final task = () async {
+    final opened = await host.execute(command);
+    if (expired) {
+      opened.close();
+      throw TimeoutException('SSH channel opened after probe timeout', timeout);
+    }
+    channel = opened;
+    return _finishExec(opened);
+  }();
+  try {
+    return await task.timeout(timeout);
+  } on TimeoutException {
+    expired = true;
+    channel?.close();
+    rethrow;
+  }
+}
+
+Future<ExecResult> _finishExec(
+  ShellExec channel, {
+  Uint8List? stdin,
+  Duration? timeout,
+}) async {
   final out = BytesBuilder(copy: false);
   final err = BytesBuilder(copy: false);
   final drained = Future.wait([

@@ -49,6 +49,7 @@ void main() {
       [0x64],
     ]);
 
+    await ready(tester);
     await unmount(tester);
   });
 

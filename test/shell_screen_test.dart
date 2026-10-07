@@ -1,10 +1,18 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:upgrade/application/agent_input.dart';
+import 'package:upgrade/application/agents.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/application/agent_kind.dart';
+import 'package:upgrade/features/shell/host_shell_screen.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/herdr_client.dart';
 import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
@@ -53,19 +61,327 @@ void main() {
     await ready(tester);
     final session = sessions.activeFor(rose.id)!;
 
-    expect(find.byKey(const ValueKey('bar-voice-send')), findsNothing);
+    expect(find.byKey(const ValueKey('bar-send')), findsNothing);
     session.voiceDraft = (agent: const CodexKind(), text: 'check this');
     session.changed();
     await tester.pump();
-    expect(find.byKey(const ValueKey('bar-voice-send')), findsOneWidget);
+    expect(find.byKey(const ValueKey('bar-send')), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('bar-voice-send')));
+    await tester.tap(find.byKey(const ValueKey('bar-send')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(session.voiceDraft, isNull);
-    expect(find.byKey(const ValueKey('bar-voice-send')), findsNothing);
+    expect(find.byKey(const ValueKey('bar-send')), findsNothing);
     expect(transport.opened.single.writes.last, [0x0d]);
+    await unmount(tester);
+  });
+
+  for (final (agent, process) in [
+    ('Codex', 'codex\t/nix/store/codex/bin/.codex-wrapped\t\n'),
+    ('Claude', 'claude\t/nix/store/claude/bin/.claude-wrapped\t\n'),
+  ]) {
+    testWidgets('typed input in $agent offers SEND after a pause', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      final session = sessions.activeFor(rose.id)!;
+      final connection = transport.opened.single..answerWith(process);
+
+      session.terminal.sendText('check this');
+      await tester.pump(agentInputPause);
+      await tester.pump();
+      expect(find.byKey(const ValueKey('bar-send')), findsOneWidget);
+
+      final before = connection.writes.length;
+      await tester.tap(find.byKey(const ValueKey('bar-send')));
+      await tester.pump();
+      expect(connection.writes.length, before + 1);
+      expect(connection.writes.last, [0x0d]);
+      expect(find.byKey(const ValueKey('bar-send')), findsNothing);
+      await unmount(tester);
+    });
+  }
+
+  testWidgets('Engine foreground context offers SEND without an SSH probe', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.engine;
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    final session = sessions.activeFor(rose.id)!;
+    final connection = transport.opened.single;
+    connection.emitForeground('codex\t/usr/bin/codex\t\n');
+    await tester.pump();
+    expect(session.engineForegroundKnown, isTrue);
+
+    session.terminal.sendText('check this');
+    await tester.pump(agentInputPause);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('bar-send')), findsOneWidget);
+    expect(connection.existingHostExecs, isEmpty);
+
+    connection.emitForeground('');
+    await tester.pump();
+    await tester.pump();
+    expect(session.engineForegroundKnown, isTrue);
+    expect(session.engineAgent, isNull);
+    expect(find.byKey(const ValueKey('bar-send')), findsNothing);
+    session.clearAgentInput();
+    await unmount(tester);
+  });
+
+  testWidgets('older Engine falls back to the existing SSH host', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.engine;
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    final session = sessions.activeFor(rose.id)!;
+    final connection = transport.opened.single
+      ..answerWith('codex\t/usr/bin/codex\t\n');
+
+    session.terminal.sendText('check this');
+    await tester.pump(agentInputPause);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('bar-send')), findsOneWidget);
+    expect(connection.existingHostExecs, hasLength(1));
+    await unmount(tester);
+  });
+
+  testWidgets('Engine keeps foreground context across a transient rehome', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.engine;
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    final session = sessions.activeFor(rose.id)!;
+    final connection = transport.opened.single;
+    connection.emitForeground('codex\t/usr/bin/codex\t\n');
+    await tester.pump();
+    connection.setHealth(ShellConnectionHealth.reconnecting);
+    await tester.pump();
+    connection.setHealth(ShellConnectionHealth.connected);
+    await tester.pump();
+    expect(session.engineForegroundKnown, isTrue);
+
+    session.terminal.sendText('check this');
+    await tester.pump(agentInputPause);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('bar-send')), findsOneWidget);
+    expect(connection.existingHostExecs, isEmpty);
+    await unmount(tester);
+  });
+
+  testWidgets('a Herdr pane does not start agent polling for SEND', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    final session = sessions.activeFor(rose.id)!
+      ..pane = (session: 'development', pane: 'p1');
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(HostShellRoute)),
+    );
+    expect(container.exists(agentsFeedProvider), isFalse);
+
+    session.terminal.sendText('check this');
+    await tester.pump(agentInputPause);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('bar-send')), findsNothing);
+    expect(container.exists(agentsFeedProvider), isFalse);
+    expect(transport.opened.single.existingHostExecs, isEmpty);
+    await unmount(tester);
+  });
+
+  testWidgets('a pane rechecks its live agent before SEND', (tester) async {
+    const pane = (session: 'lab', pane: 'wQ:p2');
+    final response = File('test/fixtures/herdr_agent_list.json')
+        .readAsStringSync();
+    final agents = HerdrClient.parseCliAgentList(
+      response,
+      session: pane.session,
+    );
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(
+      app(
+        sessions,
+        overrides: [
+          agentsFeedProvider.overrideWith(
+            (ref) => Stream.value(
+              AgentPanelState([
+                HostOutcome(
+                  host: rose,
+                  kind: AgentOutcomeKind.snapshot,
+                  agents: agents,
+                  lastGoodAt: DateTime.now(),
+                ),
+              ]),
+            ),
+          ),
+        ],
+      ),
+    );
+    await ready(tester);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(HostShellRoute)),
+    );
+    container.read(agentsFeedProvider);
+    await tester.pump();
+    final session = sessions.activeFor(rose.id)!..pane = pane;
+    final connection = transport.opened.single
+      ..answerWith('{"result":{"type":"agent_list","agents":[]}}');
+
+    session.terminal.sendText('check this');
+    await tester.pump(agentInputPause);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('bar-send')), findsOneWidget);
+    final before = connection.writes.length;
+    await tester.tap(find.byKey(const ValueKey('bar-send')));
+    await tester.pump();
+    expect(connection.writes.length, before);
+    expect(
+      connection.existingHostExecs.last,
+      HerdrCommands.agents(pane.session),
+    );
+    expect(find.byKey(const ValueKey('bar-send')), findsNothing);
+
+    connection.answerWith(response);
+    session.terminal.sendText('check again');
+    await tester.pump(agentInputPause);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('bar-send')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('bar-send')));
+    await tester.pump();
+    expect(connection.writes.last, [0x0d]);
+    expect(transport.opened, hasLength(1));
+    await unmount(tester);
+  });
+
+  testWidgets('unknown or erased input offers no SEND', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    final session = sessions.activeFor(rose.id)!;
+    final connection = transport.opened.single;
+
+    session.terminal.sendText('ls');
+    await tester.pump(agentInputPause);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('bar-send')), findsNothing);
+
+    sessions.send(session, Uint8List.fromList([0x0d]));
+    connection.answerWith('codex\t/nix/store/codex/bin/.codex-wrapped\t\n');
+    session.terminal.sendText('x');
+    sessions.send(session, Uint8List.fromList([0x7f]));
+    await tester.pump(agentInputPause);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('bar-send')), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('SEND refuses a tab whose agent exited', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    final session = sessions.activeFor(rose.id)!;
+    final connection = transport.opened.single
+      ..answerWith('codex\t/nix/store/codex/bin/.codex-wrapped\t\n');
+
+    session.terminal.sendText('check this');
+    await tester.pump(agentInputPause);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('bar-send')), findsOneWidget);
+
+    final before = connection.writes.length;
+    connection.answerWith('');
+    await tester.tap(find.byKey(const ValueKey('bar-send')));
+    await tester.pump();
+    expect(connection.writes.length, before);
+    expect(find.byKey(const ValueKey('bar-send')), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('SEND does not submit input typed during its agent check', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    final session = sessions.activeFor(rose.id)!;
+    final connection = transport.opened.single
+      ..answerWith('codex\t/nix/store/codex/bin/.codex-wrapped\t\n');
+
+    session.terminal.sendText('first');
+    await tester.pump(agentInputPause);
+    await tester.pump();
+    final delayed = Completer<ExecResult?>();
+    connection.holdExistingHostExec = delayed;
+    await tester.tap(find.byKey(const ValueKey('bar-send')));
+    await tester.pump();
+
+    sessions.send(session, Uint8List.fromList([0x0d]));
+    session.terminal.sendText('second');
+    final writes = connection.writes.length;
+    delayed.complete(
+      ExecResult(
+        exitCode: 0,
+        stdout: Uint8List.fromList(
+          'codex\t/nix/store/codex/bin/.codex-wrapped\t\n'.codeUnits,
+        ),
+        stderr: Uint8List(0),
+      ),
+    );
+    connection.holdExistingHostExec = null;
+    await tester.pump();
+
+    expect(connection.writes.length, writes);
+    expect(session.agentInput.hasText, isTrue);
+    session.clearAgentInput();
+    await unmount(tester);
+  });
+
+  testWidgets('later input waits for an in-flight agent probe', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    final session = sessions.activeFor(rose.id)!;
+    final connection = transport.opened.single;
+    final delayed = Completer<ExecResult?>();
+    connection.holdExistingHostExec = delayed;
+
+    session.terminal.sendText('first');
+    await tester.pump(agentInputPause);
+    expect(connection.existingHostExecs.length, 1);
+    session.terminal.sendText('second');
+    await tester.pump(agentInputPause);
+    expect(connection.existingHostExecs.length, 1);
+
+    connection.holdExistingHostExec = null;
+    delayed.complete(
+      ExecResult(
+        exitCode: 0,
+        stdout: Uint8List.fromList(
+          'codex\t/nix/store/codex/bin/.codex-wrapped\t\n'.codeUnits,
+        ),
+        stderr: Uint8List(0),
+      ),
+    );
+    await tester.pump();
+    expect(connection.existingHostExecs.length, 2);
     await unmount(tester);
   });
 

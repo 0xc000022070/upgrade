@@ -28,11 +28,13 @@ Widget app(
   AppDatabase? db,
   ThemeData? theme,
   TransitionBuilder? builder,
+  List<Override> overrides = const [],
 }) => ProviderScope(
   overrides: [
     shellSessionsProvider.overrideWithValue(sessions),
     if (db != null) databaseProvider.overrideWithValue(db) else noWorkspaces,
     noLaunchTargets,
+    ...overrides,
   ],
   child: MaterialApp(
     theme: theme ?? testTheme,

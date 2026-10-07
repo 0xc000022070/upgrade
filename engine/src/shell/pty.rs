@@ -1,5 +1,6 @@
 use super::os::{check, set_cloexec, set_nonblocking};
 use super::wire::Size;
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
@@ -7,6 +8,126 @@ use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
+
+#[cfg(any(target_os = "linux", test))]
+fn process_membership(stat: &str) -> Option<(u32, libc::pid_t)> {
+    let (_, fields) = stat.rsplit_once(") ")?;
+    let mut fields = fields.split_whitespace();
+    let parent = fields.nth(1)?.parse().ok()?;
+    let group = fields.next()?.parse().ok()?;
+    Some((parent, group))
+}
+
+fn process_line(cmdline: &[u8], executable: &str) -> Option<Vec<u8>> {
+    let mut args = cmdline.split(|byte| *byte == 0);
+    let command = std::str::from_utf8(args.next()?).ok()?;
+    let argument = std::str::from_utf8(args.next().unwrap_or_default()).ok()?;
+    if command.is_empty()
+        || [command, executable, argument]
+            .iter()
+            .any(|field| field.chars().any(char::is_control))
+    {
+        return None;
+    }
+    let name = executable.rsplit('/').next()?;
+    if matches!(
+        name,
+        "tmux" | ".tmux-wrapped" | "herdr" | ".herdr-wrapped" | "screen"
+    ) {
+        return None;
+    }
+    Some(format!("{command}\t{executable}\t{argument}\n").into_bytes())
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn foreground_processes(proc: &std::path::Path, group: libc::pid_t) -> Option<Vec<u8>> {
+    let mut members = BTreeMap::new();
+    for entry in std::fs::read_dir(proc).ok()? {
+        let Ok(entry) = entry else {
+            continue;
+        };
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            continue;
+        };
+        let Ok(pid) = name.parse::<u32>() else {
+            continue;
+        };
+        let path = entry.path();
+        let Ok(stat) = std::fs::read_to_string(path.join("stat")) else {
+            continue;
+        };
+        let Some((parent, process_group)) = process_membership(&stat) else {
+            continue;
+        };
+        if process_group == group {
+            members.insert(pid, parent);
+        }
+    }
+    let pid = foreground_root(&members)?;
+    let path = proc.join(pid.to_string());
+    let cmdline = std::fs::read(path.join("cmdline")).ok()?;
+    let executable = std::fs::read_link(path.join("exe")).ok()?;
+    process_line(&cmdline, executable.to_str()?)
+}
+
+fn foreground_root(members: &BTreeMap<u32, u32>) -> Option<u32> {
+    let mut roots = members
+        .iter()
+        .filter(|(_, parent)| !members.contains_key(parent));
+    let (&pid, _) = roots.next()?;
+    if roots.next().is_some() {
+        return None;
+    }
+    Some(pid)
+}
+
+#[cfg(target_os = "macos")]
+fn foreground_processes_darwin(group: libc::pid_t) -> Option<Vec<u8>> {
+    let listing = Command::new("/bin/ps")
+        .args(["-ww", "-axo", "pid=,ppid=,pgid=,comm="])
+        .output()
+        .ok()?;
+    if !listing.status.success() {
+        return None;
+    }
+    let listing = String::from_utf8(listing.stdout).ok()?;
+    let (pid, executable) = darwin_foreground_root(&listing, group)?;
+    let output = Command::new("/bin/ps")
+        .args(["-ww", "-p", &pid.to_string(), "-o", "command="])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let command = String::from_utf8(output.stdout).ok()?;
+    let argv: Vec<_> = command.split_whitespace().take(2).collect();
+    let mut cmdline = argv.first()?.as_bytes().to_vec();
+    cmdline.push(0);
+    cmdline.extend_from_slice(argv.get(1).copied().unwrap_or_default().as_bytes());
+    process_line(&cmdline, &executable)
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn darwin_foreground_root(listing: &str, group: libc::pid_t) -> Option<(u32, String)> {
+    let mut members = BTreeMap::new();
+    let mut commands = BTreeMap::new();
+    for line in listing.lines() {
+        let mut fields = line.split_whitespace();
+        let (Some(pid), Some(parent), Some(process_group), Some(command)) =
+            (fields.next(), fields.next(), fields.next(), fields.next())
+        else {
+            continue;
+        };
+        if process_group.parse::<libc::pid_t>().ok() == Some(group) {
+            let pid = pid.parse::<u32>().ok()?;
+            members.insert(pid, parent.parse::<u32>().ok()?);
+            commands.insert(pid, command.to_string());
+        }
+    }
+    let pid = foreground_root(&members)?;
+    Some((pid, commands.remove(&pid)?))
+}
 
 pub struct Spawn {
     pub argv: Vec<String>,
@@ -89,6 +210,25 @@ impl Pty {
         self.child.id()
     }
 
+    pub fn foreground_processes(&self) -> Vec<u8> {
+        let Ok(group) = nix::unistd::tcgetpgrp(&self.master) else {
+            return Vec::new();
+        };
+        if group.as_raw() <= 0 {
+            return Vec::new();
+        }
+        #[cfg(target_os = "linux")]
+        let processes = foreground_processes(std::path::Path::new("/proc"), group.as_raw());
+        #[cfg(target_os = "macos")]
+        let processes = foreground_processes_darwin(group.as_raw());
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        let processes: Option<Vec<u8>> = None;
+        if nix::unistd::tcgetpgrp(&self.master).ok() != Some(group) {
+            return Vec::new();
+        }
+        processes.unwrap_or_default()
+    }
+
     pub fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self.master.read(buf) {
             Err(err) if err.raw_os_error() == Some(libc::EIO) => Ok(0),
@@ -148,6 +288,91 @@ impl Pty {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn process_stat_uses_the_group_after_the_last_command_parenthesis() {
+        assert_eq!(
+            process_membership("23 (a ) strange name) S 10 23 23 4 23"),
+            Some((10, 23))
+        );
+        assert_eq!(process_membership("23 (bad) S"), None);
+    }
+
+    #[test]
+    fn darwin_ps_selects_one_foreground_root() {
+        let listing = "\
+ 11758 377 11758 /usr/bin/login\n\
+ 11759 11758 11759 /bin/sh\n\
+ 11776 11759 11776 codex\n\
+ 11777 11776 11776 node\n";
+        assert_eq!(
+            darwin_foreground_root(listing, 11776),
+            Some((11776, "codex".to_string()))
+        );
+        assert_eq!(
+            darwin_foreground_root(listing, 11759),
+            Some((11759, "/bin/sh".to_string()))
+        );
+        assert_eq!(darwin_foreground_root(listing, 99999), None);
+        assert_eq!(
+            darwin_foreground_root(&format!("{listing} 11778 11759 11776 claude\n"), 11776),
+            None
+        );
+    }
+
+    #[test]
+    fn foreground_fields_reject_multiplexers_and_record_delimiters() {
+        assert_eq!(
+            process_line(b"codex\0--yolo\0", "/usr/bin/codex"),
+            Some(b"codex\t/usr/bin/codex\t--yolo\n".to_vec())
+        );
+        assert_eq!(
+            process_line(b"claude\0", "/usr/bin/claude"),
+            Some(b"claude\t/usr/bin/claude\t\n".to_vec())
+        );
+        assert!(process_line(b"tmux\0", "/usr/bin/tmux").is_none());
+        assert!(process_line(b"herdr\0", "/usr/bin/herdr").is_none());
+        assert!(process_line(b"codex\0a\nb\0", "/usr/bin/codex").is_none());
+        assert!(process_line(b"codex\0", "/usr/bin/co\tdex").is_none());
+    }
+
+    #[test]
+    fn foreground_selection_keeps_helpers_but_rejects_independent_roots() {
+        let root = std::env::temp_dir().join(format!("upgrade-foreground-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let add = |pid: u32, parent: u32, group: u32, name: &str| {
+            let path = root.join(pid.to_string());
+            std::fs::create_dir_all(&path).unwrap();
+            std::fs::write(
+                path.join("stat"),
+                format!("{pid} ({name}) S {parent} {group} 1 4 {group}"),
+            )
+            .unwrap();
+            std::fs::write(path.join("cmdline"), format!("{name}\0")).unwrap();
+            std::os::unix::fs::symlink(format!("/usr/bin/{name}"), path.join("exe")).unwrap();
+        };
+        add(10, 1, 10, "codex");
+        add(20, 1, 20, "claude");
+        add(11, 10, 10, "node");
+        add(12, 11, 10, "helper");
+        add(13, 10, 10, "another-helper");
+        add(21, 20, 20, "node");
+        add(30, 1, 30, "tmux");
+        add(31, 30, 30, "codex");
+        assert_eq!(
+            foreground_processes(&root, 10),
+            Some(b"codex\t/usr/bin/codex\t\n".to_vec())
+        );
+        assert_eq!(
+            foreground_processes(&root, 20),
+            Some(b"claude\t/usr/bin/claude\t\n".to_vec())
+        );
+        assert!(foreground_processes(&root, 30).is_none());
+        add(14, 1, 10, "cat");
+        assert!(foreground_processes(&root, 10).is_none());
+        assert!(foreground_processes(&root, 40).is_none());
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     fn spawn(argv: &[&str]) -> Pty {
         Pty::spawn(&Spawn {

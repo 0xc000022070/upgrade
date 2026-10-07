@@ -66,11 +66,13 @@ void main() {
 
   group('a tab is marked so the host can be asked', () {
     test('the mark goes into the shell it is asked about', () {
-      const command = 'export UPGRADE_TAB=s1a2b3c; exec \$SHELL -l';
-      expect(shellMarked('s1a2b3c'), command);
+      final command = shellMarked('s1a2b3c');
+      expect(command, startsWith('export UPGRADE_TAB=s1a2b3c; '));
+      expect(command, contains('tty > "\$d/s1a2b3c"'));
+      expect(command, endsWith('exec \$SHELL -l'));
       expect(
         shellMarked('s1a2b3c', command: 'cd /srv && exec \$SHELL -l'),
-        'export UPGRADE_TAB=s1a2b3c; cd /srv && exec \$SHELL -l',
+        endsWith('cd /srv && exec \$SHELL -l'),
       );
     });
 

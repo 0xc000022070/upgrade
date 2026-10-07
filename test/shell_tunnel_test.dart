@@ -111,6 +111,7 @@ class FakeExec implements ShellExec {
   final String out;
   final String err;
   final int? reported;
+  bool closed = false;
 
   @override
   Stream<Uint8List> get stdout => answerInput != null
@@ -146,6 +147,7 @@ class FakeExec implements ShellExec {
 
   @override
   void close() {
+    closed = true;
     if (!_done.isCompleted) _done.complete();
   }
 }
@@ -163,6 +165,7 @@ class FakeHost implements ShellHost {
   final Object? shellError;
   Object? refuse;
   Completer<void>? authGate;
+  Completer<ShellExec>? execGate;
   String execOut;
   String execError;
   int? execCode;
@@ -188,6 +191,8 @@ class FakeHost implements ShellHost {
     requests.add('exec $command');
     final error = refuse;
     if (error != null) throw error;
+    final gate = execGate;
+    if (gate != null) return gate.future;
     final inputAnswer = execInputAnswer;
     return FakeExec(
       out: execAnswer?.call(command) ?? execOut,
@@ -749,7 +754,13 @@ void main() {
         persistentSession: session,
       );
 
+      hosts.first.refuse = StateError('control host failed');
+      await expectLater(connection.execOnExistingHost('pwd'), throwsStateError);
+      expect(dials, 1);
+      hosts.first.refuse = null;
       await connection.rehome(network: true);
+      expect(await connection.execOnExistingHost('pwd'), isNull);
+      expect(dials, 1);
       final result = await connection.exec('pwd');
 
       expect(result.ok, isTrue);
@@ -757,6 +768,37 @@ void main() {
       expect(hosts.first.closed, isTrue);
       expect(hosts.last.requests.last, 'exec pwd');
       await connection.close();
+    });
+
+    test('a probe timeout during channel open never redials', () async {
+      const session = 'upgrade123';
+      final host = FakeHost()..execAnswer = moshHostAnswer;
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver([host], FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(connection.close);
+
+      final opening = Completer<ShellExec>();
+      host.execGate = opening;
+      await expectLater(
+        connection.execOnExistingHost(
+          'pwd',
+          timeout: const Duration(milliseconds: 10),
+        ),
+        throwsA(isA<TimeoutException>()),
+      );
+      expect(dials, 1);
+      expect(host.closed, isFalse);
+
+      final lateChannel = FakeExec();
+      opening.complete(lateChannel);
+      await Future<void>.delayed(Duration.zero);
+      expect(lateChannel.closed, isTrue);
+      expect(dials, 1);
     });
 
     test('a plain return keeps the SSH control path', () async {
@@ -1450,6 +1492,35 @@ List<Map<String, Object?>> engineRequests(FakeHost host) => [
 void engineTests() {
   const session = 'upgrade123';
 
+  test('an engine probe never redials the SSH control host', () async {
+    final host = FakeHost()..execInputAnswer = engineHostAnswer();
+    var sshDials = 0;
+    final connection = await openOn(
+      engineTunnelTo(
+        host,
+        FakeEngineChannel(),
+        FakeMoshChannel(),
+        nextHost: () {
+          sshDials++;
+          return host;
+        },
+      ),
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+    );
+    addTearDown(connection.close);
+    expect(connection, isA<EngineShellConnection>());
+    expect(sshDials, 1);
+
+    host.refuse = StateError('control host failed');
+    await expectLater(connection.execOnExistingHost('pwd'), throwsStateError);
+    expect(sshDials, 1);
+    host.refuse = null;
+    await connection.rehome(network: true);
+    expect(await connection.execOnExistingHost('pwd'), isNull);
+    expect(sshDials, 1);
+  });
+
   test('an engine that knows shell/1 carries the tab and Mosh is never '
       'probed', () async {
     final host = FakeHost()..execInputAnswer = engineHostAnswer();
@@ -1793,10 +1864,12 @@ void engineTests() {
       await connection.terminateRemote('upgrade456', durableShell: false),
       isTrue,
     );
-    expect(host.requests.last, 'exec ${moshServerCleanupCommand('upgrade456')}');
+    expect(
+      host.requests.last,
+      'exec ${moshServerCleanupCommand('upgrade456')}',
+    );
 
-    host.execCodeAnswer = (command) =>
-        command.endsWith('upgraded') ? 0 : 1;
+    host.execCodeAnswer = (command) => command.endsWith('upgraded') ? 0 : 1;
     expect(
       await connection.terminateRemote('upgrade456', durableShell: false),
       isFalse,

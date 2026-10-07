@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flterm/flterm.dart';
 
 import '../../application/agent_kind.dart';
+import '../../application/agent_input.dart';
 import '../../application/agents.dart';
 import '../../application/pin_alerts.dart';
 import '../../application/providers.dart';
@@ -322,6 +323,88 @@ class ShellSession extends ChangeNotifier {
 
   VoiceDraft? voiceDraft;
   bool voiceSendSuggested = false;
+  final agentInput = AgentInputActivity();
+  bool typedSendReady = false;
+  AgentKind? probedAgent;
+  bool engineForegroundKnown = false;
+  AgentKind? engineAgent;
+  Timer? _agentInputTimer;
+  var _agentInputEpoch = 0;
+  var _agentProbeInFlight = false;
+
+  StreamSubscription<String>? _foregroundProcesses;
+
+  void setEngineForeground(AgentKind? agent) {
+    if (engineForegroundKnown && engineAgent?.name == agent?.name) return;
+    engineForegroundKnown = true;
+    engineAgent = agent;
+    changed();
+  }
+
+  void clearEngineForeground() {
+    if (!engineForegroundKnown && engineAgent == null) return;
+    engineForegroundKnown = false;
+    engineAgent = null;
+    changed();
+  }
+
+  int get agentInputRevision => _agentInputEpoch;
+
+  void observeAgentInput(
+    Uint8List bytes,
+    Future<AgentKind?> Function()? probe,
+  ) {
+    final wasReady = typedSendReady || probedAgent != null;
+    _agentInputTimer?.cancel();
+    _agentInputEpoch++;
+    agentInput.observe(bytes);
+    typedSendReady = false;
+    probedAgent = null;
+    if (agentInput.hasText && state is ShellLive) {
+      final epoch = _agentInputEpoch;
+      _agentInputTimer = Timer(agentInputPause, () {
+        if (_retired || state is! ShellLive || epoch != _agentInputEpoch) {
+          return;
+        }
+        typedSendReady = true;
+        changed();
+        if (probe != null) unawaited(_probeAgentInput(probe));
+      });
+    }
+    if (wasReady) changed();
+  }
+
+  Future<void> _probeAgentInput(Future<AgentKind?> Function() probe) async {
+    if (_agentProbeInFlight) return;
+    _agentProbeInFlight = true;
+    try {
+      while (!_retired &&
+          state is ShellLive &&
+          typedSendReady &&
+          agentInput.hasText) {
+        final epoch = _agentInputEpoch;
+        final agent = await probe();
+        if (_retired || state is! ShellLive) return;
+        if (epoch != _agentInputEpoch) continue;
+        probedAgent = agent;
+        changed();
+        return;
+      }
+    } finally {
+      _agentProbeInFlight = false;
+    }
+  }
+
+  void clearAgentInput() {
+    final wasReady = typedSendReady || probedAgent != null;
+    _agentInputTimer?.cancel();
+    _agentInputTimer = null;
+    _agentInputEpoch++;
+    agentInput.clear();
+    typedSendReady = false;
+    probedAgent = null;
+    if (wasReady) changed();
+  }
 
   /// Set by the OSC, cleared by the answer, by `done`, and by the link going: a request
   /// outlives none of the connection it arrived on.
@@ -449,6 +532,10 @@ class ShellSession extends ChangeNotifier {
   void dispose() {
     if (_retired) return;
     _retired = true;
+    clearAgentInput();
+    unawaited(_foregroundProcesses?.cancel());
+    _foregroundProcesses = null;
+    clearEngineForeground();
     _save?.cancel();
     focusNode.dispose();
     scrollController.dispose();
@@ -689,6 +776,65 @@ class ShellSessions extends ChangeNotifier {
       );
       return null;
     }
+  }
+
+  Future<AgentKind?> agentFromHost(ShellSession session) async {
+    final connection = session.connection;
+    if (connection == null || session.state is! ShellLive) return null;
+    if (connection.transport == ShellTransport.engine &&
+        session.engineForegroundKnown) {
+      return session.engineAgent;
+    }
+    try {
+      final result = await connection.execOnExistingHost(
+        shellForegroundProcessProbe(session.mark),
+        timeout: const Duration(seconds: 3),
+      );
+      if (result == null ||
+          result.exitCode != 0 ||
+          session.retired ||
+          session.state is! ShellLive ||
+          !identical(session.connection, connection)) {
+        return null;
+      }
+      return foregroundAgent(result.out);
+    } catch (_) {
+      // ignored: an unverified foreground leaves SEND hidden.
+      return null;
+    }
+  }
+
+  Future<AgentKind?> agentFromPane(ShellSession session) async {
+    final connection = session.connection;
+    final pane = session.pane;
+    if (connection == null || pane == null || session.state is! ShellLive) {
+      return null;
+    }
+    try {
+      final result = await connection.execOnExistingHost(
+        HerdrCommands.agents(pane.session),
+        timeout: const Duration(seconds: 3),
+      );
+      if (result == null ||
+          result.exitCode != 0 ||
+          session.retired ||
+          session.state is! ShellLive ||
+          !identical(session.connection, connection) ||
+          session.pane != pane) {
+        return null;
+      }
+      final agents = HerdrClient.parseCliAgentList(
+        result.out,
+        session: pane.session,
+      );
+      for (final agent in agents) {
+        if (agent.paneId == pane.pane) return AgentKind.lookup(agent.agent);
+      }
+    } catch (_) {
+      // ignored: a failed live pane check leaves SEND hidden.
+      return null;
+    }
+    return null;
   }
 
   /// Where the shell is, then what repository that is part of. Null leaves the mark dimmed.
@@ -1107,6 +1253,8 @@ class ShellSessions extends ChangeNotifier {
     session._output = null;
     unawaited(session._snapshots?.cancel());
     session._snapshots = null;
+    unawaited(session._foregroundProcesses?.cancel());
+    session._foregroundProcesses = null;
     unawaited(session._health?.cancel());
     session._health = null;
     session._pinentry = null;
@@ -1213,6 +1361,14 @@ class ShellSessions extends ChangeNotifier {
   /// terminal count the same.
   void send(ShellSession session, Uint8List bytes) {
     if (bytes.isNotEmpty) {
+      if (session.state is ShellLive && session.connection != null) {
+        session.observeAgentInput(
+          bytes,
+          session.pane == null ? () => agentFromHost(session) : null,
+        );
+      } else {
+        session.clearAgentInput();
+      }
       if (session.voiceSendSuggested && clearsVoiceSendSuggestion(bytes)) {
         session.voiceSendSuggested = false;
         session.changed();
@@ -1473,7 +1629,10 @@ class ShellSessions extends ChangeNotifier {
         }
         return;
       }
+      unawaited(session._foregroundProcesses?.cancel());
+      session._foregroundProcesses = null;
       session.connection = connection;
+      session.clearEngineForeground();
       session._detail = null;
       session.clipboard = null;
       session._probing = null;
@@ -1532,6 +1691,18 @@ class ShellSessions extends ChangeNotifier {
           _replaceTerminal(session, bytes);
         }
       }, onError: (Object _) {});
+      session._foregroundProcesses = connection.foregroundProcesses.listen(
+        (processes) {
+          if (identical(session.connection, connection)) {
+            session.setEngineForeground(foregroundAgent(processes));
+          }
+        },
+        onError: (Object _) {
+          if (identical(session.connection, connection)) {
+            session.clearEngineForeground();
+          }
+        },
+      );
       session._output = connection.output.listen((bytes) {
         if (identical(session.connection, connection)) {
           session.painted.value = true;
@@ -1607,6 +1778,8 @@ class ShellSessions extends ChangeNotifier {
       session.disarm();
       session.state = ShellExited(code);
       session.voiceSendSuggested = false;
+      session.clearAgentInput();
+      session.clearEngineForeground();
       _setPin(session, null);
       // Every other code is the shell saying something went wrong, so that tab stays
       // for its output to be read.
@@ -1637,7 +1810,10 @@ class ShellSessions extends ChangeNotifier {
     final current = session.state;
     if (current.runtimeType == next.runtimeType) return;
     session.state = next;
-    if (next is! ShellLive) session.voiceSendSuggested = false;
+    if (next is! ShellLive) {
+      session.voiceSendSuggested = false;
+      session.clearAgentInput();
+    }
     session.changed();
   }
 
@@ -1646,6 +1822,8 @@ class ShellSessions extends ChangeNotifier {
   void _fail(ShellSession session, Object error, _Attempt attempt) {
     if (!attempt.isCurrent) return;
     session.voiceSendSuggested = false;
+    session.clearAgentInput();
+    session.clearEngineForeground();
     unawaited(session._health?.cancel());
     session._health = null;
     session.pin = null;
@@ -1803,6 +1981,8 @@ class ShellSessions extends ChangeNotifier {
 
   void _drop(ShellSession session, int attempt) {
     session.state = ShellDropped(attempt);
+    session.clearAgentInput();
+    session.clearEngineForeground();
     session.changed();
     final delay = shellReconnectDelays[attempt - 1];
     session._due = now().add(delay);
@@ -1827,6 +2007,8 @@ class ShellSessions extends ChangeNotifier {
     session._output = null;
     unawaited(session._snapshots?.cancel());
     session._snapshots = null;
+    unawaited(session._foregroundProcesses?.cancel());
+    session._foregroundProcesses = null;
     unawaited(session._health?.cancel());
     session._health = null;
     session._pinentry = null;

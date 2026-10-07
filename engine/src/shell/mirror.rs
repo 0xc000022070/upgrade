@@ -1,7 +1,9 @@
 use super::kitty::Transmissions;
 use super::stream::Stream;
 use super::vt::{Options, Terminal, VtError};
-use super::wire::{record, Size, RECORD_EXIT, RECORD_HEADER, RECORD_PTY, RECORD_SNAPSHOT};
+use super::wire::{
+    record, Size, RECORD_EXIT, RECORD_FOREGROUND, RECORD_HEADER, RECORD_PTY, RECORD_SNAPSHOT,
+};
 
 const MIN_BACKLOG: u64 = 1 << 20;
 const MIN_REPLAY: u64 = 64 << 10;
@@ -14,6 +16,7 @@ pub struct Mirror {
     pending_images: bool,
     status: Option<i32>,
     keyframe_len: u64,
+    foreground: Option<Vec<u8>>,
 }
 
 /// The most a transmission of the largest image may carry: its base64, the framing of every
@@ -33,6 +36,7 @@ impl Mirror {
             pending_images: false,
             status: None,
             keyframe_len: 0,
+            foreground: None,
         })
     }
 
@@ -64,9 +68,25 @@ impl Mirror {
     }
 
     pub fn exited(&mut self, status: i32) {
+        self.foreground(Vec::new());
         self.status = Some(status);
         self.stream
             .append(&record(RECORD_EXIT, &status.to_be_bytes()));
+    }
+
+    pub fn foreground(&mut self, processes: Vec<u8>) {
+        if self.foreground.as_ref() == Some(&processes) {
+            return;
+        }
+        self.foreground = Some(processes);
+        self.replay_foreground();
+    }
+
+    pub fn replay_foreground(&mut self) {
+        self.stream.append(&record(
+            RECORD_FOREGROUND,
+            self.foreground.as_deref().unwrap_or_default(),
+        ));
     }
 
     pub fn resize(&mut self, size: Size) -> Result<(), VtError> {
@@ -92,6 +112,8 @@ impl Mirror {
         let keyframe = record(RECORD_SNAPSHOT, &snapshot);
         self.keyframe_len = keyframe.len() as u64;
         self.stream.append_keyframe(&keyframe);
+        self.replay_foreground();
+        self.keyframe_len += (RECORD_HEADER + self.foreground.as_ref().map_or(0, Vec::len)) as u64;
         self.pending_images = !self.terminal.at_ground();
         if !self.pending_images {
             self.append_images();
@@ -185,6 +207,42 @@ mod tests {
     const IMAGE: &[u8] = b"\x1b_Ga=T,f=32,s=1,v=1,i=4,q=2;/wAA/w==\x1b\\";
 
     #[test]
+    fn foreground_changes_and_reconnects_publish_records_without_terminal_output() {
+        let mut mirror = mirror();
+        let process = b"codex\t/usr/bin/codex\t\n".to_vec();
+        mirror.foreground(process.clone());
+        mirror.foreground(process.clone());
+        assert_eq!(records(&mirror), vec![(RECORD_FOREGROUND, process.clone())]);
+        mirror.release(mirror.stream().end());
+        mirror.replay_foreground();
+        assert_eq!(records(&mirror), vec![(RECORD_FOREGROUND, process.clone())]);
+        mirror.keyframe().unwrap();
+        assert_eq!(records(&mirror)[1], (RECORD_FOREGROUND, process));
+        mirror.foreground(Vec::new());
+        assert_eq!(
+            records(&mirror).last(),
+            Some(&(RECORD_FOREGROUND, Vec::new()))
+        );
+        mirror.keyframe().unwrap();
+        assert_eq!(records(&mirror)[1], (RECORD_FOREGROUND, Vec::new()));
+    }
+
+    #[test]
+    fn exit_clears_foreground_before_its_exit_record() {
+        let mut mirror = mirror();
+        mirror.foreground(b"codex\t/usr/bin/codex\t\n".to_vec());
+        mirror.release(mirror.stream().end());
+        mirror.exited(0);
+        assert_eq!(
+            records(&mirror),
+            vec![
+                (RECORD_FOREGROUND, Vec::new()),
+                (RECORD_EXIT, 0i32.to_be_bytes().to_vec()),
+            ]
+        );
+    }
+
+    #[test]
     fn output_is_kept_as_pty_records() {
         let mut mirror = mirror();
         mirror.output(b"hello");
@@ -199,11 +257,11 @@ mod tests {
         mirror.keyframe().unwrap();
         assert_eq!(
             kinds(&mirror),
-            vec![RECORD_SNAPSHOT, RECORD_PTY, RECORD_EXIT]
+            vec![RECORD_SNAPSHOT, RECORD_FOREGROUND, RECORD_PTY, RECORD_EXIT]
         );
         let records = records(&mirror);
-        assert!(records[1].1.starts_with(b"\x1b_Ga=t"));
-        assert_eq!(records[2].1, 7i32.to_be_bytes());
+        assert!(records[2].1.starts_with(b"\x1b_Ga=t"));
+        assert_eq!(records[3].1, 7i32.to_be_bytes());
     }
 
     #[test]
@@ -212,13 +270,13 @@ mod tests {
         mirror.output(IMAGE);
         mirror.output(b"\x1b]0;half a ti");
         mirror.keyframe().unwrap();
-        assert_eq!(kinds(&mirror), vec![RECORD_SNAPSHOT]);
+        assert_eq!(kinds(&mirror), vec![RECORD_SNAPSHOT, RECORD_FOREGROUND]);
         mirror.output(b"tle\x07");
         assert_eq!(
             kinds(&mirror),
-            vec![RECORD_SNAPSHOT, RECORD_PTY, RECORD_PTY]
+            vec![RECORD_SNAPSHOT, RECORD_FOREGROUND, RECORD_PTY, RECORD_PTY]
         );
-        assert!(records(&mirror)[2].1.starts_with(b"\x1b_Ga=t"));
+        assert!(records(&mirror)[3].1.starts_with(b"\x1b_Ga=t"));
     }
 
     #[test]
@@ -239,7 +297,7 @@ mod tests {
         let sent = live.output(&vec![b'x'; 2 << 20]).unwrap();
         live.relieve(0, true).unwrap();
         assert_eq!(live.take_cuts(), vec![(0, sent)]);
-        assert_eq!(kinds(&live), vec![RECORD_SNAPSHOT]);
+        assert_eq!(kinds(&live), vec![RECORD_SNAPSHOT, RECORD_FOREGROUND]);
 
         let mut absent = mirror();
         absent.output(&vec![b'x'; 2 << 20]);
@@ -248,7 +306,7 @@ mod tests {
         assert_eq!(absent.output(b"more"), None, "a stale stream drops it");
         assert_eq!(absent.stream().backlog(0), 0);
         absent.catch_up(0).unwrap();
-        assert_eq!(kinds(&absent), vec![RECORD_SNAPSHOT]);
+        assert_eq!(kinds(&absent), vec![RECORD_SNAPSHOT, RECORD_FOREGROUND]);
     }
 
     fn large_image() -> Vec<Vec<u8>> {
@@ -294,11 +352,11 @@ mod tests {
         }
         assert_eq!(
             kinds(&mirror),
-            vec![RECORD_SNAPSHOT, RECORD_PTY, RECORD_PTY]
+            vec![RECORD_SNAPSHOT, RECORD_FOREGROUND, RECORD_PTY, RECORD_PTY]
         );
         let records = records(&mirror);
-        assert!(records[1].1.starts_with(b"\x1b_Ga=t"));
-        assert_eq!(records[2].1, commands[commands.len() - 1]);
+        assert!(records[2].1.starts_with(b"\x1b_Ga=t"));
+        assert_eq!(records[3].1, commands[commands.len() - 1]);
     }
 
     #[test]

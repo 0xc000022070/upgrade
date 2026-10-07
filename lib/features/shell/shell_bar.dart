@@ -80,7 +80,7 @@ class ShellBar extends StatelessWidget {
     this.onVoicePress,
     this.onVoiceLift,
     this.onVoiceDrop,
-    this.onVoiceSend,
+    this.onSend,
     this.searching = false,
     this.onFind,
   });
@@ -109,7 +109,7 @@ class ShellBar extends StatelessWidget {
   final VoidCallback? onVoicePress;
   final VoidCallback? onVoiceLift;
   final VoidCallback? onVoiceDrop;
-  final VoidCallback? onVoiceSend;
+  final VoidCallback? onSend;
 
   final bool searching;
 
@@ -154,14 +154,14 @@ class ShellBar extends StatelessWidget {
             ),
       ],
       pinned: [
-        if (onVoiceSend != null)
+        if (onSend != null)
           KeyCell(
-            key: const ValueKey('bar-voice-send'),
+            key: const ValueKey('bar-send'),
             label: 'SEND',
             armed: true,
             minWidth: KeyBar.height,
             padding: KeyBar.cellPadding,
-            onTap: onVoiceSend!,
+            onTap: onSend!,
           ),
         if (stick)
           ArrowStick(

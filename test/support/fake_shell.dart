@@ -18,6 +18,7 @@ class FakeShellConnection implements ShellConnection {
 
   final _output = StreamController<Uint8List>.broadcast();
   final _snapshots = StreamController<Uint8List>.broadcast();
+  final _foregroundProcesses = StreamController<String>.broadcast();
   final _health = StreamController<ShellConnectionHealth>.broadcast();
   final _exit = Completer<int?>();
 
@@ -42,6 +43,9 @@ class FakeShellConnection implements ShellConnection {
 
   /// Every command run on a second channel, with what was written into it.
   final execs = <({String command, Uint8List? stdin})>[];
+  final existingHostExecs = <String>[];
+  bool existingHostAvailable = true;
+  Completer<ExecResult?>? holdExistingHostExec;
 
   /// Held to keep [close] from completing, so a test can act inside the window a redial
   /// spends shutting the shell that died down.
@@ -56,6 +60,9 @@ class FakeShellConnection implements ShellConnection {
 
   @override
   Stream<Uint8List> get snapshots => _snapshots.stream;
+
+  @override
+  Stream<String> get foregroundProcesses => _foregroundProcesses.stream;
 
   @override
   Stream<ShellConnectionHealth> get health => _health.stream;
@@ -124,6 +131,15 @@ class FakeShellConnection implements ShellConnection {
     return timeout == null ? never : never.timeout(timeout);
   }
 
+  @override
+  Future<ExecResult?> execOnExistingHost(String command, {Duration? timeout}) {
+    if (!existingHostAvailable) return Future.value(null);
+    existingHostExecs.add(command);
+    final hold = holdExistingHostExec;
+    if (hold != null) return hold.future;
+    return exec(command, timeout: timeout);
+  }
+
   /// A command that reaches the host and never comes back, which is what writing into a
   /// fifo nobody is reading looks like from this end.
   bool wedged = false;
@@ -141,6 +157,8 @@ class FakeShellConnection implements ShellConnection {
   void emitBytes(List<int> bytes) => _output.add(Uint8List.fromList(bytes));
 
   void emitSnapshot(Uint8List bytes) => _snapshots.add(bytes);
+
+  void emitForeground(String processes) => _foregroundProcesses.add(processes);
 
   /// The stream errors and the connection is never told, which is what a phone leaving wifi
   /// looks like.

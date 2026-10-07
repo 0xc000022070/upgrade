@@ -16,6 +16,34 @@ use std::time::{Duration, Instant};
 const PENDING_INPUT: usize = 256 * 1024;
 const READ_BUDGET: usize = 1 << 20;
 const AWAY: Duration = Duration::from_secs(30);
+const FOREGROUND_IDLE: Duration = Duration::from_secs(2);
+const FOREGROUND_ACTIVE: Duration = Duration::from_millis(250);
+
+struct ForegroundSchedule {
+    due: Instant,
+    sampled: Option<Instant>,
+}
+
+impl ForegroundSchedule {
+    fn new(now: Instant) -> Self {
+        Self {
+            due: now,
+            sampled: None,
+        }
+    }
+
+    fn activity(&mut self, now: Instant) {
+        let next = self
+            .sampled
+            .map_or(now, |at| (at + FOREGROUND_ACTIVE).max(now));
+        self.due = self.due.min(next);
+    }
+
+    fn sampled(&mut self, now: Instant) {
+        self.sampled = Some(now);
+        self.due = now + FOREGROUND_IDLE;
+    }
+}
 
 pub struct Timing {
     pub linger: Duration,
@@ -61,6 +89,7 @@ pub struct Server {
     rejoined: bool,
     ended_at: Option<Instant>,
     ending: Option<Ending>,
+    foreground_schedule: ForegroundSchedule,
 }
 
 impl Server {
@@ -92,6 +121,7 @@ impl Server {
             rejoined: false,
             ended_at: None,
             ending: None,
+            foreground_schedule: ForegroundSchedule::new(now),
         }
     }
 
@@ -119,6 +149,7 @@ impl Server {
             let stalled = self.files.claims.stalled(self.heard(now));
             self.pending.extend(stalled);
             self.reap(now);
+            self.refresh_foreground_if_due(now);
             self.transmit(now);
             self.cut(now);
         }
@@ -207,6 +238,8 @@ impl Server {
             (!self.contacted).then(|| self.started + self.timing.first_contact),
             self.ended_at.map(|at| at + self.timing.linger),
             self.files.claims.deadline(),
+            (self.pty.is_some() && self.link.is_recent(now))
+                .then_some(self.foreground_schedule.due),
         ]
         .into_iter()
         .flatten()
@@ -214,10 +247,12 @@ impl Server {
     }
 
     fn receive(&mut self, packet: &ClientPacket, now: Instant) {
+        let first_contact = !self.contacted;
         self.contacted = true;
         let quiet = self.link.heard(packet, now);
         let directives = self.control.apply(packet);
         let rejoined = std::mem::take(&mut self.rejoined);
+        self.replay_foreground_on_contact(now, first_contact, rejoined, quiet);
         if let Some(size) = directives.resize {
             let _ = self.mirror.resize(size);
             if let Some(pty) = &self.pty {
@@ -252,6 +287,35 @@ impl Server {
         }
     }
 
+    fn update_foreground(&mut self, now: Instant) {
+        self.foreground_schedule.sampled(now);
+        let processes = self
+            .pty
+            .as_ref()
+            .map(Pty::foreground_processes)
+            .unwrap_or_default();
+        self.mirror.foreground(processes);
+    }
+
+    fn refresh_foreground_if_due(&mut self, now: Instant) {
+        if now >= self.foreground_schedule.due && self.link.is_recent(now) {
+            self.update_foreground(now);
+        }
+    }
+
+    fn replay_foreground_on_contact(
+        &mut self,
+        now: Instant,
+        first_contact: bool,
+        rejoined: bool,
+        quiet: Option<Duration>,
+    ) {
+        if first_contact || rejoined || quiet.is_some_and(|quiet| quiet >= AWAY) {
+            self.update_foreground(now);
+            self.mirror.replay_foreground();
+        }
+    }
+
     fn read_pty(&mut self, budget: usize) {
         let Some(pty) = self.pty.as_mut() else {
             return;
@@ -283,6 +347,9 @@ impl Server {
         if self.forward.capacity() > self.pty_buf.len() * 2 {
             self.forward = Vec::new();
         }
+        if taken > 0 {
+            self.foreground_schedule.activity(Instant::now());
+        }
         self.pending.extend(replies);
     }
 
@@ -290,6 +357,7 @@ impl Server {
         let Some(pty) = self.pty.as_mut() else {
             return;
         };
+        let before = self.pending.len();
         while !self.pending.is_empty() {
             let (front, _) = self.pending.as_slices();
             match pty.write(front) {
@@ -303,6 +371,9 @@ impl Server {
                     break;
                 }
             }
+        }
+        if self.pending.len() < before {
+            self.foreground_schedule.activity(Instant::now());
         }
     }
 
@@ -336,5 +407,35 @@ impl Server {
         self.link.rekeyed(now);
         self.control.rekeyed();
         self.rejoined = true;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn idle_foreground_checks_wait_two_seconds_and_activity_brings_them_forward() {
+        let now = Instant::now();
+        let mut schedule = ForegroundSchedule::new(now);
+        schedule.sampled(now);
+        assert_eq!(schedule.due, now + Duration::from_secs(2));
+        schedule.activity(now + Duration::from_millis(50));
+        assert_eq!(schedule.due, now + Duration::from_millis(250));
+        schedule.activity(now + Duration::from_millis(100));
+        schedule.activity(now + Duration::from_millis(200));
+        assert_eq!(schedule.due, now + Duration::from_millis(250));
+        schedule.sampled(now + Duration::from_millis(250));
+        schedule.activity(now + Duration::from_millis(260));
+        assert_eq!(schedule.due, now + Duration::from_millis(500));
+    }
+
+    #[test]
+    fn activity_after_a_quiet_period_is_checked_immediately() {
+        let now = Instant::now();
+        let mut schedule = ForegroundSchedule::new(now);
+        schedule.sampled(now);
+        schedule.activity(now + Duration::from_secs(1));
+        assert_eq!(schedule.due, now + Duration::from_secs(1));
     }
 }

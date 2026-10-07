@@ -17,6 +17,10 @@ abstract interface class ShellConnection {
 
   Stream<Uint8List> get snapshots;
 
+  /// Foreground process metadata from a transport that owns the remote PTY. Empty means
+  /// the transport checked and found no unambiguous process.
+  Stream<String> get foregroundProcesses;
+
   void write(Uint8List bytes);
 
   void resize(int columns, int rows, {int widthPx = 0, int heightPx = 0});
@@ -46,6 +50,10 @@ abstract interface class ShellConnection {
     Uint8List? stdin,
     Duration? timeout,
   });
+
+  /// Uses only an SSH control connection already held by this shell. Null means none is
+  /// available; this call never redials.
+  Future<ExecResult?> execOnExistingHost(String command, {Duration? timeout});
 }
 
 enum ShellContinuity { plain, started, resumed }

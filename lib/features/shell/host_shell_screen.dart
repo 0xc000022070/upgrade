@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/agents.dart';
+import '../../application/agent_kind.dart';
 import '../../application/clips.dart';
 import '../../application/pin_alerts.dart';
 import '../../application/providers.dart';
@@ -24,6 +25,7 @@ import '../../design/components/panel_sheet.dart';
 import '../../design/spacing.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
+import '../../platform/shell/shell_connection.dart';
 import '../../platform/shell/shell_launch.dart';
 import '../../platform/vnc/keysyms.dart';
 import '../code/diff_sheet.dart';
@@ -203,6 +205,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 
   ShellSession? _voiceSendSuggestion;
   Timer? _voiceSendSuggestionTimer;
+  final _checkingTypedSend = <ShellSession>{};
 
   var _searching = false;
 
@@ -268,11 +271,54 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     setState(() => _voiceSendSuggestion = null);
   }
 
-  void _onVoiceSend(ShellSession session) {
+  AgentKind? _typedAgent(ShellSession session) {
+    if (!session.typedSendReady || !session.agentInput.hasText) return null;
+    if (session.pane != null) {
+      return paneAgent(session, _freshAgentsOn(session.host));
+    }
+    if (session.connection?.transport == ShellTransport.engine &&
+        session.engineForegroundKnown) {
+      return session.engineAgent;
+    }
+    return session.probedAgent;
+  }
+
+  Future<void> _onSendSuggestion(ShellSession session) async {
     if (_dictation.hearing || session.state is! ShellLive) return;
     if (session.voiceDraft != null) {
       _onDraftSend(session);
-    } else if (_voiceSendSuggestion == session && session.voiceSendSuggested) {
+      return;
+    }
+    final typed = _typedAgent(session);
+    if (typed != null) {
+      if (!_checkingTypedSend.add(session)) return;
+      final revision = session.agentInputRevision;
+      final connection = session.connection;
+      setState(() {});
+      try {
+        final current = session.pane == null
+            ? await _store.agentFromHost(session)
+            : await _store.agentFromPane(session);
+        if (!mounted ||
+            session.state is! ShellLive ||
+            !identical(session.connection, connection) ||
+            session.agentInputRevision != revision) {
+          return;
+        }
+        if (current?.name != typed.name || !session.agentInput.hasText) {
+          session.clearAgentInput();
+          return;
+        }
+        session.clearAgentInput();
+        _clearVoiceSendSuggestion(session);
+        _store.send(session, Uint8List.fromList(const [0x0d]));
+      } finally {
+        _checkingTypedSend.remove(session);
+        if (mounted) setState(() {});
+      }
+      return;
+    }
+    if (_voiceSendSuggestion == session && session.voiceSendSuggested) {
       _clearVoiceSendSuggestion(session);
       _store.send(session, Uint8List.fromList(const [0x0d]));
     }
@@ -283,6 +329,22 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     if (state == null) return;
     for (final outcome in state.outcomes) {
       if (outcome.host.id == host.id) yield* outcome.agents;
+    }
+  }
+
+  Iterable<AgentSnapshot> _freshAgentsOn(Host host) sync* {
+    if (!ref.exists(agentsFeedProvider)) return;
+    final state = ref.read(agentsFeedProvider).valueOrNull;
+    if (state == null) return;
+    final now = DateTime.now();
+    for (final outcome in state.outcomes) {
+      final at = outcome.lastGoodAt;
+      if (outcome.host.id == host.id &&
+          outcome.ok &&
+          at != null &&
+          now.difference(at) <= const Duration(seconds: 15)) {
+        yield* outcome.agents;
+      }
     }
   }
 
@@ -785,6 +847,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   @override
   Widget build(BuildContext context) {
     final store = ref.watch(shellSessionsProvider);
+    if (ref.exists(agentsFeedProvider)) ref.watch(agentsFeedProvider);
     final persisted =
         ref.watch(shellFontSizeProvider).valueOrNull ?? shellFontSizeDefault;
     // The pinched size is let go the moment the row says the same thing, so a
@@ -942,14 +1005,16 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                       onVoicePress: () => unawaited(_dictation.press(active)),
                       onVoiceLift: _dictation.lift,
                       onVoiceDrop: _dictation.cancel,
-                      onVoiceSend:
+                      onSend:
                           !_dictation.hearing &&
                               active.state is ShellLive &&
+                              !_checkingTypedSend.contains(active) &&
                               ((active.voiceDraft?.text.trim().isNotEmpty ??
                                       false) ||
                                   (_voiceSendSuggestion == active &&
-                                      active.voiceSendSuggested))
-                          ? () => _onVoiceSend(active)
+                                      active.voiceSendSuggested) ||
+                                  _typedAgent(active) != null)
+                          ? () => unawaited(_onSendSuggestion(active))
                           : null,
                     ),
                   ),

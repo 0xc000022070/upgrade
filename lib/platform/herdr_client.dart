@@ -246,6 +246,9 @@ done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
   static String panes(String session) =>
       underSh('exec ${_herdr(session, 'pane list')}');
 
+  static String agents(String session) =>
+      underSh('exec ${_herdr(session, 'agent list --json')}');
+
   static void requirePane(String pane) {
     if (!_pane.hasMatch(pane)) throw const HerdrProtocolMismatch();
   }
@@ -1616,6 +1619,18 @@ class HerdrClient {
         else
           throw const HerdrProtocolMismatch(),
     ];
+  }
+
+  static List<AgentSnapshot> parseCliAgentList(
+    String source, {
+    required String session,
+  }) {
+    final decoded = jsonDecode(source);
+    final result = decoded is Map<String, Object?> ? decoded['result'] : null;
+    if (result is! Map<String, Object?>) {
+      throw const HerdrProtocolMismatch();
+    }
+    return parseAgentList(result, session: session);
   }
 
   static Map<String, String> parseWorkspaceLabels(HerdrReply reply) {

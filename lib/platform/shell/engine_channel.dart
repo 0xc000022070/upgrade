@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -24,6 +25,7 @@ const _serverJump = 1 << 1;
 const _recordPty = 1;
 const _recordSnapshot = 2;
 const _recordExit = 3;
+const _recordForeground = 4;
 const _recordHeader = 5;
 
 class EngineSize {
@@ -235,6 +237,12 @@ class EngineExit extends EngineEvent {
   final int status;
 }
 
+class EngineForeground extends EngineEvent {
+  const EngineForeground(this.processes);
+
+  final String processes;
+}
+
 class EngineRecordReader {
   final _header = BytesBuilder(copy: true);
   final _body = BytesBuilder(copy: true);
@@ -270,7 +278,9 @@ class EngineRecordReader {
       _remaining -= take;
       if (kind == _recordPty) {
         if (chunk.isNotEmpty) events.add(EnginePty(Uint8List.fromList(chunk)));
-      } else if (kind == _recordSnapshot || kind == _recordExit) {
+      } else if (kind == _recordSnapshot ||
+          kind == _recordExit ||
+          kind == _recordForeground) {
         _body.add(chunk);
       }
       if (_remaining == 0) _complete(events);
@@ -286,6 +296,8 @@ class EngineRecordReader {
       events.add(EngineSnapshot(body));
     } else if (kind == _recordExit && body.length >= 4) {
       events.add(EngineExit(ByteData.sublistView(body).getInt32(0)));
+    } else if (kind == _recordForeground) {
+      events.add(EngineForeground(utf8.decode(body, allowMalformed: true)));
     }
   }
 }

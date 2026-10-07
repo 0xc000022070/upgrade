@@ -17,6 +17,7 @@ const TO_CLIENT: u64 = 1 << 63;
 const RECORD_PTY: u8 = 1;
 const RECORD_SNAPSHOT: u8 = 2;
 const RECORD_EXIT: u8 = 3;
+const RECORD_FOREGROUND: u8 = 4;
 const PATIENCE: Duration = Duration::from_secs(10);
 
 type Cipher = Ocb3<Aes128, ocb3::consts::U12, ocb3::consts::U16>;
@@ -145,6 +146,7 @@ enum Record {
     Pty(Vec<u8>),
     Snapshot(Vec<u8>),
     Exit(i32),
+    Foreground(Vec<u8>),
 }
 
 struct Client {
@@ -285,6 +287,7 @@ impl Client {
                 RECORD_PTY => Record::Pty(body),
                 RECORD_SNAPSHOT => Record::Snapshot(body),
                 RECORD_EXIT => Record::Exit(i32::from_be_bytes(body[..4].try_into().unwrap())),
+                RECORD_FOREGROUND => Record::Foreground(body),
                 kind => panic!("unknown record kind {kind}"),
             });
             self.pending.drain(..5 + len);
@@ -331,6 +334,39 @@ fn a_started_shell_echoes_input_back_as_pty_records() {
     client.until("the sum", |c| c.output().contains("hi-42"));
     assert_eq!(client.input_ack, client.input.len() as u64);
     assert_eq!(sandbox.tabs(), vec!["echo"]);
+}
+
+#[test]
+fn foreground_metadata_follows_the_owned_pty_and_survives_a_rekey() {
+    let sandbox = Sandbox::new("foreground");
+    let started = sandbox.start("foreground", json!({}));
+    let mut client = Client::connect(&started);
+    client.until("initial foreground metadata", |c| {
+        c.records.iter().any(|r| matches!(r, Record::Foreground(_)))
+    });
+    client.records.clear();
+    client.type_in("exec sleep 30\n");
+    client.until("sleep foreground metadata", |c| {
+        c.records.iter().any(|r| {
+            matches!(r, Record::Foreground(body)
+            if String::from_utf8_lossy(body).starts_with("sleep\t"))
+        })
+    });
+    let second = sandbox.start("foreground", json!({}));
+    client.records.clear();
+    client.rekey(&second);
+    client.until("foreground metadata after rekey", |c| {
+        c.records.iter().any(|r| {
+            matches!(r, Record::Foreground(body)
+            if String::from_utf8_lossy(body).starts_with("sleep\t"))
+        })
+    });
+    client.records.clear();
+    client.keyframe += 1;
+    client.until("foreground metadata after snapshot", |c| {
+        matches!(c.records.first(), Some(Record::Snapshot(_)))
+            && matches!(c.records.get(1), Some(Record::Foreground(_)))
+    });
 }
 
 #[test]
@@ -528,13 +564,13 @@ fn an_image_on_screen_is_redrawn_after_a_keyframe() {
 
     client.records.clear();
     client.keyframe = 1;
-    client.until("the replay", |c| c.records.len() >= 2);
+    client.until("the replay", |c| c.records.len() >= 3);
     assert!(
         matches!(client.records[0], Record::Snapshot(_)),
         "{:?}",
         client.records
     );
-    let Record::Pty(replay) = &client.records[1] else {
+    let Record::Pty(replay) = &client.records[2] else {
         panic!("the images follow the snapshot: {:?}", client.records);
     };
     let replay = String::from_utf8_lossy(replay);
@@ -552,8 +588,8 @@ fn a_virtual_placement_is_redrawn_after_a_keyframe() {
 
     client.records.clear();
     client.keyframe = 1;
-    client.until("the replay", |c| c.records.len() >= 2);
-    let Record::Pty(replay) = &client.records[1] else {
+    client.until("the replay", |c| c.records.len() >= 3);
+    let Record::Pty(replay) = &client.records[2] else {
         panic!("the images follow the snapshot: {:?}", client.records);
     };
     let replay = String::from_utf8_lossy(replay);
@@ -607,8 +643,8 @@ fn an_image_sent_by_file_is_redrawn_after_a_keyframe() {
 
     client.records.clear();
     client.keyframe = 1;
-    client.until("the replay", |c| c.records.len() >= 2);
-    let Record::Pty(replay) = &client.records[1] else {
+    client.until("the replay", |c| c.records.len() >= 3);
+    let Record::Pty(replay) = &client.records[2] else {
         panic!("the images follow the snapshot: {:?}", client.records);
     };
     let replay = String::from_utf8_lossy(replay);
@@ -657,6 +693,7 @@ fn take_records(client: &mut Client) -> (usize, Vec<usize>, bool) {
                 snapshots.push(body.len());
             }
             Record::Exit(_) => exited = true,
+            Record::Foreground(_) => {}
         }
     }
     (bytes, snapshots, exited)

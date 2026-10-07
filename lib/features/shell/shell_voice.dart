@@ -37,15 +37,8 @@ const _returnAfterPaste = Duration(milliseconds: 80);
 final _agentWord = RegExp(r'(?:^|[\s;&|/(])(claude|codex)(?=$|[\s;&|)])');
 
 AgentKind? shellAgent(ShellSession session, Iterable<AgentSnapshot> agents) {
-  final pane = session.pane;
-  if (pane != null) {
-    for (final agent in agents) {
-      if (agent.session == pane.session && agent.paneId == pane.pane) {
-        final kind = AgentKind.lookup(agent.agent);
-        if (kind != null) return kind;
-      }
-    }
-  }
+  final matched = paneAgent(session, agents);
+  if (matched != null) return matched;
   final command = session.command;
   if (command != null) {
     final match = _agentWord.firstMatch(command);
@@ -57,6 +50,17 @@ AgentKind? shellAgent(ShellSession session, Iterable<AgentSnapshot> agents) {
     return const ClaudeKind();
   }
   if (title.contains('codex')) return const CodexKind();
+  return null;
+}
+
+AgentKind? paneAgent(ShellSession session, Iterable<AgentSnapshot> agents) {
+  final pane = session.pane;
+  if (pane == null) return null;
+  for (final agent in agents) {
+    if (agent.session == pane.session && agent.paneId == pane.pane) {
+      return AgentKind.lookup(agent.agent);
+    }
+  }
   return null;
 }
 

@@ -29,7 +29,12 @@ final shellMark = RegExp(r'^[a-z0-9]{6,32}$');
 
 String shellMarked(String mark, {String? command}) {
   assert(shellMark.hasMatch(mark));
-  return 'export $shellMarkVariable=$mark; ${command ?? 'exec \$SHELL -l'}';
+  return 'export $shellMarkVariable=$mark; '
+      'if [ "\$(uname -s)" = Darwin ]; then '
+      '(d="/tmp/upgrade-\$(id -u)"; umask 077; '
+      'mkdir -p "\$d" && [ -O "\$d" ] && '
+      'tty > "\$d/$mark") 2>/dev/null; fi; '
+      '${command ?? 'exec \$SHELL -l'}';
 }
 
 const durableShellSocket = 'upgrade';
@@ -126,6 +131,41 @@ String shellCwdProbe(String mark) {
     'done; '
     'printf "%s\\n%s\\n" "\$c" "\$s"; '
     '[ -n "\$c" ] || [ -n "\$s" ]',
+  );
+}
+
+String shellForegroundProcessProbe(String mark) {
+  assert(shellMark.hasMatch(mark));
+  final linux =
+      r'exec 2>/dev/null; '
+      r'for p in /proc/[0-9]*; do '
+      r's=$(cat "$p/stat") || continue; '
+      r's=${s##*) }; set -- $s; '
+      r'parent=$2; group=$3; '
+      r'[ "$group" = "$6" ] && [ "$group" -gt 0 ] || continue; '
+      r's=$(cat "/proc/$parent/stat") || continue; '
+      r's=${s##*) }; set -- $s; '
+      r'[ "$3" = "$group" ] && continue; '
+      r'tr "\000" "\n" < "$p/environ" | grep -qx "UPGRADE_TAB='
+      '$mark'
+      r'" || continue; '
+      r'a=$(tr "\000" "\n" < "$p/cmdline" | sed -n "1p"); '
+      r'b=$(tr "\000" "\n" < "$p/cmdline" | sed -n "2p"); '
+      r'e=$(readlink "$p/exe") || continue; '
+      r'printf "%s\t%s\t%s\n" "$a" "$e" "$b"; '
+      r'done';
+  final darwin =
+      r'exec 2>/dev/null; '
+      r'd="/tmp/upgrade-$(id -u)"; [ -O "$d" ] || exit 1; '
+      't=\$(cat "\$d/$mark") || exit 1; '
+      r'case "$t" in /dev/*) ;; *) exit 1;; esac; '
+      r'ps -ww -t "$t" -o pid=,ppid=,pgid=,tpgid=,comm=,command= | '
+      "awk 'NF >= 6 && \$3 == \$4 && \$3 > 0 { "
+      'p[\$1]=\$2; c[\$1]=\$5; a[\$1]=\$6; b[\$1]=\$7 } '
+      'END { for (i in p) if (!(p[i] in p)) { n++; root=i } '
+      "if (n == 1) printf \"%s\\t%s\\t%s\\n\", a[root], c[root], b[root] }'";
+  return underSh(
+    'case "\$(uname -s)" in Darwin) $darwin ;; Linux) $linux ;; esac',
   );
 }
 
