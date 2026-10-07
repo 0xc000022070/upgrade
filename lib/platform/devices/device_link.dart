@@ -539,11 +539,13 @@ if out=$(xcrun simctl create "$name" "$type" "$runtime" 2>&1 </dev/null); then e
     ),
   };
 
-  static String capture(HostDevice device) => switch (device.kind) {
+  /// A path, not `-`: Xcode 27's `simctl` writes `-` as a file named `-` instead of
+  /// stdout, and a path works on every `simctl` back to Xcode 8.2.
+  static String capture(HostDevice device, String to) => switch (device.kind) {
     DeviceKind.android =>
-      'adb -s ${shellQuote(device.id)} exec-out screencap -p',
+      'adb -s ${shellQuote(device.id)} exec-out screencap -p >$to',
     DeviceKind.simulator =>
-      'xcrun simctl io ${shellQuote(device.id)} screenshot --type=png -',
+      'xcrun simctl io ${shellQuote(device.id)} screenshot --type=png $to',
   };
 
   static String frames(HostDevice device) => underSh('''
@@ -555,7 +557,7 @@ command -v sips >/dev/null 2>&1 && jpeg=1
 last=
 idle=0
 while :; do
-  if ! ${capture(device)} >"\$d/f.png" 2>"\$d/err" </dev/null || [ ! -s "\$d/f.png" ]; then
+  if ! ${capture(device, r'"$d/f.png"')} 2>"\$d/err" </dev/null || [ ! -s "\$d/f.png" ]; then
     printf 'E %s\\n' "\$(head -c 200 "\$d/err" | tr '\\n' ' ')"
     exit 3
   fi
