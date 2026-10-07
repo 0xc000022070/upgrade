@@ -238,6 +238,7 @@ void main() {
     await _ready(tester);
     expect(tester.takeException(), isNull);
     await tester.ensureVisible(find.text('System'));
+    await _ready(tester);
     await tester.tap(find.text('System'));
     await _ready(tester);
     expect(_themeSelected(tester, 'System'), isTrue);

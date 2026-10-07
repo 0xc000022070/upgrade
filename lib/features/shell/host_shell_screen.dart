@@ -133,10 +133,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     );
     _clips = ref.read(clipStoreProvider);
     _clips.addListener(_onClips);
-    final whisper = ref.read(whisperModelProvider.notifier);
     _dictation = ShellDictation(
       onWords: _onWords,
-      whisper: () => whisper.transcriber,
+      whisper: ref.read(whisperProvider),
     )..addListener(_onDictation);
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     // Opening a session tells the store, and the screen the user came from is

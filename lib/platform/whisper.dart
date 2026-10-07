@@ -12,30 +12,58 @@ typedef ModelFile = ({String name, int bytes, String sha256});
 
 const whisperRate = 16000;
 
-const _whisperRevision = 'bb53ee204431c90d314c1cc08d28d23e5b7927cc';
+const _tokensDigest =
+    'b34b360dbb493e781e479794586d661700670d65564001f23024971d1f2fa126';
 
-const whisperFiles = <ModelFile>[
-  (
-    name: 'base-encoder.int8.onnx',
-    bytes: 29120534,
-    sha256: '0b8fb1304b6109976038efff5ace81720e00386f3ff6b54ee8c75291ca0a1e11',
+/// Listed from the least to the most capable: the last one on the phone hears.
+enum WhisperSize {
+  base(
+    revision: 'bb53ee204431c90d314c1cc08d28d23e5b7927cc',
+    files: [
+      (
+        name: 'base-encoder.int8.onnx',
+        bytes: 29120534,
+        sha256:
+            '0b8fb1304b6109976038efff5ace81720e00386f3ff6b54ee8c75291ca0a1e11',
+      ),
+      (
+        name: 'base-decoder.int8.onnx',
+        bytes: 130672026,
+        sha256:
+            '9759d217388a01b3a4c7c15533201067b48ae819c4daafc8624e64b9409dc02d',
+      ),
+      (name: 'base-tokens.txt', bytes: 816730, sha256: _tokensDigest),
+    ],
   ),
-  (
-    name: 'base-decoder.int8.onnx',
-    bytes: 130672026,
-    sha256: '9759d217388a01b3a4c7c15533201067b48ae819c4daafc8624e64b9409dc02d',
-  ),
-  (
-    name: 'base-tokens.txt',
-    bytes: 816730,
-    sha256: 'b34b360dbb493e781e479794586d661700670d65564001f23024971d1f2fa126',
-  ),
-];
+  small(
+    revision: '8f3c18b358db4d1f2fc1eae49d75cd20989e4309',
+    files: [
+      (
+        name: 'small-encoder.int8.onnx',
+        bytes: 112442483,
+        sha256:
+            '4cbe7b22fa9026b843b60a68640c747de05bafb1a11b57edc0e66c232d9f33a9',
+      ),
+      (
+        name: 'small-decoder.int8.onnx',
+        bytes: 262226114,
+        sha256:
+            'acad50b5c782696e91b55914cc5ab4f756f1532f76e22aa6fc615f39fb69a8ee',
+      ),
+      (name: 'small-tokens.txt', bytes: 816730, sha256: _tokensDigest),
+    ],
+  );
 
-Uri whisperUrl(ModelFile file) => Uri.https(
-  'huggingface.co',
-  '/csukuangfj/sherpa-onnx-whisper-base/resolve/$_whisperRevision/${file.name}',
-);
+  const WhisperSize({required this.revision, required this.files});
+
+  final String revision;
+  final List<ModelFile> files;
+
+  Uri url(ModelFile file) => Uri.https(
+    'huggingface.co',
+    '/csukuangfj/sherpa-onnx-whisper-$name/resolve/$revision/${file.name}',
+  );
+}
 
 int modelBytes(List<ModelFile> files) =>
     files.fold(0, (sum, file) => sum + file.bytes);
@@ -56,8 +84,8 @@ const _fetchWait = Duration(seconds: 20);
 class ModelStore {
   ModelStore({
     required this.directory,
-    this.files = whisperFiles,
-    this.url = whisperUrl,
+    required this.files,
+    required this.url,
     HttpClient Function()? httpClient,
   }) : _httpClient = httpClient ?? HttpClient.new;
 
@@ -262,13 +290,14 @@ class TranscriptionFailed implements Exception {
 typedef _WhisperPaths = ({String encoder, String decoder, String tokens});
 
 class WhisperTranscriber implements Transcriber {
-  WhisperTranscriber(ModelStore store)
+  WhisperTranscriber(ModelStore store, {this.language})
     : _paths = (
         encoder: store.path(store.files[0]),
         decoder: store.path(store.files[1]),
         tokens: store.path(store.files[2]),
       );
 
+  final Future<String> Function()? language;
   final _WhisperPaths _paths;
   Future<SendPort>? _worker;
   Isolate? _isolate;
@@ -296,18 +325,27 @@ class WhisperTranscriber implements Transcriber {
   @override
   Future<String> transcribe(Float32List samples) async {
     final worker = await _spawn();
+    final language = await this.language?.call() ?? '';
     final heard = <String>[];
     for (final chunk in whisperChunks(samples)) {
       if (!heardAnything(chunk)) continue;
-      heard.add(await _hear(worker, chunk));
+      heard.add(await _hear(worker, chunk, language));
     }
     return heard.join(' ');
   }
 
-  Future<String> _hear(SendPort worker, Float32List samples) async {
+  Future<String> _hear(
+    SendPort worker,
+    Float32List samples,
+    String language,
+  ) async {
     final reply = ReceivePort();
     try {
-      worker.send((reply.sendPort, TransferableTypedData.fromList([samples])));
+      worker.send((
+        reply.sendPort,
+        language,
+        TransferableTypedData.fromList([samples]),
+      ));
       final (text, error) = await reply.first as (String?, String?);
       if (text == null) throw TranscriptionFailed(error ?? 'no answer');
       return text;
@@ -325,23 +363,25 @@ class WhisperTranscriber implements Transcriber {
 
 void _serve((SendPort, _WhisperPaths) start) {
   final (ready, paths) = start;
-  final sherpa.OfflineRecognizer recognizer;
-  try {
-    sherpa.initBindings();
-    recognizer = sherpa.OfflineRecognizer(
+  sherpa.OfflineRecognizerConfig configFor(String language) =>
       sherpa.OfflineRecognizerConfig(
         model: sherpa.OfflineModelConfig(
           whisper: sherpa.OfflineWhisperModelConfig(
             encoder: paths.encoder,
             decoder: paths.decoder,
+            language: language,
             task: 'transcribe',
           ),
           tokens: paths.tokens,
           numThreads: math.min(4, Platform.numberOfProcessors),
           debug: false,
         ),
-      ),
-    );
+      );
+  final sherpa.OfflineRecognizer recognizer;
+  var current = '';
+  try {
+    sherpa.initBindings();
+    recognizer = sherpa.OfflineRecognizer(configFor(current));
   } on Object catch (error) {
     ready.send('$error');
     return;
@@ -349,9 +389,15 @@ void _serve((SendPort, _WhisperPaths) start) {
   final requests = ReceivePort();
   ready.send(requests.sendPort);
   requests.listen((message) {
-    final (reply, audio) = message as (SendPort, TransferableTypedData);
-    final stream = recognizer.createStream();
+    final (reply, language, audio) =
+        message as (SendPort, String, TransferableTypedData);
+    sherpa.OfflineStream? stream;
     try {
+      if (language != current) {
+        recognizer.setConfig(configFor(language));
+        current = language;
+      }
+      stream = recognizer.createStream();
       stream.acceptWaveform(
         samples: audio.materialize().asFloat32List(),
         sampleRate: whisperRate,
@@ -361,7 +407,7 @@ void _serve((SendPort, _WhisperPaths) start) {
     } on Object catch (error) {
       reply.send((null, '$error'));
     } finally {
-      stream.free();
+      stream?.free();
     }
   });
 }

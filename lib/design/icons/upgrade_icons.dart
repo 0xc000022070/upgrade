@@ -16,6 +16,7 @@ enum UpgradeIcons {
   blocked('blocked'),
   branch('branch'),
   channel('channel'),
+  check('check'),
   checkboxChecked('checkbox-checked'),
   checkboxEmpty('checkbox-empty'),
   close('close'),

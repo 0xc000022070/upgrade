@@ -17,6 +17,8 @@ class SettingsRepository {
 
   static const themeSystem = 'theme_system';
 
+  static const whisperLanguage = 'whisper_language';
+
   Stream<bool> watchFlag(String key, {required bool orElse}) {
     return (_db.select(_db.settings)..where((s) => s.key.equals(key)))
         .watchSingleOrNull()
@@ -42,6 +44,21 @@ class SettingsRepository {
 
   Future<void> setNumber(String key, double value) =>
       _write(key, value.toString());
+
+  Stream<String> watchText(String key, {required String orElse}) {
+    return (_db.select(_db.settings)..where((s) => s.key.equals(key)))
+        .watchSingleOrNull()
+        .map((row) => row?.value ?? orElse);
+  }
+
+  Future<String> text(String key, {required String orElse}) async {
+    final row = await (_db.select(
+      _db.settings,
+    )..where((s) => s.key.equals(key))).getSingleOrNull();
+    return row?.value ?? orElse;
+  }
+
+  Future<void> setText(String key, String value) => _write(key, value);
 
   Future<void> _write(String key, String value) {
     return _db

@@ -938,7 +938,7 @@ class _VoicePanel extends StatelessWidget {
                       child: KeyCell(
                         key: const ValueKey('shell-voice-done'),
                         label: 'DONE',
-                        icon: UpgradeIcons.done,
+                        icon: UpgradeIcons.check,
                         armed: true,
                         padding: RowMetrics.padding,
                         onTap: dictation.done,

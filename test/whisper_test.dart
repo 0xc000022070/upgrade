@@ -51,17 +51,18 @@ void main() {
     await scratch.delete(recursive: true);
   });
 
-  ModelStore store({List<ModelFile>? files}) => ModelStore(
-    directory: Directory(p.join(scratch.path, 'models', 'whisper')),
-    files:
-        files ??
-        [
-          _file('encoder.onnx', _encoder),
-          _file('decoder.onnx', _decoder),
-          _file('tokens.txt', _tokens),
-        ],
-    url: (file) => Uri.http('127.0.0.1:${server.port}', '/m/${file.name}'),
-  );
+  ModelStore store({List<ModelFile>? files, String name = 'whisper'}) =>
+      ModelStore(
+        directory: Directory(p.join(scratch.path, 'models', name)),
+        files:
+            files ??
+            [
+              _file('encoder.onnx', _encoder),
+              _file('decoder.onnx', _decoder),
+              _file('tokens.txt', _tokens),
+            ],
+        url: (file) => Uri.http('127.0.0.1:${server.port}', '/m/${file.name}'),
+      );
 
   test('a fetch keeps every file and says how far it got', () async {
     final model = store();
@@ -124,52 +125,118 @@ void main() {
 
     setUp(() {
       container = ProviderContainer(
-        overrides: [whisperStoreProvider.overrideWith((ref) async => store())],
+        overrides: [
+          whisperStoreProvider.overrideWith(
+            (ref, size) async => store(name: size.name),
+          ),
+        ],
       );
     });
 
     tearDown(() => container.dispose());
 
     test('is off until the model is fetched, and off deletes it', () async {
-      final model = container.read(whisperModelProvider.notifier);
-      expect(container.read(whisperModelProvider), isA<WhisperOff>());
+      final model = container.read(
+        whisperModelProvider(WhisperSize.base).notifier,
+      );
+      final base = whisperModelProvider(WhisperSize.base);
+      expect(container.read(base), isA<WhisperOff>());
       expect(model.transcriber, isNull);
       await model.enable();
-      expect(container.read(whisperModelProvider), isA<WhisperReady>());
+      expect(container.read(base), isA<WhisperReady>());
       expect(model.transcriber, isNotNull);
       await model.disable();
-      expect(container.read(whisperModelProvider), isA<WhisperOff>());
+      expect(container.read(base), isA<WhisperOff>());
       expect(model.transcriber, isNull);
-      expect(await store().ready(), isFalse);
+      expect(await store(name: 'base').ready(), isFalse);
     });
 
     test('reads on at launch when the files are already there', () async {
-      await store().fetch((_) {});
-      container.read(whisperModelProvider);
+      await store(name: 'small').fetch((_) {});
+      final small = whisperModelProvider(WhisperSize.small);
+      container.read(small);
       await pumpEventQueue();
-      expect(container.read(whisperModelProvider), isA<WhisperReady>());
+      expect(container.read(small), isA<WhisperReady>());
+      expect(
+        container.read(whisperModelProvider(WhisperSize.base)),
+        isA<WhisperOff>(),
+      );
     });
 
     test('a failed fetch turns it off and says why', () async {
       served.remove('encoder.onnx');
-      await container.read(whisperModelProvider.notifier).enable();
-      final state = container.read(whisperModelProvider);
+      final base = whisperModelProvider(WhisperSize.base);
+      await container.read(base.notifier).enable();
+      final state = container.read(base);
       expect(state, isA<WhisperOff>());
-      expect(whisperSubtitle(state), 'DOWNLOAD FAILED');
+      expect(
+        whisperSubtitle(WhisperSize.base, state, hearing: false),
+        'DOWNLOAD FAILED',
+      );
     });
+
+    test(
+      'small hears while it is on the phone, and base keeps or goes',
+      () async {
+        final base = whisperModelProvider(WhisperSize.base);
+        final small = whisperModelProvider(WhisperSize.small);
+        WhisperSize? hearing() => whisperHearing(
+          (size) => container.read(whisperModelProvider(size)),
+        );
+        final pick = container.read(whisperProvider);
+        expect(pick(), isNull);
+        await container.read(base.notifier).enable();
+        expect(hearing(), WhisperSize.base);
+        expect(pick(), same(container.read(base.notifier).transcriber));
+        await container.read(small.notifier).enable();
+        expect(hearing(), WhisperSize.small);
+        expect(pick(), same(container.read(small.notifier).transcriber));
+        await container.read(base.notifier).disable();
+        expect(hearing(), WhisperSize.small);
+        await container.read(small.notifier).disable();
+        expect(pick(), isNull);
+      },
+    );
   });
 
-  test('the row says what the toggle costs and where it stands', () {
+  test('each row says what its toggle costs and where it stands', () {
+    String row(WhisperSize size, WhisperState state, {bool hearing = false}) =>
+        whisperSubtitle(size, state, hearing: hearing);
     expect(
-      whisperSubtitle(const WhisperOff()),
+      row(WhisperSize.base, const WhisperOff()),
       '161 MB DOWNLOAD · STAYS ON THE PHONE',
     );
     expect(
-      whisperSubtitle(const WhisperOff(fault: ModelFault.corrupt)),
+      row(WhisperSize.small, const WhisperOff()),
+      '375 MB DOWNLOAD · SHARPER, SLOWER',
+    );
+    expect(
+      row(WhisperSize.base, const WhisperOff(fault: ModelFault.corrupt)),
       'MODEL CORRUPT',
     );
-    expect(whisperSubtitle(const WhisperFetching(0.426)), 'DOWNLOADING 42%');
-    expect(whisperSubtitle(const WhisperReady()), 'READY · 161 MB');
+    expect(
+      row(WhisperSize.small, const WhisperFetching(0.426)),
+      'DOWNLOADING 42%',
+    );
+    expect(
+      row(WhisperSize.base, const WhisperReady(), hearing: true),
+      'IN USE · 161 MB',
+    );
+    expect(row(WhisperSize.base, const WhisperReady()), 'INSTALLED · 161 MB');
+  });
+
+  test('each model is fetched from its own pinned repository', () {
+    for (final size in WhisperSize.values) {
+      expect(size.files, hasLength(3));
+      for (final file in size.files) {
+        expect(file.name, startsWith('${size.name}-'));
+        expect(
+          size.url(file).path,
+          '/csukuangfj/sherpa-onnx-whisper-${size.name}/resolve/'
+          '${size.revision}/${file.name}',
+        );
+      }
+    }
   });
 
   test('pcm reads as little-endian samples, and room noise as nothing', () {
