@@ -413,7 +413,7 @@ final engineFetchProvider = Provider<HerdrFetch>((ref) {
         user: user,
         privateKey: privateKey,
         verifier: verifier,
-        caller: 'engine fetch',
+        use: HostUse.engineFetch,
       ),
     );
     try {
@@ -441,7 +441,7 @@ final engineOpenProvider = Provider<EngineOpen>((ref) {
         user: host.user,
         privateKey: privateKey,
         verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
-        caller: 'engine open',
+        use: HostUse.engineOpen,
       ),
     );
     return EngineAgents(session, owner: host.user);

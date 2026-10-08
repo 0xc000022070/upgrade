@@ -46,7 +46,7 @@ Future<HostLease> _lease(HostLinks links) => links.lease(
   user: 'dev',
   privateKey: 'key',
   verifier: _pinned,
-  caller: 'test',
+  use: HostUse.send,
 );
 
 FakeRunReply _ok(String _) => (exitCode: 0, stdout: '', stderr: '');
@@ -85,7 +85,7 @@ void main() {
         dial: dial.call,
         linger: const Duration(milliseconds: 20),
       );
-      final herdr = HerdrClient(links: links, caller: 'test');
+      final herdr = HerdrClient(links: links, use: HostUse.send);
 
       await herdr.fetchPaths(
         address: '10.0.0.2',
@@ -122,7 +122,7 @@ void main() {
 
     for (final dead in [false, true]) {
       testWidgets(
-        'a send past its deadline suspects the link (${dead ? 'dead' : 'alive'})',
+        'a send past its deadline leaves the link to the keepalive (${dead ? 'dead' : 'alive'})',
         (tester) async {
           final dial = FakeDial()
             ..prepare = (client) {
@@ -130,7 +130,7 @@ void main() {
               if (dead) client.pingError = StateError('gone');
             };
           final links = HostLinks(dial: dial.call);
-          final sent = HerdrClient(links: links, caller: 'test').send(
+          final sent = HerdrClient(links: links, use: HostUse.send).send(
             address: '10.0.0.2',
             port: 22,
             user: 'dev',
@@ -146,8 +146,8 @@ void main() {
           final result = await sent;
           final client = dial.clients.single;
           expect(result, isA<SpawnRefused>());
-          expect(client.pings, 1);
-          expect(client.isClosed, dead);
+          expect(client.pings, 0);
+          expect(client.isClosed, isFalse);
           links.close();
         },
       );
@@ -171,7 +171,7 @@ void main() {
 
         final client = dial.clients.single;
         expect(failure, isA<HerdrUnreachable>());
-        expect(client.pings, 1);
+        expect(client.pings, 0);
         session.close();
         _ended(client);
         expect(client.sessions, hasLength(1));
@@ -220,7 +220,7 @@ void main() {
       expect(client.isClosed, isTrue);
     });
 
-    testWidgets('a command that never opens suspects the link', (tester) async {
+    testWidgets('a command that never opens fails without doubting the link', (tester) async {
       final gate = Completer<void>();
       final dial = FakeDial()..prepare = (client) => client.execGate = gate;
       final links = HostLinks(dial: dial.call);
@@ -234,7 +234,7 @@ void main() {
 
       final client = dial.clients.single;
       expect(failure, isA<HerdrUnreachable>());
-      expect(client.pings, 1);
+      expect(client.pings, 0);
 
       gate.complete();
       await tester.pump();
@@ -244,7 +244,7 @@ void main() {
       links.close();
     });
 
-    testWidgets('a command hung past its answer is ended and suspected', (
+    testWidgets('a command hung past its answer is ended, the link kept', (
       tester,
     ) async {
       final dial = FakeDial();
@@ -259,7 +259,7 @@ void main() {
 
       final client = dial.clients.single;
       expect(failure, isA<HerdrUnreachable>());
-      expect(client.pings, 1);
+      expect(client.pings, 0);
       _ended(client);
       await runner.close();
       links.close();
@@ -291,7 +291,7 @@ void main() {
       links.close();
     });
 
-    testWidgets('a hung exchange suspects the link', (tester) async {
+    testWidgets('a hung exchange fails without doubting the link', (tester) async {
       final dial = FakeDial();
       final links = HostLinks(dial: dial.call);
       final container = await _scheduler(links);
@@ -305,7 +305,7 @@ void main() {
 
       final client = dial.clients.single;
       expect(failure, isA<TimeoutException>());
-      expect(client.pings, 1);
+      expect(client.pings, 0);
       _ended(client);
       container.dispose();
       links.close();
@@ -339,12 +339,12 @@ void main() {
   });
 
   group('sharing', () {
-    test('every borrower on one host rides one dial', () async {
+    test('every control borrower on one host rides one dial, the screen its own', () async {
       final dial = FakeDial()..prepare = (client) => client.reply = _engine;
       final links = HostLinks(dial: dial.call);
       final container = await _scheduler(links);
 
-      final herdr = await HerdrClient(links: links, caller: 'test').connect(
+      final herdr = await HerdrClient(links: links, use: HostUse.send).connect(
         address: '10.0.0.2',
         port: 22,
         user: 'dev',
@@ -359,11 +359,11 @@ void main() {
         verifier: _pinned,
       );
       await pumpEventQueue();
-      dial.clients.single.forwards.single.wire.feed(serverHandshake());
+      dial.clients.last.forwards.single.wire.feed(serverHandshake());
       final connection = await screen;
       final workspace = WorkspaceSsh.borrowed(await _lease(links));
       await _schedule(container);
-      await HerdrClient(links: links, caller: 'test').fetchPaths(
+      await HerdrClient(links: links, use: HostUse.send).fetchPaths(
         address: '10.0.0.2',
         port: 22,
         user: 'dev',
@@ -371,11 +371,12 @@ void main() {
         verifier: _pinned,
       );
 
-      expect(dial.dials, 1);
+      expect(dial.dials, 2);
+      expect(dial.clients.first.forwards, isEmpty);
       herdr.close();
       await connection.close();
       await workspace.close();
-      expect(dial.clients.single.closes, 0);
+      expect(dial.clients.every((client) => client.closes == 0), isTrue);
       container.dispose();
       links.close();
     });
@@ -393,7 +394,7 @@ void main() {
         await expectLater(herdr.paths(), throwsA(isA<HerdrBusy>()));
         herdr.close();
 
-        final devices = DeviceSsh.borrowed(await _lease(links));
+        final devices = DeviceSsh.leasing((_) => _lease(links));
         await expectLater(devices.list(), throwsA(isA<HerdrBusy>()));
         await devices.close();
 

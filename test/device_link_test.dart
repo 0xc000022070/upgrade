@@ -9,6 +9,7 @@ import 'package:upgrade/platform/host_links.dart';
 import 'package:upgrade/platform/ssh_settle.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/host_links.dart';
 import 'support/ssh_exec.dart';
 
 const _pixel = HostDevice(
@@ -80,6 +81,17 @@ final class _Client implements SSHClient {
 }
 
 final class _Refusing implements SSHClient {
+  var closed = false;
+
+  @override
+  bool get isClosed => closed;
+
+  @override
+  Future<void> get done => Completer<void>().future;
+
+  @override
+  Future<void> close() async => closed = true;
+
   @override
   Future<SSHSession> execute(
     String command, {
@@ -98,6 +110,12 @@ final class _Socket implements SSHSocket {
 }
 
 Future<void> _flush() => Future<void>.delayed(Duration.zero);
+
+Future<HostLease> _track(List<HostLease> leases, SSHClient client) async {
+  final lease = await leaseOver(client);
+  leases.add(lease);
+  return lease;
+}
 
 void main() {
   test(
@@ -128,14 +146,19 @@ void main() {
     expect(session.destroyed, 1);
   });
 
-  test('a borrowed link closed ends its loop and its listing, never the connection', () async {
+  test('a leasing link closed ends its loop and its listing, never the connection', () async {
     final client = FakeRunClient((_) => null);
-    var released = 0;
-    final link = DeviceSsh.borrowed(HostLease(client, () => released++));
+    final uses = <HostUse>[];
+    final leases = <HostLease>[];
+    final link = DeviceSsh.leasing((use) async {
+      uses.add(use);
+      return _track(leases, client);
+    });
     link.frames(_pixel).listen((_) {}, onError: (_) {});
     unawaited(link.list().then((_) {}, onError: (_) {}));
     await pumpEventQueue();
     expect(client.sessions, hasLength(2));
+    expect(uses, unorderedEquals([HostUse.deviceDock, HostUse.devices]));
 
     await link.close();
     await link.close();
@@ -144,58 +167,50 @@ void main() {
       expect(exec.signals, [SSHSignal.TERM]);
       expect(exec.destroyed, 1);
     }
-    expect(released, 1);
+    expect(leases.every((lease) => lease.closed), isTrue);
     expect(client.closed, isFalse);
   });
 
-  test('a borrowed link reads closed once the shared connection is', () async {
-    final client = FakeRunClient((_) => null);
-    final link = DeviceSsh.borrowed(HostLease(client, () {}));
-    expect(link.closed, isFalse);
-    await client.close();
-    expect(link.closed, isTrue);
-  });
-
-  test('a listing ends its command once it has answered', () async {
+  test('a listing ends its command and lets its lease go once it has answered', () async {
     final client = FakeRunClient(
       (_) => (exitCode: 0, stdout: 'A emulator-5554 pixel\n', stderr: ''),
     );
-    final link = DeviceSsh.borrowed(HostLease(client, () {}));
+    final leases = <HostLease>[];
+    final link = DeviceSsh.leasing(
+      (_) => _track(leases, client),
+    );
     expect(await link.list(), [_pixel]);
     expect(client.sessions.single.destroyed, 1);
+    expect(leases.single.closed, isTrue);
   });
 
-  test('a listing that fails on a borrowed link suspects the link', () async {
-    var suspected = 0;
-    final link = DeviceSsh.borrowed(
-      HostLease(_Refusing(), () {}, () async => suspected++),
-    );
+  test('a listing refused by the host fails without touching the link', () async {
+    final client = _Refusing();
+    final link = DeviceSsh.leasing((_) => leaseOver(client));
     await expectLater(link.list(), throwsA(anything));
-    expect(suspected, 1);
+    expect(client.closed, isFalse);
+    expect(link.closed, isFalse);
   });
 
   test('a read answers with its output and ends its command', () async {
     final client = FakeRunClient(
       (_) => (exitCode: 0, stdout: 'noise\nB emulator-5556\n', stderr: ''),
     );
-    final link = DeviceSsh.borrowed(HostLease(client, () {}));
+    final link = DeviceSsh.leasing((_) => leaseOver(client));
     expect(await link.read('boot'), 'noise\nB emulator-5556\n');
     expect(client.sessions.single.destroyed, 1);
   });
 
   test('a read past its limit ends its command and keeps the link', () async {
-    var suspected = 0;
     final client = FakeRunClient((_) => null);
-    final link = DeviceSsh.borrowed(
-      HostLease(client, () {}, () async => suspected++),
-    );
+    final link = DeviceSsh.leasing((_) => leaseOver(client));
     await expectLater(
       link.read('boot', limit: const Duration(milliseconds: 20)),
       throwsA(isA<TimeoutException>()),
     );
     expect(client.sessions.single.signals, [SSHSignal.TERM]);
     expect(client.sessions.single.destroyed, 1);
-    expect(suspected, 0);
+    expect(client.closed, isFalse);
     expect(link.closed, isFalse);
   });
 

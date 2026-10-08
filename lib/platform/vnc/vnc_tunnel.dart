@@ -37,7 +37,7 @@ class VncTunnel {
         user: user,
         privateKey: privateKey,
         verifier: verifier,
-        caller: 'vnc',
+        use: HostUse.vnc,
       ),
       verifier,
     );
@@ -68,9 +68,6 @@ class VncTunnel {
     } catch (error) {
       await rfb?.close();
       channel?.destroy();
-      if (error is VncUnreachable || error is VncStreamClosed) {
-        await lease.suspect();
-      }
       lease.release();
       rethrow;
     }

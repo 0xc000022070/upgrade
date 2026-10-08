@@ -8,6 +8,7 @@ import '../../application/navigation.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../platform/devices/device_link.dart';
 import '../../platform/host_keys.dart';
+import '../../platform/host_links.dart';
 import '../../platform/vnc/vnc_tunnel.dart';
 import '../hosts/host_key_sheet.dart';
 import '../screen/screen_controller.dart';
@@ -407,16 +408,22 @@ final deviceLinkOpenerProvider = Provider<DeviceLinkOpener>((ref) {
     required user,
     required privateKey,
     required verifier,
-  }) async => DeviceSsh.borrowed(
-    await links.lease(
-      address: address,
-      port: port,
-      user: user,
-      privateKey: privateKey,
-      verifier: verifier,
-      caller: 'device dock',
-    ),
-  );
+  }) async {
+    Future<HostLease> lease(HostKeyVerifier verifier, HostUse use) =>
+        links.lease(
+          address: address,
+          port: port,
+          user: user,
+          privateKey: privateKey,
+          verifier: verifier,
+          use: use,
+        );
+    (await lease(verifier, HostUse.devices)).release();
+    final trusted = HostKeyVerifier.pinnedOnly(
+      verifier.verified ?? verifier.pinned,
+    );
+    return DeviceSsh.leasing((use) => lease(trusted, use));
+  };
 });
 
 final vncOpenerProvider = Provider<VncOpener>(

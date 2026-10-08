@@ -8,6 +8,7 @@ import '../data/repositories/path_repository.dart';
 import '../platform/herdr_client.dart';
 import '../platform/shell/remote_shell.dart';
 import '../platform/host_keys.dart';
+import '../platform/host_links.dart';
 import '../platform/keys.dart';
 import 'agent_kind.dart';
 import 'agents.dart';
@@ -53,7 +54,7 @@ Future<SpawnResult> _fakeSend({
 
 final herdrSendProvider = Provider<HerdrSend>((ref) {
   if (_fakeSpawn) return _fakeSend;
-  return HerdrClient(links: ref.read(hostLinksProvider), caller: 'send').send;
+  return HerdrClient(links: ref.read(hostLinksProvider), use: HostUse.send).send;
 });
 
 /// A prompt leads and the title follows it; nothing is wrapped around either, or the agent reads

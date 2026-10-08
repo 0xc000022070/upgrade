@@ -3,10 +3,10 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:upgrade/platform/herdr_client.dart';
-import 'package:upgrade/platform/host_links.dart';
 import 'package:upgrade/platform/shell/shell_tunnel.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/host_links.dart';
 import 'support/ssh_exec.dart';
 
 void main() {
@@ -42,8 +42,8 @@ void main() {
     'a borrowed session closed mid-call ends its command and keeps the link',
     () async {
       final client = FakeRunClient((_) => null);
-      var released = 0;
-      final herdr = HerdrSession.borrowed(HostLease(client, () => released++));
+      final lease = await leaseOver(client);
+      final herdr = HerdrSession.borrowed(lease);
 
       unawaited(herdr.paths().then((_) {}, onError: (_) {}));
       await pumpEventQueue();
@@ -54,7 +54,7 @@ void main() {
       final exec = client.sessions.single;
       expect(exec.signals, [SSHSignal.TERM]);
       expect(exec.destroyed, 1);
-      expect(released, 1);
+      expect(lease.closed, isTrue);
       expect(client.closed, isFalse);
       await expectLater(herdr.paths(), throwsA(isA<HerdrUnreachable>()));
     },
@@ -65,8 +65,8 @@ void main() {
     () async {
       final forward = _Forward();
       final client = _ForwardClient(forward);
-      var released = 0;
-      final herdr = HerdrSession.borrowed(HostLease(client, () => released++));
+      final lease = await leaseOver(client);
+      final herdr = HerdrSession.borrowed(lease);
 
       unawaited(herdr.list().then((_) {}, onError: (_) {}));
       await pumpEventQueue();
@@ -74,7 +74,7 @@ void main() {
       herdr.close();
 
       expect(forward.destroyed, 1);
-      expect(released, 1);
+      expect(lease.closed, isTrue);
       expect(client.closed, isFalse);
     },
   );
@@ -113,6 +113,12 @@ final class _ForwardClient implements SSHClient {
   );
   var forwards = 0;
   var closed = false;
+
+  @override
+  bool get isClosed => closed;
+
+  @override
+  Future<void> get done => Completer<void>().future;
 
   @override
   Future<void> close() async => closed = true;

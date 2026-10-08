@@ -732,71 +732,76 @@ typedef DeviceLinkOpener = Future<DeviceLink> Function({
   required HostKeyVerifier verifier,
 });
 
+typedef _Borrowed = ({
+  Future<SSHSession> Function(String command) execute,
+  void Function() release,
+});
+
 class DeviceSsh implements DeviceLink {
   @visibleForTesting
-  DeviceSsh.over(SSHSocket socket, this._client)
-    : _letGo = (() => unawaited(closeSsh(_client, socket))),
-      _suspect = _trusted;
+  DeviceSsh.over(SSHSocket socket, SSHClient client)
+    : _lend = ((_) async =>
+          (execute: (command) => client.execute(command), release: _nothing)),
+      _letGo = (() => unawaited(closeSsh(client, socket))),
+      _gone = (() => client.isClosed);
 
-  DeviceSsh.borrowed(HostLease lease)
-    : _client = lease.client,
-      _letGo = lease.release,
-      _suspect = lease.suspect;
+  DeviceSsh.leasing(Future<HostLease> Function(HostUse use) lease)
+    : _lend = ((use) async {
+        final held = await lease(use);
+        return (
+          execute: (command) => held.execute(command),
+          release: held.release,
+        );
+      }),
+      _letGo = _nothing,
+      _gone = _never;
 
   static const timeout = Duration(seconds: 10);
 
-  final SSHClient _client;
+  final Future<_Borrowed> Function(HostUse use) _lend;
   final void Function() _letGo;
-  final void Function() _suspect;
-  final _execs = <SSHSession>{};
+  final bool Function() _gone;
+  final _execs = <SSHSession, void Function()>{};
   var _closed = false;
+
+  static void _nothing() {}
+  static bool _never() => false;
 
   @override
   Future<List<HostDevice>> list() async {
-    final stdout = await _doubting(() => _run(DeviceCommands.list()));
+    final stdout = await _guard(() => _run(DeviceCommands.list()));
     return parseDeviceList(utf8.decode(stdout, allowMalformed: true));
   }
 
-  Future<SSHSession> _exec(String command) async {
+  Future<SSHSession> _exec(String command, HostUse use) async {
     if (_closed) throw const HerdrUnreachable('device link closed');
+    final held = await _lend(use);
     final SSHSession session;
     try {
-      session = await _client.execute(command);
+      session = await held.execute(command);
     } on SSHChannelOpenError catch (error) {
+      held.release();
       throw HerdrBusy('$error');
+    } catch (_) {
+      held.release();
+      rethrow;
     }
     if (_closed) {
       endExec(session);
+      held.release();
       throw const HerdrUnreachable('device link closed');
     }
-    _execs.add(session);
+    _execs[session] = held.release;
     return session;
   }
 
-  static void _trusted() {}
-
-  void _doubt() {
-    if (!_closed) _suspect();
-  }
-
-  Future<T> _doubting<T>(Future<T> Function() body) async {
-    try {
-      return await _guard(body);
-    } on HerdrBusy {
-      rethrow;
-    } catch (_) {
-      _doubt();
-      rethrow;
-    }
-  }
-
   void _end(SSHSession session) {
-    _execs.remove(session);
+    _execs.remove(session)?.call();
     endExec(session);
   }
 
   Future<Uint8List> _run(String command) async {
-    final session = await _exec(command);
+    final session = await _exec(command, HostUse.devices);
     try {
       return await _drain(session);
     } finally {
@@ -817,18 +822,8 @@ class DeviceSsh implements DeviceLink {
 
   @override
   Future<String> read(String command, {Duration? limit}) async {
-    final session = await _doubting(() => _exec(command));
-    var settled = false;
-    Future<Uint8List> drained() async {
-      try {
-        return await _guard(() => _drain(session));
-      } catch (_) {
-        if (!settled) _doubt();
-        rethrow;
-      }
-    }
-
-    final pending = drained();
+    final session = await _guard(() => _exec(command, HostUse.devices));
+    final pending = _guard(() => _drain(session));
     try {
       final out = limit == null ? await pending : await pending.timeout(limit);
       return utf8.decode(out, allowMalformed: true);
@@ -836,7 +831,6 @@ class DeviceSsh implements DeviceLink {
       pending.ignore();
       rethrow;
     } finally {
-      settled = true;
       _end(session);
     }
   }
@@ -851,7 +845,7 @@ class DeviceSsh implements DeviceLink {
       onListen: () async {
         try {
           final opened = await _guard(
-            () => _exec(DeviceCommands.frames(device)),
+            () => _exec(DeviceCommands.frames(device), HostUse.deviceDock),
           );
           if (cancelled) {
             _end(opened);
@@ -864,16 +858,15 @@ class DeviceSsh implements DeviceLink {
               .listen(
                 out.add,
                 onError: (Object error, StackTrace stack) {
-                  _doubt();
+                  _end(opened);
                   out.addError(error, stack);
                 },
                 onDone: () {
-                  _doubt();
+                  _end(opened);
                   out.close();
                 },
               );
         } catch (error, stack) {
-          if (!cancelled && error is! HerdrBusy) _doubt();
           out.addError(error, stack);
           await out.close();
         }
@@ -889,17 +882,17 @@ class DeviceSsh implements DeviceLink {
 
   @override
   Future<void> run(String command) async {
-    await _doubting(() => _run(command));
+    await _guard(() => _run(command));
   }
 
   @override
-  bool get closed => _closed || _client.isClosed;
+  bool get closed => _closed || _gone();
 
   @override
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
-    for (final exec in [..._execs]) {
+    for (final exec in [..._execs.keys]) {
       _end(exec);
     }
     _letGo();

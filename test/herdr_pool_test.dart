@@ -104,14 +104,18 @@ void main() {
   testWidgets(
     'a held session that stops answering on a dead link is redialled once the ping goes unanswered',
     (tester) async {
-      final rig = _Rig();
+      var at = DateTime(2026, 9, 24, 12);
+      final rig = _Rig(now: () => at);
       await rig.fetch();
       final dead = rig.sessions.single..gate = Completer();
       rig.dial.clients.single.pong = Completer();
 
       var answered = false;
       unawaited(rig.fetch().then((_) => answered = true));
-      await tester.pump(const Duration(seconds: 6, milliseconds: 999));
+      at = at.add(const Duration(seconds: 5));
+      await tester.pump(
+        rig.pool.reuse + rig.links.answer - const Duration(milliseconds: 1),
+      );
       expect(answered, isFalse);
       await tester.pump(const Duration(milliseconds: 1));
 
@@ -204,7 +208,7 @@ void main() {
       var answered = false;
       unawaited(rig.fetch().then((_) => answered = true));
 
-      await tester.pump(const Duration(seconds: 1, milliseconds: 999));
+      await tester.pump(rig.links.answer - const Duration(milliseconds: 1));
       expect(answered, isFalse);
       expect(rig.dial.dials, 1);
       await tester.pump(const Duration(milliseconds: 1));

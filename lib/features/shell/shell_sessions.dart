@@ -18,6 +18,7 @@ import '../../data/shell_snapshot_store.dart';
 import '../../design/tokens.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
+import '../../platform/host_links.dart';
 import '../../platform/pin_notifications.dart';
 import '../../platform/shell/host_clipboard.dart';
 import '../../platform/shell/host_system.dart';
@@ -602,8 +603,11 @@ class ShellSessions extends ChangeNotifier {
     this.notifier,
     this.now = DateTime.now,
     UdpVerdicts? udpVerdicts,
+    this.links,
   }) : _override = open,
        udpVerdicts = udpVerdicts ?? UdpVerdicts();
+
+  final HostLinks? links;
 
   final PinNotifier? notifier;
 
@@ -636,7 +640,7 @@ class ShellSessions extends ChangeNotifier {
   final ShellOpener? _override;
 
   late final ShellOpener _open =
-      _override ?? ShellTunnel(udpVerdicts: udpVerdicts).open;
+      _override ?? ShellTunnel(udpVerdicts: udpVerdicts, links: links).open;
 
   final UdpVerdicts udpVerdicts;
 
@@ -1062,6 +1066,7 @@ class ShellSessions extends ChangeNotifier {
     _leftOn = null;
     _sleep?.cancel();
     _sleep = null;
+    links?.wake();
     for (final sessions in _byHost.values) {
       for (final session in sessions) {
         session._save?.cancel();
@@ -1075,6 +1080,7 @@ class ShellSessions extends ChangeNotifier {
     _sleep = null;
     if (!_away) return;
     _sleeping = true;
+    links?.sleep();
     for (final sessions in _byHost.values) {
       for (final session in sessions) {
         _suspend(session);
@@ -2220,5 +2226,6 @@ final shellSessionsProvider = Provider<ShellSessions>((ref) {
     tabs: ref.watch(shellTabRepositoryProvider),
     snapshots: ref.watch(shellSnapshotStoreProvider),
     notifier: const PinNotifications(),
+    links: ref.read(hostLinksProvider),
   );
 });

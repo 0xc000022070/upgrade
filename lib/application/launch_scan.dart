@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/host_repository.dart';
 import '../platform/herdr_client.dart';
 import '../platform/host_keys.dart';
+import '../platform/host_links.dart';
 import '../platform/keys.dart';
 import '../platform/shell/shell_launch.dart';
 import 'agents.dart';
@@ -77,7 +78,7 @@ final launchScannerProvider = Provider(
   (ref) => LaunchScanner(
     fetch: HerdrClient(
       links: ref.read(hostLinksProvider),
-      caller: 'launch scan',
+      use: HostUse.launchScan,
     ).fetchLaunchTargets,
     keys: ref.watch(ed25519KeysProvider),
   ),

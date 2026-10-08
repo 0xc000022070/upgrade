@@ -52,36 +52,47 @@ typedef ShellDialer = Future<ShellHost> Function({
   required HostKeyVerifier verifier,
 });
 
-Future<ShellHost> _dialSsh({
-  required String address,
-  required int port,
-  required String user,
-  required String privateKey,
-  required Duration timeout,
-  required Duration keepAlive,
-  required HostKeyVerifier verifier,
-}) async {
-  final ssh = await HostLinks.own(
-    address: address,
-    port: port,
-    user: user,
-    privateKey: privateKey,
-    timeout: timeout,
-    keepAlive: keepAlive,
-    verifier: verifier,
-  );
-  return _SshHost(ssh.socket, ssh.client);
-}
+ShellDialer _dialOver(HostLinks links) =>
+    ({
+      required address,
+      required port,
+      required user,
+      required privateKey,
+      required timeout,
+      required keepAlive,
+      required verifier,
+    }) async => _SshHost.claimed(
+      await links.claim(
+        address: address,
+        port: port,
+        user: user,
+        privateKey: privateKey,
+        verifier: verifier,
+        use: HostUse.tab,
+      ),
+    );
 
 @visibleForTesting
 ShellHost sshHostOver(SSHSocket socket, SSHClient client) =>
-    _SshHost(socket, client);
+    _SshHost.over(socket, client);
 
 class _SshHost implements ShellHost {
-  _SshHost(this._socket, this._client);
+  _SshHost.over(SSHSocket socket, this._client)
+    : _execute = ((command, pty) => _client.execute(command, pty: pty)),
+      _shell = ((pty) => _client.shell(pty: pty)),
+      _close = (() => closeSettled(_client, socket));
 
-  final SSHSocket _socket;
+  _SshHost.claimed(HostLease lease)
+    : _client = lease.client,
+      _execute = ((command, pty) => lease.execute(command, pty: pty)),
+      _shell = lease.shell,
+      _close = (() async => lease.release());
+
   final SSHClient _client;
+  final Future<SSHSession> Function(String command, SSHPtyConfig? pty)
+  _execute;
+  final Future<SSHSession> Function(SSHPtyConfig pty) _shell;
+  final Future<void> Function() _close;
 
   @override
   Future<void> get authenticated => _client.authenticated;
@@ -90,20 +101,19 @@ class _SshHost implements ShellHost {
   Future<void> get done => _client.done;
 
   @override
-  Future<ShellPty> shell(SSHPtyConfig pty) async =>
-      _SshPty(await _client.shell(pty: pty));
+  Future<ShellPty> shell(SSHPtyConfig pty) async => _SshPty(await _shell(pty));
 
   @override
   Future<ShellPty> run(String command, SSHPtyConfig pty) async =>
       // An exec request, not a shell one, is what makes a detach end the channel like `exit`.
-      _SshPty(await _client.execute(command, pty: pty));
+      _SshPty(await _execute(command, pty));
 
   @override
   Future<ShellExec> execute(String command) async =>
-      _SshExec(await _client.execute(command));
+      _SshExec(await _execute(command, null));
 
   @override
-  Future<void> close() => closeSettled(_client, _socket);
+  Future<void> close() => _close();
 }
 
 @visibleForTesting

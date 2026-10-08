@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
@@ -32,31 +31,47 @@ abstract interface class WorkspaceRunner {
 /// Held, not reopened: a handshake is the expensive part of asking a machine anything,
 /// and every tap on this screen is one command on a connection that already exists.
 class WorkspaceSsh implements WorkspaceRunner {
-  WorkspaceSsh.borrowed(this._lease);
+  WorkspaceSsh.borrowed(this._lease, {this._again});
 
   static const timeout = Duration(seconds: 10);
   static const answer = Duration(seconds: 30);
 
-  final HostLease _lease;
+  HostLease _lease;
+  final Future<HostLease> Function()? _again;
+  Future<HostLease>? _leasing;
   final _execs = <SSHSession>{};
   var _closed = false;
 
+  Future<HostLease> _held() {
+    if (!_lease.closed) return Future.value(_lease);
+    final again = _again;
+    if (again == null) throw const HerdrUnreachable('workspace closed');
+    return _leasing ??= () async {
+      try {
+        _lease.release();
+        final lease = await again();
+        if (_closed) {
+          lease.release();
+          throw const HerdrUnreachable('workspace closed');
+        }
+        return _lease = lease;
+      } finally {
+        _leasing = null;
+      }
+    }();
+  }
+
   @override
   Future<WorkspaceReply> run(String command) async {
-    if (_closed || _lease.client.isClosed) {
-      throw const HerdrUnreachable('workspace closed');
-    }
+    if (_closed) throw const HerdrUnreachable('workspace closed');
+    final lease = await _held();
     final SSHSession session;
     try {
-      session = await openWithin(
-        _lease.client.execute(command),
-        timeout,
-        endExec,
-      );
+      session = await openWithin(lease.execute(command), timeout, endExec);
     } on SSHChannelOpenError catch (error) {
       throw HerdrBusy('$error');
     } catch (error) {
-      throw await _doubted(error);
+      throw _failure(error);
     }
     if (_closed) {
       endExec(session);
@@ -79,22 +94,14 @@ class WorkspaceSsh implements WorkspaceRunner {
         stderr: utf8.decode(err.takeBytes(), allowMalformed: true),
       );
     } catch (error) {
-      throw await _doubted(error);
+      throw _failure(error);
     } finally {
       _execs.remove(session);
       endExec(session);
     }
   }
 
-  Future<Object> _doubted(Object error) async {
-    if (!_closed &&
-        (error is TimeoutException ||
-            error is SSHError ||
-            error is SocketException)) {
-      await _lease.suspect();
-    }
-    return asHerdrFailure(error) ?? error;
-  }
+  static Object _failure(Object error) => asHerdrFailure(error) ?? error;
 
   @override
   Future<void> close() async {

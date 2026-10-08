@@ -28,6 +28,9 @@ final class FakeLinkClient implements SSHClient {
   Completer<void>? forwardGate;
 
   @override
+  Future<void> get authenticated => Future.value();
+
+  @override
   bool get isClosed => gone.isCompleted;
 
   @override
@@ -90,6 +93,34 @@ final class FakeLinkClient implements SSHClient {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
+
+Future<HostLease> leaseOver(SSHClient client) =>
+    HostLinks(
+      dial:
+          ({
+            required address,
+            required port,
+            required user,
+            required privateKey,
+            required verifier,
+            onSettling,
+          }) async =>
+              (socket: FakeExecSocket(), client: client, received: () => 0),
+      quiet: const Duration(days: 1),
+    ).lease(
+      address: '10.0.0.2',
+      port: 22,
+      user: 'dev',
+      privateKey: 'key',
+      verifier: HostKeyVerifier.pinnedOnly(
+        PinnedHostKey(
+          type: 'ssh-ed25519',
+          fingerprint: 'SHA256:fake',
+          pinnedAt: DateTime(2026),
+        ),
+      ),
+      use: HostUse.send,
+    );
 
 final class FakeForwardChannel implements SSHForwardChannel {
   final wire = FakeVncChannel();

@@ -99,7 +99,7 @@ void main() {
     final session = FakeExecSession();
     session.input.stream.listen(null);
     final answer = scheduleOver(
-      FakeExecClient(session),
+      FakeExecClient(session).execute,
       'dev',
       'host',
       'list',

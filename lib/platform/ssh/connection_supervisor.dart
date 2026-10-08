@@ -12,19 +12,19 @@
 ///   and is accepted only by, the supervisor under the terminal that ended.
 /// - [Reconnect] is minted only here, from a [ShellEnded], a [HealthCheckFailed] on its own
 ///   host, or a dial that failed on the host or link. A timer dials for nothing else.
-/// - A dial includes the startup steps [SshConnector.establish] runs before it hands the
-///   connection out; a probe or command on a handed-out connection is never evidence.
+/// - A dial includes the startup steps [SshConnector.establish] runs; a probe or command
+///   on a handed-out connection is never evidence, and is never retried on the same host.
 /// - No reason is a command failure, and every switch over reasons is exhaustive.
-/// - A command is retried once, on the same host, only when its channel failed to open.
-/// - A held host that dies is redialled on a fixed schedule, only for transports that ask;
-///   reads answer null until one lands.
-/// - The one liveness verdict: a terminal silent past its health window has ended.
-///
-/// By convention: [UserIntent.fromGesture] and [PlatformSignal.fromPlatform] are minted
-/// only where the gesture or the platform callback is.
-///
-/// A new part, public reason constructor, public path to the raw host, or reason variant
-/// needs the owner's explicit approval.
+/// - A held host that dies is redialled on a fixed schedule for transports that ask. A
+///   terminal silent past its window has ended; a held link ends only by its keepalive.
+/// - One owner per host per isolate: one control and one screen link per identity, a
+///   [HostUse] fixing the lane. [UserClosed], [ShellEnded], [_StartupAbandoned] and
+///   [_Unclaimed] release one tab's claim; [NetworkChanged] and a dead link end it for all,
+///   with one redial. Beside it: other identities or isolates, the trust probe, one overflow.
+/// - Past the sleep grace the app holds only a live plain-SSH terminal's control link, and
+///   only [HostUse.wakes] uses lease beside it.
+/// Gestures and platform callbacks alone mint [UserIntent] and [PlatformSignal]. A new part,
+/// public reason constructor, raw host path or reason variant needs the owner's approval.
 library;
 
 import 'dart:async';
@@ -53,7 +53,7 @@ abstract interface class HostChannels {
   });
 }
 
-/// Sole owner of one tab's host. Channels from [open] answer null once that host is gone.
+/// One tab's claim on its host's shared control link; [open]'s channels outlive it as null.
 final class ConnectionSupervisor implements HostChannels {
   ConnectionSupervisor._(this._connector, this._target);
 
@@ -186,6 +186,7 @@ final class ConnectionSupervisor implements HostChannels {
     }
     _report();
     if (_retired && !_down.isClosed) unawaited(_down.close());
+    if (reason is NetworkChanged) _connector._renounce(_target, reason);
     return link == null ? Future.value() : _close(link.host);
   }
 
@@ -331,13 +332,25 @@ const _reviveDelays = <Duration>[
 final class SshConnector {
   SshConnector({
     ShellDialer? dial,
+    HostLinks? links,
     required this.timeout,
     required this.keepAlive,
-  }) : _dial = dial ?? _dialSsh;
+  }) : _links = links ?? HostLinks(),
+       _injected = dial;
 
-  final ShellDialer _dial;
+  final HostLinks _links;
+  final ShellDialer? _injected;
+  late final ShellDialer _dial = _injected ?? _dialOver(_links);
   final Duration timeout;
   final Duration keepAlive;
+
+  void _renounce(_Target target, NetworkChanged change) => _links.renounce(
+    address: target.address,
+    port: target.port,
+    user: target.user,
+    privateKey: target.privateKey,
+    change: change,
+  );
 
   /// A [startup] that throws drops the host first: a half-open connection counts against
   /// the host until its own timeout. A host or link failure hands [failed] its [Reconnect].

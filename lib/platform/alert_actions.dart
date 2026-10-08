@@ -28,6 +28,8 @@ void Function()? alertOpenHandler;
 
 void Function(String hostId)? pinOpenHandler;
 
+HostLinks? alertLinks;
+
 Future<void> handleAlertAction(NotificationResponse response) async {
   final pinHost = pinPayloadHost(response.payload);
   if (pinHost != null) {
@@ -73,9 +75,10 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
     if (privateKey == null) {
       throw HerdrKeyRejected('no private key stored for ${target.keyId}');
     }
-    final links = HostLinks();
+    final shared = alertLinks;
+    final links = shared ?? HostLinks();
     try {
-      final session = await HerdrClient(links: links, caller: 'alert action')
+      final session = await HerdrClient(links: links, use: HostUse.alertAction)
           .connect(
             address: target.address,
             port: target.port,
@@ -99,7 +102,7 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
         session.close();
       }
     } finally {
-      links.close();
+      if (shared == null) links.close();
     }
   } on EngineRefused catch (error) {
     debugPrint('upgrade.engine ${target.address}: $error');

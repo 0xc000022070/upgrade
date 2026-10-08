@@ -95,7 +95,10 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     if (run == (_timer != null)) return;
     _timer?.cancel();
     _timer = null;
-    if (!run) return;
+    if (!run) {
+      _drop();
+      return;
+    }
     unawaited(_tick());
     _timer = Timer.periodic(AgentChatScreen.interval, (_) => _tick());
   }

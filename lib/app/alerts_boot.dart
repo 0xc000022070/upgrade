@@ -12,6 +12,7 @@ import '../platform/agent_watcher.dart';
 import '../platform/alert_actions.dart';
 import '../platform/alert_notifications.dart';
 import '../platform/herdr_client.dart';
+import '../platform/host_links.dart';
 import '../platform/pin_notifications.dart';
 
 /// Set when the process was started by an `OPEN` tap on an alert, so a cold launch
@@ -85,11 +86,14 @@ class _AlertsHostState extends ConsumerState<AlertsHost> {
   /// would restart a service already watching these hosts for these kinds.
   String? _applied;
 
+  HostLinks? _links;
+
   @override
   void initState() {
     super.initState();
     alertOpenHandler = _open;
     pinOpenHandler = _openShell;
+    alertLinks = _links = ref.read(hostLinksProvider);
     // Both conditions in one place. In `build` this was a side effect that ran again on
     // every rebuild, including the ones neither provider caused.
     ref.listenManual(alertsWantedProvider, (_, _) => _sync());
@@ -115,6 +119,7 @@ class _AlertsHostState extends ConsumerState<AlertsHost> {
   void dispose() {
     if (identical(alertOpenHandler, _open)) alertOpenHandler = null;
     if (identical(pinOpenHandler, _openShell)) pinOpenHandler = null;
+    if (identical(alertLinks, _links)) alertLinks = null;
     super.dispose();
   }
 

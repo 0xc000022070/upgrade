@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/host_repository.dart';
 import '../platform/herdr_client.dart';
 import '../platform/host_keys.dart';
+import '../platform/host_links.dart';
 import 'reason_lines.dart';
 import '../platform/keys.dart';
 import 'agent_kind.dart';
@@ -107,7 +108,7 @@ class PathScanner {
 final pathScannerProvider = Provider((ref) {
   final client = HerdrClient(
     links: ref.read(hostLinksProvider),
-    caller: 'path scan',
+    use: HostUse.pathScan,
   );
   return PathScanner(
     fetch: client.fetchPaths,

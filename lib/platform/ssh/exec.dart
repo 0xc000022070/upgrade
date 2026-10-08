@@ -38,8 +38,8 @@ bool isKeyFailure(Object error) => switch (error) {
   _ => false,
 };
 
-/// A channel opening past the deadline is closed unread; one that fails to open is asked
-/// for once more, since its command provably never started.
+/// A channel opening past the deadline is closed unread. One the host refuses for its
+/// session limit was already taken to the overflow link by [ShellHost.execute].
 Future<ExecResult> _run(
   ShellHost host,
   String command, {
@@ -48,17 +48,8 @@ Future<ExecResult> _run(
 }) async {
   ShellExec? channel;
   var expired = false;
-  Future<ShellExec> openChannel() async {
-    try {
-      return await host.execute(command);
-    } on SSHChannelOpenError {
-      if (expired) rethrow;
-      return host.execute(command);
-    }
-  }
-
   final task = () async {
-    final opened = await openChannel();
+    final opened = await host.execute(command);
     if (expired) {
       opened.close();
       throw TimeoutException('SSH channel opened after the deadline', timeout);

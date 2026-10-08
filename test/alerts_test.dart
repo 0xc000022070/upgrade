@@ -21,7 +21,7 @@ import 'support/herdr_link.dart';
 /// as down so the loop backs off instead of looping on it.
 class RecordingHerdrClient extends HerdrClient {
   RecordingHerdrClient({this.failures = const {}})
-    : super(links: HostLinks(), caller: 'test');
+    : super(links: HostLinks(), use: HostUse.send);
 
   final Map<String, HerdrFailure> failures;
 
@@ -104,7 +104,7 @@ class _EngineSession extends _NoWatchSession {
 }
 
 class _FreshSessionClient extends HerdrClient {
-  _FreshSessionClient(this.next) : super(links: HostLinks(), caller: 'test');
+  _FreshSessionClient(this.next) : super(links: HostLinks(), use: HostUse.send);
 
   final HerdrSession Function() next;
 
@@ -120,7 +120,7 @@ class _FreshSessionClient extends HerdrClient {
 }
 
 class _SessionClient extends HerdrClient {
-  _SessionClient(this.session) : super(links: HostLinks(), caller: 'test');
+  _SessionClient(this.session) : super(links: HostLinks(), use: HostUse.send);
 
   final HerdrSession session;
 

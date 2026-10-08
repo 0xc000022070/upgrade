@@ -85,6 +85,8 @@ class HostScreenController extends ChangeNotifier {
   int _frameCount = 0;
   bool _away = false;
   bool _stalled = false;
+  Timer? _park;
+  bool _parked = false;
   Framebuffer? _lastFramebuffer;
   Size _framebufferSize = Size.zero;
   Duration? _lastFrame;
@@ -115,7 +117,9 @@ class HostScreenController extends ChangeNotifier {
 
   Duration? get lastFrameTime => _lastFrame;
 
-  Future<void> connect() async {
+  Future<void> connect() => _connect(attended: true);
+
+  Future<void> _connect({required bool attended}) async {
     final attempt = ++_attempt;
     _stalled = false;
     _phase = const ScreenConnecting();
@@ -140,7 +144,7 @@ class HostScreenController extends ChangeNotifier {
         password: host.vncPassword,
         verifier: HostKeyVerifier(
           pinned: _pinned ?? host.hostKey,
-          prompt: prompt,
+          prompt: attended ? prompt : null,
           pin: (key) async {
             _pinned = key;
             await pinHostKey?.call(host.id, key);
@@ -217,15 +221,37 @@ class HostScreenController extends ChangeNotifier {
     await connection.rfb.requestUpdate();
   }
 
+  static const parkAfter = Duration(seconds: 5);
+
   void setAway(bool away) {
     _away = away;
-    if (away || !_stalled) return;
+    _park?.cancel();
+    _park = null;
+    if (away) {
+      _park = Timer(parkAfter, _parkNow);
+      return;
+    }
+    if (_parked) {
+      _parked = false;
+      unawaited(_connect(attended: false));
+      return;
+    }
+    if (!_stalled) return;
     _stalled = false;
     unawaited(
       _connection?.rfb.requestUpdate().catchError(
         (Object error) => _log('resume request failed: $error'),
       ),
     );
+  }
+
+  void _parkNow() {
+    _park = null;
+    if (_disposed || !_away || _connection == null) return;
+    _parked = true;
+    _attempt++;
+    _log('parked while away');
+    unawaited(_teardown());
   }
 
   Future<ui.Image?> _decode(Framebuffer framebuffer) async {
@@ -334,6 +360,8 @@ class HostScreenController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _park?.cancel();
+    _park = null;
     unawaited(_teardown());
     _painted.dispose();
     _image?.dispose();

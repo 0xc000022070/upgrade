@@ -185,14 +185,14 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
         user: host.user,
         privateKey: privateKey,
         verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
-        caller: 'plugin scheduler',
+        use: HostUse.pluginScheduler,
       );
     } on HerdrFailure catch (error) {
       throw PluginException(error.reason(host.name));
     }
     try {
       return await scheduleOver(
-        lease.client,
+        (command) => lease.execute(command),
         host.user,
         scope,
         operation,
@@ -200,12 +200,6 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
       );
     } on SSHChannelOpenError {
       throw const PluginException('Host busy');
-    } on TimeoutException {
-      unawaited(lease.suspect());
-      rethrow;
-    } on SSHError {
-      unawaited(lease.suspect());
-      rethrow;
     } finally {
       lease.release();
     }
@@ -214,14 +208,14 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
 
 @visibleForTesting
 Future<Map<String, Object?>> scheduleOver(
-  SSHClient client,
+  Future<SSHSession> Function(String command) execute,
   String owner,
   String scope,
   String operation,
   Map<String, Object?> args,
 ) async {
   final session = await openWithin(
-    client.execute('upgraded'),
+    execute('upgraded'),
     const Duration(seconds: 10),
     endExec,
   );

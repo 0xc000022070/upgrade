@@ -544,17 +544,19 @@ class HerdrSession {
   @visibleForTesting
   HerdrSession.over(SSHSocket socket, this._client)
     : _letGo = (() => unawaited(closeSsh(_client, socket))),
-      _suspect = _trusted;
+      _execute = ((command) => _client.execute(command)),
+      _gone = (() => _client.isClosed);
 
   HerdrSession.borrowed(HostLease lease)
     : _client = lease.client,
       _letGo = lease.release,
-      _suspect = lease.suspect;
+      _execute = ((command) => lease.execute(command)),
+      _gone = (() => lease.closed);
 
   final SSHClient _client;
   final void Function() _letGo;
-  final void Function() _suspect;
-  static void _trusted() {}
+  final Future<SSHSession> Function(String command) _execute;
+  final bool Function() _gone;
   var _closed = false;
 
   final _sockets = <String, String>{};
@@ -719,7 +721,6 @@ class HerdrSession {
         return SpawnSent(pane.pane);
       })().timeout(deadline);
     } on TimeoutException {
-      _suspect();
       expired = true;
       final made = workspace;
       final name = session;
@@ -748,10 +749,7 @@ class HerdrSession {
   ) => _guard(
     () => body().timeout(
       within,
-      onTimeout: () {
-        _suspect();
-        throw TimeoutException(what, within);
-      },
+      onTimeout: () => throw TimeoutException(what, within),
     ),
   );
 
@@ -877,14 +875,14 @@ class HerdrSession {
   }
 
   void _open() {
-    if (_closed) throw const HerdrUnreachable('session closed');
+    if (_closed || _gone()) throw const HerdrUnreachable('session closed');
   }
 
   Future<SSHSession> _exec(String command) async {
     _open();
     final session = await _guard(() async {
       try {
-        return await _client.execute(command);
+        return await _execute(command);
       } on SSHChannelOpenError catch (error) {
         throw HerdrBusy('$error');
       }
@@ -1028,18 +1026,13 @@ class HerdrSession {
         session.stderr.cast<List<int>>().forEach(err.add),
       ]);
       session.stdin.add(stdin);
-      try {
-        await awaitWithin(
-          Future(() async {
-            await session.stdin.close();
-            await Future.wait([session.done, drained]);
-          }),
-          within,
-        );
-      } on TimeoutException {
-        _suspect();
-        rethrow;
-      }
+      await awaitWithin(
+        Future(() async {
+          await session.stdin.close();
+          await Future.wait([session.done, drained]);
+        }),
+        within,
+      );
       final stdout = out.takeBytes();
       final stderr = err.takeBytes();
       return SSHRunResult(
@@ -1464,10 +1457,10 @@ String _agentName(String label, String workspace) {
 }
 
 class HerdrClient {
-  const HerdrClient({required this.links, required this.caller});
+  const HerdrClient({required this.links, required this.use});
 
   final HostLinks links;
-  final String caller;
+  final HostUse use;
 
   /// Dart words a name that did not resolve in the exception's own message; the errno
   /// underneath is from the EAI_* namespace, which cannot be told apart from a connect
@@ -1738,7 +1731,7 @@ class HerdrClient {
       user: user,
       privateKey: privateKey,
       verifier: verifier,
-      caller: caller,
+      use: use,
     ),
   );
 

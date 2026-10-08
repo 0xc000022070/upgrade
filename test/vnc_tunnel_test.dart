@@ -74,7 +74,7 @@ void main() {
       user: 'dev',
       privateKey: 'key',
       verifier: HostKeyVerifier.pinnedOnly(_pin),
-      caller: 'test',
+      use: HostUse.vnc,
     );
 
     final connection = await _served(VncTunnel(links), dial);
@@ -94,7 +94,7 @@ void main() {
       user: 'dev',
       privateKey: 'key',
       verifier: HostKeyVerifier.pinnedOnly(_pin),
-      caller: 'test',
+      use: HostUse.vnc,
     );
     expect(dial.dials, 1);
     links.close();
@@ -114,13 +114,11 @@ void main() {
     links.close();
   });
 
-  testWidgets('a forward that never opens fails once, and RETRY redials', (
+  testWidgets('a forward that never opens fails once, and RETRY after the screen linger redials', (
     tester,
   ) async {
     final dial = FakeDial()
-      ..prepare = (client) => client
-        ..forwardGate = Completer()
-        ..pong = Completer();
+      ..prepare = (client) => client.forwardGate = Completer();
     final links = HostLinks(dial: dial.call);
     final tunnel = VncTunnel(links, timeout: const Duration(seconds: 1));
     Object? failure;
@@ -131,11 +129,12 @@ void main() {
     final client = dial.clients.single;
     dial.prepare = null;
     await tester.pump(const Duration(seconds: 1));
-    await tester.pump(const Duration(seconds: 2));
     await tester.pump();
 
     expect(failure, isA<VncUnreachable>());
-    expect(client.pings, 1);
+    expect(client.pings, 0);
+    expect(client.isClosed, isFalse);
+    await tester.pump(links.screenLinger);
     expect(client.isClosed, isTrue);
 
     unawaited(_open(tunnel).then((_) {}, onError: (Object _) {}));

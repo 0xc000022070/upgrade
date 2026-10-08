@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import '../herdr_client.dart';
 import '../host_keys.dart';
+import '../host_links.dart';
 import '../ssh/connection_supervisor.dart';
 import '../ssh_settle.dart';
 import 'engine_channel.dart';
@@ -30,12 +31,14 @@ class ShellTunnel {
     this.moshHealthInterval = const Duration(seconds: 3),
     this.moshGiveUp = const Duration(seconds: 30),
     ShellDialer? dial,
+    HostLinks? links,
     this.moshDialer = dialMosh,
     this.engineDialer = dialEngine,
     UdpVerdicts? udpVerdicts,
   }) : udpVerdicts = udpVerdicts ?? UdpVerdicts(),
        _connector = SshConnector(
          dial: dial,
+         links: links,
          timeout: timeout,
          keepAlive: keepAlive,
        );

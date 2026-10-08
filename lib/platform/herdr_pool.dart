@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:dartssh2/dartssh2.dart';
-
 import 'herdr_client.dart';
 import 'host_keys.dart';
 import 'host_links.dart';
@@ -46,19 +44,17 @@ class HerdrSessionPool {
 
     var held = _held[key];
     if (held != null && now().difference(held.usedAt) >= idle) {
-      _drop(key, held);
-      if (held.client case final client?) await _links.vouch(client);
+      await _drop(key, held);
       held = null;
     }
     if (held != null) {
       try {
         return await held.list(now(), within: reuse);
       } on TimeoutException {
-        _drop(key, held);
-        if (held.client case final client?) await _links.vouch(client);
+        await _drop(key, held);
         if (!held.ready) rethrow;
       } catch (_) {
-        _drop(key, held);
+        await _drop(key, held);
         if (!held.ready) rethrow;
       }
     }
@@ -71,7 +67,7 @@ class HerdrSessionPool {
         user: user,
         privateKey: privateKey,
         verifier: verifier,
-        caller: 'herdr poll',
+        use: HostUse.herdrPoll,
       ),
       borrow,
       idle,
@@ -81,22 +77,22 @@ class HerdrSessionPool {
     try {
       return await fresh.list(now());
     } catch (_) {
-      _drop(key, fresh);
+      unawaited(_drop(key, fresh));
       rethrow;
     }
   }
 
   void close() {
     for (final held in _held.values) {
-      held.close();
+      unawaited(held.close());
     }
     _held.clear();
   }
 
-  void _drop(String key, _Held? held) {
+  Future<void> _drop(String key, _Held? held) async {
     if (held == null || !identical(_held[key], held)) return;
     _held.remove(key);
-    held.close();
+    await held.close();
   }
 }
 
@@ -108,10 +104,7 @@ class _Held {
     this.usedAt,
     this._expire,
   ) {
-    _session = lease.then((lease) {
-      client = lease.client;
-      return borrow(lease);
-    });
+    _session = lease.then(borrow);
     _session.then((_) {
       ready = true;
     }, onError: (_) {});
@@ -123,7 +116,6 @@ class _Held {
   final void Function() _expire;
   Timer? _timer;
   bool ready = false;
-  SSHClient? client;
   DateTime usedAt;
 
   Future<List<AgentSnapshot>> list(DateTime at, {Duration? within}) async {
@@ -139,8 +131,8 @@ class _Held {
     _timer = Timer(_idle, _expire);
   }
 
-  void close() {
+  Future<void> close() {
     _timer?.cancel();
-    _session.then((session) => session.close(), onError: (_) {});
+    return _session.then((session) => session.close(), onError: (_) {});
   }
 }

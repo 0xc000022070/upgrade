@@ -544,7 +544,7 @@ void main() {
     await expectLater(
       HerdrClient(
         links: HostLinks(timeout: const Duration(milliseconds: 300)),
-        caller: 'test',
+        use: HostUse.send,
       ).connect(
         address: tarpit.address,
         port: tarpit.port,

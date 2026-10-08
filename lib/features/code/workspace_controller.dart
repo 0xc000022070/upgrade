@@ -8,6 +8,7 @@ import '../../application/agents.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../platform/herdr_client.dart';
 import '../../platform/host_keys.dart';
+import '../../platform/host_links.dart';
 import '../../platform/workspace/workspace_client.dart';
 import '../../platform/workspace/workspace_commands.dart';
 import '../../platform/workspace/workspace_model.dart';
@@ -30,16 +31,21 @@ final workspaceOpenerProvider = Provider<WorkspaceOpener>((ref) {
     required String user,
     required String privateKey,
     required HostKeyVerifier verifier,
-  }) async => WorkspaceSsh.borrowed(
-    await links.lease(
+  }) async {
+    Future<HostLease> lease(HostKeyVerifier verifier) => links.lease(
       address: address,
       port: port,
       user: user,
       privateKey: privateKey,
       verifier: verifier,
-      caller: 'workspace',
-    ),
-  );
+      use: HostUse.workspace,
+    );
+    final first = await lease(verifier);
+    final trusted = HostKeyVerifier.pinnedOnly(
+      verifier.verified ?? verifier.pinned,
+    );
+    return WorkspaceSsh.borrowed(first, again: () => lease(trusted));
+  };
 });
 
 /// A [ChangeNotifier] for the reason `HostScreenController` is one: the connection is

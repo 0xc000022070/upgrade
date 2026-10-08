@@ -75,6 +75,9 @@ final class FakeExecClient implements SSHClient {
   int? closedAt;
 
   @override
+  bool get isClosed => closedAt != null;
+
+  @override
   Future<void> close() async => closedAt = session.signals.length;
 
   @override
@@ -110,12 +113,19 @@ final class FakeRunClient implements SSHClient {
   final commands = <String>[];
   final sessions = <FakeExecSession>[];
   var closed = false;
+  final _gone = Completer<void>();
 
   @override
   bool get isClosed => closed;
 
   @override
-  Future<void> close() async => closed = true;
+  Future<void> get done => _gone.future;
+
+  @override
+  Future<void> close() async {
+    closed = true;
+    if (!_gone.isCompleted) _gone.complete();
+  }
 
   @override
   Future<SSHSession> execute(

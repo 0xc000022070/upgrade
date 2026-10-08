@@ -166,7 +166,6 @@ class FakeHost implements ShellHost {
   final Object? authError;
   final Object? shellError;
   Object? refuse;
-  Object? refuseOnce;
   Completer<void>? authGate;
   Completer<ShellExec>? execGate;
   String execOut;
@@ -192,9 +191,6 @@ class FakeHost implements ShellHost {
   @override
   Future<ShellExec> execute(String command) async {
     requests.add('exec $command');
-    final once = refuseOnce;
-    refuseOnce = null;
-    if (once != null) throw once;
     final error = refuse;
     if (error != null) throw error;
     final gate = execGate;
@@ -1242,31 +1238,8 @@ void main() {
       expect(dials, 1);
     });
 
-    test('a channel that failed to open is asked for once more on the same '
-        'host', () async {
-      const session = 'upgrade123';
-      final host = FakeHost()..execAnswer = moshHostAnswer;
-      var dials = 0;
-      final connection = await openOn(
-        moshTunnelOver([host], FakeMoshChannel(), () => dials++),
-        command: 'exec \$SHELL -l',
-        tabSession: session,
-        persistentSession: session,
-      );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
-      final before = host.requests.length;
-
-      host.refuseOnce = SSHChannelOpenError(1, 'channel open refused');
-      final result = await connection.channels.exec('pwd');
-
-      expect(result?.ok, isTrue);
-      expect(host.requests.sublist(before), ['exec pwd', 'exec pwd']);
-      expect(dials, 1);
-      expect(host.closed, isFalse);
-    });
-
-    test('a channel refused twice surfaces the error and leaves the host '
-        'alone', () async {
+    test('a refused channel is never asked for again on the same host, and '
+        'the host is left alone', () async {
       const session = 'upgrade123';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       var dials = 0;
@@ -1286,7 +1259,7 @@ void main() {
       );
       await pumpEventQueue();
 
-      expect(host.requests.sublist(before), ['exec pwd', 'exec pwd']);
+      expect(host.requests.sublist(before), ['exec pwd']);
       expect(dials, 1);
       expect(host.closed, isFalse);
     });
