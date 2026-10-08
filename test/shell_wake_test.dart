@@ -1,11 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/application/agents.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
 import 'package:upgrade/features/shell/shell_wake.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/host_links.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 
 import 'support/fake_shell.dart';
+import 'support/host_links.dart';
 import 'support/platform_channels.dart';
 import 'support/shell_route.dart';
 import 'support/themed_app.dart';
@@ -72,6 +78,47 @@ void main() {
 
     await sessions.close(intent: UserIntent.fromGesture(), rose.id, session);
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('a network arriving ends a silent link no tab holds', (
+    tester,
+  ) async {
+    final dial = FakeDial();
+    final links = HostLinks(dial: dial.call);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          shellSessionsProvider.overrideWithValue(
+            fakeShellSessions(FakeShellTransport()),
+          ),
+          hostLinksProvider.overrideWithValue(links),
+        ],
+        child: const ShellWakeHost(child: SizedBox.shrink()),
+      ),
+    );
+    final held = await links.lease(
+      address: '10.0.0.2',
+      port: 22,
+      user: 'dev',
+      privateKey: 'key',
+      verifier: HostKeyVerifier.pinnedOnly(
+        PinnedHostKey(
+          type: 'ssh-ed25519',
+          fingerprint: 'SHA256:vm',
+          pinnedAt: DateTime(2026),
+        ),
+      ),
+      use: HostUse.send,
+    );
+    dial.clients.single.pong = Completer();
+
+    await pushNetwork(true);
+    await tester.pump();
+    await tester.pump(links.answer);
+
+    expect(held.closed, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    links.close();
   });
 
   testWidgets('a network going dials nothing', (tester) async {

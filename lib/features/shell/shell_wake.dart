@@ -34,6 +34,9 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
         ref
             .read(shellSessionsProvider)
             .wakeAll(PlatformSignal.fromPlatform(), network: true);
+        // Only a tab's host is renounced; the panel's and the code view's links on the
+        // old path would otherwise wait out their keepalive.
+        unawaited(ref.read(hostLinksProvider).recheckAll());
       }
     });
   }
