@@ -350,6 +350,47 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('the header brings a swiped sheet back while the ask stands', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+      final connection = transport.opened.single;
+      final key = find.byKey(const ValueKey('shell-tab-pin'));
+      expect(key, findsNothing);
+
+      connection.emit(request());
+      await ready(tester);
+      expect(key, findsNothing);
+
+      await tester.tapAt(const Offset(10, 10));
+      await ready(tester);
+      expect(find.text('AUTHORIZATION REQUIRED'), findsNothing);
+      expect(key, findsOneWidget);
+
+      await tester.tap(key);
+      await ready(tester);
+      expect(find.text('AUTHORIZATION REQUIRED'), findsOneWidget);
+      expect(key, findsNothing);
+
+      await tester.tapAt(const Offset(10, 10));
+      await ready(tester);
+      expect(key, findsOneWidget);
+
+      connection.emit('\x1b]7771;done;$id\x07');
+      await ready(tester);
+      expect(key, findsNothing);
+      expect(find.text('AUTHORIZATION REQUIRED'), findsNothing);
+      expect(
+        connection.execs.map((exec) => exec.command),
+        isNot(contains(pinentryAnswerCommand(id))),
+      );
+
+      await unmount(tester);
+    });
+
     testWidgets('an ask that stands past its window may be over', (
       tester,
     ) async {

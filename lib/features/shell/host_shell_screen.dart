@@ -215,8 +215,24 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   BuildContext? _pinSheet;
 
   /// A request the user swiped off the phone. It stays open on the computer and is not put
-  /// back in front of them; the next id is a new request.
+  /// back in front of them unless they ask through the header; the next id is a new request.
   String? _pinDismissed;
+
+  PinRequest? _swipedPin() {
+    if (_pinShown != null || _pinDismissed == null) return null;
+    for (final session in _store.forHost(widget.host.id)) {
+      final request = session.pin;
+      if (request?.id == _pinDismissed && session.state is ShellLive) {
+        return request;
+      }
+    }
+    return null;
+  }
+
+  void _onPinReopen() {
+    setState(() => _pinDismissed = null);
+    unawaited(_askPins());
+  }
 
   void _onClips() {
     if (mounted) setState(() {});
@@ -467,6 +483,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
         _pinSheet = null;
       }
       if (!mounted) return;
+      setState(() {});
       if (outcome == PinAnswer.expired) {
         await _expiredSheet(session.number);
         if (!mounted) return;
@@ -895,35 +912,41 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                           for (final (_, sessions) in _groups(store))
                             ...sessions,
                         ],
-                        builder: (context) => ShellHeader(
-                          host: widget.host,
-                          groups: _groups(store),
-                          active: active,
-                          newHosts: newHosts,
-                          folded: (host) => store.isFolded(host.id),
-                          onSelect: _onSelect,
-                          onFold: (host) => store.fold(
-                            host.id,
-                            folded: !store.isFolded(host.id),
-                          ),
-                          onMoveTab: (host, from, to) =>
-                              store.moveTab(host.id, from, to),
-                          onMoveGroup: store.moveGroup,
-                          onNew: _onNew,
-                          onClose: active == null
-                              ? null
-                              : () => _onClose(active),
-                          onDiff:
-                              diffTargets.isEmpty && active?.connection == null
-                              ? null
-                              : () => _onDiff(active, diffTargets),
-                          diffReady:
-                              active?.repository != null ||
-                              diffTargets.isNotEmpty,
-                          onStop: active == null
-                              ? null
-                              : () => store.stopReconnect(active),
-                        ),
+                        builder: (context) {
+                          final swiped = _swipedPin();
+                          return ShellHeader(
+                            host: widget.host,
+                            groups: _groups(store),
+                            active: active,
+                            newHosts: newHosts,
+                            folded: (host) => store.isFolded(host.id),
+                            onSelect: _onSelect,
+                            onFold: (host) => store.fold(
+                              host.id,
+                              folded: !store.isFolded(host.id),
+                            ),
+                            onMoveTab: (host, from, to) =>
+                                store.moveTab(host.id, from, to),
+                            onMoveGroup: store.moveGroup,
+                            onNew: _onNew,
+                            onClose: active == null
+                                ? null
+                                : () => _onClose(active),
+                            onDiff:
+                                diffTargets.isEmpty &&
+                                    active?.connection == null
+                                ? null
+                                : () => _onDiff(active, diffTargets),
+                            diffReady:
+                                active?.repository != null ||
+                                diffTargets.isNotEmpty,
+                            onStop: active == null
+                                ? null
+                                : () => store.stopReconnect(active),
+                            onPin: swiped == null ? null : _onPinReopen,
+                            pinStale: swiped?.stale ?? false,
+                          );
+                        },
                       ),
                       if (state?.failure case final failure?)
                         ShellReasonRow(

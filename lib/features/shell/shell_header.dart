@@ -60,6 +60,8 @@ class ShellHeader extends StatefulWidget {
     required this.onStop,
     required this.onDiff,
     this.diffReady = false,
+    this.onPin,
+    this.pinStale = false,
   });
   final Host host;
   final List<(Host, List<ShellSession>)> groups;
@@ -83,6 +85,11 @@ class ShellHeader extends StatefulWidget {
   /// False dims the mark and takes its tap away: a tap that can only answer `NOT A
   /// CHECKOUT` is a tap spent on what the app already knew.
   final bool diffReady;
+
+  /// Non-null while a passphrase ask the user swiped away is still open on the host.
+  final VoidCallback? onPin;
+
+  final bool pinStale;
 
   @override
   State<ShellHeader> createState() => _ShellHeaderState();
@@ -174,6 +181,16 @@ class _ShellHeaderState extends State<ShellHeader> {
                 ],
               ),
             ),
+            if (widget.onPin case final onPin?)
+              _TabCell(
+                key: const ValueKey('shell-tab-pin'),
+                label: 'UNLOCK',
+                icon: UpgradeIcons.sshKey,
+                tint: widget.pinStale
+                    ? context.tokens.warning
+                    : context.tokens.accent,
+                onTap: onPin,
+              ),
             if (onDiff != null)
               _TabCell(
                 key: const ValueKey('shell-tab-diff'),
