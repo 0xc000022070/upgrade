@@ -616,7 +616,7 @@ class MoshShellConnection implements ShellConnection {
   HostChannels get channels => _supervisor.channels;
 
   @override
-  Stream<bool> get controlDown => _supervisor.controlDown;
+  Stream<ControlLink> get controlLink => _supervisor.controlLink;
 
   @override
   Future<HostChannels?> channelsFor(UserAction action) async =>
@@ -1003,7 +1003,7 @@ class EngineShellConnection implements ShellConnection {
   HostChannels get channels => _supervisor.channels;
 
   @override
-  Stream<bool> get controlDown => _supervisor.controlDown;
+  Stream<ControlLink> get controlLink => _supervisor.controlLink;
 
   @override
   Future<HostChannels?> channelsFor(UserAction action) async =>
@@ -1317,7 +1317,7 @@ class SshShellConnection implements ShellConnection {
 
   /// The terminal is a channel on the host, so the host going is the terminal ending.
   @override
-  Stream<bool> get controlDown => const Stream.empty();
+  Stream<ControlLink> get controlLink => const Stream.empty();
 
   /// Never dials: a fresh host would not carry this tab's pty.
   @override

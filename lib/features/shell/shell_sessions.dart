@@ -429,7 +429,7 @@ class ShellSession extends ChangeNotifier {
   StreamSubscription<Uint8List>? _output;
   StreamSubscription<Uint8List>? _snapshots;
   StreamSubscription<ShellConnectionHealth>? _health;
-  StreamSubscription<bool>? _control;
+  StreamSubscription<ControlLink>? _control;
 
   /// Live terminal, host not held: background reads are stale and the next gesture dials.
   bool controlStale = false;
@@ -1785,12 +1785,20 @@ class ShellSessions extends ChangeNotifier {
       session._health = connection.health.listen(
         (health) => _onHealth(session, connection, attempt, health),
       );
-      session._control = connection.controlDown.listen((down) {
+      session._control = connection.controlLink.listen((link) {
         if (!attempt.isCurrent || !identical(session.connection, connection)) {
           return;
         }
-        session.controlStale = down;
-        if (!down) session.controlFailure = null;
+        switch (link) {
+          case ControlUp():
+            session.controlStale = false;
+            session.controlFailure = null;
+          case ControlReconnecting():
+            session.controlStale = true;
+          case ControlGaveUp(:final error):
+            session.controlStale = true;
+            session.controlFailure = _detailOf(session.host, error);
+        }
         session.changed();
       });
       final marker = _transitionMarker(

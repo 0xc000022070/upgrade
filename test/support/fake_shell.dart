@@ -20,7 +20,7 @@ class FakeShellConnection implements ShellConnection {
   final _snapshots = StreamController<Uint8List>.broadcast();
   final _foregroundProcesses = StreamController<String>.broadcast();
   final _health = StreamController<ShellConnectionHealth>.broadcast();
-  final _controlDown = StreamController<bool>.broadcast();
+  final _controlLink = StreamController<ControlLink>.broadcast();
   final _exit = Completer<int?>();
 
   final writes = <Uint8List>[];
@@ -77,9 +77,12 @@ class FakeShellConnection implements ShellConnection {
   Stream<ShellConnectionHealth> get health => _health.stream;
 
   @override
-  Stream<bool> get controlDown => _controlDown.stream;
+  Stream<ControlLink> get controlLink => _controlLink.stream;
 
-  void setControlDown(bool down) => _controlDown.add(down);
+  void setControlDown(bool down) =>
+      _controlLink.add(down ? const ControlReconnecting() : const ControlUp());
+
+  void setControlGaveUp(Object error) => _controlLink.add(ControlGaveUp(error));
 
   @override
   void write(Uint8List bytes) => writes.add(bytes);

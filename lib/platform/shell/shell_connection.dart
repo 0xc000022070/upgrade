@@ -9,6 +9,10 @@ export '../ssh/connection_supervisor.dart'
         AppResumed,
         AppSuspended,
         ChannelOpenTimeout,
+        ControlGaveUp,
+        ControlLink,
+        ControlReconnecting,
+        ControlUp,
         DropReason,
         ExecResult,
         HostChannels,
@@ -79,10 +83,10 @@ abstract interface class ShellConnection {
   /// Opens the host for a gesture that needs it when none is held.
   Future<HostChannels?> channelsFor(UserAction action);
 
-  /// True while the terminal runs but no host is held for [channels]: what background
+  /// Down while the terminal runs but no host is held for [channels]: what background
   /// reads said is stale, and [channelsFor] dials. Emits on change only; a transport
   /// whose terminal dies with its host never emits.
-  Stream<bool> get controlDown;
+  Stream<ControlLink> get controlLink;
 }
 
 enum ShellContinuity { plain, started, resumed }

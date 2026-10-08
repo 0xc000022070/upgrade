@@ -43,6 +43,25 @@ part 'exec.dart';
 part 'reasons.dart';
 part 'ssh_host.dart';
 
+sealed class ControlLink {
+  const ControlLink();
+}
+
+/// Held, or the app away: nothing reads stale.
+final class ControlUp extends ControlLink {
+  const ControlUp();
+}
+
+final class ControlReconnecting extends ControlLink {
+  const ControlReconnecting();
+}
+
+final class ControlGaveUp extends ControlLink {
+  const ControlGaveUp(this.error);
+
+  final Object error;
+}
+
 abstract interface class HostChannels {
   /// Null with no host held; never dials. A [timeout] covers the channel open, and closes
   /// the channel, never the host.
@@ -69,7 +88,7 @@ final class ConnectionSupervisor implements HostChannels {
   ShellEnded? _ended;
   var _revives = false;
   Timer? _revival;
-  final _down = StreamController<bool>.broadcast();
+  final _control = StreamController<ControlLink>.broadcast();
   var _reportedDown = false;
 
   late final HostChannels channels = _Channels(this);
@@ -85,7 +104,7 @@ final class ConnectionSupervisor implements HostChannels {
     return _run(link.host, command, stdin: stdin, timeout: timeout);
   }
 
-  Stream<bool> get controlDown => _down.stream;
+  Stream<ControlLink> get controlLink => _control.stream;
 
   /// Null when the tab is gone or the app away; throws what the dial threw. A gesture whose
   /// dial a network change overtook waits, once, on the dial that change starts.
@@ -139,26 +158,33 @@ final class ConnectionSupervisor implements HostChannels {
 
   void _revive(Reconnect reason, int step) {
     _revival?.cancel();
-    _revival = null;
-    if (step >= _reviveDelays.length) return;
     _revival = Timer(_reviveDelays[step], () async {
       _revival = null;
       if (_retired || _suspended || _link != null) return;
       try {
         await open(reason);
       } catch (error) {
-        if (isKeyFailure(error)) return;
-        if (!isHostFailure(error)) rethrow;
-        if (!_retired && _link == null) _revive(reason, step + 1);
+        if (_retired || _suspended || _link != null) return;
+        if (isHostFailure(error) && step + 1 < _reviveDelays.length) {
+          _revive(reason, step + 1);
+        } else {
+          _giveUp(error);
+        }
       }
     });
   }
 
   void _report() {
     final down = _link == null && !_suspended && !_retired;
-    if (down == _reportedDown || _down.isClosed) return;
+    if (down == _reportedDown || _control.isClosed) return;
     _reportedDown = down;
-    _down.add(down);
+    _control.add(down ? const ControlReconnecting() : const ControlUp());
+  }
+
+  void _giveUp(Object error) {
+    _log('revival stopped on $error');
+    if (!_reportedDown || _control.isClosed) return;
+    _control.add(ControlGaveUp(error));
   }
 
   /// Throws, before anything is dropped, for an end another supervisor minted.
@@ -185,7 +211,7 @@ final class ConnectionSupervisor implements HostChannels {
       _revival = null;
     }
     _report();
-    if (_retired && !_down.isClosed) unawaited(_down.close());
+    if (_retired && !_control.isClosed) unawaited(_control.close());
     if (reason is NetworkChanged) _connector._renounce(_target, reason);
     return link == null ? Future.value() : _close(link.host);
   }

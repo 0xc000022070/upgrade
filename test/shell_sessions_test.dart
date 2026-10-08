@@ -1398,6 +1398,36 @@ void main() {
     await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
   });
 
+  testWidgets('a revival that gives up says so on the tab, and a reconnect '
+      'that holds the host clears it', (tester) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    await _pumpDial(tester);
+    final connection = transport.opened.single
+      ..setHealth(ShellConnectionHealth.connected)
+      ..setControlDown(true);
+    await tester.pump();
+    expect(session.controlFailure, isNull);
+
+    connection.setControlGaveUp(const SocketException('Connection refused'));
+    await tester.pump();
+    expect(session.state, isA<ShellLive>());
+    expect(session.controlStale, isTrue);
+    expect(session.controlFailure, contains('Connection refused'));
+
+    await sessions.reconnectControl(
+      session,
+      UserAction(UserIntent.fromGesture()),
+    );
+    connection.setControlDown(false);
+    await tester.pump();
+    expect(session.controlStale, isFalse);
+    expect(session.controlFailure, isNull);
+
+    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+  });
+
   testWidgets('a reconnect that fails on a bug throws instead of marking the '
       'tab', (tester) async {
     final transport = FakeShellTransport()..transport = ShellTransport.mosh;

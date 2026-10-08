@@ -1,9 +1,13 @@
+import 'dart:io';
+
+import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/platform/host_keys.dart';
 import 'package:upgrade/platform/host_links.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 
 import 'support/host_links.dart';
+import 'support/ssh_exec.dart';
 
 final _vm = PinnedHostKey(
   type: 'ssh-ed25519',
@@ -123,5 +127,131 @@ void main() {
     expect(dial.dials, 2);
     await _closeAll(tabs);
     links.close();
+  });
+
+  group('a revival that stops says so', () {
+    Future<(ConnectionSupervisor, FakeLinkClient, List<ControlLink>)> revived(
+      Object refusal,
+    ) async {
+      final client = FakeLinkClient();
+      var dials = 0;
+      final connector = SshConnector(
+        dial:
+            ({
+              required address,
+              required port,
+              required user,
+              required privateKey,
+              required timeout,
+              required keepAlive,
+              required verifier,
+            }) async {
+              if (dials++ == 0) return sshHostOver(FakeExecSocket(), client);
+              throw refusal;
+            },
+        timeout: const Duration(seconds: 10),
+        keepAlive: const Duration(seconds: 60),
+      );
+      final tab = await _tab(connector)
+        ..reopenWhenHostDies();
+      final links = <ControlLink>[];
+      tab.controlLink.listen(links.add);
+      return (tab, client, links);
+    }
+
+    testWidgets('on a refused key', (tester) async {
+      final (tab, client, links) = await revived(
+        SSHAuthFailError('no more methods'),
+      );
+      await client.close();
+      await tester.pump();
+      expect(links, [isA<ControlReconnecting>()]);
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(links, [
+        isA<ControlReconnecting>(),
+        isA<ControlGaveUp>().having(
+          (link) => link.error,
+          'error',
+          isA<SSHAuthFailError>(),
+        ),
+      ]);
+      await tab.drop(UserClosed(UserIntent.fromGesture()));
+    });
+
+    testWidgets('once its schedule runs out', (tester) async {
+      final (tab, client, links) = await revived(
+        const SocketException('Connection refused'),
+      );
+      await client.close();
+      await tester.pump();
+
+      for (final seconds in [1, 2, 5, 10]) {
+        await tester.pump(Duration(seconds: seconds));
+        await tester.pump();
+        expect(links, [isA<ControlReconnecting>()]);
+      }
+      await tester.pump(const Duration(seconds: 30));
+      await tester.pump();
+      expect(links, [
+        isA<ControlReconnecting>(),
+        isA<ControlGaveUp>().having(
+          (link) => link.error,
+          'error',
+          isA<SocketException>(),
+        ),
+      ]);
+      await tab.drop(UserClosed(UserIntent.fromGesture()));
+    });
+
+    testWidgets('on a bug, instead of throwing in its timer', (tester) async {
+      final (tab, client, links) = await revived(StateError('bug'));
+      await client.close();
+      await tester.pump();
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(links.last, isA<ControlGaveUp>());
+      await tab.drop(UserClosed(UserIntent.fromGesture()));
+    });
+
+    testWidgets('until a gesture holds the host again', (tester) async {
+      final client = FakeLinkClient();
+      var dials = 0;
+      final connector = SshConnector(
+        dial:
+            ({
+              required address,
+              required port,
+              required user,
+              required privateKey,
+              required timeout,
+              required keepAlive,
+              required verifier,
+            }) async {
+              if (dials++ == 1) throw SSHAuthFailError('no more methods');
+              return sshHostOver(
+                FakeExecSocket(),
+                dials == 1 ? client : FakeLinkClient(),
+              );
+            },
+        timeout: const Duration(seconds: 10),
+        keepAlive: const Duration(seconds: 60),
+      );
+      final tab = await _tab(connector)
+        ..reopenWhenHostDies();
+      final links = <ControlLink>[];
+      tab.controlLink.listen(links.add);
+      await client.close();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(links.last, isA<ControlGaveUp>());
+
+      expect(await tab.open(UserAction(UserIntent.fromGesture())), isNotNull);
+      await tester.pump();
+      expect(links.last, isA<ControlUp>());
+      await tab.drop(UserClosed(UserIntent.fromGesture()));
+    });
   });
 }

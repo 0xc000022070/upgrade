@@ -1071,20 +1071,20 @@ void main() {
         persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
-      final down = <bool>[];
-      connection.controlDown.listen(down.add);
+      final links = <ControlLink>[];
+      connection.controlLink.listen(links.add);
 
       hosts.first.die();
       await pumpEventQueue();
 
-      expect(down, [true]);
+      expect(links, [isA<ControlReconnecting>()]);
       expect(await connection.channels.exec('pwd'), isNull);
       expect(dials, 1);
 
       await Future<void>.delayed(const Duration(milliseconds: 1200));
 
       expect(dials, 2);
-      expect(down, [true, false]);
+      expect(links, [isA<ControlReconnecting>(), isA<ControlUp>()]);
       expect((await connection.channels.exec('pwd'))?.ok, isTrue);
       expect(hosts.last.requests.last, 'exec pwd');
     });
@@ -1136,10 +1136,13 @@ void main() {
         persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      final links = <ControlLink>[];
+      connection.controlLink.listen(links.add);
 
       hosts.first.die();
       await Future<void>.delayed(const Duration(milliseconds: 1200));
       expect(dials, 2);
+      expect(links.last, isA<ControlGaveUp>());
 
       await Future<void>.delayed(const Duration(milliseconds: 2200));
       expect(dials, 2);
@@ -1166,8 +1169,8 @@ void main() {
         persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
-      final down = <bool>[];
-      connection.controlDown.listen(down.add);
+      final links = <ControlLink>[];
+      connection.controlLink.listen(links.add);
 
       hosts.first.die();
       await Future<void>.delayed(const Duration(milliseconds: 1200));
@@ -1177,7 +1180,14 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 2200));
       expect(verifiers, hasLength(2));
-      expect(down, [true]);
+      expect(links, [
+        isA<ControlReconnecting>(),
+        isA<ControlGaveUp>().having(
+          (link) => link.error,
+          'error',
+          isKeyFailure,
+        ),
+      ]);
       expect(await connection.channels.exec('pwd'), isNull);
     });
 
