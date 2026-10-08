@@ -126,8 +126,21 @@ in
 
   security.sudo.wheelNeedsPassword = false;
   services.getty.autologinUser = "dev";
+  # Copied, not linked: sshd refuses a world-readable host key.
+  environment.etc."ssh/ssh_host_ed25519_key" = {
+    source = ./fixtures/host_vm_host_key;
+    mode = "0600";
+  };
+  environment.etc."ssh/ssh_host_ed25519_key.pub".source = ./fixtures/host_vm_host_key.pub;
+
   services.openssh = {
     enable = true;
+    hostKeys = [
+      {
+        type = "ed25519";
+        path = "/etc/ssh/ssh_host_ed25519_key";
+      }
+    ];
     settings = {
       PasswordAuthentication = true;
       PermitRootLogin = "no";
