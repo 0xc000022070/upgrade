@@ -159,7 +159,11 @@ class ShellTunnel {
         if (mosh != null) return mosh;
       }
     }
-    final pty = await supervisor.pty(run, config);
+    final pty = await openWithin(
+      supervisor.pty(run, config),
+      timeout,
+      (pty) => pty.close(),
+    );
     _log(address, '${run ?? 'shell'} on $terminalType ${columns}x$rows');
     return SshShellConnection(
       supervisor,
@@ -174,7 +178,10 @@ class ShellTunnel {
     String session,
   ) async {
     if (!durableShellSession.hasMatch(session)) return null;
-    final result = await channels.exec(durableShellProbeCommand(session));
+    final result = await channels.exec(
+      durableShellProbeCommand(session),
+      timeout: timeout,
+    );
     if (result == null || !result.ok) return null;
     String? tmux;
     var resumed = false;
@@ -319,6 +326,7 @@ class ShellTunnel {
       if (serverPath == null) return null;
       final cleanup = await supervisor.exec(
         moshServerCleanupCommand(tabSession),
+        timeout: timeout,
       );
       if (cleanup == null || !cleanup.ok) return null;
       final launch = MoshSshBootstrap(
@@ -329,10 +337,14 @@ class ShellTunnel {
       final bootstrap = await supervisor.exec(
         '$moshTabVariable=${shellQuote(tabSession)} $launch -- '
         'sh -c ${shellQuote(command)}',
+        timeout: timeout,
       );
       if (bootstrap == null) return null;
       if (!bootstrap.ok) {
-        await supervisor.exec(moshServerCleanupCommand(tabSession));
+        await supervisor.exec(
+          moshServerCleanupCommand(tabSession),
+          timeout: timeout,
+        );
         return null;
       }
       final server = MoshServerConfig.parse(
@@ -366,7 +378,10 @@ class ShellTunnel {
       await connection?.abandon();
       if (serverPath != null) {
         try {
-          await supervisor.exec(moshServerCleanupCommand(tabSession));
+          await supervisor.exec(
+            moshServerCleanupCommand(tabSession),
+            timeout: timeout,
+          );
         } catch (error) {
           _log(address, 'mosh cleanup after fallback: $error');
         }
@@ -383,7 +398,10 @@ class ShellTunnel {
   }
 
   Future<String?> _moshServer(HostChannels channels) async {
-    final result = await channels.exec(moshServerProbeCommand());
+    final result = await channels.exec(
+      moshServerProbeCommand(),
+      timeout: timeout,
+    );
     if (result == null || !result.ok) return null;
     for (final line in result.out.split('\n')) {
       if (!line.startsWith('UPGRADE_MOSH=/')) continue;

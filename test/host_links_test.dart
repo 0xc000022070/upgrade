@@ -232,6 +232,12 @@ void main() {
     testWidgets('never pings a held link, however long it stays quiet', (
       tester,
     ) async {
+      links.close();
+      links = HostLinks(
+        dial: dial.call,
+        now: () => at,
+        keepAlive: const Duration(days: 1),
+      );
       final held = await _lease(links);
       dial.clients.single.pong = Completer();
       at = at.add(const Duration(hours: 1));
@@ -241,6 +247,7 @@ void main() {
       expect(dial.clients.single.pings, 0);
       expect(dial.dials, 1);
       expect(held.closed || beside.closed, isFalse);
+      links.close();
     });
 
     test(
@@ -253,6 +260,32 @@ void main() {
         expect(dial.dials, 1);
       },
     );
+
+    test('measures quiet from the release of a link that spoke', () async {
+      final held = await _lease(links);
+      dial.clients.single.received += 512;
+      at = at.add(const Duration(minutes: 5));
+      held.release();
+
+      at = at.add(links.quiet - const Duration(seconds: 1));
+      (await _lease(links)).release();
+      expect(dial.clients.single.pings, 0);
+
+      at = at.add(const Duration(seconds: 1));
+      await _lease(links);
+      expect(dial.clients.single.pings, 1);
+      expect(dial.dials, 1);
+    });
+
+    test('still pings a link that stayed silent while held', () async {
+      final held = await _lease(links);
+      at = at.add(const Duration(minutes: 5));
+      held.release();
+      await _lease(links);
+
+      expect(dial.clients.single.pings, 1);
+      expect(dial.dials, 1);
+    });
 
     test('does not ping a link nobody holds that spoke since', () async {
       await idle();
@@ -278,6 +311,7 @@ void main() {
           leases.every((lease) => lease.client == dial.clients.last),
           isTrue,
         );
+        links.close();
       },
     );
 
@@ -294,6 +328,7 @@ void main() {
       expect((await next).client, same(client));
       expect(client.isClosed, isFalse);
       expect(dial.dials, 1);
+      links.close();
     });
 
     test('ends a link nobody holds whose ping fails', () async {
@@ -313,6 +348,76 @@ void main() {
       await _lease(links);
       expect(dial.clients.first.pings, 0);
       expect(dial.dials, 2);
+    });
+  });
+
+  group('the keepalive', () {
+    late FakeDial dial;
+    late HostLinks links;
+
+    setUp(() {
+      dial = FakeDial();
+      links = HostLinks(dial: dial.call);
+    });
+
+    tearDown(() => links.close());
+
+    testWidgets('ends a held link after three probes go unanswered', (
+      tester,
+    ) async {
+      final held = await _lease(links);
+      final client = dial.clients.single..pong = Completer();
+
+      await tester.pump(links.keepAlive * 3);
+      expect(client.pings, 3);
+      expect(held.closed, isFalse);
+
+      await tester.pump(links.keepAlive);
+      expect(held.closed, isTrue);
+      expect(client.isClosed, isTrue);
+    });
+
+    testWidgets('counts no miss while any bytes arrive', (tester) async {
+      final held = await _lease(links);
+      final client = dial.clients.single..pong = Completer();
+
+      for (var probe = 0; probe < 10; probe++) {
+        await tester.pump(links.keepAlive);
+        client.received += 64;
+      }
+      expect(held.closed, isFalse);
+
+      await tester.pump(links.keepAlive * 3);
+      expect(held.closed, isFalse);
+      await tester.pump(links.keepAlive);
+      expect(held.closed, isTrue);
+    });
+
+    testWidgets('keeps a link whose one answer comes late', (tester) async {
+      final held = await _lease(links);
+      final client = dial.clients.single..pong = Completer();
+
+      await tester.pump(links.keepAlive * 3 + links.keepAlive ~/ 2);
+      client.pong!.complete();
+      client.pong = null;
+      await tester.pump(links.keepAlive * 6);
+
+      expect(held.closed, isFalse);
+      expect(client.isClosed, isFalse);
+      links.close();
+    });
+
+    testWidgets('stops probing once the link ends', (tester) async {
+      await _lease(links);
+      final client = dial.clients.single;
+      await tester.pump(links.keepAlive);
+      expect(client.pings, 1);
+
+      await client.close();
+      await tester.pump();
+      await tester.pump(links.keepAlive * 5);
+      expect(client.pings, 1);
+      expect(links.open, 0);
     });
   });
 

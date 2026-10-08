@@ -150,6 +150,10 @@ class _Link {
   int heard;
   DateTime heardAt;
   bool ended = false;
+  Timer? keepAlive;
+  var probed = 0;
+  var answered = true;
+  var misses = 0;
 
   _Link? parent;
   _Link? overflow;
@@ -176,6 +180,7 @@ class HostLinks {
     SshDial? dial,
     this.timeout = const Duration(seconds: 10),
     this.keepAlive = sshKeepAlive,
+    this.keepAliveMisses = 3,
     this.linger = const Duration(seconds: 30),
     this.screenLinger = const Duration(seconds: 5),
     this.answer = const Duration(seconds: 5),
@@ -187,6 +192,7 @@ class HostLinks {
   late final SshDial _dial = _injected ?? _authenticated;
   final Duration timeout;
   final Duration keepAlive;
+  final int keepAliveMisses;
   final Duration linger;
   final Duration screenLinger;
   final Duration answer;
@@ -391,13 +397,7 @@ class HostLinks {
     final socket = _CountingSocket(
       await SSHSocket.connect(address, port, timeout: timeout),
     );
-    final client = _client(
-      socket,
-      user,
-      privateKey,
-      keepAlive,
-      verifier.verify,
-    );
+    final client = _client(socket, user, privateKey, null, verifier.verify);
     try {
       await authenticatedWithin(client.authenticated, verifier, timeout);
       return (socket: socket, client: client, received: () => socket.received);
@@ -457,10 +457,26 @@ class HostLinks {
       (_) => _end(link, 'client done'),
       onError: (Object error) => _end(link, 'client done: $error'),
     );
+    link.keepAlive = Timer.periodic(keepAlive, (_) => _probe(link));
     return link;
   }
 
-  /// A held link answers to dartssh2's keepalive alone; only one nobody holds is pinged
+  void _probe(_Link link) {
+    if (link.ended) return;
+    final received = link.ssh.received();
+    link.misses = link.answered || received != link.probed
+        ? 0
+        : link.misses + 1;
+    if (link.misses >= keepAliveMisses) {
+      _end(link, 'keepalive unanswered');
+      return;
+    }
+    link.probed = received;
+    link.answered = false;
+    link.client.ping().then((_) => link.answered = true, onError: (_) {});
+  }
+
+  /// A held link answers to its keepalive alone; only one nobody holds is pinged
   /// before reuse, and ended if it neither answers nor says anything else.
   Future<bool> _vouched(_Link link) async {
     if (link.ended) return false;
@@ -538,7 +554,13 @@ class HostLinks {
     } else if (key == null || !identical(_links[key], link)) {
       _end(link, 'released unfiled');
     } else {
-      link.idleSince = now();
+      final idle = now();
+      link.idleSince = idle;
+      final received = link.ssh.received();
+      if (received != link.heard) {
+        link.heard = received;
+        link.heardAt = idle;
+      }
       link.linger = Timer(_lingerOf(link), () => _end(link, 'linger expired'));
     }
   }
@@ -617,6 +639,8 @@ class HostLinks {
     if (key != null && identical(_links[key], link)) _links.remove(key);
     link.linger?.cancel();
     link.linger = null;
+    link.keepAlive?.cancel();
+    link.keepAlive = null;
     _all.remove(link);
     final parent = link.parent;
     if (parent != null && identical(parent.overflow, link)) {
@@ -645,7 +669,7 @@ SSHClient _client(
   SSHSocket socket,
   String user,
   String privateKey,
-  Duration keepAlive,
+  Duration? keepAlive,
   SSHHostkeyVerifyHandler verify,
 ) => SSHClient(
   socket,

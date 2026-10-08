@@ -243,6 +243,13 @@ class FakeHost implements ShellHost {
   }
 }
 
+class _SilentPtyHost extends FakeHost {
+  final opening = Completer<ShellPty>();
+
+  @override
+  Future<ShellPty> shell(SSHPtyConfig config) => opening.future;
+}
+
 class FakeMoshChannel implements MoshChannel {
   final _output = StreamController<Uint8List>.broadcast();
   final _errors = StreamController<Object>.broadcast();
@@ -886,6 +893,50 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(lateChannel.closed, isTrue);
       expect(dials, 1);
+    });
+
+    test('a startup exec that never opens fails the open as a host failure', () async {
+      const session = 'upgrade123';
+      final host = FakeHost()..execGate = Completer<ShellExec>();
+      final retries = <Reconnect>[];
+
+      await expectLater(
+        openOn(
+          moshTunnelTo(
+            host,
+            FakeMoshChannel(),
+            timeout: const Duration(milliseconds: 20),
+          ),
+          command: 'exec \$SHELL -l',
+          tabSession: session,
+          persistentSession: session,
+          failed: retries.add,
+        ),
+        throwsA(anything),
+      );
+      expect(host.requests, ['exec ${durableShellProbeCommand(session)}']);
+      expect(retries, hasLength(1));
+    });
+
+    test('a pty that never opens fails the open as a host failure', () async {
+      final host = _SilentPtyHost();
+      final retries = <Reconnect>[];
+
+      await expectLater(
+        openOn(
+          moshTunnelTo(
+            host,
+            FakeMoshChannel(),
+            timeout: const Duration(milliseconds: 20),
+          ),
+          failed: retries.add,
+        ),
+        throwsA(anything),
+      );
+      expect(retries, hasLength(1));
+      host.opening.complete(host.pty);
+      await Future<void>.delayed(Duration.zero);
+      expect(host.pty.closed, isTrue);
     });
 
     test('a plain return keeps the SSH control path', () async {
