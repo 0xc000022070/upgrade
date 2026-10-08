@@ -44,7 +44,7 @@ Future<ExecResult> _run(
   ShellHost host,
   String command, {
   Uint8List? stdin,
-  Duration? timeout,
+  required Duration timeout,
 }) async {
   ShellExec? channel;
   var expired = false;
@@ -57,7 +57,6 @@ Future<ExecResult> _run(
     channel = opened;
     return _finishExec(opened, stdin: stdin);
   }();
-  if (timeout == null) return task;
   try {
     return await task.timeout(timeout);
   } on TimeoutException {

@@ -460,10 +460,11 @@ Future<EngineChannel> dialEngine({
   required int rows,
   EngineResume? resume,
   Duration contactWindow = const Duration(seconds: 4),
+  Duration lookupWindow = const Duration(seconds: 10),
 }) async {
   final address =
       InternetAddress.tryParse(host) ??
-      (await InternetAddress.lookup(host)).first;
+      (await InternetAddress.lookup(host).timeout(lookupWindow)).first;
   final channel = UdpEngineChannel(
     address: address,
     port: port,

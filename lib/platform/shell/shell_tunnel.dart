@@ -27,7 +27,6 @@ export '../ssh/connection_supervisor.dart'
 class ShellTunnel {
   ShellTunnel({
     this.timeout = const Duration(seconds: 10),
-    this.keepAlive = sshKeepAlive,
     this.moshHealthInterval = const Duration(seconds: 3),
     this.moshGiveUp = const Duration(seconds: 30),
     ShellDialer? dial,
@@ -36,17 +35,11 @@ class ShellTunnel {
     this.engineDialer = dialEngine,
     UdpVerdicts? udpVerdicts,
   }) : udpVerdicts = udpVerdicts ?? UdpVerdicts(),
-       _connector = SshConnector(
-         dial: dial,
-         links: links,
-         timeout: timeout,
-         keepAlive: keepAlive,
-       );
+       _connector = SshConnector(dial: dial, links: links, timeout: timeout);
 
   static const terminalType = 'xterm-256color';
 
   final Duration timeout;
-  final Duration keepAlive;
   final Duration moshHealthInterval;
   final Duration moshGiveUp;
   final MoshDialer moshDialer;
@@ -72,7 +65,7 @@ class ShellTunnel {
     required HostKeyVerifier verifier,
     void Function(Reconnect retry)? failed,
   }) => _guard(
-    address,
+    '$address:$port',
     () => _connector.establish(
       address: address,
       port: port,
@@ -128,7 +121,7 @@ class ShellTunnel {
       final place = '$user@$address:$port/$tab';
       final earlier = _resumes.remove(place);
       if (udpVerdicts.silent(address)) {
-        _log(address, 'udp silent, ssh until the verdict lapses');
+        _log(supervisor.endpoint, 'udp silent, ssh until the verdict lapses');
       } else {
         final engine = await _openEngine(
           supervisor: supervisor,
@@ -164,7 +157,10 @@ class ShellTunnel {
       timeout,
       (pty) => pty.close(),
     );
-    _log(address, '${run ?? 'shell'} on $terminalType ${columns}x$rows');
+    _log(
+      supervisor.endpoint,
+      '${run ?? 'shell'} on $terminalType ${columns}x$rows',
+    );
     return SshShellConnection(
       supervisor,
       pty,
@@ -214,6 +210,7 @@ class ShellTunnel {
     required String? tmux,
   }) async {
     var started = false;
+    var overUdp = false;
     EngineShellConnection? connection;
     try {
       final start = await _engineCall(
@@ -234,7 +231,7 @@ class ShellTunnel {
         },
       );
       if (start == null) {
-        _log(address, 'engine: no shell/1, falling back');
+        _log(supervisor.endpoint, 'engine: no shell/1, falling back');
         return null;
       }
       final resumed = start['resumed'] == true;
@@ -248,6 +245,7 @@ class ShellTunnel {
       final carried = resumed && epoch is String && earlier?.epoch == epoch
           ? earlier?.state
           : null;
+      overUdp = true;
       final channel = await engineDialer(
         host: address,
         port: udpPort,
@@ -277,7 +275,7 @@ class ShellTunnel {
       await connection.ready.timeout(timeout);
       udpVerdicts.clear(address);
       _log(
-        address,
+        supervisor.endpoint,
         'engine $udpPort on ${columns}x$rows'
         '${carried != null
             ? ', carried on'
@@ -288,7 +286,10 @@ class ShellTunnel {
       supervisor.reopenWhenHostDies();
       return connection;
     } catch (error) {
-      if (!_silent(address, error)) _log(address, 'engine fallback: $error');
+      final link = !overUdp && _linkFailure(error);
+      if (!link && !_silent(supervisor, address, error)) {
+        _log(supervisor.endpoint, 'engine fallback: $error');
+      }
       await connection?.abandon();
       _resumes.remove(place);
       if (started) {
@@ -302,9 +303,10 @@ class ShellTunnel {
             args: {'tab': tabSession},
           );
         } catch (error) {
-          _log(address, 'engine stop after fallback: $error');
+          _log(supervisor.endpoint, 'engine stop after fallback: $error');
         }
       }
+      if (link) rethrow;
       return null;
     }
   }
@@ -320,6 +322,7 @@ class ShellTunnel {
     required String? tmux,
   }) async {
     String? serverPath;
+    var overUdp = false;
     MoshShellConnection? connection;
     try {
       serverPath = await _moshServer(supervisor);
@@ -351,6 +354,7 @@ class ShellTunnel {
         '${bootstrap.out}\n${bootstrap.err}',
         host: address,
       );
+      overUdp = true;
       final channel = await moshDialer(
         server: server,
         columns: columns,
@@ -370,11 +374,14 @@ class ShellTunnel {
       await channel.firstContact;
       await connection.ready.timeout(timeout);
       udpVerdicts.clear(address);
-      _log(address, 'mosh ${server.port} on ${columns}x$rows');
+      _log(supervisor.endpoint, 'mosh ${server.port} on ${columns}x$rows');
       supervisor.reopenWhenHostDies();
       return connection;
     } catch (error) {
-      if (!_silent(address, error)) _log(address, 'mosh fallback: $error');
+      final link = !overUdp && _linkFailure(error);
+      if (!link && !_silent(supervisor, address, error)) {
+        _log(supervisor.endpoint, 'mosh fallback: $error');
+      }
       await connection?.abandon();
       if (serverPath != null) {
         try {
@@ -383,17 +390,26 @@ class ShellTunnel {
             timeout: timeout,
           );
         } catch (error) {
-          _log(address, 'mosh cleanup after fallback: $error');
+          _log(supervisor.endpoint, 'mosh cleanup after fallback: $error');
         }
       }
+      if (link) rethrow;
       return null;
     }
   }
 
-  bool _silent(String address, Object error) {
+  /// What the SSH link threw during startup is the dial failing, not a host without the
+  /// transport; what the UDP side threw is the transport, and plain SSH takes over.
+  static bool _linkFailure(Object error) =>
+      isHostFailure(error) || isKeyFailure(error);
+
+  bool _silent(ConnectionSupervisor supervisor, String address, Object error) {
     if (error is! UdpSilent) return false;
     udpVerdicts.record(address);
-    _log(address, '$error; ssh for ${UdpSilent.spell(udpVerdicts.ttl)}');
+    _log(
+      supervisor.endpoint,
+      '$error; ssh for ${UdpSilent.spell(udpVerdicts.ttl)}',
+    );
     return true;
   }
 
@@ -412,7 +428,7 @@ class ShellTunnel {
   }
 
   Future<T> _guard<T>(
-    String address,
+    String endpoint,
     Future<T> Function() body, [
     HostKeyVerifier? verifier,
   ]) async {
@@ -422,22 +438,18 @@ class ShellTunnel {
       // The refusal wins over whatever the transport threw: which error a closing handshake
       // surfaces depends on how far it had got, and the verifier's answer does not.
       final failure = shellFailureFor(error, verifier?.refusal);
-      _log(address, '${failure ?? error}');
+      _log(endpoint, '${failure ?? error}');
       throw failure ?? error;
     }
   }
 }
 
 /// The terminal never waits for this; a miss leaves background reads null until the next.
-Future<void> _reopen(
-  ConnectionSupervisor supervisor,
-  String address,
-  OpenReason reason,
-) async {
+Future<void> _reopen(ConnectionSupervisor supervisor, OpenReason reason) async {
   try {
     await supervisor.open(reason);
   } catch (error) {
-    _log(address, 'ssh control path: $error');
+    _log(supervisor.endpoint, 'ssh control path: $error');
   }
 }
 
@@ -449,8 +461,8 @@ class _DurableTarget {
   final ShellContinuity continuity;
 }
 
-void _log(String address, Object message) =>
-    debugPrint('upgrade.shell $address: $message');
+void _log(String endpoint, Object message) =>
+    debugPrint('upgrade.shell $endpoint: $message');
 
 /// Null for anything unexpected: a bug in the layer above reads better as itself than as
 /// a reason line.
@@ -539,13 +551,17 @@ class MoshShellConnection implements ShellConnection {
     this.giveUp = const Duration(seconds: 30),
   }) {
     _reading.add(_mosh.output.listen(_emit));
-    _reading.add(_mosh.errors.listen((error) => _log(address, 'mosh: $error')));
+    _reading.add(
+      _mosh.errors.listen(
+        (error) => _log(_supervisor.endpoint, 'mosh: $error'),
+      ),
+    );
     _reading.add(_mosh.echoAcks.listen(_acknowledge));
     _reading.add(_mosh.contacts.listen((_) => _contact()));
     _mosh.done.then(
       (_) => _finish(0),
       onError: (Object error) {
-        _log(address, 'mosh: $error');
+        _log(_supervisor.endpoint, 'mosh: $error');
         _finish(null);
       },
     );
@@ -649,12 +665,16 @@ class MoshShellConnection implements ShellConnection {
     if (!durableShellSession.hasMatch(session)) return false;
     final channels = action == null ? _supervisor : await channelsFor(action);
     if (channels == null) return false;
-    final mosh = await channels.exec(moshServerCleanupCommand(session));
+    final mosh = await channels.exec(
+      moshServerCleanupCommand(session),
+      timeout: remoteCommandDeadline,
+    );
     if (mosh == null || !mosh.ok) return false;
     final path = tmux;
     if (!durableShell || path == null) return true;
     final ended = await channels.exec(
       durableShellTerminateCommand(path, session),
+      timeout: remoteCommandDeadline,
     );
     return ended?.ok ?? false;
   }
@@ -665,6 +685,7 @@ class MoshShellConnection implements ShellConnection {
     if (path == null || !durableShellSession.hasMatch(session)) return null;
     final result = await _supervisor.exec(
       durableShellDirectoryCommand(path, session),
+      timeout: remoteCommandDeadline,
     );
     if (result == null || !result.ok) return null;
     final directory = result.out.trim();
@@ -685,7 +706,7 @@ class MoshShellConnection implements ShellConnection {
     _probeState = _mosh.resize(columns, rows);
     if (network == null) return;
     await _supervisor.drop(network);
-    unawaited(_reopen(_supervisor, address, network));
+    unawaited(_reopen(_supervisor, network));
   }
 
   @override
@@ -712,7 +733,7 @@ class MoshShellConnection implements ShellConnection {
       _healthTimer?.cancel();
       _healthTimer = Timer.periodic(healthInterval, (_) => _checkHealth());
     }
-    await _reopen(_supervisor, address, reason);
+    await _reopen(_supervisor, reason);
   }
 
   @override
@@ -837,7 +858,7 @@ class MoshShellConnection implements ShellConnection {
     _ended ??= _supervisor.terminalEnded();
     _setHealth(ShellConnectionHealth.disconnected);
     _log(
-      address,
+      _supervisor.endpoint,
       'mosh: no answer in ${giveUp.inSeconds}s, dropping the channel',
     );
     if (!_out.isClosed) {
@@ -907,7 +928,9 @@ class EngineShellConnection implements ShellConnection {
   }) {
     _reading.add(_engine.events.listen(_emit));
     _reading.add(
-      _engine.errors.listen((error) => _log(address, 'engine: $error')),
+      _engine.errors.listen(
+        (error) => _log(_supervisor.endpoint, 'engine: $error'),
+      ),
     );
     _reading.add(
       _engine.contacts.listen((_) {
@@ -1041,19 +1064,26 @@ class EngineShellConnection implements ShellConnection {
     final channels = action == null ? _supervisor : await channelsFor(action);
     if (channels == null) return false;
     final stopped = await _engineCall(
-      (command, stdin) => channels.exec(command, stdin: stdin),
+      (command, stdin) =>
+          channels.exec(command, stdin: stdin, timeout: remoteCommandDeadline),
       owner: owner,
       tab: session,
       op: 'stop',
       args: {'tab': session},
     );
-    final swept = await channels.exec(moshServerCleanupCommand(session));
+    final swept = await channels.exec(
+      moshServerCleanupCommand(session),
+      timeout: remoteCommandDeadline,
+    );
     if (swept == null || !swept.ok) return false;
-    if (stopped == null) _log(address, 'engine: no stop for $session, swept');
+    if (stopped == null) {
+      _log(_supervisor.endpoint, 'engine: no stop for $session, swept');
+    }
     final path = tmux;
     if (!durableShell || path == null) return true;
     final ended = await channels.exec(
       durableShellTerminateCommand(path, session),
+      timeout: remoteCommandDeadline,
     );
     return ended?.ok ?? false;
   }
@@ -1064,6 +1094,7 @@ class EngineShellConnection implements ShellConnection {
     if (path == null || !durableShellSession.hasMatch(session)) return null;
     final result = await _supervisor.exec(
       durableShellDirectoryCommand(path, session),
+      timeout: remoteCommandDeadline,
     );
     if (result == null || !result.ok) return null;
     final directory = result.out.trim();
@@ -1084,7 +1115,7 @@ class EngineShellConnection implements ShellConnection {
     _probing = true;
     if (network == null) return;
     await _supervisor.drop(network);
-    unawaited(_reopen(_supervisor, address, network));
+    unawaited(_reopen(_supervisor, network));
   }
 
   @override
@@ -1111,7 +1142,7 @@ class EngineShellConnection implements ShellConnection {
       _healthTimer?.cancel();
       _healthTimer = Timer.periodic(healthInterval, (_) => _checkHealth());
     }
-    await _reopen(_supervisor, address, reason);
+    await _reopen(_supervisor, reason);
   }
 
   @override
@@ -1244,7 +1275,7 @@ class EngineShellConnection implements ShellConnection {
     _ended ??= _supervisor.terminalEnded();
     _setHealth(ShellConnectionHealth.disconnected);
     _log(
-      address,
+      _supervisor.endpoint,
       'engine: no answer in ${giveUp.inSeconds}s, dropping the channel',
     );
     if (!_frames.isClosed) {
@@ -1274,13 +1305,19 @@ class SshShellConnection implements ShellConnection {
     _reading.add(_pty.stdout.listen(_emit, onError: _onStreamError));
     _reading.add(_pty.stderr.listen(_emit, onError: _onStreamError));
     _pty.done.then(
-      (_) => _finish(_pty.exitCode),
-      onError: (Object _) => _finish(null),
+      (_) => _finish(_pty.exitCode, signal: _pty.exitSignal),
+      onError: (Object error) {
+        _onStreamError(error);
+        _finish(null);
+      },
     );
   }
 
+  static const stallWindow = Duration(seconds: 5);
+
   final ConnectionSupervisor _supervisor;
   final ShellPty _pty;
+  Timer? _stall;
   @override
   final ShellContinuity continuity;
 
@@ -1293,6 +1330,7 @@ class SshShellConnection implements ShellConnection {
   final _reading = <StreamSubscription<Uint8List>>[];
   final _exit = Completer<int?>();
   var _closed = false;
+  var _failed = false;
   ShellEnded? _ended;
 
   /// A login shell prints its banner and its prompt the moment the channel opens, which is
@@ -1323,8 +1361,17 @@ class SshShellConnection implements ShellConnection {
   @override
   ShellEnded? get ended => _ended;
 
+  /// A half-open link swallows writes until its keepalive gives up, minutes later; a
+  /// write nothing answers asks sooner. One watchdog at a time, so typing costs no timers.
   @override
-  void write(Uint8List bytes) => _pty.write(bytes);
+  void write(Uint8List bytes) {
+    _pty.write(bytes);
+    if (_closed || _exit.isCompleted || _stall != null) return;
+    _stall = Timer(stallWindow, () {
+      _stall = null;
+      if (!_closed && !_exit.isCompleted) unawaited(_supervisor.check());
+    });
+  }
 
   @override
   void resize(int columns, int rows, {int widthPx = 0, int heightPx = 0}) =>
@@ -1355,13 +1402,18 @@ class SshShellConnection implements ShellConnection {
     final channels = action == null ? _supervisor : await channelsFor(action);
     final ended = await channels?.exec(
       durableShellTerminateCommand(path, session),
+      timeout: remoteCommandDeadline,
     );
     return ended?.ok ?? false;
   }
 
-  /// Nothing to carry: the pty ends with the link, and the tab's schedule dials again.
+  /// Nothing to carry: a link the old network took fails its check and ends, which ends
+  /// the pty as a lost stream, and the tab's schedule dials again.
   @override
-  Future<void> rehome({NetworkChanged? network}) async {}
+  Future<void> rehome({NetworkChanged? network}) async {
+    if (_closed || _exit.isCompleted) return;
+    await _supervisor.check();
+  }
 
   @override
   Future<void> suspend(AppSuspended reason) async {}
@@ -1375,6 +1427,7 @@ class SshShellConnection implements ShellConnection {
     if (path == null || !durableShellSession.hasMatch(session)) return null;
     final result = await _supervisor.exec(
       durableShellDirectoryCommand(path, session),
+      timeout: remoteCommandDeadline,
     );
     if (result == null || !result.ok) return null;
     final directory = result.out.trim();
@@ -1399,6 +1452,8 @@ class SshShellConnection implements ShellConnection {
 
   Future<void> _shut() async {
     _closed = true;
+    _stall?.cancel();
+    _stall = null;
     for (final subscription in _reading) {
       await subscription.cancel();
     }
@@ -1410,6 +1465,8 @@ class SshShellConnection implements ShellConnection {
   /// Everything queues, so a chunk that arrives in the same turn as the first listener
   /// still lands behind the ones that came before it.
   void _emit(Uint8List bytes) {
+    _stall?.cancel();
+    _stall = null;
     _pending.add(bytes);
     _drain();
   }
@@ -1424,14 +1481,28 @@ class SshShellConnection implements ShellConnection {
 
   void _onStreamError(Object error) {
     if (!_closed) _ended ??= _supervisor.terminalEnded();
-    if (_out.isClosed) return;
+    if (_failed || _out.isClosed) return;
+    _failed = true;
     _out.addError(
       shellFailureFor(error) ??
           ShellFailure(ShellFailureKind.streamClosed, detail: '$error'),
     );
   }
 
-  void _finish(int? code) {
+  /// dartssh2 ends every channel of a link that died cleanly and with no exit status, so
+  /// an end with neither a code nor a [signal] that this side did not ask for is the
+  /// link, not the shell.
+  void _finish(int? code, {String? signal}) {
+    _stall?.cancel();
+    _stall = null;
+    if (!_closed && code == null && signal == null && !_exit.isCompleted) {
+      _onStreamError(
+        const ShellFailure(
+          ShellFailureKind.streamClosed,
+          detail: 'the link to the host ended',
+        ),
+      );
+    }
     if (!_closed) _ended ??= _supervisor.terminalEnded();
     if (!_exit.isCompleted) _exit.complete(code);
   }

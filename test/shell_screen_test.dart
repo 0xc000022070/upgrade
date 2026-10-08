@@ -537,7 +537,7 @@ void main() {
   });
 
   testWidgets('a lost link reads RECONNECTING in the sheet, with STOP under '
-      'it', (tester) async {
+      'it and the cause under the header', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
@@ -548,7 +548,12 @@ void main() {
 
     expect(find.textContaining('RECONNECTING'), findsNothing);
     expect(inkOfInfoMark(tester), UpgradeColors.warning);
-    expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
+    expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('shell-reason')));
+    await tester.pump();
+    expect(find.textContaining('link lost'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('shell-reason')));
+    await tester.pump();
 
     await openInfo(tester);
 

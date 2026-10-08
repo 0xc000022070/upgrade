@@ -1215,6 +1215,120 @@ void main() {
     await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
   });
 
+  testWidgets('a channel that fails with no exit is dialled again', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    await _pumpDial(tester);
+
+    transport.opened.single.fail();
+    await tester.pump();
+
+    expect(session.state, isA<ShellDropped>());
+    await tester.pump(shellReconnectDelays.first);
+    await _pumpDial(tester);
+    expect(session.state, isA<ShellLive>());
+    expect(transport.opened, hasLength(2));
+
+    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+  });
+
+  testWidgets('a dropped tab carries the cause of its drop', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    await _pumpDial(tester);
+
+    transport.opened.single.drop(
+      const ShellFailure(ShellFailureKind.streamClosed, detail: 'pty ended'),
+    );
+    await tester.pump();
+
+    expect(session.state, isA<ShellDropped>());
+    expect(session.state.failure, (
+      kind: ShellFailureKind.streamClosed,
+      detail: 'pty ended',
+    ));
+
+    transport.refuse = const ShellFailure(
+      ShellFailureKind.unreachable,
+      detail: 'connection refused',
+    );
+    await tester.pump(shellReconnectDelays.first);
+    await _pumpDial(tester);
+
+    expect((session.state as ShellDropped).attempt, 2);
+    expect(session.state.failure?.kind, ShellFailureKind.unreachable);
+    expect(session.state.failure?.detail, contains('connection refused'));
+
+    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+  });
+
+  testWidgets('a key store that throws fails the tab instead of holding it '
+      'at CONNECTING', (tester) async {
+    final transport = FakeShellTransport();
+    var locked = false;
+    final sessions = ShellSessions(
+      readPrivateKey: (_) async {
+        if (locked) throw StateError('keystore locked');
+        return 'PRIVATE KEY';
+      },
+      pinHostKey: (_, _) async {},
+      open: transport.open,
+    );
+    locked = true;
+    final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    await _pumpDial(tester);
+
+    expect(first.state, isA<ShellFailed>());
+    expect(first.state.failure?.kind, ShellFailureKind.keyRejected);
+    expect(first.state.failure?.detail, contains('keystore locked'));
+    expect(transport.opened, isEmpty);
+
+    locked = false;
+    final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    await _pumpDial(tester);
+    locked = true;
+    transport.opened.single.drop();
+    await tester.pump();
+    await tester.pump(shellReconnectDelays.first);
+    await _pumpDial(tester);
+
+    expect(second.state, isA<ShellFailed>());
+    expect(transport.opened, hasLength(1));
+
+    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, first);
+    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, second);
+  });
+
+  testWidgets('a Mosh dial that lands after STOP ends the server it started', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    await _pumpDial(tester);
+
+    transport.stall = true;
+    transport.opened.single.drop();
+    await tester.pump();
+    await tester.pump(shellReconnectDelays.first);
+    await _pumpDial(tester);
+    sessions.stopReconnect(session);
+    transport.land();
+    await _pumpDial(tester);
+
+    final late = transport.opened.last;
+    expect(transport.opened, hasLength(2));
+    expect(late.terminated, [(session: session.tab, durableShell: false)]);
+    expect(late.discarded, isTrue);
+    expect(session.state, isA<ShellFailed>());
+
+    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+  });
+
   testWidgets('an engine tab writes its reconnect line into the screen that '
       'replaces it', (tester) async {
     final transport = FakeShellTransport()..transport = ShellTransport.engine;

@@ -49,7 +49,6 @@ class FakeShellConnection implements ShellConnection {
   /// Every command run on a second channel, with what was written into it.
   final execs = <({String command, Uint8List? stdin})>[];
 
-  /// The background commands that carried a deadline, which is what a probe is.
   final timedProbes = <String>[];
 
   /// False: the host was dropped, and background reads get null until something opens it.
@@ -173,12 +172,12 @@ class FakeShellConnection implements ShellConnection {
   Future<ExecResult> _exec(
     String command, {
     Uint8List? stdin,
-    Duration? timeout,
+    required Duration timeout,
   }) async {
     execs.add((command: command, stdin: stdin));
     if (!wedged) return answer(command, stdin);
     final never = Completer<ExecResult>().future;
-    return timeout == null ? never : never.timeout(timeout);
+    return never.timeout(timeout);
   }
 
   /// A command that reaches the host and never comes back, which is what writing into a
@@ -201,9 +200,19 @@ class FakeShellConnection implements ShellConnection {
 
   void emitForeground(String processes) => _foregroundProcesses.add(processes);
 
-  /// The stream errors and the connection is never told, which is what a phone leaving wifi
-  /// looks like.
-  void drop([Object error = 'link lost']) {
+  /// A link that died: dartssh2 ends the pty cleanly with no exit status, and the SSH
+  /// connection reports that as a failed stream before its exit, which stays null.
+  void drop([
+    Object error = const ShellFailure(
+      ShellFailureKind.streamClosed,
+      detail: 'link lost',
+    ),
+  ]) {
+    fail(error);
+    if (!_exit.isCompleted) _exit.complete(null);
+  }
+
+  void fail([Object error = 'link lost']) {
     ended ??= ShellEnded.unbound();
     _output.addError(error);
   }
@@ -228,11 +237,11 @@ class _FakeChannels implements HostChannels {
   Future<ExecResult?> exec(
     String command, {
     Uint8List? stdin,
-    Duration? timeout,
+    required Duration timeout,
   }) {
     final connection = _connection;
     if (background && !connection.hostHeld) return Future.value(null);
-    if (background && timeout != null) {
+    if (background && timeout == agentProbeDeadline) {
       connection.timedProbes.add(command);
       final hold = connection.holdTimedProbe;
       if (hold != null) return hold.future;

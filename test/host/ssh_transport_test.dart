@@ -4,6 +4,7 @@ library;
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/shell/shell_tunnel.dart';
 
@@ -75,7 +76,10 @@ void main() {
     addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
     final prompt = await readUntil(connection, 'upgrade-host');
 
-    final result = (await connection.channels.exec('printf beside'))!;
+    final result = (await connection.channels.exec(
+      'printf beside',
+      timeout: remoteCommandDeadline,
+    ))!;
 
     expect(result.exitCode, 0);
     expect(result.out, 'beside');
@@ -89,6 +93,7 @@ void main() {
     final result = (await connection.channels.exec(
       'cat',
       stdin: Uint8List.fromList('one\ntwo\n'.codeUnits),
+      timeout: remoteCommandDeadline,
     ))!;
 
     expect(result.ok, isTrue);

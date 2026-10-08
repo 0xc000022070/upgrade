@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/host_links.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/shell/shell_tunnel.dart';
 
@@ -15,17 +16,18 @@ void main() {
 
   setUpAll(() => key = hostVmPrivateKey());
 
-  Future<ShellConnection> open(HostKeyVerifier verifier) => tunnel.open(
-    reason: UserAction(UserIntent.fromGesture()),
-    address: hostVm.address,
-    port: hostVm.port,
-    user: hostVm.user,
-    privateKey: key,
-    columns: 80,
-    rows: 24,
-    command: 'true',
-    verifier: verifier,
-  );
+  Future<ShellConnection> open(HostKeyVerifier verifier, [ShellTunnel? over]) =>
+      (over ?? tunnel).open(
+        reason: UserAction(UserIntent.fromGesture()),
+        address: hostVm.address,
+        port: hostVm.port,
+        user: hostVm.user,
+        privateKey: key,
+        columns: 80,
+        rows: 24,
+        command: 'true',
+        verifier: verifier,
+      );
 
   Future<PinnedHostKey> trustOnFirstDial() async {
     PinnedHostKey? written;
@@ -82,7 +84,11 @@ void main() {
           return true;
         },
       );
-      final connection = await open(verifier);
+      // The first dial's link lingers filed under this pin, and reusing it verifies
+      // nothing; a pool of its own makes the second open dial and meet the pin.
+      final links = HostLinks();
+      addTearDown(links.close);
+      final connection = await open(verifier, ShellTunnel(links: links));
       addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       expect(asked, isFalse);

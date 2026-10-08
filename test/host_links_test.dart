@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:upgrade/platform/herdr_client.dart';
@@ -193,6 +194,39 @@ void main() {
     links.close();
     await tester.pump(sshLoginGrace + const Duration(seconds: 30));
   });
+
+  testWidgets(
+    'the settling gate throws a refusal that says when the settle ends',
+    (tester) async {
+      final dial = FakeDial(slowAuth: true);
+      final links = HostLinks(dial: dial.call);
+      Future<HostLease> claim() => links.claim(
+        address: '10.0.0.2',
+        port: 22,
+        user: 'dev',
+        privateKey: 'key',
+        verifier: HostKeyVerifier.pinnedOnly(_vm),
+        use: HostUse.send,
+      );
+      unawaited(claim().then((_) {}, onError: (Object _) {}));
+      await tester.pump(const Duration(seconds: 10));
+
+      Object? refused;
+      try {
+        await claim();
+      } catch (error) {
+        refused = error;
+      }
+      expect(refused, isA<DialSettling>());
+      var settled = false;
+      unawaited((refused! as DialSettling).settled.then((_) => settled = true));
+      await tester.pump(sshLoginGrace);
+      expect(settled, isTrue);
+      expect(dial.dials, 1);
+
+      links.close();
+    },
+  );
 
   test('a refused dial fails every lease waiting on it, and the next one dials again', () async {
     final dial = FakeDial(refuse: true)..gate = Completer();
@@ -407,6 +441,24 @@ void main() {
       links.close();
     });
 
+    testWidgets(
+      'raises nothing when its unanswered pings fail as the link ends',
+      (tester) async {
+        final errors = <Object>[];
+        await runZonedGuarded(() async {
+          final held = await _lease(links);
+          final client = dial.clients.single..pong = Completer();
+          await tester.pump(links.keepAlive * 4);
+          expect(held.closed, isTrue);
+          expect(client.pings, 3);
+
+          client.pong!.completeError(SSHStateError('Transport is closed'));
+          await tester.pump();
+        }, (error, _) => errors.add(error));
+        expect(errors, isEmpty);
+      },
+    );
+
     testWidgets('stops probing once the link ends', (tester) async {
       await _lease(links);
       final client = dial.clients.single;
@@ -612,6 +664,62 @@ void main() {
       },
     );
 
+    test(
+      'a session spilled as the overflow empties lands on a live overflow',
+      () async {
+        for (var turns = 0; turns < 12; turns++) {
+          var dialled = 0;
+          final dial = FakeDial()
+            ..prepare = (client) {
+              if (dialled++ == 0) {
+                client.execError = SSHChannelOpenError(1, 'prohibited');
+              }
+            };
+          final links = HostLinks(dial: dial.call);
+          final lease = await as(links, HostUse.tab);
+          final first = await lease.execute('true') as FakeExecSession;
+          final next = lease.execute('true');
+          for (var turn = 0; turn < turns; turn++) {
+            await Future<void>.microtask(() {});
+          }
+          first.exited.complete();
+          final session = await next;
+
+          final carrier = dial.clients.singleWhere(
+            (client) => client.sessions.contains(session),
+          );
+          expect(carrier.isClosed, isFalse, reason: 'after $turns turns');
+          links.close();
+        }
+      },
+    );
+
+    testWidgets(
+      'an overflow that fails to log in leaves the main identity free to dial',
+      (tester) async {
+        final dial = FakeDial();
+        final links = HostLinks(dial: dial.call);
+        final lease = await as(links, HostUse.tab);
+        dial.clients.single.execError = SSHChannelOpenError(1, 'prohibited');
+        dial.slowAuth = true;
+        final spilled = lease
+            .execute('true')
+            .then<Object?>((_) => null, onError: (Object error) => error);
+        await tester.pump(const Duration(seconds: 10));
+        expect(await spilled, isA<HerdrUnreachable>());
+        expect(dial.settling, 1);
+
+        dial.slowAuth = false;
+        await dial.clients.single.close();
+        await tester.pump();
+        final fresh = await as(links, HostUse.tab);
+        expect(fresh.closed, isFalse);
+        expect(dial.dials, 3);
+        links.close();
+        await tester.pump(sshLoginGrace);
+      },
+    );
+
     test('a session refused for another cause is not overflowed', () async {
       final dial = FakeDial();
       final links = HostLinks(dial: dial.call);
@@ -649,5 +757,202 @@ void main() {
     await _lease(links, HostKeyVerifier.pinnedOnly(_key('SHA256:other')));
     links.close();
     expect(dial.clients.every((client) => client.isClosed), isTrue);
+  });
+
+  group('a network change', () {
+    Future<HostLease> tab(HostLinks links, [String address = '10.0.0.2']) =>
+        links.claim(
+          address: address,
+          port: 22,
+          user: 'dev',
+          privateKey: 'key',
+          verifier: HostKeyVerifier.pinnedOnly(_vm),
+          use: HostUse.tab,
+        );
+    void renounce(HostLinks links, [String address = '10.0.0.2']) =>
+        links.renounce(
+          address: address,
+          port: 22,
+          user: 'dev',
+          privateKey: 'key',
+          change: Object(),
+        );
+    Future<Object?> outcome(Future<HostLease> claim) =>
+        claim.then<Object?>((lease) => lease, onError: (Object error) => error);
+
+    testWidgets(
+      'lifts a settle from the old network, so the next claim dials',
+      (tester) async {
+        final dial = FakeDial(slowAuth: true);
+        final links = HostLinks(dial: dial.call);
+        final first = outcome(tab(links));
+        await tester.pump(const Duration(seconds: 10));
+        expect(await first, isA<HerdrUnreachable>());
+
+        final refused = await outcome(tab(links));
+        expect(refused, isA<DialSettling>());
+        var lifted = false;
+        unawaited(
+          (refused! as DialSettling).settled.then((_) => lifted = true),
+        );
+        renounce(links);
+        await tester.pump();
+        expect(lifted, isTrue);
+
+        dial.slowAuth = false;
+        final lease = await tab(links);
+        expect(lease.closed, isFalse);
+        expect(dial.dials, 2);
+        links.close();
+        await tester.pump(sshLoginGrace);
+      },
+    );
+
+    testWidgets('leaves the settle of another host', (tester) async {
+      final dial = FakeDial(slowAuth: true);
+      final links = HostLinks(dial: dial.call);
+      final first = outcome(tab(links));
+      await tester.pump(const Duration(seconds: 10));
+      await first;
+      renounce(links, '10.0.0.3');
+
+      expect(await outcome(tab(links)), isA<DialSettling>());
+      expect(dial.dials, 1);
+      links.close();
+      await tester.pump(sshLoginGrace);
+    });
+
+    test('fails the claim whose own dial it renounced on the host, and the claim that joined it dials once more', () async {
+      final dial = FakeDial()..gate = Completer();
+      final links = HostLinks(dial: dial.call);
+      final own = outcome(tab(links));
+      final joined = outcome(tab(links));
+      await pumpEventQueue();
+      renounce(links);
+      dial.gate!.complete();
+
+      expect(await own, isA<SocketException>());
+      final fresh = await joined;
+      expect(fresh, isA<HostLease>());
+      expect((fresh! as HostLease).closed, isFalse);
+      expect(dial.clients.first.isClosed, isTrue);
+      expect(dial.dials, 2);
+      links.close();
+    });
+  });
+
+  group('the check', () {
+    late FakeDial dial;
+    late HostLinks links;
+
+    setUp(() {
+      dial = FakeDial();
+      links = HostLinks(dial: dial.call);
+    });
+
+    tearDown(() => links.close());
+
+    testWidgets(
+      'ends a held link whose peer stopped answering within the answer window',
+      (tester) async {
+        final held = await _lease(links);
+        final beside = await _lease(links);
+        final client = dial.clients.single..pong = Completer();
+        final checked = held.check();
+
+        await tester.pump(links.answer - const Duration(seconds: 1));
+        expect(held.closed, isFalse);
+        await tester.pump(const Duration(seconds: 1));
+        expect(await checked, isFalse);
+        expect(held.closed || beside.closed, isTrue);
+        expect(beside.closed, isTrue);
+        expect(client.isClosed, isTrue);
+        expect(links.open, 0);
+      },
+    );
+
+    testWidgets('keeps a held link that answers', (tester) async {
+      final held = await _lease(links);
+      expect(await held.check(), isTrue);
+      await tester.pump(links.answer * 2);
+
+      expect(dial.clients.single.pings, 1);
+      expect(held.closed, isFalse);
+      links.close();
+    });
+
+    testWidgets('keeps a held link whose bytes arrive while the ping is out', (
+      tester,
+    ) async {
+      final held = await _lease(links);
+      final client = dial.clients.single..pong = Completer();
+      final checked = held.check();
+      await tester.pump(const Duration(seconds: 1));
+      client.received += 64;
+      await tester.pump(links.answer);
+
+      expect(await checked, isTrue);
+      expect(held.closed, isFalse);
+      expect(client.isClosed, isFalse);
+      links.close();
+    });
+
+    testWidgets('joins a check already out, and the keepalive beside it', (
+      tester,
+    ) async {
+      final held = await _lease(links);
+      final client = dial.clients.single..pong = Completer();
+      await tester.pump(links.keepAlive - const Duration(seconds: 2));
+      final checks = [held.check(), held.check()];
+      final all = links.recheckAll();
+      expect(client.pings, 1);
+
+      await tester.pump(links.answer);
+      expect(client.pings, 2);
+      expect(await checks.first, isFalse);
+      expect(await checks.last, isFalse);
+      await all;
+      expect(held.closed, isTrue);
+      await tester.pump(links.keepAlive * 3);
+      expect(client.pings, 2);
+    });
+
+    test('of a lease let go reports it gone and pings nothing', () async {
+      final held = await _lease(links);
+      final kept = await _lease(links);
+      held.release();
+
+      expect(await held.check(), isFalse);
+      expect(dial.clients.single.pings, 0);
+      expect(kept.closed, isFalse);
+    });
+
+    testWidgets(
+      'of every link ends the silent ones, held or let go, and keeps the rest',
+      (tester) async {
+        final silent = await _lease(links);
+        final idle = await _lease(
+          links,
+          HostKeyVerifier.pinnedOnly(_key('SHA256:idle')),
+        );
+        final live = await _lease(
+          links,
+          HostKeyVerifier.pinnedOnly(_key('SHA256:live')),
+        );
+        idle.release();
+        dial.clients[0].pong = Completer();
+        dial.clients[1].pong = Completer();
+
+        final all = links.recheckAll();
+        await tester.pump(links.answer);
+        await all;
+
+        expect(silent.closed, isTrue);
+        expect(dial.clients[1].isClosed, isTrue);
+        expect(live.closed, isFalse);
+        expect(links.open, 1);
+        links.close();
+      },
+    );
   });
 }

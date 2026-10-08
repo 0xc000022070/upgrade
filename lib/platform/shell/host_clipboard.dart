@@ -3,6 +3,7 @@ import 'dart:convert';
 export 'remote_shell.dart'
     show
         RemoteFile,
+        remoteCommandDeadline,
         remotePathFor,
         remoteUploadDirectory,
         shellQuote,
@@ -205,6 +206,9 @@ String? clipboardCommand(HostClipboard clipboard, String fileName) {
 
 /// Null when no host is held, which is no answer at all.
 Future<HostClipboard?> probeClipboard(HostChannels channels) async {
-  final result = await channels.exec(underSh(probeScript));
+  final result = await channels.exec(
+    underSh(probeScript),
+    timeout: remoteCommandDeadline,
+  );
   return result == null ? null : parseProbe(result);
 }

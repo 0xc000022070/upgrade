@@ -30,6 +30,9 @@ class PasteResult {
 /// a paste at all.
 final pasteKey = Uint8List.fromList(const [0x16]);
 
+Duration _uploadDeadline(int bytes) =>
+    remoteCommandDeadline + Duration(milliseconds: bytes ~/ 64);
+
 Future<PasteResult> pasteClip({
   required ShellSessions store,
   required ShellSession session,
@@ -73,7 +76,11 @@ Future<PasteResult> pasteImage({
   final remote = remotePathFor(fileName);
   final ExecResult? landed;
   try {
-    landed = await channels.exec(uploadCommand(fileName), stdin: bytes);
+    landed = await channels.exec(
+      uploadCommand(fileName),
+      stdin: bytes,
+      timeout: _uploadDeadline(bytes.length),
+    );
   } catch (error) {
     return PasteResult(PasteOutcome.failed, detail: '$error');
   }
@@ -91,7 +98,7 @@ Future<PasteResult> pasteImage({
   String? reason = clipboard.reason;
   if (command != null) {
     try {
-      final set = await channels.exec(command);
+      final set = await channels.exec(command, timeout: remoteCommandDeadline);
       if (set != null && set.ok) {
         store.send(session, pasteKey);
         return const PasteResult(PasteOutcome.pasted);

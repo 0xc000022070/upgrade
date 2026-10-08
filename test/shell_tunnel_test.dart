@@ -6,6 +6,8 @@ import 'dart:typed_data';
 import 'package:dart_mosh/dart_mosh.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
 import 'package:upgrade/platform/shell/engine_channel.dart';
 import 'package:upgrade/platform/shell/mosh_channel.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
@@ -60,14 +62,17 @@ class RudeSocket implements SSHSocket {
 }
 
 class FakePty implements ShellPty {
-  final _stdout = StreamController<Uint8List>();
-  final _stderr = StreamController<Uint8List>();
+  // A cancel with no onCancel hands back a root-zone future, which a fake clock never
+  // completes: a tab closing under testWidgets would wait on it forever.
+  final _stdout = StreamController<Uint8List>(onCancel: () async {});
+  final _stderr = StreamController<Uint8List>(onCancel: () async {});
   final _done = Completer<void>();
 
   final writes = <Uint8List>[];
   final resizes = <String>[];
   bool closed = false;
   int? reported;
+  String? signal;
 
   @override
   Stream<Uint8List> get stdout => _stdout.stream;
@@ -80,6 +85,9 @@ class FakePty implements ShellPty {
 
   @override
   int? get exitCode => reported;
+
+  @override
+  String? get exitSignal => signal;
 
   @override
   void write(Uint8List bytes) => writes.add(bytes);
@@ -100,6 +108,21 @@ class FakePty implements ShellPty {
     reported = code;
     _done.complete();
   }
+
+  void kill(String name) {
+    signal = name;
+    _done.complete();
+  }
+
+  /// dartssh2 4.0.0 on a dead link: every channel is destroyed, which closes its stream
+  /// cleanly and completes `done` normally, with no exit status.
+  void lose() {
+    unawaited(_stdout.close());
+    unawaited(_stderr.close());
+    _done.complete();
+  }
+
+  void endOn(Object error) => _done.completeError(error);
 }
 
 class FakeExec implements ShellExec {
@@ -229,6 +252,20 @@ class FakeHost implements ShellHost {
 
   final _gone = Completer<void>();
 
+  var answers = true;
+  var checks = 0;
+
+  @override
+  Future<bool> check() async {
+    checks++;
+    if (answers) return !_gone.isCompleted;
+    await Future<void>.delayed(const Duration(seconds: 5));
+    if (_gone.isCompleted) return false;
+    die();
+    pty.lose();
+    return false;
+  }
+
   @override
   Future<void> get done => _gone.future;
 
@@ -332,7 +369,6 @@ ShellTunnel tunnelTo(FakeHost host, {Object? dialError}) => ShellTunnel(
         required String privateKey,
         HostKeyVerifier? verifier,
         required Duration timeout,
-        required Duration keepAlive,
       }) async {
         final error = dialError;
         if (error != null) throw error;
@@ -358,7 +394,6 @@ ShellTunnel moshTunnelTo(
     required String privateKey,
     HostKeyVerifier? verifier,
     required Duration timeout,
-    required Duration keepAlive,
   }) async => host,
   moshDialer:
       ({
@@ -383,7 +418,6 @@ ShellTunnel moshTunnelOver(
     required String privateKey,
     HostKeyVerifier? verifier,
     required Duration timeout,
-    required Duration keepAlive,
   }) async => hosts[dialled()],
   moshDialer:
       ({
@@ -416,7 +450,6 @@ ShellTunnel moshTunnelOffering(
         required String privateKey,
         required HostKeyVerifier verifier,
         required Duration timeout,
-        required Duration keepAlive,
       }) async {
         final dial = verifiers.length;
         verifiers.add(verifier);
@@ -786,12 +819,18 @@ void main() {
       expect(channel.rehomes, 0);
       expect(channel.sizes.length, probes);
       expect(hosts.first.closed, isTrue);
-      expect(await connection.channels.exec('pwd'), isNull);
+      expect(
+        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+        isNull,
+      );
       expect(dials, 1);
 
       await connection.resume(AppResumed(PlatformSignal.fromPlatform()));
       await pumpEventQueue();
-      final result = await connection.channels.exec('pwd');
+      final result = await connection.channels.exec(
+        'pwd',
+        timeout: remoteCommandDeadline,
+      );
 
       expect(channel.rehomes, 1);
       expect(channel.sizes.length, probes + 1);
@@ -822,7 +861,10 @@ void main() {
       await pumpEventQueue();
 
       expect(hosts[1].closed, isTrue);
-      expect(await connection.channels.exec('pwd'), isNull);
+      expect(
+        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+        isNull,
+      );
       await connection.rehome(
         network: NetworkChanged(PlatformSignal.fromPlatform()),
       );
@@ -847,7 +889,10 @@ void main() {
       );
 
       hosts.first.refuse = StateError('control host failed');
-      await expectLater(connection.channels.exec('pwd'), throwsStateError);
+      await expectLater(
+        connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+        throwsStateError,
+      );
       expect(dials, 1);
       expect(hosts.first.closed, isFalse);
       hosts.first.refuse = null;
@@ -855,7 +900,10 @@ void main() {
         network: NetworkChanged(PlatformSignal.fromPlatform()),
       );
       await pumpEventQueue();
-      final result = await connection.channels.exec('pwd');
+      final result = await connection.channels.exec(
+        'pwd',
+        timeout: remoteCommandDeadline,
+      );
 
       expect(result?.ok, isTrue);
       expect(dials, 2);
@@ -895,28 +943,31 @@ void main() {
       expect(dials, 1);
     });
 
-    test('a startup exec that never opens fails the open as a host failure', () async {
-      const session = 'upgrade123';
-      final host = FakeHost()..execGate = Completer<ShellExec>();
-      final retries = <Reconnect>[];
+    test(
+      'a startup exec that never opens fails the open as a host failure',
+      () async {
+        const session = 'upgrade123';
+        final host = FakeHost()..execGate = Completer<ShellExec>();
+        final retries = <Reconnect>[];
 
-      await expectLater(
-        openOn(
-          moshTunnelTo(
-            host,
-            FakeMoshChannel(),
-            timeout: const Duration(milliseconds: 20),
+        await expectLater(
+          openOn(
+            moshTunnelTo(
+              host,
+              FakeMoshChannel(),
+              timeout: const Duration(milliseconds: 20),
+            ),
+            command: 'exec \$SHELL -l',
+            tabSession: session,
+            persistentSession: session,
+            failed: retries.add,
           ),
-          command: 'exec \$SHELL -l',
-          tabSession: session,
-          persistentSession: session,
-          failed: retries.add,
-        ),
-        throwsA(anything),
-      );
-      expect(host.requests, ['exec ${durableShellProbeCommand(session)}']);
-      expect(retries, hasLength(1));
-    });
+          throwsA(anything),
+        );
+        expect(host.requests, ['exec ${durableShellProbeCommand(session)}']);
+        expect(retries, hasLength(1));
+      },
+    );
 
     test('a pty that never opens fails the open as a host failure', () async {
       final host = _SilentPtyHost();
@@ -955,7 +1006,10 @@ void main() {
       );
 
       await connection.rehome();
-      final result = await connection.channels.exec('pwd');
+      final result = await connection.channels.exec(
+        'pwd',
+        timeout: remoteCommandDeadline,
+      );
 
       expect(result?.ok, isTrue);
       expect(channel.rehomes, 1);
@@ -965,7 +1019,7 @@ void main() {
 
       hosts.first.refuse = const SocketException('Connection reset by peer');
       await expectLater(
-        connection.channels.exec('pwd'),
+        connection.channels.exec('pwd', timeout: remoteCommandDeadline),
         throwsA(isA<SocketException>()),
       );
 
@@ -993,17 +1047,26 @@ void main() {
       hosts.first.die();
       await pumpEventQueue();
 
-      expect(await connection.channels.exec('pwd'), isNull);
+      expect(
+        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+        isNull,
+      );
       expect(dials, 1);
 
       final action = UserAction(UserIntent.fromGesture());
       final channels = await connection.channelsFor(action);
-      final result = await channels?.exec('pwd');
+      final result = await channels?.exec(
+        'pwd',
+        timeout: remoteCommandDeadline,
+      );
 
       expect(result?.ok, isTrue);
       expect(dials, 2);
       expect(hosts.last.requests.last, 'exec pwd');
-      expect(await connection.channels.exec('pwd'), isNotNull);
+      expect(
+        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+        isNotNull,
+      );
     });
 
     test('two user actions at once dial one host', () async {
@@ -1065,9 +1128,18 @@ void main() {
       final chained = await stale;
       expect(dials, 3);
       expect(hosts[1].closed, isTrue);
-      expect((await chained?.exec('whoami'))?.ok, isTrue);
+      expect(
+        (await chained?.exec('whoami', timeout: remoteCommandDeadline))?.ok,
+        isTrue,
+      );
       expect(hosts.last.requests.last, 'exec whoami');
-      expect((await connection.channels.exec('pwd'))?.ok, isTrue);
+      expect(
+        (await connection.channels.exec(
+          'pwd',
+          timeout: remoteCommandDeadline,
+        ))?.ok,
+        isTrue,
+      );
       expect(hosts.last.requests.last, 'exec pwd');
     });
 
@@ -1103,7 +1175,10 @@ void main() {
 
       final chained = await stale;
       expect(dials, 3);
-      expect((await chained?.exec('whoami'))?.ok, isTrue);
+      expect(
+        (await chained?.exec('whoami', timeout: remoteCommandDeadline))?.ok,
+        isTrue,
+      );
       expect(hosts.last.requests.last, 'exec whoami');
     });
 
@@ -1129,14 +1204,23 @@ void main() {
       await pumpEventQueue();
 
       expect(links, [isA<ControlReconnecting>()]);
-      expect(await connection.channels.exec('pwd'), isNull);
+      expect(
+        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+        isNull,
+      );
       expect(dials, 1);
 
       await Future<void>.delayed(const Duration(milliseconds: 1200));
 
       expect(dials, 2);
       expect(links, [isA<ControlReconnecting>(), isA<ControlUp>()]);
-      expect((await connection.channels.exec('pwd'))?.ok, isTrue);
+      expect(
+        (await connection.channels.exec(
+          'pwd',
+          timeout: remoteCommandDeadline,
+        ))?.ok,
+        isTrue,
+      );
       expect(hosts.last.requests.last, 'exec pwd');
     });
 
@@ -1163,7 +1247,10 @@ void main() {
         UserAction(UserIntent.fromGesture()),
       );
       expect(dials, 2);
-      expect((await channels?.exec('pwd'))?.ok, isTrue);
+      expect(
+        (await channels?.exec('pwd', timeout: remoteCommandDeadline))?.ok,
+        isTrue,
+      );
 
       await Future<void>.delayed(const Duration(milliseconds: 1200));
 
@@ -1197,7 +1284,10 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 2200));
       expect(dials, 2);
-      expect(await connection.channels.exec('pwd'), isNull);
+      expect(
+        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+        isNull,
+      );
     });
 
     test('a dead control host that comes back with another key is not dialled '
@@ -1239,7 +1329,10 @@ void main() {
           isKeyFailure,
         ),
       ]);
-      expect(await connection.channels.exec('pwd'), isNull);
+      expect(
+        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+        isNull,
+      );
     });
 
     test('a dead control host held without a pin refuses its own redial '
@@ -1271,7 +1364,10 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 2200));
       expect(verifiers, hasLength(2));
-      expect(await connection.channels.exec('pwd'), isNull);
+      expect(
+        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+        isNull,
+      );
     });
 
     test('a plain SSH tab whose host dies is never dialled again by its '
@@ -1287,7 +1383,6 @@ void main() {
             required String privateKey,
             HostKeyVerifier? verifier,
             required Duration timeout,
-            required Duration keepAlive,
           }) async => hosts[dials++],
         ),
       );
@@ -1315,7 +1410,7 @@ void main() {
 
       host.refuse = SSHChannelOpenError(1, 'channel open refused');
       await expectLater(
-        connection.channels.exec('pwd'),
+        connection.channels.exec('pwd', timeout: remoteCommandDeadline),
         throwsA(isA<SSHChannelOpenError>()),
       );
       await pumpEventQueue();
@@ -1364,7 +1459,13 @@ void main() {
 
       expect(host.closed, isFalse);
       expect(connection.ended, isNull);
-      expect((await connection.channels.exec('pwd'))?.ok, isTrue);
+      expect(
+        (await connection.channels.exec(
+          'pwd',
+          timeout: remoteCommandDeadline,
+        ))?.ok,
+        isTrue,
+      );
     });
 
     test('a resume behind a suspend still in flight ends in front', () async {
@@ -1396,7 +1497,13 @@ void main() {
       expect(channel.rehomes, 1);
       expect(hosts.first.closed, isTrue);
       expect(dials, 2);
-      expect((await connection.channels.exec('pwd'))?.ok, isTrue);
+      expect(
+        (await connection.channels.exec(
+          'pwd',
+          timeout: remoteCommandDeadline,
+        ))?.ok,
+        isTrue,
+      );
       expect(hosts.last.requests.last, 'exec pwd');
     });
 
@@ -1414,7 +1521,6 @@ void main() {
               required String privateKey,
               HostKeyVerifier? verifier,
               required Duration timeout,
-              required Duration keepAlive,
             }) async => hosts[dials++],
           ),
         );
@@ -1428,7 +1534,10 @@ void main() {
           UserAction(UserIntent.fromGesture()),
         );
 
-        expect(await channels?.exec('pwd'), isNull);
+        expect(
+          await channels?.exec('pwd', timeout: remoteCommandDeadline),
+          isNull,
+        );
         expect(dials, 1);
         expect(hosts.last.requests, isEmpty);
       },
@@ -1458,7 +1567,7 @@ void main() {
       await pumpEventQueue();
 
       expect(dials, 2);
-      expect(await lease?.exec('pwd'), isNull);
+      expect(await lease?.exec('pwd', timeout: remoteCommandDeadline), isNull);
       expect(hosts.last.requests, isNot(contains('exec pwd')));
     });
 
@@ -1524,6 +1633,36 @@ void main() {
         'xterm-256color 100x40',
       );
       await connection.close(UserClosed(UserIntent.fromGesture()));
+    });
+
+    test('a link that dies under the Mosh bootstrap fails the open and opens '
+        'no SSH shell', () async {
+      const session = 'upgrade123';
+      final host = FakeHost()
+        ..execAnswer = (request) {
+          if (request.contains('mosh-server') && request.contains(' new ')) {
+            throw TimeoutException('link stalled');
+          }
+          return moshHostAnswer(request);
+        };
+      final channel = FakeMoshChannel();
+
+      await expectLater(
+        openOn(
+          moshTunnelTo(host, channel),
+          command: 'exec \$SHELL -l',
+          tabSession: session,
+        ),
+        throwsA(anything),
+      );
+      expect(
+        host.requests.where((request) => request.startsWith('run ')),
+        isEmpty,
+      );
+      expect(
+        host.requests.where((request) => request.startsWith('shell ')),
+        isEmpty,
+      );
     });
 
     test('a Herdr pane uses Mosh without nesting tmux', () async {
@@ -1653,6 +1792,81 @@ void main() {
       host.pty.exit(null);
 
       expect(await connection.exitCode, isNull);
+    });
+
+    test('a link that dies under the pty reaches the reader as a lost stream, '
+        'once, before the exit', () async {
+      final host = FakeHost();
+      final connection = await openOn(tunnelTo(host));
+      final seen = <Object>[];
+      connection.output.listen((_) {}, onError: seen.add);
+      unawaited(connection.exitCode.then((code) => seen.add('exit $code')));
+
+      host.die();
+      host.pty.fail(SSHStateError('SSH connection closed'));
+      host.pty.lose();
+      await pumpEventQueue();
+
+      expect(seen, hasLength(2));
+      expect((seen.first as ShellFailure).kind, ShellFailureKind.streamClosed);
+      expect(seen.last, 'exit null');
+      expect(connection.ended, isNotNull);
+    });
+
+    test('a pty that ends on an error keeps it as the detail', () async {
+      final host = FakeHost();
+      final connection = await openOn(tunnelTo(host));
+      final errors = <Object>[];
+      connection.output.listen((_) {}, onError: errors.add);
+
+      host.pty.endOn(StateError('channel torn down'));
+      await pumpEventQueue();
+
+      expect(
+        (errors.single as ShellFailure).detail,
+        contains('channel torn down'),
+      );
+      expect(await connection.exitCode, isNull);
+    });
+
+    test('a shell a signal ended is an exit and no failure', () async {
+      final host = FakeHost();
+      final connection = await openOn(tunnelTo(host));
+      final errors = <Object>[];
+      connection.output.listen((_) {}, onError: errors.add);
+
+      host.pty.kill('KILL');
+      await pumpEventQueue();
+
+      expect(errors, isEmpty);
+      expect(await connection.exitCode, isNull);
+      expect(connection.ended, isNotNull);
+    });
+
+    test('a code from the remote is an exit and no failure', () async {
+      final host = FakeHost();
+      final connection = await openOn(tunnelTo(host));
+      final errors = <Object>[];
+      connection.output.listen((_) {}, onError: errors.add);
+
+      host.pty.exit(0);
+      await pumpEventQueue();
+
+      expect(errors, isEmpty);
+      expect(await connection.exitCode, 0);
+    });
+
+    test('closing the tab is no failure', () async {
+      final host = FakeHost();
+      final connection = await openOn(tunnelTo(host));
+      final errors = <Object>[];
+      connection.output.listen((_) {}, onError: errors.add);
+
+      await connection.close(UserClosed(UserIntent.fromGesture()));
+      host.pty.lose();
+      await pumpEventQueue();
+
+      expect(errors, isEmpty);
     });
 
     test('closing takes the session and the connection under it', () async {
@@ -1946,7 +2160,6 @@ void main() {
         required String privateKey,
         HostKeyVerifier? verifier,
         required Duration timeout,
-        required Duration keepAlive,
       }) async => host,
     );
 
@@ -1970,7 +2183,6 @@ void main() {
               required String privateKey,
               HostKeyVerifier? verifier,
               required Duration timeout,
-              required Duration keepAlive,
             }) async {
               unawaited(
                 verifier!
@@ -2032,6 +2244,7 @@ void main() {
   });
 
   group('the engine', engineTests);
+  group('a plain SSH tab over its link', plainTabTests);
 }
 
 class FakeEngineChannel implements EngineChannel {
@@ -2143,7 +2356,6 @@ ShellTunnel engineTunnelTo(
     required String privateKey,
     HostKeyVerifier? verifier,
     required Duration timeout,
-    required Duration keepAlive,
   }) async => nextHost?.call() ?? host,
   engineDialer:
       ({
@@ -2203,7 +2415,10 @@ void engineTests() {
     expect(sshDials, 1);
 
     host.refuse = StateError('control host failed');
-    await expectLater(connection.channels.exec('pwd'), throwsStateError);
+    await expectLater(
+      connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+      throwsStateError,
+    );
     expect(sshDials, 1);
     expect(host.closed, isFalse);
   });
@@ -2396,6 +2611,28 @@ void engineTests() {
     });
   }
 
+  test('a link that dies under the engine start fails the open, and neither '
+      'Mosh nor SSH is tried', () async {
+    final host = FakeHost()
+      ..execInputAnswer = (command, stdin) =>
+          throw TimeoutException('link stalled');
+    await expectLater(
+      openOn(
+        engineTunnelTo(host, FakeEngineChannel(), FakeMoshChannel()),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      ),
+      throwsA(anything),
+    );
+    expect(host.requests, isNot(contains('exec ${moshServerProbeCommand()}')));
+    expect(
+      host.requests.where(
+        (request) => request.startsWith('run ') || request.startsWith('shell '),
+      ),
+      isEmpty,
+    );
+  });
+
   test(
     'a shell that never answers is stopped and Mosh takes the tab',
     () async {
@@ -2576,7 +2813,6 @@ void engineTests() {
         required String privateKey,
         HostKeyVerifier? verifier,
         required Duration timeout,
-        required Duration keepAlive,
       }) async => host,
       engineDialer:
           ({
@@ -2819,5 +3055,197 @@ void engineTests() {
         'udp silent to 10.0.0.7:60990 after 4s; ssh for 5m',
       );
     });
+  });
+}
+
+final _vm = Host(
+  id: 'h1',
+  name: 'vm',
+  address: '10.0.0.2',
+  port: 22,
+  user: 'dev',
+  keyId: 'key-1',
+  hostKey: pinnedKey,
+);
+
+({ShellSessions sessions, List<FakeHost> hosts}) plainTabs() {
+  final hosts = <FakeHost>[];
+  final tunnel = ShellTunnel(
+    dial:
+        ({
+          required String address,
+          required int port,
+          required String user,
+          required String privateKey,
+          HostKeyVerifier? verifier,
+          required Duration timeout,
+        }) async {
+          final host = FakeHost();
+          hosts.add(host);
+          return host;
+        },
+  );
+  return (
+    sessions: ShellSessions(
+      readPrivateKey: (_) async => 'PEM',
+      pinHostKey: (_, _) async {},
+      open: tunnel.open,
+    ),
+    hosts: hosts,
+  );
+}
+
+Future<void> _settleTab(WidgetTester tester) async {
+  for (var i = 0; i < 10; i++) {
+    await tester.pump();
+  }
+}
+
+Uint8List _keys(String typed) => Uint8List.fromList(utf8.encode(typed));
+
+void plainTabTests() {
+  Future<({ShellSessions sessions, List<FakeHost> hosts, ShellSession tab})>
+  live(WidgetTester tester) async {
+    final (:sessions, :hosts) = plainTabs();
+    final tab = sessions.open(intent: UserIntent.fromGesture(), _vm)!;
+    await _settleTab(tester);
+    expect(tab.state, isA<ShellLive>());
+    expect(hosts, hasLength(1));
+    return (sessions: sessions, hosts: hosts, tab: tab);
+  }
+
+  Future<void> closeTab(ShellSessions sessions, ShellSession tab) =>
+      sessions.close(intent: UserIntent.fromGesture(), _vm.id, tab);
+
+  testWidgets('a shell a signal ended exits and is not dialled again', (
+    tester,
+  ) async {
+    final (:sessions, :hosts, :tab) = await live(tester);
+
+    hosts.single.pty.kill('KILL');
+    await tester.pump();
+    await tester.pump(const Duration(minutes: 1));
+
+    expect(tab.state, isA<ShellExited>());
+    expect((tab.state as ShellExited).code, isNull);
+    expect(hosts, hasLength(1));
+
+    await closeTab(sessions, tab);
+  });
+
+  testWidgets('a pty that ends with neither code nor signal is a lost link '
+      'and dialled again', (tester) async {
+    final (:sessions, :hosts, :tab) = await live(tester);
+
+    hosts.single
+      ..die()
+      ..pty.lose();
+    await tester.pump();
+
+    expect(tab.state, isA<ShellDropped>());
+    await tester.pump(shellReconnectDelays.first);
+    await _settleTab(tester);
+    expect(tab.state, isA<ShellLive>());
+    expect(hosts, hasLength(2));
+
+    await closeTab(sessions, tab);
+  });
+
+  testWidgets('a write into a silent link ends it within the stall window and '
+      'its answer, and the tab dials again', (tester) async {
+    final (:sessions, :hosts, :tab) = await live(tester);
+    final silent = hosts.single..answers = false;
+
+    sessions.send(tab, _keys('ls\r'));
+    await tester.pump(SshShellConnection.stallWindow);
+    expect(silent.checks, 1);
+    expect(tab.state, isA<ShellLive>());
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    expect(tab.state, isA<ShellDropped>());
+
+    await tester.pump(shellReconnectDelays.first);
+    await _settleTab(tester);
+    expect(tab.state, isA<ShellLive>());
+    expect(hosts, hasLength(2));
+
+    await closeTab(sessions, tab);
+  });
+
+  testWidgets('a live link survives writes nothing echoes, with one check '
+      'for the lot', (tester) async {
+    final (:sessions, :hosts, :tab) = await live(tester);
+
+    for (final key in 'hunter2'.split('')) {
+      sessions.send(tab, _keys(key));
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    await tester.pump(SshShellConnection.stallWindow);
+
+    expect(hosts.single.checks, 1);
+    expect(tab.state, isA<ShellLive>());
+    expect(hosts, hasLength(1));
+
+    await closeTab(sessions, tab);
+  });
+
+  testWidgets('an echo stands the watchdog down', (tester) async {
+    final (:sessions, :hosts, :tab) = await live(tester);
+
+    sessions.send(tab, _keys('l'));
+    await tester.pump(const Duration(seconds: 1));
+    hosts.single.pty.out(utf8.encode('l'));
+    await tester.pump(const Duration(seconds: 10));
+
+    expect(hosts.single.checks, 0);
+
+    await closeTab(sessions, tab);
+  });
+
+  testWidgets('a network change ends a dead link and the tab dials again', (
+    tester,
+  ) async {
+    final (:sessions, :hosts, :tab) = await live(tester);
+    hosts.single.answers = false;
+
+    sessions.wakeAll(PlatformSignal.fromPlatform(), network: true);
+    await tester.pump();
+    expect(hosts.single.checks, 1);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    expect(tab.state, isA<ShellDropped>());
+
+    await tester.pump(shellReconnectDelays.first);
+    await _settleTab(tester);
+    expect(tab.state, isA<ShellLive>());
+    expect(hosts, hasLength(2));
+
+    await closeTab(sessions, tab);
+  });
+
+  testWidgets('a network change leaves a live link as it was', (tester) async {
+    final (:sessions, :hosts, :tab) = await live(tester);
+
+    sessions.wakeAll(PlatformSignal.fromPlatform(), network: true);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 10));
+
+    expect(hosts.single.checks, 1);
+    expect(hosts.single.closed, isFalse);
+    expect(tab.state, isA<ShellLive>());
+    expect(hosts, hasLength(1));
+
+    await closeTab(sessions, tab);
+  });
+
+  testWidgets('closing the tab takes its watchdog with it', (tester) async {
+    final (:sessions, :hosts, :tab) = await live(tester);
+
+    sessions.send(tab, _keys('exit'));
+    await closeTab(sessions, tab);
+    await tester.pump(const Duration(seconds: 10));
+
+    expect(hosts.single.checks, 0);
   });
 }

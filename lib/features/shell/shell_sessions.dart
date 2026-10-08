@@ -76,11 +76,18 @@ final class ShellExited extends ShellState {
   final int? code;
 }
 
-/// [attempt] counts from 1 and is what the header reads out.
 final class ShellDropped extends ShellState {
-  const ShellDropped(this.attempt);
+  const ShellDropped(
+    this.attempt, {
+    this.kind = ShellFailureKind.streamClosed,
+    this.detail,
+  });
 
   final int attempt;
+
+  final ShellFailureKind kind;
+
+  final String? detail;
 }
 
 final class ShellFailed extends ShellState {
@@ -110,6 +117,7 @@ extension ShellStateFailure on ShellState {
   ({ShellFailureKind kind, String? detail})? get failure => switch (this) {
     ShellFailed(:final kind, :final detail) => (kind: kind, detail: detail),
     ShellWaiting(:final kind, :final detail) => (kind: kind, detail: detail),
+    ShellDropped(:final kind, :final detail?) => (kind: kind, detail: detail),
     _ => null,
   };
 }
@@ -135,6 +143,8 @@ const shellReconnectDelays = <Duration>[
 /// The network arriving and the resume behind it are one wake-up of the phone, so a second
 /// rehome landing inside this of the first is the same moment asking twice.
 const shellRehomeSettle = Duration(seconds: 1);
+
+const agentProbeDeadline = Duration(seconds: 3);
 
 /// Written into the terminal above each new shell. A prompt appearing under a dead
 /// shell's output with no mark between them is a lie about what happened, and the dim SGR
@@ -580,6 +590,8 @@ class _Attempt {
 
   final ShellSession _session;
 
+  var dials = false;
+
   bool get isCurrent => !_session._closed && identical(_session._attempt, this);
 }
 
@@ -775,6 +787,7 @@ class ShellSessions extends ChangeNotifier {
       if (herdrSession == null) {
         final probe = await connection.channels.exec(
           shellCwdProbe(session.mark),
+          timeout: remoteCommandDeadline,
         );
         if (probe == null || probe.exitCode != 0) return null;
         final place = parseShellPlace(probe.out);
@@ -784,6 +797,7 @@ class ShellSessions extends ChangeNotifier {
       if (herdrSession != null && HerdrCommands.isSessionName(herdrSession)) {
         final panes = await connection.channels.exec(
           HerdrCommands.panes(herdrSession),
+          timeout: remoteCommandDeadline,
         );
         if (panes != null && panes.exitCode == 0) {
           answer = HerdrClient.parsePaneCwd(panes.out, pane?.pane) ?? answer;
@@ -813,7 +827,7 @@ class ShellSessions extends ChangeNotifier {
     try {
       final result = await connection.channels.exec(
         shellForegroundProcessProbe(session.mark),
-        timeout: const Duration(seconds: 3),
+        timeout: agentProbeDeadline,
       );
       if (result == null ||
           result.exitCode != 0 ||
@@ -841,7 +855,7 @@ class ShellSessions extends ChangeNotifier {
     try {
       final result = await connection.channels.exec(
         HerdrCommands.agents(pane.session),
-        timeout: const Duration(seconds: 3),
+        timeout: agentProbeDeadline,
       );
       if (result == null ||
           result.exitCode != 0 ||
@@ -874,6 +888,7 @@ class ShellSessions extends ChangeNotifier {
     if (directory == null) return _repository(session, null);
     final result = await connection.channels.exec(
       WorkspaceCommands.repository(directory),
+      timeout: remoteCommandDeadline,
     );
     final top = result?.out.trim() ?? '';
     if (result == null || result.exitCode != 0 || !top.startsWith('/')) {
@@ -1540,7 +1555,10 @@ class ShellSessions extends ChangeNotifier {
   /// nothing.
   Future<void> _mark(ShellSession session, ShellConnection connection) async {
     try {
-      await connection.channels.exec(pinentryMarkCommand(session.tab));
+      await connection.channels.exec(
+        pinentryMarkCommand(session.tab),
+        timeout: remoteCommandDeadline,
+      );
     } catch (error) {
       if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
       debugPrint('upgrade.shell ${session.host.name}: pinentry mark: $error');
@@ -1591,7 +1609,10 @@ class ShellSessions extends ChangeNotifier {
         if (connection == null) return;
         final ExecResult? result;
         try {
-          result = await connection.channels.exec(pinentryOpenCommand());
+          result = await connection.channels.exec(
+            pinentryOpenCommand(),
+            timeout: remoteCommandDeadline,
+          );
         } catch (error) {
           if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
           debugPrint(
@@ -1701,9 +1722,21 @@ class ShellSessions extends ChangeNotifier {
     bool reconnected = false,
     bool restored = false,
   }) async {
-    final attempt = session._claim();
+    final attempt = session._claim()..dials = true;
     if (!attempt.isCurrent) return;
-    final privateKey = await readPrivateKey(host.keyId);
+    final String? privateKey;
+    try {
+      privateKey = await readPrivateKey(host.keyId);
+    } catch (error) {
+      // A key store that cannot answer now (locked, or not yet up after a boot) is not
+      // a host that went away, so nothing dials until the user asks again.
+      _fail(
+        session,
+        ShellFailure(ShellFailureKind.keyRejected, detail: '$error'),
+        attempt,
+      );
+      return;
+    }
     if (!attempt.isCurrent) return;
     if (privateKey == null) {
       // The host names a key whose secret is gone from the store. There is nothing
@@ -1751,6 +1784,12 @@ class ShellSessions extends ChangeNotifier {
             if (terminated) {
               await tabs?.close(host.id, session.number);
             }
+          } else if (!session._attempt.dials &&
+              connection.transport != ShellTransport.ssh &&
+              connection.continuity != ShellContinuity.resumed) {
+            // Stopped under this dial with no other coming: the server it started on the
+            // host has nobody to carry it, and no later start sweeps it.
+            await connection.terminateRemote(session.tab, durableShell: false);
           }
         } catch (error) {
           debugPrint('upgrade.shell ${host.name}: cleanup failed: $error');
@@ -1860,10 +1899,17 @@ class ShellSessions extends ChangeNotifier {
         }
       }, onError: (Object error) => _fail(session, error, attempt));
       unawaited(_awaitExit(session, connection, attempt));
-      final settled = Future.wait([
-        _mark(session, connection),
-        _reap(host.id, connection),
-      ]);
+      final settled =
+          Future.wait([_mark(session, connection), _reap(host.id, connection)])
+              .then(
+                (_) {},
+                onError: (Object error, StackTrace stack) {
+                  if (!isHostFailure(error) && !isKeyFailure(error)) {
+                    Error.throwWithStackTrace(error, stack);
+                  }
+                  debugPrint('upgrade.shell ${host.name}: settle: $error');
+                },
+              );
       if (_sleeping) {
         unawaited(
           settled.whenComplete(() {
@@ -1923,6 +1969,10 @@ class ShellSessions extends ChangeNotifier {
     try {
       final code = await connection.exitCode;
       if (!attempt.isCurrent) return;
+      if (session.state
+          case ShellDropped() || ShellWaiting() || ShellFailed()) {
+        return;
+      }
       session._unwatch();
       session.disarm();
       session.state = ShellExited(code);
@@ -2000,7 +2050,7 @@ class ShellSessions extends ChangeNotifier {
     // again rather than left on screen as a dead tab.
     if (shellReconnects(kind)) {
       if (retry != null && dropped < shellReconnectDelays.length) {
-        _drop(session, dropped + 1, retry);
+        _drop(session, dropped + 1, retry, kind);
         return;
       }
       // The schedule is spent, and sixty-eight seconds of it may have run in a
@@ -2121,8 +2171,9 @@ class ShellSessions extends ChangeNotifier {
   /// One tab, as the first step of a fresh schedule: a dial that misses waits two seconds
   /// and goes on, rather than running the whole minute out again with nobody looking.
   void wake(ShellSession session, OpenReason reason) {
-    if (_held > 0 || session.state is! ShellWaiting) return;
-    session.state = const ShellDropped(1);
+    final waiting = session.state;
+    if (_held > 0 || waiting is! ShellWaiting) return;
+    session.state = ShellDropped(1, kind: waiting.kind, detail: waiting.detail);
     session.changed();
     unawaited(_redial(session, reason));
   }
@@ -2160,8 +2211,13 @@ class ShellSessions extends ChangeNotifier {
     session.changed();
   }
 
-  void _drop(ShellSession session, int attempt, Reconnect retry) {
-    session.state = ShellDropped(attempt);
+  void _drop(
+    ShellSession session,
+    int attempt,
+    Reconnect retry,
+    ShellFailureKind kind,
+  ) {
+    session.state = ShellDropped(attempt, kind: kind, detail: session._detail);
     session.clearAgentInput();
     session.clearEngineForeground();
     session.changed();

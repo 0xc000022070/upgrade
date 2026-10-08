@@ -765,9 +765,21 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     if (_asked.containsKey(mark) && _asked[mark] == session.cwd) return;
     _asked[mark] = session.cwd;
     unawaited(
-      _store.repositoryFromHost(session).then((_) {
-        if (mounted) _asked[mark] = session.cwd;
-      }),
+      _store
+          .repositoryFromHost(session)
+          .then(
+            (_) {
+              if (mounted) _asked[mark] = session.cwd;
+            },
+            onError: (Object error, StackTrace stack) {
+              if (!isHostFailure(error) && !isKeyFailure(error)) {
+                Error.throwWithStackTrace(error, stack);
+              }
+              debugPrint(
+                'upgrade.shell ${widget.host.name}: repository: $error',
+              );
+            },
+          ),
     );
   }
 

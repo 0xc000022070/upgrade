@@ -14,6 +14,8 @@ abstract interface class ShellHost {
 
   Future<ShellExec> execute(String command);
 
+  Future<bool> check();
+
   Future<void> close();
 }
 
@@ -37,6 +39,9 @@ abstract interface class ShellPty {
   Future<void> get done;
   int? get exitCode;
 
+  /// Without the leading SIG; set when a signal, not an exit, ended the remote process.
+  String? get exitSignal;
+
   void write(Uint8List bytes);
   void resizeTerminal(int columns, int rows);
   void close();
@@ -48,7 +53,6 @@ typedef ShellDialer = Future<ShellHost> Function({
   required String user,
   required String privateKey,
   required Duration timeout,
-  required Duration keepAlive,
   required HostKeyVerifier verifier,
 });
 
@@ -59,7 +63,6 @@ ShellDialer _dialOver(HostLinks links) =>
       required user,
       required privateKey,
       required timeout,
-      required keepAlive,
       required verifier,
     }) async => _SshHost.claimed(
       await links.claim(
@@ -80,18 +83,21 @@ class _SshHost implements ShellHost {
   _SshHost.over(SSHSocket socket, this._client)
     : _execute = ((command, pty) => _client.execute(command, pty: pty)),
       _shell = ((pty) => _client.shell(pty: pty)),
+      // Unpooled: nothing here may close the socket on a missed ping.
+      _check = (() async => !_client.isClosed),
       _close = (() => closeSettled(_client, socket));
 
   _SshHost.claimed(HostLease lease)
     : _client = lease.client,
       _execute = ((command, pty) => lease.execute(command, pty: pty)),
       _shell = lease.shell,
+      _check = lease.check,
       _close = (() async => lease.release());
 
   final SSHClient _client;
-  final Future<SSHSession> Function(String command, SSHPtyConfig? pty)
-  _execute;
+  final Future<SSHSession> Function(String command, SSHPtyConfig? pty) _execute;
   final Future<SSHSession> Function(SSHPtyConfig pty) _shell;
+  final Future<bool> Function() _check;
   final Future<void> Function() _close;
 
   @override
@@ -111,6 +117,9 @@ class _SshHost implements ShellHost {
   @override
   Future<ShellExec> execute(String command) async =>
       _SshExec(await _execute(command, null));
+
+  @override
+  Future<bool> check() => _check();
 
   @override
   Future<void> close() => _close();
@@ -162,6 +171,9 @@ class _SshPty implements ShellPty {
 
   @override
   int? get exitCode => _session.exitCode;
+
+  @override
+  String? get exitSignal => _session.exitSignal?.signalName;
 
   @override
   void write(Uint8List bytes) => _session.write(bytes);

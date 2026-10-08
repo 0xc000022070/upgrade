@@ -1,9 +1,10 @@
 /// SSH connection policy.
 ///
-/// A connection is durable state: nothing opens, closes, replaces or retries it without a
-/// sealed [OpenReason] or [DropReason], and only an [OpenReason] dials. Why: a probe's
-/// timeout once replaced a live connection under a typed SEND; see
-/// `SSH-CONNECTION-INCIDENT.md`.
+/// [HostLinks] alone opens and closes sockets; every other holder only leases and releases,
+/// so a command, timeout or probe can never close or replace a connection. A tab's claim,
+/// drop, renounce and revive additionally need a sealed [OpenReason] or [DropReason], and
+/// only an [OpenReason] redials a tab. Why: a probe's timeout once replaced a live
+/// connection under a typed SEND; see `SSH-CONNECTION-INCIDENT.md`.
 ///
 /// Guaranteed by this library's `_` privacy:
 /// - Outside code holds no host or supervisor, only [HostChannels] views that answer null
@@ -17,6 +18,9 @@
 /// - No reason is a command failure, and every switch over reasons is exhaustive.
 /// - A held host that dies is redialled on a fixed schedule for transports that ask. A
 ///   terminal silent past its window has ended; a held link ends only by its keepalive.
+///   [check] is one keepalive round, run early on a stalled write or a rehome.
+/// - A dial refused while an earlier one settles ([DialSettling]) waits for that settle;
+///   it is not a failure and spends no step of the schedule.
 /// - One owner per host per isolate: one control and one screen link per identity, a
 ///   [HostUse] fixing the lane. [UserClosed], [ShellEnded], [_StartupAbandoned] and
 ///   [_Unclaimed] release one tab's claim; [NetworkChanged] and a dead link end it for all,
@@ -68,7 +72,7 @@ abstract interface class HostChannels {
   Future<ExecResult?> exec(
     String command, {
     Uint8List? stdin,
-    Duration? timeout,
+    required Duration timeout,
   });
 }
 
@@ -97,7 +101,7 @@ final class ConnectionSupervisor implements HostChannels {
   Future<ExecResult?> exec(
     String command, {
     Uint8List? stdin,
-    Duration? timeout,
+    required Duration timeout,
   }) async {
     final link = _link;
     if (link == null) return null;
@@ -106,8 +110,10 @@ final class ConnectionSupervisor implements HostChannels {
 
   Stream<ControlLink> get controlLink => _control.stream;
 
+  String get endpoint => '${_target.address}:${_target.port}';
+
   /// Null when the tab is gone or the app away; throws what the dial threw. A gesture whose
-  /// dial a network change overtook waits, once, on the dial that change starts.
+  /// dial a network change overtook, or an earlier dial's settle refused, opens again once.
   Future<HostChannels?> open(OpenReason reason) {
     final opened = _open(reason);
     if (reason is! UserAction) return opened.future;
@@ -117,8 +123,11 @@ final class ConnectionSupervisor implements HostChannels {
         return _open(reason).future;
       },
       onError: (Object error, StackTrace stack) {
-        if (!opened.overtaken) Error.throwWithStackTrace(error, stack);
-        return _open(reason).future;
+        if (opened.overtaken) return _open(reason).future;
+        if (error is DialSettling) {
+          return error.settled.then((_) => _open(reason).future);
+        }
+        Error.throwWithStackTrace(error, stack);
       },
     );
   }
@@ -165,7 +174,13 @@ final class ConnectionSupervisor implements HostChannels {
         await open(reason);
       } catch (error) {
         if (_retired || _suspended || _link != null) return;
-        if (isHostFailure(error) && step + 1 < _reviveDelays.length) {
+        if (error is DialSettling) {
+          await error.settled;
+          if (_retired || _suspended || _link != null || _revival != null) {
+            return;
+          }
+          _revive(reason, step);
+        } else if (isHostFailure(error) && step + 1 < _reviveDelays.length) {
           _revive(reason, step + 1);
         } else {
           _giveUp(error);
@@ -230,6 +245,12 @@ final class ConnectionSupervisor implements HostChannels {
     return true;
   }
 
+  Future<void> check() async {
+    final link = _link;
+    if (link == null) return;
+    await link.host.check();
+  }
+
   Future<ShellPty> pty(String? command, SSHPtyConfig config) async {
     final link = _link;
     // What dartssh2 throws for a gone client, so the tab reads it as a lost stream.
@@ -248,7 +269,7 @@ final class ConnectionSupervisor implements HostChannels {
         HostKeyVerifier.pinnedOnly(_trusted),
       );
     } catch (error) {
-      debugPrint('upgrade.shell ${_target.address}: redial: $error');
+      debugPrint('upgrade.shell $endpoint: redial: $error');
       rethrow;
     }
     final cause = switch (reason) {
@@ -284,7 +305,7 @@ final class ConnectionSupervisor implements HostChannels {
       host.done.then(
         (_) => died(),
         onError: (Object error) {
-          debugPrint('upgrade.shell ${_target.address}: host: $error');
+          debugPrint('upgrade.shell $endpoint: host: $error');
           died();
         },
       ),
@@ -293,7 +314,7 @@ final class ConnectionSupervisor implements HostChannels {
   }
 
   void _log(String message) => debugPrint(
-    'upgrade.shell ${_target.address} supervisor ${identityHashCode(this)}: '
+    'upgrade.shell $endpoint supervisor ${identityHashCode(this)}: '
     '$message',
   );
 
@@ -327,7 +348,7 @@ final class _Channels implements HostChannels {
   Future<ExecResult?> exec(
     String command, {
     Uint8List? stdin,
-    Duration? timeout,
+    required Duration timeout,
   }) => _owner.exec(command, stdin: stdin, timeout: timeout);
 }
 
@@ -356,19 +377,14 @@ const _reviveDelays = <Duration>[
 };
 
 final class SshConnector {
-  SshConnector({
-    ShellDialer? dial,
-    HostLinks? links,
-    required this.timeout,
-    required this.keepAlive,
-  }) : _links = links ?? HostLinks(),
-       _injected = dial;
+  SshConnector({ShellDialer? dial, HostLinks? links, required this.timeout})
+    : _links = links ?? HostLinks(),
+      _injected = dial;
 
   final HostLinks _links;
   final ShellDialer? _injected;
   late final ShellDialer _dial = _injected ?? _dialOver(_links);
   final Duration timeout;
-  final Duration keepAlive;
 
   void _renounce(_Target target, NetworkChanged change) => _links.renounce(
     address: target.address,
@@ -404,7 +420,7 @@ final class SshConnector {
       .._log('dial for ${purpose.cause}');
     final ShellHost host;
     try {
-      host = await _connect(target, verifier);
+      host = await _connectSettled(target, verifier);
     } catch (error) {
       if (isHostFailure(error)) failed?.call(Reconnect._(_DialFailed(error)));
       rethrow;
@@ -420,6 +436,20 @@ final class SshConnector {
     }
   }
 
+  /// Each settle waited out is another dial's, so this ends on a dial of its own.
+  Future<ShellHost> _connectSettled(
+    _Target target,
+    HostKeyVerifier verifier,
+  ) async {
+    while (true) {
+      try {
+        return await _connect(target, verifier);
+      } on DialSettling catch (settling) {
+        await settling.settled;
+      }
+    }
+  }
+
   /// No deadline while a key confirm sheet is open; authentication gets a fresh one after.
   Future<ShellHost> _connect(_Target target, HostKeyVerifier verifier) async {
     final host = await _dial(
@@ -428,7 +458,6 @@ final class SshConnector {
       user: target.user,
       privateKey: target.privateKey,
       timeout: timeout,
-      keepAlive: keepAlive,
       verifier: verifier,
     );
     try {
@@ -451,7 +480,7 @@ final class _Lease implements HostChannels {
   Future<ExecResult?> exec(
     String command, {
     Uint8List? stdin,
-    Duration? timeout,
+    required Duration timeout,
   }) async {
     final link = _owner._link;
     if (link == null || link.generation != _generation) return null;

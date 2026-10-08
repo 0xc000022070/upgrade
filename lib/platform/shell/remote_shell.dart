@@ -4,6 +4,8 @@ String shellQuote(String value) => "'${value.replaceAll("'", "'\\''")}'";
 
 String underSh(String script) => 'sh -c ${shellQuote(script)}';
 
+const remoteCommandDeadline = Duration(seconds: 10);
+
 /// A registered directory is stored as the user typed it, `~` and all, and quoting the
 /// path is the one thing that stops the shell expanding it. The tilde and its slash are
 /// the only characters held out of the quotes.

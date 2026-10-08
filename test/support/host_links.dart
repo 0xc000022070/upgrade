@@ -96,16 +96,14 @@ final class FakeLinkClient implements SSHClient {
 
 Future<HostLease> leaseOver(SSHClient client) =>
     HostLinks(
-      dial:
-          ({
-            required address,
-            required port,
-            required user,
-            required privateKey,
-            required verifier,
-            onSettling,
-          }) async =>
-              (socket: FakeExecSocket(), client: client, received: () => 0),
+      dial: ({
+        required address,
+        required port,
+        required user,
+        required privateKey,
+        required verifier,
+        onSettling,
+      }) async => (socket: FakeExecSocket(), client: client, received: () => 0),
       quiet: const Duration(days: 1),
     ).lease(
       address: '10.0.0.2',
@@ -143,7 +141,7 @@ class FakeDial {
   FakeDial({this.refuse = false, this.slowAuth = false});
 
   final bool refuse;
-  final bool slowAuth;
+  bool slowAuth;
   final clients = <FakeLinkClient>[];
   var dials = 0;
   var settling = 0;

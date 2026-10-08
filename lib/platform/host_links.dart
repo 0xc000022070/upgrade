@@ -81,6 +81,14 @@ enum HostUse {
   };
 }
 
+/// Refused before dialling: an earlier failed dial to the same identity is still
+/// authenticating. [settled] completes, never with an error, once that one lets go.
+final class DialSettling extends SocketException {
+  DialSettling(this.settled) : super('an earlier dial is still settling');
+
+  final Future<void> settled;
+}
+
 /// RFC 4254's SSH_OPEN_ADMINISTRATIVELY_PROHIBITED, which is how OpenSSH says MaxSessions.
 const _administrativelyProhibited = 1;
 
@@ -101,6 +109,12 @@ class HostLease {
 
   Future<SSHSession> shell(SSHPtyConfig pty) =>
       _links._session(this, (client) => client.shell(pty: pty));
+
+  /// One keepalive round now, beside the periodic one: true while the link lives. The
+  /// link ends, for every holder, when the ping goes unanswered and nothing else arrives
+  /// within [HostLinks.answer]. Checks already out are joined, never doubled.
+  Future<bool> check() =>
+      _released ? Future.value(false) : _links._check(_link);
 
   void release() {
     if (_released) return;
@@ -164,6 +178,19 @@ class _Link {
   HostLane get lane => use.lane;
 }
 
+class _Settle {
+  _Settle(this.target);
+
+  final _Target target;
+  final _lifted = Completer<void>();
+
+  Future<void> get settled => _lifted.future;
+
+  void lift() {
+    if (!_lifted.isCompleted) _lifted.complete();
+  }
+}
+
 class _Pending {
   _Pending(this.target, this.lane);
 
@@ -202,7 +229,7 @@ class HostLinks {
 
   final _links = <String, _Link>{};
   final _dialing = <String, _Pending>{};
-  final _settling = <String, Future<void>>{};
+  final _settling = <String, _Settle>{};
   final _all = <_Link>{};
   final _renounced = <String, Object>{};
   var _closed = false;
@@ -264,7 +291,7 @@ class HostLinks {
         final pending = _dialing[key];
         if (pending != null) {
           final link = await pending.link;
-          if (identical(pending, mine)) return _granted(link, use);
+          if (identical(pending, mine)) return _landed(link, use);
           if (link.ended) continue;
           _log(link.name, 'reuse in-flight dial by ${use.label}');
           return _granted(link, use);
@@ -272,9 +299,8 @@ class HostLinks {
       }
       // A failed dial keeps authenticating until sshd lets go and counts against
       // MaxStartups; a second one while it settles is how the user's own gets dropped.
-      if (_settling.containsKey(identity)) {
-        throw const SocketException('an earlier dial is still settling');
-      }
+      final settling = _settling[identity];
+      if (settling != null) throw DialSettling(settling.settled);
       final pending = _Pending(target, use.lane);
       pending.link = _dialLink(target, verifier, use, identity).then((link) {
         if (pending.renounced) {
@@ -291,7 +317,7 @@ class HostLinks {
         }
         return link;
       });
-      if (pinned == null) return _granted(await pending.link, use);
+      if (pinned == null) return _landed(await pending.link, use);
       mine = pending;
       _dialing[key] = pending;
       pending.link.then((_) {}, onError: (_) {}).whenComplete(() {
@@ -324,7 +350,19 @@ class HostLinks {
       if (gone) pending.renounced = true;
       return gone;
     });
+    // A settling dial's socket is on the path that just went away.
+    _settling.removeWhere((_, settle) {
+      final gone = settle.target.same(target);
+      if (gone) settle.lift();
+      return gone;
+    });
   }
+
+  /// [HostLease.check] on every link, held or lingering; for a network change, where
+  /// a link on the old path is silent long before its keepalive notices.
+  Future<void> recheckAll() => Future.wait([
+    for (final link in [..._all]) _check(link),
+  ]);
 
   void sleep() {
     _asleep = true;
@@ -420,7 +458,7 @@ class HostLinks {
     _Target target,
     HostKeyVerifier verifier,
     HostUse use,
-    String identity, {
+    String settleKey, {
     _Link? parent,
   }) async {
     final role = parent == null ? use.lane.name : 'overflow';
@@ -434,7 +472,7 @@ class HostLinks {
         user: target.user,
         privateKey: target.privateKey,
         verifier: verifier,
-        onSettling: (settled) => _settle(identity, settled),
+        onSettling: (settled) => _settle(settleKey, target, settled),
       );
     } catch (error) {
       _log(name, 'dial failed by ${use.label}: ${error.runtimeType}');
@@ -473,7 +511,10 @@ class HostLinks {
     }
     link.probed = received;
     link.answered = false;
-    link.client.ping().then((_) => link.answered = true, onError: (_) {});
+    link.client.ping().then<void>(
+      (_) => link.answered = true,
+      onError: (Object _) {},
+    );
   }
 
   /// A held link answers to its keepalive alone; only one nobody holds is pinged
@@ -499,31 +540,55 @@ class HostLinks {
     if (now().difference(link.heardAt) < quiet) return true;
     final checking = link.checking;
     if (checking != null) return checking;
-    final check = _ping(link);
+    return _checked(link, held: false);
+  }
+
+  Future<bool> _check(_Link link) {
+    if (link.ended) return Future.value(false);
+    if (link.client.isClosed) {
+      _end(link, 'client closed');
+      return Future.value(false);
+    }
+    return _checked(link, held: true);
+  }
+
+  Future<bool> _checked(_Link link, {required bool held}) {
+    final checking = link.checking;
+    if (checking != null) return checking;
+    final check = _ping(link, held: held);
     link.checking = check;
     return check.whenComplete(() {
       if (identical(link.checking, check)) link.checking = null;
     });
   }
 
-  Future<bool> _ping(_Link link) async {
+  /// [held] ends a link someone holds too, as its keepalive would; otherwise a holder
+  /// arriving while the ping is out keeps the link.
+  Future<bool> _ping(_Link link, {required bool held}) async {
     final seen = link.ssh.received();
     try {
       await link.client.ping().timeout(answer);
     } on TimeoutException {
-      if (link.ssh.received() == seen && link.leases.isEmpty) {
-        _end(link, 'ping unanswered');
+      if (link.ssh.received() == seen && (held || link.leases.isEmpty)) {
+        _end(link, held ? 'keepalive unanswered on check' : 'ping unanswered');
         return false;
       }
     } catch (error) {
-      if (link.leases.isEmpty) {
-        _end(link, 'ping failed: $error');
+      if (held || link.leases.isEmpty) {
+        _end(link, '${held ? 'keepalive' : 'ping'} failed: $error');
         return false;
       }
     }
     link.heard = link.ssh.received();
     link.heardAt = now();
     return !link.ended;
+  }
+
+  HostLease _landed(_Link link, HostUse use) {
+    if (link.ended) {
+      throw const SocketException('the link ended as its dial landed');
+    }
+    return _granted(link, use);
   }
 
   HostLease _granted(_Link link, HostUse use) {
@@ -584,7 +649,10 @@ class HostLinks {
           link.ended) {
         rethrow;
       }
-      final spill = await _overflow(link, lease.use);
+      var spill = await _overflow(link, lease.use);
+      // The last session on it may have ended it while this waited.
+      if (spill.ended) spill = await _overflow(link, lease.use);
+      if (spill.ended) rethrow;
       spill.sessions++;
       final SSHSession session;
       try {
@@ -612,7 +680,7 @@ class HostLinks {
           parent.target,
           HostKeyVerifier.pinnedOnly(parent.trusted),
           use,
-          identity,
+          '$identity\u0000overflow',
           parent: parent,
         ).then((link) {
           if (parent.ended) {
@@ -654,11 +722,15 @@ class HostLinks {
     if (overflow != null) _end(overflow, 'parent ended');
   }
 
-  void _settle(String identity, Future<void> settled) {
-    _settling[identity] = settled;
-    settled.whenComplete(() {
-      if (identical(_settling[identity], settled)) _settling.remove(identity);
-    });
+  void _settle(String key, _Target target, Future<void> settled) {
+    final settle = _Settle(target);
+    _settling[key] = settle;
+    void lift() {
+      settle.lift();
+      if (identical(_settling[key], settle)) _settling.remove(key);
+    }
+
+    settled.then((_) => lift(), onError: (Object _) => lift());
   }
 }
 
