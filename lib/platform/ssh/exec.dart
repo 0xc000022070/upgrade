@@ -26,15 +26,17 @@ final class ChannelOpenTimeout extends TimeoutException {
 
 /// The host or the link failed; anything else is a bug. [SSHInternalError] counts: dartssh2
 /// raises it for a packet it could not process, after closing the transport.
-bool isHostFailure(Object error) => switch (error) {
-  SSHAuthFailError() || SSHKeyDecodeError() => false,
-  SSHError() || TimeoutException() || IOException() => true,
+bool isHostFailure(Object error) =>
+    !isKeyFailure(error) &&
+    (error is SSHError || error is TimeoutException || error is IOException);
+
+/// The key was refused or unreadable, or the host's key was: dialling again never helps.
+/// A refused host key reaches `authenticated` wrapped in the abort it caused.
+bool isKeyFailure(Object error) => switch (error) {
+  SSHAuthFailError() || SSHKeyDecodeError() || SSHHostkeyError() => true,
+  SSHAuthAbortError(reason: SSHHostkeyError()) => true,
   _ => false,
 };
-
-/// The host refused the key, or the key could not be read: dialling again never helps.
-bool isKeyFailure(Object error) =>
-    error is SSHAuthFailError || error is SSHKeyDecodeError;
 
 /// A channel opening past the deadline is closed unread; one that fails to open is asked
 /// for once more, since its command provably never started.

@@ -48,6 +48,7 @@ void main() {
         port: tarpit.port,
         user: 'luis',
         privateKey: privateKey,
+        verifier: HostKeyVerifier.pinnedOnly(null),
       ),
       throwsA(isA<VncUnreachable>()),
     );

@@ -779,7 +779,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       try {
         await _store.repositoryFromHost(active);
       } catch (error) {
-        if (!isHostFailure(error)) rethrow;
+        if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
         debugPrint(
           'upgrade.shell ${widget.host.name}: diff repository: $error',
         );

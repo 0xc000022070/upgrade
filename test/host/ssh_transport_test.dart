@@ -29,6 +29,7 @@ void main() {
     columns: columns,
     rows: rows,
     command: command,
+    verifier: trustGuest(),
   );
 
   test('the fixture key opens the guest login shell', () async {
@@ -106,6 +107,7 @@ void main() {
         privateKey: stranger,
         columns: 80,
         rows: 24,
+        verifier: trustGuest(),
       ),
       throwsA(
         isA<ShellFailure>().having(
@@ -127,6 +129,7 @@ void main() {
         privateKey: key,
         columns: 80,
         rows: 24,
+        verifier: trustGuest(),
       ),
       throwsA(
         isA<ShellFailure>().having(
@@ -148,6 +151,7 @@ void main() {
         privateKey: key,
         columns: 80,
         rows: 24,
+        verifier: trustGuest(),
       ),
       throwsA(
         isA<ShellFailure>().having(

@@ -20,7 +20,7 @@ typedef SshDial = Future<SshLink> Function({
   required int port,
   required String user,
   required String privateKey,
-  HostKeyVerifier? verifier,
+  required HostKeyVerifier verifier,
   void Function(Future<void> settled)? onSettling,
 });
 
@@ -91,10 +91,10 @@ class HostLinks {
     required int port,
     required String user,
     required String privateKey,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
     required String caller,
   }) async {
-    final pinned = verifier?.pinned;
+    final pinned = verifier.pinned;
     String keyFor(PinnedHostKey? pin) => [
       user,
       address,
@@ -159,7 +159,7 @@ class HostLinks {
         _end(link, 'pool closed');
         throw const HerdrUnreachable('host links closed');
       }
-      final filed = verifier?.verified ?? pinned;
+      final filed = verifier.verified ?? pinned;
       if (filed != null) {
         final fileKey = keyFor(filed);
         if (!_links.containsKey(fileKey)) {
@@ -217,14 +217,14 @@ class HostLinks {
     required String privateKey,
     required Duration timeout,
     required Duration keepAlive,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
   }) async {
     final socket = _CountingSocket(
       await SSHSocket.connect(address, port, timeout: timeout),
     );
     return (
       socket: socket,
-      client: _client(socket, user, privateKey, keepAlive, verifier?.verify),
+      client: _client(socket, user, privateKey, keepAlive, verifier.verify),
       received: () => socket.received,
     );
   }
@@ -279,7 +279,7 @@ class HostLinks {
     required int port,
     required String user,
     required String privateKey,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
     void Function(Future<void> settled)? onSettling,
   }) async {
     final socket = _CountingSocket(
@@ -293,7 +293,7 @@ class HostLinks {
       user,
       privateKey,
       keepAlive,
-      verifier?.verify,
+      verifier.verify,
     );
     try {
       await _guard(
@@ -367,7 +367,7 @@ SSHClient _client(
   String user,
   String privateKey,
   Duration keepAlive,
-  SSHHostkeyVerifyHandler? verify,
+  SSHHostkeyVerifyHandler verify,
 ) => SSHClient(
   socket,
   username: user,

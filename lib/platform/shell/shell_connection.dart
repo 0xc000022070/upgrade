@@ -102,7 +102,7 @@ typedef ShellOpener = Future<ShellConnection> Function({
   String? command,
   String? tabSession,
   String? persistentSession,
-  HostKeyVerifier? verifier,
+  required HostKeyVerifier verifier,
   void Function(Reconnect retry)? failed,
 });
 

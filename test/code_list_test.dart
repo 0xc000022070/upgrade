@@ -106,7 +106,7 @@ void main() {
             required port,
             required user,
             required privateKey,
-            verifier,
+            required verifier,
           }) async => _scanned,
           fetchModels: ({
             required address,
@@ -114,7 +114,7 @@ void main() {
             required user,
             required privateKey,
             required kind,
-            verifier,
+            required verifier,
           }) async => const [],
           keys: Ed25519Keys(privateKeys),
         ),

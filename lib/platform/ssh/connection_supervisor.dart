@@ -59,7 +59,7 @@ final class ConnectionSupervisor implements HostChannels {
 
   final SshConnector _connector;
   final _Target _target;
-  HostKeyVerifier? _redialVerifier;
+  PinnedHostKey? _trusted;
   _Link? _link;
   var _generation = 0;
   _Dial? _dial;
@@ -216,7 +216,10 @@ final class ConnectionSupervisor implements HostChannels {
     final epoch = _generation;
     final ShellHost host;
     try {
-      host = await _connector._connect(_target, _redialVerifier);
+      host = await _connector._connect(
+        _target,
+        HostKeyVerifier.pinnedOnly(_trusted),
+      );
     } catch (error) {
       debugPrint('upgrade.shell ${_target.address}: redial: $error');
       rethrow;
@@ -271,7 +274,7 @@ final class ConnectionSupervisor implements HostChannels {
     try {
       await host.close();
     } catch (error) {
-      if (!isHostFailure(error)) rethrow;
+      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
       debugPrint('upgrade.shell: host close: $error');
     }
   }
@@ -343,14 +346,14 @@ final class SshConnector {
     required int port,
     required String user,
     required String privateKey,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
     required OpenReason reason,
     required Future<T> Function(ConnectionSupervisor supervisor) startup,
     void Function(Reconnect retry)? failed,
   }) async {
     final purpose = _purpose(reason);
     // Nobody is there to answer for an unpinned key: such an open refuses it instead.
-    if (!purpose.attended && verifier?.prompt != null) {
+    if (!purpose.attended && verifier.prompt != null) {
       throw ArgumentError.value(
         verifier,
         'verifier',
@@ -367,10 +370,7 @@ final class SshConnector {
       if (isHostFailure(error)) failed?.call(Reconnect._(_DialFailed(error)));
       rethrow;
     }
-    final trusted = verifier?.verified ?? verifier?.pinned;
-    supervisor._redialVerifier = trusted == null
-        ? null
-        : HostKeyVerifier.pinnedOnly(trusted);
+    supervisor._trusted = verifier.verified ?? verifier.pinned;
     supervisor._hold(host);
     try {
       return await startup(supervisor);
@@ -382,7 +382,7 @@ final class SshConnector {
   }
 
   /// No deadline while a key confirm sheet is open; authentication gets a fresh one after.
-  Future<ShellHost> _connect(_Target target, HostKeyVerifier? verifier) async {
+  Future<ShellHost> _connect(_Target target, HostKeyVerifier verifier) async {
     final host = await _dial(
       address: target.address,
       port: target.port,

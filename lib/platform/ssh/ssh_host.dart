@@ -49,7 +49,7 @@ typedef ShellDialer = Future<ShellHost> Function({
   required String privateKey,
   required Duration timeout,
   required Duration keepAlive,
-  HostKeyVerifier? verifier,
+  required HostKeyVerifier verifier,
 });
 
 Future<ShellHost> _dialSsh({
@@ -59,7 +59,7 @@ Future<ShellHost> _dialSsh({
   required String privateKey,
   required Duration timeout,
   required Duration keepAlive,
-  HostKeyVerifier? verifier,
+  required HostKeyVerifier verifier,
 }) async {
   final ssh = await HostLinks.own(
     address: address,

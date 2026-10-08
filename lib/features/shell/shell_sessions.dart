@@ -820,7 +820,7 @@ class ShellSessions extends ChangeNotifier {
       }
       return foregroundAgent(result.out);
     } catch (error) {
-      if (!isHostFailure(error)) rethrow;
+      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
       debugPrint(
         'upgrade.shell ${session.host.name}: foreground probe: $error',
       );
@@ -855,7 +855,7 @@ class ShellSessions extends ChangeNotifier {
         if (agent.paneId == pane.pane) return AgentKind.lookup(agent.agent);
       }
     } catch (error) {
-      if (!isHostFailure(error)) rethrow;
+      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
       debugPrint('upgrade.shell ${session.host.name}: pane agents: $error');
       return null;
     }
@@ -1457,7 +1457,7 @@ class ShellSessions extends ChangeNotifier {
       try {
         system = await probeSystem(connection.channels);
       } catch (error) {
-        if (!isHostFailure(error)) rethrow;
+        if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
         debugPrint('upgrade.shell ${host.name}: system probe: $error');
         _systemAsked.remove(host.id);
         return;
@@ -1493,7 +1493,7 @@ class ShellSessions extends ChangeNotifier {
       answer = await probeClipboard(connection.channels);
     } catch (error) {
       if (session.connection == connection) session._probing = null;
-      if (!isHostFailure(error)) rethrow;
+      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
       debugPrint('upgrade.shell ${session.host.name}: clipboard probe: $error');
       return const HostClipboard(ClipboardBackend.none, reason: 'exec refused');
     }
@@ -1536,7 +1536,7 @@ class ShellSessions extends ChangeNotifier {
     try {
       await connection.channels.exec(pinentryMarkCommand(session.tab));
     } catch (error) {
-      if (!isHostFailure(error)) rethrow;
+      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
       debugPrint('upgrade.shell ${session.host.name}: pinentry mark: $error');
     }
   }
@@ -1587,7 +1587,7 @@ class ShellSessions extends ChangeNotifier {
         try {
           result = await connection.channels.exec(pinentryOpenCommand());
         } catch (error) {
-          if (!isHostFailure(error)) rethrow;
+          if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
           debugPrint(
             'upgrade.shell ${session.host.name}: pinentry ask: $error',
           );
@@ -1679,7 +1679,7 @@ class ShellSessions extends ChangeNotifier {
       // nobody is reading it: the request behind it is gone.
       return PinAnswer.expired;
     } catch (error) {
-      if (!isHostFailure(error)) rethrow;
+      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
       debugPrint('upgrade.shell ${session.host.name}: pinentry answer: $error');
       return PinAnswer.lost;
     } finally {

@@ -7,6 +7,7 @@ import 'package:upgrade/application/agent_kind.dart';
 import 'package:upgrade/platform/herdr_client.dart';
 import 'package:upgrade/platform/host_links.dart';
 import 'package:upgrade/platform/herdr_socket.dart';
+import 'package:upgrade/platform/host_keys.dart';
 import 'package:upgrade/platform/keys.dart';
 
 import 'support/herdr_link.dart';
@@ -549,6 +550,7 @@ void main() {
         port: tarpit.port,
         user: 'luis',
         privateKey: privateKey,
+        verifier: HostKeyVerifier.pinnedOnly(null),
       ),
       throwsA(isA<HerdrUnreachable>()),
     );

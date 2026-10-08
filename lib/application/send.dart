@@ -23,7 +23,7 @@ typedef HerdrSend = Future<SpawnResult> Function({
   required String prompt,
   List<RemoteFile> images,
   String? model,
-  HostKeyVerifier? verifier,
+  required HostKeyVerifier verifier,
 });
 
 typedef ReadImage = Future<Uint8List> Function(String path);
@@ -44,7 +44,7 @@ Future<SpawnResult> _fakeSend({
   required String prompt,
   List<RemoteFile> images = const [],
   String? model,
-  HostKeyVerifier? verifier,
+  required HostKeyVerifier verifier,
 }) async {
   // Long enough that SENDING is a state the eye reads rather than a flicker.
   await Future<void>.delayed(const Duration(milliseconds: 900));

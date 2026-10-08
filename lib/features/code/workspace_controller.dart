@@ -19,7 +19,7 @@ typedef WorkspaceOpener = Future<WorkspaceRunner> Function({
   required int port,
   required String user,
   required String privateKey,
-  HostKeyVerifier? verifier,
+  required HostKeyVerifier verifier,
 });
 
 final workspaceOpenerProvider = Provider<WorkspaceOpener>((ref) {
@@ -29,7 +29,7 @@ final workspaceOpenerProvider = Provider<WorkspaceOpener>((ref) {
     required int port,
     required String user,
     required String privateKey,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
   }) async => WorkspaceSsh.borrowed(
     await links.lease(
       address: address,

@@ -32,9 +32,9 @@ class HerdrSessionPool {
     required int port,
     required String user,
     required String privateKey,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
   }) async {
-    final pinned = verifier?.pinned;
+    final pinned = verifier.pinned;
     final key = [
       user,
       address,

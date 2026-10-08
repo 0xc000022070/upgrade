@@ -48,7 +48,7 @@ void main() {
               required port,
               required user,
               required privateKey,
-              verifier,
+              required verifier,
             }) async {
               final session = HerdrSession.over(socket, client);
               try {

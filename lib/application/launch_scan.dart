@@ -14,7 +14,7 @@ typedef LaunchFetch = Future<LaunchTargets> Function({
   required int port,
   required String user,
   required String privateKey,
-  HostKeyVerifier? verifier,
+  required HostKeyVerifier verifier,
 });
 
 sealed class LaunchScan {

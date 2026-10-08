@@ -1730,7 +1730,7 @@ class HerdrClient {
     required int port,
     required String user,
     required String privateKey,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
   }) async => HerdrSession.borrowed(
     await links.lease(
       address: address,
@@ -1747,7 +1747,7 @@ class HerdrClient {
     required int port,
     required String user,
     required String privateKey,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
   }) async {
     final session = await connect(
       address: address,
@@ -1768,7 +1768,7 @@ class HerdrClient {
     required int port,
     required String user,
     required String privateKey,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
   }) async {
     final session = await connect(
       address: address,
@@ -1789,7 +1789,7 @@ class HerdrClient {
     required int port,
     required String user,
     required String privateKey,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
   }) async {
     final session = await connect(
       address: address,
@@ -1811,7 +1811,7 @@ class HerdrClient {
     required String user,
     required String privateKey,
     required AgentKind kind,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
   }) async {
     final session = await connect(
       address: address,
@@ -1837,7 +1837,7 @@ class HerdrClient {
     required String prompt,
     List<RemoteFile> images = const [],
     String? model,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
   }) async {
     final session = await connect(
       address: address,

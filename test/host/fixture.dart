@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:upgrade/platform/host_keys.dart';
 import 'package:upgrade/platform/keys.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 
@@ -14,6 +15,8 @@ const hostVmDeadPort = 2223;
 /// Read from disk rather than pasted in, so the pair cannot drift apart.
 String hostVmPrivateKey() =>
     File('nix/host-vm/fixtures/host_vm_test_key').readAsStringSync();
+
+HostKeyVerifier trustGuest() => HostKeyVerifier(prompt: (_, _) async => true);
 
 Future<String> strangerPrivateKey() async {
   final keys = Ed25519Keys(MemoryPrivateKeyStore());

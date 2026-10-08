@@ -65,6 +65,7 @@ void main() {
         port: relay.port,
         user: hostVm.user,
         privateKey: hostVmPrivateKey(),
+        verifier: trustGuest(),
       );
       relay.reset();
       await Future<void>.delayed(const Duration(milliseconds: 300));

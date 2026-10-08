@@ -406,7 +406,7 @@ final deviceLinkOpenerProvider = Provider<DeviceLinkOpener>((ref) {
     required port,
     required user,
     required privateKey,
-    verifier,
+    required verifier,
   }) async => DeviceSsh.borrowed(
     await links.lease(
       address: address,

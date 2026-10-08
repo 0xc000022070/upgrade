@@ -382,7 +382,7 @@ typedef HerdrFetch = Future<List<AgentSnapshot>> Function({
   required int port,
   required String user,
   required String privateKey,
-  HostKeyVerifier? verifier,
+  required HostKeyVerifier verifier,
 });
 
 final hostLinksProvider = Provider<HostLinks>((ref) {
@@ -404,7 +404,7 @@ final engineFetchProvider = Provider<HerdrFetch>((ref) {
     required port,
     required user,
     required privateKey,
-    verifier,
+    required verifier,
   }) async {
     final session = HerdrSession.borrowed(
       await links.lease(

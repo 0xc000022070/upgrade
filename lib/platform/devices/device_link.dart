@@ -729,7 +729,7 @@ typedef DeviceLinkOpener = Future<DeviceLink> Function({
   required int port,
   required String user,
   required String privateKey,
-  HostKeyVerifier? verifier,
+  required HostKeyVerifier verifier,
 });
 
 class DeviceSsh implements DeviceLink {

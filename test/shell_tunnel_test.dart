@@ -393,11 +393,59 @@ ShellTunnel moshTunnelOver(
       },
 );
 
+final pinnedKey = PinnedHostKey(
+  type: 'ssh-ed25519',
+  fingerprint: 'SHA256:pinned',
+  pinnedAt: DateTime(2026),
+);
+
+ShellTunnel moshTunnelOffering(
+  List<FakeHost> hosts,
+  FakeMoshChannel channel,
+  List<String?> fingerprints,
+  List<HostKeyVerifier> verifiers,
+) => ShellTunnel(
+  dial:
+      ({
+        required String address,
+        required int port,
+        required String user,
+        required String privateKey,
+        required HostKeyVerifier verifier,
+        required Duration timeout,
+        required Duration keepAlive,
+      }) async {
+        final dial = verifiers.length;
+        verifiers.add(verifier);
+        final offered = fingerprints[dial];
+        if (offered == null ||
+            await verifier.verifyFingerprint('ssh-ed25519', offered)) {
+          return hosts[dial];
+        }
+        return FakeHost(
+          authError: SSHAuthAbortError(
+            'Connection closed before authentication',
+            SSHHostkeyError('Hostkey verification failed'),
+          ),
+        );
+      },
+  moshDialer:
+      ({
+        required MoshServerConfig server,
+        required int columns,
+        required int rows,
+      }) async {
+        Timer.run(() => channel.emit('\$ '));
+        return channel;
+      },
+);
+
 Future<ShellConnection> openOn(
   ShellTunnel tunnel, {
   String? command,
   String? tabSession,
   String? persistentSession,
+  HostKeyVerifier? verifier,
   void Function(Reconnect retry)? failed,
 }) => tunnel.open(
   reason: UserAction(UserIntent.fromGesture()),
@@ -410,6 +458,7 @@ Future<ShellConnection> openOn(
   command: command,
   tabSession: tabSession,
   persistentSession: persistentSession,
+  verifier: verifier ?? HostKeyVerifier.pinnedOnly(pinnedKey),
   failed: failed,
 );
 
@@ -1101,6 +1150,73 @@ void main() {
       expect(await connection.channels.exec('pwd'), isNull);
     });
 
+    test('a dead control host that comes back with another key is not dialled '
+        'again', () async {
+      const session = 'upgrade123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      final verifiers = <HostKeyVerifier>[];
+      final connection = await openOn(
+        moshTunnelOffering(hosts, FakeMoshChannel(), [
+          pinnedKey.fingerprint,
+          'SHA256:impostor',
+          pinnedKey.fingerprint,
+        ], verifiers),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      final down = <bool>[];
+      connection.controlDown.listen(down.add);
+
+      hosts.first.die();
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      expect(verifiers, hasLength(2));
+      expect(verifiers.last.prompt, isNull);
+      expect(verifiers.last.refusal, HostKeyRefusal.changed);
+
+      await Future<void>.delayed(const Duration(milliseconds: 2200));
+      expect(verifiers, hasLength(2));
+      expect(down, [true]);
+      expect(await connection.channels.exec('pwd'), isNull);
+    });
+
+    test('a dead control host held without a pin refuses its own redial '
+        'rather than trusting it', () async {
+      const session = 'upgrade123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      final verifiers = <HostKeyVerifier>[];
+      final connection = await openOn(
+        moshTunnelOffering(hosts, FakeMoshChannel(), [
+          null,
+          'SHA256:anything',
+        ], verifiers),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+        verifier: HostKeyVerifier.pinnedOnly(null),
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+
+      hosts.first.die();
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      expect(verifiers, hasLength(2));
+      expect(verifiers.last.pinned, isNull);
+      expect(verifiers.last.prompt, isNull);
+      expect(verifiers.last.refusal, HostKeyRefusal.unverified);
+
+      await Future<void>.delayed(const Duration(milliseconds: 2200));
+      expect(verifiers, hasLength(2));
+      expect(await connection.channels.exec('pwd'), isNull);
+    });
+
     test('a plain SSH tab whose host dies is never dialled again by its '
         'supervisor', () async {
       final hosts = [FakeHost(), FakeHost()];
@@ -1613,6 +1729,25 @@ void main() {
       );
     });
 
+    test('a refused host key is a key failure, never a host one', () {
+      final refused = SSHHostkeyError('Hostkey verification failed');
+      final aborted = SSHAuthAbortError(
+        'Connection closed before authentication',
+        refused,
+      );
+      final lost = SSHAuthAbortError(
+        'Connection closed before authentication',
+        SSHSocketError(const SocketException('Connection reset by peer')),
+      );
+
+      expect(isKeyFailure(refused), isTrue);
+      expect(isHostFailure(refused), isFalse);
+      expect(isKeyFailure(aborted), isTrue);
+      expect(isHostFailure(aborted), isFalse);
+      expect(isKeyFailure(lost), isFalse);
+      expect(isHostFailure(lost), isTrue);
+    });
+
     test('a refused key schedules no reconnect, an unreachable host '
         'does', () async {
       final retries = <Reconnect>[];
@@ -1627,6 +1762,20 @@ void main() {
           tunnelTo(FakeHost(authError: SSHKeyDecodeError('not a pem'))),
           failed: retries.add,
         ),
+      );
+      expect(
+        await kindOf(
+          () => openOn(
+            moshTunnelOffering(
+              [FakeHost()],
+              FakeMoshChannel(),
+              ['SHA256:impostor'],
+              [],
+            ),
+            failed: retries.add,
+          ),
+        ),
+        ShellFailureKind.hostKeyChanged,
       );
       expect(retries, isEmpty);
 

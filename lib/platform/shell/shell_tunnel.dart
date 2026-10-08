@@ -66,7 +66,7 @@ class ShellTunnel {
     String? command,
     String? tabSession,
     String? persistentSession,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
     void Function(Reconnect retry)? failed,
   }) => _guard(
     address,

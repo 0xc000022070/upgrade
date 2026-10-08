@@ -28,7 +28,7 @@ class VncTunnel {
     required String privateKey,
     String? vncUsername,
     String? password,
-    HostKeyVerifier? verifier,
+    required HostKeyVerifier verifier,
   }) async {
     final lease = await guardVnc(
       () => links.lease(
@@ -116,5 +116,5 @@ typedef VncOpener = Future<VncConnection> Function({
   required String privateKey,
   String? vncUsername,
   String? password,
-  HostKeyVerifier? verifier,
+  required HostKeyVerifier verifier,
 });

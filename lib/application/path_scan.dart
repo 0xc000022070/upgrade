@@ -15,7 +15,7 @@ typedef HerdrPaths = Future<List<String>> Function({
   required int port,
   required String user,
   required String privateKey,
-  HostKeyVerifier? verifier,
+  required HostKeyVerifier verifier,
 });
 
 typedef HerdrModels = Future<List<String>> Function({
@@ -24,7 +24,7 @@ typedef HerdrModels = Future<List<String>> Function({
   required String user,
   required String privateKey,
   required AgentKind kind,
-  HostKeyVerifier? verifier,
+  required HostKeyVerifier verifier,
 });
 
 sealed class PathScan {

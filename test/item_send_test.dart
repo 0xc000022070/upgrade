@@ -283,7 +283,7 @@ void main() {
               required prompt,
               images = const <RemoteFile>[],
               model,
-              verifier,
+              required verifier,
             }) async {
               outgoing = prompt;
               return const SpawnRefused(SpawnRefusal.noSession);
@@ -332,7 +332,7 @@ void main() {
             required prompt,
             images = const <RemoteFile>[],
             model,
-            verifier,
+            required verifier,
           }) async {
             calls.add(_Call(kind.name, directory, prompt));
             verifiers.add(verifier);
@@ -392,7 +392,7 @@ void main() {
               required prompt,
               images = const <RemoteFile>[],
               model,
-              verifier,
+              required verifier,
             }) async {
               calls.add(_Call(kind.name, directory, prompt, images));
               return const SpawnSent('wQ:p7');
@@ -447,7 +447,7 @@ void main() {
               required prompt,
               images = const <RemoteFile>[],
               model,
-              verifier,
+              required verifier,
             }) async {
               dialled = true;
               return const SpawnSent('wQ:p7');
@@ -482,7 +482,7 @@ void main() {
                 required prompt,
                 images = const <RemoteFile>[],
                 model,
-                verifier,
+                required verifier,
               }) async => SpawnRefused(refusal),
             )(
               target: _target(),
@@ -517,7 +517,7 @@ void main() {
                   required prompt,
                   images = const <RemoteFile>[],
                   model,
-                  verifier,
+                  required verifier,
                 }) async => throw failure,
               )(
                 target: _target(),
@@ -552,7 +552,7 @@ void main() {
             required prompt,
             images = const <RemoteFile>[],
             model,
-            verifier,
+            required verifier,
           }) async {
             dialled = true;
             return const SpawnSent('wQ:p7');
@@ -629,7 +629,7 @@ void main() {
               required port,
               required user,
               required privateKey,
-              verifier,
+              required verifier,
             }) async => const ['~/src/upgrade'],
             fetchModels: ({
               required address,
@@ -637,7 +637,7 @@ void main() {
               required user,
               required privateKey,
               required kind,
-              verifier,
+              required verifier,
             }) async => const ['opus', 'sonnet'],
             keys: Ed25519Keys(privateKeys),
           ),
@@ -809,7 +809,7 @@ void main() {
                 required prompt,
                 images = const <RemoteFile>[],
                 model,
-                verifier,
+                required verifier,
               }) async {
                 seen = prompt;
                 seenKind = kind.name;
@@ -886,7 +886,7 @@ void main() {
                 required prompt,
                 images = const <RemoteFile>[],
                 model,
-                verifier,
+                required verifier,
               }) async {
                 attempts++;
                 return attempts == 1
@@ -1071,7 +1071,7 @@ void main() {
                 required prompt,
                 images = const <RemoteFile>[],
                 model,
-                verifier,
+                required verifier,
               }) async {
                 seen = prompt;
                 return const SpawnSent('wQ:p7');
