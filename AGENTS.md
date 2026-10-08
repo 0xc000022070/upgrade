@@ -18,6 +18,13 @@ The development phone is `pixel_7-api36`, not Faraday. Its Upgrade host entry is
 - user: `dev`
 - key: `test-key`
 
+`just phone-host <ip> [scenario]` writes that entry into the debug build adb
+picks, with no form typed. Pass the bare IP (`100.118.60.77`); the scenario
+supplies the port. It refuses an address that does not answer with
+the declared host key, `SHA256:hDVbIZXceJXxmv9IiBarvzZx3utci+tvV5gyo8ya0Wc`
+(`nix/host-vm/fixtures/host_vm_host_key`, shared by every guest), and keeps
+the phone's private key in `$XDG_STATE_HOME/upgrade`, out of the repo.
+
 SSH uses TCP 2222. Mosh uses UDP 60920-60935: every guest's `mosh-server` is
 pinned to its own sixteen ports, whatever range the app asks for. If the
 development host's Tailscale address changes, update the phone entry before

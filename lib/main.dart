@@ -12,10 +12,12 @@ import 'app/builtin_plugins.dart';
 import 'app/upgrade_app.dart';
 import 'application/agents.dart';
 import 'application/clips.dart';
+import 'application/bundle.dart';
 import 'application/pip.dart';
 import 'application/providers.dart';
 import 'application/plugins.dart';
 import 'application/native_plugins.dart';
+import 'application/seed_bundle.dart';
 import 'data/database.dart';
 import 'data/repositories/activity_repository.dart';
 import 'data/repositories/note_repository.dart';
@@ -100,6 +102,8 @@ Future<void> main() async {
       shellSnapshotStoreProvider.overrideWithValue(snapshots),
     ],
   );
+  final seeded = await applySeedBundle(container.read(bundleTransferProvider));
+  if (seeded != null) boot.add(BootStep('apply seed bundle', seeded));
   final shells = await container
       .read(shellSessionsProvider)
       .restore(

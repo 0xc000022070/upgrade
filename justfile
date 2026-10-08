@@ -74,6 +74,9 @@ host-vm-down:
     pkill -f 'qemu-system-.* -name upgrade-host( |$)' || true
     echo "host vm: down"
 
+phone-host address scenario="full":
+    tool/phone-host.sh {{address}} {{scenario}}
+
 host-scenario name:
     nix run .#host-up-{{name}}
 
