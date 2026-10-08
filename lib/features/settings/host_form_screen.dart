@@ -381,23 +381,27 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                       children: [
                         _HostField(
                           label: 'NAME',
+                          id: 'host.name',
                           controller: _name,
                           enabled: !_submitting,
                         ),
                         _HostField(
                           label: 'ADDRESS',
+                          id: 'host.address',
                           controller: _address,
                           enabled: !_submitting,
                           hint: 'IP address or hostname',
                         ),
                         _HostField(
                           label: 'PORT',
+                          id: 'host.port',
                           controller: _port,
                           enabled: !_submitting,
                           keyboardType: TextInputType.number,
                         ),
                         _HostField(
                           label: 'USER',
+                          id: 'host.user',
                           controller: _user,
                           enabled: !_submitting,
                         ),
@@ -486,6 +490,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                   if (integrations.contains(IntegrationKind.vnc))
                     _HostField(
                       label: 'VNC USER',
+                      id: 'host.vnc_user',
                       controller: _vncUsername,
                       enabled: !_submitting,
                       hint: 'macOS account · blank for classic VNC',
@@ -494,6 +499,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                   if (integrations.contains(IntegrationKind.vnc))
                     _HostField(
                       label: 'VNC PASSWORD',
+                      id: 'host.vnc_password',
                       controller: _password,
                       enabled: !_submitting,
                       hint: 'blank when the server offers none',
@@ -568,6 +574,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
 class _HostField extends StatelessWidget {
   const _HostField({
     required this.label,
+    required this.id,
     required this.controller,
     this.hint = '',
     this.keyboardType,
@@ -576,6 +583,7 @@ class _HostField extends StatelessWidget {
   });
 
   final String label;
+  final String id;
   final TextEditingController controller;
   final String hint;
   final TextInputType? keyboardType;
@@ -591,6 +599,7 @@ class _HostField extends StatelessWidget {
         Text(label, style: context.tokens.label),
         UpgradeField(
           semanticLabel: label,
+          semanticIdentifier: id,
           controller: controller,
           enabled: enabled,
           hint: hint,

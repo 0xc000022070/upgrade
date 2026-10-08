@@ -23,6 +23,7 @@ class UpgradeField extends StatelessWidget {
     this.enabled = true,
     this.maxLength,
     this.semanticLabel,
+    this.semanticIdentifier,
   });
 
   static const bodyLines = 6;
@@ -54,11 +55,15 @@ class UpgradeField extends StatelessWidget {
   final int? maxLength;
   final String? semanticLabel;
 
+  /// Android exposes it as the node's resource-id, which device automation selects by.
+  final String? semanticIdentifier;
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      container: semanticLabel != null,
+      container: semanticLabel != null || semanticIdentifier != null,
       label: semanticLabel,
+      identifier: semanticIdentifier,
       child: TextField(
         enabled: enabled,
         maxLength: maxLength,
