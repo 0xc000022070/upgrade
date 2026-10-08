@@ -1464,9 +1464,10 @@ String _agentName(String label, String workspace) {
 }
 
 class HerdrClient {
-  const HerdrClient({required this.links});
+  const HerdrClient({required this.links, required this.caller});
 
   final HostLinks links;
+  final String caller;
 
   /// Dart words a name that did not resolve in the exception's own message; the errno
   /// underneath is from the EAI_* namespace, which cannot be told apart from a connect
@@ -1737,6 +1738,7 @@ class HerdrClient {
       user: user,
       privateKey: privateKey,
       verifier: verifier,
+      caller: caller,
     ),
   );
 

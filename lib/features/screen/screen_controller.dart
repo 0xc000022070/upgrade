@@ -90,6 +90,12 @@ class HostScreenController extends ChangeNotifier {
   Duration? _lastFrame;
   bool _disposed = false;
 
+  static const _summaryEvery = Duration(seconds: 10);
+  final _summaryWindow = Stopwatch();
+  int _summaryFrames = 0;
+  int _summaryMicros = 0;
+  int _summaryMaxMicros = 0;
+
   /// Guards against a `RETRY` tapped while the previous attempt is still in flight, which
   /// would leave two ssh connections open against one host.
   int _attempt = 0;
@@ -200,10 +206,7 @@ class HostScreenController extends ChangeNotifier {
       _frameCount++;
       _framebufferSize = size;
       if (reshaped) notifyListeners();
-      _log(
-        '${framebuffer.width}x${framebuffer.height} in '
-        '${watch.elapsedMicroseconds / 1000}ms',
-      );
+      _summarize(framebuffer, watch.elapsedMicroseconds);
     }
     if (_away) {
       _stalled = true;
@@ -306,6 +309,24 @@ class HostScreenController extends ChangeNotifier {
     _connection = null;
     await frames?.cancel();
     await connection?.close();
+  }
+
+  void _summarize(Framebuffer framebuffer, int micros) {
+    if (!_summaryWindow.isRunning) _summaryWindow.start();
+    _summaryFrames++;
+    _summaryMicros += micros;
+    if (micros > _summaryMaxMicros) _summaryMaxMicros = micros;
+    if (_summaryWindow.elapsed < _summaryEvery) return;
+    _log(
+      '$_summaryFrames frames ${framebuffer.width}x${framebuffer.height} in '
+      '${_summaryWindow.elapsed.inSeconds}s, avg '
+      '${(_summaryMicros / _summaryFrames / 1000).toStringAsFixed(1)}ms, max '
+      '${(_summaryMaxMicros / 1000).toStringAsFixed(1)}ms',
+    );
+    _summaryWindow.reset();
+    _summaryFrames = 0;
+    _summaryMicros = 0;
+    _summaryMaxMicros = 0;
   }
 
   void _log(Object message) => debugPrint('upgrade.vnc ${host.name}: $message');

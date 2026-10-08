@@ -414,6 +414,7 @@ final deviceLinkOpenerProvider = Provider<DeviceLinkOpener>((ref) {
       user: user,
       privateKey: privateKey,
       verifier: verifier,
+      caller: 'device dock',
     ),
   );
 });

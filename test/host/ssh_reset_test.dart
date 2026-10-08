@@ -60,7 +60,7 @@ void main() {
 
       final links = HostLinks();
       addTearDown(links.close);
-      final session = await HerdrClient(links: links).connect(
+      final session = await HerdrClient(links: links, caller: 'test').connect(
         address: hostVm.address,
         port: relay.port,
         user: hostVm.user,

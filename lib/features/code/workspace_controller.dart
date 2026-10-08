@@ -37,6 +37,7 @@ final workspaceOpenerProvider = Provider<WorkspaceOpener>((ref) {
       user: user,
       privateKey: privateKey,
       verifier: verifier,
+      caller: 'workspace',
     ),
   );
 });

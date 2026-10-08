@@ -71,6 +71,7 @@ class HerdrSessionPool {
         user: user,
         privateKey: privateKey,
         verifier: verifier,
+        caller: 'herdr poll',
       ),
       borrow,
       idle,

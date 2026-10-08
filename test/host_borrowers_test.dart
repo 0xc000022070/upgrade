@@ -46,6 +46,7 @@ Future<HostLease> _lease(HostLinks links) => links.lease(
   user: 'dev',
   privateKey: 'key',
   verifier: _pinned,
+  caller: 'test',
 );
 
 FakeRunReply _ok(String _) => (exitCode: 0, stdout: '', stderr: '');
@@ -84,7 +85,7 @@ void main() {
         dial: dial.call,
         linger: const Duration(milliseconds: 20),
       );
-      final herdr = HerdrClient(links: links);
+      final herdr = HerdrClient(links: links, caller: 'test');
 
       await herdr.fetchPaths(
         address: '10.0.0.2',
@@ -129,7 +130,7 @@ void main() {
               if (dead) client.pingError = StateError('gone');
             };
           final links = HostLinks(dial: dial.call);
-          final sent = HerdrClient(links: links).send(
+          final sent = HerdrClient(links: links, caller: 'test').send(
             address: '10.0.0.2',
             port: 22,
             user: 'dev',
@@ -343,7 +344,7 @@ void main() {
       final links = HostLinks(dial: dial.call);
       final container = await _scheduler(links);
 
-      final herdr = await HerdrClient(links: links).connect(
+      final herdr = await HerdrClient(links: links, caller: 'test').connect(
         address: '10.0.0.2',
         port: 22,
         user: 'dev',
@@ -362,7 +363,7 @@ void main() {
       final connection = await screen;
       final workspace = WorkspaceSsh.borrowed(await _lease(links));
       await _schedule(container);
-      await HerdrClient(links: links).fetchPaths(
+      await HerdrClient(links: links, caller: 'test').fetchPaths(
         address: '10.0.0.2',
         port: 22,
         user: 'dev',

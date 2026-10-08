@@ -429,7 +429,7 @@ class AgentWatcherHandler extends TaskHandler {
     HerdrClient? client,
     PinNotifier? pins,
   }) : _keys = keys ?? const Ed25519Keys(SecurePrivateKeyStore()),
-       _client = client ?? HerdrClient(links: HostLinks()),
+       _client = client ?? HerdrClient(links: HostLinks(), caller: 'watcher'),
        _pins = pins ?? const PinNotifications();
 
   final Ed25519Keys _keys;

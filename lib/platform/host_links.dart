@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import 'herdr_client.dart';
 import 'host_key_dial.dart';
@@ -43,9 +44,11 @@ class HostLease {
 }
 
 class _Link {
-  _Link(this.ssh);
+  _Link(this.ssh, this.name, this.caller);
 
   final SshLink ssh;
+  final String name;
+  final String caller;
   String? key;
   int count = 0;
   Timer? linger;
@@ -81,6 +84,7 @@ class HostLinks {
   final _settling = <String, Future<void>>{};
   final _all = <_Link>{};
   var _closed = false;
+  var _serial = 0;
 
   Future<HostLease> lease({
     required String address,
@@ -88,6 +92,7 @@ class HostLinks {
     required String user,
     required String privateKey,
     HostKeyVerifier? verifier,
+    required String caller,
   }) async {
     final pinned = verifier?.pinned;
     String keyFor(PinnedHostKey? pin) => [
@@ -108,15 +113,21 @@ class HostLinks {
       }
       if (live != null) {
         final idle = live.idleSince;
-        if (live.client.isClosed ||
-            (idle != null && now().difference(idle) >= linger)) {
-          _end(live);
+        if (live.client.isClosed) {
+          _end(live, 'client closed');
+        } else if (idle != null && now().difference(idle) >= linger) {
+          _end(live, 'linger expired');
         } else {
+          _log(live.name, 'reuse by $caller');
           return _hold(live);
         }
       }
       final pending = _dialing[key];
-      if (pending != null) return _hold(await pending);
+      if (pending != null) {
+        final link = await pending;
+        _log(link.name, 'reuse in-flight dial by $caller');
+        return _hold(link);
+      }
     }
 
     // A failed dial keeps authenticating until sshd lets go and counts against MaxStartups;
@@ -125,19 +136,27 @@ class HostLinks {
       throw const HerdrUnreachable('an earlier dial is still settling');
     }
 
+    final name = '$address:$port #${++_serial}';
+    _log(name, 'dial by $caller');
     final dialing = () async {
-      final ssh = await _dial(
-        address: address,
-        port: port,
-        user: user,
-        privateKey: privateKey,
-        verifier: verifier,
-        onSettling: (settled) => _settle(key, settled),
-      );
-      final link = _Link(ssh);
+      final SshLink ssh;
+      try {
+        ssh = await _dial(
+          address: address,
+          port: port,
+          user: user,
+          privateKey: privateKey,
+          verifier: verifier,
+          onSettling: (settled) => _settle(key, settled),
+        );
+      } catch (error) {
+        _log(name, 'dial failed by $caller: ${error.runtimeType}');
+        rethrow;
+      }
+      final link = _Link(ssh, name, caller);
       _all.add(link);
       if (_closed) {
-        _end(link);
+        _end(link, 'pool closed');
         throw const HerdrUnreachable('host links closed');
       }
       final filed = verifier?.verified ?? pinned;
@@ -148,7 +167,10 @@ class HostLinks {
           link.key = fileKey;
         }
       }
-      ssh.client.done.then((_) => _end(link), onError: (_) => _end(link));
+      ssh.client.done.then(
+        (_) => _end(link, 'client done'),
+        onError: (Object error) => _end(link, 'client done: $error'),
+      );
       return link;
     }();
     if (pinned != null) {
@@ -167,7 +189,7 @@ class HostLinks {
     final key = link?.key;
     if (link == null || key == null || !identical(_links[key], link)) return;
     if (client.isClosed) {
-      _end(link);
+      _end(link, 'client closed');
       return;
     }
     final inFlight = link.vouching;
@@ -177,9 +199,9 @@ class HostLinks {
       try {
         await client.ping().timeout(answer);
       } on TimeoutException {
-        if (link.ssh.received() == seen) _end(link);
-      } catch (_) {
-        _end(link);
+        if (link.ssh.received() == seen) _end(link, 'vouch ping timed out');
+      } catch (error) {
+        _end(link, 'vouch ping failed: $error');
       }
     }();
     link.vouching = ping;
@@ -218,6 +240,7 @@ class HostLinks {
     final offered = Completer<void>();
     final decided = Completer<void>();
     final broken = Completer<void>();
+    _log('$address:$port', 'dial by host key probe');
     final socket = await SSHSocket.connect(address, port, timeout: timeout);
     final client = _client(socket, user, privateKey, sshKeepAlive, (
       type,
@@ -288,7 +311,7 @@ class HostLinks {
   void close() {
     _closed = true;
     for (final link in [..._all]) {
-      _end(link);
+      _end(link, 'pool closed');
     }
     _links.clear();
   }
@@ -309,14 +332,14 @@ class HostLinks {
     if (--link.count > 0 || link.ended) return;
     final key = link.key;
     if (key == null || !identical(_links[key], link)) {
-      _end(link);
+      _end(link, 'released unfiled');
       return;
     }
     link.idleSince = now();
-    link.linger = Timer(linger, () => _end(link));
+    link.linger = Timer(linger, () => _end(link, 'linger expired'));
   }
 
-  void _end(_Link link) {
+  void _end(_Link link, String why) {
     final key = link.key;
     if (key != null && identical(_links[key], link)) _links.remove(key);
     link.linger?.cancel();
@@ -324,6 +347,7 @@ class HostLinks {
     _all.remove(link);
     if (link.ended) return;
     link.ended = true;
+    _log(link.name, 'end, $why, dialed by ${link.caller}');
     unawaited(closeSsh(link.client, link.ssh.socket));
   }
 
@@ -334,6 +358,9 @@ class HostLinks {
     });
   }
 }
+
+void _log(String name, String message) =>
+    debugPrint('upgrade.ssh $name: $message');
 
 SSHClient _client(
   SSHSocket socket,

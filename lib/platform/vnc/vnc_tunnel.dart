@@ -37,6 +37,7 @@ class VncTunnel {
         user: user,
         privateKey: privateKey,
         verifier: verifier,
+        caller: 'vnc',
       ),
       verifier,
     );

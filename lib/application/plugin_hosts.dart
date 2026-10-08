@@ -185,6 +185,7 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
         user: host.user,
         privateKey: privateKey,
         verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
+        caller: 'plugin scheduler',
       );
     } on HerdrFailure catch (error) {
       throw PluginException(error.reason(host.name));

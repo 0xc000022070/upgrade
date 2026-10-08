@@ -23,6 +23,7 @@ Future<HostLease> _lease(HostLinks links, [HostKeyVerifier? verifier]) =>
       user: 'dev',
       privateKey: 'key',
       verifier: verifier ?? HostKeyVerifier.pinnedOnly(_vm),
+      caller: 'test',
     );
 
 void main() {

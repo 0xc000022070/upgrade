@@ -127,7 +127,7 @@ final class ConnectionSupervisor implements HostChannels {
     if (pending != null) return pending;
     late final _Dial dial;
     dial = _Dial(
-      _redial().whenComplete(() {
+      _redial(reason).whenComplete(() {
         if (identical(_dial, dial)) _dial = null;
       }),
     );
@@ -179,6 +179,7 @@ final class ConnectionSupervisor implements HostChannels {
     _dial = null;
     final link = _link;
     _link = null;
+    if (link != null) _log('drop for ${reason.runtimeType}');
     if (_retired || _suspended) {
       _revival?.cancel();
       _revival = null;
@@ -211,7 +212,7 @@ final class ConnectionSupervisor implements HostChannels {
         : link.host.run(command, config);
   }
 
-  Future<HostChannels?> _redial() async {
+  Future<HostChannels?> _redial(OpenReason reason) async {
     final epoch = _generation;
     final ShellHost host;
     try {
@@ -220,10 +221,19 @@ final class ConnectionSupervisor implements HostChannels {
       debugPrint('upgrade.shell ${_target.address}: redial: $error');
       rethrow;
     }
+    final cause = switch (reason) {
+      Reconnect(_cause: _HostDied()) => 'a host that died',
+      UserAction() ||
+      AppResumed() ||
+      NetworkChanged() ||
+      Reconnect() => _purpose(reason).cause,
+    };
     if (_retired || epoch != _generation) {
+      _log('redial for $cause, discarded');
       unawaited(_close(host));
       return null;
     }
+    _log('redial for $cause');
     return _Lease(this, _hold(host).generation);
   }
 
@@ -251,6 +261,11 @@ final class ConnectionSupervisor implements HostChannels {
     );
     return link;
   }
+
+  void _log(String message) => debugPrint(
+    'upgrade.shell ${_target.address} supervisor ${identityHashCode(this)}: '
+    '$message',
+  );
 
   static Future<void> _close(ShellHost host) async {
     try {
@@ -342,9 +357,9 @@ final class SshConnector {
         'an open for ${purpose.cause} asks nobody about a host key',
       );
     }
-    debugPrint('upgrade.shell $address: dial for ${purpose.cause}');
     final target = _Target(address, port, user, privateKey);
-    final supervisor = ConnectionSupervisor._(this, target);
+    final supervisor = ConnectionSupervisor._(this, target)
+      .._log('dial for ${purpose.cause}');
     final ShellHost host;
     try {
       host = await _connect(target, verifier);

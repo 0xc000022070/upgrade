@@ -105,7 +105,10 @@ class PathScanner {
 }
 
 final pathScannerProvider = Provider((ref) {
-  final client = HerdrClient(links: ref.read(hostLinksProvider));
+  final client = HerdrClient(
+    links: ref.read(hostLinksProvider),
+    caller: 'path scan',
+  );
   return PathScanner(
     fetch: client.fetchPaths,
     fetchModels: client.fetchModels,

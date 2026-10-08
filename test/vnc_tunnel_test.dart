@@ -73,6 +73,7 @@ void main() {
       user: 'dev',
       privateKey: 'key',
       verifier: HostKeyVerifier.pinnedOnly(_pin),
+      caller: 'test',
     );
 
     final connection = await _served(VncTunnel(links), dial);
@@ -92,6 +93,7 @@ void main() {
       user: 'dev',
       privateKey: 'key',
       verifier: HostKeyVerifier.pinnedOnly(_pin),
+      caller: 'test',
     );
     expect(dial.dials, 1);
     links.close();

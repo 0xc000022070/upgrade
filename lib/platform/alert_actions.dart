@@ -75,13 +75,14 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
     }
     final links = HostLinks();
     try {
-      final session = await HerdrClient(links: links).connect(
-        address: target.address,
-        port: target.port,
-        user: target.user,
-        privateKey: privateKey,
-        verifier: HostKeyVerifier.pinnedOnly(target.hostKey),
-      );
+      final session = await HerdrClient(links: links, caller: 'alert action')
+          .connect(
+            address: target.address,
+            port: target.port,
+            user: target.user,
+            privateKey: privateKey,
+            verifier: HostKeyVerifier.pinnedOnly(target.hostKey),
+          );
       try {
         if (approval != null) {
           await EngineAgents(

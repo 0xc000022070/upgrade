@@ -541,13 +541,15 @@ void main() {
     final tarpit = await openTarpit();
 
     await expectLater(
-      HerdrClient(links: HostLinks(timeout: const Duration(milliseconds: 300)))
-          .connect(
-            address: tarpit.address,
-            port: tarpit.port,
-            user: 'luis',
-            privateKey: privateKey,
-          ),
+      HerdrClient(
+        links: HostLinks(timeout: const Duration(milliseconds: 300)),
+        caller: 'test',
+      ).connect(
+        address: tarpit.address,
+        port: tarpit.port,
+        user: 'luis',
+        privateKey: privateKey,
+      ),
       throwsA(isA<HerdrUnreachable>()),
     );
     await Future<void>.delayed(const Duration(milliseconds: 200));
