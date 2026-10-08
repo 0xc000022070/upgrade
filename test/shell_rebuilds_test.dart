@@ -59,7 +59,7 @@ void main() {
     );
     await ready(tester);
     for (var i = 0; i < 3; i++) {
-      sessions.open(rose);
+      sessions.open(intent: UserIntent.fromGesture(), rose);
     }
     await ready(tester);
     final tabs = sessions.forHost(rose.id);

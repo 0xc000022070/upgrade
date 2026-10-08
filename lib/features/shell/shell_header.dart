@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -58,6 +60,7 @@ class ShellHeader extends StatefulWidget {
     required this.onNew,
     required this.onClose,
     required this.onStop,
+    required this.onReconnect,
     required this.onDiff,
     this.diffReady = false,
     this.onPin,
@@ -77,6 +80,7 @@ class ShellHeader extends StatefulWidget {
   final ValueChanged<Host> onNew;
   final VoidCallback? onClose;
   final VoidCallback? onStop;
+  final VoidCallback? onReconnect;
 
   /// Null when there is none to open — a host with no registered directory and a tab that
   /// has never said where it is.
@@ -199,7 +203,12 @@ class _ShellHeaderState extends State<ShellHeader> {
                 dimmed: !widget.diffReady,
                 onTap: widget.diffReady ? onDiff : null,
               ),
-            _Middle(host: host.name, session: active, onStop: widget.onStop),
+            _Middle(
+              host: host.name,
+              session: active,
+              onStop: widget.onStop,
+              onReconnect: widget.onReconnect,
+            ),
             if (onClose != null) ...[
               const SizedBox(width: Spacing.md),
               const CellDivider(),
@@ -313,18 +322,21 @@ class _Middle extends StatelessWidget {
     required this.host,
     required this.session,
     required this.onStop,
+    required this.onReconnect,
   });
 
   final String host;
   final ShellSession? session;
   final VoidCallback? onStop;
+  final VoidCallback? onReconnect;
 
   @override
   Widget build(BuildContext context) {
     final session = this.session;
-    // The middle is empty while the tab is live, and the mark comes out in warning
-    // only once there is something behind it to read.
-    if (session == null || session.state is ShellLive) {
+    // The middle is empty while the tab is live on a held host, and the mark comes out
+    // in warning only once there is something behind it to read.
+    if (session == null ||
+        (session.state is ShellLive && !session.controlStale)) {
       return const SizedBox.shrink();
     }
     return _TabCell(
@@ -350,6 +362,8 @@ class _Middle extends StatelessWidget {
           final stop = state is ShellDropped || state is ShellWaiting
               ? onStop
               : null;
+          final stale = state is ShellLive && session.controlStale;
+          final reconnect = stale ? onReconnect : null;
           return PanelSheetBody(
             title: title,
             children: [
@@ -368,8 +382,29 @@ class _Middle extends StatelessWidget {
                     title: 'TRANSPORT',
                     subtitle: _transportWord(session),
                   ),
+                  if (stale)
+                    ListRow(
+                      key: const ValueKey('shell-info-background'),
+                      title: 'DIRECTORY, AGENT, PASSPHRASE',
+                      subtitle: session.controlFailure == null
+                          ? 'STALE · HOST RECONNECTING'
+                          : 'STALE · RECONNECT FAILED',
+                      subtitleColor: context.tokens.warning,
+                    ),
                 ],
               ),
+              if (reconnect != null) ...[
+                const SheetRule(),
+                PanelTextAction(
+                  key: const ValueKey('shell-info-reconnect'),
+                  label: 'RECONNECT',
+                  icon: UpgradeIcons.sync,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    reconnect();
+                  },
+                ),
+              ],
               if (stop != null) ...[
                 const SheetRule(),
                 PanelTextAction(

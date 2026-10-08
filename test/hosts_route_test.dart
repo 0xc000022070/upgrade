@@ -325,13 +325,15 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the sessions sit over the hosts and on their cards', (tester) async {
+  testWidgets('the sessions sit over the hosts and on their cards', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(400, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await seed();
     shells.stall = false;
-    sessions.open(_rose);
+    sessions.open(intent: UserIntent.fromGesture(), _rose);
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
@@ -578,8 +580,8 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await seed();
-    sessions.open(_rose);
-    sessions.open(_rose);
+    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: UserIntent.fromGesture(), _rose);
 
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
@@ -599,7 +601,7 @@ void main() {
     addTearDown(tester.view.reset);
     await seed();
     shells.stall = false;
-    sessions.open(_rose);
+    sessions.open(intent: UserIntent.fromGesture(), _rose);
 
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);

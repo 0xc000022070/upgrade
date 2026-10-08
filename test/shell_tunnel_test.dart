@@ -14,6 +14,8 @@ import 'package:upgrade/platform/shell/shell_tunnel.dart';
 import 'package:upgrade/platform/shell/udp_path.dart';
 import 'package:upgrade/platform/host_keys.dart';
 import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/ssh/connection_supervisor.dart'
+    show ConnectionSupervisor;
 
 /// `dart:io` reports a reset on both ends of the socket: the stream the transport reads
 /// and the `done` nothing in dartssh2 is holding.
@@ -164,6 +166,7 @@ class FakeHost implements ShellHost {
   final Object? authError;
   final Object? shellError;
   Object? refuse;
+  Object? refuseOnce;
   Completer<void>? authGate;
   Completer<ShellExec>? execGate;
   String execOut;
@@ -189,6 +192,9 @@ class FakeHost implements ShellHost {
   @override
   Future<ShellExec> execute(String command) async {
     requests.add('exec $command');
+    final once = refuseOnce;
+    refuseOnce = null;
+    if (once != null) throw once;
     final error = refuse;
     if (error != null) throw error;
     final gate = execGate;
@@ -225,8 +231,20 @@ class FakeHost implements ShellHost {
     return pty;
   }
 
+  final _gone = Completer<void>();
+
   @override
-  Future<void> close() async => closed = true;
+  Future<void> get done => _gone.future;
+
+  void die() {
+    if (!_gone.isCompleted) _gone.complete();
+  }
+
+  @override
+  Future<void> close() async {
+    closed = true;
+    die();
+  }
 }
 
 class FakeMoshChannel implements MoshChannel {
@@ -380,7 +398,9 @@ Future<ShellConnection> openOn(
   String? command,
   String? tabSession,
   String? persistentSession,
+  void Function(Reconnect retry)? failed,
 }) => tunnel.open(
+  reason: UserAction(UserIntent.fromGesture()),
   address: 'nyx',
   port: 357,
   user: 'luisnquin',
@@ -390,6 +410,7 @@ Future<ShellConnection> openOn(
   command: command,
   tabSession: tabSession,
   persistentSession: persistentSession,
+  failed: failed,
 );
 
 Future<ShellFailureKind> kindOf(Future<void> Function() body) async {
@@ -424,7 +445,9 @@ void main() {
       () async {
         final host = FakeHost();
         final connection = await openOn(tunnelTo(host));
-        addTearDown(connection.close);
+        addTearDown(
+          () => connection.close(UserClosed(UserIntent.fromGesture())),
+        );
 
         expect(host.requests, ['shell xterm-256color 100x40']);
       },
@@ -438,7 +461,9 @@ void main() {
           tunnelTo(host),
           command: "herdr agent attach 'w22:p1'",
         );
-        addTearDown(connection.close);
+        addTearDown(
+          () => connection.close(UserClosed(UserIntent.fromGesture())),
+        );
 
         // The same pty on the same kind of channel, under an exec request instead of a shell
         // request — `ssh -t`.
@@ -461,7 +486,7 @@ void main() {
         command: command,
         persistentSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       expect(connection.continuity, ShellContinuity.started);
       expect(host.requests, [
@@ -481,7 +506,7 @@ void main() {
         command: 'exec \$SHELL -l',
         persistentSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       expect(connection.continuity, ShellContinuity.resumed);
     });
@@ -496,7 +521,7 @@ void main() {
         command: command,
         persistentSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       expect(connection.continuity, ShellContinuity.plain);
       expect(host.requests, [
@@ -541,7 +566,7 @@ void main() {
       expect(channel.sent.single, [0x6c, 0x73, 0x0d]);
       expect(channel.sizes, [(columns: 91, rows: 37), (columns: 91, rows: 37)]);
       expect(channel.rehomes, 1);
-      await connection.close();
+      await connection.close(UserClosed(UserIntent.fromGesture()));
     });
 
     test('Mosh sends a resize while an earlier probe is pending', () async {
@@ -553,7 +578,7 @@ void main() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       connection.resize(91, 37);
       connection.resize(120, 45);
@@ -579,7 +604,9 @@ void main() {
           command: 'exec \$SHELL -l',
           tabSession: session,
         );
-        addTearDown(connection.close);
+        addTearDown(
+          () => connection.close(UserClosed(UserIntent.fromGesture())),
+        );
         final health = <ShellConnectionHealth>[];
         connection.health.listen(health.add);
 
@@ -610,7 +637,9 @@ void main() {
           command: 'exec \$SHELL -l',
           tabSession: session,
         );
-        addTearDown(connection.close);
+        addTearDown(
+          () => connection.close(UserClosed(UserIntent.fromGesture())),
+        );
         final health = <ShellConnectionHealth>[];
         connection.health.listen(health.add);
 
@@ -638,7 +667,9 @@ void main() {
           command: 'exec \$SHELL -l',
           tabSession: session,
         );
-        addTearDown(connection.close);
+        addTearDown(
+          () => connection.close(UserClosed(UserIntent.fromGesture())),
+        );
         final health = <ShellConnectionHealth>[];
         connection.health.listen(health.add);
 
@@ -664,7 +695,7 @@ void main() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
       Object? reported;
       connection.output.listen(
         (_) {},
@@ -693,9 +724,9 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
-      await connection.suspend();
+      await connection.suspend(AppSuspended(PlatformSignal.fromPlatform()));
       final probes = channel.sizes.length;
       await connection.rehome();
 
@@ -703,13 +734,16 @@ void main() {
       expect(channel.rehomes, 0);
       expect(channel.sizes.length, probes);
       expect(hosts.first.closed, isTrue);
+      expect(await connection.channels.exec('pwd'), isNull);
+      expect(dials, 1);
 
-      await connection.resume();
-      final result = await connection.exec('pwd');
+      await connection.resume(AppResumed(PlatformSignal.fromPlatform()));
+      await pumpEventQueue();
+      final result = await connection.channels.exec('pwd');
 
       expect(channel.rehomes, 1);
       expect(channel.sizes.length, probes + 1);
-      expect(result.ok, isTrue);
+      expect(result?.ok, isTrue);
       expect(dials, 2);
     });
 
@@ -727,19 +761,25 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
-      await connection.rehome(network: true);
-      final landing = connection.exec('pwd');
-      await connection.suspend();
+      await connection.rehome(
+        network: NetworkChanged(PlatformSignal.fromPlatform()),
+      );
+      await connection.suspend(AppSuspended(PlatformSignal.fromPlatform()));
+      await pumpEventQueue();
 
-      await expectLater(landing, throwsStateError);
       expect(hosts[1].closed, isTrue);
-      await expectLater(connection.exec('pwd'), throwsStateError);
+      expect(await connection.channels.exec('pwd'), isNull);
+      await connection.rehome(
+        network: NetworkChanged(PlatformSignal.fromPlatform()),
+      );
+      await pumpEventQueue();
       expect(dials, 2);
     });
 
-    test('Mosh redials its SSH control path after a network change', () async {
+    test('a network change replaces the SSH control path and a failed command '
+        'does not', () async {
       const session = 'upgrade123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
@@ -755,19 +795,21 @@ void main() {
       );
 
       hosts.first.refuse = StateError('control host failed');
-      await expectLater(connection.execOnExistingHost('pwd'), throwsStateError);
+      await expectLater(connection.channels.exec('pwd'), throwsStateError);
       expect(dials, 1);
+      expect(hosts.first.closed, isFalse);
       hosts.first.refuse = null;
-      await connection.rehome(network: true);
-      expect(await connection.execOnExistingHost('pwd'), isNull);
-      expect(dials, 1);
-      final result = await connection.exec('pwd');
+      await connection.rehome(
+        network: NetworkChanged(PlatformSignal.fromPlatform()),
+      );
+      await pumpEventQueue();
+      final result = await connection.channels.exec('pwd');
 
-      expect(result.ok, isTrue);
+      expect(result?.ok, isTrue);
       expect(dials, 2);
       expect(hosts.first.closed, isTrue);
       expect(hosts.last.requests.last, 'exec pwd');
-      await connection.close();
+      await connection.close(UserClosed(UserIntent.fromGesture()));
     });
 
     test('a probe timeout during channel open never redials', () async {
@@ -780,12 +822,12 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       final opening = Completer<ShellExec>();
       host.execGate = opening;
       await expectLater(
-        connection.execOnExistingHost(
+        connection.channels.exec(
           'pwd',
           timeout: const Duration(milliseconds: 10),
         ),
@@ -817,22 +859,457 @@ void main() {
       );
 
       await connection.rehome();
-      final result = await connection.exec('pwd');
+      final result = await connection.channels.exec('pwd');
 
-      expect(result.ok, isTrue);
+      expect(result?.ok, isTrue);
       expect(channel.rehomes, 1);
       expect(dials, 1);
       expect(hosts.first.closed, isFalse);
       expect(hosts.first.requests.last, 'exec pwd');
 
       hosts.first.refuse = const SocketException('Connection reset by peer');
-      final again = await connection.exec('pwd');
+      await expectLater(
+        connection.channels.exec('pwd'),
+        throwsA(isA<SocketException>()),
+      );
 
-      expect(again.ok, isTrue);
+      expect(dials, 1);
+      expect(hosts.first.closed, isFalse);
+      await connection.close(UserClosed(UserIntent.fromGesture()));
+    });
+
+    test('a host that dies leaves background reads empty until a gesture '
+        'dials it', () async {
+      const session = 'upgrade123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+
+      hosts.first.die();
+      await pumpEventQueue();
+
+      expect(await connection.channels.exec('pwd'), isNull);
+      expect(dials, 1);
+
+      final action = UserAction(UserIntent.fromGesture());
+      final channels = await connection.channelsFor(action);
+      final result = await channels?.exec('pwd');
+
+      expect(result?.ok, isTrue);
       expect(dials, 2);
-      expect(hosts.first.closed, isTrue);
       expect(hosts.last.requests.last, 'exec pwd');
-      await connection.close();
+      expect(await connection.channels.exec('pwd'), isNotNull);
+    });
+
+    test('two user actions at once dial one host', () async {
+      const session = 'upgrade123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      hosts.first.die();
+      await pumpEventQueue();
+
+      await Future.wait([
+        connection.channelsFor(UserAction(UserIntent.fromGesture())),
+        connection.channelsFor(UserAction(UserIntent.fromGesture())),
+      ]);
+
+      expect(dials, 2);
+    });
+
+    test('a gesture whose dial a network change overtook lands on the host '
+        'that change dialled', () async {
+      const session = 'upgrade123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      hosts.first.die();
+      await pumpEventQueue();
+      final gate = Completer<void>();
+      hosts[1].authGate = gate;
+
+      final stale = connection.channelsFor(
+        UserAction(UserIntent.fromGesture()),
+      );
+      await connection.rehome(
+        network: NetworkChanged(PlatformSignal.fromPlatform()),
+      );
+      gate.complete();
+      await pumpEventQueue();
+
+      final chained = await stale;
+      expect(dials, 3);
+      expect(hosts[1].closed, isTrue);
+      expect((await chained?.exec('whoami'))?.ok, isTrue);
+      expect(hosts.last.requests.last, 'exec whoami');
+      expect((await connection.channels.exec('pwd'))?.ok, isTrue);
+      expect(hosts.last.requests.last, 'exec pwd');
+    });
+
+    test('a gesture whose overtaken dial throws lands on the host that change '
+        'dialled', () async {
+      const session = 'upgrade123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost(authError: SSHAuthFailError('no more methods')),
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      hosts.first.die();
+      await pumpEventQueue();
+      final gate = Completer<void>();
+      hosts[1].authGate = gate;
+
+      final stale = connection.channelsFor(
+        UserAction(UserIntent.fromGesture()),
+      );
+      await connection.rehome(
+        network: NetworkChanged(PlatformSignal.fromPlatform()),
+      );
+      gate.complete();
+      await pumpEventQueue();
+
+      final chained = await stale;
+      expect(dials, 3);
+      expect((await chained?.exec('whoami'))?.ok, isTrue);
+      expect(hosts.last.requests.last, 'exec whoami');
+    });
+
+    test('a dead control host is dialled again on its own, and reads stay '
+        'empty and stale until it lands', () async {
+      const session = 'upgrade123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      final down = <bool>[];
+      connection.controlDown.listen(down.add);
+
+      hosts.first.die();
+      await pumpEventQueue();
+
+      expect(down, [true]);
+      expect(await connection.channels.exec('pwd'), isNull);
+      expect(dials, 1);
+
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+
+      expect(dials, 2);
+      expect(down, [true, false]);
+      expect((await connection.channels.exec('pwd'))?.ok, isTrue);
+      expect(hosts.last.requests.last, 'exec pwd');
+    });
+
+    test('a gesture during the revive backoff dials now, and the revive dials '
+        'nothing after it', () async {
+      const session = 'upgrade123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      hosts.first.die();
+      await pumpEventQueue();
+
+      final channels = await connection.channelsFor(
+        UserAction(UserIntent.fromGesture()),
+      );
+      expect(dials, 2);
+      expect((await channels?.exec('pwd'))?.ok, isTrue);
+
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+
+      expect(dials, 2);
+      expect(hosts[1].closed, isFalse);
+    });
+
+    test('a dead control host whose redial is refused the key is not dialled '
+        'again', () async {
+      const session = 'upgrade123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost(authError: SSHAuthFailError('no more methods')),
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+
+      hosts.first.die();
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      expect(dials, 2);
+
+      await Future<void>.delayed(const Duration(milliseconds: 2200));
+      expect(dials, 2);
+      expect(await connection.channels.exec('pwd'), isNull);
+    });
+
+    test('a plain SSH tab whose host dies is never dialled again by its '
+        'supervisor', () async {
+      final hosts = [FakeHost(), FakeHost()];
+      var dials = 0;
+      final connection = await openOn(
+        ShellTunnel(
+          dial: ({
+            required String address,
+            required int port,
+            required String user,
+            required String privateKey,
+            HostKeyVerifier? verifier,
+            required Duration timeout,
+            required Duration keepAlive,
+          }) async => hosts[dials++],
+        ),
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+
+      hosts.first.die();
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+
+      expect(dials, 1);
+    });
+
+    test('a channel that failed to open is asked for once more on the same '
+        'host', () async {
+      const session = 'upgrade123';
+      final host = FakeHost()..execAnswer = moshHostAnswer;
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver([host], FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      final before = host.requests.length;
+
+      host.refuseOnce = SSHChannelOpenError(1, 'channel open refused');
+      final result = await connection.channels.exec('pwd');
+
+      expect(result?.ok, isTrue);
+      expect(host.requests.sublist(before), ['exec pwd', 'exec pwd']);
+      expect(dials, 1);
+      expect(host.closed, isFalse);
+    });
+
+    test('a channel refused twice surfaces the error and leaves the host '
+        'alone', () async {
+      const session = 'upgrade123';
+      final host = FakeHost()..execAnswer = moshHostAnswer;
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver([host], FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      final before = host.requests.length;
+
+      host.refuse = SSHChannelOpenError(1, 'channel open refused');
+      await expectLater(
+        connection.channels.exec('pwd'),
+        throwsA(isA<SSHChannelOpenError>()),
+      );
+      await pumpEventQueue();
+
+      expect(host.requests.sublist(before), ['exec pwd', 'exec pwd']);
+      expect(dials, 1);
+      expect(host.closed, isFalse);
+    });
+
+    test('the channels a transport hands out are not its supervisor', () async {
+      const session = 'upgrade123';
+      final host = FakeHost()..execAnswer = moshHostAnswer;
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver([host], FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+
+      expect(connection.channels, isNot(isA<ConnectionSupervisor>()));
+      expect(
+        await connection.channelsFor(UserAction(UserIntent.fromGesture())),
+        isNot(isA<ConnectionSupervisor>()),
+      );
+    });
+
+    test('an end another terminal minted closes nothing', () async {
+      const session = 'upgrade123';
+      final host = FakeHost()..execAnswer = moshHostAnswer;
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver([host], FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+
+      await expectLater(
+        connection.close(ShellEnded.unbound()),
+        throwsArgumentError,
+      );
+      await pumpEventQueue();
+
+      expect(host.closed, isFalse);
+      expect(connection.ended, isNull);
+      expect((await connection.channels.exec('pwd'))?.ok, isTrue);
+    });
+
+    test('a resume behind a suspend still in flight ends in front', () async {
+      const session = 'upgrade123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      var dials = 0;
+      final channel = FakeMoshChannel();
+      final connection = await openOn(
+        moshTunnelOver(hosts, channel, () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+
+      final suspended = connection.suspend(
+        AppSuspended(PlatformSignal.fromPlatform()),
+      );
+      final resumed = connection.resume(
+        AppResumed(PlatformSignal.fromPlatform()),
+      );
+      await Future.wait([suspended, resumed]);
+      await pumpEventQueue();
+
+      expect(channel.suspends, 1);
+      expect(channel.rehomes, 1);
+      expect(hosts.first.closed, isTrue);
+      expect(dials, 2);
+      expect((await connection.channels.exec('pwd'))?.ok, isTrue);
+      expect(hosts.last.requests.last, 'exec pwd');
+    });
+
+    test(
+      'a gesture on a plain SSH tab whose host died dials nothing',
+      () async {
+        final hosts = [FakeHost(), FakeHost()];
+        var dials = 0;
+        final connection = await openOn(
+          ShellTunnel(
+            dial: ({
+              required String address,
+              required int port,
+              required String user,
+              required String privateKey,
+              HostKeyVerifier? verifier,
+              required Duration timeout,
+              required Duration keepAlive,
+            }) async => hosts[dials++],
+          ),
+        );
+        addTearDown(
+          () => connection.close(UserClosed(UserIntent.fromGesture())),
+        );
+
+        hosts.first.die();
+        await pumpEventQueue();
+        final channels = await connection.channelsFor(
+          UserAction(UserIntent.fromGesture()),
+        );
+
+        expect(await channels?.exec('pwd'), isNull);
+        expect(dials, 1);
+        expect(hosts.last.requests, isEmpty);
+      },
+    );
+
+    test('a lease from a replaced host answers nothing', () async {
+      const session = 'upgrade123';
+      final hosts = [
+        FakeHost()..execAnswer = moshHostAnswer,
+        FakeHost()..execAnswer = moshHostAnswer,
+      ];
+      var dials = 0;
+      final connection = await openOn(
+        moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        persistentSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      final lease = await connection.channelsFor(
+        UserAction(UserIntent.fromGesture()),
+      );
+
+      await connection.rehome(
+        network: NetworkChanged(PlatformSignal.fromPlatform()),
+      );
+      await pumpEventQueue();
+
+      expect(dials, 2);
+      expect(await lease?.exec('pwd'), isNull);
+      expect(hosts.last.requests, isNot(contains('exec pwd')));
     });
 
     test('an unreachable Mosh UDP port falls back to SSH', () async {
@@ -865,7 +1342,7 @@ void main() {
         'run ${durableShellCommand(_tmuxPath, session, command)} '
         'xterm-256color 100x40',
       );
-      await connection.close();
+      await connection.close(UserClosed(UserIntent.fromGesture()));
     });
 
     test('a failed Mosh bootstrap is cleaned before SSH fallback', () async {
@@ -896,7 +1373,7 @@ void main() {
         'run ${durableShellCommand(_tmuxPath, session, command)} '
         'xterm-256color 100x40',
       );
-      await connection.close();
+      await connection.close(UserClosed(UserIntent.fromGesture()));
     });
 
     test('a Herdr pane uses Mosh without nesting tmux', () async {
@@ -925,7 +1402,7 @@ void main() {
         isTrue,
       );
       expect(host.requests.last, 'exec ${moshServerCleanupCommand(session)}');
-      await connection.close();
+      await connection.close(UserClosed(UserIntent.fromGesture()));
     });
   });
 
@@ -933,7 +1410,7 @@ void main() {
     test('stdout and stderr arrive merged, in the order they came', () async {
       final host = FakeHost();
       final connection = await openOn(tunnelTo(host));
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       final seen = <List<int>>[];
       connection.output.listen(seen.add);
@@ -953,7 +1430,7 @@ void main() {
     test('what the shell printed before anyone listened is not lost', () async {
       final host = FakeHost();
       final connection = await openOn(tunnelTo(host));
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       host.pty.out([0x24, 0x20]);
       await pumpEventQueue();
@@ -970,7 +1447,7 @@ void main() {
     test('a stream that fails reaches the reader as a reason', () async {
       final host = FakeHost();
       final connection = await openOn(tunnelTo(host));
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       final errors = <Object>[];
       connection.output.listen((_) {}, onError: errors.add);
@@ -988,7 +1465,7 @@ void main() {
     test('typed bytes go to stdin as they were given', () async {
       final host = FakeHost();
       final connection = await openOn(tunnelTo(host));
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       connection.write(Uint8List.fromList([0x6c, 0x73]));
       connection.write(Uint8List.fromList([0x0d]));
@@ -1002,7 +1479,7 @@ void main() {
     test('a resize is one window change with columns then rows', () async {
       final host = FakeHost();
       final connection = await openOn(tunnelTo(host));
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       connection.resize(120, 45);
       connection.resize(80, 24);
@@ -1032,7 +1509,7 @@ void main() {
       final host = FakeHost();
       final connection = await openOn(tunnelTo(host));
 
-      await connection.close();
+      await connection.close(UserClosed(UserIntent.fromGesture()));
 
       expect(host.pty.closed, isTrue);
       expect(host.closed, isTrue);
@@ -1061,7 +1538,7 @@ void main() {
         host.requests.last,
         'exec ${durableShellTerminateCommand(tmux, session)}',
       );
-      await connection.close();
+      await connection.close(UserClosed(UserIntent.fromGesture()));
     });
 
     test('a durable shell reports the active pane directory', () async {
@@ -1080,7 +1557,7 @@ void main() {
         host.requests.last,
         'exec ${durableShellDirectoryCommand(tmux, session)}',
       );
-      await connection.close();
+      await connection.close(UserClosed(UserIntent.fromGesture()));
     });
   });
 
@@ -1134,6 +1611,35 @@ void main() {
         ),
         ShellFailureKind.keyRejected,
       );
+    });
+
+    test('a refused key schedules no reconnect, an unreachable host '
+        'does', () async {
+      final retries = <Reconnect>[];
+      await kindOf(
+        () => openOn(
+          tunnelTo(FakeHost(authError: SSHAuthFailError('no more methods'))),
+          failed: retries.add,
+        ),
+      );
+      await kindOf(
+        () => openOn(
+          tunnelTo(FakeHost(authError: SSHKeyDecodeError('not a pem'))),
+          failed: retries.add,
+        ),
+      );
+      expect(retries, isEmpty);
+
+      await kindOf(
+        () => openOn(
+          tunnelTo(
+            FakeHost(),
+            dialError: const SocketException('Connection refused'),
+          ),
+          failed: retries.add,
+        ),
+      );
+      expect(retries, hasLength(1));
     });
 
     test('a shell the host refused, channel, pty or request', () async {
@@ -1299,6 +1805,7 @@ void main() {
       );
 
       await tunnel.open(
+        reason: UserAction(UserIntent.fromGesture()),
         address: 'nyx',
         port: 357,
         user: 'luisnquin',
@@ -1492,7 +1999,7 @@ List<Map<String, Object?>> engineRequests(FakeHost host) => [
 void engineTests() {
   const session = 'upgrade123';
 
-  test('an engine probe never redials the SSH control host', () async {
+  test('a failed engine probe never redials the SSH control host', () async {
     final host = FakeHost()..execInputAnswer = engineHostAnswer();
     var sshDials = 0;
     final connection = await openOn(
@@ -1508,17 +2015,14 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
     expect(connection, isA<EngineShellConnection>());
     expect(sshDials, 1);
 
     host.refuse = StateError('control host failed');
-    await expectLater(connection.execOnExistingHost('pwd'), throwsStateError);
+    await expectLater(connection.channels.exec('pwd'), throwsStateError);
     expect(sshDials, 1);
-    host.refuse = null;
-    await connection.rehome(network: true);
-    expect(await connection.execOnExistingHost('pwd'), isNull);
-    expect(sshDials, 1);
+    expect(host.closed, isFalse);
   });
 
   test('an engine that knows shell/1 carries the tab and Mosh is never '
@@ -1531,7 +2035,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
     expect(connection, isA<EngineShellConnection>());
     expect(connection.transport, ShellTransport.engine);
@@ -1601,13 +2105,13 @@ void engineTests() {
 
     final first = await open();
     expect(first.seamless, isFalse);
-    await first.close();
+    await first.close(UserClosed(UserIntent.fromGesture()));
     final second = await open();
     expect(second.seamless, isTrue);
-    await second.close();
+    await second.close(UserClosed(UserIntent.fromGesture()));
     epoch = 'two';
     final third = await open();
-    addTearDown(third.close);
+    addTearDown(() => third.close(UserClosed(UserIntent.fromGesture())));
     expect(third.seamless, isFalse);
     expect(resumes, [null, same(left), null]);
   });
@@ -1656,15 +2160,15 @@ void engineTests() {
     Future<ShellConnection> open() =>
         openOn(tunnel, command: 'exec \$SHELL -l', tabSession: session);
 
-    await (await open()).close();
+    await (await open()).close(UserClosed(UserIntent.fromGesture()));
     final carried = await open() as EngineShellConnection;
     expect(carried.seamless, isTrue);
-    await carried.close();
+    await carried.close(UserClosed(UserIntent.fromGesture()));
     final fallback = await open();
     expect(fallback, isNot(isA<EngineShellConnection>()));
-    await fallback.close();
+    await fallback.close(UserClosed(UserIntent.fromGesture()));
     final fresh = await open() as EngineShellConnection;
-    addTearDown(fresh.close);
+    addTearDown(() => fresh.close(UserClosed(UserIntent.fromGesture())));
 
     expect(fresh.seamless, isFalse);
     expect(resumes, [null, same(left), same(left), null]);
@@ -1680,7 +2184,7 @@ void engineTests() {
       tabSession: session,
       persistentSession: session,
     );
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
     expect(connection.continuity, ShellContinuity.started);
     final args = engineRequests(host).single['args'] as Map<String, Object?>;
@@ -1701,7 +2205,7 @@ void engineTests() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       expect(connection, isA<MoshShellConnection>());
       expect(engineRequests(host).map((request) => request['op']), ['start']);
@@ -1725,7 +2229,7 @@ void engineTests() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       expect(connection, isA<MoshShellConnection>());
       expect(engine.closed, isTrue);
@@ -1747,7 +2251,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(live.close);
+    addTearDown(() => live.close(UserClosed(UserIntent.fromGesture())));
     expect(live, isA<EngineShellConnection>());
     expect(live.continuity, ShellContinuity.resumed);
 
@@ -1764,7 +2268,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(fallback.close);
+    addTearDown(() => fallback.close(UserClosed(UserIntent.fromGesture())));
     expect(fallback, isA<MoshShellConnection>());
     expect(engineRequests(silent).map((request) => request['op']), ['start']);
   });
@@ -1774,7 +2278,7 @@ void engineTests() {
     final connection = await openOn(
       engineTunnelTo(host, FakeEngineChannel(), FakeMoshChannel()),
     );
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
     expect(connection, isA<SshShellConnection>());
     expect(host.inputs, isEmpty);
@@ -1789,7 +2293,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
     final seen = <String>[];
     connection.snapshots.listen(
@@ -1827,7 +2331,7 @@ void engineTests() {
       'args': {'tab': session},
     });
     expect(host.requests.last, 'exec ${moshServerCleanupCommand(session)}');
-    await connection.close();
+    await connection.close(UserClosed(UserIntent.fromGesture()));
   });
 
   test('a retired tab is stopped without touching the live channel', () async {
@@ -1838,7 +2342,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
     expect(
       await connection.terminateRemote('upgrade456', durableShell: false),
@@ -1855,7 +2359,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
     host.execInputAnswer = (command, stdin) => command.endsWith('upgraded')
         ? '{"ok":false,"error":{"kind":"failed","message":"no"}}'
         : '';
@@ -1909,7 +2413,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
     final health = <ShellConnectionHealth>[];
     connection.health.listen(health.add);
     final failure = Completer<Object>();
@@ -1930,12 +2434,12 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
-    await connection.suspend();
+    await connection.suspend(AppSuspended(PlatformSignal.fromPlatform()));
     expect(engine.suspends, 1);
     expect(host.closed, isTrue);
-    await connection.resume();
+    await connection.resume(AppResumed(PlatformSignal.fromPlatform()));
     expect(engine.rehomes, 1);
   });
 
@@ -1969,7 +2473,7 @@ void engineTests() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       expect(connection, isA<SshShellConnection>());
       expect(connection.transport, ShellTransport.ssh);
@@ -1999,7 +2503,7 @@ void engineTests() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       expect(connection, isA<MoshShellConnection>());
       expect(verdicts.silent('nyx'), isFalse);
@@ -2020,7 +2524,7 @@ void engineTests() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       expect(connection, isA<MoshShellConnection>());
       expect(verdicts.silent('nyx'), isFalse);
@@ -2055,7 +2559,9 @@ void engineTests() {
             command: 'exec \$SHELL -l',
             tabSession: session,
           );
-          addTearDown(connection.close);
+          addTearDown(
+            () => connection.close(UserClosed(UserIntent.fromGesture())),
+          );
           return connection;
         }
 
@@ -2094,7 +2600,7 @@ void engineTests() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       expect(connection, isA<EngineShellConnection>());
       expect(verdicts.silent('nyx'), isFalse);
@@ -2113,7 +2619,9 @@ void engineTests() {
           command: 'exec \$SHELL -l',
           tabSession: session,
         );
-        addTearDown(connection.close);
+        addTearDown(
+          () => connection.close(UserClosed(UserIntent.fromGesture())),
+        );
 
         expect(connection, isA<SshShellConnection>());
         expect(mosh.closed, isTrue);

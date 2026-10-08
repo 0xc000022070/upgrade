@@ -34,35 +34,51 @@ Future<PasteResult> pasteClip({
   required ShellSessions store,
   required ShellSession session,
   required Clip clip,
+  required UserIntent intent,
 }) async => pasteImage(
   store: store,
   session: session,
   fileName: clip.fileName,
   bytes: await clip.file.readAsBytes(),
+  intent: intent,
 );
 
 /// The probe goes first so the clipboard backend is known before upload. The bytes go
 /// every time rather than being remembered per host: `/tmp` is cleared by a reboot the
 /// app never hears about, and a path the agent is then told to read would be a lie. A
 /// host with no clipboard command, or one whose tool failed, gets the path typed where
-/// the cursor is.
+/// the cursor is. The paste is the user's, so a host the tab does not hold is opened for
+/// it.
 Future<PasteResult> pasteImage({
   required ShellSessions store,
   required ShellSession session,
   required String fileName,
   required Uint8List bytes,
+  required UserIntent intent,
 }) async {
   final connection = session.connection;
   if (connection == null || !session.state.holdsSession) {
     return const PasteResult(PasteOutcome.failed, detail: 'no shell');
   }
-  final clipboard = await store.clipboardFor(session);
-  final remote = remotePathFor(fileName);
-  final ExecResult landed;
+  final HostChannels? channels;
   try {
-    landed = await connection.exec(uploadCommand(fileName), stdin: bytes);
+    channels = await connection.channelsFor(UserAction(intent));
   } catch (error) {
     return PasteResult(PasteOutcome.failed, detail: '$error');
+  }
+  if (channels == null) {
+    return const PasteResult(PasteOutcome.failed, detail: 'no host');
+  }
+  final clipboard = await store.clipboardFor(session);
+  final remote = remotePathFor(fileName);
+  final ExecResult? landed;
+  try {
+    landed = await channels.exec(uploadCommand(fileName), stdin: bytes);
+  } catch (error) {
+    return PasteResult(PasteOutcome.failed, detail: '$error');
+  }
+  if (landed == null) {
+    return const PasteResult(PasteOutcome.failed, detail: 'no host');
   }
   if (!landed.ok) {
     final said = landed.err.trim();
@@ -75,12 +91,14 @@ Future<PasteResult> pasteImage({
   String? reason = clipboard.reason;
   if (command != null) {
     try {
-      final set = await connection.exec(command);
-      if (set.ok) {
+      final set = await channels.exec(command);
+      if (set != null && set.ok) {
         store.send(session, pasteKey);
         return const PasteResult(PasteOutcome.pasted);
       }
-      reason = '${clipboard.label.toLowerCase()} exit ${set.exitCode}';
+      reason = set == null
+          ? 'no host'
+          : '${clipboard.label.toLowerCase()} exit ${set.exitCode}';
     } catch (error) {
       reason = '$error';
     }

@@ -1,3 +1,5 @@
+SSH connection lifecycle follows the policy header in `lib/platform/ssh/connection_supervisor.dart`; read it before changing how a connection opens, closes or retries.
+
 # Remote host development
 
 Use the NixOS VM as Upgrade's integrated remote computer. Build Upgrade and drive

@@ -148,6 +148,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       final sessions = ref.read(shellSessionsProvider);
       final wanted = widget.session;
       final command = widget.command;
+      // Only a tap pushes this route, and this runs once, on the frame it lands.
+      final intent = UserIntent.fromGesture();
       if (wanted != null) {
         sessions.activate(widget.host.id, wanted);
       } else if (command != null && sessions.canOpen(widget.host.id)) {
@@ -156,6 +158,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
         // tab was last active would not be that.
         sessions.open(
           widget.host,
+          intent: intent,
           prompt: _askHostKey,
           command: command,
           directory: widget.directory,
@@ -164,11 +167,12 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       } else if (widget.openNew && sessions.canOpen(widget.host.id)) {
         sessions.open(
           widget.host,
+          intent: intent,
           prompt: _askHostKey,
           launch: widget.openLaunch,
         );
       } else if (sessions.forHost(widget.host.id).isEmpty) {
-        sessions.open(widget.host, prompt: _askHostKey);
+        sessions.open(widget.host, intent: intent, prompt: _askHostKey);
       }
       // Landing on tabs that were already there tells the store nothing, so no drain
       // would ever see them.
@@ -432,7 +436,13 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
         final state = ended.state as ShellExited;
         final close = await _exitSheet(ended.number, state.code);
         if (!mounted) return;
-        if (close) await _store.close(widget.host.id, ended);
+        if (close) {
+          await _store.close(
+            widget.host.id,
+            ended,
+            intent: UserIntent.fromGesture(),
+          );
+        }
       }
       if (!mounted) return;
       if (_opened && _store.forHost(widget.host.id).isEmpty) {
@@ -475,7 +485,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
         if (answer == null) {
           _pinDismissed = request.id;
         } else if (session.pin?.id == request.id) {
-          outcome = await _store.answerPin(session, answer.passphrase);
+          outcome = await _store.answerPin(
+            session,
+            answer.passphrase,
+            UserIntent.fromGesture(),
+          );
         }
       } finally {
         release();
@@ -711,7 +725,12 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     if (!mounted || pick == null) return;
     if (host.id == widget.host.id) {
       if (!_store.canOpen(host.id)) return;
-      _store.open(widget.host, prompt: _askHostKey, launch: pick.launch);
+      _store.open(
+        widget.host,
+        intent: UserIntent.fromGesture(),
+        prompt: _askHostKey,
+        launch: pick.launch,
+      );
       return;
     }
     widget.onOpenHost?.call(host, pick.launch);
@@ -757,7 +776,14 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     List<({String directory, String label})> targets,
   ) async {
     if (active != null) {
-      await _store.repositoryFromHost(active).catchError((Object _) => null);
+      try {
+        await _store.repositoryFromHost(active);
+      } catch (error) {
+        if (!isHostFailure(error)) rethrow;
+        debugPrint(
+          'upgrade.shell ${widget.host.name}: diff repository: $error',
+        );
+      }
     }
     if (!mounted) return;
     final directory =
@@ -858,7 +884,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     }
     // The pop belongs to the store's listener, which is the one path every way of
     // losing the last tab goes through.
-    await _store.close(widget.host.id, session);
+    await _store.close(
+      widget.host.id,
+      session,
+      intent: UserIntent.fromGesture(),
+    );
   }
 
   @override
@@ -943,6 +973,14 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                             onStop: active == null
                                 ? null
                                 : () => store.stopReconnect(active),
+                            onReconnect: active == null
+                                ? null
+                                : () => unawaited(
+                                    store.reconnectControl(
+                                      active,
+                                      UserAction(UserIntent.fromGesture()),
+                                    ),
+                                  ),
                             onPin: swiped == null ? null : _onPinReopen,
                             pinStale: swiped?.stale ?? false,
                           );

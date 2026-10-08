@@ -21,6 +21,7 @@ void main() {
     int columns = 80,
     int rows = 24,
   }) => tunnel.open(
+    reason: UserAction(UserIntent.fromGesture()),
     address: hostVm.address,
     port: hostVm.port,
     user: hostVm.user,
@@ -32,7 +33,7 @@ void main() {
 
   test('the fixture key opens the guest login shell', () async {
     final connection = await open();
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
     // The guest's prompt is `%n@%m:%~%#`, so its own hostname is the one string no echo of
     // ours could have produced.
@@ -43,7 +44,7 @@ void main() {
 
   test('the pty is opened at the size the view asked for', () async {
     final connection = await open(command: 'stty size', columns: 100, rows: 30);
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
     // Rows then columns, which is the order stty prints and the reverse of the order the
     // request carries them in.
@@ -52,7 +53,7 @@ void main() {
 
   test('a window change reaches the remote mid-session', () async {
     final connection = await open(columns: 80, rows: 24);
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
     await readUntil(connection, 'upgrade-host');
 
     connection.resize(120, 40);
@@ -63,17 +64,17 @@ void main() {
 
   test('the command\'s own exit code comes back on the channel', () async {
     final connection = await open(command: 'exit 7');
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
     expect(await connection.exitCode, 7);
   });
 
   test('an exec channel runs beside the shell without disturbing it', () async {
     final connection = await open();
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
     final prompt = await readUntil(connection, 'upgrade-host');
 
-    final result = await connection.exec('printf beside');
+    final result = (await connection.channels.exec('printf beside'))!;
 
     expect(result.exitCode, 0);
     expect(result.out, 'beside');
@@ -82,12 +83,12 @@ void main() {
 
   test('what a command reads on stdin is what was written to it', () async {
     final connection = await open();
-    addTearDown(connection.close);
+    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
-    final result = await connection.exec(
+    final result = (await connection.channels.exec(
       'cat',
       stdin: Uint8List.fromList('one\ntwo\n'.codeUnits),
-    );
+    ))!;
 
     expect(result.ok, isTrue);
     expect(result.out, 'one\ntwo\n');
@@ -98,6 +99,7 @@ void main() {
 
     await expectLater(
       tunnel.open(
+        reason: UserAction(UserIntent.fromGesture()),
         address: hostVm.address,
         port: hostVm.port,
         user: hostVm.user,
@@ -118,6 +120,7 @@ void main() {
   test('a port with nothing behind it is unreachable', () async {
     await expectLater(
       tunnel.open(
+        reason: UserAction(UserIntent.fromGesture()),
         address: hostVm.address,
         port: hostVmDeadPort,
         user: hostVm.user,
@@ -138,6 +141,7 @@ void main() {
   test('a name with no address behind it is unresolved', () async {
     await expectLater(
       tunnel.open(
+        reason: UserAction(UserIntent.fromGesture()),
         address: 'no-such-host.invalid',
         port: hostVm.port,
         user: hostVm.user,

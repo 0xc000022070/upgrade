@@ -123,7 +123,7 @@ void main() {
     await tester.pump(agentInputPause);
     await tester.pump();
     expect(find.byKey(const ValueKey('bar-send')), findsOneWidget);
-    expect(connection.existingHostExecs, isEmpty);
+    expect(connection.timedProbes, isEmpty);
 
     connection.emitForeground('');
     await tester.pump();
@@ -150,7 +150,7 @@ void main() {
     await tester.pump(agentInputPause);
     await tester.pump();
     expect(find.byKey(const ValueKey('bar-send')), findsOneWidget);
-    expect(connection.existingHostExecs, hasLength(1));
+    expect(connection.timedProbes, hasLength(1));
     await unmount(tester);
   });
 
@@ -175,7 +175,7 @@ void main() {
     await tester.pump(agentInputPause);
     await tester.pump();
     expect(find.byKey(const ValueKey('bar-send')), findsOneWidget);
-    expect(connection.existingHostExecs, isEmpty);
+    expect(connection.timedProbes, isEmpty);
     await unmount(tester);
   });
 
@@ -198,7 +198,7 @@ void main() {
     await tester.pump();
     expect(find.byKey(const ValueKey('bar-send')), findsNothing);
     expect(container.exists(agentsFeedProvider), isFalse);
-    expect(transport.opened.single.existingHostExecs, isEmpty);
+    expect(transport.opened.single.timedProbes, isEmpty);
     await unmount(tester);
   });
 
@@ -249,10 +249,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('bar-send')));
     await tester.pump();
     expect(connection.writes.length, before);
-    expect(
-      connection.existingHostExecs.last,
-      HerdrCommands.agents(pane.session),
-    );
+    expect(connection.timedProbes.last, HerdrCommands.agents(pane.session));
     expect(find.byKey(const ValueKey('bar-send')), findsNothing);
 
     connection.answerWith(response);
@@ -328,7 +325,7 @@ void main() {
     await tester.pump(agentInputPause);
     await tester.pump();
     final delayed = Completer<ExecResult?>();
-    connection.holdExistingHostExec = delayed;
+    connection.holdTimedProbe = delayed;
     await tester.tap(find.byKey(const ValueKey('bar-send')));
     await tester.pump();
 
@@ -344,7 +341,7 @@ void main() {
         stderr: Uint8List(0),
       ),
     );
-    connection.holdExistingHostExec = null;
+    connection.holdTimedProbe = null;
     await tester.pump();
 
     expect(connection.writes.length, writes);
@@ -361,16 +358,16 @@ void main() {
     final session = sessions.activeFor(rose.id)!;
     final connection = transport.opened.single;
     final delayed = Completer<ExecResult?>();
-    connection.holdExistingHostExec = delayed;
+    connection.holdTimedProbe = delayed;
 
     session.terminal.sendText('first');
     await tester.pump(agentInputPause);
-    expect(connection.existingHostExecs.length, 1);
+    expect(connection.timedProbes.length, 1);
     session.terminal.sendText('second');
     await tester.pump(agentInputPause);
-    expect(connection.existingHostExecs.length, 1);
+    expect(connection.timedProbes.length, 1);
 
-    connection.holdExistingHostExec = null;
+    connection.holdTimedProbe = null;
     delayed.complete(
       ExecResult(
         exitCode: 0,
@@ -381,7 +378,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(connection.existingHostExecs.length, 2);
+    expect(connection.timedProbes.length, 2);
     await unmount(tester);
   });
 
@@ -690,7 +687,7 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    await transport.opened.single.close();
+    await transport.opened.single.close(UserClosed(UserIntent.fromGesture()));
     await ready(tester);
 
     expect(find.text('SHELL 1 EXITED —'), findsOneWidget);

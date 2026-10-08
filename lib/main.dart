@@ -34,6 +34,7 @@ import 'platform/device.dart';
 import 'platform/link_metadata.dart';
 import 'platform/plugins/store.dart';
 import 'platform/plugins/usage.dart';
+import 'platform/shell/shell_connection.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -101,7 +102,10 @@ Future<void> main() async {
   );
   final shells = await container
       .read(shellSessionsProvider)
-      .restore(container.read(hostRepositoryProvider).all);
+      .restore(
+        container.read(hostRepositoryProvider).all,
+        AppResumed(PlatformSignal.fromPlatform()),
+      );
   boot.add(BootStep('restore shells', '$shells'));
 
   runApp(

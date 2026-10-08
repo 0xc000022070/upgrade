@@ -94,6 +94,37 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a live tab whose host is down says its background reads are '
+      'stale, and a tap dials it', (tester) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    final connection = transport.opened.single;
+    connection.emit('\$ ');
+    await ready(tester);
+    expect(find.byKey(const ValueKey('shell-tab-info')), findsNothing);
+
+    connection.setControlDown(true);
+    await ready(tester);
+    expect(find.byKey(const ValueKey('shell-tab-info')), findsOneWidget);
+    expect(inkOfInfoMark(tester), UpgradeColors.warning);
+
+    await openInfo(tester);
+    expect(find.byKey(const ValueKey('shell-info-background')), findsOneWidget);
+    final opens = connection.opens.length;
+    await tester.tap(find.byKey(const ValueKey('shell-info-reconnect')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(connection.opens, hasLength(opens + 1));
+
+    connection.setControlDown(false);
+    await ready(tester);
+    expect(find.byKey(const ValueKey('shell-tab-info')), findsNothing);
+
+    await unmount(tester);
+  });
+
   testWidgets('a tab the host has not drawn on sweeps until it does', (
     tester,
   ) async {
@@ -505,9 +536,17 @@ void main() {
       );
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      sessions.open(named, launch: TmuxLaunch('main'));
-      sessions.open(named, launch: HerdrLaunch('default'));
-      sessions.open(named);
+      sessions.open(
+        intent: UserIntent.fromGesture(),
+        named,
+        launch: TmuxLaunch('main'),
+      );
+      sessions.open(
+        intent: UserIntent.fromGesture(),
+        named,
+        launch: HerdrLaunch('default'),
+      );
+      sessions.open(intent: UserIntent.fromGesture(), named);
       await tester.pumpWidget(
         app(sessions, home: const HostShellRoute(host: named)),
       );
@@ -541,8 +580,8 @@ void main() {
       );
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      sessions.open(named);
-      sessions.open(named);
+      sessions.open(intent: UserIntent.fromGesture(), named);
+      sessions.open(intent: UserIntent.fromGesture(), named);
       await tester.pumpWidget(
         app(sessions, home: const HostShellRoute(host: named)),
       );
@@ -574,13 +613,13 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
       for (var i = 0; i < 8; i++) {
-        sessions.open(rose);
+        sessions.open(intent: UserIntent.fromGesture(), rose);
       }
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
       // Through the store: the plus itself is off the right edge here.
-      sessions.open(rose);
+      sessions.open(intent: UserIntent.fromGesture(), rose);
       await ready(tester);
 
       final ninth = tester.getRect(
@@ -600,7 +639,7 @@ void main() {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     for (var i = 0; i < 9; i++) {
-      sessions.open(rose);
+      sessions.open(intent: UserIntent.fromGesture(), rose);
     }
     await tester.pumpWidget(app(sessions));
     await ready(tester);

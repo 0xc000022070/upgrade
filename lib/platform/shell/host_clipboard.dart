@@ -203,11 +203,8 @@ String? clipboardCommand(HostClipboard clipboard, String fileName) {
   return script == null ? null : underSh(script);
 }
 
-/// A channel that fails to open is the same answer as a probe that did.
-Future<HostClipboard> probeClipboard(ShellConnection connection) async {
-  try {
-    return parseProbe(await connection.exec(underSh(probeScript)));
-  } catch (_) {
-    return const HostClipboard(ClipboardBackend.none, reason: 'exec refused');
-  }
+/// Null when no host is held, which is no answer at all.
+Future<HostClipboard?> probeClipboard(HostChannels channels) async {
+  final result = await channels.exec(underSh(probeScript));
+  return result == null ? null : parseProbe(result);
 }

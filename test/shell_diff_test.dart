@@ -40,7 +40,10 @@ ExecResult _says(String stdout, {int exitCode = 0}) => ExecResult(
 );
 
 UpgradeIcon _mark(WidgetTester tester) => tester.widget<UpgradeIcon>(
-  find.descendant(of: find.byKey(_diffCell), matching: find.byType(UpgradeIcon)),
+  find.descendant(
+    of: find.byKey(_diffCell),
+    matching: find.byType(UpgradeIcon),
+  ),
 );
 
 void main() {
@@ -110,7 +113,7 @@ void main() {
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions));
       await ready(tester);
-      sessions.open(rose);
+      sessions.open(intent: UserIntent.fromGesture(), rose);
       await ready(tester);
 
       final marks = sessions.forHost(rose.id).map((s) => s.mark).toList();
@@ -165,7 +168,7 @@ void main() {
       expect(session.connection, isNull);
       expect(find.byKey(_diffCell), findsNothing);
 
-      await sessions.close(rose.id, session);
+      await sessions.close(intent: UserIntent.fromGesture(), rose.id, session);
       await unmount(tester);
     });
 
@@ -301,7 +304,11 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      final session = sessions.open(rose, pane: pane)!;
+      final session = sessions.open(
+        intent: UserIntent.fromGesture(),
+        rose,
+        pane: pane,
+      )!;
       await ready(tester);
       final connection = transport.opened.last;
       connection.answerWith(
@@ -405,7 +412,7 @@ void main() {
       addTearDown(tester.view.reset);
       final sessions = fakeShellSessions(FakeShellTransport());
       for (var i = 0; i < 8; i++) {
-        sessions.open(rose);
+        sessions.open(intent: UserIntent.fromGesture(), rose);
       }
       await tester.pumpWidget(app(sessions));
       await ready(tester);

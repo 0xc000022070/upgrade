@@ -428,6 +428,21 @@ class ShellSession extends ChangeNotifier {
   StreamSubscription<Uint8List>? _output;
   StreamSubscription<Uint8List>? _snapshots;
   StreamSubscription<ShellConnectionHealth>? _health;
+  StreamSubscription<bool>? _control;
+
+  /// Live terminal, host not held: background reads are stale and the next gesture dials.
+  bool controlStale = false;
+
+  String? controlFailure;
+
+  void _unwatch() {
+    unawaited(_health?.cancel());
+    _health = null;
+    unawaited(_control?.cancel());
+    _control = null;
+    controlStale = false;
+    controlFailure = null;
+  }
 
   /// Watches the channel for the pinentry's OSC on its way into the terminal. Null
   /// between connections, so a dead one's bytes are not read for a request.
@@ -510,7 +525,7 @@ class ShellSession extends ChangeNotifier {
 
   bool _rehoming = false;
   bool _rehomeNetwork = false;
-  bool _networkOwed = false;
+  NetworkChanged? _networkOwed;
   Timer? _rehomed;
 
   bool _retired = false;
@@ -614,6 +629,7 @@ class ShellSessions extends ChangeNotifier {
   final Future<void> Function(String hostId, HostSystem system)? recordSystem;
 
   final _systemAsked = <String>{};
+  final _answering = <String>{};
 
   /// Injectable only so the store can be driven without a host to answer it; null
   /// everywhere but a test.
@@ -638,6 +654,7 @@ class ShellSessions extends ChangeNotifier {
 
   bool _away = false;
   bool _sleeping = false;
+  PlatformSignal? _leftOn;
   Timer? _sleep;
 
   final _byHost = <String, List<ShellSession>>{};
@@ -752,15 +769,19 @@ class ShellSessions extends ChangeNotifier {
       var herdrSession = pane?.session;
       String? answer;
       if (herdrSession == null) {
-        final probe = await connection.exec(shellCwdProbe(session.mark));
-        if (probe.exitCode != 0) return null;
+        final probe = await connection.channels.exec(
+          shellCwdProbe(session.mark),
+        );
+        if (probe == null || probe.exitCode != 0) return null;
         final place = parseShellPlace(probe.out);
         herdrSession = place.herdrSession;
         answer = place.cwd;
       }
       if (herdrSession != null && HerdrCommands.isSessionName(herdrSession)) {
-        final panes = await connection.exec(HerdrCommands.panes(herdrSession));
-        if (panes.exitCode == 0) {
+        final panes = await connection.channels.exec(
+          HerdrCommands.panes(herdrSession),
+        );
+        if (panes != null && panes.exitCode == 0) {
           answer = HerdrClient.parsePaneCwd(panes.out, pane?.pane) ?? answer;
         }
       }
@@ -786,7 +807,7 @@ class ShellSessions extends ChangeNotifier {
       return session.engineAgent;
     }
     try {
-      final result = await connection.execOnExistingHost(
+      final result = await connection.channels.exec(
         shellForegroundProcessProbe(session.mark),
         timeout: const Duration(seconds: 3),
       );
@@ -798,8 +819,11 @@ class ShellSessions extends ChangeNotifier {
         return null;
       }
       return foregroundAgent(result.out);
-    } catch (_) {
-      // ignored: an unverified foreground leaves SEND hidden.
+    } catch (error) {
+      if (!isHostFailure(error)) rethrow;
+      debugPrint(
+        'upgrade.shell ${session.host.name}: foreground probe: $error',
+      );
       return null;
     }
   }
@@ -811,7 +835,7 @@ class ShellSessions extends ChangeNotifier {
       return null;
     }
     try {
-      final result = await connection.execOnExistingHost(
+      final result = await connection.channels.exec(
         HerdrCommands.agents(pane.session),
         timeout: const Duration(seconds: 3),
       );
@@ -830,8 +854,9 @@ class ShellSessions extends ChangeNotifier {
       for (final agent in agents) {
         if (agent.paneId == pane.pane) return AgentKind.lookup(agent.agent);
       }
-    } catch (_) {
-      // ignored: a failed live pane check leaves SEND hidden.
+    } catch (error) {
+      if (!isHostFailure(error)) rethrow;
+      debugPrint('upgrade.shell ${session.host.name}: pane agents: $error');
       return null;
     }
     return null;
@@ -843,11 +868,11 @@ class ShellSessions extends ChangeNotifier {
     if (connection == null) return null;
     final directory = await cwdFromHost(session) ?? session.cwd;
     if (directory == null) return _repository(session, null);
-    final result = await connection.exec(
+    final result = await connection.channels.exec(
       WorkspaceCommands.repository(directory),
     );
-    final top = result.out.trim();
-    if (result.exitCode != 0 || !top.startsWith('/')) {
+    final top = result?.out.trim() ?? '';
+    if (result == null || result.exitCode != 0 || !top.startsWith('/')) {
       return _repository(session, null);
     }
     return _repository(session, top);
@@ -872,6 +897,7 @@ class ShellSessions extends ChangeNotifier {
   /// user can walk.
   ShellSession? open(
     Host host, {
+    required UserIntent intent,
     HostKeyPrompt? prompt,
     String? command,
     String? directory,
@@ -893,6 +919,7 @@ class ShellSessions extends ChangeNotifier {
     return _start(
       host,
       number,
+      reason: UserAction(intent),
       prompt: prompt,
       command: command ?? launch?.command,
       directory: directory,
@@ -906,6 +933,7 @@ class ShellSessions extends ChangeNotifier {
   ShellSession _start(
     Host host,
     int number, {
+    required OpenReason reason,
     HostKeyPrompt? prompt,
     String? command,
     String? directory,
@@ -940,6 +968,7 @@ class ShellSessions extends ChangeNotifier {
       _connectAfterPersistence(
         host,
         session,
+        reason: reason,
         prompt: prompt,
         restored: restored,
         persistence: beforeConnect,
@@ -1015,8 +1044,9 @@ class ShellSessions extends ChangeNotifier {
     session.output.value++;
   }
 
-  void leave() {
+  void leave(PlatformSignal signal) {
     _away = true;
+    _leftOn = signal;
     for (final sessions in _byHost.values) {
       for (final session in sessions) {
         _saveScreen(session);
@@ -1026,16 +1056,17 @@ class ShellSessions extends ChangeNotifier {
     _sleep = Timer(sleepGrace, _fallAsleep);
   }
 
-  void returned() {
+  void returned(PlatformSignal signal) {
     _away = false;
     _sleeping = false;
+    _leftOn = null;
     _sleep?.cancel();
     _sleep = null;
     for (final sessions in _byHost.values) {
       for (final session in sessions) {
         session._save?.cancel();
         session._save = null;
-        _wakeUp(session);
+        _wakeUp(session, AppResumed(signal));
       }
     }
   }
@@ -1053,7 +1084,9 @@ class ShellSessions extends ChangeNotifier {
 
   void _suspend(ShellSession session) {
     final connection = session.connection;
+    final signal = _leftOn;
     if (connection == null ||
+        signal == null ||
         session._closed ||
         !session.state.holdsSession ||
         identical(session._asleep, connection)) {
@@ -1063,13 +1096,14 @@ class ShellSessions extends ChangeNotifier {
     session._asleep = connection;
     session._stopAsking();
     unawaited(
-      connection.suspend().catchError((Object error) {
+      connection.suspend(AppSuspended(signal)).catchError((Object error) {
         debugPrint('upgrade.shell ${session.host.name}: suspend: $error');
       }),
     );
   }
 
-  void _wakeUp(ShellSession session) {
+  /// Asks pinentry only after the resume reopens the host; before it nothing answers.
+  void _wakeUp(ShellSession session, AppResumed reason) {
     final connection = session._asleep;
     session._asleep = null;
     if (connection == null ||
@@ -1080,11 +1114,13 @@ class ShellSessions extends ChangeNotifier {
     session._rehomed?.cancel();
     session._rehomed = Timer(shellRehomeSettle, () => session._rehomed = null);
     unawaited(
-      connection.resume().catchError((Object error) {
-        debugPrint('upgrade.shell ${session.host.name}: resume: $error');
-      }),
+      connection
+          .resume(reason)
+          .catchError((Object error) {
+            debugPrint('upgrade.shell ${session.host.name}: resume: $error');
+          })
+          .then((_) => _askHost(session)),
     );
-    unawaited(_askHost(session));
   }
 
   void _outputWhileAway(ShellSession session) {
@@ -1128,6 +1164,7 @@ class ShellSessions extends ChangeNotifier {
   Future<void> _connectAfterPersistence(
     Host host,
     ShellSession session, {
+    required OpenReason reason,
     required bool restored,
     HostKeyPrompt? prompt,
     Future<void>? persistence,
@@ -1149,7 +1186,13 @@ class ShellSessions extends ChangeNotifier {
       await tabs?.close(host.id, session.number);
       return;
     }
-    await _connect(host, session, prompt: prompt, restored: restored);
+    await _connect(
+      host,
+      session,
+      reason: reason,
+      prompt: prompt,
+      restored: restored,
+    );
   }
 
   /// Reopens the tabs the last run left behind and dials each one. A tab with a remote
@@ -1158,7 +1201,10 @@ class ShellSessions extends ChangeNotifier {
   /// neither identity. Unattended, so a host whose key was never pinned is refused here
   /// rather than asking a user who is still looking at the boot log. Runs once: a second
   /// call over live tabs would dial a second shell into every one of them.
-  Future<int> restore(Future<List<Host>> Function() readHosts) async {
+  Future<int> restore(
+    Future<List<Host>> Function() readHosts,
+    AppResumed reason,
+  ) async {
     final store = tabs;
     if (store == null || _restored) return 0;
     _restored = true;
@@ -1198,6 +1244,7 @@ class ShellSessions extends ChangeNotifier {
       _start(
         host,
         row.number,
+        reason: reason,
         command: pane == null ? launch?.command : HerdrCommands.attach(pane),
         pane: pane,
         launch: launch,
@@ -1219,7 +1266,19 @@ class ShellSessions extends ChangeNotifier {
     return restored;
   }
 
-  Future<void> close(String hostId, ShellSession session) async {
+  Future<void> close(
+    String hostId,
+    ShellSession session, {
+    required UserIntent intent,
+  }) => _close(hostId, session, UserClosed(intent), action: UserAction(intent));
+
+  /// Without an [action] a cleanly exited shell closes its tab with its own [ShellEnded].
+  Future<void> _close(
+    String hostId,
+    ShellSession session,
+    DropReason reason, {
+    UserAction? action,
+  }) async {
     // Taken for good, so neither the exit, nor the output stream of the connection
     // being closed, nor a dial the reconnect schedule is part way through can write
     // onto a session that is already gone.
@@ -1255,8 +1314,7 @@ class ShellSessions extends ChangeNotifier {
     session._snapshots = null;
     unawaited(session._foregroundProcesses?.cancel());
     session._foregroundProcesses = null;
-    unawaited(session._health?.cancel());
-    session._health = null;
+    session._unwatch();
     session._pinentry = null;
     _retire(session);
     final connection = session.connection;
@@ -1264,7 +1322,7 @@ class ShellSessions extends ChangeNotifier {
     final remoteSession = session.remoteSession;
     if (remoteSession == null) {
       await tabs?.close(hostId, session.number);
-      await connection?.close();
+      await connection?.close(reason);
       return;
     }
     await tabs?.retire(hostId, session.number);
@@ -1274,12 +1332,13 @@ class ShellSessions extends ChangeNotifier {
           await connection?.terminateRemote(
             remoteSession,
             durableShell: false,
+            action: action,
           ) ??
           false;
     } catch (error) {
       debugPrint('upgrade.shell ${session.host.name}: cleanup failed: $error');
     } finally {
-      await connection?.close();
+      await connection?.close(reason);
     }
     if (terminated) await tabs?.close(hostId, session.number);
   }
@@ -1394,7 +1453,15 @@ class ShellSessions extends ChangeNotifier {
     final record = recordSystem;
     if (record == null || !_systemAsked.add(host.id)) return;
     unawaited(() async {
-      final system = await probeSystem(connection);
+      final HostSystem? system;
+      try {
+        system = await probeSystem(connection.channels);
+      } catch (error) {
+        if (!isHostFailure(error)) rethrow;
+        debugPrint('upgrade.shell ${host.name}: system probe: $error');
+        _systemAsked.remove(host.id);
+        return;
+      }
       if (system == null) {
         _systemAsked.remove(host.id);
         return;
@@ -1421,7 +1488,20 @@ class ShellSessions extends ChangeNotifier {
     ShellSession session,
     ShellConnection connection,
   ) async {
-    final answer = await probeClipboard(connection);
+    final HostClipboard? answer;
+    try {
+      answer = await probeClipboard(connection.channels);
+    } catch (error) {
+      if (session.connection == connection) session._probing = null;
+      if (!isHostFailure(error)) rethrow;
+      debugPrint('upgrade.shell ${session.host.name}: clipboard probe: $error');
+      return const HostClipboard(ClipboardBackend.none, reason: 'exec refused');
+    }
+    if (answer == null) {
+      // No host held, so nothing was asked: the next caller asks again.
+      if (session.connection == connection) session._probing = null;
+      return const HostClipboard(ClipboardBackend.none, reason: 'no host');
+    }
     // An answer from a connection that has since gone belongs to nobody.
     if (session.connection == connection) {
       session.clipboard = answer;
@@ -1454,8 +1534,11 @@ class ShellSessions extends ChangeNotifier {
   /// nothing.
   Future<void> _mark(ShellSession session, ShellConnection connection) async {
     try {
-      await connection.exec(pinentryMarkCommand(session.tab));
-    } catch (_) {}
+      await connection.channels.exec(pinentryMarkCommand(session.tab));
+    } catch (error) {
+      if (!isHostFailure(error)) rethrow;
+      debugPrint('upgrade.shell ${session.host.name}: pinentry mark: $error');
+    }
   }
 
   void _setPin(ShellSession session, PinRequest? request) {
@@ -1500,13 +1583,21 @@ class ShellSessions extends ChangeNotifier {
         session._askAgain = false;
         final connection = session.connection;
         if (connection == null) return;
-        final ExecResult result;
+        final ExecResult? result;
         try {
-          result = await connection.exec(pinentryOpenCommand());
-        } catch (_) {
+          result = await connection.channels.exec(pinentryOpenCommand());
+        } catch (error) {
+          if (!isHostFailure(error)) rethrow;
+          debugPrint(
+            'upgrade.shell ${session.host.name}: pinentry ask: $error',
+          );
           return;
         }
-        if (!result.ok || !identical(session.connection, connection)) return;
+        if (result == null ||
+            !result.ok ||
+            !identical(session.connection, connection)) {
+          return;
+        }
         final open = PinRequest.decodeOpen(result.out);
         final next = open.isEmpty ? null : open.first;
         if (next?.id != session.pin?.id) {
@@ -1536,10 +1627,15 @@ class ShellSessions extends ChangeNotifier {
   }
 
   /// Null is the cancel, which is a decision and reaches every surface; a sheet merely
-  /// swiped away calls nothing. The request is dropped before the channel is opened, so a
-  /// second tap sends nothing twice. The fifo is written only while it is there, so what
-  /// the command comes back with says whether the answer landed.
-  Future<PinAnswer> answerPin(ShellSession session, String? passphrase) async {
+  /// swiped away calls nothing. The request is dropped before the channel is opened, and
+  /// one already being answered is not answered again, so a second tap sends nothing
+  /// twice. The fifo is written only while it is there, so what the command comes back
+  /// with says whether the answer landed.
+  Future<PinAnswer> answerPin(
+    ShellSession session,
+    String? passphrase,
+    UserIntent intent,
+  ) async {
     final request = session.pin;
     final connection = session.connection;
     if (request == null) return PinAnswer.lost;
@@ -1550,26 +1646,51 @@ class ShellSessions extends ChangeNotifier {
       if (identical(other, session) || other.pin?.id != request.id) continue;
       _setPin(other, null);
     }
-    if (connection == null) return PinAnswer.lost;
+    if (connection == null || !_answering.add(request.id)) {
+      return PinAnswer.lost;
+    }
+    // The passphrase never reached stdin, so the request stays on the tab.
+    PinAnswer unsent() {
+      if (session.pin == null && !session._closed) _setPin(session, request);
+      return PinAnswer.lost;
+    }
+
     try {
-      final result = await connection.exec(
+      final HostChannels? channels;
+      try {
+        channels = await connection.channelsFor(UserAction(intent));
+      } catch (error) {
+        if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
+        debugPrint('upgrade.shell ${session.host.name}: pinentry dial: $error');
+        return unsent();
+      }
+      if (channels == null) return unsent();
+      final result = await channels.exec(
         pinentryAnswerCommand(request.id),
         stdin: Uint8List.fromList(utf8.encode('${passphrase ?? ''}\n')),
         timeout: pinAnswerWait,
       );
+      if (result == null) return unsent();
       return result.ok ? PinAnswer.sent : PinAnswer.expired;
+    } on ChannelOpenTimeout {
+      return unsent();
     } on TimeoutException {
-      // The guard passed, so the fifo was there, and the write never landed, so
-      // nobody is reading it: the request behind it is gone either way.
+      // The channel opened and the write blocked, so the guard found the fifo and
+      // nobody is reading it: the request behind it is gone.
       return PinAnswer.expired;
-    } catch (_) {
+    } catch (error) {
+      if (!isHostFailure(error)) rethrow;
+      debugPrint('upgrade.shell ${session.host.name}: pinentry answer: $error');
       return PinAnswer.lost;
+    } finally {
+      _answering.remove(request.id);
     }
   }
 
   Future<void> _connect(
     Host host,
     ShellSession session, {
+    required OpenReason reason,
     HostKeyPrompt? prompt,
     bool reconnected = false,
     bool restored = false,
@@ -1592,8 +1713,11 @@ class ShellSessions extends ChangeNotifier {
     final columns = session._columns ?? session.terminal.config.cols;
     final rows = session._rows ?? session.terminal.config.rows;
 
+    Reconnect? dialFailed;
     try {
       final connection = await _open(
+        reason: reason,
+        failed: (retry) => dialFailed = retry,
         address: host.address,
         port: host.port,
         user: host.user,
@@ -1625,7 +1749,7 @@ class ShellSessions extends ChangeNotifier {
         } catch (error) {
           debugPrint('upgrade.shell ${host.name}: cleanup failed: $error');
         } finally {
-          await connection.close();
+          await connection.discard();
         }
         return;
       }
@@ -1655,6 +1779,14 @@ class ShellSessions extends ChangeNotifier {
       session._health = connection.health.listen(
         (health) => _onHealth(session, connection, attempt, health),
       );
+      session._control = connection.controlDown.listen((down) {
+        if (!attempt.isCurrent || !identical(session.connection, connection)) {
+          return;
+        }
+        session.controlStale = down;
+        if (!down) session.controlFailure = null;
+        session.changed();
+      });
       final marker = _transitionMarker(
         session,
         reconnected: reconnected,
@@ -1686,11 +1818,15 @@ class ShellSessions extends ChangeNotifier {
         pinentryOsc,
         (args) => _onPinentry(session, args),
       );
-      session._snapshots = connection.snapshots.listen((bytes) {
-        if (identical(session.connection, connection)) {
-          _replaceTerminal(session, bytes);
-        }
-      }, onError: (Object _) {});
+      session._snapshots = connection.snapshots.listen(
+        (bytes) {
+          if (identical(session.connection, connection)) {
+            _replaceTerminal(session, bytes);
+          }
+        },
+        onError: (Object error) =>
+            debugPrint('upgrade.shell ${host.name}: snapshots: $error'),
+      );
       session._foregroundProcesses = connection.foregroundProcesses.listen(
         (processes) {
           if (identical(session.connection, connection)) {
@@ -1716,7 +1852,7 @@ class ShellSessions extends ChangeNotifier {
       ]);
       if (_sleeping) {
         unawaited(
-          settled.then((_) {
+          settled.whenComplete(() {
             if (_sleeping && identical(session.connection, connection)) {
               _suspend(session);
             }
@@ -1729,7 +1865,7 @@ class ShellSessions extends ChangeNotifier {
       }
       session.changed();
     } catch (error) {
-      _fail(session, error, attempt);
+      _fail(session, error, attempt, dialFailed);
     }
   }
 
@@ -1773,8 +1909,7 @@ class ShellSessions extends ChangeNotifier {
     try {
       final code = await connection.exitCode;
       if (!attempt.isCurrent) return;
-      unawaited(session._health?.cancel());
-      session._health = null;
+      session._unwatch();
       session.disarm();
       session.state = ShellExited(code);
       session.voiceSendSuggested = false;
@@ -1783,7 +1918,10 @@ class ShellSessions extends ChangeNotifier {
       _setPin(session, null);
       // Every other code is the shell saying something went wrong, so that tab stays
       // for its output to be read.
-      if (code == shellCleanExit) await close(session.host.id, session);
+      final ended = connection.ended;
+      if (code == shellCleanExit && ended != null) {
+        await _close(session.host.id, session, ended);
+      }
     } catch (error) {
       _fail(session, error, attempt);
     }
@@ -1818,14 +1956,21 @@ class ShellSessions extends ChangeNotifier {
   }
 
   /// Anything the transport throws that is not a [ShellFailure] is the connection going
-  /// away without a word for it.
-  void _fail(ShellSession session, Object error, _Attempt attempt) {
+  /// away without a word for it. The schedule only runs on evidence of an end: the dial
+  /// that threw, or the terminal the connection carried ending. Without either the tab
+  /// waits for the phone or the user.
+  void _fail(
+    ShellSession session,
+    Object error,
+    _Attempt attempt, [
+    Reconnect? dialFailed,
+  ]) {
     if (!attempt.isCurrent) return;
+    final retry = dialFailed ?? session.connection?.ended?.reconnect;
     session.voiceSendSuggested = false;
     session.clearAgentInput();
     session.clearEngineForeground();
-    unawaited(session._health?.cancel());
-    session._health = null;
+    session._unwatch();
     session.pin = null;
     session._stopAsking();
     _tellShade(session.host);
@@ -1840,8 +1985,8 @@ class ShellSessions extends ChangeNotifier {
     // for the user to press, so a host that was not there a second ago is tried
     // again rather than left on screen as a dead tab.
     if (shellReconnects(kind)) {
-      if (dropped < shellReconnectDelays.length) {
-        _drop(session, dropped + 1);
+      if (retry != null && dropped < shellReconnectDelays.length) {
+        _drop(session, dropped + 1, retry);
         return;
       }
       // The schedule is spent, and sixty-eight seconds of it may have run in a
@@ -1892,22 +2037,28 @@ class ShellSessions extends ChangeNotifier {
   /// The phone is what calls this — coming back in front, or finding a network — and a tab
   /// still inside its schedule has a timer of its own and is left to it, unless that wait
   /// ran out while the phone slept: then it dials now and goes on from the same step.
-  void wakeAll({bool rehome = true, bool network = false}) {
-    if (network) udpVerdicts.clearAll();
+  void wakeAll(
+    PlatformSignal signal, {
+    bool network = false,
+    bool rehome = true,
+  }) {
+    final changed = network ? NetworkChanged(signal) : null;
+    final OpenReason reason = changed ?? AppResumed(signal);
+    if (changed != null) udpVerdicts.clearAll();
     for (final sessions in _byHost.values) {
       for (final session in List.of(sessions)) {
         final connection = session.connection;
         if (connection != null && session.state.holdsSession) {
-          if (rehome) _rehome(session, connection, network: network);
+          if (rehome) _rehome(session, connection, network: changed);
           continue;
         }
         final due = session._due;
         if (session._reconnect != null && due != null && !now().isBefore(due)) {
           session._reconnect?.cancel();
-          unawaited(_redial(session));
+          unawaited(_redial(session, reason));
           continue;
         }
-        wake(session);
+        wake(session, reason);
       }
     }
   }
@@ -1915,18 +2066,18 @@ class ShellSessions extends ChangeNotifier {
   void _rehome(
     ShellSession session,
     ShellConnection connection, {
-    required bool network,
+    required NetworkChanged? network,
   }) {
-    final settles = network && !session._rehomeNetwork;
+    final settles = network != null && !session._rehomeNetwork;
     if (session._rehoming) {
-      session._networkOwed |= settles;
+      if (settles) session._networkOwed = network;
       return;
     }
     if (session._rehomed != null && !settles) return;
     session._rehomed?.cancel();
     session._rehomed = null;
     session._rehoming = true;
-    session._rehomeNetwork = network;
+    session._rehomeNetwork = network != null;
     unawaited(
       connection
           .rehome(network: network)
@@ -1939,9 +2090,10 @@ class ShellSessions extends ChangeNotifier {
             session._rehoming = false;
             if (session._closed) return;
             final live = session.connection;
-            if (session._networkOwed && live != null) {
-              session._networkOwed = false;
-              _rehome(session, live, network: true);
+            final owed = session._networkOwed;
+            if (owed != null && live != null) {
+              session._networkOwed = null;
+              _rehome(session, live, network: owed);
               return;
             }
             session._rehomed = Timer(
@@ -1954,11 +2106,26 @@ class ShellSessions extends ChangeNotifier {
 
   /// One tab, as the first step of a fresh schedule: a dial that misses waits two seconds
   /// and goes on, rather than running the whole minute out again with nobody looking.
-  void wake(ShellSession session) {
+  void wake(ShellSession session, OpenReason reason) {
     if (_held > 0 || session.state is! ShellWaiting) return;
     session.state = const ShellDropped(1);
     session.changed();
-    unawaited(_redial(session));
+    unawaited(_redial(session, reason));
+  }
+
+  Future<void> reconnectControl(ShellSession session, UserAction action) async {
+    final connection = session.connection;
+    if (connection == null) return;
+    session.controlFailure = null;
+    session.changed();
+    try {
+      await connection.channelsFor(action);
+    } catch (error) {
+      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
+      if (!identical(session.connection, connection)) return;
+      session.controlFailure = _detailOf(session.host, error);
+      session.changed();
+    }
   }
 
   void stopReconnect(ShellSession session) {
@@ -1979,22 +2146,33 @@ class ShellSessions extends ChangeNotifier {
     session.changed();
   }
 
-  void _drop(ShellSession session, int attempt) {
+  void _drop(ShellSession session, int attempt, Reconnect retry) {
     session.state = ShellDropped(attempt);
     session.clearAgentInput();
     session.clearEngineForeground();
     session.changed();
     final delay = shellReconnectDelays[attempt - 1];
     session._due = now().add(delay);
-    session._reconnect = Timer(delay, () => unawaited(_redial(session)));
+    session._reconnect = Timer(delay, () => unawaited(_redial(session, retry)));
   }
 
-  /// A new shell in the tab that already has one, keeping its terminal. The state is left
-  /// on [ShellDropped] across it, which is what keeps the header reading `RECONNECTING`.
-  Future<void> _redial(ShellSession session) async {
+  /// A new shell in the tab whose shell ended, keeping its terminal. The state is left on
+  /// [ShellDropped] across it, which is what keeps the header reading `RECONNECTING`.
+  /// A connection whose terminal has not ended is never replaced; the tab waits instead.
+  Future<void> _redial(ShellSession session, OpenReason reason) async {
     session._reconnect = null;
     session._due = null;
     if (session.state is! ShellDropped) return;
+    final previous = session.connection;
+    final ended = previous?.ended;
+    if (previous != null && ended == null) {
+      session.state = ShellWaiting(
+        ShellFailureKind.streamClosed,
+        detail: session._detail,
+      );
+      session.changed();
+      return;
+    }
     // Taken before anything closes: closing the old connection completes its exit
     // future, and an exit belonging to the attempt being replaced would otherwise
     // paint `EXITED` over the dial already under way.
@@ -2009,10 +2187,8 @@ class ShellSessions extends ChangeNotifier {
     session._snapshots = null;
     unawaited(session._foregroundProcesses?.cancel());
     session._foregroundProcesses = null;
-    unawaited(session._health?.cancel());
-    session._health = null;
+    session._unwatch();
     session._pinentry = null;
-    final previous = session.connection;
     session.connection = null;
     // The title belonged to the shell that died. The pane outlives it, because the
     // dial that follows carries the same attach and comes back to the same agent.
@@ -2022,11 +2198,11 @@ class ShellSessions extends ChangeNotifier {
     _tellShade(session.host);
     session.disarm();
     session.changed();
-    await previous?.close();
+    if (ended != null) await previous?.close(ended);
     // No prompt: nothing about a timer firing says the user is looking at the
     // route, so an unpinned host is refused here as it is anywhere else unattended.
     if (session.state is! ShellDropped) return;
-    await _connect(session.host, session, reconnected: true);
+    await _connect(session.host, session, reason: reason, reconnected: true);
   }
 }
 

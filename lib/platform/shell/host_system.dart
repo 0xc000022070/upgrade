@@ -17,15 +17,11 @@ HostSystem parseSystemProbe(String output) {
   return HostSystem.linux;
 }
 
-Future<HostSystem?> probeSystem(ShellConnection connection) async {
-  try {
-    final result = await connection.exec(
-      underSh(systemProbeScript),
-      timeout: const Duration(seconds: 10),
-    );
-    if (!result.ok) return null;
-    return parseSystemProbe(result.out);
-  } catch (_) {
-    return null;
-  }
+Future<HostSystem?> probeSystem(HostChannels channels) async {
+  final result = await channels.exec(
+    underSh(systemProbeScript),
+    timeout: const Duration(seconds: 10),
+  );
+  if (result == null || !result.ok) return null;
+  return parseSystemProbe(result.out);
 }

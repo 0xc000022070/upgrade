@@ -579,7 +579,12 @@ void main() {
       final transport = FakeShellTransport()..transport = ShellTransport.mosh;
       final sessions = fakeShellSessions(transport);
       const pane = (session: 'default', pane: 'w1:p1');
-      sessions.open(rose, command: 'attach', pane: pane);
+      sessions.open(
+        intent: UserIntent.fromGesture(),
+        rose,
+        command: 'attach',
+        pane: pane,
+      );
       await tester.pumpWidget(app(sessions));
       await ready(tester);
       final connection = transport.opened.single;

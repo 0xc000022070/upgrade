@@ -5,6 +5,7 @@ import 'package:flterm/flterm.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/shell/shell_engine.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -117,7 +118,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      sessions.open(_rose);
+      sessions.open(intent: UserIntent.fromGesture(), _rose);
       await _settle();
       final connection = transport.opened.single;
 
@@ -137,7 +138,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(_rose)!;
+      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 

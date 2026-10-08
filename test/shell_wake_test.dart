@@ -26,7 +26,7 @@ Future<ShellSession> _waiting(
   FakeShellTransport transport,
   ShellSessions sessions,
 ) async {
-  final session = sessions.open(rose)!;
+  final session = sessions.open(intent: UserIntent.fromGesture(), rose)!;
   await tester.pump();
   await tester.pump();
   transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
@@ -42,7 +42,7 @@ Future<ShellSession> _waiting(
 }
 
 Future<ShellSession> _live(WidgetTester tester, ShellSessions sessions) async {
-  final session = sessions.open(rose)!;
+  final session = sessions.open(intent: UserIntent.fromGesture(), rose)!;
   await tester.pump();
   await tester.pump();
   expect(session.state, isA<ShellLive>());
@@ -70,7 +70,7 @@ void main() {
     expect(transport.verifiers, hasLength(spent + 1));
     expect(session.state, isA<ShellLive>());
 
-    await sessions.close(rose.id, session);
+    await sessions.close(intent: UserIntent.fromGesture(), rose.id, session);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -90,7 +90,7 @@ void main() {
     expect(transport.verifiers, hasLength(spent));
     expect(session.state, isA<ShellWaiting>());
 
-    await sessions.close(rose.id, session);
+    await sessions.close(intent: UserIntent.fromGesture(), rose.id, session);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -116,7 +116,7 @@ void main() {
     expect(transport.verifiers, hasLength(spent + 1));
     expect(session.state, isA<ShellLive>());
 
-    await sessions.close(rose.id, session);
+    await sessions.close(intent: UserIntent.fromGesture(), rose.id, session);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -138,7 +138,7 @@ void main() {
     expect(transport.opened.single.rehomes, 0);
     expect(session.state, isA<ShellLive>());
 
-    await sessions.close(rose.id, session);
+    await sessions.close(intent: UserIntent.fromGesture(), rose.id, session);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -162,7 +162,7 @@ void main() {
     expect(transport.opened.single.rehomes, 1);
     expect(transport.opened.single.networkRehomes, 0);
 
-    await sessions.close(rose.id, session);
+    await sessions.close(intent: UserIntent.fromGesture(), rose.id, session);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -186,7 +186,7 @@ void main() {
     expect(transport.verifiers, hasLength(spent + 1));
     expect(session.state, isA<ShellLive>());
 
-    await sessions.close(rose.id, session);
+    await sessions.close(intent: UserIntent.fromGesture(), rose.id, session);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -210,7 +210,7 @@ void main() {
     expect(transport.opened.single.rehomes, 1);
     expect(transport.opened.single.networkRehomes, 1);
 
-    await sessions.close(rose.id, session);
+    await sessions.close(intent: UserIntent.fromGesture(), rose.id, session);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

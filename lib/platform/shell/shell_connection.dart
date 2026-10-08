@@ -1,8 +1,27 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../application/reason_lines.dart';
 import '../host_keys.dart';
+import '../ssh/connection_supervisor.dart';
+
+export '../ssh/connection_supervisor.dart'
+    show
+        AppResumed,
+        AppSuspended,
+        ChannelOpenTimeout,
+        DropReason,
+        ExecResult,
+        HostChannels,
+        NetworkChanged,
+        OpenReason,
+        PlatformSignal,
+        Reconnect,
+        ShellEnded,
+        UserAction,
+        UserClosed,
+        UserIntent,
+        isHostFailure,
+        isKeyFailure;
 
 abstract interface class ShellConnection {
   ShellTransport get transport;
@@ -27,33 +46,43 @@ abstract interface class ShellConnection {
 
   Future<int?> get exitCode;
 
-  Future<void> close();
+  Future<void> close(DropReason reason);
 
-  /// A [network] change also drops the SSH control connection under the channel, whose
+  /// The terminal's end once the transport has seen it, its exit or its stream dying, and
+  /// null while it runs. The one [ShellEnded] this connection's [close] accepts.
+  ShellEnded? get ended;
+
+  /// For a dial that landed late: false, and nothing closed, once the terminal was read.
+  Future<bool> discard();
+
+  /// A [network] change also replaces the SSH control connection under the channel, whose
   /// socket is bound to the network that went; a plain return keeps it.
-  Future<void> rehome({bool network = false});
+  Future<void> rehome({NetworkChanged? network});
 
-  Future<void> suspend();
+  Future<void> suspend(AppSuspended reason);
 
-  Future<void> resume();
+  Future<void> resume(AppResumed reason);
 
-  Future<bool> terminateRemote(String session, {required bool durableShell});
+  /// Without an [action] only a held host is used, and none means false.
+  Future<bool> terminateRemote(
+    String session, {
+    required bool durableShell,
+    UserAction? action,
+  });
 
   Future<String?> remoteDirectory(String session);
 
-  /// A second channel, so the shell on the pty never sees any of it. With a [timeout], a
-  /// command still running when it runs out throws and its channel is taken down, so one
-  /// blocked on something that will never come does not hold the channel open for the life
-  /// of the connection.
-  Future<ExecResult> exec(
-    String command, {
-    Uint8List? stdin,
-    Duration? timeout,
-  });
+  /// A second channel, so the shell on the pty never sees any of it. Every background read
+  /// goes here, and gets null while no host is held.
+  HostChannels get channels;
 
-  /// Uses only an SSH control connection already held by this shell. Null means none is
-  /// available; this call never redials.
-  Future<ExecResult?> execOnExistingHost(String command, {Duration? timeout});
+  /// Opens the host for a gesture that needs it when none is held.
+  Future<HostChannels?> channelsFor(UserAction action);
+
+  /// True while the terminal runs but no host is held for [channels]: what background
+  /// reads said is stale, and [channelsFor] dials. Emits on change only; a transport
+  /// whose terminal dies with its host never emits.
+  Stream<bool> get controlDown;
 }
 
 enum ShellContinuity { plain, started, resumed }
@@ -62,24 +91,8 @@ enum ShellTransport { ssh, mosh, engine }
 
 enum ShellConnectionHealth { connected, reconnecting, disconnected }
 
-class ExecResult {
-  const ExecResult({
-    required this.exitCode,
-    required this.stdout,
-    required this.stderr,
-  });
-
-  final int? exitCode;
-  final Uint8List stdout;
-  final Uint8List stderr;
-
-  bool get ok => exitCode == 0;
-
-  String get out => utf8.decode(stdout, allowMalformed: true);
-  String get err => utf8.decode(stderr, allowMalformed: true);
-}
-
 typedef ShellOpener = Future<ShellConnection> Function({
+  required OpenReason reason,
   required String address,
   required int port,
   required String user,
@@ -90,6 +103,7 @@ typedef ShellOpener = Future<ShellConnection> Function({
   String? tabSession,
   String? persistentSession,
   HostKeyVerifier? verifier,
+  void Function(Reconnect retry)? failed,
 });
 
 enum ShellFailureKind {

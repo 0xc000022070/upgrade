@@ -13,6 +13,7 @@ import '../../design/components/panel_sheet.dart';
 import '../../design/icons/upgrade_icon.dart';
 import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
+import '../../platform/shell/shell_connection.dart';
 import 'clip_paste.dart';
 import 'photo_attach.dart';
 import 'shell_sessions.dart';
@@ -53,6 +54,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
 
   Future<void> _attachHeld(Clip clip) async {
     if (_busy) return;
+    final intent = UserIntent.fromGesture();
     setState(() {
       _busy = true;
       _status = 'SENDING';
@@ -61,12 +63,14 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
       store: ref.read(shellSessionsProvider),
       session: widget.session,
       clip: clip,
+      intent: intent,
     );
     await _finish(result);
   }
 
   Future<void> _attachPhotos() async {
     if (_busy) return;
+    final intent = UserIntent.fromGesture();
     setState(() => _busy = true);
     final List<Uint8List> photos;
     try {
@@ -95,6 +99,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
         session: widget.session,
         fileName: freshPngName(),
         bytes: photos[i],
+        intent: intent,
       );
       if (last.outcome == PasteOutcome.failed) break;
     }

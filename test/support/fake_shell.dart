@@ -20,6 +20,7 @@ class FakeShellConnection implements ShellConnection {
   final _snapshots = StreamController<Uint8List>.broadcast();
   final _foregroundProcesses = StreamController<String>.broadcast();
   final _health = StreamController<ShellConnectionHealth>.broadcast();
+  final _controlDown = StreamController<bool>.broadcast();
   final _exit = Completer<int?>();
 
   final writes = <Uint8List>[];
@@ -28,6 +29,10 @@ class FakeShellConnection implements ShellConnection {
   var closed = false;
   var terminateRemoteResult = true;
   final terminated = <({String session, bool durableShell})>[];
+
+  final terminateActions = <UserAction?>[];
+  final closes = <DropReason>[];
+  final opens = <UserAction>[];
   final directoryRequests = <String>[];
   var rehomes = 0;
   var networkRehomes = 0;
@@ -43,9 +48,13 @@ class FakeShellConnection implements ShellConnection {
 
   /// Every command run on a second channel, with what was written into it.
   final execs = <({String command, Uint8List? stdin})>[];
-  final existingHostExecs = <String>[];
-  bool existingHostAvailable = true;
-  Completer<ExecResult?>? holdExistingHostExec;
+
+  /// The background commands that carried a deadline, which is what a probe is.
+  final timedProbes = <String>[];
+
+  /// False: the host was dropped, and background reads get null until something opens it.
+  bool hostHeld = true;
+  Completer<ExecResult?>? holdTimedProbe;
 
   /// Held to keep [close] from completing, so a test can act inside the window a redial
   /// spends shutting the shell that died down.
@@ -68,6 +77,11 @@ class FakeShellConnection implements ShellConnection {
   Stream<ShellConnectionHealth> get health => _health.stream;
 
   @override
+  Stream<bool> get controlDown => _controlDown.stream;
+
+  void setControlDown(bool down) => _controlDown.add(down);
+
+  @override
   void write(Uint8List bytes) => writes.add(bytes);
 
   @override
@@ -80,7 +94,22 @@ class FakeShellConnection implements ShellConnection {
   Future<int?> get exitCode => _exit.future;
 
   @override
-  Future<void> close() async {
+  ShellEnded? ended;
+
+  var discarded = false;
+
+  @override
+  Future<bool> discard() async {
+    discarded = true;
+    closed = true;
+    if (!_exit.isCompleted) _exit.complete(null);
+    await _health.close();
+    return true;
+  }
+
+  @override
+  Future<void> close(DropReason reason) async {
+    closes.add(reason);
     await hold?.future;
     closed = true;
     if (!_exit.isCompleted) _exit.complete(null);
@@ -91,22 +120,24 @@ class FakeShellConnection implements ShellConnection {
   Future<bool> terminateRemote(
     String session, {
     required bool durableShell,
+    UserAction? action,
   }) async {
     terminated.add((session: session, durableShell: durableShell));
+    terminateActions.add(action);
     return terminateRemoteResult;
   }
 
   @override
-  Future<void> rehome({bool network = false}) async {
+  Future<void> rehome({NetworkChanged? network}) async {
     rehomes++;
-    if (network) networkRehomes++;
+    if (network != null) networkRehomes++;
   }
 
   @override
-  Future<void> suspend() async => suspends++;
+  Future<void> suspend(AppSuspended reason) async => suspends++;
 
   @override
-  Future<void> resume() async => resumes++;
+  Future<void> resume(AppResumed reason) async => resumes++;
 
   @override
   Future<String?> remoteDirectory(String session) async {
@@ -120,7 +151,23 @@ class FakeShellConnection implements ShellConnection {
   }
 
   @override
-  Future<ExecResult> exec(
+  late final HostChannels channels = _FakeChannels(this, background: true);
+
+  late final HostChannels _opened = _FakeChannels(this, background: false);
+
+  Object? openRefused;
+
+  @override
+  Future<HostChannels?> channelsFor(UserAction action) async {
+    opens.add(action);
+    if (closed) return null;
+    final refused = openRefused;
+    if (refused != null) throw refused;
+    hostHeld = true;
+    return _opened;
+  }
+
+  Future<ExecResult> _exec(
     String command, {
     Uint8List? stdin,
     Duration? timeout,
@@ -129,15 +176,6 @@ class FakeShellConnection implements ShellConnection {
     if (!wedged) return answer(command, stdin);
     final never = Completer<ExecResult>().future;
     return timeout == null ? never : never.timeout(timeout);
-  }
-
-  @override
-  Future<ExecResult?> execOnExistingHost(String command, {Duration? timeout}) {
-    if (!existingHostAvailable) return Future.value(null);
-    existingHostExecs.add(command);
-    final hold = holdExistingHostExec;
-    if (hold != null) return hold.future;
-    return exec(command, timeout: timeout);
   }
 
   /// A command that reaches the host and never comes back, which is what writing into a
@@ -162,15 +200,42 @@ class FakeShellConnection implements ShellConnection {
 
   /// The stream errors and the connection is never told, which is what a phone leaving wifi
   /// looks like.
-  void drop([Object error = 'link lost']) => _output.addError(error);
+  void drop([Object error = 'link lost']) {
+    ended ??= ShellEnded.unbound();
+    _output.addError(error);
+  }
 
   void setHealth(ShellConnectionHealth health) => _health.add(health);
 
   void exit(int code) {
+    ended ??= ShellEnded.unbound();
     if (!_exit.isCompleted) _exit.complete(code);
   }
 
   String get written => writes.map(String.fromCharCodes).join();
+}
+
+class _FakeChannels implements HostChannels {
+  _FakeChannels(this._connection, {required this.background});
+
+  final FakeShellConnection _connection;
+  final bool background;
+
+  @override
+  Future<ExecResult?> exec(
+    String command, {
+    Uint8List? stdin,
+    Duration? timeout,
+  }) {
+    final connection = _connection;
+    if (background && !connection.hostHeld) return Future.value(null);
+    if (background && timeout != null) {
+      connection.timedProbes.add(command);
+      final hold = connection.holdTimedProbe;
+      if (hold != null) return hold.future;
+    }
+    return connection._exec(command, stdin: stdin, timeout: timeout);
+  }
 }
 
 class FakeShellTransport {
@@ -183,6 +248,8 @@ class FakeShellTransport {
   /// One per dial, in order: what the tab asked to run in place of the login shell, and
   /// null for the tabs that wanted the login shell.
   final commands = <String?>[];
+
+  final reasons = <OpenReason>[];
   final tabSessions = <String?>[];
   final persistentSessions = <String?>[];
 
@@ -204,6 +271,7 @@ class FakeShellTransport {
       <({Completer<ShellConnection> pending, String? persistentSession})>[];
 
   Future<ShellConnection> open({
+    required OpenReason reason,
     required String address,
     required int port,
     required String user,
@@ -214,7 +282,9 @@ class FakeShellTransport {
     String? command,
     String? tabSession,
     String? persistentSession,
+    void Function(Reconnect retry)? failed,
   }) async {
+    reasons.add(reason);
     sizes.add([columns, rows]);
     verifiers.add(verifier);
     commands.add(command);
@@ -226,7 +296,10 @@ class FakeShellTransport {
       return pending.future;
     }
     final failure = refuse;
-    if (failure != null) throw failure;
+    if (failure != null) {
+      failed?.call(ShellEnded.unbound().reconnect);
+      throw failure;
+    }
     final connection = FakeShellConnection(
       continuity: _continuityFor(persistentSession),
       transport: transport,

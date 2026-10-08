@@ -12,6 +12,7 @@ import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
 
 import 'support/fake_shell.dart';
@@ -140,9 +141,9 @@ void main() {
     sized(tester);
     await seed();
     shells.stall = false;
-    sessions.open(_rose);
-    sessions.open(_nyx);
-    sessions.open(_nyx);
+    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: UserIntent.fromGesture(), _nyx);
+    sessions.open(intent: UserIntent.fromGesture(), _nyx);
     await tester.pumpWidget(app());
     await ready(tester);
 
@@ -164,7 +165,7 @@ void main() {
     sized(tester);
     await seed();
     shells.stall = false;
-    sessions.open(_rose);
+    sessions.open(intent: UserIntent.fromGesture(), _rose);
     await tester.pumpWidget(app());
     await ready(tester);
 
@@ -195,9 +196,9 @@ void main() {
       sized(tester);
       await seed();
       shells.stall = false;
-      final first = sessions.open(_rose)!;
+      final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
       first.title = 'Fix reconnect';
-      final second = sessions.open(_nyx)!;
+      final second = sessions.open(intent: UserIntent.fromGesture(), _nyx)!;
       second.cwd = '/home/dev/Projects/upgrade';
       await tester.pumpWidget(app());
       await ready(tester);
@@ -213,7 +214,7 @@ void main() {
     sized(tester);
     await seed();
     shells.stall = false;
-    sessions.open(_rose);
+    sessions.open(intent: UserIntent.fromGesture(), _rose);
     await tester.pumpWidget(app());
     await ready(tester);
 
@@ -231,7 +232,8 @@ void main() {
     sized(tester);
     await seed();
     shells.stall = false;
-    sessions.open(_rose)!.title = 'A long terminal task title';
+    sessions.open(intent: UserIntent.fromGesture(), _rose)!.title =
+        'A long terminal task title';
     await tester.pumpWidget(app(textScale: 2));
     await ready(tester);
     expect(find.text('A long terminal task title'), findsOneWidget);
@@ -244,8 +246,8 @@ void main() {
     sized(tester);
     await seed();
     shells.stall = false;
-    sessions.open(_nyx);
-    final second = sessions.open(_nyx)!;
+    sessions.open(intent: UserIntent.fromGesture(), _nyx);
+    final second = sessions.open(intent: UserIntent.fromGesture(), _nyx)!;
     sessions.activate(_nyx.id, sessions.forHost(_nyx.id).first);
     await tester.pumpWidget(app());
     await ready(tester);
@@ -296,7 +298,7 @@ void main() {
       sized(tester);
       await seed();
       shells.stall = false;
-      final dead = sessions.open(_nyx)!;
+      final dead = sessions.open(intent: UserIntent.fromGesture(), _nyx)!;
       await tester.pumpWidget(app());
       await ready(tester);
       shells.opened.last.exit(1);

@@ -16,6 +16,7 @@ void main() {
   setUpAll(() => key = hostVmPrivateKey());
 
   Future<ShellConnection> open(HostKeyVerifier verifier) => tunnel.open(
+    reason: UserAction(UserIntent.fromGesture()),
     address: hostVm.address,
     port: hostVm.port,
     user: hostVm.user,
@@ -33,7 +34,7 @@ void main() {
       pin: (pinned) async => written = pinned,
     );
     final connection = await open(verifier);
-    await connection.close();
+    await connection.close(UserClosed(UserIntent.fromGesture()));
     return written!;
   }
 
@@ -52,7 +53,7 @@ void main() {
       );
 
       final connection = await open(verifier);
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       expect(offers, hasLength(1));
       // OpenSSH's own SHA256 form, unpadded, which is what the user compares against
@@ -82,7 +83,7 @@ void main() {
         },
       );
       final connection = await open(verifier);
-      addTearDown(connection.close);
+      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
       expect(asked, isFalse);
       expect(verifier.verified?.fingerprint, pinned.fingerprint);

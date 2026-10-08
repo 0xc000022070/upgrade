@@ -6,6 +6,7 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/shell/host_shell_screen.dart';
 import 'package:upgrade/features/shell/shell_search.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
@@ -37,7 +38,7 @@ void main() {
       required String output,
     }) async {
       final sessions = fakeShellSessions(transport);
-      sessions.open(_rose);
+      sessions.open(intent: UserIntent.fromGesture(), _rose);
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 5)),
       );
@@ -135,7 +136,7 @@ void main() {
     testWidgets('closing takes the marks with it', (tester) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      sessions.open(_rose);
+      sessions.open(intent: UserIntent.fromGesture(), _rose);
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 5)),
       );

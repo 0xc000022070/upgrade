@@ -76,7 +76,7 @@ void main() {
     () async {
       final transport = FakeShellTransport();
       final store = fakeShellSessions(transport);
-      final session = store.open(_nyx)!;
+      final session = store.open(intent: UserIntent.fromGesture(), _nyx)!;
       await _settle();
       final connection = transport.opened.single;
       _answerProbeWith(connection, _waylandProbe);
@@ -85,6 +85,7 @@ void main() {
         store: store,
         session: session,
         clip: clip,
+        intent: UserIntent.fromGesture(),
       );
 
       expect(result.outcome, PasteOutcome.pasted);
@@ -108,12 +109,17 @@ void main() {
   test('a headless host gets the path typed in and nothing else', () async {
     final transport = FakeShellTransport();
     final store = fakeShellSessions(transport);
-    final session = store.open(_nyx)!;
+    final session = store.open(intent: UserIntent.fromGesture(), _nyx)!;
     await _settle();
     final connection = transport.opened.single;
     _answerProbeWith(connection, _headlessProbe);
 
-    final result = await pasteClip(store: store, session: session, clip: clip);
+    final result = await pasteClip(
+      store: store,
+      session: session,
+      clip: clip,
+      intent: UserIntent.fromGesture(),
+    );
 
     expect(result.outcome, PasteOutcome.path);
     expect(result.line, 'PATH · no display server');
@@ -125,13 +131,23 @@ void main() {
   test('the probe runs once per connection, not once per paste', () async {
     final transport = FakeShellTransport();
     final store = fakeShellSessions(transport);
-    final session = store.open(_nyx)!;
+    final session = store.open(intent: UserIntent.fromGesture(), _nyx)!;
     await _settle();
     final connection = transport.opened.single;
     _answerProbeWith(connection, _waylandProbe);
 
-    await pasteClip(store: store, session: session, clip: clip);
-    await pasteClip(store: store, session: session, clip: clip);
+    await pasteClip(
+      store: store,
+      session: session,
+      clip: clip,
+      intent: UserIntent.fromGesture(),
+    );
+    await pasteClip(
+      store: store,
+      session: session,
+      clip: clip,
+      intent: UserIntent.fromGesture(),
+    );
 
     final probes = connection.execs.where(
       (exec) => exec.command.contains('uname -s'),
@@ -142,7 +158,7 @@ void main() {
   test('an upload that fails is FAILED with what the host said', () async {
     final transport = FakeShellTransport();
     final store = fakeShellSessions(transport);
-    final session = store.open(_nyx)!;
+    final session = store.open(intent: UserIntent.fromGesture(), _nyx)!;
     await _settle();
     final connection = transport.opened.single;
     connection.answer = (_, _) => ExecResult(
@@ -151,7 +167,12 @@ void main() {
       stderr: Uint8List.fromList(utf8.encode('sh: /tmp: read-only\n')),
     );
 
-    final result = await pasteClip(store: store, session: session, clip: clip);
+    final result = await pasteClip(
+      store: store,
+      session: session,
+      clip: clip,
+      intent: UserIntent.fromGesture(),
+    );
 
     expect(result.outcome, PasteOutcome.failed);
     expect(result.line, 'FAILED · sh: /tmp: read-only');
@@ -161,7 +182,7 @@ void main() {
   test('a clipboard tool that fails falls back to the path', () async {
     final transport = FakeShellTransport();
     final store = fakeShellSessions(transport);
-    final session = store.open(_nyx)!;
+    final session = store.open(intent: UserIntent.fromGesture(), _nyx)!;
     await _settle();
     final connection = transport.opened.single;
     connection.answer = (command, _) => ExecResult(
@@ -172,7 +193,12 @@ void main() {
       stderr: Uint8List(0),
     );
 
-    final result = await pasteClip(store: store, session: session, clip: clip);
+    final result = await pasteClip(
+      store: store,
+      session: session,
+      clip: clip,
+      intent: UserIntent.fromGesture(),
+    );
 
     expect(result.line, 'PATH · wayland exit 1');
     expect(connection.written, contains('/tmp/upgrade/'));
@@ -181,7 +207,7 @@ void main() {
   test('a photo goes as bytes under a fresh name, held nowhere', () async {
     final transport = FakeShellTransport();
     final store = fakeShellSessions(transport);
-    final session = store.open(_nyx)!;
+    final session = store.open(intent: UserIntent.fromGesture(), _nyx)!;
     await _settle();
     final connection = transport.opened.single;
     _answerProbeWith(connection, _waylandProbe);
@@ -193,6 +219,7 @@ void main() {
       session: session,
       fileName: name,
       bytes: bytes,
+      intent: UserIntent.fromGesture(),
     );
 
     expect(result.line, 'PASTED');
@@ -205,7 +232,7 @@ void main() {
   test('a mosh tab still roaming attaches rather than refusing', () async {
     final transport = FakeShellTransport()..transport = ShellTransport.mosh;
     final store = fakeShellSessions(transport);
-    final session = store.open(_nyx)!;
+    final session = store.open(intent: UserIntent.fromGesture(), _nyx)!;
     await _settle();
     final connection = transport.opened.single;
     _answerProbeWith(connection, _waylandProbe);
@@ -213,7 +240,12 @@ void main() {
     await _settle();
     expect(session.state, isA<ShellReconnecting>());
 
-    final result = await pasteClip(store: store, session: session, clip: clip);
+    final result = await pasteClip(
+      store: store,
+      session: session,
+      clip: clip,
+      intent: UserIntent.fromGesture(),
+    );
 
     expect(result.outcome, PasteOutcome.pasted);
     expect(connection.writes.last, pasteKey);
@@ -222,10 +254,15 @@ void main() {
   test('a session with no shell under it is FAILED at once', () async {
     final transport = FakeShellTransport()..stall = true;
     final store = fakeShellSessions(transport);
-    final session = store.open(_nyx)!;
+    final session = store.open(intent: UserIntent.fromGesture(), _nyx)!;
     await _settle();
 
-    final result = await pasteClip(store: store, session: session, clip: clip);
+    final result = await pasteClip(
+      store: store,
+      session: session,
+      clip: clip,
+      intent: UserIntent.fromGesture(),
+    );
 
     expect(result.line, 'FAILED · no shell');
   });

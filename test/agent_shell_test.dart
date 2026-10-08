@@ -8,6 +8,7 @@ import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/features/agents/agent_shell.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/platform/herdr_client.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
@@ -170,7 +171,7 @@ void main() {
     await tester.tap(find.text('OPEN HERE'));
     await ready(tester);
     final first = sessions.forHost(_rose.id).single;
-    sessions.open(_rose);
+    sessions.open(intent: UserIntent.fromGesture(), _rose);
     await ready(tester);
     expect(sessions.activeFor(_rose.id), isNot(same(first)));
     tester.state<NavigatorState>(find.byType(Navigator).first).pop();
