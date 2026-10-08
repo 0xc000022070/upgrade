@@ -153,6 +153,14 @@ once() {
     return 1
   fi
 
+  # Under the lock: a deploy queued behind another must see what that one installed.
+  mkdir -p "$OUT"
+  exec 9>"$OUT/lock"
+  flock -n 9 || {
+    say "another deploy holds $OUT/lock; waiting for it"
+    flock 9
+  }
+
   local pending=() label serial pkg have
   while IFS=$'\t' read -r label serial; do
     pkg=$(dumpsys "$serial")
@@ -164,13 +172,6 @@ once() {
     pending+=("$label	$serial	${have:-none}")
   done <<<"$targets"
   [[ ${#pending[@]} -gt 0 ]] || return 0
-
-  mkdir -p "$OUT"
-  exec 9>"$OUT/lock"
-  flock -n 9 || {
-    say "another deploy holds $OUT/lock; waiting for it"
-    flock 9
-  }
 
   local apk
   if [[ $ask != ask ]]; then
