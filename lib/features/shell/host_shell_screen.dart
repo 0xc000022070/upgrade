@@ -151,34 +151,27 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       final sessions = ref.read(shellSessionsProvider);
       final wanted = widget.session;
       final command = widget.command;
-      final intent = widget.intent;
+      final canOpen = sessions.canOpen(widget.host.id);
+      // A commanded open is a tab of its own even when the host has some: the
+      // caller asked for one directory or agent, not whatever tab was last active.
+      final commanded = command != null && canOpen;
+      final fresh = !commanded && widget.openNew && canOpen;
       if (wanted != null) {
         sessions.activate(widget.host.id, wanted);
-      } else if (intent != null &&
-          command != null &&
-          sessions.canOpen(widget.host.id)) {
-        // A commanded open is a tab of its own even when the host already has some:
-        // the caller asked for one directory or one agent, and landing in whatever
-        // tab was last active would not be that.
-        sessions.open(
-          widget.host,
-          intent: intent,
-          prompt: _askHostKey,
-          command: command,
-          directory: widget.directory,
-          pane: widget.pane,
-        );
-      } else if (intent != null &&
-          widget.openNew &&
-          sessions.canOpen(widget.host.id)) {
-        sessions.open(
-          widget.host,
-          intent: intent,
-          prompt: _askHostKey,
-          launch: widget.openLaunch,
-        );
-      } else if (intent != null && sessions.forHost(widget.host.id).isEmpty) {
-        sessions.open(widget.host, intent: intent, prompt: _askHostKey);
+      } else if (commanded ||
+          fresh ||
+          sessions.forHost(widget.host.id).isEmpty) {
+        if (widget.intent case final intent?) {
+          sessions.open(
+            widget.host,
+            intent: intent,
+            prompt: _askHostKey,
+            command: commanded ? command : null,
+            directory: commanded ? widget.directory : null,
+            pane: commanded ? widget.pane : null,
+            launch: fresh ? widget.openLaunch : null,
+          );
+        }
       }
       // Landing on tabs that were already there tells the store nothing, so no drain
       // would ever see them.

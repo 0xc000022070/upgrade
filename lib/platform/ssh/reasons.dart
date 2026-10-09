@@ -52,34 +52,24 @@ sealed class DropReason {
 }
 
 final class UserAction implements OpenReason, ReopenReason {
-  const UserAction(this.intent);
-
-  final UserIntent intent;
+  const UserAction(UserIntent _);
 }
 
 final class AppResumed implements OpenReason, ReopenReason {
-  const AppResumed(this.signal);
-
-  final PlatformSignal signal;
+  const AppResumed(PlatformSignal _);
 }
 
 /// Both a drop and an open: the old socket is bound to the network that went.
 final class NetworkChanged implements OpenReason, ReopenReason, DropReason {
-  const NetworkChanged(this.signal);
-
-  final PlatformSignal signal;
+  const NetworkChanged(PlatformSignal _);
 }
 
 final class UserClosed extends DropReason {
-  const UserClosed(this.intent) : super._();
-
-  final UserIntent intent;
+  const UserClosed(UserIntent _) : super._();
 }
 
 final class AppSuspended extends DropReason {
-  const AppSuspended(this.signal) : super._();
-
-  final PlatformSignal signal;
+  const AppSuspended(PlatformSignal _) : super._();
 }
 
 /// Minted only here, bound to evidence of an end. A command, timeout or probe on a
