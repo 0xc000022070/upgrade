@@ -113,10 +113,18 @@ final class ConnectionSupervisor implements HostChannels {
   String get endpoint => '${_target.address}:${_target.port}';
 
   /// Null when the tab is gone or the app away; throws what the dial threw. A gesture whose
-  /// dial a network change overtook, or an earlier dial's settle refused, opens again once.
+  /// dial a network change overtook, or an earlier dial's settle refused, opens again once;
+  /// a resume or a network change waits out every settle that refuses it.
   Future<HostChannels?> open(OpenReason reason) {
     final opened = _open(reason);
-    if (reason is! UserAction) return opened.future;
+    switch (reason) {
+      case UserAction():
+        break;
+      case AppResumed() || NetworkChanged():
+        return _openSettled(opened.future, reason);
+      case Reconnect():
+        return opened.future;
+    }
     return opened.future.then(
       (channels) {
         if (channels != null || !opened.overtaken) return channels;
@@ -130,6 +138,21 @@ final class ConnectionSupervisor implements HostChannels {
         Error.throwWithStackTrace(error, stack);
       },
     );
+  }
+
+  Future<HostChannels?> _openSettled(
+    Future<HostChannels?> opened,
+    OpenReason reason,
+  ) async {
+    while (true) {
+      try {
+        return await opened;
+      } on DialSettling catch (settling) {
+        await settling.settled;
+        if (_retired || _suspended) return null;
+        opened = _open(reason).future;
+      }
+    }
   }
 
   _Dial _open(OpenReason reason) {

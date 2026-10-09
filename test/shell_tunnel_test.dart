@@ -15,9 +15,14 @@ import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/shell/shell_tunnel.dart';
 import 'package:upgrade/platform/shell/udp_path.dart';
 import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/host_links.dart';
 import 'package:upgrade/platform/keys.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart'
     show ConnectionSupervisor;
+import 'package:upgrade/platform/ssh_settle.dart';
+
+import 'support/host_links.dart';
+import 'support/ssh_exec.dart';
 
 /// `dart:io` reports a reset on both ends of the socket: the stream the transport reads
 /// and the `done` nothing in dartssh2 is holding.
@@ -1222,6 +1227,103 @@ void main() {
         isTrue,
       );
       expect(hosts.last.requests.last, 'exec pwd');
+    });
+
+    testWidgets('a resume refused while another dial settles reads stale, '
+        'then holds the host once the settle ends', (tester) async {
+      const session = 'upgrade123';
+      FakeLinkClient answering() =>
+          FakeLinkClient()
+            ..reply = (command) =>
+                (exitCode: 0, stdout: moshHostAnswer(command), stderr: '');
+      var dials = 0;
+      final links = HostLinks(
+        dial:
+            ({
+              required address,
+              required port,
+              required user,
+              required privateKey,
+              required verifier,
+              onSettling,
+            }) async {
+              if (++dials == 2) {
+                onSettling?.call(Future<void>.delayed(sshLoginGrace));
+                throw TimeoutException('auth stalled');
+              }
+              return (
+                socket: FakeExecSocket(),
+                client: answering(),
+                received: () => 0,
+              );
+            },
+      );
+      final channel = FakeMoshChannel();
+      ShellConnection? opened;
+      unawaited(
+        openOn(
+          ShellTunnel(
+            links: links,
+            moshHealthInterval: const Duration(hours: 1),
+            moshGiveUp: const Duration(hours: 1),
+            moshDialer:
+                ({
+                  required MoshServerConfig server,
+                  required int columns,
+                  required int rows,
+                }) async {
+                  Timer.run(() => channel.emit('\$ '));
+                  return channel;
+                },
+          ),
+          command: 'exec \$SHELL -l',
+          tabSession: session,
+          persistentSession: session,
+        ).then((connection) => opened = connection),
+      );
+      for (var i = 0; i < 100 && opened == null; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      final connection = opened!;
+      final events = <ControlLink>[];
+      connection.controlLink.listen(events.add);
+
+      await connection.suspend(AppSuspended(PlatformSignal.fromPlatform()));
+      links
+        ..sleep()
+        ..wake();
+      await expectLater(
+        links.claim(
+          address: 'nyx',
+          port: 357,
+          user: 'luisnquin',
+          privateKey: 'pem',
+          verifier: HostKeyVerifier.pinnedOnly(pinnedKey),
+          use: HostUse.tab,
+        ),
+        throwsA(isA<TimeoutException>()),
+      );
+      expect(dials, 2);
+
+      unawaited(connection.resume(AppResumed(PlatformSignal.fromPlatform())));
+      await tester.pump();
+      expect(events.last, isA<ControlReconnecting>());
+      expect(
+        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+        isNull,
+      );
+
+      await tester.pump(sshLoginGrace);
+      await tester.pump();
+      expect(dials, 3);
+      expect(events.last, isA<ControlUp>());
+      expect(
+        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+        isNotNull,
+      );
+      unawaited(connection.close(UserClosed(UserIntent.fromGesture())));
+      await tester.pump(const Duration(seconds: 10));
+      links.close();
     });
 
     test('a gesture during the revive backoff dials now, and the revive dials '

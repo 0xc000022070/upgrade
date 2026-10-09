@@ -360,6 +360,148 @@ void main() {
       links.close();
     });
 
+    testWidgets('a resume inside the window waits, then dials', (tester) async {
+      final (tab, links, first, dials) = await settling();
+      final events = <ControlLink>[];
+      tab.controlLink.listen(events.add);
+      await first.close();
+      await tester.pump();
+      await expectLater(
+        tab.open(UserAction(UserIntent.fromGesture())),
+        throwsA(isA<TimeoutException>()),
+      );
+      await tab.drop(AppSuspended(PlatformSignal.fromPlatform()));
+
+      HostChannels? opened;
+      Object? failed;
+      unawaited(
+        tab
+            .open(AppResumed(PlatformSignal.fromPlatform()))
+            .then(
+              (channels) => opened = channels,
+              onError: (Object e) {
+                failed = e;
+              },
+            ),
+      );
+      await tester.pump();
+      expect(dials.single, 2);
+      expect(failed, isNull);
+
+      await tester.pump(grace);
+      await tester.pump();
+      expect(dials.single, 3);
+      expect(failed, isNull);
+      expect(opened, isNotNull);
+      expect(events.last, isA<ControlUp>());
+      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      links.close();
+    });
+
+    testWidgets('a resume whose wait spans a suspend stays suspended', (
+      tester,
+    ) async {
+      final (tab, links, first, dials) = await settling();
+      final events = <ControlLink>[];
+      tab.controlLink.listen(events.add);
+      await first.close();
+      await tester.pump();
+      await expectLater(
+        tab.open(UserAction(UserIntent.fromGesture())),
+        throwsA(isA<TimeoutException>()),
+      );
+      await tab.drop(AppSuspended(PlatformSignal.fromPlatform()));
+
+      HostChannels? opened;
+      Object? failed;
+      var settled = false;
+      unawaited(
+        tab
+            .open(AppResumed(PlatformSignal.fromPlatform()))
+            .then(
+              (channels) {
+                opened = channels;
+                settled = true;
+              },
+              onError: (Object e) {
+                failed = e;
+              },
+            ),
+      );
+      await tester.pump();
+      await tab.drop(AppSuspended(PlatformSignal.fromPlatform()));
+      final suspended = events.length;
+
+      await tester.pump(grace);
+      await tester.pump();
+      expect(failed, isNull);
+      expect(settled, isTrue);
+      expect(opened, isNull);
+      expect(dials.single, 2);
+      expect(events.skip(suspended), isEmpty);
+      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      links.close();
+    });
+
+    testWidgets('a second tab on a network change its first tab already '
+        'renounced waits out that tab\'s settle, then dials', (tester) async {
+      final first = FakeLinkClient();
+      final dials = [0];
+      final links = HostLinks(
+        dial:
+            ({
+              required address,
+              required port,
+              required user,
+              required privateKey,
+              required verifier,
+              onSettling,
+            }) async {
+              if (++dials[0] == 2) {
+                onSettling?.call(Future<void>.delayed(grace));
+                throw TimeoutException('auth stalled');
+              }
+              return (
+                socket: FakeExecSocket(),
+                client: dials[0] == 1 ? first : FakeLinkClient(),
+                received: () => 0,
+              );
+            },
+      );
+      final tabs = await _tabs(_connector(links), 2);
+      final change = NetworkChanged(PlatformSignal.fromPlatform());
+
+      await tabs.first.drop(change);
+      await expectLater(
+        tabs.first.open(change),
+        throwsA(isA<TimeoutException>()),
+      );
+      await tabs.last.drop(change);
+      HostChannels? opened;
+      Object? failed;
+      unawaited(
+        tabs.last
+            .open(change)
+            .then(
+              (channels) => opened = channels,
+              onError: (Object e) {
+                failed = e;
+              },
+            ),
+      );
+      await tester.pump();
+      expect(dials.single, 2);
+      expect(failed, isNull);
+
+      await tester.pump(grace);
+      await tester.pump();
+      expect(failed, isNull);
+      expect(opened, isNotNull);
+      expect(dials.single, 3);
+      await _closeAll(tabs);
+      links.close();
+    });
+
     testWidgets('a tab whose login settles keeps its schedule and is never '
         'parked in WAITING', (tester) async {
       var dials = 0;
