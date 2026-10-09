@@ -50,6 +50,10 @@ abstract interface class ShellConnection {
 
   Future<int?> get exitCode;
 
+  /// False, logged and asserted, for a reason [close] would refuse, so the tab tears
+  /// nothing down for it.
+  bool accepts(DropReason reason);
+
   Future<void> close(DropReason reason);
 
   /// The terminal's end once the transport has seen it, its exit or its stream dying, and

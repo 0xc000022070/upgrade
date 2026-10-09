@@ -114,6 +114,9 @@ class FakeShellConnection implements ShellConnection {
   }
 
   @override
+  bool accepts(DropReason reason) => true;
+
+  @override
   Future<void> close(DropReason reason) async {
     closes.add(reason);
     await hold?.future;

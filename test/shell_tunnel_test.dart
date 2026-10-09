@@ -2343,6 +2343,7 @@ void main() {
 
   group('the engine', engineTests);
   group('a plain SSH tab over its link', plainTabTests);
+  group('a close refused for a stale intent', refusedCloseTests);
 }
 
 class FakeEngineChannel implements EngineChannel {
@@ -3327,5 +3328,66 @@ void plainTabTests() {
     await tester.pump(const Duration(seconds: 10));
 
     expect(hosts.single.checks, 0);
+  });
+}
+
+void refusedCloseTests() {
+  testWidgets('a refused close tears nothing down, and the host a mosh tab '
+      'revives is still that tab\'s', (tester) async {
+    final hosts = [
+      for (var i = 0; i < 3; i++) FakeHost()..execAnswer = moshHostAnswer,
+    ];
+    var dials = 0;
+    final links = linksOver((_) => hosts[dials++]);
+    final channel = FakeMoshChannel();
+    final sessions = ShellSessions(
+      readPrivateKey: (_) async => 'PEM',
+      pinHostKey: (_, _) async {},
+      open: ShellTunnel(
+        links: links,
+        moshDialer:
+            ({
+              required MoshServerConfig server,
+              required int columns,
+              required int rows,
+            }) async {
+              Timer.run(() => channel.emit('\$ '));
+              return channel;
+            },
+      ).open,
+    );
+    final tab = sessions.open(intent: testIntent(), _vm)!;
+    for (var i = 0; i < 20 && tab.state is! ShellLive; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(tab.state, isA<ShellLive>());
+    expect(tab.connection?.transport, ShellTransport.mosh);
+    final held = links.held;
+    expect(held, greaterThan(0));
+
+    final stale = testIntent();
+    UserAction(stale);
+    await expectLater(
+      sessions.close(intent: stale, _vm.id, tab),
+      throwsA(isA<AssertionError>()),
+    );
+    expect(sessions.forHost(_vm.id), [tab]);
+    expect(tab.connection, isNotNull);
+    expect(channel.closed, isFalse);
+    expect(links.held, held);
+
+    hosts.first.die();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await _settleTab(tester);
+    expect(dials, 2);
+    expect(sessions.forHost(_vm.id), [tab]);
+    expect(links.held, held);
+
+    unawaited(sessions.close(intent: testIntent(), _vm.id, tab));
+    await _settleTab(tester);
+    expect(sessions.forHost(_vm.id), isEmpty);
+    expect(links.held, 0);
+    await tester.pump(const Duration(minutes: 1));
   });
 }

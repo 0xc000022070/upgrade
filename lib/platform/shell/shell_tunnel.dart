@@ -736,8 +736,11 @@ class MoshShellConnection implements ShellConnection {
   }
 
   @override
+  bool accepts(DropReason reason) => _supervisor.accepts(reason);
+
+  @override
   Future<void> close(DropReason reason) async {
-    if (_closed) return;
+    if (_closed || !_supervisor.accepts(reason)) return;
     final dropped = _supervisor.drop(reason);
     await _shut();
     await dropped;
@@ -1145,8 +1148,11 @@ class EngineShellConnection implements ShellConnection {
   }
 
   @override
+  bool accepts(DropReason reason) => _supervisor.accepts(reason);
+
+  @override
   Future<void> close(DropReason reason) async {
-    if (_closed) return;
+    if (_closed || !_supervisor.accepts(reason)) return;
     final dropped = _supervisor.drop(reason);
     await _shut();
     await dropped;
@@ -1434,8 +1440,11 @@ class SshShellConnection implements ShellConnection {
   }
 
   @override
+  bool accepts(DropReason reason) => _supervisor.accepts(reason);
+
+  @override
   Future<void> close(DropReason reason) async {
-    if (_closed) return;
+    if (_closed || !_supervisor.accepts(reason)) return;
     final dropped = _supervisor.drop(reason);
     await _shut();
     await dropped;

@@ -1303,6 +1303,7 @@ class ShellSessions extends ChangeNotifier {
     DropReason reason, {
     UserAction? action,
   }) async {
+    if (session.connection?.accepts(reason) == false) return;
     // Taken for good, so neither the exit, nor the output stream of the connection
     // being closed, nor a dial the reconnect schedule is part way through can write
     // onto a session that is already gone.
