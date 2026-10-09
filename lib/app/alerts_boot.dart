@@ -7,6 +7,7 @@ import '../application/agents.dart';
 import '../application/alerts.dart';
 import '../application/pin_alerts.dart';
 import '../features/agents/agents_screen.dart';
+import '../features/shell/shell_hold.dart';
 import '../features/shell/shell_sheet.dart';
 import '../platform/agent_watcher.dart';
 import '../platform/alert_actions.dart';
@@ -52,6 +53,7 @@ Future<void> initAlerts() async {
 }
 
 List<Override> alertOverrides() => [
+  shellHoldProvider.overrideWithValue(AgentWatcher.holdShells),
   agentRetryProvider.overrideWith((ref) {
     final foreground = foregroundAgentRetry(ref);
     return (host, {source = AgentSource.herdr}) async {

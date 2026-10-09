@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/agents.dart';
 import '../../platform/device.dart';
 import '../../platform/shell/shell_connection.dart';
+import 'shell_hold.dart';
 import 'shell_sessions.dart';
 
 /// The two moments a shell whose reconnect schedule ran out is dialled again: the app
@@ -23,10 +24,15 @@ class ShellWakeHost extends ConsumerStatefulWidget {
 class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
   StreamSubscription<bool>? _network;
   var _away = false;
+  late final ShellHold _hold = ShellHold(
+    ref.read(shellSessionsProvider),
+    ref.read(shellHoldProvider),
+  );
 
   @override
   void initState() {
     super.initState();
+    _hold.refresh();
     _network = Device.networkChanges().listen((up) {
       // Only an arrival. A network going is what put these tabs where they are, and
       // dialling over nothing would spend the fresh schedule for nothing.
@@ -43,6 +49,7 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
 
   @override
   void dispose() {
+    _hold.dispose();
     unawaited(_network?.cancel());
     super.dispose();
   }
@@ -61,6 +68,7 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
         ..returned(signal)
         ..wakeAll(signal, rehome: _away);
       _away = false;
+      _hold.refresh();
     });
     return widget.child;
   }

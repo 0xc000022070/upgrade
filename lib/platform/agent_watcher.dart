@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show pid;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -31,6 +32,29 @@ const watcherNotificationTitle = 'UPGRADE';
 
 const _hostsKey = 'upgrade.watcher.hosts';
 const _kindsKey = 'upgrade.watcher.kinds';
+const _shellsKey = 'upgrade.watcher.shells';
+
+const shellsAskPeriod = Duration(minutes: 1);
+
+String shellsNotificationText(int count) =>
+    'HOLDING $count SSH TAB${count == 1 ? '' : 'S'}';
+
+String encodeHeldShells(int count) => jsonEncode({'count': count, 'pid': pid});
+
+int decodeHeldShells(String? raw, {int? process}) {
+  if (raw == null || raw.isEmpty) return 0;
+  try {
+    return switch (jsonDecode(raw)) {
+      {'count': final int count, 'pid': final int writer}
+          when writer == (process ?? pid) =>
+        count,
+      _ => 0,
+    };
+  } catch (_) {
+    // ignored: an unreadable count holds no shells, the safe side.
+    return 0;
+  }
+}
 
 /// With `--dart-define=UPGRADE_FAKE_WATCH=true` each host's stream is a canned pair of
 /// snapshots, which is what produces the alert on an emulator with no key on the host.
@@ -176,17 +200,25 @@ class AgentWatcher {
       ),
       iosNotificationOptions: const IOSNotificationOptions(),
       foregroundTaskOptions: ForegroundTaskOptions(
-        // The watcher is woken by its own ssh streams, not by a timer.
-        eventAction: ForegroundTaskEventAction.nothing(),
+        // The watcher is woken by its own ssh streams; the tick only asks after the shells.
+        eventAction: ForegroundTaskEventAction.repeat(
+          shellsAskPeriod.inMilliseconds,
+        ),
         allowWakeLock: false,
         allowWifiLock: false,
         stopWithTask: false,
         allowAutoRestart: true,
       ),
     );
+    FlutterForegroundTask.addTaskDataCallback(_answerShells);
   }
 
-  static Future<bool> get running => FlutterForegroundTask.isRunningService;
+  static bool _watching = false;
+  static int _shells = 0;
+  static Future<void> _turn = Future.value();
+
+  static Future<bool> get running async =>
+      _watching && await FlutterForegroundTask.isRunningService;
 
   static Future<bool> requestPermission() async {
     final current = await FlutterForegroundTask.checkNotificationPermission();
@@ -199,16 +231,61 @@ class AgentWatcher {
     List<Host> hosts,
     Set<AlertKind> kinds, {
     Map<String, Set<AgentSource>> sources = const {},
-  }) async {
-    await _save(hosts, kinds, sources);
-    if (await FlutterForegroundTask.isRunningService) {
+  }) {
+    _watching = true;
+    return _serial(() async {
+      await _save(hosts, kinds, sources);
+      await _apply();
+    });
+  }
+
+  static Future<void> holdShells(int count) {
+    _shells = count;
+    return _serial(() async {
+      await FlutterForegroundTask.saveData(
+        key: _shellsKey,
+        value: encodeHeldShells(count),
+      );
+      await _apply();
+    });
+  }
+
+  static void _answerShells(Object data) {
+    if (data != _askShells) return;
+    FlutterForegroundTask.sendDataToTask(
+      jsonEncode({'command': _heldShells, 'count': _shells}),
+    );
+  }
+
+  static Future<void> _serial(Future<void> Function() step) {
+    final next = _turn.then((_) => step());
+    _turn = next.catchError((Object error) {
+      debugPrint('upgrade.herdr watcher: $error');
+    });
+    return next;
+  }
+
+  static Future<void> _apply() async {
+    final running = await FlutterForegroundTask.isRunningService;
+    if (!_watching && _shells == 0) {
+      if (running) await FlutterForegroundTask.stopService();
+      return;
+    }
+    // A service kept for the shells alone, restarted by the system, must not come back
+    // watching the hosts it was last given.
+    if (!_watching) {
+      await FlutterForegroundTask.saveData(key: _hostsKey, value: '[]');
+    }
+    if (running) {
       FlutterForegroundTask.sendDataToTask(_reloadHosts);
       return;
     }
     final result = await FlutterForegroundTask.startService(
       serviceTypes: const [ForegroundServiceTypes.specialUse],
       notificationTitle: watcherNotificationTitle,
-      notificationText: watcherNotificationText(const []),
+      notificationText: _watching
+          ? watcherNotificationText(const [])
+          : shellsNotificationText(_shells),
       callback: agentWatcherEntry,
     );
     if (result is ServiceRequestFailure) {
@@ -272,9 +349,8 @@ class AgentWatcher {
   }
 
   static Future<void> stop() async {
-    if (await FlutterForegroundTask.isRunningService) {
-      await FlutterForegroundTask.stopService();
-    }
+    _watching = false;
+    await _serial(_apply);
     // Said even when nothing was running: [_sync] calls stop for every state that is not
     // "on with a host", and a feed still holding the last report has to be cleared.
     _stops.add(null);
@@ -291,7 +367,7 @@ class AgentWatcher {
     Stream<bool>? visible,
     Future<bool> Function()? isRunning,
   }) {
-    final read = isRunning ?? () => FlutterForegroundTask.isRunningService;
+    final read = isRunning ?? () => running;
     late StreamController<bool> controller;
     StreamSubscription<void>? stops;
     StreamSubscription<bool>? seen;
@@ -405,6 +481,8 @@ class AgentWatcher {
 
 const _reloadHosts = 'reload-hosts';
 const _retryHost = 'retry-host';
+const _heldShells = 'held-shells';
+const _askShells = 'held-shells?';
 var _retryRequests = 0;
 
 WatcherReport? _decodeReport(Object data) {
@@ -429,7 +507,8 @@ class AgentWatcherHandler extends TaskHandler {
     HerdrClient? client,
     PinNotifier? pins,
   }) : _keys = keys ?? const Ed25519Keys(SecurePrivateKeyStore()),
-       _client = client ?? HerdrClient(links: HostLinks(), use: HostUse.watcher),
+       _client =
+           client ?? HerdrClient(links: HostLinks(), use: HostUse.watcher),
        _pins = pins ?? const PinNotifications();
 
   final Ed25519Keys _keys;
@@ -443,6 +522,9 @@ class AgentWatcherHandler extends TaskHandler {
   String? _persistent;
   List<AgentChannel> _channels = const [];
 
+  int _shells = 0;
+  bool _asked = false;
+
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     await PinNotifications.createChannel();
@@ -450,7 +532,12 @@ class AgentWatcherHandler extends TaskHandler {
   }
 
   @override
-  void onRepeatEvent(DateTime timestamp) {}
+  void onRepeatEvent(DateTime timestamp) {
+    if (_shells == 0) return;
+    if (_asked) return setShells(0);
+    _asked = true;
+    FlutterForegroundTask.sendDataToMain(_askShells);
+  }
 
   @override
   void onReceiveData(Object data) {
@@ -461,6 +548,9 @@ class AgentWatcherHandler extends TaskHandler {
     if (data is! String) return;
     try {
       final message = jsonDecode(data);
+      if (message case {'command': _heldShells, 'count': final int count}) {
+        return setShells(count);
+      }
       if (message is! Map<String, Object?> ||
           message['command'] != _retryHost ||
           message['host_id'] is! String ||
@@ -476,7 +566,9 @@ class AgentWatcherHandler extends TaskHandler {
                 .firstOrNull ??
             AgentSource.herdr,
       );
-    } catch (_) {}
+    } catch (_) {
+      // ignored: a malformed message from the app asks for nothing.
+    }
   }
 
   @override
@@ -491,11 +583,21 @@ class AgentWatcherHandler extends TaskHandler {
   Future<void> _reloadFromStore() async {
     final hosts = await FlutterForegroundTask.getData<String>(key: _hostsKey);
     final kinds = await FlutterForegroundTask.getData<String>(key: _kindsKey);
+    final shells = await FlutterForegroundTask.getData<String>(key: _shellsKey);
+    _shells = decodeHeldShells(shells);
+    _asked = false;
     await setKinds(decodeWatcherKinds(kinds));
     await setHosts(
       decodeWatcherHosts(hosts),
       sources: decodeWatcherSources(hosts),
     );
+  }
+
+  @visibleForTesting
+  void setShells(int count) {
+    _shells = count;
+    _asked = false;
+    _redrawPersistent();
   }
 
   @visibleForTesting
@@ -576,6 +678,13 @@ class AgentWatcherHandler extends TaskHandler {
   }
 
   void _redrawPersistent() {
+    if (_channels.isEmpty) {
+      if (_shells == 0) {
+        unawaited(FlutterForegroundTask.stopService());
+        return;
+      }
+      return _post(shellsNotificationText(_shells));
+    }
     final outcomes = <HostOutcome>[];
     final retries = <String, Duration>{};
     final hosts = <String, Host>{};
@@ -592,6 +701,10 @@ class AgentWatcherHandler extends TaskHandler {
               HostOutcome(host: host, kind: AgentOutcomeKind.snapshot),
           ])
         : watcherNotificationText(linkAgents(outcomes), retries: retries);
+    _post(text);
+  }
+
+  void _post(String text) {
     // Most of what a host reports does not move the line, and posting it again is a binder
     // call and a redraw of a row in the shade that already reads that way.
     if (text == _persistent) return;

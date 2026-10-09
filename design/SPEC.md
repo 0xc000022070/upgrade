@@ -961,7 +961,7 @@ Two kinds of alert leave the watcher and `[ ALERTS ]` carries a row for each.
 
 **A pane that blocks and then finishes carries both alerts at once.** The id is derived from the host, the pane and the kind, so the second posts beside the first instead of replacing it in place, and each is taken down by its own edge. The question the user has not answered is not cleared by the news that something else ended.
 
-**The watcher runs while either row is on.** It is one connection per host and one ongoing line whichever kinds are wanted, so the first row turned on is what opens it and the last row turned off is what closes it. With both off the app opens nothing in the background, ever.
+**The watcher runs while either row is on.** It is one connection per host and one ongoing line whichever kinds are wanted, so the first row turned on is what opens it and the last row turned off is what closes it. With both off the app opens nothing in the background, ever; what it keeps there is an SSH tab the user already opened.
 
 **Struck:** an alert for an agent that failed. herdr classifies a pane as `working`, `blocked`, `idle` or `done` and holds no verdict on how the work went, so there is nothing here to read a failure off. A line saying an agent failed would be the app inventing the one fact on the screen the user would have most wanted to trust.
 
@@ -969,7 +969,7 @@ Two kinds of alert leave the watcher and `[ ALERTS ]` carries a row for each.
 
 ### The ongoing notification says what the agents are, not what the watcher is
 
-The watcher has always posted a notification of its own: silent, at the bottom of the shade, there for as long as `[ ALERTS ]` is on, because Android will not hold a service's connections open without one. It said `WATCHING 2 HOSTS`. That is a line about the app. The phone comes out of a pocket to answer a different question — whether anything is waiting on the user — and the one surface the app has on screen without being opened was the one surface that did not answer it.
+The watcher has always posted a notification of its own: silent, at the bottom of the shade, there for as long as `[ ALERTS ]` is on or an SSH tab is held, because Android will not hold a service's connections open without one. It said `WATCHING 2 HOSTS`. That is a line about the app. The phone comes out of a pocket to answer a different question — whether anything is waiting on the user — and the one surface the app has on screen without being opened was the one surface that did not answer it.
 
 So the line is the tally. `1 BLOCKED · 3 WORKING`, across every host at once, blocked first because that is the count about to cost the user something. The states counted are the states that earn a row on the AGENTS panel and no others: one rule for both surfaces, and an agent at rest is the night going the way it was supposed to rather than news. With nothing active the host count has the line back, being the only thing left to say. A host that is down takes it ahead of either — a watcher that cannot reach a host is not a watcher reporting that the host is quiet, and the tally it could still draw is the last one it was told rather than the one that is true.
 
@@ -1455,7 +1455,9 @@ Ten seconds after the app leaves the screen every live Mosh tab closes its UDP s
 
 **Back on screen, each quiet tab rehomes on a fresh socket.** The server answers with the whole difference from the last state the phone acknowledged, so the screen is current from the first packet, and the health pokes start again. The wake stands in for the rehome a return would otherwise make, so the channel moves once. A dial that lands while the app is away goes quiet as soon as its tab is marked and the stale ones are reaped, and asks for passphrase requests only on the return.
 
-**An SSH tab keeps its channel.** TCP cannot be put down and picked up again, and a shell that could not be resumed is never traded for a quieter pocket; what it costs out of sight is its keepalive.
+**An SSH tab keeps its channel.** TCP cannot be put down and picked up again, and a shell that could not be resumed is never traded for a quieter pocket; what it costs out of sight is its keepalive, and the watcher's service, which runs while any tab holds a plain SSH shell whether or not `[ ALERTS ]` is on. Android freezes an app that has left the screen, and from Android 16 cuts its sockets about five seconds after it goes, unless a foreground service is running; the one rule covers every Android the app installs on, because the freeze is older than the cut. With nothing to watch the service's line is `HOLDING 1 SSH TAB`; with agents to watch it stays the tally.
+
+**A tab holds the service from the dial that lands it on SSH until it exits, fails, lands on another transport or is closed.** A tab between dials still wants its shell back, and the redial that brings it back has to reach the network. The service is started while the app is on screen, because Android refuses one started from behind another app; a start refused that way is made again when the app comes back. The notification permission is not asked for: without it Android still runs the service and only leaves the line out of the shade. Once a minute the service asks the app whether the tabs are still there, and a second ask nobody answers lets them go, so a process whose screen was swiped away does not hold a line for shells that went with it.
 
 ### The middle of the shell header is a mark, and the words are behind it
 
