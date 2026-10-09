@@ -31,9 +31,11 @@
 ///   only [HostUse.wakes] uses lease beside it.
 /// [UserIntent] and [PlatformSignal] are minted only in callbacks their wrappers make.
 /// Privacy cannot hold who runs those, nor who calls [SshConnector.establish], the public
-/// [HostLinks] controls or [HostLease.client]; `test/ssh_fence_test.dart` pins each call
-/// site by name or slot. A new part, reason wrapper, raw host path or reason variant
-/// needs the owner's approval.
+/// [HostLinks] controls or [HostLease.client]; `test/ssh_fence_test.dart` pins, by type,
+/// each call site, each wrapper's slot and the few fields a token rides in, each read once.
+/// It cannot prove a widget fires `on…` only on a real event, nor follow a token passed on,
+/// a handler declared in another file, a dynamic call or test code. An alert tapped before
+/// the app mounts is a cold launch. A new part, wrapper, raw host path or reason needs approval.
 library;
 
 import 'dart:async';
