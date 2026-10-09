@@ -82,14 +82,19 @@ Future<void> pickHostShell(
 ) async {
   final running = store.forHost(host.id).any((s) => s.state is! ShellExited);
   if (running) return openHostShell(context, host, intent: intent);
-  final pick = await showLaunchPicker(context, host);
-  if (pick == null || !context.mounted) return;
-  openHostShell(
+  await showLaunchPicker(
     context,
     host,
-    intent: intent,
-    launch: pick.launch,
-    openNew: true,
+    onPick: (picked, launch) {
+      if (!context.mounted) return;
+      openHostShell(
+        context,
+        host,
+        intent: picked,
+        launch: launch,
+        openNew: true,
+      );
+    },
   );
 }
 

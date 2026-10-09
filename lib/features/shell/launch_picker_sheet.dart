@@ -14,27 +14,29 @@ import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../platform/host_keys.dart';
+import '../../platform/shell/shell_connection.dart';
 import '../../platform/shell/shell_launch.dart';
 import '../hosts/host_key_sheet.dart';
 import 'shell_sessions.dart';
 
-class LaunchPick {
-  const LaunchPick(this.launch);
-
-  final ShellLaunch? launch;
-}
+typedef LaunchPicked = void Function(UserIntent intent, ShellLaunch? launch);
 
 const tmuxLogo = 'assets/icons/launch-tmux.svg';
 const herdrLogo = 'assets/icons/launch-herdr.svg';
 
 const _logo = 18.0;
 
-Future<LaunchPick?> showLaunchPicker(BuildContext context, Host host) {
+Future<void> showLaunchPicker(
+  BuildContext context,
+  Host host, {
+  required LaunchPicked onPick,
+}) {
   final title = 'NEW SHELL ON ${host.name.toUpperCase()}';
-  return showPanelSheet<LaunchPick>(
+  return showPanelSheet<void>(
     context,
     title: title,
-    builder: (context) => _LaunchPickerBody(host: host, title: title),
+    builder: (context) =>
+        _LaunchPickerBody(host: host, title: title, onPick: onPick),
   );
 }
 
@@ -54,10 +56,15 @@ class LaunchLogo extends StatelessWidget {
 }
 
 class _LaunchPickerBody extends ConsumerStatefulWidget {
-  const _LaunchPickerBody({required this.host, required this.title});
+  const _LaunchPickerBody({
+    required this.host,
+    required this.title,
+    required this.onPick,
+  });
 
   final Host host;
   final String title;
+  final LaunchPicked onPick;
 
   @override
   ConsumerState<_LaunchPickerBody> createState() => _LaunchPickerBodyState();
@@ -97,7 +104,10 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
     }
   }
 
-  void _pick(ShellLaunch? launch) => Navigator.pop(context, LaunchPick(launch));
+  void _pick(UserIntent intent, ShellLaunch? launch) {
+    Navigator.pop(context);
+    widget.onPick(intent, launch);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +130,7 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
               leadingWidth: _logo,
               title: 'LOGIN SHELL',
               subtitle: 'ssh, ${widget.host.user}',
-              onTap: () => _pick(null),
+              onTap: UserIntent.onGesture((intent) => _pick(intent, null)),
             ),
           ],
         ),
@@ -178,7 +188,9 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
               literalTitle: true,
               subtitle: 'not running',
               value: 'START',
-              onTap: () => _pick(HerdrLaunch('default')),
+              onTap: UserIntent.onGesture(
+                (intent) => _pick(intent, HerdrLaunch('default')),
+              ),
             ),
         ],
       ),
@@ -217,7 +229,9 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
       ].join(' · '),
       value: 'ATTACH',
       valueColor: working > 0 ? context.tokens.accent : null,
-      onTap: () => _pick(HerdrLaunch(session)),
+      onTap: UserIntent.onGesture(
+        (intent) => _pick(intent, HerdrLaunch(session)),
+      ),
     );
   }
 
@@ -239,7 +253,9 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
                 ?session.socketDir,
               ].join(' · '),
               value: session.attached > 0 ? 'ATTACHED' : null,
-              onTap: () => _pick(session.launch),
+              onTap: UserIntent.onGesture(
+                (intent) => _pick(intent, session.launch),
+              ),
             ),
           ListRow(
             key: const ValueKey('launch-tmux-new'),
@@ -251,7 +267,9 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
             leadingWidth: _logo,
             title: 'NEW SESSION',
             subtitle: 'tmux $next',
-            onTap: () => _pick(TmuxLaunch(next)),
+            onTap: UserIntent.onGesture(
+              (intent) => _pick(intent, TmuxLaunch(next)),
+            ),
           ),
         ],
       ),

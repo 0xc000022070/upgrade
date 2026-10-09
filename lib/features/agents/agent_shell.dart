@@ -53,7 +53,7 @@ void openAgentPane(
     openHostShell(context, host, intent: intent, session: held);
     return;
   }
-  unawaited(_confirmAndOpenAgentShell(context, ref, host, pane, intent));
+  unawaited(_confirmAndOpenAgentShell(context, ref, host, pane));
 }
 
 Future<void> _confirmAndOpenAgentShell(
@@ -61,23 +61,25 @@ Future<void> _confirmAndOpenAgentShell(
   WidgetRef ref,
   Host host,
   PaneRef pane,
-  UserIntent intent,
-) async {
-  final confirmed = await confirmSheet(
-    context,
+) => showPanelSheet<bool>(
+  context,
+  title: 'OPEN AGENT',
+  builder: (_) => ConfirmSheetBody(
     title: 'OPEN AGENT',
     message:
         'Opening this pane here detaches its other terminal view. '
         'The agent keeps running.',
     confirmLabel: 'OPEN HERE',
-  );
-  if (!confirmed || !context.mounted) return;
-  ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex;
-  openHostShell(
-    context,
-    host,
-    intent: intent,
-    command: HerdrCommands.attach(pane, takeover: true),
-    pane: pane,
-  );
-}
+    onConfirm: UserIntent.onGesture((intent) {
+      if (!context.mounted) return;
+      ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex;
+      openHostShell(
+        context,
+        host,
+        intent: intent,
+        command: HerdrCommands.attach(pane, takeover: true),
+        pane: pane,
+      );
+    }),
+  ),
+);

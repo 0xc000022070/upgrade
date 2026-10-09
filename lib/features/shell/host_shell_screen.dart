@@ -713,21 +713,26 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     });
   }
 
-  Future<void> _onNew(UserIntent intent, Host host) async {
-    final pick = await showLaunchPicker(context, host);
-    if (!mounted || pick == null) return;
-    if (host.id == widget.host.id) {
-      if (!_store.canOpen(host.id)) return;
-      _store.open(
-        widget.host,
-        intent: intent,
-        prompt: _askHostKey,
-        launch: pick.launch,
-      );
-      return;
-    }
-    widget.onOpenHost?.call(host, pick.launch, intent);
-  }
+  void _onNew(Host host) => unawaited(
+    showLaunchPicker(
+      context,
+      host,
+      onPick: (intent, launch) {
+        if (!mounted) return;
+        if (host.id == widget.host.id) {
+          if (!_store.canOpen(host.id)) return;
+          _store.open(
+            widget.host,
+            intent: intent,
+            prompt: _askHostKey,
+            launch: launch,
+          );
+          return;
+        }
+        widget.onOpenHost?.call(host, launch, intent);
+      },
+    ),
+  );
 
   List<({String directory, String label})> _diffTargets() {
     final groups =
@@ -880,12 +885,20 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     // A live shell is a thing with state in it — a job running, an editor with an
     // unsaved buffer — so closing one is asked about.
     if (session.state is ShellLive) {
-      final confirmed = await confirmSheet(
+      final title = 'CLOSE SHELL ${session.number}?';
+      await showPanelSheet<bool>(
         context,
-        title: 'CLOSE SHELL ${session.number}?',
-        confirmLabel: 'CLOSE',
+        title: title,
+        builder: (_) => ConfirmSheetBody(
+          title: title,
+          confirmLabel: 'CLOSE',
+          onConfirm: UserIntent.onGesture((confirm) {
+            if (!mounted) return;
+            unawaited(_store.close(widget.host.id, session, intent: confirm));
+          }),
+        ),
       );
-      if (!confirmed || !mounted) return;
+      return;
     }
     // The pop belongs to the store's listener, which is the one path every way of
     // losing the last tab goes through.
@@ -959,7 +972,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                             onMoveTab: (host, from, to) =>
                                 store.moveTab(host.id, from, to),
                             onMoveGroup: store.moveGroup,
-                            onNew: UserIntent.onGestureWith(_onNew),
+                            onNew: _onNew,
                             onClose: active == null
                                 ? null
                                 : UserIntent.onGesture(
