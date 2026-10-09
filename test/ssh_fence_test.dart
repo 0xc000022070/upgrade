@@ -802,15 +802,29 @@ Map<String, int> _members(
   return found;
 }
 
-bool Function(String, Expression?, AstNode) _named(String member) =>
-    (name, _, _) => name == member;
-
-String? _lastName(Expression? target) => switch (target) {
-  SimpleIdentifier(:final name) => name,
-  PrefixedIdentifier(:final identifier) => identifier.name,
-  PropertyAccess(:final propertyName) => propertyName.name,
+Element? _invoked(AstNode node) => switch (node) {
+  MethodInvocation(:final methodName) => methodName.element,
+  PropertyAccess(:final propertyName) => propertyName.element,
+  PrefixedIdentifier(:final identifier) => identifier.element,
   _ => null,
 };
+
+bool Function(String, Expression?, AstNode) _declared(
+  String library,
+  String owner,
+  Set<String> members,
+) => (_, _, node) {
+  final base = _invoked(node)?.baseElement;
+  return base != null &&
+      members.contains(base.name) &&
+      base.enclosingElement?.name == owner &&
+      _uri(base) == library;
+};
+
+const _hostLinksUri = 'package:upgrade/platform/host_links.dart';
+
+bool Function(String, Expression?, AstNode) _links(Set<String> members) =>
+    _declared(_hostLinksUri, 'HostLinks', members);
 
 List<InstanceCreationExpression> _instances(CompilationUnit unit) {
   final found = <InstanceCreationExpression>[];
@@ -1414,45 +1428,40 @@ PlatformSignal? signal(NetworkChanged change) => change.signal;
   });
 
   test('only the shell tunnel dials through SshConnector.establish', () {
-    expect(_members(_named('establish')), {
+    expect(_members(_declared(_sshUri, 'SshConnector', {'establish'})), {
       'lib/platform/shell/shell_tunnel.dart': 1,
     }, reason: 'a supervisor comes only from establish; $_seam');
   });
 
+  test('only the supervisor claims a host link for a tab', () {
+    expect(_members(_links({'claim'}), except: _hostLinks), {
+      _supervisor: 1,
+    }, reason: 'a claim takes a tab\'s lane on the host; $_seam');
+  });
+
   test('only the supervisor renounces a host link', () {
-    expect(_members(_named('renounce'), except: _hostLinks), {
+    expect(_members(_links({'renounce'}), except: _hostLinks), {
       _supervisor: 1,
     }, reason: 'a renounce ends a live control link; $_seam');
   });
 
   test('only the shell sessions put host links to sleep and wake them', () {
     expect(
-      _members(
-        (name, _, node) =>
-            (name == 'sleep' || name == 'wake') &&
-            node is MethodInvocation &&
-            node.argumentList.arguments.isEmpty,
-        except: _hostLinks,
-      ),
+      _members(_links({'sleep', 'wake'}), except: _hostLinks),
       {_shellSessions: 2},
       reason: 'a sleep ends every yielding lease; $_seam',
     );
   });
 
   test('only the shell wake rechecks every host link', () {
-    expect(_members(_named('recheckAll'), except: _hostLinks), {
+    expect(_members(_links({'recheckAll'}), except: _hostLinks), {
       'lib/features/shell/shell_wake.dart': 1,
     }, reason: 'a recheck is a keepalive round on every link; $_seam');
   });
 
   test('only the known owners close host links', () {
     expect(
-      _members(
-        (name, target, _) =>
-            name == 'close' &&
-            (_lastName(target)?.toLowerCase().endsWith('links') ?? false),
-        except: _hostLinks,
-      ),
+      _members(_links({'close'}), except: _hostLinks),
       {
         'lib/application/agents.dart': 1,
         'lib/platform/agent_watcher.dart': 1,
@@ -1465,7 +1474,7 @@ PlatformSignal? signal(NetworkChanged change) => change.signal;
   test('only the named borrowers reach a lease\'s raw client', () {
     expect(
       _members(
-        (name, target, _) => name == 'client' && target is! ThisExpression,
+        _declared(_hostLinksUri, 'HostLease', {'client'}),
         except: _hostLinks,
       ),
       {

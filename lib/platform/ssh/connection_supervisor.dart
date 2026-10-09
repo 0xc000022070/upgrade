@@ -34,10 +34,11 @@
 /// - One token builds one reason, except that [UserClosed.by] builds the close for a
 ///   [UserAction]'s gesture on that action's spend. A second reason, or a [UserIntent] older
 ///   than [UserIntent.window], is refused where it would dial or drop, logged and asserted.
-/// - `test/ssh_fence_test.dart` checks by type each call site of [SshConnector.establish],
-///   the public [HostLinks] controls and [HostLease.client], each wrapper's slot and the
-///   fields a token rides in. No check catches one prompt spend, within the window, from a
-///   path no person or platform event started. An alert tapped before mount is a cold launch.
+/// - `test/ssh_fence_test.dart` pins by resolved element each call site of [UserClosed.by],
+///   [SshConnector.establish], [HostLease.client] and [HostLinks]' claim, renounce, sleep,
+///   wake, recheckAll and close, each wrapper's slot and the fields a token rides in. No check
+///   catches one prompt spend, within the window, from a path no person or platform event
+///   started. An alert tapped before mount is a cold launch.
 /// A new part, wrapper, raw host path or reason needs the owner's approval.
 library;
 
