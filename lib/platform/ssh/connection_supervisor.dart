@@ -31,8 +31,9 @@
 /// Sleep: past the sleep grace only a live plain-SSH terminal's control link stays, and only
 /// [HostUse.wakes] uses may lease beside it.
 /// Tokens: [UserIntent] and [PlatformSignal] come only from callbacks their wrappers build.
-/// - A token builds one reason; a second, or a [UserIntent] older than [UserIntent.window],
-///   is refused where it would dial or drop, logged and asserted. Reuse the reason instead.
+/// - One token builds one reason, except that [UserClosed.by] builds the close for a
+///   [UserAction]'s gesture on that action's spend. A second reason, or a [UserIntent] older
+///   than [UserIntent.window], is refused where it would dial or drop, logged and asserted.
 /// - `test/ssh_fence_test.dart` checks by type each call site of [SshConnector.establish],
 ///   the public [HostLinks] controls and [HostLease.client], each wrapper's slot and the
 ///   fields a token rides in. No check catches one prompt spend, within the window, from a

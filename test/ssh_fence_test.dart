@@ -985,6 +985,29 @@ void main() {
       }, reason: 'mint where a gesture or the platform calls in; $_seam');
     });
 
+    test('a close rides its gesture\'s action only where a tab closes', () {
+      final found = <String, int>{};
+      for (final MapEntry(key: path, value: unit) in _lib.entries) {
+        _walk(unit, (node) {
+          final element = switch (node) {
+            InstanceCreationExpression(:final constructorName) ||
+            ConstructorReference(:final constructorName) =>
+              constructorName.element,
+            _ => null,
+          };
+          if (_ssh(element?.baseElement.enclosingElement, {'UserClosed'}) &&
+              element?.name == 'by') {
+            found[path] = (found[path] ?? 0) + 1;
+          }
+        });
+      }
+      expect(
+        found,
+        {_shellSessions: 1},
+        reason: 'UserClosed.by spends no token of its own; $_seam',
+      );
+    });
+
     test('ride only in the landing fields, each read once', () {
       expect(
         carrierViolations(_outside, _carriers),
