@@ -1303,6 +1303,35 @@ void main() {
     await sessions.close(intent: UserIntent.fromGesture(), _rose.id, second);
   });
 
+  testWidgets(
+    'a connection that throws while being set up is dropped, and a wake dials again',
+    (tester) async {
+      final transport = FakeShellTransport()
+        ..opening = (connection) {
+          connection.resizeRefused = const SocketException('pty gone');
+        };
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      session.measuredCell(8, 16);
+      await _pumpDial(tester);
+
+      final first = transport.opened.single;
+      expect(first.discarded, isTrue);
+      expect(session.connection, isNull);
+      expect(session.state, isA<ShellWaiting>());
+
+      transport.opening = null;
+      sessions.wakeAll(PlatformSignal.fromPlatform());
+      await _pumpDial(tester);
+
+      expect(transport.opened, hasLength(2));
+      expect(session.connection, same(transport.opened.last));
+      expect(session.state, isA<ShellLive>());
+
+      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    },
+  );
+
   testWidgets('a Mosh dial that lands after STOP ends the server it started', (
     tester,
   ) async {

@@ -1753,8 +1753,9 @@ class ShellSessions extends ChangeNotifier {
     final rows = session._rows ?? session.terminal.config.rows;
 
     Reconnect? dialFailed;
+    final ShellConnection connection;
     try {
-      final connection = await _open(
+      connection = await _open(
         reason: reason,
         failed: (retry) => dialFailed = retry,
         address: host.address,
@@ -1774,30 +1775,33 @@ class ShellSessions extends ChangeNotifier {
           prompt: prompt,
         ),
       );
-      if (!attempt.isCurrent) {
-        try {
-          if (session._closed && session.remoteSession != null) {
-            final terminated = await connection.terminateRemote(
-              session.remoteSession!,
-              durableShell: false,
-            );
-            if (terminated) {
-              await tabs?.close(host.id, session.number);
-            }
-          } else if (!session._attempt.dials &&
-              connection.transport != ShellTransport.ssh &&
-              connection.continuity != ShellContinuity.resumed) {
-            // Stopped under this dial with no other coming: the server it started on the
-            // host has nobody to carry it, and no later start sweeps it.
-            await connection.terminateRemote(session.tab, durableShell: false);
+    } catch (error) {
+      _fail(session, error, attempt, dialFailed);
+      return;
+    }
+    if (!attempt.isCurrent) {
+      try {
+        if (session._closed && session.remoteSession != null) {
+          final terminated = await connection.terminateRemote(
+            session.remoteSession!,
+            durableShell: false,
+          );
+          if (terminated) {
+            await tabs?.close(host.id, session.number);
           }
-        } catch (error) {
-          debugPrint('upgrade.shell ${host.name}: cleanup failed: $error');
-        } finally {
-          await connection.discard();
+        } else if (!session._attempt.dials &&
+            connection.transport != ShellTransport.ssh &&
+            connection.continuity != ShellContinuity.resumed) {
+          await connection.terminateRemote(session.tab, durableShell: false);
         }
-        return;
+      } catch (error) {
+        debugPrint('upgrade.shell ${host.name}: cleanup failed: $error');
+      } finally {
+        await connection.discard();
       }
+      return;
+    }
+    try {
       unawaited(session._foregroundProcesses?.cancel());
       session._foregroundProcesses = null;
       session.connection = connection;
@@ -1898,35 +1902,43 @@ class ShellSessions extends ChangeNotifier {
           session._feed(bytes);
         }
       }, onError: (Object error) => _fail(session, error, attempt));
-      unawaited(_awaitExit(session, connection, attempt));
-      final settled =
-          Future.wait([_mark(session, connection), _reap(host.id, connection)])
-              .then(
-                (_) {},
-                onError: (Object error, StackTrace stack) {
-                  if (!isHostFailure(error) && !isKeyFailure(error)) {
-                    Error.throwWithStackTrace(error, stack);
-                  }
-                  debugPrint('upgrade.shell ${host.name}: settle: $error');
-                },
-              );
-      if (_sleeping) {
-        unawaited(
-          settled.whenComplete(() {
-            if (_sleeping && identical(session.connection, connection)) {
-              _suspend(session);
-            }
-          }),
-        );
-      } else {
-        // A request made while this tab had no link, before it opened or across a
-        // redial, rang no bell it could hear: the tab asks once as it comes up.
-        unawaited(_askHost(session));
-      }
-      session.changed();
     } catch (error) {
-      _fail(session, error, attempt, dialFailed);
+      session.connection = null;
+      unawaited(session._snapshots?.cancel());
+      session._snapshots = null;
+      unawaited(session._foregroundProcesses?.cancel());
+      session._foregroundProcesses = null;
+      session._pinentry = null;
+      await connection.discard();
+      _fail(session, error, attempt);
+      return;
     }
+    unawaited(_awaitExit(session, connection, attempt));
+    final settled =
+        Future.wait([_mark(session, connection), _reap(host.id, connection)])
+            .then(
+              (_) {},
+              onError: (Object error, StackTrace stack) {
+                if (!isHostFailure(error) && !isKeyFailure(error)) {
+                  Error.throwWithStackTrace(error, stack);
+                }
+                debugPrint('upgrade.shell ${host.name}: settle: $error');
+              },
+            );
+    if (_sleeping) {
+      unawaited(
+        settled.whenComplete(() {
+          if (_sleeping && identical(session.connection, connection)) {
+            _suspend(session);
+          }
+        }),
+      );
+    } else {
+      // A request made while this tab had no link, before it opened or across a
+      // redial, rang no bell it could hear: the tab asks once as it comes up.
+      unawaited(_askHost(session));
+    }
+    session.changed();
   }
 
   String? _transitionMarker(

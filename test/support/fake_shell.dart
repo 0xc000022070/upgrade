@@ -86,8 +86,12 @@ class FakeShellConnection implements ShellConnection {
   @override
   void write(Uint8List bytes) => writes.add(bytes);
 
+  Object? resizeRefused;
+
   @override
   void resize(int columns, int rows, {int widthPx = 0, int heightPx = 0}) {
+    final refused = resizeRefused;
+    if (refused != null) throw refused;
     resizes.add([columns, rows]);
     pixels.add([widthPx, heightPx]);
   }
