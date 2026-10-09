@@ -123,15 +123,15 @@ class HostLease {
   }
 }
 
-class _Target {
-  const _Target(this.address, this.port, this.user, this.privateKey);
+final class HostTarget {
+  const HostTarget(this.address, this.port, this.user, this.privateKey);
 
   final String address;
   final int port;
   final String user;
   final String privateKey;
 
-  String identity(PinnedHostKey? pin) => [
+  String _identity(PinnedHostKey? pin) => [
     user,
     address,
     port,
@@ -140,7 +140,7 @@ class _Target {
     privateKey.hashCode,
   ].join('\u0000');
 
-  bool same(_Target other) =>
+  bool _same(HostTarget other) =>
       other.user == user &&
       other.address == address &&
       other.port == port &&
@@ -154,7 +154,7 @@ class _Link {
   final SshLink ssh;
   final String name;
   final HostUse use;
-  final _Target target;
+  final HostTarget target;
   final PinnedHostKey? trusted;
   final leases = <HostLease>{};
   String? key;
@@ -181,7 +181,7 @@ class _Link {
 class _Settle {
   _Settle(this.target);
 
-  final _Target target;
+  final HostTarget target;
   final _lifted = Completer<void>();
 
   Future<void> get settled => _lifted.future;
@@ -194,7 +194,7 @@ class _Settle {
 class _Pending {
   _Pending(this.target, this.lane);
 
-  final _Target target;
+  final HostTarget target;
   final HostLane lane;
   late final Future<_Link> link;
   var renounced = false;
@@ -269,9 +269,9 @@ class HostLinks {
     required HostKeyVerifier verifier,
     required HostUse use,
   }) async {
-    final target = _Target(address, port, user, privateKey);
+    final target = HostTarget(address, port, user, privateKey);
     final pinned = verifier.pinned;
-    final identity = target.identity(pinned);
+    final identity = target._identity(pinned);
     final key = '$identity\u0000${use.lane.name}';
     _Pending? mine;
     while (true) {
@@ -309,7 +309,7 @@ class HostLinks {
         }
         final filed = verifier.verified ?? pinned;
         if (filed != null) {
-          final fileKey = '${target.identity(filed)}\u0000${use.lane.name}';
+          final fileKey = '${target._identity(filed)}\u0000${use.lane.name}';
           if (!_links.containsKey(fileKey)) {
             _links[fileKey] = link;
             link.key = fileKey;
@@ -333,26 +333,26 @@ class HostLinks {
     required String privateKey,
     required Object change,
   }) {
-    final target = _Target(address, port, user, privateKey);
-    final place = target.identity(null);
+    final target = HostTarget(address, port, user, privateKey);
+    final place = target._identity(null);
     if (identical(_renounced[place], change)) return;
     _renounced[place] = change;
     for (final link in [..._all]) {
       if (link.parent == null &&
           link.lane == HostLane.control &&
-          link.target.same(target)) {
+          link.target._same(target)) {
         _end(link, 'network changed');
       }
     }
     _dialing.removeWhere((_, pending) {
       final gone =
-          pending.lane == HostLane.control && pending.target.same(target);
+          pending.lane == HostLane.control && pending.target._same(target);
       if (gone) pending.renounced = true;
       return gone;
     });
     // A settling dial's socket is on the path that just went away.
     _settling.removeWhere((_, settle) {
-      final gone = settle.target.same(target);
+      final gone = settle.target._same(target);
       if (gone) settle.lift();
       return gone;
     });
@@ -455,7 +455,7 @@ class HostLinks {
   }
 
   Future<_Link> _dialLink(
-    _Target target,
+    HostTarget target,
     HostKeyVerifier verifier,
     HostUse use,
     String settleKey, {
@@ -674,7 +674,7 @@ class HostLinks {
     if (live != null && !live.ended) return Future.value(live);
     final dialing = parent.overflowing;
     if (dialing != null) return dialing;
-    final identity = parent.target.identity(parent.trusted);
+    final identity = parent.target._identity(parent.trusted);
     final dial =
         _dialLink(
           parent.target,
@@ -722,7 +722,7 @@ class HostLinks {
     if (overflow != null) _end(overflow, 'parent ended');
   }
 
-  void _settle(String key, _Target target, Future<void> settled) {
+  void _settle(String key, HostTarget target, Future<void> settled) {
     final settle = _Settle(target);
     _settling[key] = settle;
     void lift() {

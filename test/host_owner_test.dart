@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -667,4 +668,87 @@ void main() {
       links.close();
     });
   });
+
+  test('channels from an earlier hold answer null once the tab holds the host '
+      'again, even when the dialer hands back the same host', () async {
+    final host = _ReusedHost();
+    final connector = SshConnector(
+      dial: ({
+        required address,
+        required port,
+        required user,
+        required privateKey,
+        required timeout,
+        required verifier,
+      }) async => host,
+      timeout: const Duration(seconds: 10),
+    );
+    final tab = await _tab(connector);
+    final before = await tab.open(UserAction(UserIntent.fromGesture()));
+    expect(await before?.exec('true', timeout: _deadline), isNotNull);
+
+    final change = NetworkChanged(PlatformSignal.fromPlatform());
+    await tab.drop(change);
+    final after = await tab.open(change);
+
+    expect(after, isNotNull);
+    expect(await before?.exec('true', timeout: _deadline), isNull);
+    expect(await after?.exec('true', timeout: _deadline), isNotNull);
+    expect(host.executes, 2);
+    await tab.drop(UserClosed(UserIntent.fromGesture()));
+  });
+}
+
+const _deadline = Duration(seconds: 1);
+
+final class _ReusedHost implements ShellHost {
+  var executes = 0;
+
+  @override
+  Future<void> get authenticated => Future.value();
+
+  @override
+  Future<void> get done => Completer<void>().future;
+
+  @override
+  Future<ShellExec> execute(String command) async {
+    executes++;
+    return _DoneExec();
+  }
+
+  @override
+  Future<ShellPty> shell(SSHPtyConfig pty) => throw UnimplementedError();
+
+  @override
+  Future<ShellPty> run(String command, SSHPtyConfig pty) =>
+      throw UnimplementedError();
+
+  @override
+  Future<bool> check() async => true;
+
+  @override
+  Future<void> close() async {}
+}
+
+final class _DoneExec implements ShellExec {
+  @override
+  Stream<Uint8List> get stdout => const Stream.empty();
+
+  @override
+  Stream<Uint8List> get stderr => const Stream.empty();
+
+  @override
+  Future<void> get done => Future.value();
+
+  @override
+  int? get exitCode => 0;
+
+  @override
+  void write(Uint8List bytes) {}
+
+  @override
+  Future<void> closeStdin() async {}
+
+  @override
+  void close() {}
 }

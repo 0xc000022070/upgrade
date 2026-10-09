@@ -86,10 +86,9 @@ final class ConnectionSupervisor implements HostChannels {
   ConnectionSupervisor._(this._connector, this._target);
 
   final SshConnector _connector;
-  final _Target _target;
+  final HostTarget _target;
   PinnedHostKey? _trusted;
-  _Link? _link;
-  var _generation = 0;
+  _Hold? _held;
   _Dial? _dial;
   var _retired = false;
   var _suspended = false;
@@ -107,11 +106,7 @@ final class ConnectionSupervisor implements HostChannels {
     String command, {
     Uint8List? stdin,
     required Duration timeout,
-  }) async {
-    final link = _link;
-    if (link == null) return null;
-    return _run(link.host, command, stdin: stdin, timeout: timeout);
-  }
+  }) async => _held?.exec(command, stdin: stdin, timeout: timeout);
 
   Stream<ControlLink> get controlLink => _control.stream;
 
@@ -120,18 +115,16 @@ final class ConnectionSupervisor implements HostChannels {
   /// Null when the tab is gone or the app away; throws what the dial threw. A gesture whose
   /// dial a network change overtook, or an earlier dial's settle refused, opens again once;
   /// a resume or a network change waits out every settle that refuses it.
-  Future<HostChannels?> open(ReopenReason reason) {
-    final opened = _open(reason);
-    return switch (reason) {
-      UserAction() => _openAttended(opened, reason),
-      AppResumed() || NetworkChanged() => _openSettled(opened.future, reason),
-      _HostDied() => opened.future,
-    };
-  }
+  Future<HostChannels?> open(ReopenReason reason) => switch (reason) {
+    UserAction() || AppResumed() || NetworkChanged() => _openUntilHeld(reason),
+    _HostDied() => _open(reason).future,
+  };
 
-  Future<HostChannels?> _openAttended(_Dial dial, UserAction reason) async {
-    final settles = _SettleWait(_connector.timeout);
-    var overtakeLeft = true;
+  Future<HostChannels?> _openUntilHeld(ReopenReason reason) async {
+    final attended = reason is UserAction;
+    final settles = _SettleWait(attended ? _connector.timeout : null);
+    var overtakeLeft = attended;
+    var dial = _open(reason);
     try {
       while (true) {
         try {
@@ -145,6 +138,7 @@ final class ConnectionSupervisor implements HostChannels {
             overtakeLeft = false;
           } else if (error is DialSettling) {
             await settles.out(error, stack);
+            if (!attended && (_retired || _suspended)) return null;
           } else {
             rethrow;
           }
@@ -153,21 +147,6 @@ final class ConnectionSupervisor implements HostChannels {
       }
     } finally {
       settles.end();
-    }
-  }
-
-  Future<HostChannels?> _openSettled(
-    Future<HostChannels?> opened,
-    ReopenReason reason,
-  ) async {
-    while (true) {
-      try {
-        return await opened;
-      } on DialSettling catch (settling) {
-        await settling.settled;
-        if (_retired || _suspended) return null;
-        opened = _open(reason).future;
-      }
     }
   }
 
@@ -182,18 +161,16 @@ final class ConnectionSupervisor implements HostChannels {
       case _HostDied():
         if (_suspended) return _Dial.none;
     }
-    final link = _link;
-    if (link != null) return _Dial.held(_Lease(this, link.generation));
+    final held = _held;
+    if (held != null) return _Dial.settled(held);
     if (_suspended && reason is NetworkChanged) return _Dial.none;
     final pending = _dial;
     if (pending != null) return pending;
-    late final _Dial dial;
-    dial = _Dial(
-      _redial(reason).whenComplete(() {
-        if (identical(_dial, dial)) _dial = null;
-      }),
-    );
-    return _dial = dial;
+    final dial = _dial = _Dial();
+    dial.future = _redial(reason, dial).whenComplete(() {
+      if (identical(_dial, dial)) _dial = null;
+    });
+    return dial;
   }
 
   /// Only for a transport whose terminal outlives its host; a plain SSH terminal dies with it.
@@ -203,14 +180,14 @@ final class ConnectionSupervisor implements HostChannels {
     _revival?.cancel();
     _revival = Timer(_reviveDelays[step], () async {
       _revival = null;
-      if (_retired || _suspended || _link != null) return;
+      if (_retired || _suspended || _held != null) return;
       try {
         await open(reason);
       } catch (error) {
-        if (_retired || _suspended || _link != null) return;
+        if (_retired || _suspended || _held != null) return;
         if (error is DialSettling) {
           await error.settled;
-          if (_retired || _suspended || _link != null || _revival != null) {
+          if (_retired || _suspended || _held != null || _revival != null) {
             return;
           }
           _revive(reason, step);
@@ -224,7 +201,7 @@ final class ConnectionSupervisor implements HostChannels {
   }
 
   void _report() {
-    final down = _link == null && !_suspended && !_retired;
+    final down = _held == null && !_suspended && !_retired;
     if (down == _reportedDown || _control.isClosed) return;
     _reportedDown = down;
     _control.add(down ? const ControlReconnecting() : const ControlUp());
@@ -248,13 +225,12 @@ final class ConnectionSupervisor implements HostChannels {
       case NetworkChanged() || HealthCheckFailed():
         break;
     }
-    _generation++;
-    // A dial in flight lands on the old generation and is closed.
+    // A dial in flight is no longer [_dial] when it lands, so it is closed.
     _dial?.overtaken = reason is NetworkChanged;
     _dial = null;
-    final link = _link;
-    _link = null;
-    if (link != null) _log('drop for ${reason.runtimeType}');
+    final held = _held;
+    _held = null;
+    if (held != null) _log('drop for ${reason.runtimeType}');
     if (_retired || _suspended) {
       _revival?.cancel();
       _revival = null;
@@ -262,7 +238,7 @@ final class ConnectionSupervisor implements HostChannels {
     _report();
     if (_retired && !_control.isClosed) unawaited(_control.close());
     if (reason is NetworkChanged) _connector._renounce(_target, reason);
-    return link == null ? Future.value() : _close(link.host);
+    return held == null ? Future.value() : _close(held.host);
   }
 
   /// Called only from the terminal's own end; the same end every time.
@@ -279,23 +255,16 @@ final class ConnectionSupervisor implements HostChannels {
     return true;
   }
 
-  Future<void> check() async {
-    final link = _link;
-    if (link == null) return;
-    await link.host.check();
-  }
+  Future<void> check() async => _held?.host.check();
 
   Future<ShellPty> pty(String? command, SSHPtyConfig config) async {
-    final link = _link;
+    final host = _held?.host;
     // What dartssh2 throws for a gone client, so the tab reads it as a lost stream.
-    if (link == null) throw SSHStateError('No SSH host is held.');
-    return command == null
-        ? link.host.shell(config)
-        : link.host.run(command, config);
+    if (host == null) throw SSHStateError('No SSH host is held.');
+    return command == null ? host.shell(config) : host.run(command, config);
   }
 
-  Future<HostChannels?> _redial(ReopenReason reason) async {
-    final epoch = _generation;
+  Future<HostChannels?> _redial(ReopenReason reason, _Dial dial) async {
     final ShellHost host;
     try {
       host = await _connector._connect(
@@ -310,23 +279,22 @@ final class ConnectionSupervisor implements HostChannels {
       _HostDied() => 'a host that died',
       final OpenReason opening => _purpose(opening).cause,
     };
-    if (_retired || epoch != _generation) {
+    if (!identical(_dial, dial)) {
       _log('redial for $cause, discarded');
       unawaited(_close(host));
       return null;
     }
     _log('redial for $cause');
-    return _Lease(this, _hold(host).generation);
+    return _hold(host);
   }
 
-  _Link _hold(ShellHost host) {
-    final link = _Link(host, ++_generation);
-    _link = link;
+  _Hold _hold(ShellHost host) {
+    final held = _held = _Hold(this, host);
     _revival?.cancel();
     _revival = null;
     _report();
     void died() {
-      if (!identical(_link, link)) return;
+      if (!identical(_held, held)) return;
       const failed = HealthCheckFailed._();
       unawaited(drop(failed));
       if (_revives) _revive(const _HostDied(failed), 0);
@@ -341,7 +309,7 @@ final class ConnectionSupervisor implements HostChannels {
         },
       ),
     );
-    return link;
+    return held;
   }
 
   void _log(String message) => debugPrint(
@@ -360,13 +328,13 @@ final class ConnectionSupervisor implements HostChannels {
 }
 
 final class _Dial {
-  _Dial(this.future);
+  _Dial();
 
-  _Dial.held(HostChannels channels) : future = Future.value(channels);
+  _Dial.settled(HostChannels? channels) : future = Future.value(channels);
 
-  static final none = _Dial(Future.value(null));
+  static final none = _Dial.settled(null);
 
-  final Future<HostChannels?> future;
+  late final Future<HostChannels?> future;
   var overtaken = false;
 }
 
@@ -412,7 +380,7 @@ final class SshConnector {
   late final ShellDialer _dial = _injected ?? _dialOver(_links);
   final Duration timeout;
 
-  void _renounce(_Target target, NetworkChanged change) => _links.renounce(
+  void _renounce(HostTarget target, NetworkChanged change) => _links.renounce(
     address: target.address,
     port: target.port,
     user: target.user,
@@ -441,7 +409,7 @@ final class SshConnector {
         'an open for ${purpose.cause} asks nobody about a host key',
       );
     }
-    final target = _Target(address, port, user, privateKey);
+    final target = HostTarget(address, port, user, privateKey);
     final supervisor = ConnectionSupervisor._(this, target)
       .._log('dial for ${purpose.cause}');
     final ShellHost host;
@@ -468,7 +436,7 @@ final class SshConnector {
 
   /// Each settle waited out is another dial's, so this ends on a dial of its own.
   Future<ShellHost> _connectSettled(
-    _Target target,
+    HostTarget target,
     HostKeyVerifier verifier,
     _SettleWait settles,
   ) async {
@@ -486,7 +454,10 @@ final class SshConnector {
   }
 
   /// No deadline while a key confirm sheet is open; authentication gets a fresh one after.
-  Future<ShellHost> _connect(_Target target, HostKeyVerifier verifier) async {
+  Future<ShellHost> _connect(
+    HostTarget target,
+    HostKeyVerifier verifier,
+  ) async {
     final host = await _dial(
       address: target.address,
       port: target.port,
@@ -526,11 +497,13 @@ final class _SettleWait {
   void end() => _limit?.cancel();
 }
 
-final class _Lease implements HostChannels {
-  _Lease(this._owner, this._generation);
+/// One hold of a host by one supervisor. The channels it hands out answer null once the
+/// supervisor holds another, even when a dialer hands back the same host again.
+final class _Hold implements HostChannels {
+  _Hold(this._owner, this.host);
 
   final ConnectionSupervisor _owner;
-  final int _generation;
+  final ShellHost host;
 
   @override
   Future<ExecResult?> exec(
@@ -538,24 +511,7 @@ final class _Lease implements HostChannels {
     Uint8List? stdin,
     required Duration timeout,
   }) async {
-    final link = _owner._link;
-    if (link == null || link.generation != _generation) return null;
-    return _run(link.host, command, stdin: stdin, timeout: timeout);
+    if (!identical(_owner._held, this)) return null;
+    return _run(host, command, stdin: stdin, timeout: timeout);
   }
-}
-
-final class _Link {
-  _Link(this.host, this.generation);
-
-  final ShellHost host;
-  final int generation;
-}
-
-final class _Target {
-  _Target(this.address, this.port, this.user, this.privateKey);
-
-  final String address;
-  final int port;
-  final String user;
-  final String privateKey;
 }
