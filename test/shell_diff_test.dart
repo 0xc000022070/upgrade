@@ -19,6 +19,7 @@ import 'package:upgrade/platform/shell/shell_connection.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/reasons.dart';
 import 'support/shell_route.dart';
 
 final _key = ManagedKey(
@@ -113,7 +114,7 @@ void main() {
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions));
       await ready(tester);
-      sessions.open(intent: UserIntent.fromGesture(), rose);
+      sessions.open(intent: testIntent(), rose);
       await ready(tester);
 
       final marks = sessions.forHost(rose.id).map((s) => s.mark).toList();
@@ -168,7 +169,7 @@ void main() {
       expect(session.connection, isNull);
       expect(find.byKey(_diffCell), findsNothing);
 
-      await sessions.close(intent: UserIntent.fromGesture(), rose.id, session);
+      await sessions.close(intent: testIntent(), rose.id, session);
       await unmount(tester);
     });
 
@@ -304,11 +305,7 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      final session = sessions.open(
-        intent: UserIntent.fromGesture(),
-        rose,
-        pane: pane,
-      )!;
+      final session = sessions.open(intent: testIntent(), rose, pane: pane)!;
       await ready(tester);
       final connection = transport.opened.last;
       connection.answerWith(
@@ -376,7 +373,10 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(
-        app(sessions, home: const HostShellRoute(host: rose)),
+        app(
+          sessions,
+          home: HostShellRoute(host: rose, intent: testIntent()),
+        ),
       );
       await ready(tester);
 
@@ -412,7 +412,7 @@ void main() {
       addTearDown(tester.view.reset);
       final sessions = fakeShellSessions(FakeShellTransport());
       for (var i = 0; i < 8; i++) {
-        sessions.open(intent: UserIntent.fromGesture(), rose);
+        sessions.open(intent: testIntent(), rose);
       }
       await tester.pumpWidget(app(sessions));
       await ready(tester);

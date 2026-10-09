@@ -17,6 +17,7 @@ import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/reasons.dart';
 import 'support/shell_route.dart';
 
 Color? inkOfInfoMark(WidgetTester tester) => tester
@@ -692,7 +693,7 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    await transport.opened.single.close(UserClosed(UserIntent.fromGesture()));
+    await transport.opened.single.close(UserClosed(testIntent()));
     await ready(tester);
 
     expect(find.text('SHELL 1 EXITED —'), findsOneWidget);

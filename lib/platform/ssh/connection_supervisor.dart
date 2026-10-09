@@ -29,10 +29,10 @@
 ///   with one redial. Beside it: other identities or isolates, the trust probe, one overflow.
 /// - Past the sleep grace the app holds only a live plain-SSH terminal's control link, and
 ///   only [HostUse.wakes] uses lease beside it.
-/// [UserIntent] is minted only in a gesture handler and [PlatformSignal] only in a platform
-/// callback. Privacy cannot hold that, nor who calls [SshConnector.establish], the public
+/// [UserIntent] and [PlatformSignal] are minted only in callbacks their wrappers make.
+/// Privacy cannot hold who runs those, nor who calls [SshConnector.establish], the public
 /// [HostLinks] controls or [HostLease.client]; `test/ssh_fence_test.dart` pins each call
-/// site by name. A new part, public reason constructor, raw host path or reason variant
+/// site by name or slot. A new part, reason wrapper, raw host path or reason variant
 /// needs the owner's approval.
 library;
 

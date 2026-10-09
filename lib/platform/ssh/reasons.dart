@@ -6,14 +6,37 @@ part of 'connection_supervisor.dart';
 final class UserIntent {
   UserIntent._();
 
-  factory UserIntent.fromGesture() => UserIntent._();
+  static VoidCallback onGesture(void Function(UserIntent intent) handler) =>
+      () => handler(UserIntent._());
+
+  static ValueChanged<T> onGestureWith<T>(
+    void Function(UserIntent intent, T value) handler,
+  ) =>
+      (value) => handler(UserIntent._(), value);
+
+  static void Function(T response) onNotificationTap<T>(
+    void Function(UserIntent intent, T response) handler,
+  ) =>
+      (response) => handler(UserIntent._(), response);
 }
 
 /// Proof the platform said so. Mint only in the callback that hears it.
 final class PlatformSignal {
   PlatformSignal._();
 
-  factory PlatformSignal.fromPlatform() => PlatformSignal._();
+  static Future<void> onLaunch(
+    Future<void> Function(PlatformSignal launch) boot,
+  ) => boot(PlatformSignal._());
+
+  static void Function(bool? was, bool now) onLifecycle(
+    void Function(PlatformSignal signal, bool? was, bool now) handler,
+  ) =>
+      (was, now) => handler(PlatformSignal._(), was, now);
+
+  static void Function(bool up) onNetwork(
+    void Function(PlatformSignal signal, bool up) handler,
+  ) =>
+      (up) => handler(PlatformSignal._(), up);
 }
 
 sealed class OpenReason {
@@ -89,7 +112,6 @@ final class _DialFailed extends _Evidence {
 final class ShellEnded implements DropReason {
   ShellEnded._(this._of);
 
-  /// Bound to no supervisor, so none accepts it: what a fake transport hands the store.
   @visibleForTesting
   factory ShellEnded.unbound() => ShellEnded._(null);
 

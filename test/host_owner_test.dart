@@ -12,6 +12,7 @@ import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 import 'package:upgrade/platform/ssh_settle.dart';
 
 import 'support/host_links.dart';
+import 'support/reasons.dart';
 import 'support/ssh_exec.dart';
 
 final _vm = PinnedHostKey(
@@ -30,16 +31,15 @@ Future<ConnectionSupervisor> _tab(SshConnector connector) =>
       user: 'dev',
       privateKey: 'key',
       verifier: HostKeyVerifier.pinnedOnly(_vm),
-      reason: UserAction(UserIntent.fromGesture()),
+      reason: UserAction(testIntent()),
       startup: (supervisor) async => supervisor,
     );
 
 Future<List<ConnectionSupervisor>> _tabs(SshConnector connector, int count) =>
     Future.wait([for (var i = 0; i < count; i++) _tab(connector)]);
 
-Future<void> _closeAll(List<ConnectionSupervisor> tabs) => Future.wait([
-  for (final tab in tabs) tab.drop(UserClosed(UserIntent.fromGesture())),
-]);
+Future<void> _closeAll(List<ConnectionSupervisor> tabs) =>
+    Future.wait([for (final tab in tabs) tab.drop(UserClosed(testIntent()))]);
 
 void main() {
   test('tabs on one host share one dial', () async {
@@ -57,13 +57,10 @@ void main() {
     final dial = FakeDial();
     final links = HostLinks(dial: dial.call);
     final tabs = await _tabs(_connector(links), 3);
-    await tabs.first.drop(UserClosed(UserIntent.fromGesture()));
+    await tabs.first.drop(UserClosed(testIntent()));
 
     expect(dial.clients.single.isClosed, isFalse);
-    expect(
-      await tabs.last.open(UserAction(UserIntent.fromGesture())),
-      isNotNull,
-    );
+    expect(await tabs.last.open(UserAction(testIntent())), isNotNull);
     expect(dial.dials, 1);
     await _closeAll(tabs.skip(1).toList());
     links.close();
@@ -76,12 +73,12 @@ void main() {
       final links = HostLinks(dial: dial.call);
       final tabs = await _tabs(_connector(links), 3);
       links.sleep();
-      final suspended = AppSuspended(PlatformSignal.fromPlatform());
+      final suspended = AppSuspended(testSignal());
       await Future.wait([for (final tab in tabs) tab.drop(suspended)]);
       expect(links.open, 0);
 
       links.wake();
-      final resumed = AppResumed(PlatformSignal.fromPlatform());
+      final resumed = AppResumed(testSignal());
       final opened = await Future.wait([
         for (final tab in tabs) tab.open(resumed),
       ]);
@@ -99,7 +96,7 @@ void main() {
       final dial = FakeDial();
       final links = HostLinks(dial: dial.call);
       final tabs = await _tabs(_connector(links), 3);
-      final change = NetworkChanged(PlatformSignal.fromPlatform());
+      final change = NetworkChanged(testSignal());
       for (final tab in tabs) {
         await tab.drop(change);
       }
@@ -135,7 +132,7 @@ void main() {
     expect(links.open, 1);
     expect(
       await Future.wait([
-        for (final tab in tabs) tab.open(UserAction(UserIntent.fromGesture())),
+        for (final tab in tabs) tab.open(UserAction(testIntent())),
       ]),
       everyElement(isNotNull),
     );
@@ -190,7 +187,7 @@ void main() {
           isA<SSHAuthFailError>(),
         ),
       ]);
-      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      await tab.drop(UserClosed(testIntent()));
     });
 
     testWidgets('once its schedule runs out', (tester) async {
@@ -215,7 +212,7 @@ void main() {
           isA<SocketException>(),
         ),
       ]);
-      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      await tab.drop(UserClosed(testIntent()));
     });
 
     testWidgets('on a bug, instead of throwing in its timer', (tester) async {
@@ -226,7 +223,7 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       await tester.pump();
       expect(links.last, isA<ControlGaveUp>());
-      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      await tab.drop(UserClosed(testIntent()));
     });
 
     testWidgets('until a gesture holds the host again', (tester) async {
@@ -259,10 +256,10 @@ void main() {
       await tester.pump();
       expect(links.last, isA<ControlGaveUp>());
 
-      expect(await tab.open(UserAction(UserIntent.fromGesture())), isNotNull);
+      expect(await tab.open(UserAction(testIntent())), isNotNull);
       await tester.pump();
       expect(links.last, isA<ControlUp>());
-      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      await tab.drop(UserClosed(testIntent()));
     });
   });
 
@@ -303,7 +300,7 @@ void main() {
     ) async {
       await first.close();
       await expectLater(
-        tab.open(UserAction(UserIntent.fromGesture())),
+        tab.open(UserAction(testIntent())),
         throwsA(isA<TimeoutException>()),
       );
     }
@@ -350,7 +347,7 @@ void main() {
       await tester.pump();
       expect(dials.single, 3);
       expect(events, [isA<ControlReconnecting>(), isA<ControlUp>()]);
-      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      await tab.drop(UserClosed(testIntent()));
       links.close();
     });
 
@@ -360,7 +357,7 @@ void main() {
       final (tab, links, first, dials) = await settling(settle: settle);
       await failedDial(tab, first);
 
-      final outcome = watch(tab.open(UserAction(UserIntent.fromGesture())));
+      final outcome = watch(tab.open(UserAction(testIntent())));
       await tester.pump();
       expect(dials.single, 2);
       expect(outcome().done, isFalse);
@@ -370,7 +367,7 @@ void main() {
       expect(dials.single, 3);
       expect(outcome().failed, isNull);
       expect(outcome().opened, isNotNull);
-      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      await tab.drop(UserClosed(testIntent()));
       links.close();
     });
 
@@ -379,7 +376,7 @@ void main() {
       final (tab, links, first, dials) = await settling();
       await failedDial(tab, first);
 
-      final outcome = watch(tab.open(UserAction(UserIntent.fromGesture())));
+      final outcome = watch(tab.open(UserAction(testIntent())));
       await tester.pump(const Duration(seconds: 9));
       expect(outcome().done, isFalse);
 
@@ -390,7 +387,7 @@ void main() {
         isA<DialSettling>().having(isHostFailure, 'host failure', isTrue),
       );
       expect(dials.single, 2);
-      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      await tab.drop(UserClosed(testIntent()));
       links.close();
       await tester.pump(grace);
     });
@@ -409,7 +406,7 @@ void main() {
               user: 'dev',
               privateKey: 'key',
               verifier: HostKeyVerifier.pinnedOnly(_vm),
-              reason: UserAction(UserIntent.fromGesture()),
+              reason: UserAction(testIntent()),
               startup: (supervisor) async => supervisor,
               failed: (reconnect) => retry = reconnect,
             )
@@ -423,7 +420,7 @@ void main() {
       expect(outcome().failed, isA<DialSettling>());
       expect(retry, isNotNull);
       expect(dials.single, 2);
-      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      await tab.drop(UserClosed(testIntent()));
       links.close();
       await tester.pump(grace);
     });
@@ -435,16 +432,16 @@ void main() {
       await first.close();
       await tester.pump();
       await expectLater(
-        tab.open(UserAction(UserIntent.fromGesture())),
+        tab.open(UserAction(testIntent())),
         throwsA(isA<TimeoutException>()),
       );
-      await tab.drop(AppSuspended(PlatformSignal.fromPlatform()));
+      await tab.drop(AppSuspended(testSignal()));
 
       HostChannels? opened;
       Object? failed;
       unawaited(
         tab
-            .open(AppResumed(PlatformSignal.fromPlatform()))
+            .open(AppResumed(testSignal()))
             .then(
               (channels) => opened = channels,
               onError: (Object e) {
@@ -466,7 +463,7 @@ void main() {
       expect(failed, isNull);
       expect(opened, isNotNull);
       expect(events.last, isA<ControlUp>());
-      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      await tab.drop(UserClosed(testIntent()));
       links.close();
     });
 
@@ -479,17 +476,17 @@ void main() {
       await first.close();
       await tester.pump();
       await expectLater(
-        tab.open(UserAction(UserIntent.fromGesture())),
+        tab.open(UserAction(testIntent())),
         throwsA(isA<TimeoutException>()),
       );
-      await tab.drop(AppSuspended(PlatformSignal.fromPlatform()));
+      await tab.drop(AppSuspended(testSignal()));
 
       HostChannels? opened;
       Object? failed;
       var settled = false;
       unawaited(
         tab
-            .open(AppResumed(PlatformSignal.fromPlatform()))
+            .open(AppResumed(testSignal()))
             .then(
               (channels) {
                 opened = channels;
@@ -501,7 +498,7 @@ void main() {
             ),
       );
       await tester.pump();
-      await tab.drop(AppSuspended(PlatformSignal.fromPlatform()));
+      await tab.drop(AppSuspended(testSignal()));
       final suspended = events.length;
 
       await tester.pump(grace);
@@ -511,7 +508,7 @@ void main() {
       expect(opened, isNull);
       expect(dials.single, 2);
       expect(events.skip(suspended), isEmpty);
-      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      await tab.drop(UserClosed(testIntent()));
       links.close();
     });
 
@@ -541,7 +538,7 @@ void main() {
             },
       );
       final tabs = await _tabs(_connector(links), 2);
-      final change = NetworkChanged(PlatformSignal.fromPlatform());
+      final change = NetworkChanged(testSignal());
 
       await tabs.first.drop(change);
       await expectLater(
@@ -607,7 +604,7 @@ void main() {
         user: 'dev',
         keyId: 'key-1',
       );
-      final session = sessions.open(intent: UserIntent.fromGesture(), host)!;
+      final session = sessions.open(intent: testIntent(), host)!;
       final waited = <Duration>[];
       for (var second = 1; second <= 125; second++) {
         await tester.pump(const Duration(seconds: 1));
@@ -619,7 +616,7 @@ void main() {
       expect(waited, isEmpty);
       expect(dials, greaterThan(1));
 
-      await sessions.close(intent: UserIntent.fromGesture(), host.id, session);
+      await sessions.close(intent: testIntent(), host.id, session);
       links.close();
       await tester.pump(sshLoginGrace);
     });

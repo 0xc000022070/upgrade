@@ -16,6 +16,7 @@ import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../platform/engine_agents.dart';
 import '../../platform/herdr_client.dart';
+import '../../platform/shell/shell_connection.dart';
 import '../home/agent_mark.dart';
 import '../screen_scaffold.dart';
 import 'agent_shell.dart';
@@ -349,7 +350,10 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
               PanelTextAction(
                 label: 'OPEN PANE',
                 icon: UpgradeIcons.forward,
-                onTap: () => openAgentPane(context, ref, widget.host, link),
+                onTap: UserIntent.onGesture(
+                  (intent) =>
+                      openAgentPane(context, ref, widget.host, link, intent),
+                ),
               ),
           ],
         ),

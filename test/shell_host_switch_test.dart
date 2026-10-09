@@ -9,12 +9,12 @@ import 'package:upgrade/application/agents.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/shell/shell_sheet.dart';
 
 import 'support/fake_shell.dart';
 import 'support/launch_scan.dart';
 import 'support/platform_channels.dart';
+import 'support/reasons.dart';
 import 'support/themed_app.dart';
 
 const _rose = Host(
@@ -104,8 +104,8 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _nyx);
     await ready(tester);
     await raise(tester);
 
@@ -130,7 +130,7 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await ready(tester);
     await raise(tester);
 
@@ -156,8 +156,8 @@ void main() {
     );
     await tester.pumpWidget(app());
     await ready(tester);
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
-    sessions.open(intent: UserIntent.fromGesture(), named);
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), named);
     await ready(tester);
     await raise(tester);
 
@@ -173,8 +173,8 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _nyx);
     await ready(tester);
     await raise(tester);
     final route = ModalRoute.of(tester.element(header));
@@ -196,9 +196,9 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _nyx);
+    sessions.open(intent: testIntent(), _nyx);
     await ready(tester);
     await raise(tester);
     expect(sessions.activeFor(_nyx.id)!.number, 2);
@@ -217,10 +217,10 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _nyx);
+    sessions.open(intent: testIntent(), _nyx);
     await ready(tester);
     await raise(tester);
 
@@ -253,9 +253,9 @@ void main() {
   testWidgets('a group that goes with its last tab forgets its fold', (
     tester,
   ) async {
-    final rose = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final rose = sessions.open(intent: testIntent(), _rose)!;
     sessions.fold(_rose.id, folded: true);
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, rose);
+    await sessions.close(intent: testIntent(), _rose.id, rose);
     expect(sessions.isFolded(_rose.id), isFalse);
     expect(sessions.openHosts, isEmpty);
   });
@@ -264,9 +264,9 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
+    sessions.open(intent: testIntent(), _nyx);
+    sessions.open(intent: testIntent(), _nyx);
+    sessions.open(intent: testIntent(), _nyx);
     await ready(tester);
     await raise(tester);
 
@@ -285,9 +285,9 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _nyx);
+    sessions.open(intent: testIntent(), _nyx);
     await ready(tester);
     await raise(tester);
 
@@ -312,8 +312,8 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _nyx);
+    sessions.open(intent: testIntent(), _rose);
     await ready(tester);
     await raise(tester);
     final route = ModalRoute.of(tester.element(header));
@@ -346,7 +346,7 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await ready(tester);
     await raise(tester);
     final route = ModalRoute.of(tester.element(header));
@@ -377,7 +377,7 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await ready(tester);
     await raise(tester);
     final route = ModalRoute.of(tester.element(header));
@@ -409,9 +409,9 @@ void main() {
     await ready(tester);
 
     for (var i = 0; i < maxShellSessions; i++) {
-      sessions.open(intent: UserIntent.fromGesture(), _nyx);
+      sessions.open(intent: testIntent(), _nyx);
     }
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await ready(tester);
     await raise(tester);
 
@@ -431,13 +431,14 @@ void main() {
     await ready(tester);
 
     for (var i = 0; i < maxShellSessions; i++) {
-      sessions.open(intent: UserIntent.fromGesture(), _nyx);
+      sessions.open(intent: testIntent(), _nyx);
     }
     await ready(tester);
 
     openHostShell(
       tester.element(find.byType(UpgradeShell)),
       _nyx,
+      intent: testIntent(),
       command: 'cd /srv',
     );
     await ready(tester);

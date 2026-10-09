@@ -22,6 +22,7 @@ import 'package:flterm/flterm.dart';
 import 'support/fake_shell.dart';
 import 'support/launch_scan.dart';
 import 'support/platform_channels.dart';
+import 'support/reasons.dart';
 import 'support/shell_route.dart';
 import 'support/themed_app.dart';
 
@@ -340,7 +341,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: testTheme,
-          home: const HostShellRoute(host: rose),
+          home: HostShellRoute(host: rose, intent: testIntent()),
         ),
       ),
     );
@@ -536,19 +537,18 @@ void main() {
       );
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
+      sessions.open(intent: testIntent(), named, launch: TmuxLaunch('main'));
       sessions.open(
-        intent: UserIntent.fromGesture(),
-        named,
-        launch: TmuxLaunch('main'),
-      );
-      sessions.open(
-        intent: UserIntent.fromGesture(),
+        intent: testIntent(),
         named,
         launch: HerdrLaunch('default'),
       );
-      sessions.open(intent: UserIntent.fromGesture(), named);
+      sessions.open(intent: testIntent(), named);
       await tester.pumpWidget(
-        app(sessions, home: const HostShellRoute(host: named)),
+        app(
+          sessions,
+          home: HostShellRoute(host: named, intent: testIntent()),
+        ),
       );
       await ready(tester);
 
@@ -580,10 +580,13 @@ void main() {
       );
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      sessions.open(intent: UserIntent.fromGesture(), named);
-      sessions.open(intent: UserIntent.fromGesture(), named);
+      sessions.open(intent: testIntent(), named);
+      sessions.open(intent: testIntent(), named);
       await tester.pumpWidget(
-        app(sessions, home: const HostShellRoute(host: named)),
+        app(
+          sessions,
+          home: HostShellRoute(host: named, intent: testIntent()),
+        ),
       );
       await ready(tester);
 
@@ -613,13 +616,13 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
       for (var i = 0; i < 8; i++) {
-        sessions.open(intent: UserIntent.fromGesture(), rose);
+        sessions.open(intent: testIntent(), rose);
       }
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
       // Through the store: the plus itself is off the right edge here.
-      sessions.open(intent: UserIntent.fromGesture(), rose);
+      sessions.open(intent: testIntent(), rose);
       await ready(tester);
 
       final ninth = tester.getRect(
@@ -639,7 +642,7 @@ void main() {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     for (var i = 0; i < 9; i++) {
-      sessions.open(intent: UserIntent.fromGesture(), rose);
+      sessions.open(intent: testIntent(), rose);
     }
     await tester.pumpWidget(app(sessions));
     await ready(tester);

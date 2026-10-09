@@ -120,7 +120,7 @@ void main() {
         child: MaterialApp(
           theme: testTheme,
           home: AgentsScreen(
-            onOpen: (host, agent) => opened.add((host, agent)),
+            onOpen: (_, host, agent) => opened.add((host, agent)),
           ),
         ),
       ),

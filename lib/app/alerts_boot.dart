@@ -15,6 +15,7 @@ import '../platform/alert_notifications.dart';
 import '../platform/herdr_client.dart';
 import '../platform/host_links.dart';
 import '../platform/pin_notifications.dart';
+import '../platform/shell/shell_connection.dart';
 
 /// Set when the process was started by an `OPEN` tap on an alert, so a cold launch
 /// lands on the `AGENTS` route once there is a navigator to push it on.
@@ -31,10 +32,13 @@ Future<void> initAlerts() async {
   // Boot runs before there is a navigator, so a tap answered in here has nothing to push
   // on. Parked in the flags [AlertsHost] drains once it mounts over them.
   alertOpenHandler = deferAlertOpen;
-  pinOpenHandler = deferPinOpen;
+  pinOpenHandler = (hostId, _) => deferPinOpen(hostId);
   await AgentWatcher.init();
   await AlertNotifications.initialize(
-    onResponse: (response) => unawaited(handleAlertAction(response)),
+    onResponse: UserIntent.onNotificationTap(
+      (intent, response) =>
+          unawaited(handleAlertAction(response, intent: intent)),
+    ),
     onBackgroundResponse: alertActionBackground,
   );
   await PinNotifications.createChannel();
@@ -112,7 +116,7 @@ class _AlertsHostState extends ConsumerState<AlertsHost> {
       final pinHost = _pendingPinHost;
       if (pinHost != null) {
         _pendingPinHost = null;
-        _openShell(pinHost);
+        _openShell(pinHost, null);
       }
     });
   }
@@ -131,12 +135,12 @@ class _AlertsHostState extends ConsumerState<AlertsHost> {
   }
 
   /// A host that has since been deleted opens nothing: the request went with it.
-  void _openShell(String hostId) {
+  void _openShell(String hostId, UserIntent? intent) {
     unawaited(() async {
       final hosts = await ref.read(hostRepositoryProvider).all();
       final host = hosts.where((host) => host.id == hostId).firstOrNull;
       if (host == null || !mounted) return;
-      openHostShell(context, host);
+      openHostShell(context, host, intent: intent);
     }());
   }
 

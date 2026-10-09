@@ -15,6 +15,7 @@ import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../platform/shell/remote_shell.dart';
+import '../../platform/shell/shell_connection.dart';
 import '../../platform/workspace/workspace_model.dart';
 import '../shell/shell_sheet.dart';
 import 'explorer.dart';
@@ -158,11 +159,14 @@ class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
             label: 'SHELL',
             // The directory is the tab's own command, so the terminal comes up where the
             // sheet was rather than in `$HOME`.
-            onTap: () => openHostShell(
-              context,
-              widget.host,
-              command: shellIn(_controller.directory),
-              directory: _controller.directory,
+            onTap: UserIntent.onGesture(
+              (intent) => openHostShell(
+                context,
+                widget.host,
+                intent: intent,
+                command: shellIn(_controller.directory),
+                directory: _controller.directory,
+              ),
             ),
           ),
           _Cell(label: '×', onTap: () => Navigator.of(context).pop()),

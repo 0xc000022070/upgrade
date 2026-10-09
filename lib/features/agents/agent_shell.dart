@@ -7,12 +7,17 @@ import '../../application/navigation.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/components/panel_sheet.dart';
 import '../../platform/herdr_client.dart';
+import '../../platform/shell/shell_connection.dart';
 import '../shell/shell_sessions.dart';
 import '../shell/shell_sheet.dart';
 import '../hosts/hosts_screen.dart';
 import 'agent_chat_screen.dart';
 
-typedef AgentOpen = void Function(Host host, AgentSnapshot agent);
+typedef AgentOpen = void Function(
+  UserIntent intent,
+  Host host,
+  AgentSnapshot agent,
+);
 
 /// The tab is found before it is made: one already attached to the pane is activated,
 /// otherwise the user confirms moving the pane's terminal view to this device and a fresh
@@ -26,12 +31,13 @@ void openAgentShell(
   WidgetRef ref,
   Host host,
   AgentSnapshot agent,
+  UserIntent intent,
 ) {
   if (agent.engine) {
     openAgentChat(context, host, agent);
     return;
   }
-  openAgentPane(context, ref, host, agent.pane);
+  openAgentPane(context, ref, host, agent.pane, intent);
 }
 
 void openAgentPane(
@@ -39,14 +45,15 @@ void openAgentPane(
   WidgetRef ref,
   Host host,
   PaneRef pane,
+  UserIntent intent,
 ) {
   final held = ref.read(shellSessionsProvider).holding(host.id, pane);
   if (held != null) {
     ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex;
-    openHostShell(context, host, session: held);
+    openHostShell(context, host, intent: intent, session: held);
     return;
   }
-  unawaited(_confirmAndOpenAgentShell(context, ref, host, pane));
+  unawaited(_confirmAndOpenAgentShell(context, ref, host, pane, intent));
 }
 
 Future<void> _confirmAndOpenAgentShell(
@@ -54,6 +61,7 @@ Future<void> _confirmAndOpenAgentShell(
   WidgetRef ref,
   Host host,
   PaneRef pane,
+  UserIntent intent,
 ) async {
   final confirmed = await confirmSheet(
     context,
@@ -68,6 +76,7 @@ Future<void> _confirmAndOpenAgentShell(
   openHostShell(
     context,
     host,
+    intent: intent,
     command: HerdrCommands.attach(pane, takeover: true),
     pane: pane,
   );

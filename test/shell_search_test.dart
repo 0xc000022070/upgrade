@@ -6,11 +6,11 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/shell/host_shell_screen.dart';
 import 'package:upgrade/features/shell/shell_search.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/reasons.dart';
 import 'support/shell_route.dart' show noWorkspaces;
 
 const _rose = Host(
@@ -38,7 +38,7 @@ void main() {
       required String output,
     }) async {
       final sessions = fakeShellSessions(transport);
-      sessions.open(intent: UserIntent.fromGesture(), _rose);
+      sessions.open(intent: testIntent(), _rose);
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 5)),
       );
@@ -136,7 +136,7 @@ void main() {
     testWidgets('closing takes the marks with it', (tester) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      sessions.open(intent: UserIntent.fromGesture(), _rose);
+      sessions.open(intent: testIntent(), _rose);
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 5)),
       );
@@ -181,7 +181,7 @@ void main() {
       ],
       child: MaterialApp(
         theme: ThemeData(extensions: const [UpgradeTokens.house]),
-        home: const HostShellRoute(host: _rose),
+        home: HostShellRoute(host: _rose, intent: testIntent()),
       ),
     );
 

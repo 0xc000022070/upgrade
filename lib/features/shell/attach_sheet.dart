@@ -52,9 +52,8 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
   bool _busy = false;
   bool _help = false;
 
-  Future<void> _attachHeld(Clip clip) async {
+  Future<void> _attachHeld(UserIntent intent, Clip clip) async {
     if (_busy) return;
-    final intent = UserIntent.fromGesture();
     setState(() {
       _busy = true;
       _status = 'SENDING';
@@ -68,9 +67,8 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
     await _finish(result);
   }
 
-  Future<void> _attachPhotos() async {
+  Future<void> _attachPhotos(UserIntent intent) async {
     if (_busy) return;
-    final intent = UserIntent.fromGesture();
     setState(() => _busy = true);
     final List<Uint8List> photos;
     try {
@@ -153,7 +151,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
             ActionBlock(
               key: const ValueKey('attach-photos'),
               label: 'PHOTOS',
-              onTap: _attachPhotos,
+              onTap: UserIntent.onGesture(_attachPhotos),
             ),
             const SheetRule(),
             Text('HELD', style: context.tokens.label),
@@ -172,7 +170,9 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                     _ClipTile(
                       key: ValueKey('clip-${clip.id}'),
                       clip: clip,
-                      onTap: () => _attachHeld(clip),
+                      onTap: UserIntent.onGesture(
+                        (intent) => _attachHeld(intent, clip),
+                      ),
                       onRemove: () => clips.remove(clip),
                     ),
                 ],

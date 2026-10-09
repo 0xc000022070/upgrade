@@ -22,6 +22,7 @@ import 'package:upgrade/platform/ssh/connection_supervisor.dart'
 import 'package:upgrade/platform/ssh_settle.dart';
 
 import 'support/host_links.dart';
+import 'support/reasons.dart';
 import 'support/ssh_exec.dart';
 
 /// `dart:io` reports a reset on both ends of the socket: the stream the transport reads
@@ -489,7 +490,7 @@ Future<ShellConnection> openOn(
   HostKeyVerifier? verifier,
   void Function(Reconnect retry)? failed,
 }) => tunnel.open(
-  reason: UserAction(UserIntent.fromGesture()),
+  reason: UserAction(testIntent()),
   address: 'nyx',
   port: 357,
   user: 'luisnquin',
@@ -535,9 +536,7 @@ void main() {
       () async {
         final host = FakeHost();
         final connection = await openOn(tunnelTo(host));
-        addTearDown(
-          () => connection.close(UserClosed(UserIntent.fromGesture())),
-        );
+        addTearDown(() => connection.close(UserClosed(testIntent())));
 
         expect(host.requests, ['shell xterm-256color 100x40']);
       },
@@ -551,9 +550,7 @@ void main() {
           tunnelTo(host),
           command: "herdr agent attach 'w22:p1'",
         );
-        addTearDown(
-          () => connection.close(UserClosed(UserIntent.fromGesture())),
-        );
+        addTearDown(() => connection.close(UserClosed(testIntent())));
 
         // The same pty on the same kind of channel, under an exec request instead of a shell
         // request — `ssh -t`.
@@ -576,7 +573,7 @@ void main() {
         command: command,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(connection.continuity, ShellContinuity.started);
       expect(host.requests, [
@@ -596,7 +593,7 @@ void main() {
         command: 'exec \$SHELL -l',
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(connection.continuity, ShellContinuity.resumed);
     });
@@ -611,7 +608,7 @@ void main() {
         command: command,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(connection.continuity, ShellContinuity.plain);
       expect(host.requests, [
@@ -656,7 +653,7 @@ void main() {
       expect(channel.sent.single, [0x6c, 0x73, 0x0d]);
       expect(channel.sizes, [(columns: 91, rows: 37), (columns: 91, rows: 37)]);
       expect(channel.rehomes, 1);
-      await connection.close(UserClosed(UserIntent.fromGesture()));
+      await connection.close(UserClosed(testIntent()));
     });
 
     test('Mosh sends a resize while an earlier probe is pending', () async {
@@ -668,7 +665,7 @@ void main() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       connection.resize(91, 37);
       connection.resize(120, 45);
@@ -694,9 +691,7 @@ void main() {
           command: 'exec \$SHELL -l',
           tabSession: session,
         );
-        addTearDown(
-          () => connection.close(UserClosed(UserIntent.fromGesture())),
-        );
+        addTearDown(() => connection.close(UserClosed(testIntent())));
         final health = <ShellConnectionHealth>[];
         connection.health.listen(health.add);
 
@@ -727,9 +722,7 @@ void main() {
           command: 'exec \$SHELL -l',
           tabSession: session,
         );
-        addTearDown(
-          () => connection.close(UserClosed(UserIntent.fromGesture())),
-        );
+        addTearDown(() => connection.close(UserClosed(testIntent())));
         final health = <ShellConnectionHealth>[];
         connection.health.listen(health.add);
 
@@ -757,9 +750,7 @@ void main() {
           command: 'exec \$SHELL -l',
           tabSession: session,
         );
-        addTearDown(
-          () => connection.close(UserClosed(UserIntent.fromGesture())),
-        );
+        addTearDown(() => connection.close(UserClosed(testIntent())));
         final health = <ShellConnectionHealth>[];
         connection.health.listen(health.add);
 
@@ -785,7 +776,7 @@ void main() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
       Object? reported;
       connection.output.listen(
         (_) {},
@@ -814,9 +805,9 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
-      await connection.suspend(AppSuspended(PlatformSignal.fromPlatform()));
+      await connection.suspend(AppSuspended(testSignal()));
       final probes = channel.sizes.length;
       await connection.rehome();
 
@@ -830,7 +821,7 @@ void main() {
       );
       expect(dials, 1);
 
-      await connection.resume(AppResumed(PlatformSignal.fromPlatform()));
+      await connection.resume(AppResumed(testSignal()));
       await pumpEventQueue();
       final result = await connection.channels.exec(
         'pwd',
@@ -857,12 +848,10 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
-      await connection.rehome(
-        network: NetworkChanged(PlatformSignal.fromPlatform()),
-      );
-      await connection.suspend(AppSuspended(PlatformSignal.fromPlatform()));
+      await connection.rehome(network: NetworkChanged(testSignal()));
+      await connection.suspend(AppSuspended(testSignal()));
       await pumpEventQueue();
 
       expect(hosts[1].closed, isTrue);
@@ -870,9 +859,7 @@ void main() {
         await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
         isNull,
       );
-      await connection.rehome(
-        network: NetworkChanged(PlatformSignal.fromPlatform()),
-      );
+      await connection.rehome(network: NetworkChanged(testSignal()));
       await pumpEventQueue();
       expect(dials, 2);
     });
@@ -901,9 +888,7 @@ void main() {
       expect(dials, 1);
       expect(hosts.first.closed, isFalse);
       hosts.first.refuse = null;
-      await connection.rehome(
-        network: NetworkChanged(PlatformSignal.fromPlatform()),
-      );
+      await connection.rehome(network: NetworkChanged(testSignal()));
       await pumpEventQueue();
       final result = await connection.channels.exec(
         'pwd',
@@ -914,7 +899,7 @@ void main() {
       expect(dials, 2);
       expect(hosts.first.closed, isTrue);
       expect(hosts.last.requests.last, 'exec pwd');
-      await connection.close(UserClosed(UserIntent.fromGesture()));
+      await connection.close(UserClosed(testIntent()));
     });
 
     test('a probe timeout during channel open never redials', () async {
@@ -927,7 +912,7 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       final opening = Completer<ShellExec>();
       host.execGate = opening;
@@ -1030,7 +1015,7 @@ void main() {
 
       expect(dials, 1);
       expect(hosts.first.closed, isFalse);
-      await connection.close(UserClosed(UserIntent.fromGesture()));
+      await connection.close(UserClosed(testIntent()));
     });
 
     test('a host that dies leaves background reads empty until a gesture '
@@ -1047,7 +1032,7 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       hosts.first.die();
       await pumpEventQueue();
@@ -1058,7 +1043,7 @@ void main() {
       );
       expect(dials, 1);
 
-      final action = UserAction(UserIntent.fromGesture());
+      final action = UserAction(testIntent());
       final channels = await connection.channelsFor(action);
       final result = await channels?.exec(
         'pwd',
@@ -1088,13 +1073,13 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
       hosts.first.die();
       await pumpEventQueue();
 
       await Future.wait([
-        connection.channelsFor(UserAction(UserIntent.fromGesture())),
-        connection.channelsFor(UserAction(UserIntent.fromGesture())),
+        connection.channelsFor(UserAction(testIntent())),
+        connection.channelsFor(UserAction(testIntent())),
       ]);
 
       expect(dials, 2);
@@ -1115,18 +1100,14 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
       hosts.first.die();
       await pumpEventQueue();
       final gate = Completer<void>();
       hosts[1].authGate = gate;
 
-      final stale = connection.channelsFor(
-        UserAction(UserIntent.fromGesture()),
-      );
-      await connection.rehome(
-        network: NetworkChanged(PlatformSignal.fromPlatform()),
-      );
+      final stale = connection.channelsFor(UserAction(testIntent()));
+      await connection.rehome(network: NetworkChanged(testSignal()));
       gate.complete();
       await pumpEventQueue();
 
@@ -1163,18 +1144,14 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
       hosts.first.die();
       await pumpEventQueue();
       final gate = Completer<void>();
       hosts[1].authGate = gate;
 
-      final stale = connection.channelsFor(
-        UserAction(UserIntent.fromGesture()),
-      );
-      await connection.rehome(
-        network: NetworkChanged(PlatformSignal.fromPlatform()),
-      );
+      final stale = connection.channelsFor(UserAction(testIntent()));
+      await connection.rehome(network: NetworkChanged(testSignal()));
       gate.complete();
       await pumpEventQueue();
 
@@ -1201,7 +1178,7 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
       final links = <ControlLink>[];
       connection.controlLink.listen(links.add);
 
@@ -1288,7 +1265,7 @@ void main() {
       final events = <ControlLink>[];
       connection.controlLink.listen(events.add);
 
-      await connection.suspend(AppSuspended(PlatformSignal.fromPlatform()));
+      await connection.suspend(AppSuspended(testSignal()));
       links
         ..sleep()
         ..wake();
@@ -1305,7 +1282,7 @@ void main() {
       );
       expect(dials, 2);
 
-      unawaited(connection.resume(AppResumed(PlatformSignal.fromPlatform())));
+      unawaited(connection.resume(AppResumed(testSignal())));
       await tester.pump();
       expect(events.last, isA<ControlReconnecting>());
       expect(
@@ -1321,7 +1298,7 @@ void main() {
         await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
         isNotNull,
       );
-      unawaited(connection.close(UserClosed(UserIntent.fromGesture())));
+      unawaited(connection.close(UserClosed(testIntent())));
       await tester.pump(const Duration(seconds: 10));
       links.close();
     });
@@ -1341,13 +1318,11 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
       hosts.first.die();
       await pumpEventQueue();
 
-      final channels = await connection.channelsFor(
-        UserAction(UserIntent.fromGesture()),
-      );
+      final channels = await connection.channelsFor(UserAction(testIntent()));
       expect(dials, 2);
       expect(
         (await channels?.exec('pwd', timeout: remoteCommandDeadline))?.ok,
@@ -1375,7 +1350,7 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
       final links = <ControlLink>[];
       connection.controlLink.listen(links.add);
 
@@ -1411,7 +1386,7 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
       final links = <ControlLink>[];
       connection.controlLink.listen(links.add);
 
@@ -1455,7 +1430,7 @@ void main() {
         persistentSession: session,
         verifier: HostKeyVerifier.pinnedOnly(null),
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       hosts.first.die();
       await Future<void>.delayed(const Duration(milliseconds: 1200));
@@ -1488,7 +1463,7 @@ void main() {
           }) async => hosts[dials++],
         ),
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       hosts.first.die();
       await Future<void>.delayed(const Duration(milliseconds: 1200));
@@ -1507,7 +1482,7 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
       final before = host.requests.length;
 
       host.refuse = SSHChannelOpenError(1, 'channel open refused');
@@ -1532,11 +1507,11 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(connection.channels, isNot(isA<ConnectionSupervisor>()));
       expect(
-        await connection.channelsFor(UserAction(UserIntent.fromGesture())),
+        await connection.channelsFor(UserAction(testIntent())),
         isNot(isA<ConnectionSupervisor>()),
       );
     });
@@ -1551,7 +1526,7 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       await expectLater(
         connection.close(ShellEnded.unbound()),
@@ -1584,14 +1559,10 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
-      final suspended = connection.suspend(
-        AppSuspended(PlatformSignal.fromPlatform()),
-      );
-      final resumed = connection.resume(
-        AppResumed(PlatformSignal.fromPlatform()),
-      );
+      final suspended = connection.suspend(AppSuspended(testSignal()));
+      final resumed = connection.resume(AppResumed(testSignal()));
       await Future.wait([suspended, resumed]);
       await pumpEventQueue();
 
@@ -1626,15 +1597,11 @@ void main() {
             }) async => hosts[dials++],
           ),
         );
-        addTearDown(
-          () => connection.close(UserClosed(UserIntent.fromGesture())),
-        );
+        addTearDown(() => connection.close(UserClosed(testIntent())));
 
         hosts.first.die();
         await pumpEventQueue();
-        final channels = await connection.channelsFor(
-          UserAction(UserIntent.fromGesture()),
-        );
+        final channels = await connection.channelsFor(UserAction(testIntent()));
 
         expect(
           await channels?.exec('pwd', timeout: remoteCommandDeadline),
@@ -1658,14 +1625,10 @@ void main() {
         tabSession: session,
         persistentSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
-      final lease = await connection.channelsFor(
-        UserAction(UserIntent.fromGesture()),
-      );
+      addTearDown(() => connection.close(UserClosed(testIntent())));
+      final lease = await connection.channelsFor(UserAction(testIntent()));
 
-      await connection.rehome(
-        network: NetworkChanged(PlatformSignal.fromPlatform()),
-      );
+      await connection.rehome(network: NetworkChanged(testSignal()));
       await pumpEventQueue();
 
       expect(dials, 2);
@@ -1703,7 +1666,7 @@ void main() {
         'run ${durableShellCommand(_tmuxPath, session, command)} '
         'xterm-256color 100x40',
       );
-      await connection.close(UserClosed(UserIntent.fromGesture()));
+      await connection.close(UserClosed(testIntent()));
     });
 
     test('a failed Mosh bootstrap is cleaned before SSH fallback', () async {
@@ -1734,7 +1697,7 @@ void main() {
         'run ${durableShellCommand(_tmuxPath, session, command)} '
         'xterm-256color 100x40',
       );
-      await connection.close(UserClosed(UserIntent.fromGesture()));
+      await connection.close(UserClosed(testIntent()));
     });
 
     test('a link that dies under the Mosh bootstrap fails the open and opens '
@@ -1793,7 +1756,7 @@ void main() {
         isTrue,
       );
       expect(host.requests.last, 'exec ${moshServerCleanupCommand(session)}');
-      await connection.close(UserClosed(UserIntent.fromGesture()));
+      await connection.close(UserClosed(testIntent()));
     });
   });
 
@@ -1801,7 +1764,7 @@ void main() {
     test('stdout and stderr arrive merged, in the order they came', () async {
       final host = FakeHost();
       final connection = await openOn(tunnelTo(host));
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       final seen = <List<int>>[];
       connection.output.listen(seen.add);
@@ -1821,7 +1784,7 @@ void main() {
     test('what the shell printed before anyone listened is not lost', () async {
       final host = FakeHost();
       final connection = await openOn(tunnelTo(host));
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       host.pty.out([0x24, 0x20]);
       await pumpEventQueue();
@@ -1838,7 +1801,7 @@ void main() {
     test('a stream that fails reaches the reader as a reason', () async {
       final host = FakeHost();
       final connection = await openOn(tunnelTo(host));
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       final errors = <Object>[];
       connection.output.listen((_) {}, onError: errors.add);
@@ -1856,7 +1819,7 @@ void main() {
     test('typed bytes go to stdin as they were given', () async {
       final host = FakeHost();
       final connection = await openOn(tunnelTo(host));
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       connection.write(Uint8List.fromList([0x6c, 0x73]));
       connection.write(Uint8List.fromList([0x0d]));
@@ -1870,7 +1833,7 @@ void main() {
     test('a resize is one window change with columns then rows', () async {
       final host = FakeHost();
       final connection = await openOn(tunnelTo(host));
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       connection.resize(120, 45);
       connection.resize(80, 24);
@@ -1964,7 +1927,7 @@ void main() {
       final errors = <Object>[];
       connection.output.listen((_) {}, onError: errors.add);
 
-      await connection.close(UserClosed(UserIntent.fromGesture()));
+      await connection.close(UserClosed(testIntent()));
       host.pty.lose();
       await pumpEventQueue();
 
@@ -1975,7 +1938,7 @@ void main() {
       final host = FakeHost();
       final connection = await openOn(tunnelTo(host));
 
-      await connection.close(UserClosed(UserIntent.fromGesture()));
+      await connection.close(UserClosed(testIntent()));
 
       expect(host.pty.closed, isTrue);
       expect(host.closed, isTrue);
@@ -2004,7 +1967,7 @@ void main() {
         host.requests.last,
         'exec ${durableShellTerminateCommand(tmux, session)}',
       );
-      await connection.close(UserClosed(UserIntent.fromGesture()));
+      await connection.close(UserClosed(testIntent()));
     });
 
     test('a durable shell reports the active pane directory', () async {
@@ -2023,7 +1986,7 @@ void main() {
         host.requests.last,
         'exec ${durableShellDirectoryCommand(tmux, session)}',
       );
-      await connection.close(UserClosed(UserIntent.fromGesture()));
+      await connection.close(UserClosed(testIntent()));
     });
   });
 
@@ -2302,7 +2265,7 @@ void main() {
       );
 
       await tunnel.open(
-        reason: UserAction(UserIntent.fromGesture()),
+        reason: UserAction(testIntent()),
         address: 'nyx',
         port: 357,
         user: 'luisnquin',
@@ -2512,7 +2475,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+    addTearDown(() => connection.close(UserClosed(testIntent())));
     expect(connection, isA<EngineShellConnection>());
     expect(sshDials, 1);
 
@@ -2535,7 +2498,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+    addTearDown(() => connection.close(UserClosed(testIntent())));
 
     expect(connection, isA<EngineShellConnection>());
     expect(connection.transport, ShellTransport.engine);
@@ -2605,13 +2568,13 @@ void engineTests() {
 
     final first = await open();
     expect(first.seamless, isFalse);
-    await first.close(UserClosed(UserIntent.fromGesture()));
+    await first.close(UserClosed(testIntent()));
     final second = await open();
     expect(second.seamless, isTrue);
-    await second.close(UserClosed(UserIntent.fromGesture()));
+    await second.close(UserClosed(testIntent()));
     epoch = 'two';
     final third = await open();
-    addTearDown(() => third.close(UserClosed(UserIntent.fromGesture())));
+    addTearDown(() => third.close(UserClosed(testIntent())));
     expect(third.seamless, isFalse);
     expect(resumes, [null, same(left), null]);
   });
@@ -2660,15 +2623,15 @@ void engineTests() {
     Future<ShellConnection> open() =>
         openOn(tunnel, command: 'exec \$SHELL -l', tabSession: session);
 
-    await (await open()).close(UserClosed(UserIntent.fromGesture()));
+    await (await open()).close(UserClosed(testIntent()));
     final carried = await open() as EngineShellConnection;
     expect(carried.seamless, isTrue);
-    await carried.close(UserClosed(UserIntent.fromGesture()));
+    await carried.close(UserClosed(testIntent()));
     final fallback = await open();
     expect(fallback, isNot(isA<EngineShellConnection>()));
-    await fallback.close(UserClosed(UserIntent.fromGesture()));
+    await fallback.close(UserClosed(testIntent()));
     final fresh = await open() as EngineShellConnection;
-    addTearDown(() => fresh.close(UserClosed(UserIntent.fromGesture())));
+    addTearDown(() => fresh.close(UserClosed(testIntent())));
 
     expect(fresh.seamless, isFalse);
     expect(resumes, [null, same(left), same(left), null]);
@@ -2684,7 +2647,7 @@ void engineTests() {
       tabSession: session,
       persistentSession: session,
     );
-    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+    addTearDown(() => connection.close(UserClosed(testIntent())));
 
     expect(connection.continuity, ShellContinuity.started);
     final args = engineRequests(host).single['args'] as Map<String, Object?>;
@@ -2705,7 +2668,7 @@ void engineTests() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(connection, isA<MoshShellConnection>());
       expect(engineRequests(host).map((request) => request['op']), ['start']);
@@ -2751,7 +2714,7 @@ void engineTests() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(connection, isA<MoshShellConnection>());
       expect(engine.closed, isTrue);
@@ -2773,7 +2736,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(() => live.close(UserClosed(UserIntent.fromGesture())));
+    addTearDown(() => live.close(UserClosed(testIntent())));
     expect(live, isA<EngineShellConnection>());
     expect(live.continuity, ShellContinuity.resumed);
 
@@ -2790,7 +2753,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(() => fallback.close(UserClosed(UserIntent.fromGesture())));
+    addTearDown(() => fallback.close(UserClosed(testIntent())));
     expect(fallback, isA<MoshShellConnection>());
     expect(engineRequests(silent).map((request) => request['op']), ['start']);
   });
@@ -2800,7 +2763,7 @@ void engineTests() {
     final connection = await openOn(
       engineTunnelTo(host, FakeEngineChannel(), FakeMoshChannel()),
     );
-    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+    addTearDown(() => connection.close(UserClosed(testIntent())));
 
     expect(connection, isA<SshShellConnection>());
     expect(host.inputs, isEmpty);
@@ -2815,7 +2778,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+    addTearDown(() => connection.close(UserClosed(testIntent())));
 
     final seen = <String>[];
     connection.snapshots.listen(
@@ -2853,7 +2816,7 @@ void engineTests() {
       'args': {'tab': session},
     });
     expect(host.requests.last, 'exec ${moshServerCleanupCommand(session)}');
-    await connection.close(UserClosed(UserIntent.fromGesture()));
+    await connection.close(UserClosed(testIntent()));
   });
 
   test('a retired tab is stopped without touching the live channel', () async {
@@ -2864,7 +2827,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+    addTearDown(() => connection.close(UserClosed(testIntent())));
 
     expect(
       await connection.terminateRemote('upgrade456', durableShell: false),
@@ -2881,7 +2844,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+    addTearDown(() => connection.close(UserClosed(testIntent())));
     host.execInputAnswer = (command, stdin) => command.endsWith('upgraded')
         ? '{"ok":false,"error":{"kind":"failed","message":"no"}}'
         : '';
@@ -2934,7 +2897,7 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+    addTearDown(() => connection.close(UserClosed(testIntent())));
     final health = <ShellConnectionHealth>[];
     connection.health.listen(health.add);
     final failure = Completer<Object>();
@@ -2955,12 +2918,12 @@ void engineTests() {
       command: 'exec \$SHELL -l',
       tabSession: session,
     );
-    addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+    addTearDown(() => connection.close(UserClosed(testIntent())));
 
-    await connection.suspend(AppSuspended(PlatformSignal.fromPlatform()));
+    await connection.suspend(AppSuspended(testSignal()));
     expect(engine.suspends, 1);
     expect(host.closed, isTrue);
-    await connection.resume(AppResumed(PlatformSignal.fromPlatform()));
+    await connection.resume(AppResumed(testSignal()));
     expect(engine.rehomes, 1);
   });
 
@@ -2994,7 +2957,7 @@ void engineTests() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(connection, isA<SshShellConnection>());
       expect(connection.transport, ShellTransport.ssh);
@@ -3024,7 +2987,7 @@ void engineTests() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(connection, isA<MoshShellConnection>());
       expect(verdicts.silent('nyx'), isFalse);
@@ -3045,7 +3008,7 @@ void engineTests() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(connection, isA<MoshShellConnection>());
       expect(verdicts.silent('nyx'), isFalse);
@@ -3080,9 +3043,7 @@ void engineTests() {
             command: 'exec \$SHELL -l',
             tabSession: session,
           );
-          addTearDown(
-            () => connection.close(UserClosed(UserIntent.fromGesture())),
-          );
+          addTearDown(() => connection.close(UserClosed(testIntent())));
           return connection;
         }
 
@@ -3121,7 +3082,7 @@ void engineTests() {
         command: 'exec \$SHELL -l',
         tabSession: session,
       );
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(connection, isA<EngineShellConnection>());
       expect(verdicts.silent('nyx'), isFalse);
@@ -3140,9 +3101,7 @@ void engineTests() {
           command: 'exec \$SHELL -l',
           tabSession: session,
         );
-        addTearDown(
-          () => connection.close(UserClosed(UserIntent.fromGesture())),
-        );
+        addTearDown(() => connection.close(UserClosed(testIntent())));
 
         expect(connection, isA<SshShellConnection>());
         expect(mosh.closed, isTrue);
@@ -3209,7 +3168,7 @@ void plainTabTests() {
   Future<({ShellSessions sessions, List<FakeHost> hosts, ShellSession tab})>
   live(WidgetTester tester) async {
     final (:sessions, :hosts) = plainTabs();
-    final tab = sessions.open(intent: UserIntent.fromGesture(), _vm)!;
+    final tab = sessions.open(intent: testIntent(), _vm)!;
     await _settleTab(tester);
     expect(tab.state, isA<ShellLive>());
     expect(hosts, hasLength(1));
@@ -3217,7 +3176,7 @@ void plainTabTests() {
   }
 
   Future<void> closeTab(ShellSessions sessions, ShellSession tab) =>
-      sessions.close(intent: UserIntent.fromGesture(), _vm.id, tab);
+      sessions.close(intent: testIntent(), _vm.id, tab);
 
   testWidgets('a shell a signal ended exits and is not dialled again', (
     tester,
@@ -3311,7 +3270,7 @@ void plainTabTests() {
     final (:sessions, :hosts, :tab) = await live(tester);
     hosts.single.answers = false;
 
-    sessions.wakeAll(PlatformSignal.fromPlatform(), network: true);
+    sessions.wakeAll(testSignal(), network: true);
     await tester.pump();
     expect(hosts.single.checks, 1);
     await tester.pump(const Duration(seconds: 5));
@@ -3329,7 +3288,7 @@ void plainTabTests() {
   testWidgets('a network change leaves a live link as it was', (tester) async {
     final (:sessions, :hosts, :tab) = await live(tester);
 
-    sessions.wakeAll(PlatformSignal.fromPlatform(), network: true);
+    sessions.wakeAll(testSignal(), network: true);
     await tester.pump();
     await tester.pump(const Duration(seconds: 10));
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/tokens.dart';
 import '../../design/spacing.dart';
+import '../../platform/shell/shell_connection.dart';
 import 'shell_sheet.dart';
 import 'shell_sessions.dart';
 import 'shell_watcher.dart';
@@ -51,7 +52,14 @@ class _Bar extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       // The session, not the host: the bar names one tab and lands on the tab it
       // names.
-      onTap: () => openHostShell(context, session.host, session: session),
+      onTap: UserIntent.onGesture(
+        (intent) => openHostShell(
+          context,
+          session.host,
+          intent: intent,
+          session: session,
+        ),
+      ),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: context.tokens.surfacePrimary,
