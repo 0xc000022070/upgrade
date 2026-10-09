@@ -26,7 +26,8 @@
 /// - A held link ends only when its keepalive goes unanswered; [check] runs one round early.
 ///   A terminal silent past its window has ended.
 /// - [HealthCheckFailed] comes only from [HostLease.ended] and reopens only its own host's
-///   supervisor, on a fixed schedule if the transport asks for it. No other timer dials.
+///   supervisor, on a fixed schedule if the transport asks for it. The only other timer
+///   that dials is a dropped tab's reconnect schedule in `ShellSessions`, with a [Reconnect].
 /// Settling: a dial refused while an earlier one settles ([DialSettling]) waits for it; that
 /// is not a failure or a revive step. A [UserAction] waits [SshConnector.timeout] at most.
 /// Sleep: past the sleep grace only a live plain-SSH terminal's control link stays, and only
