@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -151,25 +150,32 @@ void main() {
     ) async {
       final client = FakeLinkClient();
       var dials = 0;
-      final connector = SshConnector(
+      final pool = HostLinks(
+        keepAlive: const Duration(days: 1),
         dial:
             ({
               required address,
               required port,
               required user,
               required privateKey,
-              required timeout,
               required verifier,
+              onSettling,
             }) async {
-              if (dials++ == 0) return sshHostOver(FakeExecSocket(), client);
+              if (dials++ == 0) {
+                return (
+                  socket: FakeExecSocket(),
+                  client: client,
+                  received: () => 0,
+                );
+              }
               throw refusal;
             },
-        timeout: const Duration(seconds: 10),
       );
-      final tab = await _tab(connector)
+      final tab = await _tab(_connector(pool))
         ..reopenWhenHostDies();
       final links = <ControlLink>[];
       tab.controlLink.listen(links.add);
+      addTearDown(pool.close);
       return (tab, client, links);
     }
 
@@ -233,25 +239,27 @@ void main() {
     testWidgets('until a gesture holds the host again', (tester) async {
       final client = FakeLinkClient();
       var dials = 0;
-      final connector = SshConnector(
+      final pool = HostLinks(
+        keepAlive: const Duration(days: 1),
         dial:
             ({
               required address,
               required port,
               required user,
               required privateKey,
-              required timeout,
               required verifier,
+              onSettling,
             }) async {
               if (dials++ == 1) throw SSHAuthFailError('no more methods');
-              return sshHostOver(
-                FakeExecSocket(),
-                dials == 1 ? client : FakeLinkClient(),
+              return (
+                socket: FakeExecSocket(),
+                client: dials == 1 ? client : FakeLinkClient(),
+                received: () => 0,
               );
             },
-        timeout: const Duration(seconds: 10),
       );
-      final tab = await _tab(connector)
+      addTearDown(pool.close);
+      final tab = await _tab(_connector(pool))
         ..reopenWhenHostDies();
       final links = <ControlLink>[];
       tab.controlLink.listen(links.add);
@@ -264,6 +272,7 @@ void main() {
       await tester.pump();
       expect(links.last, isA<ControlUp>());
       await tab.drop(UserClosed(UserIntent.fromGesture()));
+      pool.close();
     });
   });
 
@@ -670,85 +679,29 @@ void main() {
   });
 
   test('channels from an earlier hold answer null once the tab holds the host '
-      'again, even when the dialer hands back the same host', () async {
-    final host = _ReusedHost();
-    final connector = SshConnector(
-      dial: ({
-        required address,
-        required port,
-        required user,
-        required privateKey,
-        required timeout,
-        required verifier,
-      }) async => host,
-      timeout: const Duration(seconds: 10),
+      'again, even on a lease of the same link', () async {
+    final dial = FakeDial()
+      ..prepare = (client) =>
+          client.reply = (_) => (stdout: '', stderr: '', exitCode: 0);
+    final links = HostLinks(
+      dial: dial.call,
+      keepAlive: const Duration(days: 1),
     );
-    final tab = await _tab(connector);
+    final tab = await _tab(_connector(links));
     final before = await tab.open(UserAction(UserIntent.fromGesture()));
     expect(await before?.exec('true', timeout: _deadline), isNotNull);
 
-    final change = NetworkChanged(PlatformSignal.fromPlatform());
-    await tab.drop(change);
-    final after = await tab.open(change);
+    await tab.drop(AppSuspended(PlatformSignal.fromPlatform()));
+    final after = await tab.open(AppResumed(PlatformSignal.fromPlatform()));
 
     expect(after, isNotNull);
     expect(await before?.exec('true', timeout: _deadline), isNull);
     expect(await after?.exec('true', timeout: _deadline), isNotNull);
-    expect(host.executes, 2);
+    expect(dial.dials, 1);
+    expect(dial.clients.single.commands, ['true', 'true']);
     await tab.drop(UserClosed(UserIntent.fromGesture()));
+    links.close();
   });
 }
 
 const _deadline = Duration(seconds: 1);
-
-final class _ReusedHost implements ShellHost {
-  var executes = 0;
-
-  @override
-  Future<void> get authenticated => Future.value();
-
-  @override
-  Future<void> get done => Completer<void>().future;
-
-  @override
-  Future<ShellExec> execute(String command) async {
-    executes++;
-    return _DoneExec();
-  }
-
-  @override
-  Future<ShellPty> shell(SSHPtyConfig pty) => throw UnimplementedError();
-
-  @override
-  Future<ShellPty> run(String command, SSHPtyConfig pty) =>
-      throw UnimplementedError();
-
-  @override
-  Future<bool> check() async => true;
-
-  @override
-  Future<void> close() async {}
-}
-
-final class _DoneExec implements ShellExec {
-  @override
-  Stream<Uint8List> get stdout => const Stream.empty();
-
-  @override
-  Stream<Uint8List> get stderr => const Stream.empty();
-
-  @override
-  Future<void> get done => Future.value();
-
-  @override
-  int? get exitCode => 0;
-
-  @override
-  void write(Uint8List bytes) {}
-
-  @override
-  Future<void> closeStdin() async {}
-
-  @override
-  void close() {}
-}

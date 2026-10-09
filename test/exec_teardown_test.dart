@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:upgrade/platform/herdr_client.dart';
-import 'package:upgrade/platform/shell/shell_tunnel.dart';
+import 'package:upgrade/platform/ssh_settle.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/host_links.dart';
@@ -13,7 +13,7 @@ void main() {
   test('a command given up on is ended on the host', () {
     final session = FakeExecSession();
 
-    sshExecOver(session).close();
+    endExec(session);
 
     expect(session.signals, [SSHSignal.TERM]);
     expect(session.destroyed, 1);

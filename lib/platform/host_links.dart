@@ -104,6 +104,8 @@ class HostLease {
 
   bool get closed => _released || _link.ended || _link.client.isClosed;
 
+  Future<void> get ended => _link.over.future;
+
   Future<SSHSession> execute(String command, {SSHPtyConfig? pty}) =>
       _links._session(this, (client) => client.execute(command, pty: pty));
 
@@ -164,6 +166,7 @@ class _Link {
   int heard;
   DateTime heardAt;
   bool ended = false;
+  final over = Completer<void>.sync();
   Timer? keepAlive;
   var probed = 0;
   var answered = true;
@@ -435,14 +438,14 @@ class HostLinks {
     final socket = _CountingSocket(
       await SSHSocket.connect(address, port, timeout: timeout),
     );
-    final client = _client(socket, user, privateKey, null, verifier.verify);
-    try {
-      await authenticatedWithin(client.authenticated, verifier, timeout);
-      return (socket: socket, client: client, received: () => socket.received);
-    } catch (_) {
-      onSettling?.call(closeSettled(client, socket));
-      rethrow;
-    }
+    return authenticatedLink(
+      socket,
+      _client(socket, user, privateKey, null, verifier.verify),
+      () => socket.received,
+      verifier: verifier,
+      timeout: timeout,
+      onSettling: onSettling,
+    );
   }
 
   void close() {
@@ -720,6 +723,7 @@ class HostLinks {
     unawaited(closeSsh(link.client, link.ssh.socket));
     final overflow = link.overflow;
     if (overflow != null) _end(overflow, 'parent ended');
+    link.over.complete();
   }
 
   void _settle(String key, HostTarget target, Future<void> settled) {
@@ -731,6 +735,23 @@ class HostLinks {
     }
 
     settled.then((_) => lift(), onError: (Object _) => lift());
+  }
+}
+
+Future<SshLink> authenticatedLink(
+  SSHSocket socket,
+  SSHClient client,
+  int Function() received, {
+  required HostKeyVerifier verifier,
+  required Duration timeout,
+  void Function(Future<void> settled)? onSettling,
+}) async {
+  try {
+    await authenticatedWithin(client.authenticated, verifier, timeout);
+    return (socket: socket, client: client, received: received);
+  } catch (_) {
+    onSettling?.call(closeSettled(client, socket));
+    rethrow;
   }
 }
 

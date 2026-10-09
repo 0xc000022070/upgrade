@@ -114,7 +114,6 @@ void main() {
       _mints(RegExp(r'(?<!\bthis)\.client\b(?!\])'), except: _hostLinks),
       {
         'lib/platform/herdr_client.dart': 1,
-        'lib/platform/ssh/ssh_host.dart': 1,
         'lib/platform/vnc/vnc_tunnel.dart': 1,
       },
       reason: 'a raw client can close the connection under every lease; $_seam',

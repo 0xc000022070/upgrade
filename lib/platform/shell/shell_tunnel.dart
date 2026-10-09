@@ -17,9 +17,6 @@ import 'remote_shell.dart';
 import 'shell_connection.dart';
 import 'udp_path.dart';
 
-export '../ssh/connection_supervisor.dart'
-    show ShellDialer, ShellExec, ShellHost, ShellPty, sshExecOver, sshHostOver;
-
 /// A tab with a persistent session is an exec request rather than a shell request,
 /// because typing a line at a login shell is a race against everything that shell reads
 /// before its prompt: a host whose rc asks which session to open eats the line's first
@@ -29,13 +26,12 @@ class ShellTunnel {
     this.timeout = const Duration(seconds: 10),
     this.moshHealthInterval = const Duration(seconds: 3),
     this.moshGiveUp = const Duration(seconds: 30),
-    ShellDialer? dial,
     HostLinks? links,
     this.moshDialer = dialMosh,
     this.engineDialer = dialEngine,
     UdpVerdicts? udpVerdicts,
   }) : udpVerdicts = udpVerdicts ?? UdpVerdicts(),
-       _connector = SshConnector(dial: dial, links: links, timeout: timeout);
+       _connector = SshConnector(links: links, timeout: timeout);
 
   static const terminalType = 'xterm-256color';
 
@@ -1308,7 +1304,7 @@ class SshShellConnection implements ShellConnection {
     _reading.add(_pty.stdout.listen(_emit, onError: _onStreamError));
     _reading.add(_pty.stderr.listen(_emit, onError: _onStreamError));
     _pty.done.then(
-      (_) => _finish(_pty.exitCode, signal: _pty.exitSignal),
+      (_) => _finish(_pty.exitCode, signal: _pty.exitSignal?.signalName),
       onError: (Object error) {
         _onStreamError(error);
         _finish(null);
@@ -1319,7 +1315,7 @@ class SshShellConnection implements ShellConnection {
   static const stallWindow = Duration(seconds: 5);
 
   final ConnectionSupervisor _supervisor;
-  final ShellPty _pty;
+  final SSHSession _pty;
   Timer? _stall;
   @override
   final ShellContinuity continuity;

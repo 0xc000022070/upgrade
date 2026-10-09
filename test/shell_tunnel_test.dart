@@ -66,7 +66,7 @@ class RudeSocket implements SSHSocket {
   }
 }
 
-class FakePty implements ShellPty {
+class FakePty implements SSHSession {
   // A cancel with no onCancel hands back a root-zone future, which a fake clock never
   // completes: a tab closing under testWidgets would wait on it forever.
   final _stdout = StreamController<Uint8List>(onCancel: () async {});
@@ -92,13 +92,28 @@ class FakePty implements ShellPty {
   int? get exitCode => reported;
 
   @override
-  String? get exitSignal => signal;
+  SSHSessionExitSignal? get exitSignal {
+    final name = signal;
+    return name == null
+        ? null
+        : SSHSessionExitSignal(
+            signalName: name,
+            coreDumped: false,
+            errorMessage: '',
+            languageTag: '',
+          );
+  }
 
   @override
   void write(Uint8List bytes) => writes.add(bytes);
 
   @override
-  void resizeTerminal(int columns, int rows) => resizes.add('${columns}x$rows');
+  void resizeTerminal(
+    int columns,
+    int rows, [
+    int pixelWidth = 0,
+    int pixelHeight = 0,
+  ]) => resizes.add('${columns}x$rows');
 
   @override
   void close() => closed = true;
@@ -114,7 +129,7 @@ class FakePty implements ShellPty {
     _done.complete();
   }
 
-  void kill(String name) {
+  void signalled(String name) {
     signal = name;
     _done.complete();
   }
@@ -122,26 +137,37 @@ class FakePty implements ShellPty {
   /// dartssh2 4.0.0 on a dead link: every channel is destroyed, which closes its stream
   /// cleanly and completes `done` normally, with no exit status.
   void lose() {
+    if (_done.isCompleted) return;
     unawaited(_stdout.close());
     unawaited(_stderr.close());
     _done.complete();
   }
 
   void endOn(Object error) => _done.completeError(error);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class FakeExec implements ShellExec {
+class FakeExec implements SSHSession {
   FakeExec({this.out = '', this.err = '', this.reported = 0, this.answerInput});
 
   final String Function(String stdin)? answerInput;
   final _input = BytesBuilder();
   final _answer = StreamController<Uint8List>();
+  final _channel = FakeExecChannel();
+  late final _stdin = _FakeStdin(_input, _closeStdin);
 
   final _done = Completer<void>();
   final String out;
   final String err;
   final int? reported;
-  bool closed = false;
+  final killed = <SSHSignal>[];
+
+  bool get closed => _channel.destroyed > 0;
+
+  @override
+  get channel => _channel;
 
   @override
   Stream<Uint8List> get stdout => answerInput != null
@@ -162,10 +188,12 @@ class FakeExec implements ShellExec {
   int? get exitCode => reported;
 
   @override
-  void write(Uint8List bytes) => _input.add(bytes);
+  StreamSink<Uint8List> get stdin => _stdin;
 
   @override
-  Future<void> closeStdin() async {
+  void kill(SSHSignal signal) => killed.add(signal);
+
+  Future<void> _closeStdin() async {
     final answer = answerInput;
     if (answer != null && !_answer.isClosed) {
       final said = answer(utf8.decode(_input.takeBytes()));
@@ -176,13 +204,26 @@ class FakeExec implements ShellExec {
   }
 
   @override
-  void close() {
-    closed = true;
-    if (!_done.isCompleted) _done.complete();
-  }
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class FakeHost implements ShellHost {
+final class _FakeStdin implements StreamSink<Uint8List> {
+  _FakeStdin(this._input, this._close);
+
+  final BytesBuilder _input;
+  final Future<void> Function() _close;
+
+  @override
+  void add(Uint8List data) => _input.add(data);
+
+  @override
+  Future<void> close() => _close();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakeHost implements SSHClient {
   FakeHost({
     this.authError,
     this.shellError,
@@ -195,7 +236,7 @@ class FakeHost implements ShellHost {
   final Object? shellError;
   Object? refuse;
   Completer<void>? authGate;
-  Completer<ShellExec>? execGate;
+  Completer<SSHSession>? execGate;
   String execOut;
   String execError;
   int? execCode;
@@ -206,8 +247,16 @@ class FakeHost implements ShellHost {
   final inputs = <String>[];
 
   final requests = <String>[];
-  final pty = FakePty();
+
+  FakePty pty = FakePty();
+  final _ptys = <FakePty>[];
   bool closed = false;
+
+  FakePty _nextPty() {
+    if (_ptys.isNotEmpty) pty = FakePty();
+    _ptys.add(pty);
+    return pty;
+  }
 
   @override
   Future<void> get authenticated async {
@@ -217,7 +266,18 @@ class FakeHost implements ShellHost {
   }
 
   @override
-  Future<ShellExec> execute(String command) async {
+  Future<SSHSession> execute(
+    String command, {
+    SSHPtyConfig? pty,
+    SSHX11Config? x11,
+    Map<String, String>? environment,
+  }) async {
+    if (pty != null) {
+      requests.add('run $command ${pty.type} ${pty.width}x${pty.height}');
+      final error = shellError;
+      if (error != null) throw error;
+      return _nextPty();
+    }
     requests.add('exec $command');
     final error = refuse;
     if (error != null) throw error;
@@ -238,21 +298,15 @@ class FakeHost implements ShellHost {
   }
 
   @override
-  Future<ShellPty> shell(SSHPtyConfig config) async {
-    requests.add('shell ${config.type} ${config.width}x${config.height}');
+  Future<SSHSession> shell({
+    SSHPtyConfig? pty = const SSHPtyConfig(),
+    SSHX11Config? x11,
+    Map<String, String>? environment,
+  }) async {
+    requests.add('shell ${pty?.type} ${pty?.width}x${pty?.height}');
     final error = shellError;
     if (error != null) throw error;
-    return pty;
-  }
-
-  @override
-  Future<ShellPty> run(String command, SSHPtyConfig config) async {
-    requests.add(
-      'run $command ${config.type} ${config.width}x${config.height}',
-    );
-    final error = shellError;
-    if (error != null) throw error;
-    return pty;
+    return _nextPty();
   }
 
   final _gone = Completer<void>();
@@ -261,15 +315,13 @@ class FakeHost implements ShellHost {
   var checks = 0;
 
   @override
-  Future<bool> check() async {
+  Future<void> ping() async {
     checks++;
-    if (answers) return !_gone.isCompleted;
-    await Future<void>.delayed(const Duration(seconds: 5));
-    if (_gone.isCompleted) return false;
-    die();
-    pty.lose();
-    return false;
+    if (!answers) await Completer<void>().future;
   }
+
+  @override
+  bool get isClosed => _gone.isCompleted;
 
   @override
   Future<void> get done => _gone.future;
@@ -282,14 +334,24 @@ class FakeHost implements ShellHost {
   Future<void> close() async {
     closed = true;
     die();
+    for (final pty in _ptys) {
+      pty.lose();
+    }
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _SilentPtyHost extends FakeHost {
-  final opening = Completer<ShellPty>();
+  final opening = Completer<SSHSession>();
 
   @override
-  Future<ShellPty> shell(SSHPtyConfig config) => opening.future;
+  Future<SSHSession> shell({
+    SSHPtyConfig? pty = const SSHPtyConfig(),
+    SSHX11Config? x11,
+    Map<String, String>? environment,
+  }) => opening.future;
 }
 
 class FakeMoshChannel implements MoshChannel {
@@ -365,21 +427,42 @@ class FakeMoshChannel implements MoshChannel {
       );
 }
 
-ShellTunnel tunnelTo(FakeHost host, {Object? dialError}) => ShellTunnel(
-  dial:
-      ({
-        required String address,
-        required int port,
-        required String user,
-        required String privateKey,
-        HostKeyVerifier? verifier,
-        required Duration timeout,
-      }) async {
-        final error = dialError;
-        if (error != null) throw error;
-        return host;
-      },
-);
+HostLinks linksOver(
+  FutureOr<FakeHost> Function(HostKeyVerifier verifier) next, {
+  Duration timeout = const Duration(seconds: 10),
+  Object? dialError,
+}) {
+  final links = HostLinks(
+    timeout: timeout,
+    keepAlive: const Duration(days: 1),
+    linger: Duration.zero,
+    dial:
+        ({
+          required address,
+          required port,
+          required user,
+          required privateKey,
+          required verifier,
+          onSettling,
+        }) async {
+          final error = dialError;
+          if (error != null) throw error;
+          return authenticatedLink(
+            FakeExecSocket(),
+            await next(verifier),
+            () => 0,
+            verifier: verifier,
+            timeout: timeout,
+            onSettling: onSettling,
+          );
+        },
+  );
+  addTearDown(links.close);
+  return links;
+}
+
+ShellTunnel tunnelTo(FakeHost host, {Object? dialError}) =>
+    ShellTunnel(links: linksOver((_) => host, dialError: dialError));
 
 ShellTunnel moshTunnelTo(
   FakeHost host,
@@ -392,14 +475,7 @@ ShellTunnel moshTunnelTo(
   timeout: timeout,
   moshHealthInterval: healthInterval,
   moshGiveUp: giveUp,
-  dial: ({
-    required String address,
-    required int port,
-    required String user,
-    required String privateKey,
-    HostKeyVerifier? verifier,
-    required Duration timeout,
-  }) async => host,
+  links: linksOver((_) => host, timeout: timeout),
   moshDialer:
       ({
         required MoshServerConfig server,
@@ -416,14 +492,7 @@ ShellTunnel moshTunnelOver(
   FakeMoshChannel channel,
   int Function() dialled,
 ) => ShellTunnel(
-  dial: ({
-    required String address,
-    required int port,
-    required String user,
-    required String privateKey,
-    HostKeyVerifier? verifier,
-    required Duration timeout,
-  }) async => hosts[dialled()],
+  links: linksOver((_) => hosts[dialled()]),
   moshDialer:
       ({
         required MoshServerConfig server,
@@ -447,29 +516,21 @@ ShellTunnel moshTunnelOffering(
   List<String?> fingerprints,
   List<HostKeyVerifier> verifiers,
 ) => ShellTunnel(
-  dial:
-      ({
-        required String address,
-        required int port,
-        required String user,
-        required String privateKey,
-        required HostKeyVerifier verifier,
-        required Duration timeout,
-      }) async {
-        final dial = verifiers.length;
-        verifiers.add(verifier);
-        final offered = fingerprints[dial];
-        if (offered == null ||
-            await verifier.verifyFingerprint('ssh-ed25519', offered)) {
-          return hosts[dial];
-        }
-        return FakeHost(
-          authError: SSHAuthAbortError(
-            'Connection closed before authentication',
-            SSHHostkeyError('Hostkey verification failed'),
-          ),
-        );
-      },
+  links: linksOver((verifier) async {
+    final dial = verifiers.length;
+    verifiers.add(verifier);
+    final offered = fingerprints[dial];
+    if (offered == null ||
+        await verifier.verifyFingerprint('ssh-ed25519', offered)) {
+      return hosts[dial];
+    }
+    return FakeHost(
+      authError: SSHAuthAbortError(
+        'Connection closed before authentication',
+        SSHHostkeyError('Hostkey verification failed'),
+      ),
+    );
+  }),
   moshDialer:
       ({
         required MoshServerConfig server,
@@ -823,6 +884,7 @@ void main() {
       expect(channel.suspends, 1);
       expect(channel.rehomes, 0);
       expect(channel.sizes.length, probes);
+      await pumpEventQueue();
       expect(hosts.first.closed, isTrue);
       expect(
         await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
@@ -929,7 +991,7 @@ void main() {
       );
       addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
-      final opening = Completer<ShellExec>();
+      final opening = Completer<SSHSession>();
       host.execGate = opening;
       await expectLater(
         connection.channels.exec(
@@ -952,7 +1014,7 @@ void main() {
       'a startup exec that never opens fails the open as a host failure',
       () async {
         const session = 'upgrade123';
-        final host = FakeHost()..execGate = Completer<ShellExec>();
+        final host = FakeHost()..execGate = Completer<SSHSession>();
         final retries = <Reconnect>[];
 
         await expectLater(
@@ -1477,16 +1539,7 @@ void main() {
       final hosts = [FakeHost(), FakeHost()];
       var dials = 0;
       final connection = await openOn(
-        ShellTunnel(
-          dial: ({
-            required String address,
-            required int port,
-            required String user,
-            required String privateKey,
-            HostKeyVerifier? verifier,
-            required Duration timeout,
-          }) async => hosts[dials++],
-        ),
+        ShellTunnel(links: linksOver((_) => hosts[dials++])),
       );
       addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
 
@@ -1510,7 +1563,7 @@ void main() {
       addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
       final before = host.requests.length;
 
-      host.refuse = SSHChannelOpenError(1, 'channel open refused');
+      host.refuse = SSHChannelOpenError(4, 'channel open refused');
       await expectLater(
         connection.channels.exec('pwd', timeout: remoteCommandDeadline),
         throwsA(isA<SSHChannelOpenError>()),
@@ -1615,16 +1668,7 @@ void main() {
         final hosts = [FakeHost(), FakeHost()];
         var dials = 0;
         final connection = await openOn(
-          ShellTunnel(
-            dial: ({
-              required String address,
-              required int port,
-              required String user,
-              required String privateKey,
-              HostKeyVerifier? verifier,
-              required Duration timeout,
-            }) async => hosts[dials++],
-          ),
+          ShellTunnel(links: linksOver((_) => hosts[dials++])),
         );
         addTearDown(
           () => connection.close(UserClosed(UserIntent.fromGesture())),
@@ -1937,7 +1981,7 @@ void main() {
       final errors = <Object>[];
       connection.output.listen((_) {}, onError: errors.add);
 
-      host.pty.kill('KILL');
+      host.pty.signalled('KILL');
       await pumpEventQueue();
 
       expect(errors, isEmpty);
@@ -1976,6 +2020,7 @@ void main() {
       final connection = await openOn(tunnelTo(host));
 
       await connection.close(UserClosed(UserIntent.fromGesture()));
+      await pumpEventQueue();
 
       expect(host.pty.closed, isTrue);
       expect(host.closed, isTrue);
@@ -2220,6 +2265,7 @@ void main() {
       final host = FakeHost(shellError: SSHChannelRequestError('no pty'));
 
       await kindOf(() => openOn(tunnelTo(host)));
+      await pumpEventQueue();
 
       expect(host.closed, isTrue);
     });
@@ -2233,18 +2279,15 @@ void main() {
     final loose = <Object>[];
     final socket = RudeSocket();
     await runZonedGuarded(() async {
-      final host = sshHostOver(
+      final client = SSHClient(
         socket,
-        SSHClient(
-          socket,
-          username: 'luis',
-          identities: SSHKeyPair.fromPem(privateKey),
-          keepAliveInterval: const Duration(seconds: 15),
-        ),
+        username: 'luis',
+        identities: SSHKeyPair.fromPem(privateKey),
+        keepAliveInterval: const Duration(seconds: 15),
       );
       socket.reset();
-      await expectLater(host.authenticated, throwsA(anything));
-      await host.close();
+      await expectLater(client.authenticated, throwsA(anything));
+      await closeSettled(client, socket);
     }, (error, _) => loose.add(error));
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
@@ -2253,21 +2296,18 @@ void main() {
 
   test('a host that has not authenticated by the deadline is reported as no answer', () async {
     final host = FakeHost()..authGate = Completer<void>();
+    const timeout = Duration(milliseconds: 100);
     final tunnel = ShellTunnel(
-      timeout: const Duration(milliseconds: 100),
-      dial: ({
-        required String address,
-        required int port,
-        required String user,
-        required String privateKey,
-        HostKeyVerifier? verifier,
-        required Duration timeout,
-      }) async => host,
+      timeout: timeout,
+      links: linksOver((_) => host, timeout: timeout),
     );
 
     final kind = await kindOf(() => openOn(tunnel));
 
     expect(kind, ShellFailureKind.unreachable);
+    expect(host.closed, isFalse);
+    host.authGate!.complete();
+    await pumpEventQueue();
     expect(host.closed, isTrue);
   });
 
@@ -2275,24 +2315,17 @@ void main() {
     'a key sheet held open past the deadline still opens the shell',
     () async {
       final host = FakeHost()..authGate = Completer<void>();
+      const timeout = Duration(milliseconds: 100);
       final tunnel = ShellTunnel(
-        timeout: const Duration(milliseconds: 100),
-        dial:
-            ({
-              required String address,
-              required int port,
-              required String user,
-              required String privateKey,
-              HostKeyVerifier? verifier,
-              required Duration timeout,
-            }) async {
-              unawaited(
-                verifier!
-                    .verifyFingerprint('ssh-ed25519', 'SHA256:fixture')
-                    .then((_) => host.authGate!.complete()),
-              );
-              return host;
-            },
+        timeout: timeout,
+        links: linksOver((verifier) {
+          unawaited(
+            verifier
+                .verifyFingerprint('ssh-ed25519', 'SHA256:fixture')
+                .then((_) => host.authGate!.complete()),
+          );
+          return host;
+        }, timeout: timeout),
       );
       final verifier = HostKeyVerifier(
         prompt: (offer, pinned) async {
@@ -2323,17 +2356,17 @@ void main() {
     final privateKey = (await keys.privateKey('key-1'))!;
 
     final socket = RudeSocket();
-    final host = sshHostOver(
+    final client = SSHClient(
       socket,
-      SSHClient(
-        socket,
-        username: 'luis',
-        identities: SSHKeyPair.fromPem(privateKey),
-        keepAliveInterval: const Duration(seconds: 15),
-      ),
+      username: 'luis',
+      identities: SSHKeyPair.fromPem(privateKey),
+      keepAliveInterval: const Duration(seconds: 15),
     );
     var settled = false;
-    final closing = host.close().whenComplete(() => settled = true);
+    final closing = closeSettled(
+      client,
+      socket,
+    ).whenComplete(() => settled = true);
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
     expect(socket.closed, isFalse);
@@ -2451,14 +2484,7 @@ ShellTunnel engineTunnelTo(
 }) => ShellTunnel(
   timeout: timeout,
   udpVerdicts: verdicts,
-  dial: ({
-    required String address,
-    required int port,
-    required String user,
-    required String privateKey,
-    HostKeyVerifier? verifier,
-    required Duration timeout,
-  }) async => nextHost?.call() ?? host,
+  links: linksOver((_) => nextHost?.call() ?? host, timeout: timeout),
   engineDialer:
       ({
         required String host,
@@ -2908,14 +2934,7 @@ void engineTests() {
     final tunnel = ShellTunnel(
       moshHealthInterval: const Duration(milliseconds: 10),
       moshGiveUp: const Duration(milliseconds: 40),
-      dial: ({
-        required String address,
-        required int port,
-        required String user,
-        required String privateKey,
-        HostKeyVerifier? verifier,
-        required Duration timeout,
-      }) async => host,
+      links: linksOver((_) => host),
       engineDialer:
           ({
             required String host,
@@ -2959,6 +2978,7 @@ void engineTests() {
 
     await connection.suspend(AppSuspended(PlatformSignal.fromPlatform()));
     expect(engine.suspends, 1);
+    await pumpEventQueue();
     expect(host.closed, isTrue);
     await connection.resume(AppResumed(PlatformSignal.fromPlatform()));
     expect(engine.rehomes, 1);
@@ -3054,11 +3074,7 @@ void engineTests() {
     test(
       'the verdict keeps both UDP transports away until it lapses',
       () async {
-        final hosts = [
-          for (var i = 0; i < 3; i++)
-            FakeHost()..execInputAnswer = engineHostAnswer(),
-        ];
-        var hosted = 0;
+        final host = FakeHost()..execInputAnswer = engineHostAnswer();
         final engines = [
           FakeEngineChannel()..fallSilent(),
           FakeEngineChannel(),
@@ -3066,15 +3082,16 @@ void engineTests() {
         var dialled = 0;
         var moshed = 0;
         final tunnel = engineTunnelTo(
-          hosts.first,
+          host,
           engines.first,
           FakeMoshChannel(),
           verdicts: verdicts,
           next: () => engines[dialled++],
-          nextHost: () => hosts[hosted++],
           onMosh: () => moshed++,
         );
+        final marks = <(int, int)>[];
         Future<ShellConnection> open() async {
+          marks.add((ops(host).length, host.requests.length));
           final connection = await openOn(
             tunnel,
             command: 'exec \$SHELL -l',
@@ -3086,20 +3103,25 @@ void engineTests() {
           return connection;
         }
 
+        List<Object?> opsOf(int open) => ops(host).sublist(
+          marks[open].$1,
+          open + 1 < marks.length ? marks[open + 1].$1 : null,
+        );
+
         expect(await open(), isA<SshShellConnection>());
         clock = clock.add(const Duration(minutes: 4, seconds: 59));
         expect(await open(), isA<SshShellConnection>());
-        expect(ops(hosts[0]), ['start', 'stop']);
-        expect(ops(hosts[1]), isEmpty);
+        expect(opsOf(0), ['start', 'stop']);
+        expect(opsOf(1), isEmpty);
         expect(
-          hosts[1].requests,
+          host.requests.sublist(marks[1].$2),
           isNot(contains('exec ${moshServerProbeCommand()}')),
         );
         expect(moshed, 0);
 
         clock = clock.add(const Duration(seconds: 1));
         expect(await open(), isA<EngineShellConnection>());
-        expect(ops(hosts[2]), ['start']);
+        expect(opsOf(2), ['start']);
         expect(dialled, 2);
       },
     );
@@ -3170,23 +3192,14 @@ final _vm = Host(
   hostKey: pinnedKey,
 );
 
-({ShellSessions sessions, List<FakeHost> hosts}) plainTabs() {
+({ShellSessions sessions, List<FakeHost> hosts, HostLinks links}) plainTabs() {
   final hosts = <FakeHost>[];
-  final tunnel = ShellTunnel(
-    dial:
-        ({
-          required String address,
-          required int port,
-          required String user,
-          required String privateKey,
-          HostKeyVerifier? verifier,
-          required Duration timeout,
-        }) async {
-          final host = FakeHost();
-          hosts.add(host);
-          return host;
-        },
-  );
+  final links = linksOver((_) {
+    final host = FakeHost();
+    hosts.add(host);
+    return host;
+  });
+  final tunnel = ShellTunnel(links: links);
   return (
     sessions: ShellSessions(
       readPrivateKey: (_) async => 'PEM',
@@ -3194,6 +3207,7 @@ final _vm = Host(
       open: tunnel.open,
     ),
     hosts: hosts,
+    links: links,
   );
 }
 
@@ -3206,9 +3220,12 @@ Future<void> _settleTab(WidgetTester tester) async {
 Uint8List _keys(String typed) => Uint8List.fromList(utf8.encode(typed));
 
 void plainTabTests() {
+  HostLinks? pool;
+
   Future<({ShellSessions sessions, List<FakeHost> hosts, ShellSession tab})>
   live(WidgetTester tester) async {
-    final (:sessions, :hosts) = plainTabs();
+    final (:sessions, :hosts, :links) = plainTabs();
+    pool = links;
     final tab = sessions.open(intent: UserIntent.fromGesture(), _vm)!;
     await _settleTab(tester);
     expect(tab.state, isA<ShellLive>());
@@ -3216,15 +3233,17 @@ void plainTabTests() {
     return (sessions: sessions, hosts: hosts, tab: tab);
   }
 
-  Future<void> closeTab(ShellSessions sessions, ShellSession tab) =>
-      sessions.close(intent: UserIntent.fromGesture(), _vm.id, tab);
+  Future<void> closeTab(ShellSessions sessions, ShellSession tab) async {
+    await sessions.close(intent: UserIntent.fromGesture(), _vm.id, tab);
+    pool?.close();
+  }
 
   testWidgets('a shell a signal ended exits and is not dialled again', (
     tester,
   ) async {
     final (:sessions, :hosts, :tab) = await live(tester);
 
-    hosts.single.pty.kill('KILL');
+    hosts.single.pty.signalled('KILL');
     await tester.pump();
     await tester.pump(const Duration(minutes: 1));
 

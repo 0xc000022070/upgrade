@@ -39,19 +39,19 @@ bool isKeyFailure(Object error) => switch (error) {
 };
 
 /// A channel opening past the deadline is closed unread. One the host refuses for its
-/// session limit was already taken to the overflow link by [ShellHost.execute].
+/// session limit was already taken to the overflow link by [HostLease.execute].
 Future<ExecResult> _run(
-  ShellHost host,
+  HostLease lease,
   String command, {
   Uint8List? stdin,
   required Duration timeout,
 }) async {
-  ShellExec? channel;
+  SSHSession? channel;
   var expired = false;
   final task = () async {
-    final opened = await host.execute(command);
+    final opened = await lease.execute(command);
     if (expired) {
-      opened.close();
+      endExec(opened);
       throw TimeoutException('SSH channel opened after the deadline', timeout);
     }
     channel = opened;
@@ -64,20 +64,20 @@ Future<ExecResult> _run(
     final opened = channel;
     if (opened == null) throw ChannelOpenTimeout(timeout);
     // Closing the channel is what takes the still-running command down.
-    opened.close();
+    endExec(opened);
     rethrow;
   }
 }
 
-Future<ExecResult> _finishExec(ShellExec channel, {Uint8List? stdin}) async {
+Future<ExecResult> _finishExec(SSHSession channel, {Uint8List? stdin}) async {
   final out = BytesBuilder(copy: false);
   final err = BytesBuilder(copy: false);
   final drained = Future.wait([
     channel.stdout.forEach(out.add),
     channel.stderr.forEach(err.add),
   ]);
-  if (stdin != null) channel.write(stdin);
-  await channel.closeStdin();
+  if (stdin != null) channel.stdin.add(stdin);
+  await channel.stdin.close();
   await channel.done;
   await drained;
   return ExecResult(

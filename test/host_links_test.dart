@@ -750,6 +750,64 @@ void main() {
     links.close();
   });
 
+  test(
+    'every lease on a link hears it end, and a release alone ends nothing',
+    () async {
+      final dial = FakeDial();
+      final links = HostLinks(dial: dial.call);
+      final kept = await _lease(links);
+      final let = await _lease(links);
+      final heard = <String>[];
+      unawaited(kept.ended.then((_) => heard.add('kept')));
+      unawaited(let.ended.then((_) => heard.add('let')));
+
+      let.release();
+      await pumpEventQueue();
+      expect(heard, isEmpty);
+
+      await dial.clients.single.close();
+      await pumpEventQueue();
+      expect(heard, ['kept', 'let']);
+      links.close();
+    },
+  );
+
+  test('a link not logged in by its timeout fails, and is closed once its login settles', () async {
+    final client = _SlowLogin();
+    final settles = <Future<void>>[];
+    final linking = authenticatedLink(
+      FakeExecSocket(),
+      client,
+      () => 0,
+      verifier: HostKeyVerifier.pinnedOnly(_vm),
+      timeout: const Duration(milliseconds: 20),
+      onSettling: settles.add,
+    );
+
+    await expectLater(linking, throwsA(isA<TimeoutException>()));
+    expect(settles, hasLength(1));
+    expect(client.closes, 0);
+
+    client.login.complete();
+    await settles.single;
+    expect(client.closes, 1);
+  });
+
+  test('a link that logs in inside its timeout is handed over open', () async {
+    final client = _SlowLogin()..login.complete();
+    final link = await authenticatedLink(
+      FakeExecSocket(),
+      client,
+      () => 7,
+      verifier: HostKeyVerifier.pinnedOnly(_vm),
+      timeout: const Duration(milliseconds: 20),
+    );
+
+    expect(link.client, same(client));
+    expect(link.received(), 7);
+    expect(client.closes, 0);
+  });
+
   test('closing closes every link', () async {
     final dial = FakeDial();
     final links = HostLinks(dial: dial.call);
@@ -955,4 +1013,18 @@ void main() {
       },
     );
   });
+}
+
+final class _SlowLogin implements SSHClient {
+  final login = Completer<void>();
+  var closes = 0;
+
+  @override
+  Future<void> get authenticated => login.future;
+
+  @override
+  Future<void> close() async => closes++;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
