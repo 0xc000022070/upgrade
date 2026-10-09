@@ -238,9 +238,16 @@ class HostLinks {
   var _closed = false;
   var _asleep = false;
   var _serial = 0;
+  var _leases = 0;
 
   @visibleForTesting
   int get open => _all.length;
+
+  @visibleForTesting
+  int get granted => _leases;
+
+  @visibleForTesting
+  int get held => _all.fold(0, (count, link) => count + link.leases.length);
 
   Future<HostLease> lease({
     required String address,
@@ -607,6 +614,7 @@ class HostLinks {
     link.linger = null;
     link.idleSince = null;
     final lease = HostLease._(this, link, use);
+    _leases++;
     link.leases.add(lease);
     return lease;
   }

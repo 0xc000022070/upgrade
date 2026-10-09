@@ -116,6 +116,64 @@ void main() {
     },
   );
 
+  test('a gesture during a resume dial joins it on one lease', () async {
+    final dial = FakeDial();
+    final links = HostLinks(dial: dial.call);
+    final tab = await _tab(_connector(links));
+    links.sleep();
+    await tab.drop(AppSuspended(PlatformSignal.fromPlatform()));
+    links.wake();
+    expect(links.open, 0);
+
+    final gate = dial.gate = Completer<void>();
+    final granted = links.granted;
+    final resumed = tab.open(AppResumed(PlatformSignal.fromPlatform()));
+    final gesture = tab.open(UserAction(UserIntent.fromGesture()));
+    await pumpEventQueue();
+    gate.complete();
+    final opened = await Future.wait([resumed, gesture]);
+
+    expect(opened.first, isNotNull);
+    expect(opened.last, same(opened.first));
+    expect(dial.dials, 2);
+    expect(links.granted - granted, 1);
+    expect(links.held, 1);
+    await _closeAll([tab]);
+    links.close();
+  });
+
+  group('a dial that lands after its tab let go', () {
+    Future<void> landsLate(DropReason reason) async {
+      final dial = FakeDial();
+      final links = HostLinks(dial: dial.call);
+      final tab = await _tab(_connector(links));
+      await dial.clients.single.close();
+      await pumpEventQueue();
+      expect(links.open, 0);
+
+      final gate = dial.gate = Completer<void>();
+      final opening = tab.open(UserAction(UserIntent.fromGesture()));
+      await pumpEventQueue();
+      await tab.drop(reason);
+      gate.complete();
+
+      expect(await opening, isNull);
+      await pumpEventQueue();
+      expect(links.held, 0);
+      expect(dial.dials, 2);
+      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      links.close();
+    }
+
+    test('is released by a retired tab', () async {
+      await landsLate(UserClosed(UserIntent.fromGesture()));
+    });
+
+    test('is released by a suspended tab', () async {
+      await landsLate(AppSuspended(PlatformSignal.fromPlatform()));
+    });
+  });
+
   testWidgets('a host that dies is revived by every tab with one dial', (
     tester,
   ) async {
