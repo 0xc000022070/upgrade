@@ -8,7 +8,8 @@
 /// Who opens and closes:
 /// - [HostLinks] alone opens and closes sockets. Everything else leases and releases, so a
 ///   command, timeout or probe never closes or replaces a connection.
-/// - Outside code holds only [HostChannels] views, which answer null while no host is held.
+/// - Only the shell tunnel holds a supervisor, and it takes its raw pty [SSHSession] from
+///   [pty]. Other code reads through [HostChannels] views, null while no host is held.
 /// - Each host identity has one control and one screen link per isolate; [HostUse] picks
 ///   the lane. The host key probe and one overflow link for a full host sit outside that.
 /// - [UserClosed], [ShellEnded], [_StartupAbandoned] and [_Unclaimed] end one tab's claim.
