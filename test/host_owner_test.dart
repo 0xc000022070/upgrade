@@ -270,7 +270,7 @@ void main() {
     const grace = Duration(seconds: 120);
 
     Future<(ConnectionSupervisor, HostLinks, FakeLinkClient, List<int>)>
-    settling() async {
+    settling({Duration settle = grace}) async {
       final first = FakeLinkClient();
       final dials = [0];
       final links = HostLinks(
@@ -284,7 +284,7 @@ void main() {
               onSettling,
             }) async {
               if (++dials[0] == 2) {
-                onSettling?.call(Future<void>.delayed(grace));
+                onSettling?.call(Future<void>.delayed(settle));
                 throw TimeoutException('auth stalled');
               }
               return (
@@ -295,6 +295,38 @@ void main() {
             },
       );
       return (await _tab(_connector(links)), links, first, dials);
+    }
+
+    Future<void> failedDial(
+      ConnectionSupervisor tab,
+      FakeLinkClient first,
+    ) async {
+      await first.close();
+      await expectLater(
+        tab.open(UserAction(UserIntent.fromGesture())),
+        throwsA(isA<TimeoutException>()),
+      );
+    }
+
+    ({HostChannels? opened, Object? failed, bool done}) Function() watch(
+      Future<HostChannels?> opening,
+    ) {
+      HostChannels? opened;
+      Object? failed;
+      var done = false;
+      unawaited(
+        opening.then(
+          (channels) {
+            opened = channels;
+            done = true;
+          },
+          onError: (Object error) {
+            failed = error;
+            done = true;
+          },
+        ),
+      );
+      return () => (opened: opened, failed: failed, done: done);
     }
 
     testWidgets('waits for the settle, and revival dials again after it', (
@@ -322,42 +354,78 @@ void main() {
       links.close();
     });
 
-    testWidgets('a gesture inside the window waits, then dials', (
-      tester,
-    ) async {
-      final (tab, links, first, dials) = await settling();
-      await first.close();
-      await tester.pump();
-      await expectLater(
-        tab.open(UserAction(UserIntent.fromGesture())),
-        throwsA(isA<TimeoutException>()),
-      );
+    testWidgets('a gesture whose settle lifts inside a dial timeout dials '
+        'then', (tester) async {
+      const settle = Duration(seconds: 8);
+      final (tab, links, first, dials) = await settling(settle: settle);
+      await failedDial(tab, first);
 
-      await tester.pump(const Duration(seconds: 60));
-      HostChannels? opened;
-      Object? failed;
-      unawaited(
-        tab
-            .open(UserAction(UserIntent.fromGesture()))
-            .then(
-              (channels) => opened = channels,
-              onError: (Object e) {
-                failed = e;
-              },
-            ),
-      );
+      final outcome = watch(tab.open(UserAction(UserIntent.fromGesture())));
       await tester.pump();
       expect(dials.single, 2);
-      expect(failed, isNull);
-      expect(opened, isNull);
+      expect(outcome().done, isFalse);
 
-      await tester.pump(grace);
+      await tester.pump(settle);
       await tester.pump();
       expect(dials.single, 3);
-      expect(failed, isNull);
-      expect(opened, isNotNull);
+      expect(outcome().failed, isNull);
+      expect(outcome().opened, isNotNull);
       await tab.drop(UserClosed(UserIntent.fromGesture()));
       links.close();
+    });
+
+    testWidgets('a gesture whose settle outlasts a dial timeout fails on the '
+        'host at that timeout', (tester) async {
+      final (tab, links, first, dials) = await settling();
+      await failedDial(tab, first);
+
+      final outcome = watch(tab.open(UserAction(UserIntent.fromGesture())));
+      await tester.pump(const Duration(seconds: 9));
+      expect(outcome().done, isFalse);
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(
+        outcome().failed,
+        isA<DialSettling>().having(isHostFailure, 'host failure', isTrue),
+      );
+      expect(dials.single, 2);
+      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      links.close();
+      await tester.pump(grace);
+    });
+
+    testWidgets('a tab a gesture opens while a settle outlasts a dial timeout '
+        'fails on the host at that timeout', (tester) async {
+      final (tab, links, first, dials) = await settling();
+      await failedDial(tab, first);
+
+      Reconnect? retry;
+      final outcome = watch(
+        _connector(links)
+            .establish(
+              address: '10.0.0.2',
+              port: 22,
+              user: 'dev',
+              privateKey: 'key',
+              verifier: HostKeyVerifier.pinnedOnly(_vm),
+              reason: UserAction(UserIntent.fromGesture()),
+              startup: (supervisor) async => supervisor,
+              failed: (reconnect) => retry = reconnect,
+            )
+            .then((_) => null),
+      );
+      await tester.pump(const Duration(seconds: 9));
+      expect(outcome().done, isFalse);
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(outcome().failed, isA<DialSettling>());
+      expect(retry, isNotNull);
+      expect(dials.single, 2);
+      await tab.drop(UserClosed(UserIntent.fromGesture()));
+      links.close();
+      await tester.pump(grace);
     });
 
     testWidgets('a resume inside the window waits, then dials', (tester) async {
@@ -387,6 +455,10 @@ void main() {
       await tester.pump();
       expect(dials.single, 2);
       expect(failed, isNull);
+
+      await tester.pump(const Duration(seconds: 30));
+      expect(failed, isNull);
+      expect(opened, isNull);
 
       await tester.pump(grace);
       await tester.pump();

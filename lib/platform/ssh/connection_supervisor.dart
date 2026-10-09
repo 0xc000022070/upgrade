@@ -21,7 +21,8 @@
 ///   terminal silent past its window has ended; a held link ends only by its keepalive.
 ///   [check] is one keepalive round, run early on a stalled write or a rehome.
 /// - A dial refused while an earlier one settles ([DialSettling]) waits for that settle;
-///   it is not a failure and spends no step of the schedule.
+///   it is not a failure and spends no step of the schedule. A [UserAction] waits no
+///   longer in all than [SshConnector.timeout], then fails on the refusal.
 /// - One owner per host per isolate: one control and one screen link per identity, a
 ///   [HostUse] fixing the lane. [UserClosed], [ShellEnded], [_StartupAbandoned] and
 ///   [_Unclaimed] release one tab's claim; [NetworkChanged] and a dead link end it for all,
@@ -119,27 +120,38 @@ final class ConnectionSupervisor implements HostChannels {
   /// a resume or a network change waits out every settle that refuses it.
   Future<HostChannels?> open(ReopenReason reason) {
     final opened = _open(reason);
-    switch (reason) {
-      case UserAction():
-        break;
-      case AppResumed() || NetworkChanged():
-        return _openSettled(opened.future, reason);
-      case _HostDied():
-        return opened.future;
-    }
-    return opened.future.then(
-      (channels) {
-        if (channels != null || !opened.overtaken) return channels;
-        return _open(reason).future;
-      },
-      onError: (Object error, StackTrace stack) {
-        if (opened.overtaken) return _open(reason).future;
-        if (error is DialSettling) {
-          return error.settled.then((_) => _open(reason).future);
+    return switch (reason) {
+      UserAction() => _openAttended(opened, reason),
+      AppResumed() || NetworkChanged() => _openSettled(opened.future, reason),
+      _HostDied() => opened.future,
+    };
+  }
+
+  Future<HostChannels?> _openAttended(_Dial dial, UserAction reason) async {
+    final settles = _SettleWait(_connector.timeout);
+    var overtakeLeft = true;
+    try {
+      while (true) {
+        try {
+          final channels = await dial.future;
+          if (channels != null || !dial.overtaken || !overtakeLeft) {
+            return channels;
+          }
+          overtakeLeft = false;
+        } catch (error, stack) {
+          if (dial.overtaken && overtakeLeft) {
+            overtakeLeft = false;
+          } else if (error is DialSettling) {
+            await settles.out(error, stack);
+          } else {
+            rethrow;
+          }
         }
-        Error.throwWithStackTrace(error, stack);
-      },
-    );
+        dial = _open(reason);
+      }
+    } finally {
+      settles.end();
+    }
   }
 
   Future<HostChannels?> _openSettled(
@@ -432,7 +444,11 @@ final class SshConnector {
       .._log('dial for ${purpose.cause}');
     final ShellHost host;
     try {
-      host = await _connectSettled(target, verifier);
+      host = await _connectSettled(
+        target,
+        verifier,
+        _SettleWait(purpose.attended ? timeout : null),
+      );
     } catch (error) {
       if (isHostFailure(error)) failed?.call(Reconnect._(_DialFailed(error)));
       rethrow;
@@ -452,13 +468,18 @@ final class SshConnector {
   Future<ShellHost> _connectSettled(
     _Target target,
     HostKeyVerifier verifier,
+    _SettleWait settles,
   ) async {
-    while (true) {
-      try {
-        return await _connect(target, verifier);
-      } on DialSettling catch (settling) {
-        await settling.settled;
+    try {
+      while (true) {
+        try {
+          return await _connect(target, verifier);
+        } on DialSettling catch (settling, stack) {
+          await settles.out(settling, stack);
+        }
       }
+    } finally {
+      settles.end();
     }
   }
 
@@ -480,6 +501,27 @@ final class SshConnector {
       rethrow;
     }
   }
+}
+
+final class _SettleWait {
+  _SettleWait(this._within);
+
+  final Duration? _within;
+  final _spent = Completer<bool>();
+  Timer? _limit;
+
+  Future<void> out(DialSettling settling, StackTrace stack) async {
+    final within = _within;
+    if (within == null) return settling.settled;
+    _limit ??= Timer(within, () => _spent.complete(false));
+    final lifted = await Future.any([
+      settling.settled.then((_) => true),
+      _spent.future,
+    ]);
+    if (!lifted) Error.throwWithStackTrace(settling, stack);
+  }
+
+  void end() => _limit?.cancel();
 }
 
 final class _Lease implements HostChannels {
