@@ -339,7 +339,12 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                 ],
               ),
             ] else if (question != null)
-              Text(question, style: context.tokens.value, maxLines: 4),
+              Text(
+                question,
+                style: context.tokens.value,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+              ),
             if (link != null)
               PanelTextAction(
                 label: 'OPEN PANE',

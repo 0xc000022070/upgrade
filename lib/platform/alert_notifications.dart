@@ -134,9 +134,10 @@ class AlertNotifications {
       ongoing: false,
       autoCancel: false,
       silent: quiet,
-      styleInformation: tail == null
-          ? null
-          : BigTextStyleInformation('$body\n\n$tail', contentTitle: title),
+      styleInformation: BigTextStyleInformation(
+        tail == null ? body : '$body\n\n$tail',
+        contentTitle: title,
+      ),
       actions: withActions ? _actionsFor(kind, target) : const [],
     );
   }

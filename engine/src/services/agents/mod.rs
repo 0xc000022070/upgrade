@@ -431,6 +431,31 @@ fn request_approval(session: &mut Session, input: &Value) -> Approval {
     pending
 }
 
+/// A question is answered by picking an option, which an allow or deny cannot carry, so it
+/// opens no approval and the agent puts its own picker up at once.
+fn asked(input: &Value) -> Option<String> {
+    if text(input, "tool_name").as_deref() != Some("AskUserQuestion") {
+        return None;
+    }
+    let questions = input.pointer("/tool_input/questions").and_then(Value::as_array)?;
+    let first = questions.first()?;
+    let question = text(first, "question")?;
+    let head = match text(first, "header") {
+        Some(header) => format!("{header} · {question}"),
+        None => question,
+    };
+    let mut lines = vec![cut(&head, SUMMARY_CHARS)];
+    let options = first.get("options").and_then(Value::as_array).into_iter().flatten();
+    let labels = options.filter_map(|option| text(option, "label"));
+    for (index, label) in labels.enumerate() {
+        lines.push(format!("{}. {}", index + 1, cut(&label, LINE_CHARS / 4)));
+    }
+    if questions.len() > 1 {
+        lines.push(format!("+{} more", questions.len() - 1));
+    }
+    Some(lines.join("\n"))
+}
+
 fn apply_event(session: &mut Session, event: &str, input: &Value) -> Option<Option<Approval>> {
     match event {
         "SessionStart" => settle_state(session, "idle"),
@@ -441,12 +466,20 @@ fn apply_event(session: &mut Session, event: &str, input: &Value) -> Option<Opti
             }
         }
         "PreToolUse" | "PostToolUse" | "PostToolUseFailure" => settle_state(session, "working"),
-        "PermissionRequest" => return Some(Some(request_approval(session, input))),
+        "PermissionRequest" => match asked(input) {
+            Some(question) => {
+                session.state = "blocked".to_owned();
+                session.approval = None;
+                session.question = Some(question);
+            }
+            None => return Some(Some(request_approval(session, input))),
+        },
         "Notification" => {
             let kind = text(input, "notification_type").unwrap_or_default();
             if matches!(kind.as_str(), "elicitation_dialog" | "agent_needs_input") {
                 session.state = "blocked".to_owned();
-                session.question = text(input, "message").map(|value| cut(&value, SUMMARY_CHARS));
+                let message = text(input, "message").map(|value| cut(&value, SUMMARY_CHARS));
+                session.question = session.question.take().or(message);
             }
         }
         "Stop" | "StopFailure" => {
@@ -610,6 +643,31 @@ mod tests {
         assert_eq!(summarize(&json!({ "file_path": "/a/b.rs", "old_string": "x" })), "/a/b.rs");
         assert_eq!(summarize(&json!({ "questions": [{ "question": "Ship it?", "options": [] }] })), "Ship it?");
         assert_eq!(summarize(&json!({ "other": 1 })), "{\"other\":1}");
+    }
+
+    #[test]
+    fn a_question_is_no_approval() {
+        let mut session = new_session("claude:s1", "claude", "s1", now_millis());
+        let input = json!({
+            "tool_name": "AskUserQuestion",
+            "tool_input": { "questions": [
+                { "header": "Token proof", "question": "How should #2 close it?",
+                  "options": [{ "label": "Runtime single-use" }, { "label": "Accept as-is" }] },
+                { "question": "Second?", "options": [] },
+            ] },
+        });
+
+        assert!(matches!(apply_event(&mut session, "PermissionRequest", &input), Some(None)));
+        assert!(session.approval.is_none());
+        assert_eq!(session.state, "blocked");
+        assert_eq!(
+            session.question.as_deref(),
+            Some("Token proof · How should #2 close it?\n1. Runtime single-use\n2. Accept as-is\n+1 more"),
+        );
+
+        let notice = json!({ "notification_type": "agent_needs_input", "message": "Claude needs your input" });
+        apply_event(&mut session, "Notification", &notice);
+        assert!(session.question.as_deref().is_some_and(|line| line.starts_with("Token proof")));
     }
 
     #[test]
