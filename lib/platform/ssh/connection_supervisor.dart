@@ -1,42 +1,43 @@
 /// SSH connection policy.
 ///
-/// [HostLinks] alone opens and closes sockets; every other holder only leases and releases,
-/// so a command, timeout or probe can never close or replace a connection. A tab's claim,
-/// drop, renounce and revive additionally need a sealed [OpenReason], [ReopenReason] or
-/// [DropReason], and only an open or reopen reason redials a tab. Why: a probe's timeout
-/// once replaced a live connection under a typed SEND; see `SSH-CONNECTION-INCIDENT.md`.
+/// This library owns the app's SSH connections: who opens and closes one, and when a tab
+/// may dial again. It exists because a probe's timeout once replaced a live connection under
+/// a typed SEND; see `SSH-CONNECTION-INCIDENT.md`. Library privacy and sealed reasons
+/// enforce each rule below unless the rule names a test.
 ///
-/// Guaranteed by this library's `_` privacy and its sealed reasons:
-/// - Outside code holds no host or supervisor, only [HostChannels] views that answer null
-///   while no host is held.
-/// - [HealthCheckFailed] comes only from [HostLease.ended]. [ShellEnded] comes only from,
-///   and is accepted only by, the supervisor under the terminal that ended.
-/// - [Reconnect] is minted only here, from a [ShellEnded] or a dial that failed on the host
-///   or link, and only a fresh supervisor accepts it. A [HealthCheckFailed] reopens only its
-///   own host's supervisor, and no caller can hand it one. A timer dials for nothing else.
-/// - A dial includes the startup steps [SshConnector.establish] runs; a probe or command
-///   on a handed-out connection is never evidence, and is never retried on the same host.
-/// - No reason is a command failure, and every switch over reasons is exhaustive.
-/// - A held host that dies is redialled on a fixed schedule for transports that ask. A
-///   terminal silent past its window has ended; a held link ends only by its keepalive.
-///   [check] is one keepalive round, run early on a stalled write or a rehome.
-/// - A dial refused while an earlier one settles ([DialSettling]) waits for that settle;
-///   it is not a failure and spends no step of the schedule. A [UserAction] waits no
-///   longer in all than [SshConnector.timeout], then fails on the refusal.
-/// - One owner per host per isolate: one control and one screen link per identity, a
-///   [HostUse] fixing the lane. [UserClosed], [ShellEnded], [_StartupAbandoned] and
-///   [_Unclaimed] release one tab's claim; [NetworkChanged] and a dead link end it for all,
-///   with one redial. Beside it: other identities or isolates, the trust probe, one overflow.
-/// - Past the sleep grace the app holds only a live plain-SSH terminal's control link, and
-///   only [HostUse.wakes] uses lease beside it.
-/// [UserIntent] and [PlatformSignal] are minted only in callbacks their wrappers make. Each
-/// builds one reason; a second, or a [UserIntent] older than [UserIntent.window], is refused
-/// where it would dial or drop, logged and asserted, so reuse goes through the reason.
-/// `test/ssh_fence_test.dart` catches obvious misuse early, by type: each call site of
-/// [SshConnector.establish], the public [HostLinks] controls and [HostLease.client], each
-/// wrapper's slot and the fields a token rides in. Left open: one prompt spend, within the
-/// window, from a path no person or platform event started. An alert tapped before the app
-/// mounts is a cold launch. A new part, wrapper, raw host path or reason needs approval.
+/// Who opens and closes:
+/// - [HostLinks] alone opens and closes sockets. Everything else leases and releases, so a
+///   command, timeout or probe never closes or replaces a connection.
+/// - Outside code holds only [HostChannels] views, which answer null while no host is held.
+/// - Each host identity has one control and one screen link per isolate; [HostUse] picks
+///   the lane. The host key probe and one overflow link for a full host sit outside that.
+/// - [UserClosed], [ShellEnded], [_StartupAbandoned] and [_Unclaimed] end one tab's claim.
+///   [NetworkChanged] and a dead link end the link for every tab, with one redial after.
+/// Why a tab may redial:
+/// - A claim, drop, renounce or revive needs a sealed reason; only an open or reopen reason
+///   redials. No reason is a command failure, and every switch over reasons is exhaustive.
+/// - A probe or command on a handed-out connection is never evidence the host is gone, and
+///   is never retried on that host. A dial includes [SshConnector.establish]'s startup steps.
+/// - Only this library mints [Reconnect], from a [ShellEnded] or a dial that failed on the
+///   host or link, and only a fresh supervisor accepts it. [ShellEnded] is minted and
+///   accepted only by the supervisor under the terminal that ended.
+/// Liveness and revive:
+/// - A held link ends only when its keepalive goes unanswered; [check] runs one round early.
+///   A terminal silent past its window has ended.
+/// - [HealthCheckFailed] comes only from [HostLease.ended] and reopens only its own host's
+///   supervisor, on a fixed schedule if the transport asks for it. No other timer dials.
+/// Settling: a dial refused while an earlier one settles ([DialSettling]) waits for it; that
+/// is not a failure or a revive step. A [UserAction] waits [SshConnector.timeout] at most.
+/// Sleep: past the sleep grace only a live plain-SSH terminal's control link stays, and only
+/// [HostUse.wakes] uses may lease beside it.
+/// Tokens: [UserIntent] and [PlatformSignal] come only from callbacks their wrappers build.
+/// - A token builds one reason; a second, or a [UserIntent] older than [UserIntent.window],
+///   is refused where it would dial or drop, logged and asserted. Reuse the reason instead.
+/// - `test/ssh_fence_test.dart` checks by type each call site of [SshConnector.establish],
+///   the public [HostLinks] controls and [HostLease.client], each wrapper's slot and the
+///   fields a token rides in. No check catches one prompt spend, within the window, from a
+///   path no person or platform event started. An alert tapped before mount is a cold launch.
+/// A new part, wrapper, raw host path or reason needs the owner's approval.
 library;
 
 import 'dart:async';
@@ -58,7 +59,7 @@ sealed class ControlLink {
   const ControlLink();
 }
 
-/// Held, or the app away: nothing reads stale.
+/// A host is held, or nobody is watching: the app is away or the tab is gone.
 final class ControlUp extends ControlLink {
   const ControlUp();
 }
@@ -74,8 +75,8 @@ final class ControlGaveUp extends ControlLink {
 }
 
 abstract interface class HostChannels {
-  /// Null with no host held; never dials. A [timeout] covers the channel open, and closes
-  /// the channel, never the host.
+  /// Runs [command] on the held host, or answers null when none is held; it never dials.
+  /// Past [timeout] the channel is closed, never the host.
   Future<ExecResult?> exec(
     String command, {
     Uint8List? stdin,
@@ -83,7 +84,7 @@ abstract interface class HostChannels {
   });
 }
 
-/// One tab's claim on its host's shared control link; [open]'s channels outlive it as null.
+/// A tab's claim on its host's shared control link. Its channels answer null once it lets go.
 final class ConnectionSupervisor implements HostChannels {
   ConnectionSupervisor._(this._connector, this._target);
 
@@ -114,9 +115,9 @@ final class ConnectionSupervisor implements HostChannels {
 
   String get endpoint => '${_target.address}:${_target.port}';
 
-  /// Null when the tab is gone or the app away; throws what the dial threw. A gesture whose
-  /// dial a network change overtook, or an earlier dial's settle refused, opens again once;
-  /// a resume or a network change waits out every settle that refuses it.
+  /// Answers null when the tab is gone or the app is away, and throws what the dial threw.
+  /// A gesture dials again once if a network change overtook its dial, and waits out settles
+  /// for [SshConnector.timeout] at most; a resume or a network change waits out every settle.
   Future<HostChannels?> open(ReopenReason reason) {
     if (_refuses(reason, endpoint)) return Future.value();
     return switch (reason) {
@@ -178,7 +179,7 @@ final class ConnectionSupervisor implements HostChannels {
     return dial;
   }
 
-  /// Only for a transport whose terminal outlives its host; a plain SSH terminal dies with it.
+  /// Revives a dead host on a schedule, for a transport whose terminal outlives its host.
   void reopenWhenHostDies() => _revives = true;
 
   void _revive(_HostDied reason, int step) {
@@ -218,7 +219,7 @@ final class ConnectionSupervisor implements HostChannels {
     _control.add(ControlGaveUp(error));
   }
 
-  /// Throws, before anything is dropped, for an end another supervisor minted.
+  /// Throws, before dropping anything, for a [ShellEnded] another supervisor minted.
   Future<void> drop(DropReason reason) {
     if (_refuses(reason, endpoint)) return Future.value();
     switch (reason) {
@@ -231,7 +232,7 @@ final class ConnectionSupervisor implements HostChannels {
       case NetworkChanged() || HealthCheckFailed():
         break;
     }
-    // A dial in flight is no longer [_dial] when it lands, so it is closed.
+    // Clearing [_dial] makes a dial still in flight release its lease when it lands.
     _dial?.overtaken = reason is NetworkChanged;
     _dial = null;
     final held = _held;
@@ -248,14 +249,14 @@ final class ConnectionSupervisor implements HostChannels {
     return Future.value();
   }
 
-  /// Called only from the terminal's own end; the same end every time.
+  /// Only for the terminal's own end. Every call returns the same [ShellEnded].
   ShellEnded terminalEnded() => _ended ??= ShellEnded._(this);
 
   void claim() => _claimed = true;
 
   bool get claimed => _claimed;
 
-  /// Drops a connection nobody ever read: false, and nothing dropped, once one has.
+  /// Drops this supervisor if no tab ever claimed it, and answers whether it did.
   Future<bool> discard() async {
     if (_claimed) return false;
     await drop(const _Unclaimed());
@@ -266,9 +267,9 @@ final class ConnectionSupervisor implements HostChannels {
 
   Future<SSHSession> pty(String? command, SSHPtyConfig config) async {
     final lease = _held?.lease;
-    // What dartssh2 throws for a gone client, so the tab reads it as a lost stream.
+    // The error dartssh2 throws for a closed client, so the tab treats it as a lost stream.
     if (lease == null) throw SSHStateError('No SSH host is held.');
-    // An exec request, not a shell one, is what makes a detach end the channel like `exit`.
+    // An exec request, unlike a shell request, lets a detach end the channel as `exit` does.
     return command == null
         ? lease.shell(config)
         : lease.execute(command, pty: config);
@@ -344,7 +345,7 @@ final class _Channels implements HostChannels {
   }) => _owner.exec(command, stdin: stdin, timeout: timeout);
 }
 
-/// Then it stops: a host still gone waits for a gesture, a resume or a network.
+/// Revive delays. After the last, a dead host waits for a gesture, resume or network change.
 const _reviveDelays = <Duration>[
   Duration(seconds: 1),
   Duration(seconds: 2),
@@ -378,8 +379,8 @@ final class SshConnector {
     change: change,
   );
 
-  /// A [startup] that throws drops the host first: a half-open connection counts against
-  /// the host until its own timeout. A host or link failure hands [failed] its [Reconnect].
+  /// If [startup] throws, the host is dropped first: a half-open connection counts against
+  /// the host until it times out. A host or link failure hands [failed] a [Reconnect].
   Future<T> establish<T>({
     required String address,
     required int port,
@@ -394,7 +395,7 @@ final class SshConnector {
       throw StateError('a refused ${reason.runtimeType} dials nothing');
     }
     final purpose = _purpose(reason);
-    // Nobody is there to answer for an unpinned key: such an open refuses it instead.
+    // Nobody is watching to answer a host key prompt, so an unattended open cannot carry one.
     if (!purpose.attended && verifier.prompt != null) {
       throw ArgumentError.value(
         verifier,
@@ -470,8 +471,8 @@ final class _SettleWait {
   }
 }
 
-/// One hold of a host by one supervisor. The channels it hands out answer null once the
-/// supervisor holds another, even a lease on the same link.
+/// One supervisor's hold on one lease. Its channels answer null once the supervisor holds
+/// another lease, even one on the same link.
 final class _Hold implements HostChannels {
   _Hold(this._owner, this.lease);
 

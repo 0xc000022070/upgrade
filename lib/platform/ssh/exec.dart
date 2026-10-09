@@ -18,28 +18,28 @@ class ExecResult {
   String get err => utf8.decode(stderr, allowMalformed: true);
 }
 
-/// Nothing reached stdin, though the host may have started the command before answering.
+/// The channel did not open in time. Nothing reached stdin, but the command may have started.
 final class ChannelOpenTimeout extends TimeoutException {
   ChannelOpenTimeout(Duration? duration)
     : super('SSH channel did not open in time', duration);
 }
 
-/// The host or the link failed; anything else is a bug. [SSHInternalError] counts: dartssh2
-/// raises it for a packet it could not process, after closing the transport.
+/// True when the host or link failed; any other error is a bug. [SSHInternalError] counts:
+/// dartssh2 raises it for a packet it could not process, after closing the transport.
 bool isHostFailure(Object error) =>
     !isKeyFailure(error) &&
     (error is SSHError || error is TimeoutException || error is IOException);
 
-/// The key was refused or unreadable, or the host's key was: dialling again never helps.
-/// A refused host key reaches `authenticated` wrapped in the abort it caused.
+/// True when our key or the host's key was refused or unreadable, so dialling again never
+/// helps. A refused host key reaches `authenticated` wrapped in the abort it caused.
 bool isKeyFailure(Object error) => switch (error) {
   SSHAuthFailError() || SSHKeyDecodeError() || SSHHostkeyError() => true,
   SSHAuthAbortError(reason: SSHHostkeyError()) => true,
   _ => false,
 };
 
-/// A channel opening past the deadline is closed unread. One the host refuses for its
-/// session limit was already taken to the overflow link by [HostLease.execute].
+/// A channel that opens after [timeout] is closed unread. [HostLease.execute] has already
+/// moved a channel the host refused for its session limit to the overflow link.
 Future<ExecResult> _run(
   HostLease lease,
   String command, {

@@ -1,8 +1,8 @@
 // Part of the SSH connection policy library; read the header in connection_supervisor.dart before editing.
 part of 'connection_supervisor.dart';
 
-/// Proof a person asked. Mint only in a gesture handler and pass it down; never store one
-/// or mint one where a timer, a stream or a probe reaches. Builds one reason, within [window].
+/// Proof a person asked. Take one from a gesture wrapper and pass it down; never store it,
+/// or call a wrapper from a timer, stream or probe. It builds one reason, within [window].
 final class UserIntent {
   UserIntent._();
 
@@ -39,7 +39,7 @@ final class UserIntent {
       (response) => handler(UserIntent._(), response);
 }
 
-/// Proof the platform said so. Mint only in the callback that hears it. Builds one reason.
+/// Proof the platform reported an event, minted in its callback. It builds one reason.
 final class PlatformSignal {
   PlatformSignal._();
 
@@ -106,7 +106,7 @@ final class AppResumed with _Spends implements OpenReason, ReopenReason {
   final String? _refused;
 }
 
-/// Both a drop and an open: the old socket is bound to the network that went.
+/// Both a drop and an open, because the old socket is bound to the network that went away.
 final class NetworkChanged
     with _Spends
     implements OpenReason, ReopenReason, DropReason {
@@ -132,8 +132,8 @@ final class AppSuspended extends DropReason with _Spends {
   final String? _refused;
 }
 
-/// Minted only here, bound to evidence of an end. A command, timeout or probe on a
-/// connection already handed out is never evidence.
+/// Minted only in this library, from evidence that a terminal or a dial ended. A command,
+/// timeout or probe on a connection already handed out is never such evidence.
 final class Reconnect extends OpenReason {
   const Reconnect._(this._cause) : super._();
 
@@ -150,15 +150,15 @@ final class _TerminalEnded extends _Evidence {
   final ShellEnded end;
 }
 
-/// On the host or link, in the handshake or a startup step before the hand-out.
+/// A dial failed on the host or link, in the handshake or a startup step before hand-out.
 final class _DialFailed extends _Evidence {
   const _DialFailed(this.error);
 
   final Object error;
 }
 
-/// The terminal exited, its stream died, or it stayed silent past the health window. Only
-/// the supervisor under it mints one, and only that supervisor accepts it.
+/// The terminal exited, its stream died, or it stayed silent past the health window. Only the
+/// supervisor under that terminal mints one, and only that supervisor accepts it.
 final class ShellEnded implements DropReason {
   ShellEnded._(this._of);
 

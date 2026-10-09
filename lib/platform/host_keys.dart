@@ -4,8 +4,8 @@ import 'dart:typed_data';
 
 import '../application/reason_lines.dart';
 
-/// The key itself is not stored: a comparison needs the fingerprint and the user reads
-/// the fingerprint, so the bytes would be a copy of what the remote presents on every
+/// A host key the user accepted, kept as its fingerprint alone. Comparing keys and showing
+/// one to the user both need only the fingerprint, and the host sends the full key on every
 /// handshake anyway.
 class PinnedHostKey {
   const PinnedHostKey({
@@ -35,8 +35,8 @@ class HostKeyOffer {
   final String fingerprint;
 }
 
-/// Null everywhere the question cannot be put on screen — the agent poll, the alert
-/// watcher, a reconnect — and those refuse an unpinned host instead of asking.
+/// Asks the user about a host key. Null wherever nobody can be asked, such as the agent
+/// poll, the alert watcher or a reconnect; those refuse an unpinned host instead.
 typedef HostKeyPrompt = Future<bool> Function(
   HostKeyOffer offer,
   PinnedHostKey? pinned,
@@ -44,8 +44,8 @@ typedef HostKeyPrompt = Future<bool> Function(
 
 typedef HostKeyPin = Future<void> Function(PinnedHostKey key);
 
-/// Built per connection because it carries the answer out: the transport's callback can
-/// only say yes or no, so the reason it said no is read from [refusal] afterwards.
+/// Build one per connection, because it carries the answer out: the transport's callback can
+/// only say yes or no, so why it said no is read from [refusal] afterwards.
 class HostKeyVerifier {
   HostKeyVerifier({this.pinned, this.prompt, this.pin});
 

@@ -81,8 +81,8 @@ enum HostUse {
   };
 }
 
-/// Refused before dialling: an earlier failed dial to the same identity is still
-/// authenticating. [settled] completes, never with an error, once that one lets go.
+/// A dial refused before it starts, because an earlier failed dial to the same identity is
+/// still authenticating. [settled] completes, never with an error, once that one lets go.
 final class DialSettling extends SocketException {
   DialSettling(this.settled) : super('an earlier dial is still settling');
 
@@ -112,9 +112,9 @@ class HostLease {
   Future<SSHSession> shell(SSHPtyConfig pty) =>
       _links._session(this, (client) => client.shell(pty: pty));
 
-  /// One keepalive round now, beside the periodic one: true while the link lives. The
-  /// link ends, for every holder, when the ping goes unanswered and nothing else arrives
-  /// within [HostLinks.answer]. Checks already out are joined, never doubled.
+  /// Runs one keepalive round now, beside the periodic ones, and answers whether the link
+  /// lives. With no answer and no other traffic within [HostLinks.answer], the link ends for
+  /// every holder. A check already running is joined, never doubled.
   Future<bool> check() =>
       _released ? Future.value(false) : _links._check(_link);
 
@@ -203,8 +203,8 @@ class _Pending {
   var renounced = false;
 }
 
-/// The one owner of this isolate's ssh connections: per host identity, one control link
-/// and one screen link, plus one overflow control link; [probe] is not one of them.
+/// Owns every SSH connection in this isolate: per host identity, one control link, one
+/// screen link and one overflow control link. [probe] dials outside this pool.
 class HostLinks {
   HostLinks({
     SshDial? dial,
@@ -307,8 +307,8 @@ class HostLinks {
           return _granted(link, use);
         }
       }
-      // A failed dial keeps authenticating until sshd lets go and counts against
-      // MaxStartups; a second one while it settles is how the user's own gets dropped.
+      // A failed dial keeps authenticating until sshd lets go, counting against MaxStartups.
+      // Dialling again during that window is how the user's own dial gets dropped.
       final settling = _settling[identity];
       if (settling != null) throw DialSettling(settling.settled);
       final pending = _Pending(target, use.lane);
@@ -368,8 +368,8 @@ class HostLinks {
     });
   }
 
-  /// [HostLease.check] on every link, held or lingering; for a network change, where
-  /// a link on the old path is silent long before its keepalive notices.
+  /// Runs [HostLease.check] on every link, held or lingering. After a network change a link
+  /// on the old path goes silent long before its keepalive would notice.
   Future<void> recheckAll() => Future.wait([
     for (final link in [..._all]) _check(link),
   ]);
@@ -527,8 +527,8 @@ class HostLinks {
     );
   }
 
-  /// A held link answers to its keepalive alone; only one nobody holds is pinged
-  /// before reuse, and ended if it neither answers nor says anything else.
+  /// A held link is trusted until its keepalive fails. An unheld link quiet past [quiet] is
+  /// pinged before reuse, and ended if nothing at all comes back.
   Future<bool> _vouched(_Link link) async {
     if (link.ended) return false;
     if (link.client.isClosed) {
@@ -572,8 +572,8 @@ class HostLinks {
     });
   }
 
-  /// [held] ends a link someone holds too, as its keepalive would; otherwise a holder
-  /// arriving while the ping is out keeps the link.
+  /// With [held], an unanswered ping ends the link even while someone holds it, as the
+  /// keepalive would. Otherwise a holder that arrives while the ping is out keeps the link.
   Future<bool> _ping(_Link link, {required bool held}) async {
     final seen = link.ssh.received();
     try {
@@ -661,7 +661,7 @@ class HostLinks {
         rethrow;
       }
       var spill = await _overflow(link, lease.use);
-      // The last session on it may have ended it while this waited.
+      // The overflow may have ended with its last session while this waited.
       if (spill.ended) spill = await _overflow(link, lease.use);
       if (spill.ended) rethrow;
       spill.sessions++;
