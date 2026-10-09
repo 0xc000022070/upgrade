@@ -12,6 +12,7 @@ import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/reasons.dart';
 import 'support/shell_route.dart';
 
 void main() {
@@ -250,7 +251,8 @@ void main() {
             builder: (context) => TextButton(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => const HostShellRoute(host: rose),
+                  builder: (_) =>
+                      HostShellRoute(host: rose, intent: testIntent()),
                 ),
               ),
               child: const Text('GO'),

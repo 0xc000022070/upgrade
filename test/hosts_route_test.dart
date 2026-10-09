@@ -34,6 +34,7 @@ import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/reasons.dart';
 import 'support/themed_app.dart';
 
 const _rose = Host(
@@ -333,7 +334,7 @@ void main() {
     addTearDown(tester.view.reset);
     await seed();
     shells.stall = false;
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
@@ -580,8 +581,8 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await seed();
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _rose);
 
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
@@ -601,7 +602,7 @@ void main() {
     addTearDown(tester.view.reset);
     await seed();
     shells.stall = false;
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
 
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);

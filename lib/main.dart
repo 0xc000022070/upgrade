@@ -38,7 +38,9 @@ import 'platform/plugins/store.dart';
 import 'platform/plugins/usage.dart';
 import 'platform/shell/shell_connection.dart';
 
-Future<void> main() async {
+Future<void> main() => PlatformSignal.onLaunch(_boot);
+
+Future<void> _boot(PlatformSignal launch) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final boot = <BootStep>[];
@@ -106,10 +108,7 @@ Future<void> main() async {
   if (seeded != null) boot.add(BootStep('apply seed bundle', seeded));
   final shells = await container
       .read(shellSessionsProvider)
-      .restore(
-        container.read(hostRepositoryProvider).all,
-        AppResumed(PlatformSignal.fromPlatform()),
-      );
+      .restore(container.read(hostRepositoryProvider).all, AppResumed(launch));
   boot.add(BootStep('restore shells', '$shells'));
 
   runApp(

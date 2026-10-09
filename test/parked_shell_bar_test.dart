@@ -14,11 +14,11 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/shell/parked_shell_bar.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/herdr_client.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/reasons.dart';
 import 'support/themed_app.dart';
 
 const _rose = Host(
@@ -89,7 +89,7 @@ void main() {
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
         await tester.pumpWidget(app());
         await ready(tester);
-        sessions.open(intent: UserIntent.fromGesture(), _rose);
+        sessions.open(intent: testIntent(), _rose);
         await ready(tester);
 
         expect(tester.getSize(bar).width, width);
@@ -121,7 +121,7 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await ready(tester);
 
     expect(bar, findsOneWidget);
@@ -176,7 +176,7 @@ void main() {
     );
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await ready(tester);
 
     final line = find.byKey(const ValueKey('agent-status'));
@@ -205,7 +205,7 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await ready(tester);
     await tester.tap(bar);
     await ready(tester);
@@ -222,7 +222,7 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await ready(tester);
     await tester.tap(bar);
     await ready(tester);
@@ -245,8 +245,8 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
+    final first = sessions.open(intent: testIntent(), _rose)!;
+    sessions.open(intent: testIntent(), _nyx);
     await ready(tester);
     expect(find.text('NYX 2'), findsNothing);
     expect(find.text('NYX 1'), findsOneWidget);
@@ -262,12 +262,12 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await ready(tester);
     expect(find.text('+1'), findsNothing);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _nyx);
     await ready(tester);
 
     expect(find.text('NYX 1'), findsOneWidget);
@@ -280,11 +280,11 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await ready(tester);
     expect(bar, findsOneWidget);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
     await ready(tester);
 
     expect(bar, findsNothing);
@@ -298,12 +298,12 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
-    final second = sessions.open(intent: UserIntent.fromGesture(), _nyx)!;
+    sessions.open(intent: testIntent(), _rose);
+    final second = sessions.open(intent: testIntent(), _nyx)!;
     await ready(tester);
     expect(find.text('NYX 1'), findsOneWidget);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _nyx.id, second);
+    await sessions.close(intent: testIntent(), _nyx.id, second);
     await ready(tester);
 
     expect(find.text('ROSE 1'), findsOneWidget);

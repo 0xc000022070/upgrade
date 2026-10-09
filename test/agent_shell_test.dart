@@ -8,13 +8,13 @@ import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/features/agents/agent_shell.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/platform/herdr_client.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/reasons.dart';
 import 'support/themed_app.dart';
 
 const _rose = Host(
@@ -171,7 +171,7 @@ void main() {
     await tester.tap(find.text('OPEN HERE'));
     await ready(tester);
     final first = sessions.forHost(_rose.id).single;
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await ready(tester);
     expect(sessions.activeFor(_rose.id), isNot(same(first)));
     tester.state<NavigatorState>(find.byType(Navigator).first).pop();
@@ -197,7 +197,8 @@ class _Launcher extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
     body: Center(
       child: TextButton(
-        onPressed: () => openAgentShell(context, ref, _rose, _agent),
+        onPressed: () =>
+            openAgentShell(context, ref, _rose, _agent, testIntent()),
         child: const Text('OPEN'),
       ),
     ),

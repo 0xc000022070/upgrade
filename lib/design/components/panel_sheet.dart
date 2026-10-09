@@ -57,7 +57,34 @@ Future<bool> confirmSheet(
   final answer = await showPanelSheet<bool>(
     context,
     title: title,
-    builder: (context) => PanelSheetBody(
+    builder: (context) => ConfirmSheetBody(
+      title: title,
+      confirmLabel: confirmLabel,
+      message: message,
+    ),
+  );
+  return answer ?? false;
+}
+
+/// [onConfirm] runs inside the confirm tap, after the pop: what it starts is fresh from it.
+class ConfirmSheetBody extends StatelessWidget {
+  const ConfirmSheetBody({
+    super.key,
+    required this.title,
+    required this.confirmLabel,
+    this.message,
+    this.onConfirm,
+  });
+
+  final String title;
+  final String confirmLabel;
+  final String? message;
+  final VoidCallback? onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = this.message;
+    return PanelSheetBody(
       title: title,
       children: [
         if (message != null) ...[
@@ -78,15 +105,17 @@ Future<bool> confirmSheet(
                 label: confirmLabel,
                 tone: context.tokens.accent,
                 filled: true,
-                onTap: () => Navigator.of(context).pop(true),
+                onTap: () {
+                  Navigator.of(context).pop(true);
+                  onConfirm?.call();
+                },
               ),
             ),
           ],
         ),
       ],
-    ),
-  );
-  return answer ?? false;
+    );
+  }
 }
 
 class _SheetFrame extends StatelessWidget {

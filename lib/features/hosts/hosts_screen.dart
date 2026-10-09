@@ -24,6 +24,7 @@ import '../../platform/herdr_client.dart';
 import '../../platform/host_key_dial.dart';
 import '../../platform/host_keys.dart';
 import '../../platform/link_probe.dart';
+import '../../platform/shell/shell_connection.dart';
 import '../code/code_list.dart';
 import '../devices/device_dock.dart';
 import '../devices/screens_action.dart';
@@ -567,7 +568,9 @@ class _ShellRowState extends ConsumerState<_ShellRow> {
       onTapDown: (_) => setState(() => _down = true),
       onTapCancel: () => setState(() => _down = false),
       onTapUp: (_) => setState(() => _down = false),
-      onTap: () => pickHostShell(context, store, widget.host),
+      onTap: UserIntent.onGesture(
+        (intent) => pickHostShell(context, store, widget.host, intent),
+      ),
       child: SizedBox(
         height: RowMetrics.minHeight,
         child: ShellWatcher(
@@ -864,7 +867,9 @@ class _HostActions extends ConsumerWidget {
                   key: ValueKey('ssh-host-${host.id}'),
                   icon: UpgradeIcons.shell,
                   color: accent,
-                  onTap: () => pickHostShell(context, store, host),
+                  onTap: UserIntent.onGesture(
+                    (intent) => pickHostShell(context, store, host, intent),
+                  ),
                 ),
               ],
             );

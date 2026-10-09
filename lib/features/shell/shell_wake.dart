@@ -33,18 +33,18 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
   void initState() {
     super.initState();
     _hold.refresh();
-    _network = Device.networkChanges().listen((up) {
-      // Only an arrival. A network going is what put these tabs where they are, and
-      // dialling over nothing would spend the fresh schedule for nothing.
-      if (up) {
-        ref
-            .read(shellSessionsProvider)
-            .wakeAll(PlatformSignal.fromPlatform(), network: true);
-        // Only a tab's host is renounced; the panel's and the code view's links on the
-        // old path would otherwise wait out their keepalive.
-        unawaited(ref.read(hostLinksProvider).recheckAll());
-      }
-    });
+    _network = Device.networkChanges().listen(
+      PlatformSignal.onNetwork((signal, up) {
+        // Only an arrival. A network going is what put these tabs where they are, and
+        // dialling over nothing would spend the fresh schedule for nothing.
+        if (up) {
+          ref.read(shellSessionsProvider).wakeAll(NetworkChanged(signal));
+          // Only a tab's host is renounced; the panel's and the code view's links on the
+          // old path would otherwise wait out their keepalive.
+          unawaited(ref.read(hostLinksProvider).recheckAll());
+        }
+      }),
+    );
   }
 
   @override
@@ -56,20 +56,26 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<bool>(appVisibleProvider, (was, now) {
-      if (now) return;
-      _away = true;
-      ref.read(shellSessionsProvider).leave(PlatformSignal.fromPlatform());
-    });
-    ref.listen<bool>(appForegroundProvider, (was, now) {
-      if (!now || was == true) return;
-      final signal = PlatformSignal.fromPlatform();
-      ref.read(shellSessionsProvider)
-        ..returned(signal)
-        ..wakeAll(signal, rehome: _away);
-      _away = false;
-      _hold.refresh();
-    });
+    ref.listen<bool>(
+      appVisibleProvider,
+      PlatformSignal.onLifecycle((signal, was, now) {
+        if (now) return;
+        _away = true;
+        ref.read(shellSessionsProvider).leave(signal);
+      }),
+    );
+    ref.listen<bool>(
+      appForegroundProvider,
+      PlatformSignal.onLifecycle((signal, was, now) {
+        if (!now || was == true) return;
+        final resumed = AppResumed(signal);
+        ref.read(shellSessionsProvider)
+          ..returned(resumed)
+          ..wakeAll(resumed, rehome: _away);
+        _away = false;
+        _hold.refresh();
+      }),
+    );
     return widget.child;
   }
 }

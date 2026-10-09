@@ -14,6 +14,7 @@ import '../../design/icons/upgrade_icons.dart';
 import '../../design/spacing.dart';
 import '../../design/tokens.dart';
 import '../../platform/herdr_client.dart';
+import '../../platform/shell/shell_connection.dart';
 import '../home/agent_mark.dart';
 import '../screen_scaffold.dart';
 import 'agent_shell.dart';
@@ -61,7 +62,8 @@ class AgentsScreen extends ConsumerWidget {
                 feed,
                 onOpen:
                     onOpen ??
-                    (host, agent) => openAgentShell(context, ref, host, agent),
+                    (intent, host, agent) =>
+                        openAgentShell(context, ref, host, agent, intent),
               ),
             ),
           ],
@@ -141,7 +143,9 @@ class _Feed extends StatelessWidget {
                         '${agentMarkName(agent.agent)} · ${path.basename(agent.cwd)} · ${outcome.host.name}',
                     value: agent.state.label,
                     valueColor: agentStateColor(context, agent.state),
-                    onTap: () => onOpen(outcome.host, agent),
+                    onTap: UserIntent.onGesture(
+                      (intent) => onOpen(intent, outcome.host, agent),
+                    ),
                   ),
               ],
             ),
@@ -225,7 +229,9 @@ class _Feed extends StatelessWidget {
                   : '${agent.session} · ${agent.paneId}',
               value: agent.state.label,
               valueColor: agentStateColor(context, agent.state),
-              onTap: () => onOpen(outcome.host, agent),
+              onTap: UserIntent.onGesture(
+                (intent) => onOpen(intent, outcome.host, agent),
+              ),
             ),
         ],
       ),

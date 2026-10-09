@@ -25,6 +25,7 @@ import 'package:upgrade/features/shell/shell_terminal.dart';
 import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
+import 'support/reasons.dart';
 import 'support/shell_route.dart' show noWorkspaces;
 import 'support/themed_app.dart';
 
@@ -143,14 +144,14 @@ void main() {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 
-    final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
-    final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
-    final third = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final first = sessions.open(intent: testIntent(), _rose)!;
+    final second = sessions.open(intent: testIntent(), _rose)!;
+    final third = sessions.open(intent: testIntent(), _rose)!;
     expect([first.number, second.number, third.number], [1, 2, 3]);
 
     await _settle();
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, second);
-    final fourth = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    await sessions.close(intent: testIntent(), _rose.id, second);
+    final fourth = sessions.open(intent: testIntent(), _rose)!;
 
     expect(fourth.number, 4);
     expect(sessions.forHost(_rose.id).map((session) => session.number), [
@@ -165,7 +166,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
 
     final session = sessions.open(
-      intent: UserIntent.fromGesture(),
+      intent: testIntent(),
       _rose,
       command: shellIn('/srv/gate'),
     )!;
@@ -183,7 +184,7 @@ void main() {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await _settle();
 
     expect(transport.opened.single.written, isEmpty);
@@ -199,8 +200,8 @@ void main() {
       recordSystem: (hostId, system) async => recorded.add((hostId, system)),
     );
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await _settle();
     await _settle();
 
@@ -218,7 +219,7 @@ void main() {
     );
 
     sessions.open(
-      intent: UserIntent.fromGesture(),
+      intent: testIntent(),
       const Host(
         id: 'h1',
         name: 'rose',
@@ -245,10 +246,10 @@ void main() {
       recordSystem: (hostId, system) async => recorded.add((hostId, system)),
     );
 
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await _settle();
     await _settle();
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await _settle();
     await _settle();
 
@@ -262,7 +263,7 @@ void main() {
     final transport = FakeShellTransport()..stall = true;
     final sessions = fakeShellSessions(transport);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpView(tester, session, const Size(400, 600));
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.byType(DotSpinner), findsNothing);
@@ -278,14 +279,14 @@ void main() {
     await _pumpDial(tester);
     expect(find.byType(DotSpinner), findsNothing);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a dial that fails takes the spinner with it', (tester) async {
     final transport = FakeShellTransport()..stall = true;
     final sessions = fakeShellSessions(transport);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpView(tester, session, const Size(400, 600));
     await tester.pump(const Duration(milliseconds: 250));
     expect(find.byType(DotSpinner), findsOneWidget);
@@ -295,7 +296,7 @@ void main() {
     await tester.pump();
     expect(find.byType(DotSpinner), findsNothing);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   test('the ninth session is the last one a host can open', () async {
@@ -303,10 +304,10 @@ void main() {
     final sessions = fakeShellSessions(transport);
 
     for (var i = 0; i < 9; i++) {
-      expect(sessions.open(intent: UserIntent.fromGesture(), _rose), isNotNull);
+      expect(sessions.open(intent: testIntent(), _rose), isNotNull);
     }
     expect(sessions.canOpen(_rose.id), isFalse);
-    expect(sessions.open(intent: UserIntent.fromGesture(), _rose), isNull);
+    expect(sessions.open(intent: testIntent(), _rose), isNull);
     expect(sessions.forHost(_rose.id), hasLength(9));
     await _settle();
   });
@@ -315,11 +316,11 @@ void main() {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 
-    final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
-    final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final first = sessions.open(intent: testIntent(), _rose)!;
+    final second = sessions.open(intent: testIntent(), _rose)!;
     await _settle();
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, first);
+    await sessions.close(intent: testIntent(), _rose.id, first);
 
     expect(sessions.forHost(_rose.id), [second]);
     expect(transport.opened.first.closed, isTrue);
@@ -331,7 +332,7 @@ void main() {
   ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     final terminal = session.terminal;
@@ -345,14 +346,14 @@ void main() {
     expect(session.terminal, same(terminal));
     expect(session.state, isA<ShellLive>());
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   test('bytes flow both ways through the connection', () async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _settle();
     final connection = transport.opened.single;
 
@@ -369,7 +370,7 @@ void main() {
     () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
 
       session.voiceSendSuggested = true;
@@ -396,7 +397,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
       final first = session.terminal;
@@ -424,7 +425,7 @@ void main() {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _settle();
     final connection = transport.opened.single;
 
@@ -441,7 +442,7 @@ void main() {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _settle();
     final connection = transport.opened.single;
 
@@ -460,7 +461,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
@@ -486,7 +487,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
 
       sessions.arm(session, {StickyModifier.alt}, repeat: 2);
@@ -505,7 +506,7 @@ void main() {
         final transport = FakeShellTransport();
         final sessions = fakeShellSessions(transport);
 
-        final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+        final session = sessions.open(intent: testIntent(), _rose)!;
         await _settle();
         final connection = transport.opened.single;
 
@@ -532,7 +533,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
@@ -559,7 +560,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
@@ -574,7 +575,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
       final connection = transport.opened.single;
       await _pumpView(tester, session, const Size(400, 600));
@@ -593,7 +594,7 @@ void main() {
         expect(report.take(3), [0x1b, 0x5b, 0x4d]);
       }
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('a report is told from a key by its shape alone', () {
@@ -618,7 +619,7 @@ void main() {
     test('plain Mosh shells may disable mouse reporting', () async {
       final transport = FakeShellTransport()..transport = ShellTransport.mosh;
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
 
       final connection = transport.opened.single;
@@ -634,7 +635,7 @@ void main() {
       final transport = FakeShellTransport()..transport = ShellTransport.mosh;
       final sessions = fakeShellSessions(transport);
       final session = sessions.open(
-        intent: UserIntent.fromGesture(),
+        intent: testIntent(),
         _rose,
         command: 'attach',
         pane: const (session: 'default', pane: 'w1:p1'),
@@ -648,7 +649,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
       final session = sessions.open(
-        intent: UserIntent.fromGesture(),
+        intent: testIntent(),
         _rose,
         command: 'attach',
         pane: const (session: 'default', pane: 'w1:p1'),
@@ -668,7 +669,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
 
       sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
@@ -682,7 +683,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       var notices = 0;
       session.addListener(() => notices++);
@@ -701,7 +702,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
 
       sessions.arm(session, {StickyModifier.ctrl}, repeat: 3);
@@ -715,8 +716,8 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
-      final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final first = sessions.open(intent: testIntent(), _rose)!;
+      final second = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
 
       sessions.arm(first, {StickyModifier.ctrl}, repeat: 2);
@@ -734,11 +735,11 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       sessions.arm(session, {StickyModifier.ctrl}, repeat: 3);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
 
       expect(session.sticky, isEmpty);
       expect(session.stickyRepeat, 1);
@@ -750,7 +751,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
@@ -772,7 +773,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
 
       sessions.arm(session, {StickyModifier.alt}, locked: true);
@@ -787,7 +788,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
 
       sessions.arm(session, {StickyModifier.ctrl}, locked: true);
@@ -800,7 +801,7 @@ void main() {
     testWidgets('a reconnect drops the latch with the set', (tester) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
       sessions.arm(session, {StickyModifier.ctrl}, locked: true);
 
@@ -816,7 +817,7 @@ void main() {
       expect(session.sticky, isEmpty);
       expect(session.stickyLocked, isFalse);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
   });
 
@@ -826,7 +827,7 @@ void main() {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     await _pumpView(tester, session, const Size(400, 600));
     session.focusNode.requestFocus();
@@ -838,14 +839,14 @@ void main() {
 
     expect(transport.opened.single.written, 'ls\r');
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   test('a paste goes out whole, with its line breaks as returns', () async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _settle();
 
     session.terminal.paste('uname -a\n');
@@ -857,7 +858,7 @@ void main() {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _settle();
     expect(session.title, isNull);
 
@@ -871,7 +872,7 @@ void main() {
       'keys', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     transport.opened.single.emit('\x1b]0;luis@nyx: ~\x07');
     await _pumpDial(tester);
@@ -886,14 +887,14 @@ void main() {
     expect(session.sticky, isEmpty);
     expect(session.stickyRepeat, 1);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a reconnect takes the dead application\'s mouse reporting and '
       'its screen with it', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     transport.opened.single.emit('\x1b[?1049h\x1b[?1002h\x1b[?1006h');
@@ -909,7 +910,7 @@ void main() {
     expect(session.terminal.mouseTracking, MouseTracking.none);
     expect(session.terminal.activeScreen, TerminalScreen.primary);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a pane that outlived the link keeps what its application set', (
@@ -919,7 +920,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     const pane = (session: 'lab', pane: 'w22:p1');
     final session = sessions.open(
-      intent: UserIntent.fromGesture(),
+      intent: testIntent(),
       _rose,
       command: 'attach',
       pane: pane,
@@ -936,26 +937,21 @@ void main() {
 
     expect(session.terminal.mouseTracking, isNot(MouseTracking.none));
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   test('a tab opened on a pane is the one the store hands back for it', () {
     final sessions = fakeShellSessions(FakeShellTransport());
 
     const pane = (session: 'lab', pane: 'w22:p1');
-    final bare = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final bare = sessions.open(intent: testIntent(), _rose)!;
     final attached = sessions.open(
-      intent: UserIntent.fromGesture(),
+      intent: testIntent(),
       _rose,
       command: 'attach',
       pane: pane,
     )!;
-    sessions.open(
-      intent: UserIntent.fromGesture(),
-      _nyx,
-      command: 'attach',
-      pane: pane,
-    );
+    sessions.open(intent: testIntent(), _nyx, command: 'attach', pane: pane);
 
     expect(bare.pane, isNull);
     expect(attached.pane, pane);
@@ -976,7 +972,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     const pane = (session: 'lab', pane: 'w22:p1');
     final session = sessions.open(
-      intent: UserIntent.fromGesture(),
+      intent: testIntent(),
       _rose,
       command: 'attach',
       pane: pane,
@@ -995,14 +991,14 @@ void main() {
     expect(transport.commands, [marked, marked]);
     expect(transport.opened.last.written, isEmpty);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a resize is forwarded once per size', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     final connection = transport.opened.single;
 
@@ -1017,7 +1013,7 @@ void main() {
     );
     expect(connection.resizes.last[1], connection.resizes.first[1]);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a size the view settles on mid-dial reaches the remote', (
@@ -1026,7 +1022,7 @@ void main() {
     final transport = FakeShellTransport()..stall = true;
     final sessions = fakeShellSessions(transport);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     await _pumpView(tester, session, const Size(600, 600));
     transport.land();
@@ -1037,14 +1033,14 @@ void main() {
     expect(connection.resizes, hasLength(1));
     expect(connection.resizes.single, isNot(dialed));
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   test('the exit code becomes the exited state', () async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _settle();
     expect(session.state, isA<ShellLive>());
 
@@ -1059,7 +1055,7 @@ void main() {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport, privateKey: null);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _settle();
 
     expect(session.state, isA<ShellFailed>());
@@ -1076,7 +1072,7 @@ void main() {
       );
     final sessions = fakeShellSessions(transport);
 
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _settle();
 
     final state = session.state as ShellFailed;
@@ -1089,7 +1085,7 @@ void main() {
   ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     await _spend(tester, transport, session);
@@ -1097,7 +1093,7 @@ void main() {
       ShellFailureKind.unreachable,
       detail: 'connection refused',
     );
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     for (final delay in shellReconnectDelays) {
       expect(session.state, isA<ShellDropped>());
@@ -1109,13 +1105,13 @@ void main() {
     expect(state.kind, ShellFailureKind.unreachable);
     expect(state.detail, 'luis@100.64.0.1:22 · connection refused');
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('an error nobody mapped keeps its own words', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     transport.opened.single.drop(StateError('no route to host'));
@@ -1127,13 +1123,13 @@ void main() {
     expect(state.kind, ShellFailureKind.streamClosed);
     expect(state.detail, contains('no route to host'));
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a shell that came back carries no detail', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     transport.opened.single.drop(StateError('gone'));
@@ -1149,7 +1145,7 @@ void main() {
 
     expect((session.state as ShellFailed).detail, isNull);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   test('every failure carries the reason line the header draws', () {
@@ -1174,7 +1170,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: testTheme,
-          home: HostShellRoute(host: _rose),
+          home: HostShellRoute(host: _rose, intent: testIntent()),
         ),
       ),
     );
@@ -1193,7 +1189,7 @@ void main() {
   ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     expect(session.state, isA<ShellLive>());
 
@@ -1212,7 +1208,7 @@ void main() {
     expect(_text(session.terminal), contains('-- reconnected --'));
     expect(transport.verifiers.last?.prompt, isNull);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a channel that fails with no exit is dialled again', (
@@ -1220,7 +1216,7 @@ void main() {
   ) async {
     final transport = FakeShellTransport()..transport = ShellTransport.mosh;
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     transport.opened.single.fail();
@@ -1232,13 +1228,13 @@ void main() {
     expect(session.state, isA<ShellLive>());
     expect(transport.opened, hasLength(2));
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a dropped tab carries the cause of its drop', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     transport.opened.single.drop(
@@ -1263,7 +1259,7 @@ void main() {
     expect(session.state.failure?.kind, ShellFailureKind.unreachable);
     expect(session.state.failure?.detail, contains('connection refused'));
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a key store that throws fails the tab instead of holding it '
@@ -1279,7 +1275,7 @@ void main() {
       open: transport.open,
     );
     locked = true;
-    final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final first = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     expect(first.state, isA<ShellFailed>());
@@ -1288,7 +1284,7 @@ void main() {
     expect(transport.opened, isEmpty);
 
     locked = false;
-    final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final second = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     locked = true;
     transport.opened.single.drop();
@@ -1299,8 +1295,8 @@ void main() {
     expect(second.state, isA<ShellFailed>());
     expect(transport.opened, hasLength(1));
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, first);
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, second);
+    await sessions.close(intent: testIntent(), _rose.id, first);
+    await sessions.close(intent: testIntent(), _rose.id, second);
   });
 
   testWidgets(
@@ -1311,7 +1307,7 @@ void main() {
           connection.resizeRefused = const SocketException('pty gone');
         };
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       session.measuredCell(8, 16);
       await _pumpDial(tester);
 
@@ -1321,14 +1317,14 @@ void main() {
       expect(session.state, isA<ShellWaiting>());
 
       transport.opening = null;
-      sessions.wakeAll(PlatformSignal.fromPlatform());
+      sessions.wakeAll(AppResumed(testSignal()));
       await _pumpDial(tester);
 
       expect(transport.opened, hasLength(2));
       expect(session.connection, same(transport.opened.last));
       expect(session.state, isA<ShellLive>());
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     },
   );
 
@@ -1337,7 +1333,7 @@ void main() {
   ) async {
     final transport = FakeShellTransport()..transport = ShellTransport.mosh;
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     transport.stall = true;
@@ -1355,14 +1351,14 @@ void main() {
     expect(late.discarded, isTrue);
     expect(session.state, isA<ShellFailed>());
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('an engine tab writes its reconnect line into the screen that '
       'replaces it', (tester) async {
     final transport = FakeShellTransport()..transport = ShellTransport.engine;
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     transport.opened.single.drop();
@@ -1391,13 +1387,13 @@ void main() {
     await _restored(tester, session);
     expect(_text(session.terminal), isNot(contains('-- reconnected --')));
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   test('a measured cell gives an engine pty its pixel size', () async {
     final transport = FakeShellTransport()..transport = ShellTransport.engine;
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _settle();
     final connection = transport.opened.single;
     final opened = connection.resizes.length;
@@ -1414,7 +1410,7 @@ void main() {
   ) async {
     final transport = FakeShellTransport()..transport = ShellTransport.engine;
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     final connection = transport.opened.single;
 
@@ -1428,13 +1424,13 @@ void main() {
     expect(width % columns, 0);
     expect(height % rows, 0);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   test('a measured cell leaves a Mosh link alone', () async {
     final transport = FakeShellTransport()..transport = ShellTransport.mosh;
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _settle();
     final connection = transport.opened.single;
     final opened = connection.resizes.length;
@@ -1448,7 +1444,7 @@ void main() {
     (tester) async {
       final transport = FakeShellTransport()..transport = ShellTransport.mosh;
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
 
       session.voiceSendSuggested = true;
@@ -1465,7 +1461,7 @@ void main() {
       await tester.pump();
       expect(session.state, isA<ShellLive>());
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     },
   );
 
@@ -1475,7 +1471,7 @@ void main() {
     final transport = FakeShellTransport()
       ..refuse = const ShellFailure(ShellFailureKind.unreachable);
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     expect(session.state, isA<ShellDropped>());
@@ -1490,14 +1486,14 @@ void main() {
     expect(transport.reasons.first, isA<UserAction>());
     expect(transport.reasons.last, isA<Reconnect>());
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a terminal whose host is down is marked stale until it is '
       'back', (tester) async {
     final transport = FakeShellTransport()..transport = ShellTransport.mosh;
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     final connection = transport.opened.single;
     connection.setHealth(ShellConnectionHealth.connected);
@@ -1513,14 +1509,14 @@ void main() {
     await tester.pump();
     expect(session.controlStale, isFalse);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a reconnect the user asked for that fails says so on the tab, '
       'and the host coming back clears it', (tester) async {
     final transport = FakeShellTransport()..transport = ShellTransport.mosh;
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     final connection = transport.opened.single
       ..setHealth(ShellConnectionHealth.connected)
@@ -1528,24 +1524,21 @@ void main() {
       ..openRefused = const SocketException('Connection refused');
     await tester.pump();
 
-    await sessions.reconnectControl(
-      session,
-      UserAction(UserIntent.fromGesture()),
-    );
+    await sessions.reconnectControl(session, UserAction(testIntent()));
     expect(session.controlFailure, contains('Connection refused'));
 
     connection.setControlDown(false);
     await tester.pump();
     expect(session.controlFailure, isNull);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a revival that gives up says so on the tab, and a reconnect '
       'that holds the host clears it', (tester) async {
     final transport = FakeShellTransport()..transport = ShellTransport.mosh;
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     final connection = transport.opened.single
       ..setHealth(ShellConnectionHealth.connected)
@@ -1559,23 +1552,20 @@ void main() {
     expect(session.controlStale, isTrue);
     expect(session.controlFailure, contains('Connection refused'));
 
-    await sessions.reconnectControl(
-      session,
-      UserAction(UserIntent.fromGesture()),
-    );
+    await sessions.reconnectControl(session, UserAction(testIntent()));
     connection.setControlDown(false);
     await tester.pump();
     expect(session.controlStale, isFalse);
     expect(session.controlFailure, isNull);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a reconnect that fails on a bug throws instead of marking the '
       'tab', (tester) async {
     final transport = FakeShellTransport()..transport = ShellTransport.mosh;
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     transport.opened.single
       ..setControlDown(true)
@@ -1583,12 +1573,12 @@ void main() {
     await tester.pump();
 
     await expectLater(
-      sessions.reconnectControl(session, UserAction(UserIntent.fromGesture())),
+      sessions.reconnectControl(session, UserAction(testIntent())),
       throwsStateError,
     );
     expect(session.controlFailure, isNull);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('six waits and then the tab waits, off every clock', (
@@ -1596,7 +1586,7 @@ void main() {
   ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     await _spend(tester, transport, session);
@@ -1611,7 +1601,7 @@ void main() {
     await _pumpDial(tester);
     expect(transport.verifiers, hasLength(1 + shellReconnectDelays.length));
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a wake dials the same command against the same pane', (
@@ -1622,7 +1612,7 @@ void main() {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     final session = sessions.open(
-      intent: UserIntent.fromGesture(),
+      intent: testIntent(),
       _rose,
       command: attach,
       pane: pane,
@@ -1631,7 +1621,7 @@ void main() {
 
     await _spend(tester, transport, session);
     transport.refuse = null;
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
 
     expect(session.state, isA<ShellLive>());
@@ -1639,7 +1629,7 @@ void main() {
     expect(session.pane, pane);
     expect(_text(session.terminal), contains('-- reattached --'));
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a wake rehomes a live transport without redialling', (
@@ -1647,16 +1637,16 @@ void main() {
   ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
 
     expect(transport.opened, hasLength(1));
     expect(transport.opened.single.rehomes, 1);
     expect(session.state, isA<ShellLive>());
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a network arriving just after a plain wake still rehomes', (
@@ -1664,28 +1654,28 @@ void main() {
   ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     final connection = transport.opened.single;
 
-    sessions.wakeAll(PlatformSignal.fromPlatform());
-    sessions.wakeAll(PlatformSignal.fromPlatform(), network: true);
+    sessions.wakeAll(AppResumed(testSignal()));
+    sessions.wakeAll(NetworkChanged(testSignal()));
     await _pumpDial(tester);
     expect(connection.rehomes, 2);
     expect(connection.networkRehomes, 1);
 
     await tester.pump(shellRehomeSettle);
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
-    sessions.wakeAll(PlatformSignal.fromPlatform(), network: true);
+    sessions.wakeAll(NetworkChanged(testSignal()));
     await _pumpDial(tester);
-    sessions.wakeAll(PlatformSignal.fromPlatform(), network: true);
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(NetworkChanged(testSignal()));
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(connection.rehomes, 4);
     expect(connection.networkRehomes, 2);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a tab out of sight past the grace sleeps until the return', (
@@ -1693,31 +1683,31 @@ void main() {
   ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     final connection = transport.opened.single;
 
-    sessions.leave(PlatformSignal.fromPlatform());
+    sessions.leave(testSignal());
     await tester.pump(const Duration(seconds: 5));
-    sessions.returned(PlatformSignal.fromPlatform());
+    sessions.returned(AppResumed(testSignal()));
     await tester.pump(const Duration(seconds: 10));
     expect(connection.suspends, 0);
 
-    sessions.leave(PlatformSignal.fromPlatform());
+    sessions.leave(testSignal());
     await tester.pump(const Duration(seconds: 10));
     expect(connection.suspends, 1);
     final asked = connection.execs.length;
 
     sessions
-      ..returned(PlatformSignal.fromPlatform())
-      ..wakeAll(PlatformSignal.fromPlatform());
+      ..returned(AppResumed(testSignal()))
+      ..wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(connection.resumes, 1);
     expect(connection.rehomes, 0);
     expect(connection.execs.length, asked + 1);
     expect(session.state, isA<ShellLive>());
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a second wake inside a second of the first rehomes nothing', (
@@ -1725,21 +1715,21 @@ void main() {
   ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(transport.opened.single.rehomes, 1);
 
     await tester.pump(shellRehomeSettle);
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(transport.opened.single.rehomes, 2);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a wake is the first of a fresh schedule, not one dial', (
@@ -1747,12 +1737,12 @@ void main() {
   ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     await _spend(tester, transport, session);
     final spent = transport.verifiers.length;
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
 
     expect(transport.verifiers, hasLength(spent + 1));
@@ -1764,7 +1754,7 @@ void main() {
     await _pumpDial(tester);
     expect(session.state, isA<ShellLive>());
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a wait that ran out while the phone slept dials on the wake', (
@@ -1773,7 +1763,7 @@ void main() {
     var clock = DateTime(2026, 9, 24, 8);
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport, now: () => clock);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
@@ -1788,7 +1778,7 @@ void main() {
     final spent = transport.verifiers.length;
 
     clock = clock.add(const Duration(minutes: 5));
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     var awake = Duration.zero;
     while (transport.verifiers.length == spent &&
@@ -1802,7 +1792,7 @@ void main() {
     expect(transport.verifiers, hasLength(spent + 1));
     expect(session.state, isA<ShellWaiting>());
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a live tab and a tab that failed on an answer are not woken', (
@@ -1810,30 +1800,30 @@ void main() {
   ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final live = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final live = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     transport.refuse = const ShellFailure(ShellFailureKind.hostKeyChanged);
-    final refused = sessions.open(intent: UserIntent.fromGesture(), _nyx)!;
+    final refused = sessions.open(intent: testIntent(), _nyx)!;
     await _pumpDial(tester);
     transport.refuse = null;
     final dialled = transport.verifiers.length;
 
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
 
     expect(live.state, isA<ShellLive>());
     expect(refused.state, isA<ShellFailed>());
     expect(transport.verifiers, hasLength(dialled));
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, live);
-    await sessions.close(intent: UserIntent.fromGesture(), _nyx.id, refused);
+    await sessions.close(intent: testIntent(), _rose.id, live);
+    await sessions.close(intent: testIntent(), _nyx.id, refused);
   });
 
   testWidgets('a sheet holds every wake until it comes down', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     await _spend(tester, transport, session);
@@ -1842,23 +1832,23 @@ void main() {
 
     final release = sessions.hold();
     final second = sessions.hold();
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
 
     expect(transport.verifiers, hasLength(spent));
     expect(session.state, isA<ShellWaiting>());
 
     release();
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(transport.verifiers, hasLength(spent));
 
     second();
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(session.state, isA<ShellLive>());
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('STOP on a waiting tab ends it on the words it was showing', (
@@ -1866,7 +1856,7 @@ void main() {
   ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     await _spend(tester, transport, session);
@@ -1877,11 +1867,11 @@ void main() {
     expect(session.state, isA<ShellFailed>());
     expect((session.state as ShellFailed).kind, ShellFailureKind.unreachable);
 
-    sessions.wakeAll(PlatformSignal.fromPlatform());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(transport.verifiers, hasLength(spent));
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a key the host refuses stops the schedule at once', (
@@ -1889,7 +1879,7 @@ void main() {
   ) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     transport.refuse = const ShellFailure(ShellFailureKind.hostKeyUnverified);
@@ -1904,7 +1894,7 @@ void main() {
       ShellFailureKind.hostKeyUnverified,
     );
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   group('a passphrase the host asks for', () {
@@ -1917,7 +1907,7 @@ void main() {
       () async {
         final transport = FakeShellTransport();
         final sessions = fakeShellSessions(transport);
-        final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+        final session = sessions.open(intent: testIntent(), _rose)!;
         await _settle();
         final connection = transport.opened.single;
         var told = 0;
@@ -1951,18 +1941,14 @@ void main() {
         expect(session.pin, isNull);
         expect(told, 2);
 
-        await sessions.close(
-          intent: UserIntent.fromGesture(),
-          _rose.id,
-          session,
-        );
+        await sessions.close(intent: testIntent(), _rose.id, session);
       },
     );
 
     test('a confirm carries the agent\'s own labels', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
 
       transport.opened.single.emit(
@@ -1978,7 +1964,7 @@ void main() {
       expect(session.pin!.cancelLabel, 'NO');
       expect(session.pin!.promptLabel, 'PASSPHRASE');
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test(
@@ -1986,7 +1972,7 @@ void main() {
       () async {
         final transport = FakeShellTransport();
         final sessions = fakeShellSessions(transport);
-        final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+        final session = sessions.open(intent: testIntent(), _rose)!;
         await _settle();
 
         final execs = transport.opened.single.execs;
@@ -1996,11 +1982,7 @@ void main() {
         ]);
         expect(execs.map((exec) => exec.stdin), everyElement(isNull));
 
-        await sessions.close(
-          intent: UserIntent.fromGesture(),
-          _rose.id,
-          session,
-        );
+        await sessions.close(intent: testIntent(), _rose.id, session);
       },
     );
 
@@ -2012,20 +1994,20 @@ void main() {
       transport.opening = (connection) =>
           connection.answerWith('$id $payload\n');
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       await _settle();
 
       expect(session.pin?.id, id);
       expect(session.pin?.desc, 'the key');
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('a bell asks the host what is open and takes the answer', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
       final payload = base64Encode(
@@ -2042,13 +2024,13 @@ void main() {
       expect(session.pin?.id, id);
       expect(session.pin?.desc, 'the key');
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('a bell with nothing open withdraws the request', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
@@ -2061,7 +2043,7 @@ void main() {
       await _settle();
       expect(session.pin, isNull);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test(
@@ -2069,7 +2051,7 @@ void main() {
       () async {
         final transport = FakeShellTransport();
         final sessions = fakeShellSessions(transport);
-        final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+        final session = sessions.open(intent: testIntent(), _rose)!;
         await _settle();
         final connection = transport.opened.single;
         final quiet = connection.execs
@@ -2086,11 +2068,7 @@ void main() {
             .length;
         expect(asks - quiet, 2);
 
-        await sessions.close(
-          intent: UserIntent.fromGesture(),
-          _rose.id,
-          session,
-        );
+        await sessions.close(intent: testIntent(), _rose.id, session);
       },
     );
 
@@ -2100,9 +2078,9 @@ void main() {
         transport,
         sleepGrace: const Duration(milliseconds: 10),
       );
-      sessions.leave(PlatformSignal.fromPlatform());
+      sessions.leave(testSignal());
       await Future<void>.delayed(const Duration(milliseconds: 30));
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
@@ -2111,12 +2089,12 @@ void main() {
       ]);
       expect(connection.suspends, 1);
 
-      sessions.returned(PlatformSignal.fromPlatform());
+      sessions.returned(AppResumed(testSignal()));
       await _settle();
       expect(connection.resumes, 1);
       expect(connection.execs.last.command, pinentryOpenCommand());
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('a tab holding a request does not ask while asleep', () async {
@@ -2126,7 +2104,7 @@ void main() {
         sleepGrace: const Duration(milliseconds: 20),
         pinRecheck: const Duration(milliseconds: 10),
       );
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
       final payload = base64Encode(
@@ -2140,18 +2118,18 @@ void main() {
       await _settle();
       expect(session.pin?.id, id);
 
-      sessions.leave(PlatformSignal.fromPlatform());
+      sessions.leave(testSignal());
       await Future<void>.delayed(const Duration(milliseconds: 40));
       final asleep = asks();
       connection.emit('\x07');
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(asks(), asleep);
 
-      sessions.returned(PlatformSignal.fromPlatform());
+      sessions.returned(AppResumed(testSignal()));
       await _settle();
       expect(asks(), greaterThan(asleep));
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('a tab holding a request asks again until it is gone', () async {
@@ -2160,7 +2138,7 @@ void main() {
         transport,
         pinRecheck: const Duration(milliseconds: 10),
       );
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
       final payload = base64Encode(
@@ -2189,14 +2167,14 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 35));
       expect(asks(), settled);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('an answer settles the request on every tab of the host', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
-      final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final first = sessions.open(intent: testIntent(), _rose)!;
+      final second = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connections = transport.opened;
       connections[0].emit(osc({'mode': 'pin'}));
@@ -2205,7 +2183,7 @@ void main() {
       expect(first.pin?.id, id);
       expect(second.pin?.id, id);
 
-      await sessions.answerPin(first, 'hunter2', UserIntent.fromGesture());
+      await sessions.answerPin(first, 'hunter2', testIntent());
       expect(first.pin, isNull);
       expect(second.pin, isNull);
       expect(
@@ -2213,20 +2191,20 @@ void main() {
         isNot(contains(pinentryAnswerCommand(id))),
       );
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, first);
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, second);
+      await sessions.close(intent: testIntent(), _rose.id, first);
+      await sessions.close(intent: testIntent(), _rose.id, second);
     });
 
     test('an answer goes down the fifo on stdin, never on the line', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
       connection.emit(osc({'mode': 'pin'}));
       await _settle();
-      await sessions.answerPin(session, 'hunter2', UserIntent.fromGesture());
+      await sessions.answerPin(session, 'hunter2', testIntent());
 
       expect(session.pin, isNull);
       final answer = connection.execs.last;
@@ -2234,25 +2212,25 @@ void main() {
       expect(answer.command, isNot(contains('hunter2')));
       expect(utf8.decode(answer.stdin!), 'hunter2\n');
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('a cancel is the bare newline', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
       connection.emit(osc({'mode': 'pin'}));
       await _settle();
-      await sessions.answerPin(session, null, UserIntent.fromGesture());
+      await sessions.answerPin(session, null, testIntent());
 
       expect(session.pin, isNull);
       expect(connection.execs.last.command, pinentryAnswerCommand(id));
       expect(connection.execs.last.stdin, [0x0a]);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test(
@@ -2260,7 +2238,7 @@ void main() {
       () async {
         final transport = FakeShellTransport();
         final sessions = fakeShellSessions(transport);
-        final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+        final session = sessions.open(intent: testIntent(), _rose)!;
         await _settle();
         final connection = transport.opened.single;
 
@@ -2271,17 +2249,13 @@ void main() {
         await _settle();
         expect(session.pin, isNull);
 
-        await sessions.answerPin(session, 'hunter2', UserIntent.fromGesture());
+        await sessions.answerPin(session, 'hunter2', testIntent());
         expect(connection.execs.map((exec) => exec.command), [
           pinentryMarkCommand(session.tab),
           pinentryOpenCommand(),
         ]);
 
-        await sessions.close(
-          intent: UserIntent.fromGesture(),
-          _rose.id,
-          session,
-        );
+        await sessions.close(intent: testIntent(), _rose.id, session);
       },
     );
 
@@ -2290,7 +2264,7 @@ void main() {
     ) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
       transport.opened.single.emit(osc({'mode': 'pin'}));
       await _pumpDial(tester);
@@ -2309,13 +2283,13 @@ void main() {
         pinentryOpenCommand(),
       ]);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('a shell that exits takes its request with it', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
@@ -2326,7 +2300,7 @@ void main() {
       await _settle();
       expect(session.pin, isNull);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('an ask that keeps standing past its window may be over', () async {
@@ -2338,7 +2312,7 @@ void main() {
         pinRecheck: const Duration(milliseconds: 10),
         pinStale: const Duration(milliseconds: 40),
       );
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
       final payload = base64Encode(
@@ -2357,13 +2331,13 @@ void main() {
       expect(session.pin?.stale, isTrue);
       expect(shade.events, ['up h1 ROSE · the key']);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('an answer the host had already taken down is expired', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
@@ -2376,18 +2350,18 @@ void main() {
       );
 
       expect(
-        await sessions.answerPin(session, 'hunter2', UserIntent.fromGesture()),
+        await sessions.answerPin(session, 'hunter2', testIntent()),
         PinAnswer.expired,
       );
       expect(session.pin, isNull);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('an answer the fifo took is sent', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
@@ -2395,11 +2369,11 @@ void main() {
       await _settle();
 
       expect(
-        await sessions.answerPin(session, 'hunter2', UserIntent.fromGesture()),
+        await sessions.answerPin(session, 'hunter2', testIntent()),
         PinAnswer.sent,
       );
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('an answer that reaches a fifo nobody reads is expired', () async {
@@ -2408,7 +2382,7 @@ void main() {
         transport,
         pinAnswerWait: const Duration(milliseconds: 20),
       );
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
@@ -2419,18 +2393,18 @@ void main() {
       connection.wedged = true;
 
       expect(
-        await sessions.answerPin(session, 'hunter2', UserIntent.fromGesture()),
+        await sessions.answerPin(session, 'hunter2', testIntent()),
         PinAnswer.expired,
       );
       expect(session.pin, isNull);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('an answer the link swallowed is lost', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
@@ -2448,17 +2422,17 @@ void main() {
       };
 
       expect(
-        await sessions.answerPin(session, 'hunter2', UserIntent.fromGesture()),
+        await sessions.answerPin(session, 'hunter2', testIntent()),
         PinAnswer.lost,
       );
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('an answer whose dial failed is lost and keeps the request', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
@@ -2467,20 +2441,20 @@ void main() {
       connection.openRefused = const SocketException('Connection refused');
 
       expect(
-        await sessions.answerPin(session, 'hunter2', UserIntent.fromGesture()),
+        await sessions.answerPin(session, 'hunter2', testIntent()),
         PinAnswer.lost,
       );
       expect(session.pin, isNotNull);
 
       connection.openRefused = null;
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('an answer whose channel never opened is lost and keeps the '
         'request', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final connection = transport.opened.single;
 
@@ -2498,19 +2472,19 @@ void main() {
       };
 
       expect(
-        await sessions.answerPin(session, 'hunter2', UserIntent.fromGesture()),
+        await sessions.answerPin(session, 'hunter2', testIntent()),
         PinAnswer.lost,
       );
       expect(session.pin, isNotNull);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
   });
 
   testWidgets('a shell the user exited is not reconnected', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     transport.opened.single.exit(0);
@@ -2520,13 +2494,13 @@ void main() {
     expect(session.state, isA<ShellExited>());
     expect(transport.opened, hasLength(1));
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('STOP parks the session where the schedule was', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     transport.opened.single.drop();
@@ -2540,13 +2514,13 @@ void main() {
     expect(session.stickyLocked, isFalse);
     expect(transport.opened, hasLength(1));
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('a dead shell drops a latched modifier', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
     sessions.arm(session, {StickyModifier.alt}, locked: true);
 
@@ -2557,18 +2531,18 @@ void main() {
     expect(session.sticky, isEmpty);
     expect(session.stickyLocked, isFalse);
 
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
   testWidgets('closing the tab takes the schedule with it', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
-    final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
     transport.opened.single.drop();
     await tester.pump();
-    await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _rose.id, session);
     await tester.pump(const Duration(minutes: 1));
 
     expect(transport.opened, hasLength(1));
@@ -2581,12 +2555,12 @@ void main() {
       final tabs = InMemoryShellTabRepository();
       final sessions = fakeShellSessions(FakeShellTransport(), tabs: tabs);
 
-      sessions.open(intent: UserIntent.fromGesture(), _rose);
-      final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      sessions.open(intent: testIntent(), _rose);
+      final second = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       expect((await tabs.all()).map((tab) => tab.number), [1, 2]);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, second);
+      await sessions.close(intent: testIntent(), _rose.id, second);
       await _settle();
       expect((await tabs.all()).map((tab) => tab.number), [1]);
     });
@@ -2595,8 +2569,8 @@ void main() {
       final tabs = InMemoryShellTabRepository();
       final sessions = fakeShellSessions(FakeShellTransport(), tabs: tabs);
 
-      final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
-      final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final first = sessions.open(intent: testIntent(), _rose)!;
+      final second = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       expect((await tabs.all()).map((tab) => [tab.number, tab.active]), [
         [1, false],
@@ -2610,7 +2584,7 @@ void main() {
         [2, false],
       ]);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, first);
+      await sessions.close(intent: testIntent(), _rose.id, first);
       await _settle();
       expect((await tabs.all()).single.active, isTrue);
       expect(second.number, 2);
@@ -2619,18 +2593,15 @@ void main() {
     test('a killed app comes back on the tabs it had', () async {
       final tabs = InMemoryShellTabRepository();
       final before = fakeShellSessions(FakeShellTransport(), tabs: tabs);
-      before.open(intent: UserIntent.fromGesture(), _rose);
-      before.open(intent: UserIntent.fromGesture(), _rose);
-      before.open(intent: UserIntent.fromGesture(), _nyx);
+      before.open(intent: testIntent(), _rose);
+      before.open(intent: testIntent(), _rose);
+      before.open(intent: testIntent(), _nyx);
       before.activate(_rose.id, before.forHost(_rose.id).first);
       await _settle();
 
       final transport = FakeShellTransport();
       final after = fakeShellSessions(transport, tabs: tabs);
-      expect(
-        await after.restore(hosts, AppResumed(PlatformSignal.fromPlatform())),
-        3,
-      );
+      expect(await after.restore(hosts, AppResumed(testSignal())), 3);
 
       expect(after.forHost(_rose.id).map((session) => session.number), [1, 2]);
       expect(after.forHost(_nyx.id).map((session) => session.number), [1]);
@@ -2647,19 +2618,19 @@ void main() {
     test('moved tabs and groups come back where they were put', () async {
       final tabs = InMemoryShellTabRepository();
       final before = fakeShellSessions(FakeShellTransport(), tabs: tabs);
-      before.open(intent: UserIntent.fromGesture(), _rose);
-      before.open(intent: UserIntent.fromGesture(), _nyx);
-      before.open(intent: UserIntent.fromGesture(), _nyx);
-      before.open(intent: UserIntent.fromGesture(), _nyx);
+      before.open(intent: testIntent(), _rose);
+      before.open(intent: testIntent(), _nyx);
+      before.open(intent: testIntent(), _nyx);
+      before.open(intent: testIntent(), _nyx);
       before.moveTab(_nyx.id, 0, 2);
       before.moveGroup(1, 0);
       await _settle();
-      before.open(intent: UserIntent.fromGesture(), _nyx);
-      before.open(intent: UserIntent.fromGesture(), _rose);
+      before.open(intent: testIntent(), _nyx);
+      before.open(intent: testIntent(), _rose);
       await _settle();
 
       final after = fakeShellSessions(FakeShellTransport(), tabs: tabs);
-      await after.restore(hosts, AppResumed(PlatformSignal.fromPlatform()));
+      await after.restore(hosts, AppResumed(testSignal()));
 
       expect(
         [for (final (host, _) in after.openHosts) host.id],
@@ -2678,17 +2649,17 @@ void main() {
     test('numbering carries on past the tabs that came back', () async {
       final tabs = InMemoryShellTabRepository();
       final before = fakeShellSessions(FakeShellTransport(), tabs: tabs);
-      before.open(intent: UserIntent.fromGesture(), _rose);
-      final second = before.open(intent: UserIntent.fromGesture(), _rose)!;
-      before.open(intent: UserIntent.fromGesture(), _rose);
+      before.open(intent: testIntent(), _rose);
+      final second = before.open(intent: testIntent(), _rose)!;
+      before.open(intent: testIntent(), _rose);
       await _settle();
-      await before.close(intent: UserIntent.fromGesture(), _rose.id, second);
+      await before.close(intent: testIntent(), _rose.id, second);
       await _settle();
 
       final after = fakeShellSessions(FakeShellTransport(), tabs: tabs);
-      await after.restore(hosts, AppResumed(PlatformSignal.fromPlatform()));
+      await after.restore(hosts, AppResumed(testSignal()));
 
-      expect(after.open(intent: UserIntent.fromGesture(), _rose)!.number, 4);
+      expect(after.open(intent: testIntent(), _rose)!.number, 4);
       await _settle();
     });
 
@@ -2699,13 +2670,7 @@ void main() {
 
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, tabs: tabs);
-      expect(
-        await sessions.restore(
-          hosts,
-          AppResumed(PlatformSignal.fromPlatform()),
-        ),
-        1,
-      );
+      expect(await sessions.restore(hosts, AppResumed(testSignal())), 1);
       await _settle();
 
       expect(sessions.forHost('gone'), isEmpty);
@@ -2719,20 +2684,8 @@ void main() {
 
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, tabs: tabs);
-      expect(
-        await sessions.restore(
-          hosts,
-          AppResumed(PlatformSignal.fromPlatform()),
-        ),
-        1,
-      );
-      expect(
-        await sessions.restore(
-          hosts,
-          AppResumed(PlatformSignal.fromPlatform()),
-        ),
-        0,
-      );
+      expect(await sessions.restore(hosts, AppResumed(testSignal())), 1);
+      expect(await sessions.restore(hosts, AppResumed(testSignal())), 0);
       await _settle();
 
       expect(sessions.forHost(_rose.id), hasLength(1));
@@ -2748,11 +2701,11 @@ void main() {
         tabs: tabs,
         snapshots: snapshots,
       );
-      before.open(intent: UserIntent.fromGesture(), _rose);
+      before.open(intent: testIntent(), _rose);
       await _settle();
       transport.opened.single.emit('build finished\r\n');
       await _settle();
-      before.leave(PlatformSignal.fromPlatform());
+      before.leave(testSignal());
       await _settle();
       expect(snapshots.snapshots.keys, [(_rose.id, 1)]);
 
@@ -2761,7 +2714,7 @@ void main() {
         tabs: tabs,
         snapshots: snapshots,
       );
-      await after.restore(hosts, AppResumed(PlatformSignal.fromPlatform()));
+      await after.restore(hosts, AppResumed(testSignal()));
       await after.forHost(_rose.id).single.terminal.restored;
       await _settle();
 
@@ -2781,9 +2734,9 @@ void main() {
         snapshots: snapshots,
         snapshotQuiet: const Duration(milliseconds: 10),
       );
-      sessions.open(intent: UserIntent.fromGesture(), _rose);
+      sessions.open(intent: testIntent(), _rose);
       await _settle();
-      sessions.leave(PlatformSignal.fromPlatform());
+      sessions.leave(testSignal());
       await _settle();
       final left = snapshots.snapshots[(_rose.id, 1)];
 
@@ -2792,7 +2745,7 @@ void main() {
       final rested = snapshots.snapshots[(_rose.id, 1)];
       expect(rested, isNot(same(left)));
 
-      sessions.returned(PlatformSignal.fromPlatform());
+      sessions.returned(AppResumed(testSignal()));
       transport.opened.single.emit('back on screen\r\n');
       await Future<void>.delayed(const Duration(milliseconds: 30));
       expect(snapshots.snapshots[(_rose.id, 1)], same(rested));
@@ -2804,13 +2757,13 @@ void main() {
         FakeShellTransport(),
         snapshots: snapshots,
       );
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
-      sessions.leave(PlatformSignal.fromPlatform());
+      sessions.leave(testSignal());
       await _settle();
       expect(snapshots.snapshots, isNotEmpty);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
       await _settle();
       expect(snapshots.snapshots, isEmpty);
     });
@@ -2829,13 +2782,7 @@ void main() {
           tabs: tabs,
           snapshots: snapshots,
         );
-        expect(
-          await sessions.restore(
-            hosts,
-            AppResumed(PlatformSignal.fromPlatform()),
-          ),
-          1,
-        );
+        expect(await sessions.restore(hosts, AppResumed(testSignal())), 1);
         await _settle();
 
         expect(sessions.forHost(_rose.id).single.terminal, isNotNull);
@@ -2849,7 +2796,7 @@ void main() {
 
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, tabs: tabs);
-      await sessions.restore(hosts, AppResumed(PlatformSignal.fromPlatform()));
+      await sessions.restore(hosts, AppResumed(testSignal()));
       await _settle();
 
       expect(transport.verifiers.single!.prompt, isNull);
@@ -2862,7 +2809,7 @@ void main() {
       final sessions = fakeShellSessions(transport, tabs: tabs);
 
       final session = sessions.open(
-        intent: UserIntent.fromGesture(),
+        intent: testIntent(),
         _rose,
         command: 'herdr agent attach work %3',
         pane: pane,
@@ -2883,7 +2830,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, tabs: tabs);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
 
       expect(tabs.started, isTrue);
@@ -2902,7 +2849,7 @@ void main() {
       final tabs = InMemoryShellTabRepository();
       final before = fakeShellSessions(FakeShellTransport(), tabs: tabs);
       before.open(
-        intent: UserIntent.fromGesture(),
+        intent: testIntent(),
         _rose,
         command: HerdrCommands.attach(pane),
         pane: pane,
@@ -2911,10 +2858,7 @@ void main() {
 
       final transport = FakeShellTransport();
       final after = fakeShellSessions(transport, tabs: tabs);
-      expect(
-        await after.restore(hosts, AppResumed(PlatformSignal.fromPlatform())),
-        1,
-      );
+      expect(await after.restore(hosts, AppResumed(testSignal())), 1);
       await _settle();
 
       final restored = after.forHost(_rose.id).single;
@@ -2937,13 +2881,7 @@ void main() {
 
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, tabs: tabs);
-      expect(
-        await sessions.restore(
-          hosts,
-          AppResumed(PlatformSignal.fromPlatform()),
-        ),
-        3,
-      );
+      expect(await sessions.restore(hosts, AppResumed(testSignal())), 3);
       await _settle();
 
       final restored = sessions.forHost(_rose.id);
@@ -2971,7 +2909,7 @@ void main() {
 
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, tabs: tabs);
-      await sessions.restore(hosts, AppResumed(PlatformSignal.fromPlatform()));
+      await sessions.restore(hosts, AppResumed(testSignal()));
       await _pumpDial(tester);
       final session = sessions.forHost(_rose.id).single;
 
@@ -2990,7 +2928,7 @@ void main() {
         ),
       );
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('a tab cannot partially name a Herdr pane', () async {
@@ -3006,10 +2944,10 @@ void main() {
       final tabs = InMemoryShellTabRepository();
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, tabs: tabs);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
 
       expect(transport.opened.single.terminated, [
         (session: session.remoteSession!, durableShell: false),
@@ -3022,11 +2960,11 @@ void main() {
       final tabs = InMemoryShellTabRepository();
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, tabs: tabs);
-      final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final first = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       transport.opened.single.terminateRemoteResult = false;
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, first);
+      await sessions.close(intent: testIntent(), _rose.id, first);
 
       expect(await tabs.all(), isEmpty);
       expect(
@@ -3034,7 +2972,7 @@ void main() {
         first.remoteSession,
       );
 
-      final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final second = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       await _settle();
 
@@ -3044,7 +2982,7 @@ void main() {
       );
       expect(await tabs.retired(_rose.id), isEmpty);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, second);
+      await sessions.close(intent: testIntent(), _rose.id, second);
     });
   });
 
@@ -3074,10 +3012,10 @@ void main() {
         'run', (tester) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
       expectAlive(session.terminal, 'the terminal');
 
       await tester.pump();
@@ -3089,11 +3027,11 @@ void main() {
     testWidgets('closing one tab leaves another tab alone', (tester) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
-      final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final first = sessions.open(intent: testIntent(), _rose)!;
+      final second = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, first);
+      await sessions.close(intent: testIntent(), _rose.id, first);
       await tester.pump();
 
       expectDisposed(first.terminal, "the closed tab's controller");
@@ -3105,7 +3043,7 @@ void main() {
     testWidgets('a shell that exits clean disposes its own', (tester) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
 
       transport.opened.single.exit(shellCleanExit);
@@ -3131,17 +3069,17 @@ void main() {
           ],
           child: MaterialApp(
             theme: testTheme,
-            home: HostShellRoute(host: _rose),
+            home: HostShellRoute(host: _rose, intent: testIntent()),
           ),
         ),
       );
       await tester.pump();
       final first = sessions.forHost(_rose.id).single;
-      final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final second = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
       await tester.pump();
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, second);
+      await sessions.close(intent: testIntent(), _rose.id, second);
       await tester.pump();
       await tester.pump();
 
@@ -3152,7 +3090,7 @@ void main() {
     test('retiring twice is a no-op', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
 
       session.dispose();
@@ -3165,7 +3103,7 @@ void main() {
         'opens no new one', (tester) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
       expect(session.state, isA<ShellLive>());
 
@@ -3177,9 +3115,7 @@ void main() {
       transport.opened.single.hold = hold;
       await tester.pump(shellReconnectDelays.first);
       final dials = transport.sizes.length;
-      unawaited(
-        sessions.close(intent: UserIntent.fromGesture(), _rose.id, session),
-      );
+      unawaited(sessions.close(intent: testIntent(), _rose.id, session));
       await _pumpDial(tester);
       hold.complete();
       await _pumpDial(tester);
@@ -3193,11 +3129,11 @@ void main() {
         'opened', (tester) async {
       final transport = FakeShellTransport()..stall = true;
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
       expect(session.state, isA<ShellConnecting>());
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
       transport.land();
       await _pumpDial(tester);
 
@@ -3211,14 +3147,14 @@ void main() {
     ) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
 
       transport.opened.single.drop();
       await tester.pump();
       expect(session.state, isA<ShellDropped>());
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
       final dials = transport.sizes.length;
       await tester.pump(shellReconnectDelays.first);
       await _pumpDial(tester);
@@ -3242,7 +3178,7 @@ void main() {
     test('arming a modifier and spending it leave the store silent', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       final said = counts(sessions, session);
 
@@ -3253,13 +3189,13 @@ void main() {
       expect(said.session(), 3);
       expect(said.store(), 0);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     testWidgets('a state tells the session and not the list', (tester) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
       final said = counts(sessions, session);
 
@@ -3270,14 +3206,14 @@ void main() {
       expect(said.session(), greaterThan(0));
       expect(said.store(), 0);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('a title tells the tab that named itself', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
-      final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final first = sessions.open(intent: testIntent(), _rose)!;
+      final second = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       var otherSaid = 0;
       second.addListener(() => otherSaid++);
@@ -3291,8 +3227,8 @@ void main() {
       expect(said.store(), 0);
       expect(otherSaid, 0);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, first);
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, second);
+      await sessions.close(intent: testIntent(), _rose.id, first);
+      await sessions.close(intent: testIntent(), _rose.id, second);
     });
 
     test('opening, closing and activating tell the store', () async {
@@ -3301,14 +3237,14 @@ void main() {
       var storeSaid = 0;
       sessions.addListener(() => storeSaid++);
 
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       expect(storeSaid, 1);
 
       sessions.activate(_rose.id, session);
       expect(storeSaid, 2);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
       expect(storeSaid, 3);
     });
 
@@ -3317,10 +3253,10 @@ void main() {
     ) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
       await tester.pump();
 
       expect(session.changed, returnsNormally);
@@ -3331,8 +3267,8 @@ void main() {
     ) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
-      final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final first = sessions.open(intent: testIntent(), _rose)!;
+      final second = sessions.open(intent: testIntent(), _rose)!;
       await _pumpDial(tester);
       var storeSaid = 0;
       sessions.addListener(() => storeSaid++);
@@ -3357,8 +3293,8 @@ void main() {
       expect(storeSaid, 0);
 
       await tester.pumpWidget(const SizedBox.shrink());
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, first);
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, second);
+      await sessions.close(intent: testIntent(), _rose.id, first);
+      await sessions.close(intent: testIntent(), _rose.id, second);
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
     });
@@ -3382,8 +3318,8 @@ void main() {
       final shade = _Shade();
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, notifier: shade);
-      final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
-      final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final first = sessions.open(intent: testIntent(), _rose)!;
+      final second = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       transport.opened[0].emit(request());
       transport.opened[1].emit(request());
@@ -3391,16 +3327,16 @@ void main() {
 
       expect(shade.events, ['up h1 ROSE · the key']);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, first);
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, second);
+      await sessions.close(intent: testIntent(), _rose.id, first);
+      await sessions.close(intent: testIntent(), _rose.id, second);
     });
 
     test('down once the last tab of the host lets go', () async {
       final shade = _Shade();
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, notifier: shade);
-      final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
-      final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final first = sessions.open(intent: testIntent(), _rose)!;
+      final second = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       transport.opened[0].emit(request());
       transport.opened[1].emit(request());
@@ -3414,38 +3350,38 @@ void main() {
       await _settle();
       expect(shade.events, ['up h1 ROSE · the key', 'down h1']);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, first);
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, second);
+      await sessions.close(intent: testIntent(), _rose.id, first);
+      await sessions.close(intent: testIntent(), _rose.id, second);
     });
 
     test('down on the answer, whichever tab gives it', () async {
       final shade = _Shade();
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, notifier: shade);
-      final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
-      final second = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final first = sessions.open(intent: testIntent(), _rose)!;
+      final second = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       transport.opened[0].emit(request());
       transport.opened[1].emit(request());
       await _settle();
 
-      await sessions.answerPin(second, 'hunter2', UserIntent.fromGesture());
+      await sessions.answerPin(second, 'hunter2', testIntent());
       expect(shade.events, ['up h1 ROSE · the key', 'down h1']);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, first);
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, second);
+      await sessions.close(intent: testIntent(), _rose.id, first);
+      await sessions.close(intent: testIntent(), _rose.id, second);
     });
 
     test('down when the tab holding it closes', () async {
       final shade = _Shade();
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, notifier: shade);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       transport.opened.single.emit(request());
       await _settle();
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
       expect(shade.events, ['up h1 ROSE · the key', 'down h1']);
     });
 
@@ -3453,7 +3389,7 @@ void main() {
       final shade = _Shade();
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, notifier: shade);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       transport.opened.single.emit(request());
       transport.opened.single.emit(
@@ -3466,21 +3402,21 @@ void main() {
         'up h1 ROSE · the other key',
       ]);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
 
     test('the prompt stands in when the agent described nothing', () async {
       final shade = _Shade();
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport, notifier: shade);
-      final session = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _rose)!;
       await _settle();
       transport.opened.single.emit(request(desc: '', prompt: 'Passphrase:'));
       await _settle();
 
       expect(shade.events, ['up h1 ROSE · Passphrase:']);
 
-      await sessions.close(intent: UserIntent.fromGesture(), _rose.id, session);
+      await sessions.close(intent: testIntent(), _rose.id, session);
     });
   });
 }

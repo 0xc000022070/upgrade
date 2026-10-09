@@ -9,11 +9,11 @@ import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/features/shell/attach_sheet.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/reasons.dart';
 import 'support/themed_app.dart';
 
 const _nyx = Host(
@@ -50,7 +50,7 @@ void main() {
   final photos = find.byKey(const ValueKey('attach-photos'));
 
   Future<void> openSheet(WidgetTester tester) async {
-    final session = sessions.open(intent: UserIntent.fromGesture(), _nyx)!;
+    final session = sessions.open(intent: testIntent(), _nyx)!;
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 5)),
     );

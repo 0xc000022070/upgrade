@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fake_shell.dart';
+import 'support/reasons.dart';
 import 'support/shell_route.dart';
 import 'support/themed_app.dart';
 
@@ -64,7 +65,7 @@ Future<ProviderScope> _app(ShellSessions sessions, Host host) async {
         body: Builder(
           builder: (context) => Center(
             child: GestureDetector(
-              onTap: () => pickHostShell(context, sessions, host),
+              onTap: () => pickHostShell(context, sessions, host, testIntent()),
               child: const Text('OPEN'),
             ),
           ),

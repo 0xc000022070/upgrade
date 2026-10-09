@@ -12,11 +12,11 @@ import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/reasons.dart';
 import 'support/themed_app.dart';
 
 const _rose = Host(
@@ -141,9 +141,9 @@ void main() {
     sized(tester);
     await seed();
     shells.stall = false;
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _nyx);
+    sessions.open(intent: testIntent(), _nyx);
     await tester.pumpWidget(app());
     await ready(tester);
 
@@ -165,7 +165,7 @@ void main() {
     sized(tester);
     await seed();
     shells.stall = false;
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await tester.pumpWidget(app());
     await ready(tester);
 
@@ -196,9 +196,9 @@ void main() {
       sized(tester);
       await seed();
       shells.stall = false;
-      final first = sessions.open(intent: UserIntent.fromGesture(), _rose)!;
+      final first = sessions.open(intent: testIntent(), _rose)!;
       first.title = 'Fix reconnect';
-      final second = sessions.open(intent: UserIntent.fromGesture(), _nyx)!;
+      final second = sessions.open(intent: testIntent(), _nyx)!;
       second.cwd = '/home/dev/Projects/upgrade';
       await tester.pumpWidget(app());
       await ready(tester);
@@ -214,7 +214,7 @@ void main() {
     sized(tester);
     await seed();
     shells.stall = false;
-    sessions.open(intent: UserIntent.fromGesture(), _rose);
+    sessions.open(intent: testIntent(), _rose);
     await tester.pumpWidget(app());
     await ready(tester);
 
@@ -232,7 +232,7 @@ void main() {
     sized(tester);
     await seed();
     shells.stall = false;
-    sessions.open(intent: UserIntent.fromGesture(), _rose)!.title =
+    sessions.open(intent: testIntent(), _rose)!.title =
         'A long terminal task title';
     await tester.pumpWidget(app(textScale: 2));
     await ready(tester);
@@ -246,8 +246,8 @@ void main() {
     sized(tester);
     await seed();
     shells.stall = false;
-    sessions.open(intent: UserIntent.fromGesture(), _nyx);
-    final second = sessions.open(intent: UserIntent.fromGesture(), _nyx)!;
+    sessions.open(intent: testIntent(), _nyx);
+    final second = sessions.open(intent: testIntent(), _nyx)!;
     sessions.activate(_nyx.id, sessions.forHost(_nyx.id).first);
     await tester.pumpWidget(app());
     await ready(tester);
@@ -298,7 +298,7 @@ void main() {
       sized(tester);
       await seed();
       shells.stall = false;
-      final dead = sessions.open(intent: UserIntent.fromGesture(), _nyx)!;
+      final dead = sessions.open(intent: testIntent(), _nyx)!;
       await tester.pumpWidget(app());
       await ready(tester);
       shells.opened.last.exit(1);

@@ -52,6 +52,7 @@ class HostShellRoute extends ConsumerStatefulWidget {
     this.onOpenHost,
     this.openNew = false,
     this.openLaunch,
+    this.intent,
   });
 
   final Host host;
@@ -61,7 +62,8 @@ class HostShellRoute extends ConsumerStatefulWidget {
   /// header's host name a label.
   final void Function(Host host, ShellSession? session)? onSwitchHost;
 
-  final void Function(Host host, ShellLaunch? launch)? onOpenHost;
+  final void Function(Host host, ShellLaunch? launch, UserIntent intent)?
+  onOpenHost;
 
   /// Opens a fresh tab during this route's first frame even when the host already has
   /// sessions. Used after the sheet changes host through `+`.
@@ -69,8 +71,9 @@ class HostShellRoute extends ConsumerStatefulWidget {
 
   final ShellLaunch? openLaunch;
 
-  /// Null opens the host's last active tab, or its first shell when there is none.
   final ShellSession? session;
+
+  final UserIntent? intent;
 
   final String? command;
 
@@ -148,31 +151,27 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       final sessions = ref.read(shellSessionsProvider);
       final wanted = widget.session;
       final command = widget.command;
-      // Only a tap pushes this route, and this runs once, on the frame it lands.
-      final intent = UserIntent.fromGesture();
+      final canOpen = sessions.canOpen(widget.host.id);
+      // A commanded open is a tab of its own even when the host has some: the
+      // caller asked for one directory or agent, not whatever tab was last active.
+      final commanded = command != null && canOpen;
+      final fresh = !commanded && widget.openNew && canOpen;
       if (wanted != null) {
         sessions.activate(widget.host.id, wanted);
-      } else if (command != null && sessions.canOpen(widget.host.id)) {
-        // A commanded open is a tab of its own even when the host already has some:
-        // the caller asked for one directory or one agent, and landing in whatever
-        // tab was last active would not be that.
-        sessions.open(
-          widget.host,
-          intent: intent,
-          prompt: _askHostKey,
-          command: command,
-          directory: widget.directory,
-          pane: widget.pane,
-        );
-      } else if (widget.openNew && sessions.canOpen(widget.host.id)) {
-        sessions.open(
-          widget.host,
-          intent: intent,
-          prompt: _askHostKey,
-          launch: widget.openLaunch,
-        );
-      } else if (sessions.forHost(widget.host.id).isEmpty) {
-        sessions.open(widget.host, intent: intent, prompt: _askHostKey);
+      } else if (commanded ||
+          fresh ||
+          sessions.forHost(widget.host.id).isEmpty) {
+        if (widget.intent case final intent?) {
+          sessions.open(
+            widget.host,
+            intent: intent,
+            prompt: _askHostKey,
+            command: commanded ? command : null,
+            directory: commanded ? widget.directory : null,
+            pane: commanded ? widget.pane : null,
+            launch: fresh ? widget.openLaunch : null,
+          );
+        }
       }
       // Landing on tabs that were already there tells the store nothing, so no drain
       // would ever see them.
@@ -436,12 +435,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
         final state = ended.state as ShellExited;
         final close = await _exitSheet(ended.number, state.code);
         if (!mounted) return;
-        if (close) {
-          await _store.close(
-            widget.host.id,
-            ended,
-            intent: UserIntent.fromGesture(),
-          );
+        if (close != null) {
+          await _store.close(widget.host.id, ended, intent: close);
         }
       }
       if (!mounted) return;
@@ -488,7 +483,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           outcome = await _store.answerPin(
             session,
             answer.passphrase,
-            UserIntent.fromGesture(),
+            answer.intent,
           );
         }
       } finally {
@@ -518,12 +513,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     return null;
   }
 
-  Future<({String? passphrase})?> _pinSheetFor(
-    ShellSession session,
-    PinRequest request,
-  ) {
+  Future<_PinDecision?> _pinSheetFor(ShellSession session, PinRequest request) {
     const title = 'AUTHORIZATION REQUIRED';
-    return showPanelSheet<({String? passphrase})>(
+    return showPanelSheet<_PinDecision>(
       context,
       title: title,
       builder: (context) {
@@ -611,9 +603,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     return null;
   }
 
-  Future<bool> _exitSheet(int number, int? code) async {
+  Future<UserIntent?> _exitSheet(int number, int? code) {
     final title = 'SHELL $number EXITED ${code ?? '—'}';
-    final answer = await showPanelSheet<bool>(
+    return showPanelSheet<UserIntent>(
       context,
       title: title,
       builder: (context) => PanelSheetBody(
@@ -624,7 +616,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
               Expanded(
                 child: ActionBlock(
                   label: 'CLOSE',
-                  onTap: () => Navigator.of(context).pop(true),
+                  onTap: UserIntent.onGesture(
+                    (intent) => Navigator.of(context).pop(intent),
+                  ),
                 ),
               ),
               const SizedBox(width: Spacing.md),
@@ -633,7 +627,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                   label: 'KEEP',
                   tone: context.tokens.accent,
                   filled: true,
-                  onTap: () => Navigator.of(context).pop(false),
+                  onTap: () => Navigator.of(context).pop(),
                 ),
               ),
             ],
@@ -641,7 +635,6 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
         ],
       ),
     );
-    return answer ?? false;
   }
 
   List<(Host, List<ShellSession>)> _groups(ShellSessions store) => [
@@ -720,21 +713,26 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     });
   }
 
-  Future<void> _onNew(Host host) async {
-    final pick = await showLaunchPicker(context, host);
-    if (!mounted || pick == null) return;
-    if (host.id == widget.host.id) {
-      if (!_store.canOpen(host.id)) return;
-      _store.open(
-        widget.host,
-        intent: UserIntent.fromGesture(),
-        prompt: _askHostKey,
-        launch: pick.launch,
-      );
-      return;
-    }
-    widget.onOpenHost?.call(host, pick.launch);
-  }
+  void _onNew(Host host) => unawaited(
+    showLaunchPicker(
+      context,
+      host,
+      onPick: (intent, launch) {
+        if (!mounted) return;
+        if (host.id == widget.host.id) {
+          if (!_store.canOpen(host.id)) return;
+          _store.open(
+            widget.host,
+            intent: intent,
+            prompt: _askHostKey,
+            launch: launch,
+          );
+          return;
+        }
+        widget.onOpenHost?.call(host, launch, intent);
+      },
+    ),
+  );
 
   List<({String directory, String label})> _diffTargets() {
     final groups =
@@ -883,24 +881,28 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     }
   }
 
-  Future<void> _onClose(ShellSession session) async {
+  Future<void> _onClose(UserIntent intent, ShellSession session) async {
     // A live shell is a thing with state in it — a job running, an editor with an
     // unsaved buffer — so closing one is asked about.
     if (session.state is ShellLive) {
-      final confirmed = await confirmSheet(
+      final title = 'CLOSE SHELL ${session.number}?';
+      await showPanelSheet<bool>(
         context,
-        title: 'CLOSE SHELL ${session.number}?',
-        confirmLabel: 'CLOSE',
+        title: title,
+        builder: (_) => ConfirmSheetBody(
+          title: title,
+          confirmLabel: 'CLOSE',
+          onConfirm: UserIntent.onGesture((confirm) {
+            if (!mounted) return;
+            unawaited(_store.close(widget.host.id, session, intent: confirm));
+          }),
+        ),
       );
-      if (!confirmed || !mounted) return;
+      return;
     }
     // The pop belongs to the store's listener, which is the one path every way of
     // losing the last tab goes through.
-    await _store.close(
-      widget.host.id,
-      session,
-      intent: UserIntent.fromGesture(),
-    );
+    await _store.close(widget.host.id, session, intent: intent);
   }
 
   @override
@@ -973,7 +975,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                             onNew: _onNew,
                             onClose: active == null
                                 ? null
-                                : () => _onClose(active),
+                                : UserIntent.onGesture(
+                                    (intent) => _onClose(intent, active),
+                                  ),
                             onDiff:
                                 diffTargets.isEmpty &&
                                     active?.connection == null
@@ -987,10 +991,12 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                                 : () => store.stopReconnect(active),
                             onReconnect: active == null
                                 ? null
-                                : () => unawaited(
-                                    store.reconnectControl(
-                                      active,
-                                      UserAction(UserIntent.fromGesture()),
+                                : UserIntent.onGesture(
+                                    (intent) => unawaited(
+                                      store.reconnectControl(
+                                        active,
+                                        UserAction(intent),
+                                      ),
                                     ),
                                   ),
                             onPin: swiped == null ? null : _onPinReopen,
@@ -1100,6 +1106,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   }
 }
 
+typedef _PinDecision = ({String? passphrase, UserIntent intent});
+
 class _PinSheet extends StatefulWidget {
   const _PinSheet({required this.number, required this.request});
 
@@ -1119,8 +1127,8 @@ class _PinSheetState extends State<_PinSheet> {
     super.dispose();
   }
 
-  void _decide(String? passphrase) =>
-      Navigator.of(context).pop((passphrase: passphrase));
+  void _decide(UserIntent intent, String? passphrase) =>
+      Navigator.of(context).pop((passphrase: passphrase, intent: intent));
 
   @override
   Widget build(BuildContext context) {
@@ -1166,7 +1174,7 @@ class _PinSheetState extends State<_PinSheet> {
             obscureText: true,
             autofocus: true,
             textInputAction: TextInputAction.done,
-            onSubmitted: _decide,
+            onSubmitted: UserIntent.onGestureWith(_decide),
           ),
           const SizedBox(height: Spacing.md),
         ],
@@ -1176,7 +1184,9 @@ class _PinSheetState extends State<_PinSheet> {
               Expanded(
                 child: ActionBlock(
                   label: request.cancelLabel,
-                  onTap: () => _decide(null),
+                  onTap: UserIntent.onGesture(
+                    (intent) => _decide(intent, null),
+                  ),
                 ),
               ),
               const SizedBox(width: Spacing.md),
@@ -1186,7 +1196,9 @@ class _PinSheetState extends State<_PinSheet> {
                 label: request.okLabel,
                 tone: context.tokens.accent,
                 filled: !request.stale,
-                onTap: () => _decide(wantsPin ? _field.text : 'ok'),
+                onTap: UserIntent.onGesture(
+                  (intent) => _decide(intent, wantsPin ? _field.text : 'ok'),
+                ),
               ),
             ),
           ],

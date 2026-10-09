@@ -9,6 +9,7 @@ import '../../design/components/dot_spinner.dart';
 import '../../design/components/panel.dart';
 import '../../design/spacing.dart';
 import '../../platform/herdr_client.dart';
+import '../../platform/shell/shell_connection.dart';
 import '../agents/agent_shell.dart';
 import '../agents/agents_screen.dart';
 import '../agents/pip_action.dart';
@@ -80,7 +81,8 @@ class AgentsPanel extends ConsumerWidget {
               ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex,
           onOpen:
               onOpen ??
-              (host, agent) => openAgentShell(context, ref, host, agent),
+              (intent, host, agent) =>
+                  openAgentShell(context, ref, host, agent, intent),
         ),
       ),
     );
@@ -134,7 +136,12 @@ class _AgentsBody extends StatelessWidget {
           const SizedBox(height: Spacing.md),
         if (active.isNotEmpty) ...[
           for (final row in active.take(3))
-            _AgentRow(row.agent, onTap: () => onOpen(row.host, row.agent)),
+            _AgentRow(
+              row.agent,
+              onTap: UserIntent.onGesture(
+                (intent) => onOpen(intent, row.host, row.agent),
+              ),
+            ),
           const SizedBox(height: Spacing.md),
         ],
         if (answered) _Footer(idle: idle, blocked: blocked),

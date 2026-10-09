@@ -7,6 +7,7 @@ import 'package:upgrade/platform/host_links.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/shell/shell_tunnel.dart';
 
+import '../support/reasons.dart';
 import 'fixture.dart';
 
 void main() {
@@ -18,7 +19,7 @@ void main() {
 
   Future<ShellConnection> open(HostKeyVerifier verifier, [ShellTunnel? over]) =>
       (over ?? tunnel).open(
-        reason: UserAction(UserIntent.fromGesture()),
+        reason: UserAction(testIntent()),
         address: hostVm.address,
         port: hostVm.port,
         user: hostVm.user,
@@ -36,7 +37,7 @@ void main() {
       pin: (pinned) async => written = pinned,
     );
     final connection = await open(verifier);
-    await connection.close(UserClosed(UserIntent.fromGesture()));
+    await connection.close(UserClosed(testIntent()));
     return written!;
   }
 
@@ -55,7 +56,7 @@ void main() {
       );
 
       final connection = await open(verifier);
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(offers, hasLength(1));
       // OpenSSH's own SHA256 form, unpadded, which is what the user compares against
@@ -89,7 +90,7 @@ void main() {
       final links = HostLinks();
       addTearDown(links.close);
       final connection = await open(verifier, ShellTunnel(links: links));
-      addTearDown(() => connection.close(UserClosed(UserIntent.fromGesture())));
+      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(asked, isFalse);
       expect(verifier.verified?.fingerprint, pinned.fingerprint);

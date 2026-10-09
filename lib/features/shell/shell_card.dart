@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/tokens.dart';
 import '../../design/spacing.dart';
+import '../../platform/shell/shell_connection.dart';
 import 'shell_sheet.dart';
 import 'shell_sessions.dart';
 import 'shell_status.dart';
@@ -38,7 +39,10 @@ class ShellCard extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       // The card names the tab, so the route opens on it rather than on whichever one
       // the host was last left on.
-      onTap: () => openHostShell(context, host, session: session),
+      onTap: UserIntent.onGesture(
+        (intent) =>
+            openHostShell(context, host, intent: intent, session: session),
+      ),
       child: SizedBox(
         width: shellCardWidth,
         child: Column(

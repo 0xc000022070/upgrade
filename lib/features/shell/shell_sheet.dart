@@ -7,6 +7,7 @@ import '../../application/toasts.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/components/drag_sheet.dart';
 import '../../platform/herdr_client.dart';
+import '../../platform/shell/shell_connection.dart';
 import '../../platform/shell/shell_launch.dart';
 import 'host_shell_screen.dart';
 import 'launch_picker_sheet.dart';
@@ -17,6 +18,7 @@ final _openShellRoutes = Expando<ShellSheetRoute>();
 void openHostShell(
   BuildContext context,
   Host host, {
+  required UserIntent? intent,
   ShellSession? session,
   String? command,
   String? directory,
@@ -52,6 +54,7 @@ void openHostShell(
 
   final route = ShellSheetRoute(
     host: host,
+    intent: intent,
     session: session,
     command: command,
     directory: directory,
@@ -75,17 +78,30 @@ Future<void> pickHostShell(
   BuildContext context,
   ShellSessions store,
   Host host,
+  UserIntent intent,
 ) async {
   final running = store.forHost(host.id).any((s) => s.state is! ShellExited);
-  if (running) return openHostShell(context, host);
-  final pick = await showLaunchPicker(context, host);
-  if (pick == null || !context.mounted) return;
-  openHostShell(context, host, launch: pick.launch, openNew: true);
+  if (running) return openHostShell(context, host, intent: intent);
+  await showLaunchPicker(
+    context,
+    host,
+    onPick: (picked, launch) {
+      if (!context.mounted) return;
+      openHostShell(
+        context,
+        host,
+        intent: picked,
+        launch: launch,
+        openNew: true,
+      );
+    },
+  );
 }
 
 class ShellSheetRoute extends DragSheetRoute<void> {
   ShellSheetRoute({
     required this.host,
+    required this.intent,
     this.session,
     this.command,
     this.directory,
@@ -95,6 +111,7 @@ class ShellSheetRoute extends DragSheetRoute<void> {
   });
 
   final Host host;
+  final UserIntent? intent;
   final ShellSession? session;
 
   /// What the tab runs in place of the login shell, which is how an agent row hands its
@@ -123,6 +140,7 @@ class ShellSheetRoute extends DragSheetRoute<void> {
   Widget buildSheet(BuildContext context) {
     return _SheetContents(
       host: host,
+      intent: intent,
       session: session,
       command: command,
       directory: directory,
@@ -139,6 +157,7 @@ class ShellSheetRoute extends DragSheetRoute<void> {
 class _SheetContents extends StatefulWidget {
   const _SheetContents({
     required this.host,
+    required this.intent,
     this.session,
     this.command,
     this.directory,
@@ -148,6 +167,7 @@ class _SheetContents extends StatefulWidget {
   });
 
   final Host host;
+  final UserIntent? intent;
   final ShellSession? session;
   final String? command;
   final String? directory;
@@ -161,6 +181,8 @@ class _SheetContents extends StatefulWidget {
 
 class _SheetContentsState extends State<_SheetContents> {
   late Host _host = widget.host;
+
+  late UserIntent? _intent = widget.intent;
   late ShellSession? _session = widget.session;
   late var _openNew = widget.openNew || widget.launch != null;
   late ShellLaunch? _openLaunch = widget.launch;
@@ -169,15 +191,17 @@ class _SheetContentsState extends State<_SheetContents> {
     if (host.id == _host.id) return;
     setState(() {
       _host = host;
+      _intent = null;
       _session = session;
       _openNew = false;
     });
   }
 
-  void _openOn(Host host, ShellLaunch? launch) {
+  void _openOn(Host host, ShellLaunch? launch, UserIntent intent) {
     if (host.id == _host.id) return;
     setState(() {
       _host = host;
+      _intent = intent;
       _session = null;
       _openNew = true;
       _openLaunch = launch;
@@ -189,6 +213,7 @@ class _SheetContentsState extends State<_SheetContents> {
     return HostShellRoute(
       key: ValueKey(_host.id),
       host: _host,
+      intent: _intent,
       session: _session,
       openNew: _openNew,
       openLaunch: _openLaunch,

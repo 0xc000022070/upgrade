@@ -8,6 +8,7 @@ import 'package:upgrade/features/shell/shell_sessions.dart';
 import 'support/fake_shell.dart';
 import 'support/launch_scan.dart';
 import 'support/platform_channels.dart';
+import 'support/reasons.dart';
 import 'support/shell_route.dart' show noWorkspaces, openNewShell;
 import 'support/themed_app.dart';
 
@@ -103,8 +104,8 @@ void main() {
     await tester.pumpWidget(app(sessions));
     final context = tester.element(find.text('OPEN'));
 
-    openHostShell(context, _rose);
-    openHostShell(context, _rose);
+    openHostShell(context, _rose, intent: testIntent());
+    openHostShell(context, _rose, intent: testIntent());
     await ready(tester);
 
     expect(header, findsOneWidget);
@@ -124,11 +125,11 @@ void main() {
     await tester.pumpWidget(app(sessions));
     final context = tester.element(find.text('OPEN'));
 
-    openHostShell(context, _rose);
+    openHostShell(context, _rose, intent: testIntent());
     await ready(tester);
     expect(find.text('ROSE'), findsOneWidget);
 
-    openHostShell(context, _nyx);
+    openHostShell(context, _nyx, intent: testIntent());
     await ready(tester);
 
     expect(sheet, findsOneWidget);
@@ -233,7 +234,7 @@ class _Launcher extends StatelessWidget {
     return Scaffold(
       body: Center(
         child: GestureDetector(
-          onTap: () => openHostShell(context, _rose),
+          onTap: () => openHostShell(context, _rose, intent: testIntent()),
           child: const Text('OPEN'),
         ),
       ),

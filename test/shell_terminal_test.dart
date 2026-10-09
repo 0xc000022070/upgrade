@@ -15,6 +15,7 @@ import 'package:flterm/flterm.dart';
 
 import 'support/fake_shell.dart';
 import 'support/platform_channels.dart';
+import 'support/reasons.dart';
 import 'support/shell_route.dart';
 import 'support/themed_app.dart';
 
@@ -579,12 +580,7 @@ void main() {
       final transport = FakeShellTransport()..transport = ShellTransport.mosh;
       final sessions = fakeShellSessions(transport);
       const pane = (session: 'default', pane: 'w1:p1');
-      sessions.open(
-        intent: UserIntent.fromGesture(),
-        rose,
-        command: 'attach',
-        pane: pane,
-      );
+      sessions.open(intent: testIntent(), rose, command: 'attach', pane: pane);
       await tester.pumpWidget(app(sessions));
       await ready(tester);
       final connection = transport.opened.single;

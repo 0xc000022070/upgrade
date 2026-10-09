@@ -29,11 +29,14 @@
 ///   with one redial. Beside it: other identities or isolates, the trust probe, one overflow.
 /// - Past the sleep grace the app holds only a live plain-SSH terminal's control link, and
 ///   only [HostUse.wakes] uses lease beside it.
-/// [UserIntent] is minted only in a gesture handler and [PlatformSignal] only in a platform
-/// callback. Privacy cannot hold that, nor who calls [SshConnector.establish], the public
-/// [HostLinks] controls or [HostLease.client]; `test/ssh_fence_test.dart` pins each call
-/// site by name. A new part, public reason constructor, raw host path or reason variant
-/// needs the owner's approval.
+/// [UserIntent] and [PlatformSignal] are minted only in callbacks their wrappers make. Each
+/// builds one reason; a second, or a [UserIntent] older than [UserIntent.window], is refused
+/// where it would dial or drop, logged and asserted, so reuse goes through the reason.
+/// `test/ssh_fence_test.dart` catches obvious misuse early, by type: each call site of
+/// [SshConnector.establish], the public [HostLinks] controls and [HostLease.client], each
+/// wrapper's slot and the fields a token rides in. Left open: one prompt spend, within the
+/// window, from a path no person or platform event started. An alert tapped before the app
+/// mounts is a cold launch. A new part, wrapper, raw host path or reason needs approval.
 library;
 
 import 'dart:async';
@@ -114,10 +117,13 @@ final class ConnectionSupervisor implements HostChannels {
   /// Null when the tab is gone or the app away; throws what the dial threw. A gesture whose
   /// dial a network change overtook, or an earlier dial's settle refused, opens again once;
   /// a resume or a network change waits out every settle that refuses it.
-  Future<HostChannels?> open(ReopenReason reason) => switch (reason) {
-    UserAction() || AppResumed() || NetworkChanged() => _openUntilHeld(reason),
-    _HostDied() => _open(reason).future,
-  };
+  Future<HostChannels?> open(ReopenReason reason) {
+    if (_refuses(reason, endpoint)) return Future.value();
+    return switch (reason) {
+      UserAction() || AppResumed() || NetworkChanged() => _openUntilHeld(reason),
+      _HostDied() => _open(reason).future,
+    };
+  }
 
   Future<HostChannels?> _openUntilHeld(ReopenReason reason) async {
     final attended = reason is UserAction;
@@ -214,6 +220,7 @@ final class ConnectionSupervisor implements HostChannels {
 
   /// Throws, before anything is dropped, for an end another supervisor minted.
   Future<void> drop(DropReason reason) {
+    if (_refuses(reason, endpoint)) return Future.value();
     switch (reason) {
       case ShellEnded(:final _of) when !identical(_of, this):
         throw ArgumentError.value(reason, 'reason', 'ended another terminal');
@@ -383,6 +390,9 @@ final class SshConnector {
     required Future<T> Function(ConnectionSupervisor supervisor) startup,
     void Function(Reconnect retry)? failed,
   }) async {
+    if (_refuses(reason, '$address:$port')) {
+      throw StateError('a refused ${reason.runtimeType} dials nothing');
+    }
     final purpose = _purpose(reason);
     // Nobody is there to answer for an unpinned key: such an open refuses it instead.
     if (!purpose.attended && verifier.prompt != null) {

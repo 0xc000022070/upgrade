@@ -11,6 +11,7 @@ import 'herdr_client.dart';
 import 'host_links.dart';
 import 'host_keys.dart';
 import 'keys.dart';
+import 'shell/shell_connection.dart';
 
 /// Android delivers an action tap to this app's background isolate when the activity is
 /// gone and to the main isolate when it is not, so this looks nothing up: the host comes
@@ -26,14 +27,17 @@ void alertActionBackground(NotificationResponse response) {
 /// cold `OPEN` can be replayed once the shell is on screen.
 void Function()? alertOpenHandler;
 
-void Function(String hostId)? pinOpenHandler;
+void Function(String hostId, UserIntent? intent)? pinOpenHandler;
 
 HostLinks? alertLinks;
 
-Future<void> handleAlertAction(NotificationResponse response) async {
+Future<void> handleAlertAction(
+  NotificationResponse response, {
+  UserIntent? intent,
+}) async {
   final pinHost = pinPayloadHost(response.payload);
   if (pinHost != null) {
-    pinOpenHandler?.call(pinHost);
+    pinOpenHandler?.call(pinHost, intent);
     return;
   }
   final target = AlertTarget.decode(response.payload);

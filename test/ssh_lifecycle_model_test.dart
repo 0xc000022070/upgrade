@@ -10,6 +10,7 @@ import 'package:upgrade/platform/host_links.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 
 import 'support/host_links.dart';
+import 'support/reasons.dart';
 import 'support/ssh_exec.dart';
 
 const _seeds = [1, 2, 3, 5, 8, 13, 21, 34];
@@ -244,9 +245,9 @@ final class _Model {
   ];
 
   OpenReason _openReason(String kind) => switch (kind) {
-    'UserAction' => UserAction(UserIntent.fromGesture()),
-    'AppResumed' => AppResumed(PlatformSignal.fromPlatform()),
-    _ => NetworkChanged(PlatformSignal.fromPlatform()),
+    'UserAction' => UserAction(testIntent()),
+    'AppResumed' => AppResumed(testSignal()),
+    _ => NetworkChanged(testSignal()),
   };
 
   Future<void> establish() async {
@@ -332,9 +333,9 @@ final class _Model {
     ]);
     log('drop tab ${tab.id} for $kind');
     final DropReason reason = switch (kind) {
-      'UserClosed' => UserClosed(UserIntent.fromGesture()),
-      'AppSuspended' => AppSuspended(PlatformSignal.fromPlatform()),
-      'NetworkChanged' => NetworkChanged(PlatformSignal.fromPlatform()),
+      'UserClosed' => UserClosed(testIntent()),
+      'AppSuspended' => AppSuspended(testSignal()),
+      'NetworkChanged' => NetworkChanged(testSignal()),
       _ => tab.sup.terminalEnded(),
     };
     if (reason is ShellEnded) reconnects.add(reason.reconnect);
@@ -857,7 +858,7 @@ final class _Model {
       for (final tab in live) {
         tab.droppedTick = ++tick;
         _retire(tab);
-        unawaited(_quiet(tab.sup.drop(UserClosed(UserIntent.fromGesture()))));
+        unawaited(_quiet(tab.sup.drop(UserClosed(testIntent()))));
       }
       for (final entry in mine) {
         if (entry.released) continue;

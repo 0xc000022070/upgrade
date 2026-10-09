@@ -69,7 +69,7 @@ void main() {
 
     test('a tap is routed to the host and answers nothing', () async {
       String? opened;
-      pinOpenHandler = (host) => opened = host;
+      pinOpenHandler = (host, _) => opened = host;
       addTearDown(() => pinOpenHandler = null);
 
       await handleAlertAction(

@@ -37,13 +37,13 @@ Future<PasteResult> pasteClip({
   required ShellSessions store,
   required ShellSession session,
   required Clip clip,
-  required UserIntent intent,
+  required UserAction action,
 }) async => pasteImage(
   store: store,
   session: session,
   fileName: clip.fileName,
   bytes: await clip.file.readAsBytes(),
-  intent: intent,
+  action: action,
 );
 
 /// The probe goes first so the clipboard backend is known before upload. The bytes go
@@ -57,7 +57,7 @@ Future<PasteResult> pasteImage({
   required ShellSession session,
   required String fileName,
   required Uint8List bytes,
-  required UserIntent intent,
+  required UserAction action,
 }) async {
   final connection = session.connection;
   if (connection == null || !session.state.holdsSession) {
@@ -65,7 +65,7 @@ Future<PasteResult> pasteImage({
   }
   final HostChannels? channels;
   try {
-    channels = await connection.channelsFor(UserAction(intent));
+    channels = await connection.channelsFor(action);
   } catch (error) {
     return PasteResult(PasteOutcome.failed, detail: '$error');
   }
