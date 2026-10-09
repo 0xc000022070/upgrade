@@ -823,6 +823,34 @@ bool Function(String, Expression?, AstNode) _declared(
 
 const _hostLinksUri = 'package:upgrade/platform/host_links.dart';
 
+/// Every read of [member]: a call, a property, a pattern field or an implicit `this`. A
+/// declaration names it with a token, not an identifier, so it never counts.
+Map<String, int> _reads(
+  String library,
+  String owner,
+  String member, {
+  String? except,
+}) {
+  final found = <String, int>{};
+  for (final MapEntry(key: path, value: unit) in _lib.entries) {
+    if (path == except || path == _reasons) continue;
+    _walk(unit, (node) {
+      final base = switch (node) {
+        SimpleIdentifier(:final element) => element,
+        PatternField(:final element) => element,
+        _ => null,
+      }?.baseElement;
+      if (base != null &&
+          base.name == member &&
+          base.enclosingElement?.name == owner &&
+          _uri(base) == library) {
+        found[path] = (found[path] ?? 0) + 1;
+      }
+    });
+  }
+  return found;
+}
+
 bool Function(String, Expression?, AstNode) _links(Set<String> members) =>
     _declared(_hostLinksUri, 'HostLinks', members);
 
@@ -1005,8 +1033,9 @@ void main() {
         _walk(unit, (node) {
           final element = switch (node) {
             InstanceCreationExpression(:final constructorName) ||
-            ConstructorReference(:final constructorName) =>
-              constructorName.element,
+            ConstructorReference(
+              :final constructorName,
+            ) => constructorName.element,
             _ => null,
           };
           if (_ssh(element?.baseElement.enclosingElement, {'UserClosed'}) &&
@@ -1015,11 +1044,9 @@ void main() {
           }
         });
       }
-      expect(
-        found,
-        {_shellSessions: 1},
-        reason: 'UserClosed.by spends no token of its own; $_seam',
-      );
+      expect(found, {
+        _shellSessions: 1,
+      }, reason: 'UserClosed.by spends no token of its own; $_seam');
     });
 
     test('ride only in the landing fields, each read once', () {
@@ -1439,6 +1466,12 @@ PlatformSignal? signal(NetworkChanged change) => change.signal;
     }, reason: 'a claim takes a tab\'s lane on the host; $_seam');
   });
 
+  test('only the supervisor takes a link on the tab lane', () {
+    expect(_reads(_hostLinksUri, 'HostUse', 'tab', except: _hostLinks), {
+      _supervisor: 1,
+    }, reason: 'HostLinks.lease forwards any use to claim; $_seam');
+  });
+
   test('only the supervisor renounces a host link', () {
     expect(_members(_links({'renounce'}), except: _hostLinks), {
       _supervisor: 1,
@@ -1446,11 +1479,9 @@ PlatformSignal? signal(NetworkChanged change) => change.signal;
   });
 
   test('only the shell sessions put host links to sleep and wake them', () {
-    expect(
-      _members(_links({'sleep', 'wake'}), except: _hostLinks),
-      {_shellSessions: 2},
-      reason: 'a sleep ends every yielding lease; $_seam',
-    );
+    expect(_members(_links({'sleep', 'wake'}), except: _hostLinks), {
+      _shellSessions: 2,
+    }, reason: 'a sleep ends every yielding lease; $_seam');
   });
 
   test('only the shell wake rechecks every host link', () {
@@ -1460,23 +1491,16 @@ PlatformSignal? signal(NetworkChanged change) => change.signal;
   });
 
   test('only the known owners close host links', () {
-    expect(
-      _members(_links({'close'}), except: _hostLinks),
-      {
-        'lib/application/agents.dart': 1,
-        'lib/platform/agent_watcher.dart': 1,
-        'lib/platform/alert_actions.dart': 1,
-      },
-      reason: 'a close ends every link in the pool; $_seam',
-    );
+    expect(_members(_links({'close'}), except: _hostLinks), {
+      'lib/application/agents.dart': 1,
+      'lib/platform/agent_watcher.dart': 1,
+      'lib/platform/alert_actions.dart': 1,
+    }, reason: 'a close ends every link in the pool; $_seam');
   });
 
   test('only the named borrowers reach a lease\'s raw client', () {
     expect(
-      _members(
-        _declared(_hostLinksUri, 'HostLease', {'client'}),
-        except: _hostLinks,
-      ),
+      _reads(_hostLinksUri, 'HostLease', 'client', except: _hostLinks),
       {
         'lib/platform/herdr_client.dart': 1,
         'lib/platform/vnc/vnc_tunnel.dart': 1,
