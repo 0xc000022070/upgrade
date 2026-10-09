@@ -892,46 +892,7 @@ final class _Model {
   }
 }
 
-// _Dial.none is a static future bound to the zone that first reads it: read it on the
-// real loop, which every flush turns, or no fake-clock test after the first can await it.
-Future<void> _bindRefusalToRealZone() async {
-  final links = HostLinks(
-    dial:
-        ({
-          required address,
-          required port,
-          required user,
-          required privateKey,
-          required verifier,
-          onSettling,
-        }) async {
-          final client = FakeLinkClient();
-          return (
-            socket: FakeExecSocket(),
-            client: client,
-            received: () => client.received,
-          );
-        },
-  );
-  final supervisor =
-      await SshConnector(links: links, timeout: _connectorTimeout).establish(
-        address: _address,
-        port: _port,
-        user: _user,
-        privateKey: _privateKey,
-        verifier: HostKeyVerifier.pinnedOnly(_vm),
-        reason: UserAction(UserIntent.fromGesture()),
-        startup: (supervisor) async => supervisor,
-        failed: (_) {},
-      );
-  await supervisor.drop(UserClosed(UserIntent.fromGesture()));
-  await supervisor.open(AppResumed(PlatformSignal.fromPlatform()));
-  links.close();
-}
-
 void main() {
-  final bound = _bindRefusalToRealZone();
-  setUpAll(() => bound);
   for (final seed in _seeds) {
     testWidgets(
       'seed $seed holds the connection policy through random events',

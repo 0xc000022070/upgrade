@@ -151,7 +151,7 @@ final class ConnectionSupervisor implements HostChannels {
   }
 
   _Dial _open(ReopenReason reason) {
-    if (_retired) return _Dial.none;
+    if (_retired) return _Dial.none();
     switch (reason) {
       case AppResumed():
         _suspended = false;
@@ -159,11 +159,11 @@ final class ConnectionSupervisor implements HostChannels {
       case UserAction() || NetworkChanged():
         break;
       case _HostDied():
-        if (_suspended) return _Dial.none;
+        if (_suspended) return _Dial.none();
     }
     final held = _held;
     if (held != null) return _Dial.settled(held);
-    if (_suspended && reason is NetworkChanged) return _Dial.none;
+    if (_suspended && reason is NetworkChanged) return _Dial.none();
     final pending = _dial;
     if (pending != null) return pending;
     final dial = _dial = _Dial();
@@ -332,7 +332,7 @@ final class _Dial {
 
   _Dial.settled(HostChannels? channels) : future = Future.value(channels);
 
-  static final none = _Dial.settled(null);
+  _Dial.none() : this.settled(null);
 
   late final Future<HostChannels?> future;
   var overtaken = false;
