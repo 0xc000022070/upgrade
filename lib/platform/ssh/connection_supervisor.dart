@@ -27,7 +27,8 @@
 ///   with one redial. Beside it: other identities or isolates, the trust probe, one overflow.
 /// - Past the sleep grace the app holds only a live plain-SSH terminal's control link, and
 ///   only [HostUse.wakes] uses lease beside it.
-/// Gestures and platform callbacks alone mint [UserIntent] and [PlatformSignal]. A new part,
+/// [UserIntent] and [PlatformSignal] are minted only in a gesture handler or a platform
+/// callback; `test/ssh_fence_test.dart` pins each call site, since privacy cannot. A new part,
 /// public reason constructor, raw host path or reason variant needs the owner's approval.
 library;
 
