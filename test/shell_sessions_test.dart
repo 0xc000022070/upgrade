@@ -1093,7 +1093,7 @@ void main() {
       ShellFailureKind.unreachable,
       detail: 'connection refused',
     );
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     for (final delay in shellReconnectDelays) {
       expect(session.state, isA<ShellDropped>());
@@ -1317,7 +1317,7 @@ void main() {
       expect(session.state, isA<ShellWaiting>());
 
       transport.opening = null;
-      sessions.wakeAll(testSignal());
+      sessions.wakeAll(AppResumed(testSignal()));
       await _pumpDial(tester);
 
       expect(transport.opened, hasLength(2));
@@ -1621,7 +1621,7 @@ void main() {
 
     await _spend(tester, transport, session);
     transport.refuse = null;
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
 
     expect(session.state, isA<ShellLive>());
@@ -1640,7 +1640,7 @@ void main() {
     final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
 
     expect(transport.opened, hasLength(1));
@@ -1658,19 +1658,19 @@ void main() {
     await _pumpDial(tester);
     final connection = transport.opened.single;
 
-    sessions.wakeAll(testSignal());
-    sessions.wakeAll(testSignal(), network: true);
+    sessions.wakeAll(AppResumed(testSignal()));
+    sessions.wakeAll(NetworkChanged(testSignal()));
     await _pumpDial(tester);
     expect(connection.rehomes, 2);
     expect(connection.networkRehomes, 1);
 
     await tester.pump(shellRehomeSettle);
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
-    sessions.wakeAll(testSignal(), network: true);
+    sessions.wakeAll(NetworkChanged(testSignal()));
     await _pumpDial(tester);
-    sessions.wakeAll(testSignal(), network: true);
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(NetworkChanged(testSignal()));
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(connection.rehomes, 4);
     expect(connection.networkRehomes, 2);
@@ -1689,7 +1689,7 @@ void main() {
 
     sessions.leave(testSignal());
     await tester.pump(const Duration(seconds: 5));
-    sessions.returned(testSignal());
+    sessions.returned(AppResumed(testSignal()));
     await tester.pump(const Duration(seconds: 10));
     expect(connection.suspends, 0);
 
@@ -1699,8 +1699,8 @@ void main() {
     final asked = connection.execs.length;
 
     sessions
-      ..returned(testSignal())
-      ..wakeAll(testSignal());
+      ..returned(AppResumed(testSignal()))
+      ..wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(connection.resumes, 1);
     expect(connection.rehomes, 0);
@@ -1718,14 +1718,14 @@ void main() {
     final session = sessions.open(intent: testIntent(), _rose)!;
     await _pumpDial(tester);
 
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(transport.opened.single.rehomes, 1);
 
     await tester.pump(shellRehomeSettle);
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(transport.opened.single.rehomes, 2);
 
@@ -1742,7 +1742,7 @@ void main() {
 
     await _spend(tester, transport, session);
     final spent = transport.verifiers.length;
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
 
     expect(transport.verifiers, hasLength(spent + 1));
@@ -1778,7 +1778,7 @@ void main() {
     final spent = transport.verifiers.length;
 
     clock = clock.add(const Duration(minutes: 5));
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     var awake = Duration.zero;
     while (transport.verifiers.length == spent &&
@@ -1809,7 +1809,7 @@ void main() {
     transport.refuse = null;
     final dialled = transport.verifiers.length;
 
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
 
     expect(live.state, isA<ShellLive>());
@@ -1832,19 +1832,19 @@ void main() {
 
     final release = sessions.hold();
     final second = sessions.hold();
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
 
     expect(transport.verifiers, hasLength(spent));
     expect(session.state, isA<ShellWaiting>());
 
     release();
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(transport.verifiers, hasLength(spent));
 
     second();
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(session.state, isA<ShellLive>());
 
@@ -1867,7 +1867,7 @@ void main() {
     expect(session.state, isA<ShellFailed>());
     expect((session.state as ShellFailed).kind, ShellFailureKind.unreachable);
 
-    sessions.wakeAll(testSignal());
+    sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
     expect(transport.verifiers, hasLength(spent));
 
@@ -2089,7 +2089,7 @@ void main() {
       ]);
       expect(connection.suspends, 1);
 
-      sessions.returned(testSignal());
+      sessions.returned(AppResumed(testSignal()));
       await _settle();
       expect(connection.resumes, 1);
       expect(connection.execs.last.command, pinentryOpenCommand());
@@ -2125,7 +2125,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(asks(), asleep);
 
-      sessions.returned(testSignal());
+      sessions.returned(AppResumed(testSignal()));
       await _settle();
       expect(asks(), greaterThan(asleep));
 
@@ -2745,7 +2745,7 @@ void main() {
       final rested = snapshots.snapshots[(_rose.id, 1)];
       expect(rested, isNot(same(left)));
 
-      sessions.returned(testSignal());
+      sessions.returned(AppResumed(testSignal()));
       transport.opened.single.emit('back on screen\r\n');
       await Future<void>.delayed(const Duration(milliseconds: 30));
       expect(snapshots.snapshots[(_rose.id, 1)], same(rested));

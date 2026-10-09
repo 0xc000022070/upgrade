@@ -38,7 +38,7 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
         // Only an arrival. A network going is what put these tabs where they are, and
         // dialling over nothing would spend the fresh schedule for nothing.
         if (up) {
-          ref.read(shellSessionsProvider).wakeAll(signal, network: true);
+          ref.read(shellSessionsProvider).wakeAll(NetworkChanged(signal));
           // Only a tab's host is renounced; the panel's and the code view's links on the
           // old path would otherwise wait out their keepalive.
           unawaited(ref.read(hostLinksProvider).recheckAll());
@@ -68,9 +68,10 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
       appForegroundProvider,
       PlatformSignal.onLifecycle((signal, was, now) {
         if (!now || was == true) return;
+        final resumed = AppResumed(signal);
         ref.read(shellSessionsProvider)
-          ..returned(signal)
-          ..wakeAll(signal, rehome: _away);
+          ..returned(resumed)
+          ..wakeAll(resumed, rehome: _away);
         _away = false;
         _hold.refresh();
       }),

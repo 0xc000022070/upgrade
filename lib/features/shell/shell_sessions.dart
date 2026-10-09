@@ -670,7 +670,7 @@ class ShellSessions extends ChangeNotifier {
 
   bool _away = false;
   bool _sleeping = false;
-  PlatformSignal? _leftOn;
+  AppSuspended? _leftOn;
   Timer? _sleep;
 
   final _byHost = <String, List<ShellSession>>{};
@@ -1065,7 +1065,7 @@ class ShellSessions extends ChangeNotifier {
 
   void leave(PlatformSignal signal) {
     _away = true;
-    _leftOn = signal;
+    _leftOn = AppSuspended(signal);
     for (final sessions in _byHost.values) {
       for (final session in sessions) {
         _saveScreen(session);
@@ -1075,7 +1075,7 @@ class ShellSessions extends ChangeNotifier {
     _sleep = Timer(sleepGrace, _fallAsleep);
   }
 
-  void returned(PlatformSignal signal) {
+  void returned(AppResumed reason) {
     _away = false;
     _sleeping = false;
     _leftOn = null;
@@ -1086,7 +1086,7 @@ class ShellSessions extends ChangeNotifier {
       for (final session in sessions) {
         session._save?.cancel();
         session._save = null;
-        _wakeUp(session, AppResumed(signal));
+        _wakeUp(session, reason);
       }
     }
   }
@@ -1105,9 +1105,9 @@ class ShellSessions extends ChangeNotifier {
 
   void _suspend(ShellSession session) {
     final connection = session.connection;
-    final signal = _leftOn;
+    final suspended = _leftOn;
     if (connection == null ||
-        signal == null ||
+        suspended == null ||
         session._closed ||
         !session.state.holdsSession ||
         identical(session._asleep, connection)) {
@@ -1117,7 +1117,7 @@ class ShellSessions extends ChangeNotifier {
     session._asleep = connection;
     session._stopAsking();
     unawaited(
-      connection.suspend(AppSuspended(signal)).catchError((Object error) {
+      connection.suspend(suspended).catchError((Object error) {
         debugPrint('upgrade.shell ${session.host.name}: suspend: $error');
       }),
     );
@@ -1291,7 +1291,10 @@ class ShellSessions extends ChangeNotifier {
     String hostId,
     ShellSession session, {
     required UserIntent intent,
-  }) => _close(hostId, session, UserClosed(intent), action: UserAction(intent));
+  }) {
+    final action = UserAction(intent);
+    return _close(hostId, session, UserClosed.by(action), action: action);
+  }
 
   /// Without an [action] a cleanly exited shell closes its tab with its own [ShellEnded].
   Future<void> _close(
@@ -2113,13 +2116,8 @@ class ShellSessions extends ChangeNotifier {
   /// The phone is what calls this — coming back in front, or finding a network — and a tab
   /// still inside its schedule has a timer of its own and is left to it, unless that wait
   /// ran out while the phone slept: then it dials now and goes on from the same step.
-  void wakeAll(
-    PlatformSignal signal, {
-    bool network = false,
-    bool rehome = true,
-  }) {
-    final changed = network ? NetworkChanged(signal) : null;
-    final OpenReason reason = changed ?? AppResumed(signal);
+  void wakeAll(OpenReason reason, {bool rehome = true}) {
+    final changed = reason is NetworkChanged ? reason : null;
     if (changed != null) udpVerdicts.clearAll();
     for (final sessions in _byHost.values) {
       for (final session in List.of(sessions)) {

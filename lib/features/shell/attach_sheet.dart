@@ -62,13 +62,14 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
       store: ref.read(shellSessionsProvider),
       session: widget.session,
       clip: clip,
-      intent: intent,
+      action: UserAction(intent),
     );
     await _finish(result);
   }
 
   Future<void> _attachPhotos(UserIntent intent) async {
     if (_busy) return;
+    final action = UserAction(intent);
     setState(() => _busy = true);
     final List<Uint8List> photos;
     try {
@@ -97,7 +98,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
         session: widget.session,
         fileName: freshPngName(),
         bytes: photos[i],
-        intent: intent,
+        action: action,
       );
       if (last.outcome == PasteOutcome.failed) break;
     }

@@ -2,9 +2,28 @@
 part of 'connection_supervisor.dart';
 
 /// Proof a person asked. Mint only in a gesture handler and pass it down; never store one
-/// or mint one where a timer, a stream or a probe reaches.
+/// or mint one where a timer, a stream or a probe reaches. Builds one reason, within [window].
 final class UserIntent {
   UserIntent._();
+
+  static const window = Duration(seconds: 5);
+
+  static final _watch = Stopwatch()..start();
+  static Duration _elapsed() => _watch.elapsed;
+  static Duration Function() _clock = _elapsed;
+
+  @visibleForTesting
+  static set clock(Duration Function()? clock) => _clock = clock ?? _elapsed;
+
+  final Duration _minted = _clock();
+  var _spent = false;
+
+  String? _spend() {
+    if (_spent) return 'its intent was spent before';
+    _spent = true;
+    final age = _clock() - _minted;
+    return age > window ? 'its intent is ${age.inMilliseconds} ms old' : null;
+  }
 
   static VoidCallback onGesture(void Function(UserIntent intent) handler) =>
       () => handler(UserIntent._());
@@ -20,9 +39,17 @@ final class UserIntent {
       (response) => handler(UserIntent._(), response);
 }
 
-/// Proof the platform said so. Mint only in the callback that hears it.
+/// Proof the platform said so. Mint only in the callback that hears it. Builds one reason.
 final class PlatformSignal {
   PlatformSignal._();
+
+  var _spent = false;
+
+  String? _spend() {
+    if (_spent) return 'its signal was spent before';
+    _spent = true;
+    return null;
+  }
 
   static Future<void> onLaunch(
     Future<void> Function(PlatformSignal launch) boot,
@@ -51,25 +78,58 @@ sealed class DropReason {
   const DropReason._();
 }
 
-final class UserAction implements OpenReason, ReopenReason {
-  const UserAction(UserIntent _);
+mixin _Spends {
+  String? get _refused;
 }
 
-final class AppResumed implements OpenReason, ReopenReason {
-  const AppResumed(PlatformSignal _);
+bool _refuses(Object reason, String where) {
+  if (reason case _Spends(:final _refused?)) {
+    final line = 'refused ${reason.runtimeType}: $_refused';
+    debugPrint('upgrade.ssh $where: $line');
+    assert(false, line);
+    return true;
+  }
+  return false;
+}
+
+final class UserAction with _Spends implements OpenReason, ReopenReason {
+  UserAction(UserIntent intent) : _refused = intent._spend();
+
+  @override
+  final String? _refused;
+}
+
+final class AppResumed with _Spends implements OpenReason, ReopenReason {
+  AppResumed(PlatformSignal signal) : _refused = signal._spend();
+
+  @override
+  final String? _refused;
 }
 
 /// Both a drop and an open: the old socket is bound to the network that went.
-final class NetworkChanged implements OpenReason, ReopenReason, DropReason {
-  const NetworkChanged(PlatformSignal _);
+final class NetworkChanged
+    with _Spends
+    implements OpenReason, ReopenReason, DropReason {
+  NetworkChanged(PlatformSignal signal) : _refused = signal._spend();
+
+  @override
+  final String? _refused;
 }
 
-final class UserClosed extends DropReason {
-  const UserClosed(UserIntent _) : super._();
+final class UserClosed extends DropReason with _Spends {
+  UserClosed(UserIntent intent) : _refused = intent._spend(), super._();
+
+  UserClosed.by(UserAction action) : _refused = action._refused, super._();
+
+  @override
+  final String? _refused;
 }
 
-final class AppSuspended extends DropReason {
-  const AppSuspended(PlatformSignal _) : super._();
+final class AppSuspended extends DropReason with _Spends {
+  AppSuspended(PlatformSignal signal) : _refused = signal._spend(), super._();
+
+  @override
+  final String? _refused;
 }
 
 /// Minted only here, bound to evidence of an end. A command, timeout or probe on a

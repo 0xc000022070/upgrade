@@ -86,7 +86,7 @@ void main() {
         store: store,
         session: session,
         clip: clip,
-        intent: testIntent(),
+        action: UserAction(testIntent()),
       );
 
       expect(result.outcome, PasteOutcome.pasted);
@@ -119,7 +119,7 @@ void main() {
       store: store,
       session: session,
       clip: clip,
-      intent: testIntent(),
+      action: UserAction(testIntent()),
     );
 
     expect(result.outcome, PasteOutcome.path);
@@ -141,13 +141,13 @@ void main() {
       store: store,
       session: session,
       clip: clip,
-      intent: testIntent(),
+      action: UserAction(testIntent()),
     );
     await pasteClip(
       store: store,
       session: session,
       clip: clip,
-      intent: testIntent(),
+      action: UserAction(testIntent()),
     );
 
     final probes = connection.execs.where(
@@ -172,7 +172,7 @@ void main() {
       store: store,
       session: session,
       clip: clip,
-      intent: testIntent(),
+      action: UserAction(testIntent()),
     );
 
     expect(result.outcome, PasteOutcome.failed);
@@ -198,7 +198,7 @@ void main() {
       store: store,
       session: session,
       clip: clip,
-      intent: testIntent(),
+      action: UserAction(testIntent()),
     );
 
     expect(result.line, 'PATH · wayland exit 1');
@@ -220,7 +220,7 @@ void main() {
       session: session,
       fileName: name,
       bytes: bytes,
-      intent: testIntent(),
+      action: UserAction(testIntent()),
     );
 
     expect(result.line, 'PASTED');
@@ -245,7 +245,7 @@ void main() {
       store: store,
       session: session,
       clip: clip,
-      intent: testIntent(),
+      action: UserAction(testIntent()),
     );
 
     expect(result.outcome, PasteOutcome.pasted);
@@ -262,7 +262,7 @@ void main() {
       store: store,
       session: session,
       clip: clip,
-      intent: testIntent(),
+      action: UserAction(testIntent()),
     );
 
     expect(result.line, 'FAILED · no shell');

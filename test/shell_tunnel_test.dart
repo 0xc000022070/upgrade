@@ -3270,7 +3270,7 @@ void plainTabTests() {
     final (:sessions, :hosts, :tab) = await live(tester);
     hosts.single.answers = false;
 
-    sessions.wakeAll(testSignal(), network: true);
+    sessions.wakeAll(NetworkChanged(testSignal()));
     await tester.pump();
     expect(hosts.single.checks, 1);
     await tester.pump(const Duration(seconds: 5));
@@ -3288,7 +3288,7 @@ void plainTabTests() {
   testWidgets('a network change leaves a live link as it was', (tester) async {
     final (:sessions, :hosts, :tab) = await live(tester);
 
-    sessions.wakeAll(testSignal(), network: true);
+    sessions.wakeAll(NetworkChanged(testSignal()));
     await tester.pump();
     await tester.pump(const Duration(seconds: 10));
 
