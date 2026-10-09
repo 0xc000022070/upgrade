@@ -20,24 +20,28 @@ sealed class OpenReason {
   const OpenReason._();
 }
 
+sealed class ReopenReason {
+  const ReopenReason._();
+}
+
 sealed class DropReason {
   const DropReason._();
 }
 
-final class UserAction extends OpenReason {
-  const UserAction(this.intent) : super._();
+final class UserAction implements OpenReason, ReopenReason {
+  const UserAction(this.intent);
 
   final UserIntent intent;
 }
 
-final class AppResumed extends OpenReason {
-  const AppResumed(this.signal) : super._();
+final class AppResumed implements OpenReason, ReopenReason {
+  const AppResumed(this.signal);
 
   final PlatformSignal signal;
 }
 
 /// Both a drop and an open: the old socket is bound to the network that went.
-final class NetworkChanged implements OpenReason, DropReason {
+final class NetworkChanged implements OpenReason, ReopenReason, DropReason {
   const NetworkChanged(this.signal);
 
   final PlatformSignal signal;
@@ -73,13 +77,6 @@ final class _TerminalEnded extends _Evidence {
   final ShellEnded end;
 }
 
-final class _HostDied extends _Evidence {
-  const _HostDied(this.failed, this.of);
-
-  final HealthCheckFailed failed;
-  final ConnectionSupervisor of;
-}
-
 /// On the host or link, in the handshake or a startup step before the hand-out.
 final class _DialFailed extends _Evidence {
   const _DialFailed(this.error);
@@ -103,6 +100,12 @@ final class ShellEnded implements DropReason {
 
 final class HealthCheckFailed extends DropReason {
   const HealthCheckFailed._() : super._();
+}
+
+final class _HostDied extends ReopenReason {
+  const _HostDied(this.failed) : super._();
+
+  final HealthCheckFailed failed;
 }
 
 final class _StartupAbandoned extends DropReason {

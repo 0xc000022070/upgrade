@@ -445,7 +445,10 @@ class ShellTunnel {
 }
 
 /// The terminal never waits for this; a miss leaves background reads null until the next.
-Future<void> _reopen(ConnectionSupervisor supervisor, OpenReason reason) async {
+Future<void> _reopen(
+  ConnectionSupervisor supervisor,
+  ReopenReason reason,
+) async {
   try {
     await supervisor.open(reason);
   } catch (error) {

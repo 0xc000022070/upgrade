@@ -2,17 +2,18 @@
 ///
 /// [HostLinks] alone opens and closes sockets; every other holder only leases and releases,
 /// so a command, timeout or probe can never close or replace a connection. A tab's claim,
-/// drop, renounce and revive additionally need a sealed [OpenReason] or [DropReason], and
-/// only an [OpenReason] redials a tab. Why: a probe's timeout once replaced a live
-/// connection under a typed SEND; see `SSH-CONNECTION-INCIDENT.md`.
+/// drop, renounce and revive additionally need a sealed [OpenReason], [ReopenReason] or
+/// [DropReason], and only an open or reopen reason redials a tab. Why: a probe's timeout
+/// once replaced a live connection under a typed SEND; see `SSH-CONNECTION-INCIDENT.md`.
 ///
 /// Guaranteed by this library's `_` privacy:
 /// - Outside code holds no host or supervisor, only [HostChannels] views that answer null
 ///   while no host is held.
 /// - [HealthCheckFailed] comes only from [ShellHost.done]. [ShellEnded] comes only from,
 ///   and is accepted only by, the supervisor under the terminal that ended.
-/// - [Reconnect] is minted only here, from a [ShellEnded], a [HealthCheckFailed] on its own
-///   host, or a dial that failed on the host or link. A timer dials for nothing else.
+/// - [Reconnect] is minted only here, from a [ShellEnded] or a dial that failed on the host
+///   or link, and only a fresh supervisor accepts it. A [HealthCheckFailed] reopens only its
+///   own host's supervisor, and no caller can hand it one. A timer dials for nothing else.
 /// - A dial includes the startup steps [SshConnector.establish] runs; a probe or command
 ///   on a handed-out connection is never evidence, and is never retried on the same host.
 /// - No reason is a command failure, and every switch over reasons is exhaustive.
@@ -116,14 +117,14 @@ final class ConnectionSupervisor implements HostChannels {
   /// Null when the tab is gone or the app away; throws what the dial threw. A gesture whose
   /// dial a network change overtook, or an earlier dial's settle refused, opens again once;
   /// a resume or a network change waits out every settle that refuses it.
-  Future<HostChannels?> open(OpenReason reason) {
+  Future<HostChannels?> open(ReopenReason reason) {
     final opened = _open(reason);
     switch (reason) {
       case UserAction():
         break;
       case AppResumed() || NetworkChanged():
         return _openSettled(opened.future, reason);
-      case Reconnect():
+      case _HostDied():
         return opened.future;
     }
     return opened.future.then(
@@ -143,7 +144,7 @@ final class ConnectionSupervisor implements HostChannels {
 
   Future<HostChannels?> _openSettled(
     Future<HostChannels?> opened,
-    OpenReason reason,
+    ReopenReason reason,
   ) async {
     while (true) {
       try {
@@ -156,7 +157,7 @@ final class ConnectionSupervisor implements HostChannels {
     }
   }
 
-  _Dial _open(OpenReason reason) {
+  _Dial _open(ReopenReason reason) {
     if (_retired) return _Dial.none;
     switch (reason) {
       case AppResumed():
@@ -164,13 +165,8 @@ final class ConnectionSupervisor implements HostChannels {
         _report();
       case UserAction() || NetworkChanged():
         break;
-      case Reconnect(:final _cause):
-        switch (_cause) {
-          case _HostDied(:final of) when identical(of, this):
-            if (_suspended) return _Dial.none;
-          case _HostDied() || _TerminalEnded() || _DialFailed():
-            return _Dial.none;
-        }
+      case _HostDied():
+        if (_suspended) return _Dial.none;
     }
     final link = _link;
     if (link != null) return _Dial.held(_Lease(this, link.generation));
@@ -189,7 +185,7 @@ final class ConnectionSupervisor implements HostChannels {
   /// Only for a transport whose terminal outlives its host; a plain SSH terminal dies with it.
   void reopenWhenHostDies() => _revives = true;
 
-  void _revive(Reconnect reason, int step) {
+  void _revive(_HostDied reason, int step) {
     _revival?.cancel();
     _revival = Timer(_reviveDelays[step], () async {
       _revival = null;
@@ -284,7 +280,7 @@ final class ConnectionSupervisor implements HostChannels {
         : link.host.run(command, config);
   }
 
-  Future<HostChannels?> _redial(OpenReason reason) async {
+  Future<HostChannels?> _redial(ReopenReason reason) async {
     final epoch = _generation;
     final ShellHost host;
     try {
@@ -297,11 +293,8 @@ final class ConnectionSupervisor implements HostChannels {
       rethrow;
     }
     final cause = switch (reason) {
-      Reconnect(_cause: _HostDied()) => 'a host that died',
-      UserAction() ||
-      AppResumed() ||
-      NetworkChanged() ||
-      Reconnect() => _purpose(reason).cause,
+      _HostDied() => 'a host that died',
+      final OpenReason opening => _purpose(opening).cause,
     };
     if (_retired || epoch != _generation) {
       _log('redial for $cause, discarded');
@@ -322,7 +315,7 @@ final class ConnectionSupervisor implements HostChannels {
       if (!identical(_link, link)) return;
       const failed = HealthCheckFailed._();
       unawaited(drop(failed));
-      if (_revives) _revive(Reconnect._(_HostDied(failed, this)), 0);
+      if (_revives) _revive(const _HostDied(failed), 0);
     }
 
     unawaited(
@@ -392,11 +385,6 @@ const _reviveDelays = <Duration>[
   Reconnect(:final _cause) => switch (_cause) {
     _TerminalEnded() => (attended: false, cause: 'a terminal that ended'),
     _DialFailed() => (attended: false, cause: 'a dial that failed'),
-    _HostDied() => throw ArgumentError.value(
-      reason,
-      'reason',
-      'a dead host is dialled again by its own supervisor',
-    ),
   },
 };
 
