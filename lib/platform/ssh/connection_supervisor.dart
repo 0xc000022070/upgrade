@@ -1,48 +1,87 @@
 /// SSH connection policy.
 ///
-/// This library owns the app's SSH connections: who opens and closes one, and when a tab
-/// may dial again. It exists because a probe's timeout once replaced a live connection under
-/// a typed SEND; see `SSH-CONNECTION-INCIDENT.md`. Library privacy and sealed reasons
-/// enforce each rule below unless the rule names a test.
+/// Why: a probe's timeout once replaced a live connection under a typed SEND
+/// (`SSH-CONNECTION-INCIDENT.md`, repo root). A connection is durable state: commands,
+/// probes and timeouts borrow it and never close, replace or retry it.
 ///
-/// Who opens and closes:
-/// - [HostLinks] alone opens and closes sockets. Everything else leases and releases, so a
-///   command, timeout or probe never closes or replaces a connection.
-/// - Only the shell tunnel holds a supervisor, and it takes its raw pty [SSHSession] from
-///   [pty]. Other code reads through [HostChannels] views, null while no host is held.
-/// - Each host identity has one control and one screen link per isolate; [HostUse] picks
-///   the lane. The host key probe, one overflow link for a full host and a silent link a
-///   gesture set aside for its holders sit outside that.
+/// Tags name what holds a rule. Untagged: privacy or a sealed type; breaking it fails to
+/// compile. (fence): `test/ssh_fence_test.dart` holds the allowed call sites. (tested: x):
+/// `test/x_test.dart` covers it. (convention): review only.
+///
+/// Who owns what:
+/// - [HostLinks] is the pool: it alone opens sockets (fence) and closes them (convention).
+///   Everyone else takes a [HostLease] and releases it; the pool decides when an idle link
+///   ends (tested: host_links).
+/// - [ConnectionSupervisor] is one tab's claim on its host. Only the shell tunnel holds
+///   one, from [SshConnector.establish] (fence), and takes its raw pty [SSHSession] from
+///   [ConnectionSupervisor.pty]. Other code runs commands through a [HostChannels] view,
+///   which answers null while no host is held and never dials.
+/// - [HostLinks.claim], [HostLinks.renounce], [HostLinks.sleep], [HostLinks.wake],
+///   [HostLinks.recheckAll], [HostLinks.close], [HostUse.tab] and [HostLease.client] are
+///   used only where the fence allows (fence).
+///
+/// Lanes: a pool keeps one control link and one screen link per host identity, and
+/// [HostUse.lane] picks the link (tested: host_links). Outside this sit the
+/// [HostLinks.probe] host key check, one overflow control link for a host at its session
+/// limit, and a silent link a waking use set aside for its holders. One pool per isolate
+/// (convention: a caller passing none gets a new pool).
+///
+/// Reasons. Every reason type is sealed and lives in `reasons.dart`:
+/// - A tab's claim, drop, renounce or revive takes a reason. Only an [OpenReason] or
+///   [ReopenReason] dials; a [DropReason] only lets go. Every switch over reasons is
+///   exhaustive.
+/// - No reason stands for a failed command. A probe or command on a handed-out connection
+///   is never evidence the host is gone, and is never retried on that host (tested:
+///   ssh_lifecycle_model, shell_tunnel).
 /// - [UserClosed], [ShellEnded], [_StartupAbandoned] and [_Unclaimed] end one tab's claim.
-///   [NetworkChanged] and a dead link end the link for every tab, with one redial after.
-/// Why a tab may redial:
-/// - A claim, drop, renounce or revive needs a sealed reason; only an open or reopen reason
-///   redials. No reason is a command failure, and every switch over reasons is exhaustive.
-/// - A probe or command on a handed-out connection is never evidence the host is gone, and
-///   is never retried on that host. A dial includes [SshConnector.establish]'s startup steps.
-/// - Only this library mints [Reconnect], from a [ShellEnded] or a dial that failed on the
-///   host or link, and only a fresh supervisor accepts it. [ShellEnded] is minted and
-///   accepted only by the supervisor under the terminal that ended.
-/// Liveness and revive:
-/// - A held link ends only when its keepalive goes unanswered; [check] runs one round early.
-///   A terminal silent past its window has ended.
-/// - [HealthCheckFailed] comes only from [HostLease.ended] and reopens only its own host's
-///   supervisor, on a fixed schedule if the transport asks for it. The only other timer
-///   that dials is a dropped tab's reconnect schedule in `ShellSessions`, with a [Reconnect].
-/// Settling: a dial refused while an earlier one settles ([DialSettling]) waits for it; that
-/// is not a failure or a revive step. A [UserAction] waits [SshConnector.timeout] at most.
-/// Sleep: past the sleep grace only a live plain-SSH terminal's control link stays, and only
-/// [HostUse.wakes] uses may lease beside it.
-/// Tokens: [UserIntent] and [PlatformSignal] come only from callbacks their wrappers build.
-/// - One token builds one reason, except that [UserClosed.by] builds the close for a
-///   [UserAction]'s gesture on that action's spend. A second reason, or a [UserIntent] older
-///   than [UserIntent.window], is refused where it would dial or drop, logged and asserted.
-/// - `test/ssh_fence_test.dart` pins by resolved element each call site of [UserClosed.by],
-///   [SshConnector.establish], [HostLease.client] and [HostLinks]' claim, renounce, sleep,
-///   wake, recheckAll and close, each wrapper's slot and the fields a token rides in. No check
-///   catches one prompt spend, within the window, from a path no person or platform event
-///   started. An alert tapped before mount is a cold launch.
-/// A new part, wrapper, raw host path or reason needs the owner's approval.
+///   [NetworkChanged] and a dead link end the link for every tab on it; their redials to a
+///   pinned host key join one dial in flight (tested: host_links, host_owner).
+///
+/// When a tab may dial again:
+/// - Only this library mints [Reconnect]: from a [ShellEnded], or from a dial that failed
+///   on the host or link, startup steps of [SshConnector.establish] included. Only
+///   [SshConnector.establish] accepts one, so it always makes a fresh supervisor.
+/// - Only the supervisor under the ended terminal mints its [ShellEnded]
+///   ([ConnectionSupervisor.terminalEnded]); any other supervisor's drop refuses it
+///   (tested: ssh_lifecycle_model).
+/// - A terminal silent past its health window has ended (tested: shell_tunnel).
+/// - Besides the revive below, only `ShellSessions`' reconnect schedule for a dropped tab
+///   dials on a timer, with a [Reconnect] (convention).
+///
+/// Liveness, settling, sleep (tested: host_links, host_owner, ssh_lifecycle_model,
+/// shell_sessions):
+/// - No timeout, probe or command ends a held link. Besides the explicit ends (network
+///   change, sleep, pool close, the transport closing), only an unanswered keepalive does.
+///   [ConnectionSupervisor.check] runs one keepalive round early; a startup command past
+///   its deadline counts as the link's failure only when that round goes unanswered.
+/// - A gesture, or a waking use on a link not heard within [HostLinks.quiet], asks for one
+///   round first ([ConnectionSupervisor.answers]). On silence it dials beside the link,
+///   which stays for its holders until their own keepalive ends it.
+/// - [HealthCheckFailed] comes only from [HostLease.ended] and drops the supervisor whose
+///   link died. If its transport asked through [ConnectionSupervisor.reopenWhenHostDies],
+///   that supervisor alone reopens itself on the fixed [_reviveDelays] schedule.
+/// - A dial refused with [DialSettling] (an earlier failed dial still authenticating) waits
+///   for it, which is not a failure or a revive step. A [UserAction] waits at most
+///   [SshConnector.timeout], other reasons as long as it takes.
+/// - Past the sleep grace, only a live plain-SSH terminal's control link stays, and only a
+///   use with [HostUse.wakes] may lease beside it. Mosh and engine tabs let go of theirs
+///   with [AppSuspended].
+///
+/// Tokens prove a person or the platform caused an action:
+/// - [UserIntent] and [PlatformSignal] come only from callbacks their wrappers build, such
+///   as [UserIntent.onGesture]. Each wrapper is called only in its slot, and a token rides
+///   only in the landing fields the fence lists, each read once (fence).
+/// - One token builds one reason. The one exception: [UserClosed.by] builds the close for a
+///   [UserAction]'s gesture on that action's spend (fence).
+/// - A token's second reason, or a [UserIntent] older than [UserIntent.window], is refused
+///   wherever it would dial or drop, logged and asserted (tested: ssh_reason_spend).
+/// - Gap: nothing catches one prompt spend, in the window, on a path no person or platform
+///   event started.
+/// - An alert tapped before mount is a cold launch with no intent (convention).
+///
+/// Changing the rules: a new part file, token wrapper, raw host path or reason type needs
+/// the owner's approval. The fence fails on the first three; only review catches a new
+/// reason type.
 library;
 
 import 'dart:async';
