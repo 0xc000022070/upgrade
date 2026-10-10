@@ -385,6 +385,9 @@ final class _Model {
       end = ShellEnded.unbound();
     }
     log('drop tab ${tab.id} for another terminal\'s end');
+    if (tab.sup.accepts(end)) {
+      violate('tab ${tab.id} says it accepts an end it did not mint');
+    }
     final before = dials.length;
     final closed = open.length;
     try {

@@ -223,7 +223,13 @@ final class ConnectionSupervisor implements HostChannels {
     _control.add(ControlGaveUp(error));
   }
 
-  bool accepts(DropReason reason) => !_refuses(reason, endpoint);
+  /// Answers whether [drop] takes [reason]: false where it would refuse or throw.
+  bool accepts(DropReason reason) {
+    if (reason case ShellEnded(:final _of) when !identical(_of, this)) {
+      return false;
+    }
+    return !_refuses(reason, endpoint);
+  }
 
   /// Throws, before dropping anything, for a [ShellEnded] another supervisor minted.
   Future<void> drop(DropReason reason) {

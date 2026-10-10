@@ -175,6 +175,20 @@ void main() {
     await tab.drop(UserClosed(testIntent()));
   });
 
+  test('a supervisor accepts only the end it minted', () async {
+    final first = await _tab(connector, UserAction(testIntent()));
+    final second = await _tab(connector, UserAction(testIntent()));
+
+    for (final end in [second.terminalEnded(), ShellEnded.unbound()]) {
+      expect(first.accepts(end), isFalse);
+      expect(() => first.drop(end), throwsArgumentError);
+    }
+    expect(first.accepts(first.terminalEnded()), isTrue);
+    expect(dial.clients.single.isClosed, isFalse);
+    await first.drop(UserClosed(testIntent()));
+    await second.drop(UserClosed(testIntent()));
+  });
+
   group('a token kept past its gesture', () {
     test('in a box of Object, then spent later, is refused', () async {
       late final _Box<Object> box;
