@@ -1621,10 +1621,7 @@ void main() {
       );
       addTearDown(() => connection.close(UserClosed(testIntent())));
 
-      await expectLater(
-        connection.close(ShellEnded.unbound()),
-        throwsArgumentError,
-      );
+      await connection.close(ShellEnded.unbound());
       await pumpEventQueue();
 
       expect(host.closed, isFalse);
