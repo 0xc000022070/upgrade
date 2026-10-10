@@ -604,7 +604,7 @@ class HostLinks {
     } on TimeoutException {
       if (link.ssh.received() == seen) return 'unanswered';
     } catch (error) {
-      // ignored: callers log it as the reason the round failed.
+      // ignored: returned as the round's reason; each caller decides whether to log it.
       return 'failed: $error';
     }
     link.heard = link.ssh.received();
