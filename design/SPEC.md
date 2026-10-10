@@ -1469,6 +1469,16 @@ The middle of the header row never carries a word. `CONNECTING`, `RECONNECTING`,
 
 The reason row under the header is untouched. A failure is still one short row in warning with the host's name in it, because why a shell is not there is worth a row and what a live shell is talking over is not.
 
+### A live tab whose host is not held says why in its readout
+
+A tab on Mosh or on the engine keeps drawing after the connection that reads the directory, the agent and the passphrase has gone, so the terminal is live and those three are not. The `(i)` stands for it as it does for a tab that is down, and the readout carries one more row under `TRANSPORT`: `DIRECTORY, AGENT, PASSPHRASE`, in warning, reading `STALE · HOST RECONNECTING` while that connection is being dialled again and `STALE · RECONNECT FAILED` once nothing is dialling it.
+
+**A failed reconnect keeps the words it failed with.** Under the rows the readout takes the reason row the header uses: the line from the one vocabulary, a tap to open the transport's sentence, the cell beside it to copy it. A host whose key changed reads as a key that changed and not as a link that went away. The row is there only while the readout says `RECONNECT FAILED`, and it goes with the stale row the moment the connection is back.
+
+**The row never says reconnecting while nothing dials.** The redials stop on their own when a failure is not the host's to fix, or when their waits run out, and any reconnect that ends in a throw, one the app has no reason for included, reads `RECONNECT FAILED` with that throw as its detail.
+
+**`RECONNECT` stays under a rule while the row is stale**, whatever the failure was. A key that will not be accepted fails again and says so again; the user is not told which failures are worth a tap.
+
 ### The detail under a machine that did not answer names the machine that was dialled
 
 The reason row's detail is the app's own sentence when the failure is about reaching a machine, and the transport's sentence for everything else. `unreachable` and `unresolved` are the two lines that name a host, and their detail names the dial the same way: `<user>@<address>:<port>` as the host row has it, a middle dot, then the operating system's words for what happened, lowercased, `luis@100.64.0.253:2222 · connection refused`. A dial that ran out of time reads `no answer in 10s`, with the timeout the dial was given. Nothing from the socket's own report of itself is kept: the address and port it prints are the phone's end of a connection that never opened, and a reader sent to `port = 44354` goes looking for a service that was never dialled.

@@ -571,6 +571,43 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a host that stopped being dialled reads RECONNECT FAILED with '
+      'its reason under it, and RECONNECT stays', (tester) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    final connection = transport.opened.single
+      ..setHealth(ShellConnectionHealth.connected)
+      ..setControlDown(true);
+    await ready(tester);
+
+    await openInfo(tester);
+    expect(find.text('STALE · HOST RECONNECTING'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
+
+    connection.setControlGaveUp(const SocketException('Connection refused'));
+    await ready(tester);
+
+    expect(find.text('STALE · RECONNECT FAILED'), findsOneWidget);
+    expect(
+      find.text(ShellFailureKind.unreachable.line.on(rose.name)),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('shell-reason')));
+    await tester.pump();
+    expect(find.textContaining('connection refused'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-detail-copy')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-info-reconnect')), findsOneWidget);
+
+    connection.setControlDown(false);
+    await ready(tester);
+    expect(find.textContaining('STALE'), findsNothing);
+    expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
+
+    await unmount(tester);
+  });
+
   testWidgets('a spent schedule reads DISCONNECTED with STOP in the sheet '
       'and a reason under the header', (tester) async {
     final transport = FakeShellTransport();

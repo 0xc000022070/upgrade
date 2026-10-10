@@ -444,7 +444,7 @@ class ShellSession extends ChangeNotifier {
   /// Live terminal, host not held: background reads are stale and the next gesture dials.
   bool controlStale = false;
 
-  String? controlFailure;
+  ShellFailure? controlFailure;
 
   void _unwatch() {
     unawaited(_health?.cancel());
@@ -1844,7 +1844,7 @@ class ShellSessions extends ChangeNotifier {
             session.controlStale = true;
           case ControlGaveUp(:final error):
             session.controlStale = true;
-            session.controlFailure = _detailOf(session.host, error);
+            session.controlFailure = _controlFailureOf(session.host, error);
         }
         session.changed();
       });
@@ -2090,6 +2090,16 @@ class ShellSessions extends ChangeNotifier {
     return '${host.user}@${host.address}:${host.port} · $detail';
   }
 
+  /// The control connection's errors come up raw, so they are worded here; a throw the
+  /// transport has no reason for reads as a closed stream with its own words under it.
+  static ShellFailure _controlFailureOf(Host host, Object error) {
+    final mapped = shellFailureFor(error);
+    return ShellFailure(
+      mapped?.kind ?? ShellFailureKind.streamClosed,
+      detail: _detailOf(host, mapped ?? error),
+    );
+  }
+
   HostKeyVerifier verifierFor(Host host, {HostKeyPrompt? prompt}) =>
       HostKeyVerifier(
         pinned: _pinnedThisRun[host.id] ?? host.hostKey,
@@ -2192,15 +2202,21 @@ class ShellSessions extends ChangeNotifier {
   Future<void> reconnectControl(ShellSession session, UserAction action) async {
     final connection = session.connection;
     if (connection == null) return;
+    final before = session.controlFailure;
     session.controlFailure = null;
     session.changed();
     try {
-      await connection.channelsFor(action);
+      final channels = await connection.channelsFor(action);
+      if (channels == null && identical(session.connection, connection)) {
+        session.controlFailure = before;
+        session.changed();
+      }
     } catch (error) {
+      if (identical(session.connection, connection)) {
+        session.controlFailure = _controlFailureOf(session.host, error);
+        session.changed();
+      }
       if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-      if (!identical(session.connection, connection)) return;
-      session.controlFailure = _detailOf(session.host, error);
-      session.changed();
     }
   }
 

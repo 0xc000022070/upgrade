@@ -364,6 +364,7 @@ class _Middle extends StatelessWidget {
               : null;
           final stale = state is ShellLive && session.controlStale;
           final reconnect = stale ? onReconnect : null;
+          final failure = stale ? session.controlFailure : null;
           return PanelSheetBody(
             title: title,
             children: [
@@ -393,6 +394,12 @@ class _Middle extends StatelessWidget {
                     ),
                 ],
               ),
+              if (failure != null)
+                ShellReasonRow(
+                  host: session.host,
+                  kind: failure.kind,
+                  detail: failure.detail,
+                ),
               if (reconnect != null) ...[
                 const SheetRule(),
                 PanelTextAction(

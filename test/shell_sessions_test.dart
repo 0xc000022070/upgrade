@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +29,10 @@ import 'support/fake_shell.dart';
 import 'support/reasons.dart';
 import 'support/shell_route.dart' show noWorkspaces;
 import 'support/themed_app.dart';
+
+Matcher _failure(ShellFailureKind kind, String detail) => isA<ShellFailure>()
+    .having((failure) => failure.kind, 'kind', kind)
+    .having((failure) => failure.detail, 'detail', detail);
 
 const _rose = Host(
   id: 'h1',
@@ -1525,7 +1530,13 @@ void main() {
     await tester.pump();
 
     await sessions.reconnectControl(session, UserAction(testIntent()));
-    expect(session.controlFailure, contains('Connection refused'));
+    expect(
+      session.controlFailure,
+      _failure(
+        ShellFailureKind.unreachable,
+        'luis@100.64.0.1:22 · connection refused',
+      ),
+    );
 
     connection.setControlDown(false);
     await tester.pump();
@@ -1550,7 +1561,13 @@ void main() {
     await tester.pump();
     expect(session.state, isA<ShellLive>());
     expect(session.controlStale, isTrue);
-    expect(session.controlFailure, contains('Connection refused'));
+    expect(
+      session.controlFailure,
+      _failure(
+        ShellFailureKind.unreachable,
+        'luis@100.64.0.1:22 · connection refused',
+      ),
+    );
 
     await sessions.reconnectControl(session, UserAction(testIntent()));
     connection.setControlDown(false);
@@ -1561,8 +1578,8 @@ void main() {
     await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
-  testWidgets('a reconnect that fails on a bug throws instead of marking the '
-      'tab', (tester) async {
+  testWidgets('a reconnect that fails on a bug marks the tab and still '
+      'throws', (tester) async {
     final transport = FakeShellTransport()..transport = ShellTransport.mosh;
     final sessions = fakeShellSessions(transport);
     final session = sessions.open(intent: testIntent(), _rose)!;
@@ -1576,7 +1593,53 @@ void main() {
       sessions.reconnectControl(session, UserAction(testIntent())),
       throwsStateError,
     );
-    expect(session.controlFailure, isNull);
+    expect(
+      session.controlFailure,
+      _failure(ShellFailureKind.streamClosed, 'Bad state: bug'),
+    );
+
+    await sessions.close(intent: testIntent(), _rose.id, session);
+  });
+
+  testWidgets('a revival that gives up on a changed key says the key changed', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(intent: testIntent(), _rose)!;
+    await _pumpDial(tester);
+    transport.opened.single
+      ..setControlDown(true)
+      ..setControlGaveUp(
+        SSHAuthAbortError(
+          'Connection closed before authentication',
+          SSHHostkeyError('Hostkey verification failed'),
+        ),
+      );
+    await tester.pump();
+
+    expect(session.controlFailure?.kind, ShellFailureKind.hostKeyChanged);
+
+    await sessions.close(intent: testIntent(), _rose.id, session);
+  });
+
+  testWidgets('a reconnect that dials nothing leaves the failure it had', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.mosh;
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(intent: testIntent(), _rose)!;
+    await _pumpDial(tester);
+    final connection = transport.opened.single
+      ..setControlDown(true)
+      ..setControlGaveUp(const SocketException('Connection refused'));
+    await tester.pump();
+    final failure = session.controlFailure;
+    expect(failure, isNotNull);
+
+    connection.closed = true;
+    await sessions.reconnectControl(session, UserAction(testIntent()));
+    expect(session.controlFailure, same(failure));
 
     await sessions.close(intent: testIntent(), _rose.id, session);
   });
