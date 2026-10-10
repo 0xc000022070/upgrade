@@ -1397,8 +1397,11 @@ class SshShellConnection implements ShellConnection {
 
   /// Never dials: a fresh host would not carry this tab's pty.
   @override
-  Future<HostChannels?> channelsFor(UserAction action) async =>
-      _exit.isCompleted ? null : _supervisor.channels;
+  Future<HostChannels?> channelsFor(UserAction action) async {
+    if (_exit.isCompleted) return null;
+    final live = await _supervisor.answers();
+    return !live || _exit.isCompleted ? null : _supervisor.channels;
+  }
 
   @override
   Future<bool> terminateRemote(

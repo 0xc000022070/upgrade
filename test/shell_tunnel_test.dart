@@ -2384,6 +2384,7 @@ void main() {
   group('the engine', engineTests);
   group('a plain SSH tab over its link', plainTabTests);
   group('a close refused for a stale intent', refusedCloseTests);
+  group('a gesture beside a plain SSH tab', gestureBesideTests);
 }
 
 class FakeEngineChannel implements EngineChannel {
@@ -3474,5 +3475,126 @@ void refusedCloseTests() {
     expect(sessions.forHost(_vm.id), isEmpty);
     expect(links.held, 0);
     await tester.pump(const Duration(minutes: 1));
+  });
+}
+
+void gestureBesideTests() {
+  late List<FakeHost> hosts;
+  late HostLinks links;
+
+  setUp(() {
+    hosts = [];
+    links = linksOver((_) {
+      final host = FakeHost()..execAnswer = moshHostAnswer;
+      hosts.add(host);
+      return host;
+    }, answer: const Duration(milliseconds: 50));
+  });
+
+  Future<ShellConnection> plain() => openOn(ShellTunnel(links: links));
+
+  Future<ShellConnection> mosh() {
+    const session = 'upgrade123';
+    final channel = FakeMoshChannel();
+    return openOn(
+      ShellTunnel(
+        links: links,
+        moshDialer:
+            ({
+              required MoshServerConfig server,
+              required int columns,
+              required int rows,
+            }) async {
+              Timer.run(() => channel.emit('\$ '));
+              return channel;
+            },
+      ),
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+      persistentSession: session,
+    );
+  }
+
+  test('a gesture on a silent host dials beside it, and the plain tab '
+      'on it lives on', () async {
+    final bystander = await plain();
+    final tunnel = await mosh();
+    expect(hosts, hasLength(1));
+    var ended = false;
+    unawaited(bystander.exitCode.whenComplete(() => ended = true));
+
+    final before = hosts.single.checks;
+    hosts.single.answers = false;
+    final channels = await tunnel.channelsFor(UserAction(testIntent()));
+
+    expect(hosts, hasLength(2));
+    expect(hosts.first.checks, before + 1);
+    expect(hosts.first.closed, isFalse);
+    expect(ended, isFalse);
+    expect(
+      (await channels?.exec('pwd', timeout: remoteCommandDeadline))?.ok,
+      isTrue,
+    );
+    expect(hosts.last.requests.last, 'exec pwd');
+
+    await tunnel.close(UserClosed(testIntent()));
+    await bystander.close(UserClosed(testIntent()));
+    expect(hosts.first.closed, isTrue);
+  });
+
+  test('a gesture on a host that answers rides it', () async {
+    final bystander = await plain();
+    final tunnel = await mosh();
+    final before = hosts.single.checks;
+
+    final channels = await tunnel.channelsFor(UserAction(testIntent()));
+
+    expect(channels, isNotNull);
+    expect(hosts, hasLength(1));
+    expect(hosts.single.checks, before + 1);
+
+    await tunnel.close(UserClosed(testIntent()));
+    await bystander.close(UserClosed(testIntent()));
+  });
+
+  test('a plain tab acting on a host that answers gets its channels', () async {
+    final tab = await plain();
+
+    final channels = await tab.channelsFor(UserAction(testIntent()));
+
+    expect(channels, isNotNull);
+    expect(hosts.single.checks, 1);
+    expect(
+      (await channels?.exec('pwd', timeout: remoteCommandDeadline))?.ok,
+      isTrue,
+    );
+
+    await tab.close(UserClosed(testIntent()));
+  });
+
+  test('a plain tab acting on a silent host gets nothing, and neither '
+      'it nor the tab beside it ends', () async {
+    final tab = await plain();
+    final bystander = await plain();
+    expect(hosts, hasLength(1));
+    var ended = 0;
+    unawaited(tab.exitCode.whenComplete(() => ended++));
+    unawaited(bystander.exitCode.whenComplete(() => ended++));
+
+    final before = hosts.single.checks;
+    hosts.single.answers = false;
+
+    expect(await tab.channelsFor(UserAction(testIntent())), isNull);
+    expect(hosts.single.checks, before + 1);
+    expect(hosts.single.closed, isFalse);
+    expect(ended, 0);
+
+    final fresh = await plain();
+    expect(hosts, hasLength(2));
+
+    await fresh.close(UserClosed(testIntent()));
+    await tab.close(UserClosed(testIntent()));
+    await bystander.close(UserClosed(testIntent()));
+    expect(hosts.first.closed, isTrue);
   });
 }

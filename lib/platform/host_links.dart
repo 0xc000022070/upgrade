@@ -118,6 +118,9 @@ class HostLease {
   Future<bool> check() =>
       _released ? Future.value(false) : _links._check(_link);
 
+  Future<bool> answers() =>
+      _released ? Future.value(false) : _links._answers(_link, use);
+
   void release() {
     if (_released) return;
     _released = true;
@@ -162,7 +165,7 @@ class _Link {
   String? key;
   Timer? linger;
   DateTime? idleSince;
-  Future<bool>? checking;
+  Future<String?>? checking;
   int heard;
   DateTime heardAt;
   bool ended = false;
@@ -292,7 +295,7 @@ class HostLinks {
       if (pinned != null) {
         final live = _links[key];
         if (live != null) {
-          if (await _vouched(live) && !live.ended) {
+          if (await _vouched(live, use) && !live.ended) {
             _log(live.name, 'reuse by ${use.label}');
             return _granted(live, use);
           }
@@ -527,15 +530,15 @@ class HostLinks {
     );
   }
 
-  /// A held link is trusted until its keepalive fails. An unheld link quiet past [quiet] is
-  /// pinged before reuse, and ended if nothing at all comes back.
-  Future<bool> _vouched(_Link link) async {
+  /// A held link is trusted until its keepalive fails, unless a waking use asks [_answers].
+  /// An unheld link quiet past [quiet] is pinged before reuse, ended if nothing comes back.
+  Future<bool> _vouched(_Link link, HostUse use) async {
     if (link.ended) return false;
     if (link.client.isClosed) {
       _end(link, 'client closed');
       return false;
     }
-    if (link.leases.isNotEmpty) return true;
+    if (link.leases.isNotEmpty) return !use.wakes || await _answers(link, use);
     final idle = link.idleSince;
     if (idle != null && now().difference(idle) >= _lingerOf(link)) {
       _end(link, 'linger expired');
@@ -548,50 +551,65 @@ class HostLinks {
       return true;
     }
     if (now().difference(link.heardAt) < quiet) return true;
-    final checking = link.checking;
-    if (checking != null) return checking;
-    return _checked(link, held: false);
+    final silent = await _round(link);
+    if (silent != null && link.leases.isEmpty) {
+      _end(link, 'ping $silent');
+      return false;
+    }
+    return !link.ended;
   }
 
-  Future<bool> _check(_Link link) {
-    if (link.ended) return Future.value(false);
+  Future<bool> _check(_Link link) async {
+    if (link.ended) return false;
     if (link.client.isClosed) {
       _end(link, 'client closed');
-      return Future.value(false);
+      return false;
     }
-    return _checked(link, held: true);
+    final silent = await _round(link);
+    if (silent != null) _end(link, 'keepalive $silent on check');
+    return !link.ended;
   }
 
-  Future<bool> _checked(_Link link, {required bool held}) {
+  Future<bool> _answers(_Link link, HostUse use) async {
+    if (link.ended) return false;
+    if (link.client.isClosed) {
+      _end(link, 'client closed');
+      return false;
+    }
+    final silent = await _round(link);
+    if (silent == null) return !link.ended;
+    final key = link.key;
+    if (key != null && identical(_links[key], link)) {
+      _links.remove(key);
+      _log(link.name, 'set aside, ping $silent by ${use.label}');
+      if (link.leases.isEmpty) _end(link, 'released unfiled');
+    }
+    return false;
+  }
+
+  Future<String?> _round(_Link link) {
     final checking = link.checking;
     if (checking != null) return checking;
-    final check = _ping(link, held: held);
-    link.checking = check;
-    return check.whenComplete(() {
-      if (identical(link.checking, check)) link.checking = null;
+    final round = _ping(link);
+    link.checking = round;
+    return round.whenComplete(() {
+      if (identical(link.checking, round)) link.checking = null;
     });
   }
 
-  /// With [held], an unanswered ping ends the link even while someone holds it, as the
-  /// keepalive would. Otherwise a holder that arrives while the ping is out keeps the link.
-  Future<bool> _ping(_Link link, {required bool held}) async {
+  Future<String?> _ping(_Link link) async {
     final seen = link.ssh.received();
     try {
       await link.client.ping().timeout(answer);
     } on TimeoutException {
-      if (link.ssh.received() == seen && (held || link.leases.isEmpty)) {
-        _end(link, held ? 'keepalive unanswered on check' : 'ping unanswered');
-        return false;
-      }
+      if (link.ssh.received() == seen) return 'unanswered';
     } catch (error) {
-      if (held || link.leases.isEmpty) {
-        _end(link, '${held ? 'keepalive' : 'ping'} failed: $error');
-        return false;
-      }
+      // ignored: callers log it as the reason the round failed.
+      return 'failed: $error';
     }
     link.heard = link.ssh.received();
     link.heardAt = now();
-    return !link.ended;
+    return null;
   }
 
   HostLease _landed(_Link link, HostUse use) {

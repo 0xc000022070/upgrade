@@ -11,7 +11,8 @@
 /// - Only the shell tunnel holds a supervisor, and it takes its raw pty [SSHSession] from
 ///   [pty]. Other code reads through [HostChannels] views, null while no host is held.
 /// - Each host identity has one control and one screen link per isolate; [HostUse] picks
-///   the lane. The host key probe and one overflow link for a full host sit outside that.
+///   the lane. The host key probe, one overflow link for a full host and a silent link a
+///   gesture set aside for its holders sit outside that.
 /// - [UserClosed], [ShellEnded], [_StartupAbandoned] and [_Unclaimed] end one tab's claim.
 ///   [NetworkChanged] and a dead link end the link for every tab, with one redial after.
 /// Why a tab may redial:
@@ -134,6 +135,15 @@ final class ConnectionSupervisor implements HostChannels {
     final attended = reason is UserAction;
     final settles = _SettleWait(attended ? _connector.timeout : null);
     var overtakeLeft = attended;
+    final held = _held;
+    if (attended && held != null && !await held.lease.answers()) {
+      if (identical(_held, held)) {
+        _held = null;
+        _log('set aside a silent host');
+        _report();
+        held.lease.release();
+      }
+    }
     var dial = _open(reason);
     try {
       while (true) {
@@ -276,6 +286,8 @@ final class ConnectionSupervisor implements HostChannels {
   }
 
   Future<bool> check() async => await _held?.lease.check() ?? false;
+
+  Future<bool> answers() async => await _held?.lease.answers() ?? true;
 
   Future<SSHSession> pty(String? command, SSHPtyConfig config) async {
     final lease = _held?.lease;

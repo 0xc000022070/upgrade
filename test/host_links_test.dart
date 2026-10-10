@@ -20,14 +20,20 @@ PinnedHostKey _key(String fingerprint) => PinnedHostKey(
 final _vm = _key('SHA256:vm');
 
 Future<HostLease> _lease(HostLinks links, [HostKeyVerifier? verifier]) =>
-    links.lease(
-      address: '10.0.0.2',
-      port: 22,
-      user: 'dev',
-      privateKey: 'key',
-      verifier: verifier ?? HostKeyVerifier.pinnedOnly(_vm),
-      use: HostUse.send,
-    );
+    _leaseAs(links, HostUse.send, verifier);
+
+Future<HostLease> _leaseAs(
+  HostLinks links,
+  HostUse use, [
+  HostKeyVerifier? verifier,
+]) => links.lease(
+  address: '10.0.0.2',
+  port: 22,
+  user: 'dev',
+  privateKey: 'key',
+  verifier: verifier ?? HostKeyVerifier.pinnedOnly(_vm),
+  use: use,
+);
 
 void main() {
   test('two leases asked for while one dial is out share it', () async {
@@ -263,26 +269,82 @@ void main() {
       at = at.add(links.quiet);
     }
 
-    testWidgets('never pings a held link, however long it stays quiet', (
-      tester,
-    ) async {
-      links.close();
-      links = HostLinks(
-        dial: dial.call,
-        now: () => at,
-        keepAlive: const Duration(days: 1),
-      );
-      final held = await _lease(links);
-      dial.clients.single.pong = Completer();
-      at = at.add(const Duration(hours: 1));
-      await tester.pump(const Duration(hours: 1));
-      final beside = await _lease(links);
+    testWidgets(
+      'never pings a held link for a use nobody waits on, however long it stays quiet',
+      (tester) async {
+        links.close();
+        links = HostLinks(
+          dial: dial.call,
+          now: () => at,
+          keepAlive: const Duration(days: 1),
+        );
+        final held = await _lease(links);
+        dial.clients.single.pong = Completer();
+        at = at.add(const Duration(hours: 1));
+        await tester.pump(const Duration(hours: 1));
+        final beside = await _leaseAs(links, HostUse.herdrPoll);
 
-      expect(dial.clients.single.pings, 0);
+        expect(dial.clients.single.pings, 0);
+        expect(dial.dials, 1);
+        expect(held.closed || beside.closed, isFalse);
+        links.close();
+      },
+    );
+
+    test('checks a held link before a use someone waits on, and reuses it on an answer', () async {
+      final held = await _lease(links);
+      final beside = await _leaseAs(links, HostUse.tab);
+
+      expect(dial.clients.single.pings, 1);
       expect(dial.dials, 1);
       expect(held.closed || beside.closed, isFalse);
-      links.close();
     });
+
+    testWidgets(
+      'dials beside a held link a use someone waits on finds silent, and leaves it to its holder',
+      (tester) async {
+        final held = await _leaseAs(links, HostUse.herdrPoll);
+        dial.clients.single.pong = Completer();
+        final beside = _leaseAs(links, HostUse.alertAction);
+        await tester.pump(links.answer);
+
+        final fresh = await beside;
+        expect(held.closed, isFalse);
+        expect(dial.clients.first.isClosed, isFalse);
+        expect(dial.dials, 2);
+        expect(identical(fresh.client, dial.clients.last), isTrue);
+
+        final next = await _leaseAs(links, HostUse.herdrPoll);
+        expect(identical(next.client, fresh.client), isTrue);
+        expect(dial.dials, 2);
+
+        held.release();
+        expect(dial.clients.first.isClosed, isTrue);
+        expect(fresh.closed, isFalse);
+        links.close();
+      },
+    );
+
+    testWidgets(
+      'a lease that asks whether a silent link answers sets it aside without ending it',
+      (tester) async {
+        final held = await _leaseAs(links, HostUse.herdrPoll);
+        dial.clients.single.pong = Completer();
+        final answered = held.answers();
+        await tester.pump(links.answer);
+
+        expect(await answered, isFalse);
+        expect(held.closed, isFalse);
+        await _leaseAs(links, HostUse.herdrPoll);
+        expect(dial.dials, 2);
+
+        final checked = held.check();
+        await tester.pump(links.answer);
+        expect(await checked, isFalse);
+        expect(held.closed, isTrue);
+        links.close();
+      },
+    );
 
     test(
       'pings a quiet link nobody holds and reuses it on an answer',
@@ -977,7 +1039,7 @@ void main() {
 
     test('of a lease let go reports it gone and pings nothing', () async {
       final held = await _lease(links);
-      final kept = await _lease(links);
+      final kept = await _leaseAs(links, HostUse.herdrPoll);
       held.release();
 
       expect(await held.check(), isFalse);
