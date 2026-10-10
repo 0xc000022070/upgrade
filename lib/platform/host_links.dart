@@ -89,8 +89,9 @@ final class DialSettling extends SocketException {
   final Future<void> settled;
 }
 
-/// RFC 4254's SSH_OPEN_ADMINISTRATIVELY_PROHIBITED, which is how OpenSSH says MaxSessions.
-const _administrativelyProhibited = 1;
+/// RFC 4254 open-failure codes a host answers a session with at its session limit;
+/// OpenSSH sends SSH_OPEN_CONNECT_FAILED past MaxSessions.
+const _sessionLimitCodes = {1, 2};
 
 class HostLease {
   HostLease._(this._links, this._link, this.use);
@@ -681,7 +682,7 @@ class HostLinks {
     try {
       return await open(link.client);
     } on SSHChannelOpenError catch (error) {
-      if (error.code != _administrativelyProhibited ||
+      if (!_sessionLimitCodes.contains(error.code) ||
           link.lane != HostLane.control ||
           link.ended) {
         rethrow;

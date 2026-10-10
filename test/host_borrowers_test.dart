@@ -392,11 +392,11 @@ void main() {
     test(
       'a refused channel is busy where it was asked for, nowhere else',
       () async {
-        final dial = FakeDial();
+        final dial = FakeDial()..prepare = (client) => client.execError = _busy;
         final links = HostLinks(dial: dial.call);
         final container = await _scheduler(links);
         final held = await _lease(links);
-        final client = dial.clients.single..execError = _busy;
+        final client = dial.clients.first;
 
         final herdr = HerdrSession.borrowed(await _lease(links));
         await expectLater(herdr.paths(), throwsA(isA<HerdrBusy>()));
@@ -431,7 +431,11 @@ void main() {
         expect((await again.run('ls')).ok, isTrue);
         await again.close();
         held.release();
-        expect(dial.dials, 1);
+        expect(
+          dial.dials,
+          greaterThan(1),
+          reason: 'busy only once the overflow refuses',
+        );
         expect(ReasonLine.hostBusy.on('NYX'), 'host busy');
         container.dispose();
         links.close();
@@ -470,13 +474,19 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 5));
       }
       expect(busy()?.reason, 'host busy');
-      final client = dial.clients.single;
+      expect(
+        dial.dials,
+        greaterThan(1),
+        reason: 'busy only once the overflow refuses',
+      );
+      final client = dial.clients.first;
       expect(client.pings, 0);
       expect(client.closes, 0);
 
       client
         ..execError = null
         ..reply = (_) => (exitCode: 0, stdout: '{"sessions":[]}', stderr: '');
+      final dialed = dial.dials;
       final agents = await container.read(herdrFetchProvider)(
         address: _host.address,
         port: _host.port,
@@ -485,7 +495,8 @@ void main() {
         verifier: _pinned,
       );
       expect(agents, isEmpty);
-      expect(dial.dials, 1);
+      expect(dial.dials, dialed);
+      expect(client.closes, 0);
 
       subscription.close();
       container.dispose();

@@ -816,11 +816,23 @@ void main() {
       },
     );
 
+    test('a session OpenSSH refuses past MaxSessions overflows', () async {
+      final dial = FakeDial();
+      final links = HostLinks(dial: dial.call);
+      final lease = await as(links, HostUse.tab);
+      dial.clients.single.execError = SSHChannelOpenError(2, 'open failed');
+
+      await lease.execute('true');
+      expect(dial.dials, 2);
+      expect(dial.clients.last.sessions, hasLength(1));
+      links.close();
+    });
+
     test('a session refused for another cause is not overflowed', () async {
       final dial = FakeDial();
       final links = HostLinks(dial: dial.call);
       final lease = await as(links, HostUse.tab);
-      dial.clients.single.execError = SSHChannelOpenError(2, 'failed');
+      dial.clients.single.execError = SSHChannelOpenError(3, 'unknown type');
 
       await expectLater(
         lease.execute('true'),
