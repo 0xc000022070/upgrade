@@ -135,10 +135,7 @@ final class ConnectionSupervisor implements HostChannels {
   final SshConnector _connector;
   final HostTarget _target;
   PinnedHostKey? _trusted;
-  _Hold? _held;
-  _Dial? _dial;
-  var _retired = false;
-  var _suspended = false;
+  _State _state = const _Idle();
   var _claimed = false;
   ShellEnded? _ended;
   var _revives = false;
@@ -147,6 +144,34 @@ final class ConnectionSupervisor implements HostChannels {
   var _reportedDown = false;
 
   late final HostChannels channels = _Channels(this);
+
+  _Live? get _live => switch (_state) {
+    final _Live live => live,
+    _Suspended(:final live) => live,
+    _Retired() => null,
+  };
+
+  _Hold? get _held => switch (_live) {
+    _Held(:final hold) => hold,
+    _Idle() || _Dialing() || null => null,
+  };
+
+  _Dial? get _dial => switch (_live) {
+    _Dialing(:final dial) => dial,
+    _Idle() || _Held() || null => null,
+  };
+
+  bool get _down => switch (_state) {
+    _Idle() || _Dialing() => true,
+    _Held() || _Suspended() || _Retired() => false,
+  };
+
+  /// A suspension outlasts what a gesture holds under it; a retired supervisor stays so.
+  void _become(_Live live) => _state = switch (_state) {
+    _Suspended() => _Suspended(live),
+    _Live() => live,
+    _Retired() => _state,
+  };
 
   @override
   Future<ExecResult?> exec(
@@ -165,7 +190,9 @@ final class ConnectionSupervisor implements HostChannels {
   Future<HostChannels?> open(ReopenReason reason) {
     if (_refuses(reason, endpoint)) return Future.value();
     return switch (reason) {
-      UserAction() || AppResumed() || NetworkChanged() => _openUntilHeld(reason),
+      UserAction() ||
+      AppResumed() ||
+      NetworkChanged() => _openUntilHeld(reason),
       _HostDied() => _open(reason).future,
     };
   }
@@ -177,7 +204,7 @@ final class ConnectionSupervisor implements HostChannels {
     final held = _held;
     if (attended && held != null && !await held.lease.answers()) {
       if (identical(_held, held)) {
-        _held = null;
+        _become(const _Idle());
         _log('set aside a silent host');
         _report();
         held.lease.release();
@@ -197,7 +224,9 @@ final class ConnectionSupervisor implements HostChannels {
             overtakeLeft = false;
           } else if (error is DialSettling) {
             await settles.out(error, stack);
-            if (!attended && (_retired || _suspended)) return null;
+            if (_state case _Retired() || _Suspended() when !attended) {
+              return null;
+            }
           } else {
             rethrow;
           }
@@ -210,26 +239,38 @@ final class ConnectionSupervisor implements HostChannels {
   }
 
   _Dial _open(ReopenReason reason) {
-    if (_retired) return _Dial.none();
-    switch (reason) {
-      case AppResumed():
-        _suspended = false;
-        _report();
-      case UserAction() || NetworkChanged():
-        break;
-      case _HostDied():
-        if (_suspended) return _Dial.none();
+    final _Live live;
+    switch (_state) {
+      case _Retired():
+        return _Dial.none();
+      case final _Live awake:
+        live = awake;
+      case _Suspended(live: final asleep):
+        switch (reason) {
+          case AppResumed():
+            _state = live = asleep;
+            _report();
+          case _HostDied():
+            return _Dial.none();
+          case NetworkChanged() when asleep is! _Held:
+            return _Dial.none();
+          case UserAction() || NetworkChanged():
+            live = asleep;
+        }
     }
-    final held = _held;
-    if (held != null) return _Dial.settled(held);
-    if (_suspended && reason is NetworkChanged) return _Dial.none();
-    final pending = _dial;
-    if (pending != null) return pending;
-    final dial = _dial = _Dial();
-    dial.future = _redial(reason, dial).whenComplete(() {
-      if (identical(_dial, dial)) _dial = null;
-    });
-    return dial;
+    switch (live) {
+      case _Held(:final hold):
+        return _Dial.settled(hold);
+      case _Dialing(:final dial):
+        return dial;
+      case _Idle():
+        final dial = _Dial();
+        _become(_Dialing(dial));
+        dial.future = _redial(reason, dial).whenComplete(() {
+          if (identical(_dial, dial)) _become(const _Idle());
+        });
+        return dial;
+    }
   }
 
   /// Revives a dead host on a schedule, for a transport whose terminal outlives its host.
@@ -239,16 +280,14 @@ final class ConnectionSupervisor implements HostChannels {
     _revival?.cancel();
     _revival = Timer(_reviveDelays[step], () async {
       _revival = null;
-      if (_retired || _suspended || _held != null) return;
+      if (!_down) return;
       try {
         await open(reason);
       } catch (error) {
-        if (_retired || _suspended || _held != null) return;
+        if (!_down) return;
         if (error is DialSettling) {
           await error.settled;
-          if (_retired || _suspended || _held != null || _revival != null) {
-            return;
-          }
+          if (!_down || _revival != null) return;
           _revive(reason, step);
         } else if (isHostFailure(error) && step + 1 < _reviveDelays.length) {
           _revive(reason, step + 1);
@@ -260,7 +299,7 @@ final class ConnectionSupervisor implements HostChannels {
   }
 
   void _report() {
-    final down = _held == null && !_suspended && !_retired;
+    final down = _down;
     if (down == _reportedDown || _control.isClosed) return;
     _reportedDown = down;
     _control.add(down ? const ControlReconnecting() : const ControlUp());
@@ -283,28 +322,28 @@ final class ConnectionSupervisor implements HostChannels {
   /// Throws, before dropping anything, for a [ShellEnded] another supervisor minted.
   Future<void> drop(DropReason reason) {
     if (_refuses(reason, endpoint)) return Future.value();
+    final dial = _dial;
+    final held = _held;
     switch (reason) {
       case ShellEnded(:final _of) when !identical(_of, this):
         throw ArgumentError.value(reason, 'reason', 'ended another terminal');
       case UserClosed() || ShellEnded() || _StartupAbandoned() || _Unclaimed():
-        _retired = true;
+        _state = const _Retired();
       case AppSuspended():
-        _suspended = true;
+        if (_state is! _Retired) _state = const _Suspended(_Idle());
       case NetworkChanged() || HealthCheckFailed():
-        break;
+        _become(const _Idle());
     }
-    // Clearing [_dial] makes a dial still in flight release its lease when it lands.
-    _dial?.overtaken = reason is NetworkChanged;
-    _dial = null;
-    final held = _held;
-    _held = null;
+    // Leaving [_Dialing] makes a dial still in flight release its lease when it lands.
+    dial?.overtaken = reason is NetworkChanged;
     if (held != null) _log('drop for ${reason.runtimeType}');
-    if (_retired || _suspended) {
+    final retired = _state is _Retired;
+    if (retired || _state is _Suspended) {
       _revival?.cancel();
       _revival = null;
     }
     _report();
-    if (_retired && !_control.isClosed) unawaited(_control.close());
+    if (retired && !_control.isClosed) unawaited(_control.close());
     if (reason is NetworkChanged) _connector._renounce(_target, reason);
     held?.lease.release();
     return Future.value();
@@ -363,7 +402,8 @@ final class ConnectionSupervisor implements HostChannels {
   }
 
   _Hold _hold(HostLease lease) {
-    final held = _held = _Hold(this, lease);
+    final held = _Hold(this, lease);
+    _become(_Held(held));
     _revival?.cancel();
     _revival = null;
     _report();
@@ -382,6 +422,40 @@ final class ConnectionSupervisor implements HostChannels {
     'upgrade.shell $endpoint supervisor ${identityHashCode(this)}: '
     '$message',
   );
+}
+
+sealed class _State {
+  const _State();
+}
+
+sealed class _Live extends _State {
+  const _Live();
+}
+
+final class _Idle extends _Live {
+  const _Idle();
+}
+
+final class _Dialing extends _Live {
+  const _Dialing(this.dial);
+
+  final _Dial dial;
+}
+
+final class _Held extends _Live {
+  const _Held(this.hold);
+
+  final _Hold hold;
+}
+
+final class _Suspended extends _State {
+  const _Suspended(this.live);
+
+  final _Live live;
+}
+
+final class _Retired extends _State {
+  const _Retired();
 }
 
 final class _Dial {
