@@ -9,6 +9,7 @@ import '../application/agent_state.dart';
 import '../application/agents.dart';
 import '../application/alerts.dart';
 import '../application/pin_alerts.dart';
+import '../application/watcher_backoff.dart';
 import '../data/repositories/host_repository.dart';
 import 'alert_notifications.dart';
 import 'engine_agents.dart';

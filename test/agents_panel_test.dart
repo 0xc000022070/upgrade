@@ -389,6 +389,59 @@ void main() {
     await tester.pump(const Duration(seconds: 30));
   });
 
+  testWidgets(
+    'a host that does not answer is dialled further and further apart',
+    (tester) async {
+      final poll = await _pollFailing(
+        tester,
+        const HerdrUnreachable('connection refused'),
+      );
+
+      var elapsed = 0;
+      for (final (index, at) in [10, 30, 70, 130, 190].indexed) {
+        await tester.pump(Duration(seconds: at - 1 - elapsed));
+        expect(poll.dials(), index + 1, reason: 'dials before ${at}s');
+        await tester.pump(const Duration(seconds: 1));
+        expect(poll.dials(), index + 2, reason: 'dials at ${at}s');
+        elapsed = at;
+      }
+      await poll.stop();
+    },
+  );
+
+  testWidgets('a host that answers without herdr keeps the ten second beat', (
+    tester,
+  ) async {
+    final poll = await _pollFailing(tester, const HerdrMissing('no herdr'));
+
+    await tester.pump(const Duration(seconds: 60));
+    expect(poll.dials(), 7);
+    await poll.stop();
+  });
+
+  for (final refusal in const <HerdrFailure>[
+    HerdrHostKeyChanged('offered another key'),
+    HerdrKeyRejected('publickey'),
+  ]) {
+    testWidgets(
+      '${refusal.runtimeType} is not dialled again until the app wakes',
+      (tester) async {
+        final poll = await _pollFailing(tester, refusal);
+
+        await tester.pump(const Duration(minutes: 5));
+        expect(poll.dials(), 1);
+
+        poll.container.read(agentsWakeProvider.notifier).state++;
+        await tester.pump(const Duration(seconds: 1));
+        expect(poll.dials(), 2);
+
+        await tester.pump(const Duration(minutes: 5));
+        expect(poll.dials(), 2);
+        await poll.stop();
+      },
+    );
+  }
+
   test('a name that never resolved is its own outcome', () async {
     final hosts = InMemoryHostRepository();
     await hosts.save(hostA);
@@ -848,6 +901,52 @@ void main() {
     expect(find.text('0 idle · 0 blocked'), findsOneWidget);
     expect(find.byType(DelayedSpinner), findsNothing);
   });
+}
+
+Future<
+  ({
+    int Function() dials,
+    ProviderContainer container,
+    Future<void> Function() stop,
+  })
+>
+_pollFailing(WidgetTester tester, HerdrFailure failure) async {
+  final hosts = InMemoryHostRepository();
+  await hosts.save(hostA);
+  await hosts.setIntegration(hostA.id, IntegrationKind.herdr, true);
+  final privateKeys = MemoryPrivateKeyStore();
+  await privateKeys.write('key-a', 'private-a');
+  var dials = 0;
+  final container = ProviderContainer(
+    overrides: [
+      hostRepositoryProvider.overrideWithValue(hosts),
+      privateKeyStoreProvider.overrideWithValue(privateKeys),
+      homeAgentsVisibleProvider.overrideWith((ref) => true),
+      herdrFetchProvider.overrideWithValue(({
+        required String address,
+        required int port,
+        required String user,
+        required String privateKey,
+        HostKeyVerifier? verifier,
+      }) async {
+        dials++;
+        throw failure;
+      }),
+    ],
+  );
+  await container.read(agentChannelsProvider.future);
+  final subscription = container.listen(agentsFeedProvider, (_, _) {});
+  await tester.pump();
+  expect(dials, 1);
+  return (
+    dials: () => dials,
+    container: container,
+    stop: () async {
+      subscription.close();
+      container.dispose();
+      await tester.pump(const Duration(minutes: 1));
+    },
+  );
 }
 
 Future<void> _waitFor(bool Function() condition) async {

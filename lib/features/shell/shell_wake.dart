@@ -42,6 +42,7 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
           // Only a tab's host is renounced; the panel's and the code view's links on the
           // old path would otherwise wait out their keepalive.
           unawaited(ref.read(hostLinksProvider).recheckAll());
+          ref.read(agentsWakeProvider.notifier).state++;
         }
       }),
     );
@@ -74,6 +75,7 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
           ..wakeAll(resumed, rehome: _away);
         _away = false;
         _hold.refresh();
+        ref.read(agentsWakeProvider.notifier).state++;
       }),
     );
     return widget.child;

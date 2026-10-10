@@ -14,6 +14,7 @@ import '../platform/host_key_dial.dart';
 import '../platform/host_keys.dart';
 import 'agent_state.dart';
 import 'reason_lines.dart';
+import 'watcher_backoff.dart';
 import '../platform/keys.dart';
 
 enum AgentOutcomeKind {
@@ -499,10 +500,15 @@ final agentsFeedLiveProvider = Provider<bool>((ref) {
   return ref.watch(homeAgentsVisibleProvider) && ref.watch(appVisibleProvider);
 });
 
+/// Bumped on resume and network arrival to redial refused hosts. Visibility cannot stand in:
+/// it flips back before any frame rebuilds the feed.
+final agentsWakeProvider = StateProvider<int>((ref) => 0);
+
 final agentsFeedProvider = StreamProvider<AgentPanelState>((ref) {
   final watched = ref.watch(watcherFeedProvider).valueOrNull;
   if (watched != null) return Stream.value(watched);
   if (!ref.watch(agentsFeedLiveProvider)) return const Stream.empty();
+  ref.watch(agentsWakeProvider);
   final channels = ref.watch(agentChannelsProvider);
   // Read before the generator body, which does not run until something listens: by
   // then watcherFeedProvider has emitted and the ref is outdated.
@@ -530,6 +536,7 @@ Stream<AgentPanelState> _pollHosts(
   var live = true;
   late final StreamController<AgentPanelState> panel;
   Future<void> loop(AgentChannel channel) async {
+    final backoff = WatcherBackoff();
     try {
       while (live) {
         final outcome = await _poll(fetches, keys, cache, channel);
@@ -541,7 +548,20 @@ Stream<AgentPanelState> _pollHosts(
               ?latest[channelKey(channel.host.id, channel.source)],
           ]),
         );
-        await Future<void>.delayed(const Duration(seconds: 10));
+        if (!outcome.kind.retryable) return;
+        final unanswered = switch (outcome.kind) {
+          AgentOutcomeKind.unreachable ||
+          AgentOutcomeKind.unresolved ||
+          AgentOutcomeKind.busy => true,
+          _ => false,
+        };
+        if (unanswered) {
+          backoff.advance();
+          await Future<void>.delayed(backoff.current);
+        } else {
+          backoff.reset();
+          await Future<void>.delayed(const Duration(seconds: 10));
+        }
       }
     } catch (error, stack) {
       if (live) panel.addError(error, stack);

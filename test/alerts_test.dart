@@ -7,6 +7,7 @@ import 'package:upgrade/application/agent_state.dart';
 import 'package:upgrade/application/agents.dart';
 import 'package:upgrade/application/alerts.dart';
 import 'package:upgrade/application/pin_alerts.dart';
+import 'package:upgrade/application/watcher_backoff.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/agent_watcher.dart';
 import 'package:upgrade/platform/herdr_client.dart';
