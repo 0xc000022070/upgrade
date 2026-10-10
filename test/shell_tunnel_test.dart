@@ -73,10 +73,10 @@ class FakePty implements SSHSession {
   final _stdout = StreamController<Uint8List>(onCancel: () async {});
   final _stderr = StreamController<Uint8List>(onCancel: () async {});
   final _done = Completer<void>();
+  final _channel = FakeExecChannel();
 
   final writes = <Uint8List>[];
   final resizes = <String>[];
-  bool closed = false;
   int? reported;
   String? signal;
 
@@ -116,8 +116,10 @@ class FakePty implements SSHSession {
     int pixelHeight = 0,
   ]) => resizes.add('${columns}x$rows');
 
+  bool get closed => _channel.destroyed > 0;
+
   @override
-  void close() => closed = true;
+  get channel => _channel;
 
   void out(List<int> bytes) => _stdout.add(Uint8List.fromList(bytes));
 

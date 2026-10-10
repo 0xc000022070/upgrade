@@ -151,7 +151,7 @@ class ShellTunnel {
     final pty = await openWithin(
       supervisor.pty(run, config),
       timeout,
-      (pty) => pty.close(),
+      (pty) => pty.channel.destroy(),
     );
     _log(
       supervisor.endpoint,
@@ -1474,7 +1474,8 @@ class SshShellConnection implements ShellConnection {
     for (final subscription in _reading) {
       await subscription.cancel();
     }
-    _pty.close();
+    // close() only sends EOF, which a pty shell ignores; destroy sends CHANNEL_CLOSE.
+    _pty.channel.destroy();
     _finish(null);
     await _out.close();
   }
