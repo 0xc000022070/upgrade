@@ -220,7 +220,9 @@ void main() {
       expect(client.isClosed, isTrue);
     });
 
-    testWidgets('a command that never opens fails without doubting the link', (tester) async {
+    testWidgets('a command that never opens fails without doubting the link', (
+      tester,
+    ) async {
       final gate = Completer<void>();
       final dial = FakeDial()..prepare = (client) => client.execGate = gate;
       final links = HostLinks(dial: dial.call);
@@ -291,7 +293,9 @@ void main() {
       links.close();
     });
 
-    testWidgets('a hung exchange fails without doubting the link', (tester) async {
+    testWidgets('a hung exchange fails without doubting the link', (
+      tester,
+    ) async {
       final dial = FakeDial();
       final links = HostLinks(dial: dial.call);
       final container = await _scheduler(links);
@@ -339,47 +343,51 @@ void main() {
   });
 
   group('sharing', () {
-    test('every control borrower on one host rides one dial, the screen its own', () async {
-      final dial = FakeDial()..prepare = (client) => client.reply = _engine;
-      final links = HostLinks(dial: dial.call);
-      final container = await _scheduler(links);
+    test(
+      'every control borrower on one host rides one dial, the screen its own',
+      () async {
+        final dial = FakeDial()..prepare = (client) => client.reply = _engine;
+        final links = HostLinks(dial: dial.call);
+        final container = await _scheduler(links);
 
-      final herdr = await HerdrClient(links: links, use: HostUse.send).connect(
-        address: '10.0.0.2',
-        port: 22,
-        user: 'dev',
-        privateKey: 'key',
-        verifier: _pinned,
-      );
-      final screen = VncTunnel(links).open(
-        address: '10.0.0.2',
-        port: 22,
-        user: 'dev',
-        privateKey: 'key',
-        verifier: _pinned,
-      );
-      await pumpEventQueue();
-      dial.clients.last.forwards.single.wire.feed(serverHandshake());
-      final connection = await screen;
-      final workspace = WorkspaceSsh.borrowed(await _lease(links));
-      await _schedule(container);
-      await HerdrClient(links: links, use: HostUse.send).fetchPaths(
-        address: '10.0.0.2',
-        port: 22,
-        user: 'dev',
-        privateKey: 'key',
-        verifier: _pinned,
-      );
+        final herdr = await HerdrClient(links: links, use: HostUse.send)
+            .connect(
+              address: '10.0.0.2',
+              port: 22,
+              user: 'dev',
+              privateKey: 'key',
+              verifier: _pinned,
+            );
+        final screen = VncTunnel(links).open(
+          address: '10.0.0.2',
+          port: 22,
+          user: 'dev',
+          privateKey: 'key',
+          verifier: _pinned,
+        );
+        await pumpEventQueue();
+        dial.clients.last.forwards.single.wire.feed(serverHandshake());
+        final connection = await screen;
+        final workspace = WorkspaceSsh.borrowed(await _lease(links));
+        await _schedule(container);
+        await HerdrClient(links: links, use: HostUse.send).fetchPaths(
+          address: '10.0.0.2',
+          port: 22,
+          user: 'dev',
+          privateKey: 'key',
+          verifier: _pinned,
+        );
 
-      expect(dial.dials, 2);
-      expect(dial.clients.first.forwards, isEmpty);
-      herdr.close();
-      await connection.close();
-      await workspace.close();
-      expect(dial.clients.every((client) => client.closes == 0), isTrue);
-      container.dispose();
-      links.close();
-    });
+        expect(dial.dials, 2);
+        expect(dial.clients.first.forwards, isEmpty);
+        herdr.close();
+        await connection.close();
+        await workspace.close();
+        expect(dial.clients.every((client) => client.closes == 0), isTrue);
+        container.dispose();
+        links.close();
+      },
+    );
 
     test(
       'a refused channel is busy where it was asked for, nowhere else',
