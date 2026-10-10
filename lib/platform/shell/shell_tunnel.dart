@@ -282,7 +282,7 @@ class ShellTunnel {
       supervisor.reopenWhenHostDies();
       return connection;
     } catch (error) {
-      final link = !overUdp && _linkFailure(error);
+      final link = !overUdp && await _linkFailed(supervisor, error);
       if (!link && !_silent(supervisor, address, error)) {
         _log(supervisor.endpoint, 'engine fallback: $error');
       }
@@ -374,7 +374,7 @@ class ShellTunnel {
       supervisor.reopenWhenHostDies();
       return connection;
     } catch (error) {
-      final link = !overUdp && _linkFailure(error);
+      final link = !overUdp && await _linkFailed(supervisor, error);
       if (!link && !_silent(supervisor, address, error)) {
         _log(supervisor.endpoint, 'mosh fallback: $error');
       }
@@ -394,10 +394,16 @@ class ShellTunnel {
     }
   }
 
-  /// What the SSH link threw during startup is the dial failing, not a host without the
-  /// transport; what the UDP side threw is the transport, and plain SSH takes over.
-  static bool _linkFailure(Object error) =>
-      isHostFailure(error) || isKeyFailure(error);
+  /// A startup error is the link's when SSH threw it, except a stalled command on an open
+  /// channel, which counts only if a keepalive round finds the link dead too.
+  static Future<bool> _linkFailed(
+    ConnectionSupervisor supervisor,
+    Object error,
+  ) async {
+    if (!isHostFailure(error) && !isKeyFailure(error)) return false;
+    if (error is! TimeoutException || error is ChannelOpenTimeout) return true;
+    return !await supervisor.check();
+  }
 
   bool _silent(ConnectionSupervisor supervisor, String address, Object error) {
     if (error is! UdpSilent) return false;

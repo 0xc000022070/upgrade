@@ -208,6 +208,11 @@ class FakeExec implements SSHSession {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class StuckExec extends FakeExec {
+  @override
+  Future<void> get done => Completer<void>().future;
+}
+
 final class _FakeStdin implements StreamSink<Uint8List> {
   _FakeStdin(this._input, this._close);
 
@@ -247,6 +252,9 @@ class FakeHost implements SSHClient {
   String Function(String command, String stdin)? execInputAnswer;
   final inputs = <String>[];
 
+  bool Function(String command)? execStuck;
+  final stuck = <StuckExec>[];
+
   final requests = <String>[];
 
   FakePty pty = FakePty();
@@ -284,6 +292,11 @@ class FakeHost implements SSHClient {
     if (error != null) throw error;
     final gate = execGate;
     if (gate != null) return gate.future;
+    if (execStuck?.call(command) ?? false) {
+      final exec = StuckExec();
+      stuck.add(exec);
+      return exec;
+    }
     final inputAnswer = execInputAnswer;
     return FakeExec(
       out: execAnswer?.call(command) ?? execOut,
@@ -431,10 +444,12 @@ class FakeMoshChannel implements MoshChannel {
 HostLinks linksOver(
   FutureOr<FakeHost> Function(HostKeyVerifier verifier) next, {
   Duration timeout = const Duration(seconds: 10),
+  Duration answer = const Duration(seconds: 5),
   Object? dialError,
 }) {
   final links = HostLinks(
     timeout: timeout,
+    answer: answer,
     keepAlive: const Duration(days: 1),
     linger: Duration.zero,
     dial:
@@ -1020,6 +1035,31 @@ void main() {
         expect(retries, hasLength(1));
       },
     );
+
+    test('a Mosh probe that outlives its deadline on a live link is closed, '
+        'and SSH takes the tab with no redial', () async {
+      const session = 'upgrade123';
+      final host = FakeHost()
+        ..execAnswer = moshHostAnswer
+        ..execStuck = (command) => command == moshServerProbeCommand();
+      final retries = <Reconnect>[];
+      final connection = await openOn(
+        moshTunnelTo(
+          host,
+          FakeMoshChannel(),
+          timeout: const Duration(milliseconds: 50),
+        ),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        failed: retries.add,
+      );
+      addTearDown(() => connection.close(UserClosed(testIntent())));
+
+      expect(connection, isA<SshShellConnection>());
+      expect(host.stuck.single.closed, isTrue);
+      expect(retries, isEmpty);
+      expect(host.closed, isFalse);
+    });
 
     test('a pty that never opens fails the open as a host failure', () async {
       final host = _SilentPtyHost();
@@ -2438,6 +2478,7 @@ ShellTunnel engineTunnelTo(
   FakeEngineChannel engine,
   FakeMoshChannel mosh, {
   Duration timeout = const Duration(seconds: 10),
+  Duration answer = const Duration(seconds: 5),
   bool emitReady = true,
   List<({String host, int port, String key})>? dialled,
   List<EngineResume?>? resumes,
@@ -2448,7 +2489,11 @@ ShellTunnel engineTunnelTo(
 }) => ShellTunnel(
   timeout: timeout,
   udpVerdicts: verdicts,
-  links: linksOver((_) => nextHost?.call() ?? host, timeout: timeout),
+  links: linksOver(
+    (_) => nextHost?.call() ?? host,
+    timeout: timeout,
+    answer: answer,
+  ),
   engineDialer:
       ({
         required String host,
@@ -2706,16 +2751,25 @@ void engineTests() {
   test('a link that dies under the engine start fails the open, and neither '
       'Mosh nor SSH is tried', () async {
     final host = FakeHost()
+      ..answers = false
       ..execInputAnswer = (command, stdin) =>
           throw TimeoutException('link stalled');
+    final retries = <Reconnect>[];
     await expectLater(
       openOn(
-        engineTunnelTo(host, FakeEngineChannel(), FakeMoshChannel()),
+        engineTunnelTo(
+          host,
+          FakeEngineChannel(),
+          FakeMoshChannel(),
+          answer: const Duration(milliseconds: 20),
+        ),
         command: 'exec \$SHELL -l',
         tabSession: session,
+        failed: retries.add,
       ),
       throwsA(anything),
     );
+    expect(retries, hasLength(1));
     expect(host.requests, isNot(contains('exec ${moshServerProbeCommand()}')));
     expect(
       host.requests.where(
@@ -2723,6 +2777,37 @@ void engineTests() {
       ),
       isEmpty,
     );
+  });
+
+  test('an engine start that outlives its deadline on a live link is closed, '
+      'and Mosh takes the tab with no redial', () async {
+    final host = FakeHost()
+      ..execInputAnswer = engineHostAnswer()
+      ..execStuck = (command) => command.endsWith('upgraded');
+    final retries = <Reconnect>[];
+    var sshDials = 0;
+    final connection = await openOn(
+      engineTunnelTo(
+        host,
+        FakeEngineChannel(),
+        FakeMoshChannel(),
+        timeout: const Duration(milliseconds: 50),
+        nextHost: () {
+          sshDials++;
+          return host;
+        },
+      ),
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+      failed: retries.add,
+    );
+    addTearDown(() => connection.close(UserClosed(testIntent())));
+
+    expect(connection, isA<MoshShellConnection>());
+    expect(host.stuck.single.closed, isTrue);
+    expect(retries, isEmpty);
+    expect(sshDials, 1);
+    expect(host.closed, isFalse);
   });
 
   test(

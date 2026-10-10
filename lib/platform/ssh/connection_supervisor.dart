@@ -275,7 +275,7 @@ final class ConnectionSupervisor implements HostChannels {
     return true;
   }
 
-  Future<void> check() async => _held?.lease.check();
+  Future<bool> check() async => await _held?.lease.check() ?? false;
 
   Future<SSHSession> pty(String? command, SSHPtyConfig config) async {
     final lease = _held?.lease;
