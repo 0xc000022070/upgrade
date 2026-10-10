@@ -530,33 +530,41 @@ class HostLinks {
     );
   }
 
-  /// A held link is trusted until its keepalive fails, unless a waking use asks [_answers].
-  /// An unheld link quiet past [quiet] is pinged before reuse, ended if nothing comes back.
+  /// A link quiet past [quiet] is pinged before reuse: a held one only for a waking use,
+  /// set aside by [_answers]; an unheld one ended if nothing comes back.
   Future<bool> _vouched(_Link link, HostUse use) async {
     if (link.ended) return false;
     if (link.client.isClosed) {
       _end(link, 'client closed');
       return false;
     }
-    if (link.leases.isNotEmpty) return !use.wakes || await _answers(link, use);
+    if (link.leases.isNotEmpty) {
+      return !use.wakes ||
+          now().difference(link.heardAt) < quiet ||
+          await _answers(link, use);
+    }
     final idle = link.idleSince;
     if (idle != null && now().difference(idle) >= _lingerOf(link)) {
       _end(link, 'linger expired');
       return false;
     }
-    final heard = link.ssh.received();
-    if (heard != link.heard) {
-      link.heard = heard;
-      link.heardAt = now();
-      return true;
-    }
-    if (now().difference(link.heardAt) < quiet) return true;
+    if (_fresh(link)) return true;
     final silent = await _round(link);
     if (silent != null && link.leases.isEmpty) {
       _end(link, 'ping $silent');
       return false;
     }
     return !link.ended;
+  }
+
+  bool _fresh(_Link link) {
+    final heard = link.ssh.received();
+    if (heard != link.heard) {
+      link.heard = heard;
+      link.heardAt = now();
+      return true;
+    }
+    return now().difference(link.heardAt) < quiet;
   }
 
   Future<bool> _check(_Link link) async {

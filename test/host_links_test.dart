@@ -291,8 +291,9 @@ void main() {
       },
     );
 
-    test('checks a held link before a use someone waits on, and reuses it on an answer', () async {
+    test('checks a quiet held link before a use someone waits on, and reuses it on an answer', () async {
       final held = await _lease(links);
+      at = at.add(links.quiet);
       final beside = await _leaseAs(links, HostUse.tab);
 
       expect(dial.clients.single.pings, 1);
@@ -300,11 +301,44 @@ void main() {
       expect(held.closed || beside.closed, isFalse);
     });
 
+    test(
+      'trusts a held link heard within quiet for a use someone waits on',
+      () async {
+        final held = await _lease(links);
+        at = at.add(links.quiet - const Duration(seconds: 1));
+        final soon = await _leaseAs(links, HostUse.tab);
+
+        expect(dial.clients.single.pings, 0);
+        expect(dial.dials, 1);
+        expect(held.closed || soon.closed, isFalse);
+      },
+    );
+
+    testWidgets(
+      'checks a held link that received bytes but was not heard within quiet',
+      (tester) async {
+        final held = await _lease(links);
+        dial.clients.single.received += 512;
+        at = at.add(const Duration(minutes: 3));
+        dial.clients.single.pong = Completer();
+        final beside = _leaseAs(links, HostUse.send);
+        await tester.pump(links.answer);
+
+        final fresh = await beside;
+        expect(dial.clients.first.pings, 1);
+        expect(dial.dials, 2);
+        expect(identical(fresh.client, dial.clients.last), isTrue);
+        expect(held.closed, isFalse);
+        links.close();
+      },
+    );
+
     testWidgets(
       'dials beside a held link a use someone waits on finds silent, and leaves it to its holder',
       (tester) async {
         final held = await _leaseAs(links, HostUse.herdrPoll);
         dial.clients.single.pong = Completer();
+        at = at.add(links.quiet);
         final beside = _leaseAs(links, HostUse.alertAction);
         await tester.pump(links.answer);
 
