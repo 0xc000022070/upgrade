@@ -13,14 +13,22 @@ can ride along; the export keeps .dart_tool and build/ between runs for the
 caches. The apk must be signed by ~/.android/debug.keystore: one from any
 other key can only land by uninstalling, and the handsets hold real data.
 
-  stamp                       <name> <code> <sha> of HEAD
-  build                       the release apk of HEAD, verified; prints its path
+Every build and every install runs under build/deploy/lock, and each run pins
+one commit when it takes the lock, so a run queued behind another builds what
+HEAD is once its turn comes.
+
+  stamp [rev]                 <name> <code> <sha> of rev, HEAD by default
+  build [rev]                 the release apk of rev, verified; prints its path
   once [device...]            install on the handsets named, or on every one
                               attached; a handset at or past HEAD is left alone
   watch [device...]           once now, then once more each time HEAD moves.
-                              Each new HEAD rings and asks here while it
-                              builds; an n shelves it, silence for thirty
-                              seconds installs.
+                              HEAD must sit still for ten seconds first, so a
+                              burst of commits builds once. A commit landing
+                              mid-build drops that build for the new HEAD; one
+                              landing mid-install waits for the install. Each
+                              build rings and asks here; an n shelves it,
+                              silence for thirty seconds installs. A commit
+                              that fails to build is not retried.
 EOF
 }
 
@@ -49,18 +57,31 @@ say() {
   echo "deploy: $*"
 }
 
+head_rev() {
+  git -C "$ROOT" rev-parse --verify "${1:-HEAD}^{commit}"
+}
+
+lock() {
+  mkdir -p "$OUT"
+  exec 9>"$OUT/lock"
+  flock -n 9 || {
+    say "another deploy holds $OUT/lock; waiting for it" >&2
+    flock 9
+  }
+}
+
 stamp() {
-  local name code sha
-  name=$(git -C "$ROOT" show HEAD:pubspec.yaml | sed -n 's/^version:[[:space:]]*\([^+[:space:]]\{1,\}\).*$/\1/p')
-  [[ -n $name ]] || die "pubspec.yaml at HEAD has no 'version:' line"
-  code=$(git -C "$ROOT" rev-list --count HEAD)
-  sha=$(git -C "$ROOT" rev-parse --short HEAD)
+  local rev=$1 name code sha
+  name=$(git -C "$ROOT" show "$rev:pubspec.yaml" | sed -n 's/^version:[[:space:]]*\([^+[:space:]]\{1,\}\).*$/\1/p')
+  [[ -n $name ]] || die "pubspec.yaml at $rev has no 'version:' line"
+  code=$(git -C "$ROOT" rev-list --count "$rev")
+  sha=$(git -C "$ROOT" rev-parse --short "$rev")
   echo "$name $code $sha"
 }
 
 build() {
-  local name code sha
-  read -r name code sha <<<"$(stamp)"
+  local rev=$1 name code sha
+  read -r name code sha <<<"$(stamp "$rev")"
   local apk="$OUT/upgrade-$name-$code-$sha.apk"
   if [[ -f $apk ]]; then
     echo "$apk"
@@ -71,18 +92,19 @@ build() {
   command -v flutter >/dev/null || die "no flutter on PATH; run inside the nix dev shell"
   mkdir -p "$TREE/.dart_tool"
   find "$TREE" -mindepth 1 -maxdepth 1 ! -name .dart_tool ! -name build -exec rm -rf {} +
-  git -C "$ROOT" archive HEAD | tar -x -C "$TREE"
+  git -C "$ROOT" archive "$rev" | tar -x -C "$TREE"
 
   local built="$TREE/build/app/outputs/flutter-apk/app-release.apk"
   rm -f "$built"
   # AGP's incremental compressReleaseAssets fails with "already contains entry" when the
   # asset set changes between runs; packing from scratch costs seconds.
   rm -rf "$TREE/build/app/intermediates/compressed_assets"
+  # 9>&-: a daemon the build leaves behind must not keep holding the lock.
   (
     cd "$TREE" &&
       just pub-build && flutter pub get && just gen &&
       UPGRADE_BUILD=$sha just apk-release "$name" "$code"
-  ) >&2 || die "the build of $name+$code ($sha) failed"
+  ) >&2 9>&- || die "the build of $name+$code ($sha) failed"
   [[ -f $built ]] || die "the build of $name+$code ($sha) left no apk"
 
   local badged cert
@@ -91,8 +113,8 @@ build() {
   cert=$("$tools/apksigner" verify --print-certs "$built" | awk '/certificate SHA-256 digest:/ {print $NF; exit}')
   [[ $cert == "$CERT" ]] || die "apk signed by $cert, not the key the handsets trust"
 
-  rm -f "$OUT"/upgrade-*.apk
   cp "$built" "$apk"
+  ls -t "$OUT"/upgrade-*.apk | tail -n +3 | xargs -r rm -f
   echo "$apk"
 }
 
@@ -137,11 +159,30 @@ updated_at() {
   sed -n 's/.*lastUpdateTime=//p' <<<"$1" | head -1
 }
 
+recorded() {
+  awk -F'\t' -v l="$1" '$1 == l { print $2, $3 }' "$OUT/deployed" 2>/dev/null || true
+}
+
+record() {
+  local f="$OUT/deployed"
+  {
+    grep -v "^$1	" "$f" 2>/dev/null || true
+    printf '%s\t%s\t%s\n' "$1" "$2" "$3"
+  } >"$f.tmp"
+  mv "$f.tmp" "$f"
+}
+
+kill_tree() {
+  local child
+  for child in $(pgrep -P "$1"); do
+    kill_tree "$child"
+  done
+  kill "$1" 2>/dev/null || true
+}
+
 once() {
-  local ask=$1
-  shift
-  local name code sha
-  read -r name code sha <<<"$(stamp)"
+  local ask=$1 rev=$2
+  shift 2
 
   local targets
   targets=$(resolve "$@") || return 1
@@ -154,19 +195,23 @@ once() {
   fi
 
   # Under the lock: a deploy queued behind another must see what that one installed.
-  mkdir -p "$OUT"
-  exec 9>"$OUT/lock"
-  flock -n 9 || {
-    say "another deploy holds $OUT/lock; waiting for it"
-    flock 9
-  }
+  lock
+  [[ -n $rev ]] || rev=$(head_rev)
+  [[ $(head_rev) == "$rev" ]] || return 2
+  local name code sha
+  read -r name code sha <<<"$(stamp "$rev")"
 
-  local pending=() label serial pkg have
+  local pending=() label serial pkg have rcode rsha
   while IFS=$'\t' read -r label serial; do
     pkg=$(dumpsys "$serial")
     have=$(version_code "$pkg")
     if [[ -n $have && $have -ge $code ]]; then
-      say "$label carries $have, HEAD is $code: nothing to do"
+      read -r rcode rsha <<<"$(recorded "$label")"
+      if [[ $have == "$code" && $rcode == "$code" && $rsha != "$sha" ]]; then
+        warn "$label holds $code as $rsha, HEAD is $code as $sha: history was rewritten under the same count, and only an uninstall, which wipes its data, lands it"
+      else
+        say "$label carries $have, HEAD is $code: nothing to do"
+      fi
       continue
     fi
     pending+=("$label	$serial	${have:-none}")
@@ -175,11 +220,11 @@ once() {
 
   local apk
   if [[ $ask != ask ]]; then
-    apk=$(build) || return 1
+    apk=$(build "$rev") || return 3
   else
-    local onto asking answer="$OUT/answer" log="$OUT/build.log"
+    local onto asking building answer="$OUT/answer" log="$OUT/build.log" path="$OUT/apk.path"
     onto=$(printf '%s\n' "${pending[@]}" | cut -f1 | paste -sd' ')
-    rm -f "$answer"
+    rm -f "$answer" "$path"
     say "building $name+$code ($sha); its log is $log"
     printf '\a'
     (
@@ -188,12 +233,26 @@ once() {
       printf '%s\n' "$ans" >"$answer"
     ) &
     asking=$!
-    if ! apk=$(build 2>"$log"); then
-      kill "$asking" 2>/dev/null || true
+    build "$rev" >"$path" 2>"$log" &
+    building=$!
+    while kill -0 "$building" 2>/dev/null; do
+      if [[ $(head_rev) != "$rev" ]]; then
+        kill_tree "$building"
+        kill_tree "$asking"
+        wait "$building" "$asking" 2>/dev/null || true
+        echo
+        say "HEAD moved past $sha; dropped its build"
+        return 2
+      fi
+      sleep 2
+    done
+    if ! wait "$building"; then
+      kill_tree "$asking"
       echo
       tail -n 20 "$log" >&2
-      return 1
+      return 3
     fi
+    apk=$(<"$path")
     wait "$asking" || true
     [[ $(cat "$answer" 2>/dev/null) != [nN]* ]] || {
       say "left on the shelf: $apk"
@@ -222,33 +281,58 @@ once() {
       failed=1
       continue
     fi
+    record "$label" "$code" "$sha"
     say "$label: $have -> $name+$code ($sha), $(grep -oE 'firstInstallTime=[^ ]+ [^ ]+' <<<"$pkg" | head -1)"
   done
   return $failed
 }
 
+settle() {
+  local was=$1 now
+  while :; do
+    sleep 10
+    now=$(head_rev)
+    [[ $now == "$was" ]] && break
+    was=$now
+  done
+  echo "$was"
+}
+
 watch() {
-  local seen="" head
+  local seen="" broken="" head rc
   say "watching HEAD of $ROOT for ${*:-every handset attached}; ^C stops"
   while :; do
-    head=$(git -C "$ROOT" rev-parse HEAD)
-    if [[ $head != "$seen" ]]; then
-      if (once ask "$@"); then
-        seen=$head
-      else
-        warn "that round failed; retrying the current commit in 30s"
-        sleep 30
-        continue
-      fi
+    head=$(head_rev)
+    if [[ $head == "$seen" || $head == "$broken" ]]; then
+      sleep 5
+      continue
     fi
-    sleep 5
+    head=$(settle "$head")
+    rc=0
+    (once ask "$head" "$@") || rc=$?
+    case $rc in
+    0) seen=$head ;;
+    2) ;;
+    3)
+      broken=$head
+      warn "$(git -C "$ROOT" rev-parse --short "$head") does not build; waiting for HEAD to move"
+      ;;
+    *)
+      warn "that round failed; retrying the current commit in 30s"
+      sleep 30
+      ;;
+    esac
   done
 }
 
 case "${1:-}" in
-stamp) stamp ;;
-build) build ;;
-once) once no "${@:2}" ;;
+stamp) stamp "$(head_rev "${2:-}")" ;;
+build)
+  rev=$(head_rev "${2:-}")
+  lock
+  build "$rev"
+  ;;
+once) once no "" "${@:2}" ;;
 watch) watch "${@:2}" ;;
 -h | --help)
   usage

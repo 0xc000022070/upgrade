@@ -127,8 +127,9 @@ publish:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    read -r version code UPGRADE_BUILD <<<"$(tool/deploy.sh stamp)"
-    apk=$(tool/deploy.sh build)
+    rev=$(git rev-parse HEAD)
+    read -r version code UPGRADE_BUILD <<<"$(tool/deploy.sh stamp "$rev")"
+    apk=$(tool/deploy.sh build "$rev")
 
     # '-' and not '+': a literal + in a url path reads as a space to enough clients.
     name="upgrade-$version-$code.apk"
