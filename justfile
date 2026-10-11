@@ -27,40 +27,30 @@ analyze: pub-build
 fmt:
     dart format lib test
 
-# `-j` is every core, not flutter's default of half: package:test parallelises by
-# file, so the wall clock is the slowest file and half the cores left the tail idle.
+# tool/test.sh says what each tier holds.
 
-# The suite, or the paths named. The `host` tier stays out; see `just test-host`.
+# The suite under test/, or the paths named. `host` stays out.
 test *args: pub-build
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [ -n "{{ args }}" ]; then
-      exec flutter test -j {{ num_cpus() }} --exclude-tags host {{ args }}
-    fi
-    tool/test-shards.sh $(( {{ num_cpus() }} - 1 ))
-    flutter test -j {{ num_cpus() }} test/shards/*.dart
+    tool/test.sh local {{ args }}
+
+# Formatting, analysis and the local suite, which also fails a file or a run that
+# goes over its time budget. TEST_FILE_BUDGET and TEST_WALL_BUDGET move the budgets.
+check: pub-build
+    dart format --output=none --set-exit-if-changed lib test tool
+    flutter analyze
+    tool/test.sh check
 
 # The tests that pump no widget: the quick loop.
 test-unit: pub-build
-    tool/test-shards.sh $(( {{ num_cpus() }} - 1 ))
-    flutter test test/shards/unit.dart
-
-# `-j 1` because every one of these dials the same guest, and scoped to test/host
-# because `--tags` loads every file it is pointed at before it can see none is tagged.
+    tool/test.sh unit
 
 # The tier that wants a machine on the other end of the socket.
 test-host *args: pub-build
-    #!/usr/bin/env bash
-    set -euo pipefail
-    just host-vm
-    flutter test -j 1 --tags host {{ if args == "" { "test/host" } else { args } }}
+    tool/test.sh host {{ args }}
 
-# Everything, both tiers, the fixture VM included. What a release is gated on.
-test-all *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    just test {{ args }}
-    just test-host
+# Both tiers, the fixture VM included. What a release is gated on.
+test-all: pub-build
+    tool/test.sh all
 
 # The fixture VM, up and answering. Idempotent, so it is safe in front of any recipe.
 host-vm:

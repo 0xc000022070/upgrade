@@ -12,9 +12,9 @@ You wrote it, so read it as if somebody else had. Do all of this before anything
    ```
    git checkout-index -a --prefix=<scratch>/idx/
    cd <scratch>/idx
-   nix develop path:$PWD -c bash -c 'flutter pub get; flutter pub run build_runner build --delete-conflicting-outputs; flutter analyze; flutter test'
+   nix develop path:$PWD -c bash -c 'flutter pub get; flutter pub run build_runner build --delete-conflicting-outputs; flutter analyze; just test'
    ```
    `*.g.dart` is gitignored, so codegen is required there. `dart run build_runner` fails outside `flutter pub run` in this shell. A red test here usually means a file left unstaged.
 6. Commit, only when the user asked for one. Conventional, lowercase title, body describing concrete code changes. No section numbers.
 
-`flutter test` takes minutes. Run it in the background and never two at once — a second run, or an analyze beside it, and both stall.
+`just test` takes minutes. Run it in the background and never two at once — a second run, or an analyze beside it, and both stall.

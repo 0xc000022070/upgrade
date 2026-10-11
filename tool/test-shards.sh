@@ -2,37 +2,70 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 <widget-shards>" >&2
+  echo "usage: $0 <shards>" >&2
   exit 2
 }
 
 [ $# -eq 1 ] || usage
-widget_shards=$1
+shards=$1
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 out=$root/test/shards
 rm -rf "$out"
 mkdir -p "$out"
 
+all=("$root"/test/*_test.dart)
 unit=()
-widget=()
-for path in "$root"/test/*_test.dart; do
-  if grep -qE 'testWidgets|WidgetTester' "$path"; then
-    widget+=("$path")
-  else
-    unit+=("$path")
-  fi
+for path in "${all[@]}"; do
+  grep -qE 'testWidgets|WidgetTester' "$path" || unit+=("$path")
 done
 
 assign() {
   local shards=$1
-  shift
-  wc -l "$@" | grep -v ' total$' | sort -rn | awk -v n="$shards" '
+  local times=$root/.dart_tool/test/times.tsv
+  [ -f "$times" ] || times=/dev/null
+  local counts rate
+  counts=$(wc -l "${all[@]}" | grep -v ' total$')
+  rate=$(weigh "$times" 0 <<<"$counts" | sort -n |
+    awk '{ r[NR] = $1 } END { print NR ? r[int((NR + 1) / 2)] : 1 }')
+  weigh "$times" "$rate" <<<"$counts" | sort -rn |
+    awk -v n="$shards" -v units="${unit[*]}" '
+      BEGIN { split(units, u, " "); for (i in u) unit[u[i]] = 1 }
+      {
+        weight[NR] = $1
+        path[NR] = $2
+        total[$2 in unit] += $1
+      }
+      END {
+        k = int(n * total[1] / (total[0] + total[1]) + 0.5)
+        if (k < 1) k = 1
+        if (k > n - 1) k = n - 1
+        for (r = 1; r <= NR; r++) {
+          if (path[r] in unit) { lo = 0; hi = k } else { lo = k; hi = n }
+          best = lo
+          for (i = lo + 1; i < hi; i++) if (load[i] < load[best]) best = i
+          load[best] += weight[r]
+          print best, path[r]
+        }
+      }'
+}
+
+weigh() {
+  awk -v times="$1" -v rate="$2" '
+    BEGIN {
+      while ((getline line < times) > 0) {
+        split(line, f, "\t")
+        ms[f[1]] = f[2]
+      }
+    }
     {
-      best = 0
-      for (i = 1; i < n; i++) if (load[i] < load[best]) best = i
-      load[best] += $1
-      print best, $2
+      name = $2
+      sub(/.*\//, "", name)
+      if (rate == 0) {
+        if ((name in ms) && $1 > 0) print ms[name] / $1
+      } else {
+        print ((name in ms) ? ms[name] : $1 * rate), $2
+      }
     }'
 }
 
@@ -66,9 +99,9 @@ write unit "${unit[@]}"
 declare -A batches
 while read -r shard path; do
   batches[$shard]+="$path "
-done < <(assign "$widget_shards" "${widget[@]}")
+done < <(assign "$shards")
 
 for shard in "${!batches[@]}"; do
   # shellcheck disable=SC2086
-  write "widget_$(printf '%02d' "$shard")" ${batches[$shard]}
+  write "shard_$(printf '%02d' "$shard")" ${batches[$shard]}
 done
