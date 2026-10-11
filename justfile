@@ -99,7 +99,7 @@ run: pub-build
     ssh -fN -o ExitOnForwardFailure=yes -L 5038:127.0.0.1:5037 rose || true
     ADB_SERVER_SOCKET=tcp:127.0.0.1:5038 flutter run -d emulator-5554 \
         --pid-file build/run.pid \
-        {{stamp}}
+        --dart-define=UPGRADE_BUILD=${UPGRADE_BUILD:-dev}
 
 # The build number is the commit count at HEAD, so a handset already there is
 # left alone. `just watch` repeats this at every commit, asking in the pane first.
