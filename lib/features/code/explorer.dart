@@ -692,28 +692,29 @@ class _ExplorerState extends ConsumerState<Explorer> {
     );
   }
 
-  Widget _verb(UpgradeIcons icon, String label, VoidCallback onTap) => Semantics(
-    container: true,
-    button: true,
-    label: label,
-    onTap: onTap,
-    excludeSemantics: true,
-    child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: SizedBox(
-        width: TapTargets.minHeight,
-        height: RowMetrics.minHeight,
-        child: Center(
-          child: UpgradeIcon(
-            icon,
-            size: IconSizes.sm,
-            color: context.tokens.textSecondary,
+  Widget _verb(UpgradeIcons icon, String label, VoidCallback onTap) =>
+      Semantics(
+        container: true,
+        button: true,
+        label: label,
+        onTap: onTap,
+        excludeSemantics: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: SizedBox(
+            width: TapTargets.minHeight,
+            height: RowMetrics.minHeight,
+            child: Center(
+              child: UpgradeIcon(
+                icon,
+                size: IconSizes.sm,
+                color: context.tokens.textSecondary,
+              ),
+            ),
           ),
         ),
-      ),
-    ),
-  );
+      );
 
   void _step(_Tab tab, List<int> blocks, int by) {
     setState(() => tab.visit = (tab.visit + by) % blocks.length);

@@ -268,42 +268,39 @@ void main() {
       readImage: readImage ?? (path) async => Uint8List.fromList([1, 2, 3]),
     );
 
-    test(
-      'reviewed message replaces composed text without duplicating URLs',
-      () async {
-        String? outgoing;
-        final state =
-            await sender(({
-              required address,
-              required port,
-              required user,
-              required privateKey,
-              required kind,
-              required directory,
-              required prompt,
-              images = const <RemoteFile>[],
-              model,
-              required verifier,
-            }) async {
-              outgoing = prompt;
-              return const SpawnRefused(SpawnRefusal.noSession);
-            })(
-              target: _target(),
-              itemId: await onlyTaskId(),
-              kind: const ClaudeKind(),
-              title: 'Original title',
-              prompt: 'Original prompt',
-              links: const ['https://a.example'],
-              message: 'Reviewed instructions\n\nhttps://a.example',
-              imagePaths: const ['/data/photo.png'],
-            );
-        expect(state, isA<SendFailed>());
-        expect(
-          outgoing,
-          'Reviewed instructions\n\nhttps://a.example\n\n/tmp/upgrade/photo.png',
-        );
-      },
-    );
+    test('reviewed message replaces composed text without duplicating URLs', () async {
+      String? outgoing;
+      final state =
+          await sender(({
+            required address,
+            required port,
+            required user,
+            required privateKey,
+            required kind,
+            required directory,
+            required prompt,
+            images = const <RemoteFile>[],
+            model,
+            required verifier,
+          }) async {
+            outgoing = prompt;
+            return const SpawnRefused(SpawnRefusal.noSession);
+          })(
+            target: _target(),
+            itemId: await onlyTaskId(),
+            kind: const ClaudeKind(),
+            title: 'Original title',
+            prompt: 'Original prompt',
+            links: const ['https://a.example'],
+            message: 'Reviewed instructions\n\nhttps://a.example',
+            imagePaths: const ['/data/photo.png'],
+          );
+      expect(state, isA<SendFailed>());
+      expect(
+        outgoing,
+        'Reviewed instructions\n\nhttps://a.example\n\n/tmp/upgrade/photo.png',
+      );
+    });
 
     test('a pane id is a row, and the row says where it went', () async {
       final calls = <_Call>[];

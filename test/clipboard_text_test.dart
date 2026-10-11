@@ -22,10 +22,7 @@ void main() {
   });
 
   test('one drop copies bare, with no rule around it', () {
-    expect(
-      dropClipboardText([const DropText('uno\ndos', [])]),
-      'uno\ndos',
-    );
+    expect(dropClipboardText([const DropText('uno\ndos', [])]), 'uno\ndos');
   });
 
   test('several drops are separated by a rule, in the order given', () {

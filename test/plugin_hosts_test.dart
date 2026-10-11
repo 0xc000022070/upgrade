@@ -190,7 +190,7 @@ void main() {
     expect(
       jsonEncode(request),
       '{"schedule":{"revision":0,"timeout":900,'
-          '"title":"Nightly sweep","weights":[1,2.5]}}',
+      '"title":"Nightly sweep","weights":[1,2.5]}}',
     );
   });
 }

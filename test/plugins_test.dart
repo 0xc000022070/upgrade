@@ -450,7 +450,9 @@ void main() {
     late Directory directory;
     late PluginSourceStore store;
     setUp(() async {
-      directory = await Directory.systemTemp.createTemp('upgrade-sources-test-');
+      directory = await Directory.systemTemp.createTemp(
+        'upgrade-sources-test-',
+      );
       store = PluginSourceStore(directory);
     });
     tearDown(() => directory.delete(recursive: true));
@@ -571,7 +573,9 @@ void main() {
     late Directory directory;
     late PluginStore store;
     setUp(() async {
-      directory = await Directory.systemTemp.createTemp('upgrade-plugins-test-');
+      directory = await Directory.systemTemp.createTemp(
+        'upgrade-plugins-test-',
+      );
       store = PluginStore(directory);
     });
     tearDown(() => directory.delete(recursive: true));

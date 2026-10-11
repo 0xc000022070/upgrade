@@ -440,12 +440,18 @@ void main() {
     expect(find.text('[x]'), findsNothing);
     expect(find.text('SELECT'), findsNothing, reason: 'hidden in the mode');
     expect(_verbColor(tester, Icons.arrow_forward), UpgradeColors.textDisabled);
-    expect(_verbColor(tester, Icons.delete_outline), UpgradeColors.textDisabled);
+    expect(
+      _verbColor(tester, Icons.delete_outline),
+      UpgradeColors.textDisabled,
+    );
 
     await tester.tap(find.text('primero'));
     await _ready(tester);
     expect(find.text('1 SELECTED'), findsOneWidget);
-    expect(_verbColor(tester, Icons.arrow_forward), UpgradeColors.textSecondary);
+    expect(
+      _verbColor(tester, Icons.arrow_forward),
+      UpgradeColors.textSecondary,
+    );
 
     await unmount(tester);
   });

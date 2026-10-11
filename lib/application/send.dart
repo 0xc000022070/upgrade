@@ -54,7 +54,10 @@ Future<SpawnResult> _fakeSend({
 
 final herdrSendProvider = Provider<HerdrSend>((ref) {
   if (_fakeSpawn) return _fakeSend;
-  return HerdrClient(links: ref.read(hostLinksProvider), use: HostUse.send).send;
+  return HerdrClient(
+    links: ref.read(hostLinksProvider),
+    use: HostUse.send,
+  ).send;
 });
 
 /// A prompt leads and the title follows it; nothing is wrapped around either, or the agent reads

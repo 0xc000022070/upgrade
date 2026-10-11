@@ -114,36 +114,37 @@ void main() {
     links.close();
   });
 
-  testWidgets('a forward that never opens fails once, and RETRY after the screen linger redials', (
-    tester,
-  ) async {
-    final dial = FakeDial()
-      ..prepare = (client) => client.forwardGate = Completer();
-    final links = HostLinks(dial: dial.call);
-    final tunnel = VncTunnel(links, timeout: const Duration(seconds: 1));
-    Object? failure;
-    unawaited(
-      _open(tunnel).then((_) {}, onError: (Object error) => failure = error),
-    );
-    await tester.pump();
-    final client = dial.clients.single;
-    dial.prepare = null;
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pump();
+  testWidgets(
+    'a forward that never opens fails once, and RETRY after the screen linger redials',
+    (tester) async {
+      final dial = FakeDial()
+        ..prepare = (client) => client.forwardGate = Completer();
+      final links = HostLinks(dial: dial.call);
+      final tunnel = VncTunnel(links, timeout: const Duration(seconds: 1));
+      Object? failure;
+      unawaited(
+        _open(tunnel).then((_) {}, onError: (Object error) => failure = error),
+      );
+      await tester.pump();
+      final client = dial.clients.single;
+      dial.prepare = null;
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
 
-    expect(failure, isA<VncUnreachable>());
-    expect(client.pings, 0);
-    expect(client.isClosed, isFalse);
-    await tester.pump(links.screenLinger);
-    expect(client.isClosed, isTrue);
+      expect(failure, isA<VncUnreachable>());
+      expect(client.pings, 0);
+      expect(client.isClosed, isFalse);
+      await tester.pump(links.screenLinger);
+      expect(client.isClosed, isTrue);
 
-    unawaited(_open(tunnel).then((_) {}, onError: (Object _) {}));
-    await tester.pump();
-    expect(dial.dials, 2);
-    expect(dial.clients.last.forwards, hasLength(1));
-    links.close();
-    await tester.pump(const Duration(seconds: 3));
-  });
+      unawaited(_open(tunnel).then((_) {}, onError: (Object _) {}));
+      await tester.pump();
+      expect(dial.dials, 2);
+      expect(dial.clients.last.forwards, hasLength(1));
+      links.close();
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
 
   test(
     'a forward the host refuses is refused, and nothing is pinged',

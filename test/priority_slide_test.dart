@@ -112,7 +112,10 @@ void main() {
     expect(written, isEmpty);
   });
 
-  Future<UpgradeTokens> pumpRamp(WidgetTester tester, {bool done = false}) async {
+  Future<UpgradeTokens> pumpRamp(
+    WidgetTester tester, {
+    bool done = false,
+  }) async {
     late UpgradeTokens tokens;
     await tester.pumpWidget(
       MaterialApp(
@@ -163,10 +166,7 @@ void main() {
     );
 
     expect(
-      find.descendant(
-        of: markAt(Priority.low),
-        matching: find.byType(Text),
-      ),
+      find.descendant(of: markAt(Priority.low), matching: find.byType(Text)),
       findsNothing,
     );
 
@@ -203,10 +203,7 @@ void main() {
     for (final priority in Priority.values) {
       expect(titleAt(priority).fontSize, tokens.rowTitle.fontSize);
       expect(titleAt(priority).fontWeight, tokens.rowTitle.fontWeight);
-      expect(
-        tester.getSize(markAt(priority)).width,
-        RowMetrics.markWidth,
-      );
+      expect(tester.getSize(markAt(priority)).width, RowMetrics.markWidth);
     }
 
     await tester.pumpWidget(const SizedBox());

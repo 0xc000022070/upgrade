@@ -97,7 +97,11 @@ class _Choice extends StatelessWidget {
             if (icon case final icon?)
               ProjectIcon(icon, size: IconSizes.hero, color: color)
             else
-              UpgradeIcon(UpgradeIcons.close, size: IconSizes.hero, color: color),
+              UpgradeIcon(
+                UpgradeIcons.close,
+                size: IconSizes.hero,
+                color: color,
+              ),
             if (icon == null) ...[
               const SizedBox(height: Spacing.sm),
               Text('NO ICON', style: tokens.label.copyWith(color: color)),

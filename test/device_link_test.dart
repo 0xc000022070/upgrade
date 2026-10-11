@@ -146,51 +146,58 @@ void main() {
     expect(session.destroyed, 1);
   });
 
-  test('a leasing link closed ends its loop and its listing, never the connection', () async {
-    final client = FakeRunClient((_) => null);
-    final uses = <HostUse>[];
-    final leases = <HostLease>[];
-    final link = DeviceSsh.leasing((use) async {
-      uses.add(use);
-      return _track(leases, client);
-    });
-    link.frames(_pixel).listen((_) {}, onError: (_) {});
-    unawaited(link.list().then((_) {}, onError: (_) {}));
-    await pumpEventQueue();
-    expect(client.sessions, hasLength(2));
-    expect(uses, unorderedEquals([HostUse.deviceDock, HostUse.devices]));
+  test(
+    'a leasing link closed ends its loop and its listing, never the connection',
+    () async {
+      final client = FakeRunClient((_) => null);
+      final uses = <HostUse>[];
+      final leases = <HostLease>[];
+      final link = DeviceSsh.leasing((use) async {
+        uses.add(use);
+        return _track(leases, client);
+      });
+      link.frames(_pixel).listen((_) {}, onError: (_) {});
+      unawaited(link.list().then((_) {}, onError: (_) {}));
+      await pumpEventQueue();
+      expect(client.sessions, hasLength(2));
+      expect(uses, unorderedEquals([HostUse.deviceDock, HostUse.devices]));
 
-    await link.close();
-    await link.close();
+      await link.close();
+      await link.close();
 
-    for (final exec in client.sessions) {
-      expect(exec.signals, [SSHSignal.TERM]);
-      expect(exec.destroyed, 1);
-    }
-    expect(leases.every((lease) => lease.closed), isTrue);
-    expect(client.closed, isFalse);
-  });
+      for (final exec in client.sessions) {
+        expect(exec.signals, [SSHSignal.TERM]);
+        expect(exec.destroyed, 1);
+      }
+      expect(leases.every((lease) => lease.closed), isTrue);
+      expect(client.closed, isFalse);
+    },
+  );
 
-  test('a listing ends its command and lets its lease go once it has answered', () async {
-    final client = FakeRunClient(
-      (_) => (exitCode: 0, stdout: 'A emulator-5554 pixel\n', stderr: ''),
-    );
-    final leases = <HostLease>[];
-    final link = DeviceSsh.leasing(
-      (_) => _track(leases, client),
-    );
-    expect(await link.list(), [_pixel]);
-    expect(client.sessions.single.destroyed, 1);
-    expect(leases.single.closed, isTrue);
-  });
+  test(
+    'a listing ends its command and lets its lease go once it has answered',
+    () async {
+      final client = FakeRunClient(
+        (_) => (exitCode: 0, stdout: 'A emulator-5554 pixel\n', stderr: ''),
+      );
+      final leases = <HostLease>[];
+      final link = DeviceSsh.leasing((_) => _track(leases, client));
+      expect(await link.list(), [_pixel]);
+      expect(client.sessions.single.destroyed, 1);
+      expect(leases.single.closed, isTrue);
+    },
+  );
 
-  test('a listing refused by the host fails without touching the link', () async {
-    final client = _Refusing();
-    final link = DeviceSsh.leasing((_) => leaseOver(client));
-    await expectLater(link.list(), throwsA(anything));
-    expect(client.closed, isFalse);
-    expect(link.closed, isFalse);
-  });
+  test(
+    'a listing refused by the host fails without touching the link',
+    () async {
+      final client = _Refusing();
+      final link = DeviceSsh.leasing((_) => leaseOver(client));
+      await expectLater(link.list(), throwsA(anything));
+      expect(client.closed, isFalse);
+      expect(link.closed, isFalse);
+    },
+  );
 
   test('a read answers with its output and ends its command', () async {
     final client = FakeRunClient(

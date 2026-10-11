@@ -60,13 +60,14 @@ void main() {
 
       final links = HostLinks();
       addTearDown(links.close);
-      final session = await HerdrClient(links: links, use: HostUse.send).connect(
-        address: hostVm.address,
-        port: relay.port,
-        user: hostVm.user,
-        privateKey: hostVmPrivateKey(),
-        verifier: trustGuest(),
-      );
+      final session = await HerdrClient(links: links, use: HostUse.send)
+          .connect(
+            address: hostVm.address,
+            port: relay.port,
+            user: hostVm.user,
+            privateKey: hostVmPrivateKey(),
+            verifier: trustGuest(),
+          );
       relay.reset();
       await Future<void>.delayed(const Duration(milliseconds: 300));
 
