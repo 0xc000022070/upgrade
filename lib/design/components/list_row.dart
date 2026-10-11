@@ -35,6 +35,7 @@ class ListRow extends StatelessWidget {
     this.subtitleColor,
     this.decode = false,
     this.titleMaxLines = 1,
+    this.subtitleMaxLines = 1,
     this.metadataBelow = false,
     this.minHeight = RowMetrics.minHeight,
   }) : assert(value == null || valueSpans == null, 'one value column');
@@ -85,6 +86,7 @@ class ListRow extends StatelessWidget {
   final Color? subtitleColor;
   final bool decode;
   final int titleMaxLines;
+  final int subtitleMaxLines;
   final bool metadataBelow;
   final double minHeight;
 
@@ -155,7 +157,7 @@ class ListRow extends StatelessWidget {
             style: subtitleColor == null
                 ? context.tokens.rowSubtitle
                 : context.tokens.rowSubtitle.copyWith(color: subtitleColor),
-            maxLines: 1,
+            maxLines: subtitleMaxLines,
             overflow: TextOverflow.ellipsis,
           ),
         ),

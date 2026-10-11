@@ -16,10 +16,9 @@ import 'package:upgrade/data/repositories/task_repository.dart';
 import 'package:upgrade/features/home/capture_bar.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
-import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/features/tasks/item_sheet.dart';
+import 'package:upgrade/features/plugins/plugin_management_screen.dart';
 import 'package:upgrade/features/plugins/plugin_page.dart';
-import 'package:upgrade/features/settings/plugins_panel.dart';
 import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
 import 'package:upgrade/platform/plugins/usage.dart';
@@ -29,6 +28,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/native_plugins.dart';
+import 'support/plugin_board.dart';
 import 'support/platform_channels.dart';
 import 'agent_schedules_plugin_test.dart' show schedulePackage;
 import 'board_plugin_test.dart' show boardPackage;
@@ -293,72 +293,59 @@ void main() {
     },
   );
 
-  testWidgets('settings exposes real builtins and the enable action works', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(const Scaffold(body: SingleChildScrollView(child: PluginsPanel()))),
-    );
-    await drain(tester);
-    expect(find.text('Drops'), findsOneWidget);
-    expect(find.text('Projects'), findsOneWidget);
-    final dropsRow = find.ancestor(
-      of: find.text('Drops'),
-      matching: find.byType(ListRow),
-    );
-    final projectsRow = find.ancestor(
-      of: find.text('Projects'),
-      matching: find.byType(ListRow),
-    );
-    expect(find.descendant(of: dropsRow, matching: find.text('OFF')), findsOne);
-    expect(
-      find.descendant(of: projectsRow, matching: find.text('OFF')),
-      findsOne,
-    );
-    expect(find.textContaining('EXAMPLE'), findsNothing);
-    await tester.tap(find.text('Drops'));
-    await drain(tester);
-    final enable = find.text('ENABLE');
-    await tester.ensureVisible(enable);
-    await tester.pumpAndSettle();
-    await tester.runAsync(() async {
-      tester
-          .widget<ActionBlock>(
-            find.ancestor(of: enable, matching: find.byType(ActionBlock)),
-          )
-          .onTap!();
-    });
-    await drainUntil(
-      tester,
-      () =>
-          find.text('UPDATING').evaluate().isEmpty ||
-          find
-              .descendant(of: dropsRow, matching: find.text('ON'))
-              .evaluate()
-              .isNotEmpty,
-    );
-    expect(
-      find.descendant(
-        of: find.ancestor(
-          of: find.text('Drops'),
-          matching: find.byType(ListRow),
-        ),
-        matching: find.text('ON'),
-      ),
-      findsOneWidget,
-      reason: tester
-          .widgetList<Text>(find.byType(Text))
-          .map((t) => t.data)
-          .join('\n'),
-    );
-    expect(
-      (await tester.runAsync(store.list))!
-          .singleWhere((p) => p.id == 'upgrade.drops')
-          .enabled,
-      isTrue,
-    );
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.runAsync(closeContainer);
-    await drain(tester);
-  });
+  testWidgets(
+    'the plugin board exposes real builtins and the enable action works',
+    (tester) async {
+      await tester.pumpWidget(host(const PluginManagementScreen()));
+      await drain(tester);
+      final dropsRow = find.byKey(const ValueKey('key-upgrade.drops'));
+      final projectsRow = find.byKey(const ValueKey('key-upgrade.projects'));
+      expect(
+        find.descendant(of: dropsRow, matching: find.text('OFF')),
+        findsOne,
+      );
+      expect(
+        find.descendant(of: projectsRow, matching: find.text('OFF')),
+        findsOne,
+      );
+      expect(find.textContaining('EXAMPLE'), findsNothing);
+      await openPluginDetails(tester, 'upgrade.drops', drain);
+      final enable = find.text('ENABLE');
+      await tester.ensureVisible(enable);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async {
+        tester
+            .widget<ActionBlock>(
+              find.ancestor(of: enable, matching: find.byType(ActionBlock)),
+            )
+            .onTap!();
+      });
+      await drainUntil(
+        tester,
+        () =>
+            find.text('UPDATING').evaluate().isEmpty ||
+            find
+                .descendant(of: dropsRow, matching: find.text('ON'))
+                .evaluate()
+                .isNotEmpty,
+      );
+      expect(
+        find.descendant(of: dropsRow, matching: find.text('ON')),
+        findsOneWidget,
+        reason: tester
+            .widgetList<Text>(find.byType(Text))
+            .map((t) => t.data)
+            .join('\n'),
+      );
+      expect(
+        (await tester.runAsync(store.list))!
+            .singleWhere((p) => p.id == 'upgrade.drops')
+            .enabled,
+        isTrue,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.runAsync(closeContainer);
+      await drain(tester);
+    },
+  );
 }

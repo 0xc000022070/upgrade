@@ -121,6 +121,7 @@ class PluginManifest {
     this.homepage,
     this.license,
     this.summary,
+    this.emblem,
   });
   static const manifestVersion = 2;
   static const nativeManifestVersion = 3;
@@ -158,6 +159,7 @@ class PluginManifest {
   final String? homepage;
   final String? license;
   final String? summary;
+  final String? emblem;
   bool get supported => incompatibility == null;
 
   factory PluginManifest.parse(
@@ -181,6 +183,7 @@ class PluginManifest {
       final homepage = _optionalText(root['homepage'], 'homepage', 200);
       final license = _optionalText(root['license'], 'license', 64);
       final summary = _optionalText(root['summary'], 'summary', 140);
+      final emblem = _optionalText(root['emblem'], 'emblem', 32);
       final version = Version.parse(_text(root['version'], 'version', 64));
       final api = VersionConstraint.parse(
         _text(root['upgrade_api'], 'upgrade_api', 128),
@@ -233,6 +236,7 @@ class PluginManifest {
           homepage: homepage,
           license: license,
           summary: summary,
+          emblem: emblem,
         );
       }
       if (native) {
@@ -253,6 +257,7 @@ class PluginManifest {
           'homepage',
           'license',
           'summary',
+          'emblem',
         });
         _keys(runtime, {'kind', 'entry'});
         if (!RegExp(r'^[a-z][a-z0-9_/-]*\.dart$').hasMatch(entry) ||
@@ -366,6 +371,7 @@ class PluginManifest {
           homepage: homepage,
           license: license,
           summary: summary,
+          emblem: emblem,
         );
       }
       _keys(root, {
@@ -385,6 +391,7 @@ class PluginManifest {
         'homepage',
         'license',
         'summary',
+        'emblem',
         if (uiRuntime || filesRuntime) 'ui_api',
         if (uiRuntime || filesRuntime) 'host_capabilities',
         if (filesRuntime) 'files',
@@ -646,6 +653,7 @@ class PluginManifest {
         homepage: homepage,
         license: license,
         summary: summary,
+        emblem: emblem,
       );
     } on PluginException {
       rethrow;

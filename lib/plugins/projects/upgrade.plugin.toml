@@ -1,6 +1,7 @@
 manifest_version = 3
 id = "upgrade.projects"
 name = "Projects"
+emblem = "banner"
 purpose = "Organize captured work into projects and goals."
 version = "1.0.0"
 upgrade_api = "^2.0.0"

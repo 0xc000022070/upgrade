@@ -79,6 +79,7 @@ flutter:
     - assets/icons/
     - assets/icons/signal/
     - assets/project_emblems/
+    - assets/plugin_emblems/
     - assets/sprites/mascot/
     - assets/textures/
 

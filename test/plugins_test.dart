@@ -386,6 +386,12 @@ void main() {
       );
       expect(bare.entries.single.summary, isNull);
       expect(bare.entries.single.author, isNull);
+      expect(bare.entries.single.emblem, isNull);
+
+      final marked = PluginIndex.parse(
+        pluginIndexDocument('${pluginIndex()}emblem = "flask"\n'),
+      );
+      expect(marked.entries.single.emblem, 'flask');
     });
 
     test('an index may declare several entries', () {

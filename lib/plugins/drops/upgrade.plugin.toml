@@ -1,6 +1,7 @@
 manifest_version = 3
 id = "upgrade.drops"
 name = "Drops"
+emblem = "crate"
 purpose = "Capture, review, and file unstructured work."
 version = "1.0.0"
 upgrade_api = "^2.0.0"

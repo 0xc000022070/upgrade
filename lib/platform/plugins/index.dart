@@ -13,12 +13,14 @@ class PluginIndexEntry {
     required this.ref,
     this.summary,
     this.author,
+    this.emblem,
   });
   final String id;
   final String repository;
   final String ref;
   final String? summary;
   final String? author;
+  final String? emblem;
 }
 
 class PluginIndex {
@@ -45,7 +47,14 @@ class PluginIndex {
       final entries = <PluginIndexEntry>[];
       for (final raw in rawEntries) {
         final entry = _map(raw, 'index entry');
-        _keys(entry, {'id', 'repository', 'ref', 'summary', 'author'});
+        _keys(entry, {
+          'id',
+          'repository',
+          'ref',
+          'summary',
+          'author',
+          'emblem',
+        });
         final id = _identifier(entry['id']);
         if (!ids.add(id)) {
           throw const PluginException('Duplicate plugin ID in index');
@@ -57,6 +66,7 @@ class PluginIndex {
             ref: _text(entry['ref'], 'ref', 200),
             summary: _optionalText(entry['summary'], 'summary', 140),
             author: _optionalText(entry['author'], 'author', 80),
+            emblem: _optionalText(entry['emblem'], 'emblem', 32),
           ),
         );
       }

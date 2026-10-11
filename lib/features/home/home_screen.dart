@@ -25,6 +25,7 @@ import '../tasks/item_search_screen.dart';
 import '../tasks/selection_bar.dart';
 import '../devices/screens_action.dart';
 import '../plugins/plugin_management_screen.dart';
+import '../plugins/plugin_promise.dart';
 import 'agents_panel.dart';
 import 'home_card_viewport.dart';
 import 'home_actions.dart';
@@ -444,34 +445,17 @@ class _PlacedPluginBounds extends StatelessWidget {
   }
 }
 
-/// The promise is read off the plugin's own contributions, never written per plugin, so a
-/// plugin the app has never heard of is described the same way as the bundled two.
 class _PluginsOffPanel extends StatelessWidget {
   const _PluginsOffPanel({required this.catalog});
 
   final PluginContributionCatalog catalog;
-
-  static String promise(PluginContributionOwner owner) => [
-    for (final page in owner.pages)
-      '${page.contribution.title.toUpperCase()} '
-          '${page.contribution.defaultPinned ? 'TAB' : 'PAGE'}',
-    for (final widget in owner.widgets)
-      if (widget.contribution.locations.contains(
-        PluginPlacementLocation.homeCard,
-      ))
-        '${widget.contribution.title.toUpperCase()} CARD'
-      else if (widget.contribution.locations.contains(
-        PluginPlacementLocation.homeComposer,
-      ))
-        '${widget.contribution.title.toUpperCase()} BAR',
-  ].join(' · ');
 
   @override
   Widget build(BuildContext context) {
     final off = [
       for (final owner in catalog.owners)
         if (!owner.plugin.enabled)
-          if (promise(owner) case final words when words.isNotEmpty)
+          if (pluginPromise(owner) case final words when words.isNotEmpty)
             (owner.plugin.manifest.name, words),
     ];
     return Panel(

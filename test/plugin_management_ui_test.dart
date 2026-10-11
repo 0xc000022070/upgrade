@@ -21,6 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/native_plugins.dart';
+import 'support/plugin_board.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
@@ -57,6 +58,21 @@ class _FixturePlugins extends Plugins {
   final List<InstalledPlugin> catalog;
   @override
   Future<List<InstalledPlugin>> build() async => catalog;
+}
+
+class _SwitchingPlugins extends _FixturePlugins {
+  _SwitchingPlugins(super.catalog);
+  final switched = <String>[];
+  @override
+  Future<void> setEnabled(String id, bool enabled) async {
+    switched.add(id);
+    state = AsyncData([
+      for (final plugin in state.requireValue)
+        plugin.id == id
+            ? InstalledPlugin(plugin.package, plugin.grants, enabled: enabled)
+            : plugin,
+    ]);
+  }
 }
 
 class _RefusingPlugins extends _FixturePlugins {
@@ -135,30 +151,28 @@ void main() {
     );
     await _drain(tester);
 
-    expect(find.text('[ INSTALLED ]'), findsOneWidget);
-    expect(find.byType(ListRow), findsNWidgets(2));
-    expect(
-      find.text('Capture, review, and file unstructured work.'),
-      findsOneWidget,
-    );
+    expect(find.text('[ BOARD ]'), findsOneWidget);
+    expect(find.byKey(const ValueKey('key-upgrade.drops')), findsOneWidget);
+    expect(find.byKey(const ValueKey('key-upgrade.projects')), findsOneWidget);
+    expect(find.text('DROPS CARD · CAPTURE BAR'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('Drops'));
-    await _drain(tester);
+    await openPluginDetails(tester, 'upgrade.drops', _drain);
 
-    expect(find.text('[ YOUR LAYOUT ]'), findsOneWidget);
-    expect(find.text('[ STATUS ]'), findsOneWidget);
+    expect(find.text('[ ADDS ]'), findsOneWidget);
+    expect(find.text('NOTHING · RUNS ON ITS OWN'), findsOneWidget);
+    expect(find.text('[ UNLOCKS ]'), findsOneWidget);
+    expect(find.text('ACTIONS'), findsOneWidget);
     expect(find.text('SHOW TECHNICAL DIAGNOSTICS'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     final captureLayout = find.byKey(
       const ValueKey('layout-upgrade.drops:widget:capture'),
     );
-    await tester.ensureVisible(captureLayout);
-    await tester.pump();
-    await tester.tap(captureLayout);
-    await _drain(tester);
-    final remove = find.text('REMOVE FROM INPUT BAR');
+    final remove = find.descendant(
+      of: captureLayout,
+      matching: find.text('OFF'),
+    );
     await tester.ensureVisible(remove);
     await tester.tap(remove);
     await _drain(tester);
@@ -222,8 +236,7 @@ void main() {
     );
     await _drain(tester);
 
-    await tester.tap(find.text('Projects'));
-    await _drain(tester);
+    await openPluginDetails(tester, 'upgrade.projects', _drain);
 
     final enable = find.widgetWithText(ActionBlock, 'ENABLE');
     await tester.ensureVisible(enable);
@@ -240,7 +253,7 @@ void main() {
     );
     expect(
       tester.getTopLeft(failure).dy,
-      lessThan(tester.getTopLeft(find.text('[ YOUR LAYOUT ]')).dy),
+      lessThan(tester.getTopLeft(find.text('[ ADDS ]')).dy),
     );
     expect(
       tester.getTopLeft(failure).dy,
@@ -252,45 +265,175 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets(
-    'empty browse opens source form directly and Back returns to browse',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(420, 1400));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            ..._catalogOverrides(db, const []),
-            ..._marketplaceOverrides(),
-          ],
-          child: MaterialApp(
-            theme: testTheme,
-            home: const PluginManagementScreen(),
-          ),
+  testWidgets('a key that carries a dependency arms before it switches', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final catalog = builtinFixtures(enabled: false);
+    final plugins = _SwitchingPlugins(catalog);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _catalogOverrides(db, catalog, plugins: () => plugins),
+        child: MaterialApp(theme: testTheme, home: PluginManagementScreen()),
+      ),
+    );
+    await _drain(tester);
+    expect(find.text('0 ON · 2 OFF'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('key-upgrade.projects')));
+    await _drain(tester);
+    expect(plugins.switched, isEmpty);
+    final projectsSwitch = find.byKey(
+      const ValueKey('switch-upgrade.projects'),
+    );
+    expect(
+      find.descendant(of: projectsSwitch, matching: find.text('POWER UP')),
+      findsOneWidget,
+    );
+    expect(find.text('ALSO TURNS ON DROPS'), findsOneWidget);
+
+    await tester.tap(projectsSwitch);
+    await _drain(tester);
+    expect(find.text('GOES ON'), findsNWidgets(2));
+    expect(plugins.switched, isEmpty);
+    expect(find.text('TAP AGAIN · SWITCH 2'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('GOES ON'), findsNothing);
+
+    await tester.tap(projectsSwitch);
+    await _drain(tester);
+    await tester.tap(projectsSwitch);
+    await _drain(tester);
+    expect(plugins.switched, ['upgrade.drops', 'upgrade.projects']);
+    expect(find.text('2 ON · 0 OFF'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('key-upgrade.drops')));
+    await _drain(tester);
+    final dropsSwitch = find.byKey(const ValueKey('switch-upgrade.drops'));
+    await tester.tap(dropsSwitch);
+    await _drain(tester);
+    expect(find.text('GOES OFF'), findsNWidgets(2));
+    await tester.tap(dropsSwitch);
+    await _drain(tester);
+    expect(plugins.switched.skip(2), ['upgrade.projects', 'upgrade.drops']);
+    expect(find.text('0 ON · 2 OFF'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('the sheet switch carries dependents the way the board does', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final catalog = builtinFixtures(enabled: true);
+    final plugins = _SwitchingPlugins(catalog);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _catalogOverrides(db, catalog, plugins: () => plugins),
+        child: MaterialApp(theme: testTheme, home: PluginManagementScreen()),
+      ),
+    );
+    await _drain(tester);
+
+    await openPluginDetails(tester, 'upgrade.drops', _drain);
+    expect(find.text('ALSO TURNS OFF PROJECTS'), findsNWidgets(2));
+
+    final disable = find.widgetWithText(ActionBlock, 'DISABLE');
+    await tester.ensureVisible(disable);
+    await tester.pump();
+    await tester.tap(disable);
+    await _drain(tester);
+    expect(plugins.switched, isEmpty);
+    final again = find.widgetWithText(ActionBlock, 'TAP AGAIN · SWITCH 2');
+    expect(again, findsOneWidget);
+
+    await tester.tap(again);
+    await _drain(tester);
+    expect(plugins.switched, ['upgrade.projects', 'upgrade.drops']);
+    expect(find.text('0 ON · 2 OFF'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('a missing dependency is a hollow slot that opens BROWSE', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final projects = builtinFixture('projects');
+    final catalog = [
+      InstalledPlugin(projects, projects.manifest.permissions, enabled: false),
+    ];
+    final plugins = _SwitchingPlugins(catalog);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._catalogOverrides(db, catalog, plugins: () => plugins),
+          ..._marketplaceOverrides(),
+        ],
+        child: MaterialApp(theme: testTheme, home: PluginManagementScreen()),
+      ),
+    );
+    await _drain(tester);
+    expect(find.text('MISSING'), findsOneWidget);
+    expect(find.text('NEEDS upgrade.drops · NOT INSTALLED'), findsOneWidget);
+    expect(find.text('0 ON · 0 OFF · 1 BLOCKED'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('key-upgrade.projects')));
+    await _drain(tester);
+    expect(plugins.switched, isEmpty);
+
+    await tester.tap(find.byKey(const ValueKey('key-upgrade.drops')));
+    await _drain(tester);
+    expect(
+      find.text('No plugins to browse. Add a source to load its catalog.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('empty browse offers ADD SOURCE, which switches to SOURCES', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._catalogOverrides(db, const []),
+          ..._marketplaceOverrides(),
+        ],
+        child: MaterialApp(
+          theme: testTheme,
+          home: const PluginManagementScreen(),
         ),
-      );
-      await _drain(tester);
-      await tester.tap(find.text('BROWSE'));
-      await _drain(tester);
-      expect(
-        find.text('No plugins to browse. Add a source to load its catalog.'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text('ADD SOURCE'));
-      await _drain(tester);
-      expect(find.byType(TextField), findsNWidgets(2));
-      await tester.binding.handlePopRoute();
-      await _drain(tester);
-      expect(
-        find.text('No plugins to browse. Add a source to load its catalog.'),
-        findsOneWidget,
-      );
-      expect(find.byType(TextField), findsNothing);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump(const Duration(milliseconds: 1));
-    },
-  );
+      ),
+    );
+    await _drain(tester);
+    await tester.tap(find.text('BROWSE'));
+    await _drain(tester);
+    expect(
+      find.text('No plugins to browse. Add a source to load its catalog.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('ADD SOURCE'));
+    await _drain(tester);
+    expect(find.text('[ SOURCES ]'), findsOneWidget);
+    expect(find.byType(TextField), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
 
   testWidgets('sources are added and removed under SOURCES', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 1400));

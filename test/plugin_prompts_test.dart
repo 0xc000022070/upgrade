@@ -22,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/native_plugins.dart';
+import 'support/plugin_board.dart';
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';
 
@@ -161,20 +162,17 @@ void main() {
       ],
     );
 
-    await tester.tap(find.text('Projects'));
-    await _drain(tester);
+    await openPluginDetails(tester, 'upgrade.projects', _drain);
 
     final layout = find.byKey(
       const ValueKey('layout-upgrade.projects:widget:next-action'),
     );
     await tester.ensureVisible(layout);
     await tester.pump();
-    await tester.tap(layout);
-    await _drain(tester);
     expect(find.textContaining('NEXT ACTION · HOME CARD'), findsOneWidget);
 
     Future<void> chooseInputBar() async {
-      final action = find.text('INPUT BAR');
+      final action = find.descendant(of: layout, matching: find.text('BAR'));
       await tester.ensureVisible(action);
       await tester.pump();
       await tester.tap(action);
@@ -221,19 +219,16 @@ void main() {
       ],
     );
 
-    await tester.tap(find.text('Drops'));
-    await _drain(tester);
+    await openPluginDetails(tester, 'upgrade.drops', _drain);
 
     final layout = find.byKey(
       const ValueKey('layout-upgrade.drops:widget:drops'),
     );
     await tester.ensureVisible(layout);
     await tester.pump();
-    await tester.tap(layout);
-    await _drain(tester);
 
     repository.refuse = true;
-    final hide = find.text('HIDE ON HOME');
+    final hide = find.descendant(of: layout, matching: find.text('HIDDEN'));
     await tester.ensureVisible(hide);
     await tester.pump();
     await tester.tap(hide);
