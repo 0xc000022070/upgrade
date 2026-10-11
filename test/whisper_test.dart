@@ -155,7 +155,9 @@ void main() {
       await store(name: 'small').fetch((_) {});
       final small = whisperModelProvider(WhisperSize.small);
       container.read(small);
-      await pumpEventQueue();
+      for (var i = 0; i < 200 && container.read(small) is! WhisperReady; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
       expect(container.read(small), isA<WhisperReady>());
       expect(
         container.read(whisperModelProvider(WhisperSize.base)),

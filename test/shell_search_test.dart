@@ -39,9 +39,7 @@ void main() {
     }) async {
       final sessions = fakeShellSessions(transport);
       sessions.open(intent: testIntent(), _rose);
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 5)),
-      );
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       final session = sessions.activeFor(_rose.id)!;
       transport.opened.single.emit(output);
       await tester.pump(const Duration(milliseconds: 10));
@@ -137,9 +135,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
       sessions.open(intent: testIntent(), _rose);
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 5)),
-      );
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       final session = sessions.activeFor(_rose.id)!;
       transport.opened.single.emit('one\r\none\r\n');
       await tester.pump(const Duration(milliseconds: 10));
@@ -186,9 +182,7 @@ void main() {
     );
 
     Future<void> ready(WidgetTester tester) async {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 5)),
-      );
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       for (var i = 0; i < 6; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }

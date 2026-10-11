@@ -233,8 +233,9 @@ void main() {
       await tester.pump();
     }
 
-    Future<void> settleWrites() async {
-      for (var i = 0; i < 40; i++) {
+    Future<void> settleWrites({int? until}) async {
+      for (var i = 0; i < (until == null ? 40 : 400); i++) {
+        if (until != null && written.length >= until) return;
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 10)),
         );
@@ -244,7 +245,7 @@ void main() {
 
     await paint(0);
     await tester.pump(previewInterval);
-    await settleWrites();
+    await settleWrites(until: 1);
     expect(written, <String>[_nyx.id]);
 
     tester.binding
@@ -259,7 +260,7 @@ void main() {
       ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
       ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump(previewInterval);
-    await settleWrites();
+    await settleWrites(until: 2);
     expect(written, <String>[_nyx.id, _nyx.id]);
 
     await tester.pumpWidget(const SizedBox.shrink());

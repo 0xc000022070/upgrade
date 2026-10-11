@@ -51,9 +51,7 @@ void main() {
 
   Future<void> openSheet(WidgetTester tester) async {
     final session = sessions.open(intent: testIntent(), _nyx)!;
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 5)),
-    );
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pumpWidget(
       ProviderScope(
         overrides: [

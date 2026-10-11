@@ -28,9 +28,7 @@ import 'support/themed_app.dart';
 
 Future<void> drain(WidgetTester tester, {Duration step = Duration.zero}) async {
   for (var i = 0; i < 6; i++) {
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 10)),
-    );
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pump(step);
   }
 }

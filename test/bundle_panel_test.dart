@@ -85,9 +85,7 @@ void main() {
   /// The settings stream, the derivation and the picker stub all want real time.
   Future<void> ready(WidgetTester tester) async {
     for (var i = 0; i < 8; i++) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 5)),
-      );
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pump();
     }
     await tester.pump(const Duration(milliseconds: 300));

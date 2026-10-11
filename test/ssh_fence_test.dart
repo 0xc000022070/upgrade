@@ -1,10 +1,10 @@
 @Timeout(Duration(minutes: 5))
+// ignore_for_file: implementation_imports
 library;
 
 import 'dart:io';
 
 import 'package:analyzer/dart/analysis/analysis_context.dart';
-import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/token.dart';
@@ -14,6 +14,8 @@ import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/diagnostic/diagnostic.dart';
 import 'package:analyzer/file_system/overlay_file_system.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
+import 'package:analyzer/src/dart/analysis/analysis_context_collection.dart';
+import 'package:analyzer/src/dart/analysis/file_byte_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _supervisor = 'lib/platform/ssh/connection_supervisor.dart';
@@ -104,9 +106,13 @@ String _abs(String rel) => '$_root/$rel';
 
 final _files = OverlayResourceProvider(PhysicalResourceProvider.INSTANCE);
 
-final AnalysisContext _context = AnalysisContextCollection(
+final _cache = Directory('$_root/.dart_tool/ssh_fence')
+  ..createSync(recursive: true);
+
+final AnalysisContext _context = AnalysisContextCollectionImpl(
   includedPaths: [_abs('lib')],
   resourceProvider: _files,
+  byteStore: EvictingFileByteStore(_cache.path, 512 << 20),
   sdkPath: '${Platform.environment['FLUTTER_ROOT']}/bin/cache/dart-sdk',
 ).contextFor(_abs(_supervisor));
 

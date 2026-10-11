@@ -158,9 +158,7 @@ void main() {
 
 Future<void> _ready(WidgetTester tester) async {
   for (var i = 0; i < 5; i++) {
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 5)),
-    );
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pump();
   }
 }
