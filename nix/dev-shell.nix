@@ -6,6 +6,8 @@ let
   ndkRoot = "${sdkRoot}/ndk/28.2.13676358";
   jdk = pkgs.jdk21;
 
+  testfmt = pkgs.callPackage ./testfmt.nix { };
+
   ghosttySrc = pkgs.callPackage ./ghostty-src.nix { };
   ghosttyVt = pkgs.callPackage ./engine/libghostty-vt.nix { };
 
@@ -25,6 +27,7 @@ pkgs.mkShell {
     pkgs.dart
     pkgs.sqlite
     pkgs.just
+    testfmt
     jdk
     pkgs.cargo
     pkgs.rustc

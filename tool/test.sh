@@ -14,21 +14,25 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 jobs=$(getconf _NPROCESSORS_ONLN)
 
+run() {
+  flutter test --reporter json "$@" 2>&1 | testfmt
+}
+
 unit() {
   tool/test-shards.sh "$jobs"
-  flutter test test/shards/unit.dart
+  run test/shards/unit.dart
 }
 
 local_tier() {
   if [ $# -gt 0 ]; then
-    flutter test -j "$jobs" --exclude-tags host "$@"
+    run -j "$jobs" --exclude-tags host "$@"
     return
   fi
   local out=.dart_tool/test status=0
   mkdir -p "$out"
   tool/test-shards.sh "$jobs"
   started=$SECONDS
-  flutter test -j "$jobs" --file-reporter "json:$out/report.json" test/shards/shard_*.dart || status=$?
+  run -j "$jobs" --file-reporter "json:$out/report.json" test/shards/shard_*.dart || status=$?
   wall=$((SECONDS - started))
   if ! dart tool/test_times.dart "$out/report.json" "$out/times.tsv" ${file_budget:+--budget "$file_budget"}; then
     [ "$status" -ne 0 ] || status=1
@@ -51,7 +55,7 @@ check() {
 
 host() {
   nix run .#host-up
-  flutter test -j 1 --tags host "${@:-test/host}"
+  run -j 1 --tags host "${@:-test/host}"
 }
 
 case $tier in
