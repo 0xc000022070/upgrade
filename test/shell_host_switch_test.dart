@@ -185,7 +185,10 @@ void main() {
     await tester.drag(header, const Offset(0, 400));
     await ready(tester);
     expect(header, findsNothing);
-    expect(find.text('ROSE 1'), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('parked-shell-host-${_rose.id}')),
+      findsOneWidget,
+    );
 
     await unmount(tester);
   });

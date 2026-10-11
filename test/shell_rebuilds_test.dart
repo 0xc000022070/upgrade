@@ -101,7 +101,7 @@ void main() {
         tester,
         () => backLink.setHealth(ShellConnectionHealth.reconnecting),
       ),
-      {'ShellHeader': 1},
+      {'ShellHeader': 1, '_Bar': 1},
     );
     expect(background.state, isA<ShellReconnecting>());
     expect(
@@ -109,7 +109,7 @@ void main() {
         tester,
         () => activeLink.setHealth(ShellConnectionHealth.reconnecting),
       ),
-      everything,
+      {...everything}..remove('_Bar'),
     );
     expect(
       await _count(tester, () => sessions.activate(rose.id, background)),

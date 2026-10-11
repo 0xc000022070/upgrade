@@ -14,6 +14,8 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/shell/parked_shell_bar.dart';
 import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/shell_status.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/herdr_client.dart';
 
 import 'support/fake_shell.dart';
@@ -42,11 +44,13 @@ const _nyx = Host(
 void main() {
   late AppDatabase db;
   late ShellSessions sessions;
+  late FakeShellTransport transport;
 
   setUp(() {
     stubDeviceChannels();
     db = AppDatabase(NativeDatabase.memory());
-    sessions = fakeShellSessions(FakeShellTransport());
+    transport = FakeShellTransport();
+    sessions = fakeShellSessions(transport);
   });
 
   tearDown(() => db.close());
@@ -74,6 +78,13 @@ void main() {
 
   final bar = find.byKey(const ValueKey('parked-shell'));
   final header = find.byKey(const ValueKey('shell-header'));
+  final label = find.byKey(const ValueKey('parked-shell-label'));
+  final more = find.byKey(const ValueKey('parked-shell-more'));
+  final verb = find.byKey(const ValueKey('parked-shell-verb'));
+  Finder cell(Host host) =>
+      find.byKey(ValueKey('parked-shell-host-${host.id}'));
+  Finder count(Host host, int tabs) =>
+      find.descendant(of: cell(host), matching: find.text('$tabs'));
 
   for (final width in [360.0, 900.0]) {
     for (final scale in [1.0, 1.5]) {
@@ -92,12 +103,15 @@ void main() {
 
         expect(tester.getSize(bar).width, width);
         expect(
-          tester.getTopRight(find.text('TAP TO RESUME')).dx,
+          tester.getTopRight(verb).dx,
           closeTo(width - Spacing.screenEdge, 0.01),
         );
+        if (scale == 1) {
+          expect(tester.widget<Text>(verb).data, 'TAP TO RESUME');
+        }
         expect(tester.takeException(), isNull);
 
-        await tester.tap(find.text('TAP TO RESUME'));
+        await tester.tap(verb);
         await ready(tester);
         expect(header, findsOneWidget);
         await unmount(tester);
@@ -123,7 +137,7 @@ void main() {
     await ready(tester);
 
     expect(bar, findsOneWidget);
-    expect(find.text('ROSE 1'), findsOneWidget);
+    expect(count(_rose, 1), findsOneWidget);
     expect(find.text('TAP TO RESUME'), findsOneWidget);
     expect(
       tester.getBottomLeft(bar).dy,
@@ -209,7 +223,10 @@ void main() {
     await ready(tester);
 
     expect(header, findsOneWidget);
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(
+      find.descendant(of: header, matching: find.text('ROSE')),
+      findsOneWidget,
+    );
 
     await unmount(tester);
   });
@@ -246,30 +263,33 @@ void main() {
     final first = sessions.open(intent: testIntent(), _rose)!;
     sessions.open(intent: testIntent(), _nyx);
     await ready(tester);
-    expect(find.text('NYX 2'), findsNothing);
-    expect(find.text('NYX 1'), findsOneWidget);
+    expect(
+      tester.getTopLeft(cell(_nyx)).dx,
+      lessThan(tester.getTopLeft(cell(_rose)).dx),
+    );
 
     sessions.activate(_rose.id, first);
     await ready(tester);
-    expect(find.text('ROSE 1'), findsOneWidget);
+    expect(
+      tester.getTopLeft(cell(_rose)).dx,
+      lessThan(tester.getTopLeft(cell(_nyx)).dx),
+    );
 
     await unmount(tester);
   });
 
-  testWidgets('tabs running behind the named one are counted', (tester) async {
+  testWidgets('every host is counted by its tabs', (tester) async {
     await tester.pumpWidget(app());
     await ready(tester);
 
     sessions.open(intent: testIntent(), _rose);
-    await ready(tester);
-    expect(find.text('+1'), findsNothing);
-
     sessions.open(intent: testIntent(), _rose);
     sessions.open(intent: testIntent(), _nyx);
     await ready(tester);
 
-    expect(find.text('NYX 1'), findsOneWidget);
-    expect(find.text('+2'), findsOneWidget);
+    expect(count(_rose, 2), findsOneWidget);
+    expect(count(_nyx, 1), findsOneWidget);
+    expect(more, findsNothing);
 
     await unmount(tester);
   });
@@ -299,13 +319,111 @@ void main() {
     sessions.open(intent: testIntent(), _rose);
     final second = sessions.open(intent: testIntent(), _nyx)!;
     await ready(tester);
-    expect(find.text('NYX 1'), findsOneWidget);
+    expect(cell(_nyx), findsOneWidget);
 
     await sessions.close(intent: testIntent(), _nyx.id, second);
     await ready(tester);
 
-    expect(find.text('ROSE 1'), findsOneWidget);
+    expect(cell(_nyx), findsNothing);
+    expect(count(_rose, 1), findsOneWidget);
 
     await unmount(tester);
   });
+
+  testWidgets('one host names its tab, and only by its label', (tester) async {
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    sessions.open(intent: testIntent(), _rose);
+    await ready(tester);
+    expect(label, findsNothing);
+
+    transport.opened.single.emit('\x1b]0;luis@rose: ~/Projects/upgrade\x07');
+    await ready(tester);
+    expect(find.text('upgrade'), findsOneWidget);
+
+    sessions.open(intent: testIntent(), _nyx);
+    await ready(tester);
+    expect(label, findsNothing);
+    expect(find.text('upgrade'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a host with a tab that is not live carries a dot', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _nyx);
+    await ready(tester);
+    final dots = find.descendant(of: bar, matching: find.byType(ShellStateDot));
+    expect(dots, findsNothing);
+
+    transport.opened.first.setHealth(ShellConnectionHealth.reconnecting);
+    await ready(tester);
+    expect(
+      find.descendant(of: cell(_rose), matching: find.byType(ShellStateDot)),
+      findsOneWidget,
+    );
+    expect(dots, findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  for (final width in [320.0, 360.0, 400.0]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('hosts that do not fit are counted at $width x$scale', (
+        tester,
+      ) async {
+        tester.view.physicalSize = Size(width, 1200);
+        tester.view.devicePixelRatio = 1;
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.view.reset);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pumpWidget(app());
+        await ready(tester);
+
+        final hosts = [
+          for (var i = 0; i < 6; i++)
+            Host(
+              id: 'many-$i',
+              name: 'machine-$i',
+              address: '100.64.1.$i',
+              port: 22,
+              user: 'luis',
+              keyId: 'key-1',
+            ),
+        ];
+        for (final host in hosts) {
+          sessions.open(intent: testIntent(), host);
+        }
+        await ready(tester);
+
+        expect(tester.takeException(), isNull);
+        final front = hosts.last;
+        expect(cell(front), findsOneWidget);
+        expect(count(front, 1), findsOneWidget);
+        final drawn = hosts.where((host) => cell(host).evaluate().isNotEmpty);
+        final left = hosts.length - drawn.length;
+        expect(left, greaterThan(0));
+        if (scale == 1) {
+          expect(tester.widget<Text>(verb).data, 'TAP TO RESUME');
+          expect(
+            tester.widget<Text>(more).data,
+            anyOf('+$left HOSTS', '+$left'),
+          );
+        }
+        if (more.evaluate().isNotEmpty) {
+          expect(
+            tester.getTopRight(more).dx,
+            lessThanOrEqualTo(tester.getTopLeft(verb).dx),
+          );
+        }
+        await unmount(tester);
+      });
+    }
+  }
 }

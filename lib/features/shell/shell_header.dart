@@ -45,6 +45,13 @@ String shellTabLabel(String? title, int number) {
   return rest;
 }
 
+String shellSessionLabel(ShellSession session) => shellTabLabel(
+  session.title?.trim().isNotEmpty == true
+      ? session.title
+      : session.repository ?? session.cwd,
+  session.number,
+);
+
 class ShellHeader extends StatefulWidget {
   const ShellHeader({
     super.key,
@@ -277,12 +284,7 @@ class _ShellHeaderState extends State<ShellHeader> {
                   child: KeyedSubtree(
                     key: session == widget.active ? _activeTab : null,
                     child: _TabCell(
-                      label: shellTabLabel(
-                        session.title?.trim().isNotEmpty == true
-                            ? session.title
-                            : session.repository ?? session.cwd,
-                        session.number,
-                      ),
+                      label: shellSessionLabel(session),
                       session: session,
                       grouped: true,
                       active: session == widget.active,
