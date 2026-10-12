@@ -31,6 +31,8 @@ class LinkProbes extends ChangeNotifier {
   /// — must not put two connections on it.
   final _inFlight = <String>{};
 
+  final _endpoints = <String, Future<LinkResult>>{};
+
   LinkResult forHost(String hostId) =>
       _results[hostId] ?? const LinkResult.unknown();
 
@@ -48,7 +50,12 @@ class LinkProbes extends ChangeNotifier {
     _results[host.id] = const LinkResult.probing();
     notifyListeners();
     try {
-      _results[host.id] = await _probe(host.address, host.port);
+      final endpoint = '${host.address}:${host.port}';
+      // A block body: `remove` hands back this same future, and whenComplete would wait on it.
+      _results[host.id] = await (_endpoints[endpoint] ??=
+          _probe(host.address, host.port).whenComplete(() {
+            _endpoints.remove(endpoint);
+          }));
     } finally {
       _inFlight.remove(host.id);
       // Stamped on the way out, so a probe that took its whole deadline is not already stale

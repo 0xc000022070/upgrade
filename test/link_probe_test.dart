@@ -159,6 +159,35 @@ void main() {
     },
   );
 
+  test('rows on one address and port share one connection', () async {
+    var calls = 0;
+    final answer = Completer<LinkResult>();
+    final probes = LinkProbes(
+      probe: (_, _) {
+        calls++;
+        return answer.future;
+      },
+    );
+    const twin = Host(
+      id: 'h2',
+      name: 'rose root',
+      address: '127.0.0.1',
+      port: 22,
+      user: 'root',
+      keyId: 'key-1',
+    );
+
+    final pending = probes.refresh([_rose, twin]);
+    answer.complete(const LinkResult(LinkStatus.up, software: 'OpenSSH_9.9'));
+    await pending;
+
+    expect(calls, 1);
+    expect(
+      linkWord(probes.forHost(twin.id)),
+      linkWord(probes.forHost(_rose.id)),
+    );
+  });
+
   test('a host nobody has probed reads as a dash', () {
     expect(linkWord(LinkProbes().forHost(_rose.id)), '—');
   });

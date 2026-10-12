@@ -745,7 +745,7 @@ A scoped exception to never shipping a third-party mark, like the agents' marks,
 
 A metadata row above the shell row on each host panel. `—` before the first probe, `PROBING` while one is out, `<software> · <n> MS` when the machine answered — `OPENSSH_9.9 · 120 MS`, the software token taken off the identification string and uppercased — or the failure word in warning: `NO ROUTE`, `UNRESOLVED`, `REFUSED`, `NO BANNER`.
 
-The probe is a TCP connection to the host's address and port that reads the identification line and hangs up, on a four-second deadline, with no key and no handshake. **It waits for the banner rather than settling for the connection**, because a port that accepts and then stalls is a tarpit and not a shell. It runs for every host when the tab comes to the front, at most once every thirty seconds per host, and on a tap of the row, which probes again whatever the age.
+The probe is a TCP connection to the host's address and port that reads the identification line and hangs up, on a four-second deadline, with no key and no handshake. **It waits for the banner rather than settling for the connection**, because a port that accepts and then stalls is a tarpit and not a shell. Rows that name the same address and port share one probe: three logins on one machine are one machine, and three connections at once can overflow a small accept queue and stall one of them past the deadline. It runs for every host when the tab comes to the front, at most once every thirty seconds per host, and on a tap of the row, which probes again whatever the age.
 
 ### A machine is verified before it is trusted, and a changed key is refused
 
@@ -758,6 +758,8 @@ Every ssh dial in the app — the shell, the screen's tunnel, the agent poll —
 ### The deadline is on the machine, not on the user reading a fingerprint
 
 The dial's timeout is armed at the connect and disarmed the moment the key arrives, so a sheet can stand open as long as the user needs. The transport's own deadline is set out of the way. The dial returns once the key has been answered for; authentication is never what it was waiting for.
+
+The same holds for the authentication the shell, the screen and a workspace pane wait on after the dial: its clock stops while the sheet stands and starts over, whole, once the key is answered for. A user who reads the fingerprint for a minute and taps `TRUST` gets a login, not `timed out`.
 
 A socket that opens and then says nothing is its own failure and not silence: that is a machine behind a tarpit, not a machine that is down.
 
