@@ -144,6 +144,9 @@ in
     settings = {
       PasswordAuthentication = true;
       PermitRootLogin = "no";
+      # Every client reaches the guest from a handful of addresses, and link probes and
+      # refused host keys are preauth hangups: penalties would lock the tests out.
+      PerSourcePenalties = "no";
     };
   };
 
