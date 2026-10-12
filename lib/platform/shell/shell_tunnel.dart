@@ -234,7 +234,7 @@ class ShellTunnel {
       started = !resumed;
       final udpPort = start['port'];
       final key = start['key'];
-      if (udpPort is! int || key is! String) {
+      if (udpPort is! int || udpPort < 1 || udpPort > 65535 || key is! String) {
         throw FormatException('engine start answered $start');
       }
       final epoch = start['epoch'];
@@ -283,7 +283,7 @@ class ShellTunnel {
       return connection;
     } catch (error) {
       final link = !overUdp && await _linkFailed(supervisor, error);
-      if (!link && !_silent(supervisor, address, error)) {
+      if (!link && error is! Error && !_silent(supervisor, address, error)) {
         _log(supervisor.endpoint, 'engine fallback: $error');
       }
       await connection?.abandon();
@@ -302,7 +302,7 @@ class ShellTunnel {
           _log(supervisor.endpoint, 'engine stop after fallback: $error');
         }
       }
-      if (link) rethrow;
+      if (link || error is Error) rethrow;
       return null;
     }
   }
@@ -375,7 +375,7 @@ class ShellTunnel {
       return connection;
     } catch (error) {
       final link = !overUdp && await _linkFailed(supervisor, error);
-      if (!link && !_silent(supervisor, address, error)) {
+      if (!link && error is! Error && !_silent(supervisor, address, error)) {
         _log(supervisor.endpoint, 'mosh fallback: $error');
       }
       await connection?.abandon();
@@ -389,7 +389,7 @@ class ShellTunnel {
           _log(supervisor.endpoint, 'mosh cleanup after fallback: $error');
         }
       }
-      if (link) rethrow;
+      if (link || error is Error) rethrow;
       return null;
     }
   }

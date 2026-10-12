@@ -1829,6 +1829,41 @@ void main() {
       await connection.close(UserClosed(testIntent()));
     });
 
+    test('a bug under the Mosh dial fails the open instead of falling back '
+        'to SSH, and cleans the server', () async {
+      const session = 'upgrade123';
+      final host = FakeHost()..execAnswer = moshHostAnswer;
+      final retries = <Reconnect>[];
+      await expectLater(
+        openOn(
+          ShellTunnel(
+            links: linksOver((_) => host),
+            moshDialer: ({
+              required MoshServerConfig server,
+              required int columns,
+              required int rows,
+            }) async => throw StateError('mosh bug'),
+          ),
+          command: 'exec \$SHELL -l',
+          tabSession: session,
+          persistentSession: session,
+          failed: retries.add,
+        ),
+        throwsStateError,
+      );
+      expect(retries, isEmpty);
+      expect(
+        host.requests.where(
+          (request) => request == 'exec ${moshServerCleanupCommand(session)}',
+        ),
+        hasLength(2),
+      );
+      expect(
+        host.requests.where((request) => request.startsWith('run ')),
+        isEmpty,
+      );
+    });
+
     test('a failed Mosh bootstrap is cleaned before SSH fallback', () async {
       const session = 'upgrade123';
       const command = 'exec \$SHELL -l';
@@ -2566,6 +2601,7 @@ ShellTunnel engineTunnelTo(
   FakeEngineChannel Function()? next,
   FakeHost Function()? nextHost,
   void Function()? onMosh,
+  Object? dialError,
 }) => ShellTunnel(
   timeout: timeout,
   udpVerdicts: verdicts,
@@ -2585,6 +2621,7 @@ ShellTunnel engineTunnelTo(
       }) async {
         dialled?.add((host: host, port: port, key: key));
         resumes?.add(resume);
+        if (dialError != null) throw dialError;
         final channel = next?.call() ?? engine;
         if (emitReady) {
           Timer.run(() => channel.emit(EnginePty(utf8.encode('\$ '))));
@@ -2827,6 +2864,63 @@ void engineTests() {
       expect(host.requests, contains('exec ${moshServerProbeCommand()}'));
     });
   }
+
+  test(
+    'an engine start answering a port out of range falls back to Mosh',
+    () async {
+      final host = FakeHost()
+        ..execInputAnswer = engineHostAnswer(
+          start: '{"ok":true,"result":{"port":70000,"key":"$_engineKey"}}',
+        );
+      final dialled = <({String host, int port, String key})>[];
+      final connection = await openOn(
+        engineTunnelTo(
+          host,
+          FakeEngineChannel(),
+          FakeMoshChannel(),
+          dialled: dialled,
+        ),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(testIntent())));
+
+      expect(connection, isA<MoshShellConnection>());
+      expect(dialled, isEmpty);
+    },
+  );
+
+  test('a bug under the engine dial fails the open instead of falling back, '
+      'and stops the server it started', () async {
+    final host = FakeHost()..execInputAnswer = engineHostAnswer();
+    final retries = <Reconnect>[];
+    await expectLater(
+      openOn(
+        engineTunnelTo(
+          host,
+          FakeEngineChannel(),
+          FakeMoshChannel(),
+          dialError: StateError('engine bug'),
+        ),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+        failed: retries.add,
+      ),
+      throwsStateError,
+    );
+    expect(retries, isEmpty);
+    expect(engineRequests(host).map((request) => request['op']), [
+      'start',
+      'stop',
+    ]);
+    expect(host.requests, isNot(contains('exec ${moshServerProbeCommand()}')));
+    expect(
+      host.requests.where(
+        (request) => request.startsWith('run ') || request.startsWith('shell '),
+      ),
+      isEmpty,
+    );
+  });
 
   test('a link that dies under the engine start fails the open, and neither '
       'Mosh nor SSH is tried', () async {
