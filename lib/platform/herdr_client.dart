@@ -143,22 +143,30 @@ class AgentSnapshot {
   factory AgentSnapshot.fromJson(Map<String, Object?> json) {
     T field<T>(String name) {
       final value = json[name];
-      if (value is! T) throw const HerdrProtocolMismatch();
+      if (value is! T) throw HerdrProtocolMismatch(null, 'agent $name');
       return value;
     }
 
+    String text(String name) => switch (json[name]) {
+      null => '',
+      final String value => value,
+      _ => throw HerdrProtocolMismatch(null, 'agent $name'),
+    };
+
     final label = json['workspace_label'];
-    if (label != null && label is! String) throw const HerdrProtocolMismatch();
+    if (label != null && label is! String) {
+      throw const HerdrProtocolMismatch(null, 'agent workspace_label');
+    }
     String? optional(String name) =>
         json[name] is String ? json[name]! as String : null;
     return AgentSnapshot(
       session: field<String>('session'),
       paneId: field<String>('pane_id'),
-      agent: field<String>('agent'),
+      agent: text('agent'),
       state: AgentState.of(field<String>('agent_status')),
-      terminalTitleStripped: field<String>('terminal_title_stripped'),
+      terminalTitleStripped: text('terminal_title_stripped'),
       workspaceId: field<String>('workspace_id'),
-      cwd: field<String>('cwd'),
+      cwd: text('cwd'),
       stateChangeSeq: field<int>('state_change_seq'),
       workspaceLabel: label as String?,
       source:

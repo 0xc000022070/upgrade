@@ -32,6 +32,50 @@ void main() {
     expect(HerdrCommands.agents('lab'), contains('agent list --json'));
   });
 
+  test('an agent herdr has not named or titled yet still lists', () {
+    final agents = HerdrClient.parseAgentList(const {
+      'type': 'agent_list',
+      'agents': [
+        {
+          'terminal_id': 't1',
+          'agent_status': 'unknown',
+          'workspace_id': 'w1',
+          'tab_id': 'w1:t1',
+          'pane_id': 'w1:p1',
+          'focused': true,
+          'state_change_seq': 0,
+          'revision': 1,
+        },
+      ],
+    }, session: 'default');
+
+    expect(agents.single.paneId, 'w1:p1');
+    expect(agents.single.agent, isEmpty);
+    expect(agents.single.terminalTitleStripped, isEmpty);
+    expect(agents.single.cwd, isEmpty);
+    expect(
+      () => HerdrClient.parseAgentList(const {
+        'type': 'agent_list',
+        'agents': [
+          {
+            'agent_status': 'idle',
+            'workspace_id': 'w1',
+            'pane_id': 'w1:p1',
+            'state_change_seq': 0,
+            'cwd': 7,
+          },
+        ],
+      }, session: 'default'),
+      throwsA(
+        isA<HerdrProtocolMismatch>().having(
+          (error) => error.detail,
+          'detail',
+          'agent cwd',
+        ),
+      ),
+    );
+  });
+
   test('a workspace is titled by the label herdr lists it under', () {
     Map<String, Object?> result(String name) =>
         (jsonDecode(File('test/fixtures/$name').readAsStringSync())
