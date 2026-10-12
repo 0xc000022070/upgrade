@@ -719,9 +719,12 @@ class _ExplorerState extends ConsumerState<Explorer> {
   void _step(_Tab tab, List<int> blocks, int by) {
     setState(() => tab.visit = (tab.visit + by) % blocks.length);
     final target = tab.markKeys[blocks[tab.visit]]?.currentContext;
-    if (target == null) return;
-    Scrollable.ensureVisible(
-      target,
+    final row = target?.findRenderObject();
+    if (target == null || row == null) return;
+    // Only the vertical scroll moves: a row wider than the view would otherwise
+    // pull the horizontal one along and slide the gutter off screen.
+    Scrollable.maybeOf(target, axis: Axis.vertical)?.position.ensureVisible(
+      row,
       alignment: 0.2,
       duration: const Duration(milliseconds: 200),
     );

@@ -2250,6 +2250,33 @@ new file mode 100644
       await unmount(tester);
     });
 
+    testWidgets('NEXT to a long line keeps the gutter in view', (tester) async {
+      final wide = List.generate(
+        60,
+        (i) => i == 54 ? 'line 55 ${'x' * 400}' : 'line ${i + 1}',
+      ).join('\n');
+      final runner = tracked()
+        ..answers['head -c 262144'] = WorkspaceReply(
+          exitCode: 0,
+          stdout: wide,
+          stderr: '',
+        )
+        ..answers['HEAD -- '] = const WorkspaceReply(
+          exitCode: 0,
+          stdout: twoHunks,
+          stderr: '',
+        );
+      await browse(tester, runner: runner, size: const Size(400, 700));
+      await tapText(tester, 'CHANGED 2');
+      await tapText(tester, 'lib/main.dart');
+
+      await tapMark(tester, 'NEXT');
+      await tapMark(tester, 'NEXT');
+      expect(find.text('55').hitTestable(), findsOneWidget);
+
+      await unmount(tester);
+    });
+
     testWidgets('a run of changed lines is one stop, not one each', (
       tester,
     ) async {
