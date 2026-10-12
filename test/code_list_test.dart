@@ -192,6 +192,24 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a long workspace path gives up its parents before its name', (
+    tester,
+  ) async {
+    await hosts.save(_host('1', 'nyx'));
+    await paths.add(
+      hostId: '1',
+      directory:
+          '~/src/${'a-parent-directory-far-too-long-to-fit' * 2}/upgrade',
+    );
+    await open(tester);
+    await toCode(tester);
+
+    expect(find.text('…/upgrade'), findsOneWidget);
+    expect(find.text('NYX'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
   testWidgets('with no host at all there is nothing to register on', (
     tester,
   ) async {

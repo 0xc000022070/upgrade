@@ -491,6 +491,7 @@ class _CodePanel extends ConsumerWidget {
             for (final target in targets)
               ListRow(
                 title: shortPathLabel(target.path.directory),
+                literalTitle: true,
                 value: target.host.name.toUpperCase(),
                 onTap: () => openWorkspace(context, target.path, target.host),
                 onLongPress: () => _unlink(context, ref, target),

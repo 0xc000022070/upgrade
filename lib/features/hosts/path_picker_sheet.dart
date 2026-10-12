@@ -168,6 +168,7 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
                     : null,
                 leadingWidth: _checkbox,
                 title: shortPathLabel(directory),
+                literalTitle: true,
                 titleColor: !widget.multiple || _chosen.contains(directory)
                     ? null
                     : context.tokens.textSecondary,

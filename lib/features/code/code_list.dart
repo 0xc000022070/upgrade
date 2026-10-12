@@ -105,6 +105,7 @@ class _HostGroup extends ConsumerWidget {
         for (final path in group.paths)
           ListRow(
             title: shortPathLabel(path.directory),
+            literalTitle: true,
             value: group.host.name.toUpperCase(),
             onTap: () => openWorkspace(context, path, group.host),
             onLongPress: () => _actions(context, ref, path),
