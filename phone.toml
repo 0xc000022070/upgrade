@@ -1,5 +1,6 @@
 [build.android]
 app = "dev.luisnquin.upgrade"
+ready = "PERSONAL CONTROL PLANE"
 stale = "find lib assets android/app/src packages/upgrade_luau plugins pubspec.yaml pubspec.lock -type f | sort | xargs cksum | cksum"
 run = """
 nix develop -c just apk
