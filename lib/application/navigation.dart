@@ -33,24 +33,47 @@ final navGlitchProvider = Provider<NavGlitch>((ref) {
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
+mixin KeepsScreensEdge<T> on Route<T> {}
+
 class RootRoutes extends NavigatorObserver {
-  final atRoot = ValueNotifier<bool>(true);
+  final _routes = <Route<dynamic>>[];
+
+  final edge = ValueNotifier<bool>(true);
+
+  void _changed() =>
+      edge.value = _routes.length <= 1 || _routes.last is KeepsScreensEdge;
 
   @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      atRoot.value = route.isFirst;
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    // A first route is a navigator starting over; one disposed with routes up says nothing.
+    if (previousRoute == null) _routes.clear();
+    _routes.add(route);
+    _changed();
+  }
 
   @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      atRoot.value = previousRoute?.isFirst ?? true;
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _routes.remove(route);
+    _changed();
+  }
 
   @override
-  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      atRoot.value = !(navigator?.canPop() ?? false);
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _routes.remove(route);
+    _changed();
+  }
 
   @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
-      atRoot.value = !(navigator?.canPop() ?? false);
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    final at = oldRoute == null ? -1 : _routes.indexOf(oldRoute);
+    if (at >= 0 && newRoute != null) {
+      _routes[at] = newRoute;
+    } else {
+      if (oldRoute != null) _routes.remove(oldRoute);
+      if (newRoute != null) _routes.add(newRoute);
+    }
+    _changed();
+  }
 }
 
 final rootRoutes = RootRoutes();

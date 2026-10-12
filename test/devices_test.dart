@@ -1999,6 +1999,50 @@ void main() {
       expect(find.byKey(handle), findsOneWidget);
     });
 
+    testWidgets('stays over the shell, but not over what opens on it', (
+      tester,
+    ) async {
+      await _pump(tester, _opener(FakeDeviceLink(const [_pixel])));
+      await tuck(tester);
+      final navigator = rootNavigatorKey.currentState!;
+
+      navigator.push(_ShellLikeRoute());
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byKey(handle), findsOneWidget);
+
+      navigator.push(MaterialPageRoute<void>(builder: (_) => const Scaffold()));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byKey(handle), findsNothing);
+
+      navigator.pop();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byKey(handle), findsOneWidget);
+
+      await _tapKey(tester, handle);
+      expect(find.byKey(_barKey), findsOneWidget);
+    });
+
+    testWidgets('rests above the keyboard', (tester) async {
+      await _pump(tester, _opener(FakeDeviceLink(const [_pixel])));
+      await tuck(tester);
+      rootNavigatorKey.currentState!.push(_ShellLikeRoute());
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      final ratio = tester.view.devicePixelRatio;
+      tester.view.viewInsets = FakeViewPadding(bottom: 300 * ratio);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pump();
+      final screen = tester.view.physicalSize / ratio;
+      expect(
+        tester.getRect(find.byKey(handle)).bottom,
+        lessThanOrEqualTo(screen.height - 300),
+      );
+    });
+
     testWidgets('has a twin in the header that opens the list', (tester) async {
       await _pump(tester, _opener(FakeDeviceLink(const [_pixel])), show: false);
       expect(find.byKey(_barKey), findsNothing);
@@ -2024,4 +2068,25 @@ void main() {
       expect(find.byKey(screensAction), findsNothing);
     });
   });
+}
+
+class _ShellLikeRoute extends PopupRoute<void> with KeepsScreensEdge {
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  bool get barrierDismissible => false;
+
+  @override
+  String? get barrierLabel => null;
+
+  @override
+  Duration get transitionDuration => Duration.zero;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) => const SizedBox.expand();
 }

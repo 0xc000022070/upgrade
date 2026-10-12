@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/navigation.dart';
 import '../../application/toasts.dart';
 import '../../data/repositories/host_repository.dart';
 import '../../design/components/drag_sheet.dart';
@@ -98,7 +99,7 @@ Future<void> pickHostShell(
   );
 }
 
-class ShellSheetRoute extends DragSheetRoute<void> {
+class ShellSheetRoute extends DragSheetRoute<void> with KeepsScreensEdge {
   ShellSheetRoute({
     required this.host,
     required this.intent,

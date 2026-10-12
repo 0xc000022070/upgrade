@@ -113,14 +113,14 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   bool _overClose = false;
   bool _menu = false;
   bool _sheet = false;
-  late bool _atRoot = rootRoutes.atRoot.value;
+  late bool _edge = rootRoutes.edge.value;
   late int _asks;
 
   @override
   void initState() {
     super.initState();
     _dock = ref.read(deviceDockProvider);
-    rootRoutes.atRoot.addListener(_onRoute);
+    rootRoutes.edge.addListener(_onRoute);
     _asks = _dock.asks;
     _dock.addListener(_onAsk);
     ref.listenManual<List<ScreenHost>?>(screenHostsProvider, (_, hosts) {
@@ -130,7 +130,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
 
   @override
   void dispose() {
-    rootRoutes.atRoot.removeListener(_onRoute);
+    rootRoutes.edge.removeListener(_onRoute);
     _dock.removeListener(_onAsk);
     super.dispose();
   }
@@ -138,7 +138,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   /// The navigator reports a push from inside its own build.
   void _onRoute() {
     void apply() {
-      if (mounted) setState(() => _atRoot = rootRoutes.atRoot.value);
+      if (mounted) setState(() => _edge = rootRoutes.edge.value);
     }
 
     if (SchedulerBinding.instance.schedulerPhase ==
@@ -201,10 +201,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
 
   double _clampTop(MediaQueryData media, double height) {
     final minTop = media.padding.top + Spacing.lg;
-    final maxTop = math.max(
-      minTop,
-      media.size.height - height - media.padding.bottom - deviceFloatClearance,
-    );
+    final maxTop = math.max(minTop, _floor(media) - height);
     return (_top ?? maxTop).clamp(minTop, maxTop);
   }
 
@@ -247,7 +244,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
         if (!_dock.floating) {
           _menu = false;
           final reachable = _dock.holding || (hosts?.isNotEmpty ?? false);
-          if (_dock.expanded != null || !_atRoot || !reachable) {
+          if (_dock.expanded != null || !_edge || !reachable) {
             return const SizedBox.shrink();
           }
           return _placeHandle(context);
@@ -400,7 +397,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     final bottom = top + deviceBubbleSize;
     final upward = top + deviceBubbleSize / 2 > screen.height / 2;
     final roof = media.padding.top + Spacing.lg;
-    final floor = screen.height - media.padding.bottom - deviceFloatClearance;
+    final floor = _floor(media);
     final at = _dragAt;
     final shown = _menu
         ? ConstrainedBox(
@@ -489,10 +486,14 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   }
 }
 
-Offset _target(MediaQueryData media) => Offset(
-  media.size.width / 2,
-  media.size.height - media.padding.bottom - deviceFloatClearance / 2,
-);
+double _floor(MediaQueryData media) =>
+    media.size.height -
+    media.padding.bottom -
+    media.viewInsets.bottom -
+    deviceFloatClearance;
+
+Offset _target(MediaQueryData media) =>
+    Offset(media.size.width / 2, _floor(media) + deviceFloatClearance / 2);
 
 bool _overTarget(Offset pointer, MediaQueryData media) =>
     (pointer - _target(media)).distance < deviceCloseTarget;
