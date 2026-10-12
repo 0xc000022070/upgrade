@@ -108,10 +108,10 @@ The variant is drawn only inside the icon-glitch event. It is not a static icon 
 
 ## Host systems
 
-The two marks below are the one place the family draws somebody else's sign. They keep the stroke, the caps, the joins and `currentColor`, and every curve is faceted into straight runs, but the silhouette is the vendor's, because the reader has to recognise it at a glance. Nothing else in the family may borrow from them.
+The two marks below are the one place the family draws somebody else's sign. They are the vendors' own silhouettes, solid and in `currentColor`, because the reader has to recognise them at a glance and a stroked redraw did not. Nothing else in the family may borrow from them.
 
 | Name | Meaning | Node class | Modifier | Min size |
 |---|---|---|---|---:|
-| system-nixos | A NixOS host: six lambda legs wheeling around a hexagonal hole | None | Vendor mark | 16 px |
-| system-darwin | A macOS host: a faceted apple with its bite and a solid leaf | None | Vendor mark | 16 px |
+| system-nixos | A NixOS host: the snowflake of six lambdas, solid | None | Vendor mark | 16 px |
+| system-darwin | A macOS host: the Apple apple with its bite and leaf, solid | None | Vendor mark | 16 px |
 | system-server | Any other host, or one not yet probed: a single rack unit with its node and a drive slot | Square system node | Container is the meaning | 16 px |
