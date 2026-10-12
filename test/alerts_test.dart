@@ -533,8 +533,9 @@ void main() {
       expect(AgentOutcomeKind.hostKeyChanged.retryable, isFalse);
     });
 
-    test('the loop stands on a refusal and knocks on a bad route', () async {
-      TestWidgetsFlutterBinding.ensureInitialized();
+    testWidgets('the loop stands on a refusal and knocks on a bad route', (
+      tester,
+    ) async {
       final store = MemoryPrivateKeyStore();
       await store.write('k1', 'PRIVATE KEY');
       final client = RecordingHerdrClient(
@@ -546,9 +547,7 @@ void main() {
       );
 
       await handler.setHosts(const [host, other]);
-      await Future<void>.delayed(
-        watcherMinBackoff + const Duration(seconds: 1),
-      );
+      await tester.pump(watcherMinBackoff + const Duration(seconds: 1));
       await handler.onDestroy(DateTime.now(), false);
 
       expect(

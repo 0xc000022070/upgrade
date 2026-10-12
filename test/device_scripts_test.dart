@@ -43,7 +43,7 @@ if [ -f "$STATE/die" ]; then
 fi
 echo 'INFO    | booting'
 printf '%s' "$2" >"$STATE/up"
-sleep 3
+while [ -d "$STATE" ]; do sleep 1; done
 ''';
 
 const _avdmanager = r'''#!/bin/sh
@@ -82,7 +82,6 @@ const _tools = [
   'grep',
   'awk',
   'tr',
-  'sleep',
   'sed',
   'dirname',
   'perl',
@@ -140,6 +139,8 @@ Future<_Host> _host({
     await File('${host.bin}/$name').writeAsString(body);
     await Process.run('chmod', ['+x', '${host.bin}/$name']);
   }
+
+  await shim('sleep', '#!/bin/sh\nexec ${await _which('sleep')} 0.05\n');
 
   if (android) {
     await shim('adb', _adb);

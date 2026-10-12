@@ -6,7 +6,12 @@ import 'package:sqlite3/sqlite3.dart';
 import '../data_api.dart';
 
 class DatasetStore {
-  DatasetStore(this.directory);
+  DatasetStore(
+    this.directory, {
+    this.timeBudget = defaultTimeBudget,
+    this.clock = _monotonic,
+  });
+  static const defaultTimeBudget = Duration(milliseconds: 500);
   static const maxValueBytes = 16 * 1024;
   static const maxReplyBytes = 64 * 1024;
   static const maxDatasets = 128;
@@ -14,6 +19,11 @@ class DatasetStore {
   static const maxReservedBytes = 128 * 1024 * 1024;
   static const maxOwnerReservedBytes = 32 * 1024 * 1024;
   final Directory directory;
+
+  final Duration timeBudget;
+  final Duration Function() clock;
+  static final _uptime = Stopwatch()..start();
+  static Duration _monotonic() => _uptime.elapsed;
   final _databases = <String, Database>{};
   Database? _registry;
   bool _closed = false;
@@ -465,7 +475,7 @@ class DataInvocation {
   var _calls = 0;
   var _bytes = 0;
   var _finished = false;
-  final _elapsed = Stopwatch();
+  Duration? _firstCall;
 
   DataReply call(
     DataOperation operation,
@@ -486,11 +496,12 @@ class DataInvocation {
     final watch = Stopwatch()..start();
     meter.calls++;
     try {
-      _elapsed.start();
+      final now = _store.clock();
+      final firstCall = _firstCall ??= now;
       if (++_calls > 64) {
         throw const DataException('Dataset call budget exceeded');
       }
-      if (_elapsed.elapsedMilliseconds >= 500) {
+      if (now - firstCall >= _store.timeBudget) {
         throw const DataException('Dataset time budget exceeded');
       }
       if (grant == null || !grant.operations.contains(operation)) {

@@ -4,6 +4,8 @@ import 'package:upgrade_luau/datasets.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+const _unhurried = Duration(days: 1);
+
 void main() {
   final owner = DataOwner('example.owner', 'https://github.com/example/owner');
   final other = DataOwner(
@@ -17,8 +19,11 @@ void main() {
 
   setUp(() {
     directory = Directory.systemTemp.createTempSync('upgrade-datasets-');
-    store = DatasetStore(directory);
-    worker = LuauWorker(dataDirectory: directory.path);
+    store = DatasetStore(directory, timeBudget: _unhurried);
+    worker = LuauWorker(
+      dataDirectory: directory.path,
+      dataTimeBudget: _unhurried,
+    );
   });
   tearDown(() async {
     await worker.close();
@@ -327,7 +332,7 @@ end}
     store.close();
     final path = '${directory.path}/registry.sqlite';
     File(path).renameSync('$path.saved');
-    store = DatasetStore(directory);
+    store = DatasetStore(directory, timeBudget: _unhurried);
     expect(() => store.inventory(), throwsA(isA<DataException>()));
     expect(File(path).existsSync(), isFalse);
   });
@@ -418,7 +423,7 @@ end}
         .revision;
     write.finish();
     store.close();
-    store = DatasetStore(directory);
+    store = DatasetStore(directory, timeBudget: _unhurried);
     final read = session(dataset());
     final record = read
         .call(DataOperation.get, 'local', key: 'one')
@@ -621,37 +626,37 @@ end}
     },
   );
 
-  test(
-    'dataset time budget starts at first access, not host preparation',
-    () async {
-      final invocation = store.begin(
-        DataContext(owner, {
-          'selected': DataGrant(null, {DataOperation.get}),
-        }, selection: const DataRecord('one', 'retained', 1)),
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 550));
+  test('dataset time budget starts at first access, not host preparation', () {
+    var now = Duration.zero;
+    final timed = DatasetStore(directory, clock: () => now);
+    addTearDown(timed.close);
+    final invocation = timed.begin(
+      DataContext(owner, {
+        'selected': DataGrant(null, {DataOperation.get}),
+      }, selection: const DataRecord('one', 'retained', 1)),
+    );
+    now += DatasetStore.defaultTimeBudget + const Duration(milliseconds: 50);
+    expect(
+      invocation.call(DataOperation.get, 'selected').records.single.value,
+      'retained',
+    );
+    now += DatasetStore.defaultTimeBudget;
+    for (var i = 0; i < 2; i++) {
       expect(
-        invocation.call(DataOperation.get, 'selected').records.single.value,
-        'retained',
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 550));
-      for (var i = 0; i < 2; i++) {
-        expect(
-          () => invocation.call(DataOperation.get, 'selected'),
-          throwsA(
-            isA<DataException>().having(
-              (error) => error.message,
-              'message',
-              'Dataset time budget exceeded',
-            ),
+        () => invocation.call(DataOperation.get, 'selected'),
+        throwsA(
+          isA<DataException>().having(
+            (error) => error.message,
+            'message',
+            'Dataset time budget exceeded',
           ),
-        );
-      }
-      final usage = invocation.finish().single;
-      expect(usage.calls, 3);
-      expect(usage.denied, 2);
-    },
-  );
+        ),
+      );
+    }
+    final usage = invocation.finish().single;
+    expect(usage.calls, 3);
+    expect(usage.denied, 2);
+  });
 
   test(
     'reservation limits and rejected quota shrink preserve existing data',
@@ -690,7 +695,7 @@ end}
       store.close();
       final path = '${directory.path}/${target.identity}.sqlite';
       final original = File(path).renameSync('$path.saved');
-      store = DatasetStore(directory);
+      store = DatasetStore(directory, timeBudget: _unhurried);
       final read = session(target);
       expect(
         () => read.call(DataOperation.get, 'local', key: 'one'),

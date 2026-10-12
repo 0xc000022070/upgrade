@@ -12,6 +12,7 @@ import 'package:upgrade/features/tasks/plugin_adapter.dart';
 import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
 import 'package:upgrade_luau/data_api.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -62,6 +63,12 @@ void main() {
       overrides: [
         databaseProvider.overrideWithValue(db),
         pluginStoreProvider.overrideWith((ref) async => PluginStore(directory)),
+        pluginRuntimeProvider.overrideWith(
+          (ref) async => LuauWorker(
+            dataDirectory: '${directory.path}/datasets',
+            dataTimeBudget: const Duration(days: 1),
+          ),
+        ),
       ],
     );
     await container.read(pluginsProvider.future);

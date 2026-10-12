@@ -36,9 +36,7 @@ import 'support/themed_app.dart';
 
 Future<void> drain(WidgetTester tester) async {
   for (var i = 0; i < 8; i++) {
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 10)),
-    );
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pump(const Duration(milliseconds: 100));
   }
 }
@@ -46,13 +44,12 @@ Future<void> drain(WidgetTester tester) async {
 Future<void> drainUntil(
   WidgetTester tester,
   bool Function() condition, {
-  int max = 100,
+  Duration within = const Duration(seconds: 10),
 }) async {
-  var i = 0;
+  final waited = Stopwatch()..start();
   do {
     await drain(tester);
-    i++;
-  } while (i < max && !condition());
+  } while (!condition() && waited.elapsed < within);
 }
 
 void main() {
@@ -147,13 +144,10 @@ void main() {
         ),
         findsOneWidget,
       );
-      for (
-        var i = 0;
-        i < 20 && find.byType(DelayedSpinner).evaluate().isNotEmpty;
-        i++
-      ) {
-        await drain(tester);
-      }
+      await drainUntil(
+        tester,
+        () => find.byType(DelayedSpinner).evaluate().isEmpty,
+      );
       expect(find.byType(DelayedSpinner), findsNothing);
       var disabled = false;
       Object? failure;
@@ -169,9 +163,7 @@ void main() {
               },
             );
       });
-      for (var i = 0; i < 30 && !disabled && failure == null; i++) {
-        await drain(tester);
-      }
+      await drainUntil(tester, () => disabled || failure != null);
       expect(failure, isNull);
       expect(disabled, isTrue);
       await drain(tester);

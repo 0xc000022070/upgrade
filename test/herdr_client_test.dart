@@ -573,16 +573,26 @@ void main() {
         );
         final process = await Process.start('sh', ['-c', command]);
         final lines = <String>[];
+        final arrived = StreamController<void>.broadcast();
+        addTearDown(arrived.close);
         process.stdout
             .transform(utf8.decoder)
             .transform(const LineSplitter())
-            .listen(lines.add);
+            .listen((line) {
+              lines.add(line);
+              arrived.add(null);
+            });
+        Future<void> until(int count) async {
+          while (lines.length < count) {
+            await arrived.stream.first.timeout(const Duration(seconds: 5));
+          }
+        }
 
-        await Future<void>.delayed(const Duration(milliseconds: 3500));
+        await until(4);
         expect(lines, ['a', 'b', hostChangesEnd, hostChangesBeat]);
 
         file.writeAsStringSync('c');
-        await Future<void>.delayed(const Duration(milliseconds: 1500));
+        await until(6);
         expect(lines.skip(4), ['c', hostChangesEnd]);
 
         await process.stdin.close();
@@ -619,7 +629,7 @@ void main() {
       ).listen(null, onError: failed.complete, onDone: done.complete);
 
       for (var beat = 0; beat < 6; beat++) {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         stdout.add(utf8.encode('$hostChangesBeat\n'));
       }
       expect(went, 0);

@@ -103,8 +103,12 @@ class LuauResult {
 }
 
 class LuauWorker {
-  LuauWorker({this.dataDirectory});
+  LuauWorker({
+    this.dataDirectory,
+    this.dataTimeBudget = DatasetStore.defaultTimeBudget,
+  });
   final String? dataDirectory;
+  final Duration dataTimeBudget;
   static const maxPending = 8;
   static const maxResident = 2;
   Future<void> _tail = Future.value();
@@ -232,7 +236,7 @@ class LuauWorker {
     try {
       await Isolate.spawn(
         _serve,
-        _Start(ready.sendPort, dataDirectory),
+        _Start(ready.sendPort, dataDirectory, dataTimeBudget),
         debugName: 'upgrade.plugins',
         onError: exits.sendPort,
         onExit: exits.sendPort,
@@ -390,9 +394,10 @@ class _Response {
 }
 
 class _Start {
-  const _Start(this.ready, this.directory);
+  const _Start(this.ready, this.directory, this.timeBudget);
   final SendPort ready;
   final String? directory;
+  final Duration timeBudget;
 }
 
 void _serve(_Start start) async {
@@ -401,7 +406,7 @@ void _serve(_Start start) async {
   final owners = <String, String>{};
   final dataStore = start.directory == null
       ? null
-      : DatasetStore(Directory(start.directory!));
+      : DatasetStore(Directory(start.directory!), timeBudget: start.timeBudget);
   start.ready.send(input.sendPort);
   await for (final message in input) {
     if (message is _Invalidate) {

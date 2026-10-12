@@ -289,6 +289,7 @@ void main() {
         overrides: [
           shellSessionsProvider.overrideWithValue(sessions),
           noWorkspaces,
+          ...noSettings,
           launchScannerProvider.overrideWithValue(
             FixedLaunchScanner(
               const LaunchScanFound(

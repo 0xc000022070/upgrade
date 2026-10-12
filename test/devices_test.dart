@@ -227,17 +227,29 @@ Future<void> _pump(
 }
 
 Future<void> _settle(WidgetTester tester) async {
-  await tester.runAsync(
-    () => Future<void>.delayed(const Duration(milliseconds: 60)),
-  );
+  await tester.runAsync(() => Future<void>.delayed(Duration.zero));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
 }
 
-Future<void> _live(WidgetTester tester, FakeDeviceLink link) async {
-  link.frameStreams.last.add(_frame());
+Future<void> _show(
+  WidgetTester tester,
+  StreamController<DeviceFrame> stream, [
+  DeviceFrame? frame,
+]) async {
+  final controller = _dock(tester).session!.controller;
+  final before = controller.image;
+  stream.add(frame ?? _frame());
+  await tester.runAsync(() async {
+    for (var i = 0; i < 2500 && identical(controller.image, before); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+    }
+  });
   await _settle(tester);
 }
+
+Future<void> _live(WidgetTester tester, FakeDeviceLink link) =>
+    _show(tester, link.frameStreams.last);
 
 Future<void> _tapKey(WidgetTester tester, Key key) async {
   await tester.tap(find.byKey(key));
@@ -520,8 +532,7 @@ void main() {
     expect(find.text('BACK'), findsOneWidget);
     expect(find.text('VIEW ONLY'), findsNothing);
 
-    link.frameStreams.single.add(_frame());
-    await _settle(tester);
+    await _show(tester, link.frameStreams.single);
     final picture = tester.getRect(find.byType(RawImage));
     await tester.tapAt(picture.center);
     await tester.pump(const Duration(milliseconds: 400));
@@ -552,8 +563,11 @@ void main() {
     final link = FakeDeviceLink(const [_iphone]);
     await _pump(tester, _opener(link));
     await _pick(tester, _iphone);
-    link.frameStreams.single.add(_frame(width: 1206, height: 2622));
-    await _settle(tester);
+    await _show(
+      tester,
+      link.frameStreams.single,
+      _frame(width: 1206, height: 2622),
+    );
     await _expand(tester);
 
     expect(find.text('VIEW ONLY'), findsOneWidget);
@@ -938,8 +952,7 @@ void main() {
     await tester.tap(find.text('RESUME'));
     await tester.pump();
     expect(link.frameStreams, hasLength(2));
-    link.frameStreams.last.add(_frame());
-    await _settle(tester);
+    await _show(tester, link.frameStreams.last);
     expect(find.text('PAUSE'), findsOneWidget);
 
     _lifecycle(tester, const [
@@ -1748,7 +1761,14 @@ void main() {
       if (find.byKey(_bubbleKey).evaluate().isNotEmpty) await _open(tester);
       await _tapKey(tester, desktopTab);
       await _settle(tester);
+      final controller = _dock(tester).desktop!.controller;
+      final before = controller.frameCount;
       connections.last.feedFrame();
+      await tester.runAsync(() async {
+        for (var i = 0; i < 2500 && controller.frameCount == before; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 2));
+        }
+      });
       await _settle(tester);
     }
 

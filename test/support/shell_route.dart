@@ -2,7 +2,9 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/application/agents.dart';
 import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/application/shell_font.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
@@ -33,7 +35,12 @@ Widget app(
 }) => ProviderScope(
   overrides: [
     shellSessionsProvider.overrideWithValue(sessions),
-    if (db != null) databaseProvider.overrideWithValue(db) else noWorkspaces,
+    if (db != null)
+      databaseProvider.overrideWithValue(db)
+    else ...[
+      noWorkspaces,
+      ...noSettings,
+    ],
     noLaunchTargets,
     ...overrides,
   ],
@@ -49,6 +56,15 @@ Widget app(
 Override get noWorkspaces => workspacesByHostProvider.overrideWith(
   (ref) => Stream.value(const <HostWorkspaces>[]),
 );
+
+/// Without a database these read as errors, and every rebuild rethrows one with a parsed
+/// combined stack trace: most of a widget test's time.
+List<Override> get noSettings => [
+  shellFontSizeProvider.overrideWith(
+    (ref) => Stream.value(shellFontSizeDefault),
+  ),
+  hostsProvider.overrideWith((ref) => Stream.value(const <Host>[])),
+];
 
 AppDatabase memoryDatabase() {
   final db = AppDatabase(NativeDatabase.memory());

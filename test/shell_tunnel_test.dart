@@ -430,17 +430,24 @@ class FakeMoshChannel implements MoshChannel {
     await _contacts.close();
   }
 
-  void emit(String value) => _output.add(Uint8List.fromList(value.codeUnits));
+  void emit(String value) {
+    if (!closed) _output.add(Uint8List.fromList(value.codeUnits));
+  }
 
-  void acknowledge(int state) => _echoAcks.add(state);
+  void acknowledge(int state) {
+    if (!closed) _echoAcks.add(state);
+  }
 
-  void contact() => _contacts.add(null);
+  void contact() {
+    if (!closed) _contacts.add(null);
+  }
 
-  void fallSilent([Duration window = const Duration(milliseconds: 20)]) =>
-      firstContact = Future<void>.delayed(
-        window,
-        () => throw UdpSilent(address: '10.0.0.7', port: 60990, window: window),
-      );
+  void fallSilent([Duration window = const Duration(milliseconds: 20)]) {
+    firstContact = Future<void>.delayed(
+      window,
+      () => throw UdpSilent(address: '10.0.0.7', port: 60990, window: window),
+    )..ignore();
+  }
 }
 
 HostLinks linksOver(
@@ -581,6 +588,27 @@ Future<ShellConnection> openOn(
   verifier: verifier ?? HostKeyVerifier.pinnedOnly(pinnedKey),
   failed: failed,
 );
+
+Future<void> until(
+  bool Function() done, {
+  Duration within = const Duration(seconds: 5),
+}) async {
+  final clock = Stopwatch()..start();
+  while (!done()) {
+    if (clock.elapsed > within) fail('not reached within $within');
+    await Future<void>.delayed(const Duration(milliseconds: 1));
+  }
+}
+
+Future<T> pumped<T>(WidgetTester tester, Future<T> future) async {
+  var settled = false;
+  final result = future.whenComplete(() => settled = true)..ignore();
+  for (var i = 0; i < 1000 && !settled; i++) {
+    await tester.pump(const Duration(milliseconds: 10));
+  }
+  if (!settled) fail('not settled within 10s of fake time');
+  return result;
+}
 
 Future<ShellFailureKind> kindOf(Future<void> Function() body) async {
   try {
@@ -773,11 +801,12 @@ void main() {
         final health = <ShellConnectionHealth>[];
         connection.health.listen(health.add);
 
-        await Future<void>.delayed(const Duration(milliseconds: 14));
-        expect(health, contains(ShellConnectionHealth.reconnecting));
-
-        await Future<void>.delayed(const Duration(milliseconds: 12));
-        expect(health.last, ShellConnectionHealth.disconnected);
+        await until(() => health.contains(ShellConnectionHealth.reconnecting));
+        await until(() => health.last == ShellConnectionHealth.disconnected);
+        expect(
+          health.indexOf(ShellConnectionHealth.reconnecting),
+          lessThan(health.indexOf(ShellConnectionHealth.disconnected)),
+        );
 
         channel.acknowledge(channel.sizes.length);
         await pumpEventQueue();
@@ -804,8 +833,7 @@ void main() {
         final health = <ShellConnectionHealth>[];
         connection.health.listen(health.add);
 
-        await Future<void>.delayed(const Duration(milliseconds: 14));
-        expect(health.last, ShellConnectionHealth.reconnecting);
+        await until(() => health.contains(ShellConnectionHealth.reconnecting));
 
         channel.contact();
         await pumpEventQueue();
@@ -863,7 +891,7 @@ void main() {
         },
       );
 
-      await Future<void>.delayed(const Duration(milliseconds: 90));
+      await until(() => reported != null);
 
       expect(reported, isA<ShellFailure>());
       expect((reported! as ShellFailure).kind, ShellFailureKind.streamClosed);
@@ -1268,47 +1296,57 @@ void main() {
       expect(hosts.last.requests.last, 'exec whoami');
     });
 
-    test('a dead control host is dialled again on its own, and reads stay '
-        'empty and stale until it lands', () async {
-      const session = 'upgrade123';
-      final hosts = [
-        FakeHost()..execAnswer = moshHostAnswer,
-        FakeHost()..execAnswer = moshHostAnswer,
-      ];
-      var dials = 0;
-      final connection = await openOn(
-        moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
-        command: 'exec \$SHELL -l',
-        tabSession: session,
-        persistentSession: session,
-      );
-      addTearDown(() => connection.close(UserClosed(testIntent())));
-      final links = <ControlLink>[];
-      connection.controlLink.listen(links.add);
+    testWidgets(
+      'a dead control host is dialled again on its own, and reads stay '
+      'empty and stale until it lands',
+      (tester) async {
+        const session = 'upgrade123';
+        final hosts = [
+          FakeHost()..execAnswer = moshHostAnswer,
+          FakeHost()..execAnswer = moshHostAnswer,
+        ];
+        var dials = 0;
+        final connection = await pumped(
+          tester,
+          openOn(
+            moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
+            command: 'exec \$SHELL -l',
+            tabSession: session,
+            persistentSession: session,
+          ),
+        );
+        final links = <ControlLink>[];
+        connection.controlLink.listen(links.add);
 
-      hosts.first.die();
-      await pumpEventQueue();
+        hosts.first.die();
+        await tester.pump();
 
-      expect(links, [isA<ControlReconnecting>()]);
-      expect(
-        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
-        isNull,
-      );
-      expect(dials, 1);
+        expect(links, [isA<ControlReconnecting>()]);
+        expect(
+          await pumped(
+            tester,
+            connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+          ),
+          isNull,
+        );
+        expect(dials, 1);
 
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
+        await tester.pump(const Duration(milliseconds: 1200));
 
-      expect(dials, 2);
-      expect(links, [isA<ControlReconnecting>(), isA<ControlUp>()]);
-      expect(
-        (await connection.channels.exec(
-          'pwd',
-          timeout: remoteCommandDeadline,
-        ))?.ok,
-        isTrue,
-      );
-      expect(hosts.last.requests.last, 'exec pwd');
-    });
+        expect(dials, 2);
+        expect(links, [isA<ControlReconnecting>(), isA<ControlUp>()]);
+        expect(
+          (await pumped(
+            tester,
+            connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+          ))?.ok,
+          isTrue,
+        );
+        expect(hosts.last.requests.last, 'exec pwd');
+        unawaited(connection.close(UserClosed(testIntent())));
+        await tester.pump(const Duration(seconds: 10));
+      },
+    );
 
     testWidgets('a resume refused while another dial settles reads stale, '
         'then holds the host once the settle ends', (tester) async {
@@ -1407,40 +1445,53 @@ void main() {
       links.close();
     });
 
-    test('a gesture during the revive backoff dials now, and the revive dials '
-        'nothing after it', () async {
-      const session = 'upgrade123';
-      final hosts = [
-        FakeHost()..execAnswer = moshHostAnswer,
-        FakeHost()..execAnswer = moshHostAnswer,
-        FakeHost()..execAnswer = moshHostAnswer,
-      ];
-      var dials = 0;
-      final connection = await openOn(
-        moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
-        command: 'exec \$SHELL -l',
-        tabSession: session,
-        persistentSession: session,
-      );
-      addTearDown(() => connection.close(UserClosed(testIntent())));
-      hosts.first.die();
-      await pumpEventQueue();
+    testWidgets(
+      'a gesture during the revive backoff dials now, and the revive dials '
+      'nothing after it',
+      (tester) async {
+        const session = 'upgrade123';
+        final hosts = [
+          FakeHost()..execAnswer = moshHostAnswer,
+          FakeHost()..execAnswer = moshHostAnswer,
+          FakeHost()..execAnswer = moshHostAnswer,
+        ];
+        var dials = 0;
+        final connection = await pumped(
+          tester,
+          openOn(
+            moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
+            command: 'exec \$SHELL -l',
+            tabSession: session,
+            persistentSession: session,
+          ),
+        );
+        hosts.first.die();
+        await tester.pump();
 
-      final channels = await connection.channelsFor(UserAction(testIntent()));
-      expect(dials, 2);
-      expect(
-        (await channels?.exec('pwd', timeout: remoteCommandDeadline))?.ok,
-        isTrue,
-      );
+        final channels = await pumped(
+          tester,
+          connection.channelsFor(UserAction(testIntent())),
+        );
+        expect(dials, 2);
+        expect(
+          (await pumped(
+            tester,
+            channels!.exec('pwd', timeout: remoteCommandDeadline),
+          ))?.ok,
+          isTrue,
+        );
 
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
+        await tester.pump(const Duration(milliseconds: 1200));
 
-      expect(dials, 2);
-      expect(hosts[1].closed, isFalse);
-    });
+        expect(dials, 2);
+        expect(hosts[1].closed, isFalse);
+        unawaited(connection.close(UserClosed(testIntent())));
+        await tester.pump(const Duration(seconds: 10));
+      },
+    );
 
-    test('a dead control host whose redial is refused the key is not dialled '
-        'again', () async {
+    testWidgets('a dead control host whose redial is refused the key is not '
+        'dialled again', (tester) async {
       const session = 'upgrade123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
@@ -1448,122 +1499,148 @@ void main() {
         FakeHost()..execAnswer = moshHostAnswer,
       ];
       var dials = 0;
-      final connection = await openOn(
-        moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
-        command: 'exec \$SHELL -l',
-        tabSession: session,
-        persistentSession: session,
+      final connection = await pumped(
+        tester,
+        openOn(
+          moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
+          command: 'exec \$SHELL -l',
+          tabSession: session,
+          persistentSession: session,
+        ),
       );
-      addTearDown(() => connection.close(UserClosed(testIntent())));
       final links = <ControlLink>[];
       connection.controlLink.listen(links.add);
 
       hosts.first.die();
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      await tester.pump(const Duration(milliseconds: 1200));
       expect(dials, 2);
       expect(links.last, isA<ControlGaveUp>());
 
-      await Future<void>.delayed(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(milliseconds: 2200));
       expect(dials, 2);
       expect(
-        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
-        isNull,
-      );
-    });
-
-    test('a dead control host that comes back with another key is not dialled '
-        'again', () async {
-      const session = 'upgrade123';
-      final hosts = [
-        FakeHost()..execAnswer = moshHostAnswer,
-        FakeHost()..execAnswer = moshHostAnswer,
-        FakeHost()..execAnswer = moshHostAnswer,
-      ];
-      final verifiers = <HostKeyVerifier>[];
-      final connection = await openOn(
-        moshTunnelOffering(hosts, FakeMoshChannel(), [
-          pinnedKey.fingerprint,
-          'SHA256:impostor',
-          pinnedKey.fingerprint,
-        ], verifiers),
-        command: 'exec \$SHELL -l',
-        tabSession: session,
-        persistentSession: session,
-      );
-      addTearDown(() => connection.close(UserClosed(testIntent())));
-      final links = <ControlLink>[];
-      connection.controlLink.listen(links.add);
-
-      hosts.first.die();
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
-      expect(verifiers, hasLength(2));
-      expect(verifiers.last.prompt, isNull);
-      expect(verifiers.last.refusal, HostKeyRefusal.changed);
-
-      await Future<void>.delayed(const Duration(milliseconds: 2200));
-      expect(verifiers, hasLength(2));
-      expect(links, [
-        isA<ControlReconnecting>(),
-        isA<ControlGaveUp>().having(
-          (link) => link.error,
-          'error',
-          isKeyFailure,
+        await pumped(
+          tester,
+          connection.channels.exec('pwd', timeout: remoteCommandDeadline),
         ),
-      ]);
-      expect(
-        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
         isNull,
       );
+      unawaited(connection.close(UserClosed(testIntent())));
+      await tester.pump(const Duration(seconds: 10));
     });
 
-    test('a dead control host held without a pin refuses its own redial '
-        'rather than trusting it', () async {
+    testWidgets(
+      'a dead control host that comes back with another key is not dialled '
+      'again',
+      (tester) async {
+        const session = 'upgrade123';
+        final hosts = [
+          FakeHost()..execAnswer = moshHostAnswer,
+          FakeHost()..execAnswer = moshHostAnswer,
+          FakeHost()..execAnswer = moshHostAnswer,
+        ];
+        final verifiers = <HostKeyVerifier>[];
+        final connection = await pumped(
+          tester,
+          openOn(
+            moshTunnelOffering(hosts, FakeMoshChannel(), [
+              pinnedKey.fingerprint,
+              'SHA256:impostor',
+              pinnedKey.fingerprint,
+            ], verifiers),
+            command: 'exec \$SHELL -l',
+            tabSession: session,
+            persistentSession: session,
+          ),
+        );
+        final links = <ControlLink>[];
+        connection.controlLink.listen(links.add);
+
+        hosts.first.die();
+        await tester.pump(const Duration(milliseconds: 1200));
+        expect(verifiers, hasLength(2));
+        expect(verifiers.last.prompt, isNull);
+        expect(verifiers.last.refusal, HostKeyRefusal.changed);
+
+        await tester.pump(const Duration(milliseconds: 2200));
+        expect(verifiers, hasLength(2));
+        expect(links, [
+          isA<ControlReconnecting>(),
+          isA<ControlGaveUp>().having(
+            (link) => link.error,
+            'error',
+            isKeyFailure,
+          ),
+        ]);
+        expect(
+          await pumped(
+            tester,
+            connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+          ),
+          isNull,
+        );
+        unawaited(connection.close(UserClosed(testIntent())));
+        await tester.pump(const Duration(seconds: 10));
+      },
+    );
+
+    testWidgets('a dead control host held without a pin refuses its own redial '
+        'rather than trusting it', (tester) async {
       const session = 'upgrade123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
       ];
       final verifiers = <HostKeyVerifier>[];
-      final connection = await openOn(
-        moshTunnelOffering(hosts, FakeMoshChannel(), [
-          null,
-          'SHA256:anything',
-        ], verifiers),
-        command: 'exec \$SHELL -l',
-        tabSession: session,
-        persistentSession: session,
-        verifier: HostKeyVerifier.pinnedOnly(null),
+      final connection = await pumped(
+        tester,
+        openOn(
+          moshTunnelOffering(hosts, FakeMoshChannel(), [
+            null,
+            'SHA256:anything',
+          ], verifiers),
+          command: 'exec \$SHELL -l',
+          tabSession: session,
+          persistentSession: session,
+          verifier: HostKeyVerifier.pinnedOnly(null),
+        ),
       );
-      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       hosts.first.die();
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      await tester.pump(const Duration(milliseconds: 1200));
       expect(verifiers, hasLength(2));
       expect(verifiers.last.pinned, isNull);
       expect(verifiers.last.prompt, isNull);
       expect(verifiers.last.refusal, HostKeyRefusal.unverified);
 
-      await Future<void>.delayed(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(milliseconds: 2200));
       expect(verifiers, hasLength(2));
       expect(
-        await connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+        await pumped(
+          tester,
+          connection.channels.exec('pwd', timeout: remoteCommandDeadline),
+        ),
         isNull,
       );
+      unawaited(connection.close(UserClosed(testIntent())));
+      await tester.pump(const Duration(seconds: 10));
     });
 
-    test('a plain SSH tab whose host dies is never dialled again by its '
-        'supervisor', () async {
+    testWidgets('a plain SSH tab whose host dies is never dialled again by its '
+        'supervisor', (tester) async {
       final hosts = [FakeHost(), FakeHost()];
       var dials = 0;
-      final connection = await openOn(
-        ShellTunnel(links: linksOver((_) => hosts[dials++])),
+      final connection = await pumped(
+        tester,
+        openOn(ShellTunnel(links: linksOver((_) => hosts[dials++]))),
       );
-      addTearDown(() => connection.close(UserClosed(testIntent())));
 
       hosts.first.die();
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      await tester.pump(const Duration(milliseconds: 1200));
 
       expect(dials, 1);
+      unawaited(connection.close(UserClosed(testIntent())));
+      await tester.pump(const Duration(seconds: 10));
     });
 
     test('a refused channel is never asked for again on the same host, and '
@@ -2449,13 +2526,16 @@ class FakeEngineChannel implements EngineChannel {
     if (!_events.isClosed) _events.add(event);
   }
 
-  void contact() => _contacts.add(null);
+  void contact() {
+    if (!closed) _contacts.add(null);
+  }
 
-  void fallSilent([Duration window = const Duration(milliseconds: 20)]) =>
-      firstContact = Future<void>.delayed(
-        window,
-        () => throw UdpSilent(address: '10.0.0.7', port: 60990, window: window),
-      );
+  void fallSilent([Duration window = const Duration(milliseconds: 20)]) {
+    firstContact = Future<void>.delayed(
+      window,
+      () => throw UdpSilent(address: '10.0.0.7', port: 60990, window: window),
+    )..ignore();
+  }
 }
 
 const _engineKey = 'AAECAwQFBgcICQoLDA0ODw';
