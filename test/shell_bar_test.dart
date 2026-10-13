@@ -41,6 +41,7 @@ Future<BarRecord> pumpBar(
   int clipCount = 0,
   bool searching = false,
   bool suggestSend = false,
+  bool arrowCells = false,
 }) async {
   final record = BarRecord();
   await tester.pumpWidget(
@@ -63,6 +64,7 @@ Future<BarRecord> pumpBar(
             searching: searching,
             onFind: () => record.finds++,
             onSend: suggestSend ? () => record.sends++ : null,
+            arrowCells: arrowCells,
           ),
         ),
       ),
@@ -128,7 +130,7 @@ void main() {
     testWidgets('ESC, the arrows and END go as their sequences', (
       tester,
     ) async {
-      final record = await pumpBar(tester);
+      final record = await pumpBar(tester, arrowCells: true);
 
       await tapCell(tester, 'ESC');
       await tapCell(tester, 'UP');
@@ -153,7 +155,11 @@ void main() {
     testWidgets('an armed SHIFT sends the shifted arrow and back-tab', (
       tester,
     ) async {
-      final record = await pumpBar(tester, sticky: {StickyModifier.shift});
+      final record = await pumpBar(
+        tester,
+        sticky: {StickyModifier.shift},
+        arrowCells: true,
+      );
 
       await tapCell(tester, 'UP');
       await tapCell(tester, 'TAB');
@@ -203,7 +209,11 @@ void main() {
     });
 
     testWidgets('ALT and the left arrow is one key', (tester) async {
-      final record = await pumpBar(tester, sticky: {StickyModifier.alt});
+      final record = await pumpBar(
+        tester,
+        sticky: {StickyModifier.alt},
+        arrowCells: true,
+      );
 
       await tapCell(tester, 'LEFT');
 
@@ -449,7 +459,7 @@ void main() {
     testWidgets('waits, then goes twenty a second until the lift', (
       tester,
     ) async {
-      final record = await pumpBar(tester);
+      final record = await pumpBar(tester, arrowCells: true);
       final press = await tester.startGesture(
         tester.getCenter(find.byKey(const ValueKey('bar-UP'))),
       );
@@ -471,7 +481,7 @@ void main() {
     testWidgets('a scroll of the row stops it', (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      final record = await pumpBar(tester);
+      final record = await pumpBar(tester, arrowCells: true);
       await tester.ensureVisible(find.byKey(const ValueKey('bar-UP')));
       await tester.pumpAndSettle();
       final press = await tester.startGesture(
@@ -509,7 +519,7 @@ void main() {
     testWidgets('the bar is one short row and every cell fills it', (
       tester,
     ) async {
-      await pumpBar(tester);
+      await pumpBar(tester, arrowCells: true);
 
       expect(tester.getSize(find.byType(ShellBar)).height, 36);
       // Everything but the hairline that draws the bar's top edge.
@@ -525,7 +535,7 @@ void main() {
     testWidgets('a cell is as wide as its label, and never under the row', (
       tester,
     ) async {
-      await pumpBar(tester);
+      await pumpBar(tester, arrowCells: true);
 
       final esc = tester.getSize(find.byKey(const ValueKey('bar-ESC'))).width;
       final ctrl = tester.getSize(find.byKey(const ValueKey('bar-CTRL'))).width;
@@ -649,7 +659,7 @@ void main() {
 
       final before = tester.getRect(find.byKey(const ValueKey('bar-keyboard')));
       await tester.drag(
-        find.byKey(const ValueKey('bar-ESC')),
+        find.byKey(const ValueKey('bar-find')),
         const Offset(-120, 0),
       );
       await tester.pumpAndSettle();
@@ -668,7 +678,7 @@ void main() {
 
       final before = tester.getRect(find.byKey(const ValueKey('bar-ATTACH')));
       await tester.drag(
-        find.byKey(const ValueKey('bar-ESC')),
+        find.byKey(const ValueKey('bar-find')),
         const Offset(-160, 0),
       );
       await tester.pumpAndSettle();
@@ -702,24 +712,14 @@ void main() {
     });
   });
 
-  group('the stick, upright', () {
+  group('the stick', () {
     const up = [0x1b, 0x5b, 0x41];
     const right = [0x1b, 0x5b, 0x43];
     const down = [0x1b, 0x5b, 0x42];
     final stick = find.byKey(const ValueKey('bar-ARROWS'));
 
-    Future<BarRecord> pumpUpright(
-      WidgetTester tester, {
-      Set<StickyModifier> sticky = const {},
-    }) async {
-      tester.view.physicalSize = const Size(360, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      return pumpBar(tester, sticky: sticky);
-    }
-
     testWidgets('takes the four arrow cells off the row', (tester) async {
-      await pumpUpright(tester);
+      await pumpBar(tester);
 
       expect(stick, findsOneWidget);
       for (final label in ['LEFT', 'UP', 'DOWN', 'RIGHT']) {
@@ -734,15 +734,25 @@ void main() {
       );
     });
 
-    testWidgets('is not drawn on its side', (tester) async {
+    testWidgets('stays on a bar wider than it is tall', (tester) async {
+      tester.view.physicalSize = const Size(2152, 2076);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       await pumpBar(tester);
+
+      expect(stick, findsOneWidget);
+      expect(find.byKey(const ValueKey('bar-UP')), findsNothing);
+    });
+
+    testWidgets('gives way to the four cells when asked', (tester) async {
+      await pumpBar(tester, arrowCells: true);
 
       expect(stick, findsNothing);
       expect(find.byKey(const ValueKey('bar-UP')), findsOneWidget);
     });
 
     testWidgets('a tap sends nothing', (tester) async {
-      final record = await pumpUpright(tester);
+      final record = await pumpBar(tester);
 
       await tester.tap(stick);
       await tester.pump(const Duration(seconds: 1));
@@ -753,7 +763,7 @@ void main() {
     testWidgets('a push sends its arrow, then repeats until the lift', (
       tester,
     ) async {
-      final record = await pumpUpright(tester);
+      final record = await pumpBar(tester);
       final press = await tester.startGesture(tester.getCenter(stick));
 
       await press.moveBy(const Offset(0, -16));
@@ -772,7 +782,7 @@ void main() {
     });
 
     testWidgets('back at the centre it stops', (tester) async {
-      final record = await pumpUpright(tester);
+      final record = await pumpBar(tester);
       final press = await tester.startGesture(tester.getCenter(stick));
 
       await press.moveBy(const Offset(16, 0));
@@ -786,7 +796,7 @@ void main() {
     testWidgets('a swing to another arm sends that arrow and waits again', (
       tester,
     ) async {
-      final record = await pumpUpright(tester);
+      final record = await pumpBar(tester);
       final press = await tester.startGesture(tester.getCenter(stick));
 
       await press.moveBy(const Offset(16, 0));
@@ -803,7 +813,7 @@ void main() {
     testWidgets('a thumb near the diagonal keeps the arm it holds', (
       tester,
     ) async {
-      final record = await pumpUpright(tester);
+      final record = await pumpBar(tester);
       final press = await tester.startGesture(tester.getCenter(stick));
 
       await press.moveBy(const Offset(20, 0));
@@ -815,7 +825,7 @@ void main() {
     });
 
     testWidgets('an armed SHIFT goes with the arrow', (tester) async {
-      final record = await pumpUpright(tester, sticky: {StickyModifier.shift});
+      final record = await pumpBar(tester, sticky: {StickyModifier.shift});
       final press = await tester.startGesture(tester.getCenter(stick));
 
       await press.moveBy(const Offset(0, -16));

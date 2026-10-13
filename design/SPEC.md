@@ -1255,9 +1255,9 @@ A tap arms a modifier for exactly one key and then clears it: a soft keyboard ca
 
 A press on an arrow that stays down sends the arrow, waits 400 ms, and then sends it again every 50 ms until the finger lifts, which is twenty a second — the delay and the rate Android gives its own keys. A tap still sends exactly one. Only the four arrows repeat: a held `ESC`, `TAB` or `END` is almost never meant twice, and a held modifier already means a latch. A drag that turns into a scroll of the row, or a pointer lost to the system, stops the repeat at once. An armed modifier is spent by each arrow that goes, so `SHIFT` for one key shifts the first and not the rest.
 
-### Upright, the four arrows are one stick
+### The four arrows are one stick
 
-In portrait the row cannot hold its own arrows: on a phone only `←` showed before the rule, and `↑`, `↓`, `→` and `END` sat behind a scroll. So upright the four arrow cells leave the row and one cell takes their place on the pinned side, before `ATTACH`, drawing the four arrow glyphs in a cross. On its side the bar keeps the four cells, which are easier to find and to tap one at a time.
+The four arrows are not cells on the row. One cell takes their place on the pinned side, before `ATTACH`, drawing the four arrow glyphs in a cross, whichever way the phone is held and whether it is folded or open. Upright on a phone the row could not hold four arrow cells: only `←` showed, and `↑`, `↓`, `→` and `END` sat behind a scroll. The stick keeps one place and one gesture on every screen rather than switching to cells on a screen that happens to be wider than it is tall, which an open foldable is by a few pixels.
 
 **A push holds an arrow.** A finger that lands on the stick and moves 12 px from where it landed sends the arrow it points at, waits 400 ms and repeats every 50 ms, the pace a held arrow cell keeps; the held arm draws in the accent. Swinging to another arm sends that arrow and starts the wait again, the way a second key pressed on a keyboard does. Coming back within 6 px of the landing stops it, and so do the lift and a pointer lost to the system. A tap sends nothing.
 

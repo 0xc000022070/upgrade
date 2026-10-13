@@ -83,6 +83,7 @@ class ShellBar extends StatelessWidget {
     this.onSend,
     this.searching = false,
     this.onFind,
+    this.arrowCells = false,
   });
 
   final Set<StickyModifier> sticky;
@@ -115,6 +116,8 @@ class ShellBar extends StatelessWidget {
 
   final VoidCallback? onFind;
 
+  final bool arrowCells;
+
   Arming get _arming => Arming(sticky: sticky, repeat: repeat, locked: locked);
 
   void _onArming(Arming next) =>
@@ -122,7 +125,7 @@ class ShellBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stick = MediaQuery.orientationOf(context) == Orientation.portrait;
+    final stick = !arrowCells;
     return KeyBar(
       keys: [
         KeyCell(

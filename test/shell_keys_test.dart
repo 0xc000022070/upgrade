@@ -68,20 +68,20 @@ void main() {
     );
     await ready(tester);
 
-    await tester.tap(find.byKey(const ValueKey('bar-LEFT')));
+    await tester.tap(find.byKey(const ValueKey('bar-TAB')));
     await ready(tester);
     expect(find.text('ALT'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('bar-LEFT')));
+    await tester.tap(find.byKey(const ValueKey('bar-TAB')));
     await ready(tester);
     expect(find.text('ALT'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('bar-LEFT')));
+    await tester.tap(find.byKey(const ValueKey('bar-TAB')));
 
     expect(connection.writes, [
-      [0x1b, 0x1b, 0x5b, 0x44],
-      [0x1b, 0x1b, 0x5b, 0x44],
-      [0x1b, 0x5b, 0x44],
+      [0x1b, 0x09],
+      [0x1b, 0x09],
+      [0x09],
     ]);
 
     await unmount(tester);
