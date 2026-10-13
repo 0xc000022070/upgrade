@@ -11,6 +11,9 @@ import 'package:upgrade/application/agents/agent_state.dart';
 import 'package:upgrade/application/alerts/pin_alerts.dart';
 import 'package:upgrade/application/agents/reason_lines.dart';
 import 'package:upgrade/platform/herdr/herdr_socket.dart';
+import 'package:upgrade/platform/ssh/connection_supervisor.dart'
+    show ExecResult;
+import 'package:upgrade/platform/ssh/host_files.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
@@ -553,17 +556,23 @@ class HerdrSession {
   HerdrSession.over(SSHSocket socket, this._client)
     : _letGo = (() => unawaited(closeSsh(_client, socket))),
       _execute = ((command) => _client.execute(command)),
+      _bulk = ((command) => _client.execute(command)),
+      _sftp = (() async => HostSftp(await _client.sftp())),
       _gone = (() => _client.isClosed);
 
   HerdrSession.borrowed(HostLease lease)
     : _client = lease.client,
       _letGo = lease.release,
       _execute = ((command) => lease.execute(command)),
+      _bulk = lease.upload,
+      _sftp = lease.sftp,
       _gone = (() => lease.closed);
 
   final SSHClient _client;
   final void Function() _letGo;
   final Future<SSHSession> Function(String command) _execute;
+  final Future<SSHSession> Function(String command) _bulk;
+  final Future<HostSftp> Function() _sftp;
   final bool Function() _gone;
   var _closed = false;
 
@@ -886,11 +895,11 @@ class HerdrSession {
     if (_closed || _gone()) throw const HerdrUnreachable('session closed');
   }
 
-  Future<SSHSession> _exec(String command) async {
+  Future<SSHSession> _exec(String command, {bool upload = false}) async {
     _open();
     final session = await _guard(() async {
       try {
-        return await _execute(command);
+        return await (upload ? _bulk : _execute)(command);
       } on SSHChannelOpenError catch (error) {
         throw HerdrBusy('$error');
       }
@@ -992,29 +1001,56 @@ class HerdrSession {
   /// Null when they all landed; the first failure's words otherwise, and the send stops
   /// there rather than prompting an agent about a picture that is not on the host.
   Future<String?> _upload(List<RemoteFile> images) async {
-    for (final image in images) {
-      final SSHRunResult result;
-      try {
-        result = await _runWithStdin(
-          uploadCommand(image.name),
-          image.bytes,
-          within: uploadDeadline(image.bytes.length),
-        );
-      } on TimeoutException {
-        return '${image.name} timed out';
-      } on HerdrFailure catch (error) {
-        return error.detail ?? '$error';
-      } catch (error) {
-        return '$error';
-      }
-      if (result.exitCode != 0) {
-        final said = utf8.decode(result.stderr).trim();
-        return said.isEmpty
-            ? '${image.name} exit ${result.exitCode}'
-            : '${image.name}: $said';
-      }
+    final writes = atMost(
+      uploadWidth,
+      [
+        for (final image in images)
+          () => _uploadOne(image, uploadsSharing(images.length)),
+      ],
+      sizes: [for (final image in images) image.bytes.length],
+    );
+    for (final write in writes) {
+      final failure = await write;
+      if (failure != null) return failure;
     }
     return null;
+  }
+
+  Future<String?> _uploadOne(RemoteFile image, int sharing) async {
+    final within = uploadDeadline(image.bytes.length, sharing: sharing);
+    final FileWrite landed;
+    try {
+      _open();
+      landed = await _guard(
+        () => putFile(
+          sftp: _sftp,
+          exec: (command, stdin) async {
+            final result = await _runWithStdin(
+              command,
+              stdin,
+              within: within,
+              upload: true,
+            );
+            return ExecResult(
+              exitCode: result.exitCode,
+              stdout: result.stdout,
+              stderr: result.stderr,
+            );
+          },
+          path: image.remotePath,
+          bytes: image.bytes,
+          timeout: within,
+        ),
+      );
+    } on TimeoutException {
+      return '${image.name} timed out';
+    } on HerdrFailure catch (error) {
+      return error.detail ?? '$error';
+    } catch (error) {
+      return '$error';
+    }
+    final failure = landed.failure;
+    return failure == null ? null : '${image.name}: $failure';
   }
 
   /// `runWithResult` has no way to write stdin. [within] bounds the whole exchange:
@@ -1024,8 +1060,9 @@ class HerdrSession {
     String command,
     Uint8List stdin, {
     Duration? within,
+    bool upload = false,
   }) async {
-    final session = await _exec(command);
+    final session = await _exec(command, upload: upload);
     try {
       final out = BytesBuilder(copy: false);
       final err = BytesBuilder(copy: false);
@@ -1355,8 +1392,9 @@ const uploadOpening = Duration(seconds: 15);
 /// Bytes per second the budget assumes, well under a bad uplink's real rate.
 const uploadRate = 24 * 1024;
 
-Duration uploadDeadline(int bytes) =>
-    uploadOpening + Duration(milliseconds: bytes * 1000 ~/ uploadRate);
+Duration uploadDeadline(int bytes, {int sharing = 1}) =>
+    uploadOpening +
+    Duration(milliseconds: bytes * sharing * 1000 ~/ uploadRate);
 
 /// A null [within] is the unbounded wait. What is abandoned is still holding a channel
 /// about to be closed under it, and `timeout` drops whatever it fails with then.

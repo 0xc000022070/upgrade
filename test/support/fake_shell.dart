@@ -7,7 +7,9 @@ import 'package:upgrade/data/shell_snapshot_store.dart';
 import 'package:upgrade/application/alerts/pin_alerts.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:dartssh2/dartssh2.dart' show SSHChannelRequestError;
 import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/ssh/host_files.dart' show PutProgress, putFile;
 import 'package:upgrade/platform/ssh/host_keys.dart';
 
 class FakeShellConnection implements ShellConnection {
@@ -259,6 +261,25 @@ class _FakeChannels implements HostChannels {
       if (hold != null) return hold.future;
     }
     return connection._exec(command, stdin: stdin, timeout: timeout);
+  }
+
+  @override
+  Future<FileWrite?> put(
+    String path,
+    Uint8List bytes, {
+    required Duration timeout,
+    PutProgress? onProgress,
+  }) async {
+    if (background && !_connection.hostHeld) return null;
+    return putFile(
+      sftp: () => throw SSHChannelRequestError('no sftp'),
+      exec: (command, stdin) async =>
+          _connection._exec(command, stdin: stdin, timeout: timeout),
+      path: path,
+      bytes: bytes,
+      timeout: timeout,
+      onProgress: onProgress,
+    );
   }
 }
 

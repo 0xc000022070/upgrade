@@ -155,14 +155,6 @@ void main() {
       );
     });
 
-    test('the upload makes the directory and writes stdin under it', () {
-      expect(
-        uploadCommand('a.png'),
-        "sh -c 'mkdir -p '\\''/tmp/upgrade'\\'' && cat > "
-        "'\\''/tmp/upgrade/a.png'\\'''",
-      );
-    });
-
     test('a quote in a path survives the quoting', () {
       expect(shellQuote("it's"), "'it'\\''s'");
     });

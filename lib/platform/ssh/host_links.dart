@@ -6,6 +6,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 
 import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_files.dart';
 import 'package:upgrade/platform/ssh/host_key_dial.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/ssh_settle.dart';
@@ -108,10 +109,29 @@ class HostLease {
   Future<void> get ended => _link.over.future;
 
   Future<SSHSession> execute(String command, {SSHPtyConfig? pty}) =>
-      _links._session(this, (client) => client.execute(command, pty: pty));
+      _links._session(
+        this,
+        (client) => client.execute(command, pty: pty),
+        (session) => session.done,
+      );
 
-  Future<SSHSession> shell(SSHPtyConfig pty) =>
-      _links._session(this, (client) => client.shell(pty: pty));
+  Future<SSHSession> shell(SSHPtyConfig pty) => _links._session(
+    this,
+    (client) => client.shell(pty: pty),
+    (session) => session.done,
+  );
+
+  Future<HostSftp> sftp() => _links._transferred(
+    this,
+    (client) async => HostSftp(await client.sftp()),
+    (sftp) => sftp.done,
+  );
+
+  Future<SSHSession> upload(String command) => _links._transferred(
+    this,
+    (client) => client.execute(command),
+    (session) => session.done,
+  );
 
   /// Runs one keepalive round now, beside the periodic ones, and answers whether the link
   /// lives. With no answer and no other traffic within [HostLinks.answer], the link ends for
@@ -177,13 +197,16 @@ class _Link {
   var misses = 0;
 
   _Link? parent;
-  _Link? overflow;
-  Future<_Link>? overflowing;
+  _Kin? kin;
+  final children = <_Kin, _Link>{};
+  final dialing = <_Kin, Future<_Link>>{};
   var sessions = 0;
 
   SSHClient get client => ssh.client;
   HostLane get lane => use.lane;
 }
+
+enum _Kin { overflow, transfer }
 
 class _Settle {
   _Settle(this.target);
@@ -217,6 +240,7 @@ class HostLinks {
     this.keepAliveMisses = 3,
     this.linger = const Duration(seconds: 30),
     this.screenLinger = const Duration(seconds: 5),
+    this.transferLinger = const Duration(seconds: 5),
     this.answer = const Duration(seconds: 5),
     this.quiet = const Duration(seconds: 5),
     this.now = DateTime.now,
@@ -229,6 +253,8 @@ class HostLinks {
   final int keepAliveMisses;
   final Duration linger;
   final Duration screenLinger;
+
+  final Duration transferLinger;
   final Duration answer;
 
   final Duration quiet;
@@ -474,8 +500,9 @@ class HostLinks {
     HostUse use,
     String settleKey, {
     _Link? parent,
+    _Kin? kin,
   }) async {
-    final role = parent == null ? use.lane.name : 'overflow';
+    final role = kin?.name ?? use.lane.name;
     final name = '${target.address}:${target.port} $role #${++_serial}';
     _log(name, 'dial by ${use.label}');
     final SshLink ssh;
@@ -492,14 +519,17 @@ class HostLinks {
       _log(name, 'dial failed by ${use.label}: ${error.runtimeType}');
       rethrow;
     }
-    final link = _Link(
-      ssh,
-      name,
-      use,
-      target,
-      verifier.verified ?? verifier.pinned,
-      now(),
-    )..parent = parent;
+    final link =
+        _Link(
+            ssh,
+            name,
+            use,
+            target,
+            verifier.verified ?? verifier.pinned,
+            now(),
+          )
+          ..parent = parent
+          ..kin = kin;
     _all.add(link);
     if (_closed) {
       _end(link, 'pool closed');
@@ -673,9 +703,10 @@ class HostLinks {
     HostLane.screen => screenLinger,
   };
 
-  Future<SSHSession> _session(
+  Future<T> _session<T>(
     HostLease lease,
-    Future<SSHSession> Function(SSHClient client) open,
+    Future<T> Function(SSHClient client) open,
+    Future<void> Function(T channel) done,
   ) async {
     if (lease._released) throw SSHStateError('The lease was let go.');
     final link = lease._link;
@@ -687,50 +718,82 @@ class HostLinks {
           link.ended) {
         rethrow;
       }
-      var spill = await _overflow(link, lease.use);
+      var spill = await _child(link, lease.use, _Kin.overflow);
       // The overflow may have ended with its last session while this waited.
-      if (spill.ended) spill = await _overflow(link, lease.use);
+      if (spill.ended) spill = await _child(link, lease.use, _Kin.overflow);
       if (spill.ended) rethrow;
       spill.sessions++;
-      final SSHSession session;
+      final T session;
       try {
         session = await open(spill.client);
       } catch (_) {
         _spilled(spill);
         rethrow;
       }
-      session.done.then(
-        (_) => _spilled(spill),
-        onError: (_) => _spilled(spill),
-      );
+      done(session)
+          .then((_) => _spilled(spill), onError: (_) => _spilled(spill));
       return session;
     }
   }
 
-  Future<_Link> _overflow(_Link parent, HostUse use) {
-    final live = parent.overflow;
+  Future<T> _transferred<T>(
+    HostLease lease,
+    Future<T> Function(SSHClient client) open,
+    Future<void> Function(T channel) done,
+  ) async {
+    if (lease._released) throw SSHStateError('The lease was let go.');
+    final parent = lease._link;
+    var link = await _child(parent, lease.use, _Kin.transfer);
+    if (link.ended) link = await _child(parent, lease.use, _Kin.transfer);
+    if (link.ended) throw SSHStateError('The transfer link ended.');
+    link.linger?.cancel();
+    link.linger = null;
+    link.sessions++;
+    final T channel;
+    try {
+      channel = await open(link.client);
+    } catch (_) {
+      _transferDone(link);
+      rethrow;
+    }
+    done(channel)
+        .then((_) => _transferDone(link), onError: (_) => _transferDone(link));
+    return channel;
+  }
+
+  void _transferDone(_Link link) {
+    if (--link.sessions > 0 || link.ended) return;
+    link.linger = Timer(transferLinger, () => _end(link, 'transfer idle'));
+  }
+
+  Future<_Link> _child(_Link parent, HostUse use, _Kin kin) {
+    final live = parent.children[kin];
     if (live != null && !live.ended) return Future.value(live);
-    final dialing = parent.overflowing;
+    final dialing = parent.dialing[kin];
     if (dialing != null) return dialing;
+    if (parent.ended) {
+      return Future.error(SSHStateError('The link this was beside ended.'));
+    }
     final identity = parent.target._identity(parent.trusted);
     final dial =
         _dialLink(
           parent.target,
           HostKeyVerifier.pinnedOnly(parent.trusted),
           use,
-          '$identity\u0000overflow',
+          '$identity\u0000${kin.name}',
           parent: parent,
+          kin: kin,
         ).then((link) {
           if (parent.ended) {
             _end(link, 'parent ended');
-            throw SSHStateError('The link this overflowed ended.');
+            throw SSHStateError('The link this was beside ended.');
           }
-          parent.overflow = link;
+          parent.children[kin] = link;
           return link;
         });
-    parent.overflowing = dial;
+    parent.dialing[kin] = dial;
     dial.then((_) {}, onError: (_) {}).whenComplete(() {
-      if (identical(parent.overflowing, dial)) parent.overflowing = null;
+      if (identical(parent.dialing[kin], dial)) parent.dialing.remove(kin);
     });
     return dial;
   }
@@ -749,15 +812,19 @@ class HostLinks {
     link.keepAlive = null;
     _all.remove(link);
     final parent = link.parent;
-    if (parent != null && identical(parent.overflow, link)) {
-      parent.overflow = null;
+    final kin = link.kin;
+    if (parent != null &&
+        kin != null &&
+        identical(parent.children[kin], link)) {
+      parent.children.remove(kin);
     }
     if (link.ended) return;
     link.ended = true;
     _log(link.name, 'end, $why, dialed by ${link.use.label}');
     unawaited(closeSsh(link.client, link.ssh.socket));
-    final overflow = link.overflow;
-    if (overflow != null) _end(overflow, 'parent ended');
+    for (final child in [...link.children.values]) {
+      _end(child, 'parent ended');
+    }
     link.over.complete();
   }
 

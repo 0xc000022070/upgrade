@@ -23,7 +23,9 @@
 /// Lanes: a pool keeps one control link and one screen link per host identity, and
 /// [HostUse.lane] picks the link (tested: host_links). Outside this sit the
 /// [HostLinks.probe] host key check, one overflow control link for a host at its session
-/// limit, and a silent link a waking use set aside for its holders. One pool per isolate
+/// limit, one transfer link a file goes up on so it never queues behind or ahead of a held
+/// link's keepalive ([HostLease.sftp], [HostLease.upload]), and a silent link a waking use
+/// set aside for its holders. One pool per isolate
 /// (convention: a caller passing none gets a new pool).
 ///
 /// Reasons. Every reason type is sealed and lives in `reasons.dart`:
@@ -92,6 +94,7 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 
+import 'package:upgrade/platform/ssh/host_files.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/ssh_settle.dart';
@@ -125,6 +128,13 @@ abstract interface class HostChannels {
     String command, {
     Uint8List? stdin,
     required Duration timeout,
+  });
+
+  Future<FileWrite?> put(
+    String path,
+    Uint8List bytes, {
+    required Duration timeout,
+    PutProgress? onProgress,
   });
 }
 
@@ -179,6 +189,14 @@ final class ConnectionSupervisor implements HostChannels {
     Uint8List? stdin,
     required Duration timeout,
   }) async => _held?.exec(command, stdin: stdin, timeout: timeout);
+
+  @override
+  Future<FileWrite?> put(
+    String path,
+    Uint8List bytes, {
+    required Duration timeout,
+    PutProgress? onProgress,
+  }) async => _held?.put(path, bytes, timeout: timeout, onProgress: onProgress);
 
   Stream<ControlLink> get controlLink => _control.stream;
 
@@ -480,6 +498,14 @@ final class _Channels implements HostChannels {
     Uint8List? stdin,
     required Duration timeout,
   }) => _owner.exec(command, stdin: stdin, timeout: timeout);
+
+  @override
+  Future<FileWrite?> put(
+    String path,
+    Uint8List bytes, {
+    required Duration timeout,
+    PutProgress? onProgress,
+  }) => _owner.put(path, bytes, timeout: timeout, onProgress: onProgress);
 }
 
 /// Revive delays. After the last, a dead host waits for a gesture, resume or network change.
@@ -624,5 +650,24 @@ final class _Hold implements HostChannels {
   }) async {
     if (!identical(_owner._held, this)) return null;
     return _run(lease, command, stdin: stdin, timeout: timeout);
+  }
+
+  @override
+  Future<FileWrite?> put(
+    String path,
+    Uint8List bytes, {
+    required Duration timeout,
+    PutProgress? onProgress,
+  }) async {
+    if (!identical(_owner._held, this)) return null;
+    return putFile(
+      sftp: lease.sftp,
+      exec: (command, stdin) =>
+          _run(lease, command, stdin: stdin, timeout: timeout, upload: true),
+      path: path,
+      bytes: bytes,
+      timeout: timeout,
+      onProgress: onProgress,
+    );
   }
 }

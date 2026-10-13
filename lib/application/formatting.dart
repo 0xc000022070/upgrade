@@ -13,3 +13,9 @@ String relativeAge(DateTime at, {DateTime? now}) {
   if (delta.inDays < 7) return '${delta.inDays}d';
   return '${(delta.inDays / 7).floor()}w';
 }
+
+String sizeWord(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).round()} K';
+  return '${(bytes / (1024 * 1024)).round()} M';
+}

@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:upgrade/application/drops/clips.dart';
 import 'package:upgrade/platform/shell/host_clipboard.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/ssh/host_files.dart'
+    show atMost, uploadWidth, uploadsSharing;
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 
 /// Two of the three are fine: a host with no clipboard gets the path, which is what a
@@ -30,8 +33,8 @@ class PasteResult {
 /// a paste at all.
 final pasteKey = Uint8List.fromList(const [0x16]);
 
-Duration _uploadDeadline(int bytes) =>
-    remoteCommandDeadline + Duration(milliseconds: bytes ~/ 64);
+Duration _uploadDeadline(int bytes, int sharing) =>
+    remoteCommandDeadline + Duration(milliseconds: bytes * sharing ~/ 64);
 
 Future<PasteResult> pasteClip({
   required ShellSessions store,
@@ -58,7 +61,104 @@ Future<PasteResult> pasteImage({
   required String fileName,
   required Uint8List bytes,
   required UserAction action,
+}) => pasteImages(
+  store: store,
+  session: session,
+  images: [(fileName: fileName, bytes: bytes)],
+  action: action,
+);
+
+typedef PasteImage = ({String fileName, Uint8List bytes});
+
+enum AttachStage {
+  queued,
+  sending,
+  landed,
+  pasting,
+  pasted,
+  path,
+  failed,
+  stopped,
+}
+
+final class AttachItem {
+  const AttachItem({
+    required this.bytes,
+    this.stage = AttachStage.queued,
+    this.sent = 0,
+    this.detail,
+  });
+
+  final int bytes;
+  final AttachStage stage;
+
+  final int sent;
+  final String? detail;
+
+  double get fraction => bytes == 0 ? 1 : sent / bytes;
+
+  AttachItem to(AttachStage stage, {int? sent, String? detail}) => AttachItem(
+    bytes: bytes,
+    stage: stage,
+    sent: sent ?? this.sent,
+    detail: detail ?? this.detail,
+  );
+}
+
+Future<PasteResult> pasteImages({
+  required ShellSessions store,
+  required ShellSession session,
+  required List<PasteImage> images,
+  required UserAction action,
+  Future<bool> Function(int pasted)? before,
+  void Function(int index, AttachItem item)? onItem,
 }) async {
+  assert(images.isNotEmpty);
+  final items = [
+    for (final image in images) AttachItem(bytes: image.bytes.length),
+  ];
+  var stopped = false;
+  void report(int index, AttachItem item) {
+    if (stopped) return;
+    items[index] = item;
+    onItem?.call(index, item);
+  }
+
+  try {
+    return await _run(
+      store,
+      session,
+      images,
+      action,
+      items,
+      report,
+      before,
+      () => stopped,
+    );
+  } finally {
+    for (var i = 0; i < items.length; i++) {
+      if (const {
+        AttachStage.queued,
+        AttachStage.sending,
+        AttachStage.landed,
+      }.contains(items[i].stage)) {
+        report(i, items[i].to(AttachStage.stopped));
+      }
+    }
+    stopped = true;
+  }
+}
+
+Future<PasteResult> _run(
+  ShellSessions store,
+  ShellSession session,
+  List<PasteImage> images,
+  UserAction action,
+  List<AttachItem> items,
+  void Function(int index, AttachItem item) report,
+  Future<bool> Function(int pasted)? before,
+  bool Function() stopped,
+) async {
   final connection = session.connection;
   if (connection == null || !session.state.holdsSession) {
     return const PasteResult(PasteOutcome.failed, detail: 'no shell');
@@ -73,13 +173,76 @@ Future<PasteResult> pasteImage({
     return const PasteResult(PasteOutcome.failed, detail: 'no host');
   }
   final clipboard = await store.clipboardFor(session);
-  final remote = remotePathFor(fileName);
-  final ExecResult? landed;
+  final landings = StreamController<(int, PasteResult?)>();
+  atMost(
+    uploadWidth,
+    [
+      for (var i = 0; i < images.length; i++)
+        () async {
+          if (stopped()) return;
+          report(i, items[i].to(AttachStage.sending));
+          final failed = await _upload(
+            channels!,
+            images[i],
+            (sent) => report(i, items[i].to(AttachStage.sending, sent: sent)),
+            uploadsSharing(images.length),
+          );
+          report(
+            i,
+            failed == null
+                ? items[i].to(AttachStage.landed, sent: items[i].bytes)
+                : items[i].to(AttachStage.failed, detail: failed.detail),
+          );
+          landings.add((i, failed));
+        },
+    ],
+    sizes: [for (final item in items) item.bytes],
+  );
+  final landed = StreamIterator(landings.stream);
+  PasteResult? last;
   try {
-    landed = await channels.exec(
-      uploadCommand(fileName),
-      stdin: bytes,
-      timeout: _uploadDeadline(bytes.length),
+    for (var pasted = 0; pasted < images.length; pasted++) {
+      await landed.moveNext();
+      final (index, failed) = landed.current;
+      if (failed != null) return failed;
+      if (before != null && !await before(pasted)) break;
+      report(index, items[index].to(AttachStage.pasting));
+      last = await _paste(
+        store,
+        session,
+        channels,
+        clipboard,
+        images[index].fileName,
+      );
+      report(
+        index,
+        items[index].to(
+          last.outcome == PasteOutcome.pasted
+              ? AttachStage.pasted
+              : AttachStage.path,
+          detail: last.detail,
+        ),
+      );
+    }
+  } finally {
+    unawaited(landed.cancel());
+  }
+  return last ?? const PasteResult(PasteOutcome.failed, detail: 'stopped');
+}
+
+Future<PasteResult?> _upload(
+  HostChannels channels,
+  PasteImage image,
+  PutProgress onProgress,
+  int sharing,
+) async {
+  final FileWrite? landed;
+  try {
+    landed = await channels.put(
+      remotePathFor(image.fileName),
+      image.bytes,
+      timeout: _uploadDeadline(image.bytes.length, sharing),
+      onProgress: onProgress,
     );
   } catch (error) {
     return PasteResult(PasteOutcome.failed, detail: '$error');
@@ -87,13 +250,19 @@ Future<PasteResult> pasteImage({
   if (landed == null) {
     return const PasteResult(PasteOutcome.failed, detail: 'no host');
   }
-  if (!landed.ok) {
-    final said = landed.err.trim();
-    return PasteResult(
-      PasteOutcome.failed,
-      detail: said.isEmpty ? 'upload exit ${landed.exitCode}' : said,
-    );
-  }
+  final failure = landed.failure;
+  return failure == null
+      ? null
+      : PasteResult(PasteOutcome.failed, detail: failure);
+}
+
+Future<PasteResult> _paste(
+  ShellSessions store,
+  ShellSession session,
+  HostChannels channels,
+  HostClipboard clipboard,
+  String fileName,
+) async {
   final command = clipboardCommand(clipboard, fileName);
   String? reason = clipboard.reason;
   if (command != null) {
@@ -110,6 +279,6 @@ Future<PasteResult> pasteImage({
       reason = '$error';
     }
   }
-  session.terminal.paste('$remote ');
+  session.terminal.paste('${remotePathFor(fileName)} ');
   return PasteResult(PasteOutcome.path, detail: reason);
 }

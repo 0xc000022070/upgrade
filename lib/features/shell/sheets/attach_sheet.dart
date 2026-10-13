@@ -5,11 +5,14 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/drops/clips.dart';
+import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/progress_bar.dart';
+import 'package:upgrade/design/components/status_tag.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
@@ -17,6 +20,7 @@ import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/shell/input/clip_paste.dart';
 import 'package:upgrade/features/shell/input/photo_attach.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/platform/ssh/host_files.dart' show smallestFirst;
 
 const attachSheetLinger = Duration(milliseconds: 700);
 
@@ -52,11 +56,15 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
   bool _busy = false;
   bool _help = false;
 
+  List<({int index, Uint8List bytes})> _queue = const [];
+  List<AttachItem> _items = const [];
+
   Future<void> _attachHeld(UserIntent intent, Clip clip) async {
     if (_busy) return;
     setState(() {
       _busy = true;
       _status = 'SENDING';
+      _queue = const [];
     });
     final result = await pasteClip(
       store: ref.read(shellSessionsProvider),
@@ -87,22 +95,34 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
       if (mounted) setState(() => _busy = false);
       return;
     }
-    final store = ref.read(shellSessionsProvider);
-    PasteResult? last;
-    for (var i = 0; i < photos.length; i++) {
-      if (!mounted) return;
-      setState(() => _status = 'ATTACHING ${i + 1} OF ${photos.length}');
-      if (i > 0) await Future<void>.delayed(attachGap);
-      last = await pasteImage(
-        store: store,
-        session: widget.session,
-        fileName: freshPngName(),
-        bytes: photos[i],
-        action: action,
-      );
-      if (last.outcome == PasteOutcome.failed) break;
-    }
-    await _finish(last!, count: photos.length);
+    if (!mounted) return;
+    final items = [for (final photo in photos) AttachItem(bytes: photo.length)];
+    setState(() {
+      _status = 'ATTACHING 1 OF ${photos.length}';
+      _queue = [
+        for (final i in smallestFirst([for (final p in photos) p.length]))
+          (index: i, bytes: photos[i]),
+      ];
+      _items = items;
+    });
+    final last = await pasteImages(
+      store: ref.read(shellSessionsProvider),
+      session: widget.session,
+      images: [
+        for (final photo in photos) (fileName: freshPngName(), bytes: photo),
+      ],
+      action: action,
+      before: (i) async {
+        if (!mounted) return false;
+        setState(() => _status = 'ATTACHING ${i + 1} OF ${photos.length}');
+        if (i > 0) await Future<void>.delayed(attachGap);
+        return mounted;
+      },
+      onItem: (index, item) {
+        if (mounted) setState(() => items[index] = item);
+      },
+    );
+    await _finish(last, count: photos.length);
   }
 
   /// The last result on the sheet, then the sheet goes — unless it failed, which is left
@@ -195,6 +215,18 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                   ),
                 ],
               ),
+              if (_queue.isNotEmpty) ...[
+                const SizedBox(height: Spacing.sm),
+                _QueueCount(items: _items),
+                for (final queued in _queue) ...[
+                  const SizedBox(height: Spacing.md),
+                  _QueueRow(
+                    key: ValueKey('attach-queued-${queued.index}'),
+                    bytes: queued.bytes,
+                    item: _items[queued.index],
+                  ),
+                ],
+              ],
             ],
           ],
         );
@@ -211,9 +243,9 @@ class _AttachHelp extends StatelessWidget {
         'An agent under the pty reads it off the clipboard, so it sees the '
         'image itself and not a file name it has to go and open.',
     'PHOTOS picks from the gallery, as many as you like. Each one is '
-        'uploaded to the host, put on the host clipboard and pasted with '
-        'Ctrl+V, in the order you picked them. A host with no clipboard tool '
-        'gets the file path typed at the cursor instead.',
+        'uploaded to the host, three at a time and the lightest first, put on '
+        'the host clipboard and pasted with Ctrl+V as it lands. A host with no '
+        'clipboard tool gets the file path typed at the cursor instead.',
     'HELD is what a crop off the SCREEN viewer is kept in, for as long as '
         'the app is running. Tap one to attach it, × to drop it.',
   ];
@@ -313,6 +345,136 @@ class _ClipTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _QueueCount extends StatelessWidget {
+  const _QueueCount({required this.items});
+
+  final List<AttachItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    int count(Set<AttachStage> stages) =>
+        items.where((item) => stages.contains(item.stage)).length;
+    final words = [
+      ('UP', count(const {AttachStage.sending})),
+      ('QUEUED', count(const {AttachStage.queued})),
+      (
+        'IN',
+        count(const {
+          AttachStage.pasting,
+          AttachStage.pasted,
+          AttachStage.path,
+        }),
+      ),
+    ];
+    return Text(
+      [for (final (word, n) in words) '$n $word'].join(' · '),
+      key: const ValueKey('attach-queue-count'),
+      style: context.tokens.label.copyWith(color: context.tokens.textSecondary),
+    );
+  }
+}
+
+class _QueueRow extends StatelessWidget {
+  const _QueueRow({super.key, required this.bytes, required this.item});
+
+  static const _thumb = 44.0;
+
+  final Uint8List bytes;
+  final AttachItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final (word, color) = switch (item.stage) {
+      AttachStage.queued => ('QUEUED', tokens.textMuted),
+      AttachStage.sending => (
+        'UP ${(item.fraction * 100).floor()}%',
+        tokens.accent,
+      ),
+      AttachStage.landed => ('LANDED', tokens.textSecondary),
+      AttachStage.pasting => ('PASTING', tokens.accent),
+      AttachStage.pasted => ('PASTED', tokens.accent),
+      AttachStage.path => ('PATH', tokens.accent),
+      AttachStage.failed => ('FAILED', tokens.danger),
+      AttachStage.stopped => ('STOPPED', tokens.textDisabled),
+    };
+    final waiting =
+        item.stage == AttachStage.queued || item.stage == AttachStage.stopped;
+    final detail = item.stage == AttachStage.failed ? item.detail : null;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Opacity(
+          opacity: waiting ? 0.4 : 1,
+          child: Container(
+            width: _thumb,
+            height: _thumb,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: item.stage == AttachStage.sending
+                    ? color
+                    : tokens.borderNormal,
+                width: Borders.hairline,
+              ),
+            ),
+            child: Image.memory(
+              bytes,
+              width: _thumb,
+              height: _thumb,
+              fit: BoxFit.cover,
+              cacheWidth: (_thumb * 2).round(),
+              gaplessPlayback: true,
+            ),
+          ),
+        ),
+        const SizedBox(width: Spacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.stage == AttachStage.sending
+                          ? '${sizeWord(item.sent)} / ${sizeWord(item.bytes)}'
+                          : sizeWord(item.bytes),
+                      style: tokens.value.copyWith(
+                        color: waiting ? tokens.textMuted : tokens.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  StatusTag(word, color: color),
+                ],
+              ),
+              const SizedBox(height: Spacing.sm),
+              ProgressBar(
+                value: switch (item.stage) {
+                  AttachStage.queued || AttachStage.stopped => 0,
+                  AttachStage.sending || AttachStage.failed => item.fraction,
+                  _ => 1,
+                },
+              ),
+              if (detail != null) ...[
+                const SizedBox(height: Spacing.xs),
+                Text(
+                  detail,
+                  style: tokens.label.copyWith(color: tokens.danger),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

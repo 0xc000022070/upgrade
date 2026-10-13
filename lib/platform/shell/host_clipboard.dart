@@ -7,8 +7,7 @@ export 'package:upgrade/platform/shell/remote_shell.dart'
         remotePathFor,
         remoteUploadDirectory,
         shellQuote,
-        underSh,
-        uploadCommand;
+        underSh;
 
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';

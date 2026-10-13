@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/application/shell/pane_share.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/design/tokens.dart';
@@ -504,7 +505,7 @@ class _ExplorerState extends ConsumerState<Explorer> {
             child: FileIcon.file(languageOf(path)),
           ),
           leadingWidth: _indent(depth) + IconSizes.glyph,
-          value: change == null ? _sizeWord(entry.size) : _letter(change.kind),
+          value: change == null ? sizeWord(entry.size) : _letter(change.kind),
           valueColor: change == null ? null : _badgeColor(change.kind),
           titleColor: path == _tab?.path ? context.tokens.accent : null,
           onTap: () => _read(path),
@@ -1044,10 +1045,4 @@ class _Mark extends StatelessWidget {
       ),
     );
   }
-}
-
-String _sizeWord(int bytes) {
-  if (bytes < 1024) return '$bytes B';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).round()} K';
-  return '${(bytes / (1024 * 1024)).round()} M';
 }

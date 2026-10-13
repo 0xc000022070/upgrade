@@ -183,13 +183,6 @@ void main() {
     expect(RemoteFile.fromPath('/x/.hidden', Uint8List(0)).name, 'file.hidden');
   });
 
-  test('the upload command makes the directory and takes the file whole', () {
-    expect(
-      uploadCommand('a.png'),
-      underSh("mkdir -p '/tmp/upgrade' && cat > '/tmp/upgrade/a.png'"),
-    );
-  });
-
   group('remote transaction failures', () {
     test('every refusal has one line, and no two are the same line', () {
       final lines = {

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:upgrade/application/drops/clips.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
 import 'package:upgrade/features/shell/sheets/attach_sheet.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
@@ -49,7 +51,10 @@ void main() {
   final copy = find.byKey(const ValueKey('attach-help-body'));
   final photos = find.byKey(const ValueKey('attach-photos'));
 
-  Future<void> openSheet(WidgetTester tester) async {
+  Future<void> openSheet(
+    WidgetTester tester, {
+    PhotoPicker pick = _none,
+  }) async {
     final session = sessions.open(intent: testIntent(), _nyx)!;
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pumpWidget(
@@ -62,11 +67,8 @@ void main() {
           theme: testTheme,
           home: Builder(
             builder: (context) => GestureDetector(
-              onTap: () => showAttachSheet(
-                context,
-                session: session,
-                pick: () async => [],
-              ),
+              onTap: () =>
+                  showAttachSheet(context, session: session, pick: pick),
               child: const Center(child: Text('OPEN')),
             ),
           ),
@@ -174,4 +176,41 @@ void main() {
     expect(connection.writes, isEmpty);
     expect(clips.count, 0);
   });
+
+  testWidgets('a run draws a row per photo, lightest first, to its end', (
+    tester,
+  ) async {
+    Uint8List png(int side) => encodePng(
+      PreviewFrame(width: side, height: side, rgb: Uint8List(side * side * 3)),
+    );
+    final heavy = png(16);
+    final light = png(2);
+    await openSheet(tester, pick: () async => [heavy, light]);
+
+    await tester.tap(photos);
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    final rows = find.byWidgetPredicate(
+      (widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith('attach-queued-'),
+    );
+    expect(rows, findsNWidgets(2));
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('attach-queued-1'))).dy,
+      lessThan(
+        tester.getTopLeft(find.byKey(const ValueKey('attach-queued-0'))).dy,
+      ),
+    );
+    expect(
+      find.descendant(of: rows, matching: find.text('PATH')),
+      findsNWidgets(2),
+    );
+    expect(find.text('0 UP · 0 QUEUED · 2 IN'), findsOneWidget);
+    await tester.pumpAndSettle(attachSheetLinger);
+  });
 }
+
+Future<List<Uint8List>> _none() async => [];

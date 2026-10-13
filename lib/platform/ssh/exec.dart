@@ -45,11 +45,14 @@ Future<ExecResult> _run(
   String command, {
   Uint8List? stdin,
   required Duration timeout,
+  bool upload = false,
 }) async {
   SSHSession? channel;
   var expired = false;
   final task = () async {
-    final opened = await lease.execute(command);
+    final opened = upload
+        ? await lease.upload(command)
+        : await lease.execute(command);
     if (expired) {
       endExec(opened);
       throw TimeoutException('SSH channel opened after the deadline', timeout);

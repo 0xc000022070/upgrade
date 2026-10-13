@@ -718,6 +718,51 @@ void main() {
       links.close();
     });
 
+    test('a file goes up on its own link beside the held one', () async {
+      final dial = FakeDial();
+      final links = HostLinks(dial: dial.call, transferLinger: Duration.zero);
+      final lease = await as(links, HostUse.tab);
+      final held = dial.clients.single;
+
+      final first = await lease.upload('cat > a') as FakeExecSession;
+      final second = await lease.upload('cat > b') as FakeExecSession;
+      final command = await lease.execute('true');
+      expect(dial.dials, 2);
+      final transfer = dial.clients.last;
+      expect(transfer.sessions, [first, second]);
+      expect(held.sessions, [command]);
+
+      first.exited.complete();
+      await pumpEventQueue();
+      expect(transfer.isClosed, isFalse);
+      second.exited.complete();
+      await pumpEventQueue();
+      expect(transfer.isClosed, isTrue);
+      expect(held.isClosed, isFalse);
+      expect(links.open, 1);
+      links.close();
+    });
+
+    test('a transfer link ends with the link it was dialed beside', () async {
+      final dial = FakeDial();
+      final links = HostLinks(dial: dial.call);
+      final lease = await as(links, HostUse.tab);
+      await lease.upload('cat > a');
+      final transfer = dial.clients.last;
+
+      links.renounce(
+        address: '10.0.0.2',
+        port: 22,
+        user: 'dev',
+        privateKey: 'key',
+        change: Object(),
+      );
+      await pumpEventQueue();
+      expect(transfer.isClosed, isTrue);
+      expect(links.open, 0);
+      links.close();
+    });
+
     test(
       'a session refused for the host limit opens one overflow link',
       () async {

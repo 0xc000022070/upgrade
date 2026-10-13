@@ -4,6 +4,9 @@ import 'package:upgrade/application/agents/reason_lines.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 
+export 'package:upgrade/platform/ssh/host_files.dart'
+    show FileRoute, FileWrite, PutProgress;
+
 export 'package:upgrade/platform/ssh/connection_supervisor.dart'
     show
         AppResumed,

@@ -10,6 +10,7 @@ import 'package:upgrade/features/shell/input/clip_paste.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/shell/host_clipboard.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/ssh/host_files.dart';
 
 import '../../../support/fake_shell.dart';
 import '../../../support/reasons.dart';
@@ -99,13 +100,47 @@ void main() {
           .toList();
       expect(commands, hasLength(3));
       expect(commands[0], contains('uname -s'));
-      expect(commands[1], uploadCommand(clip.fileName));
+      expect(commands[1], putCommand(remotePathFor(clip.fileName)));
       expect(connection.execs[3].stdin, await clip.file.readAsBytes());
       expect(commands[2], contains('wl-copy --type image/png'));
       expect(connection.writes.last, pasteKey);
       expect(session.clipboard?.backend, ClipboardBackend.wayland);
     },
   );
+
+  test('the lightest go up first and go in as they land', () async {
+    final transport = FakeShellTransport();
+    final store = fakeShellSessions(transport);
+    final session = store.open(intent: testIntent(), _nyx)!;
+    await _settle();
+    final connection = transport.opened.single;
+    _answerProbeWith(connection, _waylandProbe);
+    final seen = <int, List<AttachStage>>{};
+
+    final result = await pasteImages(
+      store: store,
+      session: session,
+      images: [
+        (fileName: 'heavy.png', bytes: Uint8List(30)),
+        (fileName: 'light.png', bytes: Uint8List(10)),
+        (fileName: 'middle.png', bytes: Uint8List(20)),
+      ],
+      action: UserAction(testIntent()),
+      onItem: (index, item) => (seen[index] ??= []).add(item.stage),
+    );
+
+    expect(result.outcome, PasteOutcome.pasted);
+    final copied = [
+      for (final exec in connection.execs)
+        if (exec.command.contains('wl-copy --type'))
+          RegExp(r'\w+\.png').firstMatch(exec.command)!.group(0),
+    ];
+    expect(copied, ['light.png', 'middle.png', 'heavy.png']);
+    for (final stages in seen.values) {
+      expect(stages.first, AttachStage.sending);
+      expect(stages.last, AttachStage.pasted);
+    }
+  });
 
   test('a headless host gets the path typed in and nothing else', () async {
     final transport = FakeShellTransport();
@@ -225,7 +260,7 @@ void main() {
 
     expect(result.line, 'PASTED');
     expect(name, matches(RegExp(r'^[0-9a-f-]+\.png$')));
-    expect(connection.execs[3].command, uploadCommand(name));
+    expect(connection.execs[3].command, putCommand(remotePathFor(name)));
     expect(connection.execs[3].stdin, bytes);
     expect(clips.count, 1);
   });

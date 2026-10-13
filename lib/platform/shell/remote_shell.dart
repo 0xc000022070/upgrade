@@ -194,11 +194,6 @@ const remoteUploadDirectory = '/tmp/upgrade';
 
 String remotePathFor(String fileName) => '$remoteUploadDirectory/$fileName';
 
-String uploadCommand(String fileName) => underSh(
-  'mkdir -p ${shellQuote(remoteUploadDirectory)} && '
-  'cat > ${shellQuote(remotePathFor(fileName))}',
-);
-
 class RemoteFile {
   const RemoteFile(this.name, this.bytes);
 

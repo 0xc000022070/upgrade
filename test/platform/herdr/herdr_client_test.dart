@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/platform/ssh/host_files.dart' show uploadsSharing;
 import 'package:upgrade/application/agents/agent_kind.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
@@ -576,6 +577,10 @@ void main() {
     expect(
       uploadDeadline(2 * 1024 * 1024),
       greaterThan(uploadDeadline(1024 * 1024)),
+    );
+    expect(
+      uploadDeadline(uploadRate * 4, sharing: uploadsSharing(5)),
+      uploadOpening + const Duration(seconds: 12),
     );
   });
 
