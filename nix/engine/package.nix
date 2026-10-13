@@ -1,7 +1,9 @@
 {
   lib,
+  stdenv,
   callPackage,
   rustPlatform,
+  lld,
 }:
 
 let
@@ -25,7 +27,15 @@ rustPlatform.buildRustPackage {
 
   cargoLock.lockFile = ../../engine/Cargo.lock;
 
-  env.GHOSTTY_VT_LIB_DIR = "${ghosttyVt.dev}/lib";
+  # ld.bfd 2.46 rejects the overlapping FDEs in the Zig-built libghostty-vt.
+  nativeBuildInputs = lib.optionals stdenv.hostPlatform.isLinux [ lld ];
+
+  env = {
+    GHOSTTY_VT_LIB_DIR = "${ghosttyVt.dev}/lib";
+  }
+  // lib.optionalAttrs stdenv.hostPlatform.isLinux {
+    RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
+  };
 
   meta = {
     description = "The host side of a Upgrade plugin: one binary, exec'd per call";
